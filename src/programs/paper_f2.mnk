@@ -1,0 +1,15 @@
+t = 
+  if sw=1;pt=1 then sw=2;pt=2
+  else if sw=3;pt=4 then sw=2;pt=3 
+  else if sw=1;pt=5 then sw=3;pt=6
+
+
+in = sw=1;pt=1 
+out = sw=2;pt=2
+
+
+p = 
+  if sw=1 then pt = 2 else 
+  if sw=2 then pt = 2 else 
+  drop
+
