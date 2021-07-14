@@ -1,0 +1,27 @@
+(env
+ (dev
+  (flags (:standard -w -50 -w -32 -w -27))))
+
+(executables
+ (names 0_loop)
+ (modules 0_loop))
+
+(executables
+ (names 1_loop)
+ (modules 1_loop))
+
+(executables
+ (names 2_loop)
+ (modules 2_loop))
+
+(executables
+ (names 3_loop)
+ (modules 3_loop))
+
+(executables
+ (names 4_loop)
+ (modules 4_loop))
+
+(executables
+ (names 5_loop)
+ (modules 5_loop))
