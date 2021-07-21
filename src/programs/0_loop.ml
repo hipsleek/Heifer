@@ -5,6 +5,8 @@ let f ()
 (*@ requires emp @*)
 (*@ ensures  Foo @*)
   = perform Foo ()
+  [@@requires emp]
+  [@@ensures Foo]
 
 let res : type a. a 
   (*@ requires emp @*)
@@ -14,3 +16,5 @@ let res : type a. a
   | x -> x
   | effect Foo k ->
      continue k (fun () -> perform Foo ())
+  [@@requires emp]
+  [@@ensures Foo^w]

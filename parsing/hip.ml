@@ -28,12 +28,21 @@ let string_of_effect_constructor x :string =
 type rec_flag = Nonrecursive | Recursive
 *)
 
-let string_of_payload _ = "payload\n";;
+let string_of_structure e: string =
+  Format.asprintf "%a@." Pprintast.structure e
+
+let string_of_payload p =
+  match p with
+  | PStr str -> string_of_structure str
+  | PSig _ -> "sig"
+  | PTyp _ -> "typ"
+  | PPat _ -> "pattern"
+
 
 let string_of_attribute (a:attribute) : string = 
   let name = a.attr_name.txt in 
   let payload = a.attr_payload in 
-  name ^ string_of_payload payload ;;
+  Format.sprintf "name: %s, payload: %s" name (string_of_payload payload)
 
 let string_of_attributes (a_l:attributes): string = 
   List.fold_left (fun acc a -> acc ^ string_of_attribute a ) "" a_l;;
