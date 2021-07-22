@@ -181,7 +181,7 @@ print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
       let line = List.fold_right (fun x acc -> acc ^ "\n" ^ x) (List.rev lines) "" in
       let progs = Parser.implementation Lexer.token (Lexing.from_string line) in
       
-      (*print_string (Pprintast.string_of_structure progs ) ; *)
+      print_string (Pprintast.string_of_structure progs ) ; 
       print_string (List.fold_left (fun acc a -> acc ^ forward a) "" progs);
       flush stdout;                (* 现在写入默认设备 *)
       close_in ic                  (* 关闭输入通道 *)
