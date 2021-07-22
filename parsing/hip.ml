@@ -28,12 +28,21 @@ let string_of_effect_constructor x :string =
 type rec_flag = Nonrecursive | Recursive
 *)
 
-let string_of_payload _ = "payload\n";;
+let string_of_structure e: string =
+  Format.asprintf "%a@." Pprintast.structure e
+
+let string_of_payload p =
+  match p with
+  | PStr str -> string_of_structure str
+  | PSig _ -> "sig"
+  | PTyp _ -> "typ"
+  | PPat _ -> "pattern"
+
 
 let string_of_attribute (a:attribute) : string = 
   let name = a.attr_name.txt in 
   let payload = a.attr_payload in 
-  name ^ string_of_payload payload ;;
+  Format.sprintf "name: %s, payload: %s" name (string_of_payload payload)
 
 let string_of_attributes (a_l:attributes): string = 
   List.fold_left (fun acc a -> acc ^ string_of_attribute a ) "" a_l;;
@@ -113,33 +122,11 @@ let rec string_of_pattern (p) : string =
   | _ -> "string_of_pattern\n" ;;
 
 
+let string_of_expression e: string =
+  Format.asprintf "%a@." Pprintast.expression e
 
 
-let rec string_of_value_binding vb : string = 
-  let rec string_of_expression e: string =
-    match e.pexp_desc with 
-    | Pexp_ident l -> List.fold_left (fun acc a -> acc ^ a) "" (Longident.flatten l.txt)
-    | Pexp_constant con  -> string_of_p_constant con 
-    | Pexp_let (_, vb_li, e1) -> 
-      List.fold_left (fun acc a -> acc ^ string_of_value_binding a) "" vb_li ^ 
-      string_of_expression e1
-
-    | Pexp_fun (al, None, p1, e1) -> 
-      string_of_arg_label al ^ 
-      string_of_pattern p1 ^
-      string_of_expression e1 
-
-    | Pexp_fun (al, Some e0, p1, e1) -> 
-      string_of_arg_label al ^ 
-      string_of_expression e0 ^ 
-      string_of_pattern p1 ^
-      string_of_expression e1 
-
-    | Pexp_match _ -> "\nPexp_match\n"
-  
-  
-    | _ -> "\nstring_of_expression"
-  in 
+let string_of_value_binding vb : string = 
   let pattern = vb.pvb_pat in 
   let expression = vb.pvb_expr in
   let attributes = vb.pvb_attributes in 
