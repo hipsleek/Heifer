@@ -22,6 +22,17 @@
 
 open Asttypes
 
+type es = Bot 
+        | Emp 
+        | Event of event * int list 
+        | Not of event * int list 
+        | Cons of es * es
+        | ESOr of es * es
+        | Kleene of es (* 0 or more, possibly infinite*)
+        | Omega of es(* infinite*)
+        | Underline
+
+
 type constant =
     Pconst_integer of string * char option
   (* 3 3l 3L 3n
