@@ -619,6 +619,9 @@ let mk_directive ~loc name arg =
 %token FUN
 %token FUNCTION
 %token FUNCTOR
+%token REQUIRES
+%token ENSURES
+%token EMP
 %token GREATER
 %token GREATERRBRACE
 %token GREATERRBRACKET
@@ -2508,14 +2511,30 @@ letop_bindings:
         let_pat, let_exp, and_ :: rev_ands }
 ;
 fun_binding:
-    strict_binding
+  | strict_binding
       { $1 }
   | type_constraint EQUAL seq_expr
       { mkexp_constraint ~loc:$sloc $3 $1 }
 ;
+effect_spec:
+  | UNDERSCORE { Underline }
+  | EMP { Emp }
+
+  | n = LIDENT { Event (n, []) }
+  | n = LIDENT LPAREN a = INT+ RPAREN { let a = a |> List.map fst |> List.map int_of_string in Event (n, a) }
+  | TILDE n = LIDENT { Not (n, []) }
+  | TILDE n = LIDENT LPAREN a = INT+ RPAREN { let a = a |> List.map fst |> List.map int_of_string in Not (n, a) }
+
+  | effect_spec DOT effect_spec { Cons ($1, $3) }
+;
 strict_binding:
     EQUAL seq_expr
       { $2 }
+  | REQUIRES effect_spec ENSURES effect_spec EQUAL seq_expr
+      {
+        let e = $6 in
+        { e with pexp_effectspec = Some ($2, $4) }
+      }
   | labeled_simple_pattern fun_binding
       { let (l, o, p) = $1 in ghexp ~loc:$sloc (Pexp_fun(l, o, p, $2)) }
   | LPAREN TYPE lident_list RPAREN fun_binding
@@ -3726,6 +3745,8 @@ single_attr_id:
   | FUN { "fun" }
   | FUNCTION { "function" }
   | FUNCTOR { "functor" }
+  | REQUIRES { "requires" }
+  | ENSURES { "ensures" }
   | IF { "if" }
   | IN { "in" }
   | INCLUDE { "include" }

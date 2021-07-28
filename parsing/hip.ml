@@ -122,16 +122,35 @@ let rec string_of_pattern (p) : string =
   | _ -> "string_of_pattern\n" ;;
 
 
+(** Given the RHS of a let binding, returns the es it is annotated with *)
+let function_spec rhs =
+  let attribute = false in
+  if attribute then
+    (* this would be used if we encode effect specs in OCaml terms via ppx *)
+    (* we could do both *)
+    failwith "not implemented"
+  else
+    let rec traverse_to_body e =
+      match e.pexp_desc with
+      | Pexp_fun (_, _, _, body) -> traverse_to_body body
+      | _ -> e.pexp_effectspec
+    in
+    traverse_to_body rhs
+
+let string_of_effectspec spec =
+    match spec with
+    | None -> "<no spec given>"
+    | Some (pr, po) -> Format.sprintf "requires %s ensures %s" (string_of_es pr) (string_of_es po)
 
 let string_of_value_binding vb : string = 
   let pattern = vb.pvb_pat in 
   let expression = vb.pvb_expr in
   let attributes = vb.pvb_attributes in 
-  string_of_pattern pattern ^ " = " ^ 
-  Pprintast.string_of_expression expression ^  "\n" ^
-  string_of_attributes attributes ^ "\n"
-
-
+  Format.sprintf "%s = %s\n%s\n%s\n"
+    (string_of_pattern pattern)
+    (Pprintast.string_of_expression expression)
+    (string_of_attributes attributes)
+    (string_of_effectspec (function_spec expression))
 
   ;;
 
@@ -407,10 +426,17 @@ let infer_of_program progs x:  string =
   | _ ->  string_of_es Bot
   ;;
 
-
-
-
-
+let debug_tokens str =
+  let lb = Lexing.from_string str in
+  let rec loop tokens =
+    let tok = Lexer.token lb in
+    match tok with
+    | EOF -> List.rev (tok :: tokens)
+    | _ -> loop (tok :: tokens)
+  in
+  let tokens = loop [] in
+  let s = tokens |> List.map Debug.string_of_token |> String.concat " " in
+  Format.printf "%s@." s
 
 let () =
   let inputfile = (Sys.getcwd () ^ "/" ^ Sys.argv.(1)) in
@@ -420,6 +446,7 @@ print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
   try
       let lines =  (input_lines ic ) in
       let line = List.fold_right (fun x acc -> acc ^ "\n" ^ x) (List.rev lines) "" in
+      debug_tokens line;
       let progs = Parser.implementation Lexer.token (Lexing.from_string line) in
       
       (*print_string (Pprintast.string_of_structure progs ) ; *)

@@ -173,7 +173,8 @@ module Exp = struct
     {pexp_desc = d;
      pexp_loc = loc;
      pexp_loc_stack = [];
-     pexp_attributes = attrs}
+     pexp_attributes = attrs;
+     pexp_effectspec = None; }
   let attr d a = {d with pexp_attributes = d.pexp_attributes @ [a]}
 
   let ident ?loc ?attrs a = mk ?loc ?attrs (Pexp_ident a)

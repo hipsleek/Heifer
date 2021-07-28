@@ -2,11 +2,9 @@ effect Foo : (unit -> 'a)
 
 
 let f () 
-(*@ requires emp @*)
-(*@ ensures  Foo @*)
-  = perform Foo ()
-  [@@requires emp]
-  [@@ensures Foo]
+  requires emp
+  ensures Foo
+= perform Foo ()
 
 let res : type a. a 
   (*@ requires emp @*)

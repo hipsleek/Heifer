@@ -57,6 +57,9 @@ let keyword_table =
     "fun", FUN;
     "function", FUNCTION;
     "functor", FUNCTOR;
+    "requires", REQUIRES;
+    "ensures", ENSURES;
+    "emp", EMP;
     "if", IF;
     "in", IN;
     "include", INCLUDE;
