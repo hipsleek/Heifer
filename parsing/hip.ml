@@ -31,12 +31,9 @@ let string_of_effect_constructor x :string =
 type rec_flag = Nonrecursive | Recursive
 *)
 
-let string_of_structure e: string =
-  Format.asprintf "%a@." Pprintast.structure e
-
 let string_of_payload p =
   match p with
-  | PStr str -> string_of_structure str
+  | PStr str -> Pprintast.string_of_structure str
   | PSig _ -> "sig"
   | PTyp _ -> "typ"
   | PPat _ -> "pattern"
@@ -125,16 +122,13 @@ let rec string_of_pattern (p) : string =
   | _ -> "string_of_pattern\n" ;;
 
 
-let string_of_expression e: string =
-  Format.asprintf "%a@." Pprintast.expression e
-
 
 let string_of_value_binding vb : string = 
   let pattern = vb.pvb_pat in 
   let expression = vb.pvb_expr in
   let attributes = vb.pvb_attributes in 
   string_of_pattern pattern ^ " = " ^ 
-  string_of_expression expression ^  "\n" ^
+  Pprintast.string_of_expression expression ^  "\n" ^
   string_of_attributes attributes ^ "\n"
 
 
@@ -433,6 +427,9 @@ print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
 
       print_string (List.fold_left (fun acc a -> acc ^ (infer_of_program progs a) ^ "\n" ) "\n" progs);
 
+      (*print_endline (Pprintast.string_of_structure progs ) ; 
+      print_endline ("---");
+      print_endline (List.fold_left (fun acc a -> acc ^ forward a) "" progs);*)
       flush stdout;                (* 现在写入默认设备 *)
       close_in ic                  (* 关闭输入通道 *)
 
