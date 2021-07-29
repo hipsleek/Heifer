@@ -4,6 +4,11 @@ effect Foo : (unit -> int)
 let f () 
 (*@ requires emp @*)
 (*@ ensures  Foo @*)
+  = 1+1
+
+let f () 
+(*@ requires emp @*)
+(*@ ensures  Foo @*)
   = perform Foo ()
 
 let res : int

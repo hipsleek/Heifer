@@ -24,8 +24,8 @@ open Asttypes
 
 type es = Bot 
         | Emp 
-        | Event of event * int list 
-        | Not of event * int list 
+        | Event of string * int list 
+        | Not of string * int list 
         | Cons of es * es
         | ESOr of es * es
         | Kleene of es (* 0 or more, possibly infinite*)

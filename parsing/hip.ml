@@ -140,7 +140,7 @@ let string_of_value_binding vb : string =
 
 
 
-let forward x : string= 
+let string_of_program x : string= 
   match x.pstr_desc with
   | Pstr_value (_, l) ->
     List.fold_left (fun acc a -> acc ^ string_of_value_binding a) "" l
@@ -152,7 +152,40 @@ let forward x : string=
   | _ ->  ("empty")
   ;;
 
+let rec separate li f sep : string = 
+  match li with 
+  | [] -> ""
+  | [x] -> f x
+  | x ::xs -> f x ^ sep ^ separate xs f sep
+  ;;
+
   
+let rec string_of_es es : string = 
+  match es with 
+  | Bot -> "⏊ "
+  | Emp -> "𝝐"
+  | Event (str, ar_Li) -> str ^ "(" ^ separate (ar_Li) (string_of_int) (",") ^")"
+  | Not (str, ar_Li) -> "!" ^ string_of_es (Event (str, ar_Li))
+  | Cons (es1, es2) -> string_of_es es1 ^"·"^ string_of_es es2 
+  | ESOr (es1, es2) -> string_of_es es1 ^"·"^ string_of_es es2 
+  | Kleene es1 -> "("^string_of_es es1^")^*"
+  | Omega es1 -> "("^string_of_es es1^")^w"
+  | Underline -> "_"
+  ;;
+
+let infer_of_value_binding _ _: es = 
+  Emp;;
+  
+
+let infer_of_program progs x:  es =
+  match x.pstr_desc with
+  | Pstr_value (_ (*rec_flag*), l (*value_binding list*)) ->
+    List.fold_left (fun acc a -> ESOr(acc, infer_of_value_binding progs a)) Bot l 
+    
+  | Pstr_effect _ -> Emp
+  | _ ->  Bot
+  ;;
+
 
 
 
@@ -168,8 +201,11 @@ print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
       let line = List.fold_right (fun x acc -> acc ^ "\n" ^ x) (List.rev lines) "" in
       let progs = Parser.implementation Lexer.token (Lexing.from_string line) in
       
-      print_string (Pprintast.string_of_structure progs ) ; 
-      print_string (List.fold_left (fun acc a -> acc ^ forward a) "" progs);
+      (*print_string (Pprintast.string_of_structure progs ) ; *)
+      print_string (List.fold_left (fun acc a -> acc ^ string_of_program a) "" progs);
+
+      print_string (List.fold_left (fun acc a -> acc ^ string_of_es (infer_of_program progs a) ^ "\n" ) "\n" progs);
+
       flush stdout;                (* 现在写入默认设备 *)
       close_in ic                  (* 关闭输入通道 *)
 
