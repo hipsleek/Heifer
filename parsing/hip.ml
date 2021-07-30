@@ -295,19 +295,87 @@ let string_of_expression_desc desc: string =
   | Pexp_unreachable  -> "Pexp_unreachable"
         (* . *)
 
-let call_function fnName _ _ _ : es = 
+let rec normalES (es:es):es = 
+  match es with
+    Bot -> es
+  | Emp -> es
+  | Event _ -> es
+  | Underline -> Underline
+  | Cons (Cons (esIn1, esIn2), es2)-> normalES (Cons (esIn1, Cons (esIn2, es2))) 
+  | Cons (es1, es2) -> 
+      let normalES1 = normalES es1 in
+      let normalES2 = normalES es2 in
+      (match (normalES1, normalES2) with 
+        (Emp, _) -> normalES2 
+      | (_, Emp) -> normalES1
+      | (Bot, _) -> Bot
+      | (Omega _, _ ) -> normalES1
 
-  print_string ( 
-    match fnName.pexp_desc with 
-    | Pexp_ident l -> 
-        (match l.txt with 
+      | (normal_es1, normal_es2) -> Cons (normal_es1, normal_es2)
+      ;)
+  | ESOr (es1, es2) -> 
+      (match (normalES es1  , normalES es2  ) with 
+        (Bot, Bot) -> Bot
+      | (Bot, norml_es2) -> norml_es2
+      | (norml_es1, Bot) -> norml_es1
+      | (ESOr(es1In, es2In), norml_es2 ) ->
+        ESOr (ESOr(es1In, es2In), norml_es2 )
+      | (norml_es2, ESOr(es1In, es2In) ) ->
+        ESOr (norml_es2, ESOr(es1In, es2In))
+      | (Emp, Kleene norml_es2) ->  Kleene norml_es2
+      | (Kleene norml_es2, Emp) ->  Kleene norml_es2
+
+      | (norml_es1, norml_es2) -> ESOr (norml_es1, norml_es2)
+      ;)
+
+  | Omega es1 -> 
+      let normalInside = normalES es1 in 
+      (match normalInside with
+        Emp -> Emp
+      | _ ->  Omega normalInside)
+  | Kleene es1 -> 
+      let normalInside = normalES es1 in 
+      (match normalInside with
+        Emp -> Emp
+      | Kleene esIn1 ->  Kleene (normalES esIn1  )
+      | ESOr(Emp, aa) -> Kleene aa
+      | _ ->  Kleene normalInside)
+
+
+  | Not (a, esARG) -> 
+      let esIn = normalES  (Event (a, esARG)) in
+      match esIn with
+      | Event (a, b) -> Not (a, b)
+      | _ -> raise (Foo "NOT WRONG\n")
+  ;;
+
+
+let getIndentName (l:Longident.t loc): string = 
+  (match l.txt with 
         | Lident str -> str
         | _ -> "dont know"
         )
+        ;;
+
+let call_function fnName (li:(arg_label * expression) list) acc _ : es = 
+
+  let name = 
+    match fnName.pexp_desc with 
+    | Pexp_ident l -> getIndentName l 
+        
     | _ -> "dont know"
 
-  );
-  raise (Foo (string_of_expression_desc (fnName.pexp_desc)));;
+  in 
+  
+  if String.compare name "perform" == 0 then 
+    let (_, temp) = (List.hd li) in 
+    let eff_l = match temp.pexp_desc with 
+      | Pexp_construct (a, _) -> Event (getIndentName a, [])
+      | _ -> Emp
+    in 
+    Cons (acc, eff_l)
+  else 
+    raise (Foo (string_of_expression_desc (fnName.pexp_desc)));;
 
 
 
@@ -372,7 +440,7 @@ print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
       (*print_string (Pprintast.string_of_structure progs ) ; *)
       print_string (List.fold_left (fun acc a -> acc ^ string_of_program a) "" progs);
 
-      print_string (List.fold_left (fun acc a -> acc ^ string_of_es (infer_of_program progs a) ^ "\n" ) "\n" progs);
+      print_string (List.fold_left (fun acc a -> acc ^ string_of_es (normalES(infer_of_program progs a)) ^ "\n" ) "\n" progs);
 
       flush stdout;                (* 现在写入默认设备 *)
       close_in ic                  (* 关闭输入通道 *)
