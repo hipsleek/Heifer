@@ -167,14 +167,182 @@ let rec string_of_es es : string =
   | Event (str, ar_Li) -> str ^ "(" ^ separate (ar_Li) (string_of_int) (",") ^")"
   | Not (str, ar_Li) -> "!" ^ string_of_es (Event (str, ar_Li))
   | Cons (es1, es2) -> string_of_es es1 ^"·"^ string_of_es es2 
-  | ESOr (es1, es2) -> string_of_es es1 ^"·"^ string_of_es es2 
+  | ESOr (es1, es2) -> string_of_es es1 ^"+"^ string_of_es es2 
   | Kleene es1 -> "("^string_of_es es1^")^*"
   | Omega es1 -> "("^string_of_es es1^")^w"
   | Underline -> "_"
   ;;
 
-let infer_of_value_binding _ _: es = 
-  Emp;;
+let string_of_expression_desc desc: string = 
+  match desc with 
+  | Pexp_ident _ -> "Pexp_ident"
+        (* x
+           M.x
+         *)
+  | Pexp_constant _ -> "Pexp_constant"
+        (* 1, 'a', "true", 1.0, 1l, 1L, 1n *)
+  | Pexp_let _ -> "Pexp_let"
+        (* let P1 = E1 and ... and Pn = EN in E       (flag = Nonrecursive)
+           let rec P1 = E1 and ... and Pn = EN in E   (flag = Recursive)
+         *)
+  | Pexp_function _ -> "Pexp_function"
+        (* function P1 -> E1 | ... | Pn -> En *)
+  | Pexp_fun _ -> "Pexp_fun"
+        (* fun P -> E1                          (Simple, None)
+           fun ~l:P -> E1                       (Labelled l, None)
+           fun ?l:P -> E1                       (Optional l, None)
+           fun ?l:(P = E0) -> E1                (Optional l, Some E0)
+
+           Notes:
+           - If E0 is provided, only Optional is allowed.
+           - "fun P1 P2 .. Pn -> E1" is represented as nested Pexp_fun.
+           - "let f P = E" is represented using Pexp_fun.
+         *)
+  | Pexp_apply _ -> "Pexp_apply"
+        (* E0 ~l1:E1 ... ~ln:En
+           li can be empty (non labeled argument) or start with '?'
+           (optional argument).
+
+           Invariant: n > 0
+         *)
+  | Pexp_match _ -> "Pexp_match"
+        (* match E0 with P1 -> E1 | ... | Pn -> En *)
+  | Pexp_try _ -> "Pexp_try"
+        (* try E0 with P1 -> E1 | ... | Pn -> En *)
+  | Pexp_tuple _ -> "Pexp_tuple"
+        (* (E1, ..., En)
+
+           Invariant: n >= 2
+        *)
+  | Pexp_construct _ -> "Pexp_construct"
+        (* C                None
+           C E              Some E
+           C (E1, ..., En)  Some (Pexp_tuple[E1;...;En])
+        *)
+  | Pexp_variant _ -> "Pexp_variant"
+        (* `A             (None)
+           `A E           (Some E)
+         *)
+  | Pexp_record _ -> "Pexp_record"
+        (* { l1=P1; ...; ln=Pn }     (None)
+           { E0 with l1=P1; ...; ln=Pn }   (Some E0)
+
+           Invariant: n > 0
+         *)
+  | Pexp_field _ -> "Pexp_field"
+        (* E.l *)
+  | Pexp_setfield _ -> "Pexp_setfield"
+        (* E1.l <- E2 *)
+  | Pexp_array _ -> "Pexp_array"
+        (* [| E1; ...; En |] *)
+  | Pexp_ifthenelse _ -> "Pexp_ifthenelse"
+        (* if E1 then E2 else E3 *)
+  | Pexp_sequence _ -> "Pexp_sequence"
+        (* E1; E2 *)
+  | Pexp_while _ -> "Pexp_while"
+        (* while E1 do E2 done *)
+  | Pexp_for _ -> "Pexp_for"
+        (* for i = E1 to E2 do E3 done      (flag = Upto)
+           for i = E1 downto E2 do E3 done  (flag = Downto)
+         *)
+  | Pexp_constraint _ -> "Pexp_constraint"
+        (* (E : T) *)
+  | Pexp_coerce _ -> "Pexp_coerce"
+        (* (E :> T)        (None, T)
+           (E : T0 :> T)   (Some T0, T)
+         *)
+  | Pexp_send _ -> "Pexp_send"
+        (*  E # m *)
+  | Pexp_new _ -> "Pexp_new"
+        (* new M.c *)
+  | Pexp_setinstvar _ -> "Pexp_setinstvar"
+        (* x <- 2 *)
+  | Pexp_override _ -> "Pexp_override"
+        (* {< x1 = E1; ...; Xn = En >} *)
+  | Pexp_letmodule _ -> "Pexp_letmodule"
+        (* let module M = ME in E *)
+  | Pexp_letexception _ -> "Pexp_letexception"
+        (* let exception C in E *)
+  | Pexp_assert _ -> "Pexp_assert"
+        (* assert E
+           Note: "assert false" is treated in a special way by the
+           type-checker. *)
+  | Pexp_lazy _ -> "Pexp_lazy"
+        (* lazy E *)
+  | Pexp_poly _ -> "Pexp_poly"
+        (* Used for method bodies.
+
+           Can only be used as the expression under Cfk_concrete
+           for methods (not values). *)
+  | Pexp_object _ -> "Pexp_object"
+        (* object ... end *)
+  | Pexp_newtype _ -> "Pexp_newtype"
+        (* fun (type t) -> E *)
+  | Pexp_pack _ -> "Pexp_pack"
+        (* (module ME)
+
+           (module ME : S) is represented as
+           Pexp_constraint(Pexp_pack, Ptyp_package S) *)
+  | Pexp_open _ -> "Pexp_open"
+        (* M.(E)
+           let open M in E
+           let! open M in E *)
+  | Pexp_letop _ -> "Pexp_letop"
+        (* let* P = E in E
+           let* P = E and* P = E in E *)
+  | Pexp_extension _ -> "Pexp_extension"
+        (* [%id] *)
+  | Pexp_unreachable  -> "Pexp_unreachable"
+        (* . *)
+
+let call_function fnName _ _ _ : es = 
+
+  print_string ( 
+    match fnName.pexp_desc with 
+    | Pexp_ident l -> 
+        (match l.txt with 
+        | Lident str -> str
+        | _ -> "dont know"
+        )
+    | _ -> "dont know"
+
+  );
+  raise (Foo (string_of_expression_desc (fnName.pexp_desc)));;
+
+
+
+
+let rec infer_of_expression progs patterns expr : es =
+  let infer_of_expression_desc desc : es =
+    match desc with 
+    | Pexp_fun (_, _, pa, expr) -> infer_of_expression progs (pa::patterns) expr 
+    | Pexp_apply (fnName, li) (*expression * (arg_label * expression) list*)
+      -> 
+      let temp = List.map (fun (_, a) -> a) li in 
+      let arg_eff = List.fold_left (fun acc a -> Cons(acc, infer_of_expression progs patterns a)) Emp temp in 
+      call_function fnName li arg_eff progs
+    | Pexp_construct _ -> print_string(string_of_expression expr ^ "\n");  Emp
+
+    | _ -> raise (Foo (string_of_expression_desc desc))
+  in 
+  let desc = expr.pexp_desc in 
+  infer_of_expression_desc desc ;;
+
+  
+
+let infer_of_value_binding progs vb: es = 
+  let expression = vb.pvb_expr in
+
+  infer_of_expression progs [] expression ;;
+
+  (*
+    let pattern = vb.pvb_pat in 
+
+  let attributes = vb.pvb_attributes in 
+  string_of_attributes attributes ^ "\n"
+  *)
+
+
   
 
 let infer_of_program progs x:  es =
