@@ -366,6 +366,7 @@ let call_function fnName (li:(arg_label * expression) list) acc _ : es =
     | _ -> "dont know"
 
   in 
+
   
   if String.compare name "perform" == 0 then 
     let (_, temp) = (List.hd li) in 
@@ -375,7 +376,7 @@ let call_function fnName (li:(arg_label * expression) list) acc _ : es =
     in 
     Cons (acc, eff_l)
   else 
-    raise (Foo (string_of_expression_desc (fnName.pexp_desc)));;
+    raise (Foo ("call_function:" ^ string_of_expression_desc (fnName.pexp_desc)));;
 
 
 
@@ -386,11 +387,14 @@ let rec infer_of_expression progs patterns expr : es =
     | Pexp_fun (_, _, pa, expr) -> infer_of_expression progs (pa::patterns) expr 
     | Pexp_apply (fnName, li) (*expression * (arg_label * expression) list*)
       -> 
+
       let temp = List.map (fun (_, a) -> a) li in 
       let arg_eff = List.fold_left (fun acc a -> Cons(acc, infer_of_expression progs patterns a)) Emp temp in 
       call_function fnName li arg_eff progs
-    | Pexp_construct _ -> print_string(string_of_expression expr ^ "\n");  Emp
-
+    | Pexp_construct _ ->  Emp
+    | Pexp_constraint (ex, _) -> infer_of_expression progs patterns ex
+    | Pexp_match (ex, _) -> 
+      infer_of_expression progs patterns ex
     | _ -> raise (Foo (string_of_expression_desc desc))
   in 
   let desc = expr.pexp_desc in 
