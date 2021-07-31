@@ -346,7 +346,7 @@ let rec normalES (es:es):es =
       let esIn = normalES  (Event (a, esARG)) in
       match esIn with
       | Event (a, b) -> Not (a, b)
-      | _ -> raise (Foo "NOT WRONG\n")
+      | _ -> raise (Foo "normalES NOT\n")
   ;;
 
 
@@ -357,7 +357,44 @@ let getIndentName (l:Longident.t loc): string =
         )
         ;;
 
-let call_function fnName (li:(arg_label * expression) list) acc _ : es = 
+let rec findValue_binding name vbs: (es * es) option = 
+  match vbs with 
+  | [] -> None 
+  | vb :: xs -> 
+    let pattern = vb.pvb_pat in 
+    if String.compare (string_of_pattern pattern) name == 0 then 
+    Some (Emp, Emp) else findValue_binding name xs ;;
+
+
+  (*  let expression = vb.pvb_expr in
+  let attributes = vb.pvb_attributes in 
+
+  string_of_expression expression ^  "\n" ^
+  string_of_attributes attributes ^ "\n"
+  *)
+  ;;
+
+        
+
+let rec findProg name full: (es * es) = 
+  match full with 
+  | [] -> raise (Foo ("function " ^ name ^ " is not found!"))
+  | x::xs -> 
+    match x.pstr_desc with
+    | Pstr_value (_ (*rec_flag*), l (*value_binding list*)) ->
+        (match findValue_binding name l with 
+        | Some (pre, post) -> (pre, post)
+        | None -> findProg name xs
+        )
+    | _ ->  findProg name xs
+  ;;
+
+;;
+
+let trs _ _ : bool = 
+  true ;;
+
+let call_function fnName (li:(arg_label * expression) list) acc progs : es = 
 
   let name = 
     match fnName.pexp_desc with 
@@ -376,7 +413,9 @@ let call_function fnName (li:(arg_label * expression) list) acc _ : es =
     in 
     Cons (acc, eff_l)
   else 
-    raise (Foo ("call_function:" ^ string_of_expression_desc (fnName.pexp_desc)));;
+    let ((* param_formal, *) precon, postcon) = findProg name progs in 
+    if trs acc precon then Cons (acc, postcon)
+    else raise (Foo ("Call_function precondition fail:" ^ string_of_expression_desc (fnName.pexp_desc)));;
 
 
 
