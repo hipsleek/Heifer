@@ -3,25 +3,29 @@
   (flags (:standard -w -50 -w -32 -w -27))))
 
 (executables
- (names 0_loop)
- (modules 0_loop))
+ (names t0_loop)
+ (modules t0_loop))
 
 (executables
- (names 1_loop)
- (modules 1_loop))
+ (names t1_loop)
+ (modules t1_loop))
 
 (executables
- (names 2_loop)
- (modules 2_loop))
+ (names t2_loop)
+ (modules t2_loop))
 
 (executables
- (names 3_loop)
- (modules 3_loop))
+ (names t3_loop)
+ (modules t3_loop))
 
 (executables
- (names 4_loop)
- (modules 4_loop))
+ (names t4_loop)
+ (modules t4_loop))
 
 (executables
- (names 5_loop)
- (modules 5_loop))
+ (names t5_loop)
+ (modules t5_loop))
+
+(executables
+ (names t7_loop)
+ (modules t7_loop))
