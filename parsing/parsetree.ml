@@ -22,16 +22,20 @@
 
 open Asttypes
 
+type instant = string * int list  
+type event = One of instant | Zero of instant | Any
+
 type es = Bot 
         | Emp 
-        | Event of string * int list 
-        | Not of string * int list 
+        | Event of instant
+        | Not of instant
         | Cons of es * es
         | ESOr of es * es
         | Kleene of es (* 0 or more, possibly infinite*)
         | Omega of es(* infinite*)
         | Underline
 
+type evn = (es * es)list
 
 type constant =
     Pconst_integer of string * char option

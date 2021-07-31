@@ -3,6 +3,9 @@
 exception Foo of string
 open Parsetree
 open Asttypes
+open Rewriting
+open Pretty
+
 
 
 
@@ -152,26 +155,8 @@ let string_of_program x : string=
   | _ ->  ("empty")
   ;;
 
-let rec separate li f sep : string = 
-  match li with 
-  | [] -> ""
-  | [x] -> f x
-  | x ::xs -> f x ^ sep ^ separate xs f sep
-  ;;
 
-  
-let rec string_of_es es : string = 
-  match es with 
-  | Bot -> "⏊ "
-  | Emp -> "𝝐"
-  | Event (str, ar_Li) -> str ^ "(" ^ separate (ar_Li) (string_of_int) (",") ^")"
-  | Not (str, ar_Li) -> "!" ^ string_of_es (Event (str, ar_Li))
-  | Cons (es1, es2) -> string_of_es es1 ^"·"^ string_of_es es2 
-  | ESOr (es1, es2) -> string_of_es es1 ^"+"^ string_of_es es2 
-  | Kleene es1 -> "("^string_of_es es1^")^*"
-  | Omega es1 -> "("^string_of_es es1^")^w"
-  | Underline -> "_"
-  ;;
+
 
 let string_of_expression_desc desc: string = 
   match desc with 
@@ -295,59 +280,6 @@ let string_of_expression_desc desc: string =
   | Pexp_unreachable  -> "Pexp_unreachable"
         (* . *)
 
-let rec normalES (es:es):es = 
-  match es with
-    Bot -> es
-  | Emp -> es
-  | Event _ -> es
-  | Underline -> Underline
-  | Cons (Cons (esIn1, esIn2), es2)-> normalES (Cons (esIn1, Cons (esIn2, es2))) 
-  | Cons (es1, es2) -> 
-      let normalES1 = normalES es1 in
-      let normalES2 = normalES es2 in
-      (match (normalES1, normalES2) with 
-        (Emp, _) -> normalES2 
-      | (_, Emp) -> normalES1
-      | (Bot, _) -> Bot
-      | (Omega _, _ ) -> normalES1
-
-      | (normal_es1, normal_es2) -> Cons (normal_es1, normal_es2)
-      ;)
-  | ESOr (es1, es2) -> 
-      (match (normalES es1  , normalES es2  ) with 
-        (Bot, Bot) -> Bot
-      | (Bot, norml_es2) -> norml_es2
-      | (norml_es1, Bot) -> norml_es1
-      | (ESOr(es1In, es2In), norml_es2 ) ->
-        ESOr (ESOr(es1In, es2In), norml_es2 )
-      | (norml_es2, ESOr(es1In, es2In) ) ->
-        ESOr (norml_es2, ESOr(es1In, es2In))
-      | (Emp, Kleene norml_es2) ->  Kleene norml_es2
-      | (Kleene norml_es2, Emp) ->  Kleene norml_es2
-
-      | (norml_es1, norml_es2) -> ESOr (norml_es1, norml_es2)
-      ;)
-
-  | Omega es1 -> 
-      let normalInside = normalES es1 in 
-      (match normalInside with
-        Emp -> Emp
-      | _ ->  Omega normalInside)
-  | Kleene es1 -> 
-      let normalInside = normalES es1 in 
-      (match normalInside with
-        Emp -> Emp
-      | Kleene esIn1 ->  Kleene (normalES esIn1  )
-      | ESOr(Emp, aa) -> Kleene aa
-      | _ ->  Kleene normalInside)
-
-
-  | Not (a, esARG) -> 
-      let esIn = normalES  (Event (a, esARG)) in
-      match esIn with
-      | Event (a, b) -> Not (a, b)
-      | _ -> raise (Foo "normalES NOT\n")
-  ;;
 
 
 let getIndentName (l:Longident.t loc): string = 
@@ -391,9 +323,6 @@ let rec findProg name full: (es * es) =
 
 ;;
 
-let trs _ _ : bool = 
-  true ;;
-
 let call_function fnName (li:(arg_label * expression) list) acc progs : es = 
 
   let name = 
@@ -414,26 +343,27 @@ let call_function fnName (li:(arg_label * expression) list) acc progs : es =
     Cons (acc, eff_l)
   else 
     let ((* param_formal, *) precon, postcon) = findProg name progs in 
-    if trs acc precon then Cons (acc, postcon)
+    let (res, _) = check_containment acc precon in 
+    if res then Cons (acc, postcon)
     else raise (Foo ("Call_function precondition fail:" ^ string_of_expression_desc (fnName.pexp_desc)));;
 
 
 
 
-let rec infer_of_expression progs patterns expr : es =
+let rec infer_of_expression progs es expr : es =
   let infer_of_expression_desc desc : es =
     match desc with 
-    | Pexp_fun (_, _, pa, expr) -> infer_of_expression progs (pa::patterns) expr 
+    | Pexp_fun (_, _, _ (*pattern*), expr) -> infer_of_expression progs es expr 
     | Pexp_apply (fnName, li) (*expression * (arg_label * expression) list*)
       -> 
 
       let temp = List.map (fun (_, a) -> a) li in 
-      let arg_eff = List.fold_left (fun acc a -> Cons(acc, infer_of_expression progs patterns a)) Emp temp in 
+      let arg_eff = List.fold_left (fun acc a -> Cons(acc, infer_of_expression progs es a)) Emp temp in 
       call_function fnName li arg_eff progs
     | Pexp_construct _ ->  Emp
-    | Pexp_constraint (ex, _) -> infer_of_expression progs patterns ex
+    | Pexp_constraint (ex, _) -> infer_of_expression progs es ex
     | Pexp_match (ex, _) -> 
-      infer_of_expression progs patterns ex
+      infer_of_expression progs es ex
     | _ -> raise (Foo (string_of_expression_desc desc))
   in 
   let desc = expr.pexp_desc in 
@@ -441,13 +371,25 @@ let rec infer_of_expression progs patterns expr : es =
 
   
 
-let infer_of_value_binding progs vb: es = 
+let infer_of_value_binding progs vb: string = 
+  let pattern = vb.pvb_pat in 
   let expression = vb.pvb_expr in
+  let pre = normalES (Emp) in (* precondition *)
+  let post = normalES (Emp) in (* postcondition *)
+  let final = normalES (infer_of_expression progs pre expression) in 
 
-  infer_of_expression progs [] expression ;;
+    "\n========== Module: "^ string_of_pattern pattern ^" ==========\n" ^
+    "[Pre  Condition] " ^ string_of_es pre ^"\n"^
+    "[Post Condition] " ^ string_of_es post ^"\n"^
+    "[Final  Effects] " ^ string_of_es final ^"\n\n"^
+    (*(string_of_inclusion final_effects post) ^ "\n" ^*)
+    "[T.r.s: Verification for Post Condition]\n" ^ 
+    printReport final post
+
+    ;;
+
 
   (*
-    let pattern = vb.pvb_pat in 
 
   let attributes = vb.pvb_attributes in 
   string_of_attributes attributes ^ "\n"
@@ -456,13 +398,13 @@ let infer_of_value_binding progs vb: es =
 
   
 
-let infer_of_program progs x:  es =
+let infer_of_program progs x:  string =
   match x.pstr_desc with
-  | Pstr_value (_ (*rec_flag*), l (*value_binding list*)) ->
-    List.fold_left (fun acc a -> ESOr(acc, infer_of_value_binding progs a)) Bot l 
+  | Pstr_value (_ (*rec_flag*), x::_ (*value_binding list*)) ->
+    infer_of_value_binding progs x 
     
-  | Pstr_effect _ -> Emp
-  | _ ->  Bot
+  | Pstr_effect _ -> string_of_es Emp
+  | _ ->  string_of_es Bot
   ;;
 
 
@@ -483,7 +425,7 @@ print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
       (*print_string (Pprintast.string_of_structure progs ) ; *)
       print_string (List.fold_left (fun acc a -> acc ^ string_of_program a) "" progs);
 
-      print_string (List.fold_left (fun acc a -> acc ^ string_of_es (normalES(infer_of_program progs a)) ^ "\n" ) "\n" progs);
+      print_string (List.fold_left (fun acc a -> acc ^ (infer_of_program progs a) ^ "\n" ) "\n" progs);
 
       flush stdout;                (* 现在写入默认设备 *)
       close_in ic                  (* 关闭输入通道 *)

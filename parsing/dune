@@ -48,6 +48,6 @@
  (mode fallback))
 
 (executables
- (names hip)
- (modules parser lexer Syntaxerr hip Pprintast Asttypes Ast_helper Longident Parsetree Location Warnings Misc Terminfo Docstrings Build_path_prefix_map Clflags Profile Numbers Identifiable Arg_helper CamlinternalMenhirLib)
+ (names hip sleek)
+ (modules parser lexer Syntaxerr hip sleek Pretty Rewriting Pprintast Asttypes Ast_helper Longident Parsetree Location Warnings Misc Terminfo Docstrings Build_path_prefix_map Clflags Profile Numbers Identifiable Arg_helper CamlinternalMenhirLib)
 )
