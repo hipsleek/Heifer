@@ -350,21 +350,27 @@ let call_function fnName (li:(arg_label * expression) list) acc progs : es =
 
 
 
-let rec infer_of_expression progs es expr : es =
+let rec infer_of_expression progs acc expr : es =
   let infer_of_expression_desc desc : es =
     match desc with 
-    | Pexp_fun (_, _, _ (*pattern*), expr) -> infer_of_expression progs es expr 
+    | Pexp_fun (_, _, _ (*pattern*), expr) -> infer_of_expression progs acc expr 
     | Pexp_apply (fnName, li) (*expression * (arg_label * expression) list*)
       -> 
 
       let temp = List.map (fun (_, a) -> a) li in 
-      let arg_eff = List.fold_left (fun acc a -> Cons(acc, infer_of_expression progs es a)) Emp temp in 
-      call_function fnName li arg_eff progs
+      let arg_eff = List.fold_left (fun acc a -> Cons(acc, infer_of_expression progs acc a)) Emp temp in 
+      call_function fnName li (Cons(acc, arg_eff)) progs
     | Pexp_construct _ ->  Emp
-    | Pexp_constraint (ex, _) -> infer_of_expression progs es ex
+    | Pexp_constraint (ex, _) -> infer_of_expression progs acc ex
+    | Pexp_sequence (ex1, ex2) -> 
+
+      let acc1 = infer_of_expression progs acc ex1 in 
+
+      infer_of_expression progs acc1 ex2
+
     | Pexp_match (ex, _) -> 
-      infer_of_expression progs es ex
-    | _ -> raise (Foo (string_of_expression_desc desc))
+      infer_of_expression progs acc ex
+    | _ -> raise (Foo ("infer_of_expression_desc: " ^ string_of_expression_desc desc))
   in 
   let desc = expr.pexp_desc in 
   infer_of_expression_desc desc ;;
