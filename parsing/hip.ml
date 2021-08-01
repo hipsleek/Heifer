@@ -446,9 +446,14 @@ print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
   try
       let lines =  (input_lines ic ) in
       let line = List.fold_right (fun x acc -> acc ^ "\n" ^ x) (List.rev lines) "" in
-      debug_tokens line;
-      let progs = Parser.implementation Lexer.token (Lexing.from_string line) in
       
+      (* debug_tokens line; *)
+
+      let progs = Parser.implementation Lexer.token (Lexing.from_string line) in
+
+      (* Dump AST -dparsetree-style *)
+      (* Format.printf "%a@." Printast.implementation progs; *)
+
       (*print_string (Pprintast.string_of_structure progs ) ; *)
       print_string (List.fold_left (fun acc a -> acc ^ string_of_program a) "" progs);
 
