@@ -621,6 +621,8 @@ let mk_directive ~loc name arg =
 %token FUNCTOR
 %token REQUIRES
 %token ENSURES
+%token OMEGA
+%token KLEENE
 %token EMP
 %token GREATER
 %token GREATERRBRACE
@@ -772,6 +774,7 @@ The precedences must be listed from low to high.
 %left     HASHOP
 %nonassoc below_DOT
 %nonassoc DOT DOTOP
+%nonassoc KLEENE OMEGA                 /* bind tighter than dot, to avoid shift/reduce conflict */
 /* Finally, the first tokens of simple_expr are above everything else. */
 %nonassoc BACKQUOTE BANG BEGIN CHAR FALSE FLOAT INT
           LBRACE LBRACELESS LBRACKET LBRACKETBAR LIDENT LPAREN
@@ -2526,6 +2529,8 @@ effect_spec:
   | TILDE n = UIDENT LPAREN a = INT+ RPAREN { let a = a |> List.map fst |> List.map int_of_string in Not (n, a) }
 
   | effect_spec DOT effect_spec { Cons ($1, $3) }
+  | effect_spec KLEENE { Kleene $1 }
+  | effect_spec OMEGA { Omega $1 }
 ;
 strict_binding:
     EQUAL seq_expr
