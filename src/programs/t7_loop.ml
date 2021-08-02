@@ -3,15 +3,14 @@ effect Goo : (unit -> unit)
 
 
 let f () 
-(*@ requires emp @*)
-(*@ ensures  Foo.Foo @*)
-  = perform Foo ();
-    perform Foo ()
+  requires emp
+  ensures  Foo
+= perform Foo ()
 
 
-let res : unit
-  (*@ requires emp @*)
-  (*@ ensures  Foo.Goo.Foo.Goo @*)
+let res
+  requires emp
+  ensures  Foo^*
   =
   match f () with
   | x -> ()

@@ -307,13 +307,19 @@ let rec findValue_binding name vbs: (es * es) option =
   | [] -> None 
   | vb :: xs -> 
     let pattern = vb.pvb_pat in 
+    let expression = vb.pvb_expr in 
     if String.compare (string_of_pattern pattern) name == 0 then 
-    Some (Emp, Emp) else findValue_binding name xs ;;
+    
+    (match function_spec expression with 
+      | None -> Some (Emp, Emp)
+      | Some (pre, post) -> Some (normalES pre, normalES post)
+    )
+   else findValue_binding name xs ;;
 
 
   (*  
   Some (Emp, Cons (Event(One ("Foo", [])), Event(One ("Foo", []))))
-  
+
   let expression = vb.pvb_expr in
   let attributes = vb.pvb_attributes in 
 
@@ -494,8 +500,12 @@ let rec infer_of_expression progs acc expr : es =
 let infer_of_value_binding progs vb: string = 
   let pattern = vb.pvb_pat in 
   let expression = vb.pvb_expr in
-  let pre = normalES (Emp) in (* precondition *)
-  let post = normalES (Emp) in (* postcondition *)
+  let spec = 
+    match function_spec expression with 
+    | None -> (Emp, Emp)
+    | Some (pre, post) -> (normalES pre, normalES post)
+  in 
+  let (pre, post) = spec in (* postcondition *)
   let final = normalES (infer_of_expression progs pre expression) in 
 
     "\n========== Module: "^ string_of_pattern pattern ^" ==========\n" ^

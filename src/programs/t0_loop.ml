@@ -8,7 +8,7 @@ let f ()
 
 let res
   requires emp
-  ensures  Foo^w
+  ensures  Foo^*
   =
   match f () with
   | x -> x
