@@ -31,12 +31,9 @@ let string_of_effect_constructor x :string =
 type rec_flag = Nonrecursive | Recursive
 *)
 
-let string_of_structure e: string =
-  Format.asprintf "%a@." Pprintast.structure e
-
 let string_of_payload p =
   match p with
-  | PStr str -> string_of_structure str
+  | PStr str -> Pprintast.string_of_structure str
   | PSig _ -> "sig"
   | PTyp _ -> "typ"
   | PPat _ -> "pattern"
@@ -125,19 +122,35 @@ let rec string_of_pattern (p) : string =
   | _ -> "string_of_pattern\n" ;;
 
 
-let string_of_expression e: string =
-  Format.asprintf "%a@." Pprintast.expression e
+(** Given the RHS of a let binding, returns the es it is annotated with *)
+let function_spec rhs =
+  let attribute = false in
+  if attribute then
+    (* this would be used if we encode effect specs in OCaml terms via ppx *)
+    (* we could do both *)
+    failwith "not implemented"
+  else
+    let rec traverse_to_body e =
+      match e.pexp_desc with
+      | Pexp_fun (_, _, _, body) -> traverse_to_body body
+      | _ -> e.pexp_effectspec
+    in
+    traverse_to_body rhs
 
+let string_of_effectspec spec =
+    match spec with
+    | None -> "<no spec given>"
+    | Some (pr, po) -> Format.sprintf "requires %s ensures %s" (string_of_es pr) (string_of_es po)
 
 let string_of_value_binding vb : string = 
   let pattern = vb.pvb_pat in 
   let expression = vb.pvb_expr in
   let attributes = vb.pvb_attributes in 
-  string_of_pattern pattern ^ " = " ^ 
-  string_of_expression expression ^  "\n" ^
-  string_of_attributes attributes ^ "\n"
-
-
+  Format.sprintf "%s = %s\n%s\n%s\n"
+    (string_of_pattern pattern)
+    (Pprintast.string_of_expression expression)
+    (string_of_attributes attributes)
+    (string_of_effectspec (function_spec expression))
 
   ;;
 
@@ -511,10 +524,17 @@ let infer_of_program progs x:  string =
   | _ ->  string_of_es Bot
   ;;
 
-
-
-
-
+let debug_tokens str =
+  let lb = Lexing.from_string str in
+  let rec loop tokens =
+    let tok = Lexer.token lb in
+    match tok with
+    | EOF -> List.rev (tok :: tokens)
+    | _ -> loop (tok :: tokens)
+  in
+  let tokens = loop [] in
+  let s = tokens |> List.map Debug.string_of_token |> String.concat " " in
+  Format.printf "%s@." s
 
 let () =
   let inputfile = (Sys.getcwd () ^ "/" ^ Sys.argv.(1)) in
@@ -524,13 +544,22 @@ print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
   try
       let lines =  (input_lines ic ) in
       let line = List.fold_right (fun x acc -> acc ^ "\n" ^ x) (List.rev lines) "" in
-      let progs = Parser.implementation Lexer.token (Lexing.from_string line) in
       
+      (* debug_tokens line; *)
+
+      let progs = Parser.implementation Lexer.token (Lexing.from_string line) in
+
+      (* Dump AST -dparsetree-style *)
+      (* Format.printf "%a@." Printast.implementation progs; *)
+
       (*print_string (Pprintast.string_of_structure progs ) ; *)
       print_string (List.fold_left (fun acc a -> acc ^ string_of_program a) "" progs);
 
       print_string (List.fold_left (fun acc a -> acc ^ (infer_of_program progs a) ^ "\n" ) "\n" progs);
 
+      (*print_endline (Pprintast.string_of_structure progs ) ; 
+      print_endline ("---");
+      print_endline (List.fold_left (fun acc a -> acc ^ forward a) "" progs);*)
       flush stdout;                (* 现在写入默认设备 *)
       close_in ic                  (* 关闭输入通道 *)
 

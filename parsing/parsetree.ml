@@ -279,6 +279,7 @@ and expression =
      pexp_loc: Location.t;
      pexp_loc_stack: location_stack;
      pexp_attributes: attributes; (* ... [@id1] [@id2] *)
+     pexp_effectspec: (es * es) option;
     }
 
 and expression_desc =
