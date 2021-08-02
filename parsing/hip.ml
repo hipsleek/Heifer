@@ -311,7 +311,10 @@ let rec findValue_binding name vbs: (es * es) option =
     Some (Emp, Emp) else findValue_binding name xs ;;
 
 
-  (*  let expression = vb.pvb_expr in
+  (*  
+  Some (Emp, Cons (Event(One ("Foo", [])), Event(One ("Foo", []))))
+  
+  let expression = vb.pvb_expr in
   let attributes = vb.pvb_attributes in 
 
   string_of_expression expression ^  "\n" ^
