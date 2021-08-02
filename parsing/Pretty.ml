@@ -115,11 +115,11 @@ let compareEvent (ev1:event) (ev2:event): bool =
   
 let rec string_of_es es : string = 
   match es with 
-  | Bot -> "⏊ "
-  | Emp -> "𝝐"
+  | Bot -> "_|_"
+  | Emp -> "emp"
   | Event (str, ar_Li) -> str ^ "(" ^ separate (ar_Li) (string_of_int) (",") ^")"
   | Not (str, ar_Li) -> "!" ^ string_of_es (Event (str, ar_Li))
-  | Cons (es1, es2) -> string_of_es es1 ^"·"^ string_of_es es2 
+  | Cons (es1, es2) -> string_of_es es1 ^"."^ string_of_es es2 
   | ESOr (es1, es2) -> string_of_es es1 ^"+"^ string_of_es es2 
   | Kleene es1 -> "("^string_of_es es1^")^*"
   | Omega es1 -> "("^string_of_es es1^")^w"
@@ -182,4 +182,12 @@ let rec normalES (es:es):es =
       match esIn with
       | Event (a, b) -> Not (a, b)
       | _ -> raise (Foo "normalES NOT\n")
+  ;;
+
+let eventToEs ev : es =
+  match ev with 
+  | One ins -> Event ins 
+  | Zero ins ->Not ins
+  | Any -> Underline
+
   ;;

@@ -37,6 +37,12 @@ let isBot (es:es) :bool=
   | _ -> false 
   ;;
 
+let isEmp (es:es) :bool= 
+  match es with
+    Emp -> true
+  | _ -> false 
+  ;;
+
 let rec checkexist lst super: bool = 
   match lst with
   | [] -> true

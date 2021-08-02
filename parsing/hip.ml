@@ -341,12 +341,91 @@ let call_function fnName (li:(arg_label * expression) list) acc progs : es =
       | _ -> Emp
     in 
     Cons (acc, eff_l)
+  else if String.compare name "continue" == 0 then 
+    acc
   else 
     let ((* param_formal, *) precon, postcon) = findProg name progs in 
     let (res, _) = check_containment acc precon in 
     if res then Cons (acc, postcon)
     else raise (Foo ("Call_function precondition fail:" ^ string_of_expression_desc (fnName.pexp_desc)));;
 
+
+let checkRepeat history fst : (event list) option = 
+  let rev_his = List.rev history in 
+  let rec aux acc li = 
+    match li with 
+    | [] -> None 
+    | x::xs -> 
+      if compareEvent x fst then Some (List.rev (List.append acc [x]))
+      else aux (List.append acc [x]) xs 
+  in aux [] rev_his ;;
+
+let rec eventListToES history : es =
+  match history with 
+  | [] -> Emp
+  | x::xs -> Cons (eventToEs x, eventListToES xs )
+  ;;
+
+
+let fixpoint es policy: es =
+  let es = normalES es in 
+  let policy = List.map (fun (a, b) -> (a, normalES b)) policy in 
+  let ev = List.hd (fst es) in 
+  let der = derivative es ev in 
+
+
+  let innerAux history fst =   
+    match checkRepeat history fst with 
+    | None -> 
+    let rec helper p = 
+      match p with
+      | [] -> raise (Foo ("Effect" ^ string_of_es (eventToEs fst) ^ " is not catched"))
+      | (x, trace)::xs -> if compareEvent x fst then trace else helper xs 
+    in helper policy
+    | Some ev_li -> Omega (eventListToES ev_li)
+
+  in 
+
+  let rec aux history fst der acc: es = 
+    let cur = innerAux history fst in 
+    if isEmp der then Cons (acc, cur)
+    else 
+      let new_ev = List.hd (Rewriting.fst es) in 
+      let new_der = derivative der new_ev in 
+
+      aux (List.append history [fst]) new_ev new_der (Cons (acc, cur))
+    
+  in aux [] ev der Emp ;;
+
+
+
+
+
+        (*print_string (List.fold_left (fun acc (l, r) -> acc ^
+          (match l with 
+          | None -> "none "
+          | Some  str -> str
+         ) ^ " -> " ^ string_of_es r ^"\n"
+          ) "" policy);
+                  raise (Foo ("rangwo chou chou: "^ string_of_es es1));
+          *)
+        
+
+
+let rec getNormal p: es = 
+  match p with  
+  | [] -> raise (Foo "there is no handlers for normal return")
+  | (None, es)::_ -> es
+  | _ :: xs -> getNormal xs
+  ;;
+
+
+let rec getHandlers p: (event * es) list = 
+  match p with  
+  | [] -> []
+  | (None, _)::xs -> getHandlers xs 
+  | (Some str, es) :: xs -> ( (One ((str, []))), es) :: getHandlers xs
+  ;;
 
 
 
@@ -368,8 +447,27 @@ let rec infer_of_expression progs acc expr : es =
 
       infer_of_expression progs acc1 ex2
 
-    | Pexp_match (ex, _) -> 
-      infer_of_expression progs acc ex
+    | Pexp_match (ex, case_li) -> 
+      let es1 = infer_of_expression progs Emp ex in 
+      let policy = List.map (fun a -> 
+        let lhs = a.pc_lhs in 
+        let rhs = a.pc_rhs in 
+        
+        let temp = match lhs.ppat_desc with 
+          | Ppat_effect (p1, _) ->  Some (string_of_pattern p1)
+          | _ -> None 
+        in 
+        (
+          temp,
+          infer_of_expression progs Emp rhs
+        )) case_li in 
+
+        if isEmp (normalES es1) then getNormal policy 
+        else fixpoint es1 (getHandlers policy)
+      
+      
+    | Pexp_ident _ -> Emp
+
     | _ -> raise (Foo ("infer_of_expression_desc: " ^ string_of_expression_desc desc))
   in 
   let desc = expr.pexp_desc in 
