@@ -373,6 +373,8 @@ let call_function fnName (li:(arg_label * expression) list) acc progs : es =
 
 
 let checkRepeat history fst : (event list) option = 
+  print_string ("checkRepeat: "^ List.fold_left (fun acc a -> acc ^ string_of_event a ) "" history);
+
   let rev_his = List.rev history in 
   let rec aux acc li = 
     match li with 
@@ -396,28 +398,36 @@ let fixpoint es policy: es =
   let der = derivative es ev in 
 
 
-  let innerAux history fst =   
+  let rec innerAux history fst:es =   
     match checkRepeat history fst with 
     | None -> 
     let rec helper p = 
       match p with
       | [] -> raise (Foo ("Effect" ^ string_of_es (eventToEs fst) ^ " is not catched"))
-      | (x, trace)::xs -> if compareEvent x fst then trace else helper xs 
+      | (x, trace)::xs -> 
+        if compareEvent x fst then 
+          let new_start = List.hd (esTail trace) in 
+          Cons (trace, 
+          innerAux (List.append history [fst])  new_start
+          )
+         else helper xs 
+        
     in helper policy
-    | Some ev_li -> Omega (eventListToES ev_li)
+    | Some ev_li -> 
+      Omega (eventListToES ev_li)
 
   in 
 
-  let rec aux history fst der acc: es = 
-    let cur = innerAux history fst in 
+  let rec aux fst der acc: es = 
+    let cur = Cons (eventToEs fst, innerAux [] fst) in 
     if isEmp der then Cons (acc, cur)
     else 
       let new_ev = List.hd (Rewriting.fst es) in 
       let new_der = derivative der new_ev in 
 
-      aux (List.append history [fst]) new_ev new_der (Cons (acc, cur))
+      aux new_ev new_der (Cons (acc, cur))
     
-  in aux [] ev der Emp ;;
+  in aux ev der Emp ;;
 
 
 

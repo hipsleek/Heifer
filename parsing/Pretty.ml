@@ -191,3 +191,12 @@ let eventToEs ev : es =
   | Any -> Underline
 
   ;;
+
+
+let rec string_of_event ev : string =
+  match ev with 
+  | One (str, ar_Li) ->  str ^ "(" ^ separate (ar_Li) (string_of_int) (",") ^")" 
+  | Zero (str, ar_Li) -> "!" ^ string_of_event (One (str, ar_Li))
+  | Any -> "_"
+
+  ;;

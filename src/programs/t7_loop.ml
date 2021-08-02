@@ -10,12 +10,12 @@ let f ()
 
 let res
   requires emp
-  ensures  Foo^*
+  ensures  Foo^w
   =
   match f () with
   | x -> ()
   | effect Foo k ->
-     continue k (fun () -> perform Goo ())
+     continue k (fun () -> perform Foo ())
   | effect Goo k ->
      continue k (fun () -> ())
 

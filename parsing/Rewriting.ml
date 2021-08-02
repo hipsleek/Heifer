@@ -31,14 +31,31 @@ let rec  fst (es:es): event list =
   | Underline -> [Any]
 ;;
 
-let isBot (es:es) :bool= 
+let rec esTail (es:es): event list = 
   match es with
+  | Bot -> []
+  | Emp -> []
+  | Event (ev,p) ->  [One (ev,p)]
+  | Not (ev,p) ->  [Zero (ev,p)]
+  | ESOr (es1, es2) -> append ( esTail es1) ( esTail es2)
+  | Kleene es1 ->  esTail es1
+  | Omega es1 ->  esTail es1
+  | Underline -> [Any]
+
+
+  | Cons (es1 , es2) ->  if  nullable es2 then append ( esTail es1) ( esTail es2) else  esTail es2
+
+;;
+
+
+let isBot (es:es) :bool= 
+  match normalES es with
     Bot -> true
   | _ -> false 
   ;;
 
 let isEmp (es:es) :bool= 
-  match es with
+  match normalES es with
     Emp -> true
   | _ -> false 
   ;;
