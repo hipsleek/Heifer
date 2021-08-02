@@ -136,8 +136,10 @@ let rec normalES (es:es):es =
   | Emp -> es
   | Event _ -> es
   | Underline -> Underline
-  | Cons (Cons (esIn1, esIn2), es2)-> normalES (Cons (esIn1, Cons (esIn2, es2))) 
-  | Cons (es1, es2) -> 
+  | Cons (Cons (esIn1, esIn2), es2)-> 
+    normalES (Cons (esIn1, normalES (Cons (esIn2, es2)))) 
+    
+  | Cons (es1, es2) ->  
       let normalES1 = normalES es1 in
       let normalES2 = normalES es2 in
       (match (normalES1, normalES2) with 

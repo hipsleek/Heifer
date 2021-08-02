@@ -4,6 +4,9 @@ open Parsetree
 open Pretty
 
 
+
+
+
 let rec  nullable (es:es) : bool=
   match es with
     Emp -> true
@@ -16,6 +19,9 @@ let rec  nullable (es:es) : bool=
   | Omega _ -> false
   | Not _ -> false
 ;;
+
+
+
 
 
 let rec  fst (es:es): event list = 
@@ -171,7 +177,7 @@ let printReport (lhs:es) (rhs:es) :string =
 
   let startTimeStamp = Sys.time() in
   let (re, tree) =  check_containment lhs rhs in
-  let verification_time = "[Verification Time: " ^ string_of_float (Sys.time() -. startTimeStamp) ^ " s]\n" in
+  let verification_time = "[Verification Time: " ^ string_of_float ((Sys.time() -. startTimeStamp) *. 1000.0) ^ " ms]\n" in
   let result = printTree ~line_prefix:"* " ~get_name ~get_children tree in
   let buffur = ( "----------------------------------------"^"\n" ^(entailment)^"\n[Result] " ^(if re then "Succeed\n" else "Fail\n")  ^verification_time^" \n\n"^ result)
   in buffur

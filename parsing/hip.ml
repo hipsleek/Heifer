@@ -373,16 +373,15 @@ let call_function fnName (li:(arg_label * expression) list) acc progs : es =
 
 
 let checkRepeat history fst : (event list) option = 
-  print_string ("checkRepeat: "^ List.fold_left (fun acc a -> acc ^ string_of_event a ) "" history);
 
   let rev_his = List.rev history in 
   let rec aux acc li = 
     match li with 
     | [] -> None 
     | x::xs -> 
-      if compareEvent x fst then Some (List.rev (List.append acc [x]))
-      else aux (List.append acc [x]) xs 
-  in aux [] rev_his ;;
+      if compareEvent x fst then Some (acc)
+      else aux (x::acc) xs 
+  in aux [fst] rev_his ;;
 
 let rec eventListToES history : es =
   match history with 
@@ -394,9 +393,7 @@ let rec eventListToES history : es =
 let fixpoint es policy: es =
   let es = normalES es in 
   let policy = List.map (fun (a, b) -> (a, normalES b)) policy in 
-  let ev = List.hd (fst es) in 
-  let der = derivative es ev in 
-
+  let fst_list = (fst es) in 
 
   let rec innerAux history fst:es =   
     match checkRepeat history fst with 
@@ -406,9 +403,11 @@ let fixpoint es policy: es =
       | [] -> raise (Foo ("Effect" ^ string_of_es (eventToEs fst) ^ " is not catched"))
       | (x, trace)::xs -> 
         if compareEvent x fst then 
-          let new_start = List.hd (esTail trace) in 
+          let new_start = (esTail trace) in 
           Cons (trace, 
-          innerAux (List.append history [fst])  new_start
+          if List.length (new_start) == 0 then Emp
+          else 
+          List.fold_left (fun acc f -> ESOr (acc, innerAux (List.append history [fst]) f)) Bot  new_start
           )
          else helper xs 
         
@@ -417,6 +416,10 @@ let fixpoint es policy: es =
       Omega (eventListToES ev_li)
 
   in 
+
+  List.fold_left (fun accFst f -> 
+  let der = derivative es f in 
+
 
   let rec aux fst der acc: es = 
     let cur = Cons (eventToEs fst, innerAux [] fst) in 
@@ -427,7 +430,9 @@ let fixpoint es policy: es =
 
       aux new_ev new_der (Cons (acc, cur))
     
-  in aux ev der Emp ;;
+  in ESOr (accFst, aux f der Emp)
+  ) Bot fst_list
+  ;;
 
 
 

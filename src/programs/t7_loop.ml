@@ -4,18 +4,19 @@ effect Goo : (unit -> unit)
 
 let f () 
   requires emp
-  ensures  Foo
-= perform Foo ()
+  ensures  Foo.Foo
+= perform Foo ();
+  perform Foo ()
 
 
 let res
   requires emp
-  ensures  Foo^w
+  ensures  Foo
   =
   match f () with
   | x -> ()
   | effect Foo k ->
-     continue k (fun () -> perform Foo ())
+     continue k (fun () -> perform Goo ())
   | effect Goo k ->
-     continue k (fun () -> ())
+     continue k (fun () -> perform Foo ())
 
