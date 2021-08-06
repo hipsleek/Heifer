@@ -37,10 +37,10 @@ let write () : unit
      continue k (fun () -> ())
   
   
-let main = 
+let main
   (*@ requires emp @*)
   (*@ ensures  Foo.A.B.B @*)
-  write ();;
+  = write ();;
 
 
 
