@@ -463,6 +463,10 @@ rule token = parse
       { CHAR(char_for_hexadecimal_code lexbuf 3) }
   | "\'" ("\\" _ as esc)
       { error lexbuf (Illegal_escape (esc, None)) }
+  | "(*@"
+      { LSPECCOMMENT }
+  | "@*)"
+      { RSPECCOMMENT }
   | "(*"
       { let s, loc = wrap_comment_lexer comment lexbuf in
         COMMENT (s, loc) }

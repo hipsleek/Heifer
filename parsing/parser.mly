@@ -712,6 +712,8 @@ let mk_directive ~loc name arg =
 %token WHILE
 %token WITH
 %token <string * Location.t> COMMENT
+%token LSPECCOMMENT
+%token RSPECCOMMENT
 %token <Docstrings.docstring> DOCSTRING
 
 %token EOL
@@ -2518,6 +2520,9 @@ fun_binding:
       { $1 }
   | type_constraint EQUAL seq_expr
       { mkexp_constraint ~loc:$sloc $3 $1 }
+  | t = type_constraint c = fn_contract EQUAL e = seq_expr
+      { let exp = mkexp_constraint ~loc:$sloc e t in
+      { exp with pexp_effectspec = c } }
 ;
 effect_spec:
   | UNDERSCORE { Underline }
@@ -2532,13 +2537,17 @@ effect_spec:
   | effect_spec KLEENE { Kleene $1 }
   | effect_spec OMEGA { Omega $1 }
 ;
+fn_contract:
+  | LSPECCOMMENT? REQUIRES pre = effect_spec RSPECCOMMENT?
+    LSPECCOMMENT? ENSURES post = effect_spec RSPECCOMMENT?
+      { Some (pre, post) }
+;
 strict_binding:
     EQUAL seq_expr
       { $2 }
-  | REQUIRES effect_spec ENSURES effect_spec EQUAL seq_expr
+  | c = fn_contract EQUAL e = seq_expr
       {
-        let e = $6 in
-        { e with pexp_effectspec = Some ($2, $4) }
+        { e with pexp_effectspec = c }
       }
   | labeled_simple_pattern fun_binding
       { let (l, o, p) = $1 in ghexp ~loc:$sloc (Pexp_fun(l, o, p, $2)) }
