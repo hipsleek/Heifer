@@ -775,7 +775,8 @@ The precedences must be listed from low to high.
 %nonassoc HASH                         /* simple_expr/toplevel_directive */
 %left     HASHOP
 %nonassoc below_DOT
-%nonassoc DOT DOTOP
+%left     DOT
+%nonassoc DOTOP
 %nonassoc KLEENE OMEGA                 /* bind tighter than dot, to avoid shift/reduce conflict */
 /* Finally, the first tokens of simple_expr are above everything else. */
 %nonassoc BACKQUOTE BANG BEGIN CHAR FALSE FLOAT INT
@@ -2524,11 +2525,6 @@ fun_binding:
       { let exp = mkexp_constraint ~loc:$sloc e t in
       { exp with pexp_effectspec = c } }
 ;
-// Hack to get around nonassociativity of DOT.
-// effect_spec DOT effect_spec doesn't allow A.B.C to parse
-effect_spec1:
-  | n = UIDENT { Event(n, []) }
-;
 effect_spec:
   | UNDERSCORE { Underline }
   | EMP { Emp }
@@ -2538,7 +2534,7 @@ effect_spec:
   | TILDE n = UIDENT { Not (n, []) }
   | TILDE n = UIDENT LPAREN a = INT+ RPAREN { let a = a |> List.map fst |> List.map int_of_string in Not (n, a) }
 
-  | effect_spec DOT effect_spec1 { Cons ($1, $3) }
+  | effect_spec DOT effect_spec { Cons ($1, $3) }
   | effect_spec KLEENE { Kleene $1 }
   | effect_spec OMEGA { Omega $1 }
   | LPAREN effect_spec RPAREN { $2 }
