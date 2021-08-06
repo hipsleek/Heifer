@@ -2524,6 +2524,11 @@ fun_binding:
       { let exp = mkexp_constraint ~loc:$sloc e t in
       { exp with pexp_effectspec = c } }
 ;
+// Hack to get around nonassociativity of DOT.
+// effect_spec DOT effect_spec doesn't allow A.B.C to parse
+effect_spec1:
+  | n = UIDENT { Event(n, []) }
+;
 effect_spec:
   | UNDERSCORE { Underline }
   | EMP { Emp }
@@ -2533,9 +2538,10 @@ effect_spec:
   | TILDE n = UIDENT { Not (n, []) }
   | TILDE n = UIDENT LPAREN a = INT+ RPAREN { let a = a |> List.map fst |> List.map int_of_string in Not (n, a) }
 
-  | effect_spec DOT effect_spec { Cons ($1, $3) }
+  | effect_spec DOT effect_spec1 { Cons ($1, $3) }
   | effect_spec KLEENE { Kleene $1 }
   | effect_spec OMEGA { Omega $1 }
+  | LPAREN effect_spec RPAREN { $2 }
 ;
 fn_contract:
   | LSPECCOMMENT? REQUIRES pre = effect_spec RSPECCOMMENT?
