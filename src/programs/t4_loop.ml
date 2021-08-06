@@ -27,17 +27,18 @@ let write () : unit
   | effect Goo k ->
      continue k (fun () -> perform Foo ());;
 
-let open_file () :unit =
+let open_file () :unit
   (*@ requires emp @*)
   (*@ ensures  Open @*)
-  match o () with
+  = match o () with
   | x -> ()
   | effect Open k ->
      continue k (fun () -> ());;
 
-let main = 
+let main
   (*@ requires emp @*)
   (*@ ensures  Open.(Foo.Goo)^w @*)
+  =
   open_file ();
   write ();;
 
