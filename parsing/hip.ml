@@ -206,10 +206,15 @@ let rec findValue_binding name vbs: (es * es) option =
   ;;
 
         
+let is_stdlib_fn name =
+  match name with
+  | "!" -> true
+  | _ -> false
 
 let rec findProg name full: (es * es) = 
   match full with 
-  | [] -> raise (Foo ("function " ^ name ^ " is not found!"))
+  | [] when is_stdlib_fn name -> (Emp, Emp)
+  | [] -> raise (Foo ("findProg: function " ^ name ^ " is not found!"))
   | x::xs -> 
     match x.pstr_desc with
     | Pstr_value (_ (*rec_flag*), l (*value_binding list*)) ->
@@ -379,7 +384,15 @@ let rec infer_of_expression progs acc expr : es =
       else fixpoint es1 (getHandlers policy)
     
     
-  | Pexp_ident _ -> Emp
+  | Pexp_ident _
+  | Pexp_constant _ -> Emp
+
+  | Pexp_let (_rec, _bindings, c) -> 
+    (* TODO do bindings *)
+    infer_of_expression progs acc c
+  | Pexp_try (body, _cases) -> 
+    (* TODO do cases *)
+    infer_of_expression progs acc body
 
   | _ -> raise (Foo ("infer_of_expression: " ^ debug_string_of_expression expr))
 
