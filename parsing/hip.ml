@@ -156,7 +156,8 @@ let string_of_value_binding vb : string =
 
 
 
-let string_of_program x : string= 
+let string_of_program x : string =
+  (* Pprintast.string_of_structure [x] *)
   match x.pstr_desc with
   | Pstr_value (_, l) ->
     List.fold_left (fun acc a -> acc ^ string_of_value_binding a) "" l
@@ -166,134 +167,10 @@ let string_of_program x : string=
     let kind = ed.peff_kind in 
     (name^ " : " ^ string_of_kind kind)
   | _ ->  ("empty")
-  ;;
 
 
-
-
-let string_of_expression_desc desc: string = 
-  match desc with 
-  | Pexp_ident _ -> "Pexp_ident"
-        (* x
-           M.x
-         *)
-  | Pexp_constant _ -> "Pexp_constant"
-        (* 1, 'a', "true", 1.0, 1l, 1L, 1n *)
-  | Pexp_let _ -> "Pexp_let"
-        (* let P1 = E1 and ... and Pn = EN in E       (flag = Nonrecursive)
-           let rec P1 = E1 and ... and Pn = EN in E   (flag = Recursive)
-         *)
-  | Pexp_function _ -> "Pexp_function"
-        (* function P1 -> E1 | ... | Pn -> En *)
-  | Pexp_fun _ -> "Pexp_fun"
-        (* fun P -> E1                          (Simple, None)
-           fun ~l:P -> E1                       (Labelled l, None)
-           fun ?l:P -> E1                       (Optional l, None)
-           fun ?l:(P = E0) -> E1                (Optional l, Some E0)
-
-           Notes:
-           - If E0 is provided, only Optional is allowed.
-           - "fun P1 P2 .. Pn -> E1" is represented as nested Pexp_fun.
-           - "let f P = E" is represented using Pexp_fun.
-         *)
-  | Pexp_apply _ -> "Pexp_apply"
-        (* E0 ~l1:E1 ... ~ln:En
-           li can be empty (non labeled argument) or start with '?'
-           (optional argument).
-
-           Invariant: n > 0
-         *)
-  | Pexp_match _ -> "Pexp_match"
-        (* match E0 with P1 -> E1 | ... | Pn -> En *)
-  | Pexp_try _ -> "Pexp_try"
-        (* try E0 with P1 -> E1 | ... | Pn -> En *)
-  | Pexp_tuple _ -> "Pexp_tuple"
-        (* (E1, ..., En)
-
-           Invariant: n >= 2
-        *)
-  | Pexp_construct _ -> "Pexp_construct"
-        (* C                None
-           C E              Some E
-           C (E1, ..., En)  Some (Pexp_tuple[E1;...;En])
-        *)
-  | Pexp_variant _ -> "Pexp_variant"
-        (* `A             (None)
-           `A E           (Some E)
-         *)
-  | Pexp_record _ -> "Pexp_record"
-        (* { l1=P1; ...; ln=Pn }     (None)
-           { E0 with l1=P1; ...; ln=Pn }   (Some E0)
-
-           Invariant: n > 0
-         *)
-  | Pexp_field _ -> "Pexp_field"
-        (* E.l *)
-  | Pexp_setfield _ -> "Pexp_setfield"
-        (* E1.l <- E2 *)
-  | Pexp_array _ -> "Pexp_array"
-        (* [| E1; ...; En |] *)
-  | Pexp_ifthenelse _ -> "Pexp_ifthenelse"
-        (* if E1 then E2 else E3 *)
-  | Pexp_sequence _ -> "Pexp_sequence"
-        (* E1; E2 *)
-  | Pexp_while _ -> "Pexp_while"
-        (* while E1 do E2 done *)
-  | Pexp_for _ -> "Pexp_for"
-        (* for i = E1 to E2 do E3 done      (flag = Upto)
-           for i = E1 downto E2 do E3 done  (flag = Downto)
-         *)
-  | Pexp_constraint _ -> "Pexp_constraint"
-        (* (E : T) *)
-  | Pexp_coerce _ -> "Pexp_coerce"
-        (* (E :> T)        (None, T)
-           (E : T0 :> T)   (Some T0, T)
-         *)
-  | Pexp_send _ -> "Pexp_send"
-        (*  E # m *)
-  | Pexp_new _ -> "Pexp_new"
-        (* new M.c *)
-  | Pexp_setinstvar _ -> "Pexp_setinstvar"
-        (* x <- 2 *)
-  | Pexp_override _ -> "Pexp_override"
-        (* {< x1 = E1; ...; Xn = En >} *)
-  | Pexp_letmodule _ -> "Pexp_letmodule"
-        (* let module M = ME in E *)
-  | Pexp_letexception _ -> "Pexp_letexception"
-        (* let exception C in E *)
-  | Pexp_assert _ -> "Pexp_assert"
-        (* assert E
-           Note: "assert false" is treated in a special way by the
-           type-checker. *)
-  | Pexp_lazy _ -> "Pexp_lazy"
-        (* lazy E *)
-  | Pexp_poly _ -> "Pexp_poly"
-        (* Used for method bodies.
-
-           Can only be used as the expression under Cfk_concrete
-           for methods (not values). *)
-  | Pexp_object _ -> "Pexp_object"
-        (* object ... end *)
-  | Pexp_newtype _ -> "Pexp_newtype"
-        (* fun (type t) -> E *)
-  | Pexp_pack _ -> "Pexp_pack"
-        (* (module ME)
-
-           (module ME : S) is represented as
-           Pexp_constraint(Pexp_pack, Ptyp_package S) *)
-  | Pexp_open _ -> "Pexp_open"
-        (* M.(E)
-           let open M in E
-           let! open M in E *)
-  | Pexp_letop _ -> "Pexp_letop"
-        (* let* P = E in E
-           let* P = E and* P = E in E *)
-  | Pexp_extension _ -> "Pexp_extension"
-        (* [%id] *)
-  | Pexp_unreachable  -> "Pexp_unreachable"
-        (* . *)
-
-
+let debug_string_of_expression e =
+  Format.asprintf "%a" (Printast.expression 0) e
 
 let getIndentName (l:Longident.t loc): string = 
   (match l.txt with 
@@ -369,7 +246,7 @@ let call_function fnName (li:(arg_label * expression) list) acc progs : es =
     let ((* param_formal, *) precon, postcon) = findProg name progs in 
     let (res, _) = check_containment acc precon in 
     if res then Cons (acc, postcon)
-    else raise (Foo ("Call_function precondition fail:" ^ string_of_expression_desc (fnName.pexp_desc)));;
+    else raise (Foo ("call_function precondition fail:" ^ debug_string_of_expression fnName));;
 
 
 let checkRepeat history fst : (event list) option = 
@@ -400,7 +277,7 @@ let fixpoint es policy: es =
     | None -> 
     let rec helper p = 
       match p with
-      | [] -> raise (Foo ("Effect" ^ string_of_es (eventToEs fst) ^ " is not catched"))
+      | [] -> raise (Foo ("fixpoint: Effect" ^ string_of_es (eventToEs fst) ^ " is not catched"))
       | (x, trace)::xs -> 
         if compareEvent x fst then 
           let new_start = (esTail trace) in 
@@ -451,7 +328,7 @@ let fixpoint es policy: es =
 
 let rec getNormal p: es = 
   match p with  
-  | [] -> raise (Foo "there is no handlers for normal return")
+  | [] -> raise (Foo "getNormal: there is no handlers for normal return")
   | (None, es)::_ -> es
   | _ :: xs -> getNormal xs
   ;;
@@ -467,48 +344,44 @@ let rec getHandlers p: (event * es) list =
 
 
 let rec infer_of_expression progs acc expr : es =
-  let infer_of_expression_desc desc : es =
-    match desc with 
-    | Pexp_fun (_, _, _ (*pattern*), expr) -> infer_of_expression progs acc expr 
-    | Pexp_apply (fnName, li) (*expression * (arg_label * expression) list*)
-      -> 
+  match expr.pexp_desc with 
+  | Pexp_fun (_, _, _ (*pattern*), expr) -> infer_of_expression progs acc expr 
+  | Pexp_apply (fnName, li) (*expression * (arg_label * expression) list*)
+    -> 
 
-      let temp = List.map (fun (_, a) -> a) li in 
-      let arg_eff = List.fold_left (fun acc a -> Cons(acc, infer_of_expression progs acc a)) Emp temp in 
-      call_function fnName li (Cons(acc, arg_eff)) progs
-    | Pexp_construct _ ->  Emp
-    | Pexp_constraint (ex, _) -> infer_of_expression progs acc ex
-    | Pexp_sequence (ex1, ex2) -> 
+    let temp = List.map (fun (_, a) -> a) li in 
+    let arg_eff = List.fold_left (fun acc a -> Cons(acc, infer_of_expression progs acc a)) Emp temp in 
+    call_function fnName li (Cons(acc, arg_eff)) progs
+  | Pexp_construct _ ->  Emp
+  | Pexp_constraint (ex, _) -> infer_of_expression progs acc ex
+  | Pexp_sequence (ex1, ex2) -> 
 
-      let acc1 = infer_of_expression progs acc ex1 in 
+    let acc1 = infer_of_expression progs acc ex1 in 
 
-      infer_of_expression progs acc1 ex2
+    infer_of_expression progs acc1 ex2
 
-    | Pexp_match (ex, case_li) -> 
-      let es1 = infer_of_expression progs Emp ex in 
-      let policy = List.map (fun a -> 
-        let lhs = a.pc_lhs in 
-        let rhs = a.pc_rhs in 
-        
-        let temp = match lhs.ppat_desc with 
-          | Ppat_effect (p1, _) ->  Some (string_of_pattern p1)
-          | _ -> None 
-        in 
-        (
-          temp,
-          infer_of_expression progs Emp rhs
-        )) case_li in 
-
-        if isEmp (normalES es1) then getNormal policy 
-        else fixpoint es1 (getHandlers policy)
+  | Pexp_match (ex, case_li) -> 
+    let es1 = infer_of_expression progs Emp ex in 
+    let policy = List.map (fun a -> 
+      let lhs = a.pc_lhs in 
+      let rhs = a.pc_rhs in 
       
-      
-    | Pexp_ident _ -> Emp
+      let temp = match lhs.ppat_desc with 
+        | Ppat_effect (p1, _) ->  Some (string_of_pattern p1)
+        | _ -> None 
+      in 
+      (
+        temp,
+        infer_of_expression progs Emp rhs
+      )) case_li in 
 
-    | _ -> raise (Foo ("infer_of_expression_desc: " ^ string_of_expression_desc desc))
-  in 
-  let desc = expr.pexp_desc in 
-  infer_of_expression_desc desc ;;
+      if isEmp (normalES es1) then getNormal policy 
+      else fixpoint es1 (getHandlers policy)
+    
+    
+  | Pexp_ident _ -> Emp
+
+  | _ -> raise (Foo ("infer_of_expression: " ^ debug_string_of_expression expr))
 
   
 
@@ -581,9 +454,9 @@ print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
       (* Format.printf "%a@." Printast.implementation progs; *)
 
       (*print_string (Pprintast.string_of_structure progs ) ; *)
-      print_string (List.fold_left (fun acc a -> acc ^ string_of_program a) "" progs);
+      print_endline (List.fold_left (fun acc a -> acc ^ "\n" ^ string_of_program a) "" progs);
 
-      print_string (List.fold_left (fun acc a -> acc ^ (infer_of_program progs a) ^ "\n" ) "\n" progs);
+      print_endline (List.fold_left (fun acc a -> acc ^ (infer_of_program progs a) ^ "\n" ) "\n" progs);
 
       (*print_endline (Pprintast.string_of_structure progs ) ; 
       print_endline ("---");
@@ -591,7 +464,11 @@ print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
       flush stdout;                (* 现在写入默认设备 *)
       close_in ic                  (* 关闭输入通道 *)
 
-    with e ->                      (* 一些不可预见的异常发生 *)
+    with
+    | Pretty.Foo s ->
+      print_endline "\nINTERNAL ERROR:\n";
+      print_endline s
+    | e ->                      (* 一些不可预见的异常发生 *)
       close_in_noerr ic;           (* 紧急关闭 *)
       raise e                      (* 以出错的形式退出: 文件已关闭,但通道没有写入东西 *)
 
