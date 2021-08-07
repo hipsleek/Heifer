@@ -28,7 +28,10 @@ module Txn : TXN = struct
 
   let ref = ref
   let (!) = (!)
-  let (:=) = fun r v -> perform (Update (r,v))
+  let (:=) r v
+    requires emp
+    ensures emp
+  = perform (Update (r,v))
 end
 
 exception Res of int
