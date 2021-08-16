@@ -10,6 +10,8 @@ let f ()
 let res_f
   (*@ requires emp @*)
   (*@ ensures Foo^w  @*)
+  ensures Foo.Q(Foo()) where Q(Foo_) = Foo
+
   =
   match f () with
   | x -> x

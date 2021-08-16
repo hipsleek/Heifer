@@ -36,6 +36,20 @@ type es = Bot
         | Omega of es(* infinite*)
         | Underline
 
+type term = 
+      Num of int
+    | Var of string
+
+type bin_op = GT | LT | EQ | GTEQ | LTEQ
+
+type side = 
+  | Post of instant * es   (* Eff(f()) = U^*.(Res \/ emp) *)
+  | Pure of term * op * term 
+  | Conj of side * side
+
+type specification = es * side 
+
+
 type evn = (es * es)list
 
 type constant =

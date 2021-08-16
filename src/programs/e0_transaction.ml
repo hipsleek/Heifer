@@ -16,8 +16,10 @@ module Txn : TXN = struct
   effect Update : 'a t * 'a -> unit
 
   let atomically f =
-  (* requires emp
-     ensures Post(f()) *) 
+  (* requires emp /\ Eff(f()) = U^*.(Res \/ emp)
+     ensures  U^*.(Res \/ emp) *) 
+
+
     let comp =
       match f () with
       | x -> (fun _ -> x)
