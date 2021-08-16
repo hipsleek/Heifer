@@ -112,12 +112,15 @@ let compareEvent (ev1:event) (ev2:event): bool =
 
   ;;
 
+let string_of_instant (str, ar_Li): string = 
+  str ^ "(" ^ separate (ar_Li) (string_of_int) (",") ^")";;
+
   
 let rec string_of_es es : string = 
   match es with 
   | Bot -> "_|_"
   | Emp -> "emp"
-  | Predicate (str, ar_Li) -> str ^ "(" ^ separate (ar_Li) (string_of_int) (",") ^")"
+  | Predicate ins  -> string_of_instant ins 
   | Event str -> str
   | Not str -> "!" ^ str
   | Cons (es1, es2) -> string_of_es es1 ^"."^ string_of_es es2 
@@ -126,6 +129,43 @@ let rec string_of_es es : string =
   | Omega es1 -> "("^string_of_es es1^")^w"
   | Underline -> "_"
   ;;
+
+let rec string_of_term t : string = 
+  match t with 
+  | Num i -> string_of_int i 
+  | Var str -> str
+  | Plus (t1, t2) -> string_of_term t1 ^ " + " ^ string_of_term t2
+  | Minus (t1, t2) -> string_of_term t1 ^ " - " ^ string_of_term t2
+
+let string_of_bin_op op : string =
+  match op with 
+  | GT -> ">" 
+  | LT -> "<" 
+  | EQ -> "=" 
+  | GTEQ -> ">="
+  | LTEQ -> "<="
+
+let string_of_side side : string =
+  List.fold_left (fun acc (ins, es) -> acc ^ 
+    (string_of_instant ins ^  string_of_es es   (* Eff(f()) = U^*.(Res \/ emp) *)
+    ) ) "" side
+
+let rec string_of_pi pi : string = 
+  match pi with 
+  | True -> "true"
+  | False -> "false"
+  | Atomic (op, t1, t2) -> string_of_term t1 ^ string_of_bin_op op ^ string_of_term t2
+  | And   (p1, p2) -> string_of_pi p1 ^ "/\\" ^ string_of_pi p2
+  | Or     (p1, p2) -> string_of_pi p1 ^ "\\/" ^ string_of_pi p2
+  | Imply  (p1, p2) -> string_of_pi p1 ^ "->" ^ string_of_pi p2
+  | Not    p -> "!" ^ string_of_pi p
+
+
+
+let string_of_spec (pi, es, side): string = 
+  string_of_pi pi ^ "/\\" ^ string_of_es es ^ "/\\" ^ string_of_side side ;;
+
+
 
 let string_of_inclusion (lhs:es) (rhs:es) :string = 
   string_of_es lhs ^" |- " ^string_of_es rhs 
@@ -185,6 +225,13 @@ let rec normalES (es:es):es =
 
 
   ;;
+
+
+let normalSide s = s
+let normalPure p = p
+
+let normalSpec (pi, es, side) : spec = (normalPure pi, normalES es, normalSide side)
+
 
 let eventToEs ev : es =
   match ev with 

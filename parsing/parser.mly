@@ -2542,7 +2542,7 @@ effect_spec:
 fn_contract:
   | LSPECCOMMENT? REQUIRES pre = effect_spec RSPECCOMMENT?
     LSPECCOMMENT? ENSURES post = effect_spec RSPECCOMMENT?
-      { Some (pre, post) }
+      { Some ((True, pre, []), (True, post, [])) }
 ;
 strict_binding:
     EQUAL seq_expr

@@ -6,7 +6,6 @@ open Pretty
 
 
 
-
 let rec  nullable (es:es) : bool=
   match es with
     Emp -> true
@@ -175,7 +174,7 @@ let check_containment lhs rhs : (bool * binary_tree ) =
   containment [] lhs rhs
   ;;
 
-let printReport (lhs:es) (rhs:es) :string =
+let printReport ((_, lhs, _):spec) ((_, rhs, _):spec) :string =
 
 
   let entailment = (string_of_es (normalES lhs)) ^ " |- " ^ (string_of_es (normalES rhs)) (*and i = INC(lhs, rhs)*) in
@@ -188,6 +187,8 @@ let printReport (lhs:es) (rhs:es) :string =
   in buffur
   
   ;;
+
+
 
 
 

@@ -3,7 +3,7 @@
 exception Foo of string
 open Parsetree
 open Asttypes
-open Rewriting
+
 open Pretty
 
 
@@ -137,10 +137,10 @@ let function_spec rhs =
     in
     traverse_to_body rhs
 
-let string_of_effectspec spec =
+let string_of_effectspec spec:string =
     match spec with
     | None -> "<no spec given>"
-    | Some (pr, po) -> Format.sprintf "requires %s ensures %s" (string_of_es pr) (string_of_es po)
+    | Some (pr, po) -> Format.sprintf "requires %s ensures %s" (string_of_spec pr) (string_of_spec po)
 
 let string_of_value_binding vb : string = 
   let pattern = vb.pvb_pat in 
@@ -172,6 +172,7 @@ let string_of_program x : string =
 let debug_string_of_expression e =
   Format.asprintf "%a" (Printast.expression 0) e
 
+(*
 let getIndentName (l:Longident.t loc): string = 
   (match l.txt with 
         | Lident str -> str
@@ -179,7 +180,7 @@ let getIndentName (l:Longident.t loc): string =
         )
         ;;
 
-let rec findValue_binding name vbs: (es * es) option = 
+let rec findValue_binding name vbs: (specification * specification) option = 
   match vbs with 
   | [] -> None 
   | vb :: xs -> 
@@ -188,8 +189,8 @@ let rec findValue_binding name vbs: (es * es) option =
     if String.compare (string_of_pattern pattern) name == 0 then 
     
     (match function_spec expression with 
-      | None -> Some (Emp, Emp)
-      | Some (pre, post) -> Some (normalES pre, normalES post)
+      | None -> Some ((Emp, []), (Emp, []))
+      | Some (pre, post) -> Some (normalSpec pre, normalSpec post)
     )
    else findValue_binding name xs ;;
 
@@ -211,9 +212,9 @@ let is_stdlib_fn name =
   | "!" -> true
   | _ -> false
 
-let rec findProg name full: (es * es) = 
+let rec findProg name full: (specification * specification) = 
   match full with 
-  | [] when is_stdlib_fn name -> (Emp, Emp)
+  | [] when is_stdlib_fn name -> ((Emp, []), (Emp, []))
   | [] -> raise (Foo ("findProg: function " ^ name ^ " is not found!"))
   | x::xs -> 
     match x.pstr_desc with
@@ -227,7 +228,7 @@ let rec findProg name full: (es * es) =
 
 ;;
 
-let call_function fnName (li:(arg_label * expression) list) acc progs : es = 
+let call_function fnName (li:(arg_label * expression) list) acc progs : specification = 
 
   let name = 
     match fnName.pexp_desc with 
@@ -437,6 +438,7 @@ let infer_of_program progs x:  string =
   | Pstr_effect _ -> string_of_es Emp
   | _ ->  string_of_es Bot
   ;;
+  *)
 
 let debug_tokens str =
   let lb = Lexing.from_string str in
@@ -469,8 +471,10 @@ print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
       (*print_string (Pprintast.string_of_structure progs ) ; *)
       print_endline (List.fold_left (fun acc a -> acc ^ "\n" ^ string_of_program a) "" progs);
 
+      (* 
       print_endline (List.fold_left (fun acc a -> acc ^ (infer_of_program progs a) ^ "\n" ) "\n" progs);
 
+      *)
       (*print_endline (Pprintast.string_of_structure progs ) ; 
       print_endline ("---");
       print_endline (List.fold_left (fun acc a -> acc ^ forward a) "" progs);*)

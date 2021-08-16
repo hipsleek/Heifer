@@ -41,15 +41,26 @@ type es = Bot
 type term = 
       Num of int
     | Var of string
+    | Plus of term * term 
+    | Minus of term * term 
 
 type bin_op = GT | LT | EQ | GTEQ | LTEQ
 
-type side = 
-  | Post of instant * es   (* Eff(f()) = U^*.(Res \/ emp) *)
-  | Pure of term * bin_op * term 
-  | Conj of side * side
+type pi = 
+  | True
+  | False
+  | Atomic of bin_op * term * term
+  | And    of pi * pi
+  | Or     of pi * pi
+  | Imply  of pi * pi
+  | Not    of pi
 
-type specification = es * side 
+type side = (instant * es) list   (* Eff(f()) = U^*.(Res \/ emp) *)
+
+(* e.g: spec =  (n>0, emp, [Eff(f() = U^*] )) 
+                (n>0, Q(Foo()).END, [] )) 
+*)
+type spec = pi * es * side
 
 
 type evn = (es * es)list
@@ -296,7 +307,7 @@ and expression =
      pexp_loc: Location.t;
      pexp_loc_stack: location_stack;
      pexp_attributes: attributes; (* ... [@id1] [@id2] *)
-     pexp_effectspec: (es * es) option;
+     pexp_effectspec: (spec * spec) option;
     }
 
 and expression_desc =
