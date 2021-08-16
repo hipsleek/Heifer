@@ -23,12 +23,13 @@
 open Asttypes
 
 type instant = string * int list  
-type event = One of instant | Zero of instant | Any
+
 
 type es = Bot 
-        | Emp 
-        | Event of instant
-        | Not of instant
+        | Emp   
+        | Predicate of instant (* Q () *)
+        | Event of string
+        | Not of string
         | Cons of es * es
         | ESOr of es * es
         | Kleene of es (* 0 or more, possibly infinite*)

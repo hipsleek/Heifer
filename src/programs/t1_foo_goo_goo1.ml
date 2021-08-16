@@ -6,8 +6,9 @@ let f ()
 (*@ requires emp @*)
 (*@ ensures  Foo.Goo.Q(Goo()).Q(Foo()) @*)
   = let m = perform Foo in 
-    let n = perform Goo in 
+    let n = perform Foo in 
     n (); m ()
+
 
 
 let res : unit

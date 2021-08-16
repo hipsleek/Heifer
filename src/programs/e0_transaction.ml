@@ -16,6 +16,8 @@ module Txn : TXN = struct
   effect Update : 'a t * 'a -> unit
 
   let atomically f =
+  (* requires emp
+     ensures Post(f()) *) 
     let comp =
       match f () with
       | x -> (fun _ -> x)
@@ -29,8 +31,8 @@ module Txn : TXN = struct
   let ref = ref
   let (!) = (!)
   let (:=) r v
-    requires emp
-    ensures emp
+(* requires emp
+   ensures  Update.Q(Update(r,v)) *) 
   = perform (Update (r,v))
 end
 
@@ -49,5 +51,5 @@ let () = atomically (fun () ->
     printf "T1: After abort %d\n" (!r);
     r := 30)
   with
-  | Res v -> printf "T0: T1 aborted with %d\n" v;
-  printf "T0: %d\n" !r)
+  | Res v -> printf "T0: T1 aborted with %d\n" v;printf "T0: %d\n" !r
+  )

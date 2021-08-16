@@ -5,6 +5,7 @@ let f ()
 (*@ requires emp @*)
 (*@ ensures  Foo.Q(Foo()) @*)
 = perform Foo ()
+  raise Res 
 
 let res_f
   (*@ requires emp @*)

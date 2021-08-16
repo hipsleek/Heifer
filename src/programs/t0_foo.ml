@@ -13,4 +13,4 @@ let res_f
   match f () with
   | x -> x
   | effect Foo k ->
-     continue k (fun () -> perform Foo ())
+     continue k (fun () -> ())
