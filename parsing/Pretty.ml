@@ -104,10 +104,10 @@ let compareEvent (ev1:event) (ev2:event): bool =
   match (ev1, ev2) with 
   | (Any, _) -> true 
   | (_, Any) -> true 
-  | (One (str1, parms1), One (str2, parms2)) -> 
-    String.compare str1 str2 == 0 && compareParm parms1 parms2
-  | (Zero (str1, parms1), Zero (str2, parms2)) -> 
-  String.compare str1 str2 == 0 && compareParm parms1 parms2
+  | (One (str1), One (str2)) -> 
+    String.compare str1 str2 == 0 (* && compareParm parms1 parms2 *)
+  | (Zero (str1), Zero (str2)) -> 
+  String.compare str1 str2 == 0 (* && compareParm parms1 parms2 *)
   | _ -> false 
 
   ;;
@@ -117,8 +117,9 @@ let rec string_of_es es : string =
   match es with 
   | Bot -> "_|_"
   | Emp -> "emp"
-  | Event (str, ar_Li) -> str ^ "(" ^ separate (ar_Li) (string_of_int) (",") ^")"
-  | Not (str, ar_Li) -> "!" ^ string_of_es (Event (str, ar_Li))
+  | Predicate (str, ar_Li) -> str ^ "(" ^ separate (ar_Li) (string_of_int) (",") ^")"
+  | Event str -> str
+  | Not str -> "!" ^ str
   | Cons (es1, es2) -> string_of_es es1 ^"."^ string_of_es es2 
   | ESOr (es1, es2) -> string_of_es es1 ^"+"^ string_of_es es2 
   | Kleene es1 -> "("^string_of_es es1^")^*"
@@ -132,10 +133,13 @@ let string_of_inclusion (lhs:es) (rhs:es) :string =
 
 let rec normalES (es:es):es = 
   match es with
-    Bot -> es
+  | Bot -> es
   | Emp -> es
   | Event _ -> es
-  | Underline -> Underline
+  | Not _ -> es 
+  | Underline -> es
+  | Predicate _ -> es 
+
   | Cons (Cons (esIn1, esIn2), es2)-> 
     normalES (Cons (esIn1, normalES (Cons (esIn2, es2)))) 
     
@@ -179,11 +183,7 @@ let rec normalES (es:es):es =
       | _ ->  Kleene normalInside)
 
 
-  | Not (a, esARG) -> 
-      let esIn = normalES  (Event (a, esARG)) in
-      match esIn with
-      | Event (a, b) -> Not (a, b)
-      | _ -> raise (Foo "normalES NOT\n")
+
   ;;
 
 let eventToEs ev : es =
@@ -197,8 +197,8 @@ let eventToEs ev : es =
 
 let rec string_of_event ev : string =
   match ev with 
-  | One (str, ar_Li) ->  str ^ "(" ^ separate (ar_Li) (string_of_int) (",") ^")" 
-  | Zero (str, ar_Li) -> "!" ^ string_of_event (One (str, ar_Li))
+  | One (str) ->  str (*^ "(" ^ separate (ar_Li) (string_of_int) (",") ^")" *)
+  | Zero (str) -> "!" ^ string_of_event (One (str))
   | Any -> "_"
 
   ;;

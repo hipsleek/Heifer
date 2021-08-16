@@ -241,7 +241,7 @@ let call_function fnName (li:(arg_label * expression) list) acc progs : es =
   if String.compare name "perform" == 0 then 
     let (_, temp) = (List.hd li) in 
     let eff_l = match temp.pexp_desc with 
-      | Pexp_construct (a, _) -> Event (getIndentName a, [])
+      | Pexp_construct (a, _) -> Event (getIndentName a)
       | _ -> Emp
     in 
     Cons (acc, eff_l)
@@ -343,7 +343,7 @@ let rec getHandlers p: (event * es) list =
   match p with  
   | [] -> []
   | (None, _)::xs -> getHandlers xs 
-  | (Some str, es) :: xs -> ( (One ((str, []))), es) :: getHandlers xs
+  | (Some str, es) :: xs -> ( (One str), es) :: getHandlers xs
   ;;
 
 

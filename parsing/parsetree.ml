@@ -24,6 +24,8 @@ open Asttypes
 
 type instant = string * int list  
 
+type event = One of string | Zero of string | Any
+
 
 type es = Bot 
         | Emp   
@@ -44,7 +46,7 @@ type bin_op = GT | LT | EQ | GTEQ | LTEQ
 
 type side = 
   | Post of instant * es   (* Eff(f()) = U^*.(Res \/ emp) *)
-  | Pure of term * op * term 
+  | Pure of term * bin_op * term 
   | Conj of side * side
 
 type specification = es * side 

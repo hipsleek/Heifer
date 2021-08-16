@@ -18,6 +18,8 @@ let rec  nullable (es:es) : bool=
   | Underline -> false 
   | Omega _ -> false
   | Not _ -> false
+  | Predicate _ -> raise (Foo ("nullable Predicate")) 
+
 ;;
 
 
@@ -28,28 +30,29 @@ let rec  fst (es:es): event list =
   match es with
   | Bot -> []
   | Emp -> []
-  | Event (ev,p) ->  [One (ev,p)]
-  | Not (ev,p) ->  [Zero (ev,p)]
+  | Event (ev) ->  [One (ev)]
+  | Not (ev) ->  [Zero (ev)]
   | Cons (es1 , es2) ->  if  nullable es1 then append ( fst es1) ( fst es2) else  fst es1
   | ESOr (es1, es2) -> append ( fst es1) ( fst es2)
   | Kleene es1 ->  fst es1
   | Omega es1 ->  fst es1
   | Underline -> [Any]
+  | Predicate _ -> raise (Foo ("fst Predicate")) 
+
 ;;
 
 let rec esTail (es:es): event list = 
   match es with
   | Bot -> []
   | Emp -> []
-  | Event (ev,p) ->  [One (ev,p)]
-  | Not (ev,p) ->  [Zero (ev,p)]
+  | Event (ev) ->  [One (ev)]
+  | Not (ev) ->  [Zero (ev)]
   | ESOr (es1, es2) -> append ( esTail es1) ( esTail es2)
   | Kleene es1 ->  esTail es1
   | Omega es1 ->  esTail es1
   | Underline -> [Any]
-
-
   | Cons (es1 , es2) ->  if  nullable es2 then append ( esTail es1) ( esTail es2) else  esTail es2
+  | Predicate _ -> raise (Foo ("esTail Predicate")) 
 
 ;;
 
@@ -125,6 +128,8 @@ let rec derivative (es:es) (ev:event): es =
   | Kleene es1 -> Cons  (derivative es1 ev, es)
   | Omega es1 -> Cons  (derivative es1 ev, es)
   | Underline -> Emp
+  | Predicate _ -> raise (Foo ("derivative Predicate")) 
+
 
 ;;
 

@@ -2529,10 +2529,10 @@ effect_spec:
   | UNDERSCORE { Underline }
   | EMP { Emp }
 
-  | n = UIDENT { Event (n, []) }
-  | n = UIDENT LPAREN a = INT+ RPAREN { let a = a |> List.map fst |> List.map int_of_string in Event (n, a) }
-  | TILDE n = UIDENT { Not (n, []) }
-  | TILDE n = UIDENT LPAREN a = INT+ RPAREN { let a = a |> List.map fst |> List.map int_of_string in Not (n, a) }
+  | n = UIDENT { Event (n) }
+  | n = UIDENT LPAREN a = INT+ RPAREN { let _ = a |> List.map fst |> List.map int_of_string in Event (n) }
+  | TILDE n = UIDENT { Not (n) }
+  | TILDE n = UIDENT LPAREN a = INT+ RPAREN { let _ = a |> List.map fst |> List.map int_of_string in Not (n) }
 
   | effect_spec DOT effect_spec { Cons ($1, $3) }
   | effect_spec KLEENE { Kleene $1 }
