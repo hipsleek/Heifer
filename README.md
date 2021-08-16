@@ -1,7 +1,6 @@
 # AlgebraicEffect
 effects system for continuation
 
-
 # To run the parser 
 cd parsing 
 

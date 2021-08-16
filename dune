@@ -25,29 +25,25 @@
 (copy_files# src/programs/*.ml{,i})
 
 (executables
- (names t0_loop)
- (modules t0_loop))
-
-(executables
- (names t1_loop)
- (modules t1_loop))
-
-(executables
- (names t2_loop)
- (modules t2_loop))
-
-(executables
- (names t3_loop)
- (modules t3_loop))
-
-(executables
- (names t4_loop)
- (modules t4_loop))
-
-(executables
- (names t5_loop)
- (modules t5_loop))
-
-(executables
- (names t7_loop)
- (modules t7_loop))
+ (names e0_transaction 
+t0_foo_loop 
+t0_foo 
+t1_foo_goo_goo 
+t1_foo_goo_goo1 
+t1_foo_goo 
+t2_foo_goo 
+t3_foo_goo_loop 
+t4_O_foo_goo_loop 
+t5_foo_ABB )
+ (modules e0_transaction
+e0_transaction 
+t0_foo_loop 
+t0_foo 
+t1_foo_goo_goo 
+t1_foo_goo_goo1 
+t1_foo_goo 
+t2_foo_goo 
+t3_foo_goo_loop 
+t4_O_foo_goo_loop 
+t5_foo_ABB 
+))
