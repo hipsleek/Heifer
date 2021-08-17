@@ -1,0 +1,23 @@
+(executables
+ (names e0_transaction 
+t0_foo_loop 
+t0_foo 
+t1_foo_goo_goo 
+t1_foo_goo_goo1 
+t1_foo_goo 
+t2_foo_goo 
+t3_foo_goo_loop 
+t4_O_foo_goo_loop 
+t5_foo_ABB )
+ (modules e0_transaction
+e0_transaction 
+t0_foo_loop 
+t0_foo 
+t1_foo_goo_goo 
+t1_foo_goo_goo1 
+t1_foo_goo 
+t2_foo_goo 
+t3_foo_goo_loop 
+t4_O_foo_goo_loop 
+t5_foo_ABB 
+))
