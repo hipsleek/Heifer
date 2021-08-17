@@ -10,3 +10,13 @@ all:
 	menhir --lalr --unused-token COMMENT --unused-token DOCSTRING --unused-token EOL --unused-token GREATERRBRACKET --fixed-exception --table --strategy simplified --base boot/menhir/parser parsing/parser.mly
 
 	dune exec parsing/hip.exe src/programs/t0_foo.ml
+
+.PHONY: test
+test:
+	dune exec src/programs/t0_foo.exe
+
+.PHONY: testall
+testall: src/programs/*.ml
+	for file in $^; do \
+		dune exec $${file/.ml/.exe}; \
+	done
