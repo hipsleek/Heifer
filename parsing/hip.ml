@@ -3,7 +3,7 @@
 exception Foo of string
 open Parsetree
 open Asttypes
-
+open Rewriting
 open Pretty
 
 
@@ -452,6 +452,19 @@ let debug_tokens str =
   let s = tokens |> List.map Debug.string_of_token |> String.concat " " in
   Format.printf "%s@." s
 
+let n_GT_0 : pi =
+  Atomic (LT, Var "n", Num 0)
+
+let n_GT_1 : pi =
+  Atomic (LT, Var "n", Num 5)
+
+
+let testSleek (): string =
+  let spec1 = (n_GT_0, Emp, []) in 
+  let spec2 = (n_GT_1, Emp, []) in 
+  printReport spec1 spec2;;
+
+
 let () =
   let inputfile = (Sys.getcwd () ^ "/" ^ Sys.argv.(1)) in
 (*    let outputfile = (Sys.getcwd ()^ "/" ^ Sys.argv.(2)) in
@@ -465,12 +478,14 @@ print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
 
       let progs = Parser.implementation Lexer.token (Lexing.from_string line) in
 
+      
       (* Dump AST -dparsetree-style *)
       (* Format.printf "%a@." Printast.implementation progs; *)
 
       (*print_string (Pprintast.string_of_structure progs ) ; *)
       print_endline (List.fold_left (fun acc a -> acc ^ "\n" ^ string_of_program a) "" progs);
 
+      print_endline (testSleek ());
       (* 
       print_endline (List.fold_left (fun acc a -> acc ^ (infer_of_program progs a) ^ "\n" ) "\n" progs);
 

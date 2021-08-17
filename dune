@@ -47,3 +47,33 @@ t3_foo_goo_loop
 t4_O_foo_goo_loop 
 t5_foo_ABB 
 ))
+
+(executable
+ (name hip)
+ (modules hip
+ Parsetree
+ Asttypes
+ Location
+ Warnings
+ Longident
+ Misc
+ Terminfo
+ Build_path_prefix_map
+ Rewriting
+ Clflags
+ Pretty
+ Profile
+ Numbers
+ Identifiable
+ Arg_helper
+ Pprintast
+ Ast_helper
+ Printast
+ Docstrings
+ Syntaxerr
+ Lexer
+ Parser
+ CamlinternalMenhirLib
+ Debug
+ )
+ (libraries z3))
