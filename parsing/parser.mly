@@ -2552,9 +2552,29 @@ effect_trace:
   | effect_trace OMEGA { Omega $1 }
   | LPAREN effect_trace RPAREN { $2 }
 ;
+
+pure_formula_term:
+  | n = INT { let (i, _) = n in Num (int_of_string i) }
+  | v = LIDENT { Var v }
+  | pure_formula_term PLUS pure_formula_term { Plus ($1, $3) }
+  | pure_formula_term MINUS pure_formula_term { Minus ($1, $3) }
+  | LPAREN pure_formula_term RPAREN { $2 }
+;
 pure_formula:
   | TRUE { True }
   | FALSE { False }
+  | a = pure_formula_term LESS b = pure_formula_term { Atomic (LT, a, b) }
+  | a = pure_formula_term GREATER b = pure_formula_term { Atomic (GT, a, b) }
+  | a = pure_formula_term op = INFIXOP0 b = pure_formula_term
+  {
+    let op =
+      match op with
+      | "<=" -> LTEQ
+      | ">=" -> GTEQ
+      | _ -> failwith ("unexpected infix operator " ^ op)
+    in
+    Atomic (op, a, b)
+  }
   | pure_formula CONJUNCTION pure_formula { And ($1, $3) }
   | pure_formula DISJUNCTION pure_formula { Or ($1, $3) }
   | pure_formula IMPLICATION pure_formula { Imply ($1, $3) }

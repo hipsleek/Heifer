@@ -6,8 +6,13 @@ let f g
 (*@ ensures  Foo @*)
 = perform Foo
 
-let f n
+let h n
 (*@ requires Foo.Q(Foo 1) @*)
+(*@ ensures  Foo @*)
+= perform Foo 1
+
+let h n
+(*@ requires emp, 1 + (2-1) < 1 @*)
 (*@ ensures  Foo @*)
 = perform Foo 1
 
