@@ -452,17 +452,6 @@ let debug_tokens str =
   let s = tokens |> List.map Debug.string_of_token |> String.concat " " in
   Format.printf "%s@." s
 
-let n_GT_0 : pi =
-  Atomic (LT, Var "n", Num 0)
-
-let n_GT_1 : pi =
-  Atomic (LT, Var "n", Num 5)
-
-
-let testSleek (): string =
-  let spec1 = (n_GT_0, Emp, [(("Foo", []), Emp)]) in 
-  let spec2 = (n_GT_1, Emp, [(("Foo", []), Event "A")]) in 
-  printReport spec1 spec2;;
 
 
 let () =

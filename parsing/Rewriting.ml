@@ -207,23 +207,21 @@ let rec containment (evn: evn) (lhs:es) (rhs:es) : (bool * binary_tree ) =
 
 
 
-let check_pure p1 p2 : string = 
+let check_pure p1 p2 : (bool * string) = 
   let sat = check  p1 p2 in
   let _ = string_of_pi p1 ^" => " ^ string_of_pi p2 in 
   let buffur = ("[PURE]"(*^(pure)*)^ " " ^(if sat then "Succeed\n" else "Fail\n")  )
-  in buffur
+  in (sat, buffur)
 
 
 (*(bool * binary_tree ) *)
-let check_containment lhs rhs : string = 
+let check_containment lhs rhs : (bool * string) = 
   let _ = (string_of_es (normalES lhs)) ^ " |- " ^ (string_of_es (normalES rhs)) (*and i = INC(lhs, rhs)*) in
 
-  let startTimeStamp = Sys.time() in
   let (re, tree) =  containment [] lhs rhs in
-  let verification_time = "[Rewriting Time: " ^ string_of_float ((Sys.time() -. startTimeStamp) *. 1000.0) ^ " ms]\n" in
   let result = printTree ~line_prefix:"* " ~get_name ~get_children tree in
-  let buffur = ("[entailment] " (*^ (entailment)*)^(if re then "Succeed\n" else "Fail\n")  ^verification_time^"\n"^ result)
-  in buffur
+  let buffur = ("[entailment] " (*^ (entailment)*)^(if re then "Succeed\n" else "Fail\n")  ^ result)
+  in (re , buffur)
 
 let compareInstant (s1, i1) (s2, i2) : bool = 
   let rec helper l1 l2 : bool = 
@@ -239,7 +237,7 @@ let rec existSide (ins) side : (instant * es)  option =
   | [] -> None
   | (ins1, es2):: xs -> if compareInstant ins ins1 then Some (ins1, es2) else existSide ins xs 
 
-let check_side s1 s2  : string = 
+let check_side s1 s2  : (bool * string) = 
   let result = 
     List.fold_left (fun acc (ins, es) -> acc && 
     (
@@ -249,21 +247,43 @@ let check_side s1 s2  : string =
     )
   ) true s1  in 
   let buffur = ("[SIDE]" ^ (* (string_of_bool result)^*)" " ^(if result then "Succeed\n" else "Fail\n")  )
-  in buffur
+  in (result, buffur)
 
 
 let printReport ((pi1, lhs, side1):spec) ((pi2, rhs, side2):spec) :string = 
+  let startTimeStamp = Sys.time() in
+  let (re1, temp1) = check_pure pi1 pi2 in 
+  let (re2, temp2) = check_containment lhs rhs in 
+  let (re3, temp3) = check_side side1 side2  in 
+  let verification_time = "[Verification Time: " ^ string_of_float ((Sys.time() -. startTimeStamp) *. 1000.0) ^ " ms]" in
+  let whole = "[Verification Result: " ^ (if re1 && re2 && re3 then "Succeed " else "Fail " ) in 
   "===========================================\n" ^
-  check_pure pi1 pi2 ^ 
-  "--------------------------"^"\n" ^
-  check_containment lhs rhs ^ 
-  "--------------------------"^"\n" ^
-  check_side side1 side2 
+  verification_time  ^"\n"^
+  whole  ^"\n"^
+  "-------------------------------------------\n" ^
+  temp1 ^ 
+  "- - - - - - - - - - - - - -"^"\n" ^
+  temp2 ^ 
+  "- - - - - - - - - - - - - -"^"\n" ^
+  temp3
 
 
   
   
   ;;
+
+let n_GT_0 : pi =
+  Atomic (LT, Var "n", Num 0)
+
+let n_GT_1 : pi =
+  Atomic (LT, Var "n", Num 5)
+
+
+let testSleek (): string =
+  let spec1 = (n_GT_0, Emp, [(("Foo", []), Emp)]) in 
+  let spec2 = (n_GT_1, Emp, [(("Foo", []), Event "A")]) in 
+  printReport spec1 spec2;;
+
 
 
 
