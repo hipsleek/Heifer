@@ -6,6 +6,11 @@ let f g
 (*@ ensures  Foo @*)
 = perform Foo
 
+let f n
+(*@ requires Foo.Q(Foo 1) @*)
+(*@ ensures  Foo @*)
+= perform Foo 1
+
 let res_f
   (*@ requires emp @*)
   (*@ ensures Foo  @*)

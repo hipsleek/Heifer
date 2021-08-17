@@ -2536,6 +2536,15 @@ effect_trace:
   | UNDERSCORE { Underline }
   | EMP { Emp }
   | n = UIDENT { Event n }
+  | n = UIDENT LPAREN f = UIDENT args = list(INT) RPAREN
+  {
+    match n with
+    | "Q" ->
+      let args = List.map (fun (i, _) -> int_of_string i) args in
+      Predicate (f, args)
+    | _ ->
+      failwith "invalid syntax for predicate application"
+  }
   | TILDE n = UIDENT { Not n }
   | effect_trace DOT effect_trace { Cons ($1, $3) }
   | effect_trace DISJUNCTION effect_trace { ESOr ($1, $3) }

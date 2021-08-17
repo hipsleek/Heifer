@@ -120,7 +120,7 @@ let rec string_of_es es : string =
   match es with 
   | Bot -> "_|_"
   | Emp -> "emp"
-  | Predicate ins  -> string_of_instant ins 
+  | Predicate ins  -> Format.sprintf "Q(%s)" (string_of_instant ins)
   | Event str -> str
   | Not str -> "!" ^ str
   | Cons (es1, es2) -> string_of_es es1 ^"."^ string_of_es es2 
