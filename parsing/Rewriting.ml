@@ -39,7 +39,7 @@ let check p1 p2 : bool =
   let solver = Solver.mk_simple_solver ctx in
   Solver.add solver [ expr ];
   let sat = not (Solver.check solver [] == Solver.SATISFIABLE) in
-  print_endline (Solver.to_string solver); 
+  (*print_endline (Solver.to_string solver); *)
   sat
 
 
@@ -209,26 +209,55 @@ let rec containment (evn: evn) (lhs:es) (rhs:es) : (bool * binary_tree ) =
 
 let check_pure p1 p2 : string = 
   let sat = check  p1 p2 in
-  string_of_bool (sat)
+  let _ = string_of_pi p1 ^" => " ^ string_of_pi p2 in 
+  let buffur = ("[PURE]"(*^(pure)*)^ " " ^(if sat then "Succeed\n" else "Fail\n")  )
+  in buffur
 
 
 (*(bool * binary_tree ) *)
 let check_containment lhs rhs : string = 
-  let entailment = (string_of_es (normalES lhs)) ^ " |- " ^ (string_of_es (normalES rhs)) (*and i = INC(lhs, rhs)*) in
+  let _ = (string_of_es (normalES lhs)) ^ " |- " ^ (string_of_es (normalES rhs)) (*and i = INC(lhs, rhs)*) in
 
   let startTimeStamp = Sys.time() in
   let (re, tree) =  containment [] lhs rhs in
-  let verification_time = "[Verification Time: " ^ string_of_float ((Sys.time() -. startTimeStamp) *. 1000.0) ^ " ms]\n" in
+  let verification_time = "[Rewriting Time: " ^ string_of_float ((Sys.time() -. startTimeStamp) *. 1000.0) ^ " ms]\n" in
   let result = printTree ~line_prefix:"* " ~get_name ~get_children tree in
-  let buffur = ( "----------------------------------------"^"\n" ^(entailment)^"\n[Result] " ^(if re then "Succeed\n" else "Fail\n")  ^verification_time^" \n\n"^ result)
+  let buffur = ("[entailment] " (*^ (entailment)*)^(if re then "Succeed\n" else "Fail\n")  ^verification_time^"\n"^ result)
   in buffur
 
-let check_side _ _  : string = 
-  "check_side"
+let compareInstant (s1, i1) (s2, i2) : bool = 
+  let rec helper l1 l2 : bool = 
+    match (l1, l2) with 
+    | ([], []) -> true 
+    | (x::xs, y::ys)  -> x == y && helper xs ys
+    | _ -> false 
+  in 
+  (String.compare s1 s2 == 0)  && helper i1 i2
+
+let rec existSide (ins) side : (instant * es)  option = 
+  match side with 
+  | [] -> None
+  | (ins1, es2):: xs -> if compareInstant ins ins1 then Some (ins1, es2) else existSide ins xs 
+
+let check_side s1 s2  : string = 
+  let result = 
+    List.fold_left (fun acc (ins, es) -> acc && 
+    (
+      match existSide ins s2 with
+      | None -> true 
+      | Some (_, es1) -> let (re, _) = containment [] es es1 in re
+    )
+  ) true s1  in 
+  let buffur = ("[SIDE]" ^ (* (string_of_bool result)^*)" " ^(if result then "Succeed\n" else "Fail\n")  )
+  in buffur
+
 
 let printReport ((pi1, lhs, side1):spec) ((pi2, rhs, side2):spec) :string = 
+  "===========================================\n" ^
   check_pure pi1 pi2 ^ 
+  "--------------------------"^"\n" ^
   check_containment lhs rhs ^ 
+  "--------------------------"^"\n" ^
   check_side side1 side2 
 
 
