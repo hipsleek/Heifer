@@ -1,8 +1,8 @@
 effect Foo : (unit -> 'a)
 
 
-let f () 
-(*@ requires emp @*)
+let f g
+(*@ requires eff(g) = emp, true, emp @*)
 (*@ ensures  Foo @*)
 = perform Foo
 

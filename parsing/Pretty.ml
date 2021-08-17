@@ -146,9 +146,12 @@ let string_of_bin_op op : string =
   | LTEQ -> "<="
 
 let string_of_side side : string =
-  List.fold_left (fun acc (ins, es) -> acc ^ 
-    (string_of_instant ins ^  string_of_es es   (* Eff(f()) = U^*.(Res \/ emp) *)
-    ) ) "" side
+  side
+    |> List.map (fun (ins, es) ->
+      Format.sprintf "eff(%s) = %s"
+        (string_of_instant ins)
+        (string_of_es es) )
+    |> String.concat ", "
 
 let rec string_of_pi pi : string = 
   match pi with 
@@ -162,8 +165,14 @@ let rec string_of_pi pi : string =
 
 
 
-let string_of_spec (pi, es, side): string = 
-  string_of_pi pi ^ "/\\" ^ string_of_es es ^ "/\\" ^ string_of_side side ;;
+let string_of_spec (pi, es, side) =
+  let side =
+    match side with
+    | [] -> ""
+    | _ -> ", " ^ string_of_side side
+  in
+  Format.sprintf "%s, %s%s"
+    (string_of_pi pi) (string_of_es es) side
 
 
 

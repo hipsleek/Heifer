@@ -60,6 +60,7 @@ let keyword_table =
     "requires", REQUIRES;
     "ensures", ENSURES;
     "emp", EMP;
+    "eff", EFF;
     "if", IF;
     "in", IN;
     "include", INCLUDE;
@@ -467,6 +468,12 @@ rule token = parse
       { LSPECCOMMENT }
   | "@*)"
       { RSPECCOMMENT }
+  | "/\\"
+      { CONJUNCTION }
+  | "\\/"
+      { DISJUNCTION }
+  | "=>"
+      { IMPLICATION }
   | "(*"
       { let s, loc = wrap_comment_lexer comment lexbuf in
         COMMENT (s, loc) }
