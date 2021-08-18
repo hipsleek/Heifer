@@ -430,8 +430,14 @@ let rec infer_of_expression env (acc:spec) expr : spec =
   | Pexp_ident _
   | Pexp_constant _ -> (True, Emp, [])
 
-  | Pexp_let (_rec, _bindings, c) -> 
-    (* TODO do bindings *)
+  | Pexp_let (_rec, bindings, c) -> 
+
+    let env =
+    List.fold_left (fun env vb ->
+      let pre, post, _, env1, name = infer_value_binding env vb in
+      SMap.add name { pre; post; formals = [] } env1) env bindings
+    in
+
     infer_of_expression env acc c
   | Pexp_try (body, _cases) -> 
     (* TODO do cases *)
@@ -440,8 +446,7 @@ let rec infer_of_expression env (acc:spec) expr : spec =
   | _ -> raise (Foo ("infer_of_expression: " ^ debug_string_of_expression expr))
 
   
-
-let infer_of_value_binding env vb: string * env = 
+and infer_value_binding env vb = 
   let pattern = vb.pvb_pat in 
   let expression = vb.pvb_expr in
   let spec = 
@@ -453,6 +458,10 @@ let infer_of_value_binding env vb: string * env =
   let final = normalSpec (infer_of_expression env pre expression) in 
   let fn_name = string_of_pattern pattern in
   let env1 = SMap.add fn_name { pre; post; formals = [] } env in
+  pre, post, final, env1, fn_name
+
+let infer_of_value_binding env vb: string * env = 
+  let pre, post, final, env, fn_name = infer_value_binding env vb in
 
     "\n========== Function: "^ fn_name ^" ==========\n" ^
     "[Pre  Condition] " ^ string_of_spec pre ^"\n"^
@@ -460,7 +469,7 @@ let infer_of_value_binding env vb: string * env =
     "[Final  Effects] " ^ string_of_spec final ^"\n\n"^
     (*(string_of_inclusion final_effects post) ^ "\n" ^*)
     "[T.r.s: Verification for Post Condition]\n" ^ 
-    (let (_, str) = printReport final post in str), env1
+    (let (_, str) = printReport final post in str), env
 
     ;;
 
