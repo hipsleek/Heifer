@@ -202,7 +202,7 @@ let string_of_env env =
         (List.map string_of_instant s.formals |> String.concat ","))
     |> String.concat "; ")
 
-let rec findValue_binding name vbs: fn_spec option = 
+let rec findValue_binding name vbs: fn_spec option =
   match vbs with 
   | [] -> None 
   | vb :: xs -> 
@@ -260,7 +260,7 @@ let rec side_binding (formal:instant list) (actual: spec list) : side =
   | _ -> []
   ;;
 
-let call_function fnName (li:(arg_label * expression) list) (acc:spec) (arg_eff:spec list) progs : spec = 
+let call_function fnName (li:(arg_label * expression) list) (acc:spec) (arg_eff:spec list) env : spec = 
   let (acc_pi, acc_es, acc_side) = acc in 
   let name = 
     match fnName.pexp_desc with 
@@ -280,7 +280,7 @@ let call_function fnName (li:(arg_label * expression) list) (acc:spec) (arg_eff:
     acc
   else 
     let (* param_formal, *) 
-    { pre = precon ; post = (post_pi, post_es, post_side); formals = arg_formal } = findProg name progs in 
+    { pre = precon ; post = (post_pi, post_es, post_side); formals = arg_formal } = SMap.find name env in
     let sb = side_binding arg_formal arg_eff in 
     let (res, _) = printReport (merge_spec acc (True, Emp, sb)) precon in 
     if res then (And(acc_pi, post_pi), Cons (acc_es, post_es), List.append acc_side post_side)
@@ -382,33 +382,33 @@ let rec getHandlers p: (event * es) list =
 
 
 
-let rec infer_of_expression progs (acc:spec) expr : spec =
+let rec infer_of_expression env (acc:spec) expr : spec =
 
   match expr.pexp_desc with 
-  | Pexp_fun (_, _, _ (*pattern*), expr) -> infer_of_expression progs acc expr 
+  | Pexp_fun (_, _, _ (*pattern*), expr) -> infer_of_expression env acc expr 
   | Pexp_apply (fnName, li) (*expression * (arg_label * expression) list*)
     -> 
     let temp = List.map (fun (_, a) -> a) li in 
     let arg_eff = List.fold_left 
     (fun acc_li a -> 
-      let a_spec = infer_of_expression progs (True, Emp, []) a in 
+      let a_spec = infer_of_expression env (True, Emp, []) a in 
       
       List.append acc_li [a_spec]
       ) 
     [] temp in 
 
 
-    call_function fnName li acc arg_eff progs
+    call_function fnName li acc arg_eff env
   | Pexp_construct _ -> (True, Emp, [])
-  | Pexp_constraint (ex, _) -> infer_of_expression progs acc ex
+  | Pexp_constraint (ex, _) -> infer_of_expression env acc ex
   | Pexp_sequence (ex1, ex2) -> 
 
-    let acc1 = infer_of_expression progs acc ex1 in 
+    let acc1 = infer_of_expression env acc ex1 in 
 
-    infer_of_expression progs acc1 ex2
+    infer_of_expression env acc1 ex2
 
   | Pexp_match (ex, case_li) -> 
-    let es1 = infer_of_expression progs (True, Emp, []) ex in 
+    let es1 = infer_of_expression env (True, Emp, []) ex in 
     let policy = List.map (fun a -> 
       let lhs = a.pc_lhs in 
       let rhs = a.pc_rhs in 
@@ -419,7 +419,7 @@ let rec infer_of_expression progs (acc:spec) expr : spec =
       in 
       (
         temp,
-        infer_of_expression progs (True, Emp, []) rhs
+        infer_of_expression env (True, Emp, []) rhs
       )) case_li in 
 
       if isEmpSpec (normalSpec es1) then getNormal policy 
@@ -432,16 +432,16 @@ let rec infer_of_expression progs (acc:spec) expr : spec =
 
   | Pexp_let (_rec, _bindings, c) -> 
     (* TODO do bindings *)
-    infer_of_expression progs acc c
+    infer_of_expression env acc c
   | Pexp_try (body, _cases) -> 
     (* TODO do cases *)
-    infer_of_expression progs acc body
+    infer_of_expression env acc body
 
   | _ -> raise (Foo ("infer_of_expression: " ^ debug_string_of_expression expr))
 
   
 
-let infer_of_value_binding progs vb: string = 
+let infer_of_value_binding env vb: string * env = 
   let pattern = vb.pvb_pat in 
   let expression = vb.pvb_expr in
   let spec = 
@@ -450,15 +450,17 @@ let infer_of_value_binding progs vb: string =
     | Some (pre, post) -> (normalSpec pre, normalSpec post)
   in 
   let (pre, post) = spec in (* postcondition *)
-  let final = normalSpec (infer_of_expression progs pre expression) in 
+  let final = normalSpec (infer_of_expression env pre expression) in 
+  let fn_name = string_of_pattern pattern in
+  let env1 = SMap.add fn_name { pre; post; formals = [] } env in
 
-    "\n========== Module: "^ string_of_pattern pattern ^" ==========\n" ^
+    "\n========== Function: "^ fn_name ^" ==========\n" ^
     "[Pre  Condition] " ^ string_of_spec pre ^"\n"^
     "[Post Condition] " ^ string_of_spec post ^"\n"^
     "[Final  Effects] " ^ string_of_spec final ^"\n\n"^
     (*(string_of_inclusion final_effects post) ^ "\n" ^*)
     "[T.r.s: Verification for Post Condition]\n" ^ 
-    (let (_, str) = printReport final post in str)
+    (let (_, str) = printReport final post in str), env1
 
     ;;
 
@@ -472,13 +474,13 @@ let infer_of_value_binding progs vb: string =
 
   
 
-let infer_of_program progs x:  string =
+let infer_of_program env x: string * env =
   match x.pstr_desc with
   | Pstr_value (_ (*rec_flag*), x::_ (*value_binding list*)) ->
-    infer_of_value_binding progs x 
+    infer_of_value_binding env x 
     
-  | Pstr_effect _ -> string_of_es Emp
-  | _ ->  string_of_es Bot
+  | Pstr_effect _ -> string_of_es Emp, env
+  | _ ->  string_of_es Bot, env
   ;;
 
 
@@ -516,7 +518,14 @@ print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
       (*print_string (Pprintast.string_of_structure progs ) ; *)
       print_endline (List.fold_left (fun acc a -> acc ^ "\n" ^ string_of_program a) "" progs);
 
-      print_endline (List.fold_left (fun acc a -> acc ^ (infer_of_program progs a) ^ "\n" ) "\n" progs);
+      let initial_env = SMap.empty in
+      let results, _ =
+        List.fold_left (fun (s, env) a ->
+          let spec, env1 = infer_of_program env a in
+          spec :: s, env1
+        ) ([], initial_env) progs
+      in
+      print_endline (results |> List.rev |> String.concat "\n");
 
       (* 
       print_endline (testSleek ());
