@@ -107,6 +107,9 @@ let isEmp (es:es) :bool=
   | _ -> false 
   ;;
 
+let isEmpSpec ((_, es, _):spec) : bool = 
+  isEmp es;; 
+
 let rec checkexist lst super: bool = 
   match lst with
   | [] -> true
@@ -239,25 +242,26 @@ let rec existSide (ins) side : (instant * es)  option =
 
 let check_side s1 s2  : (bool * string) = 
   let result = 
-    List.fold_left (fun acc (ins, es) -> acc && 
+    List.fold_left (fun acc (ins2, es2) -> acc && 
     (
-      match existSide ins s2 with
-      | None -> true 
-      | Some (_, es1) -> let (re, _) = containment [] es es1 in re
+      match existSide ins2 s1 with
+      | None -> false 
+      | Some (_, es1) -> let (re, _) = containment [] es1 es2 in re
     )
-  ) true s1  in 
+  ) true s2  in 
   let buffur = ("[SIDE]" ^ (* (string_of_bool result)^*)" " ^(if result then "Succeed\n" else "Fail\n")  )
   in (result, buffur)
 
 
-let printReport ((pi1, lhs, side1):spec) ((pi2, rhs, side2):spec) :string = 
+let printReport ((pi1, lhs, side1):spec) ((pi2, rhs, side2):spec) :(bool * string) = 
   let startTimeStamp = Sys.time() in
   let (re1, temp1) = check_pure pi1 pi2 in 
   let (re2, temp2) = check_containment lhs rhs in 
   let (re3, temp3) = check_side side1 side2  in 
   let verification_time = "[Verification Time: " ^ string_of_float ((Sys.time() -. startTimeStamp) *. 1000.0) ^ " ms]" in
-  let whole = "[Verification Result: " ^ (if re1 && re2 && re3 then "Succeed " else "Fail " ) in 
-  "===========================================\n" ^
+  let re = re1 && re2 && re3 in 
+  let whole = "[Verification Result: " ^ (if re  then "Succeed " else "Fail " ) in 
+  (re, "===========================================\n" ^
   verification_time  ^"\n"^
   whole  ^"\n"^
   "-------------------------------------------\n" ^
@@ -265,11 +269,7 @@ let printReport ((pi1, lhs, side1):spec) ((pi2, rhs, side2):spec) :string =
   "- - - - - - - - - - - - - -"^"\n" ^
   temp2 ^ 
   "- - - - - - - - - - - - - -"^"\n" ^
-  temp3
-
-
-  
-  
+  temp3)
   ;;
 
 let n_GT_0 : pi =
@@ -282,7 +282,7 @@ let n_GT_1 : pi =
 let testSleek (): string =
   let spec1 = (n_GT_0, Emp, [(("Foo", []), Emp)]) in 
   let spec2 = (n_GT_1, Emp, [(("Foo", []), Event "A")]) in 
-  printReport spec1 spec2;;
+  let (_, str) = printReport spec1 spec2 in str;;
 
 
 

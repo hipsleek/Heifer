@@ -172,7 +172,10 @@ let string_of_program x : string =
 let debug_string_of_expression e =
   Format.asprintf "%a" (Printast.expression 0) e
 
-(*
+let merge_spec (p1, es1, side1) (p2, es2, side2) : spec = 
+  (And (p1, p2), Cons(es1, es2), List.append side1 side2);;
+
+
 let getIndentName (l:Longident.t loc): string = 
   (match l.txt with 
         | Lident str -> str
@@ -180,17 +183,21 @@ let getIndentName (l:Longident.t loc): string =
         )
         ;;
 
-let rec findValue_binding name vbs: (specification * specification) option = 
+let rec findValue_binding name vbs: (spec * spec * (instant list)) option = 
   match vbs with 
   | [] -> None 
   | vb :: xs -> 
     let pattern = vb.pvb_pat in 
     let expression = vb.pvb_expr in 
+    print_string ("not done yo\n:" ^ debug_string_of_expression expression);
     if String.compare (string_of_pattern pattern) name == 0 then 
+
+    
+
     
     (match function_spec expression with 
-      | None -> Some ((Emp, []), (Emp, []))
-      | Some (pre, post) -> Some (normalSpec pre, normalSpec post)
+      | None -> Some ((True, Emp, []), (True, Emp, []), [])
+      | Some (pre, post) -> Some (normalSpec pre, normalSpec post, [])
     )
    else findValue_binding name xs ;;
 
@@ -212,15 +219,15 @@ let is_stdlib_fn name =
   | "!" -> true
   | _ -> false
 
-let rec findProg name full: (specification * specification) = 
+let rec findProg name full: (spec * spec * (instant list)) = 
   match full with 
-  | [] when is_stdlib_fn name -> ((Emp, []), (Emp, []))
+  | [] when is_stdlib_fn name -> ((True, Emp, []), (True, Emp, []), [])
   | [] -> raise (Foo ("findProg: function " ^ name ^ " is not found!"))
   | x::xs -> 
     match x.pstr_desc with
     | Pstr_value (_ (*rec_flag*), l (*value_binding list*)) ->
         (match findValue_binding name l with 
-        | Some (pre, post) -> (pre, post)
+        | Some (pre, post, ins_l) -> (pre, post, ins_l)
         | None -> findProg name xs
         )
     | _ ->  findProg name xs
@@ -228,8 +235,14 @@ let rec findProg name full: (specification * specification) =
 
 ;;
 
-let call_function fnName (li:(arg_label * expression) list) acc progs : specification = 
+let rec side_binding (formal:instant list) (actual: spec list) : side = 
+  match (formal, actual) with 
+  | (x::xs, (_, y, _)::ys) -> (x, y) :: (side_binding xs ys)
+  | _ -> []
+  ;;
 
+let call_function fnName (li:(arg_label * expression) list) (acc:spec) (arg_eff:spec list) progs : spec = 
+  let (acc_pi, acc_es, acc_side) = acc in 
   let name = 
     match fnName.pexp_desc with 
     | Pexp_ident l -> getIndentName l 
@@ -237,21 +250,21 @@ let call_function fnName (li:(arg_label * expression) list) acc progs : specific
     | _ -> "dont know"
 
   in 
-
-  
   if String.compare name "perform" == 0 then 
     let (_, temp) = (List.hd li) in 
     let eff_l = match temp.pexp_desc with 
       | Pexp_construct (a, _) -> Event (getIndentName a)
       | _ -> Emp
     in 
-    Cons (acc, eff_l)
+    (acc_pi, Cons (acc_es, eff_l), acc_side)
   else if String.compare name "continue" == 0 then 
     acc
   else 
-    let ((* param_formal, *) precon, postcon) = findProg name progs in 
-    let (res, _) = check_containment acc precon in 
-    if res then Cons (acc, postcon)
+    let (* param_formal, *) 
+    (precon , (post_pi, post_es, post_side), arg_formal) = findProg name progs in 
+    let sb = side_binding arg_formal arg_eff in 
+    let (res, _) = printReport (merge_spec acc (True, Emp, sb)) precon in 
+    if res then (And(acc_pi, post_pi), Cons (acc_es, post_es), List.append acc_side post_side)
     else raise (Foo ("call_function precondition fail:" ^ debug_string_of_expression fnName));;
 
 
@@ -272,10 +285,10 @@ let rec eventListToES history : es =
   | x::xs -> Cons (eventToEs x, eventListToES xs )
   ;;
 
-
-let fixpoint es policy: es =
+(*
+let fixpoint ((_, es, _):spec) (policy: (string option * spec) list): spec =
   let es = normalES es in 
-  let policy = List.map (fun (a, b) -> (a, normalES b)) policy in 
+  let policy = List.map (fun (a, b) -> (a, normalSpec b)) policy in 
   let fst_list = (fst es) in 
 
   let rec innerAux history fst:es =   
@@ -330,12 +343,12 @@ let fixpoint es policy: es =
                   raise (Foo ("rangwo chou chou: "^ string_of_es es1));
           *)
         
+*)
 
-
-let rec getNormal p: es = 
+let rec getNormal (p: (string option * spec) list): spec = 
   match p with  
   | [] -> raise (Foo "getNormal: there is no handlers for normal return")
-  | (None, es)::_ -> es
+  | (None, s)::_ -> s
   | _ :: xs -> getNormal xs
   ;;
 
@@ -349,16 +362,25 @@ let rec getHandlers p: (event * es) list =
 
 
 
-let rec infer_of_expression progs acc expr : es =
+
+let rec infer_of_expression progs (acc:spec) expr : spec =
+
   match expr.pexp_desc with 
   | Pexp_fun (_, _, _ (*pattern*), expr) -> infer_of_expression progs acc expr 
   | Pexp_apply (fnName, li) (*expression * (arg_label * expression) list*)
     -> 
-
     let temp = List.map (fun (_, a) -> a) li in 
-    let arg_eff = List.fold_left (fun acc a -> Cons(acc, infer_of_expression progs acc a)) Emp temp in 
-    call_function fnName li (Cons(acc, arg_eff)) progs
-  | Pexp_construct _ ->  Emp
+    let arg_eff = List.fold_left 
+    (fun acc_li a -> 
+      let a_spec = infer_of_expression progs (True, Emp, []) a in 
+      
+      List.append acc_li [a_spec]
+      ) 
+    [] temp in 
+
+
+    call_function fnName li acc arg_eff progs
+  | Pexp_construct _ -> (True, Emp, [])
   | Pexp_constraint (ex, _) -> infer_of_expression progs acc ex
   | Pexp_sequence (ex1, ex2) -> 
 
@@ -367,7 +389,7 @@ let rec infer_of_expression progs acc expr : es =
     infer_of_expression progs acc1 ex2
 
   | Pexp_match (ex, case_li) -> 
-    let es1 = infer_of_expression progs Emp ex in 
+    let es1 = infer_of_expression progs (True, Emp, []) ex in 
     let policy = List.map (fun a -> 
       let lhs = a.pc_lhs in 
       let rhs = a.pc_rhs in 
@@ -378,15 +400,16 @@ let rec infer_of_expression progs acc expr : es =
       in 
       (
         temp,
-        infer_of_expression progs Emp rhs
+        infer_of_expression progs (True, Emp, []) rhs
       )) case_li in 
 
-      if isEmp (normalES es1) then getNormal policy 
-      else fixpoint es1 (getHandlers policy)
+      if isEmpSpec (normalSpec es1) then getNormal policy 
+      
+      else raise (Foo "fixpoint es1 (getHandlers policy)")
     
     
   | Pexp_ident _
-  | Pexp_constant _ -> Emp
+  | Pexp_constant _ -> (True, Emp, [])
 
   | Pexp_let (_rec, _bindings, c) -> 
     (* TODO do bindings *)
@@ -404,19 +427,19 @@ let infer_of_value_binding progs vb: string =
   let expression = vb.pvb_expr in
   let spec = 
     match function_spec expression with 
-    | None -> (Emp, Emp)
-    | Some (pre, post) -> (normalES pre, normalES post)
+    | None -> ((True, Emp, []), (True, Emp, []))
+    | Some (pre, post) -> (normalSpec pre, normalSpec post)
   in 
   let (pre, post) = spec in (* postcondition *)
-  let final = normalES (infer_of_expression progs pre expression) in 
+  let final = normalSpec (infer_of_expression progs pre expression) in 
 
     "\n========== Module: "^ string_of_pattern pattern ^" ==========\n" ^
-    "[Pre  Condition] " ^ string_of_es pre ^"\n"^
-    "[Post Condition] " ^ string_of_es post ^"\n"^
-    "[Final  Effects] " ^ string_of_es final ^"\n\n"^
+    "[Pre  Condition] " ^ string_of_spec pre ^"\n"^
+    "[Post Condition] " ^ string_of_spec post ^"\n"^
+    "[Final  Effects] " ^ string_of_spec final ^"\n\n"^
     (*(string_of_inclusion final_effects post) ^ "\n" ^*)
     "[T.r.s: Verification for Post Condition]\n" ^ 
-    printReport final post
+    (let (_, str) = printReport final post in str)
 
     ;;
 
@@ -438,7 +461,7 @@ let infer_of_program progs x:  string =
   | Pstr_effect _ -> string_of_es Emp
   | _ ->  string_of_es Bot
   ;;
-  *)
+
 
 let debug_tokens str =
   let lb = Lexing.from_string str in
@@ -474,9 +497,10 @@ print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
       (*print_string (Pprintast.string_of_structure progs ) ; *)
       print_endline (List.fold_left (fun acc a -> acc ^ "\n" ^ string_of_program a) "" progs);
 
-      print_endline (testSleek ());
-      (* 
       print_endline (List.fold_left (fun acc a -> acc ^ (infer_of_program progs a) ^ "\n" ) "\n" progs);
+
+      (* 
+      print_endline (testSleek ());
 
       *)
       (*print_endline (Pprintast.string_of_structure progs ) ; 
