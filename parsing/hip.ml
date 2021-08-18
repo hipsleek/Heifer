@@ -183,7 +183,26 @@ let getIndentName (l:Longident.t loc): string =
         )
         ;;
 
-let rec findValue_binding name vbs: (spec * spec * (instant list)) option = 
+module SMap = Map.Make (struct type t = string let compare = compare end)
+
+type fn_spec = {
+  pre: spec;
+  post: spec;
+  formals: instant list;
+}
+type env = fn_spec SMap.t
+
+let string_of_env env =
+  Format.sprintf "{%s}"
+    (SMap.bindings env
+    |> List.map (fun (n, s) ->
+      Format.sprintf "%s -> %s/%s/%s" n
+        (string_of_spec s.pre)
+        (string_of_spec s.post)
+        (List.map string_of_instant s.formals |> String.concat ","))
+    |> String.concat "; ")
+
+let rec findValue_binding name vbs: fn_spec option = 
   match vbs with 
   | [] -> None 
   | vb :: xs -> 
@@ -196,8 +215,8 @@ let rec findValue_binding name vbs: (spec * spec * (instant list)) option =
 
     
     (match function_spec expression with 
-      | None -> Some ((True, Emp, []), (True, Emp, []), [])
-      | Some (pre, post) -> Some (normalSpec pre, normalSpec post, [])
+      | None -> Some { pre=(True, Emp, []); post=(True, Emp, []); formals = [] }
+      | Some (pre, post) -> Some {pre = normalSpec pre; post = normalSpec post; formals = []}
     )
    else findValue_binding name xs ;;
 
@@ -219,15 +238,15 @@ let is_stdlib_fn name =
   | "!" -> true
   | _ -> false
 
-let rec findProg name full: (spec * spec * (instant list)) = 
+let rec findProg name full: fn_spec = 
   match full with 
-  | [] when is_stdlib_fn name -> ((True, Emp, []), (True, Emp, []), [])
+  | [] when is_stdlib_fn name -> { pre = (True, Emp, []); post = (True, Emp, []); formals = [] }
   | [] -> raise (Foo ("findProg: function " ^ name ^ " is not found!"))
   | x::xs -> 
     match x.pstr_desc with
     | Pstr_value (_ (*rec_flag*), l (*value_binding list*)) ->
         (match findValue_binding name l with 
-        | Some (pre, post, ins_l) -> (pre, post, ins_l)
+        | Some spec -> spec
         | None -> findProg name xs
         )
     | _ ->  findProg name xs
@@ -261,7 +280,7 @@ let call_function fnName (li:(arg_label * expression) list) (acc:spec) (arg_eff:
     acc
   else 
     let (* param_formal, *) 
-    (precon , (post_pi, post_es, post_side), arg_formal) = findProg name progs in 
+    { pre = precon ; post = (post_pi, post_es, post_side); formals = arg_formal } = findProg name progs in 
     let sb = side_binding arg_formal arg_eff in 
     let (res, _) = printReport (merge_spec acc (True, Emp, sb)) precon in 
     if res then (And(acc_pi, post_pi), Cons (acc_es, post_es), List.append acc_side post_side)
