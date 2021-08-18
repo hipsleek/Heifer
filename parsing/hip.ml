@@ -183,24 +183,63 @@ let getIndentName (l:Longident.t loc): string =
         )
         ;;
 
-module SMap = Map.Make (struct type t = string let compare = compare end)
+module SMap = Map.Make (struct
+  type t = string
+  let compare = compare
+end)
 
+(* information we record after seeing a function *)
 type fn_spec = {
   pre: spec;
   post: spec;
   formals: instant list;
 }
-type env = fn_spec SMap.t
 
-let string_of_env env =
+(* at a given program point, this captures specs for all local bindings *)
+type fn_specs = fn_spec SMap.t
+
+type env = {
+  (* module name -> a bunch of function specs *)
+  modules : fn_specs SMap.t;
+  current : fn_specs
+}
+
+module Env = struct
+  let empty = { modules = SMap.empty; current = SMap.empty }
+
+  let add_fn f spec env =
+    { env with current = SMap.add f spec env.current }
+
+  let find_fn f env =
+    SMap.find f env.current
+
+  let add_module name menv env =
+    { env with modules = SMap.add name menv.current env.modules }
+
+  (* dump all the bindings for a given module into the current environment *)
+  let open_module name env =
+    let m = SMap.find name env.modules in
+    let fns = SMap.bindings m |> List.to_seq in
+    { env with current = SMap.add_seq fns env.current }
+end
+
+let string_of_fn_specs specs =
   Format.sprintf "{%s}"
-    (SMap.bindings env
+    (SMap.bindings specs
     |> List.map (fun (n, s) ->
       Format.sprintf "%s -> %s/%s/%s" n
         (string_of_spec s.pre)
         (string_of_spec s.post)
         (List.map string_of_instant s.formals |> String.concat ","))
     |> String.concat "; ")
+
+let string_of_env env =
+  Format.sprintf "%s\n%s"
+    (env.current |> string_of_fn_specs)
+    (env.modules
+      |> SMap.bindings
+      |> List.map (fun (n, s) -> Format.sprintf "%s: %s" n (string_of_fn_specs s))
+      |> String.concat "\n")
 
 let rec findValue_binding name vbs: fn_spec option =
   match vbs with 
@@ -280,7 +319,7 @@ let call_function fnName (li:(arg_label * expression) list) (acc:spec) (arg_eff:
     acc
   else 
     let (* param_formal, *) 
-    { pre = precon ; post = (post_pi, post_es, post_side); formals = arg_formal } = SMap.find name env in
+    { pre = precon ; post = (post_pi, post_es, post_side); formals = arg_formal } = Env.find_fn name env in
     let sb = side_binding arg_formal arg_eff in 
     let (res, _) = printReport (merge_spec acc (True, Emp, sb)) precon in 
     if res then (And(acc_pi, post_pi), Cons (acc_es, post_es), List.append acc_side post_side)
@@ -435,7 +474,7 @@ let rec infer_of_expression env (acc:spec) expr : spec =
     let env =
     List.fold_left (fun env vb ->
       let pre, post, _, env1, name = infer_value_binding env vb in
-      SMap.add name { pre; post; formals = [] } env1) env bindings
+      Env.add_fn name { pre; post; formals = [] } env1) env bindings
     in
 
     infer_of_expression env acc c
@@ -457,7 +496,7 @@ and infer_value_binding env vb =
   let (pre, post) = spec in (* postcondition *)
   let final = normalSpec (infer_of_expression env pre expression) in 
   let fn_name = string_of_pattern pattern in
-  let env1 = SMap.add fn_name { pre; post; formals = [] } env in
+  let env1 = Env.add_fn fn_name { pre; post; formals = [] } env in
   pre, post, final, env1, fn_name
 
 let infer_of_value_binding env vb: string * env = 
@@ -483,11 +522,40 @@ let infer_of_value_binding env vb: string * env =
 
   
 
-let infer_of_program env x: string * env =
+let rec infer_of_program env x: string * env =
   match x.pstr_desc with
   | Pstr_value (_ (*rec_flag*), x::_ (*value_binding list*)) ->
     infer_of_value_binding env x 
     
+  | Pstr_module m ->
+    (* when we see a module, infer inside it *)
+    let name = m.pmb_name.txt |> Option.get in
+    let res, menv =
+      match m.pmb_expr.pmod_desc with
+      | Pmod_structure str ->
+        List.fold_left (fun (s, env) si ->
+          let r, env = infer_of_program env si in
+          r :: s, env) ([], env) str
+      | _ -> failwith "unimplemented module expression type"
+    in
+    let res = String.concat "\n" (Format.sprintf "--- Module %s---" name :: res) in
+    let env1 = Env.add_module name menv env in
+    res, env1
+
+  | Pstr_open info ->
+    (* when we see a structure item like: open A... *)
+    let name =
+      match info.popen_expr.pmod_desc with
+      | Pmod_ident name ->
+      begin match name.txt with
+      | Lident s -> s
+      | _ -> failwith "unimplemented open type, can only open names"
+      end
+      | _ -> failwith "unimplemented open type, can only open names"
+    in
+    (* ... dump all the bindings in that module into the current environment and continue *)
+    "", Env.open_module name env
+
   | Pstr_effect _ -> string_of_es Emp, env
   | _ ->  string_of_es Bot, env
   ;;
@@ -527,12 +595,11 @@ print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
       (*print_string (Pprintast.string_of_structure progs ) ; *)
       print_endline (List.fold_left (fun acc a -> acc ^ "\n" ^ string_of_program a) "" progs);
 
-      let initial_env = SMap.empty in
       let results, _ =
         List.fold_left (fun (s, env) a ->
           let spec, env1 = infer_of_program env a in
           spec :: s, env1
-        ) ([], initial_env) progs
+        ) ([], Env.empty) progs
       in
       print_endline (results |> List.rev |> String.concat "\n");
 
