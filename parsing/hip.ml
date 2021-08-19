@@ -189,11 +189,8 @@ let rec findValue_binding name vbs: (spec * spec * (instant list)) option =
   | vb :: xs -> 
     let pattern = vb.pvb_pat in 
     let expression = vb.pvb_expr in 
-    print_string ("not done yo\n:" ^ debug_string_of_expression expression);
+    print_string ("not done yo:\n" ^ Pprintast.string_of_expression  expression);
     if String.compare (string_of_pattern pattern) name == 0 then 
-
-    
-
     
     (match function_spec expression with 
       | None -> Some ((True, Emp, []), (True, Emp, []), [])
@@ -263,9 +260,9 @@ let call_function fnName (li:(arg_label * expression) list) (acc:spec) (arg_eff:
     let (* param_formal, *) 
     (precon , (post_pi, post_es, post_side), arg_formal) = findProg name progs in 
     let sb = side_binding arg_formal arg_eff in 
-    let (res, _) = printReport (merge_spec acc (True, Emp, sb)) precon in 
+    let (res, str) = printReport (merge_spec acc (True, Emp, sb)) precon in 
     if res then (And(acc_pi, post_pi), Cons (acc_es, post_es), List.append acc_side post_side)
-    else raise (Foo ("call_function precondition fail:" ^ debug_string_of_expression fnName));;
+    else raise (Foo ("call_function precondition fail:" ^ str ^ debug_string_of_expression fnName));;
 
 
 let checkRepeat history fst : (event list) option = 
@@ -431,14 +428,15 @@ let infer_of_value_binding progs vb: string =
     | Some (pre, post) -> (normalSpec pre, normalSpec post)
   in 
   let (pre, post) = spec in (* postcondition *)
-  let final = normalSpec (infer_of_expression progs pre expression) in 
+  let (pre_p, pre_es, _) = pre in 
+  let final = normalSpec (infer_of_expression progs (pre_p, pre_es, []) expression) in 
 
     "\n========== Module: "^ string_of_pattern pattern ^" ==========\n" ^
     "[Pre  Condition] " ^ string_of_spec pre ^"\n"^
     "[Post Condition] " ^ string_of_spec post ^"\n"^
     "[Final  Effects] " ^ string_of_spec final ^"\n\n"^
     (*(string_of_inclusion final_effects post) ^ "\n" ^*)
-    "[T.r.s: Verification for Post Condition]\n" ^ 
+    (*"[T.r.s: Verification for Post Condition]\n" ^ *)
     (let (_, str) = printReport final post in str)
 
     ;;

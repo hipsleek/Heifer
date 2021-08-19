@@ -24,7 +24,7 @@ open Asttypes
 
 type instant = string * int list  
 
-type event = One of string | Zero of string | Any
+type event = One of string | Zero of string | Pred of instant | Any
 
 
 type es = Bot 

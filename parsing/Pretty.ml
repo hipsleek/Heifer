@@ -108,6 +108,9 @@ let compareEvent (ev1:event) (ev2:event): bool =
     String.compare str1 str2 == 0 (* && compareParm parms1 parms2 *)
   | (Zero (str1), Zero (str2)) -> 
   String.compare str1 str2 == 0 (* && compareParm parms1 parms2 *)
+  | (Pred (str1, parms1), Pred (str2, parms2)) -> 
+  String.compare str1 str2 == 0  && compareParm parms1 parms2
+
   | _ -> false 
 
   ;;
@@ -245,7 +248,8 @@ let normalSpec (pi, es, side) : spec = (normalPure pi, normalES es, normalSide s
 let eventToEs ev : es =
   match ev with 
   | One ins -> Event ins 
-  | Zero ins ->Not ins
+  | Zero ins -> Not ins
+  | Pred ins -> Predicate ins
   | Any -> Underline
 
   ;;
@@ -255,6 +259,7 @@ let rec string_of_event ev : string =
   match ev with 
   | One (str) ->  str (*^ "(" ^ separate (ar_Li) (string_of_int) (",") ^")" *)
   | Zero (str) -> "!" ^ string_of_event (One (str))
+  | Pred (str, ar_Li) -> "Q(" ^str ^  separate (ar_Li) (string_of_int) (",") ^")" 
   | Any -> "_"
 
   ;;

@@ -56,7 +56,7 @@ let rec  nullable (es:es) : bool=
   | Underline -> false 
   | Omega _ -> false
   | Not _ -> false
-  | Predicate _ -> raise (Foo ("nullable Predicate")) 
+  | Predicate _ -> false
 
 ;;
 
@@ -75,7 +75,7 @@ let rec  fst (es:es): event list =
   | Kleene es1 ->  fst es1
   | Omega es1 ->  fst es1
   | Underline -> [Any]
-  | Predicate _ -> raise (Foo ("fst Predicate")) 
+  | Predicate (ins) -> [Pred (ins)]
 
 ;;
 
@@ -153,6 +153,9 @@ let rec derivative (es:es) (ev:event): es =
   | Bot -> Bot
   | Event ev1 -> 
       if compareEvent (One ev1) ev then Emp else Bot
+  | Predicate ins -> 
+      if compareEvent (Pred ins) ev then Emp else Bot
+
   | Not ev1 ->       
       if compareEvent (Zero ev1) ev then Emp else Bot
 
@@ -169,7 +172,6 @@ let rec derivative (es:es) (ev:event): es =
   | Kleene es1 -> Cons  (derivative es1 ev, es)
   | Omega es1 -> Cons  (derivative es1 ev, es)
   | Underline -> Emp
-  | Predicate _ -> raise (Foo ("derivative Predicate")) 
 
 
 ;;
@@ -245,7 +247,7 @@ let check_side s1 s2  : (bool * string) =
     List.fold_left (fun acc (ins2, es2) -> acc && 
     (
       match existSide ins2 s1 with
-      | None -> false 
+      | None -> raise (Foo (string_of_instant ins2)) 
       | Some (_, es1) -> let (re, _) = containment [] es1 es2 in re
     )
   ) true s2  in 
@@ -261,10 +263,10 @@ let printReport ((pi1, lhs, side1):spec) ((pi2, rhs, side2):spec) :(bool * strin
   let verification_time = "[Verification Time: " ^ string_of_float ((Sys.time() -. startTimeStamp) *. 1000.0) ^ " ms]" in
   let re = re1 && re2 && re3 in 
   let whole = "[Verification Result: " ^ (if re  then "Succeed " else "Fail " ) in 
-  (re, "===========================================\n" ^
+  (re, (*"===========================================\n" ^*)
   verification_time  ^"\n"^
   whole  ^"\n"^
-  "-------------------------------------------\n" ^
+  "------------------------------\n" ^
   temp1 ^ 
   "- - - - - - - - - - - - - -"^"\n" ^
   temp2 ^ 
