@@ -152,7 +152,7 @@ let string_of_side side : string =
   side
     |> List.map (fun (ins, es) ->
       Format.sprintf "eff(%s) = %s"
-        (string_of_instant ins)
+        ins
         (string_of_es es) )
     |> String.concat ", "
 

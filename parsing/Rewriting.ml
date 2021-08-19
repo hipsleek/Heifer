@@ -237,10 +237,10 @@ let compareInstant (s1, i1) (s2, i2) : bool =
   in 
   (String.compare s1 s2 == 0)  && helper i1 i2
 
-let rec existSide (ins) side : (instant * es)  option = 
+let rec existSide (ins) side : (string * es)  option = 
   match side with 
   | [] -> None
-  | (ins1, es2):: xs -> if compareInstant ins ins1 then Some (ins1, es2) else existSide ins xs 
+  | (ins1, es2):: xs -> if String.equal ins ins1 then Some (ins1, es2) else existSide ins xs 
 
 let check_side s1 s2  : (bool * string) = 
   let result = 
@@ -282,8 +282,8 @@ let n_GT_1 : pi =
 
 
 let testSleek (): string =
-  let spec1 = (n_GT_0, Emp, [(("Foo", []), Emp)]) in 
-  let spec2 = (n_GT_1, Emp, [(("Foo", []), Event "A")]) in 
+  let spec1 = (n_GT_0, Emp, [("Foo", Emp)]) in 
+  let spec2 = (n_GT_1, Emp, [("Foo", Event "A")]) in 
   let (_, str) = printReport spec1 spec2 in str;;
 
 

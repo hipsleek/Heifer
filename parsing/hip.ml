@@ -137,6 +137,26 @@ let function_spec rhs =
     in
     traverse_to_body rhs
 
+let collect_param_names rhs =
+  let rec traverse_to_body e =
+    match e.pexp_desc with
+    | Pexp_fun (_, _, name, body) ->
+      let name =
+        match name.ppat_desc with
+        | Ppat_var s -> [s.txt]
+        | _ ->
+          (* we don't currently recurse inside patterns to pull out variables, so something like
+
+             let f () (Foo a) = 1
+
+             will be treated as if it has no formal params. *)
+          []
+      in
+      name @ traverse_to_body body
+    | _ -> []
+  in
+  traverse_to_body rhs
+
 let string_of_effectspec spec:string =
     match spec with
     | None -> "<no spec given>"
@@ -192,7 +212,7 @@ end)
 type fn_spec = {
   pre: spec;
   post: spec;
-  formals: instant list;
+  formals: string list;
 }
 
 (* at a given program point, this captures specs for all local bindings *)
@@ -230,7 +250,7 @@ let string_of_fn_specs specs =
       Format.sprintf "%s -> %s/%s/%s" n
         (string_of_spec s.pre)
         (string_of_spec s.post)
-        (List.map string_of_instant s.formals |> String.concat ","))
+        (s.formals |> String.concat ","))
     |> String.concat "; ")
 
 let string_of_env env =
@@ -299,7 +319,7 @@ let rec find_arg_formal name full: string list =
 
 ;;
 
-let rec side_binding (formal:instant list) (actual: spec list) : side = 
+let rec side_binding (formal:string list) (actual: spec list) : side = 
   match (formal, actual) with 
   | (x::xs, (_, y, _)::ys) -> (x, y) :: (side_binding xs ys)
   | _ -> []
@@ -480,9 +500,8 @@ let rec infer_of_expression env (acc:spec) expr : spec =
   | Pexp_let (_rec, bindings, c) -> 
 
     let env =
-    List.fold_left (fun env vb ->
-      let pre, post, _, env1, name = infer_value_binding env vb in
-      Env.add_fn name { pre; post; formals = [] } env1) env bindings
+      List.fold_left (fun env vb ->
+        let _, _, _, env, _ = infer_value_binding env vb in env) env bindings
     in
 
     infer_of_expression env acc c
@@ -494,18 +513,18 @@ let rec infer_of_expression env (acc:spec) expr : spec =
 
   
 and infer_value_binding env vb = 
-  let pattern = vb.pvb_pat in 
-  let expression = vb.pvb_expr in
+  let fn_name = string_of_pattern vb.pvb_pat in
+  let body = vb.pvb_expr in
+  let formals = collect_param_names body in
   let spec = 
-    match function_spec expression with 
+    match function_spec body with
     | None -> ((True, Emp, []), (True, Emp, []))
     | Some (pre, post) -> (normalSpec pre, normalSpec post)
   in 
-  let (pre, post) = spec in (* postcondition *)
+  let (pre, post) = spec in
   let (pre_p, pre_es, _) = pre in 
-  let final = normalSpec (infer_of_expression env (pre_p, pre_es, []) expression) in 
-  let fn_name = string_of_pattern pattern in
-  let env1 = Env.add_fn fn_name { pre; post; formals = [] } env in
+  let final = normalSpec (infer_of_expression env (pre_p, pre_es, []) body) in
+  let env1 = Env.add_fn fn_name { pre; post; formals } env in
   pre, post, final, env1, fn_name
 
 
@@ -546,7 +565,7 @@ let rec infer_of_program env x: string * env =
         List.fold_left (fun (s, env) si ->
           let r, env = infer_of_program env si in
           r :: s, env) ([], env) str
-      | _ -> failwith "unimplemented module expression type"
+      | _ -> failwith "infer_of_program: unimplemented module expression type"
     in
     let res = String.concat "\n" (Format.sprintf "--- Module %s---" name :: res) in
     let env1 = Env.add_module name menv env in
@@ -559,9 +578,9 @@ let rec infer_of_program env x: string * env =
       | Pmod_ident name ->
       begin match name.txt with
       | Lident s -> s
-      | _ -> failwith "unimplemented open type, can only open names"
+      | _ -> failwith "infer_of_program: unimplemented open type, can only open names"
       end
-      | _ -> failwith "unimplemented open type, can only open names"
+      | _ -> failwith "infer_of_program: unimplemented open type, can only open names"
     in
     (* ... dump all the bindings in that module into the current environment and continue *)
     "", Env.open_module name env
