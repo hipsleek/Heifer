@@ -241,19 +241,28 @@ let string_of_env env =
       |> List.map (fun (n, s) -> Format.sprintf "%s: %s" n (string_of_fn_specs s))
       |> String.concat "\n")
 
-let rec findValue_binding name vbs: fn_spec option =
+let rec findValue_binding name vbs: (string list) option =
   match vbs with 
   | [] -> None 
   | vb :: xs -> 
     let pattern = vb.pvb_pat in 
     let expression = vb.pvb_expr in 
-    print_string ("not done yo:\n" ^ Pprintast.string_of_expression  expression);
-    if String.compare (string_of_pattern pattern) name == 0 then 
+
+    let rec helper ex= 
+      match ex.pexp_desc with 
+      | Pexp_fun (_, _, p, exIn) -> (string_of_pattern p) :: (helper exIn)
+      | _ -> []
+    in
+
+    let arg_formal = helper expression in 
     
-    (match function_spec expression with 
-      | None -> Some { pre=(True, Emp, []); post=(True, Emp, []); formals = [] }
+  
+    if String.compare (string_of_pattern pattern) name == 0 then Some arg_formal
+    
+    (*match function_spec expression with 
+      | None -> 
       | Some (pre, post) -> Some {pre = normalSpec pre; post = normalSpec post; formals = []}
-    )
+    *)
    else findValue_binding name xs ;;
 
 
@@ -274,18 +283,18 @@ let is_stdlib_fn name =
   | "!" -> true
   | _ -> false
 
-let rec findProg name full: fn_spec = 
+let rec find_arg_formal name full: string list = 
   match full with 
-  | [] when is_stdlib_fn name -> { pre = (True, Emp, []); post = (True, Emp, []); formals = [] }
+  | [] when is_stdlib_fn name -> []
   | [] -> raise (Foo ("findProg: function " ^ name ^ " is not found!"))
   | x::xs -> 
     match x.pstr_desc with
     | Pstr_value (_ (*rec_flag*), l (*value_binding list*)) ->
         (match findValue_binding name l with 
         | Some spec -> spec
-        | None -> findProg name xs
+        | None -> find_arg_formal name xs
         )
-    | _ ->  findProg name xs
+    | _ ->  find_arg_formal name xs
   ;;
 
 ;;
@@ -295,6 +304,8 @@ let rec side_binding (formal:instant list) (actual: spec list) : side =
   | (x::xs, (_, y, _)::ys) -> (x, y) :: (side_binding xs ys)
   | _ -> []
   ;;
+
+
 
 let call_function fnName (li:(arg_label * expression) list) (acc:spec) (arg_eff:spec list) env : spec = 
   let (acc_pi, acc_es, acc_side) = acc in 
@@ -317,7 +328,7 @@ let call_function fnName (li:(arg_label * expression) list) (acc:spec) (arg_eff:
   else 
     let (* param_formal, *) 
     { pre = precon ; post = (post_pi, post_es, post_side); formals = arg_formal } = Env.find_fn name env in
-    let sb = side_binding arg_formal arg_eff in 
+    let sb = side_binding (*find_arg_formal name env*) arg_formal arg_eff in 
     let (res, str) = printReport (merge_spec acc (True, Emp, sb)) precon in 
     if res then (And(acc_pi, post_pi), Cons (acc_es, post_es), List.append acc_side post_side)
     else raise (Foo ("call_function precondition fail:" ^ str ^ debug_string_of_expression fnName));;

@@ -247,7 +247,7 @@ let check_side s1 s2  : (bool * string) =
     List.fold_left (fun acc (ins2, es2) -> acc && 
     (
       match existSide ins2 s1 with
-      | None -> raise (Foo (string_of_instant ins2)) 
+      | None -> raise (Foo ("check_side: " ^ string_of_side s1)) 
       | Some (_, es1) -> let (re, _) = containment [] es1 es2 in re
     )
   ) true s2  in 
