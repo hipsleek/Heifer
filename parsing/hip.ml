@@ -492,7 +492,11 @@ and infer_value_binding env vb =
   in 
   let (pre, post) = spec in (* postcondition *)
   let (pre_p, pre_es, _) = pre in 
-  let final = normalSpec (infer_of_expression progs (pre_p, pre_es, []) expression) in 
+  let final = normalSpec (infer_of_expression env (pre_p, pre_es, []) expression) in 
+  let fn_name = string_of_pattern pattern in
+  let env1 = Env.add_fn fn_name { pre; post; formals = [] } env in
+  pre, post, final, env1, fn_name
+
 
 let infer_of_value_binding env vb: string * env = 
   let pre, post, final, env, fn_name = infer_value_binding env vb in
@@ -503,7 +507,7 @@ let infer_of_value_binding env vb: string * env =
     "[Final  Effects] " ^ string_of_spec final ^"\n\n"^
     (*(string_of_inclusion final_effects post) ^ "\n" ^*)
     (*"[T.r.s: Verification for Post Condition]\n" ^ *)
-    (let (_, str) = printReport final post in str)
+    (let (_, str) = printReport final post in str), env
 
     ;;
 
