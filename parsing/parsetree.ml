@@ -26,6 +26,9 @@ type instant = string * int list
 
 type event = One of string | Zero of string | Pred of instant | Any
 
+type stack_content = Cons of int | Variable of string | Apply of string * stack_content list 
+
+type stack = string * stack_content
 
 type es = Bot 
         | Emp   

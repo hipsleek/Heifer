@@ -221,14 +221,18 @@ type fn_specs = fn_spec SMap.t
 type env = {
   (* module name -> a bunch of function specs *)
   modules : fn_specs SMap.t;
-  current : fn_specs
+  current : fn_specs;
+  stack : stack list
 }
 
 module Env = struct
-  let empty = { modules = SMap.empty; current = SMap.empty }
+  let empty = { modules = SMap.empty; current = SMap.empty; stack= []}
 
   let add_fn f spec env =
     { env with current = SMap.add f spec env.current }
+  
+  let add_stack paris env = 
+    { env with stack = List.append  paris (env.stack) }
 
   let find_fn f env =
     SMap.find f env.current
@@ -325,18 +329,20 @@ let rec side_binding (formal:string list) (actual: spec list) : side =
   | _ -> []
   ;;
 
+let fnNameToString fnName: string = 
+  match fnName.pexp_desc with 
+    | Pexp_ident l -> getIndentName l 
+        
+    | _ -> "dont know"
+    ;;
+
 
 
 let call_function fnName (li:(arg_label * expression) list) (acc:spec) (arg_eff:spec list) env : spec = 
   let (acc_pi, acc_es, acc_side) = acc in 
-  let name = 
-    match fnName.pexp_desc with 
-    | Pexp_ident l -> getIndentName l 
-        
-    | _ -> "dont know"
-
-  in 
+  let name = fnNameToString fnName in 
   if String.compare name "perform" == 0 then 
+    
     let (_, temp) = (List.hd li) in 
     let eff_l = match temp.pexp_desc with 
       | Pexp_construct (a, _) -> Event (getIndentName a)
@@ -465,6 +471,35 @@ let rec fixpoint_compute (es:es) (policies:policy list) : es =
   | _ -> es
 
 
+let rec expression_To_stack_content  (expr:expression): stack_content option  =
+  match (expr.pexp_desc) with 
+  | Pexp_ident l -> Some (Variable (getIndentName l ))
+  | Pexp_constant cons ->
+      (match cons with 
+      | Pconst_integer (str, _) -> Some (Cons (int_of_string str))
+      | _ -> None
+      )
+  | Pexp_apply (fnName, li) -> 
+    let name = fnNameToString fnName in 
+    let temp = List.map (fun (_, a) -> expression_To_stack_content a ) li in 
+    let rec aux li acc =
+      match acc with 
+      | None -> None
+      | Some acc -> (
+        match li with 
+        | [] -> Some acc
+        | None::_ -> None
+        | (Some con) :: xs -> aux xs (Some (List.append acc [con]))
+      )
+      
+    in (match (aux temp (Some []) ) with 
+    | None -> None 
+    | Some li -> Some (Apply (name, li))
+    )
+
+  | _ -> None 
+
+;;
 
 
 let rec infer_of_expression env (acc:spec) expr : spec =
@@ -484,6 +519,22 @@ let rec infer_of_expression env (acc:spec) expr : spec =
 
 
     call_function fnName li acc arg_eff env
+  | Pexp_let (_(*flag*),  vb_li, expr) -> 
+    let stack_up = List.fold_left (fun acc vb -> 
+      let var_name = string_of_pattern (vb.pvb_pat) in 
+      let pairs = 
+        (
+          match expression_To_stack_content  vb.pvb_expr with 
+          | None -> []
+          | Some con -> [(var_name, con)]
+        )
+      in List.append acc pairs
+
+    ) [] vb_li  in 
+    
+    infer_of_expression (Env.add_stack stack_up env) acc expr
+
+
   | Pexp_construct _ -> (True, Emp, [])
   | Pexp_constraint (ex, _) -> infer_of_expression env acc ex
   | Pexp_sequence (ex1, ex2) -> 
@@ -520,6 +571,7 @@ let rec infer_of_expression env (acc:spec) expr : spec =
   | Pexp_ident _
   | Pexp_constant _ -> (True, Emp, [])
 
+  (*
   | Pexp_let (_rec, bindings, c) -> 
 
     let env =
@@ -528,6 +580,7 @@ let rec infer_of_expression env (acc:spec) expr : spec =
     in
 
     infer_of_expression env acc c
+    *)
   | Pexp_try (body, _cases) -> 
     (* TODO do cases *)
     infer_of_expression env acc body

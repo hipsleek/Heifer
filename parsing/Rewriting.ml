@@ -225,7 +225,7 @@ let check_containment lhs rhs : (bool * string) =
 
   let (re, tree) =  containment [] lhs rhs in
   let result = printTree ~line_prefix:"* " ~get_name ~get_children tree in
-  let buffur = ("[entailment] " (*^ (entailment)*)^(if re then "Succeed\n" else "Fail\n")  ^ result)
+  let buffur = ("[ENTAILMENT] " (*^ (entailment)*)^(if re then "Succeed\n" else "Fail\n")  ^ result)
   in (re , buffur)
 
 let compareInstant (s1, i1) (s2, i2) : bool = 
