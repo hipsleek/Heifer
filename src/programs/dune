@@ -5,6 +5,7 @@
   b2_open
   e0_transaction
   e1_transaction
+  e2_nested_transaction
   t0_foo
   t0_foo_loop
   t1_foo_goo
@@ -22,6 +23,7 @@
   b2_open
   e0_transaction
   e1_transaction
+  e2_nested_transaction
   t0_foo
   t0_foo_loop
   t1_foo_goo
