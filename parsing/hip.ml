@@ -446,6 +446,24 @@ let rec getHandlers p: (event * es) list =
   | (Some str, es) :: xs -> ( (One str), es) :: getHandlers xs
   ;;
 
+let rec fixpoint_compute (es:es) (policies:policy list) : es = 
+  match normalES es with 
+  | Predicate (ins)  -> 
+    let (str_pred, _) = ins in 
+    let rec aux (li:policy list):es = 
+      match li with 
+      | [] -> raise (Foo (string_of_instant ins ^ " handler is not defined!"))
+      | (Eff (str, es))::xs  -> if String.compare str str_pred == 0 then es else aux xs
+      | (Exn str)::xs -> if String.compare str str_pred == 0 then (Event str) else aux xs 
+    in 
+    let continueation = aux policies in 
+    continueation
+  | Cons (es1, es2) -> Cons (fixpoint_compute es1 policies, fixpoint_compute es2 policies)
+  | ESOr (es1, es2) -> ESOr (fixpoint_compute es1 policies, fixpoint_compute es2 policies)
+  | Kleene es1 -> Kleene (fixpoint_compute es1 policies)
+  | Omega es1 -> Omega (fixpoint_compute es1 policies)
+  | _ -> es
+
 
 
 
@@ -475,24 +493,29 @@ let rec infer_of_expression env (acc:spec) expr : spec =
     infer_of_expression env acc1 ex2
 
   | Pexp_match (ex, case_li) -> 
-    let es1 = infer_of_expression env (True, Emp, []) ex in 
-    let policy = List.map (fun a -> 
-      let lhs = a.pc_lhs in 
-      let rhs = a.pc_rhs in 
+    let spec_ex = infer_of_expression env (True, Emp, []) ex in 
+    let (p_ex, es_ex, side_es) = normalSpec spec_ex in 
+    let (policies:policy list) = List.fold_left (fun acc a -> 
+      let cuurent_p = 
+        (let lhs = a.pc_lhs in 
+        let rhs = a.pc_rhs in 
       
-      let temp = match lhs.ppat_desc with 
-        | Ppat_effect (p1, _) ->  Some (string_of_pattern p1)
-        | _ -> None 
-      in 
-      (
-        temp,
-        infer_of_expression env (True, Emp, []) rhs
-      )) case_li in 
+        (match lhs.ppat_desc with 
+          | Ppat_effect (p1, _) -> 
+            let (_, es, _) = infer_of_expression env (True, Emp, []) rhs in 
+            [(Eff (string_of_pattern p1, es))]
+          | Ppat_exception p1 -> [(Exn (string_of_pattern p1))]
+          | _ -> [] 
+        )
+        )
+      in List.append acc cuurent_p
+       
+      ) [] case_li in 
+    let trace = fixpoint_compute es_ex policies in 
+    (p_ex, trace, side_es) 
 
-      if isEmpSpec (normalSpec es1) then getNormal policy 
-      
-      else raise (Foo "fixpoint es1 (getHandlers policy)")
-    
+
+
     
   | Pexp_ident _
   | Pexp_constant _ -> (True, Emp, [])
