@@ -342,6 +342,13 @@ let call_function fnName (li:(arg_label * expression) list) (acc:spec) (arg_eff:
   let (acc_pi, acc_es, acc_side) = acc in 
   let name = fnNameToString fnName in 
   if String.compare name "perform" == 0 then 
+    (
+      (*
+      print_string("SYH:\n" ^ List.fold_left (fun acc (_, a) -> acc ^ 
+      (Pprintast.string_of_expression a)
+    
+    ) "" li);
+    *)
     
     let (_, temp) = (List.hd li) in 
     let eff_l = match temp.pexp_desc with 
@@ -349,6 +356,7 @@ let call_function fnName (li:(arg_label * expression) list) (acc:spec) (arg_eff:
       | _ -> Emp
     in 
     (acc_pi, Cons (acc_es, eff_l), acc_side)
+    )
   else if String.compare name "continue" == 0 then 
     acc
   else 
