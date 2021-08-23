@@ -486,14 +486,20 @@ let rec reoccor_continue li (ev:string) index: int option  =
 
 let rec sublist b e l = 
   match l with
-    [] -> failwith "sublist"
+    [] -> []
   | h :: t -> 
      let tail = if e=0 then [] else sublist (b-1) (e-1) t in
      if b>0 then tail else h :: tail
 ;;
 
 let formLoop li start stop : es = 
+  print_string ("forming a loop\n");
+  print_string (List.fold_left (fun acc a -> acc ^ "\n" ^ a) "" li);
+  print_string (string_of_int start ^"\n");
+  print_string (string_of_int stop ^"\n");
+
   let (beforeLoop:es) = List.fold_left (fun acc a -> Cons (acc, Event a)) Emp (sublist 0 (start -1) li) in 
+  
   let (sublist:es) = List.fold_left (fun acc a -> Cons (acc, Event a)) Emp (sublist start (stop -1) li) in 
   Cons (beforeLoop, Omega sublist)
 
@@ -507,6 +513,8 @@ let rec get_the_Sequence (es:es) : string list =
     )
 
 let insertMiddle acc index list_ev :string list = 
+  print_string ("insertMiddle \n");
+
   let length = List.length acc in 
   let theFront = (sublist 0 (index -1) acc) in  
   let theBack = (sublist index (length -1) acc) in  
@@ -518,8 +526,7 @@ let rec fixpoint_compute (es:es) (policies:policy list) : es =
   match normalES es with 
   | Predicate (ins)  -> 
     let (str_pred, _) = ins in 
-    findPolicy str_pred policies
-    (*
+    (*findPolicy str_pred policies*)
     let rec helper acc index: es =
       if (List.length acc) - 1 < index then 
         List.fold_left (fun acc a -> Cons (acc, Event a)) Emp acc 
@@ -536,7 +543,7 @@ let rec fixpoint_compute (es:es) (policies:policy list) : es =
 
     in helper [str_pred] 0 
     
-*)
+
    
   | Cons (es1, es2) -> Cons (fixpoint_compute es1 policies, fixpoint_compute es2 policies)
   | ESOr (es1, es2) -> ESOr (fixpoint_compute es1 policies, fixpoint_compute es2 policies)
