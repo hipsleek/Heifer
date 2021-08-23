@@ -464,18 +464,79 @@ let rec getHandlers p: (event * es) list =
   | (Some str, es) :: xs -> ( (One str), es) :: getHandlers xs
   ;;
 
+let rec findPolicy str_pred (policies:policy list) : es = 
+  match policies with 
+  | [] -> raise (Foo (str_pred ^ "'s handler is not defined!"))
+  | (Eff (str, conti))::xs  -> 
+        if String.compare str str_pred == 0 then normalES conti
+        else findPolicy str_pred xs
+  | (Exn str)::xs -> if String.compare str str_pred == 0 then (Event str) else findPolicy str_pred xs 
+
+
+let rec getEleFromListByIndex li index:string =
+  match li with
+  | [] -> raise (Foo "out of index getEleFromListByIndex")
+  | x::xs -> if index == 0 then x else  getEleFromListByIndex xs (index -1)
+
+  
+let rec reoccor_continue li (ev:string) index: int option  = 
+  match li with 
+  | [] -> None 
+  | x::xs -> if String.compare x ev  == 0 then Some index else reoccor_continue xs ev (index + 1)
+
+let rec sublist b e l = 
+  match l with
+    [] -> failwith "sublist"
+  | h :: t -> 
+     let tail = if e=0 then [] else sublist (b-1) (e-1) t in
+     if b>0 then tail else h :: tail
+;;
+
+let formLoop li start stop : es = 
+  let (beforeLoop:es) = List.fold_left (fun acc a -> Cons (acc, Event a)) Emp (sublist 0 (start -1) li) in 
+  let (sublist:es) = List.fold_left (fun acc a -> Cons (acc, Event a)) Emp (sublist start (stop -1) li) in 
+  Cons (beforeLoop, Omega sublist)
+
+let rec get_the_Sequence (es:es) : string list =
+  match fst es  with 
+  | [] -> []
+  | f::_ -> 
+    (match f with 
+    | One str -> str :: (get_the_Sequence (derivative es f))
+    | _ -> (get_the_Sequence (derivative es f))
+    )
+
+let insertMiddle acc index list_ev :string list = 
+  let length = List.length acc in 
+  let theFront = (sublist 0 (index -1) acc) in  
+  let theBack = (sublist index (length -1) acc) in  
+  List.append (List.append theFront list_ev ) theBack
+
+
+
 let rec fixpoint_compute (es:es) (policies:policy list) : es = 
   match normalES es with 
   | Predicate (ins)  -> 
     let (str_pred, _) = ins in 
-    let rec aux (li:policy list):es = 
-      match li with 
-      | [] -> raise (Foo (string_of_instant ins ^ " handler is not defined!"))
-      | (Eff (str, es))::xs  -> if String.compare str str_pred == 0 then es else aux xs
-      | (Exn str)::xs -> if String.compare str str_pred == 0 then (Event str) else aux xs 
-    in 
-    let continueation = aux policies in 
-    continueation
+    findPolicy str_pred policies
+    (*let rec helper acc index: es =
+      if (List.length acc) - 1 < index then 
+        List.fold_left (fun acc a -> Cons (acc, Event a)) Emp acc 
+      else 
+        let ev = getEleFromListByIndex acc index in 
+        (match reoccor_continue acc ev 0 with 
+        | Some start -> formLoop acc start index
+        | None -> 
+          let continueation = findPolicy ev policies in 
+          let list_ev = get_the_Sequence continueation in 
+          helper (insertMiddle acc (index + 1) list_ev) (index + 1)
+        )
+
+
+    in helper [str_pred] 0 
+    *)
+
+   
   | Cons (es1, es2) -> Cons (fixpoint_compute es1 policies, fixpoint_compute es2 policies)
   | ESOr (es1, es2) -> ESOr (fixpoint_compute es1 policies, fixpoint_compute es2 policies)
   | Kleene es1 -> Kleene (fixpoint_compute es1 policies)

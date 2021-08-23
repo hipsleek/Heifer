@@ -22,14 +22,18 @@
 
 open Asttypes
 
-type instant = string * int list  
+type basic_t = INT of int | UNIT 
+
+type instant = string * basic_t list  
 
 (* To indicate weather there are partial applied continustiaon *)
 type residue = instant option 
 
 type event = One of string | Zero of string | Pred of instant | Any
 
+(*
 type stack_content = Cons of int | Variable of string | Apply of string * stack_content list 
+*)
 
 type stack = string * instant
 
