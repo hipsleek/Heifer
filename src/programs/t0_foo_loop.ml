@@ -15,7 +15,7 @@ let res_f
   match (f ()) with
   | x -> x
   | effect Foo k ->
-     continue k (fun _ -> perform Goo 1;)
+     continue k (fun _ -> if 1 then perform Goo 1 else perform Foo 1;)
   | effect Goo k ->
       continue k (fun _ -> perform Goo 1;)
 

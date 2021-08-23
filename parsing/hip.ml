@@ -498,17 +498,18 @@ let rec sublist b e l =
 ;;
 
 let formLoop li start stop : es = 
+  (*
   print_string ("forming a loop\n");
   print_string (List.fold_left (fun acc a -> acc ^ "\n" ^ a) "" li);
   print_string (string_of_int start ^"\n");
   print_string (string_of_int stop ^"\n");
-
+*)
   let (beforeLoop:es) = List.fold_left (fun acc a -> Cons (acc, Event a)) Emp (sublist 0 (start -1) li) in 
   
   let (sublist:es) = List.fold_left (fun acc a -> Cons (acc, Event a)) Emp (sublist start (stop -1) li) in 
   Cons (beforeLoop, Omega sublist)
 
-let rec get_the_Sequence (es:es) : string list =
+(*let rec get_the_Sequence (es:es) : (string list) list =
   match fst es  with 
   | [] -> []
   | f::_ -> 
@@ -516,6 +517,22 @@ let rec get_the_Sequence (es:es) : string list =
     | One str -> str :: (get_the_Sequence (derivative es f))
     | _ -> (get_the_Sequence (derivative es f))
     )
+    *)
+
+let rec get_the_Sequence (es:es) (acc:string list) : (string list) list  = 
+  match fst es  with 
+  | [] -> [acc]
+  | fs -> 
+  List.flatten(
+    List.map (fun f -> 
+      (match f with 
+      | One str ->  (get_the_Sequence (derivative es f) (List.append acc [str]))
+      | _ -> (get_the_Sequence (derivative es f) acc)
+      )
+    ) fs 
+  )
+
+
 
 let insertMiddle acc index list_ev :string list = 
   print_string ("insertMiddle \n");
@@ -538,8 +555,8 @@ let rec fixpoint_compute (es:es) (policies:policy list) : es =
       else 
         if index == -1 then 
           let continueation = findPolicy str_pred policies in 
-          let list_ev = get_the_Sequence continueation in 
-          helper (list_ev) 0
+          let (list_list_ev:string list list) = get_the_Sequence continueation acc in 
+          List.fold_left (fun acc list_ev -> ESOr (acc, helper (list_ev) 0)) Bot list_list_ev
         else 
       
           let ev =  getEleFromListByIndex acc index in 
@@ -547,8 +564,9 @@ let rec fixpoint_compute (es:es) (policies:policy list) : es =
           | Some start -> formLoop acc start index
           | None -> 
             let continueation = findPolicy ev policies in 
-            let list_ev = get_the_Sequence continueation in 
-            helper (insertMiddle acc (index + 1) list_ev) (index + 1)
+            let (list_list_ev:string list list) = get_the_Sequence continueation acc in 
+            List.fold_left (fun acc_es list_ev -> ESOr (acc_es, helper (insertMiddle acc (index + 1) list_ev) (index + 1))) Bot list_list_ev
+            
           )
 
 
@@ -691,6 +709,17 @@ let rec infer_of_expression env (acc:spec) expr : (spec * residue) =
   | Pexp_try (body, _cases) -> 
     (* TODO do cases *)
     infer_of_expression env acc body
+
+  | Pexp_ifthenelse (_, e2, e3_op) -> 
+      let (branch1, res) = infer_of_expression env acc e2 in 
+      (match e3_op with 
+      | None -> (branch1, res)
+      | Some expr3 -> 
+        let ((_, b2_es, _), _) = infer_of_expression env acc expr3 in 
+        let (b1_pi, b1_es, b1_side) = branch1 in 
+        ((b1_pi, ESOr (b1_es, b2_es) , b1_side), res) 
+      )
+      
 
   | _ -> raise (Foo ("infer_of_expression: " ^ debug_string_of_expression expr))
 
