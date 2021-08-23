@@ -362,7 +362,10 @@ let call_function fnName (li:(arg_label * expression) list) (acc:spec) (arg_eff:
      Some (eff_name, List.map (fun (_, a) -> expressionToBasicT a) (List.tl li))
     )
   else if String.compare name "continue" == 0 then 
-    (acc, None)
+    let (policy:spec) = List.fold_left (
+      fun (acc_pi, acc_es, acc_side) (a_pi, a_es, a_side) -> 
+        (And(acc_pi, a_pi), Cons(acc_es, a_es), List.append acc_side a_side)) acc arg_eff in 
+    (policy, None)
   else 
     let (* param_formal, *) 
     { pre = precon ; post = (post_pi, post_es, post_side); formals = arg_formal } = Env.find_fn name env in
@@ -485,6 +488,8 @@ let rec reoccor_continue li (ev:string) index: int option  =
   | x::xs -> if String.compare x ev  == 0 then Some index else reoccor_continue xs ev (index + 1)
 
 let rec sublist b e l = 
+  if e < 0 then []
+  else 
   match l with
     [] -> []
   | h :: t -> 
@@ -529,14 +534,16 @@ let rec fixpoint_compute (es:es) (policies:policy list) : es =
     (*findPolicy str_pred policies*)
     let rec helper acc index: es =
       if (List.length acc) - 1 < index then 
-        List.fold_left (fun acc a -> Cons (acc, Event a)) Emp acc 
+        List.fold_left (fun acc a -> Cons (acc, Event a)) Emp (List.tl acc) 
       else 
         let ev = getEleFromListByIndex acc index in 
-        (match reoccor_continue acc ev 0 with 
+        (match reoccor_continue (sublist 0 (index -1) acc) ev 0 with 
         | Some start -> formLoop acc start index
         | None -> 
           let continueation = findPolicy ev policies in 
           let list_ev = get_the_Sequence continueation in 
+          print_string ("continuation of " ^ ev ^ " : " ^ string_of_es continueation ^"\n");
+          print_string ("[list_ev]:" ^ List.fold_left (fun acc a -> acc ^"," ^ a) "" list_ev);
           helper (insertMiddle acc (index + 1) list_ev) (index + 1)
         )
 
@@ -640,7 +647,8 @@ let rec infer_of_expression env (acc:spec) expr : (spec * residue) =
       
         (match lhs.ppat_desc with 
           | Ppat_effect (p1, _) -> 
-            let ((_, es, _), _) = infer_of_expression env (True, Emp, []) rhs in 
+            let ((_, es, _), _) = infer_of_expression env (True, Emp, []) rhs in
+            print_string ("[SYH-match]:" ^ Pprintast.string_of_expression rhs ^ "\n" ^  string_of_pattern p1 ^" " ^ string_of_es es^"\n"); 
             [(Eff (string_of_pattern p1, es))]
           | Ppat_exception p1 -> [(Exn (string_of_pattern p1))]
           | _ -> [] 

@@ -3,10 +3,9 @@ effect Foo : (int -> int)
 
 let f () 
 (*@ requires emp @*)
-(*@ ensures  Foo.Foo.Q(Foo 7).Q(Foo 1) @*)
+(*@ ensures  Foo.Q(Foo 1) @*)
 = let a = perform Foo 1 in 
-  perform Foo 7;
-  a
+  a 
 
 
 let res_f
