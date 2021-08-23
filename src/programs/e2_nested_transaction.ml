@@ -42,8 +42,20 @@ open Txn
 let account1 = ref 10
 let account2 = ref 0
 
+let banking_charges () =
+  atomically (fun () ->
+    Format.printf "deducting banking charges... @?";
+    account1 := !account1 - 1;
+
+    if !account1 < 0 then
+      failwith "insufficient balance!"
+    else
+      print_endline "ok!")
+
 let transfer n =
   atomically (fun () ->
+    banking_charges ();
+
     Format.printf "attempting to transfer %d... @?" n;
     account1 := !account1 - n;
     account2 := !account2 + n;
@@ -51,7 +63,7 @@ let transfer n =
     if !account1 < 0 then
       failwith "insufficient balance!"
     else
-      print_endline "success!")
+      print_endline "ok!")
 
 let print_balance () =
   Format.printf "account1: %d\naccount2: %d@." !account1 !account2
