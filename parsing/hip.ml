@@ -532,23 +532,27 @@ let rec fixpoint_compute (es:es) (policies:policy list) : es =
   | Predicate (ins)  -> 
     let (str_pred, _) = ins in 
     (*findPolicy str_pred policies*)
-    let rec helper acc index: es =
-      if (List.length acc) - 1 < index then 
-        List.fold_left (fun acc a -> Cons (acc, Event a)) Emp (List.tl acc) 
+    let rec helper (acc:string list) (index:int): es =
+      if (List.length acc) <= index then 
+        List.fold_left (fun acc a -> Cons (acc, Event a)) Emp (acc) 
       else 
-        let ev = getEleFromListByIndex acc index in 
-        (match reoccor_continue (sublist 0 (index -1) acc) ev 0 with 
-        | Some start -> formLoop acc start index
-        | None -> 
-          let continueation = findPolicy ev policies in 
+        if index == -1 then 
+          let continueation = findPolicy str_pred policies in 
           let list_ev = get_the_Sequence continueation in 
-          print_string ("continuation of " ^ ev ^ " : " ^ string_of_es continueation ^"\n");
-          print_string ("[list_ev]:" ^ List.fold_left (fun acc a -> acc ^"," ^ a) "" list_ev);
-          helper (insertMiddle acc (index + 1) list_ev) (index + 1)
-        )
+          helper (list_ev) 0
+        else 
+      
+          let ev =  getEleFromListByIndex acc index in 
+          (match reoccor_continue (sublist 0 (index -1) acc) ev 0 with 
+          | Some start -> formLoop acc start index
+          | None -> 
+            let continueation = findPolicy ev policies in 
+            let list_ev = get_the_Sequence continueation in 
+            helper (insertMiddle acc (index + 1) list_ev) (index + 1)
+          )
 
 
-    in helper [str_pred] 0 
+    in helper [] (-1) 
     
 
    
