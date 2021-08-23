@@ -24,11 +24,14 @@ open Asttypes
 
 type instant = string * int list  
 
+(* To indicate weather there are partial applied continustiaon *)
+type residue = instant option 
+
 type event = One of string | Zero of string | Pred of instant | Any
 
 type stack_content = Cons of int | Variable of string | Apply of string * stack_content list 
 
-type stack = string * stack_content
+type stack = string * instant
 
 type es = Bot 
         | Emp   

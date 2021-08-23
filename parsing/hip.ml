@@ -336,35 +336,39 @@ let fnNameToString fnName: string =
     | _ -> "dont know"
     ;;
 
+let expressionToInt ex : int =
+  match ex.pexp_desc with 
+  | Pexp_constant cons ->
+    (match cons with 
+    | Pconst_integer (str, _) -> int_of_string str
+    | _ -> raise (Foo (Pprintast.string_of_expression  ex ^ " expressionToInt error1"))
+    )
+  | _ -> raise (Foo (Pprintast.string_of_expression  ex ^ " expressionToInt error2"))
 
-
-let call_function fnName (li:(arg_label * expression) list) (acc:spec) (arg_eff:spec list) env : spec = 
+let call_function fnName (li:(arg_label * expression) list) (acc:spec) (arg_eff:spec list) env : (spec * residue) = 
   let (acc_pi, acc_es, acc_side) = acc in 
   let name = fnNameToString fnName in 
   if String.compare name "perform" == 0 then 
-    (
-      (*
-      print_string("SYH:\n" ^ List.fold_left (fun acc (_, a) -> acc ^ 
-      (Pprintast.string_of_expression a)
-    
-    ) "" li);
-    *)
-    
-    let (_, temp) = (List.hd li) in 
-    let eff_l = match temp.pexp_desc with 
-      | Pexp_construct (a, _) -> Event (getIndentName a)
-      | _ -> Emp
+    let getEffName l = 
+      let (_, temp) = l in 
+      match temp.pexp_desc with 
+      | Pexp_construct (a, _) -> getIndentName a 
+      | _ -> raise (Foo "getEffName error")
     in 
-    (acc_pi, Cons (acc_es, eff_l), acc_side)
+
+    let eff_name = getEffName (List.hd li) in 
+    
+    ((acc_pi, Cons (acc_es, Event (eff_name)), acc_side),
+     Some (eff_name, List.map (fun (_, a) -> expressionToInt a) (List.tl li))
     )
   else if String.compare name "continue" == 0 then 
-    acc
+    (acc, None)
   else 
     let (* param_formal, *) 
     { pre = precon ; post = (post_pi, post_es, post_side); formals = arg_formal } = Env.find_fn name env in
     let sb = side_binding (*find_arg_formal name env*) arg_formal arg_eff in 
     let (res, str) = printReport (merge_spec acc (True, Emp, sb)) precon in 
-    if res then (And(acc_pi, post_pi), Cons (acc_es, post_es), List.append acc_side post_side)
+    if res then ((And(acc_pi, post_pi), Cons (acc_es, post_es), List.append acc_side post_side), None)
     else raise (Foo ("call_function precondition fail:" ^ str ^ debug_string_of_expression fnName));;
 
 
@@ -478,7 +482,7 @@ let rec fixpoint_compute (es:es) (policies:policy list) : es =
   | Omega es1 -> Omega (fixpoint_compute es1 policies)
   | _ -> es
 
-
+(*
 let rec expression_To_stack_content  (expr:expression): stack_content option  =
   match (expr.pexp_desc) with 
   | Pexp_ident l -> Some (Variable (getIndentName l ))
@@ -508,9 +512,16 @@ let rec expression_To_stack_content  (expr:expression): stack_content option  =
   | _ -> None 
 
 ;;
+*)
+
+let residueToPredeciate (residue:residue):es = 
+  match residue with 
+  | None -> Emp
+  | Some res -> Predicate res 
+  ;;
 
 
-let rec infer_of_expression env (acc:spec) expr : spec =
+let rec infer_of_expression env (acc:spec) expr : (spec * residue) =
 
   match expr.pexp_desc with 
   | Pexp_fun (_, _, _ (*pattern*), expr) -> infer_of_expression env acc expr 
@@ -519,40 +530,39 @@ let rec infer_of_expression env (acc:spec) expr : spec =
     let temp = List.map (fun (_, a) -> a) li in 
     let arg_eff = List.fold_left 
     (fun acc_li a -> 
-      let a_spec = infer_of_expression env (True, Emp, []) a in 
+      let (a_spec, _) = infer_of_expression env (True, Emp, []) a in 
       
       List.append acc_li [a_spec]
       ) 
     [] temp in 
 
-
     call_function fnName li acc arg_eff env
   | Pexp_let (_(*flag*),  vb_li, expr) -> 
-    let stack_up = List.fold_left (fun acc vb -> 
-      let var_name = string_of_pattern (vb.pvb_pat) in 
-      let pairs = 
-        (
-          match expression_To_stack_content  vb.pvb_expr with 
-          | None -> []
-          | Some con -> [(var_name, con)]
-        )
-      in List.append acc pairs
-
-    ) [] vb_li  in 
+    let head = List.hd vb_li in 
+    let var_name = string_of_pattern (head.pvb_pat) in 
+    let (new_acc, residue) = infer_of_expression env acc (head.pvb_expr) in 
+    let stack_up = 
+      (match residue with 
+      | None -> []
+      | Some stack -> [(var_name, stack)]
+      ) in 
     
-    infer_of_expression (Env.add_stack stack_up env) acc expr
+    infer_of_expression (Env.add_stack stack_up env) new_acc expr 
+
+    
 
 
-  | Pexp_construct _ -> (True, Emp, [])
+
+  | Pexp_construct _ -> ((True, Emp, []), None)
   | Pexp_constraint (ex, _) -> infer_of_expression env acc ex
   | Pexp_sequence (ex1, ex2) -> 
 
-    let acc1 = infer_of_expression env acc ex1 in 
+    let (acc1, _) = infer_of_expression env acc ex1 in 
 
     infer_of_expression env acc1 ex2
 
   | Pexp_match (ex, case_li) -> 
-    let spec_ex = infer_of_expression env (True, Emp, []) ex in 
+    let (spec_ex, _) = infer_of_expression env (True, Emp, []) ex in 
     let (p_ex, es_ex, side_es) = normalSpec spec_ex in 
     let (policies:policy list) = List.fold_left (fun acc a -> 
       let cuurent_p = 
@@ -561,7 +571,7 @@ let rec infer_of_expression env (acc:spec) expr : spec =
       
         (match lhs.ppat_desc with 
           | Ppat_effect (p1, _) -> 
-            let (_, es, _) = infer_of_expression env (True, Emp, []) rhs in 
+            let ((_, es, _), _) = infer_of_expression env (True, Emp, []) rhs in 
             [(Eff (string_of_pattern p1, es))]
           | Ppat_exception p1 -> [(Exn (string_of_pattern p1))]
           | _ -> [] 
@@ -571,13 +581,21 @@ let rec infer_of_expression env (acc:spec) expr : spec =
        
       ) [] case_li in 
     let trace = fixpoint_compute es_ex policies in 
-    (p_ex, trace, side_es) 
+    ((p_ex, trace, side_es) , None)
 
 
 
     
-  | Pexp_ident _
-  | Pexp_constant _ -> (True, Emp, [])
+  | Pexp_ident l -> 
+    let name = getIndentName l in 
+    let rec aux li = 
+      match li with 
+      | [] -> (acc, None)
+      | (str, res)::xs -> if String.compare str name == 0 then (acc, Some res) else aux xs
+    in
+    aux (env.stack)
+
+  | Pexp_constant _ -> ((True, Emp, []), None)
 
   (*
   | Pexp_let (_rec, bindings, c) -> 
@@ -607,9 +625,13 @@ and infer_value_binding env vb =
   in 
   let (pre, post) = spec in
   let (pre_p, pre_es, _) = pre in 
-  let final = normalSpec (infer_of_expression env (pre_p, pre_es, []) body) in
+  let ((final_pi, final_es, final_side), resdue) =  (infer_of_expression env (pre_p, pre_es, []) body) in
+
+  let final = normalSpec (final_pi, Cons (final_es, residueToPredeciate resdue), final_side) in 
+
+
   let env1 = Env.add_fn fn_name { pre; post; formals } env in
-  pre, post, final, env1, fn_name
+  pre, post, ( final), env1, fn_name
 
 
 let infer_of_value_binding env vb: string * env = 

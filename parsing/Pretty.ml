@@ -174,7 +174,7 @@ let string_of_spec (pi, es, side) =
     | [] -> ""
     | _ -> ", " ^ string_of_side side
   in
-  Format.sprintf "%s, %s%s"
+  Format.sprintf "%s, %s, %s"
     (string_of_pi pi) (string_of_es es) side
 
 

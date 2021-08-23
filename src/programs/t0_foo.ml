@@ -1,4 +1,4 @@
-effect Foo : (unit -> 'a)
+effect Foo : (unit -> unit)
 
 
 let f g
@@ -9,18 +9,18 @@ let f g
 let h n
 (*@ requires Foo.Q(Foo 1) @*)
 (*@ ensures  Foo @*)
-= perform Foo 1
+= perform Foo ()
 
 let h n
 (*@ requires emp, 1 + (2-1) < 1 @*)
 (*@ ensures  Foo @*)
-= perform Foo 1
+= perform Foo ()
 
 let res_f
   (*@ requires emp @*)
   (*@ ensures Foo  @*)
   =
   match f () with
-  | x -> x
+  | _ -> ()
   | effect Foo k ->
      continue k (fun () -> ())
