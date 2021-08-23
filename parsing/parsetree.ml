@@ -22,9 +22,9 @@
 
 open Asttypes
 
-type basic_t = INT of int | UNIT 
+type basic_t = BINT of int | UNIT 
 
-type instant = string * basic_t list  
+type instant = string * (basic_t list) 
 
 (* To indicate weather there are partial applied continustiaon *)
 type residue = instant option 

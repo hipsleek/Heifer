@@ -93,10 +93,11 @@ let rec separate li f sep : string =
   | x ::xs -> f x ^ sep ^ separate xs f sep
   ;;
 
-let rec compareParm (p1:int list) (p2:int list) :bool = 
+let rec compareParm (p1:basic_t list) (p2:basic_t list) :bool = 
   match (p1, p2) with 
   | ([], []) -> true 
-  | (x::xs, y::ys) -> x == y  && compareParm xs ys
+  | (BINT x::xs, BINT y::ys) -> x == y  && compareParm xs ys
+  | (UNIT::xs, UNIT::ys) ->  compareParm xs ys
   | _ -> false
   ;;
 
@@ -115,8 +116,13 @@ let compareEvent (ev1:event) (ev2:event): bool =
 
   ;;
 
+let string_of_basic_type a : string = 
+  match a with 
+  | BINT i -> string_of_int i 
+  | UNIT -> "()"
+
 let string_of_instant (str, ar_Li): string = 
-  str ^ "(" ^ separate (ar_Li) (string_of_int) (",") ^")";;
+  str ^ "(" ^ separate (ar_Li) (string_of_basic_type) (",") ^")";;
 
   
 let rec string_of_es es : string = 
@@ -259,7 +265,7 @@ let rec string_of_event ev : string =
   match ev with 
   | One (str) ->  str (*^ "(" ^ separate (ar_Li) (string_of_int) (",") ^")" *)
   | Zero (str) -> "!" ^ string_of_event (One (str))
-  | Pred (str, ar_Li) -> "Q(" ^str ^  separate (ar_Li) (string_of_int) (",") ^")" 
+  | Pred (str, ar_Li) -> "Q(" ^str ^  separate (ar_Li) (string_of_basic_type) (",") ^")" 
   | Any -> "_"
 
   ;;

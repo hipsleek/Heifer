@@ -336,14 +336,14 @@ let fnNameToString fnName: string =
     | _ -> "dont know"
     ;;
 
-let expressionToInt ex : int =
+let expressionToBasicT ex : basic_t =
   match ex.pexp_desc with 
   | Pexp_constant cons ->
     (match cons with 
-    | Pconst_integer (str, _) -> int_of_string str
-    | _ -> raise (Foo (Pprintast.string_of_expression  ex ^ " expressionToInt error1"))
+    | Pconst_integer (str, _) -> BINT (int_of_string str)
+    | _ -> raise (Foo (Pprintast.string_of_expression  ex ^ " expressionToBasicT error1"))
     )
-  | _ -> raise (Foo (Pprintast.string_of_expression  ex ^ " expressionToInt error2"))
+  | _ -> raise (Foo (Pprintast.string_of_expression  ex ^ " expressionToBasicT error2"))
 
 let call_function fnName (li:(arg_label * expression) list) (acc:spec) (arg_eff:spec list) env : (spec * residue) = 
   let (acc_pi, acc_es, acc_side) = acc in 
@@ -359,7 +359,7 @@ let call_function fnName (li:(arg_label * expression) list) (acc:spec) (arg_eff:
     let eff_name = getEffName (List.hd li) in 
     
     ((acc_pi, Cons (acc_es, Event (eff_name)), acc_side),
-     Some (eff_name, List.map (fun (_, a) -> expressionToInt a) (List.tl li))
+     Some (eff_name, List.map (fun (_, a) -> expressionToBasicT a) (List.tl li))
     )
   else if String.compare name "continue" == 0 then 
     (acc, None)
@@ -519,7 +519,8 @@ let rec fixpoint_compute (es:es) (policies:policy list) : es =
   | Predicate (ins)  -> 
     let (str_pred, _) = ins in 
     findPolicy str_pred policies
-    (*let rec helper acc index: es =
+    (*
+    let rec helper acc index: es =
       if (List.length acc) - 1 < index then 
         List.fold_left (fun acc a -> Cons (acc, Event a)) Emp acc 
       else 
@@ -534,8 +535,8 @@ let rec fixpoint_compute (es:es) (policies:policy list) : es =
 
 
     in helper [str_pred] 0 
-    *)
-
+    
+*)
    
   | Cons (es1, es2) -> Cons (fixpoint_compute es1 policies, fixpoint_compute es2 policies)
   | ESOr (es1, es2) -> ESOr (fixpoint_compute es1 policies, fixpoint_compute es2 policies)

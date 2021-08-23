@@ -2540,7 +2540,7 @@ effect_trace:
   {
     match n with
     | "Q" ->
-      let args = List.map (fun (i, _) -> int_of_string i) args in
+      let args = List.map (fun (i, _) -> BINT(int_of_string i)) args in
       Predicate (f, args)
     | _ ->
       failwith "invalid syntax for predicate application"
