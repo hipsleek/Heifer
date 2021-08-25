@@ -22,10 +22,21 @@
 
 open Asttypes
 
-type instant = string * int list  
+(* basic term *)
+type basic_t = BINT of int | UNIT 
 
-type event = One of string | Zero of string | Any
+type instant = string * (basic_t list) 
 
+(* To indicate weather there are partial applied continustiaon *)
+type residue = instant option 
+
+type event = One of string | Zero of string | Pred of instant | Any
+
+(*
+type stack_content = Cons of int | Variable of string | Apply of string * stack_content list 
+*)
+
+type stack = string * instant
 
 type es = Bot 
         | Emp   
@@ -55,13 +66,14 @@ type pi =
   | Imply  of pi * pi
   | Not    of pi
 
-type side = (instant * es) list   (* Eff(f()) = U^*.(Res \/ emp) *)
+type side = (string * es) list   (* Eff(f()) = U^*.(Res \/ emp) *)
 
 (* e.g: spec =  (n>0, emp, [Eff(f() = U^*] )) 
                 (n>0, Q(Foo()).END, [] )) 
 *)
 type spec = pi * es * side
 
+type policy = Eff of string * es | Exn of string
 
 type evn = (es * es)list
 

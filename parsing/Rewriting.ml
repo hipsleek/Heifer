@@ -2,6 +2,45 @@
 open List
 open Parsetree
 open Pretty
+open Z3
+
+let rec term_to_expr ctx : Parsetree.term -> Expr.expr = function
+  | Num n        -> Arithmetic.Integer.mk_numeral_i ctx n
+  | Var v          -> Arithmetic.Integer.mk_const_s ctx v
+  | Plus (t1, t2)  -> Arithmetic.mk_add ctx [ term_to_expr ctx t1; term_to_expr ctx t2 ]
+  | Minus (t1, t2) -> Arithmetic.mk_sub ctx [ term_to_expr ctx t1; term_to_expr ctx t2 ]
+
+
+let rec pi_to_expr ctx : Parsetree.pi -> Expr.expr = function
+  | True                -> Boolean.mk_true ctx
+  | False               -> Boolean.mk_false ctx
+  | Atomic (op, t1, t2) -> (
+      let t1 = term_to_expr ctx t1 in
+      let t2 = term_to_expr ctx t2 in
+      match op with
+      | EQ -> Boolean.mk_eq ctx t1 t2
+      | LT -> Arithmetic.mk_lt ctx t1 t2
+      | LTEQ -> Arithmetic.mk_le ctx t1 t2
+      | GT -> Arithmetic.mk_gt ctx t1 t2
+      | GTEQ -> Arithmetic.mk_ge ctx t1 t2)
+  | And (pi1, pi2)      -> Boolean.mk_and ctx [ pi_to_expr ctx pi1; pi_to_expr ctx pi2 ]
+  | Or (pi1, pi2)       -> Boolean.mk_or ctx [ pi_to_expr ctx pi1; pi_to_expr ctx pi2 ]
+  | Imply (pi1, pi2)    -> Boolean.mk_implies ctx (pi_to_expr ctx pi1) (pi_to_expr ctx pi2)
+  | Not pi              -> Boolean.mk_not ctx (pi_to_expr ctx pi)
+
+
+let check p1 p2 : bool =
+  let pi =   (Not (Or (Not p1, p2))) in
+  let cfg = [ ("model", "false"); ("proof", "false") ] in
+  let ctx = mk_context cfg in
+  let expr = pi_to_expr ctx pi in
+  (* print_endline (Expr.to_string expr); *)
+
+  let solver = Solver.mk_simple_solver ctx in
+  Solver.add solver [ expr ];
+  let sat = not (Solver.check solver [] == Solver.SATISFIABLE) in
+  (*print_endline (Solver.to_string solver); *)
+  sat
 
 
 
@@ -17,7 +56,7 @@ let rec  nullable (es:es) : bool=
   | Underline -> false 
   | Omega _ -> false
   | Not _ -> false
-  | Predicate _ -> raise (Foo ("nullable Predicate")) 
+  | Predicate _ -> false
 
 ;;
 
@@ -36,7 +75,7 @@ let rec  fst (es:es): event list =
   | Kleene es1 ->  fst es1
   | Omega es1 ->  fst es1
   | Underline -> [Any]
-  | Predicate _ -> raise (Foo ("fst Predicate")) 
+  | Predicate (ins) -> [Pred (ins)]
 
 ;;
 
@@ -67,6 +106,9 @@ let isEmp (es:es) :bool=
     Emp -> true
   | _ -> false 
   ;;
+
+let isEmpSpec ((_, es, _):spec) : bool = 
+  isEmp es;; 
 
 let rec checkexist lst super: bool = 
   match lst with
@@ -111,6 +153,9 @@ let rec derivative (es:es) (ev:event): es =
   | Bot -> Bot
   | Event ev1 -> 
       if compareEvent (One ev1) ev then Emp else Bot
+  | Predicate ins -> 
+      if compareEvent (Pred ins) ev then Emp else Bot
+
   | Not ev1 ->       
       if compareEvent (Zero ev1) ev then Emp else Bot
 
@@ -127,7 +172,6 @@ let rec derivative (es:es) (ev:event): es =
   | Kleene es1 -> Cons  (derivative es1 ev, es)
   | Omega es1 -> Cons  (derivative es1 ev, es)
   | Underline -> Emp
-  | Predicate _ -> raise (Foo ("derivative Predicate")) 
 
 
 ;;
@@ -168,25 +212,80 @@ let rec containment (evn: evn) (lhs:es) (rhs:es) : (bool * binary_tree ) =
 
 
 
+let check_pure p1 p2 : (bool * string) = 
+  let sat = check  p1 p2 in
+  let _ = string_of_pi p1 ^" => " ^ string_of_pi p2 in 
+  let buffur = ("[PURE]"(*^(pure)*)^ " " ^(if sat then "Succeed\n" else "Fail\n")  )
+  in (sat, buffur)
 
 
-let check_containment lhs rhs : (bool * binary_tree ) = 
-  containment [] lhs rhs
-  ;;
+(*(bool * binary_tree ) *)
+let check_containment lhs rhs : (bool * string) = 
+  let _ = (string_of_es (normalES lhs)) ^ " |- " ^ (string_of_es (normalES rhs)) (*and i = INC(lhs, rhs)*) in
 
-let printReport ((_, lhs, _):spec) ((_, rhs, _):spec) :string =
-
-
-  let entailment = (string_of_es (normalES lhs)) ^ " |- " ^ (string_of_es (normalES rhs)) (*and i = INC(lhs, rhs)*) in
-
-  let startTimeStamp = Sys.time() in
-  let (re, tree) =  check_containment lhs rhs in
-  let verification_time = "[Verification Time: " ^ string_of_float ((Sys.time() -. startTimeStamp) *. 1000.0) ^ " ms]\n" in
+  let (re, tree) =  containment [] lhs rhs in
   let result = printTree ~line_prefix:"* " ~get_name ~get_children tree in
-  let buffur = ( "----------------------------------------"^"\n" ^(entailment)^"\n[Result] " ^(if re then "Succeed\n" else "Fail\n")  ^verification_time^" \n\n"^ result)
-  in buffur
-  
+  let buffur = ("[ENTAILMENT] " (*^ (entailment)*)^(if re then "Succeed\n" else "Fail\n")  ^ result)
+  in (re , buffur)
+
+let compareInstant (s1, i1) (s2, i2) : bool = 
+  let rec helper l1 l2 : bool = 
+    match (l1, l2) with 
+    | ([], []) -> true 
+    | (x::xs, y::ys)  -> x == y && helper xs ys
+    | _ -> false 
+  in 
+  (String.compare s1 s2 == 0)  && helper i1 i2
+
+let rec existSide (ins) side : (string * es)  option = 
+  match side with 
+  | [] -> None
+  | (ins1, es2):: xs -> if String.equal ins ins1 then Some (ins1, es2) else existSide ins xs 
+
+let check_side s1 s2  : (bool * string) = 
+  let result = 
+    List.fold_left (fun acc (ins2, es2) -> acc && 
+    (
+      match existSide ins2 s1 with
+      | None -> raise (Foo ("check_side: " ^ string_of_side s1)) 
+      | Some (_, es1) -> let (re, _) = containment [] es1 es2 in re
+    )
+  ) true s2  in 
+  let buffur = ("[SIDE]" ^ (* (string_of_bool result)^*)" " ^(if result then "Succeed\n" else "Fail\n")  )
+  in (result, buffur)
+
+
+let printReport ((pi1, lhs, side1):spec) ((pi2, rhs, side2):spec) :(bool * string) = 
+  let startTimeStamp = Sys.time() in
+  let (re1, temp1) = check_pure pi1 pi2 in 
+  let (re2, temp2) = check_containment lhs rhs in 
+  let (re3, temp3) = check_side side1 side2  in 
+  let verification_time = "[Verification Time: " ^ string_of_float ((Sys.time() -. startTimeStamp) *. 1000.0) ^ " ms]" in
+  let re = re1 && re2 && re3 in 
+  let whole = "[Verification Result: " ^ (if re  then "Succeed " else "Fail " ) in 
+  (re, (*"===========================================\n" ^*)
+  verification_time  ^"\n"^
+  whole  ^"\n"^
+  "------------------------------\n" ^
+  temp1 ^ 
+  "- - - - - - - - - - - - - -"^"\n" ^
+  temp2 ^ 
+  "- - - - - - - - - - - - - -"^"\n" ^
+  temp3)
   ;;
+
+let n_GT_0 : pi =
+  Atomic (LT, Var "n", Num 0)
+
+let n_GT_1 : pi =
+  Atomic (LT, Var "n", Num 5)
+
+
+let testSleek (): string =
+  let spec1 = (n_GT_0, Emp, [("Foo", Emp)]) in 
+  let spec2 = (n_GT_1, Emp, [("Foo", Event "A")]) in 
+  let (_, str) = printReport spec1 spec2 in str;;
+
 
 
 

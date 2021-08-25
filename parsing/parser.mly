@@ -619,8 +619,12 @@ let mk_directive ~loc name arg =
 %token FUN
 %token FUNCTION
 %token FUNCTOR
+%token CONJUNCTION
+%token DISJUNCTION
+%token IMPLICATION
 %token REQUIRES
 %token ENSURES
+%token EFF
 %token OMEGA
 %token KLEENE
 %token EMP
@@ -777,13 +781,16 @@ The precedences must be listed from low to high.
 %nonassoc below_DOT
 %left     DOT
 %nonassoc DOTOP
-%nonassoc KLEENE OMEGA                 /* bind tighter than dot, to avoid shift/reduce conflict */
+%nonassoc KLEENE OMEGA                  /* bind tighter than dot, to avoid shift/reduce conflict */
+%nonassoc TILDE                         /* higher than conjunction */
+%left     CONJUNCTION                   /* higher than disjunction */
+%left     DISJUNCTION                   /* should bind less tightly than kleene/omega */
+%right    IMPLICATION                   /* lower than conjunction */
 /* Finally, the first tokens of simple_expr are above everything else. */
 %nonassoc BACKQUOTE BANG BEGIN CHAR FALSE FLOAT INT
           LBRACE LBRACELESS LBRACKET LBRACKETBAR LIDENT LPAREN
           NEW PREFIXOP STRING TRUE UIDENT
           LBRACKETPERCENT QUOTED_STRING_EXPR
-
 
 /* Entry points */
 
@@ -2525,24 +2532,88 @@ fun_binding:
       { let exp = mkexp_constraint ~loc:$sloc e t in
       { exp with pexp_effectspec = c } }
 ;
-effect_spec:
+effect_trace:
   | UNDERSCORE { Underline }
   | EMP { Emp }
+  | n = UIDENT { Event n }
+  | n = UIDENT LPAREN f = UIDENT args = list(INT) RPAREN
+  {
+    match n with
+    | "Q" ->
+      let args = List.map (fun (i, _) -> BINT(int_of_string i)) args in
+      Predicate (f, args)
+    | _ ->
+      failwith "invalid syntax for predicate application"
+  }
+  | TILDE n = UIDENT { Not n }
+  | effect_trace DOT effect_trace { Cons ($1, $3) }
+  | effect_trace DISJUNCTION effect_trace { ESOr ($1, $3) }
+  | effect_trace KLEENE { Kleene $1 }
+  | effect_trace OMEGA { Omega $1 }
+  | LPAREN effect_trace RPAREN { $2 }
+;
 
-  | n = UIDENT { Event (n) }
-  | n = UIDENT LPAREN a = INT+ RPAREN { let _ = a |> List.map fst |> List.map int_of_string in Event (n) }
-  | TILDE n = UIDENT { Not (n) }
-  | TILDE n = UIDENT LPAREN a = INT+ RPAREN { let _ = a |> List.map fst |> List.map int_of_string in Not (n) }
-
-  | effect_spec DOT effect_spec { Cons ($1, $3) }
-  | effect_spec KLEENE { Kleene $1 }
-  | effect_spec OMEGA { Omega $1 }
-  | LPAREN effect_spec RPAREN { $2 }
+pure_formula_term:
+  | n = INT { let (i, _) = n in Num (int_of_string i) }
+  | v = LIDENT { Var v }
+  | pure_formula_term PLUS pure_formula_term { Plus ($1, $3) }
+  | pure_formula_term MINUS pure_formula_term { Minus ($1, $3) }
+  | LPAREN pure_formula_term RPAREN { $2 }
+;
+pure_formula:
+  | TRUE { True }
+  | FALSE { False }
+  | a = pure_formula_term LESS b = pure_formula_term { Atomic (LT, a, b) }
+  | a = pure_formula_term GREATER b = pure_formula_term { Atomic (GT, a, b) }
+  | a = pure_formula_term op = INFIXOP0 b = pure_formula_term
+  {
+    let op =
+      match op with
+      | "<=" -> LTEQ
+      | ">=" -> GTEQ
+      | _ -> failwith ("unexpected infix operator " ^ op)
+    in
+    Atomic (op, a, b)
+  }
+  | pure_formula CONJUNCTION pure_formula { And ($1, $3) }
+  | pure_formula DISJUNCTION pure_formula { Or ($1, $3) }
+  | pure_formula IMPLICATION pure_formula { Imply ($1, $3) }
+  | TILDE pure_formula { Not ($2) }
+;
+side_condition:
+  | EFF LPAREN f = LIDENT RPAREN EQUAL es = effect_trace { (f, es) }
+;
+effect_spec:
+  | effect_trace { [`Trace $1] }
+  | pure_formula { [`Pure $1] }
+  | side_condition { [`Side $1] }
+  | effect_spec COMMA effect_spec { $1 @ $3 }
 ;
 fn_contract:
   | LSPECCOMMENT? REQUIRES pre = effect_spec RSPECCOMMENT?
     LSPECCOMMENT? ENSURES post = effect_spec RSPECCOMMENT?
-      { Some ((True, pre, []), (True, post, [])) }
+      {
+        let is_trace = function `Trace e -> Some e | _ -> None in
+        let is_pure = function `Pure e -> Some e | _ -> None in
+        let is_side = function `Side e -> Some e | _ -> None in
+        let find_trace spec =
+          let t = List.filter_map is_trace spec in
+          match t with
+          | [] -> Emp
+          | [t] -> t
+          | _ -> failwith ("a function should be annotated with only one trace")
+        in
+        let find_pure spec =
+          let pure = List.filter_map is_pure spec in
+          match pure with
+          | p :: ps ->
+            List.fold_right (fun c t -> And (c, t)) ps p
+          | [] -> True
+        in
+        Some (
+          (find_pure pre, find_trace pre, List.filter_map is_side pre),
+          (find_pure post, find_trace post, List.filter_map is_side post))
+      }
 ;
 strict_binding:
     EQUAL seq_expr

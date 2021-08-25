@@ -93,10 +93,11 @@ let rec separate li f sep : string =
   | x ::xs -> f x ^ sep ^ separate xs f sep
   ;;
 
-let rec compareParm (p1:int list) (p2:int list) :bool = 
+let rec compareParm (p1:basic_t list) (p2:basic_t list) :bool = 
   match (p1, p2) with 
   | ([], []) -> true 
-  | (x::xs, y::ys) -> x == y  && compareParm xs ys
+  | (BINT x::xs, BINT y::ys) -> x == y  && compareParm xs ys
+  | (UNIT::xs, UNIT::ys) ->  compareParm xs ys
   | _ -> false
   ;;
 
@@ -108,19 +109,27 @@ let compareEvent (ev1:event) (ev2:event): bool =
     String.compare str1 str2 == 0 (* && compareParm parms1 parms2 *)
   | (Zero (str1), Zero (str2)) -> 
   String.compare str1 str2 == 0 (* && compareParm parms1 parms2 *)
+  | (Pred (str1, parms1), Pred (str2, parms2)) -> 
+  String.compare str1 str2 == 0  && compareParm parms1 parms2
+
   | _ -> false 
 
   ;;
 
+let string_of_basic_type a : string = 
+  match a with 
+  | BINT i -> string_of_int i 
+  | UNIT -> "()"
+
 let string_of_instant (str, ar_Li): string = 
-  str ^ "(" ^ separate (ar_Li) (string_of_int) (",") ^")";;
+  str ^ "(" ^ separate (ar_Li) (string_of_basic_type) (",") ^")";;
 
   
 let rec string_of_es es : string = 
   match es with 
   | Bot -> "_|_"
   | Emp -> "emp"
-  | Predicate ins  -> string_of_instant ins 
+  | Predicate ins  -> Format.sprintf "Q(%s)" (string_of_instant ins)
   | Event str -> str
   | Not str -> "!" ^ str
   | Cons (es1, es2) -> string_of_es es1 ^"."^ string_of_es es2 
@@ -146,9 +155,12 @@ let string_of_bin_op op : string =
   | LTEQ -> "<="
 
 let string_of_side side : string =
-  List.fold_left (fun acc (ins, es) -> acc ^ 
-    (string_of_instant ins ^  string_of_es es   (* Eff(f()) = U^*.(Res \/ emp) *)
-    ) ) "" side
+  side
+    |> List.map (fun (ins, es) ->
+      Format.sprintf "eff(%s) = %s"
+        ins
+        (string_of_es es) )
+    |> String.concat ", "
 
 let rec string_of_pi pi : string = 
   match pi with 
@@ -162,8 +174,14 @@ let rec string_of_pi pi : string =
 
 
 
-let string_of_spec (pi, es, side): string = 
-  string_of_pi pi ^ "/\\" ^ string_of_es es ^ "/\\" ^ string_of_side side ;;
+let string_of_spec (pi, es, side) =
+  let side =
+    match side with
+    | [] -> ""
+    | _ -> ", " ^ string_of_side side
+  in
+  Format.sprintf "%s, %s, %s"
+    (string_of_pi pi) (string_of_es es) side
 
 
 
@@ -236,7 +254,8 @@ let normalSpec (pi, es, side) : spec = (normalPure pi, normalES es, normalSide s
 let eventToEs ev : es =
   match ev with 
   | One ins -> Event ins 
-  | Zero ins ->Not ins
+  | Zero ins -> Not ins
+  | Pred ins -> Predicate ins
   | Any -> Underline
 
   ;;
@@ -246,6 +265,7 @@ let rec string_of_event ev : string =
   match ev with 
   | One (str) ->  str (*^ "(" ^ separate (ar_Li) (string_of_int) (",") ^")" *)
   | Zero (str) -> "!" ^ string_of_event (One (str))
+  | Pred (str, ar_Li) -> "Q(" ^str ^  separate (ar_Li) (string_of_basic_type) (",") ^")" 
   | Any -> "_"
 
   ;;
