@@ -22,6 +22,7 @@
 
 open Asttypes
 
+(* basic term *)
 type basic_t = BINT of int | UNIT 
 
 type instant = string * (basic_t list) 

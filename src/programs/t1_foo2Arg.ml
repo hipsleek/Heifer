@@ -13,7 +13,7 @@ let f ()
   "B"
   *)
 
-let res : unit
+let res
   (*@ requires emp @*)
   (*@ ensures  Foo.Goo.Goo @*)
   =

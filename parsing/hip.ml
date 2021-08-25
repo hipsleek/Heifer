@@ -218,21 +218,47 @@ type fn_spec = {
 (* at a given program point, this captures specs for all local bindings *)
 type fn_specs = fn_spec SMap.t
 
+(* only first-order types for arguments, for now *)
+type typ = TInt | TUnit
+
+let core_type_to_typ (t:core_type) =
+  match t.ptyp_desc with
+  | Ptyp_constr ({txt=Lident "int"; _}, []) -> TInt
+  | Ptyp_constr ({txt=Lident "unit"; _}, []) -> TUnit
+  | _ -> failwith ("core_type_to_typ: " ^ string_of_core_type t)
+
+(* effect Foo : int -> (int -> int) *)
+type effect_def = {
+  params: typ list; (* [TInt] *)
+  res: typ list * typ (* ([TInt], TInt) *)
+}
+
 type env = {
   (* module name -> a bunch of function specs *)
   modules : fn_specs SMap.t;
   current : fn_specs;
-  stack : stack list
+  (* the stack stores higher-order functions which may produce effects *)
+  stack : stack list;
+  (* remembers types given in effect definitions *)
+  effect_defs : effect_def SMap.t;
 }
 
 module Env = struct
-  let empty = { modules = SMap.empty; current = SMap.empty; stack= []}
+  let empty = {
+    modules = SMap.empty;
+    current = SMap.empty;
+    stack = [];
+    effect_defs = SMap.empty
+  }
 
   let add_fn f spec env =
     { env with current = SMap.add f spec env.current }
   
   let add_stack paris env = 
     { env with stack = List.append  paris (env.stack) }
+
+  let add_effect name def env =
+    { env with effect_defs = SMap.add name def env.effect_defs }
 
   let find_fn f env =
     SMap.find f env.current
@@ -765,8 +791,7 @@ let infer_of_value_binding env vb: string * env =
   *)
 
 
-  
-
+(* returns the inference result as a string to be printed *)
 let rec infer_of_program env x: string * env =
   match x.pstr_desc with
   | Pstr_value (_ (*rec_flag*), x::_ (*value_binding list*)) ->
@@ -801,7 +826,29 @@ let rec infer_of_program env x: string * env =
     (* ... dump all the bindings in that module into the current environment and continue *)
     "", Env.open_module name env
 
-  | Pstr_effect _ -> string_of_es Emp, env
+  | Pstr_effect { peff_name; peff_kind; _ } ->
+    begin match peff_kind with
+    | Peff_decl (args, res) ->
+      (* converts a type of the form a -> b -> c into ([a, b], c) *)
+      let split_params_fn t =
+        let rec loop acc t =
+          match t.ptyp_desc with
+          | Ptyp_arrow (_, a, b) ->
+            (* note that we don't recurse in a *)
+            loop (a :: acc) b
+          | Ptyp_constr ({txt=Lident "int"; _}, [])
+          | Ptyp_constr ({txt=Lident "unit"; _}, []) -> List.rev acc, t
+          | _ -> failwith ("split_params_fn: " ^ string_of_core_type t)
+        in loop [] t
+      in
+      let name = peff_name.txt in
+      let params = List.map core_type_to_typ args in
+      let res = split_params_fn res
+        |> (fun (a, b) -> (List.map core_type_to_typ a, core_type_to_typ b)) in
+      let def = { params; res } in
+      "", Env.add_effect name def env
+    | Peff_rebind _ -> failwith "unsupported effect spec rebind"
+    end
   | _ ->  string_of_es Bot, env
   ;;
 
