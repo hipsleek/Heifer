@@ -372,6 +372,7 @@ let expressionToBasicT ex : basic_t =
     | Pconst_integer (str, _) -> BINT (int_of_string str)
     | _ -> raise (Foo (Pprintast.string_of_expression  ex ^ " expressionToBasicT error1"))
     )
+  | Pexp_ident _ -> raise (Foo "I am just testing")
   | _ -> raise (Foo (Pprintast.string_of_expression  ex ^ " expressionToBasicT error2"))
 
 let call_function fnName (li:(arg_label * expression) list) (acc:spec) (arg_eff:spec list) env : (spec * residue) = 
