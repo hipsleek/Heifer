@@ -1,4 +1,4 @@
-effect Foo : (unit -> 'a)
+effect Foo : (unit -> unit)
 
 
 let f () 
@@ -6,11 +6,11 @@ let f ()
 (*@ ensures  Foo @*)
 = perform Foo
 
-let res_f
+let res_f () 
   (*@ requires emp @*)
   (*@ ensures Foo  @*)
   =
   match f () with
-  | x -> x
+  | _ -> ()
   | effect Foo k ->
      continue k (fun () -> ())
