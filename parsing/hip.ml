@@ -237,7 +237,10 @@ type env = {
   (* module name -> a bunch of function specs *)
   modules : fn_specs SMap.t;
   current : fn_specs;
-  (* the stack stores higher-order functions which may produce effects *)
+  (* the stack stores higher-order functions which may produce effects.
+     an entry like a -> Foo(1) means that the variable a in scope has been applied to
+     the single argument 1. nothing is said about how many arguments are remaining,
+     (though that can be figured out from effect_defs) *)
   stack : stack list;
   (* remembers types given in effect definitions *)
   effect_defs : effect_def SMap.t;
@@ -374,31 +377,55 @@ let expressionToBasicT ex : basic_t =
 let call_function fnName (li:(arg_label * expression) list) (acc:spec) (arg_eff:spec list) env : (spec * residue) = 
   let (acc_pi, acc_es, acc_side) = acc in 
   let name = fnNameToString fnName in 
-  if String.compare name "perform" == 0 then 
-    let getEffName l = 
-      let (_, temp) = l in 
-      match temp.pexp_desc with 
-      | Pexp_construct (a, _) -> getIndentName a 
-      | _ -> raise (Foo "getEffName error")
-    in 
+  let spec, residue =
+    if String.compare name "perform" == 0 then 
+      let getEffName l = 
+        let (_, temp) = l in 
+        match temp.pexp_desc with 
+        | Pexp_construct (a, _) -> getIndentName a 
+        | _ -> raise (Foo "getEffName error")
+      in 
 
-    let eff_name = getEffName (List.hd li) in 
-    
-    ((acc_pi, Cons (acc_es, Event (eff_name)), acc_side),
-     Some (eff_name, List.map (fun (_, a) -> expressionToBasicT a) (List.tl li))
-    )
-  else if String.compare name "continue" == 0 then 
-    let (policy:spec) = List.fold_left (
-      fun (acc_pi, acc_es, acc_side) (a_pi, a_es, a_side) -> 
-        (And(acc_pi, a_pi), Cons(acc_es, a_es), List.append acc_side a_side)) acc arg_eff in 
-    (policy, None)
-  else 
-    let (* param_formal, *) 
-    { pre = precon ; post = (post_pi, post_es, post_side); formals = arg_formal } = Env.find_fn name env in
-    let sb = side_binding (*find_arg_formal name env*) arg_formal arg_eff in 
-    let (res, str) = printReport (merge_spec acc (True, Emp, sb)) precon in 
-    if res then ((And(acc_pi, post_pi), Cons (acc_es, post_es), List.append acc_side post_side), None)
-    else raise (Foo ("call_function precondition fail:" ^ str ^ debug_string_of_expression fnName));;
+      let eff_name = getEffName (List.hd li) in 
+      
+      let spec = acc_pi, Cons (acc_es, Event (eff_name)), acc_side in
+      (* given perform Foo 1, residue is Some (Foo, [BINT 1]) *)
+      let eff_args = List.tl li in
+
+      let residue = Some (eff_name,
+        List.map (fun (_, a) -> expressionToBasicT a) eff_args) in
+
+      (spec, residue)
+    else if String.compare name "continue" == 0 then 
+      let (policy:spec) = List.fold_left (
+        fun (acc_pi, acc_es, acc_side) (a_pi, a_es, a_side) -> 
+          (And(acc_pi, a_pi), Cons(acc_es, a_es), List.append acc_side a_side)) acc arg_eff in 
+      (policy, None)
+    else if List.mem_assoc name env.stack then
+      (* higher-order function, so we should produce some residue instead *)
+      let (name, args) = List.assoc name env.stack in
+      let extra = li |> List.map snd |> List.map expressionToBasicT in
+      let residue = (name, args @ extra) in
+      ((True, Emp, []), Some residue)
+    else
+      let (* param_formal, *) 
+      { pre = precon ; post = (post_pi, post_es, post_side); formals = arg_formal } = Env.find_fn name env in
+      let sb = side_binding (*find_arg_formal name env*) arg_formal arg_eff in 
+      let (res, str) = printReport (merge_spec acc (True, Emp, sb)) precon in 
+      if res then ((And(acc_pi, post_pi), Cons (acc_es, post_es), List.append acc_side post_side), None)
+      else raise (Foo ("call_function precondition fail:" ^ str ^ debug_string_of_expression fnName))
+    in
+
+    if false then begin
+      Format.printf "%s:\nspec: %s@." (fnNameToString fnName) (string_of_spec spec);
+      (match residue with
+      | None -> print_endline "no residue"
+      | Some r ->
+        Format.printf "residue: %s@." (string_of_instant r));
+      Format.printf "env: %s\n@." (string_of_env env)
+    end;
+
+    spec, residue
 
 
 let checkRepeat history fst : (event list) option = 
@@ -667,8 +694,12 @@ let rec infer_of_expression env (acc:spec) expr : (spec * residue) =
     let (new_acc, residue) = infer_of_expression env acc (head.pvb_expr) in 
     let stack_up = 
       (match residue with 
-      | None -> []
-      | Some stack -> [(var_name, stack)]
+      | None ->
+        (* print_endline ("nothing added to stack"); *)
+        []
+      | Some stack ->
+        (* Format.eprintf "added to stack %s %s@." var_name (string_of_instant stack); *)
+        [(var_name, stack)]
       ) in 
     
     infer_of_expression (Env.add_stack stack_up env) new_acc expr 
