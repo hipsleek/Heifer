@@ -267,7 +267,7 @@ module Env = struct
     { env with effect_defs = SMap.add name def env.effect_defs }
 
   let find_fn f env =
-    SMap.find f env.current
+    SMap.find_opt f env.current
 
   let add_module name menv env =
     { env with modules = SMap.add name menv.current env.modules }
@@ -412,8 +412,12 @@ let call_function fnName (li:(arg_label * expression) list) (acc:spec) (arg_eff:
       let residue = (name, args @ extra) in
       ((True, Emp, []), Some residue)
     else
-      let (* param_formal, *) 
-      { pre = precon ; post = (post_pi, post_es, post_side); formals = arg_formal } = Env.find_fn name env in
+      let { pre = precon ; post = (post_pi, post_es, post_side); formals = arg_formal } =
+        (* if functions are undefined, assume for now that they have the default spec *)
+        match Env.find_fn name env with
+        | None -> { pre = default_spec; post = default_spec; formals = []}
+        | Some s -> s
+      in
       let sb = side_binding (*find_arg_formal name env*) arg_formal arg_eff in 
       let (res, str) = printReport (merge_spec acc (True, Emp, sb)) precon in 
       if res then ((And(acc_pi, post_pi), Cons (acc_es, post_es), List.append acc_side post_side), None)
