@@ -192,6 +192,9 @@ let string_of_program x : string =
 let debug_string_of_expression e =
   Format.asprintf "%a" (Printast.expression 0) e
 
+let string_of_longident l =
+  l |> Longident.flatten |> String.concat "."
+
 let merge_spec (p1, es1, side1) (p2, es2, side2) : spec = 
   (And (p1, p2), Cons(es1, es2), List.append side1 side2);;
 
@@ -199,7 +202,7 @@ let merge_spec (p1, es1, side1) (p2, es2, side2) : spec =
 let getIndentName (l:Longident.t loc): string = 
   (match l.txt with 
         | Lident str -> str
-        | _ -> "dont know"
+        | _ -> "getIndentName: dont know " ^ string_of_longident l.txt
         )
         ;;
 
@@ -362,7 +365,7 @@ let fnNameToString fnName: string =
   match fnName.pexp_desc with 
     | Pexp_ident l -> getIndentName l 
         
-    | _ -> "dont know"
+    | _ -> "fnNameToString: dont know " ^ debug_string_of_expression fnName
     ;;
 
 let expressionToBasicT ex : basic_t =
