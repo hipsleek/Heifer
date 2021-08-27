@@ -269,3 +269,12 @@ let rec string_of_event ev : string =
   | Any -> "_"
 
   ;;
+
+let rec string_of_policies ps: string = 
+  match ps with 
+  | [] -> ""
+  | x::xs -> 
+    (match x with 
+    | Eff (str, es) -> "Effect "^ str ^ " -> " ^ string_of_es (es) ^ "\n"
+    | Exn str -> "Exeption " ^ str 
+    ) ^ string_of_policies xs 

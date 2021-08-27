@@ -1,11 +1,12 @@
-effect Foo : (int -> int)
+effect Foo : (int -> int -> int)
 effect Goo : (int -> int)
 
 let f () 
 (*@ requires emp @*)
 (*@ ensures  Foo.Q(Foo 1) @*)
 = let a = perform Foo 1 in 
-  a 
+  let b = a 2 in 
+  b 
 
 
 let res_f

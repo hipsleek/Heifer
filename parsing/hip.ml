@@ -542,7 +542,7 @@ let rec reoccor_continue li (ev:string) index: int option  =
   | x::xs -> if String.compare x ev  == 0 then Some index else reoccor_continue xs ev (index + 1)
 
 let rec sublist b e l = 
-  if e < 0 then []
+  if e < b then []
   else 
   match l with
     [] -> []
@@ -552,12 +552,6 @@ let rec sublist b e l =
 ;;
 
 let formLoop li start stop : es = 
-  (*
-  print_string ("forming a loop\n");
-  print_string (List.fold_left (fun acc a -> acc ^ "\n" ^ a) "" li);
-  print_string (string_of_int start ^"\n");
-  print_string (string_of_int stop ^"\n");
-*)
   let (beforeLoop:es) = List.fold_left (fun acc a -> Cons (acc, Event a)) Emp (sublist 0 (start -1) li) in 
   
   let (sublist:es) = List.fold_left (fun acc a -> Cons (acc, Event a)) Emp (sublist start (stop -1) li) in 
@@ -588,38 +582,55 @@ let rec get_the_Sequence (es:es) (acc:string list) : (string list) list  =
 
 
 
-let insertMiddle acc index list_ev :string list = 
-  print_string ("insertMiddle \n");
+let insertMiddle acc index list_ev :string list =  
 
   let length = List.length acc in 
-  let theFront = (sublist 0 (index -1) acc) in  
-  let theBack = (sublist index (length -1) acc) in  
-  List.append (List.append theFront list_ev ) theBack
+  let theFront = (sublist 0 (index) acc) in  
+  let theBack =  (sublist (index + 1) (length -1) acc) in  
+  let result =   List.append (List.append theFront list_ev ) theBack in 
+  result
 
 
 
 let rec fixpoint_compute (es:es) (policies:policy list) : es = 
   match normalES es with 
   | Predicate (ins)  -> 
+
     let (str_pred, _) = ins in 
-    (*findPolicy str_pred policies*)
     let rec helper (acc:string list) (index:int): es =
       if (List.length acc) <= index then 
         List.fold_left (fun acc a -> Cons (acc, Event a)) Emp (acc) 
       else 
         if index == -1 then 
           let continueation = findPolicy str_pred policies in 
-          let (list_list_ev:string list list) = get_the_Sequence continueation acc in 
+          let (list_list_ev:string list list) = get_the_Sequence continueation [] in 
+           
           List.fold_left (fun acc list_ev -> ESOr (acc, helper (list_ev) 0)) Bot list_list_ev
+          
+          
         else 
-      
+
           let ev =  getEleFromListByIndex acc index in 
           (match reoccor_continue (sublist 0 (index -1) acc) ev 0 with 
-          | Some start -> formLoop acc start index
+          | Some start -> 
+            let continueation = findPolicy ev policies in 
+            if isEmp (normalES continueation) then helper (acc) (index + 1)
+            else 
+            formLoop acc start index
           | None -> 
             let continueation = findPolicy ev policies in 
-            let (list_list_ev:string list list) = get_the_Sequence continueation acc in 
-            List.fold_left (fun acc_es list_ev -> ESOr (acc_es, helper (insertMiddle acc (index + 1) list_ev) (index + 1))) Bot list_list_ev
+            let (list_list_ev:string list list) = get_the_Sequence continueation [] in 
+
+            List.fold_left (fun acc_es list_ev -> 
+            (*
+            let temp1 = (List.fold_left (fun accq a -> accq ^ ","^ a )"" list_ev) in
+            let temp2 = (List.fold_left (fun accq a -> accq ^ ","^ a )"" acc) in
+            
+
+            print_string ("inserting " ^ temp1 ^ " in " ^ temp2 ^ " at " ^ string_of_int (index) ^"\n");
+            print_string ("---> " ^ (List.fold_left (fun accq a -> accq ^ ","^ a )""   (insertMiddle acc (index) list_ev)) ^"\n");
+*)
+            ESOr (acc_es, helper (insertMiddle acc (index ) list_ev) (index + 1))) Bot list_list_ev
             
           )
 
@@ -671,6 +682,37 @@ let residueToPredeciate (residue:residue):es =
   | None -> Emp
   | Some res -> Predicate res 
   ;;
+
+let pre_compute_policy (policies:policy list ) : policy list = 
+  let helper p : policy = 
+    match p with 
+    | Eff (str, es) -> 
+      let rec aux esIn : es = 
+        match esIn with 
+        | Predicate (str_pred, _) -> 
+          let rec auxaux pp : es =
+            match pp with 
+            | [] -> raise (Foo ("recursive policy"))
+            | (Eff (strIn, esIn)) ::xs  -> 
+              if String.compare strIn str_pred == 0 then esIn else auxaux xs
+            | _ :: xs -> auxaux xs
+          in auxaux policies
+
+        | Cons (es1, es2) -> Cons (aux es1, aux es2)
+        | ESOr (es1, es2) -> ESOr (aux es1, aux es2)
+        | Kleene es1 -> Kleene (aux es1)
+        | Omega es1 -> Omega (aux es1)
+        | _ -> esIn
+      in Eff (str, aux es) 
+      
+
+    | _ -> p 
+
+  in List.map (fun a -> 
+    match helper a with 
+    | Eff (str, es) -> Eff (str, normalES es)
+    | _ -> helper a
+    ) policies
 
 
 let rec infer_of_expression env (acc:spec) expr : (spec * residue) =
@@ -728,7 +770,8 @@ let rec infer_of_expression env (acc:spec) expr : (spec * residue) =
         (match lhs.ppat_desc with 
           | Ppat_effect (p1, _) -> 
             let ((_, es, _), _) = infer_of_expression env (True, Emp, []) rhs in
-            print_string ("[SYH-match]:" ^ Pprintast.string_of_expression rhs ^ "\n" ^  string_of_pattern p1 ^" " ^ string_of_es es^"\n"); 
+            (*print_string ("[SYH-match]:" ^ Pprintast.string_of_expression rhs ^ "\n" ^  string_of_pattern p1 ^" " ^ string_of_es es^"\n"); 
+            *)
             [(Eff (string_of_pattern p1, es))]
           | Ppat_exception p1 -> [(Exn (string_of_pattern p1))]
           | _ -> [] 
@@ -737,7 +780,7 @@ let rec infer_of_expression env (acc:spec) expr : (spec * residue) =
       in List.append acc cuurent_p
        
       ) [] case_li in 
-    let trace = fixpoint_compute es_ex policies in 
+    let trace = fixpoint_compute es_ex (pre_compute_policy policies) in 
     ((p_ex, trace, side_es) , None)
 
 

@@ -25,7 +25,7 @@ let a ()
 
 let write () : unit
   (*@ requires emp @*)
-  (*@ ensures  Foo.A.B.B @*)
+  (*@ ensures  Foo.A.B.B.B @*)
   =
   match f () with
   | _ -> ()
@@ -39,7 +39,7 @@ let write () : unit
   
 let main
   (*@ requires emp @*)
-  (*@ ensures  Foo.A.B.B @*)
+  (*@ ensures  Foo.A.B.B.B @*)
   = write ();;
 
 
