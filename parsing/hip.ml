@@ -582,6 +582,7 @@ let rec get_the_Sequence (es:es) (acc:string list) : (string list) list  =
     List.map (fun f -> 
       (match f with 
       | One str ->  (get_the_Sequence (derivative es f) (List.append acc [str]))
+      | Pred _ -> raise (Foo ("stack overlow recursive policy"))
       | _ -> (get_the_Sequence (derivative es f) acc)
       )
     ) fs 
@@ -699,7 +700,7 @@ let pre_compute_policy (policies:policy list ) : policy list =
         | Predicate (str_pred, _) -> 
           let rec auxaux pp : es =
             match pp with 
-            | [] -> raise (Foo ("recursive policy"))
+            | [] -> raise (Foo ("stack overlow recursive policy"))
             | (Eff (strIn, esIn)) ::xs  -> 
               if String.compare strIn str_pred == 0 then esIn else auxaux xs
             | _ :: xs -> auxaux xs

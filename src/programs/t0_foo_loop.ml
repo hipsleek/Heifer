@@ -1,17 +1,16 @@
-effect Foo : (int -> int -> int)
+effect Foo : (int -> int)
 effect Goo : (int -> int)
 
 let f () 
 (*@ requires emp @*)
 (*@ ensures  Foo.Q(Foo 1) @*)
 = let a = perform Foo 1 in 
-  let b = a 2 in 
-  b 
+  a 
 
 
 let res_f
   (*@ requires emp @*)
-  (*@ ensures Foo^w  @*)
+  (*@ ensures Foo^w \/ Foo.(Goo^w)   @*)
   =
   match (f ()) with
   | x -> x

@@ -1,10 +1,10 @@
-effect Foo : (unit -> unit)
+effect Foo : (int -> unit)
 
-effect A : (unit -> unit)
+effect A : (int -> unit)
 
-effect B : (unit -> unit)
+effect B : (int -> unit)
 
-effect O : (unit -> unit)
+effect O : (int -> unit)
 
 
 
@@ -30,11 +30,16 @@ let write () : unit
   match f () with
   | _ -> ()
   | effect Foo k ->
-     continue k (fun () -> a() )
+     continue k (fun _ -> a() )
   | effect A k ->
-     continue k (fun () -> perform B 1)
+     continue k (fun _ -> perform B 1)
+(*
+This will stack overflow. 
+  | effect A k ->
+     continue k (fun _ -> a())
+     *)
   | effect B k ->
-     continue k (fun () -> ())
+     continue k (fun _ -> ())
   
   
 let main
