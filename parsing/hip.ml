@@ -399,6 +399,8 @@ let call_function fnName (li:(arg_label * expression) list) (acc:spec) (arg_eff:
       let residue = Some (eff_name,
         List.map (fun (_, a) -> expressionToBasicT a) eff_args) in
 
+      print_string ("call_function: " ^ string_of_spec spec ^ "\n");
+
       (spec, residue)
     else if String.compare name "continue" == 0 then 
       let (policy:spec) = List.fold_left (
@@ -410,7 +412,9 @@ let call_function fnName (li:(arg_label * expression) list) (acc:spec) (arg_eff:
       let (name, args) = List.assoc name env.stack in
       let extra = li |> List.map snd |> List.map expressionToBasicT in
       let residue = (name, args @ extra) in
-      ((True, Emp, []), Some residue)
+      ((acc_pi, acc_es, acc_side), Some residue)
+      
+      (*((True, Emp, []), Some residue)*)
     else
       let { pre = precon ; post = (post_pi, post_es, post_side); formals = arg_formal } =
         (* if functions are undefined, assume for now that they have the default spec *)
@@ -743,6 +747,7 @@ let rec infer_of_expression env (acc:spec) expr : (spec * residue) =
     let head = List.hd vb_li in 
     let var_name = string_of_pattern (head.pvb_pat) in 
     let (new_acc, residue) = infer_of_expression env acc (head.pvb_expr) in 
+    print_string ("Pexp_let:" ^ string_of_spec  new_acc);
     let stack_up = 
       (match residue with 
       | None ->
@@ -967,8 +972,10 @@ print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
       (* Dump AST -dparsetree-style *)
       (* Format.printf "%a@." Printast.implementation progs; *)
 
-      (*print_string (Pprintast.string_of_structure progs ) ; *)
+      (*print_string (Pprintast.string_of_structure progs ) ; 
       print_endline (List.fold_left (fun acc a -> acc ^ "\n" ^ string_of_program a) "" progs);
+
+      *)
 
       let results, _ =
         List.fold_left (fun (s, env) a ->

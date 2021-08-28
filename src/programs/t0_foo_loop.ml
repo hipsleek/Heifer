@@ -5,7 +5,8 @@ let f ()
 (*@ requires emp @*)
 (*@ ensures  Foo.Q(Foo 1) @*)
 = let a = perform Foo 1 in 
-  a 
+  let b = perform Goo in 
+  b
 
 
 let res_f
