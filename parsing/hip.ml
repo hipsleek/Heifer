@@ -268,6 +268,16 @@ module Env = struct
 
   let find_fn f env =
     SMap.find_opt f env.current
+  
+  let find_effect_arg_length name env =
+    match SMap.find_opt name env.effect_defs with 
+    | None -> None 
+    | Some def -> 
+      let n1 = List.length (def.params)  in 
+      let (a, _) = def.res in 
+      let n2 = List.length a in 
+      Some (n1 + n2)
+
 
   let add_module name menv env =
     { env with modules = SMap.add name menv.current env.modules }
@@ -355,6 +365,46 @@ let rec find_arg_formal name full: string list =
 
 ;;
 
+let rec eliminatePartial (es:es) env :es = 
+  match es with
+
+  | Predicate (eff_name, arg_list) ->
+    let eff_arg_length = List.length  arg_list in 
+    let eff_formal_arg_length = Env.find_effect_arg_length eff_name env in 
+    (match eff_formal_arg_length with 
+    | None -> raise (Foo (eff_name ^ " is not defined"))
+    | Some n -> 
+      (*if String.compare eff_name "Goo" == 0 then 
+      raise (Foo (string_of_int eff_arg_length ^ ":"^ string_of_int n))
+      else 
+      *)
+      if eff_arg_length < n then Emp else es 
+    )
+
+
+  | Cons (es1, es2) ->  Cons (eliminatePartial es1 env, eliminatePartial es2 env)
+      
+  | ESOr (es1, es2) -> ESOr (eliminatePartial es1 env, eliminatePartial es2 env)
+      
+  | Omega es1 -> Omega (eliminatePartial es1 env)
+      
+  | Kleene es1 -> Kleene (eliminatePartial es1 env)
+
+  | Bot -> es
+  | Emp -> es
+  | Event _ -> es
+  | Not _ -> es 
+  | Underline -> es
+      
+
+
+
+  ;;
+
+let eliminatePartiaShall spec env : spec = 
+  let (pi, es, side) = spec in 
+  (pi, eliminatePartial es env, side);;
+
 let rec side_binding (formal:string list) (actual: spec list) : side = 
   match (formal, actual) with 
   | (x::xs, (_, y, _)::ys) -> (x, y) :: (side_binding xs ys)
@@ -423,7 +473,8 @@ let call_function fnName (li:(arg_label * expression) list) (acc:spec) (arg_eff:
         | Some s -> s
       in
       let sb = side_binding (*find_arg_formal name env*) arg_formal arg_eff in 
-      let (res, str) = printReport (merge_spec acc (True, Emp, sb)) precon in 
+      let current_state = eliminatePartiaShall (merge_spec acc (True, Emp, sb)) env in 
+      let (res, str) = printReport current_state precon in 
       if res then ((And(acc_pi, post_pi), Cons (acc_es, post_es), List.append acc_side post_side), None)
       else raise (Foo ("call_function precondition fail:" ^ str ^ debug_string_of_expression fnName))
     in
@@ -867,7 +918,7 @@ let infer_of_value_binding env vb: string * env =
     "[Final  Effects] " ^ string_of_spec final ^"\n\n"^
     (*(string_of_inclusion final_effects post) ^ "\n" ^*)
     (*"[T.r.s: Verification for Post Condition]\n" ^ *)
-    (let (_, str) = printReport final post in str), env
+    (let (_, str) = printReport (eliminatePartiaShall final env) post in str), env
 
     ;;
 

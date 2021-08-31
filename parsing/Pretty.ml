@@ -122,7 +122,7 @@ let string_of_basic_type a : string =
   | UNIT -> "()"
 
 let string_of_instant (str, ar_Li): string = 
-  str ^ "(" ^ separate (ar_Li) (string_of_basic_type) (",") ^")";;
+  str ^ " " ^ separate (ar_Li) (string_of_basic_type) (",") ^"";;
 
   
 let rec string_of_es es : string = 
