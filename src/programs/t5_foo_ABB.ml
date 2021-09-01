@@ -49,3 +49,23 @@ let main
 
 
 
+(*
+
+stack overflow:
+
+Effect Foo -> A.Q(A 1).B.Q(B 1)
+Effect A -> A.Q(A 1).B.Q(B 1)
+Effect B -> emp
+
+
+Normal:
+
+Effect Foo -> A.Q(A 1).B.Q(B 1)
+Effect A -> B.Q(B 1)
+Effect B -> emp
+
+
+Loop: 
+Effect Foo -> Foo.Q(Foo 1)
+Effect Goo -> Goo.Q(Goo 1)
+*)
