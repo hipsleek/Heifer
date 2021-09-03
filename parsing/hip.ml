@@ -465,7 +465,7 @@ let call_function fnName (li:(arg_label * expression) list) (acc:spec) (arg_eff:
       let (name, args) = List.assoc name env.stack in
       let extra = li |> List.map snd |> List.map expressionToBasicT in
       let residue = (name, args @ extra) in
-      ((acc_pi, acc_es, acc_side), Some residue)
+      ((acc_pi, Cons(acc_es, Predicate residue), acc_side), Some residue)
       
       (*((True, Emp, []), Some residue)*)
     else

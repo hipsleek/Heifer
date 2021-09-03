@@ -6,7 +6,7 @@ let f ()
 (*@ ensures  Foo.Q(Foo 1).Goo @*)
 = let a = perform Foo 1 in 
   let b = perform Goo in 
-  b
+  b 1
 
 
 let res_f
