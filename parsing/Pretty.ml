@@ -156,10 +156,11 @@ let string_of_bin_op op : string =
 
 let string_of_side side : string =
   side
-    |> List.map (fun (ins, es) ->
-      Format.sprintf "eff(%s) = %s"
+    |> List.map (fun (ins, (es1, es2)) ->
+      Format.sprintf "eff(%s) = %s -> %s" 
         ins
-        (string_of_es es) )
+        (string_of_es es1)
+        (string_of_es es2) )
     |> String.concat ", "
 
 let rec string_of_pi pi : string = 

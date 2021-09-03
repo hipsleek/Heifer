@@ -237,18 +237,21 @@ let compareInstant (s1, i1) (s2, i2) : bool =
   in 
   (String.compare s1 s2 == 0)  && helper i1 i2
 
-let rec existSide (ins) side : (string * es)  option = 
+let rec existSide (ins) (side:side) : (string * (es * es))  option = 
   match side with 
   | [] -> None
-  | (ins1, es2):: xs -> if String.equal ins ins1 then Some (ins1, es2) else existSide ins xs 
+  | (ins1, (es1, es2)):: xs -> if String.equal ins ins1 then Some (ins1, (es1, es2)) else existSide ins xs 
 
-let check_side s1 s2  : (bool * string) = 
+let check_side (s1:side) (s2:side)  : (bool * string) = 
   let result = 
-    List.fold_left (fun acc (ins2, es2) -> acc && 
+    List.fold_left (fun acc (ins2, (es21, es22)) -> acc && 
     (
       match existSide ins2 s1 with
-      | None -> raise (Foo ("check_side: " ^ string_of_side s1)) 
-      | Some (_, es1) -> let (re, _) = containment [] es1 es2 in re
+      | None -> raise (Foo ("check_side: " ^ ins2 ^ string_of_side s1)) 
+      | Some (_, (es11, es12)) -> 
+        let (re1, _) = containment [] es11 es21 in 
+        let (re2, _) = containment [] es22 es12 in 
+        re1 && re2
     )
   ) true s2  in 
   let buffur = ("[SIDE]" ^ (* (string_of_bool result)^*)" " ^(if result then "Succeed\n" else "Fail\n")  )
@@ -282,8 +285,8 @@ let n_GT_1 : pi =
 
 
 let testSleek (): string =
-  let spec1 = (n_GT_0, Emp, [("Foo", Emp)]) in 
-  let spec2 = (n_GT_1, Emp, [("Foo", Event "A")]) in 
+  let spec1 = (n_GT_0, Emp, [("Foo",(Emp,  Emp))]) in 
+  let spec2 = (n_GT_1, Emp, [("Foo",(Emp,  Event "A"))]) in 
   let (_, str) = printReport spec1 spec2 in str;;
 
 

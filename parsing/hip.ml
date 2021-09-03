@@ -407,7 +407,7 @@ let eliminatePartiaShall spec env : spec =
 
 let rec side_binding (formal:string list) (actual: spec list) : side = 
   match (formal, actual) with 
-  | (x::xs, (_, y, _)::ys) -> (x, y) :: (side_binding xs ys)
+  | (x::xs, (_, y, _)::ys) -> (x, (Emp, y)) :: (side_binding xs ys)
   | _ -> []
   ;;
 
