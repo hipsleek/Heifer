@@ -66,7 +66,7 @@ type pi =
   | Imply  of pi * pi
   | Not    of pi
 
-type side = (string * es) list   (* Eff(f()) = U^*.(Res \/ emp) *)
+type side = (string * es * es) list   (* Eff(f()) = _^*.A -> U^*.(Res \/ emp) *)
 
 (* e.g: spec =  (n>0, emp, [Eff(f() = U^*] )) 
                 (n>0, Q(Foo()).END, [] )) 

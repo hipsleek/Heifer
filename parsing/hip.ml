@@ -676,8 +676,9 @@ let rec fixpoint_compute (es:es) (policies:policy list) : es =
             let new_mappings = (hd_eff, Cons (hd_es, Event str)) :: (List.tl mappings) in 
             helper new_mappings acc_event (index + 1)
         | Pred (curName, _) -> 
-            (*print_string (str_pred ^"\n"); 
-            print_string (curName); 
+        (*
+            print_string (str_pred ^"\n"); 
+            print_string (curName ^"\n---\n"); 
       *)
             (match reoccor_continue (List.rev (List.tl mappings)) curName 0 with 
             | Some start -> 
@@ -702,26 +703,6 @@ let rec fixpoint_compute (es:es) (policies:policy list) : es =
         | _ -> raise (Foo "policy not possible ")
 
         )
-
-
-         
-
-
-
-        (*
-          if index == -1 then 
-          let continueation = findPolicy str_pred policies in 
-          let (list_list_ev:event list list) = get_the_Sequence continueation [] in 
-          
-          List.fold_left (fun acc list_ev -> ESOr (acc, helper (list_ev) 0)) Bot list_list_ev
-          
-          
-        else 
-        *)
-
-
-            
-
 
     in helper [(str_pred, Emp)] [(Pred ins)] 0 
     

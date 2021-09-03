@@ -1,12 +1,14 @@
 effect Foo : (unit -> unit)
 effect Goo : (unit -> unit)
 
+ES= emp /\ SIDE = Eff(f):: A -> B^* 
 
 let f () 
-(*@ requires emp @*)
+(*@ requires Eff(f):: A -> B^*  @*)
 (*@ ensures  Foo.Q(Foo()).Goo.Q(Goo()) @*)
   = perform Foo ();
-    perform Goo ()
+    perform Goo ();
+    a
 
 
 let res : unit
