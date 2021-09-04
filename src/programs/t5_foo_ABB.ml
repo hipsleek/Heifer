@@ -23,6 +23,12 @@ let a ()
 (*@ ensures A.Q(A 1).B.Q(B 1)  @*)
   = let _ = perform A 1 in perform B 1
 
+let b () 
+(*@ requires emp @*)
+(*@ ensures A.Q(A 1).B.Q(B 1)  @*)
+  = let _ = perform A 1 in perform B 1
+
+
 let write () : unit
   (*@ requires emp @*)
   (*@ ensures  Foo.A.B.B.B @*)
@@ -32,7 +38,7 @@ let write () : unit
   | effect Foo k ->
      continue k (fun _ -> a() )
   | effect A k ->
-     continue k (fun _ -> perform B 1)
+     continue k (fun _ -> b())
 (*
 This will stack overflow. 
   | effect A k ->

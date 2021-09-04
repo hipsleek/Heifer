@@ -586,7 +586,9 @@ let rec get_the_Sequence (es:es) (acc:string list) : (string list) list  =
     List.map (fun f -> 
       (match f with 
       | One str ->  (get_the_Sequence (derivative es f) (List.append acc [str]))
-      | Pred _ -> raise (Foo ("stack overlow recursive policy"))
+      | Pred ins -> 
+      let temp = "There is a recursive definition of " ^ string_of_instant ins in 
+      raise (Foo (temp ^ "Fatal error: exception Stack_overflow"))
       | _ -> (get_the_Sequence (derivative es f) acc)
       )
     ) fs 
@@ -704,7 +706,7 @@ let pre_compute_policy (policies:policy list ) : policy list =
         | Predicate (str_pred, _) -> 
           let rec auxaux pp : es =
             match pp with 
-            | [] -> raise (Foo ("stack overlow recursive policy"))
+            | [] -> raise (Foo ("Policy is not well defined"))
             | (Eff (strIn, esIn)) ::xs  -> 
               if String.compare strIn str_pred == 0 then esIn else auxaux xs
             | _ :: xs -> auxaux xs
