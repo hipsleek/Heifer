@@ -31,7 +31,7 @@ let b ()
 
 let write () : unit
   (*@ requires emp @*)
-  (*@ ensures  Foo.A.B.B.B @*)
+  (*@ ensures  Foo.A.B.B @*)
   =
   match f () with
   | _ -> ()
@@ -50,8 +50,35 @@ This will stack overflow.
   
 let main
   (*@ requires emp @*)
-  (*@ ensures  Foo.A.B.B.B @*)
+  (*@ ensures  Foo.A.B.B @*)
   = write ();;
 
 
 
+(*
+
+stack overflow:
+
+Effect Foo -> A.Q(A 1).B.Q(B 1)
+Effect A -> A.Q(A 1).B.Q(B 1)
+Effect B -> emp
+
+Foo.A.Q(A 1).B.Q(B 1)
+Foo.A.A.Q(A 1).B.Q(B 1).B.Q(B 1)
+
+
+
+Normal:
+
+Effect Foo -> A.Q(A 1).B.Q(B 1)
+Effect A -> B.Q(B 1)
+Effect B -> emp
+
+
+Foo.A.B.emp.B.emp
+
+
+Loop: 
+Effect Foo -> Foo.Q(Foo 1)
+Effect Goo -> Goo.Q(Goo 1)
+*)

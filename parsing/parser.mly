@@ -2581,7 +2581,7 @@ pure_formula:
   | TILDE pure_formula { Not ($2) }
 ;
 side_condition:
-  | EFF LPAREN f = LIDENT RPAREN EQUAL es = effect_trace { (f, es) }
+  | EFF LPAREN f = LIDENT RPAREN EQUAL es = effect_trace { (f, (Emp (*SYH: this just for the type check*) , es)) }
 ;
 effect_spec:
   | effect_trace { [`Trace $1] }

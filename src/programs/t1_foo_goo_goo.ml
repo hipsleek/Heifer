@@ -2,11 +2,13 @@ effect Foo : (unit -> unit)
 effect Goo : (unit -> unit)
 
 
+
 let f () 
-(*@ requires emp @*)
-(*@ ensures  Foo.Q(Foo()).Goo.Q(Goo()) @*)
+(*@ requires Eff(f):: A -> B^*  @*)
+(*@ ensures  Foo.Q(Foo()).Goo.Q(Goo()), Eff(res):: @*)
   = perform Foo ();
-    perform Goo ()
+    perform Goo ();
+    a
 
 
 let res : unit
