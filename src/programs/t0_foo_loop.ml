@@ -6,7 +6,9 @@ let f ()
 (*@ ensures  Foo.Q(Foo 1).Goo.Q(Goo 1) @*)
 = let _ = perform Foo in 
   let b = perform Goo in 
-  b 1
+  b 
+
+  
 
 (*
 let f () 
@@ -27,7 +29,7 @@ let f () :: Int
 
 let res_f
   (*@ requires emp @*)
-  (*@ ensures Foo^w \/ Foo.(Goo^w)   @*)
+  (*@ ensures Foo.(Goo^w)   @*)
   =
   match (f ()) with
   | x -> x
