@@ -260,7 +260,7 @@ let check_side (s1:side) (s2:side)  : (bool * string) =
 
 let printReport ((pi1, lhs, side1):spec) ((pi2, rhs, side2):spec) :(bool * string) = 
   let startTimeStamp = Sys.time() in
-  let (re1, temp1) = check_pure pi1 pi2 in 
+  let (re1, _) = check_pure pi1 pi2 in 
   let (re2, temp2) = check_containment lhs rhs in 
   let (re3, temp3) = check_side side1 side2  in 
   let verification_time = "[Verification Time: " ^ string_of_float ((Sys.time() -. startTimeStamp) *. 1000.0) ^ " ms]" in
@@ -270,8 +270,9 @@ let printReport ((pi1, lhs, side1):spec) ((pi2, rhs, side2):spec) :(bool * strin
   verification_time  ^"\n"^
   whole  ^"\n"^
   "------------------------------\n" ^
+  (*
   temp1 ^ 
-  "- - - - - - - - - - - - - -"^"\n" ^
+  "- - - - - - - - - - - - - -"^"\n" ^ *)
   temp2 ^ 
   "- - - - - - - - - - - - - -"^"\n" ^
   temp3)

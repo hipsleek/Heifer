@@ -218,6 +218,7 @@ type fn_spec = {
   formals: string list;
 }
 
+
 (* at a given program point, this captures specs for all local bindings *)
 type fn_specs = fn_spec SMap.t
 
@@ -246,6 +247,7 @@ type env = {
      (though that can be figured out from effect_defs) *)
   stack : stack list;
   (* remembers types given in effect definitions *)
+  side_spec : side;
   effect_defs : effect_def SMap.t;
 }
 
@@ -254,12 +256,19 @@ module Env = struct
     modules = SMap.empty;
     current = SMap.empty;
     stack = [];
+    side_spec = [];
     effect_defs = SMap.empty
   }
 
   let add_fn f spec env =
     { env with current = SMap.add f spec env.current }
-  
+
+  let add_side_spec side_list env =
+    { env with side_spec = List.append (env.side_spec) side_list }
+
+  let reset_side_spec side_list env =
+    { env with side_spec = side_list }
+
   let add_stack paris env = 
     { env with stack = List.append  paris (env.stack) }
 
@@ -912,13 +921,19 @@ and infer_value_binding env vb =
     | Some (pre, post) -> (normalSpec pre, normalSpec post)
   in 
   let (pre, post) = spec in
-  let (pre_p, pre_es, _) = pre in 
+  let (pre_p, pre_es, pre_side) = pre in 
+
+  let env = Env.reset_side_spec pre_side env in 
+
   let ((final_pi, final_es, final_side), _ (*residue*)) =  (infer_of_expression env (pre_p, pre_es, []) body) in
 
   let final = normalSpec (final_pi, final_es (*Cons (, residueToPredeciate resdue)*), final_side) in 
 
 
+
   let env1 = Env.add_fn fn_name { pre; post; formals } env in
+  
+
   pre, post, ( final), env1, fn_name
 
 
