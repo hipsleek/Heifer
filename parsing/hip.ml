@@ -664,10 +664,21 @@ let rec sublist b e l =
      if b>0 then tail else h :: tail
 ;;
 
+let rec string_of_list (li: 'a list ) (f : 'a -> 'b) : string = 
+  match li with 
+  | [] -> ""
+  | x::xs-> f x ^ "," ^ string_of_list xs f ;;
+
 let formLoop (li:((string*es)list)) start : es = 
+
   let (beforeLoop:es) = List.fold_left (fun acc (_, a) -> Cons (acc, a)) Emp (sublist 0 (start -1) li) in 
   
-  let (sublist:es) = List.fold_left (fun acc (_, a) -> Cons (acc, a)) Emp (sublist start (List.length li -1) li) in 
+  let (sublist:es) = List.fold_left (fun acc (_, a) -> Cons (acc, a)) Emp (sublist start (List.length li) li) in 
+
+  (*
+  print_string(string_of_list (List.map (fun (_, a) -> a) li) (string_of_es) ^ "\n"^ string_of_int (List.length li) ^ "\n" ^ string_of_int (start) ^ "\n" ^string_of_es beforeLoop ^ "\n" ^ string_of_es sublist);
+  
+  *)
   Cons (beforeLoop, Omega sublist)
 
 (*let rec get_the_Sequence (es:es) : (string list) list =
@@ -737,7 +748,11 @@ let rec fixpoint_compute (es:es) (policies:policy list) : es =
               else raise (Foo ("stack overlow recursive policy"))
             | None -> 
               let continueation = findPolicy curName policies in 
+              
               let (list_list_ev:event list list) = get_the_Sequence continueation [] in 
+
+              
+              
               List.fold_left (fun acc_es list_ev -> 
             (*
             let temp1 = (List.fold_left (fun accq a -> accq ^ ","^ a )"" list_ev) in
@@ -746,7 +761,13 @@ let rec fixpoint_compute (es:es) (policies:policy list) : es =
 
             print_string ("inserting " ^ temp1 ^ " in " ^ temp2 ^ " at " ^ string_of_int (index) ^"\n");
             print_string ("---> " ^ (List.fold_left (fun accq a -> accq ^ ","^ a )""   (insertMiddle acc (index) list_ev)) ^"\n");
-*)            let new_mappings = (curName, Emp) :: mappings in 
+
+
+            
+              
+*)            
+              let ((str, tempH), tempTL) = (List.hd mappings, List.tl mappings) in 
+              let new_mappings = (curName, Emp) :: (str, Cons (tempH, Event (curName))) :: tempTL in 
               ESOr (acc_es, helper new_mappings (insertMiddle acc_event (index ) list_ev) (index ))) Bot list_list_ev
             
           )
@@ -754,7 +775,10 @@ let rec fixpoint_compute (es:es) (policies:policy list) : es =
 
         )
 
-    in helper [(str_pred, Emp)] [(Pred ins)] 0 
+    in 
+    let res = helper [(str_pred, Emp)] [(Pred ins)] 0  in 
+    print_string ("testing : " ^ string_of_es res ^ "\n");
+    res 
     
 
    
