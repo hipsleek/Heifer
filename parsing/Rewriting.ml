@@ -273,9 +273,9 @@ let printReport ((pi1, lhs, side1):spec) ((pi2, rhs, side2):spec) :(bool * strin
   (*
   temp1 ^ 
   "- - - - - - - - - - - - - -"^"\n" ^ *)
-  temp2 ^ 
+  temp3 ^ 
   "- - - - - - - - - - - - - -"^"\n" ^
-  temp3)
+  temp2)
   ;;
 
 let n_GT_0 : pi =

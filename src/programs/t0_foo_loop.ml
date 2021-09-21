@@ -1,5 +1,5 @@
 effect Foo : (int -> int)
-effect Goo : (int -> int)
+ 
 
 let f () 
 (*@ requires emp @*)
@@ -8,7 +8,7 @@ let f ()
   let b = perform Goo in 
   b 
 
-  
+
 
 
 let res_f

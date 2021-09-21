@@ -2540,6 +2540,7 @@ effect_trace:
   {
     match n with
     | "Q" ->
+      (*SYH: I think here we need to add for reading unit *)
       let args = List.map (fun (i, _) -> BINT(int_of_string i)) args in
       Predicate (f, args)
     | _ ->

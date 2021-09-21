@@ -434,9 +434,48 @@ let expressionToBasicT ex : basic_t =
     | Pconst_integer (str, _) -> BINT (int_of_string str)
     | _ -> raise (Foo (Pprintast.string_of_expression  ex ^ " expressionToBasicT error1"))
     )
-  | Pexp_ident _ -> raise (Foo "I am just testing")
-  | _ -> raise (Foo (Pprintast.string_of_expression  ex ^ " expressionToBasicT error2"))
+  | Pexp_construct _ -> UNIT
+  | Pexp_ident _ -> raise (Foo "Pexp_i")
+  | Pexp_let _ -> raise (Foo "Pexp_i")
+  | Pexp_function _ -> raise (Foo "Pexp_i")
+  | Pexp_fun _ -> raise (Foo "Pexp_i")
+  | Pexp_apply _ -> raise (Foo "Pexp_i")
+  | Pexp_match _ -> raise (Foo "Pexp_iden")
+  | Pexp_try _ -> raise (Foo "Pexp_iden")
+  | Pexp_tuple _ -> raise (Foo "Pexp_iden")
 
+  | Pexp_variant _ -> raise (Foo "Pexp_ident")
+  | Pexp_record _ -> raise (Foo "Pexp_ident")
+  | Pexp_field _ -> raise (Foo "Pexp_ident")
+  | Pexp_setfield _ -> raise (Foo "Pexp_ident")
+  | Pexp_array _ -> raise (Foo "Pexp_ident")
+  | Pexp_ifthenelse _ -> raise (Foo "Pexp_ident")
+  | Pexp_sequence _ -> raise (Foo "Pexp_ident")
+  | Pexp_while _ -> raise (Foo "Pexp_ident")
+  | Pexp_for _ -> raise (Foo "Pexp_ident")
+  | Pexp_constraint _ -> raise (Foo "Pexp_ident")
+  | Pexp_coerce _ -> raise (Foo "Pexp_ident")
+
+
+  | Pexp_send _ -> raise (Foo "Pexp_ident2")
+  | Pexp_new _ -> raise (Foo "Pexp_ident2")
+  | Pexp_setinstvar _ -> raise (Foo "Pexp_ident2")
+  | Pexp_override _ -> raise (Foo "Pexp_ident2")
+  | Pexp_letmodule _ -> raise (Foo "Pexp_ident2")
+  | Pexp_letexception _ -> raise (Foo "Pexp_ident2")
+  | Pexp_assert _ -> raise (Foo "Pexp_ident2")
+  | Pexp_lazy _ -> raise (Foo "Pexp_ident2")
+  | Pexp_poly _ -> raise (Foo "Pexp_ident3")
+  | Pexp_object _ -> raise (Foo "Pexp_ident3")
+  | Pexp_newtype _ -> raise (Foo "Pexp_ident3")
+  | Pexp_pack _ -> raise (Foo "Pexp_ident3")
+  | Pexp_open _ -> raise (Foo "Pexp_ident3")
+  | Pexp_letop _ -> raise (Foo "Pexp_ident3")
+  | Pexp_extension _ -> raise (Foo "Pexp_ident3")
+  | Pexp_unreachable  -> raise (Foo "Pexp_ident3")
+ 
+ (* | _ -> raise (Foo (Pprintast.string_of_expression  ex ^ " expressionToBasicT error2"))
+*)
 let call_function fnName (li:(arg_label * expression) list) (acc:spec) (arg_eff:spec list) env : (spec * residue) = 
   let (acc_pi, acc_es, acc_side) = acc in 
   let name = fnNameToString fnName in 
@@ -625,10 +664,21 @@ let rec sublist b e l =
      if b>0 then tail else h :: tail
 ;;
 
+let rec string_of_list (li: 'a list ) (f : 'a -> 'b) : string = 
+  match li with 
+  | [] -> ""
+  | x::xs-> f x ^ "," ^ string_of_list xs f ;;
+
 let formLoop (li:((string*es)list)) start : es = 
+
   let (beforeLoop:es) = List.fold_left (fun acc (_, a) -> Cons (acc, a)) Emp (sublist 0 (start -1) li) in 
   
-  let (sublist:es) = List.fold_left (fun acc (_, a) -> Cons (acc, a)) Emp (sublist start (List.length li -1) li) in 
+  let (sublist:es) = List.fold_left (fun acc (_, a) -> Cons (acc, a)) Emp (sublist start (List.length li) li) in 
+
+  (*
+  print_string(string_of_list (List.map (fun (_, a) -> a) li) (string_of_es) ^ "\n"^ string_of_int (List.length li) ^ "\n" ^ string_of_int (start) ^ "\n" ^string_of_es beforeLoop ^ "\n" ^ string_of_es sublist);
+  
+  *)
   Cons (beforeLoop, Omega sublist)
 
 (*let rec get_the_Sequence (es:es) : (string list) list =
@@ -698,7 +748,11 @@ let rec fixpoint_compute (es:es) (policies:policy list) : es =
               else raise (Foo ("stack overlow recursive policy"))
             | None -> 
               let continueation = findPolicy curName policies in 
+              
               let (list_list_ev:event list list) = get_the_Sequence continueation [] in 
+
+              
+              
               List.fold_left (fun acc_es list_ev -> 
             (*
             let temp1 = (List.fold_left (fun accq a -> accq ^ ","^ a )"" list_ev) in
@@ -707,7 +761,13 @@ let rec fixpoint_compute (es:es) (policies:policy list) : es =
 
             print_string ("inserting " ^ temp1 ^ " in " ^ temp2 ^ " at " ^ string_of_int (index) ^"\n");
             print_string ("---> " ^ (List.fold_left (fun accq a -> accq ^ ","^ a )""   (insertMiddle acc (index) list_ev)) ^"\n");
-*)            let new_mappings = (curName, Emp) :: mappings in 
+
+
+            
+              
+*)            
+              let ((str, tempH), tempTL) = (List.hd mappings, List.tl mappings) in 
+              let new_mappings = (curName, Emp) :: (str, Cons (tempH, Event (curName))) :: tempTL in 
               ESOr (acc_es, helper new_mappings (insertMiddle acc_event (index ) list_ev) (index ))) Bot list_list_ev
             
           )
@@ -715,7 +775,10 @@ let rec fixpoint_compute (es:es) (policies:policy list) : es =
 
         )
 
-    in helper [(str_pred, Emp)] [(Pred ins)] 0 
+    in 
+    let res = helper [(str_pred, Emp)] [(Pred ins)] 0  in 
+    print_string ("testing : " ^ string_of_es res ^ "\n");
+    res 
     
 
    

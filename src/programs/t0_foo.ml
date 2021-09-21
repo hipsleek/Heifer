@@ -13,8 +13,13 @@ let h n
 
 let h n
 (*@ requires emp, 1 + (2-1) < 1 @*)
-(*@ ensures  Foo @*)
+(*@ ensures  emp @*)
 = perform Foo ()
+
+Current effects |- Pre condition 
+
+Pre condit
+
 
 let res_f
   (*@ requires emp @*)
@@ -24,3 +29,22 @@ let res_f
   | _ -> ()
   | effect Foo k ->
      continue k (fun () -> ())
+
+f :: int -> int -> int 
+es_f_pre, es_f_post
+
+g :: int -> int 
+es_g_pre, es_g_post
+
+e1 = f 1 
+
+e2 = g 1
+
+e1 e2 = f 1 (g 1)
+
+1 : _*, emp 
+x : _*, emp 
+f 1 : es_f_pre, es_f_post
+
+E (lookup(e1)) = es_f_pre, es_f_post
+E (lookup(e2)) = es_g_pre, es_g_post
