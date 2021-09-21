@@ -16,6 +16,7 @@
   t3_foo_goo_loop_int
   t4_O_foo_goo_loop
   t5_foo_ABB
+  callByValueTest
   t6_partial)
  (modules
   b0_env
@@ -34,4 +35,5 @@
   t3_foo_goo_loop_int
   t4_O_foo_goo_loop
   t5_foo_ABB
+  callByValueTest
   t6_partial))
