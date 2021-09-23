@@ -2,7 +2,7 @@
 .PHONY: all
 all:
 	mkdir -p boot/menhir
-	cp $(wildcard $(shell opam config var lib)/menhirLib/menhirLib.ml*) boot/menhir
+	cp $(wildcard $(shell opam var lib)/menhirLib/menhirLib.ml*) boot/menhir
 
 #	 Derived from promote-menhir in https://github.com/ocaml/ocaml/blob/trunk/Makefile.menhir
 #	 Other useful options: --strict --explain --dump --log-grammar 1 --log-automaton 1 --require-aliases,
