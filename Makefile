@@ -11,9 +11,10 @@ all:
 
 	OCAMLRUNPARAM=b dune exec parsing/hip.exe src/programs/t0_foo_loop.ml
 
+# make test F=src/programs/t0_foo_loop.ml
 .PHONY: test
 test:
-	dune exec src/programs/t0_foo.exe
+	opam exec --switch=4.12+domains+effects dune exec $(subst .ml,.exe,$(F))
 
 .PHONY: testall
 testall: src/programs/*.ml
