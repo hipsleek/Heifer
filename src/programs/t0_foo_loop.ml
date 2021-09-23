@@ -1,13 +1,12 @@
 effect Foo : (unit -> int)
 effect Goo : (int -> int)
- 
 
-let f () 
-(*@ requires emp @*)
+let f () d
+(*@ requires emp, eff(d) = emp -> emp @*)
 (*@ ensures  Foo.Q(Foo ()).Goo @*)
-= let _a = perform Foo () in 
-  let b = perform Goo in 
-  b 
+= let _a = perform Foo () in
+  let b = perform Goo in
+  b
 
 
 

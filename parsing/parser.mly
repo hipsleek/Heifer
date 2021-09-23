@@ -2588,7 +2588,8 @@ pure_formula:
   | TILDE pure_formula { Not ($2) }
 ;
 side_condition:
-  | EFF LPAREN f = LIDENT RPAREN EQUAL es = effect_trace { (f, (Emp (*SYH: this just for the type check*) , es)) }
+  | EFF LPAREN f = LIDENT RPAREN EQUAL
+    pre_es = effect_trace MINUSGREATER post_es = effect_trace { (f, (pre_es, post_es)) }
 ;
 effect_spec:
   | effect_trace { [`Trace $1] }
