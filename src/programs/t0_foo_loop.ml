@@ -1,10 +1,11 @@
-effect Foo : (int -> int)
+effect Foo : (unit -> int)
+effect Goo : (int -> int)
  
 
 let f () 
 (*@ requires emp @*)
-(*@ ensures  Foo.Q(Foo 1).Goo @*)
-= let a = perform Foo 1 in 
+(*@ ensures  Foo.Q(Foo ()).Goo @*)
+= let _a = perform Foo () in 
   let b = perform Goo in 
   b 
 
