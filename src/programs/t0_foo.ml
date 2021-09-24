@@ -16,9 +16,6 @@ let h n
 (*@ ensures  emp @*)
 = perform Foo ()
 
-Current effects |- Pre condition 
-
-Pre condit
 
 
 let res_f
@@ -30,6 +27,7 @@ let res_f
   | effect Foo k ->
      continue k (fun () -> ())
 
+     (*
 f :: int -> int -> int 
 es_f_pre, es_f_post
 
@@ -48,3 +46,4 @@ f 1 : es_f_pre, es_f_post
 
 E (lookup(e1)) = es_f_pre, es_f_post
 E (lookup(e2)) = es_g_pre, es_g_post
+*)
