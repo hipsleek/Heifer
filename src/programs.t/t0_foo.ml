@@ -17,6 +17,11 @@ let h n
 = perform Foo ()
 
 
+(*
+Current effects |- Pre condition
+
+Pre condit
+*)
 
 let res_f
   (*@ requires emp @*)
@@ -27,7 +32,8 @@ let res_f
   | effect Foo k ->
      continue k (fun () -> ())
 
-     (*
+
+(*
 f :: int -> int -> int 
 es_f_pre, es_f_post
 

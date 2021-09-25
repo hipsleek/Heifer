@@ -2532,16 +2532,22 @@ fun_binding:
       { let exp = mkexp_constraint ~loc:$sloc e t in
       { exp with pexp_effectspec = c } }
 ;
+effect_trace_value:
+  | INT
+    {
+      let (i, _) = $1 in
+      BINT (int_of_string i)
+    }
+  | LPAREN RPAREN { UNIT }
+;
 effect_trace:
   | UNDERSCORE { Underline }
   | EMP { Emp }
   | n = UIDENT { Event n }
-  | n = UIDENT LPAREN f = UIDENT args = list(INT) RPAREN
+  | n = UIDENT LPAREN f = UIDENT args = list(effect_trace_value) RPAREN
   {
     match n with
     | "Q" ->
-      (*SYH: I think here we need to add for reading unit *)
-      let args = List.map (fun (i, _) -> BINT(int_of_string i)) args in
       Predicate (f, args)
     | _ ->
       failwith "invalid syntax for predicate application"
@@ -2582,7 +2588,8 @@ pure_formula:
   | TILDE pure_formula { Not ($2) }
 ;
 side_condition:
-  | EFF LPAREN f = LIDENT RPAREN EQUAL es = effect_trace { (f, (Emp (*SYH: this just for the type check*) , es)) }
+  | EFF LPAREN f = LIDENT RPAREN EQUAL
+    pre_es = effect_trace MINUSGREATER post_es = effect_trace { (f, (pre_es, post_es)) }
 ;
 effect_spec:
   | effect_trace { [`Trace $1] }
