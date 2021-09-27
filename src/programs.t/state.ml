@@ -8,7 +8,7 @@ let get ()
 = perform Get
 
 let put s
-  (*@ requires emp @*)
+  (*@ requires _^* @*)
   (*@ ensures Put @*)
 = perform (Put s)
 
