@@ -520,7 +520,7 @@ let call_function fnName (li:(arg_label * expression) list) (acc:spec) (arg_eff:
       let { pre = precon ; post = (post_pi, post_es, post_side); formals = arg_formal } =
         (* if functions are undefined, assume for now that they have the default spec *)
         match Env.find_fn name env with
-        | None -> { pre = default_spec; post = default_spec; formals = []}
+        | None -> { pre = default_spec_pre; post = default_spec_post; formals = []}
         | Some s -> s
       in
       let sb = side_binding (*find_arg_formal name env*) arg_formal arg_eff in 

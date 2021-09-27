@@ -73,7 +73,10 @@ type side = (string * (es * es)) list   (* Eff(f()) = _^*.A -> U^*.(Res \/ emp) 
 *)
 type spec = pi * es * side
 
-let default_spec = True, Emp, []
+let default_spec_pre = True, (Kleene(Underline)), []
+
+
+let default_spec_post = True, Emp, []
 
 type policy = Eff of string * es | Exn of string
 

@@ -8,7 +8,7 @@ let get ()
 = perform Get
 
 let put s
-  (*@ requires _^* @*)
+  (*@ requires Get @*)
   (*@ ensures Put @*)
 = perform (Put s)
 
@@ -17,10 +17,10 @@ let f ()
   (*@ ensures Get.Put @*)
 =
   let a = get () in
-  put (a (* + 1 *));
-  a (* + 2 *)
+  put (a  + 1 );
+  a  + 2 
 
-(*
+
 let main () =
   let g =
     match f () with
@@ -34,4 +34,4 @@ let main () =
 let () =
   let s, r = main () in
   Format.printf "state %d res %d@." s r
-*)
+
