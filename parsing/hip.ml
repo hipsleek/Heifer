@@ -6,8 +6,10 @@ open Asttypes
 open Rewriting
 open Pretty
 
-
-
+let is_alpha alpha =
+  match alpha with
+  | 'a' .. 'z' | 'A' .. 'Z' -> true
+  | _ -> false
 
 let rec input_lines file =
   match try [input_line file] with End_of_file -> [] with
@@ -1002,17 +1004,22 @@ and infer_value_binding env vb =
 
 let infer_of_value_binding env vb: string * env = 
   let pre, post, final, env, fn_name = infer_value_binding env vb in
-  let final = normalSpec (eliminatePartiaShall final env) in 
+  (* don't report things like let () = ..., which isn't a function  *)
+  if not (is_alpha fn_name.[0]) then
+    "", env
+  else
+    let final = normalSpec (eliminatePartiaShall final env) in
 
-    "\n========== Function: "^ fn_name ^" ==========\n" ^
-    "[Pre  Condition] " ^ string_of_spec pre ^"\n"^
-    "[Post Condition] " ^ string_of_spec post ^"\n"^
-    "[Final  Effects] " ^ string_of_spec (final) ^"\n\n"^
-    (*(string_of_inclusion final_effects post) ^ "\n" ^*)
-    (*"[T.r.s: Verification for Post Condition]\n" ^ *)
-    (let (_, str) = printReport final post in str), env
-
-    ;;
+    let header =
+      "\n========== Function: "^ fn_name ^" ==========\n" ^
+      "[Pre  Condition] " ^ string_of_spec pre ^"\n"^
+      "[Post Condition] " ^ string_of_spec post ^"\n"^
+      "[Final  Effects] " ^ string_of_spec (final) ^"\n\n"
+      (*(string_of_inclusion final_effects post) ^ "\n" ^*)
+      (*"[T.r.s: Verification for Post Condition]\n" ^ *)
+    in
+    let (_, report) = printReport final post in
+    header ^ report, env
 
 
   (*

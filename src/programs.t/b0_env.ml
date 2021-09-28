@@ -1,8 +1,6 @@
 effect Foo : (unit -> unit)
 
-let goo _ () = print_string ("Foo\n") ; perform Foo () 
-
-
+let foo _ () = print_string ("Foo\n") ; perform Foo ()
 
 let f g = let a = g 1 in a ()
 
