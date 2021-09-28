@@ -266,6 +266,7 @@ let printReport ((_, lhs, side1):spec) ((_, rhs, side2):spec) :(bool * string) =
   let (re2, temp2) = check_containment lhs rhs in 
   let (re3, temp3) = check_side side1 side2  in 
   let verification_time = "[Verification Time: " ^ string_of_float ((Sys.time() -. startTimeStamp) *. 1000.0) ^ " ms]" in
+
   let re = re2 && re3 in 
   let whole = "[Verification Result: " ^ (if re  then "Succeed " else "Fail " ) in 
   (re, (*"===========================================\n" ^*)
