@@ -43,6 +43,57 @@
   * emp |- emp   [UNFOLD]
   
 
+  $ hip b1_env.ml | ./sanitize.sh
+  
+  
+  ========== Function: main ==========
+  [Pre  Condition] emp
+  [Post Condition] Foo
+  [Final  Effects] Foo.Q(Foo ())
+  
+  [Verification Result: Fail
+  ------------------------------
+  [SIDE] Succeed
+  - - - - - - - - - - - - - -
+  [ENTAILMENT] Fail
+  * Foo.Q(Foo ()) |- Foo   [UNFOLD]
+  * └── Q(Foo ()) |- emp   [UNFOLD]
+  *     └── emp |- _|_   [DISPROVE]
+  
+
+  $ hip b2_open.ml | ./sanitize.sh
+  
+  --- Module A---
+  
+  ========== Function: f ==========
+  [Pre  Condition] emp
+  [Post Condition] Foo
+  [Final  Effects] Foo
+  
+  [Verification Result: Succeed
+  ------------------------------
+  [SIDE] Succeed
+  - - - - - - - - - - - - - -
+  [ENTAILMENT] Succeed
+  * Foo |- Foo   [UNFOLD]
+  * └── emp |- emp   [UNFOLD]
+  
+  
+  
+  ========== Function: main ==========
+  [Pre  Condition] emp
+  [Post Condition] Foo
+  [Final  Effects] Foo
+  
+  [Verification Result: Succeed
+  ------------------------------
+  [SIDE] Succeed
+  - - - - - - - - - - - - - -
+  [ENTAILMENT] Succeed
+  * Foo |- Foo   [UNFOLD]
+  * └── emp |- emp   [UNFOLD]
+  
+
   $ hip state.ml | ./sanitize.sh
   Effect Puts1 -> emp
   Effect Get -> emp

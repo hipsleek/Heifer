@@ -73,6 +73,8 @@ let rec string_of_core_type (p:core_type) :string =
   | _ -> "\nlsllsls\n"
   ;;
 
+let debug_string_of_core_type t =
+  Format.asprintf "type %a@." Pprintast.core_type t
 
 let string_of_kind k : string = 
   match k with 
@@ -1076,7 +1078,7 @@ let rec infer_of_program env x: string * env =
             loop (a :: acc) b
           | Ptyp_constr ({txt=Lident "int"; _}, [])
           | Ptyp_constr ({txt=Lident "unit"; _}, []) -> List.rev acc, t
-          | _ -> failwith ("split_params_fn: " ^ string_of_core_type t)
+          | _ -> failwith ("split_params_fn: " ^ debug_string_of_core_type t)
         in loop [] t
       in
       let name = peff_name.txt in
