@@ -157,3 +157,32 @@
   * └── Put |- _|_   [Bot-RHS]
   
   
+  $ hip generator.ml | ./sanitize.sh
+  
+  
+  ========== Function: to_gen ==========
+  [Pre  Condition] emp
+  [Post Condition] emp
+  [Final  Effects] emp
+  
+  [Verification Result: Succeed
+  ------------------------------
+  [SIDE] Succeed
+  - - - - - - - - - - - - - -
+  [ENTAILMENT] Succeed
+  * emp |- emp   [UNFOLD]
+  
+  
+  ========== Function: f ==========
+  [Pre  Condition] emp
+  [Post Condition] emp
+  [Final  Effects] emp
+  
+  [Verification Result: Succeed
+  ------------------------------
+  [SIDE] Succeed
+  - - - - - - - - - - - - - -
+  [ENTAILMENT] Succeed
+  * emp |- emp   [UNFOLD]
+  
+  
