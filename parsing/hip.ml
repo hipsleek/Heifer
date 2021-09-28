@@ -984,11 +984,11 @@ and infer_value_binding env vb =
     | Some (pre, post) -> (normalSpec pre, normalSpec post)
   in 
   let (pre, post) = spec in
-  let (pre_p, pre_es, pre_side) = pre in 
+  let (pre_p, _(*SYH: pre_es*), pre_side) = pre in 
 
   let env = Env.reset_side_spec pre_side env in 
 
-  let ((final_pi, final_es, final_side), _ (*residue*)) =  (infer_of_expression env (pre_p, pre_es, []) body) in
+  let ((final_pi, final_es, final_side), _ (*residue*)) =  (infer_of_expression env (pre_p, Emp, []) body) in
 
   let final = normalSpec (final_pi, final_es (*Cons (, residueToPredeciate resdue)*), final_side) in 
 

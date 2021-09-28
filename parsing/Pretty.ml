@@ -175,14 +175,14 @@ let rec string_of_pi pi : string =
 
 
 
-let string_of_spec (pi, es, side) =
+let string_of_spec (_ (*pi*), es, side) =
   let side =
     match side with
     | [] -> ""
     | _ -> ", " ^ string_of_side side
   in
-  Format.sprintf "%s, %s, %s"
-    (string_of_pi pi) (string_of_es es) side
+  Format.sprintf "%s, %s"
+    (*(string_of_pi pi)*) (string_of_es es) side
 
 
 
