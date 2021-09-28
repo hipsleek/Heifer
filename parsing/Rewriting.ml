@@ -2,7 +2,7 @@
 open List
 open Parsetree
 open Pretty
-open Z3
+(*open Z3
 
 let rec term_to_expr ctx : Parsetree.term -> Expr.expr = function
   | Num n        -> Arithmetic.Integer.mk_numeral_i ctx n
@@ -42,7 +42,13 @@ let check p1 p2 : bool =
   (*print_endline (Solver.to_string solver); *)
   sat
 
+let check_pure p1 p2 : (bool * string) = 
+  let sat = check  p1 p2 in
+  let _ = string_of_pi p1 ^" => " ^ string_of_pi p2 in 
+  let buffur = ("[PURE]"(*^(pure)*)^ " " ^(if sat then "Succeed\n" else "Fail\n")  )
+  in (sat, buffur)
 
+*)
 
 
 let rec  nullable (es:es) : bool=
@@ -212,11 +218,7 @@ let rec containment (evn: evn) (lhs:es) (rhs:es) : (bool * binary_tree ) =
 
 
 
-let check_pure p1 p2 : (bool * string) = 
-  let sat = check  p1 p2 in
-  let _ = string_of_pi p1 ^" => " ^ string_of_pi p2 in 
-  let buffur = ("[PURE]"(*^(pure)*)^ " " ^(if sat then "Succeed\n" else "Fail\n")  )
-  in (sat, buffur)
+
 
 
 (*(bool * binary_tree ) *)
@@ -258,13 +260,13 @@ let check_side (s1:side) (s2:side)  : (bool * string) =
   in (result, buffur)
 
 
-let printReport ((pi1, lhs, side1):spec) ((pi2, rhs, side2):spec) :(bool * string) = 
+let printReport ((_, lhs, side1):spec) ((_, rhs, side2):spec) :(bool * string) = 
   let startTimeStamp = Sys.time() in
-  let (re1, _) = check_pure pi1 pi2 in 
+  (*let (re1, _) = check_pure pi1 pi2 in *)
   let (re2, temp2) = check_containment lhs rhs in 
   let (re3, temp3) = check_side side1 side2  in 
   let verification_time = "[Verification Time: " ^ string_of_float ((Sys.time() -. startTimeStamp) *. 1000.0) ^ " ms]" in
-  let re = re1 && re2 && re3 in 
+  let re = re2 && re3 in 
   let whole = "[Verification Result: " ^ (if re  then "Succeed " else "Fail " ) in 
   (re, (*"===========================================\n" ^*)
   verification_time  ^"\n"^
