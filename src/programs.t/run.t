@@ -186,3 +186,47 @@
   * emp |- emp   [UNFOLD]
   
   
+  $ hip flip.ml | ./sanitize.sh
+  Effect Choose -> emp
+  
+  
+  ========== Function: choose ==========
+  [Pre  Condition] (_)^*
+  [Post Condition] Choose
+  [Final  Effects] Choose
+  
+  [Verification Result: Succeed
+  ------------------------------
+  [SIDE] Succeed
+  - - - - - - - - - - - - - -
+  [ENTAILMENT] Succeed
+  * Choose |- Choose   [UNFOLD]
+  * └── emp |- emp   [UNFOLD]
+  
+  
+  ========== Function: toss ==========
+  [Pre  Condition] emp
+  [Post Condition] emp
+  [Final  Effects] emp+emp+emp
+  
+  [Verification Result: Succeed
+  ------------------------------
+  [SIDE] Succeed
+  - - - - - - - - - - - - - -
+  [ENTAILMENT] Succeed
+  * emp+emp+emp |- emp   [UNFOLD]
+  
+  
+  ========== Function: all_results ==========
+  [Pre  Condition] emp
+  [Post Condition] emp
+  [Final  Effects] emp
+  
+  [Verification Result: Succeed
+  ------------------------------
+  [SIDE] Succeed
+  - - - - - - - - - - - - - -
+  [ENTAILMENT] Succeed
+  * emp |- emp   [UNFOLD]
+  
+  
