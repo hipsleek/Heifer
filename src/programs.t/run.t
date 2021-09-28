@@ -4,9 +4,9 @@
   
   
   ========== Function: goo ==========
-  [Pre  Condition] true, emp, 
-  [Post Condition] true, emp, 
-  [Final  Effects] true/\true, Foo.Q(Foo ()), 
+  [Pre  Condition] emp
+  [Post Condition] emp
+  [Final  Effects] Foo.Q(Foo ())
   
   [Verification Result: Fail 
   ------------------------------
@@ -18,9 +18,9 @@
   
   
   ========== Function: f ==========
-  [Pre  Condition] true, emp, 
-  [Post Condition] true, emp, 
-  [Final  Effects] true/\true/\true, emp, 
+  [Pre  Condition] emp
+  [Post Condition] emp
+  [Final  Effects] emp
   
   [Verification Result: Succeed 
   ------------------------------
@@ -31,9 +31,9 @@
   
   
   ========== Function: main ==========
-  [Pre  Condition] true, emp, 
-  [Post Condition] true, emp, 
-  [Final  Effects] true/\true, emp, 
+  [Pre  Condition] emp
+  [Post Condition] emp
+  [Final  Effects] emp
   
   [Verification Result: Succeed 
   ------------------------------

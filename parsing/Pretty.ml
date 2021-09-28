@@ -2,7 +2,6 @@
 ----------------------PRINTING------------------------
 ----------------------------------------------------*)
 
-open List
 open Printf
 open Parsetree
 
@@ -21,7 +20,7 @@ let getAfreeVar (varList:string list):string  =
   let rec findOne li = 
     match li with 
         [] -> raise ( Foo "freeVar list too small exception!")
-      | x :: xs -> if (exists (fun a -> String.compare a x == 0) varList) == true then findOne xs else x
+      | x :: xs -> if (List.exists (fun a -> String.compare a x == 0) varList) == true then findOne xs else x
   in
   findOne freeVar
 ;;
@@ -122,7 +121,14 @@ let string_of_basic_type a : string =
   | UNIT -> "()"
 
 let string_of_instant (str, ar_Li): string = 
-  str ^ " " ^ separate (ar_Li) (string_of_basic_type) (",") ^"";;
+  (* syntax is like OCaml type constructors, e.g. Foo, Foo (), Foo (1, ()) *)
+  let args =
+    match ar_Li with
+    | [] -> ""
+    | [t] -> " " ^ string_of_basic_type t
+    | _ -> Format.sprintf " (%s)" (separate (ar_Li) (string_of_basic_type) (","));
+  in
+  Format.sprintf "%s%s" str args
 
   
 let rec string_of_es es : string = 
@@ -181,7 +187,7 @@ let string_of_spec (_ (*pi*), es, side) =
     | [] -> ""
     | _ -> ", " ^ string_of_side side
   in
-  Format.sprintf "%s, %s"
+  Format.sprintf "%s%s"
     (*(string_of_pi pi)*) (string_of_es es) side
 
 
@@ -262,12 +268,12 @@ let eventToEs ev : es =
   ;;
 
 
-let rec string_of_event ev : string =
+(* let rec string_of_event ev : string =
   match ev with 
   | One (str) ->  str (*^ "(" ^ separate (ar_Li) (string_of_int) (",") ^")" *)
   | Zero (str) -> "!" ^ string_of_event (One (str))
   | Pred (str, ar_Li) -> "Q(" ^str ^  separate (ar_Li) (string_of_basic_type) (",") ^")" 
-  | Any -> "_"
+  | Any -> "_" *)
 
   ;;
 
