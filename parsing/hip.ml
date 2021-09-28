@@ -387,7 +387,7 @@ let rec eliminatePartial (es:es) env :es =
       raise (Foo (string_of_int eff_arg_length ^ ":"^ string_of_int n))
       else 
       *)
-      if eff_arg_length < n then Emp else es 
+      if eff_arg_length < n || eff_arg_length == 0 then Emp else es 
     )
 
 
