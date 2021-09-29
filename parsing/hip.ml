@@ -387,6 +387,7 @@ let rec eliminatePartial (es:es) env :es =
       raise (Foo (string_of_int eff_arg_length ^ ":"^ string_of_int n))
       else 
       *)
+      (*4 Q when it is at the end, no need to add Q *)
       if eff_arg_length < n || eff_arg_length == 0 then Emp else es 
     )
 
@@ -984,7 +985,7 @@ and infer_value_binding env vb =
     | Some (pre, post) -> (normalSpec pre, normalSpec post)
   in 
   let (pre, post) = spec in
-  let (pre_p, _(*SYH: pre_es*), pre_side) = pre in 
+  let (pre_p, _(*SYH: pre_es*, post is not including pre *), pre_side) = pre in 
 
   let env = Env.reset_side_spec pre_side env in 
 
