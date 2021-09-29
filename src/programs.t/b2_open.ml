@@ -1,4 +1,4 @@
-effect Foo : (unit -> 'a)
+effect Foo : (unit -> unit)
 
 module A = struct
   let f ()

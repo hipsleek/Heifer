@@ -1,4 +1,4 @@
-effect Foo : (unit -> 'a)
+effect Foo : (unit -> unit)
 
 let main ()
   (*@ requires emp @*)

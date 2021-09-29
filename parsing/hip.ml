@@ -6,8 +6,10 @@ open Asttypes
 open Rewriting
 open Pretty
 
-
-
+let is_alpha alpha =
+  match alpha with
+  | 'a' .. 'z' | 'A' .. 'Z' -> true
+  | _ -> false
 
 let rec input_lines file =
   match try [input_line file] with End_of_file -> [] with
@@ -71,6 +73,8 @@ let rec string_of_core_type (p:core_type) :string =
   | _ -> "\nlsllsls\n"
   ;;
 
+let debug_string_of_core_type t =
+  Format.asprintf "type %a@." Pprintast.core_type t
 
 let string_of_kind k : string = 
   match k with 
@@ -1003,17 +1007,22 @@ and infer_value_binding env vb =
 
 let infer_of_value_binding env vb: string * env = 
   let pre, post, final, env, fn_name = infer_value_binding env vb in
-  let final = normalSpec (eliminatePartiaShall final env) in 
+  (* don't report things like let () = ..., which isn't a function  *)
+  if not (is_alpha fn_name.[0]) then
+    "", env
+  else
+    let final = normalSpec (eliminatePartiaShall final env) in
 
-    "\n========== Function: "^ fn_name ^" ==========\n" ^
-    "[Pre  Condition] " ^ string_of_spec pre ^"\n"^
-    "[Post Condition] " ^ string_of_spec post ^"\n"^
-    "[Final  Effects] " ^ string_of_spec (final) ^"\n\n"^
-    (*(string_of_inclusion final_effects post) ^ "\n" ^*)
-    (*"[T.r.s: Verification for Post Condition]\n" ^ *)
-    (let (_, str) = printReport final post in str), env
-
-    ;;
+    let header =
+      "\n========== Function: "^ fn_name ^" ==========\n" ^
+      "[Pre  Condition] " ^ string_of_spec pre ^"\n"^
+      "[Post Condition] " ^ string_of_spec post ^"\n"^
+      "[Final  Effects] " ^ string_of_spec (final) ^"\n\n"
+      (*(string_of_inclusion final_effects post) ^ "\n" ^*)
+      (*"[T.r.s: Verification for Post Condition]\n" ^ *)
+    in
+    let (_, report) = printReport final post in
+    header ^ report, env
 
 
   (*
@@ -1070,7 +1079,7 @@ let rec infer_of_program env x: string * env =
             loop (a :: acc) b
           | Ptyp_constr ({txt=Lident "int"; _}, [])
           | Ptyp_constr ({txt=Lident "unit"; _}, []) -> List.rev acc, t
-          | _ -> failwith ("split_params_fn: " ^ string_of_core_type t)
+          | _ -> failwith ("split_params_fn: " ^ debug_string_of_core_type t)
         in loop [] t
       in
       let name = peff_name.txt in
