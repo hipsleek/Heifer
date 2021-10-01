@@ -1,5 +1,6 @@
 (executables
  (names
+  state
   b0_env
   b1_env
   b2_open
@@ -19,6 +20,7 @@
   callByValueTest
   t6_partial)
  (modules
+  state 
   b0_env
   b1_env
   b2_open

@@ -900,7 +900,7 @@ let rec infer_of_expression env (acc:spec) expr : (spec * residue) =
 
 
 
-  | Pexp_construct _ -> ((True, Emp, []), None)
+  | Pexp_construct _ -> ((True, Emp, []), None) 
   | Pexp_constraint (ex, _) -> infer_of_expression env acc ex
   | Pexp_sequence (ex1, ex2) -> 
 
