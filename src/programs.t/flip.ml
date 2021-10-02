@@ -6,10 +6,16 @@ let choose ()
   (*@ ensures Choose @*)
 = perform Choose
 
-let toss () =
-  if choose () = 0
-  then if choose () = 0 then "heads, heads" else "heads, tails"
+let toss () 
+(*@ requires _^* @*)
+  (*@ ensures (Choose.Choose) \/ Choose @*)
+=
+  let a = choose () in 
+  if a = 0
+  then let b = choose () in if b  = 0 then "heads, heads" else "heads, tails"
   else "tails"
+
+(*SYH: debug the if constructs*)
 
 let all_results m =
   match m () with
