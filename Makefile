@@ -9,7 +9,7 @@ all:
 #	 --infer (but then --ocamlc needs to be supplied with all the right includes)
 	menhir --lalr --unused-token COMMENT --unused-token DOCSTRING --unused-token EOL --unused-token GREATERRBRACKET --fixed-exception --table --strategy simplified --base boot/menhir/parser parsing/parser.mly
 
-#	dune test
+	dune test
 	OCAMLRUNPARAM=b dune exec parsing/hip.exe src/programs.t/flip.ml
 
 # make test F=src/programs.t/t0_foo_loop.ml
