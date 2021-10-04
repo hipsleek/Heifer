@@ -205,16 +205,25 @@
   
   
   ========== Function: toss ==========
-  [Pre  Condition] emp
-  [Post Condition] emp
-  [Final  Effects] emp+emp+emp
+  [Pre  Condition] (_)^*
+  [Post Condition] Choose.Choose+Choose
+  [Final  Effects] Choose.Choose+Choose.Choose+Choose
   
   [Verification Result: Succeed
   ------------------------------
   [SIDE] Succeed
   - - - - - - - - - - - - - -
   [ENTAILMENT] Succeed
-  * emp+emp+emp |- emp   [UNFOLD]
+  * Choose.Choose+Choose.Choose+Choose |- Choose.Choose+Choose   [UNFOLD]
+  * ├── Choose+Choose+emp |- Choose+emp   [UNFOLD]
+  * │   ├── emp+emp |- emp   [UNFOLD]
+  * │   └── emp+emp |- emp   [UNFOLD]
+  * ├── Choose+Choose+emp |- Choose+emp   [UNFOLD]
+  * │   ├── emp+emp |- emp   [UNFOLD]
+  * │   └── emp+emp |- emp   [UNFOLD]
+  * └── Choose+Choose+emp |- Choose+emp   [UNFOLD]
+  *     ├── emp+emp |- emp   [UNFOLD]
+  *     └── emp+emp |- emp   [UNFOLD]
   
   
   ========== Function: all_results ==========
