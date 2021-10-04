@@ -3,7 +3,7 @@ effect Get : int
 effect Put : int -> unit
 
 let get ()
-  (*@ requires emp @*)
+  (*@ requires _^* @*)
   (*@ ensures Get @*)
 = perform Get
 
@@ -21,7 +21,10 @@ let f ()
   a  + 2 
 
 
-let main () =
+let main ()
+  (*@ requires emp @*)
+  (*@ ensures Get.Put @*)
+=
   let g =
     match f () with
     | r -> fun s -> (s, r)
