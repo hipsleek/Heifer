@@ -101,7 +101,7 @@
   
   
   ========== Function: get ==========
-  [Pre  Condition] (_)^*
+  [Pre  Condition] emp
   [Post Condition] Get
   [Final  Effects] Get
   
@@ -145,17 +145,16 @@
   
   ========== Function: main ==========
   [Pre  Condition] emp
-  [Post Condition] Get.Put
+  [Post Condition] emp
   [Final  Effects] Get.Put
   
-  [Verification Result: Succeed
+  [Verification Result: Fail
   ------------------------------
   [SIDE] Succeed
   - - - - - - - - - - - - - -
-  [ENTAILMENT] Succeed
-  * Get.Put |- Get.Put   [UNFOLD]
-  * └── Put |- Put   [UNFOLD]
-  *     └── emp |- emp   [UNFOLD]
+  [ENTAILMENT] Fail
+  * Get.Put |- emp   [UNFOLD]
+  * └── Put |- _|_   [Bot-RHS]
   
   
   $ hip generator.ml | ./sanitize.sh
