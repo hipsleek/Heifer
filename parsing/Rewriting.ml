@@ -268,7 +268,7 @@ let printReport ((_, lhs, side1):spec) ((_, rhs, side2):spec) :(bool * string) =
   let verification_time = "[Verification Time: " ^ string_of_float ((Sys.time() -. startTimeStamp) *. 1000.0) ^ " ms]" in
 
   let re = re2 && re3 in 
-  let whole = "[Verification Result: " ^ (if re  then "Succeed " else "Fail " ) in 
+  let whole = "[Verification Result: " ^ (if re  then "Succeed" else "Fail" ) in 
   (re, (*"===========================================\n" ^*)
   verification_time  ^"\n"^
   whole  ^"\n"^
