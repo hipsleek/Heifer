@@ -869,9 +869,9 @@ let rec infer_of_expression env (acc:spec) expr : (spec * residue) =
   | Pexp_fun (_, _, _ (*pattern*), expr) -> infer_of_expression env acc expr 
   | Pexp_apply (fnName, li) (*expression * (arg_label * expression) list*)
     -> 
-    
+    (*
     print_string (Pprintast.string_of_expression expr ^"\n");
-    
+    *)
     let temp = List.map (fun (_, a) -> a) li in 
     let arg_eff = List.fold_left 
     (fun acc_li a -> 
