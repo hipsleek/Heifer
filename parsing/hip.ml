@@ -720,8 +720,61 @@ let insertMiddle acc index list_ev :event list =
   let result =   List.append (List.append theFront list_ev ) theBack in 
   result
 
+let rec fixpoint_compute (es:es) (policies:policy list) : es = 
+  match normalES es with 
+  | Predicate (ins)  -> 
+
+    let (str_pred, _) = ins in 
+    let trace = findPolicy str_pred policies in 
+    (* this mappings is a reversed list of Q(EFF) -> ES *)
+    let rec helper (mappings:((string*es)list)) (cur_trace: es) : es =
+      let cur_trace = normalES cur_trace in 
+      match cur_trace with 
+      | Bot -> Bot
+      | Emp -> List.fold_left (fun acc (_, esLi) -> Cons(acc, esLi)) Emp (List.rev mappings)
+      | _ -> let f_li = fst cur_trace in 
+          List.fold_left (fun acc f -> 
+            let temp_f:es = 
+              match f with 
+              | Pred (insFName, _) -> 
+                (
+                  match reoccor_continue (List.rev (List.tl mappings)) insFName 0 with 
+                  | None -> 
+                    let continueation = findPolicy insFName policies in 
+                    let new_mappings = (insFName, Emp) :: mappings in 
+                    helper new_mappings (Cons (continueation, (derivative cur_trace f)))
+ 
+                  | Some start -> 
+                    match normalES (derivative cur_trace f) with 
+                    | Emp -> formLoop (List.rev ((List.tl mappings))) start
+                    | _ -> raise (Foo ("stack overlow recursive policy"))
+                  
+
+                )
+
+              | One str -> 
+                let (hd_eff, hd_es) = List.hd mappings in 
+                let new_mappings = (hd_eff, Cons (hd_es, Event str)) :: (List.tl mappings) in 
+                helper new_mappings (derivative cur_trace f)
+              | _ -> raise (Foo "policy not possible ")
+  
+            in 
+            ESOr(acc, temp_f)
+          ) Bot f_li
+
+    in helper [(str_pred, Emp)] trace
+
+      
+   
+  | Cons (es1, es2) -> Cons (fixpoint_compute es1 policies, fixpoint_compute es2 policies)
+  | ESOr (es1, es2) -> ESOr (fixpoint_compute es1 policies, fixpoint_compute es2 policies)
+  | Kleene es1 -> Kleene (fixpoint_compute es1 policies)
+  | Omega es1 -> Omega (fixpoint_compute es1 policies)
+  | _ -> es
 
 
+
+(*
 let rec fixpoint_compute (es:es) (policies:policy list) : es = 
   match normalES es with 
   | Predicate (ins)  -> 
@@ -754,6 +807,7 @@ let rec fixpoint_compute (es:es) (policies:policy list) : es =
            
               let ((str, tempH), tempTL) = (List.hd mappings, List.tl mappings) in 
               let new_mappings = (curName, Emp) :: (str, Cons (tempH, Event (curName))) :: tempTL in 
+              
               ESOr (acc_es, helper new_mappings (insertMiddle acc_event (index ) list_ev) (index ))) Bot list_list_ev
             
           )
@@ -777,6 +831,7 @@ let rec fixpoint_compute (es:es) (policies:policy list) : es =
   | Kleene es1 -> Kleene (fixpoint_compute es1 policies)
   | Omega es1 -> Omega (fixpoint_compute es1 policies)
   | _ -> es
+*)
 
 (*
 let rec expression_To_stack_content  (expr:expression): stack_content option  =
@@ -924,9 +979,9 @@ let rec infer_of_expression env (acc:spec) expr : (spec * residue) =
     
 
     
-    (*print_string (string_of_policies policies);
+    print_string (string_of_policies policies);
     print_string (string_of_es es_ex);
-*)
+
     let trace = fixpoint_compute es_ex policies (*pre_compute_policy policies*) in 
     ((p_ex, trace, side_es) , None)
 
