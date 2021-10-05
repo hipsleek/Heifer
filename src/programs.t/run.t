@@ -304,3 +304,151 @@
   * emp |- emp   [UNFOLD]
   
   
+  $ hip transaction.ml | ./sanitize.sh
+  Exeption e
+  Effect Updatestring_of_pattern: (r, v)
+   -> emp
+  
+  
+  ========== Function: atomically ==========
+  [Pre  Condition] emp
+  [Post Condition] emp
+  [Final  Effects] emp
+  
+  [Verification Result: Succeed
+  ------------------------------
+  [SIDE] Succeed
+  - - - - - - - - - - - - - -
+  [ENTAILMENT] Succeed
+  * emp |- emp   [UNFOLD]
+  
+  
+  ========== Function: ref ==========
+  [Pre  Condition] emp
+  [Post Condition] emp
+  [Final  Effects] emp
+  
+  [Verification Result: Succeed
+  ------------------------------
+  [SIDE] Succeed
+  - - - - - - - - - - - - - -
+  [ENTAILMENT] Succeed
+  * emp |- emp   [UNFOLD]
+  
+  
+  ========== Function: ! ==========
+  [Pre  Condition] emp
+  [Post Condition] emp
+  [Final  Effects] emp
+  
+  [Verification Result: Succeed
+  ------------------------------
+  [SIDE] Succeed
+  - - - - - - - - - - - - - -
+  [ENTAILMENT] Succeed
+  * emp |- emp   [UNFOLD]
+  
+  
+  ========== Function: := ==========
+  [Pre  Condition] (_)^*
+  [Post Condition] Update
+  [Final  Effects] Update
+  
+  [Verification Result: Succeed
+  ------------------------------
+  [SIDE] Succeed
+  - - - - - - - - - - - - - -
+  [ENTAILMENT] Succeed
+  * Update |- Update   [UNFOLD]
+  * └── emp |- emp   [UNFOLD]
+  
+  _|_
+  
+  ========== Function: g ==========
+  [Pre  Condition] emp
+  [Post Condition] (Update)^*
+  [Final  Effects] Update.Update.Update
+  
+  [Verification Result: Succeed
+  ------------------------------
+  [SIDE] Succeed
+  - - - - - - - - - - - - - -
+  [ENTAILMENT] Succeed
+  * Update.Update.Update |- (Update)^*   [UNFOLD]
+  * └── Update.Update |- (Update)^*   [UNFOLD]
+  *     └── Update |- (Update)^*   [UNFOLD]
+  *         └── emp |- (Update)^*   [UNFOLD]
+  
+  
+  ========== Function: h ==========
+  [Pre  Condition] emp
+  [Post Condition] emp
+  [Final  Effects] emp
+  
+  [Verification Result: Succeed
+  ------------------------------
+  [SIDE] Succeed
+  - - - - - - - - - - - - - -
+  [ENTAILMENT] Succeed
+  * emp |- emp   [UNFOLD]
+  
+  
+  ========== Function: f ==========
+  [Pre  Condition] emp
+  [Post Condition] emp
+  [Final  Effects] emp
+  
+  [Verification Result: Succeed
+  ------------------------------
+  [SIDE] Succeed
+  - - - - - - - - - - - - - -
+  [ENTAILMENT] Succeed
+  * emp |- emp   [UNFOLD]
+  
+  
+  $ hip simple_loop.ml | ./sanitize.sh
+  Effect A -> emp
+  
+  
+  ========== Function: f ==========
+  [Pre  Condition] (_)^*
+  [Post Condition] (A)^w
+  [Final  Effects] A.(A)^w
+  
+  [Verification Result: Succeed
+  ------------------------------
+  [SIDE] Succeed
+  - - - - - - - - - - - - - -
+  [ENTAILMENT] Succeed
+  * A.(A)^w |- (A)^w   [UNFOLD]
+  * └── (A)^w |- (A)^w   [UNFOLD]
+  *     └── (A)^w |- (A)^w   [Reoccur]
+  
+  
+  ========== Function: g ==========
+  [Pre  Condition] (_)^*
+  [Post Condition] (A)^*
+  [Final  Effects] emp
+  
+  [Verification Result: Succeed
+  ------------------------------
+  [SIDE] Succeed
+  - - - - - - - - - - - - - -
+  [ENTAILMENT] Succeed
+  * emp |- (A)^*   [UNFOLD]
+  
+  
+  ========== Function: main ==========
+  [Pre  Condition] emp
+  [Post Condition] (A)^w
+  [Final  Effects] (A)^w
+  
+  [Verification Result: Succeed
+  ------------------------------
+  [SIDE] Succeed
+  - - - - - - - - - - - - - -
+  [ENTAILMENT] Succeed
+  * (A)^w |- (A)^w   [UNFOLD]
+  * └── (A)^w |- (A)^w   [Reoccur]
+  
+  

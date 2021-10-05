@@ -283,5 +283,5 @@ let rec string_of_policies ps: string =
   | x::xs -> 
     (match x with 
     | Eff (str, es) -> "Effect "^ str ^ " -> " ^ string_of_es (es) ^ "\n"
-    | Exn str -> "Exeption " ^ str 
+    | Exn str -> "Exeption " ^ str ^ "\n"
     ) ^ string_of_policies xs 

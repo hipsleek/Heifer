@@ -6,11 +6,6 @@ open Asttypes
 open Rewriting
 open Pretty
 
-let is_alpha alpha =
-  match alpha with
-  | 'a' .. 'z' | 'A' .. 'Z' -> true
-  | _ -> false
-
 let rec input_lines file =
   match try [input_line file] with End_of_file -> [] with
    [] -> []
@@ -123,7 +118,8 @@ let rec string_of_pattern (p) : string =
     string_of_pattern p1
   (* #tconst *)
 
-  | _ -> "string_of_pattern\n" ;;
+  
+  | _ -> Format.asprintf "string_of_pattern: %a\n" Pprintast.pattern p;;
 
 
 (** Given the RHS of a let binding, returns the es it is annotated with *)
@@ -227,12 +223,13 @@ type fn_spec = {
 type fn_specs = fn_spec SMap.t
 
 (* only first-order types for arguments, for now *)
-type typ = TInt | TUnit
+type typ = TInt | TUnit | TRef of typ
 
-let core_type_to_typ (t:core_type) =
+let rec core_type_to_typ (t:core_type) =
   match t.ptyp_desc with
   | Ptyp_constr ({txt=Lident "int"; _}, []) -> TInt
   | Ptyp_constr ({txt=Lident "unit"; _}, []) -> TUnit
+  | Ptyp_constr ({txt=Lident "ref"; _}, [t]) -> TRef (core_type_to_typ t)
   | _ -> failwith ("core_type_to_typ: " ^ string_of_core_type t)
 
 (* effect Foo : int -> (int -> int) *)
@@ -975,7 +972,7 @@ let rec infer_of_expression env (acc:spec) expr : (spec * residue) =
   | _ -> raise (Foo ("infer_of_expression: " ^ debug_string_of_expression expr))
 
   
-and infer_value_binding env vb = 
+and infer_value_binding rec_flag env vb =
   let fn_name = string_of_pattern vb.pvb_pat in
   let body = vb.pvb_expr in
   let formals = collect_param_names body in
@@ -988,6 +985,11 @@ and infer_value_binding env vb =
   let (pre_p, _(*SYH: pre_es*, post is not including pre *), pre_side) = pre in 
 
   let env = Env.reset_side_spec pre_side env in 
+  let env =
+    match rec_flag with
+    | Nonrecursive -> env
+    | Recursive -> Env.add_fn fn_name {pre; post; formals} env
+  in
 
   let ((final_pi, final_es, final_side), _ (*residue*)) =  (infer_of_expression env (pre_p, Emp, []) body) in
 
@@ -1001,10 +1003,10 @@ and infer_value_binding env vb =
   pre, post, ( final), env1, fn_name
 
 
-let infer_of_value_binding env vb: string * env = 
-  let pre, post, final, env, fn_name = infer_value_binding env vb in
+let infer_of_value_binding rec_flag env vb: string * env =
+  let pre, post, final, env, fn_name = infer_value_binding rec_flag env vb in
   (* don't report things like let () = ..., which isn't a function  *)
-  if not (is_alpha fn_name.[0]) then
+  if String.equal fn_name "()" then
     "", env
   else
     let final = normalSpec (eliminatePartiaShall final env) in
@@ -1031,8 +1033,8 @@ let infer_of_value_binding env vb: string * env =
 (* returns the inference result as a string to be printed *)
 let rec infer_of_program env x: string * env =
   match x.pstr_desc with
-  | Pstr_value (_ (*rec_flag*), x::_ (*value_binding list*)) ->
-    infer_of_value_binding env x 
+  | Pstr_value (rec_flag, x::_ (*value_binding list*)) ->
+    infer_of_value_binding rec_flag env x
     
   | Pstr_module m ->
     (* when we see a module, infer inside it *)

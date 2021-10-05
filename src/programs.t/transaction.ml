@@ -18,19 +18,30 @@ let atomically f =
 let ref = ref
 let (!) = (!)
 let (:=) r v
+  (*@ requires _^* @*)
+  (*@ ensures Update @*)
 = perform (Update (r,v))
 
 exception Res of int
 
-let () = atomically (fun () ->
+let g ()
+  (*@ requires emp @*)
+  (*@ ensures Update^* @*)
+=
+  r := 20;
+  r := 21;
+  printf "T1: Before abort %d\n" (!r);
+  raise (Res !r) |> ignore;
+  printf "T1: After abort %d\n" (!r);
+  r := 30
+
+let h () =
   let r = ref 10 in
   printf "T0: %d\n" (!r);
-  try atomically (fun () ->
-    r := 20;
-    r := 21;
-    printf "T1: Before abort %d\n" (!r);
-    raise (Res !r) |> ignore;
-    printf "T1: After abort %d\n" (!r);
-    r := 30)
+  try atomically g
   with
-  | Res v -> Printf.printf "T0: T1 aborted with %d\n" v;printf "T0: %d\n" !r)
+  | Res v -> Printf.printf "T0: T1 aborted with %d\n" v;printf "T0: %d\n" !r
+
+let f () = atomically h
+
+let () = f ()
