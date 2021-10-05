@@ -924,9 +924,9 @@ let rec infer_of_expression env (acc:spec) expr : (spec * residue) =
     
 
     
-    print_string (string_of_policies policies);
+    (*print_string (string_of_policies policies);
     print_string (string_of_es es_ex);
-
+*)
     let trace = fixpoint_compute es_ex policies (*pre_compute_policy policies*) in 
     ((p_ex, trace, side_es) , None)
 
