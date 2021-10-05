@@ -304,3 +304,76 @@
   * emp |- emp   [UNFOLD]
   
   
+  $ hip transaction.ml | ./sanitize.sh
+  Exeption e
+  Effect Updatestring_of_pattern: (r, v)
+   -> emp
+  
+  
+  ========== Function: atomically ==========
+  [Pre  Condition] emp
+  [Post Condition] emp
+  [Final  Effects] emp
+  
+  [Verification Result: Succeed
+  ------------------------------
+  [SIDE] Succeed
+  - - - - - - - - - - - - - -
+  [ENTAILMENT] Succeed
+  * emp |- emp   [UNFOLD]
+  
+  
+  ========== Function: ref ==========
+  [Pre  Condition] emp
+  [Post Condition] emp
+  [Final  Effects] emp
+  
+  [Verification Result: Succeed
+  ------------------------------
+  [SIDE] Succeed
+  - - - - - - - - - - - - - -
+  [ENTAILMENT] Succeed
+  * emp |- emp   [UNFOLD]
+  
+  
+  ========== Function: ! ==========
+  [Pre  Condition] emp
+  [Post Condition] emp
+  [Final  Effects] emp
+  
+  [Verification Result: Succeed
+  ------------------------------
+  [SIDE] Succeed
+  - - - - - - - - - - - - - -
+  [ENTAILMENT] Succeed
+  * emp |- emp   [UNFOLD]
+  
+  
+  ========== Function: := ==========
+  [Pre  Condition] (_)^*
+  [Post Condition] Update
+  [Final  Effects] Update
+  
+  [Verification Result: Succeed
+  ------------------------------
+  [SIDE] Succeed
+  - - - - - - - - - - - - - -
+  [ENTAILMENT] Succeed
+  * Update |- Update   [UNFOLD]
+  * └── emp |- emp   [UNFOLD]
+  
+  _|_
+  
+  ========== Function: f ==========
+  [Pre  Condition] emp
+  [Post Condition] emp
+  [Final  Effects] emp
+  
+  [Verification Result: Succeed
+  ------------------------------
+  [SIDE] Succeed
+  - - - - - - - - - - - - - -
+  [ENTAILMENT] Succeed
+  * emp |- emp   [UNFOLD]
+  
+  

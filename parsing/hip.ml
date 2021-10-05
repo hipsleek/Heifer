@@ -6,11 +6,6 @@ open Asttypes
 open Rewriting
 open Pretty
 
-let is_alpha alpha =
-  match alpha with
-  | 'a' .. 'z' | 'A' .. 'Z' -> true
-  | _ -> false
-
 let rec input_lines file =
   match try [input_line file] with End_of_file -> [] with
    [] -> []
@@ -123,7 +118,8 @@ let rec string_of_pattern (p) : string =
     string_of_pattern p1
   (* #tconst *)
 
-  | _ -> "string_of_pattern\n" ;;
+  
+  | _ -> Format.asprintf "string_of_pattern: %a\n" Pprintast.pattern p;;
 
 
 (** Given the RHS of a let binding, returns the es it is annotated with *)
@@ -227,12 +223,13 @@ type fn_spec = {
 type fn_specs = fn_spec SMap.t
 
 (* only first-order types for arguments, for now *)
-type typ = TInt | TUnit
+type typ = TInt | TUnit | TRef of typ
 
-let core_type_to_typ (t:core_type) =
+let rec core_type_to_typ (t:core_type) =
   match t.ptyp_desc with
   | Ptyp_constr ({txt=Lident "int"; _}, []) -> TInt
   | Ptyp_constr ({txt=Lident "unit"; _}, []) -> TUnit
+  | Ptyp_constr ({txt=Lident "ref"; _}, [t]) -> TRef (core_type_to_typ t)
   | _ -> failwith ("core_type_to_typ: " ^ string_of_core_type t)
 
 (* effect Foo : int -> (int -> int) *)
@@ -1014,7 +1011,7 @@ and infer_value_binding env vb =
 let infer_of_value_binding env vb: string * env = 
   let pre, post, final, env, fn_name = infer_value_binding env vb in
   (* don't report things like let () = ..., which isn't a function  *)
-  if not (is_alpha fn_name.[0]) then
+  if String.equal fn_name "()" then
     "", env
   else
     let final = normalSpec (eliminatePartiaShall final env) in

@@ -18,11 +18,12 @@ let atomically f =
 let ref = ref
 let (!) = (!)
 let (:=) r v
+  (*@ requires _^* @*)
+  (*@ ensures Update @*)
 = perform (Update (r,v))
 
 exception Res of int
-
-let () = atomically (fun () ->
+let f () = atomically (fun () ->
   let r = ref 10 in
   printf "T0: %d\n" (!r);
   try atomically (fun () ->
@@ -34,3 +35,5 @@ let () = atomically (fun () ->
     r := 30)
   with
   | Res v -> Printf.printf "T0: T1 aborted with %d\n" v;printf "T0: %d\n" !r)
+
+let () = f ()
