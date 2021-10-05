@@ -730,6 +730,7 @@ let rec fixpoint_compute (es:es) (policies:policy list) : es =
   | Predicate (ins)  -> 
 
     let (str_pred, _) = ins in 
+    let trace = findPolicy str_pred policies in 
     (* this mappings is a reversed list of Q(EFF) -> ES *)
     let rec helper (mappings:((string*es)list)) (acc_event:event list) (index:int): es =
       if (List.length acc_event) <= index then 
@@ -742,10 +743,6 @@ let rec fixpoint_compute (es:es) (policies:policy list) : es =
             let new_mappings = (hd_eff, Cons (hd_es, Event str)) :: (List.tl mappings) in 
             helper new_mappings acc_event (index + 1)
         | Pred (curName, _) -> 
-        (*
-            print_string (str_pred ^"\n"); 
-            print_string (curName ^"\n---\n"); 
-      *)
             (match reoccor_continue (List.rev (List.tl mappings)) curName 0 with 
             | Some start -> 
               if index == (List.length acc_event -1 ) then 
@@ -755,22 +752,9 @@ let rec fixpoint_compute (es:es) (policies:policy list) : es =
               let continueation = findPolicy curName policies in 
               
               let (list_list_ev:event list list) = get_the_Sequence continueation [] in 
-
-              
               
               List.fold_left (fun acc_es list_ev -> 
-            (*
-            let temp1 = (List.fold_left (fun accq a -> accq ^ ","^ a )"" list_ev) in
-            let temp2 = (List.fold_left (fun accq a -> accq ^ ","^ a )"" acc) in
-            
-
-            print_string ("inserting " ^ temp1 ^ " in " ^ temp2 ^ " at " ^ string_of_int (index) ^"\n");
-            print_string ("---> " ^ (List.fold_left (fun accq a -> accq ^ ","^ a )""   (insertMiddle acc (index) list_ev)) ^"\n");
-
-
-            
-              
-*)            
+           
               let ((str, tempH), tempTL) = (List.hd mappings, List.tl mappings) in 
               let new_mappings = (curName, Emp) :: (str, Cons (tempH, Event (curName))) :: tempTL in 
               ESOr (acc_es, helper new_mappings (insertMiddle acc_event (index ) list_ev) (index ))) Bot list_list_ev
@@ -781,8 +765,12 @@ let rec fixpoint_compute (es:es) (policies:policy list) : es =
         )
 
     in 
-    let res = helper [(str_pred, Emp)] [(Pred ins)] 0  in 
-    print_string ("testing : " ^ string_of_es res ^ "\n");
+    let traces = get_the_Sequence trace [] in 
+    let res = List.fold_left (fun acc_es list_ev -> 
+      ESOr (acc_es, helper [(str_pred, Emp)] list_ev 0)) 
+    Bot traces in 
+
+
     res 
     
 
@@ -938,7 +926,9 @@ let rec infer_of_expression env (acc:spec) expr : (spec * residue) =
     
     
 
+    
     print_string (string_of_policies policies);
+    print_string (string_of_es es_ex);
 
     let trace = fixpoint_compute es_ex policies (*pre_compute_policy policies*) in 
     ((p_ex, trace, side_es) , None)
