@@ -20,8 +20,19 @@ let f ()
   put (a  + 1 );
   a  + 2 
 
+  (* 
+  1. always read after set  Put.(Put|Get)*
+  2. the reset can not happend from the begeining. 
+  3. can only decrease when the counter is positive. 
+  4. trace with value, can prove the value of counter >=0 
+      -> implies termination. 
+  5. file protocal, can only read when opened. 
+  ... 
+  connection with monad. 
 
-let main () =
+  *)
+
+let main  () =
   let g =
     match f () with
     | r -> fun s -> (s, r)
