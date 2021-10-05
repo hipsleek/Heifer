@@ -406,3 +406,49 @@
   * emp |- emp   [UNFOLD]
   
   
+  $ hip simple_loop.ml | ./sanitize.sh
+  Effect A -> emp
+  
+  
+  ========== Function: f ==========
+  [Pre  Condition] (_)^*
+  [Post Condition] (A)^w
+  [Final  Effects] A.(A)^w
+  
+  [Verification Result: Succeed
+  ------------------------------
+  [SIDE] Succeed
+  - - - - - - - - - - - - - -
+  [ENTAILMENT] Succeed
+  * A.(A)^w |- (A)^w   [UNFOLD]
+  * └── (A)^w |- (A)^w   [UNFOLD]
+  *     └── (A)^w |- (A)^w   [Reoccur]
+  
+  
+  ========== Function: g ==========
+  [Pre  Condition] (_)^*
+  [Post Condition] (A)^*
+  [Final  Effects] emp
+  
+  [Verification Result: Succeed
+  ------------------------------
+  [SIDE] Succeed
+  - - - - - - - - - - - - - -
+  [ENTAILMENT] Succeed
+  * emp |- (A)^*   [UNFOLD]
+  
+  
+  ========== Function: main ==========
+  [Pre  Condition] emp
+  [Post Condition] (A)^w
+  [Final  Effects] (A)^w
+  
+  [Verification Result: Succeed
+  ------------------------------
+  [SIDE] Succeed
+  - - - - - - - - - - - - - -
+  [ENTAILMENT] Succeed
+  * (A)^w |- (A)^w   [UNFOLD]
+  * └── (A)^w |- (A)^w   [Reoccur]
+  
+  

@@ -982,7 +982,7 @@ let rec infer_of_expression env (acc:spec) expr : (spec * residue) =
   | _ -> raise (Foo ("infer_of_expression: " ^ debug_string_of_expression expr))
 
   
-and infer_value_binding env vb = 
+and infer_value_binding rec_flag env vb =
   let fn_name = string_of_pattern vb.pvb_pat in
   let body = vb.pvb_expr in
   let formals = collect_param_names body in
@@ -995,6 +995,11 @@ and infer_value_binding env vb =
   let (pre_p, _(*SYH: pre_es*, post is not including pre *), pre_side) = pre in 
 
   let env = Env.reset_side_spec pre_side env in 
+  let env =
+    match rec_flag with
+    | Nonrecursive -> env
+    | Recursive -> Env.add_fn fn_name {pre; post; formals} env
+  in
 
   let ((final_pi, final_es, final_side), _ (*residue*)) =  (infer_of_expression env (pre_p, Emp, []) body) in
 
@@ -1008,8 +1013,8 @@ and infer_value_binding env vb =
   pre, post, ( final), env1, fn_name
 
 
-let infer_of_value_binding env vb: string * env = 
-  let pre, post, final, env, fn_name = infer_value_binding env vb in
+let infer_of_value_binding rec_flag env vb: string * env =
+  let pre, post, final, env, fn_name = infer_value_binding rec_flag env vb in
   (* don't report things like let () = ..., which isn't a function  *)
   if String.equal fn_name "()" then
     "", env
@@ -1038,8 +1043,8 @@ let infer_of_value_binding env vb: string * env =
 (* returns the inference result as a string to be printed *)
 let rec infer_of_program env x: string * env =
   match x.pstr_desc with
-  | Pstr_value (_ (*rec_flag*), x::_ (*value_binding list*)) ->
-    infer_of_value_binding env x 
+  | Pstr_value (rec_flag, x::_ (*value_binding list*)) ->
+    infer_of_value_binding rec_flag env x
     
   | Pstr_module m ->
     (* when we see a module, infer inside it *)
