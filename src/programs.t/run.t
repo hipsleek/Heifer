@@ -157,6 +157,71 @@
   * └── Put |- _|_   [Bot-RHS]
   
   
+  $ hip files.ml | ./sanitize.sh
+  Effect Closes1 -> emp
+  Effect Open -> emp
+  
+  
+  
+  ========== Function: open_file ==========
+  [Pre  Condition] (_)^*
+  [Post Condition] Open
+  [Final  Effects] Open
+  
+  [Verification Result: Succeed
+  ------------------------------
+  [SIDE] Succeed
+  - - - - - - - - - - - - - -
+  [ENTAILMENT] Succeed
+  * Open |- Open   [UNFOLD]
+  * └── emp |- emp   [UNFOLD]
+  
+  
+  ========== Function: close_file ==========
+  [Pre  Condition] Open
+  [Post Condition] Close
+  [Final  Effects] Close
+  
+  [Verification Result: Succeed
+  ------------------------------
+  [SIDE] Succeed
+  - - - - - - - - - - - - - -
+  [ENTAILMENT] Succeed
+  * Close |- Close   [UNFOLD]
+  * └── emp |- emp   [UNFOLD]
+  
+  
+  ========== Function: f ==========
+  [Pre  Condition] emp
+  [Post Condition] Open.Close
+  [Final  Effects] Open.Close
+  
+  [Verification Result: Succeed
+  ------------------------------
+  [SIDE] Succeed
+  - - - - - - - - - - - - - -
+  [ENTAILMENT] Succeed
+  * Open.Close |- Open.Close   [UNFOLD]
+  * └── Close |- Close   [UNFOLD]
+  *     └── emp |- emp   [UNFOLD]
+  
+  
+  ========== Function: main ==========
+  [Pre  Condition] emp
+  [Post Condition] Open.Close
+  [Final  Effects] Open.Close
+  
+  [Verification Result: Succeed
+  ------------------------------
+  [SIDE] Succeed
+  - - - - - - - - - - - - - -
+  [ENTAILMENT] Succeed
+  * Open.Close |- Open.Close   [UNFOLD]
+  * └── Close |- Close   [UNFOLD]
+  *     └── emp |- emp   [UNFOLD]
+  
+  
+
   $ hip generator.ml | ./sanitize.sh
   
   
@@ -205,16 +270,25 @@
   
   
   ========== Function: toss ==========
-  [Pre  Condition] emp
-  [Post Condition] emp
-  [Final  Effects] emp+emp+emp
+  [Pre  Condition] (_)^*
+  [Post Condition] Choose.Choose+Choose
+  [Final  Effects] Choose.Choose+Choose.Choose+Choose
   
   [Verification Result: Succeed
   ------------------------------
   [SIDE] Succeed
   - - - - - - - - - - - - - -
   [ENTAILMENT] Succeed
-  * emp+emp+emp |- emp   [UNFOLD]
+  * Choose.Choose+Choose.Choose+Choose |- Choose.Choose+Choose   [UNFOLD]
+  * ├── Choose+Choose+emp |- Choose+emp   [UNFOLD]
+  * │   ├── emp+emp |- emp   [UNFOLD]
+  * │   └── emp+emp |- emp   [UNFOLD]
+  * ├── Choose+Choose+emp |- Choose+emp   [UNFOLD]
+  * │   ├── emp+emp |- emp   [UNFOLD]
+  * │   └── emp+emp |- emp   [UNFOLD]
+  * └── Choose+Choose+emp |- Choose+emp   [UNFOLD]
+  *     ├── emp+emp |- emp   [UNFOLD]
+  *     └── emp+emp |- emp   [UNFOLD]
   
   
   ========== Function: all_results ==========
