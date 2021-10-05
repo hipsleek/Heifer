@@ -7,7 +7,7 @@ let f ()
 (*@ ensures  Foo.Q(Foo ()) @*)
 = perform Foo ()
 
-let res : int
+let res 
   (*@ requires emp @*)
   (*@ ensures  (Foo.Goo)^w @*)
   =

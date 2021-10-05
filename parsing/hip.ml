@@ -738,7 +738,7 @@ let rec fixpoint_compute (es:es) (policies:policy list) : es =
               match f with 
               | Pred (insFName, _) -> 
                 (
-                  match reoccor_continue (List.rev (List.tl mappings)) insFName 0 with 
+                  match reoccor_continue (List.rev (mappings)) insFName 0 with 
                   | None -> 
                     let continueation = findPolicy insFName policies in 
                     let new_mappings = (insFName, Emp) :: mappings in 
@@ -746,7 +746,7 @@ let rec fixpoint_compute (es:es) (policies:policy list) : es =
  
                   | Some start -> 
                     match normalES (derivative cur_trace f) with 
-                    | Emp -> formLoop (List.rev ((List.tl mappings))) start
+                    | Emp -> formLoop (List.rev ( mappings)) start
                     | _ -> raise (Foo ("stack overlow recursive policy"))
                   
 

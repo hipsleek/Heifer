@@ -7,7 +7,6 @@ effect B : (int -> unit)
 effect O : (int -> unit)
 
 
-
 let f () 
 (*@ requires emp @*)
 (*@ ensures  Foo.Q(Foo 1) @*)
@@ -38,7 +37,7 @@ let write () : unit
   | effect Foo k ->
      continue k (fun _ -> a() )
   | effect A k ->
-     continue k (fun _ -> b())
+     continue k (fun _ -> ())
 (*
 This will stack overflow. 
   | effect A k ->

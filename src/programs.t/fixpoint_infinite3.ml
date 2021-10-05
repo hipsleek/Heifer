@@ -6,17 +6,17 @@ effect Open : (unit -> unit)
 
 
 let f () 
-(*@ requires emp @*)
+(*@ requires _^* @*)
 (*@ ensures  Foo.Q(Foo ()) @*)
 = perform Foo ()
 
 let o () 
-(*@ requires emp @*)
+(*@ requires _^* @*)
 (*@ ensures  Open.Q(Open ()) @*)
 = perform Open ()
 
 let write () : unit
-  (*@ requires Open @*)
+  (*@ requires (_^* ).Open @*)
   (*@ ensures  (Foo.Goo)^w @*)
   =
   match f () with
@@ -28,7 +28,7 @@ let write () : unit
      continue k (fun () -> perform Foo ());;
 
 let open_file () :unit
-  (*@ requires emp @*)
+  (*@ requires _^* @*)
   (*@ ensures  Open @*)
   = match o () with
   | _ -> ()
