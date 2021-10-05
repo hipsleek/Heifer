@@ -17,7 +17,10 @@ let rec g n
     perform A;
     g (n - 1)
 
-let main () =
+let main ()
+  (*@ requires emp @*)
+  (*@ ensures A^w @*)
+=
   match f () with
   | x -> x
   | effect A k -> continue k ()
