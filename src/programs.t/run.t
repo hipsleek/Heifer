@@ -364,6 +364,35 @@
   
   _|_
   
+  ========== Function: g ==========
+  [Pre  Condition] emp
+  [Post Condition] (Update)^*
+  [Final  Effects] Update.Update.Update
+  
+  [Verification Result: Succeed
+  ------------------------------
+  [SIDE] Succeed
+  - - - - - - - - - - - - - -
+  [ENTAILMENT] Succeed
+  * Update.Update.Update |- (Update)^*   [UNFOLD]
+  * └── Update.Update |- (Update)^*   [UNFOLD]
+  *     └── Update |- (Update)^*   [UNFOLD]
+  *         └── emp |- (Update)^*   [UNFOLD]
+  
+  
+  ========== Function: h ==========
+  [Pre  Condition] emp
+  [Post Condition] emp
+  [Final  Effects] emp
+  
+  [Verification Result: Succeed
+  ------------------------------
+  [SIDE] Succeed
+  - - - - - - - - - - - - - -
+  [ENTAILMENT] Succeed
+  * emp |- emp   [UNFOLD]
+  
+  
   ========== Function: f ==========
   [Pre  Condition] emp
   [Post Condition] emp
