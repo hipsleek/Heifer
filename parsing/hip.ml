@@ -478,6 +478,8 @@ let expressionToBasicT ex : basic_t =
  
  (* | _ -> raise (Foo (Pprintast.string_of_expression  ex ^ " expressionToBasicT error2"))
 *)
+
+
 let call_function (pre_es:es) fnName (li:(arg_label * expression) list) (acc:spec) (arg_eff:spec list) env : (spec * residue) = 
   let (acc_pi, acc_es, acc_side) = acc in 
   let name = fnNameToString fnName in 
@@ -633,13 +635,14 @@ let rec getHandlers p: (event * es) list =
   | (Some str, es) :: xs -> ( (One str), es) :: getHandlers xs
   ;;
 
-let rec findPolicy str_pred (policies:policy list) : es = 
+let rec findPolicy str_pred (policies:policy list) : (es * es) = 
   match policies with 
   | [] -> raise (Foo (str_pred ^ "'s handler is not defined!"))
-  | (Eff (str, conti))::xs  -> 
-        if String.compare str str_pred == 0 then normalES conti
+  | (Eff (str, conti, afterConti))::xs  -> 
+        if String.compare str str_pred == 0 then (normalES conti, normalES afterConti)
         else findPolicy str_pred xs
-  | (Exn str)::xs -> if String.compare str str_pred == 0 then (Event str) else findPolicy str_pred xs 
+  | (Exn str)::xs -> if String.compare str str_pred == 0 then (Event str, Emp) else findPolicy str_pred xs 
+  | (Normal es) :: xs  -> if String.compare "normal" str_pred == 0 then (es, Emp) else findPolicy str_pred xs 
 
 
 let rec getEleFromListByIndex (li: event list) index: event =
@@ -722,7 +725,7 @@ let rec fixpoint_compute (es:es) (policies:policy list) : es =
   | Predicate (ins)  -> 
 
     let (str_pred, _) = ins in 
-    let trace = findPolicy str_pred policies in 
+    let (traceBefore, traceAfter) = findPolicy str_pred policies in 
     (* this mappings is a reversed list of Q(EFF) -> ES *)
     let rec helper (mappings:((string*es)list)) (cur_trace: es) : es =
       let cur_trace = normalES cur_trace in 
@@ -737,9 +740,9 @@ let rec fixpoint_compute (es:es) (policies:policy list) : es =
                 (
                   match reoccor_continue (List.rev (mappings)) insFName 0 with 
                   | None -> 
-                    let continueation = findPolicy insFName policies in 
+                    let (contBefore, _) = findPolicy insFName policies in 
                     let new_mappings = (insFName, Emp) :: mappings in 
-                    helper new_mappings (Cons (continueation, (derivative cur_trace f)))
+                    helper new_mappings (Cons (contBefore, (derivative cur_trace f))) 
  
                   | Some start -> 
                     match normalES (derivative cur_trace f) with 
@@ -759,7 +762,10 @@ let rec fixpoint_compute (es:es) (policies:policy list) : es =
             ESOr(acc, temp_f)
           ) Bot f_li
 
-    in helper [(str_pred, Emp)] trace
+    in 
+    let (normalBefore, _) = findPolicy "normal" policies in 
+    let fix = helper [(str_pred, Emp)] traceBefore in 
+    Cons (fix, Cons (normalBefore, traceAfter))
 
       
    
@@ -868,7 +874,7 @@ let residueToPredeciate (residue:residue):es =
   | Some res -> Predicate res 
   ;;
 
-let pre_compute_policy (policies:policy list ) : policy list = 
+(*let pre_compute_policy (policies:policy list ) : policy list = 
   let helper p : policy = 
     match p with 
     | Eff (str, es) -> 
@@ -898,6 +904,31 @@ let pre_compute_policy (policies:policy list ) : policy list =
     | Eff (str, es) -> Eff (str, normalES es)
     | _ -> helper a
     ) policies
+*)
+
+let devideContinuation (expr:expression): (expression list * expression list) = 
+  let rec helper (ex:expression) : expression list = 
+    match ex.pexp_desc with 
+    | Pexp_sequence (ex1, ex2) -> List.append (helper (ex1)) (helper (ex2))
+    | _ -> [ex]
+  in let esList = helper expr in 
+  let rec aux exLi before : (expression list * expression list) = 
+    match exLi with 
+    | [] -> (before, [])
+    | x :: xs -> 
+      match x.pexp_desc with 
+      | (Pexp_apply (fnName, _)) -> 
+        if String.compare (fnNameToString fnName) "continue" == 0 
+        then (List.append before [x], xs)  
+        else aux xs (List.append before [x])
+      |_ -> aux xs (List.append before [x])
+  in let (esLiBefore, esLiAfter) = aux esList [] in 
+  (*let sequencing esLi : es = 
+    List.fold_left (fun acc a -> Pexp_sequence (acc, a)) Emp esLi
+  in (sequencing esLiBefore, sequencing esLiAfter)
+  *)  (esLiBefore, esLiAfter) 
+  ;;
+
 
 
 let rec infer_of_expression env (pre_es:es) (acc:spec) expr : (spec * residue) =
@@ -958,11 +989,18 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr : (spec * residue) =
       
         (match lhs.ppat_desc with 
           | Ppat_effect (p1, _) -> 
-            let ((_, es, _), _) = infer_of_expression env pre_es (True, Emp, []) rhs in
-
-            [(Eff (string_of_pattern p1, normalES es))]
+            let (beforeCont, afterCont) = devideContinuation rhs in 
+            let sequencing li = List.fold_left (fun acc a -> 
+              let ((_, es, _), _) = infer_of_expression env acc (True, Emp, []) a in 
+              Cons (acc, es)
+              ) Emp li in 
+            let esBefore = sequencing beforeCont in
+            let esAfter = sequencing afterCont in
+            [(Eff (string_of_pattern p1, normalES esBefore, normalES esAfter))]
           | Ppat_exception p1 -> [(Exn (string_of_pattern p1))]
-          | _ -> [] 
+          | _ -> 
+            let ((_, es, _), _) = infer_of_expression env pre_es (True, Emp, []) rhs in
+            [(Normal es)] 
         )
         )
       in List.append acc cuurent_p

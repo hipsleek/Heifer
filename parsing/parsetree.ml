@@ -78,7 +78,7 @@ let default_spec_pre = True, (Kleene(Underline)), []
 
 let default_spec_post = True, Emp, []
 
-type policy = Eff of string * es | Exn of string
+type policy = Eff of string * es * es | Exn of string | Normal of es
 
 type evn = (es * es)list
 
