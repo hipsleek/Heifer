@@ -37,7 +37,7 @@ let write () : unit
   | effect Foo k ->
      continue k (fun _ -> a() )
   | effect A k ->
-     continue k (fun _ -> b())
+     continue k (fun _ -> perform A 1)
 (*
 This will stack overflow. 
   | effect A k ->
