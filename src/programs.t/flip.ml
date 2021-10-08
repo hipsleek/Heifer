@@ -17,11 +17,16 @@ let toss ()
 
 (*SYH: debug the if constructs*)
 
-let all_results m =
+let all_results m 
+(*@ requires emp, eff(m)= _^* -> A  @*)
+(*@ ensures A @*)
+=
   match m () with
   | v -> [v]
   | effect Choose k ->
      (continue k 0) @ (continue (Obj.clone_continuation k) 1)
 
-let () = 
+
+(*     let () = 
   List.iter print_endline (all_results toss)
+  *)
