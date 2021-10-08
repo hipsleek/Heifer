@@ -723,7 +723,6 @@ let insertMiddle acc index list_ev :event list =
 let rec fixpoint_compute (es:es) (policies:policy list) : es = 
   match normalES es with 
   | Predicate (ins)  -> 
-
     let (str_pred, _) = ins in 
     let (traceBefore, traceAfter) = findPolicy str_pred policies in 
     (* this mappings is a reversed list of Q(EFF) -> ES *)
@@ -733,6 +732,13 @@ let rec fixpoint_compute (es:es) (policies:policy list) : es =
       | Bot -> Bot
       | Emp -> List.fold_left (fun acc (_, esLi) -> Cons(acc, esLi)) Emp (List.rev mappings)
       | _ -> let f_li = fst cur_trace in 
+          
+          (*
+          print_string (string_of_int (List.length f_li) ^
+          List.fold_left (fun acc a -> acc ^ ", "^ string_of_event a ^ "->" ^ string_of_es (derivative cur_trace a )) "" f_li 
+          ^ "\n");
+          *)
+
           List.fold_left (fun acc f -> 
             let temp_f:es = 
               match f with 
@@ -1011,8 +1017,8 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr : (spec * residue) =
 
     
     (*
-    print_string (string_of_policies policies);
-    print_string (string_of_es es_ex);
+    print_string (string_of_policies policies ^"\n");
+    print_string (string_of_es es_ex ^"\n");
     *)
 
     let trace = fixpoint_compute es_ex policies (*pre_compute_policy policies*) in 

@@ -282,7 +282,17 @@ let rec string_of_policies ps: string =
   | [] -> ""
   | x::xs -> 
     (match x with 
-    | Eff (str, es, afterCond) -> "Effect "^ str ^ " -> " ^ string_of_es (es) ^ " --> "  ^string_of_es  afterCond ^ "\n"
+    | Eff (str, es, afterCond) -> "Effect "^ str ^ " -> " ^ string_of_es (es) ^ " ++  "  ^string_of_es  afterCond ^ "\n"
     | Exn str -> "Exeption " ^ str ^ "\n"
     | Normal es -> "Normal " ^ string_of_es es 
     ) ^ string_of_policies xs 
+
+
+let string_of_event e : string = 
+  match e with 
+  | One str -> str 
+  | Zero str -> str 
+  | Pred (ins) -> "Q(" ^ string_of_instant ins ^ ")"
+  | Any -> "_"
+
+

@@ -8,7 +8,7 @@ effect Messenger : (unit -> unit)
 
 let rec until_ready () 
   (*@ requires (_^* ) @*)
-  (*@ ensures ((Wait^* ) . Ready) \/ (Wait^w) @*)
+  (*@ ensures ((Wait^* ) . Ready) @*)
 =
    if true then
      perform Ready
@@ -18,7 +18,7 @@ let rec until_ready ()
     
  let rec send_msgs n 
    (*@ requires (_^* ) @*)
-  (*@ ensures (Send^* ) @*)
+   (*@ ensures (Send^* ) @*)
  =
    if n = 0 then ()
    else
@@ -28,16 +28,18 @@ let rec until_ready ()
       )
 
  let rec messenger n 
-    (*@ requires (_^* ) @*)
-  (*@ ensures ((((Wait^* ) . Ready) \/ (Wait^w)).(Send^* )).Messenger. Q(Messenger ()) @*)
+  (*@ requires (_^* ) @*)
+  (*@ ensures (((Wait^* ) . Ready).(Send^* )).Messenger. Q(Messenger ()) @*)
+
+  (* if there is a *, the fixpoint won't stop *)
  =
    until_ready ();
    send_msgs n;
    perform Messenger ()
 
 let main 
-    (*@ requires (_^* ) @*)
-  (*@ ensures (_)^w @*)
+   (*@ requires (_^* ) @*)
+   (*@ ensures (_)^w @*)
 = 
    match (messenger 3) with 
    | _ -> ()
