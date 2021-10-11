@@ -1,14 +1,11 @@
 effect Send : unit
-
 effect Ready : unit
-
 effect Wait : unit
-
 effect Done : (unit -> unit)
 
 let rec until_ready () 
   (*@ requires (_^* ) @*)
-  (*@ ensures ((Wait^* ) . Ready) @*)
+  (*@ ensures (Wait^* ) . Ready @*)
 =
    if true then
      perform Ready
@@ -22,9 +19,8 @@ let rec until_ready ()
  =
    if n = 0 then ()
    else
-      (
-         perform Send; 
-         send_msgs (n-1)
+      (perform Send; 
+       send_msgs (n-1)
       )
 
  let rec messenger n 
