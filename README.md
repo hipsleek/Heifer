@@ -13,7 +13,7 @@ dune exec ./hip.exe ../src/programs/0_loop.ml
 
 3) debug high-order spec dune exec parsing/hip.exe src/programs.t/flip.ml
 
-1) Pre trace is empty. 
+
 a buffer of value. 
 blocking/unblocking get. concurrency. 
 

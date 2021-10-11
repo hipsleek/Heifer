@@ -279,6 +279,18 @@ module Env = struct
   let find_fn f env =
     SMap.find_opt f env.current
   
+  let fine_side f env = 
+    let rec aux e =
+      match e with 
+      | [] -> None
+      | (s, (_pre, _post)) :: xs -> 
+        if String.compare s f ==0 
+        then 
+          let __pre = (True, _pre, []) in 
+          let __post = (True, _post, []) in 
+          Some (__pre, __post) else aux xs
+    in aux env.side_spec
+  
   let find_effect_arg_length name env =
     match SMap.find_opt name env.effect_defs with 
     | None -> None 
@@ -520,7 +532,11 @@ let call_function (pre_es:es) fnName (li:(arg_label * expression) list) (acc:spe
       let { pre = precon ; post = (post_pi, post_es, post_side); formals = arg_formal } =
         (* if functions are undefined, assume for now that they have the default spec *)
         match Env.find_fn name env with
-        | None -> { pre = default_spec_pre; post = default_spec_post; formals = []}
+        | None -> 
+            (match Env.fine_side name env with 
+            | None -> { pre = default_spec_pre; post = default_spec_post; formals = []}
+            | Some (_pre, _post) ->  { pre = _pre; post = _post; formals = []}
+            )
         | Some s -> s
       in
       let sb = side_binding (*find_arg_formal name env*) arg_formal arg_eff in 
