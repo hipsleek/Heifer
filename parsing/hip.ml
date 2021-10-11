@@ -720,6 +720,59 @@ let insertMiddle acc index list_ev :event list =
   let result =   List.append (List.append theFront list_ev ) theBack in 
   result
 
+let rec  nullable_plus (es:es) : bool=
+  match es with
+    Emp -> true
+  | Bot -> false 
+  | Event _ -> false 
+  | Cons (es1 , es2) -> ( nullable_plus es1) && ( nullable_plus es2)
+  | ESOr (es1 , es2) -> ( nullable_plus es1) || ( nullable_plus es2)
+  | Kleene _ -> false
+  | Underline -> false 
+  | Omega _ -> false
+  | Not _ -> false
+  | Predicate _ -> false
+
+;;
+
+
+let rec  fst_plus (es:es): es list = 
+  match es with
+  | Bot -> []
+  | Emp -> []
+  | Event (ev) ->  [Event (ev)]
+  | Not (ev) ->  [Not (ev)]
+  | Cons (es1 , es2) ->  if  nullable_plus es1 then List.append ( fst_plus es1) ( fst_plus es2) else  fst_plus es1
+  | ESOr (es1, es2) -> List.append ( fst_plus es1) ( fst_plus es2)
+  | Kleene es1 ->  [Kleene es1]
+  | Omega es1 ->  [Omega es1]
+  | Underline -> [Underline]
+  | Predicate (ins) -> [Predicate (ins)]
+
+;;
+
+
+let rec derivative_plus (es:es) (f:es): es =
+  match (es, f) with
+  | (Bot, _) -> Bot
+  | (Emp, _) -> Bot
+  | (Event f1, Event f2) ->  if String.compare f1 f2 == 0 then Emp else Bot 
+  | (Not f1, Not f2) ->  if String.compare f1 f2 == 0 then Emp else Bot 
+  | (Predicate (f1, _), Predicate (f2, _)) ->  if String.compare f1 f2 == 0 then Emp else Bot 
+  | (Kleene _, Kleene _) ->  Emp 
+  | (Omega _, Omega _) ->  Emp 
+  | (Underline, Underline) ->  Emp 
+  | (Cons (es1, es2), _) -> 
+    if nullable_plus es1 
+    then ESOr (derivative_plus es2 f,  Cons (derivative_plus es1 f, es2))
+    else Cons (derivative_plus es1 f, es2)
+  | (ESOr (es1, es2), _) -> ESOr (derivative_plus es1 f, derivative_plus es2 f )
+  | _ -> Bot
+
+;;
+
+
+
 let rec fixpoint_compute (es:es) (policies:policy list) : es = 
   match normalES es with 
   | Predicate (ins)  -> 
@@ -731,7 +784,7 @@ let rec fixpoint_compute (es:es) (policies:policy list) : es =
       match cur_trace with 
       | Bot -> Bot
       | Emp -> List.fold_left (fun acc (_, esLi) -> Cons(acc, esLi)) Emp (List.rev mappings)
-      | _ -> let f_li = fst cur_trace in 
+      | _ -> let f_li = fst_plus cur_trace in 
           
           (*
           print_string (string_of_int (List.length f_li) ^
@@ -739,29 +792,36 @@ let rec fixpoint_compute (es:es) (policies:policy list) : es =
           ^ "\n");
           *)
 
+
           List.fold_left (fun acc f -> 
+            let nextState () = 
+              let (hd_eff, hd_es) = List.hd mappings in 
+              let new_mappings = (hd_eff, Cons (hd_es, f)) :: (List.tl mappings) in 
+              helper new_mappings (derivative_plus cur_trace f)
+            in 
             let temp_f:es = 
               match f with 
-              | Pred (insFName, _) -> 
+              | Predicate (insFName, _) -> 
                 (
                   match reoccor_continue (List.rev (mappings)) insFName 0 with 
                   | None -> 
                     let (contBefore, _) = findPolicy insFName policies in 
                     let new_mappings = (insFName, Emp) :: mappings in 
-                    helper new_mappings (Cons (contBefore, (derivative cur_trace f))) 
+                    helper new_mappings (Cons (contBefore, (derivative_plus cur_trace f))) 
  
                   | Some start -> 
-                    match normalES (derivative cur_trace f) with 
+                    match normalES (derivative_plus cur_trace f) with 
                     | Emp -> formLoop (List.rev ( mappings)) start
                     | _ -> raise (Foo ("stack overlow recursive policy"))
                   
 
                 )
 
-              | One str -> 
-                let (hd_eff, hd_es) = List.hd mappings in 
-                let new_mappings = (hd_eff, Cons (hd_es, Event str)) :: (List.tl mappings) in 
-                helper new_mappings (derivative cur_trace f)
+              | Event _ -> nextState ()
+              | Not _ -> nextState ()
+              | Kleene _ ->  nextState ()
+              | Omega _ ->  nextState ()
+              | Underline -> nextState ()
               | _ -> raise (Foo "policy not possible ")
   
             in 
