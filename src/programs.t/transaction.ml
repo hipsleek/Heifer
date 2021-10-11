@@ -2,9 +2,11 @@
 (* the ref to update transactionally, and the value to update it with *)
 effect Update : int ref * int -> unit
 
-let atomically f =
-(* requires emp /\ Eff(f()) = U^*.(Res \/ emp)
-   ensures  U^*.(Res \/ emp) *)
+
+let atomically f 
+(*@ requires emp, eff(f)= _^* ->  (U^* ).(Res \/ emp) @*)
+(*@ ensures  (U^* ).(Res \/ emp) @*)
+=
   let comp =
     match f () with
     | x -> (fun _ -> x)
@@ -14,6 +16,8 @@ let atomically f =
         r := v;
         continue k () (fun () -> r := old_v; rb ()))
   in comp (fun () -> ())
+
+(*
 
 let ref = ref
 let (!) = (!)
@@ -45,3 +49,4 @@ let h () =
 let f () = atomically h
 
 let () = f ()
+*)

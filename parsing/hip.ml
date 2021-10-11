@@ -1157,6 +1157,27 @@ and infer_value_binding rec_flag env vb =
   pre, post, ( final), env1, fn_name
 
 
+
+let rec unhandled es : string option = 
+  let merge a b = 
+    match (a, b) with 
+    | (None, None) -> None
+    | (Some _, _) -> a
+    | (_, Some _) -> b
+  in 
+  match es with 
+  | Emp -> None
+  | Bot -> None 
+  | Event _ -> None 
+  | Cons (es1 , es2) ->  merge ( unhandled es1)  ( unhandled es2)
+  | ESOr (es1 , es2) -> merge ( unhandled es1)  ( unhandled es2)
+  | Kleene es1 -> unhandled es1
+  | Underline -> None 
+  | Omega es1 -> unhandled es1
+  | Not _ -> None
+  | Predicate (l, _) -> Some l
+
+
 let infer_of_value_binding rec_flag env vb: string * env =
   let pre, post, final, env, fn_name = infer_value_binding rec_flag env vb in
   (* don't report things like let () = ..., which isn't a function  *)
@@ -1164,12 +1185,19 @@ let infer_of_value_binding rec_flag env vb: string * env =
     "", env
   else
     let final = normalSpec (eliminatePartiaShall final env) in
+    let handling = 
+      let (_, f_es, _) = final in 
+      let unhandled_eff = unhandled f_es in 
+      match unhandled_eff with
+      | None -> ""
+      | Some _ -> "" (* "\nThere is an unhandled effect: " ^ str ^ "\n"*)
+    in 
 
     let header =
       "\n========== Function: "^ fn_name ^" ==========\n" ^
       "[Pre  Condition] " ^ string_of_spec pre ^"\n"^
       "[Post Condition] " ^ string_of_spec post ^"\n"^
-      "[Final  Effects] " ^ string_of_spec (final) ^"\n\n"
+      "[Final  Effects] " ^ string_of_spec (normalSpec final) ^ handling ^"\n\n"
       (*(string_of_inclusion final_effects post) ^ "\n" ^*)
       (*"[T.r.s: Verification for Post Condition]\n" ^ *)
     in
