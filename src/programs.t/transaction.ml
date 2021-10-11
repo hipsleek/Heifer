@@ -5,7 +5,7 @@ effect Update : int ref * int -> unit
 
 let atomically f 
 (*@ requires _^* , eff(f)= _^* ->  (Update^* ) @*)
-(*@ ensures  (U^* ).(Res \/ emp) @*)
+(*@ ensures  (Update^* ).(Res \/ emp) @*)
 =
   let comp =
     match f () with
