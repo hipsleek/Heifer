@@ -515,12 +515,14 @@ let call_function (pre_es:es) fnName (li:(arg_label * expression) list) (acc:spe
       let residue = Some iinnss in
 
       (spec, residue)
-    else if String.compare name "continue" == 0 then (acc, None)
-      (*
+    else if String.compare name "continue" == 0 then 
+
       let (policy:spec) = List.fold_left (
-        fun (acc_pi, acc_es, acc_side) (a_pi, a_es, a_side) -> 
-          (And(acc_pi, a_pi), Cons(acc_es, a_es), List.append acc_side a_side)) acc arg_eff in 
+        fun (acc_pi, acc_es, acc_side) (_, a_post) -> 
+          (acc_pi, Cons(acc_es, a_post), acc_side)) acc arg_eff in 
       (policy, None)
+      (*
+      (acc, None)
       *)
     else if List.mem_assoc name env.stack then
       (* higher-order function, so we should produce some residue instead *)
@@ -1006,7 +1008,9 @@ let devideContinuation (expr:expression): (expression list * expression list) =
       match x.pexp_desc with 
       | (Pexp_apply (fnName, _)) -> 
         if String.compare (fnNameToString fnName) "continue" == 0 
-        then (List.append before [x], xs)  
+        then 
+          (
+          List.append before [x], xs)
         else aux xs (List.append before [x])
       |_ -> aux xs (List.append before [x])
   in let (esLiBefore, esLiAfter) = aux esList [] in 
@@ -1016,35 +1020,38 @@ let devideContinuation (expr:expression): (expression list * expression list) =
   *)  (esLiBefore, esLiAfter) 
   ;;
 
-let getSpecFromEnv env expr : (es*es) = 
-  let getSnd (_, a, _) = a in 
-  match expr.pexp_desc with 
-  | Pexp_apply (fnName, _) -> 
-    let name = fnNameToString fnName in 
-    (match Env.find_fn name env with
-    | None -> 
-      (match Env.fine_side name env with 
-      | None -> (default_es_pre, default_es_post)
-      | Some (_pre, _post) ->  (getSnd _pre, getSnd _post)
-      )
-    | Some s -> (getSnd s.pre, getSnd s.post)
-    )
-  | Pexp_ident l -> 
-    let name = getIndentName l in 
-    (match Env.find_fn name env with
-    | None -> 
-      (match Env.fine_side name env with 
-      | None -> (default_es_pre, default_es_post)
-      | Some (_pre, _post) ->  (getSnd _pre , getSnd _post )
-      )
-    | Some s -> (getSnd s.pre,getSnd s.post)
-    )
-  | _ -> (default_es_pre, default_es_post)
-  ;;
+
 
 
 
 let rec infer_of_expression env (pre_es:es) (acc:spec) expr : (spec * residue) =
+  let getSpecFromEnv env exprIN : (es*es) = 
+    let getSnd (_, a, _) = a in 
+    match exprIN.pexp_desc with 
+    | Pexp_apply (fnName, _) -> 
+      let name = fnNameToString fnName in 
+      (match Env.find_fn name env with
+      | None -> 
+        (match Env.fine_side name env with 
+        | None -> (default_es_pre, default_es_post)
+        | Some (_pre, _post) ->  (getSnd _pre, getSnd _post)
+        )
+      | Some s -> (getSnd s.pre, getSnd s.post)
+      )
+    | Pexp_ident l -> 
+      let name = getIndentName l in 
+      (match Env.find_fn name env with
+      | None -> 
+        (match Env.fine_side name env with 
+        | None -> (default_es_pre, default_es_post)
+        | Some (_pre, _post) ->  (getSnd _pre , getSnd _post )
+        )
+      | Some s -> (getSnd s.pre,getSnd s.post)
+      )
+    | _ -> 
+      let ( (_, temp, _), _) = infer_of_expression env Emp (True, Emp, []) exprIN in 
+      (default_es_pre, temp)
+  in 
 
   match expr.pexp_desc with 
   | Pexp_fun (_, _, _ (*pattern*), expr) -> infer_of_expression env pre_es acc expr 
@@ -1095,7 +1102,7 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr : (spec * residue) =
   | Pexp_match (ex, case_li) -> 
     let (spec_ex, _) = infer_of_expression env pre_es acc(*True, Emp, []*) ex in 
     let (p_ex, es_ex, side_es) = normalSpec spec_ex in 
-    let (policies:policy list) = List.fold_left (fun acc a -> 
+    let (policies:policy list) = List.fold_left (fun __acc a -> 
       let cuurent_p = 
         (let lhs = a.pc_lhs in 
         let rhs = a.pc_rhs in 
@@ -1103,10 +1110,12 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr : (spec * residue) =
         (match lhs.ppat_desc with 
           | Ppat_effect (p1, _) -> 
             let (beforeCont, afterCont) = devideContinuation rhs in 
-            let sequencing li = List.fold_left (fun acc a -> 
-              let ((_, es, _), _) = infer_of_expression env acc (True, Emp, []) a in 
-              Cons (acc, es)
+            let sequencing li = List.fold_left (fun _acc a -> 
+              print_string (debug_string_of_expression a);
+              let ((_, es, _), _) = infer_of_expression env pre_es (True, Emp, []) a in 
+              Cons (_acc, es)
               ) Emp li in 
+            print_string (string_of_int (List.length beforeCont) ^"\n");
             let esBefore = sequencing beforeCont in
             let esAfter = sequencing afterCont in
             [(Eff (string_of_pattern p1, normalES esBefore, normalES esAfter))]
@@ -1116,17 +1125,17 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr : (spec * residue) =
             [(Normal es)] 
         )
         )
-      in List.append acc cuurent_p
+      in List.append __acc cuurent_p
        
       ) [] case_li in 
     
     
 
     
-    (*
+    
     print_string (string_of_policies policies ^"\n");
     print_string (string_of_es es_ex ^"\n");
-    *)
+    
 
     let trace = fixpoint_compute es_ex policies (*pre_compute_policy policies*) in 
     ((p_ex, trace, side_es) , None)

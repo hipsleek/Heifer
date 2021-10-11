@@ -37,9 +37,8 @@ let main
 = 
    match (messenger 3) with 
    | _ -> ()
-   | effect Ready k -> print_string ("[Ready] "); continue k ()
-   | effect Send k -> print_string ("[Send] "); continue k ()
-   | effect Wait k -> print_string ("[Wait] "); continue k ()
+   | effect Ready k -> continue k ()
+   | effect Send k -> continue k ()
+   | effect Wait k -> continue k ()
    | effect Done k -> 
-      (print_string ("[Done] "); 
-      continue k (fun _ -> messenger 3))
+      continue k (fun _ -> messenger 3)

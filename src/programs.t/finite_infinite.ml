@@ -1,13 +1,13 @@
-effect Done : (unit -> unit)
-
+effect Done : unit
 effect Send : unit
 
 let rec send n 
-(*@ requires  emp @*)
-(*@ ensures	 (_^* . Done) 
-          \/  (Send^w)  @*)
+(*@ requires  _^* @*)
+(*@ ensures	 (Send^* .Done)\/(Send^w)  @*)
 = 
-	if (n=0) then  perfrom Done () 
-	else 
-		perfrom Send;
-		send (n-1)
+  if n=0 
+  then perform Done
+  else 
+    (perform Send;
+    send (n-1))
+
