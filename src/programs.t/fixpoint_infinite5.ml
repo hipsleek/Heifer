@@ -4,7 +4,7 @@ effect Ready : unit
 
 effect Wait : unit
 
-effect Messenger : (unit -> unit)
+effect Done : (unit -> unit)
 
 let rec until_ready () 
   (*@ requires (_^* ) @*)
@@ -29,13 +29,11 @@ let rec until_ready ()
 
  let rec messenger n 
   (*@ requires (_^* ) @*)
-  (*@ ensures (((Wait^* ) . Ready).(Send^* )).Messenger. Q(Messenger ()) @*)
-
-  (* if there is a *, the fixpoint won't stop *)
+  (*@ ensures (((Wait^* ) . Ready).(Send^* )).Done. Q(Done ()) @*)
  =
    until_ready ();
    send_msgs n;
-   perform Messenger ()
+   perform Done ()
 
 let main 
    (*@ requires (_^* ) @*)
@@ -46,6 +44,6 @@ let main
    | effect Ready k -> print_string ("[Ready] "); continue k ()
    | effect Send k -> print_string ("[Send] "); continue k ()
    | effect Wait k -> print_string ("[Wait] "); continue k ()
-   | effect Messenger k -> 
-      (print_string ("[Messenger] "); 
+   | effect Done k -> 
+      (print_string ("[Done] "); 
       continue k (fun _ -> messenger 3))
