@@ -428,9 +428,9 @@ let eliminatePartiaShall spec env : spec =
   let (pi, es, side) = spec in 
   (pi, eliminatePartial es env, side);;
 
-let rec side_binding (formal:string list) (actual: spec list) : side = 
+let rec side_binding (formal:string list) (actual: (es * es) list) : side = 
   match (formal, actual) with 
-  | (x::xs, (_, y, _)::ys) -> (x, (Emp, y)) :: (side_binding xs ys)
+  | (x::xs, tuple::ys) -> (x, tuple) :: (side_binding xs ys)
   | _ -> []
   ;;
 
@@ -492,7 +492,7 @@ let expressionToBasicT ex : basic_t =
 *)
 
 
-let call_function (pre_es:es) fnName (li:(arg_label * expression) list) (acc:spec) (arg_eff:spec list) env : (spec * residue) = 
+let call_function (pre_es:es) fnName (li:(arg_label * expression) list) (acc:spec) (arg_eff:(es * es) list) env : (spec * residue) = 
   let (acc_pi, acc_es, acc_side) = acc in 
   let name = fnNameToString fnName in 
   let spec, residue =
@@ -515,11 +515,13 @@ let call_function (pre_es:es) fnName (li:(arg_label * expression) list) (acc:spe
       let residue = Some iinnss in
 
       (spec, residue)
-    else if String.compare name "continue" == 0 then 
+    else if String.compare name "continue" == 0 then (acc, None)
+      (*
       let (policy:spec) = List.fold_left (
         fun (acc_pi, acc_es, acc_side) (a_pi, a_es, a_side) -> 
           (And(acc_pi, a_pi), Cons(acc_es, a_es), List.append acc_side a_side)) acc arg_eff in 
       (policy, None)
+      *)
     else if List.mem_assoc name env.stack then
       (* higher-order function, so we should produce some residue instead *)
       let (name, args) = List.assoc name env.stack in
@@ -1014,6 +1016,32 @@ let devideContinuation (expr:expression): (expression list * expression list) =
   *)  (esLiBefore, esLiAfter) 
   ;;
 
+let getSpecFromEnv env expr : (es*es) = 
+  let getSnd (_, a, _) = a in 
+  match expr.pexp_desc with 
+  | Pexp_apply (fnName, _) -> 
+    let name = fnNameToString fnName in 
+    (match Env.find_fn name env with
+    | None -> 
+      (match Env.fine_side name env with 
+      | None -> (default_es_pre, default_es_post)
+      | Some (_pre, _post) ->  (getSnd _pre, getSnd _post)
+      )
+    | Some s -> (getSnd s.pre, getSnd s.post)
+    )
+  | Pexp_ident l -> 
+    let name = getIndentName l in 
+    (match Env.find_fn name env with
+    | None -> 
+      (match Env.fine_side name env with 
+      | None -> (default_es_pre, default_es_post)
+      | Some (_pre, _post) ->  (getSnd _pre , getSnd _post )
+      )
+    | Some s -> (getSnd s.pre,getSnd s.post)
+    )
+  | _ -> (default_es_pre, default_es_post)
+  ;;
+
 
 
 let rec infer_of_expression env (pre_es:es) (acc:spec) expr : (spec * residue) =
@@ -1028,9 +1056,9 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr : (spec * residue) =
     let temp = List.map (fun (_, a) -> a) li in 
     let arg_eff = List.fold_left 
     (fun acc_li a -> 
-      let (a_spec, _) = infer_of_expression env pre_es (True, Emp, []) a in 
+      let tuple: (es * es) = getSpecFromEnv env a in 
       
-      List.append acc_li [a_spec]
+      List.append acc_li [tuple]
       ) 
     [] temp in 
 
@@ -1107,7 +1135,9 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr : (spec * residue) =
 
     
   | Pexp_ident l -> 
+    
     let name = getIndentName l in 
+    
     let rec aux li = 
       match li with 
       | [] -> (acc, None)
@@ -1151,7 +1181,7 @@ and infer_value_binding rec_flag env vb =
   let formals = collect_param_names body in
   let spec = 
     match function_spec body with
-    | None -> ((True, Emp, []), (True, Emp, []))
+    | None -> default_spec_pre, default_spec_post
     | Some (pre, post) -> (normalSpec pre, normalSpec post)
   in 
   let (pre, post) = spec in

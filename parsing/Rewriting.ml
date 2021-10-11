@@ -250,9 +250,12 @@ let check_side (s1:side) (s2:side)  : (bool * string) =
     (
       match existSide ins2 s1 with
       | None -> raise (Foo ("check_side: " ^ ins2 ^ string_of_side s1)) 
-      | Some (_, (es11, es12)) -> 
-        let (re1, _) = containment [] es11 es21 in 
-        let (re2, _) = containment [] es22 es12 in 
+      | Some (_, (es11, es12)) -> (* es12 < es22, es21 < es11*)
+        let (re1, str1) = check_containment es21 es11  in 
+        let (re2, str2) = check_containment es12 es22  in 
+        (*
+        print_string ("side...\n" ^str1^"\n");
+        print_string (str2^"\n");*)
         re1 && re2
     )
   ) true s2  in 

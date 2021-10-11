@@ -4,7 +4,7 @@ effect Update : int ref * int -> unit
 
 
 let atomically f 
-(*@ requires emp, eff(f)= _^* ->  (U^* ).(Res \/ emp) @*)
+(*@ requires _^* , eff(f)= _^* ->  (Update^* ) @*)
 (*@ ensures  (U^* ).(Res \/ emp) @*)
 =
   let comp =
@@ -17,10 +17,14 @@ let atomically f
         continue k () (fun () -> r := old_v; rb ()))
   in comp (fun () -> ())
 
-(*
+
 
 let ref = ref
-let (!) = (!)
+let (!) 
+(*@ requires _^* @*)
+  (*@ ensures emp @*)
+= (!)
+
 let (:=) r v
   (*@ requires _^* @*)
   (*@ ensures Update @*)
@@ -29,8 +33,8 @@ let (:=) r v
 exception Res of int
 
 let g ()
-  (*@ requires emp @*)
-  (*@ ensures Update^* @*)
+  (*@ requires _^*  @*)
+  (*@ ensures Update.Update.Update @*)
 =
   r := 20;
   r := 21;
@@ -39,13 +43,13 @@ let g ()
   printf "T1: After abort %d\n" (!r);
   r := 30
 
-let h () =
-  let r = ref 10 in
-  printf "T0: %d\n" (!r);
-  try atomically g
-  with
-  | Res v -> Printf.printf "T0: T1 aborted with %d\n" v;printf "T0: %d\n" !r
-
+let h () 
+  (*@ requires emp @*)
+  (*@ ensures emp @*)
+=
+  atomically g
+  
+(*
 let f () = atomically h
 
 let () = f ()
