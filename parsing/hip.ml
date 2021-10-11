@@ -542,9 +542,9 @@ let call_function (pre_es:es) fnName (li:(arg_label * expression) list) (acc:spe
       let sb = side_binding (*find_arg_formal name env*) arg_formal arg_eff in 
       let current_state = eliminatePartiaShall (merge_spec (True, pre_es, sb) acc ) env in 
 
-      (*SYH-11: This is because Prof Chin thinks the if the precondition is all the trace, it is not modular*)
-      let (pre_p, pre_es, pre_side) = precon in 
-      let (res, str) = printReport current_state (pre_p, Cons (Kleene (Underline),pre_es), pre_side) in 
+
+      let (res, str) = printReport current_state precon in 
+      
 
       if res then ((And(acc_pi, post_pi), Cons (acc_es, post_es), List.append acc_side post_side), None)
       else raise (Foo ("call_function precondition fail " ^name ^":\n" ^ str ^ debug_string_of_expression fnName))
@@ -1169,6 +1169,11 @@ and infer_value_binding rec_flag env vb =
   let final = normalSpec (final_pi, final_es (*Cons (, residueToPredeciate resdue)*), final_side) in 
 
 
+(*
+        (*SYH-11: This is because Prof Chin thinks the if the precondition is all the trace, it is not modular*)
+        let (pre_p, pre_es, pre_side) = precon in 
+        let precon = (pre_p, Cons (Kleene (Underline),pre_es), pre_side) in 
+        *)
 
   let env1 = Env.add_fn fn_name { pre; post; formals } env in
   
