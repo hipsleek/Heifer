@@ -1111,11 +1111,12 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr : (spec * residue) =
           | Ppat_effect (p1, _) -> 
             let (beforeCont, afterCont) = devideContinuation rhs in 
             let sequencing li = List.fold_left (fun _acc a -> 
-              print_string (debug_string_of_expression a);
+              (*print_string (debug_string_of_expression a);
+              *)
               let ((_, es, _), _) = infer_of_expression env pre_es (True, Emp, []) a in 
               Cons (_acc, es)
               ) Emp li in 
-            print_string (string_of_int (List.length beforeCont) ^"\n");
+            
             let esBefore = sequencing beforeCont in
             let esAfter = sequencing afterCont in
             [(Eff (string_of_pattern p1, normalES esBefore, normalES esAfter))]
@@ -1132,10 +1133,10 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr : (spec * residue) =
     
 
     
-    
+    (*
     print_string (string_of_policies policies ^"\n");
     print_string (string_of_es es_ex ^"\n");
-    
+    *)
 
     let trace = fixpoint_compute es_ex policies (*pre_compute_policy policies*) in 
     ((p_ex, trace, side_es) , None)
