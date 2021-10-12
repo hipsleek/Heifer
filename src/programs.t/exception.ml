@@ -1,10 +1,11 @@
 effect Exc : int -> unit
+effect Foo : unit
 
 let raise n
   (*@ requires _^* @*)
   (*@ ensures Exc @*)
 = perform (Exc n);
-  perform (Exc n)
+  perform Foo
 
 let excHandler 
   (*@ requires _^* @*)
