@@ -2,6 +2,7 @@
 (* the ref to update transactionally, and the value to update it with *)
 effect Update : int ref * int -> unit
 
+let r = ref 0
 
 let atomically f 
 (*@ requires _^* , eff(f)= _^* ->  (Update^* ) @*)
@@ -10,7 +11,6 @@ let atomically f
   let comp =
     match f () with
     | x -> (fun _ -> x)
-    | exception e -> (fun rb -> rb (); raise e)
     | effect (Update (r,v)) k -> (fun rb ->
         let old_v = !r in
         r := v;
@@ -19,18 +19,11 @@ let atomically f
 
 
 
-let ref = ref
-let (!) 
-(*@ requires _^* @*)
-  (*@ ensures emp @*)
-= (!)
-
 let (:=) r v
   (*@ requires _^* @*)
   (*@ ensures Update @*)
 = perform (Update (r,v))
 
-exception Res of int
 
 let g ()
   (*@ requires _^*  @*)
@@ -38,9 +31,6 @@ let g ()
 =
   r := 20;
   r := 21;
-  printf "T1: Before abort %d\n" (!r);
-  raise (Res !r) |> ignore;
-  printf "T1: After abort %d\n" (!r);
   r := 30
 
 let h () 
@@ -49,8 +39,3 @@ let h ()
 =
   atomically g
   
-(*
-let f () = atomically h
-
-let () = f ()
-*)

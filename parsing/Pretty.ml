@@ -214,6 +214,7 @@ let rec normalES (es:es):es =
       (match (normalES1, normalES2) with 
         (Emp, _) -> normalES2 
       | (_, Emp) -> normalES1
+      | (Event "Exc", _) -> Event "Exc"
       | (Bot, _) -> Bot
       | (Omega _, _ ) -> normalES1
 
