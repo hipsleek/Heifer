@@ -1204,7 +1204,7 @@ and infer_value_binding rec_flag env vb =
     | Recursive -> Env.add_fn fn_name {pre; post; formals} env
   in
 
-  let ((final_pi, final_es, final_side), _ (*residue*)) =  (infer_of_expression env pre_es (pre_p, Emp, []) body) in
+  let ((final_pi, final_es, final_side), _ (*residue*)) =  (infer_of_expression env pre_es (pre_p, Emp, pre_side) body) in
 
   let final = normalSpec (final_pi, final_es (*Cons (, residueToPredeciate resdue)*), final_side) in 
 
