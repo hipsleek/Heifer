@@ -1,0 +1,22 @@
+effect Foo0 : (unit -> unit)
+effect Foo1 : (unit -> unit)
+effect Foo2 : (unit -> unit)
+effect Foo3 : (unit -> unit)
+effect Foo4 : (unit -> unit)
+effect Foo5 : (unit -> unit)
+effect Foo6 : (unit -> unit)
+effect Foo7 : (unit -> unit)
+
+let stress f
+(*@ requires _^*, eff(f)= (_^* ) -> Foo0.Q(Foo0()) @*)
+(*@ ensures  Foo0.(Foo1.Foo2.Foo3.Foo4.Foo5.Foo6.Foo7.Foo0)^w @*)
+  = match f () with
+ | _ -> ()
+ | effect Foo0 k ->  continue k (fun () -> perform Foo1 ())
+ | effect Foo1 k ->  continue k (fun () -> perform Foo2 ())
+ | effect Foo2 k ->  continue k (fun () -> perform Foo3 ())
+ | effect Foo3 k ->  continue k (fun () -> perform Foo4 ())
+ | effect Foo4 k ->  continue k (fun () -> perform Foo5 ())
+ | effect Foo5 k ->  continue k (fun () -> perform Foo6 ())
+ | effect Foo6 k ->  continue k (fun () -> perform Foo7 ())
+ | effect Foo7 k ->  continue k (fun () -> perform Foo0 ())

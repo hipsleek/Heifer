@@ -1,6 +1,5 @@
 effect Foo : (unit -> unit)
 
-
 let f0 () 
 (*@ requires _^* @*)
 (*@ ensures  Foo.Q(Foo()) @*)
@@ -61,7 +60,7 @@ let f7
   =
   match f6 () with
   | _ -> perform Foo ()
-  | effect Foo k ->  continue k (fun () -> ())
+  | effect Foo k -> continue k (fun () -> ())
 
 
 

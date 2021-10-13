@@ -808,14 +808,6 @@ let rec fixpoint_compute (es:es) (policies:policy list) : es =
       | Bot -> Bot
       | Emp -> List.fold_left (fun acc (_, esLi) -> Cons(acc, esLi)) Emp (List.rev mappings)
       | _ -> let f_li = fst_plus cur_trace in 
-          
-          (*
-          print_string (string_of_int (List.length f_li) ^
-          List.fold_left (fun acc a -> acc ^ ", "^ string_of_event a ^ "->" ^ string_of_es (derivative cur_trace a )) "" f_li 
-          ^ "\n");
-          *)
-
-
           List.fold_left (fun acc f -> 
             let nextState () = 
               let (hd_eff, hd_es) = List.hd mappings in 
@@ -1111,8 +1103,7 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr : (spec * residue) =
           | Ppat_effect (p1, _) -> 
             let (beforeCont, afterCont) = devideContinuation rhs in 
             let sequencing li = List.fold_left (fun _acc a -> 
-              (*print_string (debug_string_of_expression a);
-              *)
+           
               let ((_, es, _), _) = infer_of_expression env pre_es (True, Emp, []) a in 
               Cons (_acc, es)
               ) Emp li in 
@@ -1138,7 +1129,10 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr : (spec * residue) =
     print_string (string_of_es es_ex ^"\n");
     *)
 
+    let startTimeStamp = Sys.time() in
     let trace = fixpoint_compute es_ex policies (*pre_compute_policy policies*) in 
+    let fixpoint_time = "[Fixpoint Time: " ^ string_of_float ((Sys.time() -. startTimeStamp) *. 1000.0) ^ " ms]" in
+    print_string (fixpoint_time);
     ((p_ex, trace, side_es) , None)
 
 
@@ -1380,7 +1374,7 @@ print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
           spec :: s, env1
         ) ([], Env.empty) progs
       in
-      print_endline (results |> List.rev |> String.concat "\n");
+      print_endline (results |> List.rev |> String.concat "");
 
       (* 
       print_endline (testSleek ());

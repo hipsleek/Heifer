@@ -53,8 +53,7 @@ let h
   (*@ requires emp @*)
   (*@ ensures _^* @*)
 =
-  atomically error;
-  print_string (string_of_int (!r) ^"\n");
+  atomically error
 
  
 
