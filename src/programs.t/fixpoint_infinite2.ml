@@ -1,20 +1,13 @@
-effect Foo : (unit -> int)
+effect Foo : (unit -> unit)
+effect Goo : (unit -> unit)
 
-effect Goo : (unit -> int)
-
-let f () 
-(*@ requires emp @*)
-(*@ ensures  Foo.Q(Foo ()) @*)
-= perform Foo ()
-
-let res 
-  (*@ requires emp @*)
-  (*@ ensures  (Foo.Goo)^w @*)
-  =
-  match f () with
-  | _ -> 1
-  | effect Foo k ->
-     continue k (fun () -> perform Goo ())
-  | effect Goo k ->
-     continue k (fun () -> perform Foo ())
+let res f
+(*@ requires emp, eff(f)= _^* -> Foo.Q(Foo ())  @*)
+(*@ ensures  (Foo.Goo)^w @*)
+= match f () with
+| _ -> ()
+| effect Foo k -> continue k 
+      (fun () -> perform Goo ())
+| effect Goo k -> continue k 
+      (fun () -> perform Foo ())
 
