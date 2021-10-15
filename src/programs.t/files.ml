@@ -16,7 +16,9 @@ let file ()
 (*@ requires emp @*)
 (*@ ensures Open.Close @*)
 = let fd = open_file () in
+  let fd = open_file () in
   close_file fd
+  
 
 let main ()
   (*@ requires emp @*)
