@@ -20,9 +20,6 @@ let f ()
   put (a  + 1 );
   a  + 2 
 
-(*
-
-
 
 let main  () =
   let g =
@@ -37,6 +34,12 @@ let main  () =
 let () =
   let s, r = main () in
   Format.printf "state %d res %d@." s r
+
+
+(*
+
+
+
 
 *)
 
