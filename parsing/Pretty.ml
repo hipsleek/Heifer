@@ -138,8 +138,8 @@ let rec string_of_es es : string =
   | Predicate ins  -> Format.sprintf "Q(%s)" (string_of_instant ins)
   | Event str -> str
   | Not str -> "!" ^ str
-  | Cons (es1, es2) -> string_of_es es1 ^"."^ string_of_es es2 
-  | ESOr (es1, es2) -> string_of_es es1 ^"+"^ string_of_es es2 
+  | Cons (es1, es2) -> "("^string_of_es es1 ^").("^ string_of_es es2 ^")"
+  | ESOr (es1, es2) -> "("^string_of_es es1 ^")+("^ string_of_es es2 ^")"
   | Kleene es1 -> "("^string_of_es es1^")^*"
   | Omega es1 -> "("^string_of_es es1^")^w"
   | Underline -> "_"
