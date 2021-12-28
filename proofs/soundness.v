@@ -11,32 +11,38 @@ Require Import Coq.Arith.Plus.
 
 Definition numEvent := 10.
 
-
-Inductive contEff : Type :=
+Inductive evtSeq : Type :=
 | bot
 | emp
 | underline
-| event      (s:string) (arg:nat)
-| notEvent   (s:string) (arg:nat)
-| placeHolder(s:string) (arg:nat)
-| cons       (es1: contEff) (es2: contEff)
-| disj       (es1: contEff) (es2: contEff)
-| kleene     (es: contEff).
+| event       (s:string) (arg:nat)
+| notEvent    (s:string) (arg:nat)
+| placeHolder (s:string) (arg:nat)
+| cons        (es1: evtSeq) (es2: evtSeq)
+| disj        (es1: evtSeq) (es2: evtSeq)
+| kleene      (es: evtSeq).
 
-Inductive expression : Type :=
-| nothingE
-| pauseE
-| emitE     (s:string)
-| localDelE (s:string)  (e:expression)
-| seqE      (e1:expression) (e2:expression)
-| parE      (e1:expression) (e2:expression)
-| ifElseE   (s:string) (e1:expression) (e2:expression)
-| loopE     (e:expression)
-(*| suspendE  (e:expression) (s:string)*)
-| asyncE    (e:expression) (s:string)
-| awaitE    (s:string)
-| raiseE    (n:nat)
-| trycatchE (e:expression) (handler:expression)
+Definition highOrdSpec : Type := list (string * evtSeq * evtSeq).
+
+Definition contEff : Type := (highOrdSpec * evtSeq).
+
+
+
+Inductive value : Type := 
+
+.
+
+
+Inductive expr : Type :=
+| unit
+| litnum (n:nat)
+| var    (s:string)
+| bind   (s:string) (e1:expr) (e2:expr)
+| app    (s:string) (e:expr)
+| binop  (op:string) (e1:expr) (e2:expr)
+| ifElse (v:nat) (e1:expr) (e2:expr)
+| fnDef  (f:string) 
+| closure(f:string) (parm:list string) (e:expr)
 .
 (*
 
