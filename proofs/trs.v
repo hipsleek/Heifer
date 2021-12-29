@@ -180,8 +180,8 @@ Fixpoint entailment (n:nat) (hy:hypothesis) (lhs rhs: contEff): bool :=
           | false => 
     let fst := fst lhs in
     let subTrees := List.map (fun f =>
-        let der1 := normal (derivitive lhs f) in
-        let der2 := normal (derivitive rhs f) in
+        let der1 := (derivitive lhs f) in
+        let der2 := (derivitive rhs f) in
         entailment (n') ((lhs, rhs) :: hy) der1 der2
         ) fst in
     List.fold_left (fun acc a => acc && a) subTrees true
@@ -196,8 +196,8 @@ Definition entailmentShell (n:nat) (lhs rhs: contEff) : bool :=
 
 
 Lemma bot_entails_everything:
-  forall (rhs: contEff) (n:nat),
-    entailment (S n) [] bot rhs = true.
+  forall (rhs: contEff) , 
+    entailment 1 [] bot rhs = true.
 Proof.
   intro rhs.
   intros. unfold entailment. fold entailment.
@@ -206,24 +206,80 @@ Proof.
 Qed.
 
 Lemma emp_entails_nullable:
-  forall (rhs: contEff) (n:nat) (hy:hypothesis),
+  forall (rhs: contEff) (hy:hypothesis), 
     nullable rhs = true ->
-    entailment (S n) [] emp rhs = true.
+    entailment 1 [] emp rhs = true.
 Proof. 
   intro rhs.
-  intros. unfold entailment. fold entailment. unfold nullable. fold nullable.
+  intro. intro.
+  unfold entailment. fold entailment. unfold nullable. fold nullable.
   destruct (nullable rhs) as [].
   - unfold reoccurTRS. unfold derivitive. unfold normal.
     unfold fst. unfold map. unfold fold_left. reflexivity.
   - discriminate H.
 Qed.
+
+Lemma nullable_wildcard_any_imply_wildcard_one:
+  forall (eff: contEff) (s:string) (f:fstT), 
+    nullable (derivitive eff any) = true ->
+    nullable (derivitive eff f) = true.
+Proof. 
+  intro eff. induction eff.
+  - intro s. intro f.
+    unfold derivitive. unfold normal. unfold nullable. intro H. discriminate H.
+  - intro s. intro f.
+    unfold derivitive. unfold normal. unfold nullable. intro H. discriminate H.
+  - intro s. intro f.
+    unfold derivitive. unfold normal. unfold nullable. intro H. reflexivity. 
+  - intro s. intro f.
+    unfold derivitive. unfold normal. unfold nullable. intro H.  discriminate H.
+  - intro s'. intro f.
+    unfold derivitive. unfold entailFst. unfold normal. fold normal. unfold nullable.
+    intro H.  discriminate H.
+  - intro s'. intro f.
+    unfold derivitive. unfold entailFst. unfold normal. fold normal. unfold nullable.
+    intro H.  discriminate H.
+  - intro s'. unfold derivitive. fold derivitive. 
+    intro f. 
+    case_eq (nullable eff1). 
+    + unfold nullable. fold nullable. intros. 
+      assert (temp := orb_prop (nullable (derivitive eff1 any) && nullable eff2) (nullable (derivitive eff2 any)) H0).
+      intros. Search (_ || _ = true). 
+      destruct temp.
+      *  intros. Search (_ &&  _ = true -> _ ).  
+         destruct (andb_prop (nullable (derivitive eff1 any)) (nullable eff2) H1).
+         rewrite  (orb_true_iff (nullable (derivitive eff1 f) && nullable eff2 ) (nullable (derivitive eff2 f))).
+         left. rewrite (IHeff1 s' f ). 
+         -- rewrite  (andb_true_iff true (nullable eff2)). split. reflexivity. exact H3.
+         -- exact H2.
+      *  rewrite  (orb_true_iff (nullable (derivitive eff1 f) && nullable eff2 ) (nullable (derivitive eff2 f))).
+         right.
+         exact (IHeff2 s' f H1).
+    + unfold nullable. fold nullable. intros. 
+      destruct (andb_prop (nullable (derivitive eff1 any)) (nullable eff2) H0).
+      rewrite  (andb_true_iff (nullable (derivitive eff1 f)) (nullable eff2)).
+      split. exact (IHeff1 s' f H1). exact H2.
+  - intro s'. unfold derivitive. fold derivitive. 
+    intro f. unfold nullable. fold nullable. intros.
+    assert (temp := orb_prop (nullable (derivitive eff1 any)) (nullable (derivitive eff2 any)) H).
+    destruct temp.
+    + rewrite  (orb_true_iff (nullable (derivitive eff1 f)) (nullable (derivitive eff2 f))).
+      left. exact (IHeff1 s' f H0).
+    + rewrite  (orb_true_iff (nullable (derivitive eff1 f)) (nullable (derivitive eff2 f))).
+      right. exact (IHeff2 s' f H0).
+  - intro s'. unfold derivitive. fold derivitive.
+    intro f. unfold nullable. fold nullable. intros.
+    destruct (andb_prop (nullable (derivitive eff any)) true H).
+    rewrite  (andb_true_iff (nullable (derivitive eff f)) true).
+    split. exact (IHeff s' f H0). reflexivity.
+Qed.
    
 Lemma wildcard_entails_rhs_imply_nullable_rhs:
-  forall (rhs: contEff) (n:nat),
-    entailment (S (S n)) [] wildcard rhs = true ->
-      nullable (normal (derivitive rhs any)) = true.
+  forall (rhs: contEff) (f:fstT), 
+    entailment 2 [] wildcard rhs = true ->
+      nullable (derivitive rhs f) = true.
 Proof. 
-  intros rhs n. 
+  intro rhs.  
   unfold entailment. fold entailment. unfold nullable. fold nullable.
   unfold reoccurTRS. unfold derivitive. fold derivitive. unfold normal. fold normal.
   unfold fst. unfold map. unfold fold_left. 
@@ -231,84 +287,64 @@ Proof.
   rewrite andb_true_l.
   unfold nullable. fold nullable. unfold compareEff. fold compareEff.
   rewrite andb_false_l.
-  destruct (nullable (normal (derivitive rhs any))) as [].
-  - intro. reflexivity.
-  - intro. discriminate H.
+  intro f. induction f.
+  + case_eq (nullable ( (derivitive rhs any))).
+    - intros. exact (nullable_wildcard_any_imply_wildcard_one rhs s (one s) H).
+    - intros. discriminate H0.
+  + case_eq (nullable ( (derivitive rhs any))).
+    - intros. exact (nullable_wildcard_any_imply_wildcard_one rhs s (zero s) H).
+    - intros. discriminate H0.
+  + case_eq (nullable ( (derivitive rhs any))).
+    - intros. reflexivity.
+    - intros. discriminate H0.
 Qed.
-  
+
+Lemma bool_trans:
+  forall (a b c: bool), a = b  -> a = c -> b = c.
+Proof.
+  intro a. induction a. 
+  - intro b. induction b.
+    + intro c. induction c.
+      * intros. reflexivity.
+      * intros. discriminate H0.
+    + intro c. induction c.
+      * intros. discriminate H.
+      * intros. reflexivity. 
+  - intro b. induction b.
+    + intro c. induction c.
+      * intros. discriminate H.
+      * intros. discriminate H.
+    + intro c. induction c.
+      * intros. discriminate H0. 
+      * intros. reflexivity.
+Qed. 
+
 
 Theorem soundnessTRS: 
-  forall (lhs: contEff) (n:nat)  (rhs: contEff),
-    entailment (S n) [] lhs rhs = true -> 
-    forall (f:fstT), entailment (S n) [] (derivitive lhs f) (derivitive rhs f) = true .
+  forall (lhs: contEff)  (rhs: contEff) (f:fstT), exists n, 
+    entailment n [] lhs rhs = true -> 
+      entailment n [] (derivitive lhs f) (derivitive rhs f) = true .
 Proof.
   intro lhs. induction lhs.
-  - intros. unfold derivitive. fold derivitive. 
-    exact (bot_entails_everything (derivitive rhs f) n).
-  - intros. unfold derivitive. fold derivitive.  
-    exact (bot_entails_everything (derivitive rhs f) n).
-  - intros. unfold derivitive. fold derivitive.   
+  - intros. unfold derivitive. fold derivitive. exists 1. intro.
+    exact (bot_entails_everything (derivitive rhs f)). 
+  - intros. unfold derivitive. fold derivitive. exists 1. intro.
+    exact (bot_entails_everything (derivitive rhs f)).
+  - intros. unfold derivitive. fold derivitive. exists 2.
+    intro H. 
+    Check (wildcard_entails_rhs_imply_nullable_rhs rhs f H).
+    assert (H1:= (wildcard_entails_rhs_imply_nullable_rhs rhs f H)).
+    unfold entailment. fold entailment. unfold nullable. fold nullable.
+    unfold reoccurTRS.
+    case_eq (nullable (derivitive rhs f)). intros.
+    + unfold derivitive. fold derivitive. unfold fst. unfold map.
+      unfold  fold_left. reflexivity.
+    + intro.
+      assert (dis:= bool_trans (nullable (derivitive rhs f)) true false H1 H0).
+      discriminate dis.
+  - 
     
-  
-  
-  unfold entailment. fold entailment.
-    unfold nullable. unfold reoccurTRS. unfold derivitive. unfold normal.
-    unfold fst. unfold map. unfold fold_left. reflexivity.
-  
-  
-  induction n.
-    + unfold entailment. reflexivity.
-    + fold derivitive.  unfold entailment. fold entailment. 
-  
-  - intros. 
-    
-    unfold derivitive. unfold entailment. reflexivity.
 
-  - intro rhs. induction rhs. 
-      * unfold derivitive. intros. induction n. + unfold entailment. reflexivity. + 
-      
-       fold  entailment. 
-        unfold entailment. reflexivity.  .  
-      * unfold derivitive. induction n.  unfold entailment. reflexivity.  unfold entailment. reflexivity.  
-      * unfold derivitive. unfold entailment. reflexivity. 
-      * unfold derivitive. unfold entailment. reflexivity. 
-      * unfold derivitive. unfold entailment. reflexivity. 
-      * unfold derivitive. unfold entailment. reflexivity. 
-      * unfold derivitive. unfold entailment. reflexivity. 
-      * unfold derivitive. unfold entailment. reflexivity. 
-      * unfold derivitive. unfold entailment. reflexivity. 
-    + intros. induction rhs.
-      * unfold derivitive. unfold entailment. reflexivity. 
-      * unfold derivitive.
-       unfold entailment. reflexivity. 
-      * unfold derivitive. unfold entailment. reflexivity. 
-      * unfold derivitive. unfold entailment. reflexivity. 
-      * induction f.
-        -- 
-      * unfold derivitive. unfold entailment. reflexivity. 
-      * unfold derivitive. unfold entailment. reflexivity. 
-      * unfold derivitive. unfold entailment. reflexivity. 
-      * unfold derivitive. unfold entailment. reflexivity. 
-      * unfold derivitive. unfold entailment. reflexivity. 
-
-
-  - induction lhs.
-    + intros. unfold derivitive. unfold entailment. reflexivity.
-    + intros. unfold derivitive. unfold entailment. reflexivity.
-    + intros. unfold derivitive. unfold entailment. reflexivity.
-    + intros. unfold derivitive. unfold entailment. reflexivity.
-    + intros. unfold derivitive. unfold entailment. reflexivity.
-    + intros. unfold derivitive. unfold entailment. reflexivity.
-    + intros. unfold derivitive. unfold entailment. reflexivity.
-    + intros. unfold derivitive. unfold entailment. reflexivity.
-    + intros. unfold derivitive. unfold entailment. reflexivity.
-  - induction lhs.
-    + intros. induction f.
-      * unfold derivitive. fold derivitive. 
-       unfold entailment. fold entailment.
-    (intro f; unfold derivitive; unfold entailment; reflexivity ).
-       
-      
 
 Qed.
 
