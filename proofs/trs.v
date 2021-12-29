@@ -137,12 +137,20 @@ Fixpoint derivitive (eff:contEff) (f:fstT) : contEff :=
 match eff with
 | bot          => bot
 | emp          => bot
-| singleton i  => if entailFst f (one i) then emp else bot
-| not   i      => if entailFst f (zero i) then emp else bot 
+| singleton i  => match entailFst f (one i)  with
+                  | true => emp 
+                  | flase => bot
+end
+| not   i      => match entailFst f (zero i) with
+                  | true => emp 
+                  | false =>bot
+end 
 | wildcard     => emp 
 | stop         => bot
-| cons e1 e2   => if nullable e1 then disj (cons (derivitive e1 f) e2)  (derivitive e2 f)
-                  else cons (derivitive e1 f) e2
+| cons e1 e2   => match nullable e1 with
+                  | true => disj (cons (derivitive e1 f) e2)  (derivitive e2 f)
+                  | flase => cons (derivitive e1 f) e2
+end
 | disj e1 e2   => disj (derivitive e1 f) (derivitive e2 f)
 | kleene e     => cons (derivitive e f) eff
 end.
@@ -162,9 +170,14 @@ Fixpoint entailment (n:nat) (hy:hypothesis) (lhs rhs: contEff): bool :=
   match n with 
   | O => true  
   | S n' =>
-  if nullable lhs && neg (nullable rhs) then false
-  else if reoccurTRS hy lhs rhs then true
-  else
+    (
+      match nullable lhs, nullable rhs with 
+      | true , false => false 
+      | _, _ =>  
+        (
+          match reoccurTRS hy lhs rhs with 
+          | true => true 
+          | false => 
     let fst := fst lhs in
     let subTrees := List.map (fun f =>
         let der1 := normal (derivitive lhs f) in
@@ -172,12 +185,133 @@ Fixpoint entailment (n:nat) (hy:hypothesis) (lhs rhs: contEff): bool :=
         entailment (n') ((lhs, rhs) :: hy) der1 der2
         ) fst in
     List.fold_left (fun acc a => acc && a) subTrees true
+          end
+        )
+      end
+    )
   end.
 
+Definition entailmentShell (n:nat) (lhs rhs: contEff) : bool :=
+  entailment n [] lhs rhs.
 
 
-Definition entailmentShell (lhs rhs: contEff) : bool :=
-  entailment 1000 [] lhs rhs.
+Lemma bot_entails_everything:
+  forall (rhs: contEff) (n:nat),
+    entailment (S n) [] bot rhs = true.
+Proof.
+  intro rhs.
+  intros. unfold entailment. fold entailment.
+  unfold nullable. unfold reoccurTRS. unfold derivitive. unfold normal.
+  unfold fst. unfold map. unfold fold_left. reflexivity.
+Qed.
+
+Lemma emp_entails_nullable:
+  forall (rhs: contEff) (n:nat) (hy:hypothesis),
+    nullable rhs = true ->
+    entailment (S n) [] emp rhs = true.
+Proof. 
+  intro rhs.
+  intros. unfold entailment. fold entailment. unfold nullable. fold nullable.
+  destruct (nullable rhs) as [].
+  - unfold reoccurTRS. unfold derivitive. unfold normal.
+    unfold fst. unfold map. unfold fold_left. reflexivity.
+  - discriminate H.
+Qed.
+   
+Lemma wildcard_entails_rhs_imply_nullable_rhs:
+  forall (rhs: contEff) (n:nat),
+    entailment (S (S n)) [] wildcard rhs = true ->
+      nullable (normal (derivitive rhs any)) = true.
+Proof. 
+  intros rhs n. 
+  unfold entailment. fold entailment. unfold nullable. fold nullable.
+  unfold reoccurTRS. unfold derivitive. fold derivitive. unfold normal. fold normal.
+  unfold fst. unfold map. unfold fold_left. 
+  Search (true && _ = _).
+  rewrite andb_true_l.
+  unfold nullable. fold nullable. unfold compareEff. fold compareEff.
+  rewrite andb_false_l.
+  destruct (nullable (normal (derivitive rhs any))) as [].
+  - intro. reflexivity.
+  - intro. discriminate H.
+Qed.
+  
+
+Theorem soundnessTRS: 
+  forall (lhs: contEff) (n:nat)  (rhs: contEff),
+    entailment (S n) [] lhs rhs = true -> 
+    forall (f:fstT), entailment (S n) [] (derivitive lhs f) (derivitive rhs f) = true .
+Proof.
+  intro lhs. induction lhs.
+  - intros. unfold derivitive. fold derivitive. 
+    exact (bot_entails_everything (derivitive rhs f) n).
+  - intros. unfold derivitive. fold derivitive.  
+    exact (bot_entails_everything (derivitive rhs f) n).
+  - intros. unfold derivitive. fold derivitive.   
+    
+  
+  
+  unfold entailment. fold entailment.
+    unfold nullable. unfold reoccurTRS. unfold derivitive. unfold normal.
+    unfold fst. unfold map. unfold fold_left. reflexivity.
+  
+  
+  induction n.
+    + unfold entailment. reflexivity.
+    + fold derivitive.  unfold entailment. fold entailment. 
+  
+  - intros. 
+    
+    unfold derivitive. unfold entailment. reflexivity.
+
+  - intro rhs. induction rhs. 
+      * unfold derivitive. intros. induction n. + unfold entailment. reflexivity. + 
+      
+       fold  entailment. 
+        unfold entailment. reflexivity.  .  
+      * unfold derivitive. induction n.  unfold entailment. reflexivity.  unfold entailment. reflexivity.  
+      * unfold derivitive. unfold entailment. reflexivity. 
+      * unfold derivitive. unfold entailment. reflexivity. 
+      * unfold derivitive. unfold entailment. reflexivity. 
+      * unfold derivitive. unfold entailment. reflexivity. 
+      * unfold derivitive. unfold entailment. reflexivity. 
+      * unfold derivitive. unfold entailment. reflexivity. 
+      * unfold derivitive. unfold entailment. reflexivity. 
+    + intros. induction rhs.
+      * unfold derivitive. unfold entailment. reflexivity. 
+      * unfold derivitive.
+       unfold entailment. reflexivity. 
+      * unfold derivitive. unfold entailment. reflexivity. 
+      * unfold derivitive. unfold entailment. reflexivity. 
+      * induction f.
+        -- 
+      * unfold derivitive. unfold entailment. reflexivity. 
+      * unfold derivitive. unfold entailment. reflexivity. 
+      * unfold derivitive. unfold entailment. reflexivity. 
+      * unfold derivitive. unfold entailment. reflexivity. 
+      * unfold derivitive. unfold entailment. reflexivity. 
+
+
+  - induction lhs.
+    + intros. unfold derivitive. unfold entailment. reflexivity.
+    + intros. unfold derivitive. unfold entailment. reflexivity.
+    + intros. unfold derivitive. unfold entailment. reflexivity.
+    + intros. unfold derivitive. unfold entailment. reflexivity.
+    + intros. unfold derivitive. unfold entailment. reflexivity.
+    + intros. unfold derivitive. unfold entailment. reflexivity.
+    + intros. unfold derivitive. unfold entailment. reflexivity.
+    + intros. unfold derivitive. unfold entailment. reflexivity.
+    + intros. unfold derivitive. unfold entailment. reflexivity.
+  - induction lhs.
+    + intros. induction f.
+      * unfold derivitive. fold derivitive. 
+       unfold entailment. fold entailment.
+    (intro f; unfold derivitive; unfold entailment; reflexivity ).
+       
+      
+
+Qed.
+
 
 Definition eff1 : contEff := emp.
 Definition eff2 : contEff := {{[("A", one)]}}.
