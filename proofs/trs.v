@@ -14,8 +14,8 @@ Inductive contEff : Type :=
 | emp
 | wildcard
 | stop
-| singleton (s: string)
-| not       (s:string)
+| singleton (s: nat)
+| not       (s:nat)
 | cons      (es1: contEff) (es2: contEff)
 | disj      (es1: contEff) (es2: contEff)
 | kleene    (es: contEff).
@@ -39,8 +39,8 @@ match eff1, eff2 with
 | emp, emp => true
 | stop, stop => true
 | wildcard, wildcard => true
-| singleton s1, singleton s2 => if eqb s1 s2 then true else false
-| not s1, not s2 => if eqb s1 s2 then true else false
+| singleton s1, singleton s2 => if Nat.eqb s1 s2 then true else false
+| not s1, not s2 => if Nat.eqb s1 s2 then true else false
 | cons e1 e2, cons e3 e4 => compareEff e1 e3 && compareEff e2 e4
 | disj e1 e2, disj e3 e4 => (compareEff e1 e3 && compareEff e2 e4) ||
                             (compareEff e1 e4 && compareEff e2 e3)
@@ -108,7 +108,7 @@ match eff with
 | kleene _     => true
 end.
 
-Inductive fstT : Type := one (s:string) | zero (s:string) | any.
+Inductive fstT : Type := one (s:nat) | zero (s:nat) | any.
 
 Fixpoint fst (eff:contEff): list fstT  :=
 match eff with
@@ -126,8 +126,8 @@ end.
 
 Definition entailFst (f1 f2 : fstT) : bool :=
   match f1, f2 with 
-  | one s1, one s2 => eqb s1 s2 
-  | zero s1, zero s2 => eqb s1 s2 
+  | one s1, one s2 => Nat.eqb s1 s2 
+  | zero s1, zero s2 => Nat.eqb s1 s2 
   | _, any => true
   | _, _ => false 
   end.
@@ -220,7 +220,7 @@ Proof.
 Qed.
 
 Lemma nullable_wildcard_any_imply_wildcard_one:
-  forall (eff: contEff) (s:string) (f:fstT), 
+  forall (eff: contEff) (s:nat) (f:fstT), 
     nullable (derivitive eff any) = true ->
     nullable (derivitive eff f) = true.
 Proof. 
@@ -299,6 +299,35 @@ Proof.
     - intros. discriminate H0.
 Qed.
 
+
+Lemma entailFstOne:
+  forall (s1 s2:nat), Nat.eqb s1 s2 = true -> entailFst (one s1) (one s2) = true.
+Proof.
+  intros s1 s2.
+  unfold entailFst. intro. exact H.
+Qed. 
+  
+
+Lemma singleton_entails_rhs_imply_nullable_rhs:
+  forall (rhs: contEff) (s:nat), 
+    entailment 2 [] (singleton s) rhs = true ->
+      nullable (derivitive rhs (one s)) = true.
+Proof. 
+  intros rhs s.  
+  unfold entailment. fold entailment. unfold nullable. fold nullable.
+  unfold reoccurTRS. unfold derivitive. fold derivitive. unfold normal. fold normal.
+  unfold fst. unfold map. unfold fold_left. 
+  Search (true && _ = _).
+  rewrite andb_true_l.
+  unfold nullable. fold nullable. unfold compareEff. fold compareEff.
+  case_eq (entailFst (one s) (one s)).
+  - intro H. 
+    unfold nullable. fold nullable. unfold normal. fold normal. unfold compareEff. fold compareEff.
+    case_eq (nullable (derivitive rhs (one s))). simpl. intros. reflexivity.
+    intros. discriminate H1.
+  - intro H. 
+Admitted.
+
 Lemma bool_trans:
   forall (a b c: bool), a = b  -> a = c -> b = c.
 Proof.
@@ -342,7 +371,12 @@ Proof.
     + intro.
       assert (dis:= bool_trans (nullable (derivitive rhs f)) true false H1 H0).
       discriminate dis.
-  - 
+  - intros. unfold derivitive. fold derivitive. exists 1. intro.
+    exact (bot_entails_everything (derivitive rhs f)).
+  - intros. unfold derivitive. fold derivitive. exists 2. 
+    intro H. unfold entailment. fold entailment.
+    
+    intro H. 
     
 
 
