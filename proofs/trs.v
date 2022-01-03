@@ -375,7 +375,7 @@ Proof.
     exact (bot_entails_everything (derivitive rhs f)).
   - intros. unfold derivitive. fold derivitive. exists 2. 
     intro H. unfold entailment. fold entailment.
-    
+    Search (Nat.eqb).
     intro H. 
     
 
