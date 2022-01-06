@@ -1,29 +1,33 @@
+effect Foo : (unit )
+effect Goo : (unit )
+effect Zoo : (unit )
 
-effect Foo : string
-effect Goo : string
+let print_and_perform_Goo () = 
+  (*@ requires emp @*)
+(*@ ensures  Goo @*)
+  print_string ("Goo\n") ;perform Goo
 
-let performFoo () =
-  print_string ("Foo\n");
-  let str = perform Foo  in 
-  print_string (str  ^ "done Foo\n") 
+let print_and_perform_Foo () = 
+  (*@ requires emp @*)
+(*@ ensures  Foo.Goo @*)
+  print_string ("Foo\n") ;perform Foo; print_and_perform_Goo ()
 
-let performGoo () =
-  print_string ("Goo\n");
-  let str = perform Goo in 
-  print_string (str  ^ "done Goo\n") 
+let print_and_perform_Goo1 () = 
+  print_string ("Goo1\n") ;perform Goo
 
-let f () =
-  performFoo ()
-  
+let f () 
+(*@ requires emp @*)
+(*@ ensures  Foo.Goo @*)
+  = print_and_perform_Foo ();
+    print_and_perform_Goo ()
 
-let handlerInner () =
-  match f () with 
-  | n -> n
-  | effect Foo k -> (performGoo (); continue k ("performing Foo...\n"))
+let res : unit
+  (*@ requires emp @*)
+  (*@ ensures  Foo.Zoo.Goo @*)
+  =
+  match f () with
+  | _ -> print_string ("finished\n"); ()
+  | effect Foo k ->  perfrom Zoo; continue k (())
+  | effect Goo k ->  continue k (())
 
-
-let handlerOutter=
-  match handlerInner () with 
-  | n -> n
-  | effect Goo k -> continue k ("performing Goo...\n")
 

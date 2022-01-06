@@ -6,8 +6,8 @@ effect Goo : (unit -> unit)
 let f () 
 (*@ requires Eff(f):: A -> B^*  @*)
 (*@ ensures  Foo.Q(Foo()).Goo.Q(Goo()), Eff(res):: @*)
-  = raise Koo 0 
-    perform Foo ();
+  = 
+    letperform Foo ();
     perform Goo ();
     a
 
