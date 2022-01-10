@@ -1,38 +1,35 @@
 
-<h1 id="artifact-56-for-evaluation-for-popl22">Artifact #27 for TACAS'22 Tool Paper Submission 26</h1>
+<h1>TACAS 2022 Submission #27</h1>
 
-<p>There are two artifacts for this work, the Coq formalization and the tool PwTer. Each is described in turn.</p>
+<p>For the regular tool paper submission #26 TempAS: A Temporal Verification Tool for Mixed Async-Sync Concurrency </p>
 
 <h4 id="quick-links">Quick links</h4>
 <ul>
-  <li>Browse the development at GitHub: <a href="https://github.com/weakmemory/pwt">online</a></li>
-  <li>Browse the PwTer source code at GitHub: <a href="https://github.com/graymalkin/pomsets-with-predicate-transformers">online</a></li>
-  <li>VirtualBox image: <a href="https://podkopaev.net/popl22-pwt-artifact.html">online</a></li>
+  <li>Browse the development at GitHub: <a href="https://github.com/songyahui/Semantics_HIPHOP">online</a></li>
+  <li>A demo Page: <a href="http://loris-5.d2.comp.nus.edu.sg/MixedSyncAsync/introduction.html">online</a></li>
+  <li>VirtualBox image: <a href="">online</a></li>
 </ul>
 
-<h2 id="pomsets-w-transformers-a-coq-formalization">Pomsets w/ Transformers (a Coq formalization)</h2>
 
-<p>This artifact contains Coq code supplementing the paper <em>Leaky Semicolon: Compositional Semantic Dependencies for Relaxed-Memory Concurrency</em> by 
-Alan Jeffrey, James Riely, Mark Batty, Simon Cooksey, Ilya Kaysin, and Anton Podkopaev.</p>
-
-<h3 id="getting-started">Getting started</h3>
-<p>The artifact consists of Coq formalization and proofs about <em>Pomsets w/ Transformers</em>.
+<h3>Getting started</h3>
+<p>The artifact consists of i) <em> a Front End: Forward Verifier</em>; and ii) <em> a Back End: the term rewriting system</em>.<br>
 There are two ways to evaluate the artifact:</p>
 <ul>
   <li>by using a virtual machine (VM) prepared by us;</li>
-  <li>by using your own Coq setup via <code class="language-plaintext highlighter-rouge">opam</code>.
-Below, we provide guidance for both approaches.
-<em>We propose to start with building the project by following our instructions and then take a look at the main definitions and lemmas.</em></li>
-</ul>
+  <li>by using your local machine with <code>OCaml version 4.10.0</code>. 
 
-<h3 id="using-the-virtual-machine">Using the Virtual Machine</h3>
+</ul>
+Below, we provide guidance for both approaches.
+
+
+<h3>Using the Virtual Machine</h3>
 <p>You need to get a <a href="https://www.virtualbox.org/">VirtualBox</a> (tested w/ version 6.1.26) on your system and import the VM
 <code class="language-plaintext highlighter-rouge">pwt.ova</code>. Please, note the following:</p>
 <ul>
-  <li>The VM should be provided with at least 8GB of RAM.</li>
+  <li>The VM should be provided with at least 4GB of RAM.</li>
   <li>The VM is better to be provided with 4 CPUs (but 2 CPUs should be enough).</li>
-  <li>The VM is a Ubuntu 18.04 with <code class="language-plaintext highlighter-rouge">coq</code>, <code class="language-plaintext highlighter-rouge">coqide</code>, <code class="language-plaintext highlighter-rouge">vim</code> and <code class="language-plaintext highlighter-rouge">emacs</code> being set-up.</li>
-  <li>Username and password are both <code class="language-plaintext highlighter-rouge">vagrant</code>.</li>
+  <li>The VM is a Ubuntu 18.04 with <code class="language-plaintext highlighter-rouge">OCaml</code>, <code class="language-plaintext highlighter-rouge">vim</code> and <code class="language-plaintext highlighter-rouge">emacs</code> being set-up.</li>
+  <li>There is no password.</li>
 </ul>
 
 <p>The Coq code can be found in the folder <code class="language-plaintext highlighter-rouge">/home/vagrant/artifact</code>. To compile it,

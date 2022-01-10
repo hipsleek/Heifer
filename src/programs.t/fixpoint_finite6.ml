@@ -25,9 +25,11 @@ let res11 ()
   | _ -> ()
   | effect Foo k ->  continue k (fun () -> ()); print_string ("Goo\n"); perform Goo ()
 
-let handler11 () = 
+(*
+let handler11 () 
   (*@ requires _^* @*)
   (*@ ensures  Foo.Foo.Goo.Goo @*)
+  = 
   match res11 () with 
   | _ -> ()
   | effect Goo k -> continue k (fun () -> ())
@@ -66,16 +68,18 @@ let res41 ()
   | _ -> ()
   | effect Foo k ->  print_string ("Goo\n"); perform Goo (); continue k (fun () -> ())
 
-let handler4 () = 
+let handler4 () 
   (*@ requires _^* @*)
   (*@ ensures  Foo.Goo @*)
+  = 
   match res4 () with 
   | _ -> ()
   | effect Goo k -> continue k (fun () -> ())
 
-let handler41 () = 
+let handler41 () 
   (*@ requires _^* @*)
   (*@ ensures  Foo.Goo.Foo.Goo @*)
+  = 
   match res41 () with 
   | _ -> ()
   | effect Goo k -> continue k (fun () -> ())
@@ -105,3 +109,4 @@ let res6 ()
 
 let main = 
   handler11 ()  
+*)

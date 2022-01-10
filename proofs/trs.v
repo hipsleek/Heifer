@@ -398,25 +398,18 @@ Proof.
            assert (H_temp := String.eqb_eq s0 s).
            destruct H_temp as [Hn Hm].
            assert (equla := Hn H0).
-           apply a_b in a.
-           rewrite H1 in equla.
-           Check (Hn H0).
-           Check (String.eqb_eq s0 s H0).
-        
-        rewrite (String.eqb s0 s).
-    unfold entailment. fold entailment. unfold nullable. fold nullable.
-    unfold reoccurTRS.
-    case_eq (nullable (derivitive rhs f)). intros.
-    + unfold derivitive. fold derivitive. unfold fst. unfold map.
-      unfold  fold_left. reflexivity.
+           rewrite equla.
+           rewrite H1.
+           unfold reoccurTRS. fold reoccurTRS.
+           unfold fst. fold fst. unfold map. unfold fold_left. reflexivity.
+        -- intros.
+           exact (bot_entails_everything (derivitive rhs (one s0))). 
+      * unfold entailFst.
+           exact (bot_entails_everything (derivitive rhs (one s0))).
+      * unfold entailFst. 
+         exact (bot_entails_everything (derivitive rhs any)).
+  - 
 
-
-    Search (Nat.eqb).
-    
-
-    
-    intro H. 
-    
 
 
 Qed.

@@ -1014,8 +1014,6 @@ let devideContinuation (expr:expression): (expression list * expression list) =
 
 
 
-
-
 let rec infer_of_expression env (pre_es:es) (acc:spec) expr : (spec * residue) =
   let getSpecFromEnv env exprIN : (es*es) = 
     let getSnd (_, a, _) = a in 
@@ -1094,6 +1092,19 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr : (spec * residue) =
   | Pexp_match (ex, case_li) -> 
     let (spec_ex, _) = infer_of_expression env pre_es acc(*True, Emp, []*) ex in 
     let (p_ex, es_ex, side_es) = normalSpec spec_ex in 
+    let rec fix_com_v2 inp_t inp_cases=
+       
+
+    in 
+    let startTimeStamp = Sys.time() in
+    let trace = fix_com_v2 es_ex case_li in 
+    let fixpoint_time = "[Fixpoint Time: " ^ string_of_float ((Sys.time() -. startTimeStamp) *. 1000.0) ^ " ms]" in
+    print_string (fixpoint_time);
+    ((p_ex, trace, side_es) , None)
+
+
+
+    (*
     let (policies:policy list) = List.fold_left (fun __acc a -> 
       let cuurent_p = 
         (let lhs = a.pc_lhs in 
@@ -1135,7 +1146,7 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr : (spec * residue) =
     print_string (fixpoint_time);
     ((p_ex, trace, side_es) , None)
 
-
+*)
 
     
   | Pexp_ident l -> 
