@@ -341,6 +341,30 @@ Proof.
     discriminate H.
 Qed.
 
+Lemma not_s_entails_rhs_imply_nullable_rhs:
+  forall (rhs: contEff) (s:string), 
+    entailment 2 [] (not s) rhs = true ->
+      nullable (derivitive rhs (zero s)) = true.
+Proof. 
+  intros rhs s.  
+  unfold entailment. unfold nullable. fold nullable.
+  unfold fst. fold fst. 
+  unfold reoccurTRS.  unfold normal. fold normal.
+  unfold map. unfold derivitive. fold derivitive. unfold fold_left.  
+  rewrite andb_true_l.
+  case_eq (entailFst (zero s) (zero s)).
+  - intro H. 
+    unfold nullable. fold nullable. unfold normal. fold normal. unfold compareEff. fold compareEff.
+    case_eq (nullable (derivitive rhs (zero s))). simpl. intros. reflexivity.
+    intros. discriminate H1.
+  - unfold entailFst. 
+    assert (aux := String.eqb_refl s).
+    rewrite aux.
+    intro H.
+    discriminate H.
+Qed.
+
+
 Lemma bool_trans:
   forall (a b c: bool), a = b  -> a = c -> b = c.
 Proof.
@@ -408,8 +432,30 @@ Proof.
            exact (bot_entails_everything (derivitive rhs (one s0))).
       * unfold entailFst. 
          exact (bot_entails_everything (derivitive rhs any)).
+  - intros. 
+    unfold derivitive. fold derivitive. exists 2. 
+    intro H. 
+    assert (H1:= (not_s_entails_rhs_imply_nullable_rhs rhs s H)).
+    + induction f.
+      * unfold entailFst.
+        exact (bot_entails_everything (derivitive rhs (one s0))).
+      * unfold entailFst.
+        case_eq ((s0 =? s)%string ).
+        -- intros.  unfold entailment. unfold nullable. fold nullable.
+           Search (String.eqb).
+           assert (H_temp := String.eqb_eq s0 s).
+           destruct H_temp as [Hn Hm].
+           assert (equla := Hn H0).
+           rewrite equla.
+           rewrite H1.
+           unfold reoccurTRS. fold reoccurTRS.
+           unfold fst. fold fst. unfold map. unfold fold_left. reflexivity.
+       -- intros. 
+          exact (bot_entails_everything (derivitive rhs (one s0))). 
+      * unfold entailFst.
+        exact (bot_entails_everything (derivitive rhs any)).
   - 
-
+        
 
 
 Qed.
