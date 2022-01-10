@@ -386,9 +386,35 @@ Proof.
       discriminate dis.
   - intros. unfold derivitive. fold derivitive. exists 1. intro.
     exact (bot_entails_everything (derivitive rhs f)).
-  - intros. unfold derivitive. fold derivitive. exists 2. 
-    intro H. unfold entailment. fold entailment.
+  - intros. 
+    unfold derivitive. fold derivitive. exists 2. 
+    intro H. 
+    assert (H1:= (singleton_entails_rhs_imply_nullable_rhs rhs s H)).
+    + induction f.
+      * unfold entailFst.
+        case_eq ((s0 =? s)%string ).
+        -- intros.  unfold entailment. unfold nullable. fold nullable.
+           Search (String.eqb).
+           assert (H_temp := String.eqb_eq s0 s).
+           destruct H_temp as [Hn Hm].
+           assert (equla := Hn H0).
+           apply a_b in a.
+           rewrite H1 in equla.
+           Check (Hn H0).
+           Check (String.eqb_eq s0 s H0).
+        
+        rewrite (String.eqb s0 s).
+    unfold entailment. fold entailment. unfold nullable. fold nullable.
+    unfold reoccurTRS.
+    case_eq (nullable (derivitive rhs f)). intros.
+    + unfold derivitive. fold derivitive. unfold fst. unfold map.
+      unfold  fold_left. reflexivity.
+
+
     Search (Nat.eqb).
+    
+
+    
     intro H. 
     
 
