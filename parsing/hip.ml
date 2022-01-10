@@ -519,7 +519,6 @@ let call_function (pre_es:es) fnName (li:(arg_label * expression) list) (acc:spe
       (spec, residue)
     
     else if String.compare name "continue" == 0 then 
-      
       let (policy:spec) = List.fold_left (
         fun (acc_pi, acc_es, acc_side) (_, a_post) -> 
           (acc_pi, Cons(acc_es, a_post), acc_side)) acc arg_eff in 
@@ -1105,13 +1104,15 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr cont: (spec * residu
       let rhs = a.pc_rhs in 
       (match lhs.ppat_desc with 
        | Ppat_effect (p1, _) ->  if String.compare (string_of_pattern p1) str_pred == 0 
-          then let ((_, t, _), _) = infer_of_expression env pre_es (True, Emp, []) rhs continue_k in t
+          then 
+          (print_string ("handling: "^ Pprintast.string_of_expression rhs^"\n");
+          let ((_, t, _), _) = infer_of_expression env pre_es (True, Emp, []) rhs continue_k in t)
           else find_policy str_pred xs continue_k
        | Ppat_exception p1 -> if String.compare (string_of_pattern p1) str_pred == 0
           then let ((_, t, _), _) = infer_of_expression env pre_es (True, Emp, []) rhs continue_k in t
            else find_policy str_pred xs  continue_k
-       | _ -> 
-         let ((_, t, _), _) = infer_of_expression env pre_es (True, Emp, []) rhs continue_k in t
+       | _ -> find_policy str_pred xs continue_k
+         
       )
     in 
       
@@ -1127,6 +1128,8 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr cont: (spec * residu
           let continue_k = normalES (derivative inp_es f) in 
           print_string ("continuation trace: " ^ string_of_es continue_k ^"\n") ; 
           let handling_es = find_policy str inp_cases continue_k in 
+          print_string ("handling trace: " ^ string_of_es handling_es ^"\n") ; 
+
           let insert_trace = fix_com_v2 handling_es inp_cases in 
 
           insert_trace 
@@ -1137,6 +1140,7 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr cont: (spec * residu
       List.fold_left (fun acc a -> ESOr (acc,  a)) Bot traces 
     in 
     let startTimeStamp = Sys.time() in
+    print_string (string_of_int (List.length case_li)^ "\n");
     let trace = fix_com_v2 es_ex case_li in 
     let fixpoint_time = "[Fixpoint Time: " ^ string_of_float ((Sys.time() -. startTimeStamp) *. 1000.0) ^ " ms]" in
     print_string (fixpoint_time);
