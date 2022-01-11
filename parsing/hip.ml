@@ -522,7 +522,7 @@ let call_function (pre_es:es) fnName (li:(arg_label * expression) list) (acc:spe
       let (policy:spec) = List.fold_left (
         fun (acc_pi, acc_es, acc_side) (_, a_post) -> 
           (acc_pi, Cons(acc_es, a_post), acc_side)) acc arg_eff in 
-      print_string ("contonue : " ^ string_of_spec (add_es_to_spec policy cont) ^ "\n");
+      print_string ("contonue : " ^ string_of_spec (normalSpec (add_es_to_spec policy cont)) ^ "\n");
       (add_es_to_spec policy cont, None)
       (*
       (acc, None)
@@ -862,134 +862,13 @@ let rec fixpoint_compute (es:es) (policies:policy list) : es =
 
 
 
-(*
-let rec fixpoint_compute (es:es) (policies:policy list) : es = 
-  match normalES es with 
-  | Predicate (ins)  -> 
-
-    let (str_pred, _) = ins in 
-    let trace = findPolicy str_pred policies in 
-    (* this mappings is a reversed list of Q(EFF) -> ES *)
-    let rec helper (mappings:((string*es)list)) (acc_event:event list) (index:int): es =
-      if (List.length acc_event) <= index then 
-        List.fold_left (fun acc (_, a) -> Cons (acc, a)) Emp (List.rev mappings)
-      else 
-        (
-        match getEleFromListByIndex acc_event index with 
-        | One str -> 
-            let (hd_eff, hd_es) = List.hd mappings in 
-            let new_mappings = (hd_eff, Cons (hd_es, Event str)) :: (List.tl mappings) in 
-            helper new_mappings acc_event (index + 1)
-        | Pred (curName, _) -> 
-            (match reoccor_continue (List.rev (List.tl mappings)) curName 0 with 
-            | Some start -> 
-              if index == (List.length acc_event -1 ) then 
-              formLoop (List.rev ((List.tl mappings))) start
-              else raise (Foo ("stack overlow recursive policy"))
-            | None -> 
-              let continueation = findPolicy curName policies in 
-              
-              let (list_list_ev:event list list) = get_the_Sequence continueation [] in 
-              
-              List.fold_left (fun acc_es list_ev -> 
-           
-              let ((str, tempH), tempTL) = (List.hd mappings, List.tl mappings) in 
-              let new_mappings = (curName, Emp) :: (str, Cons (tempH, Event (curName))) :: tempTL in 
-              
-              ESOr (acc_es, helper new_mappings (insertMiddle acc_event (index ) list_ev) (index ))) Bot list_list_ev
-            
-          )
-        | _ -> raise (Foo "policy not possible ")
-
-        )
-
-    in 
-    let traces = get_the_Sequence trace [] in 
-    let res = List.fold_left (fun acc_es list_ev -> 
-      ESOr (acc_es, helper [(str_pred, Emp)] list_ev 0)) 
-    Bot traces in 
-
-
-    res 
-    
-
-   
-  | Cons (es1, es2) -> Cons (fixpoint_compute es1 policies, fixpoint_compute es2 policies)
-  | ESOr (es1, es2) -> ESOr (fixpoint_compute es1 policies, fixpoint_compute es2 policies)
-  | Kleene es1 -> Kleene (fixpoint_compute es1 policies)
-  | Omega es1 -> Omega (fixpoint_compute es1 policies)
-  | _ -> es
-*)
-
-(*
-let rec expression_To_stack_content  (expr:expression): stack_content option  =
-  match (expr.pexp_desc) with 
-  | Pexp_ident l -> Some (Variable (getIndentName l ))
-  | Pexp_constant cons ->
-      (match cons with 
-      | Pconst_integer (str, _) -> Some (Cons (int_of_string str))
-      | _ -> None
-      )
-  | Pexp_apply (fnName, li) -> 
-    let name = fnNameToString fnName in 
-    let temp = List.map (fun (_, a) -> expression_To_stack_content a ) li in 
-    let rec aux li acc =
-      match acc with 
-      | None -> None
-      | Some acc -> (
-        match li with 
-        | [] -> Some acc
-        | None::_ -> None
-        | (Some con) :: xs -> aux xs (Some (List.append acc [con]))
-      )
-      
-    in (match (aux temp (Some []) ) with 
-    | None -> None 
-    | Some li -> Some (Apply (name, li))
-    )
-
-  | _ -> None 
-
-;;
-*)
-
 let residueToPredeciate (residue:residue):es = 
   match residue with 
   | None -> Emp
   | Some res -> Predicate res 
   ;;
 
-(*let pre_compute_policy (policies:policy list ) : policy list = 
-  let helper p : policy = 
-    match p with 
-    | Eff (str, es) -> 
-      let rec aux esIn : es = 
-        match esIn with 
-        | Predicate (str_pred, _) -> 
-          let rec auxaux pp : es =
-            match pp with 
-            | [] -> raise (Foo ("Policy is not well defined"))
-            | (Eff (strIn, esIn)) ::xs  -> 
-              if String.compare strIn str_pred == 0 then esIn else auxaux xs
-            | _ :: xs -> auxaux xs
-          in auxaux policies
 
-        | Cons (es1, es2) -> Cons (aux es1, aux es2)
-        | ESOr (es1, es2) -> ESOr (aux es1, aux es2)
-        | Kleene es1 -> Kleene (aux es1)
-        | Omega es1 -> Omega (aux es1)
-        | _ -> esIn
-      in Eff (str, aux es) 
-      
-
-    | _ -> p 
-
-  in List.map (fun a -> 
-    match helper a with 
-    | Eff (str, es) -> Eff (str, normalES es)
-    | _ -> helper a
-    ) policies
-*)
 
 let devideContinuation (expr:expression): (expression list * expression list) = 
   let rec helper (ex:expression) : expression list = 
@@ -1080,9 +959,6 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr cont: (spec * residu
     
     infer_of_expression (Env.add_stack stack_up env) pre_es new_acc expr cont
 
-    
-
-
 
   | Pexp_construct _ -> 
       (acc, None)
@@ -1096,9 +972,9 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr cont: (spec * residu
   | Pexp_match (ex, case_li) -> 
     let (spec_ex, _) = infer_of_expression env pre_es acc(*True, Emp, []*) ex cont in 
     let (p_ex, es_ex, side_es) = normalSpec spec_ex in 
-    let rec find_policy str_pred cases continue_k : es  = 
+    let rec find_policy str_pred cases continue_k :  es option  = 
       match cases with
-    | [] -> Emp
+    | [] -> None
     | (a)::xs -> 
       let lhs = a.pc_lhs in 
       let rhs = a.pc_rhs in 
@@ -1106,10 +982,10 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr cont: (spec * residu
        | Ppat_effect (p1, _) ->  if String.compare (string_of_pattern p1) str_pred == 0 
           then 
           (print_string ("handling: "^ Pprintast.string_of_expression rhs^"\n");
-          let ((_, t, _), _) = infer_of_expression env pre_es (True, Emp, []) rhs continue_k in t)
+          let ((_, t, _), _) = infer_of_expression env pre_es (True, Emp, []) rhs continue_k in Some t)
           else find_policy str_pred xs continue_k
        | Ppat_exception p1 -> if String.compare (string_of_pattern p1) str_pred == 0
-          then let ((_, t, _), _) = infer_of_expression env pre_es (True, Emp, []) rhs continue_k in t
+          then let ((_, t, _), _) = infer_of_expression env pre_es (True, Emp, []) rhs continue_k in Some t
            else find_policy str_pred xs  continue_k
        | _ -> find_policy str_pred xs continue_k
          
@@ -1128,7 +1004,10 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr cont: (spec * residu
           let continue_k = normalES (derivative inp_es f) in 
           print_string ("continuation trace: " ^ string_of_es continue_k ^"\n") ; 
           let handling_es = find_policy str inp_cases continue_k in 
-          print_string ("handling trace: " ^ string_of_es handling_es ^"\n") ; 
+          match handling_es with 
+          | None -> Cons (Predicate ins, fix_com_v2 (derivative inp_es f) inp_cases) 
+          | Some handling_es -> 
+          print_string ("handling trace: " ^ string_of_es (normalES handling_es) ^"\n") ; 
 
           let insert_trace = fix_com_v2 handling_es inp_cases in 
 
@@ -1206,16 +1085,7 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr cont: (spec * residu
 
   | Pexp_constant _ -> (acc, None) (*((True, Emp, []), None)*)
 
-  (*
-  | Pexp_let (_rec, bindings, c) -> 
 
-    let env =
-      List.fold_left (fun env vb ->
-        let _, _, _, env, _ = infer_value_binding env vb in env) env bindings
-    in
-
-    infer_of_expression env acc c
-    *)
   | Pexp_try (body, _cases) -> 
     (* TODO do cases *)
     infer_of_expression env pre_es acc body cont
