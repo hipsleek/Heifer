@@ -1060,6 +1060,7 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr cont: (spec * residu
 
           match reoccor_continue (new_mapping) insFName 0 with 
           | Some _ 
+            (* TODO reoccur's condition is not done *)
             (* 
             match normalES (derivative f_es f) with
             | Emp -> Emp
