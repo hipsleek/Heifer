@@ -9,15 +9,13 @@ Open Scope string_scope.
 Require Import Coq.Program.Wf.
 Require Import Coq.Arith.Plus.
 
-Inductive sigma : Type := a | b. 
-
 Inductive contEff : Type :=
 | bot
 | emp
 | wildcard
 | stop
-| singleton (s: sigma)
-| not       (s: sigma)
+| singleton (s: string)
+| not       (s:string)
 | cons      (es1: contEff) (es2: contEff)
 | disj      (es1: contEff) (es2: contEff)
 | kleene    (es: contEff).
@@ -34,13 +32,6 @@ match records with
   | x::xs => (leftHy' (n-1) xs)
 end.
 
-Definition compareEvent (s1 s2: sigma): bool :=
-match (s1, s2) with 
-| (a, a) => true 
-| (b, b) => true 
-| _ => false 
-end.
-
 
 Fixpoint compareEff (eff1 eff2: contEff): bool :=
 match eff1, eff2 with
@@ -48,8 +39,8 @@ match eff1, eff2 with
 | emp, emp => true
 | stop, stop => true
 | wildcard, wildcard => true
-| singleton s1, singleton s2 => if compareEvent s1 s2 then true else false
-| not s1, not s2 => if compareEvent s1 s2 then true else false
+| singleton s1, singleton s2 => if String.eqb s1 s2 then true else false
+| not s1, not s2 => if String.eqb s1 s2 then true else false
 | cons e1 e2, cons e3 e4 => compareEff e1 e3 && compareEff e2 e4
 | disj e1 e2, disj e3 e4 => (compareEff e1 e3 && compareEff e2 e4) ||
                             (compareEff e1 e4 && compareEff e2 e3)
@@ -117,7 +108,7 @@ match eff with
 | kleene _     => true
 end.
 
-Inductive fstT : Type := one (s:sigma) | zero (s:sigma) | any.
+Inductive fstT : Type := one (s:string) | zero (s:string) | any.
 
 Fixpoint fst (eff:contEff): list fstT  :=
 match eff with
@@ -135,8 +126,8 @@ end.
 
 Definition entailFst (f1 f2 : fstT) : bool :=
   match f1, f2 with 
-  | one s1, one s2 => compareEvent s1 s2 
-  | zero s1, zero s2 => compareEvent s1 s2 
+  | one s1, one s2 => String.eqb s1 s2 
+  | zero s1, zero s2 => String.eqb s1 s2 
   | _, any => true
   | _, _ => false 
   end.
@@ -204,78 +195,6 @@ Definition entailmentShell (n:nat) (lhs rhs: contEff) : bool :=
   entailment n [] lhs rhs.
 
 
-(*
-Lemma nothing_entails_bot:
-  forall (rhs: contEff),
-    compareEff (normal rhs) bot = false -> 
-    exists n, entailment n [] rhs bot = false.
-Proof.
-  intro.
-  induction rhs.
-  - unfold compareEff.  intro. discriminate H.
-  - exists 1. unfold compareEff. unfold entailment.
-    unfold nullable.  reflexivity.
-  - exists 2. unfold compareEff. unfold entailment.
-    unfold nullable. fold nullable. unfold reoccurTRS. 
-    unfold fst. fold fst. 
-    unfold map. unfold map. 
-    unfold derivitive. unfold fst. 
-    unfold fold_left.
-    rewrite andb_true_l. unfold nullable. reflexivity.
-  - unfold compareEff. intro H. exists 1.
-    unfold entailment. unfold nullable. reflexivity.
-  - unfold compareEff. intro. exists 2.
-    unfold entailment. unfold nullable. unfold reoccurTRS.
-    unfold fst. fold fst. 
-    unfold map. unfold map. 
-    unfold derivitive. unfold entailFst.
-    case_eq  (compareEvent s s).
-    + intros. unfold fold_left. rewrite andb_true_l. reflexivity.
-    + unfold compareEvent.
-      induction s.
-      * intro. discriminate H0.
-      * intro. discriminate H0.
-  - unfold compareEff. intro. exists 2.
-    unfold entailment. unfold nullable. unfold reoccurTRS.
-    unfold fst. fold fst. 
-    unfold map. unfold map. 
-    unfold derivitive. unfold entailFst.
-    case_eq  (compareEvent s s).
-    + intros. unfold fold_left. rewrite andb_true_l. reflexivity.
-    + unfold compareEvent.
-      induction s.
-      * intro. discriminate H0.
-      * intro. discriminate H0.
-  - 
-    induction rhs1. 
-    induction rhs2.
-    + unfold normal. unfold compareEff. intros. discriminate H.
-    + unfold normal. unfold compareEff. intros. discriminate H.
-    + unfold normal. unfold compareEff. intros. discriminate H.
-    + unfold normal. unfold compareEff. intros. discriminate H.
-    + unfold normal. unfold compareEff. intros. discriminate H.
-    + unfold normal. unfold compareEff. intros. discriminate H.
-    + unfold normal. unfold compareEff. intros. discriminate H.
-    + unfold normal. unfold compareEff. intros. discriminate H.
-    + unfold normal. unfold compareEff. intros. discriminate H.
-    + intros. exists 3. unfold entailment. unfold nullable. fold nullable.
-      rewrite andb_true_l.  unfold derivitive. fold derivitive.
-      unfold nullable. fold nullable. unfold reoccurTRS.
-      rewrite andb_false_l. 
-      case_eq (nullable rhs2).
-      * intros. reflexivity. 
-      * intros. unfold normal. fold normal. fold fold_left. 
-        unfold fst. fold fst. unfold nullable. fold nullable. 
-        Search ([] ++ _ ). unfold map. fold map. unfold fold_left. 
-        fold fold_left.
-    + admit.
-    + admit.
-    + admit.
-    + admit.
-    + admit.
-    + 
-  *)
-
 Lemma bot_entails_everything:
   forall (rhs: contEff) , 
     entailment 1 [] bot rhs = true.
@@ -301,7 +220,7 @@ Proof.
 Qed.
 
 Lemma nullable_wildcard_any_imply_wildcard_one:
-  forall (eff: contEff) (s:sigma) (f:fstT), 
+  forall (eff: contEff) (s:string) (f:fstT), 
     nullable (derivitive eff any) = true ->
     nullable (derivitive eff f) = true.
 Proof. 
@@ -391,7 +310,7 @@ Qed.
 
 
 Lemma entailFstOne:
-  forall (s1 s2:sigma), compareEvent s1 s2 = true -> entailFst (one s1) (one s2) = true.
+  forall (s1 s2:string), String.eqb s1 s2 = true -> entailFst (one s1) (one s2) = true.
 Proof.
   intros s1 s2.
   unfold entailFst. intro. exact H.
@@ -399,7 +318,7 @@ Qed.
   
 
 Lemma singleton_entails_rhs_imply_nullable_rhs:
-  forall (rhs: contEff) (s:sigma), 
+  forall (rhs: contEff) (s:string), 
     entailment 2 [] (singleton s) rhs = true ->
       nullable (derivitive rhs (one s)) = true.
 Proof. 
@@ -415,35 +334,12 @@ Proof.
     unfold nullable. fold nullable. unfold normal. fold normal. unfold compareEff. fold compareEff.
     case_eq (nullable (derivitive rhs (one s))). simpl. intros. reflexivity.
     intros. discriminate H1.
-  - unfold entailFst.
-
-    induction s.
-    * unfold compareEvent. intro. discriminate H.
-    * unfold compareEvent. intro. discriminate H.
+  - unfold entailFst. 
+    assert (aux := String.eqb_refl s).
+    rewrite aux.
+    intro H.
+    discriminate H.
 Qed.
-
-Lemma not_s_entails_rhs_imply_nullable_rhs:
-  forall (rhs: contEff) (s:sigma), 
-    entailment 2 [] (not s) rhs = true ->
-      nullable (derivitive rhs (zero s)) = true.
-Proof. 
-  intros rhs s.  
-  unfold entailment. unfold nullable. fold nullable.
-  unfold fst. fold fst. 
-  unfold reoccurTRS.  unfold normal. fold normal.
-  unfold map. unfold derivitive. fold derivitive. unfold fold_left.  
-  rewrite andb_true_l.
-  case_eq (entailFst (zero s) (zero s)).
-  - intro H. 
-    unfold nullable. fold nullable. unfold normal. fold normal. unfold compareEff. fold compareEff.
-    case_eq (nullable (derivitive rhs (zero s))). simpl. intros. reflexivity.
-    intros. discriminate H1.
-  - unfold entailFst.
-    induction s.
-    * unfold compareEvent. intro. discriminate H.
-    * unfold compareEvent. intro. discriminate H.
-Qed.
-
 
 Lemma bool_trans:
   forall (a b c: bool), a = b  -> a = c -> b = c.
@@ -464,21 +360,6 @@ Proof.
       * intros. discriminate H0. 
       * intros. reflexivity.
 Qed. 
-
-Lemma compareEvent_entails :
-  forall (s0 s:sigma), 
-  compareEvent s0 s = true -> s0 = s.
-Proof.
-  intro. 
-  induction s0.
-  - intro. induction s.
-    * unfold compareEvent. intro. reflexivity.
-    * unfold compareEvent. intro. discriminate H.
-  - intro. induction s.
-    * unfold compareEvent. intro. discriminate H.
-    * unfold compareEvent. intro. reflexivity.
-Qed.
-
 
 
 Theorem soundnessTRS: 
@@ -511,49 +392,33 @@ Proof.
     assert (H1:= (singleton_entails_rhs_imply_nullable_rhs rhs s H)).
     + induction f.
       * unfold entailFst.
-        case_eq (compareEvent s0 s).
+        case_eq ((s0 =? s)%string ).
         -- intros.  unfold entailment. unfold nullable. fold nullable.
-           assert (H_temp := compareEvent_entails s0 s H0).
-           rewrite H_temp.
-           rewrite H1.
-           unfold reoccurTRS. fold reoccurTRS.
-           unfold fst. fold fst. unfold map. unfold fold_left. reflexivity.
-        -- intros.
-           exact (bot_entails_everything (derivitive rhs (one s0))). 
-      * unfold entailFst.
-           exact (bot_entails_everything (derivitive rhs (one s0))).
-      * unfold entailFst. 
-         exact (bot_entails_everything (derivitive rhs any)).
-  - intros. 
-    unfold derivitive. fold derivitive. exists 2. 
+           Search (String.eqb).
+           assert (H_temp := String.eqb_eq s0 s).
+           destruct H_temp as [Hn Hm].
+           assert (equla := Hn H0).
+           apply equla in H1.
+           rewrite  in equla.
+           Check (Hn H0).
+           Check (String.eqb_eq s0 s H0).
+        
+        rewrite (String.eqb s0 s).
+    unfold entailment. fold entailment. unfold nullable. fold nullable.
+    unfold reoccurTRS.
+    case_eq (nullable (derivitive rhs f)). intros.
+    + unfold derivitive. fold derivitive. unfold fst. unfold map.
+      unfold  fold_left. reflexivity.
+
+
+    Search (Nat.eqb).
+    
+
+    
     intro H. 
-    assert (H1:= (not_s_entails_rhs_imply_nullable_rhs rhs s H)).
-    + induction f.
-      * unfold entailFst.
-        exact (bot_entails_everything (derivitive rhs (one s0))).
-      * unfold entailFst.
-        case_eq (compareEvent s0 s).
-        -- intros.  unfold entailment. unfold nullable. fold nullable.
-           assert (H_temp := compareEvent_entails s0 s H0).
-           rewrite H_temp.
-           unfold reoccurTRS. rewrite H1. 
-           unfold fst. fold fst. unfold map. unfold fold_left. reflexivity.
-       -- intros. 
-          exact (bot_entails_everything (derivitive rhs (one s0))). 
-      * unfold entailFst.
-        exact (bot_entails_everything (derivitive rhs any)).
-  - intro rhs. induction rhs. 
-    + unfold entailment. 
-  - admit.
-
     
-  -  intros. exists 2.
-     unfold entailment.  unfold nullable. fold nullable.
-     unfold reoccurTRS.
 
-        
-        
-    
+
 Qed.
 
 

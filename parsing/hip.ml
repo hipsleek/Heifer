@@ -883,7 +883,7 @@ let devideContinuation (expr:expression): (expression list * expression list) =
         if String.compare (fnNameToString fnName) "continue" == 0 
         then 
           (
-          List.append before [x], xs)
+          before , List.append  [x] xs )
         else aux xs (List.append before [x])
       |_ -> aux xs (List.append before [x])
   in let (esLiBefore, esLiAfter) = aux esList [] in 
@@ -989,9 +989,79 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr cont: (spec * residu
     let (spec_ex, _) = infer_of_expression env pre_es acc(*True, Emp, []*) ex cont in 
     let (p_ex, es_ex, side_es) = normalSpec spec_ex in 
 
+    (* VERSION 3 *)
+    let policies = List.map (fun a ->
+      let lhs = a.pc_lhs in 
+      let rhs = a.pc_rhs in 
+      
+      (match lhs.ppat_desc with 
+      | Ppat_effect (p1, _) 
+      | Ppat_exception p1   -> 
+        let (beforeCont, afterCont) = devideContinuation rhs in 
+        (string_of_pattern p1, beforeCont, afterCont)
+      | _ -> 
+        let (beforeCont, afterCont) = devideContinuation rhs in 
+        ("normal", beforeCont, afterCont)
+      )
+    ) case_li in 
+    let rec find_policy_before name li = 
+      match li with 
+      | [] -> []
+      | (str, before, _) :: xs -> if String.compare str name == 0 then before else find_policy_before name xs
+    in 
+    let rec find_policy_after name li =
+      match li with 
+      | [] -> raise (Foo (name ^ "'s handler is not defined\n"))
+      | (str, _, after) :: xs -> if String.compare str name == 0 then after else find_policy_after name xs
+    in 
+    let sequencing li cont'= List.fold_left (fun _acc a -> 
+            let ((_, es, _), _) = infer_of_expression env pre_es (True, Emp, []) a cont' in 
+            Cons (_acc, es)
+            ) Emp li in 
+
+    let rec going_through_f_spec f_es : es = 
+      let fsts = fst f_es in 
+      let disjunctions = List.map (fun f -> 
+        match f with
+        | One str ->  
+          let expre_li = find_policy_before str policies in 
+          Cons (Cons (Event str, sequencing expre_li Emp), going_through_f_spec (derivative f_es f))
+        | Zero str -> Cons (Not str, going_through_f_spec (derivative f_es f)) 
+        | Any -> Cons (Underline, going_through_f_spec (derivative f_es f)) 
+        | Pred (ins) -> 
+          let (insFName, _) = ins in 
+          let expre_li = find_policy_after insFName policies in 
+          if List.length expre_li == 0 then Emp 
+          else 
+            let normal_es = sequencing (find_policy_after "normal" policies) Emp in 
+
+            let continue_k = normalES (derivative f_es f) in 
+            print_string (string_of_int (List.length expre_li) ^"\n");
+            let cont = List.hd expre_li in
+            let after_cont = List.tl expre_li in 
+            let ((_, fixpoint_trace_insert, _), _) = infer_of_expression env pre_es (True, Emp, []) cont continue_k in 
+            let insterting = going_through_f_spec fixpoint_trace_insert in 
+            let trace_after_instert = sequencing after_cont continue_k in 
+            print_string (string_of_es (normalES trace_after_instert)^ "\n");
+            Cons (insterting, Cons (trace_after_instert, normal_es))
 
 
+      ) fsts in 
+      if (List.length disjunctions == 0) then Emp else 
+      List.fold_left (fun acc a -> ESOr (acc,  a)) Bot disjunctions 
+    in 
+    let startTimeStamp = Sys.time() in
+    print_string ((*string_of_int (List.length case_li)^*) "\n=============== \n ");
+    let trace = going_through_f_spec es_ex in 
+    let fixpoint_time = "[Fixpoint Time: " ^ string_of_float ((Sys.time() -. startTimeStamp) *. 1000.0) ^ " ms]" in
+    print_string (fixpoint_time);
+    ((p_ex, trace, side_es) , None)
 
+
+    
+
+
+(*
     (* VERSION 2 *)
     let rec find_policy str_pred cases continue_k = 
       match cases with
@@ -1012,55 +1082,30 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr cont: (spec * residu
     in 
     
     (* this mappings is a reversed list of Q(EFF) -> ES  ((string*es)list)*)
-    let rec fix_com_v2 inp_es inp_cases (mappings: ((string*es)list)) (current : (string*es)) : es=
+    let rec fix_com_v2 inp_es inp_cases : es=
       let fsts = fst inp_es in 
       let traces = List.map (fun f ->
         match f with 
         | One str ->  
           
-          let (hd_eff, hd_es) = current in 
-          let current = (hd_eff, Cons (hd_es, Event str)) in 
-          Cons (Event str, fix_com_v2 (derivative inp_es f) inp_cases mappings current)
+          
+          Cons (Event str, fix_com_v2 (derivative inp_es f) inp_cases)
           
 
 
         | Zero str -> 
-                Cons (Not str, fix_com_v2 (derivative inp_es f) inp_cases mappings current) 
+                Cons (Not str, fix_com_v2 (derivative inp_es f) inp_cases) 
         | Any -> 
-                Cons (Underline, fix_com_v2 (derivative inp_es f) inp_cases mappings current) 
+                Cons (Underline, fix_com_v2 (derivative inp_es f) inp_cases) 
         | Pred (ins) -> 
           let (insFName, _) = ins in 
-          match reoccor_continue (mappings) insFName 0 with 
-          | Some start -> formLoop (List.rev ( mappings)) start
-          | None -> let mappings = List.append mappings [current] in 
-                    let current = (insFName, Emp) in 
-
-
-          (*
-                      let nextState () = 
-              let (hd_eff, hd_es) = List.hd mappings in 
-              let new_mappings = (hd_eff, Cons (hd_es, f)) :: (List.tl mappings) in 
-              helper new_mappings (derivative_plus cur_trace f)
-            in 
-            let temp_f:es = 
-              match f with 
-              | Predicate (insFName, _) -> 
-                (
-                  match reoccor_continue (List.rev (mappings)) insFName 0 with 
-
-                  | Some start -> 
-                    match normalES (derivative_plus cur_trace f) with 
-                    | Emp -> 
-                    | _ -> raise (Foo ("stack overlow recursive policy"))
-                  
-                )
-          *)
+          
 
           let continue_k = normalES (derivative inp_es f) in 
           (*print_string ("continuation trace: " ^ string_of_es continue_k ^"\n") ; *)
           let handling_es = find_policy insFName inp_cases continue_k in 
           match handling_es with 
-          | None -> Cons (Predicate ins, fix_com_v2 (derivative inp_es f) inp_cases mappings current) 
+          | None -> Cons (Predicate ins, fix_com_v2 (derivative inp_es f) inp_cases) 
           | Some handling -> 
               (*
               (* Version 2-1 *)
@@ -1077,7 +1122,7 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr cont: (spec * residu
                     Cons (_acc, es)
                   ) Emp piece in
 
-                  fix_com_v2 handling_es inp_cases mappings current
+                  fix_com_v2 handling_es inp_cases
                   
               ) code_pieces in 
               List.fold_left (fun acc a -> Cons (acc, a)) Emp insert_traces
@@ -1090,12 +1135,12 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr cont: (spec * residu
     in 
     let startTimeStamp = Sys.time() in
     print_string ((*string_of_int (List.length case_li)^*) "\n=============== \n ");
-    let trace = fix_com_v2 es_ex case_li [] ("null" ,Emp) in 
+    let trace = fix_com_v2 es_ex case_li in 
     let fixpoint_time = "[Fixpoint Time: " ^ string_of_float ((Sys.time() -. startTimeStamp) *. 1000.0) ^ " ms]" in
     print_string (fixpoint_time);
     ((p_ex, trace, side_es) , None)
 
-
+*)
 
     (*
     (* VERSION 1 *)

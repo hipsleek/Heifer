@@ -11,7 +11,7 @@ let f ()
 
 let res 
   (*@ requires _^* @*)
-  (*@ ensures  Foo.Goo @*)
+  (*@ ensures  Foo.Goo.Foo.Q(Foo()) @*)
   =
   match f () with
   | _ -> print_string("normal\n") ; ()

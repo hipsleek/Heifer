@@ -26,6 +26,7 @@ let res11 ()
   | effect Foo k ->  continue k (fun () -> ()); print_string ("Goo\n"); perform Goo ()
 
 
+
 let handler11 () 
   (*@ requires _^* @*)
   (*@ ensures  Foo.Foo.Goo.Goo @*)
@@ -44,6 +45,10 @@ let res2 ()
   | effect Foo k ->  ()
 
 
+
+
+
+
 let res3 ()
   (*@ requires _^* @*)
   (*@ ensures  (Foo).(Goo).Q(Goo ()).(Foo).(Goo).Q(Goo ()) @*)
@@ -53,6 +58,7 @@ let res3 ()
   | _ -> ()
   | effect Foo k ->  print_string ("Goo\n"); perform Goo (); continue k (fun () -> ())
 
+
 let handler3 
   (*@ requires _^* @*)
   (*@ ensures  Foo.Goo.Foo.Goo @*)
@@ -60,8 +66,6 @@ let handler3
   match res3 () with 
   | _ -> ()
   | effect Goo k -> continue k (fun () -> ())
-
-
 
 
 let res4 () 
@@ -73,6 +77,12 @@ let res4 ()
   | effect Foo k ->  print_string ("Goo\n"); perform Goo (); ()
 
 
+
+
+
+
+
+
 let res41 () 
   (*@ requires _^* @*)
   (*@ ensures  Foo.Goo.Q(Goo()).Foo.Goo.Q(Goo()) @*)
@@ -80,6 +90,7 @@ let res41 ()
   match f () with
   | _ -> ()
   | effect Foo k ->  print_string ("Goo\n"); perform Goo (); continue k (fun () -> ())
+
 
 let handler4 () 
   (*@ requires _^* @*)
@@ -89,7 +100,6 @@ let handler4 ()
   | _ -> ()
   | effect Goo k -> continue k (fun () -> ())
 
-  
 let handler41 () 
   (*@ requires _^* @*)
   (*@ ensures  Foo.Goo.Foo.Goo @*)
@@ -106,3 +116,11 @@ let handler411 ()
   | _ -> ()
   | effect Goo k -> ()
 
+(*
+
+
+  
+
+
+
+*)
