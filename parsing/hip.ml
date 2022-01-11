@@ -803,7 +803,7 @@ let rec fixpoint_compute (es:es) (policies:policy list) : es =
   | Predicate (ins)  -> 
     let (str_pred, _) = ins in 
     let (traceBefore, traceAfter) = findPolicy str_pred policies in 
-    (* this mappings is a reversed list of Q(EFF) -> ES *)
+    (* this mappings is a reversed list of Q(EFF) -> ES  ((string*es)list)*)
     let rec helper (mappings:((string*es)list)) (cur_trace: es) : es =
       let cur_trace = normalES cur_trace in 
       match cur_trace with 
@@ -989,6 +989,9 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr cont: (spec * residu
     let (spec_ex, _) = infer_of_expression env pre_es acc(*True, Emp, []*) ex cont in 
     let (p_ex, es_ex, side_es) = normalSpec spec_ex in 
 
+
+
+
     (* VERSION 2 *)
     let rec find_policy str_pred cases continue_k = 
       match cases with
@@ -1007,21 +1010,57 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr cont: (spec * residu
          
       )
     in 
-      
-    let rec fix_com_v2 inp_es inp_cases : es=
+    
+    (* this mappings is a reversed list of Q(EFF) -> ES  ((string*es)list)*)
+    let rec fix_com_v2 inp_es inp_cases (mappings: ((string*es)list)) (current : (string*es)) : es=
       let fsts = fst inp_es in 
       let traces = List.map (fun f ->
         match f with 
-        | One str ->  Cons (Event str, fix_com_v2 (derivative inp_es f) inp_cases) 
-        | Zero str -> Cons (Not str, fix_com_v2 (derivative inp_es f) inp_cases) 
-        | Any -> Cons (Underline, fix_com_v2 (derivative inp_es f) inp_cases) 
+        | One str ->  
+          
+          let (hd_eff, hd_es) = current in 
+          let current = (hd_eff, Cons (hd_es, Event str)) in 
+          Cons (Event str, fix_com_v2 (derivative inp_es f) inp_cases mappings current)
+          
+
+
+        | Zero str -> 
+                Cons (Not str, fix_com_v2 (derivative inp_es f) inp_cases mappings current) 
+        | Any -> 
+                Cons (Underline, fix_com_v2 (derivative inp_es f) inp_cases mappings current) 
         | Pred (ins) -> 
-          let (str, _) = ins in 
+          let (insFName, _) = ins in 
+          match reoccor_continue (mappings) insFName 0 with 
+          | Some start -> formLoop (List.rev ( mappings)) start
+          | None -> let mappings = List.append mappings [current] in 
+                    let current = (insFName, Emp) in 
+
+
+          (*
+                      let nextState () = 
+              let (hd_eff, hd_es) = List.hd mappings in 
+              let new_mappings = (hd_eff, Cons (hd_es, f)) :: (List.tl mappings) in 
+              helper new_mappings (derivative_plus cur_trace f)
+            in 
+            let temp_f:es = 
+              match f with 
+              | Predicate (insFName, _) -> 
+                (
+                  match reoccor_continue (List.rev (mappings)) insFName 0 with 
+
+                  | Some start -> 
+                    match normalES (derivative_plus cur_trace f) with 
+                    | Emp -> 
+                    | _ -> raise (Foo ("stack overlow recursive policy"))
+                  
+                )
+          *)
+
           let continue_k = normalES (derivative inp_es f) in 
           (*print_string ("continuation trace: " ^ string_of_es continue_k ^"\n") ; *)
-          let handling_es = find_policy str inp_cases continue_k in 
+          let handling_es = find_policy insFName inp_cases continue_k in 
           match handling_es with 
-          | None -> Cons (Predicate ins, fix_com_v2 (derivative inp_es f) inp_cases) 
+          | None -> Cons (Predicate ins, fix_com_v2 (derivative inp_es f) inp_cases mappings current) 
           | Some handling -> 
               (*
               (* Version 2-1 *)
@@ -1037,24 +1076,21 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr cont: (spec * residu
                     let ((_, es, _), _) = infer_of_expression env pre_es (True, Emp, []) a continue_k in 
                     Cons (_acc, es)
                   ) Emp piece in
-                  (*print_string ("handling trace: " ^ string_of_es (normalES handling_es) ^"\n") ; *)
-                  fix_com_v2 handling_es inp_cases
+
+                  fix_com_v2 handling_es inp_cases mappings current
                   
               ) code_pieces in 
               List.fold_left (fun acc a -> Cons (acc, a)) Emp insert_traces
               
 
               
-               
-
-          
       ) fsts in 
       if (List.length traces == 0) then Emp else 
       List.fold_left (fun acc a -> ESOr (acc,  a)) Bot traces 
     in 
     let startTimeStamp = Sys.time() in
-    print_string (string_of_int (List.length case_li)^ "\n=============== \n ");
-    let trace = fix_com_v2 es_ex case_li in 
+    print_string ((*string_of_int (List.length case_li)^*) "\n=============== \n ");
+    let trace = fix_com_v2 es_ex case_li [] ("null" ,Emp) in 
     let fixpoint_time = "[Fixpoint Time: " ^ string_of_float ((Sys.time() -. startTimeStamp) *. 1000.0) ^ " ms]" in
     print_string (fixpoint_time);
     ((p_ex, trace, side_es) , None)
@@ -1063,34 +1099,34 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr cont: (spec * residu
 
     (*
     (* VERSION 1 *)
-    let (policies:policy list) = List.fold_left (fun __acc a -> 
-      let cuurent_p = 
-        (let lhs = a.pc_lhs in 
-        let rhs = a.pc_rhs in 
-      
-        (match lhs.ppat_desc with 
-          | Ppat_effect (p1, _) -> 
-            let (beforeCont, afterCont) = devideContinuation rhs in 
-            let sequencing li = List.fold_left (fun _acc a -> 
-           
-              let ((_, es, _), _) = infer_of_expression env pre_es (True, Emp, []) a in 
-              Cons (_acc, es)
-              ) Emp li in 
-            
-            let esBefore = sequencing beforeCont in
-            let esAfter = sequencing afterCont in
-            [(Eff (string_of_pattern p1, normalES esBefore, normalES esAfter))]
-          | Ppat_exception p1 -> [(Exn (string_of_pattern p1))]
-          | _ -> 
-            let ((_, es, _), _) = infer_of_expression env pre_es (True, Emp, []) rhs in
-            [(Normal es)] 
-        )
-        )
-      in List.append __acc cuurent_p
-       
-      ) [] case_li in 
+
     
+        let (policies:policy list) = List.fold_left (fun __acc a -> 
+    let cuurent_p = 
+      (let lhs = a.pc_lhs in 
+      let rhs = a.pc_rhs in 
     
+      (match lhs.ppat_desc with 
+        | Ppat_effect (p1, _) -> 
+          let (beforeCont, afterCont) = devideContinuation rhs in 
+          let sequencing li = List.fold_left (fun _acc a -> 
+         
+            let ((_, es, _), _) = infer_of_expression env pre_es (True, Emp, []) a in 
+            Cons (_acc, es)
+            ) Emp li in 
+          
+          let esBefore = sequencing beforeCont in
+          let esAfter = sequencing afterCont in
+          [(Eff (string_of_pattern p1, normalES esBefore, normalES esAfter))]
+        | Ppat_exception p1 -> [(Exn (string_of_pattern p1))]
+        | _ -> 
+          let ((_, es, _), _) = infer_of_expression env pre_es (True, Emp, []) rhs in
+          [(Normal es)] 
+      )
+      )
+    in List.append __acc cuurent_p
+     
+    ) [] case_li in 
 
     
     (*
