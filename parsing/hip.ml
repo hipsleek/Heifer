@@ -1031,10 +1031,12 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr cont: (spec * residu
             ) Emp li in 
 
     let rec going_through_f_spec f_es mappings current: es = 
+      (*
       print_string (
         List.fold_left (fun acc (a, b) -> acc ^ "\n" ^ a ^ ": " ^ string_of_es (normalES b) ) "\n===\n" (List.append mappings [current]) ^ "\n"
 
       );
+      *)
       let fsts = fst f_es in 
       let disjunctions = List.map (fun f -> 
         match f with
@@ -1057,7 +1059,12 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr cont: (spec * residu
           let new_current = (insFName, Emp) in 
 
           match reoccor_continue (new_mapping) insFName 0 with 
-          | Some start -> formLoop1 ( new_mapping) start
+          | Some _ 
+            (* 
+            match normalES (derivative f_es f) with
+            | Emp -> Emp
+            | _ -> formLoop1 ( new_mapping) start
+            *)
           | None -> 
 
 
@@ -1075,7 +1082,7 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr cont: (spec * residu
             
 
             let trace_after_instert = sequencing after_cont continue_k in 
-            print_string (string_of_es (normalES trace_after_instert)^ "\n");
+            print_string ("trace after: " ^ string_of_es (normalES trace_after_instert)^ "\n");
             Cons (insterting, Cons (trace_after_instert, normal_es))
 
 
