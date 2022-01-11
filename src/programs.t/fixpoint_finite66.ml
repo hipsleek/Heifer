@@ -6,10 +6,8 @@ effect Goo : (unit -> unit)
 
 let f () 
 (*@ requires _^* @*)
-(*@ ensures  Foo.Q(Foo()).Foo.Q(Foo()) @*)
+(*@ ensures  Foo.Q(Foo()) @*)
   = print_string ("Foo\n");
-    perform Foo ();
-    print_string ("Foo\n");
     perform Foo ()
 
 
@@ -21,6 +19,16 @@ let res11 ()
   match f () with
   | _ -> ()
   | effect Foo k ->  continue k (fun () -> perform Foo ())
+
+let res12 () 
+  (*@ requires _^* @*)
+  (*@ ensures  Foo.((Goo.Foo)^*) @*)
+  =
+
+  match f () with
+  | _ -> ()
+  | effect Foo k ->  continue k (fun () -> perform Goo ())
+  | effect Goo k ->  continue k (fun () -> perform Foo ())
 
 (*
 

@@ -708,6 +708,17 @@ let formLoop (li:((string*es)list)) start : es =
   *)
   Cons (beforeLoop, Omega sublist)
 
+let formLoop1 (li:((string*es)list)) start : es = 
+
+
+  let (sublist:es) = List.fold_left (fun acc (_, a) -> Cons (acc, a)) Emp (sublist start (List.length li) li) in 
+
+  (*
+  print_string(string_of_list (List.map (fun (_, a) -> a) li) (string_of_es) ^ "\n"^ string_of_int (List.length li) ^ "\n" ^ string_of_int (start) ^ "\n" ^string_of_es beforeLoop ^ "\n" ^ string_of_es sublist);
+  
+  *)
+  Omega sublist
+
 (*let rec get_the_Sequence (es:es) : (string list) list =
   match fst es  with 
   | [] -> []
@@ -1019,28 +1030,50 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr cont: (spec * residu
             Cons (_acc, es)
             ) Emp li in 
 
-    let rec going_through_f_spec f_es : es = 
+    let rec going_through_f_spec f_es mappings current: es = 
+      print_string (
+        List.fold_left (fun acc (a, b) -> acc ^ "\n" ^ a ^ ": " ^ string_of_es (normalES b) ) "\n===\n" (List.append mappings [current]) ^ "\n"
+
+      );
       let fsts = fst f_es in 
       let disjunctions = List.map (fun f -> 
         match f with
         | One str ->  
+          let (cur_str, cur_es) =  current in 
+          let new_current = (cur_str, Cons (cur_es, Event str)) in 
           let expre_li = find_policy_before str policies in 
-          Cons (Cons (Event str, sequencing expre_li Emp), going_through_f_spec (derivative f_es f))
-        | Zero str -> Cons (Not str, going_through_f_spec (derivative f_es f)) 
-        | Any -> Cons (Underline, going_through_f_spec (derivative f_es f)) 
+          Cons (Cons (Event str, sequencing expre_li Emp), going_through_f_spec (derivative f_es f) mappings new_current)
+        | Zero str -> 
+          let (cur_str, cur_es) =  current in 
+          let new_current = (cur_str, Cons (cur_es, Not str)) in 
+          Cons (Not str, going_through_f_spec (derivative f_es f) mappings new_current ) 
+        | Any -> 
+          let (cur_str, cur_es) =  current in  
+          let new_current = (cur_str, Cons (cur_es, Underline)) in 
+          Cons (Underline, going_through_f_spec (derivative f_es f) mappings new_current) 
         | Pred (ins) -> 
           let (insFName, _) = ins in 
+          let new_mapping = List.append mappings [current] in 
+          let new_current = (insFName, Emp) in 
+
+          match reoccor_continue (new_mapping) insFName 0 with 
+          | Some start -> formLoop1 ( new_mapping) start
+          | None -> 
+
+
           let expre_li = find_policy_after insFName policies in 
           if List.length expre_li == 0 then Emp 
           else 
             let normal_es = sequencing (find_policy_after "normal" policies) Emp in 
 
             let continue_k = normalES (derivative f_es f) in 
-            print_string (string_of_int (List.length expre_li) ^"\n");
             let cont = List.hd expre_li in
             let after_cont = List.tl expre_li in 
             let ((_, fixpoint_trace_insert, _), _) = infer_of_expression env pre_es (True, Emp, []) cont continue_k in 
-            let insterting = going_through_f_spec fixpoint_trace_insert in 
+            let insterting = going_through_f_spec fixpoint_trace_insert new_mapping new_current in 
+
+            
+
             let trace_after_instert = sequencing after_cont continue_k in 
             print_string (string_of_es (normalES trace_after_instert)^ "\n");
             Cons (insterting, Cons (trace_after_instert, normal_es))
@@ -1052,7 +1085,7 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr cont: (spec * residu
     in 
     let startTimeStamp = Sys.time() in
     print_string ((*string_of_int (List.length case_li)^*) "\n=============== \n ");
-    let trace = going_through_f_spec es_ex in 
+    let trace = going_through_f_spec es_ex [] ("null", Emp) in 
     let fixpoint_time = "[Fixpoint Time: " ^ string_of_float ((Sys.time() -. startTimeStamp) *. 1000.0) ^ " ms]" in
     print_string (fixpoint_time);
     ((p_ex, trace, side_es) , None)
