@@ -106,29 +106,27 @@ let handler411 ()
   | _ -> ()
   | effect Goo k -> ()
 
+let res11 () 
+  (*@ requires _^* @*)
+  (*@ ensures  Foo^* @*)
+  =
+  match f () with
+  | _ -> ()
+  | effect Foo k ->  continue k (fun () -> perfrom Goo ())
 
 
-(*
+
 let res5 () 
   (*@ requires _^* @*)
   (*@ ensures  Foo.Foo.Foo @*)
   =
   match f () with
   | _ -> ()
-  | effect Foo k ->  continue k (fun () -> ()); 
-                     continue k (fun () -> ())
-
-
-let res6 () 
-  (*@ requires _^* @*)
-  (*@ ensures  Foo.Foo.Foo.Foo @*)
-  =
-  match f () with
-  | _ -> ()
   | effect Foo k ->  (continue (Obj.clone_continuation k) (fun () -> ())); 
-                     (continue (Obj.clone_continuation k) (fun () -> ())); 
                      continue k (fun () -> ())
 
+
+(*
 
 let main = 
   handler11 ()  

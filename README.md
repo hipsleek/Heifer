@@ -19,3 +19,7 @@ blocking/unblocking get. concurrency.
 
 dune exec parsing/hip.exe src/programs.t/t0_foo_loop.ml
 
+
+
+opam switch 4.10.0
+opam switch 4.12.0+domains+effects
