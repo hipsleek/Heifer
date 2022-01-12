@@ -6,8 +6,9 @@ effect Goo : (unit -> unit)
 
 let f () 
 (*@ requires _^* @*)
-(*@ ensures  Foo.Q(Foo()) @*)
+(*@ ensures  Foo.Q(Foo()).Foo.Q(Foo()) @*)
   = print_string ("Foo\n");
+    perform Foo ();
     perform Foo ()
 
 
@@ -30,7 +31,6 @@ let res12 ()
   | effect Foo k ->  continue k (fun () -> perform Goo ())
   | effect Goo k ->  continue k (fun () -> perform Foo ())
 
-(*
 
 let res5 () 
   (*@ requires _^* @*)
@@ -40,5 +40,8 @@ let res5 ()
   | _ -> ()
   | effect Foo k ->  (continue (Obj.clone_continuation k) (fun () -> ())); 
                      continue k (fun () -> ())
+
+(*
+
 
 *)

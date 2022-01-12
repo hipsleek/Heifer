@@ -877,15 +877,8 @@ let residueToPredeciate (residue:residue):es =
   | Some res -> Predicate res 
   ;;
 
-
-
-let devideContinuation (expr:expression): (expression list * expression list) = 
-  let rec helper (ex:expression) : expression list = 
-    match ex.pexp_desc with 
-    | Pexp_sequence (ex1, ex2) -> List.append (helper (ex1)) (helper (ex2))
-    | _ -> [ex]
-  in let esList = helper expr in 
-  let rec aux exLi before : (expression list * expression list) = 
+(* this function returns two expression list, before continue and after(including) continue *)
+let rec devideContinuation_aux exLi before : (expression list * expression list) = 
     match exLi with 
     | [] -> (before, [])
     | x :: xs -> 
@@ -895,11 +888,37 @@ let devideContinuation (expr:expression): (expression list * expression list) =
         then 
           (
           before , List.append  [x] xs )
-        else aux xs (List.append before [x])
-      |_ -> aux xs (List.append before [x])
-  in let (esLiBefore, esLiAfter) = aux esList [] in 
+        else devideContinuation_aux xs (List.append before [x])
+      |_ -> devideContinuation_aux xs (List.append before [x])
+      ;;
+
+let partitionContinue (expr:expression list): (expression list) list = 
+  let rec helper li acc cur = 
+    match li with 
+    | [] -> List.append acc [cur]
+    | x::xs -> 
+      match x.pexp_desc with 
+      | (Pexp_apply (fnName, _)) -> 
+      if String.compare (fnNameToString fnName) "continue" == 0 
+      then 
+        helper xs (List.append acc [cur]) [x]
+      else helper xs acc (List.append cur [x])
+      |_ -> helper xs acc (List.append cur [x])
+  in 
+  helper expr [] []
+  ;;
+
+let devideContinuation (expr:expression): (expression list * expression list) = 
+  let rec helper (ex:expression) : expression list = 
+    match ex.pexp_desc with 
+    | Pexp_sequence (ex1, ex2) -> List.append (helper (ex1)) (helper (ex2))
+    | _ -> [ex]
+  in let esList = helper expr in 
+  let (esLiBefore, esLiAfter) = devideContinuation_aux esList [] in 
   (esLiBefore, esLiAfter) 
   ;;
+
+
 
 let devideContinuation1 (expr:expression): (expression list list) = 
   let rec helper (ex:expression) : expression list = 
@@ -1059,12 +1078,6 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr cont: (spec * residu
 
           match reoccor_continue (new_mapping) insFName 0 with 
           | Some start -> formLoop1 ( new_mapping) start
-            (* TODO reoccur's condition is not done *)
-            (* 
-            match normalES (derivative f_es f) with
-            | Emp -> Emp
-            | _ -> formLoop1 ( new_mapping) start
-            *)
           | None -> 
 
 
@@ -1080,11 +1093,31 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr cont: (spec * residu
             let insterting = going_through_f_spec fixpoint_trace_insert new_mapping new_current in 
             let insterting2 = going_through_f_spec continue_k [] ("null", Emp) in  
 
+(************************************************** After the first continue *)
+            let partitions = partitionContinue after_cont in 
+            let partitionTraces = List.map ( fun partition -> 
+              if List.length partition == 0 then Emp 
+              else 
+                let contP = List.hd partition in
+                let after_contP = List.tl partition in 
+                let ((_, fixpoint_trace_insertP, _), _) = infer_of_expression env pre_es (True, Emp, []) contP Emp in 
+                let instertingP = going_through_f_spec fixpoint_trace_insertP new_mapping new_current in 
+                let insterting2P = going_through_f_spec continue_k [] ("null", Emp) in  
+                let trace_after_instertP = sequencing after_contP continue_k in 
 
-            let trace_after_instert = sequencing after_cont continue_k in 
+                Cons (instertingP, Cons (insterting2P, trace_after_instertP))
 
 
-            print_string ("trace after: " ^ string_of_es (normalES trace_after_instert)^ "\n");
+            ) partitions in 
+            let trace_after_instert = List.fold_left (fun acc a -> Cons (acc, a)) Emp partitionTraces in 
+
+
+(************************************************** After the first continue *)
+
+
+            (*
+            print_string (string_of_int (List.length partitions) ^ ") -> trace after: " ^ string_of_es (normalES trace_after_instert)^ "\n");
+            *)
             Cons (Cons(insterting, insterting2), Cons (trace_after_instert, normal_es))
 
 
