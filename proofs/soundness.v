@@ -142,18 +142,24 @@ Require Import Coq.Relations.Relation_Operators.
 Local Hint Constructors clos_trans : core.
 Notation estep_star := (clos_trans expr estep).
 
+(* 11 works but 10 doesn't! *)
+Notation " e1 '-e->' e2 " := (estep e1 e2) (at level 11).
+Notation " e1 '-e->*' e2 " := (estep_star e1 e2) (at level 11).
+
 (* some example programs *)
 
 Definition func_id := func "f" "x" (val (var "x")).
 
 Example ex1 :
-  estep (ifElse (litbool true) (val (litnum 1)) (val (litnum 2))) (val (litnum 1)).
+  ifElse (litbool true) (val (litnum 1)) (val (litnum 2))
+    -e-> val (litnum 1).
 Proof.
   eauto.
 Qed.
 
 Example ex2 :
-  estep_star (letIn "x" (letIn "y" (val (litnum 1)) (val (var "y"))) (val (var "x"))) (val (litnum 1)).
+  letIn "x" (letIn "y" (val (litnum 1)) (val (var "y"))) (val (var "x"))
+    -e->* val (litnum 1).
 Proof.
   apply (t_trans _ _ _ (letIn "x" (val (litnum 1)) (val (var "x")))).
   - eauto 6.
