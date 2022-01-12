@@ -1034,7 +1034,6 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr cont: (spec * residu
       (*
       print_string (
         List.fold_left (fun acc (a, b) -> acc ^ "\n" ^ a ^ ": " ^ string_of_es (normalES b) ) "\n===\n" (List.append mappings [current]) ^ "\n"
-
       );
       *)
       let fsts = fst f_es in 
@@ -1059,7 +1058,7 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr cont: (spec * residu
           let new_current = (insFName, Emp) in 
 
           match reoccor_continue (new_mapping) insFName 0 with 
-          | Some _ 
+          | Some start -> formLoop1 ( new_mapping) start
             (* TODO reoccur's condition is not done *)
             (* 
             match normalES (derivative f_es f) with
@@ -1077,14 +1076,16 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr cont: (spec * residu
             let continue_k = normalES (derivative f_es f) in 
             let cont = List.hd expre_li in
             let after_cont = List.tl expre_li in 
-            let ((_, fixpoint_trace_insert, _), _) = infer_of_expression env pre_es (True, Emp, []) cont continue_k in 
+            let ((_, fixpoint_trace_insert, _), _) = infer_of_expression env pre_es (True, Emp, []) cont Emp in 
             let insterting = going_through_f_spec fixpoint_trace_insert new_mapping new_current in 
+            let insterting2 = going_through_f_spec continue_k [] ("null", Emp) in  
 
-            
 
             let trace_after_instert = sequencing after_cont continue_k in 
+
+
             print_string ("trace after: " ^ string_of_es (normalES trace_after_instert)^ "\n");
-            Cons (insterting, Cons (trace_after_instert, normal_es))
+            Cons (Cons(insterting, insterting2), Cons (trace_after_instert, normal_es))
 
 
       ) fsts in 
