@@ -512,7 +512,7 @@ let call_function (pre_es:es) fnName (li:(arg_label * expression) list) (acc:spe
       let eff_args = List.tl li in
       let iinnss = (eff_name,
       List.map (fun (_, a) -> expressionToBasicT a) eff_args) in 
-      let spec = acc_pi, Cons (acc_es, Cons (Event (eff_name), Predicate iinnss)), acc_side in
+      let spec = acc_pi, Cons (acc_es, Cons (Event (eff_name, []), Predicate iinnss)), acc_side in
       (* given perform Foo 1, residue is Some (Foo, [BINT 1]) *)
       let residue = Some iinnss in
 
@@ -666,7 +666,7 @@ let rec findPolicy str_pred (policies:policy list) : (es * es) =
   | (Eff (str, conti, afterConti))::xs  -> 
         if String.compare str str_pred == 0 then (normalES conti, normalES afterConti)
         else findPolicy str_pred xs
-  | (Exn str)::xs -> if String.compare str str_pred == 0 then (Event str, Emp) else findPolicy str_pred xs 
+  | (Exn str)::xs -> if String.compare str str_pred == 0 then (Event (str, []), Emp) else findPolicy str_pred xs 
   | (Normal es) :: xs  -> if String.compare "normal" str_pred == 0 then (es, Emp) else findPolicy str_pred xs 
 
 
@@ -776,7 +776,7 @@ let rec  fst_plus (es:es): es list =
   match es with
   | Bot -> []
   | Emp -> []
-  | Event (ev) ->  [Event (ev)]
+  | Event (ev, args) ->  [Event (ev, args)]
   | Not (ev) ->  [Not (ev)]
   | Cons (es1 , es2) ->  if  nullable_plus es1 then List.append ( fst_plus es1) ( fst_plus es2) else  fst_plus es1
   | ESOr (es1, es2) -> List.append ( fst_plus es1) ( fst_plus es2)
@@ -792,7 +792,8 @@ let rec derivative_plus (es:es) (f:es): es =
   match (es, f) with
   | (Bot, _) -> Bot
   | (Emp, _) -> Bot
-  | (Event f1, Event f2) ->  if String.compare f1 f2 == 0 then Emp else Bot 
+  | (Event (f1, _), Event (f2, _)) ->
+    if String.compare f1 f2 == 0 then Emp else Bot 
   | (Not f1, Not f2) ->  if String.compare f1 f2 == 0 then Emp else Bot 
   | (Predicate (f1, _), Predicate (f2, _)) ->  if String.compare f1 f2 == 0 then Emp else Bot 
   | (Kleene _, Kleene _) ->  Emp 
@@ -1074,9 +1075,9 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr cont: (spec * residu
         match f with
         | One str ->  
           let (cur_str, cur_es) =  current in 
-          let new_current = (cur_str, Cons (cur_es, Event str)) in 
+          let new_current = (cur_str, Cons (cur_es, Event (str, []))) in 
           let expre_li = find_policy_before str policies in 
-          Cons (Cons (Event str, sequencing expre_li Emp), going_through_f_spec (derivative f_es f) mappings new_current)
+          Cons (Cons (Event (str, []), sequencing expre_li Emp), going_through_f_spec (derivative f_es f) mappings new_current)
         | Zero str -> 
           let (cur_str, cur_es) =  current in 
           let new_current = (cur_str, Cons (cur_es, Not str)) in 
@@ -1518,7 +1519,7 @@ print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
 
     with
     | Pretty.Foo s ->
-      print_endline "\nINTERNAL ERROR:\n";
+      print_endline "\nERROR:\n";
       print_endline s
     | e ->                      (* 一些不可预见的异常发生 *)
       close_in_noerr ic;           (* 紧急关闭 *)

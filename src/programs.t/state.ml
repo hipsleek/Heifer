@@ -3,17 +3,17 @@ effect Get : int
 effect Put : int -> unit
 
 let get ()
-  (*@ requires emp @*)
+  (*@ requires _^* @*)
   (*@ ensures Get @*)
 = perform Get
 
 let put s
-  (*@ requires Get @*)
+  (*@ requires _^* .Get @*)
   (*@ ensures Put @*)
 = perform (Put s)
 
 let f ()
-  (*@ requires emp @*)
+  (*@ requires _^* @*)
   (*@ ensures Get.Put @*)
 =
   let a = get () in
@@ -21,7 +21,7 @@ let f ()
   a  + 2 
 
 
-let main  () =
+let main () =
   let g =
     match f () with
     | r -> fun s -> (s, r)
@@ -34,14 +34,6 @@ let main  () =
 let () =
   let s, r = main () in
   Format.printf "state %d res %d@." s r
-
-
-(*
-
-
-
-
-*)
 
   (* 
   1. always read after set  Put.(Put|Get)*

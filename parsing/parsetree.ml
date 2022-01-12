@@ -41,7 +41,7 @@ type stack = string * instant
 type es = Bot 
         | Emp   
         | Predicate of instant (* Q () *)
-        | Event of string
+        | Event of string * basic_t list
         | Not of string
         | Cons of es * es
         | ESOr of es * es

@@ -136,7 +136,8 @@ let rec string_of_es es : string =
   | Bot -> "_|_"
   | Emp -> "emp"
   | Predicate ins  -> Format.sprintf "Q(%s)" (string_of_instant ins)
-  | Event str -> str
+  | Event (str, []) -> str
+  | Event (str, args) -> Format.sprintf "%s(%s)" str (List.map string_of_basic_type args |> String.concat ", ")
   | Not str -> "!" ^ str
   | Cons (es1, es2) -> "("^string_of_es es1 ^").("^ string_of_es es2 ^")"
   | ESOr (es1, es2) -> "("^string_of_es es1 ^")+("^ string_of_es es2 ^")"
@@ -214,7 +215,7 @@ let rec normalES (es:es):es =
       (match (normalES1, normalES2) with 
         (Emp, _) -> normalES2 
       | (_, Emp) -> normalES1
-      | (Event "Exc", _) -> Event "Exc"
+      | (Event ("Exc", []), _) -> Event ("Exc", [])
       | (Bot, _) -> Bot
       | (Omega _, _ ) -> normalES1
 
@@ -261,7 +262,7 @@ let normalSpec (pi, es, side) : spec = (normalPure pi, normalES es, normalSide s
 
 let eventToEs ev : es =
   match ev with 
-  | One ins -> Event ins 
+  | One ins -> Event (ins, [])
   | Zero ins -> Not ins
   | Pred ins -> Predicate ins
   | Any -> Underline

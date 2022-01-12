@@ -2543,7 +2543,8 @@ effect_trace_value:
 effect_trace:
   | UNDERSCORE { Underline }
   | EMP { Emp }
-  | n = UIDENT { Event n }
+  | n = UIDENT { Event (n, []) }
+  | n = UIDENT LPAREN args = list(effect_trace_value) RPAREN { Event (n, args) }
   | n = UIDENT LPAREN f = UIDENT args = list(effect_trace_value) RPAREN
   {
     match n with

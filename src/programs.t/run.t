@@ -1,24 +1,22 @@
 
   $ hip b0_env.ml | ./sanitize.sh
-  Effect Foo -> emp
   
-  
-  ========== Function: foo ==========
-  [Pre  Condition] emp
+  =============== 
+  ========== Function: f2 ==========
+  [Pre  Condition] (_)^*
   [Post Condition] emp
-  [Final  Effects] Foo.Q(Foo ())
+  [Final  Effects] (Foo).(Q(Foo 5))
   
   [Verification Result: Fail
   ------------------------------
   [SIDE] Succeed
   - - - - - - - - - - - - - -
   [ENTAILMENT] Fail
-  * Foo.Q(Foo ()) |- emp   [UNFOLD]
-  * └── Q(Foo ()) |- _|_   [Bot-RHS]
-  
+  * (Foo).(Q(Foo 5)) |- emp   [UNFOLD]
+  * └── Q(Foo 5) |- _|_   [Bot-RHS]
   
   ========== Function: f ==========
-  [Pre  Condition] emp
+  [Pre  Condition] (_)^*
   [Post Condition] emp
   [Final  Effects] emp
   
@@ -29,9 +27,8 @@
   [ENTAILMENT] Succeed
   * emp |- emp   [UNFOLD]
   
-  
   ========== Function: main ==========
-  [Pre  Condition] emp
+  [Pre  Condition] (_)^*
   [Post Condition] emp
   [Final  Effects] emp
   
@@ -45,24 +42,22 @@
 
   $ hip b1_env.ml | ./sanitize.sh
   
-  
   ========== Function: main ==========
   [Pre  Condition] emp
   [Post Condition] Foo
-  [Final  Effects] Foo.Q(Foo ())
+  [Final  Effects] (Foo).(Q(Foo ()))
   
   [Verification Result: Fail
   ------------------------------
   [SIDE] Succeed
   - - - - - - - - - - - - - -
   [ENTAILMENT] Fail
-  * Foo.Q(Foo ()) |- Foo   [UNFOLD]
+  * (Foo).(Q(Foo ())) |- Foo   [UNFOLD]
   * └── Q(Foo ()) |- emp   [UNFOLD]
   *     └── emp |- _|_   [DISPROVE]
   
 
   $ hip b2_open.ml | ./sanitize.sh
-  
   --- Module A---
   
   ========== Function: f ==========
@@ -77,8 +72,6 @@
   [ENTAILMENT] Succeed
   * Foo |- Foo   [UNFOLD]
   * └── emp |- emp   [UNFOLD]
-  
-  
   
   ========== Function: main ==========
   [Pre  Condition] emp
@@ -95,13 +88,10 @@
   
 
   $ hip state.ml | ./sanitize.sh
-  Effect Puts1 -> emp
-  Effect Get -> emp
   
-  
-  
+  =============== 
   ========== Function: get ==========
-  [Pre  Condition] emp
+  [Pre  Condition] (_)^*
   [Post Condition] Get
   [Final  Effects] Get
   
@@ -113,9 +103,8 @@
   * Get |- Get   [UNFOLD]
   * └── emp |- emp   [UNFOLD]
   
-  
   ========== Function: put ==========
-  [Pre  Condition] Get
+  [Pre  Condition] ((_)^*).(Get)
   [Post Condition] Put
   [Final  Effects] Put
   
@@ -127,42 +116,36 @@
   * Put |- Put   [UNFOLD]
   * └── emp |- emp   [UNFOLD]
   
-  
   ========== Function: f ==========
-  [Pre  Condition] emp
-  [Post Condition] Get.Put
-  [Final  Effects] Get.Put
+  [Pre  Condition] (_)^*
+  [Post Condition] (Get).(Put)
+  [Final  Effects] (Get).(Put)
   
   [Verification Result: Succeed
   ------------------------------
   [SIDE] Succeed
   - - - - - - - - - - - - - -
   [ENTAILMENT] Succeed
-  * Get.Put |- Get.Put   [UNFOLD]
+  * (Get).(Put) |- (Get).(Put)   [UNFOLD]
   * └── Put |- Put   [UNFOLD]
   *     └── emp |- emp   [UNFOLD]
   
-  
   ========== Function: main ==========
-  [Pre  Condition] emp
+  [Pre  Condition] (_)^*
   [Post Condition] emp
-  [Final  Effects] Get.Put
+  [Final  Effects] (Get).(Put)
   
   [Verification Result: Fail
   ------------------------------
   [SIDE] Succeed
   - - - - - - - - - - - - - -
   [ENTAILMENT] Fail
-  * Get.Put |- emp   [UNFOLD]
+  * (Get).(Put) |- emp   [UNFOLD]
   * └── Put |- _|_   [Bot-RHS]
   
-  
   $ hip files.ml | ./sanitize.sh
-  Effect Closes1 -> emp
-  Effect Open -> emp
   
-  
-  
+  =============== 
   ========== Function: open_file ==========
   [Pre  Condition] (_)^*
   [Post Condition] Open
@@ -176,9 +159,8 @@
   * Open |- Open   [UNFOLD]
   * └── emp |- emp   [UNFOLD]
   
-  
   ========== Function: close_file ==========
-  [Pre  Condition] Open
+  [Pre  Condition] ((_)^*).((Open).((!Close)^*))
   [Post Condition] Close
   [Final  Effects] Close
   
@@ -190,43 +172,99 @@
   * Close |- Close   [UNFOLD]
   * └── emp |- emp   [UNFOLD]
   
-  
-  ========== Function: f ==========
+  ========== Function: file ==========
   [Pre  Condition] emp
-  [Post Condition] Open.Close
-  [Final  Effects] Open.Close
+  [Post Condition] (Open).(Close)
+  [Final  Effects] (Open).((Open).(Close))
   
-  [Verification Result: Succeed
+  [Verification Result: Fail
   ------------------------------
   [SIDE] Succeed
   - - - - - - - - - - - - - -
-  [ENTAILMENT] Succeed
-  * Open.Close |- Open.Close   [UNFOLD]
-  * └── Close |- Close   [UNFOLD]
-  *     └── emp |- emp   [UNFOLD]
-  
+  [ENTAILMENT] Fail
+  * (Open).((Open).(Close)) |- (Open).(Close)   [UNFOLD]
+  * └── (Open).(Close) |- Close   [UNFOLD]
+  *     └── Close |- _|_   [Bot-RHS]
   
   ========== Function: main ==========
   [Pre  Condition] emp
-  [Post Condition] Open.Close
-  [Final  Effects] Open.Close
+  [Post Condition] (Open).(Close)
+  [Final  Effects] (Open).(Close)
   
   [Verification Result: Succeed
   ------------------------------
   [SIDE] Succeed
   - - - - - - - - - - - - - -
   [ENTAILMENT] Succeed
-  * Open.Close |- Open.Close   [UNFOLD]
+  * (Open).(Close) |- (Open).(Close)   [UNFOLD]
   * └── Close |- Close   [UNFOLD]
   *     └── emp |- emp   [UNFOLD]
   
+  ========== Function: file1 ==========
+  [Pre  Condition] emp
+  [Post Condition] (_)^*
+  [Final  Effects] (Open).((Open).(Close))
+  
+  [Verification Result: Succeed
+  ------------------------------
+  [SIDE] Succeed
+  - - - - - - - - - - - - - -
+  [ENTAILMENT] Succeed
+  * (Open).((Open).(Close)) |- (_)^*   [UNFOLD]
+  * └── (Open).(Close) |- (_)^*   [UNFOLD]
+  *     └── Close |- (_)^*   [UNFOLD]
+  *         └── emp |- (_)^*   [UNFOLD]
+  
+  ========== Function: file2 ==========
+  [Pre  Condition] emp
+  [Post Condition] (_)^*
+  [Final  Effects] (Open).(Close)
+  
+  [Verification Result: Succeed
+  ------------------------------
+  [SIDE] Succeed
+  - - - - - - - - - - - - - -
+  [ENTAILMENT] Succeed
+  * (Open).(Close) |- (_)^*   [UNFOLD]
+  * └── Close |- (_)^*   [UNFOLD]
+  *     └── emp |- (_)^*   [UNFOLD]
+  
+  ========== Function: file3 ==========
+  [Pre  Condition] emp
+  [Post Condition] (_)^*
+  [Final  Effects] (Open).((Open).(Close))
+  
+  [Verification Result: Succeed
+  ------------------------------
+  [SIDE] Succeed
+  - - - - - - - - - - - - - -
+  [ENTAILMENT] Succeed
+  * (Open).((Open).(Close)) |- (_)^*   [UNFOLD]
+  * └── (Open).(Close) |- (_)^*   [UNFOLD]
+  *     └── Close |- (_)^*   [UNFOLD]
+  *         └── emp |- (_)^*   [UNFOLD]
+  
+  ========== Function: file4 ==========
+  [Pre  Condition] emp
+  [Post Condition] (_)^*
+  [Final  Effects] (Open).((Close).((Open).(Close)))
+  
+  [Verification Result: Succeed
+  ------------------------------
+  [SIDE] Succeed
+  - - - - - - - - - - - - - -
+  [ENTAILMENT] Succeed
+  * (Open).((Close).((Open).(Close))) |- (_)^*   [UNFOLD]
+  * └── (Close).((Open).(Close)) |- (_)^*   [UNFOLD]
+  *     └── (Open).(Close) |- (_)^*   [UNFOLD]
+  *         └── Close |- (_)^*   [UNFOLD]
+  *             └── emp |- (_)^*   [UNFOLD]
   
 
   $ hip generator.ml | ./sanitize.sh
   
-  
   ========== Function: to_gen ==========
-  [Pre  Condition] emp
+  [Pre  Condition] (_)^*
   [Post Condition] emp
   [Final  Effects] emp
   
@@ -236,10 +274,9 @@
   - - - - - - - - - - - - - -
   [ENTAILMENT] Succeed
   * emp |- emp   [UNFOLD]
-  
   
   ========== Function: f ==========
-  [Pre  Condition] emp
+  [Pre  Condition] (_)^*
   [Post Condition] emp
   [Final  Effects] emp
   
@@ -250,11 +287,9 @@
   [ENTAILMENT] Succeed
   * emp |- emp   [UNFOLD]
   
-  
   $ hip flip.ml | ./sanitize.sh
-  Effect Choose -> emp
   
-  
+  =============== 
   ========== Function: choose ==========
   [Pre  Condition] (_)^*
   [Post Condition] Choose
@@ -268,86 +303,81 @@
   * Choose |- Choose   [UNFOLD]
   * └── emp |- emp   [UNFOLD]
   
-  
   ========== Function: toss ==========
   [Pre  Condition] (_)^*
-  [Post Condition] Choose.Choose+Choose
-  [Final  Effects] Choose.Choose+Choose.Choose+Choose
+  [Post Condition] ((Choose).(Choose))+(Choose)
+  [Final  Effects] (((Choose).(Choose))+((Choose).(Choose)))+(Choose)
   
   [Verification Result: Succeed
   ------------------------------
   [SIDE] Succeed
   - - - - - - - - - - - - - -
   [ENTAILMENT] Succeed
-  * Choose.Choose+Choose.Choose+Choose |- Choose.Choose+Choose   [UNFOLD]
-  * ├── Choose+Choose+emp |- Choose+emp   [UNFOLD]
-  * │   ├── emp+emp |- emp   [UNFOLD]
-  * │   └── emp+emp |- emp   [UNFOLD]
-  * ├── Choose+Choose+emp |- Choose+emp   [UNFOLD]
-  * │   ├── emp+emp |- emp   [UNFOLD]
-  * │   └── emp+emp |- emp   [UNFOLD]
-  * └── Choose+Choose+emp |- Choose+emp   [UNFOLD]
-  *     ├── emp+emp |- emp   [UNFOLD]
-  *     └── emp+emp |- emp   [UNFOLD]
-  
+  * (((Choose).(Choose))+((Choose).(Choose)))+(Choose) |- ((Choose).(Choose))+(Choose)   [UNFOLD]
+  * ├── ((Choose)+(Choose))+(emp) |- (Choose)+(emp)   [UNFOLD]
+  * │   ├── (emp)+(emp) |- emp   [UNFOLD]
+  * │   └── (emp)+(emp) |- emp   [UNFOLD]
+  * ├── ((Choose)+(Choose))+(emp) |- (Choose)+(emp)   [UNFOLD]
+  * │   ├── (emp)+(emp) |- emp   [UNFOLD]
+  * │   └── (emp)+(emp) |- emp   [UNFOLD]
+  * └── ((Choose)+(Choose))+(emp) |- (Choose)+(emp)   [UNFOLD]
+  *     ├── (emp)+(emp) |- emp   [UNFOLD]
+  *     └── (emp)+(emp) |- emp   [UNFOLD]
   
   ========== Function: all_results ==========
-  [Pre  Condition] emp
-  [Post Condition] emp
-  [Final  Effects] emp
+  [Pre  Condition] emp, eff(m) = (_)^* -> A
+  [Post Condition] A
+  [Final  Effects] A, eff(m) = (_)^* -> A
   
   [Verification Result: Succeed
   ------------------------------
   [SIDE] Succeed
   - - - - - - - - - - - - - -
   [ENTAILMENT] Succeed
-  * emp |- emp   [UNFOLD]
-  
+  * A |- A   [UNFOLD]
+  * └── emp |- emp   [UNFOLD]
   
   $ hip transaction.ml | ./sanitize.sh
-  Exeption e
-  Effect Updatestring_of_pattern: (r, v)
-   -> emp
   
+  =============== 
+  ========== Function: raise ==========
+  [Pre  Condition] (_)^*
+  [Post Condition] Exc
+  [Final  Effects] Exc
+  
+  [Verification Result: Succeed
+  ------------------------------
+  [SIDE] Succeed
+  - - - - - - - - - - - - - -
+  [ENTAILMENT] Succeed
+  * Exc |- Exc   [UNFOLD]
+  * └── emp |- emp   [UNFOLD]
+  
+  ========== Function: r ==========
+  [Pre  Condition] (_)^*
+  [Post Condition] emp
+  [Final  Effects] emp
+  
+  [Verification Result: Succeed
+  ------------------------------
+  [SIDE] Succeed
+  - - - - - - - - - - - - - -
+  [ENTAILMENT] Succeed
+  * emp |- emp   [UNFOLD]
   
   ========== Function: atomically ==========
-  [Pre  Condition] emp
-  [Post Condition] emp
-  [Final  Effects] emp
+  [Pre  Condition] (_)^*, eff(f) = (!Exc)^* -> ((Update)^*).((Exc)+(emp))
+  [Post Condition] ((Update)^*).((Exc)+(emp))
+  [Final  Effects] ((Update)^*).(Exc), eff(f) = (!Exc)^* -> ((Update)^*).((Exc)+(emp))
   
   [Verification Result: Succeed
   ------------------------------
   [SIDE] Succeed
   - - - - - - - - - - - - - -
   [ENTAILMENT] Succeed
-  * emp |- emp   [UNFOLD]
-  
-  
-  ========== Function: ref ==========
-  [Pre  Condition] emp
-  [Post Condition] emp
-  [Final  Effects] emp
-  
-  [Verification Result: Succeed
-  ------------------------------
-  [SIDE] Succeed
-  - - - - - - - - - - - - - -
-  [ENTAILMENT] Succeed
-  * emp |- emp   [UNFOLD]
-  
-  
-  ========== Function: ! ==========
-  [Pre  Condition] emp
-  [Post Condition] emp
-  [Final  Effects] emp
-  
-  [Verification Result: Succeed
-  ------------------------------
-  [SIDE] Succeed
-  - - - - - - - - - - - - - -
-  [ENTAILMENT] Succeed
-  * emp |- emp   [UNFOLD]
-  
+  * ((Update)^*).(Exc) |- ((Update)^*).((Exc)+(emp))   [UNFOLD]
+  * ├── emp |- emp   [UNFOLD]
+  * └── ((Update)^*).(Exc) |- ((Update)^*).((Exc)+(emp))   [Reoccur]
   
   ========== Function: := ==========
   [Pre  Condition] (_)^*
@@ -362,68 +392,67 @@
   * Update |- Update   [UNFOLD]
   * └── emp |- emp   [UNFOLD]
   
-  _|_
-  
-  ========== Function: g ==========
-  [Pre  Condition] emp
-  [Post Condition] (Update)^*
-  [Final  Effects] Update.Update.Update
+  ========== Function: error ==========
+  [Pre  Condition] (_)^*
+  [Post Condition] (Update).((Update).(Exc))
+  [Final  Effects] (Update).((Update).(Exc))
   
   [Verification Result: Succeed
   ------------------------------
   [SIDE] Succeed
   - - - - - - - - - - - - - -
   [ENTAILMENT] Succeed
-  * Update.Update.Update |- (Update)^*   [UNFOLD]
-  * └── Update.Update |- (Update)^*   [UNFOLD]
-  *     └── Update |- (Update)^*   [UNFOLD]
-  *         └── emp |- (Update)^*   [UNFOLD]
+  * (Update).((Update).(Exc)) |- (Update).((Update).(Exc))   [UNFOLD]
+  * └── (Update).(Exc) |- (Update).(Exc)   [UNFOLD]
+  *     └── Exc |- Exc   [UNFOLD]
+  *         └── emp |- emp   [UNFOLD]
   
+  ========== Function: g ==========
+  [Pre  Condition] (_)^*
+  [Post Condition] (Update).((Update).(Update))
+  [Final  Effects] (Update).((Update).(Update))
+  
+  [Verification Result: Succeed
+  ------------------------------
+  [SIDE] Succeed
+  - - - - - - - - - - - - - -
+  [ENTAILMENT] Succeed
+  * (Update).((Update).(Update)) |- (Update).((Update).(Update))   [UNFOLD]
+  * └── (Update).(Update) |- (Update).(Update)   [UNFOLD]
+  *     └── Update |- Update   [UNFOLD]
+  *         └── emp |- emp   [UNFOLD]
   
   ========== Function: h ==========
   [Pre  Condition] emp
-  [Post Condition] emp
-  [Final  Effects] emp
+  [Post Condition] (_)^*
+  [Final  Effects] ((Update)^*).((Exc)+(emp))
   
   [Verification Result: Succeed
   ------------------------------
   [SIDE] Succeed
   - - - - - - - - - - - - - -
   [ENTAILMENT] Succeed
-  * emp |- emp   [UNFOLD]
-  
-  
-  ========== Function: f ==========
-  [Pre  Condition] emp
-  [Post Condition] emp
-  [Final  Effects] emp
-  
-  [Verification Result: Succeed
-  ------------------------------
-  [SIDE] Succeed
-  - - - - - - - - - - - - - -
-  [ENTAILMENT] Succeed
-  * emp |- emp   [UNFOLD]
-  
+  * ((Update)^*).((Exc)+(emp)) |- (_)^*   [UNFOLD]
+  * ├── emp |- (_)^*   [UNFOLD]
+  * └── ((Update)^*).((Exc)+(emp)) |- (_)^*   [Reoccur]
   
   $ hip simple_loop.ml | ./sanitize.sh
-  Effect A -> emp
   
-  
+  =============== 
+  =============== 
   ========== Function: f ==========
   [Pre  Condition] (_)^*
   [Post Condition] (A)^w
-  [Final  Effects] A.(A)^w
+  [Final  Effects] (A).((A)^w)
   
   [Verification Result: Succeed
   ------------------------------
   [SIDE] Succeed
   - - - - - - - - - - - - - -
   [ENTAILMENT] Succeed
-  * A.(A)^w |- (A)^w   [UNFOLD]
+  * (A).((A)^w) |- (A)^w   [UNFOLD]
   * └── (A)^w |- (A)^w   [UNFOLD]
   *     └── (A)^w |- (A)^w   [Reoccur]
-  
   
   ========== Function: g ==========
   [Pre  Condition] (_)^*
@@ -437,7 +466,6 @@
   [ENTAILMENT] Succeed
   * emp |- (A)^*   [UNFOLD]
   
-  
   ========== Function: main ==========
   [Pre  Condition] emp
   [Post Condition] (A)^w
@@ -450,5 +478,4 @@
   [ENTAILMENT] Succeed
   * (A)^w |- (A)^w   [UNFOLD]
   * └── (A)^w |- (A)^w   [Reoccur]
-  
   
