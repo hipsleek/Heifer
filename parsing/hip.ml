@@ -1099,7 +1099,7 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr cont: (spec * residu
           let expre_li = find_policy_after insFName policies in 
           if List.length expre_li == 0 then Emp 
           else 
-            let normal_es = sequencing (find_policy_after "normal" policies) Emp in 
+            let normal_es = sequencing (find_policy_before "normal" policies) Emp in 
 
             let continue_k = normalES (derivative f_es f) in 
             let cont = List.hd expre_li in
@@ -1132,6 +1132,8 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr cont: (spec * residu
 
             (*
             print_string (string_of_int (List.length partitions) ^ ") -> trace after: " ^ string_of_es (normalES trace_after_instert)^ "\n");
+                        print_string ("normal trace: " ^ string_of_es (normalES normal_es)^ "\n");
+
             *)
             Cons (Cons(insterting, insterting2), Cons (trace_after_instert, normal_es))
 
