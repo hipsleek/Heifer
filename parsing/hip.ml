@@ -508,7 +508,7 @@ let call_function (pre_es:es) fnName (li:(arg_label * expression) list) (acc:spe
         | _ -> raise (Foo "getEffName error")
       in 
       let eff_name = getEffName (List.hd li) in 
-      
+      (*print_string ("performing... " ^ eff_name ^ "\n");*)
       let eff_args = List.tl li in
       let iinnss = (eff_name,
       List.map (fun (_, a) -> expressionToBasicT a) eff_args) in 
@@ -1003,6 +1003,7 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr cont: (spec * residu
         (* Format.eprintf "added to stack %s %s@." var_name (string_of_instant stack); *)
         [(var_name, stack)]
       ) in 
+    
     
     infer_of_expression (Env.add_stack stack_up env) pre_es new_acc expr cont
 
