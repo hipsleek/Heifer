@@ -46,6 +46,11 @@ with expr : Set :=
   | matchWith (e:expr) (h:handler)
 .
 
+Coercion litnum : nat >-> value.
+Coercion litbool : bool >-> value.
+Coercion val : value >-> expr.
+Coercion var : string >-> value.
+
 (* v1[v/x] = v2 *)
 (* not mutually recursive because we don't substitute under binders *)
 Definition subst_val (v1 v : value) (x : string) : value :=
@@ -151,17 +156,15 @@ Notation " e1 '-e->*' e2 " := (estep_star e1 e2) (at level 11).
 Definition func_id := func "f" "x" (val (var "x")).
 
 Example ex1 :
-  ifElse (litbool true) (val (litnum 1)) (val (litnum 2))
-    -e-> val (litnum 1).
+  ifElse true 1 2 -e-> 1.
 Proof.
   eauto.
 Qed.
 
 Example ex2 :
-  letIn "x" (letIn "y" (val (litnum 1)) (val (var "y"))) (val (var "x"))
-    -e->* val (litnum 1).
+  letIn "x" (letIn "y" 1 "y") "x" -e->* 1.
 Proof.
-  apply (t_trans _ _ _ (letIn "x" (val (litnum 1)) (val (var "x")))).
+  apply (t_trans _ _ _ (letIn "x" 1 "x")).
   - eauto 6.
   - eauto.
 Qed.
@@ -174,6 +177,7 @@ differnce: sync - presnet valid for one time cycle
 
 
 (* last argument is the completion code true -> normal, flase -> not completed*)
+(*
 Definition state : Type := (syncEff * (option instance) * nat).
 
 Definition states : Type := list state.
@@ -225,3 +229,4 @@ Notation "'await' S" := (awaitE S) (at level 200, right associativity).
 Notation "'raise' N" := (raiseE N) (at level 200, right associativity).
 
 Notation "'trap' E1 'catchwith' E2" := (trycatchE E1 E2) (at level 200, right associativity).
+*)
