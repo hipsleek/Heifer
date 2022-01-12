@@ -25,4 +25,3 @@ let main ()
   | x -> x
   | effect A k -> continue k ()
 
-let () = main ()

@@ -1050,6 +1050,20 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr cont: (spec * residu
             ) Emp li in 
 
     let rec going_through_f_spec f_es mappings current: es = 
+      match (normalES f_es) with
+      | Kleene f_es_In -> Kleene (going_through_f_spec f_es_In mappings current)
+      | Omega f_es_In -> Omega (going_through_f_spec f_es_In mappings current)
+      | Cons (Kleene f_es_In, f_es_rhs) -> 
+        let a = Kleene (going_through_f_spec f_es_In mappings current) in 
+        let b = (going_through_f_spec f_es_rhs mappings current) in 
+        Cons (a, b)
+      | Cons (Omega f_es_In, f_es_rhs) -> 
+        let a = Omega (going_through_f_spec f_es_In mappings current) in 
+        let b = (going_through_f_spec f_es_rhs mappings current) in 
+        Cons (a, b)
+  
+
+      | _ -> 
       (*
       print_string (
         List.fold_left (fun acc (a, b) -> acc ^ "\n" ^ a ^ ": " ^ string_of_es (normalES b) ) "\n===\n" (List.append mappings [current]) ^ "\n"
