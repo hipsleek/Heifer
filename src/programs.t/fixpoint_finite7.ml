@@ -35,33 +35,3 @@ let res1
 
 
 
-(*
-
-let res6 () 
-  (*@ requires _^* @*)
-  (*@ ensures  Foo.Foo.Foo.Foo @*)
-  =
-  match f () with
-  | _ -> ()
-  | effect Foo k ->  (continue (Obj.clone_continuation k) (fun () -> ())); 
-                     (continue (Obj.clone_continuation k) (fun () -> ())); 
-                     continue k (fun () -> ())
-
-
-                  
-Foo.Goo.Q(Goo()).Q(Foo())
-
-Foo
-Foo1
-Goo
-Goo1
-Goo2
-Foo2
-Goo3
-Goo4
-Foo2
-Goo5
-Foo3
-
-cont(Goo) = Q(Foo())
-*)
