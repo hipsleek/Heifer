@@ -92,25 +92,25 @@ let rec separate li f sep : string =
   | x ::xs -> f x ^ sep ^ separate xs f sep
   ;;
 
-let rec compareParm (p1:basic_t list) (p2:basic_t list) :bool = 
+let compareBasic (p1:basic_t) (p2:basic_t) :bool = 
   match (p1, p2) with 
-  | ([], []) -> true 
-  | (BINT x::xs, BINT y::ys) -> x == y  && compareParm xs ys
-  | (UNIT::xs, UNIT::ys) ->  compareParm xs ys
+  | (BINT x, BINT y) -> x = y
+  | (UNIT, UNIT) -> true
   | _ -> false
-  ;;
+
+let compareParm (p1:basic_t list) (p2:basic_t list) :bool = 
+  List.equal compareBasic p1 p2
+
+let compareInstant ((n1, a1):instant) ((n2, a2):instant) :bool = 
+  String.equal n1 n2 && compareParm a1 a2
 
 let compareEvent (ev1:event) (ev2:event): bool =
   match (ev1, ev2) with 
   | (Any, _) -> true 
   | (_, Any) -> true 
-  | (One (str1), One (str2)) -> 
-    String.compare str1 str2 == 0 (* && compareParm parms1 parms2 *)
-  | (Zero (str1), Zero (str2)) -> 
-  String.compare str1 str2 == 0 (* && compareParm parms1 parms2 *)
-  | (Pred (str1, parms1), Pred (str2, parms2)) -> 
-  String.compare str1 str2 == 0  && compareParm parms1 parms2
-
+  | (Pred (str1), Pred (str2))
+  | (Zero (str1), Zero (str2))
+  | (One (str1), One (str2)) -> compareInstant str1 str2
   | _ -> false 
 
   ;;
@@ -138,7 +138,7 @@ let rec string_of_es es : string =
   | Predicate ins  -> Format.sprintf "Q(%s)" (string_of_instant ins)
   | Event (str, []) -> str
   | Event (str, args) -> Format.sprintf "%s(%s)" str (List.map string_of_basic_type args |> String.concat ", ")
-  | Not str -> "!" ^ str
+  | Not str -> "!" ^ (string_of_es (Event str))
   | Cons (es1, es2) -> "("^string_of_es es1 ^").("^ string_of_es es2 ^")"
   | ESOr (es1, es2) -> "("^string_of_es es1 ^")+("^ string_of_es es2 ^")"
   | Kleene es1 -> "("^string_of_es es1^")^*"
@@ -262,7 +262,7 @@ let normalSpec (pi, es, side) : spec = (normalPure pi, normalES es, normalSide s
 
 let eventToEs ev : es =
   match ev with 
-  | One ins -> Event (ins, [])
+  | One ins -> Event ins
   | Zero ins -> Not ins
   | Pred ins -> Predicate ins
   | Any -> Underline
@@ -292,8 +292,8 @@ let rec string_of_policies ps: string =
 
 let string_of_event e : string = 
   match e with 
-  | One str -> str 
-  | Zero str -> str 
+  | One str -> string_of_instant str 
+  | Zero str -> string_of_instant str 
   | Pred (ins) -> "Q(" ^ string_of_instant ins ^ ")"
   | Any -> "_"
 

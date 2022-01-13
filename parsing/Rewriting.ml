@@ -74,7 +74,7 @@ let rec  fst (es:es): event list =
   match es with
   | Bot -> []
   | Emp -> []
-  | Event (ev, _) ->  [One (ev)]
+  | Event ev ->  [One (ev)]
   | Not (ev) ->  [Zero (ev)]
   | Cons (es1 , es2) ->  if  nullable es1 then append ( fst es1) ( fst es2) else  fst es1
   | ESOr (es1, es2) -> append ( fst es1) ( fst es2)
@@ -89,7 +89,7 @@ let rec esTail (es:es): event list =
   match es with
   | Bot -> []
   | Emp -> []
-  | Event (ev, _) ->  [One (ev)]
+  | Event ev ->  [One (ev)]
   | Not (ev) ->  [Zero (ev)]
   | ESOr (es1, es2) -> append ( esTail es1) ( esTail es2)
   | Kleene es1 ->  esTail es1
@@ -157,7 +157,7 @@ let rec derivative (es:es) (ev:event): es =
   match es with
     Emp -> Bot
   | Bot -> Bot
-  | Event (ev1, _) -> 
+  | Event ev1 -> 
       if compareEvent (One ev1) ev then Emp else Bot
   | Predicate ins -> 
       if compareEvent (Pred ins) ev then Emp else Bot

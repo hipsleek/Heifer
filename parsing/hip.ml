@@ -792,9 +792,9 @@ let rec derivative_plus (es:es) (f:es): es =
   match (es, f) with
   | (Bot, _) -> Bot
   | (Emp, _) -> Bot
-  | (Event (f1, _), Event (f2, _)) ->
-    if String.compare f1 f2 == 0 then Emp else Bot 
-  | (Not f1, Not f2) ->  if String.compare f1 f2 == 0 then Emp else Bot 
+  | (Not f1, Not f2)
+  | (Event f1, Event f2) ->
+    if compareInstant f1 f2 then Emp else Bot 
   | (Predicate (f1, _), Predicate (f2, _)) ->  if String.compare f1 f2 == 0 then Emp else Bot 
   | (Kleene _, Kleene _) ->  Emp 
   | (Omega _, Omega _) ->  Emp 
@@ -1036,10 +1036,10 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr cont: (spec * residu
         ("normal", beforeCont, afterCont)
       )
     ) case_li in 
-    let rec find_policy_before name li = 
+    let rec find_policy_before ((name, _) as i) li = 
       match li with 
       | [] -> []
-      | (str, before, _) :: xs -> if String.compare str name == 0 then before else find_policy_before name xs
+      | (str, before, _) :: xs -> if String.compare str name == 0 then before else find_policy_before i xs
     in 
     let rec find_policy_after name li =
       match li with 
@@ -1076,9 +1076,9 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr cont: (spec * residu
         match f with
         | One str ->  
           let (cur_str, cur_es) =  current in 
-          let new_current = (cur_str, Cons (cur_es, Event (str, []))) in 
+          let new_current = (cur_str, Cons (cur_es, Event str)) in 
           let expre_li = find_policy_before str policies in 
-          Cons (Cons (Event (str, []), sequencing expre_li Emp), going_through_f_spec (derivative f_es f) mappings new_current)
+          Cons (Cons (Event str, sequencing expre_li Emp), going_through_f_spec (derivative f_es f) mappings new_current)
         | Zero str -> 
           let (cur_str, cur_es) =  current in 
           let new_current = (cur_str, Cons (cur_es, Not str)) in 
@@ -1100,7 +1100,7 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr cont: (spec * residu
           let expre_li = find_policy_after insFName policies in 
           if List.length expre_li == 0 then Emp 
           else 
-            let normal_es = sequencing (find_policy_before "normal" policies) Emp in 
+            let normal_es = sequencing (find_policy_before ("normal", []) policies) Emp in 
 
             let continue_k = normalES (derivative f_es f) in 
             let cont = List.hd expre_li in

@@ -2553,7 +2553,8 @@ effect_trace:
     | _ ->
       failwith "invalid syntax for predicate application"
   }
-  | TILDE n = UIDENT { Not n }
+  | TILDE n = UIDENT { Not (n, []) }
+  | TILDE n = UIDENT LPAREN args = list(effect_trace_value) RPAREN { Not (n, args) }
   | effect_trace DOT effect_trace { Cons ($1, $3) }
   | effect_trace DISJUNCTION effect_trace { ESOr ($1, $3) }
   | effect_trace KLEENE { Kleene $1 }
