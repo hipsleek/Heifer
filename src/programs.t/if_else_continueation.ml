@@ -1,21 +1,21 @@
 
 
-effect Wait : (int -> unit)
-effect Ready : (unit)
+effect Send : (int -> unit)
+effect Done : (unit)
 
-let send n 
+let send m 
 (*@ requires _^* @*)
-(*@ ensures Waist.Q(Wait ()) @*)
-= 
-  let a = perform Wait in 
-  a n
+(*@ ensures Send.Q(Send()) @*)
+= perform Send m
 
 let server n
 (*@ requires _^* @*)
-(*@ ensures  (Wait ^* ) @*)
+(*@ ensures  Send^*.Done @*)
 = match send n with
-| _ -> perform Ready
-| effect Wait k -> continue k (fun i -> if i = 0 then () else send (i-1))
+| _ -> perform Done
+| effect Send k -> continue k 
+    (fun i -> if i = 0 then () 
+      	      else send (i-1))
 
 let main = server (-10)
 
