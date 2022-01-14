@@ -1,5 +1,3 @@
-
-
 effect Send : (int -> unit)
 effect Done : (unit)
 
@@ -10,7 +8,7 @@ let send m
 
 let server n
 (*@ requires _^* @*)
-(*@ ensures  (Send^* ).Done @*)
+(*@ ensures  (Send.Done) \/ ((Send^* ).Done) @*)
 = match send n with
 | _ -> perform Done
 | effect Send k -> continue k 
