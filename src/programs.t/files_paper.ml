@@ -13,13 +13,14 @@ let close_file n
 
 let file_9 () 
 (*@ requires emp @*)
-(*@ ensures Open(9).Close(9) @*)
+(*@ ensures Open(9).Open(8).Close(9) @*)
 = open_file 9;
+  open_file 8;
   close_file 9
 
 let main 
 (*@ requires emp @*)
-(*@ ensures Open(9).Close(9) @*)
+(*@ ensures Open(9). (_^* ) .Close(9) @*)
 = 
   match file_9 () with 
   | _ -> ()

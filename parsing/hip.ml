@@ -446,15 +446,17 @@ let fnNameToString fnName: string =
     | _ -> "fnNameToString: dont know " ^ debug_string_of_expression fnName
     ;;
 
-let expressionToBasicT ex : basic_t =
+let expressionToBasicT ex : basic_t option=
   match ex.pexp_desc with 
   | Pexp_constant cons ->
     (match cons with 
-    | Pconst_integer (str, _) -> BINT (int_of_string str)
-    | _ -> raise (Foo (Pprintast.string_of_expression  ex ^ " expressionToBasicT error1"))
+    | Pconst_integer (str, _) -> Some (BINT (int_of_string str))
+    | _ -> None (*raise (Foo (Pprintast.string_of_expression  ex ^ " expressionToBasicT error1"))*)
     )
-  | Pexp_construct _ -> UNIT
-  | Pexp_ident l -> VARName (getIndentName l)
+  | Pexp_construct _ -> Some (UNIT)
+  | Pexp_ident l -> Some (VARName (getIndentName l))
+  | _ -> None 
+  (*
   | Pexp_let _ -> raise (Foo "Pexp_i")
   | Pexp_function _ -> raise (Foo "Pexp_i")
   | Pexp_fun _ -> raise (Foo "Pexp_i")
@@ -492,13 +494,19 @@ let expressionToBasicT ex : basic_t =
   | Pexp_letop _ -> raise (Foo "Pexp_ident3")
   | Pexp_extension _ -> raise (Foo "Pexp_ident3")
   | Pexp_unreachable  -> raise (Foo "Pexp_ident3")
+  *)
  
  (* | _ -> raise (Foo (Pprintast.string_of_expression  ex ^ " expressionToBasicT error2"))
 *)
 
 let rec var_binding (formal:string list) (actual: expression list) : (string * basic_t) list = 
   match (formal, actual) with 
-  | (x::xs, expr::ys) -> (x, expressionToBasicT expr) :: (var_binding xs ys)
+  | (x::xs, expr::ys) -> 
+    (match expressionToBasicT expr with
+    | Some v ->
+    (x, v) :: (var_binding xs ys)
+    | None -> (var_binding xs ys)
+    )
   | _ -> []
   ;;
 
@@ -558,7 +566,10 @@ let call_function (pre_es:es) fnName (li:(arg_label * expression) list) (acc:spe
         | Pexp_construct (_, argL) -> 
           (match argL with 
           | None -> []
-          | Some a -> [expressionToBasicT a])
+          | Some a -> 
+            match expressionToBasicT a with 
+            | Some v -> [v]
+            | None -> [])
         | _ -> raise (Foo "getEffNameArg error")
       in 
       let eff_name = getEffName (List.hd li) in 
@@ -568,7 +579,11 @@ let call_function (pre_es:es) fnName (li:(arg_label * expression) list) (acc:spe
       print_string ("performing... " ^ eff_name ^ "\n" ^ string_of_int (List.length li));*)
       let eff_args = List.tl li in
       let iinnss = (eff_name,
-      List.map (fun (_, a) -> expressionToBasicT a) eff_args) in 
+      List.fold_left (fun acc (_, a) -> 
+        match expressionToBasicT a with 
+        | None -> acc
+        | Some v -> List.append (acc) [v]
+        ) [] eff_args) in 
       let spec = acc_pi, Cons (acc_es, Cons (Event (eff_name, eff_arg), Predicate iinnss)), acc_side in
       (* given perform Foo 1, residue is Some (Foo, [BINT 1]) *)
       let residue = Some iinnss in
@@ -586,7 +601,12 @@ let call_function (pre_es:es) fnName (li:(arg_label * expression) list) (acc:spe
     else if List.mem_assoc name env.stack then
       (* higher-order function, so we should produce some residue instead *)
       let (name, args) = List.assoc name env.stack in
-      let extra = li |> List.map snd |> List.map expressionToBasicT in
+      let extra = (*li |> List.map snd |> List.map expressionToBasicT in *)
+        List.fold_left (fun acc a -> 
+          match expressionToBasicT a with 
+          | None -> acc
+          | Some v -> List.append (acc) [v]
+        ) [] (li |> List.map snd) in 
       let residue = (name, args @ extra) in
       ((acc_pi, Cons(acc_es, Predicate residue), acc_side), Some residue)
       

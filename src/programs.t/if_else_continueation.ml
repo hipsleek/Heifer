@@ -10,29 +10,15 @@ let send m
 
 let server n
 (*@ requires _^* @*)
-(*@ ensures  Send^*.Done @*)
+(*@ ensures  (Send^* ).Done @*)
 = match send n with
 | _ -> perform Done
 | effect Send k -> continue k 
     (fun i -> if i = 0 then () 
-      	      else send (i-1))
+      	      else send (i))
 
-let main = server (-10)
-
-
-(*
-let f1 () 
+let main 
 (*@ requires _^* @*)
-(*@ ensures  Foo.Q(Foo 1).Foo.Q(Foo()) @*)
-  = print_string ("Foo\n");
-    perform Foo ();
-    perform Foo ()
+(*@ ensures  (Send^* ).Done @*)
+= server (-10)
 
-let res11 () 
-  (*@ requires _^* @*)
-  (*@ ensures  Foo^* @*)
-  =
-  match f1 () with
-  | _ -> ()
-  | effect Foo k ->  continue k (fun () -> perform Foo ())
-*)
