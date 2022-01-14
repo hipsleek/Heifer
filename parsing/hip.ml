@@ -434,6 +434,11 @@ let rec side_binding (formal:string list) (actual: (es * es) list) : side =
   | _ -> []
   ;;
 
+
+
+
+  
+
 let fnNameToString fnName: string = 
   match fnName.pexp_desc with 
     | Pexp_ident l -> getIndentName l 
@@ -449,7 +454,7 @@ let expressionToBasicT ex : basic_t =
     | _ -> raise (Foo (Pprintast.string_of_expression  ex ^ " expressionToBasicT error1"))
     )
   | Pexp_construct _ -> UNIT
-  | Pexp_ident _ -> raise (Foo "Pexp_i")
+  | Pexp_ident l -> VARName (getIndentName l)
   | Pexp_let _ -> raise (Foo "Pexp_i")
   | Pexp_function _ -> raise (Foo "Pexp_i")
   | Pexp_fun _ -> raise (Foo "Pexp_i")
@@ -491,6 +496,45 @@ let expressionToBasicT ex : basic_t =
  (* | _ -> raise (Foo (Pprintast.string_of_expression  ex ^ " expressionToBasicT error2"))
 *)
 
+let rec var_binding (formal:string list) (actual: expression list) : (string * basic_t) list = 
+  match (formal, actual) with 
+  | (x::xs, expr::ys) -> (x, expressionToBasicT expr) :: (var_binding xs ys)
+  | _ -> []
+  ;;
+
+let instantiateInstance (ins:instant) (vb:(string * basic_t) list)  : instant  = 
+  let rec findbinding str vb_li =
+    match vb_li with 
+    | [] -> VARName str 
+    | (name, v) :: xs -> if String.compare name str == 0 then v else  findbinding str xs
+  in
+  let rec helper li =
+    match li with 
+    | [] -> [] 
+    | x ::xs -> 
+      (
+        match x with 
+        | VARName str -> (findbinding str vb) :: (helper xs)
+        | _ -> x :: (helper xs)
+      )
+  in 
+  let (a, li) = ins in (a, helper li)
+
+;;
+  
+
+let rec instantiateArg (post_es:es) (vb:(string * basic_t) list) : es = 
+  match post_es with 
+  | Predicate ins -> Predicate (instantiateInstance ins vb)
+  | Event ins -> Event (instantiateInstance ins vb)
+  | Not ins -> Not (instantiateInstance ins vb)
+  | Cons (es1, es2) -> Cons (instantiateArg es1 vb, instantiateArg es2 vb)
+  | ESOr (es1, es2) -> ESOr (instantiateArg es1 vb, instantiateArg es2 vb)
+  | Kleene es1 -> Kleene (instantiateArg es1 vb)
+  | Omega es1 -> Omega (instantiateArg es1 vb)
+  | _ -> post_es
+  ;;
+
 let add_es_to_spec spec es: spec = 
   let (a, b, c) = spec in 
   (a, Cons (b, es), c);;
@@ -507,12 +551,25 @@ let call_function (pre_es:es) fnName (li:(arg_label * expression) list) (acc:spe
         | Pexp_construct (a, _) -> getIndentName a 
         | _ -> raise (Foo "getEffName error")
       in 
+      
+      let getEffNameArg l = 
+        let (_, temp) = l in 
+        match temp.pexp_desc with 
+        | Pexp_construct (_, argL) -> 
+          (match argL with 
+          | None -> []
+          | Some a -> [expressionToBasicT a])
+        | _ -> raise (Foo "getEffNameArg error")
+      in 
       let eff_name = getEffName (List.hd li) in 
-      (*print_string ("performing... " ^ eff_name ^ "\n");*)
+      let eff_arg = getEffNameArg (List.hd li) in 
+
+      (*
+      print_string ("performing... " ^ eff_name ^ "\n" ^ string_of_int (List.length li));*)
       let eff_args = List.tl li in
       let iinnss = (eff_name,
       List.map (fun (_, a) -> expressionToBasicT a) eff_args) in 
-      let spec = acc_pi, Cons (acc_es, Cons (Event (eff_name, []), Predicate iinnss)), acc_side in
+      let spec = acc_pi, Cons (acc_es, Cons (Event (eff_name, eff_arg), Predicate iinnss)), acc_side in
       (* given perform Foo 1, residue is Some (Foo, [BINT 1]) *)
       let residue = Some iinnss in
 
@@ -535,7 +592,7 @@ let call_function (pre_es:es) fnName (li:(arg_label * expression) list) (acc:spe
       
       (*((True, Emp, []), Some residue)*)
     else
-      let { pre = precon ; post = (post_pi, post_es, post_side); formals = arg_formal } =
+      let { pre = (callee_pre_pi, callee_pre_es, callee_pre_side)  ; post = (post_pi, post_es, post_side); formals = arg_formal } =
         (* if functions are undefined, assume for now that they have the default spec *)
         match Env.find_fn name env with
         | None -> 
@@ -546,13 +603,18 @@ let call_function (pre_es:es) fnName (li:(arg_label * expression) list) (acc:spe
         | Some s -> s
       in
       let sb = side_binding (*find_arg_formal name env*) arg_formal arg_eff in 
+      let vb = var_binding arg_formal (List.map (fun (_, b) -> b) li) in 
+
+      let post_es' = instantiateArg post_es vb in 
+      let precon' = (callee_pre_pi, instantiateArg callee_pre_es vb, callee_pre_side)  in 
+
+
       let current_state = eliminatePartiaShall (merge_spec (True, pre_es, sb) acc ) env in 
 
-
-      let (res, str) = printReport current_state precon in 
+      let (res, str) = printReport current_state precon' in 
       
 
-      if res then ((And(acc_pi, post_pi), Cons (acc_es, post_es), List.append acc_side post_side), None)
+      if res then ((And(acc_pi, post_pi), Cons (acc_es, post_es'), List.append acc_side post_side), None)
       else raise (Foo ("call_function precondition fail " ^name ^":\n" ^ str ^ debug_string_of_expression fnName))
     in
 

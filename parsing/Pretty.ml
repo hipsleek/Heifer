@@ -96,6 +96,8 @@ let compareBasic (p1:basic_t) (p2:basic_t) :bool =
   match (p1, p2) with 
   | (BINT x, BINT y) -> x = y
   | (UNIT, UNIT) -> true
+  | (VARName s1, VARName s2) -> String.compare s1 s2 == 0
+
   | _ -> false
 
 let compareParm (p1:basic_t list) (p2:basic_t list) :bool = 
