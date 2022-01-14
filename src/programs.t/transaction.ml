@@ -5,7 +5,7 @@ effect Exc : int -> unit
 
 let raise n
   (*@ requires _^* @*)
-  (*@ ensures Exc @*)
+  (*@ ensures Exc(n) @*)
 = perform (Exc n);
 
 effect Update : int ref * int -> unit
@@ -34,7 +34,7 @@ let (:=) r v
 
 let error ()
   (*@ requires _^*  @*)
-  (*@ ensures Update.Update.Exc @*)
+  (*@ ensures Update.Update.Exc @*) (* TODO there's a problem with this *)
 =
   r := 20;
   r := 21;

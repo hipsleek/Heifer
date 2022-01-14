@@ -9,12 +9,12 @@ let get ()
 
 let put s
   (*@ requires _^* .Get @*)
-  (*@ ensures Put @*)
+  (*@ ensures Put(s) @*)
 = perform (Put s)
 
 let f ()
   (*@ requires _^* @*)
-  (*@ ensures Get.Put @*)
+  (*@ ensures Get.Put(s) @*) (* TODO fix this *)
 =
   let a = get () in
   put (a  + 1 );

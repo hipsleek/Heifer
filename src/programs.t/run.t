@@ -105,43 +105,43 @@
   
   ========== Function: put ==========
   [Pre  Condition] ((_)^*).(Get)
-  [Post Condition] Put
-  [Final  Effects] Put
+  [Post Condition] Put(s)
+  [Final  Effects] Put(s)
   
   [Verification Result: Succeed
   ------------------------------
   [SIDE] Succeed
   - - - - - - - - - - - - - -
   [ENTAILMENT] Succeed
-  * Put |- Put   [UNFOLD]
+  * Put(s) |- Put(s)   [UNFOLD]
   * └── emp |- emp   [UNFOLD]
   
   ========== Function: f ==========
   [Pre  Condition] (_)^*
-  [Post Condition] (Get).(Put)
-  [Final  Effects] (Get).(Put)
+  [Post Condition] (Get).(Put(s))
+  [Final  Effects] (Get).(Put(s))
   
   [Verification Result: Succeed
   ------------------------------
   [SIDE] Succeed
   - - - - - - - - - - - - - -
   [ENTAILMENT] Succeed
-  * (Get).(Put) |- (Get).(Put)   [UNFOLD]
-  * └── Put |- Put   [UNFOLD]
+  * (Get).(Put(s)) |- (Get).(Put(s))   [UNFOLD]
+  * └── Put(s) |- Put(s)   [UNFOLD]
   *     └── emp |- emp   [UNFOLD]
   
   ========== Function: main ==========
   [Pre  Condition] (_)^*
   [Post Condition] emp
-  [Final  Effects] (Get).(Put)
+  [Final  Effects] (Get).(Put(s))
   
   [Verification Result: Fail
   ------------------------------
   [SIDE] Succeed
   - - - - - - - - - - - - - -
   [ENTAILMENT] Fail
-  * (Get).(Put) |- emp   [UNFOLD]
-  * └── Put |- _|_   [Bot-RHS]
+  * (Get).(Put(s)) |- emp   [UNFOLD]
+  * └── Put(s) |- _|_   [Bot-RHS]
   
   $ hip files.ml | ./sanitize.sh
   
@@ -161,30 +161,30 @@
   
   ========== Function: close_file ==========
   [Pre  Condition] ((_)^*).((Open).((!Close)^*))
-  [Post Condition] Close
-  [Final  Effects] Close
+  [Post Condition] Close(s)
+  [Final  Effects] Close(s)
   
   [Verification Result: Succeed
   ------------------------------
   [SIDE] Succeed
   - - - - - - - - - - - - - -
   [ENTAILMENT] Succeed
-  * Close |- Close   [UNFOLD]
+  * Close(s) |- Close(s)   [UNFOLD]
   * └── emp |- emp   [UNFOLD]
   
   ========== Function: file ==========
   [Pre  Condition] emp
   [Post Condition] (Open).(Close)
-  [Final  Effects] (Open).((Open).(Close))
+  [Final  Effects] (Open).((Open).(Close(fd)))
   
   [Verification Result: Fail
   ------------------------------
   [SIDE] Succeed
   - - - - - - - - - - - - - -
   [ENTAILMENT] Fail
-  * (Open).((Open).(Close)) |- (Open).(Close)   [UNFOLD]
-  * └── (Open).(Close) |- Close   [UNFOLD]
-  *     └── Close |- _|_   [Bot-RHS]
+  * (Open).((Open).(Close(fd))) |- (Open).(Close)   [UNFOLD]
+  * └── (Open).(Close(fd)) |- Close   [UNFOLD]
+  *     └── Close(fd) |- _|_   [Bot-RHS]
   
   ========== Function: main ==========
   [Pre  Condition] emp
@@ -203,61 +203,61 @@
   ========== Function: file1 ==========
   [Pre  Condition] emp
   [Post Condition] (_)^*
-  [Final  Effects] (Open).((Open).(Close))
+  [Final  Effects] (Open).((Open).(Close(fd)))
   
   [Verification Result: Succeed
   ------------------------------
   [SIDE] Succeed
   - - - - - - - - - - - - - -
   [ENTAILMENT] Succeed
-  * (Open).((Open).(Close)) |- (_)^*   [UNFOLD]
-  * └── (Open).(Close) |- (_)^*   [UNFOLD]
-  *     └── Close |- (_)^*   [UNFOLD]
+  * (Open).((Open).(Close(fd))) |- (_)^*   [UNFOLD]
+  * └── (Open).(Close(fd)) |- (_)^*   [UNFOLD]
+  *     └── Close(fd) |- (_)^*   [UNFOLD]
   *         └── emp |- (_)^*   [UNFOLD]
   
   ========== Function: file2 ==========
   [Pre  Condition] emp
   [Post Condition] (_)^*
-  [Final  Effects] (Open).(Close)
+  [Final  Effects] (Open).(Close(fd))
   
   [Verification Result: Succeed
   ------------------------------
   [SIDE] Succeed
   - - - - - - - - - - - - - -
   [ENTAILMENT] Succeed
-  * (Open).(Close) |- (_)^*   [UNFOLD]
-  * └── Close |- (_)^*   [UNFOLD]
+  * (Open).(Close(fd)) |- (_)^*   [UNFOLD]
+  * └── Close(fd) |- (_)^*   [UNFOLD]
   *     └── emp |- (_)^*   [UNFOLD]
   
   ========== Function: file3 ==========
   [Pre  Condition] emp
   [Post Condition] (_)^*
-  [Final  Effects] (Open).((Open).(Close))
+  [Final  Effects] (Open).((Open).(Close(fd)))
   
   [Verification Result: Succeed
   ------------------------------
   [SIDE] Succeed
   - - - - - - - - - - - - - -
   [ENTAILMENT] Succeed
-  * (Open).((Open).(Close)) |- (_)^*   [UNFOLD]
-  * └── (Open).(Close) |- (_)^*   [UNFOLD]
-  *     └── Close |- (_)^*   [UNFOLD]
+  * (Open).((Open).(Close(fd))) |- (_)^*   [UNFOLD]
+  * └── (Open).(Close(fd)) |- (_)^*   [UNFOLD]
+  *     └── Close(fd) |- (_)^*   [UNFOLD]
   *         └── emp |- (_)^*   [UNFOLD]
   
   ========== Function: file4 ==========
   [Pre  Condition] emp
   [Post Condition] (_)^*
-  [Final  Effects] (Open).((Close).((Open).(Close)))
+  [Final  Effects] (Open).((Close(fd)).((Open).(Close(fd))))
   
   [Verification Result: Succeed
   ------------------------------
   [SIDE] Succeed
   - - - - - - - - - - - - - -
   [ENTAILMENT] Succeed
-  * (Open).((Close).((Open).(Close))) |- (_)^*   [UNFOLD]
-  * └── (Close).((Open).(Close)) |- (_)^*   [UNFOLD]
-  *     └── (Open).(Close) |- (_)^*   [UNFOLD]
-  *         └── Close |- (_)^*   [UNFOLD]
+  * (Open).((Close(fd)).((Open).(Close(fd)))) |- (_)^*   [UNFOLD]
+  * └── (Close(fd)).((Open).(Close(fd))) |- (_)^*   [UNFOLD]
+  *     └── (Open).(Close(fd)) |- (_)^*   [UNFOLD]
+  *         └── Close(fd) |- (_)^*   [UNFOLD]
   *             └── emp |- (_)^*   [UNFOLD]
   
 
@@ -342,15 +342,15 @@
   =============== 
   ========== Function: raise ==========
   [Pre  Condition] (_)^*
-  [Post Condition] Exc
-  [Final  Effects] Exc
+  [Post Condition] Exc(n)
+  [Final  Effects] Exc(n)
   
   [Verification Result: Succeed
   ------------------------------
   [SIDE] Succeed
   - - - - - - - - - - - - - -
   [ENTAILMENT] Succeed
-  * Exc |- Exc   [UNFOLD]
+  * Exc(n) |- Exc(n)   [UNFOLD]
   * └── emp |- emp   [UNFOLD]
   
   ========== Function: r ==========
@@ -395,17 +395,17 @@
   ========== Function: error ==========
   [Pre  Condition] (_)^*
   [Post Condition] (Update).((Update).(Exc))
-  [Final  Effects] (Update).((Update).(Exc))
+  [Final  Effects] (Update).((Update).((Exc(404)).(Update)))
   
-  [Verification Result: Succeed
+  [Verification Result: Fail
   ------------------------------
   [SIDE] Succeed
   - - - - - - - - - - - - - -
-  [ENTAILMENT] Succeed
-  * (Update).((Update).(Exc)) |- (Update).((Update).(Exc))   [UNFOLD]
-  * └── (Update).(Exc) |- (Update).(Exc)   [UNFOLD]
-  *     └── Exc |- Exc   [UNFOLD]
-  *         └── emp |- emp   [UNFOLD]
+  [ENTAILMENT] Fail
+  * (Update).((Update).((Exc(404)).(Update))) |- (Update).((Update).(Exc))   [UNFOLD]
+  * └── (Update).((Exc(404)).(Update)) |- (Update).(Exc)   [UNFOLD]
+  *     └── (Exc(404)).(Update) |- Exc   [UNFOLD]
+  *         └── Update |- _|_   [Bot-RHS]
   
   ========== Function: g ==========
   [Pre  Condition] (_)^*

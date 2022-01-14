@@ -9,7 +9,7 @@ let open_file ()
 
 let close_file s
   (*@ requires (_^* ) .Open . ((~Close)^*) @*)
-  (*@ ensures Close @*)
+  (*@ ensures Close(s) @*)
 = perform (Close s)
 
 let file ()
