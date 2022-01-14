@@ -33,9 +33,11 @@ Inductive value : Set :=
   | var    (s:string)
   | func   (f:string) (x:string) (e:expr) (* TODO pre/post *)
 
-with handler : Set :=
-  | h_eff (l x:string) (k:value) (e:expr) (h:handler)
-  | h_ret (x:string) (e:expr)
+with h_return : Set := h_ret (x:string) (e:expr)
+
+with h_effect : Set := h_eff (l x:string) (k:value) (e:expr)
+
+with handler : Set := handle (ret:h_return) (hs:list h_effect)
 
 with expr : Set :=
   | val    (v:value)
@@ -65,10 +67,11 @@ Definition subst_val (v1 v : value) (x : string) : value :=
 (* h[v/x] = h1 *)
 Fixpoint subst_handler (h:handler) (v : value) (x : string) : handler :=
   match h with
-  (* TODO deal with variable capture? *)
-  | h_eff l x1 k e h1 =>
-    h_eff l x1 k (subst_expr e v x) (subst_handler h1 v x)
-  | h_ret x e => h_ret x (subst_expr e v x)
+  | handle (h_ret rx re) he =>
+    handle (h_ret rx (subst_expr re v x)) (List.map (fun h1 =>
+      match h1 with
+      | h_eff l s k e => h_eff l s k (subst_expr e v x)
+      end) he)
   end
 
 (* e[v/x] = e1 *)
@@ -83,11 +86,20 @@ with subst_expr (e : expr) (v : value) (x : string) : expr :=
   | matchWith e1 h => matchWith (subst_expr e1 v x) (subst_handler h v x)
   end.
 
-Fixpoint label_not_in_handler (l:string) (h:handler) : Prop :=
+Definition labels_of_handler (h:handler) : list string :=
   match h with
-  | h_eff l1 x1 k e h1 =>
-    l1 <> l /\ label_not_in_handler l h1
-  | h_ret x e => False
+  | handle _ hs =>
+    List.map (fun h1 =>
+    match h1 with
+    | h_eff l _ _ _ => l
+    end
+    ) hs
+  end.
+
+Definition label_not_in_handler (l:string) (h:handler) : Prop :=
+  match h with
+  | handle _ hs =>
+    ~ In l (labels_of_handler h)
   end.
 
 Require Export FMapAVL.
@@ -96,24 +108,6 @@ Require Export Coq.Structures.OrderedTypeEx.
 Module Map := FMapAVL.Make(String_as_OT).
 
 Notation env := (Map.t value).
-
-Inductive step : expr -> expr -> Prop :=
-| SIfT : forall e1 e2,
-  step (ifElse (litbool true) e1 e2) e1
-| SIfF : forall e1 e2,
-  step (ifElse (litbool false) e1 e2) e1
-| SLet : forall v e e1 x,
-  subst_expr e v x = e1 ->
-  step (letIn x (val v) e) e1
-| SApp : forall f v e e1 x,
-  subst_expr e v x = e1 ->
-  step (app (func f x e) v) e1
-(* TODO match value *)
-(* TODO match perform, after U_l *)
-.
-
-Local Hint Constructors step : core.
-Notation " e1 '-->' e2 " := (step e1 e2) (at level 10).
 
 (* evaluation contexts E *)
 Inductive context : Set :=
@@ -135,6 +129,75 @@ Local Hint Constructors sub_context : core.
 
 (* 10 is the maximum it can be to work as an arg of ->...? *)
 Notation " ctx '[' e1 ']' '==' e2 " := (sub_context ctx e1 e2) (at level 10).
+
+(* evaluation contexts U_l *)
+Inductive u_context : string -> Set :=
+| u_hole : forall l, u_context l
+| u_letIn : forall l (x:string) (ctx:u_context l) (e:expr), u_context l
+| u_matchWith : forall l (ctx:u_context l) (h:handler), label_not_in_handler l h ->
+  u_context l
+.
+
+Fixpoint u_sub_context (l:string) (ctx:u_context l) (e:expr) : expr :=
+  match ctx with
+  | u_hole _l => e
+  | u_letIn l1 x ctx e1 => letIn x (u_sub_context l1 ctx e) e1
+  | u_matchWith l1 ctx h pf => matchWith (u_sub_context l1 ctx e) h
+  end.
+
+Inductive step : expr -> expr -> Prop :=
+| SIfT : forall e1 e2,
+  step (ifElse (litbool true) e1 e2) e1
+| SIfF : forall e1 e2,
+  step (ifElse (litbool false) e1 e2) e1
+| SLet : forall v e e1 x,
+  subst_expr e v x = e1 ->
+  step (letIn x (val v) e) e1
+| SApp : forall f v e e1 x,
+  subst_expr e v x = e1 ->
+  step (app (func f x e) v) e1
+| SMatchV : forall v e e1 x hs,
+  subst_expr e v x = e1 ->
+  step (matchWith (val v) (handle (h_ret x e) hs)) e1
+| SMatchP : forall v e e1 x hr hs l ctx u k hb,
+  subst_expr (subst_expr e v x)
+    (func "f" "y" (matchWith (u_sub_context l ctx (val (var "y"))) (handle hr hs)))
+    "continue" = e1 ->
+  In (h_eff l x k hb) hs ->
+  u_sub_context l ctx (perform l v) = u ->
+  step (matchWith u (handle hr hs)) e1
+.
+
+Local Hint Constructors step : core.
+Notation " e1 '-->' e2 " := (step e1 e2) (at level 10).
+
+(* Local Hint Constructors u_sub_context : core. *)
+
+(* 10 is the maximum it can be to work as an arg of ->...? *)
+(* Notation " ctx l '[' e1 ']' '==' e2 " := (u_sub_context l ctx e1 e2) (at level 10). *)
+
+Inductive ustep : expr -> expr -> Prop :=
+| UStep : forall l U c1 c2 C1 C2,
+  c1 --> c2 ->
+  (* U l [c1] == C1 -> *)
+  (* U l [c2] == C2 -> *)
+  u_sub_context l U c1 = C1 ->
+  u_sub_context l U c2 = C2 ->
+  ustep C1 C2.
+
+Local Hint Constructors ustep : core.
+
+Require Import Coq.Relations.Relation_Operators.
+Local Hint Constructors clos_trans : core.
+Notation ustep_star := (clos_trans expr ustep).
+
+(* 11 works but 10 doesn't! *)
+Notation " e1 '-u->' e2 " := (ustep e1 e2) (at level 11).
+Notation " e1 '-u->*' e2 " := (ustep_star e1 e2) (at level 11).
+
+(* some example programs *)
+
+(* Definition func_id := func "f" "x" (val (var "x")). *)
 
 Inductive estep : expr -> expr -> Prop :=
 | EStep : forall E c1 c2 C1 C2,
@@ -163,7 +226,11 @@ Definition func_id := func "f" "x" (val (var "x")).
 Example ex1 :
   ifElse true 1 2 -e-> 1.
 Proof.
-  eauto.
+  (* debug eauto. *)
+  eapply EStep.
+  apply SIfT.
+  apply ESubHole.
+  apply ESubHole.
 Qed.
 
 Example ex2 :
@@ -174,61 +241,24 @@ Proof.
   - eauto.
 Qed.
 
-(* evaluation contexts U_l *)
-Inductive u_context : string -> Set :=
-| u_hole : forall l, u_context l
-| u_letIn : forall l (x:string) (ctx:u_context l) (e:expr), u_context l
-| u_matchWith : forall l (ctx:u_context l) (h:handler), label_not_in_handler l h ->
-  u_context l
-.
-
-Fixpoint u_sub_context (l:string) (ctx:u_context l) (e:expr) : expr :=
-  match ctx with
-  | u_hole _l => e
-  | u_letIn l1 x ctx e1 => letIn x (u_sub_context l1 ctx e) e1
-  | u_matchWith l1 ctx h pf => matchWith (u_sub_context l1 ctx e) h
-  end.
-
-(* Local Hint Constructors u_sub_context : core. *)
-
-(* 10 is the maximum it can be to work as an arg of ->...? *)
-(* Notation " ctx l '[' e1 ']' '==' e2 " := (u_sub_context l ctx e1 e2) (at level 10). *)
-
-Inductive ustep : expr -> expr -> Prop :=
-| UStep : forall l U c1 c2 C1 C2,
-  c1 --> c2 ->
-  (* U l [c1] == C1 -> *)
-  (* U l [c2] == C2 -> *)
-  u_sub_context l U c1 = C1 ->
-  u_sub_context l U c2 = C2 ->
-  ustep C1 C2.
-
-Local Hint Constructors ustep : core.
-
-Require Import Coq.Relations.Relation_Operators.
-Local Hint Constructors clos_trans : core.
-Notation ustep_star := (clos_trans expr ustep).
-
-(* 11 works but 10 doesn't! *)
-Notation " e1 '-u->' e2 " := (estep e1 e2) (at level 11).
-Notation " e1 '-u->*' e2 " := (estep_star e1 e2) (at level 11).
-
-(* some example programs *)
-
-(* Definition func_id := func "f" "x" (val (var "x")). *)
-
 Example ex3 :
   ifElse true 1 2 -u-> 1.
 Proof.
-  eauto.
+  apply UStep with (l := "l") (U := u_hole "l") (c1 := ifElse true 1 2) (c2 := 1); auto.
 Qed.
 
 Example ex4 :
   letIn "x" (letIn "y" 1 "y") "x" -u->* 1.
 Proof.
   apply (t_trans _ _ _ (letIn "x" 1 "x")).
-  - eauto 6.
-  - eauto.
+  - apply t_step.
+    apply UStep with (l := "l") (U := u_letIn "l" "x" (u_hole "l") "x")
+      (c1 := letIn "y" 1 "y")
+      (c2 := 1); auto.
+  - apply t_step.
+    apply UStep with (l := "l") (U := u_hole "l")
+      (c1 := letIn "x" 1 "x")
+      (c2 := 1); auto.
 Qed.
 
 (*
