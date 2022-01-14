@@ -1146,10 +1146,11 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr cont: (spec * residu
         let b = (going_through_f_spec f_es_rhs mappings current) in 
         Cons (a, b)
   
-      | ESOr (es1, es2) -> 
+      (*| ESOr (es1, es2) -> 
         let a = (going_through_f_spec es1 mappings current) in 
         let b = (going_through_f_spec es2 mappings current) in 
         ESOr (a, b)
+        *)
 
       | _ -> 
       (*
