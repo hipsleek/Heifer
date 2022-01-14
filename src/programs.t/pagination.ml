@@ -1,25 +1,39 @@
 
+
 let sublist low high list =
    List.filteri (fun i _ -> i >= low && i < high) list
 
 type 'a page = Page of 'a * (unit -> 'a page)
 
-effect Request : int -> (string list) page
-effect ContinueFrom : int * int -> (string list) page
+effect Request : int * int -> (string list) page
 
-let get n = perform (Request n)
-let get_from n = perform (ContinueFrom (n, n))
+effect Done : (string list) page
 
-let database_server client =
+let get n = perform (Request (0, n))
+
+let database_server client
+  (*@ requires _^* *)
+  (*@ ensures Request.ContinueFrom^*.(Stop \/ Abort) *)
+=
   let database = List.init 30 (Format.sprintf "data%d") in
+  let db_size = List.length database in
   match client () with
   | () -> ()
-  | effect (Request n) k ->
-    let results = sublist 0 n database in
-    continue k (Page (results, fun () -> get_from n))
-  | effect (ContinueFrom (start, size)) k ->
-    let results = sublist start (start + size) database in
-    continue k (Page (results, fun () -> perform (ContinueFrom (start + size, size))))
+  | effect Done k ->
+    (* close the connection *)
+    continue k (Page ([], fun () -> perform Done))
+  | effect (Request (start, size)) k ->
+    let results, next =
+      if start < db_size then
+        sublist start (min (start + size) db_size) database,
+        (* remember the page size and dynamically determine the next continuation.
+          this splits control over both handler and client. *)
+        (fun () -> perform (Request (start + size, size)))
+      else
+        [],
+        (fun () -> perform Done)
+    in
+    continue k (Page (results, next))
 
 let client () =
   print_endline "First page of results:";
@@ -29,5 +43,19 @@ let client () =
   let Page (results, next) = next () in
   List.iter print_endline results
 
+let client1 () =
+  let rec loop n (Page (results, next)) =
+    match results with
+    | [] -> print_endline "end"
+    | _ ->
+      Format.printf "\nPage %d@." n;
+      List.iter print_endline results;
+      loop (n + 1) (next ())
+  in
+  loop 1 (get 10)
+
 let () =
-  database_server client
+  database_server client;
+  print_endline "---";
+  database_server client1;
+
