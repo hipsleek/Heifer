@@ -9,11 +9,11 @@ effect Request : int * int -> (string list) page
 
 effect Done : (string list) page
 
-let get n = perform (Request (0, n))
+let make_request n = perform (Request (0, n))
 
 let database_server client
   (*@ requires _^* *)
-  (*@ ensures Request.ContinueFrom^*.(Stop \/ Abort) *)
+  (*@ ensures Request^*.Done *)
 =
   let database = List.init 30 (Format.sprintf "data%d") in
   let db_size = List.length database in
@@ -37,7 +37,7 @@ let database_server client
 
 let client () =
   print_endline "First page of results:";
-  let Page (results, next) = get 10 in
+  let Page (results, next) = make_request 10 in
   List.iter print_endline results;
   print_endline "\nGetting next page...";
   let Page (results, next) = next () in
@@ -52,7 +52,7 @@ let client1 () =
       List.iter print_endline results;
       loop (n + 1) (next ())
   in
-  loop 1 (get 10)
+  loop 1 (make_request 10)
 
 let () =
   database_server client;
