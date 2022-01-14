@@ -1146,6 +1146,10 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr cont: (spec * residu
         let b = (going_through_f_spec f_es_rhs mappings current) in 
         Cons (a, b)
   
+      | ESOr (es1, es2) -> 
+        let a = (going_through_f_spec es1 mappings current) in 
+        let b = (going_through_f_spec es2 mappings current) in 
+        ESOr (a, b)
 
       | _ -> 
       (*
@@ -1188,7 +1192,13 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr cont: (spec * residu
             let cont = List.hd expre_li in
             let after_cont = List.tl expre_li in 
             let ((_, fixpoint_trace_insert, _), _) = infer_of_expression env pre_es (True, Emp, []) cont Emp in 
+            (*
+            print_string ("to print the effects of the continue: \n" ^ string_of_es (normalES fixpoint_trace_insert) ^"\n");
+            *)
             let insterting = going_through_f_spec fixpoint_trace_insert new_mapping new_current in 
+            (*
+            print_string ("to print the effects of the continue1: \n" ^ string_of_es (normalES insterting) ^"\n");
+            *)
             let insterting2 = going_through_f_spec continue_k [] ("null", Emp) in  
 
 (************************************************** After the first continue *)
