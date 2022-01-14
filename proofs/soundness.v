@@ -83,6 +83,13 @@ with subst_expr (e : expr) (v : value) (x : string) : expr :=
   | matchWith e1 h => matchWith (subst_expr e1 v x) (subst_handler h v x)
   end.
 
+Fixpoint label_not_in_handler (l:string) (h:handler) : Prop :=
+  match h with
+  | h_eff l1 x1 k e h1 =>
+    l1 <> l /\ label_not_in_handler l h1
+  | h_ret x e => False
+  end.
+
 Require Export FMapAVL.
 Require Export Coq.Structures.OrderedTypeEx.
 
@@ -113,8 +120,6 @@ Inductive context : Set :=
 | e_hole
 | e_letIn (x:string) (ctx:context) (e:expr)
 | e_matchWith (ctx:context) (h:handler).
-
-(* TODO U_l evaluation context *)
 
 Inductive sub_context : context -> expr -> expr -> Prop :=
 | ESubHole : forall e,
@@ -163,6 +168,63 @@ Qed.
 
 Example ex2 :
   letIn "x" (letIn "y" 1 "y") "x" -e->* 1.
+Proof.
+  apply (t_trans _ _ _ (letIn "x" 1 "x")).
+  - eauto 6.
+  - eauto.
+Qed.
+
+(* evaluation contexts U_l *)
+Inductive u_context : string -> Set :=
+| u_hole : forall l, u_context l
+| u_letIn : forall l (x:string) (ctx:u_context l) (e:expr), u_context l
+| u_matchWith : forall l (ctx:u_context l) (h:handler), label_not_in_handler l h ->
+  u_context l
+.
+
+Fixpoint u_sub_context (l:string) (ctx:u_context l) (e:expr) : expr :=
+  match ctx with
+  | u_hole _l => e
+  | u_letIn l1 x ctx e1 => letIn x (u_sub_context l1 ctx e) e1
+  | u_matchWith l1 ctx h pf => matchWith (u_sub_context l1 ctx e) h
+  end.
+
+(* Local Hint Constructors u_sub_context : core. *)
+
+(* 10 is the maximum it can be to work as an arg of ->...? *)
+(* Notation " ctx l '[' e1 ']' '==' e2 " := (u_sub_context l ctx e1 e2) (at level 10). *)
+
+Inductive ustep : expr -> expr -> Prop :=
+| UStep : forall l U c1 c2 C1 C2,
+  c1 --> c2 ->
+  (* U l [c1] == C1 -> *)
+  (* U l [c2] == C2 -> *)
+  u_sub_context l U c1 = C1 ->
+  u_sub_context l U c2 = C2 ->
+  ustep C1 C2.
+
+Local Hint Constructors ustep : core.
+
+Require Import Coq.Relations.Relation_Operators.
+Local Hint Constructors clos_trans : core.
+Notation ustep_star := (clos_trans expr ustep).
+
+(* 11 works but 10 doesn't! *)
+Notation " e1 '-u->' e2 " := (estep e1 e2) (at level 11).
+Notation " e1 '-u->*' e2 " := (estep_star e1 e2) (at level 11).
+
+(* some example programs *)
+
+(* Definition func_id := func "f" "x" (val (var "x")). *)
+
+Example ex3 :
+  ifElse true 1 2 -u-> 1.
+Proof.
+  eauto.
+Qed.
+
+Example ex4 :
+  letIn "x" (letIn "y" 1 "y") "x" -u->* 1.
 Proof.
   apply (t_trans _ _ _ (letIn "x" 1 "x")).
   - eauto 6.
