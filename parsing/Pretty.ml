@@ -119,6 +119,7 @@ let string_of_basic_type a : string =
   match a with 
   | BINT i -> string_of_int i 
   | UNIT -> "()"
+  | VARName s -> s
 
 let string_of_instant (str, ar_Li): string = 
   (* syntax is like OCaml type constructors, e.g. Foo, Foo (), Foo (1, ()) *)

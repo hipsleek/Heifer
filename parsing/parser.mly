@@ -2538,6 +2538,7 @@ effect_trace_value:
       let (i, _) = $1 in
       BINT (int_of_string i)
     }
+  | v = LIDENT {VARName v} 
   | LPAREN RPAREN { UNIT }
 ;
 effect_trace:

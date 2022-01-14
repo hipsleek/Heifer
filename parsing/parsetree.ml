@@ -23,7 +23,7 @@
 open Asttypes
 
 (* basic term *)
-type basic_t = BINT of int | UNIT 
+type basic_t = BINT of int | UNIT | VARName of string
 
 type instant = string * (basic_t list) 
 
