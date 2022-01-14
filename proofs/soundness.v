@@ -159,13 +159,33 @@ Inductive step : expr -> expr -> Prop :=
 | SMatchV : forall v e e1 x hs,
   subst_expr e v x = e1 ->
   step (matchWith (val v) (handle (h_ret x e) hs)) e1
-| SMatchP : forall v e e1 x hr hs l ctx u k hb,
-  subst_expr (subst_expr e v x)
-    (func "f" "y" (matchWith (u_sub_context l ctx (val (var "y"))) (handle hr hs)))
-    "continue" = e1 ->
+(* shallow handler *)
+| SMatchPS : forall v e x hr hs l ctx k hb,
   In (h_eff l x k hb) hs ->
-  u_sub_context l ctx (perform l v) = u ->
-  step (matchWith u (handle hr hs)) e1
+  step
+    (matchWith
+      (u_sub_context l ctx (perform l v))
+      (handle hr hs))
+    (subst_expr
+      (subst_expr e v x)
+      (func "f" "y"
+        (u_sub_context l ctx (val (var "y")))
+      ) "continue")
+
+(* deep handler *)
+| SMatchP : forall v e x hr hs l ctx k hb,
+  In (h_eff l x k hb) hs ->
+  step
+    (matchWith
+      (u_sub_context l ctx (perform l v))
+      (handle hr hs))
+    (subst_expr
+      (subst_expr e v x)
+      (func "f" "y"
+        (matchWith (        (* <- *)
+          u_sub_context l ctx (val (var "y"))
+        ) (handle hr hs))   (* <- *)
+      ) "continue")
 .
 
 Local Hint Constructors step : core.
