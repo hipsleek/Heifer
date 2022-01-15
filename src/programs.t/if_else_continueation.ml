@@ -7,7 +7,7 @@ let send n
 = perform Send n
 
 let server n
-(*@ requires _^* @*)
+(*@ requires emp @*)
 (*@ ensures  (Send^* ).Done @*)
 = match send n with
 | _ -> ()
@@ -16,15 +16,9 @@ let server n
   (fun i -> if i = 0 then perform Done  
       	    else send (i-1))
 
-(*
-Send.Done \/ Send.Q(Send n)
-
-Send. (Done \/ Send.Q(Send n))
-
-*)
 
 let main 
-(*@ requires _^* @*)
+(*@ requires emp @*)
 (*@ ensures  (Send.Done) \/ ((Send^* ).Done)  @*)
 = server (10)
  

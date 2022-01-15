@@ -2,7 +2,7 @@ effect Open : int -> unit
 effect Close: int -> unit
 
 let open_file n
-(*@ requires ((_^* ).Close(n).(~Open(n))^* ) \/ (~Open(n))^*  @*)
+(*@ requires ((_^* ).Close(n).(~Open(n))^* ) \/ ((~Open(n))^* ) @*)
 (*@ ensures Open(n) @*)
 = perform (Open n)
 
