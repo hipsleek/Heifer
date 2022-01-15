@@ -2,7 +2,7 @@ effect Open : int -> unit
 effect Close: int -> unit
 
 let open_file n
-(*@ requires _^* @*)
+(*@ requires ((_^* ).Close(n).(~Open(n))^* ) \/ (~Open(n))^*  @*)
 (*@ ensures Open(n) @*)
 = perform (Open n)
 
@@ -16,7 +16,7 @@ let file_9 ()
 (*@ ensures Open(9).Open(8).Close(9) @*)
 = 
   open_file 9;
-  open_file 8;
+  open_file 9;
   close_file 9
 
 let main 
