@@ -158,12 +158,11 @@ let rec derivative (es:es) (ev:event): es =
     Emp -> Bot
   | Bot -> Bot
   | Event ev1 -> 
-      if compareEvent (One ev1) ev then Emp else Bot
+      if entailsEvent ev (One ev1) then Emp else Bot
   | Predicate ins -> 
-      if compareEvent (Pred ins) ev then Emp else Bot
+      if entailsEvent ev (Pred ins)  then Emp else Bot
 
-  | Not ev1 ->       
-      if compareEvent (Zero ev1) ev then Emp else Bot
+  | Not ev1 -> if entailsEvent ev (Zero ev1) then Emp else Bot  
 
 
   | ESOr (es1 , es2) -> ESOr (derivative es1 ev, derivative es2 ev)

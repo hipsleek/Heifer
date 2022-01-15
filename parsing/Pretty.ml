@@ -117,6 +117,23 @@ let compareEvent (ev1:event) (ev2:event): bool =
 
   ;;
 
+
+let entailsEvent (ev1:event) (ev2:event): bool =
+  match (ev1, ev2) with 
+  | (_, Any) -> true 
+  | (Pred (str1), Pred (str2))
+  | (Zero (str1), Zero (str2))
+  | (One (str1), One (str2)) -> compareInstant str1 str2
+  | (One (str1), Zero (str2)) ->
+    if compareInstant str1 str2 then false 
+    else true 
+
+  | _ -> false 
+
+  ;;
+
+  
+
 let string_of_basic_type a : string = 
   match a with 
   | BINT i -> string_of_int i 

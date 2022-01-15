@@ -14,7 +14,8 @@ let close_file n
 let file_9 () 
 (*@ requires emp @*)
 (*@ ensures Open(9).Open(8).Close(9) @*)
-= open_file 9;
+= 
+  open_file 9;
   open_file 8;
   close_file 9
 
