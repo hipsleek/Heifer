@@ -78,7 +78,7 @@ Fixpoint subst_handler (h:handler) (v : value) (x : string) : handler :=
 with subst_expr (e : expr) (v : value) (x : string) : expr :=
   match e with
   | val v1 => val (subst_val v1 v x)
-  | app v1 v2 => app (subst_val v1 v x) (subst_val v1 v x)
+  | app v1 v2 => app (subst_val v1 v x) (subst_val v2 v x)
   (* TODO deal with variable capture? *)
   | letIn x e1 e2 => letIn x (subst_expr e1 v x) (subst_expr e2 v x)
   | ifElse v1 e1 e2 => ifElse (subst_val v1 v x) (subst_expr e1 v x) (subst_expr e2 v x)
@@ -86,21 +86,17 @@ with subst_expr (e : expr) (v : value) (x : string) : expr :=
   | matchWith e1 h => matchWith (subst_expr e1 v x) (subst_handler h v x)
   end.
 
-Definition labels_of_handler (h:handler) : list string :=
+Definition first_handler_with_label (l:string) (h:handler) : option h_effect :=
   match h with
   | handle _ hs =>
-    List.map (fun h1 =>
+    List.find (fun h1 =>
     match h1 with
-    | h_eff l _ _ _ => l
-    end
-    ) hs
+    | h_eff l1 _ _ _ => eqb l1 l
+    end) hs
   end.
 
 Definition label_not_in_handler (l:string) (h:handler) : Prop :=
-  match h with
-  | handle _ hs =>
-    ~ In l (labels_of_handler h)
-  end.
+  first_handler_with_label l h = None.
 
 Require Export FMapAVL.
 Require Export Coq.Structures.OrderedTypeEx.
@@ -159,33 +155,33 @@ Inductive step : expr -> expr -> Prop :=
 | SMatchV : forall v e e1 x hs,
   subst_expr e v x = e1 ->
   step (matchWith (val v) (handle (h_ret x e) hs)) e1
-(* shallow handler *)
-| SMatchPS : forall v e x hr hs l ctx k hb,
-  In (h_eff l x k hb) hs ->
-  step
-    (matchWith
-      (u_sub_context l ctx (perform l v))
-      (handle hr hs))
-    (subst_expr
-      (subst_expr e v x)
+| SMatchPShallow : forall v h hr hs l ctx hb e x k,
+  h = handle hr hs ->
+  Some (h_eff l x k hb) = first_handler_with_label l h ->
+  e = subst_expr
+      (subst_expr hb v x)
       (func "f" "y"
         (u_sub_context l ctx (val (var "y")))
-      ) "continue")
-
-(* deep handler *)
-| SMatchP : forall v e x hr hs l ctx k hb,
-  In (h_eff l x k hb) hs ->
+      ) "continue" ->
   step
     (matchWith
       (u_sub_context l ctx (perform l v))
-      (handle hr hs))
-    (subst_expr
-      (subst_expr e v x)
+      h) e
+
+| SMatchPDeep : forall v h hr hs l ctx hb e x k,
+  h = handle hr hs ->
+  Some (h_eff l x k hb) = first_handler_with_label l h ->
+  e = subst_expr
+      (subst_expr hb v x)
       (func "f" "y"
         (matchWith (        (* <- *)
           u_sub_context l ctx (val (var "y"))
         ) (handle hr hs))   (* <- *)
-      ) "continue")
+      ) "continue" ->
+  step
+    (matchWith
+      (u_sub_context l ctx (perform l v))
+      h) e
 .
 
 Local Hint Constructors step : core.
@@ -279,6 +275,27 @@ Proof.
     apply UStep with (l := "l") (U := u_hole "l")
       (c1 := letIn "x" 1 "x")
       (c2 := 1); auto.
+Qed.
+
+Example ex5 :
+  matchWith (perform "Eff" unit) (handle
+    (h_ret "x" unit)
+    [h_eff "Eff" "y" "k" (app "continue" 1)])
+  -e->* 1.
+Proof.
+  apply t_trans with (y := (app (func "f" "y" (u_sub_context "Eff" (u_hole "Eff") "y")) 1)).
+  - {
+    apply t_step.
+    apply EStep with
+      (E := e_hole)
+      (c1 := matchWith (u_sub_context "Eff" (u_hole "Eff") (perform "Eff" unit))
+        (handle (h_ret "x" unit) [h_eff "Eff" "y" "k" (app "continue" 1)]))
+      (c2 := (app (func "f" "y" (u_sub_context "Eff" (u_hole "Eff") "y")) 1)).
+    - eapply SMatchPShallow; repeat (simpl; auto).
+    - apply ESubHole.
+    - apply ESubHole.
+  }
+  - apply t_step. simpl. eauto.
 Qed.
 
 (*
