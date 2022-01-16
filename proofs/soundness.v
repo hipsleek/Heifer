@@ -249,7 +249,7 @@ Inductive estep : expr -> expr -> Prop :=
 
 Local Hint Constructors estep : core.
 
-Require Import Coq.Relations.Relation_Operators.
+(* https://softwarefoundations.cis.upenn.edu/plf-current/Smallstep.html uses clos_refl_trans_1n *)
 Local Hint Constructors clos_trans : core.
 Notation estep_star := (clos_trans expr estep).
 
