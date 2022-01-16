@@ -127,20 +127,20 @@ Inductive context : Set :=
 | e_letIn (x:string) (ctx:context) (e:expr)
 | e_matchWith (ctx:context) (h:handler).
 
-Inductive sub_context : context -> expr -> expr -> Prop :=
+Inductive e_sub : context -> expr -> expr -> Prop :=
 | ESubHole : forall e,
-  sub_context e_hole e e
+  e_sub e_hole e e
 | ESubLet : forall e1 e2 e3 x ctx,
-  sub_context ctx e2 e3 ->
-  sub_context (e_letIn x ctx e1) e2 (letIn x e3 e1)
+  e_sub ctx e2 e3 ->
+  e_sub (e_letIn x ctx e1) e2 (letIn x e3 e1)
 | ESubMatch : forall e1 e2 ctx h,
-  sub_context ctx e1 e2 ->
-  sub_context (e_matchWith ctx h) e1 (matchWith e2 h).
+  e_sub ctx e1 e2 ->
+  e_sub (e_matchWith ctx h) e1 (matchWith e2 h).
 
-Local Hint Constructors sub_context : core.
+Local Hint Constructors e_sub : core.
 
 (* 10 is the maximum it can be to work as an arg of ->...? *)
-Notation " ctx '[' e1 ']' '==' e2 " := (sub_context ctx e1 e2) (at level 10).
+Notation " ctx '[' e1 ']' '==' e2 " := (e_sub ctx e1 e2) (at level 10).
 
 (* evaluation contexts U_l *)
 Inductive u_context : string -> Set :=
@@ -150,24 +150,24 @@ Inductive u_context : string -> Set :=
   u_context l
 .
 
-Fixpoint u_sub_context (l:string) (ctx:u_context l) (e:expr) : expr :=
+Fixpoint u_sub (l:string) (ctx:u_context l) (e:expr) : expr :=
   match ctx with
   | u_hole l => e
-  | u_letIn l1 x ctx e1 => letIn x (u_sub_context l1 ctx e) e1
-  | u_matchWith l1 ctx h pf => matchWith (u_sub_context l1 ctx e) h
+  | u_letIn l1 x ctx e1 => letIn x (u_sub l1 ctx e) e1
+  | u_matchWith l1 ctx h pf => matchWith (u_sub l1 ctx e) h
   end.
 
-(* Notation " ctx l '[' e ']' " := (u_sub_context l ctx e) (at level 10). *)
+(* Notation " ctx l '[' e ']' " := (u_sub l ctx e) (at level 10). *)
 
 (* Definition a := e_hole ["a"] == "a". *)
 (* Definition b := (u_hole "l") "l" ["a"]. *)
 
-(* Notation " ctx '_' l '[' e ']' " := (u_sub_context l ctx e) (at level 10). *)
-(* Notation " ctx '_' l '(' e ')' " := (u_sub_context l ctx e) (at level 30). *)
-(* Notation " '[' e ']' ctx '_' l " := (u_sub_context l ctx e) (at level 10). *)
+(* Notation " ctx '_' l '[' e ']' " := (u_sub l ctx e) (at level 10). *)
+(* Notation " ctx '_' l '(' e ')' " := (u_sub l ctx e) (at level 30). *)
+(* Notation " '[' e ']' ctx '_' l " := (u_sub l ctx e) (at level 10). *)
 
 (* 10 is the maximum it can be to work as an arg of ->...? *)
-(* Notation " ctx l '[' e1 ']' '==' e2 " := (u_sub_context l ctx e1 e2) (at level 10). *)
+(* Notation " ctx l '[' e1 ']' '==' e2 " := (u_sub l ctx e1 e2) (at level 10). *)
 
 Inductive step : expr -> expr -> Prop :=
 | SIfT : forall e1 e2,
@@ -187,11 +187,11 @@ Inductive step : expr -> expr -> Prop :=
   h = handle hr hs ->
   Some (h_eff l x k hb) = first_handler_with_label l h ->
   e = ["continue":=func "f" "y" (
-    u_sub_context l ctx "y"
+    u_sub l ctx "y"
     )] ([x:=v] hb) ->
   step
     (matchWith
-      (u_sub_context l ctx (perform l v))
+      (u_sub l ctx (perform l v))
       h) e
 
 | SMatchPDeep : forall v h hr hs l ctx hb e x k,
@@ -201,27 +201,27 @@ Inductive step : expr -> expr -> Prop :=
       (subst_expr hb v x)
       (func "f" "y"
         (matchWith          (* <- *)
-          (u_sub_context l ctx (val (var "y")))
+          (u_sub l ctx (val (var "y")))
         (handle hr hs))     (* <- *)
       ) "continue" ->
   step
     (matchWith
-      (u_sub_context l ctx (perform l v))
+      (u_sub l ctx (perform l v))
       h) e
 .
 
 Local Hint Constructors step : core.
 Notation " e1 '-->' e2 " := (step e1 e2) (at level 10).
 
-(* Local Hint Constructors u_sub_context : core. *)
+(* Local Hint Constructors u_sub : core. *)
 
 Inductive ustep : expr -> expr -> Prop :=
 | UStep : forall l U c1 c2 C1 C2,
   c1 --> c2 ->
   (* U l [c1] == C1 -> *)
   (* U l [c2] == C2 -> *)
-  u_sub_context l U c1 = C1 ->
-  u_sub_context l U c2 = C2 ->
+  u_sub l U c1 = C1 ->
+  u_sub l U c2 = C2 ->
   ustep C1 C2.
 
 Local Hint Constructors ustep : core.
@@ -302,14 +302,14 @@ Example ex5 :
     [h_eff "Eff" "y" "k" (app "continue" 1)])
   -e->* 1.
 Proof.
-  apply t_trans with (y := (app (func "f" "y" (u_sub_context "Eff" (u_hole "Eff") "y")) 1)).
+  apply t_trans with (y := (app (func "f" "y" (u_sub "Eff" (u_hole "Eff") "y")) 1)).
   - {
     apply t_step.
     apply EStep with
       (E := e_hole)
-      (c1 := matchWith (u_sub_context "Eff" (u_hole "Eff") (perform "Eff" unit))
+      (c1 := matchWith (u_sub "Eff" (u_hole "Eff") (perform "Eff" unit))
         (handle (h_ret "x" unit) [h_eff "Eff" "y" "k" (app "continue" 1)]))
-      (c2 := (app (func "f" "y" (u_sub_context "Eff" (u_hole "Eff") "y")) 1)).
+      (c2 := (app (func "f" "y" (u_sub "Eff" (u_hole "Eff") "y")) 1)).
     - eapply SMatchPShallow; repeat (simpl; auto).
     - apply ESubHole.
     - apply ESubHole.
