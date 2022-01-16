@@ -1,13 +1,12 @@
 Module AST.
 
 Require Import FunInd.
-From Coq Require Import Arith Bool Ascii String.
+From Coq Require Import Bool Ascii String.
 Require Import Coq.Lists.List.
 Import ListNotations.
 Open Scope string_scope.
 
 Require Import Coq.Program.Wf.
-Require Import Coq.Arith.Plus.
 
 Definition numEvent := 10.
 
@@ -86,6 +85,23 @@ with subst_expr (e : expr) (v : value) (x : string) : expr :=
   | matchWith e1 h => matchWith (subst_expr e1 v x) (subst_handler h v x)
   end.
 
+(* https://stackoverflow.com/questions/69944163/is-it-possible-to-declare-type-dependent-notation-in-coq *)
+Class SubstNotation (A : Type) := sub : A -> value -> string -> A.
+
+(* should bind more tightly than =, at 70 *)
+(* conflicts with division *)
+(* Notation " e '[' v '/' x ']' " := (sub e v x) (at level 71). *)
+
+(* https://www.cis.upenn.edu/~plclub/popl08-tutorial/code/coqdoc/STLC_Solutions.html *)
+(* Notation "[ x ~> v ] e" := (sub e v x) (at level 68). *)
+
+(* https://softwarefoundations.cis.upenn.edu/plf-current/Stlc.html *)
+Notation "'[' x ':=' v ']' e" := (sub e v x) (at level 20).
+
+Local Instance SubstExpr : SubstNotation expr := { sub e v x := subst_expr e v x }.
+Local Instance SubstValue : SubstNotation value := { sub v1 v x := subst_val v1 v x }.
+Local Instance SubstHandler : SubstNotation handler := { sub h v x := subst_handler h v x }.
+
 Definition first_handler_with_label (l:string) (h:handler) : option h_effect :=
   match h with
   | handle _ hs =>
@@ -136,33 +152,43 @@ Inductive u_context : string -> Set :=
 
 Fixpoint u_sub_context (l:string) (ctx:u_context l) (e:expr) : expr :=
   match ctx with
-  | u_hole _l => e
+  | u_hole l => e
   | u_letIn l1 x ctx e1 => letIn x (u_sub_context l1 ctx e) e1
   | u_matchWith l1 ctx h pf => matchWith (u_sub_context l1 ctx e) h
   end.
+
+(* Notation " ctx l '[' e ']' " := (u_sub_context l ctx e) (at level 10). *)
+
+(* Definition a := e_hole ["a"] == "a". *)
+(* Definition b := (u_hole "l") "l" ["a"]. *)
+
+(* Notation " ctx '_' l '[' e ']' " := (u_sub_context l ctx e) (at level 10). *)
+(* Notation " ctx '_' l '(' e ')' " := (u_sub_context l ctx e) (at level 30). *)
+(* Notation " '[' e ']' ctx '_' l " := (u_sub_context l ctx e) (at level 10). *)
+
+(* 10 is the maximum it can be to work as an arg of ->...? *)
+(* Notation " ctx l '[' e1 ']' '==' e2 " := (u_sub_context l ctx e1 e2) (at level 10). *)
 
 Inductive step : expr -> expr -> Prop :=
 | SIfT : forall e1 e2,
   step (ifElse (litbool true) e1 e2) e1
 | SIfF : forall e1 e2,
   step (ifElse (litbool false) e1 e2) e1
-| SLet : forall v e e1 x,
-  subst_expr e v x = e1 ->
+| SLet : forall v e e1 (x:string),
+  [x:=v]e = e1 ->
   step (letIn x (val v) e) e1
 | SApp : forall f v e e1 x,
-  subst_expr e v x = e1 ->
+  [x:=v]e = e1 ->
   step (app (func f x e) v) e1
 | SMatchV : forall v e e1 x hs,
-  subst_expr e v x = e1 ->
+  [x:=v]e = e1 ->
   step (matchWith (val v) (handle (h_ret x e) hs)) e1
 | SMatchPShallow : forall v h hr hs l ctx hb e x k,
   h = handle hr hs ->
   Some (h_eff l x k hb) = first_handler_with_label l h ->
-  e = subst_expr
-      (subst_expr hb v x)
-      (func "f" "y"
-        (u_sub_context l ctx (val (var "y")))
-      ) "continue" ->
+  e = ["continue":=func "f" "y" (
+    u_sub_context l ctx "y"
+    )] ([x:=v] hb) ->
   step
     (matchWith
       (u_sub_context l ctx (perform l v))
@@ -174,9 +200,9 @@ Inductive step : expr -> expr -> Prop :=
   e = subst_expr
       (subst_expr hb v x)
       (func "f" "y"
-        (matchWith (        (* <- *)
-          u_sub_context l ctx (val (var "y"))
-        ) (handle hr hs))   (* <- *)
+        (matchWith          (* <- *)
+          (u_sub_context l ctx (val (var "y")))
+        (handle hr hs))     (* <- *)
       ) "continue" ->
   step
     (matchWith
@@ -188,9 +214,6 @@ Local Hint Constructors step : core.
 Notation " e1 '-->' e2 " := (step e1 e2) (at level 10).
 
 (* Local Hint Constructors u_sub_context : core. *)
-
-(* 10 is the maximum it can be to work as an arg of ->...? *)
-(* Notation " ctx l '[' e1 ']' '==' e2 " := (u_sub_context l ctx e1 e2) (at level 10). *)
 
 Inductive ustep : expr -> expr -> Prop :=
 | UStep : forall l U c1 c2 C1 C2,
@@ -210,10 +233,6 @@ Notation ustep_star := (clos_trans expr ustep).
 (* 11 works but 10 doesn't! *)
 Notation " e1 '-u->' e2 " := (ustep e1 e2) (at level 11).
 Notation " e1 '-u->*' e2 " := (ustep_star e1 e2) (at level 11).
-
-(* some example programs *)
-
-(* Definition func_id := func "f" "x" (val (var "x")). *)
 
 Inductive estep : expr -> expr -> Prop :=
 | EStep : forall E c1 c2 C1 C2,
