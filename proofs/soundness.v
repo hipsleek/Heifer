@@ -4,7 +4,7 @@ Require Import Coq.Lists.List.
 Import ListNotations.
 Open Scope string_scope.
 
-Require Import conteff.
+Require Import Lib.conteff.
 
 Module AST.
 

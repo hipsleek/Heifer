@@ -1,4 +1,6 @@
 
+# https://blog.zhen-zhang.com/2016/09/19/coq-dev.html
+
 .PHONY: all
 all:
 	mkdir -p boot/menhir

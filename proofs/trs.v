@@ -8,7 +8,7 @@ Open Scope string_scope.
 
 Require Import Coq.Program.Wf.
 Require Import Coq.Arith.Plus.
-Require Import conteff.
+Require Import Lib.conteff.
 
 Definition hypothesis : Type := list (contEff * contEff).
 
@@ -387,6 +387,8 @@ Proof.
            assert (H_temp := String.eqb_eq s0 s).
            destruct H_temp as [Hn Hm].
            assert (equla := Hn H0).
+Abort.
+(*
            apply equla in H1.
            rewrite  in equla.
            Check (Hn H0).
@@ -410,7 +412,6 @@ Proof.
 
 Qed.
 
-
 Definition eff1 : contEff := emp.
 Definition eff2 : contEff := {{[("A", one)]}}.
 Definition eff3 : contEff := waiting "A".
@@ -422,5 +423,6 @@ Compute (entailmentShell eff2 eff3).
 
 Compute (entailmentShell (kleene eff2) (kleene eff2)).
 
+*)
 
-
+End AST.
