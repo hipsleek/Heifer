@@ -277,12 +277,15 @@ Inductive iestep_star : expr -> expr -> list string -> Prop :=
 | i_silent : forall e1 e2 e3 s1,
   iestep e1 e2 None ->
   iestep_star e2 e3 s1 ->
-  iestep_star e2 e3 s1.
+  iestep_star e1 e3 s1
+| i_end : forall e s,
+  iestep_star e e s
+  .
 
 Local Hint Constructors iestep_star : core.
 
-Notation " e1 '-ie->' e2 'with' t " := (iestep e1 e2) (at level 11).
-Notation " e1 '-ie->*' e2 'with' t " := (iestep_star e1 e2) (at level 11).
+Notation " e1 '-ie->' e2 'with' t " := (iestep e1 e2 t) (at level 11).
+Notation " e1 '-ie->*' e2 'with' t " := (iestep_star e1 e2 t) (at level 11).
 
 (* some example programs *)
 
@@ -345,6 +348,29 @@ Proof.
     - apply ESubHole.
   }
   - apply t_step. simpl. eauto.
+Qed.
+
+Example ex6 :
+  matchWith (perform "Eff" unit) (handle
+    (h_ret "x" unit)
+    [h_eff "Eff" "y" "k" (app "continue" 1)])
+  -ie->* 1 with ["Eff"].
+Proof.
+  eapply i_add with (e2 := (app (func "f" "y" (u_sub "Eff" (u_hole "Eff") "y")) 1)).
+  - eapply IEStep with (E := e_hole)
+      (c1 := matchWith (u_sub "Eff" (u_hole "Eff") (perform "Eff" unit))
+        (handle (h_ret "x" unit) [h_eff "Eff" "y" "k" (app "continue" 1)]))
+      (c2 := (app (func "f" "y" (u_sub "Eff" (u_hole "Eff") "y")) 1)).
+    + eapply IEff.
+      eapply SMatchPShallow; auto.
+      simpl. reflexivity.
+      simpl.
+      unfold sub. simpl. reflexivity.
+    + apply ESubHole.
+    + apply ESubHole.
+  - simpl. eapply i_silent with (e2 := 1).
+    eauto.
+    apply i_end.
 Qed.
 
 End AST.
