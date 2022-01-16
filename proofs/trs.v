@@ -8,18 +8,7 @@ Open Scope string_scope.
 
 Require Import Coq.Program.Wf.
 Require Import Coq.Arith.Plus.
-
-Inductive contEff : Type :=
-| bot
-| emp
-| wildcard
-| stop
-| singleton (s: string)
-| not       (s:string)
-| cons      (es1: contEff) (es2: contEff)
-| disj      (es1: contEff) (es2: contEff)
-| kleene    (es: contEff).
-
+Require Import conteff.
 
 Definition hypothesis : Type := list (contEff * contEff).
 
