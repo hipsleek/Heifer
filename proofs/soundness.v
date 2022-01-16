@@ -195,6 +195,26 @@ Inductive step : expr -> expr -> Prop :=
 Local Hint Constructors step : core.
 Notation " e1 '-->' e2 " := (step e1 e2) (at level 10).
 
+Inductive istep : expr -> expr -> option string -> Prop :=
+  | IEff : forall l ctx v h e,
+    step
+      (matchWith
+        (u_sub l ctx (perform l v))
+        h) e ->
+    istep
+      (matchWith
+        (u_sub l ctx (perform l v))
+        h) e (Some l)
+  | ISilent : forall e1 e2,
+      step e1 e2 ->
+      istep e1 e2 None
+      (* this rule allows us to ignore the effect.
+        do we need to have one copy for every other constructor? *)
+.
+
+Local Hint Constructors istep : core.
+Notation " e1 '-i->' e2 'with' s " := (istep e1 e2 s) (at level 10).
+
 (* Local Hint Constructors u_sub : core. *)
 
 Inductive ustep : expr -> expr -> Prop :=
@@ -235,6 +255,34 @@ Notation estep_star := (clos_trans expr estep).
 (* 11 works but 10 doesn't! *)
 Notation " e1 '-e->' e2 " := (estep e1 e2) (at level 11).
 Notation " e1 '-e->*' e2 " := (estep_star e1 e2) (at level 11).
+
+(* instrumented semantics *)
+Inductive iestep : expr -> expr -> option string -> Prop :=
+| IEStep : forall E c1 c2 C1 C2 l,
+  (* given a step *)
+  c1 -i-> c2 with l ->
+  (* which occurs inside larger exprs C1 and C2 *)
+  E[c1] == C1 ->
+  E[c2] == C2 ->
+  (* C1 can take a step to C2 *)
+  iestep C1 C2 l.
+
+Local Hint Constructors iestep : core.
+
+Inductive iestep_star : expr -> expr -> list string -> Prop :=
+| i_add : forall e1 e2 e3 s s1,
+  iestep e1 e2 (Some s) ->
+  iestep_star e2 e3 s1 ->
+  iestep_star e1 e3 (s :: s1)
+| i_silent : forall e1 e2 e3 s1,
+  iestep e1 e2 None ->
+  iestep_star e2 e3 s1 ->
+  iestep_star e2 e3 s1.
+
+Local Hint Constructors iestep_star : core.
+
+Notation " e1 '-ie->' e2 'with' t " := (iestep e1 e2) (at level 11).
+Notation " e1 '-ie->*' e2 'with' t " := (iestep_star e1 e2) (at level 11).
 
 (* some example programs *)
 
