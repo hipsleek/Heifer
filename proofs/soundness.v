@@ -287,6 +287,22 @@ Local Hint Constructors iestep_star : core.
 Notation " e1 '-ie->' e2 'with' t " := (iestep e1 e2 t) (at level 11).
 Notation " e1 '-ie->*' e2 'with' t " := (iestep_star e1 e2 t) (at level 11).
 
+Notation spec_env := (Map.t contEff).
+
+Inductive fv : spec_env -> contEff -> expr -> contEff -> Prop :=
+| fv_val : forall env p v q,
+  fv env p (val v) q
+| fv_let : forall env p q es1 e1 e2 x,
+  fv env p e1 es1 ->
+  fv (Map.add x es1 env) p e2 q ->
+  fv env p (letIn x e1 e2) q
+  (* TODO requires subtyping, which requires inclusion *)
+(* | fv_app :
+  fv env p (app v1 v2) q *)
+  .
+
+Notation " env '|-' '{' p '}' e '{' q '}'" := (fv env p e q) (at level 11).
+
 (* some example programs *)
 
 Definition func_id := func "f" "x" (val (var "x")).
