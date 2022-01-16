@@ -1,4 +1,3 @@
-Module AST.
 
 Require Import FunInd.
 From Coq Require Import Arith Bool Ascii String ZArith.Int.
@@ -424,5 +423,3 @@ Compute (entailmentShell eff2 eff3).
 Compute (entailmentShell (kleene eff2) (kleene eff2)).
 
 *)
-
-End AST.

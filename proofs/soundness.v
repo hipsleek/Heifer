@@ -5,6 +5,7 @@ Import ListNotations.
 Open Scope string_scope.
 
 Require Import Lib.conteff.
+Require Import Lib.trs.
 
 Module AST.
 
@@ -287,18 +288,36 @@ Local Hint Constructors iestep_star : core.
 Notation " e1 '-ie->' e2 'with' t " := (iestep e1 e2 t) (at level 11).
 Notation " e1 '-ie->*' e2 'with' t " := (iestep_star e1 e2 t) (at level 11).
 
-Notation spec_env := (Map.t contEff).
+Notation fn_spec := (contEff * contEff)%type.
+(* Notation spec_env := (Map.t fn_spec). *)
+Notation spec_env := (list (string * fn_spec))%type.
+
+Definition assoc (A:Type) (x:string) (xs:list (string * A)) :=
+  let z := List.find (fun y =>
+    match y with
+    | (k, v) => String.eqb k x
+    end) xs
+  in
+  match z with
+  | Some (k, v) => Some v
+  | None => None
+  end.
+Arguments assoc [A].
 
 Inductive fv : spec_env -> contEff -> expr -> contEff -> Prop :=
-| fv_val : forall env p v q,
-  fv env p (val v) q
-| fv_let : forall env p q es1 e1 e2 x,
-  fv env p e1 es1 ->
-  fv (Map.add x es1 env) p e2 q ->
-  fv env p (letIn x e1 e2) q
-  (* TODO requires subtyping, which requires inclusion *)
-(* | fv_app :
-  fv env p (app v1 v2) q *)
+| fv_val : forall env es v,
+  fv env es (val v) es
+| fv_let : forall env es es1 es2 e1 e2 x,
+  fv env es e1 es1 ->
+  (* fv (Map.add x (es, es1) env) es1 e2 es2 -> *)
+  fv ((x, (es, es1)) :: env) es1 e2 es2 ->
+  fv env es (letIn x e1 e2) es2
+| fv_app : forall f env fpre fpost es es1 n x b v2,
+  (* Some (fpre, fpost) = Map.find f env -> *)
+  Some (fpre, fpost) = assoc f env ->
+  entailment n [] es fpre = true ->
+  es1 = cons es fpost ->
+  fv env es (app (func f x b) v2) es1
   .
 
 Notation " env '|-' '{' p '}' e '{' q '}'" := (fv env p e q) (at level 11).
