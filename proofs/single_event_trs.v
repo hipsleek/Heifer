@@ -189,6 +189,7 @@ Definition entailmentShell (n:nat) (lhs rhs: singleES) : bool :=
   entailment n [] lhs rhs.
 
 
+
 Lemma bot_entails_everything:
   forall (rhs: singleES) , 
     entailment 1 [] bot rhs = true.
@@ -213,127 +214,8 @@ Proof.
   - discriminate H.
 Qed.
 
-Lemma nullable_wildcard_any_imply_wildcard_one:
-  forall (eff: singleES) (s:string) (f:fstT), 
-    nullable (derivitive eff any) = true ->
-    nullable (derivitive eff f) = true.
-Proof. 
-  intro eff. induction eff.
-  - intro s. intro f.
-    unfold derivitive. unfold normal. unfold nullable. intro H. discriminate H.
-  - intro s. intro f.
-    unfold derivitive. unfold normal. unfold nullable. intro H. discriminate H.
-  - intro s. intro f.
-    unfold derivitive. unfold normal. unfold nullable. intro H. reflexivity. 
-  - intro s. intro f.
-    unfold derivitive. unfold normal. unfold nullable. intro H.  discriminate H.
-  - intro s'. intro f.
-    unfold derivitive. unfold entailFst. unfold normal. fold normal. unfold nullable.
-    intro H.  discriminate H.
-  - intro s'. intro f.
-    unfold derivitive. unfold entailFst. unfold normal. fold normal. unfold nullable.
-    intro H.  discriminate H.
-  - intro s'. unfold derivitive. fold derivitive. 
-    intro f. 
-    case_eq (nullable eff1). 
-    + unfold nullable. fold nullable. intros. 
-      assert (temp := orb_prop (nullable (derivitive eff1 any) && nullable eff2) (nullable (derivitive eff2 any)) H0).
-      intros. Search (_ || _ = true). 
-      destruct temp.
-      *  intros. Search (_ &&  _ = true -> _ ).  
-         destruct (andb_prop (nullable (derivitive eff1 any)) (nullable eff2) H1).
-         rewrite  (orb_true_iff (nullable (derivitive eff1 f) && nullable eff2 ) (nullable (derivitive eff2 f))).
-         left. rewrite (IHeff1 s' f ). 
-         -- rewrite  (andb_true_iff true (nullable eff2)). split. reflexivity. exact H3.
-         -- exact H2.
-      *  rewrite  (orb_true_iff (nullable (derivitive eff1 f) && nullable eff2 ) (nullable (derivitive eff2 f))).
-         right.
-         exact (IHeff2 s' f H1).
-    + unfold nullable. fold nullable. intros. 
-      destruct (andb_prop (nullable (derivitive eff1 any)) (nullable eff2) H0).
-      rewrite  (andb_true_iff (nullable (derivitive eff1 f)) (nullable eff2)).
-      split. exact (IHeff1 s' f H1). exact H2.
-  - intro s'. unfold derivitive. fold derivitive. 
-    intro f. unfold nullable. fold nullable. intros.
-    assert (temp := orb_prop (nullable (derivitive eff1 any)) (nullable (derivitive eff2 any)) H).
-    destruct temp.
-    + rewrite  (orb_true_iff (nullable (derivitive eff1 f)) (nullable (derivitive eff2 f))).
-      left. exact (IHeff1 s' f H0).
-    + rewrite  (orb_true_iff (nullable (derivitive eff1 f)) (nullable (derivitive eff2 f))).
-      right. exact (IHeff2 s' f H0).
-  - intro s'. unfold derivitive. fold derivitive.
-    intro f. unfold nullable. fold nullable. intros.
-    destruct (andb_prop (nullable (derivitive eff any)) true H).
-    rewrite  (andb_true_iff (nullable (derivitive eff f)) true).
-    split. exact (IHeff s' f H0). reflexivity.
-Qed.
-   
-Lemma wildcard_entails_rhs_imply_nullable_rhs:
-  forall (rhs: singleES) (f:fstT), 
-    entailment 2 [] wildcard rhs = true ->
-      nullable (derivitive rhs f) = true.
-Proof. 
-  intro rhs.  
-  unfold entailment. fold entailment. unfold nullable. fold nullable.
-  unfold reoccurTRS. unfold derivitive. fold derivitive. unfold normal. fold normal.
-  unfold fst. unfold map. unfold fold_left. 
-  Search (true && _ = _).
-  rewrite andb_true_l.
-  unfold nullable. fold nullable. unfold compareEff. fold compareEff.
-  rewrite andb_false_l.
-  intro f. induction f.
-  + case_eq (nullable ( (derivitive rhs any))).
-    - intros. exact (nullable_wildcard_any_imply_wildcard_one rhs s (one s) H).
-    - intros. discriminate H0.
-  + case_eq (nullable ( (derivitive rhs any))).
-    - intros. exact (nullable_wildcard_any_imply_wildcard_one rhs s (zero s) H).
-    - intros. discriminate H0.
-  + case_eq (nullable ( (derivitive rhs any))).
-    - intros. reflexivity.
-    - intros. discriminate H0.
-Qed.
 
 
-Lemma test: 
-  forall (n:string), String.eqb n n = true.
-Proof.
-  intro n.
-  Search (String.eqb _ _ = _).
-  exact (String.eqb_refl n).
-Qed.
-
-
-Lemma entailFstOne:
-  forall (s1 s2:string), String.eqb s1 s2 = true -> entailFst (one s1) (one s2) = true.
-Proof.
-  intros s1 s2.
-  unfold entailFst. intro. exact H.
-Qed. 
-  
-
-Lemma singleton_entails_rhs_imply_nullable_rhs:
-  forall (rhs: singleES) (s:string), 
-    entailment 2 [] (singleton s) rhs = true ->
-      nullable (derivitive rhs (one s)) = true.
-Proof. 
-  intros rhs s.  
-  unfold entailment. fold entailment. unfold nullable. fold nullable.
-  unfold reoccurTRS. unfold derivitive. fold derivitive. unfold normal. fold normal.
-  unfold fst. unfold map. unfold fold_left. 
-  Search (true && _ = _).
-  rewrite andb_true_l.
-  unfold nullable. fold nullable. unfold compareEff. fold compareEff.
-  case_eq (entailFst (one s) (one s)).
-  - intro H. 
-    unfold nullable. fold nullable. unfold normal. fold normal. unfold compareEff. fold compareEff.
-    case_eq (nullable (derivitive rhs (one s))). simpl. intros. reflexivity.
-    intros. discriminate H1.
-  - unfold entailFst. 
-    assert (aux := String.eqb_refl s).
-    rewrite aux.
-    intro H.
-    discriminate H.
-Qed.
 
 Lemma bool_trans:
   forall (a b c: bool), a = b  -> a = c -> b = c.
@@ -368,6 +250,7 @@ Proof.
     exact (bot_entails_everything (derivitive rhs f)).
   - intros. unfold derivitive. fold derivitive. exists 2.
     intro H. 
+    (*  STOP HERE *)
     Check (wildcard_entails_rhs_imply_nullable_rhs rhs f H).
     assert (H1:= (wildcard_entails_rhs_imply_nullable_rhs rhs f H)).
     unfold entailment. fold entailment. unfold nullable. fold nullable.
