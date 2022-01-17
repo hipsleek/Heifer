@@ -197,22 +197,20 @@ Proof.
   unfold fst. unfold map. unfold fold_left. reflexivity.
 Qed.
 
-Lemma emp_entails_nullable:
-  forall (rhs: singleES) (hy:hypothesis), 
+Lemma emp_entails_nullable n:
+  forall (rhs: singleES), 
     nullable rhs = true ->
-    entailment 1 [] emp rhs = true.
+    entailment n [] emp rhs = true.
 Proof. 
-  intro rhs.
-  intro. intro.
-  unfold entailment. fold entailment. unfold nullable. fold nullable.
-  destruct (nullable rhs) as [].
-  - unfold reoccurTRS. unfold derivitive. unfold normal.
-    unfold fst. unfold map. unfold fold_left. reflexivity.
-  - discriminate H.
-Qed.
+Admitted. 
 
 
-
+Lemma emp_entails_nullable1 n:
+  forall (rhs: singleES), 
+    entailment n [] emp rhs = true->
+    nullable rhs = true.
+Proof. 
+Admitted. 
 
 Lemma bool_trans:
   forall (a b c: bool), a = b  -> a = c -> b = c.
@@ -244,6 +242,64 @@ Proof.
 Admitted. 
 
 
+
+Lemma emp_cons_lhs_entails_rhs_is_lhs_entails_rhs n:
+  forall (lhs rhs : singleES), 
+  entailment n [] (cons emp lhs) rhs = true ->
+  entailment n [] lhs rhs = true.
+Proof.
+Admitted. 
+
+Lemma cons_emp_lhs: 
+  forall (es:singleES),
+    cons emp es = es.
+Proof.
+Admitted. 
+
+Lemma cons_emp_rhs: 
+  forall (es:singleES),
+    cons es emp = es.
+Proof.
+Admitted. 
+
+
+Lemma cons_bot_lhs: 
+  forall (es:singleES),
+    cons bot es = bot.
+Proof.
+Admitted. 
+
+Lemma cons_bot_rhs: 
+  forall (es:singleES),
+    cons es bot = bot.
+Proof.
+Admitted. 
+ 
+
+Lemma disj_bot_lhs: 
+  forall (es:singleES),
+    disj bot es = es.
+Proof.
+Admitted. 
+
+Lemma cons_sig_sig_rhs:
+forall (rhs:singleES),
+exists n : nat,
+  entailment n [] (cons singleton singleton) rhs = true ->
+  entailment n [] singleton (derivitive rhs one) = true.
+Proof.
+Admitted.
+
+Lemma only_emp_entails_emp:
+forall (lhs:singleES),
+   exists n,
+   entailment n [] lhs emp = true ->
+   lhs = emp.
+Proof.
+Admitted. 
+
+Compute (entailment 1 [] (omega singleton) bot).
+
 Theorem soundnessTRS: 
   forall (lhs: singleES)  (rhs: singleES) (f:fstT), exists n, 
     entailment n [] lhs rhs = true -> 
@@ -257,26 +313,54 @@ Proof.
   - intros.
     induction f. simpl. exists 2.
     exact (singlon_entaill_rhs_then_der_rhs_nullable 2 rhs one).
-  - intros. induction f. simpl. 
-    induction lhs1.
+  - intros. induction f. simpl.
+    induction lhs1. 
     + exists 2. simpl. intro. reflexivity.
-    + exists 2. induction lhs2.
-      * simpl. intro. reflexivity.
-      * simpl. case_eq (nullable rhs).
-        -- intros. reflexivity.
-        -- intros. discriminate H0.
-      * unfold nullable. unfold entailment. fold entailment.
-      (* STOP HERE *)
+    + simpl. rewrite (cons_emp_lhs). 
+      rewrite (cons_bot_lhs).
+      rewrite (disj_bot_lhs). 
+      exact (IHlhs2 rhs one).
+    + unfold nullable. induction lhs2. 
+      * rewrite (cons_bot_rhs). simpl. rewrite (cons_emp_lhs). exact (IHlhs2 rhs one).
+      * rewrite (cons_emp_rhs). rewrite cons_emp_rhs. simpl.  exact (IHlhs1 rhs one).
+      * simpl. rewrite (cons_emp_lhs). 
+        induction rhs.
+        -- exists 1. simpl. intro. reflexivity.
+        -- exists 1. simpl. intro. reflexivity.
+        -- exists 3. simpl. intro. discriminate H. 
+        -- 
       
-      case_eq(nullable (derivitive rhs one)).
-        -- simpl. intros. simpl. exact H0. 
-        --  intros. discriminate H0.
-      * case_eq(nullable (derivitive rhs one)).
-    
-    simpl. 
-      * simpl.  induction rhs. 
-        -- simpl. exists 2. simpl. intro. 
+      admit.
+      * simpl. rewrite (cons_emp_lhs). admit.
+      * simpl.  rewrite (cons_emp_lhs). admit.
+      * simpl.  rewrite (cons_emp_lhs). 
+        induction rhs.
+        --  simpl. exists 2. unfold entailment. simpl. intro. discriminate H.
+        -- simpl. exists 2. simpl. intro. discriminate H.
+        --  simpl. exists 2. unfold entailment. unfold nullable. fold nullable.
+            rewrite andb_false_l. unfold infinitiable. fold infinitiable. 
+            rewrite andb_false_l. unfold reoccurTRS. 
 
+            simpl. 
+        
+        intro.
+        
+        exists 2. simpl. intro. discriminate H.
+
+
+
+      * simpl. intro. reflexivity.
+      * 
+      * unfold nullable.  
+        intro.  simpl. assert (temp:= emp_cons_lhs_entails_rhs_is_lhs_entails_rhs 2 singleton rhs H).
+        assert (temp1:= singlon_entaill_rhs_then_der_rhs_nullable 2 rhs one temp). 
+        case_eq(nullable (derivitive rhs one)).
+        -- intro. reflexivity.
+        -- assert (temp3:= emp_entails_nullable1 2 (derivitive rhs one) temp1).
+           rewrite temp3. intro. discriminate H0.
+      * unfold nullable.  intro. assert (temp:= emp_cons_lhs_entails_rhs_is_lhs_entails_rhs 2 singleton rhs H).
+        assert (temp1:= singlon_entaill_rhs_then_der_rhs_nullable 2 rhs one temp). 
+        
   - intros. induction f. simpl. 
     induction lhs1. induction lhs2.
     + simpl. exists 1. intro. simpl. reflexivity.  
