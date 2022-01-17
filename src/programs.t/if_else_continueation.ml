@@ -13,7 +13,11 @@ let server n
 | _ -> ()
 | effect Done k -> continue k ()
 | effect Send k -> continue k 
-  (fun i -> if i = 0 then perform Done  
+  (fun i -> 
+    (* Send^*.Done  \/ Send^w  *)
+    (* Done \/ (Send)^*.Done \/ Send^w  *)
+
+    if i = 0 then perform Done  
       	    else send (i-1))
 
 

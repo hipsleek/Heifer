@@ -1,3 +1,9 @@
+(A)^w |- (A)^oo :true 
+
+(A)^w |- (A)^*  :false
+
+infinitiable ((A)^w) = true
+infinitiable ((A)^*) = false  
 
 
 (Send._*.Receive._*)*

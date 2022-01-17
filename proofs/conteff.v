@@ -12,6 +12,8 @@ Inductive contEff : Type :=
 | disj      (es1: contEff) (es2: contEff)
 | kleene    (es: contEff).
 
+
+
 (* Definition numEvent := 10.
 
 Definition highOrdSpec : Type := list (string * evtSeq * evtSeq).

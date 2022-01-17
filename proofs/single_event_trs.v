@@ -11,9 +11,7 @@ Require Import Coq.Arith.Plus.
 Inductive singleES : Type :=
 | bot
 | emp
-| wildcard
-| singleton 
-| not       
+| singleton    
 | cons      (es1: singleES) (es2: singleES)
 | disj      (es1: singleES) (es2: singleES)
 | kleene    (es: singleES)
@@ -30,9 +28,7 @@ Fixpoint compareEff (eff1 eff2: singleES): bool :=
 match eff1, eff2 with
 | bot, bot => true
 | emp, emp => true
-| wildcard, wildcard => true
 | singleton, singleton => true
-| not, not => true
 | cons e1 e2, cons e3 e4 => compareEff e1 e3 && compareEff e2 e4
 | disj e1 e2, disj e3 e4 => (compareEff e1 e3 && compareEff e2 e4) ||
                             (compareEff e1 e4 && compareEff e2 e3)
@@ -88,27 +84,33 @@ end.
 
 Fixpoint nullable (eff:singleES): bool :=
 match eff with
-| bot          => false
 | emp          => true
-| singleton    => false
-| not          => false 
-| wildcard     => false
 | disj e1 e2   => nullable e1 || nullable e2
 | cons e1 e2   => nullable e1 && nullable e2
 | kleene _     => true
 | infity _     => true
-| omega _      => false
+| _           => false
 end.
 
-Inductive fstT : Type := one | zero | any.
+Fixpoint infinitiable (eff:singleES): bool :=
+match eff with
+| disj e1 e2   => infinitiable e1 || infinitiable e2
+| cons e1 e2   => infinitiable e1 && infinitiable e2
+| infity _     => true
+| omega _      => true
+| _ => false 
+end.
+
+
+
+
+Inductive fstT : Type := one.
 
 Fixpoint fst (eff:singleES): list fstT  :=
 match eff with
 | bot          => []
 | emp          => []
 | singleton    => [one]
-| wildcard     => [any]
-| not          => [zero] 
 | disj e1 e2   => fst e1 ++ fst e2
 | cons e1 e2   => if nullable e1 then fst e1 ++ fst e2
                   else fst e1
@@ -120,9 +122,6 @@ end.
 Definition entailFst (f1 f2 : fstT) : bool :=
   match f1, f2 with 
   | one , one => true 
-  | zero, zero => true
-  | _, any => true
-  | _, _ => false 
   end.
 
 
@@ -134,11 +133,6 @@ match eff with
                   | true => emp 
                   | flase => bot
 end
-| not          => match entailFst f (zero) with
-                  | true => emp 
-                  | false =>bot
-end 
-| wildcard     => emp 
 | cons e1 e2   => match nullable e1 with
                   | true => disj (cons (derivitive e1 f) e2)  (derivitive e2 f)
                   | flase => cons (derivitive e1 f) e2
@@ -168,7 +162,10 @@ Fixpoint entailment (n:nat) (hy:hypothesis) (lhs rhs: singleES): bool :=
       match nullable lhs, nullable rhs with 
       | true , false => false 
       | _, _ =>  
-        (
+        (match infinitiable lhs, infinitiable rhs with 
+        | true, false => false
+        | _, _ =>  
+          (
           match reoccurTRS hy lhs rhs with 
           | true => true 
           | false => 
@@ -179,8 +176,8 @@ Fixpoint entailment (n:nat) (hy:hypothesis) (lhs rhs: singleES): bool :=
         entailment (n') ((lhs, rhs) :: hy) der1 der2
         ) fst in
     List.fold_left (fun acc a => acc && a) subTrees true
-          end
-        )
+          end)
+        end)
       end
     )
   end.
@@ -237,6 +234,15 @@ Proof.
       * intros. reflexivity.
 Qed. 
 
+Compute (entailment 1 [] singleton bot).
+
+Lemma singlon_entaill_rhs_then_der_rhs_nullable n:
+  forall (rhs:singleES) (f:fstT),
+    entailment n [] singleton rhs = true -> 
+      entailment n [] emp (derivitive rhs f) = true.
+Proof.
+Admitted. 
+
 
 Theorem soundnessTRS: 
   forall (lhs: singleES)  (rhs: singleES) (f:fstT), exists n, 
@@ -248,21 +254,43 @@ Proof.
     exact (bot_entails_everything (derivitive rhs f)). 
   - intros. unfold derivitive. fold derivitive. exists 1. intro.
     exact (bot_entails_everything (derivitive rhs f)).
-  - intros. unfold derivitive. fold derivitive. exists 2.
-    intro H. 
-    (*  STOP HERE *)
-    Check (wildcard_entails_rhs_imply_nullable_rhs rhs f H).
-    assert (H1:= (wildcard_entails_rhs_imply_nullable_rhs rhs f H)).
-    unfold entailment. fold entailment. unfold nullable. fold nullable.
-    unfold reoccurTRS.
-    case_eq (nullable (derivitive rhs f)). intros.
-    + unfold derivitive. fold derivitive. unfold fst. unfold map.
-      unfold  fold_left. reflexivity.
-    + intro.
-      assert (dis:= bool_trans (nullable (derivitive rhs f)) true false H1 H0).
-      discriminate dis.
-  - intros. unfold derivitive. fold derivitive. exists 1. intro.
-    exact (bot_entails_everything (derivitive rhs f)).
+  - intros.
+    induction f. simpl. exists 2.
+    exact (singlon_entaill_rhs_then_der_rhs_nullable 2 rhs one).
+  - intros. induction f. simpl. 
+    induction lhs1.
+    + exists 2. simpl. intro. reflexivity.
+    + exists 2. induction lhs2.
+      * simpl. intro. reflexivity.
+      * simpl. case_eq (nullable rhs).
+        -- intros. reflexivity.
+        -- intros. discriminate H0.
+      * unfold nullable. unfold entailment. fold entailment.
+      (* STOP HERE *)
+      
+      case_eq(nullable (derivitive rhs one)).
+        -- simpl. intros. simpl. exact H0. 
+        --  intros. discriminate H0.
+      * case_eq(nullable (derivitive rhs one)).
+    
+    simpl. 
+      * simpl.  induction rhs. 
+        -- simpl. exists 2. simpl. intro. 
+
+  - intros. induction f. simpl. 
+    induction lhs1. induction lhs2.
+    + simpl. exists 1. intro. simpl. reflexivity.  
+    + simpl. exists 1. intro. simpl. reflexivity.  
+    + simpl. exists 2. simpl.  
+      case_eq (nullable (derivitive rhs one)).
+      * intros. reflexivity.
+      * intros. discriminate H0.
+    + simpl.   
+        
+    
+    
+    unfold entailment. 
+
   - intros. 
     unfold derivitive. fold derivitive. exists 2. 
     intro H. 
