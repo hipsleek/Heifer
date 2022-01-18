@@ -8,6 +8,8 @@ Open Scope string_scope.
 Require Import Coq.Program.Wf.
 Require Import Coq.Arith.Plus.
 
+Ltac fold_unfold_tactic name := intros; unfold name; fold name; reflexivity.
+
 Inductive singleES : Type :=
 | bot
 | emp
@@ -103,47 +105,32 @@ end.
 
 
 
-
-Inductive fstT : Type := one.
-
-Fixpoint fst (eff:singleES): list fstT  :=
+Fixpoint fst (eff:singleES): bool :=
 match eff with
-| bot          => []
-| emp          => []
-| singleton    => [one]
-| disj e1 e2   => fst e1 ++ fst e2
-| cons e1 e2   => if nullable e1 then fst e1 ++ fst e2
+| bot          => false
+| emp          => false
+| singleton    => true 
+| disj e1 e2   => fst e1 || fst e2
+| cons e1 e2   => if nullable e1 then fst e1 || fst e2
                   else fst e1
 | kleene e     => fst e
 | infity e     => fst e
 | omega e      => fst e
 end.
 
-Definition entailFst (f1 f2 : fstT) : bool :=
-  match f1, f2 with 
-  | one , one => true 
-  end.
-
-
-Fixpoint derivitive (eff:singleES) (f:fstT) : singleES :=
+Fixpoint derivitive (eff:singleES): singleES :=
 match eff with
 | bot          => bot
 | emp          => bot
-| singleton    => match entailFst f (one)  with
-                  | true => emp 
-                  | flase => bot
-end
-| cons e1 e2   => match nullable e1 with
-                  | true => disj (cons (derivitive e1 f) e2)  (derivitive e2 f)
-                  | flase => cons (derivitive e1 f) e2
-end
-| disj e1 e2   => disj (derivitive e1 f) (derivitive e2 f)
-| kleene e     => cons (derivitive e f) eff
-| infity e     => cons (derivitive e f) eff
-| omega e     => cons (derivitive e f) eff
+| singleton    => emp
+| cons e1 e2   => if nullable e1 
+                  then disj (cons (derivitive e1) e2)  (derivitive e2)
+                  else cons (derivitive e1) e2
+| disj e1 e2   => disj (derivitive e1) (derivitive e2)
+| kleene e     => cons (derivitive e) eff
+| infity e     => cons (derivitive e) eff
+| omega e     => cons (derivitive e) eff
 end.
-
-
 
 Definition neg (v:bool): bool :=
 match v with
@@ -158,32 +145,75 @@ Fixpoint entailment (n:nat) (hy:hypothesis) (lhs rhs: singleES): bool :=
   match n with 
   | O => true  
   | S n' =>
-    (
-      match nullable lhs, nullable rhs with 
-      | true , false => false 
+    (match nullable lhs, nullable rhs with 
+    | true , false => false 
+    | _, _ =>  
+      (match infinitiable lhs, infinitiable rhs with 
+      | true, false => false
       | _, _ =>  
-        (match infinitiable lhs, infinitiable rhs with 
-        | true, false => false
-        | _, _ =>  
-          (
-          match reoccurTRS hy lhs rhs with 
-          | true => true 
-          | false => 
-    let fst := fst lhs in
-    let subTrees := List.map (fun f =>
-        let der1 := (derivitive lhs f) in
-        let der2 := (derivitive rhs f) in
-        entailment (n') ((lhs, rhs) :: hy) der1 der2
-        ) fst in
-    List.fold_left (fun acc a => acc && a) subTrees true
-          end)
+        (match reoccurTRS hy lhs rhs with 
+        | true => true 
+        | false => 
+          if fst lhs then 
+            let der1 := (derivitive lhs) in
+            let der2 := (derivitive rhs) in
+            entailment (n') ((lhs, rhs) :: hy) der1 der2
+          else true 
         end)
-      end
-    )
+      end)
+    end)
   end.
+  
 
 Definition entailmentShell (n:nat) (lhs rhs: singleES) : bool :=
   entailment n [] lhs rhs.
+
+Lemma cons_emp_lhs: 
+  forall (es:singleES),
+    cons emp es = es.
+Proof.
+Admitted. 
+
+Lemma cons_emp_rhs: 
+  forall (es:singleES),
+    cons es emp = es.
+Proof.
+Admitted. 
+
+
+Lemma cons_bot_lhs: 
+  forall (es:singleES),
+    cons bot es = bot.
+Proof.
+Admitted. 
+
+Lemma cons_bot_rhs: 
+  forall (es:singleES),
+    cons es bot = bot.
+Proof.
+Admitted. 
+ 
+
+Lemma disj_bot_lhs: 
+  forall (es:singleES),
+    disj bot es = es.
+Proof.
+Admitted. 
+
+Lemma cons_not_bot_each_not_bot:
+forall (es1 es2 : singleES), 
+compareEff bot (normal (cons es1 es2)) = false ->
+compareEff bot (normal es1) = false /\  compareEff bot (normal es2) = false.
+Proof.
+Admitted.
+
+
+Lemma disj_not_bot_each_not_bot:
+forall (es1 es2 : singleES), 
+compareEff bot (normal (disj es1 es2)) = false ->
+compareEff bot (normal es1) = false \/  compareEff bot (normal es2) = false.
+Proof.
+Admitted.
 
 
 
@@ -196,6 +226,61 @@ Proof.
   unfold nullable. unfold reoccurTRS. unfold derivitive. unfold normal.
   unfold fst. unfold map. unfold fold_left. reflexivity.
 Qed.
+
+Lemma cons_singleton_rest_entails_bot_leadsto_rest_ential_bot:
+  forall (rest: singleES) ,
+    (exists n, entailment n [] (rest) bot = false) ->
+    exists n, entailment n [] (cons singleton rest) bot = false.
+Proof.
+Admitted. 
+
+Lemma cons_es1_es2_if_es1_does_not_entail_rhs_then_fail:
+  forall (es1 es2 rhs: singleES) ,
+    (exists n, entailment n [] es1 rhs = false) ->
+    exists n, entailment n [] (cons es1 es2) rhs = false.
+Proof.
+Admitted. 
+
+Lemma disj_es1_es2_if_es1_does_not_entail_rhs_then_fail:
+  forall (es1 es2 rhs: singleES) ,
+  (exists n, entailment n [] es1 rhs = false)  \/ (exists n, entailment n [] es2 rhs = false) ->
+  exists n, entailment n [] (disj es1 es2) rhs = false.
+    
+Proof.
+Admitted. 
+
+
+
+
+Lemma nothing_entail_bot:
+  forall (lhs: singleES), 
+    compareEff bot (normal lhs) = false ->
+    exists n,
+    entailment n [] lhs bot  = false.
+Proof.
+  intro lhs.
+  induction lhs.
+  - unfold compareEff. intro H. discriminate H.
+  - unfold compareEff. intro. exists 1. unfold entailment. unfold nullable. reflexivity.
+  - unfold compareEff. intro. exists 2. 
+    fold_unfold_tactic entailment. 
+  - intro.  assert (temp:= cons_not_bot_each_not_bot lhs1 lhs2 H).
+    destruct temp.
+    assert (temp2:=IHlhs2 H1).
+    apply (cons_es1_es2_if_es1_does_not_entail_rhs_then_fail lhs1 lhs2 bot).
+      exact (IHlhs1 H0).
+  - intro.  apply (disj_es1_es2_if_es1_does_not_entail_rhs_then_fail lhs1 lhs2).
+    assert (temp:= disj_not_bot_each_not_bot lhs1 lhs2 H). 
+    destruct temp.
+    + left. exact (IHlhs1 H0).
+    + right. exact (IHlhs2 H0).
+  - intro. exists 1. fold_unfold_tactic entailment.
+  - intro. exists 1. fold_unfold_tactic entailment.
+  - intro. exists 1. fold_unfold_tactic entailment.
+Qed.  
+  
+
+
 
 Lemma emp_entails_nullable n:
   forall (rhs: singleES), 
@@ -250,37 +335,7 @@ Lemma emp_cons_lhs_entails_rhs_is_lhs_entails_rhs n:
 Proof.
 Admitted. 
 
-Lemma cons_emp_lhs: 
-  forall (es:singleES),
-    cons emp es = es.
-Proof.
-Admitted. 
 
-Lemma cons_emp_rhs: 
-  forall (es:singleES),
-    cons es emp = es.
-Proof.
-Admitted. 
-
-
-Lemma cons_bot_lhs: 
-  forall (es:singleES),
-    cons bot es = bot.
-Proof.
-Admitted. 
-
-Lemma cons_bot_rhs: 
-  forall (es:singleES),
-    cons es bot = bot.
-Proof.
-Admitted. 
- 
-
-Lemma disj_bot_lhs: 
-  forall (es:singleES),
-    disj bot es = es.
-Proof.
-Admitted. 
 
 Lemma cons_sig_sig_rhs:
 forall (rhs:singleES),
@@ -297,6 +352,27 @@ forall (lhs:singleES),
    lhs = emp.
 Proof.
 Admitted. 
+
+Lemma  derivitive_of_cond_single_rest_is_rest: 
+forall (rest:singleES), 
+derivitive (cons singleton rest) one = (cons singleton rest)
+.
+Proof.
+Admitted.
+
+Lemma  derivitive_bot_is_bot: 
+(derivitive bot one) = bot
+.
+Proof.
+  Admitted.
+
+Lemma nullable_cons_single_false:
+forall (rest:singleES), 
+ nullable (cons singleton rest) = false.
+ Proof.
+  Admitted.
+
+
 
 Compute (entailment 1 [] (omega singleton) bot).
 
@@ -323,12 +399,36 @@ Proof.
     + unfold nullable. induction lhs2. 
       * rewrite (cons_bot_rhs). simpl. rewrite (cons_emp_lhs). exact (IHlhs2 rhs one).
       * rewrite (cons_emp_rhs). rewrite cons_emp_rhs. simpl.  exact (IHlhs1 rhs one).
-      * simpl. rewrite (cons_emp_lhs). 
+      * simpl. rewrite (cons_emp_lhs).
         induction rhs.
         -- exists 1. simpl. intro. reflexivity.
         -- exists 1. simpl. intro. reflexivity.
-        -- exists 3. simpl. intro. discriminate H. 
-        -- 
+        -- exists 3. trivial. 
+        -- exists 3. trivial.
+        -- exists 3. trivial.
+        -- exists 3. trivial.
+        -- exists 3. trivial.
+        -- exists 3. trivial.
+      * simpl.  rewrite cons_emp_lhs. 
+        induction rhs.
+        -- simpl.  exists 2. intro H. unfold entailment in H.
+           unfold nullable in H. rewrite andb_false_l in H.
+           unfold infinitiable in H.  fold infinitiable in H.
+           rewrite andb_false_l in H.
+           unfold reoccurTRS in H. fold reoccurTRS in H. unfold fst in H.
+           fold fst in H. unfold nullable in H. fold nullable in H. unfold map in H.
+           fold map in H. rewrite (derivitive_of_cond_single_rest_is_rest ((cons lhs2_1 lhs2_2))) in H.
+           rewrite derivitive_bot_is_bot in H. 
+           rewrite (nullable_cons_single_false (cons lhs2_1 lhs2_2)) in H.
+           case_eq (infinitiable (cons singleton (cons lhs2_1 lhs2_2))).
+           ++ unfold infinitiable in H. fold infinitiable in H.
+              rewrite andb_false_l in H. unfold nullable in H. unfold normal in H.
+              
+
+
+
+
+           
       
       admit.
       * simpl. rewrite (cons_emp_lhs). admit.
