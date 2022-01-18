@@ -228,9 +228,9 @@ Proof.
 Qed.
 
 Lemma cons_singleton_rest_entails_bot_leadsto_rest_ential_bot:
-  forall (rest: singleES) ,
-    (exists n, entailment n [] (rest) bot = false) ->
-    exists n, entailment n [] (cons singleton rest) bot = false.
+  forall (rest: singleES) , exists n,
+    entailment n [] (rest) bot = false ->
+    entailment n [] (cons singleton rest) bot = false.
 Proof.
 Admitted. 
 
@@ -320,9 +320,9 @@ Qed.
 Compute (entailment 1 [] singleton bot).
 
 Lemma singlon_entaill_rhs_then_der_rhs_nullable n:
-  forall (rhs:singleES) (f:fstT),
+  forall (rhs:singleES),
     entailment n [] singleton rhs = true -> 
-      entailment n [] emp (derivitive rhs f) = true.
+      entailment n [] emp (derivitive rhs) = true.
 Proof.
 Admitted. 
 
@@ -341,7 +341,7 @@ Lemma cons_sig_sig_rhs:
 forall (rhs:singleES),
 exists n : nat,
   entailment n [] (cons singleton singleton) rhs = true ->
-  entailment n [] singleton (derivitive rhs one) = true.
+  entailment n [] singleton (derivitive rhs) = true.
 Proof.
 Admitted.
 
@@ -355,13 +355,13 @@ Admitted.
 
 Lemma  derivitive_of_cond_single_rest_is_rest: 
 forall (rest:singleES), 
-derivitive (cons singleton rest) one = (cons singleton rest)
+derivitive (cons singleton rest) = (cons singleton rest)
 .
 Proof.
 Admitted.
 
 Lemma  derivitive_bot_is_bot: 
-(derivitive bot one) = bot
+(derivitive bot) = bot
 .
 Proof.
   Admitted.
@@ -373,121 +373,94 @@ forall (rest:singleES),
   Admitted.
 
 
+Lemma cons_es1_Es2_entails_bot_then_both_enatils_bot n:
+forall (es1 es2:singleES), 
+  entailment n [] (cons es1 es2) bot = true ->
+    entailment n [] es1 bot = true /\ entailment n [] es2 bot = true.
+Proof.
+Admitted. 
+
+
+Lemma cons_es1_Es2_entails_emp_then_both_emp n:
+forall (es1 es2:singleES), 
+  entailment n [] (cons es1 es2) emp = true ->
+    es1 = emp /\ es2 = emp.
+Proof.
+Admitted. 
+
+
+
+Lemma cons_es1_Es2_entails_singleton_then_both_singleton n:
+forall (es1 es2:singleES), 
+  entailment n [] (cons es1 es2) singleton = true ->
+    (es1 = emp /\ es2 = singleton) \/ (es1 = singleton  /\ es2 = emp).
+Proof.
+Admitted. 
+
+
+
+
+
+Lemma disj_es1_Es2_entails_rhs_then_both_entail_rhs n:
+forall (es1 es2 rhs:singleES), 
+  entailment n [] es1 rhs = true /\ entailment n [] es2 rhs = true ->
+  entailment n [] (disj es1 es2) rhs = true.
+  
+  Proof.
+Admitted. 
+
+
+
+
+
+Lemma es_entails_bot_then_es_is_bot n:
+forall (lhs:singleES), 
+  entailment n [] lhs bot = true ->
+    lhs = bot.
+Proof.
+Admitted. 
+
+
+
+
+
+
 
 Compute (entailment 1 [] (omega singleton) bot).
 
 Theorem soundnessTRS: 
-  forall (lhs: singleES)  (rhs: singleES) (f:fstT), exists n, 
+  forall (lhs: singleES)  (rhs: singleES), exists n, 
     entailment n [] lhs rhs = true -> 
-      entailment n [] (derivitive lhs f) (derivitive rhs f) = true .
+      entailment n [] (derivitive lhs ) (derivitive rhs) = true .
 Proof.
   intro lhs. induction lhs.
   - intros. unfold derivitive. fold derivitive. exists 1. intro.
-    exact (bot_entails_everything (derivitive rhs f)). 
+    exact (bot_entails_everything (derivitive rhs)). 
   - intros. unfold derivitive. fold derivitive. exists 1. intro.
-    exact (bot_entails_everything (derivitive rhs f)).
+    exact (bot_entails_everything (derivitive rhs)).
   - intros.
-    induction f. simpl. exists 2.
-    exact (singlon_entaill_rhs_then_der_rhs_nullable 2 rhs one).
-  - intros. induction f. simpl.
-    induction lhs1. 
-    + exists 2. simpl. intro. reflexivity.
-    + simpl. rewrite (cons_emp_lhs). 
-      rewrite (cons_bot_lhs).
-      rewrite (disj_bot_lhs). 
-      exact (IHlhs2 rhs one).
-    + unfold nullable. induction lhs2. 
-      * rewrite (cons_bot_rhs). simpl. rewrite (cons_emp_lhs). exact (IHlhs2 rhs one).
-      * rewrite (cons_emp_rhs). rewrite cons_emp_rhs. simpl.  exact (IHlhs1 rhs one).
-      * simpl. rewrite (cons_emp_lhs).
-        induction rhs.
-        -- exists 1. simpl. intro. reflexivity.
-        -- exists 1. simpl. intro. reflexivity.
-        -- exists 3. trivial. 
-        -- exists 3. trivial.
-        -- exists 3. trivial.
-        -- exists 3. trivial.
-        -- exists 3. trivial.
-        -- exists 3. trivial.
-      * simpl.  rewrite cons_emp_lhs. 
-        induction rhs.
-        -- simpl.  exists 2. intro H. unfold entailment in H.
-           unfold nullable in H. rewrite andb_false_l in H.
-           unfold infinitiable in H.  fold infinitiable in H.
-           rewrite andb_false_l in H.
-           unfold reoccurTRS in H. fold reoccurTRS in H. unfold fst in H.
-           fold fst in H. unfold nullable in H. fold nullable in H. unfold map in H.
-           fold map in H. rewrite (derivitive_of_cond_single_rest_is_rest ((cons lhs2_1 lhs2_2))) in H.
-           rewrite derivitive_bot_is_bot in H. 
-           rewrite (nullable_cons_single_false (cons lhs2_1 lhs2_2)) in H.
-           case_eq (infinitiable (cons singleton (cons lhs2_1 lhs2_2))).
-           ++ unfold infinitiable in H. fold infinitiable in H.
-              rewrite andb_false_l in H. unfold nullable in H. unfold normal in H.
-              
-
-
-
-
-           
+    simpl. exists 2.
+    exact (singlon_entaill_rhs_then_der_rhs_nullable 2 rhs).
+  - intros. simpl.  
+    induction rhs.
+    + exists 1. intro.  assert (temp:= cons_es1_Es2_entails_bot_then_both_enatils_bot 1 lhs1 lhs2 H).
+      destruct temp. assert (temp:=es_entails_bot_then_es_is_bot 1 lhs1 H0).
+      assert (temp1:=es_entails_bot_then_es_is_bot 1 lhs2 H1).
+      rewrite temp. unfold nullable. unfold derivitive. simpl. reflexivity.
+    + exists 1. intro.  assert (temp:= cons_es1_Es2_entails_emp_then_both_emp 1 lhs1 lhs2 H).
+      destruct temp.  
+      rewrite H0. unfold nullable. rewrite H1. unfold derivitive. simpl. reflexivity.
+    + exists 2. intro. assert (temp:= cons_es1_Es2_entails_singleton_then_both_singleton 2 lhs1 lhs2 H).
+      destruct temp as [t1| t2].
+      * destruct t1. rewrite H0. rewrite H1. simpl. reflexivity.
+      * destruct t2. rewrite H0. rewrite H1. simpl. reflexivity.
+    + 
       
-      admit.
-      * simpl. rewrite (cons_emp_lhs). admit.
-      * simpl.  rewrite (cons_emp_lhs). admit.
-      * simpl.  rewrite (cons_emp_lhs). 
-        induction rhs.
-        --  simpl. exists 2. unfold entailment. simpl. intro. discriminate H.
-        -- simpl. exists 2. simpl. intro. discriminate H.
-        --  simpl. exists 2. unfold entailment. unfold nullable. fold nullable.
-            rewrite andb_false_l. unfold infinitiable. fold infinitiable. 
-            rewrite andb_false_l. unfold reoccurTRS. 
-
-            simpl. 
-        
-        intro.
-        
-        exists 2. simpl. intro. discriminate H.
+      
 
 
 
-      * simpl. intro. reflexivity.
-      * 
-      * unfold nullable.  
-        intro.  simpl. assert (temp:= emp_cons_lhs_entails_rhs_is_lhs_entails_rhs 2 singleton rhs H).
-        assert (temp1:= singlon_entaill_rhs_then_der_rhs_nullable 2 rhs one temp). 
-        case_eq(nullable (derivitive rhs one)).
-        -- intro. reflexivity.
-        -- assert (temp3:= emp_entails_nullable1 2 (derivitive rhs one) temp1).
-           rewrite temp3. intro. discriminate H0.
-      * unfold nullable.  intro. assert (temp:= emp_cons_lhs_entails_rhs_is_lhs_entails_rhs 2 singleton rhs H).
-        assert (temp1:= singlon_entaill_rhs_then_der_rhs_nullable 2 rhs one temp). 
-        
-  - intros. induction f. simpl. 
-    induction lhs1. induction lhs2.
-    + simpl. exists 1. intro. simpl. reflexivity.  
-    + simpl. exists 1. intro. simpl. reflexivity.  
-    + simpl. exists 2. simpl.  
-      case_eq (nullable (derivitive rhs one)).
-      * intros. reflexivity.
-      * intros. discriminate H0.
-    + simpl.   
-        
-    
-    
-    unfold entailment. 
 
-  - intros. 
-    unfold derivitive. fold derivitive. exists 2. 
-    intro H. 
-    assert (H1:= (singleton_entails_rhs_imply_nullable_rhs rhs s H)).
-    + induction f.
-      * unfold entailFst.
-        case_eq ((s0 =? s)%string ).
-        -- intros.  unfold entailment. unfold nullable. fold nullable.
-           Search (String.eqb).
-           assert (H_temp := String.eqb_eq s0 s).
-           destruct H_temp as [Hn Hm].
-           assert (equla := Hn H0).
-Abort.
 (*
            apply equla in H1.
            rewrite  in equla.
