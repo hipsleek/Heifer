@@ -1024,6 +1024,11 @@ let devideContinuation1 (expr:expression): (expression list list) =
   in aux esList [] []
   ;;
 
+let rec inTheHnadlingDOm insFName policies: bool = 
+  match policies with 
+  | [] -> false 
+  | (x, _, _) :: xs -> if String.compare insFName x == 0 then true else inTheHnadlingDOm insFName xs 
+  ;;
 
 
 let rec infer_of_expression env (pre_es:es) (acc:spec) expr cont: (spec * residue) =
@@ -1158,14 +1163,16 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr cont: (spec * residu
         List.fold_left (fun acc (a, b) -> acc ^ "\n" ^ a ^ ": " ^ string_of_es (normalES b) ) "\n===\n" (List.append mappings [current]) ^ "\n"
       );
       *)
+
       let fsts = fst f_es in 
       let disjunctions = List.map (fun f -> 
         match f with
         | One str ->  
           let (cur_str, cur_es) =  current in 
-          let new_current = (cur_str, Cons (cur_es, Event str)) in 
           let expre_li = find_policy_before str policies in 
-          Cons (Cons (Event str, sequencing expre_li Emp), going_through_f_spec (derivative f_es f) mappings new_current)
+          let es_expr_li = going_through_f_spec(sequencing expre_li Emp) [] ("null", Emp) in 
+          let new_current = (cur_str, Cons (Cons (cur_es, Event str), es_expr_li)) in 
+          Cons (Cons (Event str, es_expr_li), going_through_f_spec (derivative f_es f) mappings new_current)
         | Zero str -> 
           let (cur_str, cur_es) =  current in 
           let new_current = (cur_str, Cons (cur_es, Not str)) in 
@@ -1176,6 +1183,11 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr cont: (spec * residu
           Cons (Underline, going_through_f_spec (derivative f_es f) mappings new_current) 
         | Pred (ins) -> 
           let (insFName, _) = ins in 
+          if inTheHnadlingDOm insFName policies  == false then
+            let (cur_str, cur_es) =  current in  
+            let new_current = (cur_str, Cons (cur_es, Predicate ins)) in 
+            Cons (Predicate ins, going_through_f_spec (derivative f_es f) mappings new_current) )
+          else 
           let new_mapping = List.append mappings [current] in 
           let new_current = (insFName, Emp) in 
 

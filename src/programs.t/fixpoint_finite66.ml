@@ -2,13 +2,13 @@
 
 effect Foo : (unit -> unit)
 effect Goo : (unit -> unit)
-
+effect Koo : (unit -> unit)
+effect Zoo : (unit -> unit)
 
 let f () 
 (*@ requires _^* @*)
-(*@ ensures  Foo.Q(Foo()).Foo.Q(Foo()) @*)
+(*@ ensures  Foo.Q(Foo()) @*)
   = print_string ("Foo\n");
-    perform Foo ();
     perform Foo ()
 
 
@@ -21,39 +21,18 @@ let res11 ()
   | _ -> ()
   | effect Foo k ->  continue k (fun () -> perform Foo ())
 
-let res12 () 
+let res12 ()
   (*@ requires _^* @*)
-  (*@ ensures  Foo.((Goo.Foo)^*) @*)
-  =
-
-  match f () with
-  | _ -> ()
-  | effect Foo k ->  continue k (fun () -> perform Goo ())
-  | effect Goo k ->  continue k (fun () -> perform Foo ())
-
-
-let res5 () 
-  (*@ requires _^* @*)
-  (*@ ensures  Foo.Foo.Foo @*)
+  (*@ ensures  Foo.((Goo.Foo)^* ) @*)
   =
   match f () with
   | _ -> ()
-  | effect Foo k ->  (continue (Obj.clone_continuation k) (fun () -> ())); 
-                     continue k (fun () -> ())
+  | effect Foo k ->  print_string ("Koo\n");  perform Koo (); continue k (fun () -> print_string ("Goo\n"); perform Goo ())
+  | effect Goo k ->  print_string ("Zoo\n");  perform Zoo (); continue k (fun () -> print_string ("Foo\n");  perform Foo ())
 
-
-let res6 () 
-  (*@ requires _^* @*)
-  (*@ ensures  Foo.Foo.Foo.Foo @*)
-  =
-  match f () with
+let test =
+  match res12 () with 
   | _ -> ()
-  | effect Foo k ->  (continue (Obj.clone_continuation k) (fun () -> ())); 
-                     (continue (Obj.clone_continuation k) (fun () -> ())); 
-                     continue k (fun () -> ())
+  | effect Koo k ->  continue k (fun () ->  ())
+  | effect Zoo k -> continue k (fun () ->  ())
 
-
-(*
-
-
-*)
