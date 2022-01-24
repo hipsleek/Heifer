@@ -1,3 +1,5 @@
+dune exec parsing/hip.exe src/programs.t/transaction.ml
+
 (A)^w |- (A)^oo :true 
 
 (A)^w |- (A)^*  :false

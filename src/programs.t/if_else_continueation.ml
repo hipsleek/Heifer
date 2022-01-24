@@ -3,10 +3,8 @@ effect Done : (unit)
 
 let send n 
 (*@ requires (~Done)^* @*)
-(*@ ensures Send.... Q(Send n).Q(Send n) @*)
-= let a = perform Send in 
-  let b = perform Send in 
-  a n; b (n+1)
+(*@ ensures Send.Q(Send n) @*)
+= perform Send n
 
 let server n
 (*@ requires emp @*)
@@ -14,10 +12,13 @@ let server n
 = match send n with
 | _ -> ()
 | effect Done k -> continue k ()
-| effect Send k  -> continue k 
+| effect Send k -> continue k 
   (fun i -> 
+    (* Send^*.Done  \/ Send^w  *)
+    (* Done \/ (Send)^*.Done \/ Send^w  *)
     if i = 0 then perform Done  
       	    else send (i-1))
+
 
 let main 
 (*@ requires emp @*)

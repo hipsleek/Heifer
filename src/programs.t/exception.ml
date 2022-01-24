@@ -1,15 +1,16 @@
-effect Exc : int -> unit
-effect Foo : unit
+effect Exc : (unit -> unit)
+effect Other : unit
 
 let raise n
-  (*@ requires _^* @*)
-  (*@ ensures Exc @*)
-= perform (Exc n);
-  perform Foo
+(*@ requires (_^* ) @*)
+(*@ ensures Exc.Q(Exc ()).Other @*)
+= perform Exc ();
+  perform Other
 
 let excHandler 
-  (*@ requires _^* @*)
-  (*@ ensures Exc @*)
-= match raise 404 with 
-  | _ -> ()
-  | effect (Exc code) k -> ()
+(*@ requires (_^* ) @*)
+(*@ ensures Exc @*)
+= match raise () with 
+| _ -> (* Abandoned code *) perform Other
+| effect Exc k -> ()
+
