@@ -80,7 +80,7 @@ Class SubstNotation (A : Type) := sub : A -> value -> string -> A.
 (* Notation "[ x ~> v ] e" := (sub e v x) (at level 68). *)
 
 (* https://softwarefoundations.cis.upenn.edu/plf-current/Stlc.html *)
-Notation "'[' x ':=' v ']' e" := (sub e v x) (at level 20).
+(* Notation "'[' x ':=' v ']' e" := (sub e v x) (at level 20). *)
 
 Local Instance SubstExpr : SubstNotation expr := { sub e v x := subst_expr e v x }.
 Local Instance SubstValue : SubstNotation value := { sub v1 v x := subst_val v1 v x }.
@@ -123,8 +123,9 @@ Inductive e_sub : context -> expr -> expr -> Prop :=
 
 Local Hint Constructors e_sub : core.
 
+(* sometimes conflicts with list *)
 (* 10 is the maximum it can be to work as an arg of ->...? *)
-Notation " ctx '[' e1 ']' '==' e2 " := (e_sub ctx e1 e2) (at level 10).
+(* Notation " ctx '[' e1 ']' '==' e2 " := (e_sub ctx e1 e2) (at level 10). *)
 
 (* evaluation contexts U_l *)
 Inductive u_context : string -> Set :=
@@ -150,6 +151,7 @@ Fixpoint u_sub (l:string) (ctx:u_context l) (e:expr) : expr :=
 (* Notation " ctx '_' l '(' e ')' " := (u_sub l ctx e) (at level 30). *)
 (* Notation " '[' e ']' ctx '_' l " := (u_sub l ctx e) (at level 10). *)
 
+(* sometimes conflicts with list *)
 (* 10 is the maximum it can be to work as an arg of ->...? *)
 (* Notation " ctx l '[' e1 ']' '==' e2 " := (u_sub l ctx e1 e2) (at level 10). *)
 
@@ -159,21 +161,30 @@ Inductive step : expr -> expr -> Prop :=
 | SIfF : forall e1 e2,
   step (ifElse (litbool false) e1 e2) e1
 | SLet : forall v e e1 (x:string),
-  [x:=v]e = e1 ->
+  sub e v x
+  (* [x:=v]e *)
+  = e1 ->
   step (letIn x (val v) e) e1
 | SApp : forall f v e e1 x,
-  [x:=v]e = e1 ->
+  sub e v x
+  (* [x:=v]e *)
+  = e1 ->
   step (app (func f x e) v) e1
 | SMatchV : forall v e e1 x hs,
-  [x:=v]e = e1 ->
+  (* [x:=v] e *)
+  sub e v x
+  = e1 ->
   step (matchWith (val v) (handle (h_ret x e) hs)) e1
 
 | SMatchPShallow : forall v h hr hs l ctx hb e x k,
   h = handle hr hs ->
   Some (h_eff l x k hb) = first_handler_with_label l h ->
-  e = ["continue":=func "f" "y" (
+  (* e = ["continue":=func "f" "y" (
     u_sub l ctx "y"
-    )] ([x:=v] hb) ->
+    )] ([x:=v] hb) -> *)
+  e = sub (sub hb (func "f" "y" (
+    u_sub l ctx "y"
+    )) "continue") v x ->
   step
     (matchWith
       (u_sub l ctx (perform l v))
@@ -182,11 +193,13 @@ Inductive step : expr -> expr -> Prop :=
 | SMatchPDeep : forall v h hr hs l ctx hb e x k,
   h = handle hr hs ->
   Some (h_eff l x k hb) = first_handler_with_label l h ->
-  e = ["continue":=func "f" "y" (
+  e = sub (sub hb (func "f" "y" (
     (matchWith (        (* <- *)
       u_sub l ctx "y"
     ) (handle hr hs))   (* <- *)
-    )] ([x:=v] hb) ->
+    )) "continue") v x
+  ->
+  (* ["continue":=] ([x:=v] hb) -> *)
   step
     (matchWith
       (u_sub l ctx (perform l v))
@@ -242,8 +255,10 @@ Inductive estep : expr -> expr -> Prop :=
   (* given a step *)
   c1 --> c2 ->
   (* which occurs inside larger exprs C1 and C2 *)
-  E[c1] == C1 ->
-  E[c2] == C2 ->
+  e_sub E c1 C1 ->
+  e_sub E c2 C2 ->
+  (* E[c1] == C1 -> *)
+  (* E[c2] == C2 -> *)
   (* C1 can take a step to C2 *)
   estep C1 C2.
 
@@ -263,30 +278,34 @@ Inductive iestep : expr -> expr -> option string -> Prop :=
   (* given a step *)
   c1 -i-> c2 with l ->
   (* which occurs inside larger exprs C1 and C2 *)
-  E[c1] == C1 ->
-  E[c2] == C2 ->
+  e_sub E c1 C1 ->
+  e_sub E c2 C2 ->
+  (* E[c1] == C1 -> *)
+  (* E[c2] == C2 -> *)
   (* C1 can take a step to C2 *)
   iestep C1 C2 l.
 
 Local Hint Constructors iestep : core.
 
-Inductive iestep_star : expr -> expr -> list string -> Prop :=
+Inductive iestep_star : expr -> list string -> expr -> list string -> Prop :=
 | i_add : forall e1 e2 e3 s s1,
   iestep e1 e2 (Some s) ->
-  iestep_star e2 e3 s1 ->
-  iestep_star e1 e3 (s :: s1)
+  iestep_star e2 s1 e3 s1 ->
+  iestep_star e1 s1 e3 (s :: s1)
 | i_silent : forall e1 e2 e3 s1,
   iestep e1 e2 None ->
-  iestep_star e2 e3 s1 ->
-  iestep_star e1 e3 s1
+  iestep_star e2 s1 e3 s1 ->
+  iestep_star e1 s1 e3 s1
 | i_end : forall e s,
-  iestep_star e e s
+  iestep_star e s e s
   .
 
 Local Hint Constructors iestep_star : core.
 
 Notation " e1 '-ie->' e2 'with' t " := (iestep e1 e2 t) (at level 11).
-Notation " e1 '-ie->*' e2 'with' t " := (iestep_star e1 e2 t) (at level 11).
+
+(* no longer works for 4 params *)
+(* Notation " e1 '-ie->*' e2 'with' t " := (iestep_star e1 e2 t) (at level 11). *)
 
 Notation fn_spec := (contEff * contEff)%type.
 (* Notation spec_env := (Map.t fn_spec). *)
@@ -304,23 +323,78 @@ Definition assoc (A:Type) (x:string) (xs:list (string * A)) :=
   end.
 Arguments assoc [A].
 
+(* Delimit Scope list_scope with list. *)
+
+(* Close Scope list_scope. *)
+
 Inductive fv : spec_env -> contEff -> expr -> contEff -> Prop :=
 | fv_val : forall env es v,
-  fv env es (val v) es
-| fv_let : forall env es es1 es2 e1 e2 x,
+  fv env es (val v) emp
+| fv_let_seq : forall env es es1 es2 e1 e2 x,
   fv env es e1 es1 ->
-  (* fv (Map.add x (es, es1) env) es1 e2 es2 -> *)
-  fv ((x, (es, es1)) :: env) es1 e2 es2 ->
+  fv env (cons es es1) e2 es2 ->
   fv env es (letIn x e1 e2) es2
+| fv_let_fn : forall env es es1 e2 f x e,
+(* TODO extend env *)
+  fv (env) es e2 es1 ->
+  (* TODO pre/post *)
+  fv env es (letIn x (val (func f x e)) e2) es1
+
+(* TODO check this again *)
 | fv_app : forall f env fpre fpost es es1 n x b v2,
   (* Some (fpre, fpost) = Map.find f env -> *)
   Some (fpre, fpost) = assoc f env ->
   entailment n [] es fpre = true ->
+  (* entailment n []%list es fpre = true -> *)
   es1 = cons es fpost ->
   fv env es (app (func f x b) v2) es1
   .
 
-Notation " env '|-' '{' p '}' e '{' q '}'" := (fv env p e q) (at level 11).
+(* this conflicts with tactic match *)
+(* Notation " env '|-' '{' p '}' e '{' q '}'" := (fv env p e q) (at level 11). *)
+
+Inductive satisfies : list string -> contEff -> Prop :=
+| satisfies_emp :
+  satisfies [] emp
+| satisfies_any : forall l,
+  satisfies [l] wildcard
+| satisfies_singleton : forall l,
+  satisfies [l] (singleton l)
+| satisfies_not : forall l l1,
+  l1 <> l ->
+  satisfies [l1] (not l)
+(* TODO Q *)
+| satisfies_disj_l : forall t es1 es2,
+  satisfies t es1 ->
+  satisfies t (disj es1 es2)
+| satisfies_disj_r : forall t es1 es2,
+  satisfies t es2 ->
+  satisfies t (disj es1 es2)
+| satisfies_cons : forall t t1 t2 es1 es2,
+  t = List.app t1 t2 ->
+  satisfies t1 es1 ->
+  satisfies t2 es2 ->
+  (* TODO exists? *)
+  satisfies t (cons es1 es2)
+| satisfies_star_emp : forall t es,
+  satisfies t emp ->
+  satisfies t (kleene es)
+| satisfies_star : forall t es,
+  satisfies t (cons es (kleene es)) ->
+  satisfies t (kleene es)
+.
+
+Ltac invert H :=
+  inversion H; subst; clear H.
+
+Theorem soundness : forall e e1 t es env,
+  iestep_star e [] e1 t -> fv env emp e es -> satisfies t es.
+Proof.
+  induction e; intros.
+  - invert H0. destruct t. apply satisfies_emp.
+    (* this case is impossible as values can't produce a trace *)
+    invert H. invert H5. invert H. invert H0.
+Abort.
 
 (* some example programs *)
 
@@ -386,10 +460,12 @@ Proof.
 Qed.
 
 Example ex6 :
-  matchWith (perform "Eff" unit) (handle
-    (h_ret "x" unit)
-    [h_eff "Eff" "y" "k" (app "continue" 1)])
-  -ie->* 1 with ["Eff"].
+  iestep_star
+    (matchWith (perform "Eff" unit) (handle
+      (h_ret "x" unit)
+      [h_eff "Eff" "y" "k" (app "continue" 1)]))
+    []
+    1 ["Eff"].
 Proof.
   eapply i_add with (e2 := (app (func "f" "y" (u_sub "Eff" (u_hole "Eff") "y")) 1)).
   - eapply IEStep with (E := e_hole)
