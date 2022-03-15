@@ -159,11 +159,12 @@ let rec string_of_es es : string =
   | Event (str, []) -> str
   | Event (str, args) -> Format.sprintf "%s(%s)" str (List.map string_of_basic_type args |> String.concat ", ")
   | Not str -> "!" ^ (string_of_es (Event str))
-  | Cons (es1, es2) -> "("^string_of_es es1 ^").("^ string_of_es es2 ^")"
+  | Cons (es1, es2) -> ""^string_of_es es1 ^"."^ string_of_es es2 ^""
   | ESOr (es1, es2) -> "("^string_of_es es1 ^")+("^ string_of_es es2 ^")"
   | Kleene es1 -> "("^string_of_es es1^")^*"
   | Omega es1 -> "("^string_of_es es1^")^w"
   | Underline -> "_"
+  | Stop -> "stop"
   ;;
 
 let rec string_of_term t : string = 
@@ -271,6 +272,7 @@ let rec normalES (es:es):es =
       | _ ->  Kleene normalInside)
 
 
+  | Stop -> Stop
 
   ;;
 
@@ -287,6 +289,7 @@ let eventToEs ev : es =
   | Zero ins -> Not ins
   | Pred ins -> Predicate ins
   | Any -> Underline
+  | StopEv -> Stop
 
   ;;
 
@@ -317,5 +320,6 @@ let string_of_event e : string =
   | Zero str -> string_of_instant str 
   | Pred (ins) -> "Q(" ^ string_of_instant ins ^ ")"
   | Any -> "_"
+  | StopEv -> "stop"
 
 

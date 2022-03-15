@@ -16,7 +16,6 @@ let server n
   (fun i -> 
     (* Send^*.Done  \/ Send^w  *)
     (* Done \/ (Send)^*.Done \/ Send^w  *)
-
     if i = 0 then perform Done  
       	    else send (i-1))
 

@@ -30,7 +30,7 @@ type instant = string * (basic_t list)
 (* To indicate weather there are partial applied continustiaon *)
 type residue = instant option 
 
-type event = One of instant | Zero of instant | Pred of instant | Any
+type event = One of instant | Zero of instant | Pred of instant | Any | StopEv
 
 (*
 type stack_content = Cons of int | Variable of string | Apply of string * stack_content list 
@@ -48,6 +48,7 @@ type es = Bot
         | Kleene of es (* 0 or more, possibly infinite*)
         | Omega of es(* infinite*)
         | Underline
+        | Stop 
 
 type term = 
       Num of int

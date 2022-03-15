@@ -63,7 +63,7 @@ let rec  nullable (es:es) : bool=
   | Omega _ -> false
   | Not _ -> false
   | Predicate _ -> false
-
+  | Stop -> raise (Foo ("nullable stop"))
 ;;
 
 
@@ -82,7 +82,7 @@ let rec  fst (es:es): event list =
   | Omega es1 ->  fst es1
   | Underline -> [Any]
   | Predicate (ins) -> [Pred (ins)]
-
+  | Stop -> [StopEv]
 ;;
 
 let rec esTail (es:es): event list = 
@@ -97,7 +97,7 @@ let rec esTail (es:es): event list =
   | Underline -> [Any]
   | Cons (es1 , es2) ->  if  nullable es2 then append ( esTail es1) ( esTail es2) else  esTail es2
   | Predicate _ -> raise (Foo ("esTail Predicate")) 
-
+  | Stop -> []
 ;;
 
 
@@ -177,6 +177,7 @@ let rec derivative (es:es) (ev:event): es =
   | Kleene es1 -> Cons  (derivative es1 ev, es)
   | Omega es1 -> Cons  (derivative es1 ev, es)
   | Underline -> Emp
+  | Stop -> if entailsEvent ev (StopEv) then Emp else Bot
 
 
 ;;
