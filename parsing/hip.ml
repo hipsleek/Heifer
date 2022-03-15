@@ -1142,13 +1142,7 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr cont: (spec * residu
             Cons (_acc, es)
             ) Emp li in 
 
-<<<<<<< HEAD
-    let normal_es = sequencing (find_policy_before ("normal", []) policies) Emp in 
-
-    let rec going_through_f_spec f_es mappings current: es = 
-=======
     let rec going_through_f_spec f_es mappings current stack: es = 
->>>>>>> 86d40455527021690af7340f1d56fed9a4a908fe
       match (normalES f_es) with
       | Kleene f_es_In -> Kleene (going_through_f_spec f_es_In mappings current stack)
       | Omega f_es_In -> Omega (going_through_f_spec f_es_In mappings current stack)
@@ -1174,11 +1168,8 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr cont: (spec * residu
       );
       *)
 
-<<<<<<< HEAD
-=======
       let normal_es = sequencing (find_policy_before ("normal", []) policies) Emp in 
 
->>>>>>> 86d40455527021690af7340f1d56fed9a4a908fe
       let fsts = fst f_es in 
       let disjunctions = List.map (fun f -> 
         match f with
@@ -1232,13 +1223,8 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr cont: (spec * residu
             *)
             let insterting2 = going_through_f_spec continue_k [] ("null", Emp) (List.append stack after_cont) in  
 
-<<<<<<< HEAD
-(************************************************** After the first continue *)
-            (*let partitions = partitionContinue after_cont in 
-=======
 (************************************************** After the first continue 
             let partitions = partitionContinue after_cont in 
->>>>>>> 86d40455527021690af7340f1d56fed9a4a908fe
             let partitionTraces = List.map ( fun partition -> 
               if List.length partition == 0 then Emp 
               else 
@@ -1254,9 +1240,6 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr cont: (spec * residu
 
             ) partitions in 
             let trace_after_instert = List.fold_left (fun acc a -> Cons (acc, a)) Emp partitionTraces in 
-            *)
-            let trace_after_instert = sequencing after_cont continue_k  in 
-
 
 
 ************************************************* After the first continue *)
@@ -1267,11 +1250,7 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr cont: (spec * residu
                         print_string ("normal trace: " ^ string_of_es (normalES normal_es)^ "\n");
 
             *)
-<<<<<<< HEAD
-            Cons (Cons(insterting, insterting2), trace_after_instert)
-=======
             Cons(insterting, insterting2)
->>>>>>> 86d40455527021690af7340f1d56fed9a4a908fe
 
 
       ) fsts in 
@@ -1283,7 +1262,7 @@ let rec infer_of_expression env (pre_es:es) (acc:spec) expr cont: (spec * residu
     let trace = going_through_f_spec (Cons (es_ex, Stop)) [] ("null", Emp) []in 
     let fixpoint_time = "[Fixpoint Time: " ^ string_of_float ((Sys.time() -. startTimeStamp) *. 1000.0) ^ " ms]" in
     print_string (fixpoint_time);
-    ((p_ex, Cons (trace, normal_es), side_es) , None)
+    ((p_ex, trace, side_es) , None)
 
 
     
