@@ -59,11 +59,14 @@ let rec  nullable (es:es) : bool=
   | Cons (es1 , es2) -> ( nullable es1) && ( nullable es2)
   | ESOr (es1 , es2) -> ( nullable es1) || ( nullable es2)
   | Kleene _ -> true
+  | Infiny _ -> true
+
   | Underline -> false 
   | Omega _ -> false
   | Not _ -> false
-  | Predicate _ -> false
-  | Stop -> raise (Foo ("nullable stop"))
+  | Emit _ -> false
+  | Await _ -> false  
+
 ;;
 
 
@@ -80,25 +83,14 @@ let rec  fst (es:es): event list =
   | ESOr (es1, es2) -> append ( fst es1) ( fst es2)
   | Kleene es1 ->  fst es1
   | Omega es1 ->  fst es1
+  | Infiny es1 ->  fst es1
+
   | Underline -> [Any]
-  | Predicate (ins) -> [Pred (ins)]
-  | Stop -> [StopEv]
+  | Emit (ins) -> [Send (ins)]
+  | Await (ins) -> [Receive (ins)]
+
 ;;
 
-let rec esTail (es:es): event list = 
-  match es with
-  | Bot -> []
-  | Emp -> []
-  | Event ev ->  [One (ev)]
-  | Not (ev) ->  [Zero (ev)]
-  | ESOr (es1, es2) -> append ( esTail es1) ( esTail es2)
-  | Kleene es1 ->  esTail es1
-  | Omega es1 ->  esTail es1
-  | Underline -> [Any]
-  | Cons (es1 , es2) ->  if  nullable es2 then append ( esTail es1) ( esTail es2) else  esTail es2
-  | Predicate _ -> raise (Foo ("esTail Predicate")) 
-  | Stop -> []
-;;
 
 
 let isBot (es:es) :bool= 
@@ -159,9 +151,11 @@ let rec derivative (es:es) (ev:event): es =
   | Bot -> Bot
   | Event ev1 -> 
       if entailsEvent ev (One ev1) then Emp else Bot
-  | Predicate ins -> 
-      if entailsEvent ev (Pred ins)  then Emp else Bot
-
+  | Emit ins -> 
+      if entailsEvent ev (Send ins)  then Emp else Bot
+  | Await ins -> 
+      if entailsEvent ev (Receive ins)  then Emp else Bot
+  
   | Not ev1 -> if entailsEvent ev (Zero ev1) then Emp else Bot  
 
 
@@ -175,9 +169,10 @@ let rec derivative (es:es) (ev:event): es =
       else let efF = derivative es1 ev in 
           Cons (efF, es2)    
   | Kleene es1 -> Cons  (derivative es1 ev, es)
+  | Infiny es1 -> Cons  (derivative es1 ev, es)
+
   | Omega es1 -> Cons  (derivative es1 ev, es)
   | Underline -> Emp
-  | Stop -> if entailsEvent ev (StopEv) then Emp else Bot
 
 
 ;;

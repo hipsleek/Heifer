@@ -390,7 +390,7 @@ let rec find_arg_formal name full: string list =
 let rec eliminatePartial (es:es) env :es = 
   match es with
 
-  | Predicate (eff_name, arg_list) ->
+  | Send (eff_name, arg_list) ->
     let eff_arg_length = List.length  arg_list in 
     let eff_formal_arg_length = Env.find_effect_arg_length eff_name env in 
     (match eff_formal_arg_length with 
@@ -669,65 +669,6 @@ let rec eventListToES history : es =
   | x::xs -> Cons (eventToEs x, eventListToES xs )
   ;;
 
-(*
-let fixpoint ((_, es, _):spec) (policy: (string option * spec) list): spec =
-  let es = normalES es in 
-  let policy = List.map (fun (a, b) -> (a, normalSpec b)) policy in 
-  let fst_list = (fst es) in 
-
-  let rec innerAux history fst:es =   
-    match checkRepeat history fst with 
-    | None -> 
-    let rec helper p = 
-      match p with
-      | [] -> raise (Foo ("fixpoint: Effect" ^ string_of_es (eventToEs fst) ^ " is not catched"))
-      | (x, trace)::xs -> 
-        if compareEvent x fst then 
-          let new_start = (esTail trace) in 
-          Cons (trace, 
-          if List.length (new_start) == 0 then Emp
-          else 
-          List.fold_left (fun acc f -> ESOr (acc, innerAux (List.append history [fst]) f)) Bot  new_start
-          )
-         else helper xs 
-        
-    in helper policy
-    | Some ev_li -> 
-      Omega (eventListToES ev_li)
-
-  in 
-
-  List.fold_left (fun accFst f -> 
-  let der = derivative es f in 
-
-
-  let rec aux fst der acc: es = 
-    let cur = Cons (eventToEs fst, innerAux [] fst) in 
-    if isEmp der then Cons (acc, cur)
-    else 
-      let new_ev = List.hd (Rewriting.fst es) in 
-      let new_der = derivative der new_ev in 
-
-      aux new_ev new_der (Cons (acc, cur))
-    
-  in ESOr (accFst, aux f der Emp)
-  ) Bot fst_list
-  ;;
-
-
-
-
-
-        (*print_string (List.fold_left (fun acc (l, r) -> acc ^
-          (match l with 
-          | None -> "none "
-          | Some  str -> str
-         ) ^ " -> " ^ string_of_es r ^"\n"
-          ) "" policy);
-                  raise (Foo ("rangwo chou chou: "^ string_of_es es1));
-          *)
-        
-*)
 
 let rec getNormal (p: (string option * spec) list): spec = 
   match p with  

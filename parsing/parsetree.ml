@@ -30,7 +30,7 @@ type instant = string * (basic_t list)
 (* To indicate weather there are partial applied continustiaon *)
 type residue = instant option 
 
-type event = One of instant | Zero of instant | Pred of instant | Any | StopEv
+type event = One of instant | Zero of instant | Send of instant | Receive of (instant * basic_t) | Any 
 
 (*
 type stack_content = Cons of int | Variable of string | Apply of string * stack_content list 
@@ -40,15 +40,17 @@ type stack = string * instant
 
 type es = Bot 
         | Emp   
-        | Predicate of instant (* Q () *)
+        | Emit of instant (* Foo! *)
+        | Await of (instant * basic_t) (* Foo? *)
         | Event of instant
         | Not of instant
+        | Underline
         | Cons of es * es
         | ESOr of es * es
-        | Kleene of es (* 0 or more, possibly infinite*)
+        | Kleene of es (* 0 or more, but finite*)
+        | Infiny of es (* 0 or more, possibly infinite*)
         | Omega of es(* infinite*)
-        | Underline
-        | Stop 
+
 
 type term = 
       Num of int
@@ -72,7 +74,7 @@ type side = (string * (es * es)) list   (* Eff(f()) = _^*.A -> U^*.(Res \/ emp) 
 (* e.g: spec =  (n>0, emp, [Eff(f() = U^*] )) 
                 (n>0, Q(Foo()).END, [] )) 
 *)
-type spec = pi * es * side
+type spec = (pi * es) list 
 
 
 let default_es_pre =  (Kleene(Underline))

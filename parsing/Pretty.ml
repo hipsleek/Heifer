@@ -110,9 +110,11 @@ let compareEvent (ev1:event) (ev2:event): bool =
   match (ev1, ev2) with 
   | (Any, _) -> true 
   | (_, Any) -> true 
-  | (Pred (str1), Pred (str2))
+  | (Send (str1), Send (str2))
   | (Zero (str1), Zero (str2))
   | (One (str1), One (str2)) -> compareInstant str1 str2
+  | (Receive (str1, bt1), Receive (str2, bt2)) -> compareInstant str1 str2 && compareBasic bt1 bt2
+
   | _ -> false 
 
   ;;
@@ -121,12 +123,14 @@ let compareEvent (ev1:event) (ev2:event): bool =
 let entailsEvent (ev1:event) (ev2:event): bool =
   match (ev1, ev2) with 
   | (_, Any) -> true 
-  | (Pred (str1), Pred (str2))
+  | (Send (str1), Send (str2))
   | (Zero (str1), Zero (str2))
   | (One (str1), One (str2)) -> compareInstant str1 str2
   | (One (str1), Zero (str2)) ->
     if compareInstant str1 str2 then false 
     else true 
+  | (Receive (str1, bt1), Receive (str2, bt2)) -> compareInstant str1 str2 && compareBasic bt1 bt2
+
 
   | _ -> false 
 
@@ -155,16 +159,17 @@ let rec string_of_es es : string =
   match es with 
   | Bot -> "_|_"
   | Emp -> "emp"
-  | Predicate ins  -> Format.sprintf "Q(%s)" (string_of_instant ins)
+  | Emit ins  -> Format.sprintf "(%s)!" (string_of_instant ins)
+  | Await (ins, bt)  -> Format.sprintf "(%s)?(%s)" (string_of_instant ins) (string_of_basic_type bt)
   | Event (str, []) -> str
   | Event (str, args) -> Format.sprintf "%s(%s)" str (List.map string_of_basic_type args |> String.concat ", ")
   | Not str -> "!" ^ (string_of_es (Event str))
   | Cons (es1, es2) -> ""^string_of_es es1 ^"."^ string_of_es es2 ^""
   | ESOr (es1, es2) -> "("^string_of_es es1 ^")+("^ string_of_es es2 ^")"
   | Kleene es1 -> "("^string_of_es es1^")^*"
+  | Infiny es1 -> "("^string_of_es es1^")^oo"
   | Omega es1 -> "("^string_of_es es1^")^w"
   | Underline -> "_"
-  | Stop -> "stop"
   ;;
 
 let rec string_of_term t : string = 
@@ -225,8 +230,8 @@ let rec normalES (es:es):es =
   | Event _ -> es
   | Not _ -> es 
   | Underline -> es
-  | Predicate _ -> es 
-
+  | Await _ -> es 
+  | Emit _ -> es 
   | Cons (Cons (esIn1, esIn2), es2)-> 
     normalES (Cons (esIn1, normalES (Cons (esIn2, es2)))) 
     
@@ -271,8 +276,11 @@ let rec normalES (es:es):es =
       | ESOr(Emp, aa) -> Kleene aa
       | _ ->  Kleene normalInside)
 
-
-  | Stop -> Stop
+  | Infiny es1 -> 
+      let normalInside = normalES es1 in 
+      (match normalInside with
+        Emp -> Emp
+      | _ ->  Infiny normalInside)
 
   ;;
 
@@ -287,9 +295,10 @@ let eventToEs ev : es =
   match ev with 
   | One ins -> Event ins
   | Zero ins -> Not ins
-  | Pred ins -> Predicate ins
+  | Send ins -> Emit ins
+  | Receive ins -> Await ins
+
   | Any -> Underline
-  | StopEv -> Stop
 
   ;;
 
@@ -318,8 +327,9 @@ let string_of_event e : string =
   match e with 
   | One str -> string_of_instant str 
   | Zero str -> string_of_instant str 
-  | Pred (ins) -> "Q(" ^ string_of_instant ins ^ ")"
+  | Send (ins) -> "(" ^ string_of_instant ins ^ ")!"
+  | Receive (ins, bt) -> "(" ^ string_of_instant ins ^ ")?" ^ "(" ^ string_of_basic_type bt ^ ")"
+
   | Any -> "_"
-  | StopEv -> "stop"
 
 
