@@ -43,6 +43,7 @@ let string_of_token =
 | ENSURES -> "ENSURES"
 | OMEGA -> "OMEGA"
 | KLEENE -> "KLEENE"
+| INFINY -> "INFINY"
 | EMP -> "EMP"
 | GREATER -> "GREATER"
 | GREATERRBRACE -> "GREATERRBRACE"
