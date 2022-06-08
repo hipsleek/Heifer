@@ -60,7 +60,6 @@ let rec  nullable (es:es) : bool=
   | ESOr (es1 , es2) -> ( nullable es1) || ( nullable es2)
   | Kleene _ -> true
   | Infiny _ -> true
-
   | Underline -> false 
   | Omega _ -> false
   | Not _ -> false
@@ -69,6 +68,8 @@ let rec  nullable (es:es) : bool=
 
 ;;
 
+let nullableEff (eff:spec) : bool = 
+  List.fold_left (fun acc (_, a, _) -> acc || (nullable a)) false eff;;
 
 
 
@@ -91,6 +92,9 @@ let rec  fst (es:es): event list =
 
 ;;
 
+let fstEff (eff:spec) : event list = 
+  List.flatten (List.map (fun (_, es, _) -> fst es) eff);;
+
 
 
 let isBot (es:es) :bool= 
@@ -99,14 +103,14 @@ let isBot (es:es) :bool=
   | _ -> false 
   ;;
 
-let isEmp (es:es) :bool= 
-  match normalES es with
-    Emp -> true
+let isBotEff (eff:spec) :bool= 
+  match eff with 
+  | [] -> true 
   | _ -> false 
   ;;
 
-let isEmpSpec ((_, es, _):spec) : bool = 
-  isEmp es;; 
+
+
 
 let rec checkexist lst super: bool = 
   match lst with
@@ -123,7 +127,9 @@ let rec splitCons (es:es) : es list =
 
   ;;
 
+let reoccur _ _ (_:evn) =  false  
 
+(*
 let rec reoccur esL esR (del:evn) = 
   match del with 
   | [] -> false 
@@ -144,6 +150,18 @@ let rec reoccur esL esR (del:evn) =
     else reoccur esL esR rest (*REOCCUR*) 
   ;;
 
+let rec checkreoccur  esL rhs  (del:evn) = 
+  match rhs with 
+  | [] -> false 
+  | (_, x, _):: xs  -> if reoccur esL x del then true else checkreoccur esL xs del 
+  ;;
+
+let rec reoccurEff lhs rhs (del:evn) = 
+  match lhs with 
+  | [] -> true  
+  | (_, x, _) :: xs -> if checkreoccur x rhs del == false then false else (reoccurEff xs rhs del )
+;;
+*)
 
 let rec derivative (es:es) (ev:event): es =
   match es with
@@ -177,15 +195,19 @@ let rec derivative (es:es) (ev:event): es =
 
 ;;
 
+let derivativeEff (eff:spec) ev: spec = 
+   (List.map (fun (pi, es, v) -> (pi, derivative es ev, v)) eff)
+   ;;
 
 
-let rec containment (evn: evn) (lhs:es) (rhs:es) : (bool * binary_tree ) = 
-  let lhs = normalES lhs in 
-  let rhs = normalES rhs in 
+
+let rec containment (evn: evn) (lhs:spec) (rhs:spec) : (bool * binary_tree ) = 
+  let lhs = normalSpec lhs in 
+  let rhs = normalSpec rhs in 
   let entail = string_of_inclusion lhs rhs in 
-  if nullable lhs == true && nullable rhs==false then (false, Node (entail^ "   [DISPROVE]", []))
-  else if isBot lhs then (true, Node (entail^ "   [Bot-LHS]", []))
-  else if isBot rhs then (false, Node (entail^ "   [Bot-RHS]", []))
+  if nullableEff lhs == true && nullableEff rhs==false then (false, Node (entail^ "   [DISPROVE]", []))
+  else if isBotEff lhs then (true, Node (entail^ "   [Bot-LHS]", []))
+  else if isBotEff rhs then (false, Node (entail^ "   [Bot-RHS]", []))
   else if reoccur lhs rhs evn then (true, Node (entail^ "   [Reoccur]", []))
   else 
   (*match lhs with 
@@ -194,13 +216,13 @@ let rec containment (evn: evn) (lhs:es) (rhs:es) : (bool * binary_tree ) =
       let (re2, tree2) = containment evn lhs2 rhs in 
       (re1 && re2, Node (entail^ "   [LHS-DISJ]", [tree1; tree2]))
   | _ -> *)
-    let (fst:event list) = fst lhs in 
+    let (fst:event list) = fstEff lhs in 
     let newEvn = append [(lhs, rhs)] evn in 
     let rec helper (acc:binary_tree list) (fst_list:event list): (bool * binary_tree list) = 
       (match fst_list with 
         [] -> (true , acc) 
       | a::xs -> 
-        let (result, (tree:binary_tree)) =  containment newEvn (derivative lhs a ) (derivative rhs a ) in 
+        let (result, (tree:binary_tree)) =  containment newEvn (derivativeEff lhs a ) (derivativeEff rhs a ) in 
         if result == false then (false, (tree:: acc))
         else helper (tree:: acc) xs 
       )
@@ -217,8 +239,8 @@ let rec containment (evn: evn) (lhs:es) (rhs:es) : (bool * binary_tree ) =
 
 
 (*(bool * binary_tree ) *)
-let check_containment lhs rhs : (bool * string) = 
-  let _ = (string_of_es (normalES lhs)) ^ " |- " ^ (string_of_es (normalES rhs)) (*and i = INC(lhs, rhs)*) in
+let check_containment (lhs:spec) (rhs:spec) : (bool * string) = 
+  let _ = (string_of_spec (normalSpec lhs)) ^ " |- " ^ (string_of_spec (normalSpec rhs)) (*and i = INC(lhs, rhs)*) in
 
   let (re, tree) =  containment [] lhs rhs in
   let result = printTree ~line_prefix:"* " ~get_name ~get_children tree in
@@ -234,47 +256,19 @@ let compareInstant (s1, i1) (s2, i2) : bool =
   in 
   (String.compare s1 s2 == 0)  && helper i1 i2
 
-let rec existSide (ins) (side:side) : (string * (es * es))  option = 
-  match side with 
-  | [] -> None
-  | (ins1, (es1, es2)):: xs -> if String.equal ins ins1 then Some (ins1, (es1, es2)) else existSide ins xs 
-
-let check_side (s1:side) (s2:side)  : (bool * string) = 
-  let result = 
-    List.fold_left (fun acc (ins2, (es21, es22)) -> acc && 
-    (
-      match existSide ins2 s1 with
-      | None -> raise (Foo ("check_side: " ^ ins2 ^ string_of_side s1)) 
-      | Some (_, (es11, es12)) -> (* es12 < es22, es21 < es11*)
-        let (re1, _) = check_containment es21 es11  in 
-        let (re2, _) = check_containment es12 es22  in 
-        (*
-        print_string ("side...\n" ^str1^"\n");
-        print_string (str2^"\n");*)
-        re1 && re2
-    )
-  ) true s2  in 
-  let buffur = ("[SIDE]" ^ (* (string_of_bool result)^*)" " ^(if result then "Succeed\n" else "Fail\n")  )
-  in (result, buffur)
 
 
-let printReport ((_, lhs, side1):spec) ((_, rhs, side2):spec) :(bool * string) = 
+let printReport (lhs:spec) (rhs:spec) :(bool * string) = 
   let startTimeStamp = Sys.time() in
   (*let (re1, _) = check_pure pi1 pi2 in *)
   let (re2, temp2) = check_containment lhs rhs in 
-  let (re3, temp3) = check_side side1 side2  in 
   let verification_time = "[Verification Time: " ^ string_of_float ((Sys.time() -. startTimeStamp) *. 1000.0) ^ " ms]" in
 
-  let re = re2 && re3 in 
+  let re = re2 in 
   let whole = "[Verification Result: " ^ (if re  then "Succeed" else "Fail" ) in 
   (re, (*"===========================================\n" ^*)
   verification_time  ^"\n"^
   whole  ^"\n"^
-  "------------------------------\n" ^
-  (*
-  temp1 ^ 
-  "- - - - - - - - - - - - - -"^"\n" ^ *)
-  temp3 ^ 
   "- - - - - - - - - - - - - -"^"\n" ^
   temp2)
   ;;
@@ -285,11 +279,6 @@ let n_GT_0 : pi =
 let n_GT_1 : pi =
   Atomic (LT, Var "n", Num 5)
 
-
-let testSleek (): string =
-  let spec1 = (n_GT_0, Emp, [("Foo",(Emp,  Emp))]) in 
-  let spec2 = (n_GT_1, Emp, [("Foo",(Emp,  Event ("A", [])))]) in 
-  let (_, str) = printReport spec1 spec2 in str;;
 
 
 

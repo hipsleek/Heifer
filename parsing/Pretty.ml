@@ -187,14 +187,6 @@ let string_of_bin_op op : string =
   | GTEQ -> ">="
   | LTEQ -> "<="
 
-let string_of_side side : string =
-  side
-    |> List.map (fun (ins, (es1, es2)) ->
-      Format.sprintf "eff(%s) = %s -> %s" 
-        ins
-        (string_of_es es1)
-        (string_of_es es2) )
-    |> String.concat ", "
 
 let rec string_of_pi pi : string = 
   match pi with 
@@ -207,20 +199,19 @@ let rec string_of_pi pi : string =
   | Not    p -> "!" ^ string_of_pi p
 
 
+let string_of_tuple (pi, es, v) : string = 
+  string_of_pi pi ^ ", " ^  string_of_es es ^ ", " ^ string_of_basic_type v ;;
 
-let string_of_spec (_ (*pi*), es, side) =
-  let side =
-    match side with
-    | [] -> ""
-    | _ -> ", " ^ string_of_side side
-  in
-  Format.sprintf "%s%s"
-    (*(string_of_pi pi)*) (string_of_es es) side
-
+let rec string_of_spec (eff:spec) :string =
+  match eff with
+  | [] -> ""
+  | x::xs -> string_of_tuple x ^ " \\/ " ^ string_of_spec xs
+;;  
 
 
-let string_of_inclusion (lhs:es) (rhs:es) :string = 
-  string_of_es lhs ^" |- " ^string_of_es rhs 
+
+let string_of_inclusion (lhs:spec) (rhs:spec) :string = 
+  string_of_spec lhs ^" |- " ^string_of_spec rhs 
   ;;
 
 let rec normalES (es:es):es = 
@@ -285,11 +276,11 @@ let rec normalES (es:es):es =
   ;;
 
 
-let normalSide s = s
 let normalPure p = p
 
-let normalSpec (pi, es, side) : spec = (normalPure pi, normalES es, normalSide side)
+let normalTuple (pi, es, v)  = (normalPure pi, normalES es, v)
 
+let normalSpec eff : spec = List.map (fun a -> normalTuple a) eff
 
 let eventToEs ev : es =
   match ev with 

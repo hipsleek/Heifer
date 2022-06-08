@@ -74,18 +74,18 @@ type side = (string * (es * es)) list   (* Eff(f()) = _^*.A -> U^*.(Res \/ emp) 
 (* e.g: spec =  (n>0, emp, [Eff(f() = U^*] )) 
                 (n>0, Q(Foo()).END, [] )) 
 *)
-type spec = (pi * es) list 
+type spec = (pi * es * basic_t) list 
 
 
 let default_es_pre =  (Kleene(Underline))
 let default_es_post = Emp
 
-let default_spec_pre = True, default_es_pre, []
-let default_spec_post = True, default_es_post, []
+let default_spec_pre = [(True, default_es_pre, UNIT)]
+let default_spec_post = [(True, default_es_post, UNIT)]
 
 type policy = Eff of string * es * es | Exn of string | Normal of es
 
-type evn = (es * es)list
+type evn = (spec * spec) list
 
 type constant =
     Pconst_integer of string * char option
