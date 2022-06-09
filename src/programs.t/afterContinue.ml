@@ -3,7 +3,10 @@ effect Foo : unit -> unit
 effect Goo : unit -> unit
 
 
-let f () = 
+let f () 
+(*@  requires (true, _, 1)(true, _, 1)  @*)
+(*@  ensures (true, _, 1)(true, _, 1) @*)
+= 
   print_string ("Foo ()\n");
   perform (Foo ())
 
