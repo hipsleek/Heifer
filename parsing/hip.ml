@@ -442,15 +442,17 @@ let eliminatePartiaShall spec env : spec =
   let (pi, es, side) = spec in 
   (pi, eliminatePartial es env, side);;
 
+
+
+
+
+*)
+
 let rec side_binding (formal:string list) (actual: (es * es) list) : side = 
   match (formal, actual) with 
   | (x::xs, tuple::ys) -> (x, tuple) :: (side_binding xs ys)
   | _ -> []
   ;;
-
-
-
-*)
   
 
 let fnNameToString fnName: string = 
@@ -557,6 +559,9 @@ let rec instantiateArg (post_es:es) (vb:(string * basic_t) list) : es =
   | Omega es1 -> Omega (instantiateArg es1 vb)
   | _ -> post_es
   ;;
+
+let instantiateEff (eff:spec) (vb:(string * basic_t) list) : spec = 
+  List.map (fun (p, t, v)-> (p, instantiateArg t vb, v)) eff;;
 
 let add_es_to_spec spec es: spec = 
   List.map (fun (a, b, c) -> (a, Cons (b, es), c)) spec ;;
@@ -863,6 +868,10 @@ let getEffNameArg l =
     | _ -> raise (Foo "getEffNameArg error")
 ;;
 
+let concatenateEffects (eff1:spec) (eff2:spec) : spec = 
+  let zip = List.combine eff1 eff2 in 
+  List.map (fun ((p1, es1, _), (p2, es2, v2)) -> (And(p1, p2), Cons (es1, es2), v2)) zip ;;
+
 let rec infer_of_expression (env) (current:spec) expr: spec = 
   match expr.pexp_desc with 
   | Pexp_fun (_, _, _ (*pattern*), exprIn) -> 
@@ -906,7 +915,30 @@ let rec infer_of_expression (env) (current:spec) expr: spec =
                   (List.map (fun (p, t, v)-> (p, Cons(t, Await (ins, eff_arg )), v)) current) expr
             | None -> raise (Foo ("Placeholder has no argument")))
 
-          | None -> raise (Foo "Let error"))
+          | None -> 
+(* FUNCTION-CALL *)
+let { pre = pre  ; post = post; formals = arg_formal } =
+(* if functions are undefined, assume for now that they have the default spec *)
+match Env.find_fn name env with
+| None -> { pre = default_spec_pre; post = default_spec_post; formals = []}
+| Some s -> s
+      in
+      let vb = var_binding arg_formal (List.map (fun (_, b) -> b) li) in 
+
+      let postcon' = instantiateEff post vb in 
+      let precon' = instantiateEff pre vb in 
+
+
+      let (res, str) = printReport current precon' in 
+      
+
+      if res then concatenateEffects current postcon'
+       else raise (Foo ("call_function precondition fail " ^name ^":\n" ^ str ^ debug_string_of_expression fnName))
+
+            
+         
+            
+            )
         
 
     | _ -> raise (Foo "Let error")
