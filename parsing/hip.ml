@@ -834,9 +834,26 @@ let rec inTheHnadlingDOm insFName policies: bool =
   ;;
 
 
-let rec infer_of_expression _ (_:spec) _: (spec) = []
+let rec infer_of_expression env (current:spec) expr: spec = 
+  match expr.pexp_desc with 
+  | Pexp_fun (_, _, _ (*pattern*), exprIn) -> 
+    infer_of_expression env current exprIn
+
+  (* VALUE *)
+  | Pexp_constant cons ->
+    (match cons with 
+    | Pconst_integer (str, _) -> List.map (fun (p, t, _) -> (p, t, BINT (int_of_string str)) ) current  
+    | _ -> raise (Foo (Pprintast.string_of_expression  expr ^ " expressionToBasicT error1"))
+    )
+  | Pexp_construct _ -> List.map (fun (p, t, _) -> (p, t, UNIT) ) current
+  | Pexp_ident l -> List.map (fun (p, t, _) -> (p, t, VARName (getIndentName l)) ) current
+    
+
+  | _ -> raise (Foo (Pprintast.string_of_expression  expr ^ " infer_of_expression not corvered "))  
+
+
 (*
-let rec infer_of_expression env (current:spec) expr: (spec) = []
+let rec infer_of_expression env (current:spec) expr: spec = 
 
   let getSpecFromEnv env exprIN : (es*es) = 
     let getSnd (_, a, _) = a in 

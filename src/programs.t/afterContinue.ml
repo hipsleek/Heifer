@@ -4,8 +4,8 @@ effect Goo : unit -> unit
 
 
 let f () 
-(*@  requires (true, _, 1)(true, _, 1)  @*)
-(*@  ensures (true, _, 1)(true, _, 1) @*)
+(*@  requires (true, Foo(1)?1, 1)   @*)
+(*@  ensures (true, _, 1) \/ (true, _, 1) @*)
 = 
   print_string ("Foo ()\n");
   perform (Foo ())

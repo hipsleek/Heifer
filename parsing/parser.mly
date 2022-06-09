@@ -2547,14 +2547,19 @@ effect_trace:
   | EMP { Emp }
   | n = UIDENT { Event (n, []) }
   | n = UIDENT LPAREN args = list(effect_trace_value) RPAREN { Event (n, args) }
-  | n = UIDENT LPAREN f = UIDENT args = list(effect_trace_value) RPAREN
+  | n = UIDENT BANG { Emit (n, []) }
+  | n = UIDENT LPAREN args = list(effect_trace_value) RPAREN BANG { Emit (n, args) }
+  | n = UIDENT QUESTION args = effect_trace_value { Await ((n, []), args) }
+  | n = UIDENT LPAREN args = list(effect_trace_value) RPAREN QUESTION arg = effect_trace_value { Await ((n, args), arg) }
+
+  (*| n = UIDENT LPAREN f = UIDENT args = list(effect_trace_value) RPAREN
   {
     match n with
     | "!" ->
       Emit (f, args)
     | _ ->
       failwith "invalid syntax for predicate application"
-  }
+  }*)
   | TILDE n = UIDENT { Not (n, []) }
   | TILDE n = UIDENT LPAREN args = list(effect_trace_value) RPAREN { Not (n, args) }
   | effect_trace DOT effect_trace { Cons ($1, $3) }
@@ -2605,9 +2610,13 @@ effect_spec:
   | effect_spec COMMA effect_spec { $1 @ $3 }
 ;*)
 
-effect_spec:
+effect_spec_aux:
 | {[]}
-| LPAREN p=pure_formula COMMA t= effect_trace COMMA v= effect_trace_value RPAREN rest =effect_spec {(p, t, v)::rest}
+| DISJUNCTION eff= effect_spec {eff}
+
+effect_spec:
+| LPAREN p=pure_formula COMMA t= effect_trace COMMA v= effect_trace_value RPAREN rest =effect_spec_aux {(p, t, v)::rest}
+
 
 fn_contract:
   | LSPECCOMMENT REQUIRES pre = effect_spec RSPECCOMMENT

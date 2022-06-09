@@ -205,7 +205,8 @@ let string_of_tuple (pi, es, v) : string =
 let rec string_of_spec (eff:spec) :string =
   match eff with
   | [] -> ""
-  | x::xs -> string_of_tuple x ^ " \\/ " ^ string_of_spec xs
+  | [x] -> "(" ^ string_of_tuple x ^ ")"
+  | x::xs ->  "(" ^ string_of_tuple x ^ ") \\/ " ^ string_of_spec xs
 ;;  
 
 
