@@ -273,6 +273,8 @@ module Env = struct
   let add_stack paris env = 
     { env with stack = List.append  paris (env.stack) }
 
+
+
   let add_effect name def env =
     { env with effect_defs = SMap.add name def env.effect_defs }
 
@@ -310,6 +312,15 @@ module Env = struct
     let fns = SMap.bindings m |> List.to_seq in
     { env with current = SMap.add_seq fns env.current }
 end
+
+let retriveStack name env = 
+  let rec aux li = 
+    match li with  
+    | [] -> None 
+    | (str, ins):: xs -> if String.compare str name == 0 then 
+      Some ins else aux xs 
+    in aux (env.stack)
+  ;;
 
 let string_of_fn_specs specs =
   Format.sprintf "{%s}"
@@ -833,13 +844,31 @@ let rec inTheHnadlingDOm insFName policies: bool =
   | (x, _, _) :: xs -> if String.compare insFName x == 0 then true else inTheHnadlingDOm insFName xs 
   ;;
 
+let getEffName l = 
+    let (_, temp) = l in 
+    match temp.pexp_desc with 
+    | Pexp_construct (a, _) -> getIndentName a 
+    | _ -> raise (Foo "getEffName error")
+;;
+let getEffNameArg l = 
+    let (_, temp) = l in 
+    match temp.pexp_desc with 
+    | Pexp_construct (_, argL) -> 
+      (match argL with 
+      | None -> []
+      | Some a -> 
+        match expressionToBasicT a with 
+        | Some v -> [v]
+        | None -> [])
+    | _ -> raise (Foo "getEffNameArg error")
+;;
 
-let rec infer_of_expression env (current:spec) expr: spec = 
+let rec infer_of_expression (env) (current:spec) expr: spec = 
   match expr.pexp_desc with 
   | Pexp_fun (_, _, _ (*pattern*), exprIn) -> 
     infer_of_expression env current exprIn
 
-  (* VALUE *)
+(* VALUE *)
   | Pexp_constant cons ->
     (match cons with 
     | Pconst_integer (str, _) -> List.map (fun (p, t, _) -> (p, t, BINT (int_of_string str)) ) current  
@@ -848,6 +877,45 @@ let rec infer_of_expression env (current:spec) expr: spec =
   | Pexp_construct _ -> List.map (fun (p, t, _) -> (p, t, UNIT) ) current
   | Pexp_ident l -> List.map (fun (p, t, _) -> (p, t, VARName (getIndentName l)) ) current
     
+(* CONDITIONAL not path sensitive so far *)
+  | Pexp_ifthenelse (_, e2, e3_op) ->  
+    let branch1 = infer_of_expression env current e2 in 
+    (match e3_op with 
+    | None -> branch1
+    | Some expr3 -> 
+      let branch2 = infer_of_expression env current expr3 in 
+      List.append branch1 branch2)
+
+  | Pexp_let (_(*flag*),  vb_li, expr) -> 
+    let head = List.hd vb_li in 
+    let var_name = string_of_pattern (head.pvb_pat) in 
+    (match (head.pvb_expr.pexp_desc) with 
+    | Pexp_apply (fnName, li) -> 
+      let name = fnNameToString fnName in 
+      if String.compare name "perfrom" == 0 then 
+(* PERFORM *)
+        let eff_name = getEffName (List.hd li) in 
+        let eff_arg = getEffNameArg (List.hd li) in 
+        infer_of_expression (Env.add_stack [(var_name, (eff_name, eff_arg))] env) (List.map (fun (p, t, v)-> (p, Cons(t, Emit (eff_name, eff_arg)), v)) current) expr
+      else (match (retriveStack name env) with
+          | Some ins -> 
+(* CALL-PLACEHOLDER *)
+            let (_, arg) = List.hd li in  
+            (match expressionToBasicT (arg) with 
+            | Some eff_arg ->  infer_of_expression env 
+                  (List.map (fun (p, t, v)-> (p, Cons(t, Await (ins, eff_arg )), v)) current) expr
+            | None -> raise (Foo ("Placeholder has no argument")))
+
+          | None -> raise (Foo "Let error"))
+        
+
+    | _ -> raise (Foo "Let error")
+    )
+
+
+
+
+  
 
   | _ -> raise (Foo (Pprintast.string_of_expression  expr ^ " infer_of_expression not corvered "))  
 
@@ -1087,35 +1155,11 @@ let rec infer_of_expression env (current:spec) expr: spec =
     
 
 
-
-    
-  | Pexp_ident l -> 
-    
-    let name = getIndentName l in 
-    
-    let rec aux li = 
-      match li with 
-      | [] -> (acc, None)
-      | (str, res)::xs -> if String.compare str name == 0 then (acc, Some res) else aux xs
-    in
-    aux (env.stack)
-
-  | Pexp_constant _ -> (acc, None) (*((True, Emp, []), None)*)
-
-
   | Pexp_try (body, _cases) -> 
     (* TODO do cases *)
     infer_of_expression env pre_es acc body cont
 
-  | Pexp_ifthenelse (_, e2, e3_op) -> 
-      let (branch1, res) = infer_of_expression env pre_es acc e2 cont in 
-      (match e3_op with 
-      | None -> (branch1, res)
-      | Some expr3 -> 
-        let ((_, b2_es, _), _) = infer_of_expression env pre_es acc expr3 cont in 
-        let (b1_pi, b1_es, b1_side) = branch1 in 
-        ((b1_pi, ESOr (b1_es, b2_es) , b1_side), res) 
-      )
+
       
 
   | _ -> raise (Foo ("infer_of_expression: " ^ debug_string_of_expression expr))
@@ -1141,7 +1185,7 @@ and infer_value_binding rec_flag env vb =
 
   let final =  (infer_of_expression env pre body) in
 
-  let final = normalSpec final in
+  let final = normalSpec final in 
 
 
 (*
