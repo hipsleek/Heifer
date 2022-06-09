@@ -868,11 +868,91 @@ let getEffNameArg l =
     | _ -> raise (Foo "getEffNameArg error")
 ;;
 
+let rec findNormalReturn handler = 
+  match handler with 
+  | [] -> raise (Foo "could not find the normal retrun")
+  | a::xs -> 
+    let lhs = a.pc_lhs in 
+    let rhs = a.pc_rhs in 
+    (match lhs.ppat_desc with 
+    | Ppat_effect (_, _) 
+    | Ppat_exception _   -> findNormalReturn xs 
+    | _ -> rhs
+    )
+  ;;
+
 let concatenateEffects (eff1:spec) (eff2:spec) : spec = 
   let zip = List.combine eff1 eff2 in 
   List.map (fun ((p1, es1, _), (p2, es2, v2)) -> (And(p1, p2), Cons (es1, es2), v2)) zip ;;
 
-let rec infer_of_expression (env) (current:spec) expr: spec = 
+
+let rec findEffectHanding handler name = 
+  match handler with 
+  | [] -> raise (Foo "could not find the findEffectHanding")
+  | a::xs -> 
+    let lhs = a.pc_lhs in 
+    let rhs = a.pc_rhs in 
+    (match lhs.ppat_desc with 
+    | Ppat_effect (p, _) 
+    | Ppat_exception p   -> if String.compare (string_of_pattern p) name == 0 then rhs else findEffectHanding xs  name 
+    | _ -> findEffectHanding xs  name
+    )
+  ;;
+
+let replacePlaceholder originEff ins newEff : spec = [] ;;
+
+let rec infer_handling env handler ins (stack:expression list) current : spec = 
+  let (effName, _) = ins in 
+  let expr = (findEffectHanding handler effName) in 
+  match expr.pexp_desc with 
+  | Pexp_constant _ 
+  | Pexp_construct _ 
+  | Pexp_ident _ -> 
+    let eff = infer_of_expression env current expr in 
+    List.fold_left (fun acc a -> infer_of_expression env acc a) eff stack
+
+  | Pexp_sequence (ex1, ex2) -> 
+    (match ex1.pexp_desc with
+    | Pexp_apply (fnName, li) -> 
+      let name = fnNameToString fnName in 
+      if String.compare name "continue" == 0 then 
+(* CONTINUE *)
+        let (_, continue_value) = (List.hd (List.tl li)) in 
+        let eff_value = infer_of_expression env [(True, Emp, UNIT)] continue_value in 
+        fixpoint_Computation env Emp handler (ex2::stack) (replacePlaceholder current ins eff_value) 
+      else infer_of_expression env current expr 
+    )
+
+
+
+  | _ -> 
+    infer_of_expression env current expr
+
+(* SYH: I need to deal with the set of state problem  *)
+
+and  fixCompute env history handler (stack:expression list) (p, t, v) : spec = 
+  match (normalES t) with 
+  | Emp -> 
+    let (normalExpr:expression) = findNormalReturn handler in 
+    List.fold_left (fun acc a -> infer_of_expression env acc a) [(p, history, v)] (normalExpr::stack)  
+     
+  
+  | _ -> 
+    let fstSet = fst t in 
+    List.flatten (List.map ( fun f ->
+      match f with
+      | Send (ins) -> infer_handling env handler ins stack [(p, Cons(history, Event ins), v)]
+      | _ ->   fixCompute env  (Cons (history, eventToEs f)) handler stack (p, derivative t f, v)
+    ) fstSet)
+
+
+
+
+and fixpoint_Computation env history handler stack eff : spec = 
+  List.flatten (List.map (fun tuple-> fixCompute env history handler stack tuple) eff)
+
+
+and infer_of_expression (env) (current:spec) expr: spec =  
   match expr.pexp_desc with 
   | Pexp_fun (_, _, _ (*pattern*), exprIn) -> 
     infer_of_expression env current exprIn
@@ -940,13 +1020,20 @@ match Env.find_fn name env with
             
             )
         
+    
 
     | _ -> raise (Foo "Let error")
     )
 
+  | Pexp_match (ex, case_li) -> 
+    let ex_eff = infer_of_expression env [(True, Emp, UNIT)] ex in 
+    let eff_fix = fixpoint_Computation env Emp case_li [] ex_eff in 
+    concatenateEffects current eff_fix 
 
-
-
+  | Pexp_sequence (ex1, ex2) -> 
+    let eff1 = infer_of_expression env current ex1 in 
+    infer_of_expression env (List.map (fun (p, t, _) -> (p, t, UNIT)) eff1) ex2 
+  
   
 
   | _ -> raise (Foo (Pprintast.string_of_expression  expr ^ " infer_of_expression not corvered "))  
@@ -1241,8 +1328,6 @@ let infer_of_value_binding rec_flag env vb: string * env =
   if String.equal fn_name "()" then
     "", env
   else
-    let final = normalSpec ( final) in
-
 
     let header =
       "\n========== Function: "^ fn_name ^" ==========\n" ^
