@@ -159,8 +159,8 @@ let rec string_of_es es : string =
   match es with 
   | Bot -> "_|_"
   | Emp -> "emp"
-  | Emit ins  -> Format.sprintf "(%s)!" (string_of_instant ins)
-  | Await (ins, bt)  -> Format.sprintf "(%s)?(%s)" (string_of_instant ins) (string_of_basic_type bt)
+  | Emit ins  -> Format.sprintf "(%s!)" (string_of_instant ins)
+  | Await (ins, bt)  -> Format.sprintf "%s?%s" (string_of_instant ins) (string_of_basic_type bt)
   | Event (str, []) -> str
   | Event (str, args) -> Format.sprintf "%s(%s)" str (List.map string_of_basic_type args |> String.concat ", ")
   | Not str -> "!" ^ (string_of_es (Event str))
@@ -224,21 +224,20 @@ let rec normalES (es:es):es =
   | Underline -> es
   | Await _ -> es 
   | Emit _ -> es 
-  | Cons (Cons (esIn1, esIn2), es2)-> 
-    normalES (Cons (esIn1, normalES (Cons (esIn2, es2)))) 
-    
+(*| Cons (Cons (esIn1, esIn2), es2)-> 
+    normalES (Cons (esIn1, normalES (Cons (esIn2, es2)))) *)
   | Cons (es1, es2) ->  
       let normalES1 = normalES es1 in
       let normalES2 = normalES es2 in
       (match (normalES1, normalES2) with 
-        (Emp, _) -> normalES2 
+      | (Emp, _) -> normalES2 
       | (_, Emp) -> normalES1
-      | (Event ("Exc", []), _) -> Event ("Exc", [])
       | (Bot, _) -> Bot
       | (Omega _, _ ) -> normalES1
-      | (_, ESOr (es21, es22)) -> ESOr (Cons(es1, es21), Cons(es1, es22))
-      | (ESOr (es11, es12), _) -> ESOr (Cons(es11, es2), Cons(es12, es2))
-      | (normal_es1, normal_es2) -> Cons (normal_es1, normal_es2)
+    (*| (_, ESOr (es21, es22)) -> ESOr (Cons(es1, es21), Cons(es1, es22))
+      | (ESOr (es11, es12), _) -> ESOr (Cons(es11, es2), Cons(es12, es2)) *)
+      | _ -> 
+          Cons (normalES1, normalES2)
       ;)
   | ESOr (es1, es2) -> 
       (match (normalES es1  , normalES es2  ) with 

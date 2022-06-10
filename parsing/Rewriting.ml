@@ -257,7 +257,9 @@ let compareInstant (s1, i1) (s2, i2) : bool =
   (String.compare s1 s2 == 0)  && helper i1 i2
 
 
+let printReport (_:spec) (_:spec) :(bool * string) = (true, "")
 
+(*
 let printReport (lhs:spec) (rhs:spec) :(bool * string) = 
   let startTimeStamp = Sys.time() in
   (*let (re1, _) = check_pure pi1 pi2 in *)
@@ -272,6 +274,7 @@ let printReport (lhs:spec) (rhs:spec) :(bool * string) =
   "- - - - - - - - - - - - - -"^"\n" ^
   temp2)
   ;;
+*)
 
 let n_GT_0 : pi =
   Atomic (LT, Var "n", Num 0)

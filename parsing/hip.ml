@@ -779,69 +779,7 @@ let insertMiddle acc index list_ev :event list =
 
 
 
-(* this function returns two expression list, before continue and after(including) continue *)
-let rec devideContinuation_aux exLi before : (expression list * expression list) = 
-    match exLi with 
-    | [] -> (before, [])
-    | x :: xs -> 
-      match x.pexp_desc with 
-      | (Pexp_apply (fnName, _)) -> 
-        if String.compare (fnNameToString fnName) "continue" == 0 
-        then 
-          (
-          before , List.append  [x] xs )
-        else devideContinuation_aux xs (List.append before [x])
-      |_ -> devideContinuation_aux xs (List.append before [x])
-      ;;
 
-let partitionContinue (expr:expression list): (expression list) list = 
-  let rec helper li acc cur = 
-    match li with 
-    | [] -> List.append acc [cur]
-    | x::xs -> 
-      match x.pexp_desc with 
-      | (Pexp_apply (fnName, _)) -> 
-      if String.compare (fnNameToString fnName) "continue" == 0 
-      then 
-        helper xs (List.append acc [cur]) [x]
-      else helper xs acc (List.append cur [x])
-      |_ -> helper xs acc (List.append cur [x])
-  in 
-  helper expr [] []
-  ;;
-
-let devideContinuation (expr:expression): (expression list * expression list) = 
-  let rec helper (ex:expression) : expression list = 
-    match ex.pexp_desc with 
-    | Pexp_sequence (ex1, ex2) -> List.append (helper (ex1)) (helper (ex2))
-    | _ -> [ex]
-  in let esList = helper expr in 
-  let (esLiBefore, esLiAfter) = devideContinuation_aux esList [] in 
-  (esLiBefore, esLiAfter) 
-  ;;
-
-
-
-let devideContinuation1 (expr:expression): (expression list list) = 
-  let rec helper (ex:expression) : expression list = 
-    match ex.pexp_desc with 
-    | Pexp_sequence (ex1, ex2) -> List.append (helper (ex1)) (helper (ex2))
-    | _ -> [ex]
-  in let esList = helper expr in 
-  let rec aux exLi acc before : (expression list list) = 
-    match exLi with 
-    | [] -> 
-      List.append acc [before]
-    | x :: xs -> 
-      match x.pexp_desc with 
-      | (Pexp_apply (fnName, _)) -> 
-        if String.compare (fnNameToString fnName) "continue" == 0 
-        then 
-          aux xs (List.append acc [before])  [x]
-        else aux xs acc (List.append before [x])
-      |_ -> aux xs acc (List.append before [x])
-  in aux esList [] []
-  ;;
 
 let rec inTheHnadlingDOm insFName policies: bool = 
   match policies with 
@@ -919,16 +857,28 @@ let replacePlaceholder originEff ins newEff : spec =
   
 ;;
 
-let rec infer_handling env handler ins (stack:expression list) current : spec = 
+
+let rec infer_handling env handler ins (stack:expression list) p v (der:es) (current:es) : spec = 
   let (effName, _) = ins in 
+
   let expr = (findEffectHanding handler effName) in 
   match expr.pexp_desc with 
   | Pexp_constant _ 
   | Pexp_construct _ 
   | Pexp_ident _ -> 
-    let eff = infer_of_expression env current expr in 
+    let eff = infer_of_expression env [(p, current, v)] expr in 
     List.fold_left (fun acc a -> infer_of_expression env acc a) eff stack
 
+  | Pexp_apply (fnName, li) -> 
+    let name = fnNameToString fnName in 
+    if String.compare name "continue" == 0 then 
+(* CONTINUE *)
+      let (_, continue_value) = (List.hd (List.tl li)) in 
+      let eff_value = infer_of_expression env [(True, Emp, UNIT)] continue_value in 
+      let updatedEff = (replacePlaceholder [(p, der, v)] ins eff_value) in 
+      List.flatten (List.map (fun a -> fixCompute env current handler (stack) a) updatedEff) 
+    else infer_of_expression env [(p, current, v)] expr 
+    (*
   | Pexp_sequence (ex1, ex2) -> 
     (match ex1.pexp_desc with
     | Pexp_apply (fnName, li) -> 
@@ -937,16 +887,16 @@ let rec infer_handling env handler ins (stack:expression list) current : spec =
 (* CONTINUE *)
         let (_, continue_value) = (List.hd (List.tl li)) in 
         let eff_value = infer_of_expression env [(True, Emp, UNIT)] continue_value in 
-        let  updatedEff = (replacePlaceholder current ins eff_value) in 
+        let updatedEff = (replacePlaceholder der ins eff_value) in 
         List.flatten (List.map (fun a -> fixCompute env Emp handler (ex2::stack) a) updatedEff) 
       else infer_of_expression env current expr 
     | _ -> raise (Foo "not yet here")
     )
+*)
 
 
-
-  | _ -> 
-    infer_of_expression env current expr
+  | _ -> raise (Foo "not yet covered infer_handling")
+    (*infer_of_expression env current expr*)
 
 
 and  fixCompute env history handler (stack:expression list) (p, t, v) : spec = 
@@ -958,9 +908,12 @@ and  fixCompute env history handler (stack:expression list) (p, t, v) : spec =
   
   | _ -> 
     let fstSet = fst t in 
+
     List.flatten (List.map ( fun f ->
       match f with
-      | Send (ins) -> infer_handling env handler ins stack [(p, Cons(history, Event ins), v)]
+      | Send (ins) -> 
+        infer_handling env handler ins stack  p v (derivative t f) (Cons(history, Event ins)) 
+        
       | _ ->  fixCompute env (Cons (history, eventToEs f)) handler stack (p, derivative t f, v)
     ) fstSet)
 
@@ -1000,7 +953,7 @@ and infer_of_expression (env) (current:spec) expr: spec =
     (match (head.pvb_expr.pexp_desc) with 
     | Pexp_apply (fnName, li) -> 
       let name = fnNameToString fnName in 
-      if String.compare name "perfrom" == 0 then 
+      if String.compare name "perform" == 0 then 
 (* PERFORM *)
         let eff_name = getEffName (List.hd li) in 
         let eff_arg = getEffNameArg (List.hd li) in 
@@ -1043,7 +996,7 @@ match Env.find_fn name env with
     )
 
   | Pexp_match (ex, case_li) -> 
-    let ex_eff = infer_of_expression env [(True, Emp, UNIT)] ex in 
+    let ex_eff = normalSpec (infer_of_expression env [(True, Emp, UNIT)] ex) in 
     let eff_fix = fixpoint_Computation env case_li ex_eff in 
     concatenateEffects current eff_fix 
 
@@ -1054,7 +1007,7 @@ match Env.find_fn name env with
 (* Aplications *)
   | Pexp_apply (fnName, li) -> 
       let name = fnNameToString fnName in 
-      if String.compare name "perfrom" == 0 then 
+      if String.compare name "perform" == 0 then 
 (* PERFORM *)
         let eff_name = getEffName (List.hd li) in 
         let eff_arg = getEffNameArg (List.hd li) in 
@@ -1062,7 +1015,6 @@ match Env.find_fn name env with
       else (match (retriveStack name env) with
           | Some ins -> 
 (* CALL-PLACEHOLDER *)
-            print_string ("I am here\n");
             let (_, arg) = List.hd li in  
             (match expressionToBasicT (arg) with 
             | Some eff_arg ->  
