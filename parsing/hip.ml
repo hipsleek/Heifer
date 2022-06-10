@@ -899,7 +899,25 @@ let rec findEffectHanding handler name =
     )
   ;;
 
-let replacePlaceholder originEff ins newEff : spec = [] ;;
+
+
+let replacePlaceholder originEff ins newEff : spec = 
+  let rec aux t_original t_new :es = 
+    match t_original with 
+    | Await (ins1, _) -> if compareInstant ins1 ins then t_new else t_original
+    | Cons (es1, es2)-> Cons (aux es1 t_new, aux es2 t_new)
+    | ESOr  (es1, es2)-> ESOr (aux es1 t_new, aux es2 t_new)
+    | Kleene es1 -> Kleene (aux es1 t_new)
+    | Infiny es1 -> Infiny (aux es1 t_new)
+    | Omega es1 -> Omega (aux es1 t_new)
+    | _ -> t_original 
+
+  in 
+  let zip = List.combine originEff newEff in 
+  List.map (fun ((p, t, v), (p1, t1, _)) -> (And(p, p1), aux t t1, v)) zip
+        
+  
+;;
 
 let rec infer_handling env handler ins (stack:expression list) current : spec = 
   let (effName, _) = ins in 
@@ -919,8 +937,10 @@ let rec infer_handling env handler ins (stack:expression list) current : spec =
 (* CONTINUE *)
         let (_, continue_value) = (List.hd (List.tl li)) in 
         let eff_value = infer_of_expression env [(True, Emp, UNIT)] continue_value in 
-        fixpoint_Computation env Emp handler (ex2::stack) (replacePlaceholder current ins eff_value) 
+        let  updatedEff = (replacePlaceholder current ins eff_value) in 
+        List.flatten (List.map (fun a -> fixCompute env Emp handler (ex2::stack) a) updatedEff) 
       else infer_of_expression env current expr 
+    | _ -> raise (Foo "not yet here")
     )
 
 
@@ -928,7 +948,6 @@ let rec infer_handling env handler ins (stack:expression list) current : spec =
   | _ -> 
     infer_of_expression env current expr
 
-(* SYH: I need to deal with the set of state problem  *)
 
 and  fixCompute env history handler (stack:expression list) (p, t, v) : spec = 
   match (normalES t) with 
@@ -942,14 +961,14 @@ and  fixCompute env history handler (stack:expression list) (p, t, v) : spec =
     List.flatten (List.map ( fun f ->
       match f with
       | Send (ins) -> infer_handling env handler ins stack [(p, Cons(history, Event ins), v)]
-      | _ ->   fixCompute env  (Cons (history, eventToEs f)) handler stack (p, derivative t f, v)
+      | _ ->  fixCompute env (Cons (history, eventToEs f)) handler stack (p, derivative t f, v)
     ) fstSet)
 
 
 
 
-and fixpoint_Computation env history handler stack eff : spec = 
-  List.flatten (List.map (fun tuple-> fixCompute env history handler stack tuple) eff)
+and fixpoint_Computation env handler eff : spec = 
+  List.flatten (List.map (fun tuple-> fixCompute env Emp handler [] tuple) eff)
 
 
 and infer_of_expression (env) (current:spec) expr: spec =  
@@ -1027,7 +1046,7 @@ match Env.find_fn name env with
 
   | Pexp_match (ex, case_li) -> 
     let ex_eff = infer_of_expression env [(True, Emp, UNIT)] ex in 
-    let eff_fix = fixpoint_Computation env Emp case_li [] ex_eff in 
+    let eff_fix = fixpoint_Computation env case_li ex_eff in 
     concatenateEffects current eff_fix 
 
   | Pexp_sequence (ex1, ex2) -> 
