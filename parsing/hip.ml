@@ -994,7 +994,7 @@ and infer_of_expression (env) (current:spec) expr: spec =
       let branch2 = infer_of_expression env current expr3 in 
       List.append branch1 branch2)
 
-  | Pexp_let (_(*flag*),  vb_li, expr) -> 
+  | Pexp_let (_(*flag*),  vb_li, exprIn) -> 
     let head = List.hd vb_li in 
     let var_name = string_of_pattern (head.pvb_pat) in 
     (match (head.pvb_expr.pexp_desc) with 
@@ -1004,14 +1004,69 @@ and infer_of_expression (env) (current:spec) expr: spec =
 (* PERFORM *)
         let eff_name = getEffName (List.hd li) in 
         let eff_arg = getEffNameArg (List.hd li) in 
-        infer_of_expression (Env.add_stack [(var_name, (eff_name, eff_arg))] env) (List.map (fun (p, t, v)-> (p, Cons(t, Emit (eff_name, eff_arg)), v)) current) expr
+        infer_of_expression (Env.add_stack [(var_name, (eff_name, eff_arg))] env) (List.map (fun (p, t, v)-> (p, Cons(t, Emit (eff_name, eff_arg)), v)) current) exprIn
       else (match (retriveStack name env) with
           | Some ins -> 
 (* CALL-PLACEHOLDER *)
             let (_, arg) = List.hd li in  
             (match expressionToBasicT (arg) with 
             | Some eff_arg ->  infer_of_expression env 
-                  (List.map (fun (p, t, v)-> (p, Cons(t, Await (ins, eff_arg )), v)) current) expr
+                  (List.map (fun (p, t, v)-> (p, Cons(t, Await (ins, eff_arg )), v)) current) exprIn
+            | None -> raise (Foo ("Placeholder has no argument")))
+
+          | None -> 
+(* FUNCTION-CALL *)
+let { pre = pre  ; post = post; formals = arg_formal } =
+(* if functions are undefined, assume for now that they have the default spec *)
+match Env.find_fn name env with
+| None -> { pre = default_spec_pre; post = default_spec_post; formals = []}
+| Some s -> s
+      in
+      let vb = var_binding arg_formal (List.map (fun (_, b) -> b) li) in 
+
+      let postcon' = instantiateEff post vb in 
+      let precon' = instantiateEff pre vb in 
+
+
+      let (res, str) = printReport current precon' in 
+      
+
+      if res then concatenateEffects current postcon'
+       else raise (Foo ("call_function precondition fail " ^name ^":\n" ^ str ^ debug_string_of_expression fnName))
+
+               
+            )
+        
+    
+
+    | _ -> raise (Foo "Let error")
+    )
+
+  | Pexp_match (ex, case_li) -> 
+    let ex_eff = infer_of_expression env [(True, Emp, UNIT)] ex in 
+    let eff_fix = fixpoint_Computation env case_li ex_eff in 
+    concatenateEffects current eff_fix 
+
+  | Pexp_sequence (ex1, ex2) -> 
+    let eff1 = infer_of_expression env current ex1 in 
+    infer_of_expression env eff1 ex2 
+  
+(* Aplications *)
+  | Pexp_apply (fnName, li) -> 
+      let name = fnNameToString fnName in 
+      if String.compare name "perfrom" == 0 then 
+(* PERFORM *)
+        let eff_name = getEffName (List.hd li) in 
+        let eff_arg = getEffNameArg (List.hd li) in 
+        (List.map (fun (p, t, v)-> (p, Cons(t, Emit (eff_name, eff_arg)), v)) current)
+      else (match (retriveStack name env) with
+          | Some ins -> 
+(* CALL-PLACEHOLDER *)
+            print_string ("I am here\n");
+            let (_, arg) = List.hd li in  
+            (match expressionToBasicT (arg) with 
+            | Some eff_arg ->  
+                  (List.map (fun (p, t, v)-> (p, Cons(t, Await (ins, eff_arg )), v)) current)
             | None -> raise (Foo ("Placeholder has no argument")))
 
           | None -> 
@@ -1039,21 +1094,7 @@ match Env.find_fn name env with
             
             )
         
-    
 
-    | _ -> raise (Foo "Let error")
-    )
-
-  | Pexp_match (ex, case_li) -> 
-    let ex_eff = infer_of_expression env [(True, Emp, UNIT)] ex in 
-    let eff_fix = fixpoint_Computation env case_li ex_eff in 
-    concatenateEffects current eff_fix 
-
-  | Pexp_sequence (ex1, ex2) -> 
-    let eff1 = infer_of_expression env current ex1 in 
-    infer_of_expression env (List.map (fun (p, t, _) -> (p, t, UNIT)) eff1) ex2 
-  
-  
 
   | _ -> raise (Foo (Pprintast.string_of_expression  expr ^ " infer_of_expression not corvered "))  
 
