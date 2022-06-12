@@ -50,6 +50,7 @@ type es = Bot
         | Kleene of es (* 0 or more, but finite*)
         | Infiny of es (* 0 or more, possibly infinite*)
         | Omega of es(* infinite*)
+        | Stop
 
 
 type term = 

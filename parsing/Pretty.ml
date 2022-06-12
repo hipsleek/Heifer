@@ -170,6 +170,7 @@ let rec string_of_es es : string =
   | Infiny es1 -> "("^string_of_es es1^")^oo"
   | Omega es1 -> "("^string_of_es es1^")^w"
   | Underline -> "_"
+  | Stop -> "STOP"
   ;;
 
 let rec string_of_term t : string = 
@@ -224,6 +225,8 @@ let rec normalES (es:es):es =
   | Underline -> es
   | Await _ -> es 
   | Emit _ -> es 
+  | Stop -> es
+
 (*| Cons (Cons (esIn1, esIn2), es2)-> 
     normalES (Cons (esIn1, normalES (Cons (esIn2, es2)))) *)
   | Cons (es1, es2) ->  

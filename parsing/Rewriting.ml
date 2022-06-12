@@ -65,7 +65,7 @@ let rec  nullable (es:es) : bool=
   | Not _ -> false
   | Emit _ -> false
   | Await _ -> false  
-
+  | Stop -> raise (Foo "nullable stop") 
 ;;
 
 let nullableEff (eff:spec) : bool = 
@@ -89,7 +89,7 @@ let rec  fst (es:es): event list =
   | Underline -> [Any]
   | Emit (ins) -> [Send (ins)]
   | Await (ins) -> [Receive (ins)]
-
+  | Stop -> raise (Foo "nullable fst") 
 ;;
 
 let fstEff (eff:spec) : event list = 
@@ -191,6 +191,7 @@ let rec derivative (es:es) (ev:event): es =
 
   | Omega es1 -> Cons  (derivative es1 ev, es)
   | Underline -> Emp
+  | Stop -> raise (Foo "derivative stop") 
 
 
 ;;

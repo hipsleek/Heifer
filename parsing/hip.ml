@@ -857,24 +857,23 @@ let replacePlaceholder originEff ins newEff : spec =
   
 ;;
 
+let concatnateEffEs eff es : spec = 
+  List.map (fun (p, t, v) -> (p, Cons (t, es), v)) eff;;
 
-let rec infer_handling env handler ins (stack:expression list) p v (der:es) (current:es) (expr:expression): spec = 
+let rec infer_handling env handler ins (current:spec) (der:es) (expr:expression): spec = 
   match expr.pexp_desc with 
   | Pexp_fun (_, _, _ (*pattern*), exprIn) -> 
-    infer_handling env handler ins stack p v der current exprIn
+    infer_handling env handler ins current der exprIn
 
 (* VALUE *)   
   | Pexp_constant cons ->
     (match cons with 
     | Pconst_integer (str, _) -> 
-      List.fold_left (fun acc a -> infer_of_expression env acc a) [(p, current, BINT (int_of_string str))] stack 
+      List.map (fun (p, t, _) -> (p, t, BINT (int_of_string str))) current
     | _ -> raise (Foo (Pprintast.string_of_expression  expr ^ " expressionToBasicT error1"))
     )
-  | Pexp_construct _ -> 
-    List.fold_left (fun acc a -> infer_of_expression env acc a) [(p, current, UNIT)] stack 
-
-  | Pexp_ident l -> 
-    List.fold_left (fun acc a -> infer_of_expression env acc a) [(p, current, VARName (getIndentName l))] stack 
+  | Pexp_construct _ -> List.map (fun (p, t, _) -> (p, t, UNIT)) current
+  | Pexp_ident l -> List.map (fun (p, t, _) -> (p, t, VARName (getIndentName l))) current 
    
   | Pexp_apply (fnName, li) -> 
     let name = fnNameToString fnName in 
@@ -882,12 +881,19 @@ let rec infer_handling env handler ins (stack:expression list) p v (der:es) (cur
 (* CONTINUE *)
       let (_, continue_value) = (List.hd (List.tl li)) in 
       let eff_value = infer_of_expression env [(True, Emp, UNIT)] continue_value in 
-      let updatedEff = (replacePlaceholder [(p, der, v)] ins eff_value) in 
-      List.flatten (List.map (fun a -> fixCompute env current handler (stack) a) updatedEff) 
+
+      List.flatten (
+        List.map (fun (p, t, v) -> 
+          let updatedEff = (replacePlaceholder [(p, der, v)] ins eff_value) in 
+          List.flatten (List.map (fun a -> fixCompute env t handler a) updatedEff) 
+        ) current 
+      )
+
     else if String.compare name "perform" == 0 then 
       let eff_name = getEffName (List.hd li) in 
       let eff_arg = getEffNameArg (List.hd li) in 
-      [(p, Cons(current, Emit (eff_name, eff_arg)), v)]
+      List.map (fun (p, t, v) -> (p, (Cons(t, Emit (eff_name, eff_arg))), v) 
+      ) current
 
       
     else  raise (Foo "infer_handling not yet covering functiin calls")
@@ -900,17 +906,29 @@ let rec infer_handling env handler ins (stack:expression list) p v (der:es) (cur
 (* CONTINUE *)
         let (_, continue_value) = (List.hd (List.tl li)) in 
         let eff_value = infer_of_expression env [(True, Emp, UNIT)] continue_value in 
-        let updatedEff = (replacePlaceholder [(p, der, v)] ins eff_value) in 
-        List.flatten (List.map (fun a -> fixCompute env current handler (ex2::stack) a) updatedEff) 
+        let newEff = List.flatten (
+          List.map (fun (p, t, v) -> 
+            let updatedEff = (replacePlaceholder [(p, der, v)] ins eff_value) in 
+            List.flatten (List.map (fun a -> fixCompute env t handler a) updatedEff) 
+          ) current 
+        ) in 
+        infer_handling env handler ins newEff der ex2
+
+  
+
       else if String.compare name "perform" == 0 then 
         let eff_name = getEffName (List.hd li) in 
         let eff_arg = getEffNameArg (List.hd li) in 
-        infer_handling env handler ins stack p v der (Cons(current, Emit (eff_name, eff_arg))) ex2
+        List.flatten (
+          List.map (fun (p, t, v) ->
+            infer_handling env handler ins [(p, (Cons(t, Emit (eff_name, eff_arg))), v)] der ex2
+          ) current
+        )
 
       
       else 
-        let eff1 = infer_of_expression env [(p, current, v)] ex1 in 
-        infer_of_expression env eff1 ex2 
+        let eff1 = infer_handling env handler ins current der ex1 in 
+        infer_handling env handler ins eff1 der ex2
     | _ -> raise (Foo "not yet here")
     )
 
@@ -922,11 +940,11 @@ let rec infer_handling env handler ins (stack:expression list) p v (der:es) (cur
 
 
 
-and  fixCompute env (history:es) handler (stack:expression list) (p, t, v) : spec = 
+and  fixCompute env (history:es) handler (p, t, v) : spec = 
   match (normalES t) with 
-  | Emp -> 
+  | Stop -> 
     let (normalExpr:expression) = findNormalReturn handler in 
-    List.fold_left (fun acc a -> infer_of_expression env acc a) [(p, history, v)] (normalExpr::stack)  
+    infer_of_expression env [(p, history, v)] normalExpr
      
   
   | _ -> 
@@ -937,16 +955,15 @@ and  fixCompute env (history:es) handler (stack:expression list) (p, t, v) : spe
       | Send (ins) -> 
         let (effName, _) = ins in 
         let expr = (findEffectHanding handler effName) in 
-      
-        infer_handling env handler ins stack  p v (derivative t f) (Cons(history, Event ins)) expr     
-      | _ ->  fixCompute env (Cons (history, eventToEs f)) handler stack (p, derivative t f, v)
+        infer_handling env handler ins [(p, Cons(history, Event ins), v)] (derivative t f)  expr     
+      | _ ->  fixCompute env (Cons (history, eventToEs f)) handler (p, derivative t f, v)
     ) fstSet)
 
 
 
 
 and fixpoint_Computation env handler eff : spec = 
-  List.flatten (List.map (fun tuple-> fixCompute env Emp handler [] tuple) eff)
+  List.flatten (List.map (fun tuple-> fixCompute env Emp handler tuple) eff)
 
 
 and infer_of_expression (env) (current:spec) expr: spec =  
@@ -1022,7 +1039,7 @@ match Env.find_fn name env with
 
   | Pexp_match (ex, case_li) -> 
     let ex_eff = normalSpec (infer_of_expression env [(True, Emp, UNIT)] ex) in 
-    let eff_fix = fixpoint_Computation env case_li ex_eff in 
+    let eff_fix = fixpoint_Computation env case_li (concatnateEffEs ex_eff Stop) in 
     concatenateEffects current eff_fix 
 
   | Pexp_sequence (ex1, ex2) -> 
