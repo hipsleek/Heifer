@@ -1,6 +1,6 @@
 
-effect Foo : (unit -> unit)
-effect Goo : (unit -> unit)
+effect Foo : (unit -> int)
+effect Goo : (unit -> int)
 
 let f () 
 (*@  requires (true, emp, ())   @*)
@@ -13,9 +13,9 @@ let f ()
 
 let handler 
 (*@  requires (true, emp, ())   @*)
-(*@  ensures  (true, Foo.Goo.Goo, ()) @*)
+(*@  ensures  (true, Foo.Goo.(Done!).Goo.(Done!), 3) @*)
 = 
   match f () with 
-  | x -> x
-  | effect Foo k -> continue k (fun () -> ()); continue k (fun () -> ())
-  | effect Goo k -> continue k (fun () -> ())
+  | x -> perform Done 
+  | effect Foo k -> continue k (fun () -> 2); continue k (fun () -> 4)
+  | effect Goo k -> continue k (fun () -> 3)

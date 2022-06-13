@@ -946,19 +946,9 @@ let rec infer_handling env handler ins (current:spec) (der:es) (expr:expression)
       let eff_value = infer_of_expression env [(True, Emp, UNIT)] continue_value in 
       List.flatten (
         List.map (fun (p, t, v) -> 
-          let updatedEff = normalSpec (replacePlaceholder [(p, der, v)] ins eff_value) in 
+          let updatedEff = (replacePlaceholder [(p, der, v)] ins eff_value) in 
+          List.flatten (List.map (fun a -> fixCompute env t handler a) updatedEff) 
 
-          List.flatten (List.map (fun a -> 
-            let (p', t', v') = a in 
-            let disjuncES = disjunctiveES (Cons (t, t')) in 
-            List.flatten (List.map (fun flat_es -> 
-              print_string(string_of_es flat_es ^"\n");
-
-              match existsLoop flat_es with
-              | Some es -> [(p', es, v')]
-              | None -> fixCompute env t handler a
-            ) disjuncES )
-          ) updatedEff) 
         ) current 
       )
 
@@ -981,9 +971,9 @@ let rec infer_handling env handler ins (current:spec) (der:es) (expr:expression)
         let eff_value = infer_of_expression env [(True, Emp, UNIT)] continue_value in 
         let newEff = List.flatten (
           List.map (fun (p, t, v) -> 
-            (*let updatedEff = (replacePlaceholder [(p, der, v)] ins eff_value) in 
+            let updatedEff = (replacePlaceholder [(p, der, v)] ins eff_value) in 
             List.flatten (List.map (fun a -> fixCompute env t handler a) updatedEff) 
-            *)
+            (*
             let updatedEff = normalSpec (replacePlaceholder [(p, der, v)] ins eff_value) in 
 
             List.flatten (List.map (fun a -> 
@@ -997,7 +987,7 @@ let rec infer_handling env handler ins (current:spec) (der:es) (expr:expression)
                 | None -> fixCompute env t handler a
               ) disjuncES )
             ) updatedEff) 
-  
+  *)
           ) current 
         ) in 
         infer_handling env handler ins newEff der ex2
