@@ -860,6 +860,69 @@ let replacePlaceholder originEff ins newEff : spec =
 let concatnateEffEs eff es : spec = 
   List.map (fun (p, t, v) -> (p, Cons (t, es), v)) eff;;
 
+
+let rec disjunctiveES es: es list  = 
+  match normalES es with 
+  | ESOr (es1, es2) -> List.append (disjunctiveES es1) (disjunctiveES es2)
+  | Cons (es1, es2) -> 
+    let list1 = disjunctiveES es1 in 
+    let list2 = disjunctiveES es2 in 
+    let zip = List.combine list1 list2 in 
+    List.map (fun (a, b) -> Cons (a, b)) zip 
+
+  | Omega es1 
+  | Infiny es1    
+  | Kleene es1 -> disjunctiveES es1 
+
+       
+  | Emit _
+  | Await _
+  | Bot 
+  | Emp
+  | Event _
+  | Not _
+  | Underline 
+  | Stop -> [es]
+;;
+
+let rec formESfromEvents li : es = 
+  match li with 
+  | [] -> Emp 
+  | x ::xs  ->  Cons (eventToEs x, formESfromEvents xs)
+;;
+
+let existsLoop (es:es) : es option = 
+  let rec helper li ins : (es * es) option =
+    match li with 
+    | [] -> None 
+    | (One ins1):: xs -> 
+      if compareInstant ins ins1 then Some (Emp, formESfromEvents li) else 
+      (match helper xs ins with 
+      | None -> None 
+      | Some (a, b) -> Some (Cons (Emit ins1, a), b))
+    | x ::xs  -> 
+      (match helper xs ins with 
+      | None -> None 
+      | Some (a, b) -> Some (Cons (eventToEs x, a), b))
+  in 
+  let rec aux acc es' = 
+    let fstSet = fst es' in 
+    if List.length fstSet == 0 then None
+    else 
+      let f = List.hd fstSet in 
+      match f with 
+      | Send ins -> 
+        (match helper acc ins with 
+        | Some (front, repest) -> Some (Cons (front, Omega repest))
+        | None -> aux (List.append acc [f]) (derivative es' f) 
+        )
+      | _ -> aux (List.append acc [f]) (derivative es' f) 
+  in aux [] es 
+;;
+
+  
+  
+
 let rec infer_handling env handler ins (current:spec) (der:es) (expr:expression): spec = 
   match expr.pexp_desc with 
   | Pexp_fun (_, _, _ (*pattern*), exprIn) -> 
@@ -881,11 +944,21 @@ let rec infer_handling env handler ins (current:spec) (der:es) (expr:expression)
 (* CONTINUE *)
       let (_, continue_value) = (List.hd (List.tl li)) in 
       let eff_value = infer_of_expression env [(True, Emp, UNIT)] continue_value in 
-
       List.flatten (
         List.map (fun (p, t, v) -> 
-          let updatedEff = (replacePlaceholder [(p, der, v)] ins eff_value) in 
-          List.flatten (List.map (fun a -> fixCompute env t handler a) updatedEff) 
+          let updatedEff = normalSpec (replacePlaceholder [(p, der, v)] ins eff_value) in 
+
+          List.flatten (List.map (fun a -> 
+            let (p', t', v') = a in 
+            let disjuncES = disjunctiveES (Cons (t, t')) in 
+            List.flatten (List.map (fun flat_es -> 
+              print_string(string_of_es flat_es ^"\n");
+
+              match existsLoop flat_es with
+              | Some es -> [(p', es, v')]
+              | None -> fixCompute env t handler a
+            ) disjuncES )
+          ) updatedEff) 
         ) current 
       )
 
@@ -908,8 +981,23 @@ let rec infer_handling env handler ins (current:spec) (der:es) (expr:expression)
         let eff_value = infer_of_expression env [(True, Emp, UNIT)] continue_value in 
         let newEff = List.flatten (
           List.map (fun (p, t, v) -> 
-            let updatedEff = (replacePlaceholder [(p, der, v)] ins eff_value) in 
+            (*let updatedEff = (replacePlaceholder [(p, der, v)] ins eff_value) in 
             List.flatten (List.map (fun a -> fixCompute env t handler a) updatedEff) 
+            *)
+            let updatedEff = normalSpec (replacePlaceholder [(p, der, v)] ins eff_value) in 
+
+            List.flatten (List.map (fun a -> 
+              let (p', t', v') = a in 
+              let disjuncES = disjunctiveES (Cons (t, t')) in 
+              List.flatten (List.map (fun flat_es -> 
+                print_string(string_of_es flat_es ^"\n");
+  
+                match existsLoop flat_es with
+                | Some es -> [(p', es, v')]
+                | None -> fixCompute env t handler a
+              ) disjuncES )
+            ) updatedEff) 
+  
           ) current 
         ) in 
         infer_handling env handler ins newEff der ex2

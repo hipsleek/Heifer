@@ -131,7 +131,7 @@ let entailsEvent (ev1:event) (ev2:event): bool =
     else true 
   | (Receive (str1, bt1), Receive (str2, bt2)) -> compareInstant str1 str2 && compareBasic bt1 bt2
 
-
+  | (StopEv, StopEv) -> true 
   | _ -> false 
 
   ;;
@@ -293,6 +293,7 @@ let eventToEs ev : es =
   | Receive ins -> Await ins
 
   | Any -> Underline
+  | StopEv -> Stop
 
   ;;
 
@@ -325,5 +326,6 @@ let string_of_event e : string =
   | Receive (ins, bt) -> "(" ^ string_of_instant ins ^ ")?" ^ "(" ^ string_of_basic_type bt ^ ")"
 
   | Any -> "_"
+  | StopEv -> "STOP"
 
 

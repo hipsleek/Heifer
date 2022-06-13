@@ -30,7 +30,7 @@ type instant = string * (basic_t list)
 (* To indicate weather there are partial applied continustiaon *)
 type residue = instant option 
 
-type event = One of instant | Zero of instant | Send of instant | Receive of (instant * basic_t) | Any 
+type event = One of instant | Zero of instant | Send of instant | Receive of (instant * basic_t) | Any  | StopEv
 
 (*
 type stack_content = Cons of int | Variable of string | Apply of string * stack_content list 
