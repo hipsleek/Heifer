@@ -16,6 +16,6 @@ let handler
 (*@  ensures  (true, Foo.Goo.(Done!).Goo.(Done!), 3) @*)
 = 
   match f () with 
-  | x -> perform Done 
-  | effect Foo k -> continue k (fun () -> 2); continue k (fun () -> 4)
+  | x -> perform Done; 6
+  | effect Foo k -> continue k (fun () -> 2); continue k (fun () -> 4); 10
   | effect Goo k -> continue k (fun () -> 3)

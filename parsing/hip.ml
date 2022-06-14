@@ -852,7 +852,7 @@ let replacePlaceholder originEff ins newEff : spec =
 
   in 
   let zip = List.combine originEff newEff in 
-  List.map (fun ((p, t, v), (p1, t1, _)) -> (And(p, p1), aux t t1, v)) zip
+  List.map (fun ((p, t, _), (p1, t1, v)) -> (And(p, p1), aux t t1, v)) zip
         
   
 ;;
