@@ -15,8 +15,19 @@ let rec input_lines file =
 
 
 
+let rec shaffleZIP li1 li2 = 
+  let rec aux a li = 
+    match li with 
+    | []-> []
+    | y :: ys -> (a, y) :: (aux a ys)
+  in 
+  match li1 with 
+  | [] -> []
+  | x ::xs -> List.append (aux x li2) (shaffleZIP xs li2) 
+;;
 
 
+assert ((List.length (shaffleZIP [1;2;3] [4;5;6])) = 9 );;
 
 (*
 let string_of_effect_constructor x :string =
@@ -157,10 +168,17 @@ let collect_param_names rhs =
   in
   traverse_to_body rhs
 
+let rec string_of_effectList (specs:spec list):string =
+  match specs with 
+  | [] -> ""
+  | x :: xs -> string_of_spec x ^ " /\\ "^  string_of_effectList xs 
+
+
 let string_of_effectspec spec:string =
     match spec with
     | None -> "<no spec given>"
-    | Some (pr, po) -> Format.sprintf "requires %s ensures %s" (string_of_spec pr) (string_of_spec po)
+    | Some (pr, po) -> Format.sprintf "requires %s ensures %s" (string_of_spec pr) (string_of_effectList po)
+
 
 let string_of_value_binding vb : string = 
   let pattern = vb.pvb_pat in 
@@ -214,7 +232,7 @@ end)
 (* information we record after seeing a function *)
 type fn_spec = {
   pre: spec;
-  post: spec;
+  post: spec list;
   formals: string list;
 }
 
@@ -328,7 +346,7 @@ let string_of_fn_specs specs =
     |> List.map (fun (n, s) ->
       Format.sprintf "%s -> %s/%s/%s" n
         (string_of_spec s.pre)
-        (string_of_spec s.post)
+        (string_of_spec (List.hd s.post))
         (s.formals |> String.concat ","))
     |> String.concat "; ")
 
@@ -820,7 +838,7 @@ let rec findNormalReturn handler =
   ;;
 
 let concatenateEffects (eff1:spec) (eff2:spec) : spec = 
-  let zip = List.combine eff1 eff2 in 
+  let zip = shaffleZIP eff1 eff2 in 
   List.map (fun ((p1, es1, _), (p2, es2, v2)) -> (And(p1, p2), Cons (es1, es2), v2)) zip ;;
 
 
@@ -851,7 +869,7 @@ let replacePlaceholder originEff ins newEff : spec =
     | _ -> t_original 
 
   in 
-  let zip = List.combine originEff newEff in 
+  let zip = shaffleZIP originEff newEff in 
   List.map (fun ((p, t, _), (p1, t1, v)) -> (And(p, p1), aux t t1, v)) zip
         
   
@@ -867,7 +885,7 @@ let rec disjunctiveES es: es list  =
   | Cons (es1, es2) -> 
     let list1 = disjunctiveES es1 in 
     let list2 = disjunctiveES es2 in 
-    let zip = List.combine list1 list2 in 
+    let zip = shaffleZIP list1 list2 in 
     List.map (fun (a, b) -> Cons (a, b)) zip 
 
   | Omega es1 
@@ -1064,6 +1082,14 @@ let rec infer_handling env handler ins (current:spec) (der:es) (expr:expression)
     )
 
 
+  | Pexp_ifthenelse (_, e2, e3_op) ->  
+    let branch1 = infer_handling env handler ins current der e2 in 
+    (match e3_op with 
+    | None -> branch1
+    | Some expr3 -> 
+      let branch2 = infer_handling env handler ins current der  expr3 in 
+      List.append branch1 branch2)
+
 
   | _ -> raise (Foo "not yet covered infer_handling")
     (*infer_of_expression env current expr*)
@@ -1145,16 +1171,16 @@ and infer_of_expression (env) (current:spec) expr: spec =
 let { pre = pre  ; post = post; formals = arg_formal } =
 (* if functions are undefined, assume for now that they have the default spec *)
 match Env.find_fn name env with
-| None -> { pre = default_spec_pre; post = default_spec_post; formals = []}
+| None -> { pre = default_spec_pre; post = [default_spec_post]; formals = []}
 | Some s -> s
       in
       let vb = var_binding arg_formal (List.map (fun (_, b) -> b) li) in 
 
-      let postcon' = instantiateEff post vb in 
+      let postcon' = instantiateEff (List.hd post) vb in 
       let precon' = instantiateEff pre vb in 
 
 
-      let (res, str) = printReport current precon' in 
+      let (res, _, str) = printReport current precon' in 
       
 
       if res then concatenateEffects current postcon'
@@ -1199,16 +1225,16 @@ match Env.find_fn name env with
 let { pre = pre  ; post = post; formals = arg_formal } =
 (* if functions are undefined, assume for now that they have the default spec *)
 match Env.find_fn name env with
-| None -> { pre = default_spec_pre; post = default_spec_post; formals = []}
+| None -> { pre = default_spec_pre; post = [default_spec_post]; formals = []}
 | Some s -> s
       in
       let vb = var_binding arg_formal (List.map (fun (_, b) -> b) li) in 
 
-      let postcon' = instantiateEff post vb in 
+      let postcon' = instantiateEff (List.hd post) vb in 
       let precon' = instantiateEff pre vb in 
 
 
-      let (res, str) = printReport current precon' in 
+      let (res,_,  str) = printReport current precon' in 
       
 
       if res then concatenateEffects current postcon'
@@ -1468,15 +1494,17 @@ let rec infer_of_expression env (current:spec) expr: spec =
 
   | _ -> raise (Foo ("infer_of_expression: " ^ debug_string_of_expression expr))
 *)
-  
+
+and normalSpecList specs = List.map (fun a -> normalSpec a) specs
+
 and infer_value_binding rec_flag env vb =
   let fn_name = string_of_pattern vb.pvb_pat in
   let body = vb.pvb_expr in
   let formals = collect_param_names body in
   let spec = 
     match function_spec body with
-    | None -> default_spec_pre, default_spec_post
-    | Some (pre, post) -> (normalSpec pre, normalSpec post)
+    | None -> default_spec_pre, [default_spec_post]
+    | Some (pre, post) -> (normalSpec pre, normalSpecList post)
   in 
   let (pre, post) = spec in
 
@@ -1484,7 +1512,8 @@ and infer_value_binding rec_flag env vb =
   let env =
     match rec_flag with
     | Nonrecursive -> env
-    | Recursive -> Env.add_fn fn_name {pre; post; formals} env
+    | Recursive -> 
+      Env.add_fn fn_name {pre; post; formals} env
   in
 
   let final =  (infer_of_expression env pre body) in
@@ -1505,25 +1534,33 @@ and infer_value_binding rec_flag env vb =
 
 
 
+type experiemntal_data = (float list * float list) 
 
 
-let infer_of_value_binding rec_flag env vb: string * env =
+let infer_of_value_binding rec_flag env vb: string * env * experiemntal_data =
+  let startTimeStamp = Sys.time() in
   let pre, post, final, env, fn_name = infer_value_binding rec_flag env vb in
+  let infer_time = "[Inference Time: " ^ string_of_float ((Sys.time() -. startTimeStamp) *. 1000.0) ^ " ms]" in
+
   (* don't report things like let () = ..., which isn't a function  *)
   if String.equal fn_name "()" then
-    "", env
+    "", env, ([], [])
   else
 
     let header =
       "\n========== Function: "^ fn_name ^" ==========\n" ^
       "[Pre  Condition] " ^ string_of_spec pre ^"\n"^
-      "[Post Condition] " ^ string_of_spec post ^"\n"^
-      "[Final  Effects] " ^ string_of_spec (normalSpec final) ^"\n\n"
+      "[Post Condition] " ^ string_of_spec (List.hd post) ^"\n"^
+      "[Final  Effects] " ^ string_of_spec (normalSpec final) ^ "\n"^ infer_time ^"\n\n"
       (*(string_of_inclusion final_effects post) ^ "\n" ^*)
       (*"[T.r.s: Verification for Post Condition]\n" ^ *)
     in
-    let (_, report) = printReport final post in
-    header ^ report, env
+    let ex_res = List.fold_left (fun (succeed_time, fail_time) a -> 
+      let (res, time, _) = printReport final a in 
+      if res then (List.append [time]  succeed_time, fail_time)
+      else (succeed_time, List.append [time]  fail_time)
+      ) ([], []) post in 
+    header , env, ex_res
 
 
   (*
@@ -1534,7 +1571,7 @@ let infer_of_value_binding rec_flag env vb: string * env =
 
 
 (* returns the inference result as a string to be printed *)
-let rec infer_of_program env x: string * env =
+let rec infer_of_program env x: string * env * experiemntal_data =
   match x.pstr_desc with
   | Pstr_value (rec_flag, x::_ (*value_binding list*)) ->
     infer_of_value_binding rec_flag env x
@@ -1542,17 +1579,17 @@ let rec infer_of_program env x: string * env =
   | Pstr_module m ->
     (* when we see a module, infer inside it *)
     let name = m.pmb_name.txt |> Option.get in
-    let res, menv =
+    let res, menv, _ =
       match m.pmb_expr.pmod_desc with
       | Pmod_structure str ->
-        List.fold_left (fun (s, env) si ->
-          let r, env = infer_of_program env si in
-          r :: s, env) ([], env) str
+        List.fold_left (fun (s, env, aaaa) si ->
+          let r, env, _ = infer_of_program env si in
+          r :: s, env, aaaa) ([], env, ([], [])) str
       | _ -> failwith "infer_of_program: unimplemented module expression type"
     in
     let res = String.concat "\n" (Format.sprintf "--- Module %s---" name :: res) in
     let env1 = Env.add_module name menv env in
-    res, env1
+    res, env1, ([], [])
 
   | Pstr_open info ->
     (* when we see a structure item like: open A... *)
@@ -1566,7 +1603,7 @@ let rec infer_of_program env x: string * env =
       | _ -> failwith "infer_of_program: unimplemented open type, can only open names"
     in
     (* ... dump all the bindings in that module into the current environment and continue *)
-    "", Env.open_module name env
+    "", Env.open_module name env,  ([], [])
 
   | Pstr_effect { peff_name; peff_kind; _ } ->
     begin match peff_kind with
@@ -1588,10 +1625,10 @@ let rec infer_of_program env x: string * env =
       let res = split_params_fn res
         |> (fun (a, b) -> (List.map core_type_to_typ a, core_type_to_typ b)) in
       let def = { params; res } in
-      "", Env.add_effect name def env
+      "", Env.add_effect name def env, ([], [])
     | Peff_rebind _ -> failwith "unsupported effect spec rebind"
     end
-  | _ ->  string_of_es Bot, env
+  | _ ->  string_of_es Bot, env,  ([], [])
   ;;
 
 
@@ -1631,13 +1668,22 @@ print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
 
       *)
 
-      let results, _ =
-        List.fold_left (fun (s, env) a ->
-          let spec, env1 = infer_of_program env a in
-          spec :: s, env1
-        ) ([], Env.empty) progs
+      let results, _ , ex_res=
+        List.fold_left (fun (s, env, (aaa, bbb)) a ->
+          let spec, env1, (aa, bb) = infer_of_program env a in
+          spec :: s, env1, (List.append aaa aa, List.append bbb bb)
+        ) ([], Env.empty, ([], [])) progs
       in
+      let print_summary li = 
+        string_of_float ((List.fold_left (fun acc a -> acc +. a) 0.0 li) /. (float_of_int (List.length li) )) ^ " out of " ^ 
+        string_of_int  (List.length li) ^"\n" in 
+      let (yeah, ohhh) = ex_res in 
+      let (yeah_number, ohhh_number) = (print_summary yeah, print_summary ohhh) in 
+       
       print_endline (results |> List.rev |> String.concat "");
+
+      print_endline (yeah_number ^ ohhh_number );
+
 
       (* 
       print_endline (testSleek ());

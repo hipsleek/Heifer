@@ -2618,10 +2618,14 @@ effect_spec:
 | LPAREN p=pure_formula COMMA t= effect_trace COMMA v= effect_trace_value RPAREN rest =effect_spec_aux {(p, t, v)::rest}
 
 
+list_of_post_condition:
+| {[]}
+| LSPECCOMMENT ENSURES post = effect_spec RSPECCOMMENT rest = list_of_post_condition {post :: rest}
+
 fn_contract:
   | LSPECCOMMENT REQUIRES pre = effect_spec RSPECCOMMENT
-    LSPECCOMMENT ENSURES post = effect_spec RSPECCOMMENT
-    {Some (pre, post)}
+    post_condition = list_of_post_condition 
+    {Some (pre, post_condition)}
       (*{
         let is_trace = function `Trace e -> Some e | _ -> None in
         let is_pure = function `Pure e -> Some e | _ -> None in

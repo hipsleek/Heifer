@@ -129,9 +129,6 @@ let rec splitCons (es:es) : es list =
 
   ;;
 
-let reoccur _ _ (_:evn) =  false  
-
-(*
 let rec reoccur esL esR (del:evn) = 
   match del with 
   | [] -> false 
@@ -151,6 +148,8 @@ let rec reoccur esL esR (del:evn) =
     if (subsetL && supersetR) then true
     else reoccur esL esR rest (*REOCCUR*) 
   ;;
+(*
+
 
 let rec checkreoccur  esL rhs  (del:evn) = 
   match rhs with 
@@ -268,14 +267,15 @@ let rec check_containment (lhs:spec) (rhs:spec) :(bool * binary_tree) =
 
 
 
-let printReport (lhs:spec) (rhs:spec) :(bool * string) = 
+let printReport (lhs:spec) (rhs:spec) :(bool * float * string) = 
   let startTimeStamp = Sys.time() in
   let (re, tree) = check_containment lhs rhs in 
-  let verification_time = "[Verification Time: " ^ string_of_float ((Sys.time() -. startTimeStamp) *. 1000.0) ^ " ms]" in
+  let computtaion_time = ((Sys.time() -. startTimeStamp) *. 1000.0) in 
+  let verification_time = "[Verification Time: " ^ string_of_float (computtaion_time *. 1000.0) ^ " ms]" in
   let result = printTree ~line_prefix:"* " ~get_name ~get_children tree in
 
   let whole = "[Verification Result: " ^ (if re  then "Succeed" else "Fail" ) in 
-  (re, "===========================================\n" ^
+  (re, computtaion_time, "===========================================\n" ^
   verification_time  ^"\n"^
   whole  ^"\n"^
   "- - - - - - - - - - - - - -"^"\n" ^
