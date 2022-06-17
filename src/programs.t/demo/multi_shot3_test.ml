@@ -5,7 +5,7 @@ effect Goo : (unit -> unit)
 
 let f () 
 (*@  requires (true, emp, ())   @*)
-(*@  ensures  (true,  (Foo!)., ()) @*)
+(*@  ensures  (true,  (Foo!).(Goo!).Goo?().Foo?().\heart, ()) @*)
 = 
   print_string ("Foo\n");
   let x = perform Foo in

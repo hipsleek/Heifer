@@ -86,7 +86,7 @@ let default_spec_post = [(True, default_es_post, UNIT)]
 
 type policy = Eff of string * es * es | Exn of string | Normal of es
 
-type evn = (spec * spec) list
+type evn = (es * es) list
 
 type constant =
     Pconst_integer of string * char option

@@ -2,7 +2,8 @@
 open List
 open Parsetree
 open Pretty
-(*open Z3
+open Z3
+
 
 let rec term_to_expr ctx : Parsetree.term -> Expr.expr = function
   | Num n        -> Arithmetic.Integer.mk_numeral_i ctx n
@@ -48,7 +49,8 @@ let check_pure p1 p2 : (bool * string) =
   let buffur = ("[PURE]"(*^(pure)*)^ " " ^(if sat then "Succeed\n" else "Fail\n")  )
   in (sat, buffur)
 
-*)
+
+
 
 
 let rec  nullable (es:es) : bool=
@@ -203,28 +205,22 @@ let derivativeEff (eff:spec) ev: spec =
 
 
 
-let rec containment (evn: evn) (lhs:spec) (rhs:spec) : (bool * binary_tree ) = 
-  let lhs = normalSpec lhs in 
-  let rhs = normalSpec rhs in 
-  let entail = string_of_inclusion lhs rhs in 
-  if nullableEff lhs == true && nullableEff rhs==false then (false, Node (entail^ "   [DISPROVE]", []))
-  else if isBotEff lhs then (true, Node (entail^ "   [Bot-LHS]", []))
-  else if isBotEff rhs then (false, Node (entail^ "   [Bot-RHS]", []))
+let rec containment (evn: evn) (lhs:es) (rhs:es) : (bool * binary_tree) = 
+  let lhs = normalES lhs in 
+  let rhs = normalES rhs in 
+  let entail = string_of_es lhs ^" |- " ^string_of_es rhs in 
+  if nullable lhs == true && nullable rhs==false then (false, Node (entail^ "   [DISPROVE]", []))
+  else if isBot lhs then (true, Node (entail^ "   [Bot-LHS]", []))
+  else if isBot rhs then (false, Node (entail^ "   [Bot-RHS]", []))
   else if reoccur lhs rhs evn then (true, Node (entail^ "   [Reoccur]", []))
   else 
-  (*match lhs with 
-    Disj (lhs1, lhs2) -> 
-      let (re1, tree1) = containment evn lhs1 rhs in 
-      let (re2, tree2) = containment evn lhs2 rhs in 
-      (re1 && re2, Node (entail^ "   [LHS-DISJ]", [tree1; tree2]))
-  | _ -> *)
-    let (fst:event list) = fstEff lhs in 
+    let (fst:event list) = fst lhs in 
     let newEvn = append [(lhs, rhs)] evn in 
     let rec helper (acc:binary_tree list) (fst_list:event list): (bool * binary_tree list) = 
       (match fst_list with 
         [] -> (true , acc) 
       | a::xs -> 
-        let (result, (tree:binary_tree)) =  containment newEvn (derivativeEff lhs a ) (derivativeEff rhs a ) in 
+        let (result, (tree:binary_tree)) =  containment newEvn (derivative lhs a ) (derivative rhs a ) in 
         if result == false then (false, (tree:: acc))
         else helper (tree:: acc) xs 
       )
@@ -234,20 +230,6 @@ let rec containment (evn: evn) (lhs:spec) (rhs:spec) : (bool * binary_tree ) =
     
   ;;
 
-
-
-
-
-
-
-(*(bool * binary_tree ) *)
-let check_containment (lhs:spec) (rhs:spec) : (bool * string) = 
-  let _ = (string_of_spec (normalSpec lhs)) ^ " |- " ^ (string_of_spec (normalSpec rhs)) (*and i = INC(lhs, rhs)*) in
-
-  let (re, tree) =  containment [] lhs rhs in
-  let result = printTree ~line_prefix:"* " ~get_name ~get_children tree in
-  let buffur = ("[ENTAILMENT] " (*^ (entailment)*)^(if re then "Succeed\n" else "Fail\n")  ^ result)
-  in (re , buffur)
 
 let compareInstant (s1, i1) (s2, i2) : bool = 
   let rec helper l1 l2 : bool = 
@@ -259,24 +241,47 @@ let compareInstant (s1, i1) (s2, i2) : bool =
   (String.compare s1 s2 == 0)  && helper i1 i2
 
 
-let printReport (_:spec) (_:spec) :(bool * string) = (true, "")
 
-(*
+
+let rec check_containment (lhs:spec) (rhs:spec) :(bool * binary_tree) = 
+  let lhs = normalSpec lhs in 
+  let rhs = normalSpec rhs in 
+  let entail = string_of_inclusion lhs rhs in 
+  match (lhs, rhs) with 
+  | (x::x1::xs, _) -> 
+    let (res1, tree1) = check_containment [x] rhs in 
+    let (res2, tree2) = check_containment (x1::xs)  rhs in 
+    (res1 && res2, Node (entail^ "   [LHS-DISJ]", [tree1; tree2]))
+  | (_, y::y1::ys) -> 
+    let (res1, tree1) = check_containment lhs [y] in 
+    let (res2, tree2) = check_containment lhs (y1::ys) in 
+    (res1 || res2, Node (entail^ "   [RHS-DISJ]", [tree1; tree2]))
+  | ([(pi1, es1, _)], [(pi2, es2, _)]) -> 
+    let (re1, str) = check_pure pi1 pi2 in 
+    if re1 then containment [] es1 es2 
+    else (false, Node (entail^ str, []))
+    
+  | ([], _) -> (true, Node ("lhs empty", []))
+  | (_, []) -> (false, Node ("rhs empty", []))
+
+;;
+
+
+
 let printReport (lhs:spec) (rhs:spec) :(bool * string) = 
   let startTimeStamp = Sys.time() in
-  (*let (re1, _) = check_pure pi1 pi2 in *)
-  let (re2, temp2) = check_containment lhs rhs in 
+  let (re, tree) = check_containment lhs rhs in 
   let verification_time = "[Verification Time: " ^ string_of_float ((Sys.time() -. startTimeStamp) *. 1000.0) ^ " ms]" in
+  let result = printTree ~line_prefix:"* " ~get_name ~get_children tree in
 
-  let re = re2 in 
   let whole = "[Verification Result: " ^ (if re  then "Succeed" else "Fail" ) in 
-  (re, (*"===========================================\n" ^*)
+  (re, "===========================================\n" ^
   verification_time  ^"\n"^
   whole  ^"\n"^
   "- - - - - - - - - - - - - -"^"\n" ^
-  temp2)
+  result)
   ;;
-*)
+
 
 let n_GT_0 : pi =
   Atomic (LT, Var "n", Num 0)
