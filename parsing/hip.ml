@@ -844,13 +844,13 @@ let concatenateEffects (eff1:spec) (eff2:spec) : spec =
 
 let rec findEffectHanding handler name = 
   match handler with 
-  | [] -> raise (Foo "could not find the findEffectHanding")
+  | [] -> None 
   | a::xs -> 
     let lhs = a.pc_lhs in 
     let rhs = a.pc_rhs in 
     (match lhs.ppat_desc with 
     | Ppat_effect (p, _) 
-    | Ppat_exception p   -> if String.compare (string_of_pattern p) name == 0 then rhs else findEffectHanding xs  name 
+    | Ppat_exception p   -> if String.compare (string_of_pattern p) name == 0 then (Some rhs) else findEffectHanding xs  name 
     | _ -> findEffectHanding xs  name
     )
   ;;
@@ -1111,8 +1111,10 @@ and  fixCompute env (history:es) handler (p, t, v) : spec =
       match f with
       | Send (ins) -> 
         let (effName, _) = ins in 
-        let expr = (findEffectHanding handler effName) in 
-        infer_handling env handler ins [(p, Cons(history, Event ins), v)] (derivative t f)  expr     
+        (match (findEffectHanding handler effName) with 
+        | None -> fixCompute env (Cons (history, eventToEs f)) handler (p, derivative t f, v)
+        | Some expr -> 
+        infer_handling env handler ins [(p, Cons(history, Event ins), v)] (derivative t f)  expr )    
       | _ ->  fixCompute env (Cons (history, eventToEs f)) handler (p, derivative t f, v)
     ) fstSet)
 
@@ -1124,6 +1126,7 @@ and fixpoint_Computation env handler eff : spec =
 
 
 and infer_of_expression (env) (current:spec) expr: spec =  
+  let current  = normalSpec current in 
   match expr.pexp_desc with 
   | Pexp_fun (_, _, _ (*pattern*), exprIn) -> 
     infer_of_expression env current exprIn
@@ -1540,26 +1543,30 @@ type experiemntal_data = (float list * float list)
 let infer_of_value_binding rec_flag env vb: string * env * experiemntal_data =
   let startTimeStamp = Sys.time() in
   let pre, post, final, env, fn_name = infer_value_binding rec_flag env vb in
-  let infer_time = "[Inference Time: " ^ string_of_float ((Sys.time() -. startTimeStamp) *. 1000.0) ^ " ms]" in
 
   (* don't report things like let () = ..., which isn't a function  *)
   if String.equal fn_name "()" then
     "", env, ([], [])
   else
 
+
     let header =
       "\n========== Function: "^ fn_name ^" ==========\n" ^
       "[Pre  Condition] " ^ string_of_spec pre ^"\n"^
       "[Post Condition] " ^ string_of_spec (List.hd post) ^"\n"^
-      "[Final  Effects] " ^ string_of_spec (normalSpec final) ^ "\n"^ infer_time ^"\n\n"
+      (let infer_time = "[Inference Time: " ^ string_of_float ((Sys.time() -. startTimeStamp) *. 1000.0) ^ " ms]" in
+
+      "[Final  Effects] " ^ string_of_spec (normalSpec final) ^ "\n"^ infer_time ^"\n\n")
       (*(string_of_inclusion final_effects post) ^ "\n" ^*)
       (*"[T.r.s: Verification for Post Condition]\n" ^ *)
     in
+    
     let ex_res = List.fold_left (fun (succeed_time, fail_time) a -> 
       let (res, time, _) = printReport final a in 
       if res then (List.append [time]  succeed_time, fail_time)
       else (succeed_time, List.append [time]  fail_time)
       ) ([], []) post in 
+    
     header , env, ex_res
 
 
