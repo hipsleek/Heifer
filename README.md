@@ -25,7 +25,7 @@ sudo apt-get install z3
 ```
 - Get the source code and build 
 ```
-git clone https://github.com/songyahui/EFFECTS.git
+https://github.com/songyahui/AlgebraicEffect
 cd AlgebraicEffect 
 eval $(opam env)
 make 
