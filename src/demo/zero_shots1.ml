@@ -1,21 +1,21 @@
 
-effect Foo : (unit -> unit)
-effect Goo : (unit -> unit)
+effect Exc : (unit -> unit)
+effect Other : (unit -> unit)
 
 let f () 
 (*@  requires (true, emp, ())   @*)
-(*@  ensures  (true, (Foo!).(Goo!).Goo?().Foo?(), ()) @*)
+(*@  ensures  (true, (Exc!).(Other!).Other?().Exc?(), ()) @*)
 = 
-  let x = perform Foo in 
-  let y = perform Goo in 
+  let x = perform Exc in 
+  let y = perform Other in 
   y ();
   x ()
 
 let handler 
 (*@  requires (true, emp, ())   @*)
-(*@  ensures  (true, Foo.Goo, ()) @*)
+(*@  ensures  (true, Exc.Other, ()) @*)
 = 
   match f () with 
   | x -> perform Done 
-  | effect Foo k -> continue k (fun () -> ())
-  | effect Goo k -> ()
+  | effect Exc k -> continue k (fun () -> ())
+  | effect Other k -> ()

@@ -1,5 +1,5 @@
 # AlgebraicEffect
-Source code for the work "Automated Temporal Verification for Algebraic Effects"
+Artifact evaluation for paper "Automated Temporal Verification for Algebraic Effects"
 
 # To Test the code 
 
