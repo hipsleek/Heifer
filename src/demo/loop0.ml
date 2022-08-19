@@ -11,7 +11,7 @@ let f ()
 
 let handler 
 (*@  requires (true, emp, ())   @*)
-(*@  ensures  (true, Foo.Goo, ()) @*)
+(*@  ensures  (true, Foo^w, ()) @*)
 = 
   match f () with 
   | x -> x
