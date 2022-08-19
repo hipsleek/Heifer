@@ -624,7 +624,6 @@ let mk_directive ~loc name arg =
 %token IMPLICATION
 %token REQUIRES
 %token ENSURES
-%token EFF
 %token OMEGA
 %token KLEENE
 %token INFINY

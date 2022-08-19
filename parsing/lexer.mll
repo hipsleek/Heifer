@@ -60,7 +60,6 @@ let keyword_table =
     "requires", REQUIRES;
     "ensures", ENSURES;
     "emp", EMP;
-    "eff", EFF;
     "if", IF;
     "in", IN;
     "include", INCLUDE;
