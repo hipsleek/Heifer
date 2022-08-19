@@ -82,10 +82,10 @@ There are 12 .ml files in `src/evaluation/` folder,
 corresponding the 12 lines in Table 1. 
 
 The main check points are the last 4 column: 
-#Prop(valid), 
-Avg-Prove(ms), 
-#Prop(invalid),
-and Avg-Dis(ms). 
+`#Prop(valid)`, 
+`Avg-Prove(ms)`, 
+`#Prop(invalid)`,
+`and Avg-Dis(ms)`. 
 
 For example, run 
 ```
