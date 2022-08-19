@@ -1253,250 +1253,6 @@ match Env.find_fn name env with
   | _ -> raise (Foo (Pprintast.string_of_expression  expr ^ " infer_of_expression not corvered "))  
 
 
-(*
-let rec infer_of_expression env (current:spec) expr: spec = 
-
-  let getSpecFromEnv env exprIN : (es*es) = 
-    let getSnd (_, a, _) = a in 
-    match exprIN.pexp_desc with 
-    | Pexp_apply (fnName, _) -> 
-      let name = fnNameToString fnName in 
-      (match Env.find_fn name env with
-      | None -> 
-        (match Env.fine_side name env with 
-        | None -> (default_es_pre, default_es_post)
-        | Some (_pre, _post) ->  (getSnd _pre, getSnd _post)
-        )
-      | Some s -> (getSnd s.pre, getSnd s.post)
-      )
-    | Pexp_ident l -> 
-      let name = getIndentName l in 
-      (match Env.find_fn name env with
-      | None -> 
-        (match Env.fine_side name env with 
-        | None -> (default_es_pre, default_es_post)
-        | Some (_pre, _post) ->  (getSnd _pre , getSnd _post )
-        )
-      | Some s -> (getSnd s.pre,getSnd s.post)
-      )
-    | _ -> 
-      let ( (_, temp, _), _) = infer_of_expression env Emp (True, Emp, []) exprIN cont in 
-      (default_es_pre, temp)
-  in 
-
-  match expr.pexp_desc with 
-  | Pexp_fun (_, _, _ (*pattern*), exprIn) -> 
-    infer_of_expression env pre_es acc exprIn cont
-  | Pexp_apply (fnName, li) (*expression * (arg_label * expression) list*)
-    -> 
-    (*
-    print_string (Pprintast.string_of_expression expr ^"\n");
-    *)
-    let temp = List.map (fun (_, a) -> a) li in 
-    let arg_eff = List.fold_left 
-    (fun acc_li a -> 
-      let tuple: (es * es) = getSpecFromEnv env a in 
-      List.append acc_li [tuple]
-      ) 
-    [] temp in 
-
-    call_function pre_es fnName li acc arg_eff env cont 
-  | Pexp_let (_(*flag*),  vb_li, expr) -> 
-    let head = List.hd vb_li in 
-    let var_name = string_of_pattern (head.pvb_pat) in 
-    let (new_acc, residue) = infer_of_expression env pre_es acc (head.pvb_expr) cont in 
-    let stack_up = 
-      (match residue with 
-      | None ->
-        (* print_endline ("nothing added to stack"); *)
-        []
-      | Some stack ->
-        (* Format.eprintf "added to stack %s %s@." var_name (string_of_instant stack); *)
-        [(var_name, stack)]
-      ) in 
-    
-    
-    infer_of_expression (Env.add_stack stack_up env) pre_es new_acc expr cont
-
-
-  | Pexp_construct _ -> 
-      (acc, None)
-     (*((True, Emp, []), None) *)
-  | Pexp_constraint (ex, _) -> infer_of_expression env pre_es acc ex cont
-  | Pexp_sequence (ex1, ex2) -> 
-
-    let (acc1, _) = infer_of_expression env pre_es acc ex1 cont in 
-    infer_of_expression env pre_es acc1 ex2 cont
-
-  | Pexp_match (ex, case_li) -> 
-    let (spec_ex, _) = infer_of_expression env pre_es acc(*True, Emp, []*) ex cont in 
-    let (p_ex, es_ex, side_es) = normalSpec spec_ex in 
-
-    (* VERSION 3 *)
-    let policies = List.map (fun a ->
-      let lhs = a.pc_lhs in 
-      let rhs = a.pc_rhs in 
-      
-      (match lhs.ppat_desc with 
-      | Ppat_effect (p1, _) 
-      | Ppat_exception p1   -> 
-        let (beforeCont, afterCont) = devideContinuation rhs in 
-        (string_of_pattern p1, beforeCont, afterCont)
-      | _ -> 
-        let (beforeCont, afterCont) = devideContinuation rhs in 
-        ("normal", beforeCont, afterCont)
-      )
-    ) case_li in 
-    let rec find_policy_before ((name, _) as i) li = 
-      match li with 
-      | [] -> []
-      | (str, before, _) :: xs -> if String.compare str name == 0 then before else find_policy_before i xs
-    in 
-    let rec find_policy_after name li =
-      match li with 
-      | [] -> raise (Foo (name ^ "'s handler is not defined\n"))
-      | (str, _, after) :: xs -> if String.compare str name == 0 then after else find_policy_after name xs
-    in 
-    let sequencing li cont'= List.fold_left (fun _acc a -> 
-            let ((_, es, _), _) = infer_of_expression env pre_es (True, Emp, []) a cont' in 
-            Cons (_acc, es)
-            ) Emp li in 
-
-    let rec going_through_f_spec f_es mappings current stack: es = 
-      match (normalES f_es) with
-      | Kleene f_es_In -> Kleene (going_through_f_spec f_es_In mappings current stack)
-      | Omega f_es_In -> Omega (going_through_f_spec f_es_In mappings current stack)
-      | Cons (Kleene f_es_In, f_es_rhs) -> 
-        let a = Kleene (going_through_f_spec f_es_In mappings current stack) in 
-        let b = (going_through_f_spec f_es_rhs mappings current stack) in 
-        Cons (a, b)
-      | Cons (Omega f_es_In, f_es_rhs) -> 
-        let a = Omega (going_through_f_spec f_es_In mappings current stack) in 
-        let b = (going_through_f_spec f_es_rhs mappings current stack) in 
-        Cons (a, b)
-  
-      (*| ESOr (es1, es2) -> 
-        let a = (going_through_f_spec es1 mappings current) in 
-        let b = (going_through_f_spec es2 mappings current) in 
-        ESOr (a, b)
-        *)
-
-      | _ -> 
-      (*
-      print_string (
-        List.fold_left (fun acc (a, b) -> acc ^ "\n" ^ a ^ ": " ^ string_of_es (normalES b) ) "\n===\n" (List.append mappings [current]) ^ "\n"
-      );
-      *)
-
-      let normal_es = sequencing (find_policy_before ("normal", []) policies) Emp in 
-
-      let fsts = fst f_es in 
-      let disjunctions = List.map (fun f -> 
-        match f with
-        | StopEv -> 
-          print_string ("hshshhshs " ^ string_of_int (List.length stack)^ "\n");
-          let state_traces = sequencing (List.rev stack) Emp in 
-          Cons (normal_es, state_traces) 
-        | One str ->  
-          let (cur_str, cur_es) =  current in 
-          let expre_li = find_policy_before str policies in 
-          let es_expr_li = going_through_f_spec(sequencing expre_li Emp) [] ("null", Emp) stack in 
-          let new_current = (cur_str, Cons (Cons (cur_es, Event str), es_expr_li)) in 
-          Cons (Cons (Event str, es_expr_li), going_through_f_spec (derivative f_es f) mappings new_current stack)
-        | Zero str -> 
-          let (cur_str, cur_es) =  current in 
-          let new_current = (cur_str, Cons (cur_es, Not str)) in 
-          Cons (Not str, going_through_f_spec (derivative f_es f) mappings new_current stack) 
-        | Any -> 
-          let (cur_str, cur_es) =  current in  
-          let new_current = (cur_str, Cons (cur_es, Underline)) in 
-          Cons (Underline, going_through_f_spec (derivative f_es f) mappings new_current stack) 
-        | Pred (ins) -> 
-          let (insFName, _) = ins in 
-          if inTheHnadlingDOm insFName policies  == false then
-            let (cur_str, cur_es) =  current in  
-            let new_current = (cur_str, Cons (cur_es, Predicate ins)) in 
-            Cons (Predicate ins, going_through_f_spec (derivative f_es f) mappings new_current stack)
-          else 
-          let new_mapping = List.append mappings [current] in 
-          let new_current = (insFName, Emp) in 
-
-          match reoccor_continue (new_mapping) insFName 0 with 
-          | Some start -> formLoop1 ( new_mapping) start
-          | None -> 
-
-
-          let expre_li = find_policy_after insFName policies in 
-          if List.length expre_li == 0 then Emp 
-          else 
-
-            let continue_k = normalES (derivative f_es f) in 
-            let cont = List.hd expre_li in
-            let after_cont = List.tl expre_li in 
-            let ((_, fixpoint_trace_insert, _), _) = infer_of_expression env pre_es (True, Emp, []) cont Emp in 
-            (*
-            print_string ("to print the effects of the continue: \n" ^ string_of_es (normalES fixpoint_trace_insert) ^"\n");
-            *)
-            let insterting = going_through_f_spec fixpoint_trace_insert new_mapping new_current stack in 
-            (*
-            print_string ("to print the effects of the continue1: \n" ^ string_of_es (normalES insterting) ^"\n");
-            *)
-            let insterting2 = going_through_f_spec continue_k [] ("null", Emp) (List.append stack after_cont) in  
-
-(************************************************** After the first continue 
-            let partitions = partitionContinue after_cont in 
-            let partitionTraces = List.map ( fun partition -> 
-              if List.length partition == 0 then Emp 
-              else 
-                let contP = List.hd partition in
-                let after_contP = List.tl partition in 
-                let ((_, fixpoint_trace_insertP, _), _) = infer_of_expression env pre_es (True, Emp, []) contP Emp in 
-                let instertingP = going_through_f_spec fixpoint_trace_insertP new_mapping new_current in 
-                let insterting2P = going_through_f_spec continue_k [] ("null", Emp) in  
-                let trace_after_instertP = sequencing after_contP continue_k in 
-
-                Cons (instertingP, Cons (insterting2P, trace_after_instertP))
-
-
-            ) partitions in 
-            let trace_after_instert = List.fold_left (fun acc a -> Cons (acc, a)) Emp partitionTraces in 
-
-
-************************************************* After the first continue *)
-
-
-            (*
-            print_string (string_of_int (List.length partitions) ^ ") -> trace after: " ^ string_of_es (normalES trace_after_instert)^ "\n");
-                        print_string ("normal trace: " ^ string_of_es (normalES normal_es)^ "\n");
-
-            *)
-            Cons(insterting, insterting2)
-
-
-      ) fsts in 
-      if List.length fsts == 0 then Emp else 
-      List.fold_left (fun acc a -> ESOr (acc,  a)) Bot disjunctions 
-    in 
-    let startTimeStamp = Sys.time() in
-    print_string ((*string_of_int (List.length case_li)^*) "\n=============== \n ");
-    let trace = going_through_f_spec (Cons (es_ex, Stop)) [] ("null", Emp) []in 
-    let fixpoint_time = "[Fixpoint Time: " ^ string_of_float ((Sys.time() -. startTimeStamp) *. 1000.0) ^ " ms]" in
-    print_string (fixpoint_time);
-    ((p_ex, trace, side_es) , None)
-
-
-    
-
-
-  | Pexp_try (body, _cases) -> 
-    (* TODO do cases *)
-    infer_of_expression env pre_es acc body cont
-
-
-      
-
-  | _ -> raise (Foo ("infer_of_expression: " ^ debug_string_of_expression expr))
-*)
 
 and normalSpecList specs = List.map (fun a -> normalSpec a) specs
 
@@ -1555,8 +1311,9 @@ let infer_of_value_binding rec_flag env vb: string * env * experiemntal_data =
       "[Pre  Condition] " ^ string_of_spec pre ^"\n"^
       "[Post Condition] " ^ string_of_spec (List.hd post) ^"\n"^
       (let infer_time = "[Inference Time: " ^ string_of_float ((Sys.time() -. startTimeStamp) *. 1000.0) ^ " ms]" in
+      let (_, _, trs_str) = printReport final (List.hd post) in
 
-      "[Final  Effects] " ^ string_of_spec (normalSpec final) ^ "\n"^ infer_time ^"\n\n")
+      "[Final  Effects] " ^ string_of_spec (normalSpec final) ^ "\n"^ infer_time ^ "\n" ^ trs_str ^"\n")
       (*(string_of_inclusion final_effects post) ^ "\n" ^*)
       (*"[T.r.s: Verification for Post Condition]\n" ^ *)
     in
@@ -1683,13 +1440,13 @@ print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
       in
       let print_summary li = 
         string_of_float ((List.fold_left (fun acc a -> acc +. a) 0.0 li) /. (float_of_int (List.length li) )) ^ " out of " ^ 
-        string_of_int  (List.length li) ^"\n" in 
+        string_of_int  (List.length li) ^" test case(s) \n" in 
       let (yeah, ohhh) = ex_res in 
       let (yeah_number, ohhh_number) = (print_summary yeah, print_summary ohhh) in 
        
       print_endline (results |> List.rev |> String.concat "");
 
-      print_endline (yeah_number ^ ohhh_number );
+      print_endline ("Average Proving Time (ms) is " ^ yeah_number ^ "Average DisProving Time (ms) is " ^ ohhh_number );
 
 
       (* 

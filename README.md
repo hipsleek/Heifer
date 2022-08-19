@@ -1,25 +1,15 @@
 # AlgebraicEffect
-effects system for continuation
+Source code for the work "Automated Temporal Verification for Algebraic Effects"
 
-# To run the parser 
-cd parsing 
-
-dune exec ./hip.exe ../src/programs/0_loop.ml
+# To Test the code 
 
 
+docker pull yahuuuuui/aplas22ae
 
-1) reverse = handler {print(s; k) 􏰀→ k (); print s}
+docker run -it yahuuuuui/aplas22ae:latest bash
 
+cd home 
 
-3) debug high-order spec dune exec parsing/hip.exe src/programs.t/flip.ml
+cd AlgebraicEffect 
 
-
-a buffer of value. 
-blocking/unblocking get. concurrency. 
-
-dune exec parsing/hip.exe src/programs.t/t0_foo_loop.ml
-
-
-
-opam switch 4.10.0
-opam switch 4.12.0+domains+effects
+dune exec ./hip.exe ../src/demo/loop0.ml

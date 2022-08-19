@@ -279,7 +279,13 @@ let rec normalES (es:es):es =
   ;;
 
 
-let normalPure p = p
+let rec normalPure p = 
+  match p with
+  | And (True, p1) -> normalPure p1
+  | And (p1, True) -> normalPure p1
+  | _ -> p 
+;;
+
 
 let normalTuple (pi, es, v)  = (normalPure pi, normalES es, v)
 

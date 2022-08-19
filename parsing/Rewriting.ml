@@ -271,11 +271,11 @@ let printReport (lhs:spec) (rhs:spec) :(bool * float * string) =
   let startTimeStamp = Sys.time() in
   let (re, tree) = check_containment lhs rhs in 
   let computtaion_time = ((Sys.time() -. startTimeStamp) *. 1000.0) in 
-  let verification_time = "[Verification Time: " ^ string_of_float (computtaion_time *. 1000.0) ^ " ms]" in
+  let verification_time = "[TRS Time: " ^ string_of_float (computtaion_time) ^ " ms]" in
   let result = printTree ~line_prefix:"* " ~get_name ~get_children tree in
 
-  let whole = "[Verification Result: " ^ (if re  then "Succeed" else "Fail" ) in 
-  (re, computtaion_time, "===========================================\n" ^
+  let whole = "[TRS Result: " ^ (if re  then "Succeed" else "Fail" ) in 
+  (re, computtaion_time, "~~~~~~~~~~~~~~~~~~~~~\n" ^
   verification_time  ^"\n"^
   whole  ^"\n"^
   "- - - - - - - - - - - - - -"^"\n" ^

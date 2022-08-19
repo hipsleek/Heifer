@@ -1,0 +1,13 @@
+docker ps
+
+docker exec -it naughty_neumann /bin/bash
+
+docker pull yahuuuuui/aplas22ae
+
+docker run -it yahuuuuui/aplas22ae:latest bash
+
+docker commit --change "ENV DEBUG=true" a9e148a71733 yahuuuuui/aplas22ae:latest
+
+docker image push yahuuuuui/aplas22ae:latest    
+
+apt-get install opam
