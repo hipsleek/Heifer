@@ -14,14 +14,25 @@ eval $(opam env)
 make
 ```
 
-## Build from source 
+## Build from source (tested on Ubuntu 18)
 
 - Dependencies:
+
+Install opam: (cf. https://opam.ocaml.org/doc/Install.html)
+```
+sudo apt install git
+sudo apt install curl
+bash -c "sh <(curl -fsSL https://raw.githubusercontent.com/ocaml/opam/master/shell/install.sh)"
+opam init
+sudo apt install make 
+sudo apt install gcc
+```
+Install ocaml and libraries:
 ```
 opam switch create 4.13.1
 eval $(opam env)
-sudo apt-get install menhir
-sudo apt-get install z3
+opam install menhir
+opam install z3
 ```
 - Get the source code and build 
 ```
