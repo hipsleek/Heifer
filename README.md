@@ -1,7 +1,25 @@
 # Algebraic Effect
 Artifact evaluation for paper "Automated Temporal Verification for Algebraic Effects"
 
-# Installation 
+
+# About the Archive & Link to Research Paper  
+
+This work is about temporal verification for Algebraic Effect and 
+Effect handlers. 
+The artifact takes programs with effects and handlers, written in Ocaml, 
+and computes the execution traces of the effects without executing the 
+program. 
+Moreover, the programs are annotated with temporal specifications. 
+The artifact also checks whether the real execution entails the 
+provided specifications or not. 
+Useful information are printed after our analysis, indicating unsatisfied 
+post/pre-conditions. 
+
+
+
+
+
+# Getting Started Guide 
 
 ## Docker 
 
@@ -42,7 +60,7 @@ eval $(opam env)
 make 
 ```
 
-# Test the functionality 
+# Step-By-Step Instructions 
 
 
 From the root directory:  
