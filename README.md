@@ -50,7 +50,16 @@ Install ocaml and libraries:
 opam switch create 4.13.1
 eval $(opam env)
 opam install menhir
+```
+Install z3 and dune:
+```
+opam init
+eval `opam config env`
+opam update
+opam switch create 4.13.1
+eval `opam config env`
 opam install z3
+sudo apt-get install whitedune
 ```
 - Get the source code and build 
 ```
@@ -123,3 +132,20 @@ dune exec ./hip.exe ../src/evaluation/test1.ml
 will get the first line data at the last lines of the printing. 
 
 Same for the rest lines. 
+
+
+# What is inside the `root directory` ?
+
+There are four main files/folders under the root directory:
+- Makefile: a make file to make sure the parsing is working 
+- README.md: instructions of get hands on the project
+- parsing: the folder contains the source code
+    1. "parsetree.ml": contains the AST structure 
+    2. "parser.mly": implements the parser 
+    3. "hip.ml": the main file of our forward verifier
+    4. "sleek.ml": the main file of our back-end term rewriting system
+    5. "Rewriting.ml": the implementation of the  term rewriting system
+    6. "Pretty.ml": contains most of the pretty printing functions
+- src: the folder contains the test cases
+    1. "domo/": contains the examples in the paper
+    2. "evaluation/": contains the test cases for the evaluation 
