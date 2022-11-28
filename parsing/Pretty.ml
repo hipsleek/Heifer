@@ -240,8 +240,7 @@ let rec normalES (es:es):es =
       | (Omega _, _ ) -> normalES1
       | (_, ESOr (es21, es22)) -> ESOr (Cons(es1, es21), Cons(es1, es22))
       | (ESOr (es11, es12), _) -> ESOr (Cons(es11, es2), Cons(es12, es2)) 
-      (*| (Kleene(Underline),  Kleene(Underline)) -> es1
-      *)
+
       | _ -> 
           Cons (normalES1, normalES2)
       ;)

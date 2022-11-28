@@ -38,12 +38,14 @@ type stack_content = Cons of int | Variable of string | Apply of string * stack_
 
 type stack = string * instant
 
+type singleton =   Emit of instant (* Foo! *)
+| Await of (instant * basic_t) (* Foo? *)
+| Event of instant
+
 type es = Bot 
         | Emp   
-        | Emit of instant (* Foo! *)
-        | Await of (instant * basic_t) (* Foo? *)
-        | Event of instant
-        | Not of instant
+        | Singleton of singleton
+        | Not of singleton 
         | Underline
         | Cons of es * es
         | ESOr of es * es
