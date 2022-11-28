@@ -129,6 +129,7 @@ let entailsEvent (ev1:event) (ev2:event): bool =
   | (One (str1), Zero (str2)) ->
     if compareInstant str1 str2 then false 
     else true 
+  | (_, Zero (_)) -> true 
   | (Receive (str1, bt1), Receive (str2, bt2)) -> compareInstant str1 str2 && compareBasic bt1 bt2
 
   | (StopEv, StopEv) -> true 
@@ -237,8 +238,10 @@ let rec normalES (es:es):es =
       | (_, Emp) -> normalES1
       | (Bot, _) -> Bot
       | (Omega _, _ ) -> normalES1
-    (*| (_, ESOr (es21, es22)) -> ESOr (Cons(es1, es21), Cons(es1, es22))
-      | (ESOr (es11, es12), _) -> ESOr (Cons(es11, es2), Cons(es12, es2)) *)
+      | (_, ESOr (es21, es22)) -> ESOr (Cons(es1, es21), Cons(es1, es22))
+      | (ESOr (es11, es12), _) -> ESOr (Cons(es11, es2), Cons(es12, es2)) 
+      (*| (Kleene(Underline),  Kleene(Underline)) -> es1
+      *)
       | _ -> 
           Cons (normalES1, normalES2)
       ;)

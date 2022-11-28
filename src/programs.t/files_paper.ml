@@ -8,7 +8,7 @@ let open_file n
 
 
 let close_file n
-(*@ requires (true, (_ ^* ), ())  @*)
+(*@ requires (true, (_ ^* ) .(Open(n)!).((~ Close(n))^* ) , ())  @*)
 (*@ ensures (true, Close(n)!, ()) @*)
 = perform (Close n)
 
