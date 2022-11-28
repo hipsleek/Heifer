@@ -124,9 +124,9 @@ let rec string_of_pattern (p) : string =
   | Ppat_effect (p1, p2) -> string_of_pattern p1 ^ string_of_pattern p2 ^ "\n"
 
   | Ppat_construct (l, None) -> List.fold_left (fun acc a -> acc ^ a) "" (Longident.flatten l.txt)
-  | Ppat_construct (l, Some p1) ->  
-    List.fold_left (fun acc a -> acc ^ a) "" (Longident.flatten l.txt) ^ 
-    string_of_pattern p1
+  | Ppat_construct (l, Some _p1) ->  
+    List.fold_left (fun acc a -> acc ^ a) "" (Longident.flatten l.txt)
+    (* ^ string_of_pattern p1 *)
   (* #tconst *)
 
   
