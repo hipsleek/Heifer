@@ -1311,7 +1311,7 @@ let infer_of_value_binding rec_flag env vb: string * env * experiemntal_data =
       "[Pre  Condition] " ^ string_of_spec pre ^"\n"^
       "[Post Condition] " ^ string_of_spec (List.hd post) ^"\n"^
       (let infer_time = "[Inference Time: " ^ string_of_float ((Sys.time() -. startTimeStamp) *. 1000.0) ^ " ms]" in
-      let (_, _, trs_str) = printReport final (List.hd post) in
+      let (_, _, trs_str) = printReport final (concatenateEffects pre (List.hd post)) in
 
       "[Final  Effects] " ^ string_of_spec (normalSpec final) ^ "\n"^ infer_time ^ "\n" ^ trs_str ^"\n")
       (*(string_of_inclusion final_effects post) ^ "\n" ^*)

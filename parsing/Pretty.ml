@@ -159,7 +159,7 @@ let rec string_of_es es : string =
   match es with 
   | Bot -> "_|_"
   | Emp -> "emp"
-  | Emit ins  -> Format.sprintf "(%s!)" (string_of_instant ins)
+  | Emit ins  -> Format.sprintf "(%s)!" (string_of_instant ins)
   | Await (ins, bt)  -> Format.sprintf "%s?%s" (string_of_instant ins) (string_of_basic_type bt)
   | Event (str, []) -> str
   | Event (str, args) -> Format.sprintf "%s(%s)" str (List.map string_of_basic_type args |> String.concat ", ")

@@ -17,3 +17,16 @@ let handler
   | x -> x
   | effect Foo k -> continue k (fun () -> perform Foo )
   | effect Goo k -> () 
+
+(*
+  (Foo!).Foo?()
+   his         current ev        continuation (k)           bindings 
+1  emp          (Foo!)          Foo?()                   Foo? = (fun () -> perform Foo )
+2  Foo          Foo?()         emp 
+*  Foo?()   -> Foo! Foo?()
+3. Foo.(FOo)W
+
+
+----------------------------------
+
+*)

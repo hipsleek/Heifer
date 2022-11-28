@@ -208,6 +208,25 @@ let rec containment (evn: evn) (lhs:es) (rhs:es) : (bool * binary_tree) =
   let lhs = normalES lhs in 
   let rhs = normalES rhs in 
   let entail = string_of_es lhs ^" |- " ^string_of_es rhs in 
+  print_string (entail^"\n"); 
+
+  match (lhs, rhs) with
+  | (ESOr (l1, l2), _ ) ->
+    let (re1, tree1) = containment evn l1 rhs in 
+    if not re1 then (re1, tree1)
+    else 
+      let (re2, tree2) = containment evn l2 rhs in 
+      (re1 && re2, Node (entail, [tree1;tree2] ))
+    
+  | (_, ESOr (r1, r2)) -> 
+    let (re1, tree1) = containment evn lhs r1 in 
+    if re1 then (re1, tree1)
+    else 
+      let (re2, tree2) = containment evn lhs r2 in 
+      (re1 || re2, Node (entail, [tree1;tree2] ))
+  
+  | (_, _) -> 
+
   if nullable lhs == true && nullable rhs==false then (false, Node (entail^ "   [DISPROVE]", []))
   else if isBot lhs then (true, Node (entail^ "   [Bot-LHS]", []))
   else if isBot rhs then (false, Node (entail^ "   [Bot-RHS]", []))

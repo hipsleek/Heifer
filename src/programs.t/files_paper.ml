@@ -2,26 +2,28 @@ effect Open : int -> unit
 effect Close: int -> unit
 
 let open_file n
-(*@ requires ((_^* ).Close(n).(~Open(n))^* ) \/ ((~Open(n))^* ) @*)
-(*@ ensures Open(n) @*)
+(*@ requires (true, (_ ^* ) , ())  @*)
+(*@ ensures (true, Open(n)!, ()) @*)
 = perform (Open n)
 
+
 let close_file n
-(*@ requires (_^* ).Open(n).(~Close(n))^* @*)
-(*@ ensures Close(n) @*)
+(*@ requires (true, (_ ^* ), ())  @*)
+(*@ ensures (true, Close(n)!, ()) @*)
 = perform (Close n)
 
 let file_9 () 
-(*@ requires emp @*)
-(*@ ensures Open(9).Open(8).Close(9) @*)
+(*@ requires (true, emp, ()) @*)
+(*@ ensures (true, (Open(9)!).(Open(8)!).(Close(9)!), ()) @*)
 = 
   open_file 9;
-  open_file 9;
+  open_file 8;
   close_file 9
 
+
 let main 
-(*@ requires emp @*)
-(*@ ensures Open(9). (_^* ) .Close(9) @*)
+(*@ requires (true, emp, ()) @*)
+(*@ ensures (true, Open(9). (_^* ) .Close(9), ()) @*)
 = 
   match file_9 () with 
   | _ -> ()

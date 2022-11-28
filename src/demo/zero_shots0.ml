@@ -18,3 +18,12 @@ let handler
   match f () with 
   | x -> x
   | effect Exc k -> () 
+
+(*
+  (Exc!).(Other!).Other?().Exc?()
+   his         current ev        continuation (k)           bindings 
+1  emp          (Exc!)          (Other!).Other?().Exc?()    
+2  Exc          
+----------------------------------
+Exc
+*)
