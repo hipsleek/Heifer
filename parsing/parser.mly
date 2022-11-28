@@ -2544,12 +2544,12 @@ effect_trace_value:
 effect_trace:
   | UNDERSCORE { Underline }
   | EMP { Emp }
-  | n = UIDENT { Event (n, []) }
-  | n = UIDENT LPAREN args = list(effect_trace_value) RPAREN { Event (n, args) }
-  | n = UIDENT BANG { Emit (n, []) }
-  | n = UIDENT LPAREN args = list(effect_trace_value) RPAREN BANG { Emit (n, args) }
-  | n = UIDENT QUESTION args = effect_trace_value { Await ((n, []), args) }
-  | n = UIDENT LPAREN args = list(effect_trace_value) RPAREN QUESTION arg = effect_trace_value { Await ((n, args), arg) }
+  | n = UIDENT { Singleton (Event (n, [])) }
+  | n = UIDENT LPAREN args = list(effect_trace_value) RPAREN { Singleton (Event (n, args)) }
+  | n = UIDENT BANG { Singleton (Emit (n, [])) }
+  | n = UIDENT LPAREN args = list(effect_trace_value) RPAREN BANG { Singleton (Emit (n, args)) }
+  | n = UIDENT QUESTION args = effect_trace_value { Singleton (Await ((n, []), args)) }
+  | n = UIDENT LPAREN args = list(effect_trace_value) RPAREN QUESTION arg = effect_trace_value { Singleton (Await ((n, args), arg)) }
 
   (*| n = UIDENT LPAREN f = UIDENT args = list(effect_trace_value) RPAREN
   {
@@ -2559,8 +2559,14 @@ effect_trace:
     | _ ->
       failwith "invalid syntax for predicate application"
   }*)
-  | TILDE n = UIDENT { Not (n, []) }
-  | TILDE n = UIDENT LPAREN args = list(effect_trace_value) RPAREN { Not (n, args) }
+
+  | TILDE n = UIDENT { Not (Event (n, [])) }
+  | TILDE n = UIDENT LPAREN args = list(effect_trace_value) RPAREN { Not (Event (n, args)) }
+  | TILDE n = UIDENT BANG { Not (Emit (n, [])) }
+  | TILDE n = UIDENT LPAREN args = list(effect_trace_value) RPAREN BANG { Not (Emit (n, args)) }
+  | TILDE n = UIDENT QUESTION args = effect_trace_value { Not (Await ((n, []), args)) }
+  | TILDE n = UIDENT LPAREN args = list(effect_trace_value) RPAREN QUESTION arg = effect_trace_value { Not (Await ((n, args), arg)) }
+
   | effect_trace DOT effect_trace { Cons ($1, $3) }
   | effect_trace DISJUNCTION effect_trace { ESOr ($1, $3) }
   | effect_trace KLEENE { Kleene $1 }

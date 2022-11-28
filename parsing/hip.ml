@@ -567,10 +567,12 @@ let instantiateInstance (ins:instant) (vb:(string * basic_t) list)  : instant  =
 
 let rec instantiateArg (post_es:es) (vb:(string * basic_t) list) : es = 
   match post_es with 
-  | Emit ins -> Emit (instantiateInstance ins vb)
-  | Await (ins, v) -> Await (instantiateInstance ins vb, v)
-  | Event ins -> Event (instantiateInstance ins vb)
-  | Not ins -> Not (instantiateInstance ins vb)
+  | Singleton (Emit ins) -> Singleton (Emit (instantiateInstance ins vb))
+  | Singleton (Await (ins, v)) -> Singleton (Await (instantiateInstance ins vb, v))
+  | Singleton (Event ins) -> Singleton (Event (instantiateInstance ins vb))
+  | Not (Emit ins) -> Not (Emit (instantiateInstance ins vb))
+  | Not (Await (ins, v)) -> Not (Await (instantiateInstance ins vb, v))
+  | Not (Event ins) -> Not (Event (instantiateInstance ins vb))
   | Cons (es1, es2) -> Cons (instantiateArg es1 vb, instantiateArg es2 vb)
   | ESOr (es1, es2) -> ESOr (instantiateArg es1 vb, instantiateArg es2 vb)
   | Kleene es1 -> Kleene (instantiateArg es1 vb)
@@ -728,7 +730,7 @@ let rec findPolicy str_pred (policies:policy list) : (es * es) =
   | (Eff (str, conti, afterConti))::xs  -> 
         if String.compare str str_pred == 0 then (normalES conti, normalES afterConti)
         else findPolicy str_pred xs
-  | (Exn str)::xs -> if String.compare str str_pred == 0 then (Event (str, []), Emp) else findPolicy str_pred xs 
+  | (Exn str)::xs -> if String.compare str str_pred == 0 then (Singleton (Event (str, [])), Emp) else findPolicy str_pred xs 
   | (Normal es) :: xs  -> if String.compare "normal" str_pred == 0 then (es, Emp) else findPolicy str_pred xs 
 
 
@@ -860,7 +862,7 @@ let rec findEffectHanding handler name =
 let replacePlaceholder originEff ins newEff : spec = 
   let rec aux t_original t_new :es = 
     match t_original with 
-    | Await (ins1, _) -> if compareInstant ins1 ins then t_new else t_original
+    | Singleton (Await (ins1, _)) -> if compareInstant ins1 ins then t_new else t_original
     | Cons (es1, es2)-> Cons (aux es1 t_new, aux es2 t_new)
     | ESOr  (es1, es2)-> ESOr (aux es1 t_new, aux es2 t_new)
     | Kleene es1 -> Kleene (aux es1 t_new)
@@ -893,11 +895,9 @@ let rec disjunctiveES es: es list  =
   | Kleene es1 -> disjunctiveES es1 
 
        
-  | Emit _
-  | Await _
+  | Singleton _
   | Bot 
   | Emp
-  | Event _
   | Not _
   | Underline 
   | Stop -> [es]
@@ -917,7 +917,7 @@ let existsLoop (es:es) : es option =
       if compareInstant ins ins1 then Some (Emp, formESfromEvents li) else 
       (match helper xs ins with 
       | None -> None 
-      | Some (a, b) -> Some (Cons (Emit ins1, a), b))
+      | Some (a, b) -> Some (Cons (Singleton (Emit ins1), a), b))
     | x ::xs  -> 
       (match helper xs ins with 
       | None -> None 
@@ -1028,7 +1028,7 @@ let rec infer_handling env handler ins (current:spec) (der:es) (expr:expression)
     else if String.compare name "perform" == 0 then 
       let eff_name = getEffName (List.hd li) in 
       let eff_arg = getEffNameArg (List.hd li) in 
-      List.map (fun (p, t, v) -> (p, (Cons(t, Emit (eff_name, eff_arg))), v) 
+      List.map (fun (p, t, v) -> (p, (Cons(t, Singleton (Emit (eff_name, eff_arg)))), v) 
       ) current
 
       
@@ -1070,7 +1070,7 @@ let rec infer_handling env handler ins (current:spec) (der:es) (expr:expression)
         let eff_arg = getEffNameArg (List.hd li) in 
         List.flatten (
           List.map (fun (p, t, v) ->
-            infer_handling env handler ins [(p, (Cons(t, Emit (eff_name, eff_arg))), v)] der ex2
+            infer_handling env handler ins [(p, (Cons(t, Singleton (Emit (eff_name, eff_arg)))), v)] der ex2
           ) current
         )
 
@@ -1114,7 +1114,7 @@ and  fixCompute env (history:es) handler (p, t, v) : spec =
         (match (findEffectHanding handler effName) with 
         | None -> fixCompute env (Cons (history, eventToEs f)) handler (p, derivative t f, v)
         | Some expr -> 
-        infer_handling env handler ins [(p, Cons(history, Event ins), v)] (derivative t f)  expr )    
+        infer_handling env handler ins [(p, Cons(history, Singleton (Event ins)), v)] (derivative t f)  expr )    
       | _ ->  fixCompute env (Cons (history, eventToEs f)) handler (p, derivative t f, v)
     ) fstSet)
 
@@ -1159,14 +1159,14 @@ and infer_of_expression (env) (current:spec) expr: spec =
 (* PERFORM *)
         let eff_name = getEffName (List.hd li) in 
         let eff_arg = getEffNameArg (List.hd li) in 
-        infer_of_expression (Env.add_stack [(var_name, (eff_name, eff_arg))] env) (List.map (fun (p, t, v)-> (p, Cons(t, Emit (eff_name, eff_arg)), v)) current) exprIn
+        infer_of_expression (Env.add_stack [(var_name, (eff_name, eff_arg))] env) (List.map (fun (p, t, v)-> (p, Cons(t, Singleton (Emit (eff_name, eff_arg))), v)) current) exprIn
       else (match (retriveStack name env) with
           | Some ins -> 
 (* CALL-PLACEHOLDER *)
             let (_, arg) = List.hd li in  
             (match expressionToBasicT (arg) with 
             | Some eff_arg ->  infer_of_expression env 
-                  (List.map (fun (p, t, v)-> (p, Cons(t, Await (ins, eff_arg )), v)) current) exprIn
+                  (List.map (fun (p, t, v)-> (p, Cons(t, Singleton (Await (ins, eff_arg ))), v)) current) exprIn
             | None -> raise (Foo ("Placeholder has no argument")))
 
           | None -> 
@@ -1213,14 +1213,14 @@ match Env.find_fn name env with
 (* PERFORM *)
         let eff_name = getEffName (List.hd li) in 
         let eff_arg = getEffNameArg (List.hd li) in 
-        (List.map (fun (p, t, v)-> (p, Cons(t, Emit (eff_name, eff_arg)), v)) current)
+        (List.map (fun (p, t, v)-> (p, Cons(t, Singleton (Emit (eff_name, eff_arg))), v)) current)
       else (match (retriveStack name env) with
           | Some ins -> 
 (* CALL-PLACEHOLDER *)
             let (_, arg) = List.hd li in  
             (match expressionToBasicT (arg) with 
             | Some eff_arg ->  
-                  (List.map (fun (p, t, v)-> (p, Cons(t, Await (ins, eff_arg )), v)) current)
+                  (List.map (fun (p, t, v)-> (p, Cons(t, Singleton (Await (ins, eff_arg ))), v)) current)
             | None -> raise (Foo ("Placeholder has no argument")))
 
           | None -> 

@@ -6,9 +6,8 @@ let open_file n
 (*@ ensures (true, Open(n)!, ()) @*)
 = perform (Open n)
 
-
 let close_file n
-(*@ requires (true, (_ ^* ) .(Open(n)!).((~ Close(n))^* ) , ())  @*)
+(*@ requires (true, (_ ^* ) .(Open(n)!).((~ Close(n)!)^* ) , ())  @*)
 (*@ ensures (true, Close(n)!, ()) @*)
 = perform (Close n)
 
@@ -19,7 +18,6 @@ let file_9 ()
   open_file 9;
   open_file 8;
   close_file 9
-
 
 let main 
 (*@ requires (true, emp, ()) @*)

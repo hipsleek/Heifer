@@ -30,7 +30,16 @@ type instant = string * (basic_t list)
 (* To indicate weather there are partial applied continustiaon *)
 type residue = instant option 
 
-type event = One of instant | Zero of instant | Send of instant | Receive of (instant * basic_t) | Any  | StopEv
+(** The first event of a trace (es). See [Rewriting.fst] *)
+type event =
+  | One of instant (* Foo *)
+  | Send of instant (* Foo! *)
+  | Receive of (instant * basic_t) (* Foo? *)
+  | Zero of instant (* ~Foo *)
+  | NEmit of instant (* ~Foo! *)
+  | NAwait of (instant * basic_t) (* ~Foo? *)
+  | Any (* _ *)
+  | StopEv (* Stop *)
 
 (*
 type stack_content = Cons of int | Variable of string | Apply of string * stack_content list 
@@ -38,9 +47,10 @@ type stack_content = Cons of int | Variable of string | Apply of string * stack_
 
 type stack = string * instant
 
-type singleton =   Emit of instant (* Foo! *)
-| Await of (instant * basic_t) (* Foo? *)
-| Event of instant
+type singleton =
+  | Emit of instant (* Foo! *)
+  | Await of (instant * basic_t) (* Foo? *)
+  | Event of instant (* Foo *)
 
 type es = Bot 
         | Emp   
@@ -53,6 +63,29 @@ type es = Bot
         | Infiny of es (* 0 or more, possibly infinite*)
         | Omega of es(* infinite*)
         | Stop
+
+let es_to_event es : event =
+  match es with 
+  | Singleton (Event ins) -> One ins
+  | Not (Event ins) -> Zero ins
+  | Not (Await (ins, a)) -> NAwait (ins, a)
+  | Not (Emit ins) -> NEmit ins
+  | Singleton (Emit ins) -> Send ins
+  | Singleton (Await ins) -> Receive ins
+  | Underline -> Any
+  | Stop -> StopEv
+  | _ -> failwith "no correspondence"
+
+let eventToEs ev : es =
+  match ev with
+  | One ins -> Singleton (Event ins)
+  | Zero ins -> Not (Event ins)
+  | NAwait (ins, a) -> Not (Await (ins, a))
+  | NEmit ins -> Not (Emit ins)
+  | Send ins -> Singleton (Emit ins)
+  | Receive ins -> Singleton (Await ins)
+  | Any -> Underline
+  | StopEv -> Stop
 
 
 type term = 

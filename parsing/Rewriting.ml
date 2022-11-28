@@ -57,7 +57,7 @@ let rec  nullable (es:es) : bool=
   match es with
     Emp -> true
   | Bot -> false 
-  | Event _ -> false 
+  | Singleton _ -> false 
   | Cons (es1 , es2) -> ( nullable es1) && ( nullable es2)
   | ESOr (es1 , es2) -> ( nullable es1) || ( nullable es2)
   | Kleene _ -> true
@@ -65,23 +65,21 @@ let rec  nullable (es:es) : bool=
   | Underline -> false 
   | Omega _ -> false
   | Not _ -> false
-  | Emit _ -> false
-  | Await _ -> false  
   | Stop -> raise (Foo "nullable stop") 
-;;
 
 let nullableEff (eff:spec) : bool = 
   List.fold_left (fun acc (_, a, _) -> acc || (nullable a)) false eff;;
 
-
-
-
-let rec  fst (es:es): event list = 
+let rec fst (es:es): event list = 
   match es with
   | Bot -> []
   | Emp -> []
-  | Event ev ->  [One (ev)]
-  | Not (ev) ->  [Zero (ev)]
+  | Singleton (Emit (ins)) -> [Send ins]
+  | Singleton (Await (ins)) -> [Receive ins]
+  | Singleton (Event ev) ->  [One ev]
+  | Not (Event ins) -> [Zero ins]
+  | Not (Await (ins, bt)) -> [NAwait (ins, bt)]
+  | Not (Emit ins) -> [NEmit ins]
   | Cons (es1 , es2) ->  if  nullable es1 then append ( fst es1) ( fst es2) else  fst es1
   | ESOr (es1, es2) -> append ( fst es1) ( fst es2)
   | Kleene es1 ->  fst es1
@@ -89,8 +87,6 @@ let rec  fst (es:es): event list =
   | Infiny es1 ->  fst es1
 
   | Underline -> [Any]
-  | Emit (ins) -> [Send (ins)]
-  | Await (ins) -> [Receive (ins)]
   | Stop -> [StopEv]
 ;;
 
@@ -166,18 +162,10 @@ let rec reoccurEff lhs rhs (del:evn) =
 
 let rec derivative (es:es) (ev:event): es =
   match es with
-    Emp -> Bot
+  | Emp -> Bot
   | Bot -> Bot
-  | Event ev1 -> 
-      if entailsEvent ev (One ev1) then Emp else Bot
-  | Emit ins -> 
-      if entailsEvent ev (Send ins)  then Emp else Bot
-  | Await ins -> 
-      if entailsEvent ev (Receive ins)  then Emp else Bot
-  
-  | Not ev1 -> if entailsEvent ev (Zero ev1) then Emp else Bot  
-
-
+  | Singleton _ | Not _ -> 
+    if entailsEvent ev (es_to_event es) then Emp else Bot  
   | ESOr (es1 , es2) -> ESOr (derivative es1 ev, derivative es2 ev)
   | Cons (es1 , es2) -> 
       if nullable es1 

@@ -117,20 +117,24 @@ let compareEvent (ev1:event) (ev2:event): bool =
 
   | _ -> false 
 
-  ;;
 
-
+(* E1 |- E2 iff E2 ⊑ E1 *)
 let entailsEvent (ev1:event) (ev2:event): bool =
-  match (ev1, ev2) with 
+  match (ev1, ev2) with
   | (_, Any) -> true 
+
   | (Send (str1), Send (str2))
   | (Zero (str1), Zero (str2))
   | (One (str1), One (str2)) -> compareInstant str1 str2
-  | (One (str1), Zero (str2)) ->
-    if compareInstant str1 str2 then false 
-    else true 
-  | (_, Zero (_)) -> true 
-  | (Receive (str1, bt1), Receive (str2, bt2)) -> compareInstant str1 str2 && compareBasic bt1 bt2
+
+  | (One (str1), Zero (str2))
+  | (Send (str1), NEmit (str2)) -> not (compareInstant str1 str2)
+  | (_, Zero (_)) -> true
+
+  | (Receive (str1, bt1), NAwait (str2, bt2)) ->
+    not (compareInstant str1 str2 && compareBasic bt1 bt2)
+  | (Receive (str1, bt1), Receive (str2, bt2)) ->
+    compareInstant str1 str2 && compareBasic bt1 bt2
 
   | (StopEv, StopEv) -> true 
   | _ -> false 
@@ -155,16 +159,19 @@ let string_of_instant (str, ar_Li): string =
   in
   Format.sprintf "%s%s" str args
 
+let string_of_singleton (s : singleton) : string = 
+  match s with
+  | Emit ins -> Format.sprintf "(%s)!" (string_of_instant ins)
+  | Await (ins, bt)  -> Format.sprintf "%s?%s" (string_of_instant ins) (string_of_basic_type bt)
+  | Event (str, []) -> str
+  | Event (str, args) -> Format.sprintf "%s(%s)" str (List.map string_of_basic_type args |> String.concat ", ")
   
 let rec string_of_es es : string = 
   match es with 
   | Bot -> "_|_"
   | Emp -> "emp"
-  | Emit ins  -> Format.sprintf "(%s)!" (string_of_instant ins)
-  | Await (ins, bt)  -> Format.sprintf "%s?%s" (string_of_instant ins) (string_of_basic_type bt)
-  | Event (str, []) -> str
-  | Event (str, args) -> Format.sprintf "%s(%s)" str (List.map string_of_basic_type args |> String.concat ", ")
-  | Not str -> "!" ^ (string_of_es (Event str))
+  | Singleton s  -> string_of_singleton s
+  | Not s -> "~" ^ (string_of_singleton s)
   | Cons (es1, es2) -> ""^string_of_es es1 ^"."^ string_of_es es2 ^""
   | ESOr (es1, es2) -> "("^string_of_es es1 ^")+("^ string_of_es es2 ^")"
   | Kleene es1 -> "("^string_of_es es1^")^*"
@@ -172,7 +179,6 @@ let rec string_of_es es : string =
   | Omega es1 -> "("^string_of_es es1^")^w"
   | Underline -> "_"
   | Stop -> "STOP"
-  ;;
 
 let rec string_of_term t : string = 
   match t with 
@@ -221,11 +227,9 @@ let rec normalES (es:es):es =
   match es with
   | Bot -> es
   | Emp -> es
-  | Event _ -> es
+  | Singleton _ -> es
   | Not _ -> es 
   | Underline -> es
-  | Await _ -> es 
-  | Emit _ -> es 
   | Stop -> es
 
 (*| Cons (Cons (esIn1, esIn2), es2)-> 
@@ -293,28 +297,6 @@ let normalTuple (pi, es, v)  = (normalPure pi, normalES es, v)
 
 let normalSpec eff : spec = List.map (fun a -> normalTuple a) eff
 
-let eventToEs ev : es =
-  match ev with 
-  | One ins -> Event ins
-  | Zero ins -> Not ins
-  | Send ins -> Emit ins
-  | Receive ins -> Await ins
-
-  | Any -> Underline
-  | StopEv -> Stop
-
-  ;;
-
-
-(* let rec string_of_event ev : string =
-  match ev with 
-  | One (str) ->  str (*^ "(" ^ separate (ar_Li) (string_of_int) (",") ^")" *)
-  | Zero (str) -> "!" ^ string_of_event (One (str))
-  | Pred (str, ar_Li) -> "Q(" ^str ^  separate (ar_Li) (string_of_basic_type) (",") ^")" 
-  | Any -> "_" *)
-
-  ;;
-
 let rec string_of_policies ps: string = 
   match ps with 
   | [] -> ""
@@ -329,7 +311,9 @@ let rec string_of_policies ps: string =
 let string_of_event e : string = 
   match e with 
   | One str -> string_of_instant str 
-  | Zero str -> string_of_instant str 
+  | Zero str -> "~" ^ string_of_instant str 
+  | NAwait (ins, bt) -> "(~" ^ string_of_instant ins ^ ")?" ^ "(" ^ string_of_basic_type bt ^ ")"
+  | NEmit ins -> "(~" ^ string_of_instant ins ^ ")!"
   | Send (ins) -> "(" ^ string_of_instant ins ^ ")!"
   | Receive (ins, bt) -> "(" ^ string_of_instant ins ^ ")?" ^ "(" ^ string_of_basic_type bt ^ ")"
 
