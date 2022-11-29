@@ -1,66 +1,73 @@
 
-  $ hip b0_env.ml | ./sanitize.sh
+  $ hip files_paper.ml | ./sanitize.sh
   
-  ========== Function: f2 ==========
+  ========== Function: open_file ==========
   [Pre  Condition] (true, (_)^*, ())
-  [Post Condition] (true, emp, ())
-  [Final  Effects] (true/\true/\true, (_)^*.(Foo!), ())
+  [Post Condition] (true, (Open n)!, ())
+  [Final  Effects] (true, (_)^*.(Open n)!, ())
+  ~~~~~~~~~~~~~~~~~~~~~
+  [TRS Result: Succeed
+  - - - - - - - - - - - - - -
+  * (_)^*.(Open n)! |- (_)^*.(Open n)!   [UNFOLD]
+  * ├── ((_)^*.(Open n)!)+(emp) |- ((_)^*.(Open n)!)+(emp)
+  * │   ├── (_)^*.(Open n)! |- (_)^*.(Open n)!   [Reoccur]
+  * │   └── emp |- ((_)^*.(Open n)!)+(emp)
+  * │       ├── emp |- (_)^*.(Open n)!   [DISPROVE]
+  * │       └── emp |- emp   [UNFOLD]
+  * └── (_)^*.(Open n)! |- (_)^*.(Open n)!   [Reoccur]
   
   
-  ========== Function: f ==========
-  [Pre  Condition] (true, (_)^*, ())
-  [Post Condition] (true, emp, ())
-  [Final  Effects] (true/\true, (_)^*, ())
+  ========== Function: close_file ==========
+  [Pre  Condition] (true, (_)^*.(Open n)!.(~(Close n)!)^*, ())
+  [Post Condition] (true, (Close n)!, ())
+  [Final  Effects] (true, (_)^*.(Open n)!.(~(Close n)!)^*.(Close n)!, ())
+  ~~~~~~~~~~~~~~~~~~~~~
+  [TRS Result: Succeed
+  - - - - - - - - - - - - - -
+  * (_)^*.(Open n)!.(~(Close n)!)^*.(Close n)! |- (_)^*.(Open n)!.(~(Close n)!)^*.(Close n)!   [UNFOLD]
+  * ├── ((_)^*.(Open n)!.(~(Close n)!)^*.(Close n)!)+(emp.(~(Close n)!)^*.(Close n)!) |- ((_)^*.(Open n)!.(~(Close n)!)^*.(Close n)!)+(emp.(~(Close n)!)^*.(Close n)!)
+  * │   ├── (_)^*.(Open n)!.(~(Close n)!)^*.(Close n)! |- (_)^*.(Open n)!.(~(Close n)!)^*.(Close n)!   [Reoccur]
+  * │   └── (~(Close n)!)^*.(Close n)! |- ((_)^*.(Open n)!.(~(Close n)!)^*.(Close n)!)+((~(Close n)!)^*.(Close n)!)
+  * │       ├── (~(Close n)!)^*.(Close n)! |- (_)^*.(Open n)!.(~(Close n)!)^*.(Close n)!   [UNFOLD]
+  * │       │   ├── emp |- (_)^*.(Open n)!.(~(Close n)!)^*.(Close n)!   [DISPROVE]
+  * │       │   └── _|_ |- (_)^*.(Open n)!.(~(Close n)!)^*.(Close n)!   [Bot-LHS]
+  * │       └── (~(Close n)!)^*.(Close n)! |- (~(Close n)!)^*.(Close n)!   [UNFOLD]
+  * │           ├── emp |- emp   [UNFOLD]
+  * │           └── _|_ |- _|_   [Bot-LHS]
+  * └── (_)^*.(Open n)!.(~(Close n)!)^*.(Close n)! |- (_)^*.(Open n)!.(~(Close n)!)^*.(Close n)!   [Reoccur]
+  
+  
+  ========== Function: file_9 ==========
+  [Pre  Condition] (true, emp, ())
+  [Post Condition] (true, (Open 9)!.(Open 8)!.(Close 9)!, ())
+  [Final  Effects] (true, (Open 9)!.(Open 8)!.(Close 9)!, ())
+  ~~~~~~~~~~~~~~~~~~~~~
+  [TRS Result: Succeed
+  - - - - - - - - - - - - - -
+  * (Open 9)!.(Open 8)!.(Close 9)! |- (Open 9)!.(Open 8)!.(Close 9)!   [UNFOLD]
+  * └── (Open 8)!.(Close 9)! |- (Open 8)!.(Close 9)!   [UNFOLD]
+  *     └── (Close 9)! |- (Close 9)!   [UNFOLD]
+  *         └── emp |- emp   [UNFOLD]
   
   
   ========== Function: main ==========
-  [Pre  Condition] (true, (_)^*, ())
-  [Post Condition] (true, emp, ())
-  [Final  Effects] (true/\true/\true, (_)^*, ())
+  [Pre  Condition] (true, emp, ())
+  [Post Condition] (true, Open(9).(_)^*.Close(9), ())
+  [Final  Effects] (true, Open(9).Open(8).Close(9), ())
+  ~~~~~~~~~~~~~~~~~~~~~
+  [TRS Result: Succeed
+  - - - - - - - - - - - - - -
+  * Open(9).Open(8).Close(9) |- Open(9).(_)^*.Close(9)   [UNFOLD]
+  * └── Open(8).Close(9) |- (_)^*.Close(9)   [UNFOLD]
+  *     └── Close(9) |- (_)^*.Close(9)   [UNFOLD]
+  *         └── emp |- ((_)^*.Close(9))+(emp)
+  *             ├── emp |- (_)^*.Close(9)   [DISPROVE]
+  *             └── emp |- emp   [UNFOLD]
   
   
-  nan out of 0
-  11.8763333333 out of 3
   
-
-  $ hip b1_env.ml | ./sanitize.sh
-  Fatal error: exception Stdlib.Parsing.Parse_error
-  [1]
-
-  $ hip b2_open.ml | ./sanitize.sh
-  Fatal error: exception Stdlib.Parsing.Parse_error
-  [1]
-
-  $ hip state.ml | ./sanitize.sh
-  Fatal error: exception Stdlib.Parsing.Parse_error
-  [1]
-  $ hip files.ml | ./sanitize.sh
-  Fatal error: exception Stdlib.Parsing.Parse_error
-  [1]
-
-  $ hip generator.ml | ./sanitize.sh
-  
-  ========== Function: to_gen ==========
-  [Pre  Condition] (true, (_)^*, ())
-  [Post Condition] (true, emp, ())
-  [Final  Effects] (true/\true, (_)^*, ())
-  
-  
-  ========== Function: f ==========
-  [Pre  Condition] (true, (_)^*, ())
-  [Post Condition] (true, emp, ())
-  [Final  Effects] (true/\true, (_)^*, ())
-  
-  
-  nan out of 0
-  9.631 out of 2
-  
-  $ hip flip.ml | ./sanitize.sh
-  Fatal error: exception Stdlib.Parsing.Parse_error
-  [1]
-  $ hip transaction.ml | ./sanitize.sh
-  Fatal error: exception Stdlib.Parsing.Parse_error
-  [1]
-  $ hip simple_loop.ml | ./sanitize.sh
-  Fatal error: exception Stdlib.Parsing.Parse_error
-  [1]
+  $ hip files_paper.ml | grep Result
+  [TRS Result: Succeed
+  [TRS Result: Succeed
+  [TRS Result: Succeed
+  [TRS Result: Succeed
