@@ -2,3 +2,4 @@ _build/
 *.automaton
 *.conflicts
 boot
+.DS_Store
