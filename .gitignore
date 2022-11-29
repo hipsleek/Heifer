@@ -1,5 +1,5 @@
 _build/
 *.automaton
 *.conflicts
-boot
+boot/menhir/*.ml*
 .DS_Store

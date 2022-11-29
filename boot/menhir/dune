@@ -1,0 +1,6 @@
+
+(rule
+ (targets parser.mli parser.ml menhirLib.ml menhirLib.mli)
+ (action  (run ./generate.sh))
+ (deps    (:dep ../../parsing/parser.mly))
+ (mode promote))
