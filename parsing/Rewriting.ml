@@ -196,11 +196,11 @@ let rec containment (evn: evn) (lhs:es) (rhs:es) : (bool * binary_tree) =
   let lhs = normalES lhs in 
   let rhs = normalES rhs in 
   let entail = string_of_es lhs ^" |- " ^string_of_es rhs in 
-  print_string (entail^"\n"); 
+  (* print_string (entail^"\n");  *)
 
   match (lhs, rhs) with
   | (ESOr (l1, l2), _ ) ->
-    print_string (string_of_es l1 ^ "   " ^ string_of_es l2^"\n");
+    (* print_string (string_of_es l1 ^ "   " ^ string_of_es l2^"\n"); *)
     let (re1, tree1) = containment evn l1 rhs in 
     if not re1 then (re1, tree1)
     else 
