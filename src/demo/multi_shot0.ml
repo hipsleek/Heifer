@@ -1,6 +1,6 @@
-
 effect Foo : (unit -> int)
 effect Goo : (unit -> int)
+effect Done: (unit)
 
 let f () 
 (*@  requires (true, emp, ())   @*)
@@ -8,19 +8,28 @@ let f ()
 = 
   let x = perform Foo in 
   let y = perform Goo in 
-  y ();
+  y (); 
   x ()
 
 let handler 
 (*@  requires (true, emp, ())   @*)
-(*@  ensures  (true, Foo.Goo.(Done!).Goo.(Done!), 3) @*)
+(*@  ensures  (true, Foo.Goo.(Done!).Goo.(Done!), 10) @*)
 = 
   match f () with 
-  | x -> perform Done; 6
-  | effect Foo k -> continue k (fun () -> 2); continue k (fun () -> 4); 10
+  | x ->  perform Done; 6 
+  | effect Foo k -> continue k (fun () -> 2);
+                    continue k (fun () -> 4); 10
   | effect Goo k -> continue k (fun () -> 3)
 
-(*  (Foo!).(Goo!).Goo?().Foo?()
+
+
+
+(* 
+
+let main = 
+  print_string (string_of_int handler)
+
+(Foo!).(Goo!).Goo?().Foo?()
    his                     current ev        continuation (k)           bindings 
 1  emp                      (Foo!)          (Goo!).Goo?().Foo?().@           Foo_1?() = (fun () -> 2)
 2  Foo                      (Goo!)          Goo?().Foo_1?().@. (Goo!).Goo?().Foo_2?().@   Foo_2?() = (fun () -> 4)

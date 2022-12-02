@@ -13,15 +13,16 @@ let close_file n
 
 let file_9 () 
 (*@ requires (true, emp, ()) @*)
-(*@ ensures (true, (Open(9)!).(Open(8)!).(Close(9)!), ()) @*)
+(*@ ensures (true, (Open(9)!).(Open(8)!).(Close(9)!).(Close(8)!), ()) @*)
 = 
   open_file 9;
   open_file 8;
   close_file 9
 
+
 let main 
 (*@ requires (true, emp, ()) @*)
-(*@ ensures (true, Open(9). (_^* ) .Close(9), ()) @*)
+(*@ ensures (true, Open(9). ((~Close(9))^* ) .Close(9) \/ (Open(8). ((~Close(8))^* ) .Close(8)), ()) @*)
 = 
   match file_9 () with 
   | _ -> ()

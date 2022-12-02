@@ -118,7 +118,7 @@ let compareEvent (ev1:event) (ev2:event): bool =
   | _ -> false 
 
 
-(* E1 |- E2 iff E2 ⊑ E1 *)
+(* E1 |- E2 iff E1  ⊑ E2 *)
 let entailsEvent (ev1:event) (ev2:event): bool =
   match (ev1, ev2) with
   | (_, Any) -> true 
