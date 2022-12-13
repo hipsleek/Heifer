@@ -1,4 +1,3 @@
-
 effect Choose : int
 
 let choose ()
@@ -6,27 +5,27 @@ let choose ()
   (*@ ensures Choose @*)
 = perform Choose
 
-let toss () 
-(*@ requires _^* @*)
-  (*@ ensures (Choose.Choose) \/ Choose @*)
-=
-  let a = choose () in 
-  if a = 0
-  then let b = choose () in if b  = 0 then "heads, heads" else "heads, tails"
-  else "tails"
+let helper v : string = 
+  if v = 0 then "head " else "tail "
 
-(*SYH: debug the if constructs*)
+let rec toss n 
+  (*@ requires _^* @*)
+  (*@ ensures Choose^n @*)
+=
+  if n = 0 then ""
+  else 
+    let a = choose () in 
+    helper a ^ toss (n-1)
 
 let all_results m 
 (*@ requires emp, eff(m)= _^* -> A  @*)
 (*@ ensures A @*)
 =
-  match m () with
+  match m 3 with
   | v -> [v]
   | effect Choose k ->
      (continue k 0) @ (continue (Obj.clone_continuation k) 1)
 
-
-(*     let () = 
+let () = 
   List.iter print_endline (all_results toss)
-  *)
+
