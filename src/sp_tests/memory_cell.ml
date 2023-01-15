@@ -17,10 +17,10 @@ let client ()
 (*@ requires _^*  @*)
 (*@ ensures Read. (write 10). Read @*)
 = let x = read () in 
-  Printf.printf "x = %d\n%!" x;
+  Printf.printf "i = %d\n%!" x;
   write 10;
   let x = read () in 
-  Printf.printf "x = %d\n%!" x
+  Printf.printf "i = %d\n%!" x
 
 let main 
 =
