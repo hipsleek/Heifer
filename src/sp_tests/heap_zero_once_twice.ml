@@ -3,7 +3,7 @@ effect Once : unit
 effect Zero : unit
 
 let callee0 () 
-(*@ requires emp  @*)
+(*@ requires _^*  @*)
 (*@ ensures {i->0}.Zero.{i:=old(i)+1}.[i=1] @*)
 = 
   let i = Sys.opaque_identity (ref 0) in
@@ -13,7 +13,7 @@ let callee0 ()
   assert (!i = 1)
 
 let callee1 () 
-(*@ requires emp  @*)
+(*@ requires _^*  @*)
 (*@ ensures {i->0}.Once.{i:=old(i)+1}.[i=1] @*)
 = 
   let i = Sys.opaque_identity (ref 0) in
@@ -26,7 +26,7 @@ let callee1 ()
 (* 2. MUILTISHOT GENERALISE *)
 
 let callee2 () 
-(*@ requires emp  @*)
+(*@ requires _^*  @*)
 (*@ ensures {i->0}.Twice.{i:=old(i)+1}.[i=1] @*)
 = 
   let i = Sys.opaque_identity (ref 0) in

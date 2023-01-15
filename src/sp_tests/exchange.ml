@@ -1,7 +1,7 @@
 effect Exchange : (int ref * int * int) -> unit
 
 let client () 
-(*@ requires emp  @*)
+(*@ requires _^*  @*)
 (*@ ensures {i->0}.Exchange(i, 0, 5).[i=5] @*)
 = 
   let x, x' = 0, 5 in 
