@@ -22,14 +22,21 @@ let client ()
   let x = read () in 
   Printf.printf "i = %d\n%!" x
 
-let main 
-(*@ requires emp @*)
-(*@ ensures emp @*)
-=
+let handler1 () 
+(*@ requires {i->0}  @*)
+(*@ ensures Read. {i->10}. Read @*)
+= 
   match client () with
   | v -> ()
-  | effect Read k -> (continue k (!i))
   | effect (Write x) k -> i := x; (continue k ())
+
+let main 
+(*@ requires emp  @*)
+(*@ ensures emp @*)
+=
+  match handler1 () with
+  | v -> ()
+  | effect Read k -> (continue k (!i))
 
 (*      
 For main:  

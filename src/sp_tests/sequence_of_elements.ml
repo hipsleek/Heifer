@@ -18,7 +18,10 @@ let producer ()
   perform (Produce 5)
 
 
-let main 
+let main
+(*@ requires emp  @*)
+(*@ ensures emp @*)
+
 =
   let l = ref [1] in 
   print_string (string_of_int_list !l ^ "\n");
