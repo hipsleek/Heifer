@@ -1,35 +1,34 @@
-effect Read : int 
-effect Write : int -> unit 
+effect Read :  (int ref )-> int 
+effect Write : (int ref * int) -> unit 
 
-let (i: int ref) = Sys.opaque_identity (ref 0)
-
-let read () 
+let read x 
 (*@ requires _^*  @*)
-(*@ ensures Read @*)
-= perform Read
+(*@ ensures (Read x) @*)
+= perform (Read x)
 
-let write n 
+let write i n 
 (*@ requires _^*  @*)
-(*@ ensures (Write n) @*)
-= perform (Write n)
+(*@ ensures (Write (i, n)) @*)
+= perform (Write (i, n))
 
-let client () 
+let client i 
 (*@ requires _^*  @*)
 (*@ ensures Read. (write 10). Read @*)
-= let x = read () in 
+= let x = read i in 
   Printf.printf "i = %d\n%!" x;
-  write 10;
-  let x = read () in 
+  write i 10;
+  let x = read i in 
   Printf.printf "i = %d\n%!" x
 
 let main 
 (*@ requires emp @*)
 (*@ ensures emp @*)
 =
-  match client () with
+  let (i: int ref) = Sys.opaque_identity (ref 0) in
+  match client i with
   | v -> ()
-  | effect Read k -> (continue k (!i))
-  | effect (Write x) k -> i := x; (continue k ())
+  | effect (Read x) k -> (continue k (!x))
+  | effect (Write (x, n)) k -> x := n; (continue k ())
 
 (*      
 For main:  
