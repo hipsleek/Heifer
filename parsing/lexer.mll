@@ -565,8 +565,7 @@ rule token = parse
   | "-"  { MINUS }
   | "-." { MINUSDOT }
   | "^*" { KLEENE }
-  | "^oo" { INFINY }
-  | "^w" { OMEGA }
+
 
   | "!" symbolchar_or_hash + as op
             { PREFIXOP op }

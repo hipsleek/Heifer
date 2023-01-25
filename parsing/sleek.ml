@@ -1,5 +1,5 @@
 open Parsetree
-open Rewriting
+(*open Rewriting *)
 
 
 let rec input_lines file =

@@ -3,7 +3,7 @@
 exception Foo of string
 open Parsetree
 open Asttypes
-open Rewriting
+(* open Rewriting *)
 open Pretty
 
 let rec input_lines file =
@@ -213,8 +213,8 @@ let debug_string_of_expression e =
 let string_of_longident l =
   l |> Longident.flatten |> String.concat "."
 
-let merge_spec (p1, es1, _) (p2, es2, v2) : spec = 
-  [(And (p1, p2), Cons(es1, es2), v2)];;
+let merge_spec (p1, es1) (p2, es2) : spec = 
+  [(And (p1, p2), Cons(es1, es2))];;
 
 
 let getIndentName (l:Longident.t loc): string = 
@@ -567,146 +567,20 @@ let instantiateInstance (ins:instant) (vb:(string * basic_t) list)  : instant  =
 
 let rec instantiateArg (post_es:es) (vb:(string * basic_t) list) : es = 
   match post_es with 
-  | Singleton (Emit ins) -> Singleton (Emit (instantiateInstance ins vb))
-  | Singleton (Await (ins, v)) -> Singleton (Await (instantiateInstance ins vb, v))
   | Singleton (Event ins) -> Singleton (Event (instantiateInstance ins vb))
-  | Not (Emit ins) -> Not (Emit (instantiateInstance ins vb))
-  | Not (Await (ins, v)) -> Not (Await (instantiateInstance ins vb, v))
-  | Not (Event ins) -> Not (Event (instantiateInstance ins vb))
+  | Singleton (NotEvent ins) -> Singleton (NotEvent (instantiateInstance ins vb))
   | Cons (es1, es2) -> Cons (instantiateArg es1 vb, instantiateArg es2 vb)
   | ESOr (es1, es2) -> ESOr (instantiateArg es1 vb, instantiateArg es2 vb)
   | Kleene es1 -> Kleene (instantiateArg es1 vb)
-  | Omega es1 -> Omega (instantiateArg es1 vb)
   | _ -> post_es
   ;;
 
 let instantiateEff (eff:spec) (vb:(string * basic_t) list) : spec = 
-  List.map (fun (p, t, v)-> (p, instantiateArg t vb, v)) eff;;
+  List.map (fun (p, t)-> (p, instantiateArg t vb)) eff;;
 
 let add_es_to_spec spec es: spec = 
-  List.map (fun (a, b, c) -> (a, Cons (b, es), c)) spec ;;
+  List.map (fun (a, b) -> (a, Cons (b, es))) spec ;;
 
-(*
-let call_function (pre_es:es) fnName (li:(arg_label * expression) list) (acc:es) (arg_eff:(es * es) list) env (cont:es): (spec * residue) = 
-  let (acc_pi, acc_es, acc_side) = acc in 
-  let name = fnNameToString fnName in 
-  let spec, residue =
-    if String.compare name "perform" == 0 then 
-      
-      let getEffName l = 
-        let (_, temp) = l in 
-        match temp.pexp_desc with 
-        | Pexp_construct (a, _) -> getIndentName a 
-        | _ -> raise (Foo "getEffName error")
-      in 
-      
-      let getEffNameArg l = 
-        let (_, temp) = l in 
-        match temp.pexp_desc with 
-        | Pexp_construct (_, argL) -> 
-          (match argL with 
-          | None -> []
-          | Some a -> 
-            match expressionToBasicT a with 
-            | Some v -> [v]
-            | None -> [])
-        | _ -> raise (Foo "getEffNameArg error")
-      in 
-      let eff_name = getEffName (List.hd li) in 
-      let eff_arg = getEffNameArg (List.hd li) in 
-
-      (*
-      print_string ("performing... " ^ eff_name ^ "\n" ^ string_of_int (List.length li));*)
-      let eff_args = List.tl li in
-      let iinnss = (eff_name,
-      List.fold_left (fun acc (_, a) -> 
-        match expressionToBasicT a with 
-        | None -> acc
-        | Some v -> List.append (acc) [v]
-        ) [] eff_args) in 
-      let spec = acc_pi, Cons (acc_es, Cons (Event (eff_name, eff_arg), Predicate iinnss)), acc_side in
-      (* given perform Foo 1, residue is Some (Foo, [BINT 1]) *)
-      let residue = Some iinnss in
-
-      (spec, residue)
-    
-    else if String.compare name "continue" == 0 then 
-      let (policy:spec) = List.fold_left (
-        fun (acc_pi, acc_es, acc_side) (_, a_post) -> 
-          (acc_pi, Cons(acc_es, a_post), acc_side)) acc arg_eff in 
-      (*print_string ("contonue : " ^ string_of_spec (normalSpec (add_es_to_spec policy cont)) ^ "\n");*)
-      (add_es_to_spec policy cont, None)
- 
-    
-    else if List.mem_assoc name env.stack then
-      (* higher-order function, so we should produce some residue instead *)
-      let (name, args) = List.assoc name env.stack in
-      let extra = (*li |> List.map snd |> List.map expressionToBasicT in *)
-        List.fold_left (fun acc a -> 
-          match expressionToBasicT a with 
-          | None -> acc
-          | Some v -> List.append (acc) [v]
-        ) [] (li |> List.map snd) in 
-      let residue = (name, args @ extra) in
-      ((acc_pi, Cons(acc_es, Predicate residue), acc_side), Some residue)
-      
-      (*((True, Emp, []), Some residue)*)
-    else
-      let { pre = (callee_pre_pi, callee_pre_es, callee_pre_side)  ; post = (post_pi, post_es, post_side); formals = arg_formal } =
-        (* if functions are undefined, assume for now that they have the default spec *)
-        match Env.find_fn name env with
-        | None -> 
-            (match Env.fine_side name env with 
-            | None -> { pre = default_spec_pre; post = default_spec_post; formals = []}
-            | Some (_pre, _post) ->  { pre = _pre; post = _post; formals = []}
-            )
-        | Some s -> s
-      in
-      let sb = side_binding (*find_arg_formal name env*) arg_formal arg_eff in 
-      let vb = var_binding arg_formal (List.map (fun (_, b) -> b) li) in 
-
-      let post_es' = instantiateArg post_es vb in 
-      let precon' = (callee_pre_pi, instantiateArg callee_pre_es vb, callee_pre_side)  in 
-
-
-      let current_state = eliminatePartiaShall (merge_spec (True, pre_es, sb) acc ) env in 
-
-      let (res, str) = printReport current_state precon' in 
-      
-
-      if res then ((And(acc_pi, post_pi), Cons (acc_es, post_es'), List.append acc_side post_side), None)
-      else raise (Foo ("call_function precondition fail " ^name ^":\n" ^ str ^ debug_string_of_expression fnName))
-    in
-
-    if false then begin
-      Format.printf "%s:\nspec: %s@." (fnNameToString fnName) (string_of_spec spec);
-      (match residue with
-      | None -> print_endline "no residue"
-      | Some r ->
-        Format.printf "residue: %s@." (string_of_instant r));
-      Format.printf "env: %s\n@." (string_of_env env)
-    end;
-
-    spec, residue
-
-*)
-
-let checkRepeat history fst : (event list) option = 
-
-  let rev_his = List.rev history in 
-  let rec aux acc li = 
-    match li with 
-    | [] -> None 
-    | x::xs -> 
-      if compareEvent x fst then Some (acc)
-      else aux (x::acc) xs 
-  in aux [fst] rev_his ;;
-
-let rec eventListToES history : es =
-  match history with 
-  | [] -> Emp
-  | x::xs -> Cons (eventToEs x, eventListToES xs )
-  ;;
 
 
 let rec getNormal (p: (string option * spec) list): spec = 
@@ -716,13 +590,6 @@ let rec getNormal (p: (string option * spec) list): spec =
   | _ :: xs -> getNormal xs
   ;;
 
-
-let rec getHandlers p: (event * es) list = 
-  match p with  
-  | [] -> []
-  | (None, _)::xs -> getHandlers xs 
-  | (Some str, es) :: xs -> ( (One str), es) :: getHandlers xs
-  ;;
 
 let rec findPolicy str_pred (policies:policy list) : (es * es) = 
   match policies with 
@@ -734,12 +601,6 @@ let rec findPolicy str_pred (policies:policy list) : (es * es) =
   | (Normal es) :: xs  -> if String.compare "normal" str_pred == 0 then (es, Emp) else findPolicy str_pred xs 
 
 
-let rec getEleFromListByIndex (li: event list) index: event =
-  match li with
-  | [] -> raise (Foo "out of index getEleFromListByIndex")
-  | x::xs -> if index == 0 then x else  getEleFromListByIndex xs (index -1)
-
-  
 let rec reoccor_continue (li:((string*es)list)) (ev:string) index: int option  = 
   match li with 
   | [] -> None 
@@ -760,52 +621,8 @@ let rec string_of_list (li: 'a list ) (f : 'a -> 'b) : string =
   | [] -> ""
   | x::xs-> f x ^ "," ^ string_of_list xs f ;;
 
-let formLoop (li:((string*es)list)) start : es = 
-
-  let (beforeLoop:es) = List.fold_left (fun acc (_, a) -> Cons (acc, a)) Emp (sublist 0 (start -1) li) in 
-  
-  let (sublist:es) = List.fold_left (fun acc (_, a) -> Cons (acc, a)) Emp (sublist start (List.length li) li) in 
-
-  (*
-  print_string(string_of_list (List.map (fun (_, a) -> a) li) (string_of_es) ^ "\n"^ string_of_int (List.length li) ^ "\n" ^ string_of_int (start) ^ "\n" ^string_of_es beforeLoop ^ "\n" ^ string_of_es sublist);
-  
-  *)
-  Cons (beforeLoop, Omega sublist)
-
-let formLoop1 (li:((string*es)list)) start : es = 
 
 
-  let (sublist:es) = List.fold_left (fun acc (_, a) -> Cons (acc, a)) Emp (sublist start (List.length li) li) in 
-
-  (*
-  print_string(string_of_list (List.map (fun (_, a) -> a) li) (string_of_es) ^ "\n"^ string_of_int (List.length li) ^ "\n" ^ string_of_int (start) ^ "\n" ^string_of_es beforeLoop ^ "\n" ^ string_of_es sublist);
-  
-  *)
-  Omega sublist
-
-
-
-
-
-let insertMiddle acc index list_ev :event list =  
-
-  let length = List.length acc in 
-  let theFront = (sublist 0 (index - 1) acc) in  
-  let theBack =  (sublist (index + 1) (length -1) acc) in  
-  let result =   List.append (List.append theFront list_ev ) theBack in 
-  result
-
-
-
-
-
-
-
-let rec inTheHnadlingDOm insFName policies: bool = 
-  match policies with 
-  | [] -> false 
-  | (x, _, _) :: xs -> if String.compare insFName x == 0 then true else inTheHnadlingDOm insFName xs 
-  ;;
 
 let getEffName l = 
     let (_, temp) = l in 
@@ -841,7 +658,7 @@ let rec findNormalReturn handler =
 
 let concatenateEffects (eff1:spec) (eff2:spec) : spec = 
   let zip = shaffleZIP eff1 eff2 in 
-  List.map (fun ((p1, es1, _), (p2, es2, v2)) -> (And(p1, p2), Cons (es1, es2), v2)) zip ;;
+  List.map (fun ((p1, es1), (p2, es2)) -> (And(p1, p2), Cons (es1, es2))) zip ;;
 
 
 let rec findEffectHanding handler name = 
@@ -856,29 +673,12 @@ let rec findEffectHanding handler name =
     | _ -> findEffectHanding xs  name
     )
   ;;
-
-
-
-let replacePlaceholder originEff ins newEff : spec = 
-  let rec aux t_original t_new :es = 
-    match t_original with 
-    | Singleton (Await (ins1, _)) -> if compareInstant ins1 ins then t_new else t_original
-    | Cons (es1, es2)-> Cons (aux es1 t_new, aux es2 t_new)
-    | ESOr  (es1, es2)-> ESOr (aux es1 t_new, aux es2 t_new)
-    | Kleene es1 -> Kleene (aux es1 t_new)
-    | Infiny es1 -> Infiny (aux es1 t_new)
-    | Omega es1 -> Omega (aux es1 t_new)
-    | _ -> t_original 
-
-  in 
-  let zip = shaffleZIP originEff newEff in 
-  List.map (fun ((p, t, _), (p1, t1, v)) -> (And(p, p1), aux t t1, v)) zip
-        
+     
   
 ;;
 
 let concatnateEffEs eff es : spec = 
-  List.map (fun (p, t, v) -> (p, Cons (t, es), v)) eff;;
+  List.map (fun (p, t) -> (p, Cons (t, es))) eff;;
 
 
 let rec disjunctiveES es: es list  = 
@@ -889,243 +689,18 @@ let rec disjunctiveES es: es list  =
     let list2 = disjunctiveES es2 in 
     let zip = shaffleZIP list1 list2 in 
     List.map (fun (a, b) -> Cons (a, b)) zip 
-
-  | Omega es1 
-  | Infiny es1    
   | Kleene es1 -> disjunctiveES es1 
 
        
   | Singleton _
   | Bot 
   | Emp
-  | Not _
-  | Underline 
-  | Stop -> [es]
-;;
-
-let rec formESfromEvents li : es = 
-  match li with 
-  | [] -> Emp 
-  | x ::xs  ->  Cons (eventToEs x, formESfromEvents xs)
-;;
-
-let existsLoop (es:es) : es option = 
-  let rec helper li ins : (es * es) option =
-    match li with 
-    | [] -> None 
-    | (One ins1):: xs -> 
-      if compareInstant ins ins1 then Some (Emp, formESfromEvents li) else 
-      (match helper xs ins with 
-      | None -> None 
-      | Some (a, b) -> Some (Cons (Singleton (Emit ins1), a), b))
-    | x ::xs  -> 
-      (match helper xs ins with 
-      | None -> None 
-      | Some (a, b) -> Some (Cons (eventToEs x, a), b))
-  in 
-  let rec aux acc es' = 
-    let fstSet = fst es' in 
-    if List.length fstSet == 0 then None
-    else 
-      let f = List.hd fstSet in 
-      match f with 
-      | Send ins -> 
-        (match helper acc ins with 
-        | Some (front, repest) -> Some (Cons (front, Omega repest))
-        | None -> aux (List.append acc [f]) (derivative es' f) 
-        )
-      | _ -> aux (List.append acc [f]) (derivative es' f) 
-  in aux [] es 
-;;
-
-let rec findESbeforeIns der ins acc : es option = 
-  let fstSet = fst der in 
-  if List.length fstSet == 0 then None 
-  else let f = List.hd fstSet in 
-    match f with 
-    | Receive (ins1, _) -> if compareInstant ins1 ins then Some acc else 
-      findESbeforeIns (derivative der f) ins (Cons (acc, eventToEs f))
-    | _ -> findESbeforeIns (derivative der f) ins (Cons (acc, eventToEs f))
+  | Underline -> [es]
 ;;
 
 
-let findLoops history der ins es : es option = 
-  let rec nextAwait esIn acc : (es * instant) option = 
-    let fstSet = fst esIn in 
-    if List.length fstSet == 0 then None 
-    else let f = List.hd fstSet in 
-      (match f with 
-      | Send insSend -> Some (acc, insSend)
-      | _ -> nextAwait (derivative esIn f) (Cons(acc, eventToEs f)))
-  in 
-  match nextAwait es Emp with 
-  | None -> None 
-  | Some (prefix3, insSend) -> 
-    (match findESbeforeIns der ins Emp with
-    | None -> None 
-    | Some prefix2 ->
-        let wholehistory = Cons (history, prefix2) in 
-        let rec aux esIn acc : es option = 
-          let fstSet = fst esIn in 
-          if List.length fstSet == 0 then None 
-          else 
-            let f = List.hd fstSet in 
-            (match f with 
-            | One ins_ -> if compareInstant ins_ insSend then Some (Cons (acc, Omega(Cons(esIn, prefix3)))) else 
-              aux (derivative esIn f) (Cons (acc, eventToEs f))
-            | _ -> aux (derivative esIn f) (Cons (acc, eventToEs f))
-            )
-        in aux wholehistory Emp
-    )
-;;
 
-
-  
-
-let rec infer_handling env handler ins (current:spec) (der:es) (expr:expression): spec = 
-  match expr.pexp_desc with 
-  | Pexp_fun (_, _, _ (*pattern*), exprIn) -> 
-    infer_handling env handler ins current der exprIn
-
-(* VALUE *)   
-  | Pexp_constant cons ->
-    (match cons with 
-    | Pconst_integer (str, _) -> 
-      List.map (fun (p, t, _) -> (p, t, BINT (int_of_string str))) current
-    | _ -> raise (Foo (Pprintast.string_of_expression  expr ^ " expressionToBasicT error1"))
-    )
-  | Pexp_construct _ -> List.map (fun (p, t, _) -> (p, t, UNIT)) current
-  | Pexp_ident l -> List.map (fun (p, t, _) -> (p, t, VARName (getIndentName l))) current 
-   
-  | Pexp_apply (fnName, li) -> 
-    let name = fnNameToString fnName in 
-    if String.compare name "continue" == 0 then 
-(* CONTINUE *)
-      let (_, continue_value) = (List.hd (List.tl li)) in 
-      let eff_value = infer_of_expression env [(True, Emp, UNIT)] continue_value in 
-      List.flatten (
-        List.map (fun (p, t, v) -> 
-          
-          (*
-          let updatedEff = (replacePlaceholder [(p, der, v)] ins eff_value) in 
-          List.flatten (List.map (fun a -> fixCompute env t handler a) updatedEff) 
-          *)
-          List.flatten (
-            List.map (fun (p1, t1, v1) -> 
-              match findLoops t(*history*) der ins t1 with
-              | None ->  let updatedEff = (replacePlaceholder [(p, der, v)] ins eff_value) in 
-                         List.flatten (List.map (fun a -> fixCompute env t handler a) updatedEff) 
-              | Some esIn -> [(And(p, p1), esIn, v1)]
-  
-              
-            ) eff_value
-          )
-
-
-        ) current 
-      )
-
-    else if String.compare name "perform" == 0 then 
-      let eff_name = getEffName (List.hd li) in 
-      let eff_arg = getEffNameArg (List.hd li) in 
-      List.map (fun (p, t, v) -> (p, (Cons(t, Singleton (Emit (eff_name, eff_arg)))), v) 
-      ) current
-
-      
-    else  raise (Foo "infer_handling not yet covering functiin calls")
-    
-  | Pexp_sequence (ex1, ex2) -> 
-    (match ex1.pexp_desc with
-    | Pexp_apply (fnName, li) -> 
-      let name = fnNameToString fnName in 
-      if String.compare name "continue" == 0 then 
-(* CONTINUE *)
-        let (_, continue_value) = (List.hd (List.tl li)) in 
-        let eff_value = infer_of_expression env [(True, Emp, UNIT)] continue_value in 
-        let newEff = List.flatten (
-          List.map (fun (p, t, v) -> 
-            (*
-            let updatedEff = (replacePlaceholder [(p, der, v)] ins eff_value) in 
-            List.flatten (List.map (fun a -> fixCompute env t handler a) updatedEff) 
-            *)
-            List.flatten (
-              List.map (fun (p1, t1, v1) -> 
-                match findLoops t(*history*) der ins t1 with
-                | None ->  let updatedEff = (replacePlaceholder [(p, der, v)] ins eff_value) in 
-                           List.flatten (List.map (fun a -> fixCompute env t handler a) updatedEff) 
-                | Some esIn -> [(And(p, p1), esIn, v1)]
-    
-                
-              ) eff_value
-            )
-
-          ) current 
-        ) in 
-        infer_handling env handler ins newEff der ex2
-
-  
-
-      else if String.compare name "perform" == 0 then 
-        let eff_name = getEffName (List.hd li) in 
-        let eff_arg = getEffNameArg (List.hd li) in 
-        List.flatten (
-          List.map (fun (p, t, v) ->
-            infer_handling env handler ins [(p, (Cons(t, Singleton (Emit (eff_name, eff_arg)))), v)] der ex2
-          ) current
-        )
-
-      
-      else 
-        let eff1 = infer_handling env handler ins current der ex1 in 
-        infer_handling env handler ins eff1 der ex2
-    | _ -> raise (Foo "not yet here")
-    )
-
-
-  | Pexp_ifthenelse (_, e2, e3_op) ->  
-    let branch1 = infer_handling env handler ins current der e2 in 
-    (match e3_op with 
-    | None -> branch1
-    | Some expr3 -> 
-      let branch2 = infer_handling env handler ins current der  expr3 in 
-      List.append branch1 branch2)
-
-
-  | _ -> raise (Foo "not yet covered infer_handling")
-    (*infer_of_expression env current expr*)
-
-
-
-
-and  fixCompute env (history:es) handler (p, t, v) : spec = 
-  match (normalES t) with 
-  | Stop -> 
-    let (normalExpr:expression) = findNormalReturn handler in 
-    infer_of_expression env [(p, history, v)] normalExpr
-     
-  
-  | _ -> 
-    let fstSet = fst t in 
-
-    List.flatten (List.map ( fun f ->
-      match f with
-      | Send (ins) -> 
-        let (effName, _) = ins in 
-        (match (findEffectHanding handler effName) with 
-        | None -> fixCompute env (Cons (history, eventToEs f)) handler (p, derivative t f, v)
-        | Some expr -> 
-        infer_handling env handler ins [(p, Cons(history, Singleton (Event ins)), v)] (derivative t f)  expr )    
-      | _ ->  fixCompute env (Cons (history, eventToEs f)) handler (p, derivative t f, v)
-    ) fstSet)
-
-
-
-
-and fixpoint_Computation env handler eff : spec = 
-  List.flatten (List.map (fun tuple-> fixCompute env Emp handler tuple) eff)
-
-
-and infer_of_expression (env) (current:spec) expr: spec =  
+let rec infer_of_expression (env) (current:spec) expr: spec =  
   let current  = normalSpec current in 
   match expr.pexp_desc with 
   | Pexp_fun (_, _, _ (*pattern*), exprIn) -> 
@@ -1134,11 +709,11 @@ and infer_of_expression (env) (current:spec) expr: spec =
 (* VALUE *)
   | Pexp_constant cons ->
     (match cons with 
-    | Pconst_integer (str, _) -> List.map (fun (p, t, _) -> (p, t, BINT (int_of_string str)) ) current  
+    | Pconst_integer (_, _) -> List.map (fun (p, t) -> (p, t) ) current  
     | _ -> raise (Foo (Pprintast.string_of_expression  expr ^ " expressionToBasicT error1"))
     )
-  | Pexp_construct _ -> List.map (fun (p, t, _) -> (p, t, UNIT) ) current
-  | Pexp_ident l -> List.map (fun (p, t, _) -> (p, t, VARName (getIndentName l)) ) current
+  | Pexp_construct _ -> List.map (fun (p, t) -> (p, t) ) current
+  | Pexp_ident _ -> List.map (fun (p, t) -> (p, t) ) current
     
 (* CONDITIONAL not path sensitive so far *)
   | Pexp_ifthenelse (_, e2, e3_op) ->  
@@ -1148,7 +723,7 @@ and infer_of_expression (env) (current:spec) expr: spec =
     | Some expr3 -> 
       let branch2 = infer_of_expression env current expr3 in 
       List.append branch1 branch2)
-
+(*
   | Pexp_let (_(*flag*),  vb_li, exprIn) -> 
     let head = List.hd vb_li in 
     let var_name = string_of_pattern (head.pvb_pat) in 
@@ -1248,7 +823,7 @@ match Env.find_fn name env with
             
             )
         
-
+*)
 
   | _ -> raise (Foo (Pprintast.string_of_expression  expr ^ " infer_of_expression not corvered "))  
 
@@ -1297,8 +872,8 @@ type experiemntal_data = (float list * float list)
 
 
 let infer_of_value_binding rec_flag env vb: string * env * experiemntal_data =
-  let startTimeStamp = Sys.time() in
-  let pre, post, final, env, fn_name = infer_value_binding rec_flag env vb in
+  let _ = Sys.time() in
+  let _, _, _, env, fn_name = infer_value_binding rec_flag env vb in
 
   (* don't report things like let () = ..., which isn't a function  *)
   if String.equal fn_name "()" then
@@ -1306,7 +881,7 @@ let infer_of_value_binding rec_flag env vb: string * env * experiemntal_data =
   else
 
 
-    let header =
+    (*let header =
       "\n========== Function: "^ fn_name ^" ==========\n" ^
       "[Pre  Condition] " ^ string_of_spec pre ^"\n"^
       "[Post Condition] " ^ string_of_spec (List.hd post) ^"\n"^
@@ -1323,8 +898,9 @@ let infer_of_value_binding rec_flag env vb: string * env * experiemntal_data =
       if res then (List.append [time]  succeed_time, fail_time)
       else (succeed_time, List.append [time]  fail_time)
       ) ([], []) post in 
+      *)
     
-    header , env, ex_res
+    "header" , env, ([], [])
 
 
   (*

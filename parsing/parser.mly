@@ -624,9 +624,7 @@ let mk_directive ~loc name arg =
 %token IMPLICATION
 %token REQUIRES
 %token ENSURES
-%token OMEGA
 %token KLEENE
-%token INFINY
 %token EMP
 %token GREATER
 %token GREATERRBRACE
@@ -781,7 +779,7 @@ The precedences must be listed from low to high.
 %nonassoc below_DOT
 %left     DOT
 %nonassoc DOTOP
-%nonassoc KLEENE OMEGA INFINY                /* bind tighter than dot, to avoid shift/reduce conflict */
+%nonassoc KLEENE 
 %nonassoc TILDE                         /* higher than conjunction */
 %left     CONJUNCTION                   /* higher than disjunction */
 %left     DISJUNCTION                   /* should bind less tightly than kleene/omega */
@@ -2546,32 +2544,16 @@ effect_trace:
   | EMP { Emp }
   | n = UIDENT { Singleton (Event (n, [])) }
   | n = UIDENT LPAREN args = list(effect_trace_value) RPAREN { Singleton (Event (n, args)) }
-  | n = UIDENT BANG { Singleton (Emit (n, [])) }
-  | n = UIDENT LPAREN args = list(effect_trace_value) RPAREN BANG { Singleton (Emit (n, args)) }
-  | n = UIDENT QUESTION args = effect_trace_value { Singleton (Await ((n, []), args)) }
-  | n = UIDENT LPAREN args = list(effect_trace_value) RPAREN QUESTION arg = effect_trace_value { Singleton (Await ((n, args), arg)) }
 
-  (*| n = UIDENT LPAREN f = UIDENT args = list(effect_trace_value) RPAREN
-  {
-    match n with
-    | "!" ->
-      Emit (f, args)
-    | _ ->
-      failwith "invalid syntax for predicate application"
-  }*)
+  | TILDE n = UIDENT { Singleton (NotEvent (n, [])) }
+  | TILDE n = UIDENT LPAREN args = list(effect_trace_value) RPAREN { Singleton (NotEvent (n, args)) }
+  | LBRACE  RBRACE {Singleton(HeapOp EmptyHeap)}
 
-  | TILDE n = UIDENT { Not (Event (n, [])) }
-  | TILDE n = UIDENT LPAREN args = list(effect_trace_value) RPAREN { Not (Event (n, args)) }
-  | TILDE n = UIDENT BANG { Not (Emit (n, [])) }
-  | TILDE n = UIDENT LPAREN args = list(effect_trace_value) RPAREN BANG { Not (Emit (n, args)) }
-  | TILDE n = UIDENT QUESTION args = effect_trace_value { Not (Await ((n, []), args)) }
-  | TILDE n = UIDENT LPAREN args = list(effect_trace_value) RPAREN QUESTION arg = effect_trace_value { Not (Await ((n, args), arg)) }
+  | LBRACKET  RBRACKET {Singleton(DelayAssert EmptyHeap)}
 
   | effect_trace DOT effect_trace { Cons ($1, $3) }
   | effect_trace DISJUNCTION effect_trace { ESOr ($1, $3) }
   | effect_trace KLEENE { Kleene $1 }
-  | effect_trace OMEGA { Omega $1 }
-  | effect_trace INFINY { Infiny $1 }
   | LPAREN effect_trace RPAREN { $2 }
 ;
 
@@ -2602,25 +2584,14 @@ pure_formula:
   | pure_formula IMPLICATION pure_formula { Imply ($1, $3) }
   | TILDE pure_formula { Not ($2) }
 ;
-(*side_condition:
-  | EFF LPAREN f = LIDENT RPAREN EQUAL
-    pre_es = effect_trace MINUSGREATER post_es = effect_trace { (f, (pre_es, post_es)) }
-;
 
-
-effect_spec:
-  | effect_trace { [`Trace $1] }
-  | pure_formula { [`Pure $1] }
-  | effect_trace_value { [`Ret $1] }
-  | effect_spec COMMA effect_spec { $1 @ $3 }
-;*)
 
 effect_spec_aux:
 | {[]}
 | DISJUNCTION eff= effect_spec {eff}
 
 effect_spec:
-| LPAREN p=pure_formula COMMA t= effect_trace COMMA v= effect_trace_value RPAREN rest =effect_spec_aux {(p, t, v)::rest}
+| LPAREN p=pure_formula COMMA t= effect_trace RPAREN rest = effect_spec_aux {(p, t)::rest}
 
 
 list_of_post_condition:

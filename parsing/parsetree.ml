@@ -27,66 +27,26 @@ type basic_t = BINT of int | UNIT | VARName of string
 
 type instant = string * (basic_t list) 
 
-(* To indicate weather there are partial applied continustiaon *)
-type residue = instant option 
+type kappa = 
+  | EmptyHeap
+  | PointsTo of instant
+  | Disjoin of kappa * kappa
+  | Implication of kappa * kappa
 
-(** The first event of a trace (es). See [Rewriting.fst] *)
-type event =
-  | One of instant (* Foo *)
-  | Send of instant (* Foo! *)
-  | Receive of (instant * basic_t) (* Foo? *)
-  | Zero of instant (* ~Foo *)
-  | NEmit of instant (* ~Foo! *)
-  | NAwait of (instant * basic_t) (* ~Foo? *)
-  | Any (* _ *)
-  | StopEv (* Stop *)
-
-(*
-type stack_content = Cons of int | Variable of string | Apply of string * stack_content list 
-*)
-
-type stack = string * instant
 
 type singleton =
-  | Emit of instant (* Foo! *)
-  | Await of (instant * basic_t) (* Foo? *)
-  | Event of instant (* Foo *)
+  | Event of instant (* Foo! *)
+  | NotEvent of instant 
+  | HeapOp of kappa (* Foo? *)
+  | DelayAssert of kappa (* Foo *)
 
 type es = Bot 
         | Emp   
         | Singleton of singleton
-        | Not of singleton 
         | Underline
         | Cons of es * es
         | ESOr of es * es
         | Kleene of es (* 0 or more, but finite*)
-        | Infiny of es (* 0 or more, possibly infinite*)
-        | Omega of es(* infinite*)
-        | Stop
-
-let es_to_event es : event =
-  match es with 
-  | Singleton (Event ins) -> One ins
-  | Not (Event ins) -> Zero ins
-  | Not (Await (ins, a)) -> NAwait (ins, a)
-  | Not (Emit ins) -> NEmit ins
-  | Singleton (Emit ins) -> Send ins
-  | Singleton (Await ins) -> Receive ins
-  | Underline -> Any
-  | Stop -> StopEv
-  | _ -> failwith "no correspondence"
-
-let eventToEs ev : es =
-  match ev with
-  | One ins -> Singleton (Event ins)
-  | Zero ins -> Not (Event ins)
-  | NAwait (ins, a) -> Not (Await (ins, a))
-  | NEmit ins -> Not (Emit ins)
-  | Send ins -> Singleton (Emit ins)
-  | Receive ins -> Singleton (Await ins)
-  | Any -> Underline
-  | StopEv -> Stop
-
 
 type term = 
       Num of int
@@ -105,23 +65,21 @@ type pi =
   | Imply  of pi * pi
   | Not    of pi
 
-type side = (string * (es * es)) list   (* Eff(f()) = _^*.A -> U^*.(Res \/ emp) *)
+type spec = (pi * es) list 
 
-(* e.g: spec =  (n>0, emp, [Eff(f() = U^*] )) 
-                (n>0, Q(Foo()).END, [] )) 
-*)
-type spec = (pi * es * basic_t) list 
+type stack = string * instant
+type side = (string * (es * es)) list   (* Eff(f()) = _^*.A -> U^*.(Res \/ emp) *)
 
 
 let default_es_pre =  (Kleene(Underline))
 let default_es_post = Emp
 
-let default_spec_pre = [(True, default_es_pre, UNIT)]
-let default_spec_post = [(True, default_es_post, UNIT)]
+let default_spec_pre = [(True, default_es_pre)]
+let default_spec_post = [(True, default_es_post)]
 
 type policy = Eff of string * es * es | Exn of string | Normal of es
 
-type evn = (es * es) list
+type evn = (es * es) list 
 
 type constant =
     Pconst_integer of string * char option
