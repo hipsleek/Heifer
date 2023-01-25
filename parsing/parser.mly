@@ -2539,6 +2539,12 @@ effect_trace_value:
   | v = LIDENT {VARName v} 
   | LPAREN RPAREN { UNIT }
 ;
+
+heapkappa:
+| EMP { EmptyHeap }
+| str=LIDENT MINUSGREATER args = list(pure_formula_term) {PointsTo(str, args)}
+
+
 effect_trace:
   | UNDERSCORE { Underline }
   | EMP { Emp }
@@ -2547,9 +2553,9 @@ effect_trace:
 
   | TILDE n = UIDENT { Singleton (NotEvent (n, [])) }
   | TILDE n = UIDENT LPAREN args = list(effect_trace_value) RPAREN { Singleton (NotEvent (n, args)) }
-  | LBRACE  RBRACE {Singleton(HeapOp EmptyHeap)}
+  | LBRACE k=heapkappa RBRACE {Singleton(HeapOp k)}
 
-  | LBRACKET  RBRACKET {Singleton(DelayAssert EmptyHeap)}
+  | LBRACKET k=pure_formula RBRACKET {Singleton(DelayAssert k)}
 
   | effect_trace DOT effect_trace { Cons ($1, $3) }
   | effect_trace DISJUNCTION effect_trace { ESOr ($1, $3) }
@@ -2569,6 +2575,8 @@ pure_formula:
   | FALSE { False }
   | a = pure_formula_term LESS b = pure_formula_term { Atomic (LT, a, b) }
   | a = pure_formula_term GREATER b = pure_formula_term { Atomic (GT, a, b) }
+  | a = pure_formula_term EQUAL b = pure_formula_term { Atomic (EQ, a, b) }
+
   | a = pure_formula_term op = INFIXOP0 b = pure_formula_term
   {
     let op =

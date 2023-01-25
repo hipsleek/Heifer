@@ -27,26 +27,7 @@ type basic_t = BINT of int | UNIT | VARName of string
 
 type instant = string * (basic_t list) 
 
-type kappa = 
-  | EmptyHeap
-  | PointsTo of instant
-  | Disjoin of kappa * kappa
-  | Implication of kappa * kappa
 
-
-type singleton =
-  | Event of instant (* Foo! *)
-  | NotEvent of instant 
-  | HeapOp of kappa (* Foo? *)
-  | DelayAssert of kappa (* Foo *)
-
-type es = Bot 
-        | Emp   
-        | Singleton of singleton
-        | Underline
-        | Cons of es * es
-        | ESOr of es * es
-        | Kleene of es (* 0 or more, but finite*)
 
 type term = 
       Num of int
@@ -64,6 +45,29 @@ type pi =
   | Or     of pi * pi
   | Imply  of pi * pi
   | Not    of pi
+
+
+type kappa = 
+  | EmptyHeap
+  | PointsTo of (string * (term list))
+  | Disjoin of kappa * kappa
+  | Implication of kappa * kappa
+
+
+type singleton =
+  | Event of instant (* Foo! *)
+  | NotEvent of instant 
+  | HeapOp of kappa (* Foo? *)
+  | DelayAssert of pi (* Foo *)
+
+type es = Bot 
+        | Emp   
+        | Singleton of singleton
+        | Underline
+        | Cons of es * es
+        | ESOr of es * es
+        | Kleene of es (* 0 or more, but finite*)
+
 
 type spec = (pi * es) list 
 

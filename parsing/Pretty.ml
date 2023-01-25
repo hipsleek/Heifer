@@ -123,31 +123,7 @@ let string_of_instant (str, ar_Li): string =
   in
   Format.sprintf "%s%s" str args
 
-let rec string_of_kappa (k:kappa) : string = 
-  match k with
-  | EmptyHeap -> "emp"
-  | PointsTo  (str, args) -> Format.sprintf "%s -> %s" str (List.map string_of_basic_type args |> String.concat ", ")
-  | Disjoin (k1, k2) -> string_of_kappa k1 ^ "*" ^ string_of_kappa k2 
-  | Implication (k1, k2) -> string_of_kappa k1 ^ "-*" ^ string_of_kappa k2 
 
-let rec string_of_singleton (s : singleton) : string = 
-  match s with
-  | Event (str, []) -> str
-  | Event (str, args) -> Format.sprintf "%s(%s)" str (List.map string_of_basic_type args |> String.concat ", ")
-  | NotEvent s -> "~" ^ (string_of_singleton (Event s))
-  | HeapOp k -> "{" ^ string_of_kappa k ^ "}"
-  | DelayAssert k  -> "[" ^ string_of_kappa k ^ "]"
-
-
-let rec string_of_es es : string = 
-  match es with 
-  | Bot -> "_|_"
-  | Emp -> "e"
-  | Singleton s  -> string_of_singleton s
-  | Cons (es1, es2) -> ""^string_of_es es1 ^"."^ string_of_es es2 ^""
-  | ESOr (es1, es2) -> "("^string_of_es es1 ^")+("^ string_of_es es2 ^")"
-  | Kleene es1 -> "("^string_of_es es1^")^*"
-  | Underline -> "_"
 
 let rec string_of_term t : string = 
   match t with 
@@ -164,6 +140,14 @@ let string_of_bin_op op : string =
   | GTEQ -> ">="
   | LTEQ -> "<="
 
+let rec string_of_kappa (k:kappa) : string = 
+  match k with
+  | EmptyHeap -> "emp"
+  | PointsTo  (str, args) -> Format.sprintf "%s -> %s" str (List.map string_of_term args |> String.concat ", ")
+  | Disjoin (k1, k2) -> string_of_kappa k1 ^ "*" ^ string_of_kappa k2 
+  | Implication (k1, k2) -> string_of_kappa k1 ^ "-*" ^ string_of_kappa k2 
+
+
 
 let rec string_of_pi pi : string = 
   match pi with 
@@ -175,6 +159,24 @@ let rec string_of_pi pi : string =
   | Imply  (p1, p2) -> string_of_pi p1 ^ "->" ^ string_of_pi p2
   | Not    p -> "!" ^ string_of_pi p
 
+let rec string_of_singleton (s : singleton) : string = 
+  match s with
+  | Event (str, []) -> str
+  | Event (str, args) -> Format.sprintf "%s(%s)" str (List.map string_of_basic_type args |> String.concat ", ")
+  | NotEvent s -> "~" ^ (string_of_singleton (Event s))
+  | HeapOp k -> "{" ^ string_of_kappa k ^ "}"
+  | DelayAssert k  -> "[" ^ string_of_pi k ^ "]"
+
+
+let rec string_of_es es : string = 
+  match es with 
+  | Bot -> "_|_"
+  | Emp -> "e"
+  | Singleton s  -> string_of_singleton s
+  | Cons (es1, es2) -> ""^string_of_es es1 ^"."^ string_of_es es2 ^""
+  | ESOr (es1, es2) -> "("^string_of_es es1 ^")+("^ string_of_es es2 ^")"
+  | Kleene es1 -> "("^string_of_es es1^")^*"
+  | Underline -> "_"
 
 let string_of_tuple (pi, es) : string = 
   string_of_pi pi ^ ", " ^  string_of_es es  ;;

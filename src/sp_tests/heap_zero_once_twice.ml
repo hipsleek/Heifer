@@ -4,9 +4,7 @@ effect Zero : unit
 
 let callee0 () 
 (*@  requires (true, emp)   @*)
-(*@  ensures  (true, emp) @*)
-(* requires _^*  *)
-(* ensures {i->0}.Zero!.{i:=old(i)+1}.[i=1] *)
+(*@  ensures  (true, {i->0}.Zero.{i->i}.[i=1]) @*)
 = 
   let i = Sys.opaque_identity (ref 0) in
   perform Zero;
@@ -16,9 +14,7 @@ let callee0 ()
 
 let callee1 () 
 (*@  requires (true, emp)   @*)
-(*@  ensures  (true, emp) @*)
-(* requires _^*  *)
-(* ensures {i->0}.Once!.{i:=old(i)+1}.[i=1] *)
+(*@  ensures  (true, {i->0}.Once.{i->i}.[i=1]) @*)
 = 
   let i = Sys.opaque_identity (ref 0) in
   perform Once;
@@ -31,9 +27,7 @@ let callee1 ()
 
 let callee2 () 
 (*@  requires (true, emp)   @*)
-(*@  ensures  (true, emp) @*)
-(* requires _^*  *)
-(* ensures {i->0}.Twice!.{i:=old(i)+1}.[i=1] *)
+(*@  ensures  (true, {i->0}.Twice.{i->i}.[i=1]) @*)
 = 
   let i = Sys.opaque_identity (ref 0) in
   perform Twice;
