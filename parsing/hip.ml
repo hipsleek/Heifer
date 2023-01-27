@@ -217,10 +217,11 @@ let merge_spec (p1, es1) (p2, es2) : spec =
   [(And (p1, p2), Cons(es1, es2))];;
 
 
-let getIndentName (l:Longident.t loc): string = 
-  (match l.txt with 
+let rec getIndentName (l:Longident.t): string = 
+  (match l with 
         | Lident str -> str
-        | _ -> "getIndentName: dont know " ^ string_of_longident l.txt
+        | Ldot (t, str) -> getIndentName t ^ "." ^ str
+        | _ -> "getIndentName: dont know " ^ string_of_longident l
         )
         ;;
 
@@ -475,7 +476,7 @@ let rec side_binding (formal:string list) (actual: (es * es) list) : side =
 
 let fnNameToString fnName: string = 
   match fnName.pexp_desc with 
-    | Pexp_ident l -> getIndentName l 
+    | Pexp_ident l -> getIndentName l.txt 
         
     | _ -> "fnNameToString: dont know " ^ debug_string_of_expression fnName
     ;;
@@ -488,7 +489,7 @@ let expressionToBasicT ex : basic_t option=
     | _ -> None (*raise (Foo (Pprintast.string_of_expression  ex ^ " expressionToBasicT error1"))*)
     )
   | Pexp_construct _ -> Some (UNIT)
-  | Pexp_ident l -> Some (VARName (getIndentName l))
+  | Pexp_ident l -> Some (VARName (getIndentName l.txt))
   | _ -> None 
   (*
   | Pexp_let _ -> raise (Foo "Pexp_i")
@@ -627,7 +628,7 @@ let rec string_of_list (li: 'a list ) (f : 'a -> 'b) : string =
 let getEffName l = 
     let (_, temp) = l in 
     match temp.pexp_desc with 
-    | Pexp_construct (a, _) -> getIndentName a 
+    | Pexp_construct (a, _) -> getIndentName a.txt 
     | _ -> raise (Foo "getEffName error")
 ;;
 let getEffNameArg l = 
@@ -660,6 +661,8 @@ let concatenateEffects (eff1:spec) (eff2:spec) : spec =
   let zip = shaffleZIP eff1 eff2 in 
   List.map (fun ((p1, es1), (p2, es2)) -> (And(p1, p2), Cons (es1, es2))) zip ;;
 
+let concatenateEsToEffects (eff1:spec) (es:es) : spec = 
+  List.map (fun (pi1, es1) -> (pi1, Cons (es1, es))) eff1
 
 let rec findEffectHanding handler name = 
   match handler with 
@@ -698,6 +701,45 @@ let rec disjunctiveES es: es list  =
   | Underline -> [es]
 ;;
 
+let string_of_expression_kind (expr:Parsetree.expression_desc) : string = 
+  match expr with 
+  | Pexp_ident _ -> "Pexp_ident"
+  | Pexp_constant _ -> "Pexp_constant"
+  | Pexp_let _ -> "Pexp_let"
+  | Pexp_function _ -> "Pexp_function"
+  | Pexp_fun _ -> "Pexp_fun"
+  | Pexp_apply _ -> "Pexp_apply"
+  | Pexp_match _ -> "Pexp_match"
+  | Pexp_try _ -> "Pexp_try"
+  | Pexp_tuple _ -> "Pexp_tuple"
+  | Pexp_construct _ -> "Pexp_construct"
+  | Pexp_variant _ -> "Pexp_variant"
+  | Pexp_record _ -> "Pexp_record"
+  | Pexp_field _ -> "Pexp_field"
+  | Pexp_setfield _ -> "Pexp_setfield"
+  | Pexp_array _ -> "Pexp_array"
+  | Pexp_ifthenelse _ -> "Pexp_ifthenelse"
+  | Pexp_sequence _ -> "Pexp_sequence"
+  | Pexp_while _ -> "Pexp_while"
+  | Pexp_for _ -> "Pexp_for"
+  | Pexp_constraint _ -> "Pexp_constraint"
+  | Pexp_coerce _ -> "Pexp_coerce"
+  | Pexp_send _ -> "Pexp_send"
+  | Pexp_new _ -> "Pexp_new"
+  | Pexp_setinstvar _ -> "Pexp_setinstvar"
+  | Pexp_override _ -> "Pexp_override"
+  | Pexp_letmodule _ -> "Pexp_letmodule"
+  | Pexp_letexception _ -> "Pexp_letexception"
+  | Pexp_assert _ -> "Pexp_assert"
+  | Pexp_lazy _ -> "Pexp_lazy"
+  | Pexp_poly _ -> "Pexp_poly"
+  | Pexp_object _ -> "Pexp_object"
+  | Pexp_newtype _ -> "Pexp_newtype"
+  | Pexp_pack _ -> "Pexp_pack"
+  | Pexp_open _ -> "Pexp_open"
+  | Pexp_letop _ -> "Pexp_letop"
+  | Pexp_extension _ -> "Pexp_extension"
+  | Pexp_unreachable -> "Pexp_unreachable"
 
 
 let rec infer_of_expression (env) (current:spec) expr: spec =  
@@ -723,6 +765,33 @@ let rec infer_of_expression (env) (current:spec) expr: spec =
     | Some expr3 -> 
       let branch2 = infer_of_expression env current expr3 in 
       List.append branch1 branch2)
+  | Pexp_let (_(*flag*),  vb_li, let_expression) -> 
+    let head = List.hd vb_li in 
+    let var_name = string_of_pattern (head.pvb_pat) in 
+    (match (head.pvb_expr.pexp_desc) with 
+    | Pexp_apply (fnName, li) -> 
+        let name = fnNameToString fnName in 
+        if String.compare name "Sys.opaque_identity" == 0 then 
+           let (_, allocate_argument) = (List.hd li) in 
+           (match allocate_argument.pexp_desc with 
+           | Pexp_apply (_, li) -> 
+             let (_, constant) = (List.hd li) in 
+             (match constant.pexp_desc with
+             | Pexp_constant (Pconst_integer (str, _)) ->
+               let current' =  
+               concatenateEsToEffects current 
+               (Singleton (HeapOp (PointsTo (var_name, [Num (int_of_string str)]))))
+               in infer_of_expression env current' let_expression
+             | _ -> raise (Foo (var_name ^ "\n" ^string_of_expression_kind (constant.pexp_desc)))
+             )
+           | _ ->  raise (Foo (var_name ^ "\n" ^string_of_expression_kind (allocate_argument.pexp_desc)))
+            )
+        else 
+        raise (Foo name)
+    | _ -> raise (Foo (var_name ^ "\n" ^string_of_expression_kind (head.pvb_expr.pexp_desc) )) 
+    )
+
+
 (*
   | Pexp_let (_(*flag*),  vb_li, exprIn) -> 
     let head = List.hd vb_li in 
@@ -825,7 +894,9 @@ match Env.find_fn name env with
         
 *)
 
-  | _ -> raise (Foo (Pprintast.string_of_expression  expr ^ " infer_of_expression not corvered "))  
+  | _ -> raise (Foo (string_of_expression_kind expr.pexp_desc ^ "\n\n" ^ 
+    Pprintast.string_of_expression  expr ^ " infer_of_expression not corvered ")) 
+    
 
 
 
