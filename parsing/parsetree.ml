@@ -67,6 +67,7 @@ type es = Bot
         | Cons of es * es
         | ESOr of es * es
         | Kleene of es (* 0 or more, but finite*)
+        | Stop
 
 
 type spec = (pi * es) list 

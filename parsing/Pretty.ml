@@ -143,7 +143,7 @@ let string_of_bin_op op : string =
 let rec string_of_kappa (k:kappa) : string = 
   match k with
   | EmptyHeap -> "emp"
-  | PointsTo  (str, args) -> Format.sprintf "%s -> %s" str (List.map string_of_term args |> String.concat ", ")
+  | PointsTo  (str, args) -> Format.sprintf "%s->%s" str (List.map string_of_term args |> String.concat ", ")
   | Disjoin (k1, k2) -> string_of_kappa k1 ^ "*" ^ string_of_kappa k2 
   | Implication (k1, k2) -> string_of_kappa k1 ^ "-*" ^ string_of_kappa k2 
 
@@ -177,6 +177,7 @@ let rec string_of_es es : string =
   | ESOr (es1, es2) -> "("^string_of_es es1 ^")+("^ string_of_es es2 ^")"
   | Kleene es1 -> "("^string_of_es es1^")^*"
   | Underline -> "_"
+  | Stop -> "stop"
 
 let string_of_tuple (pi, es) : string = 
   string_of_pi pi ^ ", " ^  string_of_es es  ;;
@@ -200,6 +201,7 @@ let rec normalES (es:es):es =
   | Emp -> es
   | Singleton _ -> es
   | Underline -> es
+  | Stop -> es
 
 (*| Cons (Cons (esIn1, esIn2), es2)-> 
     normalES (Cons (esIn1, normalES (Cons (esIn2, es2)))) *)
