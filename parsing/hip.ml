@@ -756,6 +756,9 @@ let rec infer_of_expression (env) (current:spec) expr: spec =
     )
   | Pexp_construct _ -> List.map (fun (p, t) -> (p, t) ) current
   | Pexp_ident _ -> List.map (fun (p, t) -> (p, t) ) current
+  | Pexp_sequence (ex1, ex2) -> 
+  let eff1 = infer_of_expression env current ex1 in 
+  infer_of_expression env eff1 ex2 
     
 (* CONDITIONAL not path sensitive so far *)
   | Pexp_ifthenelse (_, e2, e3_op) ->  
@@ -786,12 +789,56 @@ let rec infer_of_expression (env) (current:spec) expr: spec =
              )
            | _ ->  raise (Foo (var_name ^ "\n" ^string_of_expression_kind (allocate_argument.pexp_desc)))
             )
+
+           
         else 
         raise (Foo name)
     | _ -> raise (Foo (var_name ^ "\n" ^string_of_expression_kind (head.pvb_expr.pexp_desc) )) 
     )
 
+    | Pexp_apply (fnName, li) -> 
+      let name = fnNameToString fnName in 
+      if String.compare name "perform" == 0 then 
+(* PERFORM *)
+        let eff_name = getEffName (List.hd li) in 
+        let eff_arg = getEffNameArg (List.hd li) in 
+        [(True, Singleton (Event (eff_name, eff_arg)))]
+      else if String.compare name ":=" == 0 then 
+        let (_,  templhs) = (List.hd li) in 
+        let (_, temprhs) = (List.hd (List.tl li)) in 
+        (match (templhs.pexp_desc, temprhs.pexp_desc) with
+        | (Pexp_ident id, Pexp_apply (bop, bopLi)) -> 
+          let lhs = getIndentName (id.txt) in 
+          let (_,  bopLhs) = (List.hd bopLi) in 
+          let (_,  bopRhs) = List.hd (List.tl bopLi) in 
 
+          let helper (exprIn: Parsetree.expression_desc) : term = 
+            match exprIn with 
+            | Pexp_constant (Pconst_integer (str, _)) -> (Num (int_of_string str))
+            | Pexp_apply (_, exprInLi) -> 
+              let (_, temp) =  (List.hd exprInLi) in
+              (match temp.pexp_desc with 
+              | Pexp_ident id -> Var (getIndentName (id.txt))
+              | _ -> raise (Foo "ai you ... ")
+              )
+            | _ -> raise (Foo "ai you ... helper") 
+          in
+          let bopLhsTerm = helper bopLhs.pexp_desc in 
+          let bopRhsTerm = helper bopRhs.pexp_desc in 
+          if String.compare (fnNameToString bop) "+"  == 0 then 
+          [(True, Singleton (HeapOp (PointsTo (lhs, [(Plus(bopLhsTerm, bopRhsTerm))]))))]
+          else [(True, Singleton (HeapOp (PointsTo (lhs, [(Minus(bopLhsTerm, bopRhsTerm))]))))]
+ 
+
+          
+
+          
+        | _ -> raise (Foo (string_of_expression_kind (templhs.pexp_desc)))
+        )
+
+      else if String.compare name "Printf.printf" == 0 then [(True, Emp)]
+
+      else raise (Foo ("Pexp_apply" ^ name))
 (*
   | Pexp_let (_(*flag*),  vb_li, exprIn) -> 
     let head = List.hd vb_li in 
@@ -846,9 +893,7 @@ match Env.find_fn name env with
     let eff_fix = fixpoint_Computation env case_li (concatnateEffEs ex_eff Stop) in 
     concatenateEffects current eff_fix 
 
-  | Pexp_sequence (ex1, ex2) -> 
-    let eff1 = infer_of_expression env current ex1 in 
-    infer_of_expression env eff1 ex2 
+
   
 (* Aplications *)
   | Pexp_apply (fnName, li) -> 
