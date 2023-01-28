@@ -53,6 +53,14 @@ type kappa =
   | Disjoin of kappa * kappa
   | Implication of kappa * kappa
 
+type event =
+  | One of instant (* Foo *)
+  | Zero of instant (* ~Foo *)
+  | EvHeapOp of kappa
+  | EvAssert of pi 
+  | Any (* _ *)
+  | StopEv (* Stop *)
+
 
 type singleton =
   | Event of instant (* Foo! *)

@@ -3,7 +3,7 @@
 exception Foo of string
 open Parsetree
 open Asttypes
-(* open Rewriting *)
+open Rewriting
 open Pretty
 
 let rec input_lines file =
@@ -579,9 +579,6 @@ let rec instantiateArg (post_es:es) (vb:(string * basic_t) list) : es =
 let instantiateEff (eff:spec) (vb:(string * basic_t) list) : spec = 
   List.map (fun (p, t)-> (p, instantiateArg t vb)) eff;;
 
-let add_es_to_spec spec es: spec = 
-  List.map (fun (a, b) -> (a, Cons (b, es))) spec ;;
-
 
 
 let rec getNormal (p: (string option * spec) list): spec = 
@@ -750,9 +747,116 @@ let expressionToTerm (exprIn: Parsetree.expression_desc) : term =
       )
     | _ -> raise (Foo "ai you ... helper") 
 
-let handlerReasoning _ _ eff : spec = eff
 
-let rec infer_of_expression (env) (current:spec) expr: spec =  
+let eventToEs (ev:event) : es = 
+  match ev with
+  | One ins -> Singleton (Event ins)
+  | Zero ins -> Singleton (NotEvent ins)
+  | EvHeapOp k -> Singleton (HeapOp k)
+  | EvAssert pi -> Singleton (DelayAssert pi)
+  | Any -> Underline
+  | StopEv -> Stop
+
+let rec infer_handling env handler ins (current:spec) (der:es) (expr:expression): spec = 
+  match expr.pexp_desc with 
+  | Pexp_fun (_, _, _ (*pattern*), exprIn) -> 
+    infer_handling env handler ins current der exprIn
+
+(* VALUE *)   
+  | Pexp_constant cons ->
+    (match cons with 
+    | Pconst_integer (_, _) -> 
+      List.map (fun (p, t) -> (p, t)) current
+    | _ -> raise (Foo (Pprintast.string_of_expression  expr ^ " expressionToBasicT error1"))
+    )
+  | Pexp_construct _ -> List.map (fun (p, t) -> (p, t)) current
+  | Pexp_ident _ -> List.map (fun (p, t) -> (p, t)) current 
+   
+  | Pexp_apply (fnName, li) -> 
+    let name = fnNameToString fnName in 
+    if String.compare name "continue" == 0 then 
+(* CONTINUE *)
+      let (_, continue_value) = (List.hd (List.tl li)) in 
+      let eff_value = infer_of_expression env [(True, Emp)] continue_value in 
+      concatenateEffects current eff_value
+
+
+    else if String.compare name "perform" == 0 then 
+      let eff_name = getEffName (List.hd li) in 
+      let eff_arg = getEffNameArg (List.hd li) in 
+      List.map (fun (p, t) -> (p, (Cons(t, Singleton (Event (eff_name, eff_arg))))) 
+      ) current
+
+      
+    else  raise (Foo "infer_handling not yet covering functiin calls")
+    
+  | Pexp_sequence (ex1, ex2) -> 
+    (match ex1.pexp_desc with
+    | Pexp_apply (fnName, li) -> 
+      let name = fnNameToString fnName in 
+      if String.compare name "continue" == 0 then 
+(* CONTINUE *)
+        let (_, continue_value) = (List.hd (List.tl li)) in 
+        let eff_value = infer_of_expression env [(True, Emp)] continue_value in 
+        
+        infer_handling env handler ins (concatenateEffects current eff_value) der ex2
+
+  
+
+      else if String.compare name "perform" == 0 then 
+        let eff_name = getEffName (List.hd li) in 
+        let eff_arg = getEffNameArg (List.hd li) in 
+        List.flatten (
+          List.map (fun (p, t) ->
+            infer_handling env handler ins [(p, (Cons(t, Singleton (Event (eff_name, eff_arg)))))] der ex2
+          ) current
+        )
+
+      
+      else 
+        let eff1 = infer_handling env handler ins current der ex1 in 
+        infer_handling env handler ins eff1 der ex2
+    | _ -> raise (Foo "not yet here")
+    )
+
+
+  | Pexp_ifthenelse (_, e2, e3_op) ->  
+    let branch1 = infer_handling env handler ins current der e2 in 
+    (match e3_op with 
+    | None -> branch1
+    | Some expr3 -> 
+      let branch2 = infer_handling env handler ins current der  expr3 in 
+      List.append branch1 branch2)
+
+
+  | _ -> raise (Foo "not yet covered infer_handling")
+    (*infer_of_expression env current expr*)
+
+
+
+and handlerCompute env (history:es) handler (p, t) : spec = 
+  match (normalES t) with 
+  | Stop -> 
+    let (normalExpr:expression) = findNormalReturn handler in 
+    infer_of_expression env [(p, history)] normalExpr
+  | _ -> 
+    let (fstSet:event list) = fst t in 
+
+    List.flatten (List.map ( fun f ->
+      match f with
+      | One (ins) -> 
+        let (effName, _) = ins in 
+        (match (findEffectHanding handler effName) with 
+        | None -> handlerCompute env (Cons (history, eventToEs f)) handler (p, derivative t f)
+        | Some expr -> 
+        infer_handling env handler ins [(p, Cons(history, Singleton (Event ins)))] (derivative t f)  expr )    
+      | _ ->  handlerCompute env (Cons (history, eventToEs f)) handler (p, derivative t f)
+    ) fstSet)
+
+and handlerReasoning env handler eff : spec = 
+  List.flatten (List.map (fun tuple-> handlerCompute env Emp handler tuple) eff)
+
+and infer_of_expression (env) (current:spec) expr: spec =  
   let current  = normalSpec current in 
   match expr.pexp_desc with 
   | Pexp_fun (_, _, _ (*pattern*), exprIn) -> 
