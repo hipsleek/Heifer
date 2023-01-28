@@ -42,7 +42,7 @@ let main
 (* requires emp *)
 (* ensures emp *)
 =
-  match callee1 () with
+  match callee0 () with
   | v -> perform Done 
   | effect Zero k -> ()
 (*      

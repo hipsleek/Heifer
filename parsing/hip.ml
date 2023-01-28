@@ -853,9 +853,13 @@ and handlerCompute env (history:es) handler (p, t) : spec =
         (match (findEffectHanding handler effName) with 
         | None -> handlerCompute env (Cons (history, eventToEs f)) handler (p, derivative t f)
         | Some expr -> 
-          infer_handling env handler ins 
+          let der = (derivative t f) in 
+          let continuation = handlerReasoning  env handler [(p, der)] in 
+          List.flatten (List.map (fun (_, a) -> 
+            infer_handling env handler ins [(p, history)] (a) expr
+          ) continuation)
           (*[(p, Cons(history, Singleton (Event ins)))] (derivative t f) expr *)
-          [(p, history)] (derivative t f) expr
+          
         )    
       | _ ->  handlerCompute env (Cons (history, eventToEs f)) handler (p, derivative t f)
     ) fstSet)

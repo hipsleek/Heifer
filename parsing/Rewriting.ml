@@ -171,8 +171,19 @@ let compareKappa (k1:kappa) (k2:kappa) : bool =
   | _ -> false
 
 
-let comparePure (_:pi) (_:pi) : bool = 
-  raise (Foo "comparePure TBD")
+let comparePure (p1:pi) (p2:pi) : bool = 
+  match (p1, p2) with 
+  | (True, True)
+  | (False, False) -> true 
+  | (Atomic (op1, t1, t2), Atomic (op2, t3, t4)) -> 
+     op1 == op2 && t1 == t3 && t2 == t4 
+  | (And _, And _) 
+  | (Or _, Or _) 
+  | (Imply _, Imply _) 
+  | (Not _, Not _) -> raise (Foo "comparePure TBD")
+  | _ -> false
+
+
   
 
 
