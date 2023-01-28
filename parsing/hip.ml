@@ -555,14 +555,12 @@ let instantiateInstance (ins:instant) (vb:(string * basic_t) list)  : instant  =
     match li with 
     | [] -> [] 
     | x ::xs -> 
-      (
-        match x with 
+      ( match x with 
         | VARName str -> (findbinding str vb) :: (helper xs)
         | _ -> x :: (helper xs)
       )
   in 
   let (a, li) = ins in (a, helper li)
-
 ;;
   
 
@@ -578,7 +576,6 @@ let rec instantiateArg (post_es:es) (vb:(string * basic_t) list) : es =
 
 let instantiateEff (eff:spec) (vb:(string * basic_t) list) : spec = 
   List.map (fun (p, t)-> (p, instantiateArg t vb)) eff;;
-
 
 
 let rec getNormal (p: (string option * spec) list): spec = 
@@ -650,8 +647,7 @@ let rec findNormalReturn handler =
     (match lhs.ppat_desc with 
     | Ppat_effect (_, _) 
     | Ppat_exception _   -> findNormalReturn xs 
-    | _ -> rhs
-    )
+    | _ -> rhs)
   ;;
 
 let concatenateEffects (eff1:spec) (eff2:spec) : spec = 
@@ -667,7 +663,7 @@ let rec findEffectHanding handler name =
     let rhs = a.pc_rhs in 
     (match lhs.ppat_desc with 
     | Ppat_effect (p, _) 
-    | Ppat_exception p   -> if String.compare (string_of_pattern p) name == 0 then (Some rhs) else findEffectHanding xs  name 
+    | Ppat_exception p -> if String.compare (string_of_pattern p) name == 0 then (Some rhs) else findEffectHanding xs  name 
     | _ -> findEffectHanding xs  name
     )
   ;;
@@ -688,7 +684,6 @@ let rec disjunctiveES es: es list  =
     let zip = shaffleZIP list1 list2 in 
     List.map (fun (a, b) -> Cons (a, b)) zip 
   | Kleene es1 -> disjunctiveES es1 
-
   | Stop 
   | Singleton _
   | Bot 
@@ -758,6 +753,7 @@ let eventToEs (ev:event) : es =
   | StopEv -> Stop
 
 let rec infer_handling env handler ins (current:spec) (der:es) (expr:expression): spec = 
+  print_string ("infer_handling:" ^ string_of_es der ^ "\n");
   match expr.pexp_desc with 
   | Pexp_fun (_, _, _ (*pattern*), exprIn) -> 
     infer_handling env handler ins current der exprIn
@@ -774,11 +770,14 @@ let rec infer_handling env handler ins (current:spec) (der:es) (expr:expression)
    
   | Pexp_apply (fnName, li) -> 
     let name = fnNameToString fnName in 
+    print_string ("infer_handling-Pexp_apply:" ^ name ^ "\n");
+
     if String.compare name "continue" == 0 then 
 (* CONTINUE *)
-      let (_, continue_value) = (List.hd (List.tl li)) in 
+      (*let (_, continue_value) = (List.hd (List.tl li)) in 
       let eff_value = infer_of_expression env [(True, Emp)] continue_value in 
-      concatenateEffects current eff_value
+      *)
+      concatnateEffEs current der
 
 
     else if String.compare name "perform" == 0 then 
@@ -789,9 +788,14 @@ let rec infer_handling env handler ins (current:spec) (der:es) (expr:expression)
 
       
     else  raise (Foo "infer_handling not yet covering functiin calls")
+
+  
     
   | Pexp_sequence (ex1, ex2) -> 
-    (match ex1.pexp_desc with
+      let eff1 = infer_handling env handler ins current der ex1 in 
+      infer_handling env handler ins eff1 der ex2 
+
+    (*match ex1.pexp_desc with
     | Pexp_apply (fnName, li) -> 
       let name = fnNameToString fnName in 
       if String.compare name "continue" == 0 then 
@@ -817,7 +821,7 @@ let rec infer_handling env handler ins (current:spec) (der:es) (expr:expression)
         let eff1 = infer_handling env handler ins current der ex1 in 
         infer_handling env handler ins eff1 der ex2
     | _ -> raise (Foo "not yet here")
-    )
+    *)
 
 
   | Pexp_ifthenelse (_, e2, e3_op) ->  
@@ -849,7 +853,10 @@ and handlerCompute env (history:es) handler (p, t) : spec =
         (match (findEffectHanding handler effName) with 
         | None -> handlerCompute env (Cons (history, eventToEs f)) handler (p, derivative t f)
         | Some expr -> 
-        infer_handling env handler ins [(p, Cons(history, Singleton (Event ins)))] (derivative t f)  expr )    
+          infer_handling env handler ins 
+          (*[(p, Cons(history, Singleton (Event ins)))] (derivative t f) expr *)
+          [(p, history)] (derivative t f) expr
+        )    
       | _ ->  handlerCompute env (Cons (history, eventToEs f)) handler (p, derivative t f)
     ) fstSet)
 
@@ -878,7 +885,6 @@ and infer_of_expression (env) (current:spec) expr: spec =
           concatnateEffEs current (Singleton (DelayAssert (Atomic (GTEQ, bopLhsTerm, bopRhsTerm))))
           else concatnateEffEs current (Singleton (DelayAssert (Atomic (LTEQ, bopLhsTerm, bopRhsTerm))))
 
-    
     | _ -> raise (Foo (string_of_expression_kind (exprIn.pexp_desc) )) 
     )
 
@@ -974,15 +980,12 @@ and infer_of_expression (env) (current:spec) expr: spec =
             let postcon' = instantiateEff (List.hd post) vb in 
             let (*precon'*) _ = instantiateEff pre vb in 
       
-      
             (*let (res,_,  str) = printReport current precon' in 
             *)
       
             if true then concatenateEffects current postcon'
             else raise (Foo ("call_function precondition fail " ^name ^":\n" ^ "TRSstr" ^ debug_string_of_expression fnName))
-      
-      
-      
+          
 (*
   | Pexp_let (_(*flag*),  vb_li, exprIn) -> 
     let head = List.hd vb_li in 
@@ -1017,18 +1020,11 @@ match Env.find_fn name env with
       let postcon' = instantiateEff (List.hd post) vb in 
       let precon' = instantiateEff pre vb in 
 
-
       let (res, _, str) = printReport current precon' in 
       
-
       if res then concatenateEffects current postcon'
-       else raise (Foo ("call_function precondition fail " ^name ^":\n" ^ str ^ debug_string_of_expression fnName))
-
-               
+       else raise (Foo ("call_function precondition fail " ^name ^":\n" ^ str ^ debug_string_of_expression fnName))             
             )
-        
-    
-
     | _ -> raise (Foo "Let error")
     )
 
@@ -1075,20 +1071,12 @@ match Env.find_fn name env with
 
       if res then concatenateEffects current postcon'
        else raise (Foo ("call_function precondition fail " ^name ^":\n" ^ str ^ debug_string_of_expression fnName))
-
-            
-         
-            
             )
-        
 *)
 
   | _ -> raise (Foo (string_of_expression_kind expr.pexp_desc ^ "\n\n" ^ 
     Pprintast.string_of_expression  expr ^ " infer_of_expression not corvered ")) 
     
-
-
-
 and normalSpecList specs = List.map (fun a -> normalSpec a) specs
 
 and infer_value_binding rec_flag env vb =

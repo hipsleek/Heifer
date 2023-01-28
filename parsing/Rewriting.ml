@@ -151,18 +151,29 @@ let rec reoccurEff lhs rhs (del:evn) =
   | (_, x, _) :: xs -> if checkreoccur x rhs del == false then false else (reoccurEff xs rhs del )
 ;;
 *)
-let compareKappa (_:kappa) (_:kappa) : bool = 
-  raise (Foo "compareKappa TBD")
+
+let comparePointsTo (s1, t1) (s2, t2) : bool = 
+  let rec helper t1 t2 : bool = 
+    match (t1, t2) with 
+    | ([], []) -> true 
+    | (x::xs, y::ys)  -> x == y && helper xs ys
+    | _ -> false 
+  in 
+  (String.compare s1 s2 == 0) && helper t1 t2
+
+
+let compareKappa (k1:kappa) (k2:kappa) : bool = 
+  match (k1, k2) with 
+  | (EmptyHeap, EmptyHeap) -> true 
+  | (PointsTo pt1, PointsTo pt2) -> comparePointsTo pt1 pt2
+  | (Disjoin _, Disjoin _)
+  | (Implication _, Implication _) -> raise (Foo "compareKappa TBD")
+  | _ -> false
+
 
 let comparePure (_:pi) (_:pi) : bool = 
   raise (Foo "comparePure TBD")
   
-  (*match (k1, k2) with 
-  | (EmptyHeap, EmptyHeap) -> true 
-  | PointsTo of (string * (term list))
-  | Disjoin of kappa * kappa
-  | Implication of kappa * kappa
-*)
 
 
 let entailsEvent (ev1:event) (ev2:event): bool =
@@ -263,14 +274,6 @@ let rec containment (evn: evn) (lhs:es) (rhs:es) : (bool * binary_tree) =
   ;;
 
 
-let compareInstant (s1, i1) (s2, i2) : bool = 
-  let rec helper l1 l2 : bool = 
-    match (l1, l2) with 
-    | ([], []) -> true 
-    | (x::xs, y::ys)  -> x == y && helper xs ys
-    | _ -> false 
-  in 
-  (String.compare s1 s2 == 0)  && helper i1 i2
 
 
 

@@ -27,8 +27,6 @@ type basic_t = BINT of int | UNIT | VARName of string
 
 type instant = string * (basic_t list) 
 
-
-
 type term = 
       Num of int
     | Var of string

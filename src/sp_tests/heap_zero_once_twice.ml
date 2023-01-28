@@ -1,6 +1,7 @@
 effect Twice : unit
 effect Once : unit
 effect Zero : unit
+effect Done : unit
 
 let callee0 () 
 (*@  requires (true, emp)   @*)
@@ -36,13 +37,13 @@ let callee2 ()
   assert (!i = 1)
 
 let main 
-(*@  requires (true, emp)   @*)
+(*@  requires (true, emp) @*)
 (*@  ensures  (true, emp) @*)
 (* requires emp *)
 (* ensures emp *)
 =
-  match callee0 () with
-  | v -> ()
+  match callee1 () with
+  | v -> perform Done 
   | effect Zero k -> ()
 (*      
 For Zero:                                                          
