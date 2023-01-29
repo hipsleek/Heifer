@@ -71,6 +71,9 @@ let rec string_of_core_type (p:core_type) :string =
   | Ptyp_constr (l, c_li) -> 
     List.fold_left (fun acc a -> acc ^ a) "" (Longident.flatten l.txt)^
     List.fold_left (fun acc a -> acc ^ string_of_core_type a) "" c_li
+  | Ptyp_tuple (ctLi) -> "(" ^
+    (List.fold_left (fun acc a -> acc ^ "," ^ string_of_core_type a ) "" ctLi) ^ ")"
+
   | Ptyp_poly (str_li, c) -> 
     "type " ^ List.fold_left (fun acc a -> acc ^ a.txt) "" str_li ^ ". " ^
     string_of_core_type c 
@@ -242,7 +245,7 @@ type fn_spec = {
 type fn_specs = fn_spec SMap.t
 
 (* only first-order types for arguments, for now *)
-type typ = TInt | TUnit | TRef of typ | TString
+type typ = TInt | TUnit | TRef of typ | TString | TTuple of (typ list)
 
 let rec core_type_to_typ (t:core_type) =
   match t.ptyp_desc with
@@ -250,6 +253,8 @@ let rec core_type_to_typ (t:core_type) =
   | Ptyp_constr ({txt=Lident "unit"; _}, []) -> TUnit
   | Ptyp_constr ({txt=Lident "string"; _}, []) -> TString
   | Ptyp_constr ({txt=Lident "ref"; _}, [t]) -> TRef (core_type_to_typ t)
+  | Ptyp_tuple (tLi) -> TTuple (List.map (fun a -> core_type_to_typ a) tLi)
+  
   | _ -> failwith ("core_type_to_typ: " ^ string_of_core_type t)
 
 (* effect Foo : int -> (int -> int) *)

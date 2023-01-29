@@ -40,7 +40,7 @@ let main
 (*@  requires (true, emp) @*)
 (*@  ensures  (true, emp) @*)
 =
-  match callee0 () with
+  match callee2 () with
   | v -> perform Done 
   | effect Zero k -> ()
 (*      

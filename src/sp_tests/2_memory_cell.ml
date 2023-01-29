@@ -2,18 +2,18 @@ effect Read :  (int ref )-> int
 effect Write : (int ref * int) -> unit 
 
 let read x 
-(*@ requires _^*  @*)
-(*@ ensures (Read x) @*)
+(*@  requires (true, _^* ) @*)
+(*@  ensures  (true, Read (x)) @*)
 = perform (Read x)
 
 let write i n 
-(*@ requires _^*  @*)
-(*@ ensures (Write (i, n)) @*)
+(*@  requires (true, _^* ) @*)
+(*@ ensures (true, Write (i n)) @*)
 = perform (Write (i, n))
 
 let client i 
-(*@ requires _^*  @*)
-(*@ ensures Read. (write 10). Read @*)
+(*@ requires (true, _^* ) @*)
+(*@ ensures (true, Read(i). (Write (i 10)). Read(i)) @*)
 = let x = read i in 
   Printf.printf "i = %d\n%!" x;
   write i 10;
@@ -21,8 +21,8 @@ let client i
   Printf.printf "i = %d\n%!" x
 
 let main 
-(*@ requires emp @*)
-(*@ ensures emp @*)
+(*@  requires (true, emp ) @*)
+(*@ ensures  (true, {i->0}.{i->10} )  @*)
 =
   let (i: int ref) = Sys.opaque_identity (ref 0) in
   match client i with
