@@ -135,6 +135,17 @@ let rec string_of_pattern (p) : string =
   
   | _ -> Format.asprintf "string_of_pattern: %a\n" Pprintast.pattern p;;
 
+let findFormalArgFromPattern (p): string list =
+  match p.ppat_desc with 
+  | Ppat_construct (_, None) -> []
+  | Ppat_construct (_, Some _p1) -> 
+    (match _p1.ppat_desc with
+    | Ppat_tuple p1 -> List.map (fun a -> string_of_pattern a) p1
+    | _ -> [string_of_pattern _p1]
+    )
+
+  | _ -> []
+
 
 (** Given the RHS of a let binding, returns the es it is annotated with *)
 let function_spec rhs =
@@ -276,6 +287,10 @@ type env = {
   side_spec : side;
   effect_defs : effect_def SMap.t;
 }
+
+type variableStack = ((string * basic_t) list) ref 
+
+let (variableStack:variableStack) = ref []
 
 module Env = struct
   let empty = {
@@ -668,8 +683,13 @@ let rec findEffectHanding handler name =
     let lhs = a.pc_lhs in 
     let rhs = a.pc_rhs in 
     (match lhs.ppat_desc with 
-    | Ppat_effect (p, _) 
-    | Ppat_exception p -> if String.compare (string_of_pattern p) name == 0 then (Some rhs) else findEffectHanding xs  name 
+    | Ppat_effect (p, _) -> 
+      if String.compare (string_of_pattern p) name == 0 
+      then 
+        let formalArg = findFormalArgFromPattern p in 
+        (Some (rhs, formalArg)) 
+      else findEffectHanding xs  name
+    | Ppat_exception p -> if String.compare (string_of_pattern p) name == 0 then (Some (rhs, [])) else findEffectHanding xs  name 
     | _ -> findEffectHanding xs  name
     )
   ;;
@@ -759,7 +779,7 @@ let eventToEs (ev:event) : es =
   | StopEv -> Stop
 
 let rec infer_handling env handler ins (current:spec) (der:es) (expr:expression): spec = 
-  print_string ("infer_handling:" ^ string_of_es der ^ "\n");
+  (*print_string ("infer_handling:" ^ string_of_es der ^ "\n");*)
   match expr.pexp_desc with 
   | Pexp_fun (_, _, _ (*pattern*), exprIn) -> 
     infer_handling env handler ins current der exprIn
@@ -771,7 +791,7 @@ let rec infer_handling env handler ins (current:spec) (der:es) (expr:expression)
    
   | Pexp_apply (fnName, li) -> 
     let name = fnNameToString fnName in 
-    print_string ("infer_handling-Pexp_apply:" ^ name ^ "\n");
+    (*print_string ("infer_handling-Pexp_apply:" ^ name ^ "\n"); *)
 
     if String.compare name "continue" == 0 then 
 (* CONTINUE *)
@@ -787,8 +807,11 @@ let rec infer_handling env handler ins (current:spec) (der:es) (expr:expression)
       [(True, Singleton (Event (eff_name, eff_arg)))]
 
 
-      
-    else  raise (Foo "infer_handling not yet covering functiin calls")
+    else if String.compare name "Printf.printf" == 0 then [(True, Emp)]
+
+    else 
+        infer_of_expression env current (expr) 
+
 
   
     
@@ -853,12 +876,24 @@ and handlerCompute env (history:es) handler (p, t) : spec =
     List.flatten (List.map ( fun f ->
       match f with
       | One (ins) -> 
-        let (effName, _) = ins in 
+        let (effName, actualArgLi) = ins in 
         (match (findEffectHanding handler effName) with 
         | None -> 
           let ev =  eventToEs f in 
           List.map (fun (a, b)-> (a, Cons(ev, b)))  (handlerCompute env (Cons (history, ev)) handler (p, derivative t f))
-        | Some expr -> 
+        | Some (expr, formalArgLi) -> 
+
+          let rec argumentBinder (formal:string list) (actual:(basic_t list)): (string * basic_t) list =
+            match (formal, actual) with 
+            | ([], []) -> []
+            | (x::xs, y::ys) -> (x, y) :: argumentBinder xs ys
+            | (_, _) -> raise (Foo ("argumentBinder error"))
+          in 
+          let pushStack = argumentBinder formalArgLi actualArgLi in 
+          let () = variableStack := List.append (pushStack) !variableStack in 
+
+        (* *)
+        
           let der = (derivative t f) in 
           let continuation = handlerReasoning env handler [(p, der)] in 
           List.flatten (List.map (fun (_, a) -> 
@@ -945,7 +980,8 @@ and infer_of_expression (env) (current:spec) expr: spec =
             )
  
         else 
-        raise (Foo name)
+        infer_of_expression env current (head.pvb_expr) 
+
     | _ -> raise (Foo (var_name ^ "\n" ^string_of_expression_kind (head.pvb_expr.pexp_desc) )) 
     )
     | Pexp_match (ex, case_li) -> 
@@ -976,7 +1012,22 @@ and infer_of_expression (env) (current:spec) expr: spec =
           if String.compare (fnNameToString bop) "+"  == 0 then 
           [(True, Singleton (HeapOp (PointsTo (lhs, [(Plus(bopLhsTerm, bopRhsTerm))]))))]
           else [(True, Singleton (HeapOp (PointsTo (lhs, [(Minus(bopLhsTerm, bopRhsTerm))]))))]
-        | _ -> raise (Foo (string_of_expression_kind (templhs.pexp_desc)))
+        | (Pexp_ident id1, Pexp_ident id2) -> 
+
+          let rec findMapping str s : string = 
+            match s with 
+            | [] -> str
+            | (x, t) :: xs -> if String.compare x str == 0 then string_of_basic_type t else findMapping str xs 
+          in 
+
+          let lhs = getIndentName (id1.txt) in 
+          let rhs = getIndentName (id2.txt) in 
+          print_string (List.fold_left (fun acc (str, t) -> acc ^ "\n" ^ str ^ "->" ^ string_of_basic_type t) "" !variableStack);
+          let lhs' = findMapping lhs !variableStack in 
+          let rhs' = findMapping rhs !variableStack in 
+          [(True, Singleton (HeapOp (PointsTo (lhs', [Var rhs']))))]
+
+        | _ -> raise (Foo ("Pexp_apply:"^ string_of_expression_kind (templhs.pexp_desc) ^ " " ^ string_of_expression_kind (temprhs.pexp_desc)))
         )
 
       else if String.compare name "Printf.printf" == 0 then [(True, Emp)]

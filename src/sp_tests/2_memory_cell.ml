@@ -24,7 +24,7 @@ let main
 (*@  requires (true, emp ) @*)
 (*@ ensures  (true, {i->0}.{i->10} )  @*)
 =
-  let (i: int ref) = Sys.opaque_identity (ref 0) in
+  let i = Sys.opaque_identity (ref 0) in
   match client i with
   | v -> ()
   | effect (Read x) k -> (continue k (!x))
