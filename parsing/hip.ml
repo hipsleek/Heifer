@@ -973,14 +973,16 @@ and infer_of_expression (env) (current:spec) expr: spec =
                let rest = infer_of_expression env his let_expression in 
                List.map (fun (a, b) -> (a, Cons (ev, b))) rest
 
-
              | _ -> raise (Foo (var_name ^ "\n" ^string_of_expression_kind (constant.pexp_desc)))
              )
            | _ ->  raise (Foo (var_name ^ "\n" ^string_of_expression_kind (allocate_argument.pexp_desc)))
             )
  
         else 
-        infer_of_expression env current (head.pvb_expr) 
+        let eff = infer_of_expression env current (head.pvb_expr) in 
+        let his = concatenateEffects current eff in 
+        let rest = infer_of_expression env his let_expression in 
+        concatenateEffects eff rest
 
     | _ -> raise (Foo (var_name ^ "\n" ^string_of_expression_kind (head.pvb_expr.pexp_desc) )) 
     )
