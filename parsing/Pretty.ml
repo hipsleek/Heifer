@@ -170,14 +170,14 @@ let rec string_of_singleton (s : singleton) : string =
 
 let rec string_of_es es : string = 
   match es with 
-  | Bot -> "_|_"
-  | Emp -> "e"
+  | Bot -> "⊥"
+  | Emp -> "ε"
   | Singleton s  -> string_of_singleton s
-  | Cons (es1, es2) -> ""^string_of_es es1 ^"."^ string_of_es es2 ^""
+  | Cons (es1, es2) -> ""^string_of_es es1 ^"⋅"^ string_of_es es2 ^""
   | ESOr (es1, es2) -> "("^string_of_es es1 ^")+("^ string_of_es es2 ^")"
-  | Kleene es1 -> "("^string_of_es es1^")^*"
+  | Kleene es1 -> "("^string_of_es es1^")★"
   | Underline -> "_"
-  | Stop -> "stop"
+  | Stop -> "†"
 
 let string_of_tuple (pi, es) : string = 
   string_of_pi pi ^ ", " ^  string_of_es es  ;;

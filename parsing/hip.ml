@@ -242,12 +242,13 @@ type fn_spec = {
 type fn_specs = fn_spec SMap.t
 
 (* only first-order types for arguments, for now *)
-type typ = TInt | TUnit | TRef of typ
+type typ = TInt | TUnit | TRef of typ | TString
 
 let rec core_type_to_typ (t:core_type) =
   match t.ptyp_desc with
   | Ptyp_constr ({txt=Lident "int"; _}, []) -> TInt
   | Ptyp_constr ({txt=Lident "unit"; _}, []) -> TUnit
+  | Ptyp_constr ({txt=Lident "string"; _}, []) -> TString
   | Ptyp_constr ({txt=Lident "ref"; _}, [t]) -> TRef (core_type_to_typ t)
   | _ -> failwith ("core_type_to_typ: " ^ string_of_core_type t)
 
@@ -759,14 +760,9 @@ let rec infer_handling env handler ins (current:spec) (der:es) (expr:expression)
     infer_handling env handler ins current der exprIn
 
 (* VALUE *)   
-  | Pexp_constant cons ->
-    (match cons with 
-    | Pconst_integer (_, _) -> 
-      List.map (fun (p, t) -> (p, t)) current
-    | _ -> raise (Foo (Pprintast.string_of_expression  expr ^ " expressionToBasicT error1"))
-    )
-  | Pexp_construct _ -> List.map (fun (p, t) -> (p, t)) current
-  | Pexp_ident _ -> List.map (fun (p, t) -> (p, t)) current 
+  | Pexp_constant _
+  | Pexp_construct _ 
+  | Pexp_ident _ -> [(True, Emp)]
    
   | Pexp_apply (fnName, li) -> 
     let name = fnNameToString fnName in 
@@ -777,14 +773,14 @@ let rec infer_handling env handler ins (current:spec) (der:es) (expr:expression)
       (*let (_, continue_value) = (List.hd (List.tl li)) in 
       let eff_value = infer_of_expression env [(True, Emp)] continue_value in 
       *)
-      concatnateEffEs current der
+      [(True, der)]
 
 
     else if String.compare name "perform" == 0 then 
       let eff_name = getEffName (List.hd li) in 
       let eff_arg = getEffNameArg (List.hd li) in 
-      List.map (fun (p, t) -> (p, (Cons(t, Singleton (Event (eff_name, eff_arg))))) 
-      ) current
+      [(True, Singleton (Event (eff_name, eff_arg)))]
+
 
       
     else  raise (Foo "infer_handling not yet covering functiin calls")
@@ -792,8 +788,11 @@ let rec infer_handling env handler ins (current:spec) (der:es) (expr:expression)
   
     
   | Pexp_sequence (ex1, ex2) -> 
+
       let eff1 = infer_handling env handler ins current der ex1 in 
-      infer_handling env handler ins eff1 der ex2 
+      let eff2 = infer_handling env handler ins (concatenateEffects current eff1) der ex2 in 
+      concatenateEffects eff1 eff2
+
 
     (*match ex1.pexp_desc with
     | Pexp_apply (fnName, li) -> 
@@ -829,7 +828,7 @@ let rec infer_handling env handler ins (current:spec) (der:es) (expr:expression)
     (match e3_op with 
     | None -> branch1
     | Some expr3 -> 
-      let branch2 = infer_handling env handler ins current der  expr3 in 
+      let branch2 = infer_handling env handler ins current der expr3 in 
       List.append branch1 branch2)
 
 
@@ -851,17 +850,23 @@ and handlerCompute env (history:es) handler (p, t) : spec =
       | One (ins) -> 
         let (effName, _) = ins in 
         (match (findEffectHanding handler effName) with 
-        | None -> handlerCompute env (Cons (history, eventToEs f)) handler (p, derivative t f)
+        | None -> 
+          let ev =  eventToEs f in 
+          List.map (fun (a, b)-> (a, Cons(ev, b)))  (handlerCompute env (Cons (history, ev)) handler (p, derivative t f))
         | Some expr -> 
           let der = (derivative t f) in 
-          let continuation = handlerReasoning  env handler [(p, der)] in 
+          let continuation = handlerReasoning env handler [(p, der)] in 
           List.flatten (List.map (fun (_, a) -> 
             infer_handling env handler ins [(p, history)] (a) expr
           ) continuation)
           (*[(p, Cons(history, Singleton (Event ins)))] (derivative t f) expr *)
           
         )    
-      | _ ->  handlerCompute env (Cons (history, eventToEs f)) handler (p, derivative t f)
+      | _ ->  
+        let ev =  eventToEs f in 
+        List.map (fun (a, b)-> (a, Cons(ev, b)))  (handlerCompute env (Cons (history, ev)) handler (p, derivative t f))
+
+      
     ) fstSet)
 
 and handlerReasoning env handler eff : spec = 
@@ -880,30 +885,27 @@ and infer_of_expression (env) (current:spec) expr: spec =
           let bopLhsTerm = expressionToTerm bopLhs.pexp_desc in 
           let bopRhsTerm = expressionToTerm bopRhs.pexp_desc in 
           if String.compare (fnNameToString bop) "="  == 0 then 
-          concatnateEffEs current (Singleton (DelayAssert (Atomic (EQ, bopLhsTerm, bopRhsTerm))))
+          [(True, Singleton (DelayAssert (Atomic (EQ, bopLhsTerm, bopRhsTerm))))]
           else if String.compare (fnNameToString bop) ">"  == 0 then 
-          concatnateEffEs current (Singleton (DelayAssert (Atomic (GT, bopLhsTerm, bopRhsTerm))))
+          [(True, Singleton (DelayAssert (Atomic (GT, bopLhsTerm, bopRhsTerm))))]
           else if String.compare (fnNameToString bop) "<"  == 0 then 
-          concatnateEffEs current (Singleton (DelayAssert (Atomic (LT, bopLhsTerm, bopRhsTerm))))
+          [(True, Singleton (DelayAssert (Atomic (LT, bopLhsTerm, bopRhsTerm))))]
           else if String.compare (fnNameToString bop) ">="  == 0 then 
-          concatnateEffEs current (Singleton (DelayAssert (Atomic (GTEQ, bopLhsTerm, bopRhsTerm))))
-          else concatnateEffEs current (Singleton (DelayAssert (Atomic (LTEQ, bopLhsTerm, bopRhsTerm))))
+          [(True, Singleton (DelayAssert (Atomic (GTEQ, bopLhsTerm, bopRhsTerm))))]
+          else [(True, Singleton (DelayAssert (Atomic (LTEQ, bopLhsTerm, bopRhsTerm))))]
 
     | _ -> raise (Foo (string_of_expression_kind (exprIn.pexp_desc) )) 
     )
 
 
 (* VALUE *)
-  | Pexp_constant cons ->
-    (match cons with 
-    | Pconst_integer (_, _) -> List.map (fun (p, t) -> (p, t) ) current  
-    | _ -> raise (Foo (Pprintast.string_of_expression  expr ^ " expressionToBasicT error1"))
-    )
-  | Pexp_construct _ -> List.map (fun (p, t) -> (p, t) ) current
-  | Pexp_ident _ -> List.map (fun (p, t) -> (p, t) ) current
+  | Pexp_constant _
+  | Pexp_construct _ 
+  | Pexp_ident _ -> [(True, Emp)] 
   | Pexp_sequence (ex1, ex2) -> 
   let eff1 = infer_of_expression env current ex1 in 
-  infer_of_expression env eff1 ex2 
+  let eff2 = infer_of_expression env (concatenateEffects current eff1) ex2 in 
+  concatenateEffects eff1 eff2
     
 (* CONDITIONAL not path sensitive so far *)
   | Pexp_ifthenelse (_, e2, e3_op) ->  
@@ -926,10 +928,12 @@ and infer_of_expression (env) (current:spec) expr: spec =
              let (_, constant) = (List.hd li) in 
              (match constant.pexp_desc with
              | Pexp_constant (Pconst_integer (str, _)) ->
-               let current' =  
-               concatnateEffEs current 
-               (Singleton (HeapOp (PointsTo (var_name, [Num (int_of_string str)]))))
-               in infer_of_expression env current' let_expression
+               let ev = (Singleton (HeapOp (PointsTo (var_name, [Num (int_of_string str)])))) in 
+               let his = concatnateEffEs current ev in 
+               let rest = infer_of_expression env his let_expression in 
+               List.map (fun (a, b) -> (a, Cons (ev, b))) rest
+
+
              | _ -> raise (Foo (var_name ^ "\n" ^string_of_expression_kind (constant.pexp_desc)))
              )
            | _ ->  raise (Foo (var_name ^ "\n" ^string_of_expression_kind (allocate_argument.pexp_desc)))
@@ -942,7 +946,7 @@ and infer_of_expression (env) (current:spec) expr: spec =
     | Pexp_match (ex, case_li) -> 
       let ex_eff = normalSpec (infer_of_expression env [(True, Emp)] ex) in 
       let eff_handled = handlerReasoning env case_li (concatnateEffEs ex_eff Stop) in 
-      concatenateEffects current eff_handled 
+      eff_handled 
 
 
     | Pexp_apply (fnName, li) -> 
@@ -951,7 +955,7 @@ and infer_of_expression (env) (current:spec) expr: spec =
 (* PERFORM *)
         let eff_name = getEffName (List.hd li) in 
         let eff_arg = getEffNameArg (List.hd li) in 
-        concatnateEffEs current (Singleton (Event (eff_name, eff_arg)))
+        [(True, Singleton (Event (eff_name, eff_arg)))]
       else if String.compare name ":=" == 0 then 
         let (_,  templhs) = (List.hd li) in 
         let (_, temprhs) = (List.hd (List.tl li)) in 
@@ -965,12 +969,12 @@ and infer_of_expression (env) (current:spec) expr: spec =
           let bopLhsTerm = expressionToTerm bopLhs.pexp_desc in 
           let bopRhsTerm = expressionToTerm bopRhs.pexp_desc in 
           if String.compare (fnNameToString bop) "+"  == 0 then 
-          concatnateEffEs current (Singleton (HeapOp (PointsTo (lhs, [(Plus(bopLhsTerm, bopRhsTerm))]))))
-          else concatnateEffEs current (Singleton (HeapOp (PointsTo (lhs, [(Minus(bopLhsTerm, bopRhsTerm))]))))
+          [(True, Singleton (HeapOp (PointsTo (lhs, [(Plus(bopLhsTerm, bopRhsTerm))]))))]
+          else [(True, Singleton (HeapOp (PointsTo (lhs, [(Minus(bopLhsTerm, bopRhsTerm))]))))]
         | _ -> raise (Foo (string_of_expression_kind (templhs.pexp_desc)))
         )
 
-      else if String.compare name "Printf.printf" == 0 then concatnateEffEs current Emp
+      else if String.compare name "Printf.printf" == 0 then [(True, Emp)]
 
       else 
         let { pre = pre  ; post = post; formals = arg_formal } =
@@ -987,7 +991,7 @@ and infer_of_expression (env) (current:spec) expr: spec =
             (*let (res,_,  str) = printReport current precon' in 
             *)
       
-            if true then concatenateEffects current postcon'
+            if true then postcon'
             else raise (Foo ("call_function precondition fail " ^name ^":\n" ^ "TRSstr" ^ debug_string_of_expression fnName))
           
 (*
@@ -1207,6 +1211,7 @@ let rec infer_of_program env x: string * env * experiemntal_data =
             (* note that we don't recurse in a *)
             loop (a :: acc) b
           | Ptyp_constr ({txt=Lident "int"; _}, [])
+          | Ptyp_constr ({txt=Lident "string"; _}, []) 
           | Ptyp_constr ({txt=Lident "unit"; _}, []) -> List.rev acc, t
           | _ -> failwith ("split_params_fn: " ^ debug_string_of_core_type t)
         in loop [] t

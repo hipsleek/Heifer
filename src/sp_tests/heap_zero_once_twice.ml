@@ -39,8 +39,6 @@ let callee2 ()
 let main 
 (*@  requires (true, emp) @*)
 (*@  ensures  (true, emp) @*)
-(* requires emp *)
-(* ensures emp *)
 =
   match callee0 () with
   | v -> perform Done 
