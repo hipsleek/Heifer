@@ -36,12 +36,12 @@ let callee2 ()
   Printf.printf "i = %d\n%!" !i;
   assert (!i = 1)
 
-let main 
+let main_aux ()
 (*@  requires (true, emp) @*)
 (*@  ensures  (true, emp) @*)
 =
   match callee2 () with
-  | v -> perform Done 
+  | v -> print_string ("Done 0 \n"); perform Done 
   | effect Zero k -> ()
 (*      
 For Zero:                                                          
@@ -64,7 +64,7 @@ For Once:
     [i=1]                  emp                                 i=1 /\ true 
 *)
   | effect Twice k ->
-    (continue (Obj.clone_continuation k) ()); (continue k ()); 
+    (continue (Obj.clone_continuation k) ()); (continue k ())
 (*      
 For TWICE: 
 {i->0}.Twice.{i:=old(i)+1}.[i=1] 
@@ -78,3 +78,10 @@ For TWICE:
      [i=1]                 emp                                        i=2 /\ false 
 *)
 
+let main 
+(*@  requires (true, emp) @*)
+(*@  ensures  (true, emp) @*)
+= 
+  match main_aux () with 
+  | x ->  ()
+  | effect Done k -> print_string ("Done here\n"); continue k ()

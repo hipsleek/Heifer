@@ -1,9 +1,9 @@
 effect IsALeaf : unit
-effect IsANode : 'a -> unit 
+effect IsANode : int -> unit 
 
-type 'a tree =
+type tree =
   | Leaf
-  | Node of 'a * 'a tree * 'a tree
+  | Node of int * tree * tree
 
 (* the code below constructs this tree:
          4
@@ -47,6 +47,6 @@ let main = (*print_string (string_of_int (size t)^"\n")*)
   let () = match travasetree t with 
   | v -> v 
   | effect IsALeaf k -> continue k ()
-  | effect (IsANode c) k -> i := !i + 1; continue k ()
-  in print_string (string_of_int (!i)^"\n")
+  | effect (IsANode c) k -> i := !i + 1; print_string (string_of_int c ^ "\n"); continue k ()
+  in print_string ("\n"^strihan1o n g s hng_of_int (!i)^"\n")
 
