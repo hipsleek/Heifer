@@ -968,7 +968,7 @@ and infer_of_expression (env) (current:spec) expr: spec =
              let (_, constant) = (List.hd li) in 
              (match constant.pexp_desc with
              | Pexp_constant (Pconst_integer (str, _)) ->
-               let ev = (Singleton (HeapOp (PointsTo (var_name, [Num (int_of_string str)])))) in 
+               let ev = (Singleton (HeapOp (PointsTo (var_name, Num (int_of_string str))))) in 
                let his = concatnateEffEs current ev in 
                let rest = infer_of_expression env his let_expression in 
                List.map (fun (a, b) -> (a, Cons (ev, b))) rest
@@ -1012,8 +1012,8 @@ and infer_of_expression (env) (current:spec) expr: spec =
           let bopLhsTerm = expressionToTerm bopLhs.pexp_desc in 
           let bopRhsTerm = expressionToTerm bopRhs.pexp_desc in 
           if String.compare (fnNameToString bop) "+"  == 0 then 
-          [(True, Singleton (HeapOp (PointsTo (lhs, [(Plus(bopLhsTerm, bopRhsTerm))]))))]
-          else [(True, Singleton (HeapOp (PointsTo (lhs, [(Minus(bopLhsTerm, bopRhsTerm))]))))]
+          [(True, Singleton (HeapOp (PointsTo (lhs, (Plus(bopLhsTerm, bopRhsTerm))))))]
+          else [(True, Singleton (HeapOp (PointsTo (lhs, (Minus(bopLhsTerm, bopRhsTerm))))))]
         | (Pexp_ident id1, Pexp_ident id2) -> 
 
           let rec findMapping str s : string = 
@@ -1027,7 +1027,7 @@ and infer_of_expression (env) (current:spec) expr: spec =
           print_string (List.fold_left (fun acc (str, t) -> acc ^ "\n" ^ str ^ "->" ^ string_of_basic_type t) "" !variableStack);
           let lhs' = findMapping lhs !variableStack in 
           let rhs' = findMapping rhs !variableStack in 
-          [(True, Singleton (HeapOp (PointsTo (lhs', [Var rhs']))))]
+          [(True, Singleton (HeapOp (PointsTo (lhs', Var rhs'))))]
 
         | _ -> raise (Foo ("Pexp_apply:"^ string_of_expression_kind (templhs.pexp_desc) ^ " " ^ string_of_expression_kind (temprhs.pexp_desc)))
         )
@@ -1149,11 +1149,10 @@ and infer_value_binding rec_flag env vb =
   let fn_name = string_of_pattern vb.pvb_pat in
   let body = vb.pvb_expr in
   let formals = collect_param_names body in
-  let spec = 
-    match function_spec body with
-    | None -> default_spec_pre, [default_spec_post]
-    | Some (pre, post) -> (normalSpec pre, normalSpecList post)
-  in 
+  match function_spec body with
+  | None -> None (*default_spec_pre, [default_spec_post]*)
+  | Some (pre, post) -> 
+  let spec = (normalSpec pre, normalSpecList post) in 
   let (pre, post) = spec in
 
   (*let env = Env.reset_side_spec pre_side env in  *)
@@ -1178,7 +1177,7 @@ and infer_value_binding rec_flag env vb =
   let env1 = Env.add_fn fn_name { pre; post; formals } env in
   
 
-  pre, post, ( final), env1, fn_name
+  Some (pre, post, ( final), env1, fn_name)
 
 
 
@@ -1187,7 +1186,9 @@ type experiemntal_data = (float list * float list)
 
 let infer_of_value_binding rec_flag env vb: string * env * experiemntal_data =
   let startTimeStamp = Sys.time() in
-  let pre, post, final, env, fn_name = infer_value_binding rec_flag env vb in
+  match  infer_value_binding rec_flag env vb with 
+  | None -> "", env, ([], [])
+  | Some (pre, post, final, env, fn_name) -> 
 
   (* don't report things like let () = ..., which isn't a function  *)
   if String.equal fn_name "()" then

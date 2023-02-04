@@ -6,3 +6,6 @@
 2. for memory manipulating nested handlers
 3. connection with monadic. 
 4. expressiveness between algebraic effects and reset/shift 
+
+cd parsing
+dune exec ./hip.exe ../src/sp_tests/0_heap_zero_once_twice.ml

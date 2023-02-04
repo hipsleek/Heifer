@@ -29,9 +29,11 @@ type instant = string * (basic_t list)
 
 type term = 
       Num of int
+    | TList of (int list)
     | Var of string
     | Plus of term * term 
     | Minus of term * term 
+    | TListAppend of term * term
 
 type bin_op = GT | LT | EQ | GTEQ | LTEQ
 
@@ -42,12 +44,13 @@ type pi =
   | And    of pi * pi
   | Or     of pi * pi
   | Imply  of pi * pi
-  | Not    of pi
+  | Not    of pi 
+  | Predicate of string * term
 
 
 type kappa = 
   | EmptyHeap
-  | PointsTo of (string * (term list))
+  | PointsTo of (string * term)
   | Disjoin of kappa * kappa
   | Implication of kappa * kappa
 

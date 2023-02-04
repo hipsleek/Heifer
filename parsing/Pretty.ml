@@ -131,6 +131,14 @@ let rec string_of_term t : string =
   | Var str -> str
   | Plus (t1, t2) -> string_of_term t1 ^ " + " ^ string_of_term t2
   | Minus (t1, t2) -> string_of_term t1 ^ " - " ^ string_of_term t2
+  | TList nLi -> 
+    let rec helper li = 
+      match li with
+      | [] -> ""
+      | [x] -> string_of_int x
+      | x:: xs -> string_of_int x ^";"^ helper xs 
+    in "[" ^ helper nLi ^ "]"
+  | TListAppend (t1, t2) -> string_of_term t1 ^ " ++ " ^ string_of_term t2
 
 let string_of_bin_op op : string =
   match op with 
@@ -143,7 +151,7 @@ let string_of_bin_op op : string =
 let rec string_of_kappa (k:kappa) : string = 
   match k with
   | EmptyHeap -> "emp"
-  | PointsTo  (str, args) -> Format.sprintf "%s->%s" str (List.map string_of_term args |> String.concat ", ")
+  | PointsTo  (str, args) -> Format.sprintf "%s->%s" str (List.map string_of_term [args] |> String.concat ", ")
   | Disjoin (k1, k2) -> string_of_kappa k1 ^ "*" ^ string_of_kappa k2 
   | Implication (k1, k2) -> string_of_kappa k1 ^ "-*" ^ string_of_kappa k2 
 
@@ -158,6 +166,7 @@ let rec string_of_pi pi : string =
   | Or     (p1, p2) -> string_of_pi p1 ^ "\\/" ^ string_of_pi p2
   | Imply  (p1, p2) -> string_of_pi p1 ^ "->" ^ string_of_pi p2
   | Not    p -> "!" ^ string_of_pi p
+  | Predicate (str, t) -> str ^ "(" ^ string_of_term t ^ ")"
 
 let rec string_of_singleton (s : singleton) : string = 
   match s with

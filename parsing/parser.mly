@@ -677,7 +677,7 @@ let mk_directive ~loc name arg =
 %token OR
 /* %token PARSER */
 %token PERCENT
-%token PLUS
+%token PLUS PLUSPLUS
 %token PLUSDOT
 %token PLUSEQ
 %token <string> PREFIXOP
@@ -2542,7 +2542,7 @@ effect_trace_value:
 
 heapkappa:
 | EMP { EmptyHeap }
-| str=LIDENT MINUSGREATER args = list(pure_formula_term) {PointsTo(str, args)}
+| str=LIDENT MINUSGREATER args = pure_formula_term {PointsTo(str, args)}
 
 
 effect_trace:
@@ -2563,10 +2563,33 @@ effect_trace:
   | LPAREN effect_trace RPAREN { $2 }
 ;
 
+list_of_list:
+| {[]}
+| n = INT {let (i, _) = n in [int_of_string i]}
+| SEMI n = INT rest = list_of_list {let (i, _) = n in (int_of_string i)::rest}
+
+
+
+pure_formula_term_aux_aux:
+| t=pure_formula_term {("+", t)}
+| PLUS t=pure_formula_term {("++", t)}
+
+pure_formula_term_aux:
+| PLUS rest=pure_formula_term_aux_aux {rest}
+
 pure_formula_term:
   | n = INT { let (i, _) = n in Num (int_of_string i) }
+  | LBRACKET n = list_of_list RBRACKET {TList n}
   | v = LIDENT { Var v }
+  (*| pure_formula_term rest = pure_formula_term_aux { 
+    let (op, t) = rest in 
+    if String.compare op "+" == 0 then Plus ($1, t) 
+    else TListAppend($1, t)}
+    *)
+
+    
   | pure_formula_term PLUS pure_formula_term { Plus ($1, $3) }
+  | pure_formula_term PLUSPLUS pure_formula_term { TListAppend ($1, $3) }
   | pure_formula_term MINUS pure_formula_term { Minus ($1, $3) }
   | LPAREN pure_formula_term RPAREN { $2 }
 ;
@@ -2590,7 +2613,8 @@ pure_formula:
   | pure_formula CONJUNCTION pure_formula { And ($1, $3) }
   | pure_formula DISJUNCTION pure_formula { Or ($1, $3) }
   | pure_formula IMPLICATION pure_formula { Imply ($1, $3) }
-  | TILDE pure_formula { Not ($2) }
+  | TILDE pure_formula { Not ($2) } 
+  | v = LIDENT LPAREN a = pure_formula_term RPAREN { Predicate (v, a) }
 ;
 
 

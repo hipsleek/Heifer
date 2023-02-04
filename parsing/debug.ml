@@ -94,6 +94,7 @@ let string_of_token =
 | OR -> "OR"
 | PERCENT -> "PERCENT"
 | PLUS -> "PLUS"
+| PLUSPLUS -> "PLUSPLUS"
 | PLUSDOT -> "PLUSDOT"
 | PLUSEQ -> "PLUSEQ"
 | PREFIXOP _ -> "PREFIXOP"

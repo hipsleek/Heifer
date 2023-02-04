@@ -10,7 +10,8 @@ let rec term_to_expr ctx : Parsetree.term -> Expr.expr = function
   | Var v          -> Arithmetic.Integer.mk_const_s ctx v
   | Plus (t1, t2)  -> Arithmetic.mk_add ctx [ term_to_expr ctx t1; term_to_expr ctx t2 ]
   | Minus (t1, t2) -> Arithmetic.mk_sub ctx [ term_to_expr ctx t1; term_to_expr ctx t2 ]
-
+  | TList _
+  | TListAppend (_, _) -> raise (Foo "Rewriting.ml->term_to_expr")
 
 let rec pi_to_expr ctx : Parsetree.pi -> Expr.expr = function
   | True                -> Boolean.mk_true ctx
@@ -28,6 +29,7 @@ let rec pi_to_expr ctx : Parsetree.pi -> Expr.expr = function
   | Or (pi1, pi2)       -> Boolean.mk_or ctx [ pi_to_expr ctx pi1; pi_to_expr ctx pi2 ]
   | Imply (pi1, pi2)    -> Boolean.mk_implies ctx (pi_to_expr ctx pi1) (pi_to_expr ctx pi2)
   | Not pi              -> Boolean.mk_not ctx (pi_to_expr ctx pi)
+  | Predicate _ -> raise (Foo "Rewriting.ml->pi_to_expr")
 
 
 let check p1 p2 : bool =
@@ -165,7 +167,7 @@ let comparePointsTo (s1, t1) (s2, t2) : bool =
 let compareKappa (k1:kappa) (k2:kappa) : bool = 
   match (k1, k2) with 
   | (EmptyHeap, EmptyHeap) -> true 
-  | (PointsTo pt1, PointsTo pt2) -> comparePointsTo pt1 pt2
+  | (PointsTo pt1, PointsTo pt2) -> (*comparePointsTo*) pt1 == pt2
   | (Disjoin _, Disjoin _)
   | (Implication _, Implication _) -> raise (Foo "compareKappa TBD")
   | _ -> false

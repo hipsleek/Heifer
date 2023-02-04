@@ -560,6 +560,7 @@ rule token = parse
   | "!"  { BANG }
   | "!=" { INFIXOP0 "!=" }
   | "+"  { PLUS }
+  | "++"  { PLUSPLUS }
   | "+." { PLUSDOT }
   | "+=" { PLUSEQ }
   | "-"  { MINUS }
