@@ -771,11 +771,19 @@ let deleteTailSYH  (li:'a list) =
     | x :: xs -> aux xs (List.append acc [x])
   in aux li []
 
+let rec findMapping str s : string = 
+  match s with 
+  | [] -> str
+  | (x, t) :: xs -> if String.compare x str == 0 then string_of_basic_type t else findMapping str xs 
+   
 
 let rec expressionToTerm (exprIn: Parsetree.expression_desc) : term = 
   match exprIn with 
     | Pexp_constant (Pconst_integer (str, _)) -> (Num (int_of_string str))
-    | Pexp_ident id -> Var (getIndentName (id.txt))
+    | Pexp_ident id -> 
+      
+      let lhs = getIndentName (id.txt) in 
+      Var (findMapping lhs !variableStack)
 
     | Pexp_apply (_, exprInLi) -> 
       let (_, temp) =  (List.hd exprInLi) in
@@ -806,6 +814,8 @@ let eventToEs (ev:event) : es =
   | EvAssert pi -> Singleton (DelayAssert pi)
   | Any -> Underline
   | StopEv -> Stop
+
+     
 
 let rec infer_handling env handler ins (current:spec) (der:es) (expr:expression): spec = 
   (*print_string ("infer_handling:" ^ string_of_es der ^ "\n");*)
@@ -946,6 +956,8 @@ and handlerCompute env (history:es) handler (p, t) : spec =
 and handlerReasoning env handler eff : spec = 
   List.flatten (List.map (fun tuple-> handlerCompute env Emp handler tuple) eff)
 
+
+
 and infer_of_expression (env) (current:spec) expr: spec =  
   let current  = normalSpec current in 
   match expr.pexp_desc with 
@@ -1054,7 +1066,6 @@ and infer_of_expression (env) (current:spec) expr: spec =
           let (_,  bopLhs) = (List.hd bopLi) in 
           let (_,  bopRhs) = List.hd (List.tl bopLi) in 
 
-
           let bopLhsTerm = expressionToTerm bopLhs.pexp_desc in 
           let bopRhsTerm = expressionToTerm bopRhs.pexp_desc in 
           if String.compare (fnNameToString bop) "+"  == 0 then 
@@ -1064,11 +1075,7 @@ and infer_of_expression (env) (current:spec) expr: spec =
           else [(True, Singleton (HeapOp (PointsTo (lhs, (TListAppend(bopLhsTerm, bopRhsTerm))))))]
         | (Pexp_ident id1, Pexp_ident id2) -> 
 
-          let rec findMapping str s : string = 
-            match s with 
-            | [] -> str
-            | (x, t) :: xs -> if String.compare x str == 0 then string_of_basic_type t else findMapping str xs 
-          in 
+
 
           let lhs = getIndentName (id1.txt) in 
           let rhs = getIndentName (id2.txt) in 

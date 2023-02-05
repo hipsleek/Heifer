@@ -38,7 +38,7 @@ let callee2 ()
 
 let main_aux ()
 (*@  requires (true, emp) @*)
-(*@  ensures  (true, emp) @*)
+(*@  ensures  (true,  {i->0}.{i->i+1}.[i=1].{i->i+1}.[i=1]) @*)
 =
   match callee2 () with
   | v -> print_string ("Done 0 \n"); perform Done 
