@@ -757,16 +757,45 @@ let string_of_expression_kind (expr:Parsetree.expression_desc) : string =
   | Pexp_extension _ -> "Pexp_extension"
   | Pexp_unreachable -> "Pexp_unreachable"
 
-let expressionToTerm (exprIn: Parsetree.expression_desc) : term = 
+let rec getLastEleFromList li = 
+  match li with 
+  | [] -> raise (Foo "getLastEleFromList impossible")
+  | [x] -> x 
+  | _ :: xs -> getLastEleFromList xs 
+
+let deleteTailSYH  (li:'a list) = 
+  let rec aux liIn acc =
+    match liIn with 
+    | [] -> raise (Foo "deleteTailSYH impossible")
+    | [_] -> acc 
+    | x :: xs -> aux xs (List.append acc [x])
+  in aux li []
+
+
+let rec expressionToTerm (exprIn: Parsetree.expression_desc) : term = 
   match exprIn with 
     | Pexp_constant (Pconst_integer (str, _)) -> (Num (int_of_string str))
+    | Pexp_ident id -> Var (getIndentName (id.txt))
+
     | Pexp_apply (_, exprInLi) -> 
       let (_, temp) =  (List.hd exprInLi) in
       (match temp.pexp_desc with 
       | Pexp_ident id -> Var (getIndentName (id.txt))
-      | _ -> raise (Foo "ai you ... ")
+      | _ -> raise (Foo "ai you ... 1")
       )
-    | _ -> raise (Foo "ai you ... helper") 
+    | Pexp_construct (_, Some expr) -> 
+      print_string ( Pprintast.string_of_expression  expr^ "\n" );
+      expressionToTerm expr.pexp_desc
+
+    | Pexp_tuple (exprLi) -> 
+      if List.length exprLi == 0 then TTupple []
+      else 
+      (match (getLastEleFromList exprLi).pexp_desc with 
+      | Pexp_construct (_, None) -> (* it is a list*)
+        TList (List.map (fun a -> expressionToTerm a.pexp_desc) (  deleteTailSYH exprLi)) 
+      | _ -> (* it is a tuple*)
+        TTupple (List.map (fun a -> expressionToTerm a.pexp_desc) exprLi)  ) 
+    | _ -> raise (Foo ("ai you ... helper" ^ string_of_expression_kind (exprIn) ) )
 
 
 let eventToEs (ev:event) : es = 
@@ -859,9 +888,14 @@ let rec infer_handling env handler ins (current:spec) (der:es) (expr:expression)
       let branch2 = infer_handling env handler ins current der expr3 in 
       List.append branch1 branch2)
 
+  | Pexp_assert _ -> 
+    infer_of_expression env current (expr) 
 
-  | _ -> raise (Foo "not yet covered infer_handling")
-    (*infer_of_expression env current expr*)
+
+
+  | _ -> 
+    raise (Foo (string_of_expression_kind expr.pexp_desc ^ "\n\n in infer_handling \n " ^ 
+    Pprintast.string_of_expression  expr ^ " infer_of_expression not corvered ")) 
 
 
 
@@ -920,6 +954,7 @@ and infer_of_expression (env) (current:spec) expr: spec =
   | Pexp_assert exprIn -> 
     (match exprIn.pexp_desc with 
     | Pexp_apply (bop, bopLi ) -> 
+        if List.length bopLi == 2 then 
           let (_,  bopLhs) = (List.hd bopLi) in 
           let (_,  bopRhs) = List.hd (List.tl bopLi) in 
           let bopLhsTerm = expressionToTerm bopLhs.pexp_desc in 
@@ -933,6 +968,11 @@ and infer_of_expression (env) (current:spec) expr: spec =
           else if String.compare (fnNameToString bop) ">="  == 0 then 
           [(True, Singleton (DelayAssert (Atomic (GTEQ, bopLhsTerm, bopRhsTerm))))]
           else [(True, Singleton (DelayAssert (Atomic (LTEQ, bopLhsTerm, bopRhsTerm))))]
+        else 
+          let (_,  bopLhs) = (List.hd bopLi) in 
+          print_string ( Pprintast.string_of_expression  bopLhs^ "\n" );
+          [(True, Singleton (DelayAssert(Predicate (fnNameToString bop, expressionToTerm bopLhs.pexp_desc))))]
+
 
     | _ -> raise (Foo (string_of_expression_kind (exprIn.pexp_desc) )) 
     )
@@ -966,15 +1006,21 @@ and infer_of_expression (env) (current:spec) expr: spec =
            (match allocate_argument.pexp_desc with 
            | Pexp_apply (_, li) -> 
              let (_, constant) = (List.hd li) in 
-             (match constant.pexp_desc with
+             let pointsToTerm = expressionToTerm constant.pexp_desc in 
+             let ev = (Singleton (HeapOp (PointsTo (var_name, pointsToTerm)))) in 
+             let his = concatnateEffEs current ev in 
+             let rest = infer_of_expression env his let_expression in 
+             List.map (fun (a, b) -> (a, Cons (ev, b))) rest
+
+             (*match constant.pexp_desc with
              | Pexp_constant (Pconst_integer (str, _)) ->
-               let ev = (Singleton (HeapOp (PointsTo (var_name, Num (int_of_string str))))) in 
-               let his = concatnateEffEs current ev in 
-               let rest = infer_of_expression env his let_expression in 
-               List.map (fun (a, b) -> (a, Cons (ev, b))) rest
+                
+
+             | Pexp_construct (_, Some expr) -> 
+
 
              | _ -> raise (Foo (var_name ^ "\n" ^string_of_expression_kind (constant.pexp_desc)))
-             )
+             *)
            | _ ->  raise (Foo (var_name ^ "\n" ^string_of_expression_kind (allocate_argument.pexp_desc)))
             )
  
@@ -1013,7 +1059,9 @@ and infer_of_expression (env) (current:spec) expr: spec =
           let bopRhsTerm = expressionToTerm bopRhs.pexp_desc in 
           if String.compare (fnNameToString bop) "+"  == 0 then 
           [(True, Singleton (HeapOp (PointsTo (lhs, (Plus(bopLhsTerm, bopRhsTerm))))))]
-          else [(True, Singleton (HeapOp (PointsTo (lhs, (Minus(bopLhsTerm, bopRhsTerm))))))]
+          else if String.compare (fnNameToString bop) "-"  == 0 then 
+          [(True, Singleton (HeapOp (PointsTo (lhs, (Minus(bopLhsTerm, bopRhsTerm))))))]
+          else [(True, Singleton (HeapOp (PointsTo (lhs, (TListAppend(bopLhsTerm, bopRhsTerm))))))]
         | (Pexp_ident id1, Pexp_ident id2) -> 
 
           let rec findMapping str s : string = 

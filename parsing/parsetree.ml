@@ -29,7 +29,8 @@ type instant = string * (basic_t list)
 
 type term = 
       Num of int
-    | TList of (int list)
+    | TList of (term list)
+    | TTupple of (term list)
     | Var of string
     | Plus of term * term 
     | Minus of term * term 

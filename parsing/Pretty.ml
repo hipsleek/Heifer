@@ -131,12 +131,20 @@ let rec string_of_term t : string =
   | Var str -> str
   | Plus (t1, t2) -> string_of_term t1 ^ " + " ^ string_of_term t2
   | Minus (t1, t2) -> string_of_term t1 ^ " - " ^ string_of_term t2
+  | TTupple nLi -> 
+    let rec helper li = 
+      match li with
+      | [] -> ""
+      | [x] -> string_of_term x
+      | x:: xs -> string_of_term x ^","^ helper xs 
+    in "(" ^ helper nLi ^ ")"
+
   | TList nLi -> 
     let rec helper li = 
       match li with
       | [] -> ""
-      | [x] -> string_of_int x
-      | x:: xs -> string_of_int x ^";"^ helper xs 
+      | [x] -> string_of_term x
+      | x:: xs -> string_of_term x ^";"^ helper xs 
     in "[" ^ helper nLi ^ "]"
   | TListAppend (t1, t2) -> string_of_term t1 ^ " ++ " ^ string_of_term t2
 

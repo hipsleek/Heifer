@@ -2568,6 +2568,10 @@ list_of_list:
 | n = INT {let (i, _) = n in [int_of_string i]}
 | SEMI n = INT rest = list_of_list {let (i, _) = n in (int_of_string i)::rest}
 
+list_of_TupleTerms:
+| {[]}
+| n = pure_formula_term {[n]}
+| COMMA n = pure_formula_term rest = list_of_TupleTerms {n::rest}
 
 
 pure_formula_term_aux_aux:
@@ -2579,7 +2583,11 @@ pure_formula_term_aux:
 
 pure_formula_term:
   | n = INT { let (i, _) = n in Num (int_of_string i) }
-  | LBRACKET n = list_of_list RBRACKET {TList n}
+  | LBRACKET n = list_of_list RBRACKET {TList (List.map (fun a -> Num a) n)}
+
+  | LPAREN n = list_of_TupleTerms RPAREN {TTupple n}
+
+
   | v = LIDENT { Var v }
   (*| pure_formula_term rest = pure_formula_term_aux { 
     let (op, t) = rest in 
@@ -2593,7 +2601,8 @@ pure_formula_term:
   | pure_formula_term MINUS pure_formula_term { Minus ($1, $3) }
   | LPAREN pure_formula_term RPAREN { $2 }
 ;
-pure_formula:
+
+pure_formula: 
   | TRUE { True }
   | FALSE { False }
   | a = pure_formula_term LESS b = pure_formula_term { Atomic (LT, a, b) }
