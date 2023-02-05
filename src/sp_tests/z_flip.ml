@@ -8,6 +8,17 @@ let choose ()
 let helper v : string = 
   if v = 0 then "head " else "tail "
 
+
+let flip_compose_li li 
+  (*@ requires (true, _^* ) @*)
+  (*@ ensures (true, Choose.Choose.Choose) @*)
+=
+  match li with 
+  | [] -> ([], 1.0)
+  | x::xs -> List.fold_left (fun acc a -> 
+    flip_compose acc a 
+    ) x xs 
+    
 let rec toss n 
   (*@ requires _^* @*)
   (*@ ensures Choose^n @*)
