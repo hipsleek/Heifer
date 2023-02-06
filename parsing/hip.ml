@@ -288,7 +288,7 @@ type env = {
   effect_defs : effect_def SMap.t;
 }
 
-type variableStack = ((string * basic_t) list) ref 
+type variableStack = (((string * basic_t) list) list) ref 
 
 let (variableStack:variableStack) = ref []
 
@@ -783,12 +783,12 @@ let rec expressionToTerm (exprIn: Parsetree.expression_desc) : term =
     | Pexp_ident id -> 
       
       let lhs = getIndentName (id.txt) in 
-      Var (findMapping lhs !variableStack)
+      Var (findMapping lhs (List.flatten(!variableStack)))
 
     | Pexp_apply (_, exprInLi) -> 
       let (_, temp) =  (List.hd exprInLi) in
       (match temp.pexp_desc with 
-      | Pexp_ident id -> Var (getIndentName (id.txt))
+      | Pexp_ident id -> Var (findMapping (getIndentName (id.txt) )(List.flatten(!variableStack)))
       | _ -> raise (Foo "ai you ... 1")
       )
     | Pexp_construct (_, Some expr) -> 
@@ -934,15 +934,17 @@ and handlerCompute env (history:es) handler (p, t) : spec =
             | (_, _) -> raise (Foo ("argumentBinder error"))
           in 
           let pushStack = argumentBinder formalArgLi actualArgLi in 
-          let () = variableStack := List.append (pushStack) !variableStack in 
+          let () = variableStack :=  (pushStack) :: !variableStack in 
 
         (* *)
         
           let der = (derivative t f) in 
           let continuation = handlerReasoning env handler [(p, der)] in 
-          List.flatten (List.map (fun (_, a) -> 
+          let temp = List.flatten (List.map (fun (_, a) -> 
             infer_handling env handler ins [(p, history)] (a) expr
-          ) continuation)
+          ) continuation) in 
+          let () =  variableStack := (List.tl !variableStack) in 
+          temp
           (*[(p, Cons(history, Singleton (Event ins)))] (derivative t f) expr *)
           
         )    
@@ -1058,7 +1060,7 @@ and infer_of_expression (env) (current:spec) expr: spec =
         let eff_arg = getEffNameArg (List.hd li) in 
         [(True, Singleton (Event (eff_name, eff_arg)))]
       else if String.compare name ":=" == 0 then 
-        let (_,  templhs) = (List.hd li) in 
+        let (_, templhs) = (List.hd li) in 
         let (_, temprhs) = (List.hd (List.tl li)) in 
         (match (templhs.pexp_desc, temprhs.pexp_desc) with
         | (Pexp_ident id, Pexp_apply (bop, bopLi)) -> 
@@ -1066,12 +1068,12 @@ and infer_of_expression (env) (current:spec) expr: spec =
           let (_,  bopLhs) = (List.hd bopLi) in 
           let (_,  bopRhs) = List.hd (List.tl bopLi) in 
 
-          let bopLhsTerm = expressionToTerm bopLhs.pexp_desc in 
+          let bopLhsTerm = expressionToTerm bopLhs.pexp_desc  in 
           let bopRhsTerm = expressionToTerm bopRhs.pexp_desc in 
           if String.compare (fnNameToString bop) "+"  == 0 then 
-          [(True, Singleton (HeapOp (PointsTo (lhs, (Plus(bopLhsTerm, bopRhsTerm))))))]
+          [(True, Singleton (HeapOp (PointsTo (findMapping lhs (List.flatten !variableStack), (Plus(bopLhsTerm, bopRhsTerm))))))]
           else if String.compare (fnNameToString bop) "-"  == 0 then 
-          [(True, Singleton (HeapOp (PointsTo (lhs, (Minus(bopLhsTerm, bopRhsTerm))))))]
+          [(True, Singleton (HeapOp (PointsTo (findMapping lhs (List.flatten !variableStack), (Minus(bopLhsTerm, bopRhsTerm))))))]
           else [(True, Singleton (HeapOp (PointsTo (lhs, (TListAppend(bopLhsTerm, bopRhsTerm))))))]
         | (Pexp_ident id1, Pexp_ident id2) -> 
 
@@ -1079,9 +1081,9 @@ and infer_of_expression (env) (current:spec) expr: spec =
 
           let lhs = getIndentName (id1.txt) in 
           let rhs = getIndentName (id2.txt) in 
-          print_string (List.fold_left (fun acc (str, t) -> acc ^ "\n" ^ str ^ "->" ^ string_of_basic_type t) "" !variableStack);
-          let lhs' = findMapping lhs !variableStack in 
-          let rhs' = findMapping rhs !variableStack in 
+          print_string (List.fold_left (fun acc (str, t) -> acc ^ "\n" ^ str ^ "->" ^ string_of_basic_type t) "" (List.flatten !variableStack));
+          let lhs' = findMapping lhs (List.flatten !variableStack) in 
+          let rhs' = findMapping rhs (List.flatten !variableStack) in 
           [(True, Singleton (HeapOp (PointsTo (lhs', Var rhs'))))]
 
         | _ -> raise (Foo ("Pexp_apply:"^ string_of_expression_kind (templhs.pexp_desc) ^ " " ^ string_of_expression_kind (temprhs.pexp_desc)))
