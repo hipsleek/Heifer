@@ -17,5 +17,6 @@ let main
   match callee () with
   | v -> ()
   | effect (Pass r) k ->  r := !r + 1;
-    (continue k ()); 
+    (continue (Obj.clone_continuation k) ()); (continue k ())
+
 

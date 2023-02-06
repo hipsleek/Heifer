@@ -256,7 +256,13 @@ type fn_spec = {
 type fn_specs = fn_spec SMap.t
 
 (* only first-order types for arguments, for now *)
-type typ = TInt | TUnit | TRef of typ | TString | TTuple of (typ list)
+type typ = 
+    TInt 
+  | TUnit 
+  | TRef of typ 
+  | TString 
+  | TTuple of (typ list) 
+  | TArrow of (typ * typ)
 
 let rec core_type_to_typ (t:core_type) =
   match t.ptyp_desc with
@@ -265,6 +271,7 @@ let rec core_type_to_typ (t:core_type) =
   | Ptyp_constr ({txt=Lident "string"; _}, []) -> TString
   | Ptyp_constr ({txt=Lident "ref"; _}, [t]) -> TRef (core_type_to_typ t)
   | Ptyp_tuple (tLi) -> TTuple (List.map (fun a -> core_type_to_typ a) tLi)
+  | Ptyp_arrow (_, t1, t2) -> TArrow (core_type_to_typ t1, core_type_to_typ t2)
   
   | _ -> failwith ("core_type_to_typ: " ^ string_of_core_type t)
 
@@ -847,6 +854,8 @@ let rec infer_handling env handler ins (current:spec) (der:es) (expr:expression)
 
 
     else if String.compare name "Printf.printf" == 0 then [(True, Emp)]
+    else if String.compare name "printf" == 0 then [(True, Emp)]
+
 
     else 
         infer_of_expression env current (expr) 
