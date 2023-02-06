@@ -19,15 +19,7 @@ let dequeue () =
     if Queue.is_empty q then ()
     else Queue.pop q ()
 
-let rec handler prog =
-  match prog () with 
-  | v -> dequeue () 
-  | effect (Async f) k -> 
-    enqueue (continue k); 
-    handler f
-  | effect Yield k -> 
-    enqueue (continue k);
-    dequeue ()
+
 
 let task1 () 
 (*@  requires (true, _^* ) @*)
@@ -51,9 +43,22 @@ let task2 ()
   Printf.printf "current i = %s\n%!" (string_of_int !i);
   yield ()
 
-let main () =
+let prog () 
+(*@  requires (true, _^* ) @*)
+(*@ ensures (true, Async(task1).Async(task2)) @*)
+=
   async (task1);
   async (task2)
 
-let _ = handler main 
+let rec handler prog =
+  match prog () with 
+  | v -> dequeue () 
+  | effect (Async f) k -> 
+    enqueue (continue k); 
+    handler f
+  | effect Yield k -> 
+    enqueue (continue k);
+    dequeue ()
+
+let _ = handler prog 
 
