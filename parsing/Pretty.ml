@@ -118,8 +118,8 @@ let string_of_instant (str, ar_Li): string =
   let args =
     match ar_Li with
     | [] -> ""
-    | [t] -> " " ^ string_of_basic_type t
-    | _ -> Format.sprintf " (%s)" (separate (ar_Li) (string_of_basic_type) (","));
+    | [t] -> Format.sprintf "(%s)" (string_of_basic_type t)
+    | _ -> Format.sprintf "(%s)" (separate (ar_Li) (string_of_basic_type) (","));
   in
   Format.sprintf "%s%s" str args
 
@@ -175,6 +175,16 @@ let rec string_of_pi pi : string =
   | Imply  (p1, p2) -> string_of_pi p1 ^ "->" ^ string_of_pi p2
   | Not    p -> "!" ^ string_of_pi p
   | Predicate (str, t) -> str ^ "(" ^ string_of_term t ^ ")"
+
+let string_of_event ev : string = 
+  match ev with 
+  | One ins ->  string_of_instant ins 
+  | Zero ins -> "!" ^ string_of_instant ins 
+  | EvHeapOp k -> "{" ^ string_of_kappa k ^ "}"
+  | EvAssert p ->  "[" ^ string_of_pi p ^ "]"
+  | Any  -> "_"
+  | StopEv -> "stop"
+
 
 let rec string_of_singleton (s : singleton) : string = 
   match s with

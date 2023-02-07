@@ -858,11 +858,11 @@ let eventToEs (ev:event) : es =
 
      
 
-let rec infer_handling env handler ins (current:spec) (der:es) (expr:expression): spec = 
+let rec infer_handling env handler (current:spec) (der:es) (expr:expression): spec = 
   (*print_string ("infer_handling:" ^ string_of_es der ^ "\n");*)
   match expr.pexp_desc with 
   | Pexp_fun (_, _, _ (*pattern*), exprIn) -> 
-    infer_handling env handler ins current der exprIn
+    infer_handling env handler current der exprIn
 
 (* VALUE *)   
   | Pexp_constant _
@@ -884,12 +884,14 @@ let rec infer_handling env handler ins (current:spec) (der:es) (expr:expression)
       (match hd.pexp_desc with 
       |  Pexp_apply (fnNameIn, _) -> 
           if String.compare (fnNameToString fnNameIn) "continue" == 0 then 
-            (enqueue (der); [(True, Emp)])
+            ( print_string ("enqueuing : " ^ string_of_es der ^ "\n");
+              enqueue (der); [(True, Emp)])
           else raise (Foo "infer_handling Pexp_apply enqueue1")
       | _ -> raise (Foo "infer_handling Pexp_apply enqueue"))
 
     else if String.compare name "dequeue" == 0 then 
       let temp = dequeue () in 
+      print_string ("dequeue result : " ^ string_of_es temp ^ "\n");
       [(True, temp)]
 
 
@@ -902,18 +904,18 @@ let rec infer_handling env handler ins (current:spec) (der:es) (expr:expression)
     
   | Pexp_sequence (ex1, ex2) -> 
 
-      let eff1 = infer_handling env handler ins current der ex1 in 
-      let eff2 = infer_handling env handler ins (concatenateEffects current eff1) der ex2 in 
+      let eff1 = infer_handling env handler current der ex1 in 
+      let eff2 = infer_handling env handler (concatenateEffects current eff1) der ex2 in 
       concatenateEffects eff1 eff2
 
 
 
   | Pexp_ifthenelse (_, e2, e3_op) ->  
-    let branch1 = infer_handling env handler ins current der e2 in 
+    let branch1 = infer_handling env handler current der e2 in 
     (match e3_op with 
     | None -> branch1
     | Some expr3 -> 
-      let branch2 = infer_handling env handler ins current der expr3 in 
+      let branch2 = infer_handling env handler current der expr3 in 
       List.append branch1 branch2)
 
   | Pexp_assert _ | Pexp_let _ -> 
@@ -931,9 +933,12 @@ and handlerCompute env (history:es) handler (p, t) : spec =
   match (normalES t) with 
   | Stop -> 
     let (normalExpr:expression) = findNormalReturn handler in 
-    infer_of_expression env [(p, history)] normalExpr
+    let ret = infer_handling env handler [(p, history)] Emp normalExpr in 
+    print_string ("Stop"^ string_of_spec ret ^ "\n"); 
+    ret
   | _ -> 
     let (fstSet:event list) = fst t in 
+    print_string ("fstSet:" ^ List.fold_left (fun acc a -> acc ^ ", " ^ string_of_event a) "" fstSet ^ "\n") ;
 
     List.flatten (List.map ( fun f ->
       match f with
@@ -947,18 +952,28 @@ and handlerCompute env (history:es) handler (p, t) : spec =
 
           let pushStack = argumentBinder formalArgLi actualArgLi in 
           let () = variableStack :=  (pushStack) :: !variableStack in 
-          print_string ( string_of_variableStack (List.flatten !variableStack) ^ "\n");
+          (*print_string ( string_of_variableStack (List.flatten !variableStack) ^ "\n");
+          *)
 
         (* *)
         
-          let der = (derivative t f) in 
+          let der = normalES (derivative t f) in 
+          print_string ("with Effect: " ^ string_of_instant ins^ " -> " ^ string_of_es der ^ "\n");
+          let effects = infer_handling env handler [(p, history)] (der) expr in 
+          let () =  variableStack := (List.tl !variableStack) in 
+          let rest = 
+          handlerReasoning env handler effects in 
+          print_string ("rest = " ^ string_of_spec rest ^ "\n");
+          rest
+
+          (*
           let continuation = handlerReasoning env handler [(p, der)] in 
           let temp = List.flatten (List.map (fun (_, a) -> 
             infer_handling env handler ins [(p, history)] (a) expr
           ) continuation) in 
-          let () =  variableStack := (List.tl !variableStack) in 
           temp
           (*[(p, Cons(history, Singleton (Event ins)))] (derivative t f) expr *)
+          *)
           
         )    
       | _ ->  
@@ -1104,7 +1119,7 @@ and infer_of_expression (env) (current:spec) expr: spec =
         )
 
       else if String.compare name "Printf.printf" == 0 then [(True, Emp)]
-      else if String.compare name "printf" == 0 then [(True, Emp)]
+      else if String.compare name "print_string" == 0 then [(True, Emp)]
       else if String.compare name "enqueue" == 0 then [(True, Emp)]
       else if String.compare name "dequeue" == 0 then [(True, Emp)]
 
@@ -1115,10 +1130,7 @@ and infer_of_expression (env) (current:spec) expr: spec =
         print_string ("looking for " ^ name^"\n");
         print_string ("we got " ^  name ^ "\n")  ; *)
         let flattenedStack = (List.flatten !variableStack) in 
-        print_string ( string_of_variableStack flattenedStack ^ "\n");
-        print_string ("looking for " ^ name^"\n");
         let name = findMapping name flattenedStack in 
-        print_string ("we got " ^  name ^ "\n")  ;
 
 
         let { pre = pre  ; post = post; formals = arg_formal } =

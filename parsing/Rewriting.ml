@@ -64,7 +64,7 @@ let rec  nullable (es:es) : bool=
   | ESOr (es1 , es2) -> ( nullable es1) || ( nullable es2)
   | Kleene _ -> true
   | Underline -> false 
-  | Stop -> raise (Foo "nullable stop") 
+  | Stop -> false
 
 let nullableEff (eff:spec) : bool = 
   List.fold_left (fun acc (_, a) -> acc || (nullable a)) false eff;;
