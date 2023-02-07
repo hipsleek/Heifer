@@ -59,12 +59,12 @@ let prog ()
   async (task2);
   async (task3)
 
-let rec handler prog =
-  match prog () with 
+let rec handler arg_f =
+  match arg_f () with 
   | v -> dequeue () 
   | effect (Async f) k -> 
-    enqueue (continue k); 
-    handler f
+    enqueue (continue k)
+    (*; handler f  *)
   | effect Yield k -> 
     enqueue (continue k);
     dequeue ()

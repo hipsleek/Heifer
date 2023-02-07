@@ -295,9 +295,23 @@ type env = {
   effect_defs : effect_def SMap.t;
 }
 
+type function_without_spec = (string * expression * string list)
+let (env_function_without_spec: ((function_without_spec list)ref)) = ref [] 
+
+let rec retriveFuntionWithoutSpecDefinition str li = 
+  match li with 
+  | [] ->  None 
+  | (s, b, f) :: xs  -> if String.compare s str == 0 then (Some (s, b, f)) 
+  else retriveFuntionWithoutSpecDefinition str xs 
+
 type variableStack = (((string * basic_t) list) list) ref 
 
 let (variableStack:variableStack) = ref []
+
+let rec string_of_variableStack li: string = 
+  match li with 
+  | [] -> ""
+  | (str, bt) :: xs ->(str ^ "=" ^ string_of_basic_type bt  ^ ", ") ^ string_of_variableStack xs 
 
 module Env = struct
   let empty = {
@@ -319,8 +333,6 @@ module Env = struct
 
   let add_stack paris env = 
     { env with stack = List.append  paris (env.stack) }
-
-
 
   let add_effect name def env =
     { env with effect_defs = SMap.add name def env.effect_defs }
@@ -784,6 +796,12 @@ let rec findMapping str s : string =
   | (x, t) :: xs -> if String.compare x str == 0 then string_of_basic_type t else findMapping str xs 
    
 
+let rec argumentBinder (formal:string list) (actual:(basic_t list)): (string * basic_t) list =
+  match (formal, actual) with 
+  | ([], []) -> []
+  | (x::xs, y::ys) -> (x, y) :: argumentBinder xs ys
+  | (_, _) -> raise (Foo ("argumentBinder error"))
+
 let rec expressionToTerm (exprIn: Parsetree.expression_desc) : term = 
   match exprIn with 
     | Pexp_constant (Pconst_integer (str, _)) -> (Num (int_of_string str))
@@ -835,7 +853,7 @@ let rec infer_handling env handler ins (current:spec) (der:es) (expr:expression)
   | Pexp_construct _ 
   | Pexp_ident _ -> [(True, Emp)]
    
-  | Pexp_apply (fnName, li) -> 
+  | Pexp_apply (fnName, _ (*li*)) -> 
     let name = fnNameToString fnName in 
     (*print_string ("infer_handling-Pexp_apply:" ^ name ^ "\n"); *)
 
@@ -845,16 +863,6 @@ let rec infer_handling env handler ins (current:spec) (der:es) (expr:expression)
       let eff_value = infer_of_expression env [(True, Emp)] continue_value in 
       *)
       [(True, der)]
-
-
-    else if String.compare name "perform" == 0 then 
-      let eff_name = getEffName (List.hd li) in 
-      let eff_arg = getEffNameArg (List.hd li) in 
-      [(True, Singleton (Event (eff_name, eff_arg)))]
-
-
-    else if String.compare name "Printf.printf" == 0 then [(True, Emp)]
-    else if String.compare name "printf" == 0 then [(True, Emp)]
 
 
     else 
@@ -870,34 +878,6 @@ let rec infer_handling env handler ins (current:spec) (der:es) (expr:expression)
       concatenateEffects eff1 eff2
 
 
-    (*match ex1.pexp_desc with
-    | Pexp_apply (fnName, li) -> 
-      let name = fnNameToString fnName in 
-      if String.compare name "continue" == 0 then 
-(* CONTINUE *)
-        let (_, continue_value) = (List.hd (List.tl li)) in 
-        let eff_value = infer_of_expression env [(True, Emp)] continue_value in 
-        
-        infer_handling env handler ins (concatenateEffects current eff_value) der ex2
-
-  
-
-      else if String.compare name "perform" == 0 then 
-        let eff_name = getEffName (List.hd li) in 
-        let eff_arg = getEffNameArg (List.hd li) in 
-        List.flatten (
-          List.map (fun (p, t) ->
-            infer_handling env handler ins [(p, (Cons(t, Singleton (Event (eff_name, eff_arg)))))] der ex2
-          ) current
-        )
-
-      
-      else 
-        let eff1 = infer_handling env handler ins current der ex1 in 
-        infer_handling env handler ins eff1 der ex2
-    | _ -> raise (Foo "not yet here")
-    *)
-
 
   | Pexp_ifthenelse (_, e2, e3_op) ->  
     let branch1 = infer_handling env handler ins current der e2 in 
@@ -907,14 +887,14 @@ let rec infer_handling env handler ins (current:spec) (der:es) (expr:expression)
       let branch2 = infer_handling env handler ins current der expr3 in 
       List.append branch1 branch2)
 
-  | Pexp_assert _ -> 
+  | Pexp_assert _ | Pexp_let _ -> 
     infer_of_expression env current (expr) 
 
 
 
   | _ -> 
     raise (Foo (string_of_expression_kind expr.pexp_desc ^ "\n\n in infer_handling \n " ^ 
-    Pprintast.string_of_expression  expr ^ " infer_of_expression not corvered ")) 
+    Pprintast.string_of_expression  expr ^ " not corvered ")) 
 
 
 
@@ -936,12 +916,6 @@ and handlerCompute env (history:es) handler (p, t) : spec =
           List.map (fun (a, b)-> (a, Cons(ev, b)))  (handlerCompute env (Cons (history, ev)) handler (p, derivative t f))
         | Some (expr, formalArgLi) -> 
 
-          let rec argumentBinder (formal:string list) (actual:(basic_t list)): (string * basic_t) list =
-            match (formal, actual) with 
-            | ([], []) -> []
-            | (x::xs, y::ys) -> (x, y) :: argumentBinder xs ys
-            | (_, _) -> raise (Foo ("argumentBinder error"))
-          in 
           let pushStack = argumentBinder formalArgLi actualArgLi in 
           let () = variableStack :=  (pushStack) :: !variableStack in 
 
@@ -1057,6 +1031,7 @@ and infer_of_expression (env) (current:spec) expr: spec =
     )
     | Pexp_match (ex, case_li) -> 
       let ex_eff = normalSpec (infer_of_expression env [(True, Emp)] ex) in 
+      print_string ("Pexp_match " ^  string_of_spec ex_eff ^"\n");
       let eff_handled = handlerReasoning env case_li (concatnateEffEs ex_eff Stop) in 
       eff_handled 
 
@@ -1099,112 +1074,57 @@ and infer_of_expression (env) (current:spec) expr: spec =
         )
 
       else if String.compare name "Printf.printf" == 0 then [(True, Emp)]
+      else if String.compare name "printf" == 0 then [(True, Emp)]
+      else if String.compare name "enqueue" == 0 then [(True, Emp)]
+      else if String.compare name "dequeue" == 0 then [(True, Emp)]
+
 
       else 
+
+        (*print_string ( string_of_variableStack flattenedStack ^ "\n");
+        print_string ("looking for " ^ name^"\n");
+        print_string ("we got " ^  name ^ "\n")  ; *)
+        let flattenedStack = (List.flatten !variableStack) in 
+        let name = findMapping name flattenedStack in 
+
+
         let { pre = pre  ; post = post; formals = arg_formal } =
         (* if functions are undefined, assume for now that they have the default spec *)
-        match Env.find_fn name env with
-        | None -> { pre = default_spec_pre; post = [default_spec_post]; formals = []}
-        | Some s -> s
+
+        (match Env.find_fn name env with
+        | None -> 
+          (match retriveFuntionWithoutSpecDefinition name !env_function_without_spec with
+          | None -> raise (Foo ("no definition for " ^ name))
+            
+          (*{ pre = default_spec_pre; post = [default_spec_post]; formals = []}*)
+          | Some (_, fnBody, fnFormals) -> 
+            print_string (name^ ":lsllslsllslls\n" );
+
+            let maybebasic_tList = (List.map (fun (_, b) -> expressionToBasicT b) li) in 
+            let pushStack = argumentBinder fnFormals 
+            (List.fold_left (fun acc a -> match a with | None -> acc | Some a' -> List.append acc [a'] )[] maybebasic_tList) in 
+            (*print_string ("printing pushStack: "^ string_of_variableStack pushStack ^ "\n");
+            *)
+            let () = variableStack :=  (pushStack) :: !variableStack in 
+
+            let final = (infer_of_expression env default_spec_pre fnBody) in
+            let final = normalSpec final in 
+            let () = variableStack :=  List.tl (!variableStack) in 
+
+            { pre = default_spec_pre; post = [final]; formals = fnFormals}
+          
+          )
+        | Some s -> s )
             in
-            let vb = var_binding arg_formal (List.map (fun (_, b) -> b) li) in 
       
+            let vb = var_binding arg_formal (List.map (fun (_, b) -> b) li) in 
             let postcon' = instantiateEff (List.hd post) vb in 
             let (*precon'*) _ = instantiateEff pre vb in 
       
             (*let (res,_,  str) = printReport current precon' in 
             *)
-      
             if true then postcon'
             else raise (Foo ("call_function precondition fail " ^name ^":\n" ^ "TRSstr" ^ debug_string_of_expression fnName))
-          
-(*
-  | Pexp_let (_(*flag*),  vb_li, exprIn) -> 
-    let head = List.hd vb_li in 
-    let var_name = string_of_pattern (head.pvb_pat) in 
-    (match (head.pvb_expr.pexp_desc) with 
-    | Pexp_apply (fnName, li) -> 
-      let name = fnNameToString fnName in 
-      if String.compare name "perform" == 0 then 
-(* PERFORM *)
-        let eff_name = getEffName (List.hd li) in 
-        let eff_arg = getEffNameArg (List.hd li) in 
-        infer_of_expression (Env.add_stack [(var_name, (eff_name, eff_arg))] env) (List.map (fun (p, t, v)-> (p, Cons(t, Singleton (Emit (eff_name, eff_arg))), v)) current) exprIn
-      else (match (retriveStack name env) with
-          | Some ins -> 
-(* CALL-PLACEHOLDER *)
-            let (_, arg) = List.hd li in  
-            (match expressionToBasicT (arg) with 
-            | Some eff_arg ->  infer_of_expression env 
-                  (List.map (fun (p, t, v)-> (p, Cons(t, Singleton (Await (ins, eff_arg ))), v)) current) exprIn
-            | None -> raise (Foo ("Placeholder has no argument")))
-
-          | None -> 
-(* FUNCTION-CALL *)
-let { pre = pre  ; post = post; formals = arg_formal } =
-(* if functions are undefined, assume for now that they have the default spec *)
-match Env.find_fn name env with
-| None -> { pre = default_spec_pre; post = [default_spec_post]; formals = []}
-| Some s -> s
-      in
-      let vb = var_binding arg_formal (List.map (fun (_, b) -> b) li) in 
-
-      let postcon' = instantiateEff (List.hd post) vb in 
-      let precon' = instantiateEff pre vb in 
-
-      let (res, _, str) = printReport current precon' in 
-      
-      if res then concatenateEffects current postcon'
-       else raise (Foo ("call_function precondition fail " ^name ^":\n" ^ str ^ debug_string_of_expression fnName))             
-            )
-    | _ -> raise (Foo "Let error")
-    )
-
-  | Pexp_match (ex, case_li) -> 
-    let ex_eff = normalSpec (infer_of_expression env [(True, Emp, UNIT)] ex) in 
-    let eff_fix = fixpoint_Computation env case_li (concatnateEffEs ex_eff Stop) in 
-    concatenateEffects current eff_fix 
-
-
-  
-(* Aplications *)
-  | Pexp_apply (fnName, li) -> 
-      let name = fnNameToString fnName in 
-      if String.compare name "perform" == 0 then 
-(* PERFORM *)
-        let eff_name = getEffName (List.hd li) in 
-        let eff_arg = getEffNameArg (List.hd li) in 
-        (List.map (fun (p, t, v)-> (p, Cons(t, Singleton (Emit (eff_name, eff_arg))), v)) current)
-      else (match (retriveStack name env) with
-          | Some ins -> 
-(* CALL-PLACEHOLDER *)
-            let (_, arg) = List.hd li in  
-            (match expressionToBasicT (arg) with 
-            | Some eff_arg ->  
-                  (List.map (fun (p, t, v)-> (p, Cons(t, Singleton (Await (ins, eff_arg ))), v)) current)
-            | None -> raise (Foo ("Placeholder has no argument")))
-
-          | None -> 
-(* FUNCTION-CALL *)
-let { pre = pre  ; post = post; formals = arg_formal } =
-(* if functions are undefined, assume for now that they have the default spec *)
-match Env.find_fn name env with
-| None -> { pre = default_spec_pre; post = [default_spec_post]; formals = []}
-| Some s -> s
-      in
-      let vb = var_binding arg_formal (List.map (fun (_, b) -> b) li) in 
-
-      let postcon' = instantiateEff (List.hd post) vb in 
-      let precon' = instantiateEff pre vb in 
-
-
-      let (res,_,  str) = printReport current precon' in 
-      
-
-      if res then concatenateEffects current postcon'
-       else raise (Foo ("call_function precondition fail " ^name ^":\n" ^ str ^ debug_string_of_expression fnName))
-            )
-*)
 
   | _ -> raise (Foo (string_of_expression_kind expr.pexp_desc ^ "\n\n" ^ 
     Pprintast.string_of_expression  expr ^ " infer_of_expression not corvered ")) 
@@ -1216,7 +1136,9 @@ and infer_value_binding rec_flag env vb =
   let body = vb.pvb_expr in
   let formals = collect_param_names body in
   match function_spec body with
-  | None -> None (*default_spec_pre, [default_spec_post]*)
+  | None ->     
+    env_function_without_spec := (fn_name, body, formals) :: !env_function_without_spec;
+    None (*default_spec_pre, [default_spec_post]*)
   | Some (pre, post) -> 
   let spec = (normalSpec pre, normalSpecList post) in 
   let (pre, post) = spec in
@@ -1232,13 +1154,6 @@ and infer_value_binding rec_flag env vb =
   let final =  (infer_of_expression env pre body) in
 
   let final = normalSpec final in 
-
-
-(*
-        (*SYH-11: This is because Prof Chin thinks the if the precondition is all the trace, it is not modular*)
-        let (pre_p, pre_es, pre_side) = precon in 
-        let precon = (pre_p, Cons (Kleene (Underline),pre_es), pre_side) in 
-        *)
 
   let env1 = Env.add_fn fn_name { pre; post; formals } env in
   
