@@ -19,19 +19,6 @@ let dequeue () =
     if Queue.is_empty q then ()
     else Queue.pop q ()
 
-let task1 () 
-(*@  requires (true, _^* ) @*)
-(*@  ensures  (true, {i->i+3}.Yield.{i->i+6}) @*)
-= 
-  Printf.printf "adding %s\n%!" (string_of_int 3);
-  i := !i + 3;
-  Printf.printf "current i = %s\n%!" (string_of_int !i);
-  yield (); 
-  Printf.printf "adding %s\n%!" (string_of_int 6);
-  i := !i + 6;
-  Printf.printf "current i = %s\n%!" (string_of_int !i)
-  
-
 let task2 () 
 (*@  requires (true, _^* ) @*)
 (*@  ensures  (true, {i->i+7}) @*)
@@ -43,23 +30,24 @@ let task2 ()
 
 let task3 () 
 (*@  requires (true, _^* ) @*)
-(*@  ensures  (true, [i=16].{i->i+9}) @*)
+(*@  ensures  (true, {i->i+9}) @*)
 =
   Printf.printf "adding %s\n%!" (string_of_int 9);
-  assert (!i = 16);
   i := !i + 9;
   Printf.printf "current i = %s\n%!" (string_of_int !i)
 
 
 let prog () 
 (*@ requires (true, _^* ) @*)
-(*@ ensures (true, Async(task1).Async(task2).Async(task3)) @*)
+(*@ ensures (true, Async(task2).Async(task3)) @*)
 =
-  async (task1);
   async (task2);
   async (task3)
 
-let rec handler arg_f =
+let rec handler arg_f 
+(* requires arg_f :: () -> Sync({i->7}).Sync({i->9}) \/ {i->7} \/ {i->9} *)
+(* ensures :: () -> Sync({i->7}).Sync({i->9}) \/ {i->7} \/ {i->9} *)
+=
   match arg_f () with 
   | v -> dequeue () 
   | effect (Async f) k -> 
@@ -71,7 +59,7 @@ let rec handler arg_f =
 
 let main 
 (*@ requires (true, _^* ) @*)
-(*@ ensures (true, {i->i+3}.{i->i+7}.{i->i+6}.[i=16].{i->i+9}) @*)
+(*@ ensures (true, {i->i+9}.{i->i+3}.{i->i+7}.{i->i+6}.{i->i+9}.{i->i+3}.{i->i+6}) @*)
 = handler prog 
 
 
