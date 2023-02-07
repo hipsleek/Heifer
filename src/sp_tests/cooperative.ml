@@ -64,7 +64,7 @@ let rec handler arg_f =
   | v -> dequeue () 
   | effect (Async f) k -> 
     enqueue (continue k)
-    (*; handler f  *)
+    ; handler f  
   | effect Yield k -> 
     enqueue (continue k);
     dequeue ()

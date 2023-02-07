@@ -313,6 +313,12 @@ let rec string_of_variableStack li: string =
   | [] -> ""
   | (str, bt) :: xs ->(str ^ "=" ^ string_of_basic_type bt  ^ ", ") ^ string_of_variableStack xs 
 
+let q = Queue.create ()
+let enqueue (t:es) = Queue.push t q
+let dequeue () : es =
+    if Queue.is_empty q then Emp
+    else Queue.pop q
+
 module Env = struct
   let empty = {
     modules = SMap.empty;
@@ -526,12 +532,17 @@ let expressionToBasicT ex : basic_t option=
   | Pexp_constant cons ->
     (match cons with 
     | Pconst_integer (str, _) -> Some (BINT (int_of_string str))
-    | _ -> None (*raise (Foo (Pprintast.string_of_expression  ex ^ " expressionToBasicT error1"))*)
+    | _ -> raise (Foo (Pprintast.string_of_expression  ex ^ " expressionToBasicT error2"))
+
+    (*| _ -> None (*raise (Foo (Pprintast.string_of_expression  ex ^ " expressionToBasicT error1"))*)
+    *)
     )
   | Pexp_construct _ -> Some (UNIT)
   | Pexp_ident l -> Some (VARName (getIndentName l.txt))
-  | _ -> None 
+  | _ -> raise (Foo (Pprintast.string_of_expression  ex ^ " expressionToBasicT error2"))
   (*
+  | _ -> None 
+
   | Pexp_let _ -> raise (Foo "Pexp_i")
   | Pexp_function _ -> raise (Foo "Pexp_i")
   | Pexp_fun _ -> raise (Foo "Pexp_i")
@@ -793,8 +804,13 @@ let deleteTailSYH  (li:'a list) =
 let rec findMapping str s : string = 
   match s with 
   | [] -> str
-  | (x, t) :: xs -> if String.compare x str == 0 then string_of_basic_type t else findMapping str xs 
-   
+  | (x, t) :: xs -> 
+    if String.compare x str == 0 then 
+      let nextName = ( string_of_basic_type t ) in 
+      let temp = findMapping nextName xs in 
+      if String.compare temp nextName == 0 then nextName
+      else temp
+    else findMapping str xs 
 
 let rec argumentBinder (formal:string list) (actual:(basic_t list)): (string * basic_t) list =
   match (formal, actual) with 
@@ -853,7 +869,7 @@ let rec infer_handling env handler ins (current:spec) (der:es) (expr:expression)
   | Pexp_construct _ 
   | Pexp_ident _ -> [(True, Emp)]
    
-  | Pexp_apply (fnName, _ (*li*)) -> 
+  | Pexp_apply (fnName, li) -> 
     let name = fnNameToString fnName in 
     (*print_string ("infer_handling-Pexp_apply:" ^ name ^ "\n"); *)
 
@@ -863,6 +879,19 @@ let rec infer_handling env handler ins (current:spec) (der:es) (expr:expression)
       let eff_value = infer_of_expression env [(True, Emp)] continue_value in 
       *)
       [(True, der)]
+    else if String.compare name "enqueue" == 0 then 
+      let (_, hd) = List.hd li in  
+      (match hd.pexp_desc with 
+      |  Pexp_apply (fnNameIn, _) -> 
+          if String.compare (fnNameToString fnNameIn) "continue" == 0 then 
+            (enqueue (der); [(True, Emp)])
+          else raise (Foo "infer_handling Pexp_apply enqueue1")
+      | _ -> raise (Foo "infer_handling Pexp_apply enqueue"))
+
+    else if String.compare name "dequeue" == 0 then 
+      let temp = dequeue () in 
+      [(True, temp)]
+
 
 
     else 
@@ -918,6 +947,7 @@ and handlerCompute env (history:es) handler (p, t) : spec =
 
           let pushStack = argumentBinder formalArgLi actualArgLi in 
           let () = variableStack :=  (pushStack) :: !variableStack in 
+          print_string ( string_of_variableStack (List.flatten !variableStack) ^ "\n");
 
         (* *)
         
@@ -1085,7 +1115,10 @@ and infer_of_expression (env) (current:spec) expr: spec =
         print_string ("looking for " ^ name^"\n");
         print_string ("we got " ^  name ^ "\n")  ; *)
         let flattenedStack = (List.flatten !variableStack) in 
+        print_string ( string_of_variableStack flattenedStack ^ "\n");
+        print_string ("looking for " ^ name^"\n");
         let name = findMapping name flattenedStack in 
+        print_string ("we got " ^  name ^ "\n")  ;
 
 
         let { pre = pre  ; post = post; formals = arg_formal } =
@@ -1098,11 +1131,23 @@ and infer_of_expression (env) (current:spec) expr: spec =
             
           (*{ pre = default_spec_pre; post = [default_spec_post]; formals = []}*)
           | Some (_, fnBody, fnFormals) -> 
-            print_string (name^ ":lsllslsllslls\n" );
+            (*print_string (name^ ":lsllslsllslls\n" );
+            *)
 
             let maybebasic_tList = (List.map (fun (_, b) -> expressionToBasicT b) li) in 
-            let pushStack = argumentBinder fnFormals 
-            (List.fold_left (fun acc a -> match a with | None -> acc | Some a' -> List.append acc [a'] )[] maybebasic_tList) in 
+            let fnActuals = (List.fold_left (fun acc a -> match a with | None -> acc | Some a' -> List.append acc [a'] )[] maybebasic_tList) in 
+
+            if List.length fnFormals != List.length fnActuals then  
+              (
+              print_string (name ^ "\n");  
+              print_string (List.fold_left (fun acc a -> acc ^ " " ^ a) "" fnFormals ^ "\n");
+              print_string (List.fold_left (fun acc a -> acc ^ " " ^ string_of_basic_type a) "" fnActuals ^ "\n");
+
+              raise (Foo "argumentBinder length does not match"))
+
+            else 
+  
+            let pushStack = argumentBinder fnFormals fnActuals in 
             (*print_string ("printing pushStack: "^ string_of_variableStack pushStack ^ "\n");
             *)
             let () = variableStack :=  (pushStack) :: !variableStack in 
