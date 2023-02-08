@@ -5,7 +5,7 @@ effect Done : unit
 
 let callee0 () 
 (*@  requires (true, emp)   @*)
-(*@  ensures  (true, {i->0}.Zero.{i->i+1}.[i=1]) @*)
+(*@  ensures  (true, {i->0}.Zero.{i->i+1}.[i=1], ret = ()) @*)
 = 
   let i = Sys.opaque_identity (ref 0) in
   perform Zero;
@@ -13,9 +13,10 @@ let callee0 ()
   Printf.printf "i = %d\n%!" !i;
   assert (!i = 1)
 
+
 let callee1 () 
 (*@  requires (true, emp)   @*)
-(*@  ensures  (true, {i->0}.Once.{i->i+1}.[i=1]) @*)
+(*@  ensures  (true, {i->0}.Once.{i->i+1}.[i=1], ret = ()) @*)
 = 
   let i = Sys.opaque_identity (ref 0) in
   perform Once;
@@ -28,7 +29,7 @@ let callee1 ()
 
 let callee2 () 
 (*@  requires (true, emp)   @*)
-(*@  ensures  (true, {i->0}.Twice.{i->i+1}.[i=1]) @*)
+(*@  ensures  (true, {i->0}.Twice.{i->i+1}.[i=1], ret = ()) @*)
 = 
   let i = Sys.opaque_identity (ref 0) in
   perform Twice;
@@ -38,7 +39,7 @@ let callee2 ()
 
 let main_aux ()
 (*@  requires (true, emp) @*)
-(*@  ensures  (true,  {i->0}.{i->i+1}.[i=1].{i->i+1}.[i=1]) @*)
+(*@  ensures  (true,  {i->0}.{i->i+1}.[i=1].Done.{i->i+1}.[i=1].Done) @*)
 =
   match callee2 () with
   | v -> print_string ("Done 0 \n"); perform Done 
