@@ -748,7 +748,7 @@ The precedences must be listed from low to high.
 %nonassoc SEMI                          /* below EQUAL ({lbl=...; lbl=...}) */
 %nonassoc LET                           /* above SEMI ( ...; let ... in ...) */
 %nonassoc below_WITH
-%nonassoc FUNCTION WITH NORMAL                /* below BAR  (match ... with ...) */
+%nonassoc FUNCTION WITH                /* below BAR  (match ... with ...) */
 %nonassoc AND             /* above WITH (module rec A: SIG with ... and ...) */
 %nonassoc THEN                          /* below ELSE (if ... then ...) */
 %nonassoc ELSE                          /* (if ... then ... else ...) */
@@ -2575,12 +2575,6 @@ list_of_TupleTerms:
 | COMMA n = pure_formula_term rest = list_of_TupleTerms {n::rest}
 
 
-pure_formula_term_aux_aux:
-| t=pure_formula_term {("+", t)}
-| PLUS t=pure_formula_term {("++", t)}
-
-pure_formula_term_aux:
-| PLUS rest=pure_formula_term_aux_aux {rest}
 
 pure_formula_term:
   | n = INT { let (i, _) = n in Num (int_of_string i) }
@@ -2641,14 +2635,14 @@ heapES:
 
 
 stagedSpec : 
-| NORMAL v = effect_trace_value  { NoramlReturn v }
-| n = UIDENT REQUIRES prec=pure_formula 
-  ENSURES op = heapES  SEMI rest = stagedSpec  { RaisingEff( (n, []), prec, op, rest) }
-(*
-| n = UIDENT LPAREN args = list(effect_trace_value) RPAREN 
-  REQUIRES prec=pure_formula  ENSURES op = heapES COLON rest = stagedSpec 
-  { RaisingEff( (n, args), prec, op, rest) }
-*)
+| oppre = heapES SEMI NORMAL v = effect_trace_value  { NoramlReturn (oppre, v) }
+| oppre = heapES SEMI n = UIDENT REQUIRES prec=pure_formula 
+  ENSURES rest = stagedSpec  { RaisingEff(oppre,  prec, (n, []), rest) }
+
+| oppre = heapES SEMI n = UIDENT LPAREN args = list(effect_trace_value)  
+  REQUIRES prec=pure_formula  ENSURES rest = stagedSpec 
+  { RaisingEff(oppre, prec, (n, args),  rest) }
+
 
 esAndReturn:
 | t= effect_trace COMMA  v=effect_trace_value {t, v}
@@ -2667,10 +2661,12 @@ esAndReturn:
     let rec stagedSpec2heapES (s:stagedSpec) : (es * basic_t) = 
       match s with 
       | BotStagedSpec -> (Bot, UNIT)
-      | NoramlReturn bt -> (Emp, bt)
-      | RaisingEff (ins, pi, hs, stageEs) -> 
+      | NoramlReturn (preop, bt) -> (heapES2ES preop, bt)
+      | RaisingEff (preop, pi, ins,  stageEs) -> 
         let (restES, ret) = stagedSpec2heapES stageEs in 
-        (Cons (Singleton(DelayAssert pi), Cons (Singleton(Event ins), Cons(heapES2ES hs , restES))), ret)
+        (Cons (heapES2ES preop, 
+         Cons (Singleton(DelayAssert pi), 
+         Cons (Singleton(Event ins), restES))), ret)
    in 
    stagedSpec2heapES t}
 

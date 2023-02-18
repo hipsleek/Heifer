@@ -88,8 +88,8 @@ type heapES =
 
 type stagedSpec = 
       | BotStagedSpec
-      | NoramlReturn of basic_t 
-      | RaisingEff of (instant * pi * heapES * stagedSpec)
+      | NoramlReturn of (heapES * basic_t) 
+      | RaisingEff of (heapES * pi * instant * stagedSpec)
 
 type generalSpec = (pi * stagedSpec) list 
 

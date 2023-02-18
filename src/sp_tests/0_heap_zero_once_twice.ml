@@ -5,11 +5,12 @@ effect Done : unit
 
 let callee0 () 
 (*@  requires (true, emp, ())   @*)
-(*@  ensures  (true, # Zero requires true   
-                            ensures {i->i+1}.[i=1]; ret () ) @*)
-(*  ensures  (true, # ret 1 ) *)
+(*@  ensures  (true, # {x->0}; 
+                        Zero requires true   
+                             ensures {i->i+1}.[i=1]; ret () ) @*)
+(*  ensures  (true, # {emp}; ret 1 ) *)
 = 
-  let i = Sys.opaque_identity (ref 0) in
+  let i = Sys.opaque_identity (ref 0) in 
   perform Zero;
   i := !i + 1;
   Printf.printf "i = %d\n%!" !i;
