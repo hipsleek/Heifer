@@ -80,7 +80,7 @@ type es = Bot
         | Stop
 
 
-type spec = (pi * es) list 
+type spec = (pi * es * basic_t) list 
 
 type stack = string * instant
 type side = (string * (es * es)) list   (* Eff(f()) = _^*.A -> U^*.(Res \/ emp) *)
@@ -89,8 +89,8 @@ type side = (string * (es * es)) list   (* Eff(f()) = _^*.A -> U^*.(Res \/ emp) 
 let default_es_pre =  (Kleene(Underline))
 let default_es_post = Emp
 
-let default_spec_pre = [(True, default_es_pre)]
-let default_spec_post = [(True, default_es_post)]
+let default_spec_pre = [(True, default_es_pre, UNIT)]
+let default_spec_post = [(True, default_es_post, UNIT)]
 
 type policy = Eff of string * es * es | Exn of string | Normal of es
 

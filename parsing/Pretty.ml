@@ -206,8 +206,8 @@ let rec string_of_es es : string =
   | Underline -> "_"
   | Stop -> "†"
 
-let string_of_tuple (pi, es) : string = 
-  string_of_pi pi ^ ", " ^  string_of_es es  ;;
+let string_of_tuple (pi, es, v) : string = 
+  string_of_pi pi ^ ", " ^  string_of_es es^ ", " ^  string_of_basic_type v   ;;
 
 let rec string_of_spec (eff:spec) :string =
   match eff with
@@ -280,7 +280,7 @@ let rec normalPure p =
 ;;
 
 
-let normalTuple (pi, es)  = (normalPure pi, normalES es)
+let normalTuple (pi, es, v)  = (normalPure pi, normalES es, v)
 
 let normalSpec eff : spec = List.map (fun a -> normalTuple a) eff
 

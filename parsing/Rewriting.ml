@@ -67,7 +67,7 @@ let rec  nullable (es:es) : bool=
   | Stop -> false
 
 let nullableEff (eff:spec) : bool = 
-  List.fold_left (fun acc (_, a) -> acc || (nullable a)) false eff;;
+  List.fold_left (fun acc (_, a, _) -> acc || (nullable a)) false eff;;
 
 let rec fst (es:es): event list = 
   match es with
@@ -85,7 +85,7 @@ let rec fst (es:es): event list =
 ;;
 
 let fstEff (eff:spec) : event list = 
-  List.flatten (List.map (fun (_, es) -> fst es) eff);;
+  List.flatten (List.map (fun (_, es, _) -> fst es) eff);;
 
 
 
@@ -236,7 +236,7 @@ let rec derivative (es:es) (ev:event): es =
 ;;
 
 let derivativeEff (eff:spec) ev: spec = 
-   (List.map (fun (pi, es) -> (pi, derivative es ev)) eff)
+   (List.map (fun (pi, es, v) -> (pi, derivative es ev, v)) eff)
    ;;
 
 
@@ -304,7 +304,7 @@ let rec check_containment (lhs:spec) (rhs:spec) :(bool * binary_tree) =
     let (res1, tree1) = check_containment lhs [y] in 
     let (res2, tree2) = check_containment lhs (y1::ys) in 
     (res1 || res2, Node (entail^ "   [RHS-DISJ]", [tree1; tree2]))
-  | ([(pi1, es1)], [(pi2, es2)]) -> 
+  | ([(pi1, es1, _)], [(pi2, es2, _)]) -> 
     let (re1, str) = check_pure pi1 pi2 in 
     if re1 then containment [] es1 es2 
     else (false, Node (entail^ str, []))

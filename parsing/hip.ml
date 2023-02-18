@@ -227,9 +227,6 @@ let debug_string_of_expression e =
 let string_of_longident l =
   l |> Longident.flatten |> String.concat "."
 
-let merge_spec (p1, es1) (p2, es2) : spec = 
-  [(And (p1, p2), Cons(es1, es2))];;
-
 
 let rec getIndentName (l:Longident.t): string = 
   (match l with 
@@ -626,7 +623,7 @@ let rec instantiateArg (post_es:es) (vb:(string * basic_t) list) : es =
   ;;
 
 let instantiateEff (eff:spec) (vb:(string * basic_t) list) : spec = 
-  List.map (fun (p, t)-> (p, instantiateArg t vb)) eff;;
+  List.map (fun (p, t, v)-> (p, instantiateArg t vb, v)) eff;;
 
 
 let rec getNormal (p: (string option * spec) list): spec = 
@@ -703,7 +700,7 @@ let rec findNormalReturn handler =
 
 let concatenateEffects (eff1:spec) (eff2:spec) : spec = 
   let zip = shaffleZIP eff1 eff2 in 
-  List.map (fun ((p1, es1), (p2, es2)) -> (And(p1, p2), Cons (es1, es2))) zip ;;
+  List.map (fun ((p1, es1, _), (p2, es2, v2)) -> (And(p1, p2), Cons (es1, es2), v2)) zip ;;
 
 
 let rec findEffectHanding handler name = 
@@ -728,7 +725,7 @@ let rec findEffectHanding handler name =
 ;;
 
 let concatnateEffEs eff es : spec = 
-  List.map (fun (p, t) -> (p, Cons (t, es))) eff;;
+  List.map (fun (p, t, v) -> (p, Cons (t, es), v)) eff;;
 
 
 let rec disjunctiveES es: es list  = 
@@ -867,7 +864,7 @@ let rec infer_handling env handler (current:spec) (der:es) (expr:expression): sp
 (* VALUE *)   
   | Pexp_constant _
   | Pexp_construct _ 
-  | Pexp_ident _ -> [(True, Emp)]
+  | Pexp_ident _ -> [(True, Emp, UNIT)]
    
   | Pexp_apply (fnName, li) -> 
     let name = fnNameToString fnName in 
@@ -878,21 +875,21 @@ let rec infer_handling env handler (current:spec) (der:es) (expr:expression): sp
       (*let (_, continue_value) = (List.hd (List.tl li)) in 
       let eff_value = infer_of_expression env [(True, Emp)] continue_value in 
       *)
-      [(True, der)]
+      [(True, der, UNIT)]
     else if String.compare name "enqueue" == 0 then 
       let (_, hd) = List.hd li in  
       (match hd.pexp_desc with 
       |  Pexp_apply (fnNameIn, _) -> 
           if String.compare (fnNameToString fnNameIn) "continue" == 0 then 
             ( print_string ("enqueuing : " ^ string_of_es der ^ "\n");
-              enqueue (der); [(True, Emp)])
+              enqueue (der); [(True, Emp, UNIT)])
           else raise (Foo "infer_handling Pexp_apply enqueue1")
       | _ -> raise (Foo "infer_handling Pexp_apply enqueue"))
 
     else if String.compare name "dequeue" == 0 then 
       let temp = dequeue () in 
       print_string ("dequeue result : " ^ string_of_es temp ^ "\n");
-      [(True, temp)]
+      [(True, temp, UNIT)]
 
 
 
@@ -929,11 +926,11 @@ let rec infer_handling env handler (current:spec) (der:es) (expr:expression): sp
 
 
 
-and handlerCompute env (history:es) handler (p, t) : spec = 
+and handlerCompute env (history:es) handler (p, t, v) : spec = 
   match (normalES t) with 
   | Stop -> 
     let (normalExpr:expression) = findNormalReturn handler in 
-    let ret = infer_handling env handler [(p, history)] Emp normalExpr in 
+    let ret = infer_handling env handler [(p, history, UNIT)] Emp normalExpr in 
     print_string ("Stop"^ string_of_spec ret ^ "\n"); 
     ret
   | _ -> 
@@ -947,7 +944,7 @@ and handlerCompute env (history:es) handler (p, t) : spec =
         (match (findEffectHanding handler effName) with 
         | None -> 
           let ev =  eventToEs f in 
-          List.map (fun (a, b)-> (a, Cons(ev, b)))  (handlerCompute env (Cons (history, ev)) handler (p, derivative t f))
+          List.map (fun (a, b, v)-> (a, Cons(ev, b), v))  (handlerCompute env (Cons (history, ev)) handler (p, derivative t f, v))
         | Some (expr, formalArgLi) -> 
 
           let pushStack = argumentBinder formalArgLi actualArgLi in 
@@ -959,7 +956,7 @@ and handlerCompute env (history:es) handler (p, t) : spec =
         
           let der = normalES (derivative t f) in 
           print_string ("with Effect: " ^ string_of_instant ins^ " -> " ^ string_of_es der ^ "\n");
-          let effects = infer_handling env handler [(p, history)] (der) expr in 
+          let effects = infer_handling env handler [(p, history, v)] (der) expr in 
           let () =  variableStack := (List.tl !variableStack) in 
           let rest = 
           handlerReasoning env handler effects in 
@@ -978,7 +975,7 @@ and handlerCompute env (history:es) handler (p, t) : spec =
         )    
       | _ ->  
         let ev =  eventToEs f in 
-        List.map (fun (a, b)-> (a, Cons(ev, b)))  (handlerCompute env (Cons (history, ev)) handler (p, derivative t f))
+        List.map (fun (a, b, v)-> (a, Cons(ev, b), v))  (handlerCompute env (Cons (history, ev)) handler (p, derivative t f, v))
 
       
     ) fstSet)
@@ -1002,18 +999,18 @@ and infer_of_expression (env) (current:spec) expr: spec =
           let bopLhsTerm = expressionToTerm bopLhs.pexp_desc in 
           let bopRhsTerm = expressionToTerm bopRhs.pexp_desc in 
           if String.compare (fnNameToString bop) "="  == 0 then 
-          [(True, Singleton (DelayAssert (Atomic (EQ, bopLhsTerm, bopRhsTerm))))]
+          [(True, Singleton (DelayAssert (Atomic (EQ, bopLhsTerm, bopRhsTerm))), UNIT)]
           else if String.compare (fnNameToString bop) ">"  == 0 then 
-          [(True, Singleton (DelayAssert (Atomic (GT, bopLhsTerm, bopRhsTerm))))]
+          [(True, Singleton (DelayAssert (Atomic (GT, bopLhsTerm, bopRhsTerm))), UNIT)]
           else if String.compare (fnNameToString bop) "<"  == 0 then 
-          [(True, Singleton (DelayAssert (Atomic (LT, bopLhsTerm, bopRhsTerm))))]
+          [(True, Singleton (DelayAssert (Atomic (LT, bopLhsTerm, bopRhsTerm))), UNIT)]
           else if String.compare (fnNameToString bop) ">="  == 0 then 
-          [(True, Singleton (DelayAssert (Atomic (GTEQ, bopLhsTerm, bopRhsTerm))))]
-          else [(True, Singleton (DelayAssert (Atomic (LTEQ, bopLhsTerm, bopRhsTerm))))]
+          [(True, Singleton (DelayAssert (Atomic (GTEQ, bopLhsTerm, bopRhsTerm))), UNIT)]
+          else [(True, Singleton (DelayAssert (Atomic (LTEQ, bopLhsTerm, bopRhsTerm))), UNIT)]
         else 
           let (_,  bopLhs) = (List.hd bopLi) in 
           print_string ( Pprintast.string_of_expression  bopLhs^ "\n" );
-          [(True, Singleton (DelayAssert(Predicate (fnNameToString bop, expressionToTerm bopLhs.pexp_desc))))]
+          [(True, Singleton (DelayAssert(Predicate (fnNameToString bop, expressionToTerm bopLhs.pexp_desc))), UNIT)]
 
 
     | _ -> raise (Foo (string_of_expression_kind (exprIn.pexp_desc) )) 
@@ -1023,7 +1020,7 @@ and infer_of_expression (env) (current:spec) expr: spec =
 (* VALUE *)
   | Pexp_constant _
   | Pexp_construct _ 
-  | Pexp_ident _ -> [(True, Emp)] 
+  | Pexp_ident _ -> [(True, Emp, UNIT)] 
   | Pexp_sequence (ex1, ex2) -> 
   let eff1 = infer_of_expression env current ex1 in 
   let eff2 = infer_of_expression env (concatenateEffects current eff1) ex2 in 
@@ -1052,7 +1049,7 @@ and infer_of_expression (env) (current:spec) expr: spec =
              let ev = (Singleton (HeapOp (PointsTo (var_name, pointsToTerm)))) in 
              let his = concatnateEffEs current ev in 
              let rest = infer_of_expression env his let_expression in 
-             List.map (fun (a, b) -> (a, Cons (ev, b))) rest
+             List.map (fun (a, b, v) -> (a, Cons (ev, b), v)) rest
 
              (*match constant.pexp_desc with
              | Pexp_constant (Pconst_integer (str, _)) ->
@@ -1075,7 +1072,7 @@ and infer_of_expression (env) (current:spec) expr: spec =
     | _ -> raise (Foo (var_name ^ "\n" ^string_of_expression_kind (head.pvb_expr.pexp_desc) )) 
     )
     | Pexp_match (ex, case_li) -> 
-      let ex_eff = normalSpec (infer_of_expression env [(True, Emp)] ex) in 
+      let ex_eff = normalSpec (infer_of_expression env [(True, Emp, UNIT)] ex) in 
       print_string ("Pexp_match " ^  string_of_spec ex_eff ^"\n");
       let eff_handled = handlerReasoning env case_li (concatnateEffEs ex_eff Stop) in 
       eff_handled 
@@ -1087,7 +1084,7 @@ and infer_of_expression (env) (current:spec) expr: spec =
 (* PERFORM *)
         let eff_name = getEffName (List.hd li) in 
         let eff_arg = getEffNameArg (List.hd li) in 
-        [(True, Singleton (Event (eff_name, eff_arg)))]
+        [(True, Singleton (Event (eff_name, eff_arg)), UNIT)]
       else if String.compare name ":=" == 0 then 
         let (_, templhs) = (List.hd li) in 
         let (_, temprhs) = (List.hd (List.tl li)) in 
@@ -1100,10 +1097,10 @@ and infer_of_expression (env) (current:spec) expr: spec =
           let bopLhsTerm = expressionToTerm bopLhs.pexp_desc  in 
           let bopRhsTerm = expressionToTerm bopRhs.pexp_desc in 
           if String.compare (fnNameToString bop) "+"  == 0 then 
-          [(True, Singleton (HeapOp (PointsTo (findMapping lhs (List.flatten !variableStack), (Plus(bopLhsTerm, bopRhsTerm))))))]
+          [(True, Singleton (HeapOp (PointsTo (findMapping lhs (List.flatten !variableStack), (Plus(bopLhsTerm, bopRhsTerm))))), UNIT)]
           else if String.compare (fnNameToString bop) "-"  == 0 then 
-          [(True, Singleton (HeapOp (PointsTo (findMapping lhs (List.flatten !variableStack), (Minus(bopLhsTerm, bopRhsTerm))))))]
-          else [(True, Singleton (HeapOp (PointsTo (lhs, (TListAppend(bopLhsTerm, bopRhsTerm))))))]
+          [(True, Singleton (HeapOp (PointsTo (findMapping lhs (List.flatten !variableStack), (Minus(bopLhsTerm, bopRhsTerm))))), UNIT)]
+          else [(True, Singleton (HeapOp (PointsTo (lhs, (TListAppend(bopLhsTerm, bopRhsTerm))))), UNIT)]
         | (Pexp_ident id1, Pexp_ident id2) -> 
 
 
@@ -1113,15 +1110,15 @@ and infer_of_expression (env) (current:spec) expr: spec =
           print_string (List.fold_left (fun acc (str, t) -> acc ^ "\n" ^ str ^ "->" ^ string_of_basic_type t) "" (List.flatten !variableStack));
           let lhs' = findMapping lhs (List.flatten !variableStack) in 
           let rhs' = findMapping rhs (List.flatten !variableStack) in 
-          [(True, Singleton (HeapOp (PointsTo (lhs', Var rhs'))))]
+          [(True, Singleton (HeapOp (PointsTo (lhs', Var rhs'))), UNIT)]
 
         | _ -> raise (Foo ("Pexp_apply:"^ string_of_expression_kind (templhs.pexp_desc) ^ " " ^ string_of_expression_kind (temprhs.pexp_desc)))
         )
 
-      else if String.compare name "Printf.printf" == 0 then [(True, Emp)]
-      else if String.compare name "print_string" == 0 then [(True, Emp)]
-      else if String.compare name "enqueue" == 0 then [(True, Emp)]
-      else if String.compare name "dequeue" == 0 then [(True, Emp)]
+      else if String.compare name "Printf.printf" == 0 then [(True, Emp, UNIT)]
+      else if String.compare name "print_string" == 0 then [(True, Emp, UNIT)]
+      else if String.compare name "enqueue" == 0 then [(True, Emp, UNIT)]
+      else if String.compare name "dequeue" == 0 then [(True, Emp, UNIT)]
 
 
       else 

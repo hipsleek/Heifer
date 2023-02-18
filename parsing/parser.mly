@@ -2632,7 +2632,10 @@ effect_spec_aux:
 | DISJUNCTION eff= effect_spec {eff}
 
 effect_spec:
-| LPAREN p=pure_formula COMMA t= effect_trace RPAREN rest = effect_spec_aux {(p, t)::rest}
+| LPAREN p=pure_formula COMMA 
+  t= effect_trace COMMA 
+  v=effect_trace_value RPAREN 
+  rest = effect_spec_aux {(p, t, v)::rest}
 
 
 list_of_post_condition:
