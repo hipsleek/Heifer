@@ -712,7 +712,7 @@ let mk_directive ~loc name arg =
 %token VIRTUAL
 %token WHEN
 %token WHILE
-%token WITH
+%token WITH NORMAL
 %token <string * Location.t> COMMENT
 %token LSPECCOMMENT
 %token RSPECCOMMENT
@@ -748,7 +748,7 @@ The precedences must be listed from low to high.
 %nonassoc SEMI                          /* below EQUAL ({lbl=...; lbl=...}) */
 %nonassoc LET                           /* above SEMI ( ...; let ... in ...) */
 %nonassoc below_WITH
-%nonassoc FUNCTION WITH                 /* below BAR  (match ... with ...) */
+%nonassoc FUNCTION WITH NORMAL                /* below BAR  (match ... with ...) */
 %nonassoc AND             /* above WITH (module rec A: SIG with ... and ...) */
 %nonassoc THEN                          /* below ELSE (if ... then ...) */
 %nonassoc ELSE                          /* (if ... then ... else ...) */
@@ -2563,6 +2563,7 @@ effect_trace:
   | LPAREN effect_trace RPAREN { $2 }
 ;
 
+
 list_of_list:
 | {[]}
 | n = INT {let (i, _) = n in [int_of_string i]}
@@ -2631,11 +2632,56 @@ effect_spec_aux:
 | {[]}
 | DISJUNCTION eff= effect_spec {eff}
 
+heapES:
+| LBRACE EMP RBRACE {EmpHeapES}
+| LBRACE k = heapkappa RBRACE {SingleHeapES k }
+| LBRACKET p = pure_formula RBRACKET {AssertHeapES p}
+| k1 = heapES DOT k2 = heapES {ConsHeapES (k1, k2) }
+| k1 = heapES DISJUNCTION k2 = heapES {DisjHeapES (k1, k2) }
+
+
+stagedSpec : 
+| NORMAL v = effect_trace_value  { NoramlReturn v }
+| n = UIDENT REQUIRES prec=pure_formula 
+  ENSURES op = heapES  SEMI rest = stagedSpec  { RaisingEff( (n, []), prec, op, rest) }
+(*
+| n = UIDENT LPAREN args = list(effect_trace_value) RPAREN 
+  REQUIRES prec=pure_formula  ENSURES op = heapES COLON rest = stagedSpec 
+  { RaisingEff( (n, args), prec, op, rest) }
+*)
+
+esAndReturn:
+| t= effect_trace COMMA  v=effect_trace_value {t, v}
+| HASH 
+  t= stagedSpec  
+  { let rec heapES2ES (hs:heapES) : es = 
+      match hs with 
+      | EmpHeapES  -> Emp 
+      | SingleHeapES k -> Singleton (HeapOp k)
+      | AssertHeapES pi -> Singleton (DelayAssert pi)
+      | ConsHeapES (hs1, hs2) -> Cons (heapES2ES hs1, heapES2ES hs2)
+      | DisjHeapES (hs1, hs2) -> ESOr (heapES2ES hs1, heapES2ES hs2)
+
+    in 
+    
+    let rec stagedSpec2heapES (s:stagedSpec) : (es * basic_t) = 
+      match s with 
+      | BotStagedSpec -> (Bot, UNIT)
+      | NoramlReturn bt -> (Emp, bt)
+      | RaisingEff (ins, pi, hs, stageEs) -> 
+        let (restES, ret) = stagedSpec2heapES stageEs in 
+        (Cons (Singleton(DelayAssert pi), Cons (Singleton(Event ins), Cons(heapES2ES hs , restES))), ret)
+   in 
+   stagedSpec2heapES t}
+
+
+
 effect_spec:
 | LPAREN p=pure_formula COMMA 
-  t= effect_trace COMMA 
-  v=effect_trace_value RPAREN 
-  rest = effect_spec_aux {(p, t, v)::rest}
+  esAndReturn = esAndReturn RPAREN 
+  rest = effect_spec_aux {
+    let (t, v) = esAndReturn in 
+    (p, t, v)::rest}
 
 
 list_of_post_condition:

@@ -79,6 +79,19 @@ type es = Bot
         | Kleene of es (* 0 or more, but finite*)
         | Stop
 
+type heapES = 
+      | EmpHeapES 
+      | SingleHeapES of kappa 
+      | AssertHeapES of pi 
+      | ConsHeapES of (heapES * heapES) 
+      | DisjHeapES of (heapES * heapES) 
+
+type stagedSpec = 
+      | BotStagedSpec
+      | NoramlReturn of basic_t 
+      | RaisingEff of (instant * pi * heapES * stagedSpec)
+
+type generalSpec = (pi * stagedSpec) list 
 
 type spec = (pi * es * basic_t) list 
 

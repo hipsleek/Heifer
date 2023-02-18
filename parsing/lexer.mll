@@ -59,6 +59,8 @@ let keyword_table =
     "functor", FUNCTOR;
     "requires", REQUIRES;
     "ensures", ENSURES;
+    "ret", NORMAL;
+
     "emp", EMP;
     "if", IF;
     "in", IN;

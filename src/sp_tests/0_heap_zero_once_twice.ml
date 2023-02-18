@@ -5,7 +5,9 @@ effect Done : unit
 
 let callee0 () 
 (*@  requires (true, emp, ())   @*)
-(*@  ensures  (true, {i->0}.Zero.{i->i+1}.[i=1], ()) @*)
+(*@  ensures  (true, # Zero requires true   
+                            ensures {i->i+1}.[i=1]; ret () ) @*)
+(*  ensures  (true, # ret 1 ) *)
 = 
   let i = Sys.opaque_identity (ref 0) in
   perform Zero;
