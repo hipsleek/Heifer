@@ -301,7 +301,7 @@ let rec retriveFuntionWithoutSpecDefinition str li =
   | (s, b, f) :: xs  -> if String.compare s str == 0 then (Some (s, b, f)) 
   else retriveFuntionWithoutSpecDefinition str xs 
 
-type variableStack = (((string * basic_t) list) list) ref 
+type variableStack = (((string * returnValue) list) list) ref 
 
 let (variableStack:variableStack) = ref []
 
@@ -798,21 +798,29 @@ let deleteTailSYH  (li:'a list) =
     | x :: xs -> aux xs (List.append acc [x])
   in aux li []
 
-let rec findMapping str s : string = 
+let rec findMapping_aux str s : returnValue = 
   match s with 
-  | [] -> str
+  | [] -> Basic (VARName str)
   | (x, t) :: xs -> 
     if String.compare x str == 0 then 
-      let nextName = ( string_of_basic_type t ) in 
-      let temp = findMapping nextName xs in 
-      if String.compare temp nextName == 0 then nextName
-      else temp
-    else findMapping str xs 
+      (match t with 
+      | Basic bt -> 
+        let nextName = (string_of_basic_type bt ) in 
+        let temp = findMapping_aux nextName xs in 
+        if String.compare (string_of_returnValue temp) nextName == 0 then temp
+        else t  
+      | _ ->  t 
+      )
+    else findMapping_aux str xs 
 
-let rec argumentBinder (formal:string list) (actual:(basic_t list)): (string * basic_t) list =
+let findMapping str s : string = 
+  let v = findMapping_aux str s in 
+  string_of_returnValue v 
+
+let rec argumentBinder (formal:string list) (actual:(basic_t list)): (string * returnValue) list =
   match (formal, actual) with 
   | ([], []) -> []
-  | (x::xs, y::ys) -> (x, y) :: argumentBinder xs ys
+  | (x::xs, y::ys) -> (x, Basic y) :: argumentBinder xs ys
   | (_, _) -> raise (Foo ("argumentBinder error"))
 
 let rec expressionToTerm (exprIn: Parsetree.expression_desc) : term = 
@@ -864,7 +872,7 @@ let rec infer_handling env handler (current:spec) (der:es) (expr:expression): sp
 (* VALUE *)   
   | Pexp_constant _
   | Pexp_construct _ 
-  | Pexp_ident _ -> [(True, Emp, UNIT)]
+  | Pexp_ident _ -> [(True, Emp, Basic UNIT)]
    
   | Pexp_apply (fnName, li) -> 
     let name = fnNameToString fnName in 
@@ -875,21 +883,21 @@ let rec infer_handling env handler (current:spec) (der:es) (expr:expression): sp
       (*let (_, continue_value) = (List.hd (List.tl li)) in 
       let eff_value = infer_of_expression env [(True, Emp)] continue_value in 
       *)
-      [(True, der, UNIT)]
+      [(True, der, Basic UNIT)]
     else if String.compare name "enqueue" == 0 then 
       let (_, hd) = List.hd li in  
       (match hd.pexp_desc with 
       |  Pexp_apply (fnNameIn, _) -> 
           if String.compare (fnNameToString fnNameIn) "continue" == 0 then 
             (* print_string ("enqueuing : " ^ string_of_es der ^ "\n");*)
-              (enqueue (der); [(True, Emp, UNIT)])
+              (enqueue (der); [(True, Emp, Basic UNIT)])
           else raise (Foo "infer_handling Pexp_apply enqueue1")
       | _ -> raise (Foo "infer_handling Pexp_apply enqueue"))
 
     else if String.compare name "dequeue" == 0 then 
       let temp = dequeue () in 
       (*print_string ("dequeue result : " ^ string_of_es temp ^ "\n");*)
-      [(True, temp, UNIT)]
+      [(True, temp, Basic UNIT)]
 
 
 
@@ -930,7 +938,7 @@ and handlerCompute env (history:es) handler (p, t, v) : spec =
   match (normalES t) with 
   | Stop -> 
     let (normalExpr:expression) = findNormalReturn handler in 
-    let ret = infer_handling env handler [(p, history, UNIT)] Emp normalExpr in 
+    let ret = infer_handling env handler [(p, history, Basic UNIT)] Emp normalExpr in 
     (*print_string ("Stop"^ string_of_spec ret ^ "\n"); *)
     ret
   | _ -> 
@@ -999,18 +1007,18 @@ and infer_of_expression (env) (current:spec) expr: spec =
           let bopLhsTerm = expressionToTerm bopLhs.pexp_desc in 
           let bopRhsTerm = expressionToTerm bopRhs.pexp_desc in 
           if String.compare (fnNameToString bop) "="  == 0 then 
-          [(True, Singleton (DelayAssert (Atomic (EQ, bopLhsTerm, bopRhsTerm))), UNIT)]
+          [(True, Singleton (DelayAssert (Atomic (EQ, bopLhsTerm, bopRhsTerm))), Basic UNIT)]
           else if String.compare (fnNameToString bop) ">"  == 0 then 
-          [(True, Singleton (DelayAssert (Atomic (GT, bopLhsTerm, bopRhsTerm))), UNIT)]
+          [(True, Singleton (DelayAssert (Atomic (GT, bopLhsTerm, bopRhsTerm))), Basic UNIT)]
           else if String.compare (fnNameToString bop) "<"  == 0 then 
-          [(True, Singleton (DelayAssert (Atomic (LT, bopLhsTerm, bopRhsTerm))), UNIT)]
+          [(True, Singleton (DelayAssert (Atomic (LT, bopLhsTerm, bopRhsTerm))), Basic UNIT)]
           else if String.compare (fnNameToString bop) ">="  == 0 then 
-          [(True, Singleton (DelayAssert (Atomic (GTEQ, bopLhsTerm, bopRhsTerm))), UNIT)]
-          else [(True, Singleton (DelayAssert (Atomic (LTEQ, bopLhsTerm, bopRhsTerm))), UNIT)]
+          [(True, Singleton (DelayAssert (Atomic (GTEQ, bopLhsTerm, bopRhsTerm))), Basic UNIT)]
+          else [(True, Singleton (DelayAssert (Atomic (LTEQ, bopLhsTerm, bopRhsTerm))), Basic UNIT)]
         else 
           let (_,  bopLhs) = (List.hd bopLi) in 
           (*print_string ( Pprintast.string_of_expression  bopLhs^ "\n" );*)
-          [(True, Singleton (DelayAssert(Predicate (fnNameToString bop, expressionToTerm bopLhs.pexp_desc))), UNIT)]
+          [(True, Singleton (DelayAssert(Predicate (fnNameToString bop, expressionToTerm bopLhs.pexp_desc))), Basic UNIT)]
 
 
     | _ -> raise (Foo (string_of_expression_kind (exprIn.pexp_desc) )) 
@@ -1020,7 +1028,7 @@ and infer_of_expression (env) (current:spec) expr: spec =
 (* VALUE *)
   | Pexp_constant _
   | Pexp_construct _ 
-  | Pexp_ident _ -> [(True, Emp, UNIT)] 
+  | Pexp_ident _ -> [(True, Emp, Basic UNIT)] 
   | Pexp_sequence (ex1, ex2) -> 
   let eff1 = infer_of_expression env current ex1 in 
   let eff2 = infer_of_expression env (concatenateEffects current eff1) ex2 in 
@@ -1063,6 +1071,8 @@ and infer_of_expression (env) (current:spec) expr: spec =
            | _ ->  raise (Foo (var_name ^ "\n" ^string_of_expression_kind (allocate_argument.pexp_desc)))
             )
  
+        (*else if String.compare name "!" == 0 then *)
+            
         else 
         let eff = infer_of_expression env current (head.pvb_expr) in 
         let his = concatenateEffects current eff in 
@@ -1072,7 +1082,7 @@ and infer_of_expression (env) (current:spec) expr: spec =
     | _ -> raise (Foo (var_name ^ "\n" ^string_of_expression_kind (head.pvb_expr.pexp_desc) )) 
     )
     | Pexp_match (ex, case_li) -> 
-      let ex_eff = normalSpec (infer_of_expression env [(True, Emp, UNIT)] ex) in 
+      let ex_eff = normalSpec (infer_of_expression env [(True, Emp, Basic UNIT)] ex) in 
       (*print_string ("Pexp_match " ^  string_of_spec ex_eff ^"\n");*)
       let eff_handled = handlerReasoning env case_li (concatnateEffEs ex_eff Stop) in 
       eff_handled 
@@ -1084,7 +1094,7 @@ and infer_of_expression (env) (current:spec) expr: spec =
 (* PERFORM *)
         let eff_name = getEffName (List.hd li) in 
         let eff_arg = getEffNameArg (List.hd li) in 
-        [(True, Singleton (Event (eff_name, eff_arg)), UNIT)]
+        [(True, Singleton (Event (eff_name, eff_arg)), Basic UNIT)]
       else if String.compare name ":=" == 0 then 
         let (_, templhs) = (List.hd li) in 
         let (_, temprhs) = (List.hd (List.tl li)) in 
@@ -1097,10 +1107,10 @@ and infer_of_expression (env) (current:spec) expr: spec =
           let bopLhsTerm = expressionToTerm bopLhs.pexp_desc  in 
           let bopRhsTerm = expressionToTerm bopRhs.pexp_desc in 
           if String.compare (fnNameToString bop) "+"  == 0 then 
-          [(True, Singleton (HeapOp (PointsTo (findMapping lhs (List.flatten !variableStack), (Plus(bopLhsTerm, bopRhsTerm))))), UNIT)]
+          [(True, Singleton (HeapOp (PointsTo (findMapping lhs (List.flatten !variableStack), (Plus(bopLhsTerm, bopRhsTerm))))), Basic UNIT)]
           else if String.compare (fnNameToString bop) "-"  == 0 then 
-          [(True, Singleton (HeapOp (PointsTo (findMapping lhs (List.flatten !variableStack), (Minus(bopLhsTerm, bopRhsTerm))))), UNIT)]
-          else [(True, Singleton (HeapOp (PointsTo (lhs, (TListAppend(bopLhsTerm, bopRhsTerm))))), UNIT)]
+          [(True, Singleton (HeapOp (PointsTo (findMapping lhs (List.flatten !variableStack), (Minus(bopLhsTerm, bopRhsTerm))))), Basic UNIT)]
+          else [(True, Singleton (HeapOp (PointsTo (lhs, (TListAppend(bopLhsTerm, bopRhsTerm))))), Basic UNIT)]
         | (Pexp_ident id1, Pexp_ident id2) -> 
 
 
@@ -1110,15 +1120,16 @@ and infer_of_expression (env) (current:spec) expr: spec =
           (*print_string (List.fold_left (fun acc (str, t) -> acc ^ "\n" ^ str ^ "->" ^ string_of_basic_type t) "" (List.flatten !variableStack));*)
           let lhs' = findMapping lhs (List.flatten !variableStack) in 
           let rhs' = findMapping rhs (List.flatten !variableStack) in 
-          [(True, Singleton (HeapOp (PointsTo (lhs', Var rhs'))), UNIT)]
+          [(True, Singleton (HeapOp (PointsTo (lhs', Var rhs'))), Basic UNIT)]
 
         | _ -> raise (Foo ("Pexp_apply:"^ string_of_expression_kind (templhs.pexp_desc) ^ " " ^ string_of_expression_kind (temprhs.pexp_desc)))
         )
 
-      else if String.compare name "Printf.printf" == 0 then [(True, Emp, UNIT)]
-      else if String.compare name "print_string" == 0 then [(True, Emp, UNIT)]
-      else if String.compare name "enqueue" == 0 then [(True, Emp, UNIT)]
-      else if String.compare name "dequeue" == 0 then [(True, Emp, UNIT)]
+      else if String.compare name "Printf.printf" == 0 then [(True, Emp, Basic UNIT)]
+      else if String.compare name "print_string" == 0 then [(True, Emp, Basic UNIT)]
+      else if String.compare name "enqueue" == 0 then [(True, Emp, Basic UNIT)]
+      else if String.compare name "dequeue" == 0 then [(True, Emp, Basic UNIT)]
+      
 
 
       else 

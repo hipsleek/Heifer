@@ -3,8 +3,8 @@ effect Exchange: int -> int
 let i = Sys.opaque_identity (ref 11) 
 
 let test () 
-(*@  requires (true, emp)   @*)
-(*@  ensures  (true, Exchange(5), ret = Exchange(5)?) @*)
+(*@  requires (true, emp, ())   @*)
+(*@  ensures  (true, Exchange(5), Exchange(5)?) @*)
 = 
   (* requires exist a. !i->a *)
   let res = perform (Exchange 5) in 
@@ -14,7 +14,7 @@ let test ()
 
 let main
 (*@  requires (true, emp)   @*)
-(*@  ensures  (true, [a.!i->a].{i->5}.Normal(11)) @*)
+(*@  ensures  (true, [a.!i->a].{i->5}.Normal(11), ()) @*)
 = 
   match test () with 
   | v -> v print_string ("Normal Rtn:" ^ string_of_int v ^ "\n")

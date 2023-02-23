@@ -113,6 +113,7 @@ let string_of_basic_type a : string =
   | UNIT -> "()"
   | VARName s -> s
 
+
 let string_of_instant (str, ar_Li): string = 
   (* syntax is like OCaml type constructors, e.g. Foo, Foo (), Foo (1, ()) *)
   let args =
@@ -123,6 +124,11 @@ let string_of_instant (str, ar_Li): string =
   in
   Format.sprintf "%s%s" str args
 
+let string_of_returnValue (v:returnValue) : string = 
+  match v with
+  | Basic v -> string_of_basic_type v 
+  | Placeholder ins -> string_of_instant ins ^ "?"
+  | ResultOfPlaceholder (ins, v) ->  string_of_instant ins ^ "?(" ^ string_of_basic_type v ^")"
 
 
 let rec string_of_term t : string = 
@@ -207,7 +213,7 @@ let rec string_of_es es : string =
   | Stop -> "†"
 
 let string_of_tuple (pi, es, v) : string = 
-  string_of_pi pi ^ ", " ^  string_of_es es^ ", " ^  string_of_basic_type v   ;;
+  string_of_pi pi ^ ", " ^  string_of_es es^ ", " ^  string_of_returnValue v   ;;
 
 let rec string_of_spec (eff:spec) :string =
   match eff with

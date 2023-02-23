@@ -712,7 +712,7 @@ let mk_directive ~loc name arg =
 %token VIRTUAL
 %token WHEN
 %token WHILE
-%token WITH NORMAL
+%token WITH 
 %token <string * Location.t> COMMENT
 %token LSPECCOMMENT
 %token RSPECCOMMENT
@@ -2540,6 +2540,12 @@ effect_trace_value:
   | LPAREN RPAREN { UNIT }
 ;
 
+returnValue:
+  | v = effect_trace_value {Basic v}
+  | n = UIDENT LPAREN args = list(effect_trace_value) RPAREN QUESTION {Placeholder(n, args)}
+  | n = UIDENT LPAREN args = list(effect_trace_value) 
+    RPAREN QUESTION LPAREN v = effect_trace_value RPAREN {ResultOfPlaceholder((n, args), v)}
+
 heapkappa:
 | EMP { EmptyHeap }
 | str=LIDENT MINUSGREATER args = pure_formula_term {PointsTo(str, args)}
@@ -2635,7 +2641,7 @@ heapES:
 
 
 stagedSpec : 
-| oppre = heapES SEMI NORMAL v = effect_trace_value  { NoramlReturn (oppre, v) }
+| oppre = heapES SEMI  v = returnValue  { NoramlReturn (oppre, v) }
 | oppre = heapES SEMI n = UIDENT REQUIRES prec=pure_formula 
   ENSURES rest = stagedSpec  { RaisingEff(oppre,  prec, (n, []), rest) }
 
@@ -2645,7 +2651,7 @@ stagedSpec :
 
 
 esAndReturn:
-| t= effect_trace COMMA  v=effect_trace_value {t, v}
+| t= effect_trace COMMA  v=returnValue {t, v}
 | HASH 
   t= stagedSpec  
   { let rec heapES2ES (hs:heapES) : es = 
@@ -2658,9 +2664,9 @@ esAndReturn:
 
     in 
     
-    let rec stagedSpec2heapES (s:stagedSpec) : (es * basic_t) = 
+    let rec stagedSpec2heapES (s:stagedSpec) : (es * returnValue) = 
       match s with 
-      | BotStagedSpec -> (Bot, UNIT)
+      | BotStagedSpec -> (Bot, Basic UNIT)
       | NoramlReturn (preop, bt) -> (heapES2ES preop, bt)
       | RaisingEff (preop, pi, ins,  stageEs) -> 
         let (restES, ret) = stagedSpec2heapES stageEs in 

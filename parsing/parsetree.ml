@@ -27,8 +27,14 @@ type basic_t = BINT of int | UNIT | VARName of string
 
 type instant = string * (basic_t list) 
 
+type returnValue = 
+    | Basic of basic_t
+    | Placeholder of instant 
+    | ResultOfPlaceholder of (instant * basic_t)
+
+
 type term = 
-      Num of int
+    | Num of int
     | TList of (term list)
     | TTupple of (term list)
     | Var of string
@@ -88,22 +94,22 @@ type heapES =
 
 type stagedSpec = 
       | BotStagedSpec
-      | NoramlReturn of (heapES * basic_t) 
+      | NoramlReturn of (heapES * returnValue) 
       | RaisingEff of (heapES * pi * instant * stagedSpec)
 
 type generalSpec = (pi * stagedSpec) list 
 
-type spec = (pi * es * basic_t) list 
+type spec = (pi * es * returnValue) list 
 
-type stack = string * instant
+type stack = string * returnValue
 type side = (string * (es * es)) list   (* Eff(f()) = _^*.A -> U^*.(Res \/ emp) *)
 
 
 let default_es_pre =  (Kleene(Underline))
 let default_es_post = Emp
 
-let default_spec_pre = [(True, default_es_pre, UNIT)]
-let default_spec_post = [(True, default_es_post, UNIT)]
+let default_spec_pre = [(True, default_es_pre, Basic UNIT)]
+let default_spec_post = [(True, default_es_post, Basic UNIT)]
 
 type policy = Eff of string * es * es | Exn of string | Normal of es
 
