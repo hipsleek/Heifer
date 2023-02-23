@@ -215,6 +215,10 @@ let rec string_of_es es : string =
 let string_of_tuple (pi, es, v) : string = 
   string_of_pi pi ^ ", " ^  string_of_es es^ ", " ^  string_of_returnValue v   ;;
 
+let string_of_sptuple (pi, kappa, v) : string = 
+  string_of_pi pi ^ ", {" ^  string_of_kappa kappa^ "}, " ^  string_of_returnValue v   ;;
+
+
 let rec string_of_spec (eff:spec) :string =
   match eff with
   | [] -> ""
@@ -222,11 +226,21 @@ let rec string_of_spec (eff:spec) :string =
   | x::xs ->  "(" ^ string_of_tuple x ^ ") \\/ " ^ string_of_spec xs
 ;;  
 
+let rec string_of_sp_spec  (eff:sp_spec) : string = 
+  match eff with
+  | [] -> ""
+  | [x] -> "(" ^ string_of_sptuple x ^ ")"
+  | x::xs ->  "(" ^ string_of_sptuple x ^ ") \\/ " ^ string_of_sp_spec xs
+
 
 
 let string_of_inclusion (lhs:spec) (rhs:spec) :string = 
   string_of_spec lhs ^" |- " ^string_of_spec rhs 
   ;;
+
+let string_of_kappa_inclusion (lhs:sp_spec) (rhs:sp_spec) :string = 
+  string_of_sp_spec lhs ^" |- " ^string_of_sp_spec rhs 
+
 
 let rec normalES (es:es):es = 
   match es with
@@ -300,3 +314,13 @@ let rec string_of_policies ps: string =
     | Exn str -> "Exeption " ^ str ^ "\n"
     | Normal es -> "Normal " ^ string_of_es es 
     ) ^ string_of_policies xs 
+
+    
+let rec kappaToPure kappa : pi =
+  match kappa with 
+  | EmptyHeap -> True
+  | PointsTo (str, t) -> Atomic(EQ, Var str, t)
+  | Disjoin (k1, k2) -> And (kappaToPure k1, kappaToPure k2)
+  | Implication (k1, k2) -> Imply (kappaToPure k1, kappaToPure k2)
+
+ 

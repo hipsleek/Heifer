@@ -100,11 +100,12 @@ type stagedSpec =
 type generalSpec = (pi * stagedSpec) list 
 
 type spec = (pi * es * returnValue) list 
+type sp_spec = (pi * kappa * returnValue) list
 
 type stack = string * returnValue
 type side = (string * (es * es)) list   (* Eff(f()) = _^*.A -> U^*.(Res \/ emp) *)
 
-type trs_spec = Trace of (pi * es * returnValue) | ConcreteTrace of kappa
+type trs_spec = Trace of (pi * es * returnValue) | ConcreteTrace of (pi * kappa * returnValue)
 
 let default_es_pre =  (Kleene(Underline))
 let default_es_post = Emp

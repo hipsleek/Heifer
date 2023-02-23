@@ -314,22 +314,45 @@ let rec check_containment (lhs:spec) (rhs:spec) :(bool * binary_tree) =
 
 ;;
 
-let partionTraceAndCOncrteTrace (eff:trs_spec list) : (spec * (kappa list)) = 
+let partionTraceAndCOncrteTrace (eff:trs_spec list) : (spec * sp_spec) = 
   let (t :spec)= List.fold_left (fun acc a -> List.append acc (match a with | Trace a -> [a] | _ -> []) ) [] eff in 
-  let (c:(kappa list)) = List.fold_left (fun acc a -> List.append acc (match a with | ConcreteTrace a -> [a] | _ -> []) ) [] eff in 
+  let (c:sp_spec) = List.fold_left (fun acc a -> List.append acc (match a with | ConcreteTrace a -> [a] | _ -> []) ) [] eff in 
   (t, c)
+
+let rec check_concreteEntaill (lhs:sp_spec) (rhs: sp_spec): (bool * binary_tree) = 
+  let entail = string_of_kappa_inclusion lhs rhs in 
+  match (lhs, rhs) with 
+  | (x::x1::xs, _) -> 
+    let (res1, tree1) = check_concreteEntaill [x] rhs in 
+    let (res2, tree2) = check_concreteEntaill (x1::xs)  rhs in 
+    (res1 && res2, Node (entail^ "   [LHS-DISJ]", [tree1; tree2]))
+  | (_, y::y1::ys) -> 
+    let (res1, tree1) = check_concreteEntaill lhs [y] in 
+    let (res2, tree2) = check_concreteEntaill lhs (y1::ys) in 
+    (res1 || res2, Node (entail^ "   [RHS-DISJ]", [tree1; tree2]))
+  | ([(pi1, es1, _)], [(pi2, es2, _)]) -> 
+    let (re1, str) = check_pure pi1 pi2 in 
+    if re1 then 
+      let (re2, str) = check_pure (kappaToPure es1) (kappaToPure es2) in 
+      (re2, Node (entail^ str, []))
+    else (false, Node (entail^ str, []))
+    
+  | ([], _) -> (true, Node ("lhs empty", []))
+  | (_, []) -> (false, Node ("rhs empty", []))
+
 
 let printReport (lhs:trs_spec list) (rhs:trs_spec list) :(bool * float * string) = 
   let startTimeStamp = Sys.time() in
-  let (tLHS, _) = partionTraceAndCOncrteTrace lhs in 
-  let (tRHS, _) = partionTraceAndCOncrteTrace rhs in 
+  let (tLHS, cLHS) = partionTraceAndCOncrteTrace lhs in 
+  let (tRHS, cRHS) = partionTraceAndCOncrteTrace rhs in 
 
   let (re, tree) = check_containment tLHS tRHS in 
+  let (re1, tree1) = check_concreteEntaill cLHS cRHS in 
   let computtaion_time = ((Sys.time() -. startTimeStamp) *. 1000.0) in 
   let verification_time = "[TRS Time: " ^ string_of_float (computtaion_time) ^ " ms]" in
-  let result = printTree ~line_prefix:"* " ~get_name ~get_children tree in
+  let result = printTree ~line_prefix:"* " ~get_name ~get_children (Node ("root", [tree;tree1])) in
 
-  let whole = "[TRS Result: " ^ (if re  then "Succeed" else "Fail" ) in 
+  let whole = "[TRS Result: " ^ (if re && re1 then "Succeed" else "Fail" ) in 
   (re, computtaion_time, "~~~~~~~~~~~~~~~~~~~~~\n" ^
   verification_time  ^"\n"^
   whole  ^"\n"^

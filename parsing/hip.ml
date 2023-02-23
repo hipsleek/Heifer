@@ -1305,29 +1305,73 @@ let rec existSymbolic es : bool =
 
 
 
-let rec kappaToPure kappa : pi =
-  match kappa with 
-  | EmptyHeap -> True
-  | PointsTo (str, t) -> Atomic(EQ, Var str, t)
-  | Disjoin (k1, k2) -> And (kappaToPure k1, kappaToPure k2)
-  | Implication (k1, k2) -> Imply (kappaToPure k1, kappaToPure k2)
-
- 
 
 let enatilmentHeapAssertion k1 pi : bool = 
   let (re, _) = check_pure (kappaToPure k1) pi in re
 
-let rec updateKappa kappa name term : kappa = 
+let rec lookUpFromPure p str : term option = 
+  match p with 
+  | True -> None 
+  | False -> None 
+  | Atomic (EQ, Var name , Num i) -> 
+    if String.compare str name == 0 then Some (Num i)
+    else None 
+
+  | And   (p1, p2) -> 
+    (match lookUpFromPure p1 str with 
+    | None -> lookUpFromPure p2 str
+    | Some n -> Some n 
+    )
+  | Atomic _
+  | Or    _
+  | Imply  _
+  | Not   _
+  | Predicate _ -> raise (Foo "lookUpFromPure error")
+
+
+let rec computeValue p t: term option =
+  match t with
+  | Num _ -> Some t
+  | Var str -> lookUpFromPure p str 
+  | Plus (t1, t2) -> 
+    (match (computeValue p t1, computeValue p t2) with 
+    | (Some (Num i1), Some(Num i2)) -> Some (Num (i1+i2))
+    | _ -> None 
+    )
+  | Minus (t1, t2) -> 
+    (match (computeValue p t1, computeValue p t2) with 
+    | (Some (Num i1), Some(Num i2)) -> Some (Num (i1-i2))
+    | _ -> None 
+    )
+  | TListAppend _
+  | TList _
+  | TTupple _ -> raise (Foo "computeValue error") 
+
+
+
+let rec updateKappa (state:pi) kappa name term : (kappa option)  = 
   match kappa with
-  | EmptyHeap -> PointsTo(name, term)
-  | PointsTo (str, _) -> if String.compare str name == 0 then PointsTo(name, term) else kappa
-  | Disjoin (k1, k2) -> Disjoin (updateKappa k1 name term, updateKappa k2 name term)
-  | Implication (k1, k2) -> Implication (updateKappa k1 name term, updateKappa k2 name term)
+  | EmptyHeap -> Some (PointsTo(name, term))
+  | PointsTo (str, _) -> 
+  if String.compare str name == 0 then 
+    let value = computeValue state term in 
+    match value with 
+    | Some t -> Some (PointsTo(name, t))
+    | None ->  None 
+  else Some kappa
+  | Disjoin (k1, k2) -> 
+    (match (updateKappa (state) k1 name term, updateKappa state k2 name term) with 
+    | (Some k1, Some k2) -> Some (Disjoin (k1, k2))
+    | _ -> None )
+  | Implication (k1, k2) -> 
+    (match (updateKappa state k1 name term, updateKappa state k2 name term) with 
+    | (Some k1, Some k2) -> Some (Implication (k1, k2))
+    | _ -> None )
 
 
-let accumulateKappa k1 k2 : kappa  = 
+let accumulateKappa k1 k2 : kappa option = 
   match k2 with
-  | PointsTo (str, t) -> updateKappa k1 str t 
+  | PointsTo (str, t) -> updateKappa (kappaToPure k1) k1 str t 
   | _ -> raise (Foo "accumulateKappa error")
 
 
@@ -1342,7 +1386,7 @@ let rec flattenTrace es (acc:kappa): (kappa option) option  =
     | Some (Some (kappa1)) -> flattenTrace es2 kappa1
     | o -> o
     )
-  | Singleton (HeapOp k1) -> Some (Some (accumulateKappa acc k1))
+  | Singleton (HeapOp k1) -> Some ((accumulateKappa acc k1))
   | Singleton (DelayAssert pi) -> 
     if enatilmentHeapAssertion acc pi  then Some ( Some acc) 
     else Some(None)
@@ -1358,7 +1402,7 @@ let tryToNormalise (p, es, v) : trs_spec =
   if existSymbolic es then Trace (p, es, v)
   else match flattenTrace es EmptyHeap with 
       | None -> Trace (p, es, v)
-      | Some (Some k) -> ConcreteTrace k 
+      | Some (Some k) -> ConcreteTrace (p, k, v )
       | Some (None) -> Trace(p, Bot, v)
 
   
