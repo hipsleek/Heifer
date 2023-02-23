@@ -593,6 +593,21 @@ let rec var_binding (formal:string list) (actual: expression list) : (string * b
   | _ -> []
   ;;
 
+let dealWithNormalReturn env expr = 
+  let ret = (match expressionToBasicT expr with 
+  | None -> Basic UNIT
+  | Some (VARName str) -> 
+    (match retriveStack str env with 
+    | None -> Basic (VARName str) 
+    | Some bt -> bt 
+    )
+  | Some bt -> Basic bt 
+
+  )
+  in 
+  [(True, Emp, ret)] 
+
+
 let instantiateInstance (ins:instant) (vb:(string * basic_t) list)  : instant  = 
   let rec findbinding str vb_li =
     match vb_li with 
@@ -1026,9 +1041,9 @@ and infer_of_expression (env) (current:spec) expr: spec =
 
 
 (* VALUE *)
-  | Pexp_constant _
+  | Pexp_constant _ 
   | Pexp_construct _ 
-  | Pexp_ident _ -> [(True, Emp, Basic UNIT)] 
+  | Pexp_ident _ -> dealWithNormalReturn env expr 
   | Pexp_sequence (ex1, ex2) -> 
   let eff1 = infer_of_expression env current ex1 in 
   let eff2 = infer_of_expression env (concatenateEffects current eff1) ex2 in 
@@ -1045,7 +1060,8 @@ and infer_of_expression (env) (current:spec) expr: spec =
   | Pexp_let (_(*flag*),  vb_li, let_expression) -> 
     let head = List.hd vb_li in 
     let var_name = string_of_pattern (head.pvb_pat) in 
-    (match (head.pvb_expr.pexp_desc) with 
+    let exprIn = (head.pvb_expr.pexp_desc) in 
+    (match exprIn with 
     | Pexp_apply (fnName, li) -> 
         let name = fnNameToString fnName in 
         if String.compare name "Sys.opaque_identity" == 0 then 
@@ -1058,27 +1074,27 @@ and infer_of_expression (env) (current:spec) expr: spec =
              let his = concatnateEffEs current ev in 
              let rest = infer_of_expression env his let_expression in 
              List.map (fun (a, b, v) -> (a, Cons (ev, b), v)) rest
-
-             (*match constant.pexp_desc with
-             | Pexp_constant (Pconst_integer (str, _)) ->
-                
-
-             | Pexp_construct (_, Some expr) -> 
-
-
-             | _ -> raise (Foo (var_name ^ "\n" ^string_of_expression_kind (constant.pexp_desc)))
-             *)
            | _ ->  raise (Foo (var_name ^ "\n" ^string_of_expression_kind (allocate_argument.pexp_desc)))
             )
  
         (*else if String.compare name "!" == 0 then *)
-            
+        else if String.compare name "perform" == 0 then 
+        (* PERFORM *)
+            let eff_name = getEffName (List.hd li) in 
+            let eff_arg = getEffNameArg (List.hd li) in   
+            let env' = (Env.add_stack [(var_name, Placeholder (eff_name, eff_arg))] env) in 
+            let ev = Singleton (Event (eff_name, eff_arg)) in 
+            let his = concatnateEffEs current ev in 
+            let rest = infer_of_expression env' his let_expression in 
+            List.map (fun (a, b, v) -> (a, Cons (ev, b), v)) rest
         else 
         let eff = infer_of_expression env current (head.pvb_expr) in 
         let his = concatenateEffects current eff in 
         let rest = infer_of_expression env his let_expression in 
         concatenateEffects eff rest
 
+    | Pexp_ident _ -> dealWithNormalReturn env head.pvb_expr 
+            
     | _ -> raise (Foo (var_name ^ "\n" ^string_of_expression_kind (head.pvb_expr.pexp_desc) )) 
     )
     | Pexp_match (ex, case_li) -> 
@@ -1094,7 +1110,8 @@ and infer_of_expression (env) (current:spec) expr: spec =
 (* PERFORM *)
         let eff_name = getEffName (List.hd li) in 
         let eff_arg = getEffNameArg (List.hd li) in 
-        [(True, Singleton (Event (eff_name, eff_arg)), Basic UNIT)]
+
+        [(True, Singleton (Event (eff_name, eff_arg)), Placeholder (eff_name, eff_arg))]
       else if String.compare name ":=" == 0 then 
         let (_, templhs) = (List.hd li) in 
         let (_, temprhs) = (List.hd (List.tl li)) in 
