@@ -1289,6 +1289,82 @@ and infer_value_binding rec_flag env vb =
 
 type experiemntal_data = (float list * float list) 
 
+let rec existSymbolic es : bool = 
+  match es with 
+  | Bot 
+  | Emp 
+  | Underline 
+  | Stop -> false 
+  | Kleene es ->  existSymbolic es 
+  | Cons (es1, es2) 
+  | ESOr (es1, es2) -> existSymbolic es1 || existSymbolic es2
+  | Singleton (Event _) -> true 
+  | Singleton (NotEvent _) -> true 
+  | Singleton (HeapOp _) -> false 
+  | Singleton (DelayAssert _) -> false 
+
+
+
+let rec kappaToPure kappa : pi =
+  match kappa with 
+  | EmptyHeap -> True
+  | PointsTo (str, t) -> Atomic(EQ, Var str, t)
+  | Disjoin (k1, k2) -> And (kappaToPure k1, kappaToPure k2)
+  | Implication (k1, k2) -> Imply (kappaToPure k1, kappaToPure k2)
+
+ 
+
+let enatilmentHeapAssertion k1 pi : bool = 
+  let (re, _) = check_pure (kappaToPure k1) pi in re
+
+let rec updateKappa kappa name term : kappa = 
+  match kappa with
+  | EmptyHeap -> PointsTo(name, term)
+  | PointsTo (str, _) -> if String.compare str name == 0 then PointsTo(name, term) else kappa
+  | Disjoin (k1, k2) -> Disjoin (updateKappa k1 name term, updateKappa k2 name term)
+  | Implication (k1, k2) -> Implication (updateKappa k1 name term, updateKappa k2 name term)
+
+
+let accumulateKappa k1 k2 : kappa  = 
+  match k2 with
+  | PointsTo (str, t) -> updateKappa k1 str t 
+  | _ -> raise (Foo "accumulateKappa error")
+
+
+let rec flattenTrace es (acc:kappa): (kappa option) option  = 
+  match es with 
+  | Bot -> Some (None)
+  | Emp 
+  | Underline 
+  | Stop -> Some (Some acc) 
+  | Cons (es1, es2) -> 
+    (match flattenTrace es1 acc with 
+    | Some (Some (kappa1)) -> flattenTrace es2 kappa1
+    | o -> o
+    )
+  | Singleton (HeapOp k1) -> Some (Some (accumulateKappa acc k1))
+  | Singleton (DelayAssert pi) -> 
+    if enatilmentHeapAssertion acc pi  then Some ( Some acc) 
+    else Some(None)
+  | Singleton (Event _) 
+  | Singleton (NotEvent _) 
+  | ESOr (_, _) 
+  | Kleene _ -> raise (Foo "flattenTrace ESOr Kleene")
+
+ 
+        
+
+let tryToNormalise (p, es, v) : trs_spec = 
+  if existSymbolic es then Trace (p, es, v)
+  else match flattenTrace es EmptyHeap with 
+      | None -> Trace (p, es, v)
+      | Some (Some k) -> ConcreteTrace k 
+      | Some (None) -> Trace(p, Bot, v)
+
+  
+
+
+
 
 let infer_of_value_binding rec_flag env vb: string * env * experiemntal_data =
   let startTimeStamp = Sys.time() in
@@ -1307,9 +1383,12 @@ let infer_of_value_binding rec_flag env vb: string * env * experiemntal_data =
       "[Pre  Condition] " ^ string_of_spec pre ^"\n"^
       "[Post Condition] " ^ string_of_spec (List.hd post) ^"\n"^
       (let infer_time = "[Inference Time: " ^ string_of_float ((Sys.time() -. startTimeStamp) *. 1000.0) ^ " ms]" in
-      (*let (_, _, trs_str) = printReport final (concatenateEffects pre (List.hd post)) in
-*)
-      "[Final  Effects] " ^ string_of_spec (normalSpec final) ^ "\n"^ infer_time ^ "\n" ^ "trs_str" ^"\n")
+      
+      let final' = List.map (fun (p, es, v) -> tryToNormalise (p, es, v)) final in 
+      let postcondition = List.map (fun (p, es, v) -> tryToNormalise (p, es, v)) (concatenateEffects pre (List.hd post)) in 
+      let (_, _, trs_str) = printReport final' postcondition in
+
+      "[Final  Effects] " ^ string_of_spec (normalSpec final) ^ "\n"^ infer_time ^ "\n" ^ trs_str ^"\n")
       (*(string_of_inclusion final_effects post) ^ "\n" ^*)
       (*"[T.r.s: Verification for Post Condition]\n" ^ *)
     (*in

@@ -104,6 +104,7 @@ type spec = (pi * es * returnValue) list
 type stack = string * returnValue
 type side = (string * (es * es)) list   (* Eff(f()) = _^*.A -> U^*.(Res \/ emp) *)
 
+type trs_spec = Trace of (pi * es * returnValue) | ConcreteTrace of kappa
 
 let default_es_pre =  (Kleene(Underline))
 let default_es_post = Emp

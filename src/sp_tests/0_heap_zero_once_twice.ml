@@ -83,7 +83,7 @@ For TWICE:
      [i=1]                 emp                                        i=2 /\ false 
 *)
 
-(*
+
 let main 
 (*@  requires (true, emp, ()) @*)
 (*@  ensures  (true, emp, ()) @*)
@@ -91,4 +91,3 @@ let main
   match main_aux () with 
   | x ->  ()
   | effect Done k -> print_string ("Done here\n"); continue k ()
-*)

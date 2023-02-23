@@ -314,11 +314,17 @@ let rec check_containment (lhs:spec) (rhs:spec) :(bool * binary_tree) =
 
 ;;
 
+let partionTraceAndCOncrteTrace (eff:trs_spec list) : (spec * (kappa list)) = 
+  let (t :spec)= List.fold_left (fun acc a -> List.append acc (match a with | Trace a -> [a] | _ -> []) ) [] eff in 
+  let (c:(kappa list)) = List.fold_left (fun acc a -> List.append acc (match a with | ConcreteTrace a -> [a] | _ -> []) ) [] eff in 
+  (t, c)
 
-
-let printReport (lhs:spec) (rhs:spec) :(bool * float * string) = 
+let printReport (lhs:trs_spec list) (rhs:trs_spec list) :(bool * float * string) = 
   let startTimeStamp = Sys.time() in
-  let (re, tree) = check_containment lhs rhs in 
+  let (tLHS, _) = partionTraceAndCOncrteTrace lhs in 
+  let (tRHS, _) = partionTraceAndCOncrteTrace rhs in 
+
+  let (re, tree) = check_containment tLHS tRHS in 
   let computtaion_time = ((Sys.time() -. startTimeStamp) *. 1000.0) in 
   let verification_time = "[TRS Time: " ^ string_of_float (computtaion_time) ^ " ms]" in
   let result = printTree ~line_prefix:"* " ~get_name ~get_children tree in
