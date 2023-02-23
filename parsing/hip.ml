@@ -561,16 +561,19 @@ let expressionToBasicT ex : basic_t option=
   | Pexp_constant cons ->
     (match cons with 
     | Pconst_integer (str, _) -> Some (BINT (int_of_string str))
-    | _ -> raise (Foo (Pprintast.string_of_expression  ex ^ " expressionToBasicT error2"))
+    | _ -> None
+    (*raise (Foo (Pprintast.string_of_expression  ex ^ " expressionToBasicT error2")*)
+    
 
     (*| _ -> None (*raise (Foo (Pprintast.string_of_expression  ex ^ " expressionToBasicT error1"))*)
     *)
     )
   | Pexp_construct _ -> Some (UNIT)
   | Pexp_ident l -> Some (VARName (getIndentName l.txt))
-  | _ -> raise (Foo (Pprintast.string_of_expression  ex ^ " expressionToBasicT error2"))
-  (*
   | _ -> None 
+
+  (*
+  | _ -> raise (Foo (Pprintast.string_of_expression  ex ^ " expressionToBasicT error2"))
 
   | Pexp_let _ -> raise (Foo "Pexp_i")
   | Pexp_function _ -> raise (Foo "Pexp_i")

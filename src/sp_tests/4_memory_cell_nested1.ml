@@ -4,18 +4,18 @@ effect Write : int -> unit
 let (i: int ref) = Sys.opaque_identity (ref 0)
 
 let read () 
-(*@  requires (true, _^* ) @*)
-(*@ ensures (true, Read) @*)
+(*@  requires (true, _^* ,()) @*)
+(*@ ensures (true, Read,()) @*)
 = perform Read
 
 let write n 
-(*@  requires (true, _^* ) @*)
-(*@ ensures (true, Write (n)) @*)
+(*@  requires (true, _^* ,()) @*)
+(*@ ensures (true, Write (n),()) @*)
 = perform (Write n)
 
 let client () 
-(*@  requires (true, _^* ) @*)
-(*@ ensures (true, Read. Write (10). Read) @*)
+(*@  requires (true, _^* ,()) @*)
+(*@ ensures (true, Read. Write (10). Read,()) @*)
 = let x = read () in 
   Printf.printf "i = %d\n%!" x;
   write 10;
@@ -23,8 +23,8 @@ let client ()
   Printf.printf "i = %d\n%!" x
 
 let handler1 () 
-(*@ requires (true, {i->0})  @*)
-(*@ ensures (true, Write (10) )@*)
+(*@ requires (true, {i->0},())  @*)
+(*@ ensures (true, Write (10),() )@*)
 = 
   match client () with
   | v -> ()
@@ -32,8 +32,8 @@ let handler1 ()
 
 
 let main 
-(*@ requires (true, emp)  @*)
-(*@ ensures (true, emp) @*)
+(*@ requires (true, emp,())  @*)
+(*@ ensures (true, emp,()) @*)
 =
   match handler1 () with
   | v -> ()

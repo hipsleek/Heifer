@@ -11,16 +11,16 @@ let rec pos li : bool =
   | x :: xs -> if x <= 0 then false else pos xs 
 
 let producer () 
-(*@ requires (true, _^* )  @*)
-(*@ ensures (true, Produce(3).Produce(5)) @*)
+(*@ requires (true, _^* ,())  @*)
+(*@ ensures (true, Produce(3).Produce(5),()) @*)
 = 
   perform (Produce 3); 
   perform (Produce 5)
 
 
 let main
-(*@ requires (true, emp)  @*)
-(*@ ensures (true, {l->[1]}.[pos(l)].{l->l++[3]}.[pos(l)].{l->l++[5]}) @*)
+(*@ requires (true, emp,())  @*)
+(*@ ensures (true, {l->[1]}.[pos(l)].{l->l++[3]}.[pos(l)].{l->l++[5]},()) @*)
 
 =
   let l = Sys.opaque_identity (ref [1]) in 

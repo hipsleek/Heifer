@@ -9,12 +9,11 @@ let test ()
   (* requires exist a. !i->a *)
   let res = perform (Exchange 5) in 
   let res1 = perform (Exchange 10) in 
-
   res
 
 let main
-(*@  requires (true, emp)   @*)
-(*@  ensures  (true, [a.!i->a].{i->5}.Normal(11), ()) @*)
+(*@  requires (true, emp, ())   @*)
+(*@  ensures  (true, {i->5}.Normal(11), ()) @*)
 = 
   match test () with 
   | v -> v print_string ("Normal Rtn:" ^ string_of_int v ^ "\n")
