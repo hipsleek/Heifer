@@ -5,9 +5,10 @@ effect Done : unit
 
 let callee0 () 
 (*@  requires (true, emp, ())   @*)
-(*@  ensures  (true, # {i->0}; 
+(*@  ensures  (true, {i->0}.Zero.{i->i+1}.[i=1], ()) @*)
+(*  ensures  (true, # {i->0}; 
                         Zero requires true   
-                             ensures {i->i+1}.[i=1]; () ) @*)
+                             ensures {i->i+1}.[i=1]; () ) *)
 (*  ensures  (true, # {emp}; ret 1 ) *)
 = 
   let i = Sys.opaque_identity (ref 0) in 
@@ -82,6 +83,7 @@ For TWICE:
      [i=1]                 emp                                        i=2 /\ false 
 *)
 
+(*
 let main 
 (*@  requires (true, emp, ()) @*)
 (*@  ensures  (true, emp, ()) @*)
@@ -89,3 +91,4 @@ let main
   match main_aux () with 
   | x ->  ()
   | effect Done k -> print_string ("Done here\n"); continue k ()
+*)

@@ -282,6 +282,7 @@ let rec normalPure p =
   match p with
   | And (True, p1) -> normalPure p1
   | And (p1, True) -> normalPure p1
+  | And (p1, p2) -> And (normalPure p1, normalPure p2)
   | _ -> p 
 ;;
 

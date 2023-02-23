@@ -169,13 +169,20 @@ let collect_param_names rhs =
       let name =
         match name.ppat_desc with
         | Ppat_var s -> [s.txt]
-        | _ ->
+        | Ppat_constraint (p, _ ) -> 
+          (
+            match p.ppat_desc with
+            | Ppat_var s -> [s.txt]
+            | _ -> raise (Foo "collect_param_names other type")
+          )
+        
+        | _ ->  []
+
           (* we don't currently recurse inside patterns to pull out variables, so something like
 
              let f () (Foo a) = 1
 
              will be treated as if it has no formal params. *)
-          []
       in
       name @ traverse_to_body body
     | _ -> []
@@ -308,7 +315,12 @@ let (variableStack:variableStack) = ref []
 let rec string_of_variableStack li: string = 
   match li with 
   | [] -> ""
-  | (str, bt) :: xs ->(str ^ "=" ^ string_of_basic_type bt  ^ ", ") ^ string_of_variableStack xs 
+  | (str, bt) :: xs ->(str ^ "=" ^ string_of_returnValue bt  ^ ", ") ^ string_of_variableStack xs 
+
+let rec string_of_basic_v li: string = 
+  match li with 
+  | [] -> ""
+  | (str, bt) :: xs ->(str ^ "=" ^ string_of_basic_type bt  ^ ", ") ^ string_of_basic_v xs 
 
 let q = Queue.create ()
 let enqueue (t:es) = Queue.push t q
@@ -375,10 +387,30 @@ module Env = struct
     { env with current = SMap.add_seq fns env.current }
 end
 
+let rec findMapping_aux str s : returnValue = 
+  match s with 
+  | [] -> Basic (VARName str)
+  | (x, t) :: xs -> 
+    if String.compare x str == 0 then 
+      (match t with 
+      | Basic bt -> 
+        let nextName = (string_of_basic_type bt ) in 
+        let temp = findMapping_aux nextName xs in 
+        if String.compare (string_of_returnValue temp) nextName == 0 then temp
+        else t  
+      | _ ->  t 
+      )
+    else findMapping_aux str xs 
+
+let findMapping str s : string = 
+  let v = findMapping_aux str s in 
+  string_of_returnValue v 
+
 let retriveStack name env = 
   let rec aux li = 
     match li with  
-    | [] -> None 
+    | [] -> let str = findMapping name (List.flatten(!variableStack)) 
+            in Some (Basic (VARName str))
     | (str, ins):: xs -> if String.compare str name == 0 then 
       Some ins else aux xs 
     in aux (env.stack)
@@ -603,9 +635,8 @@ let dealWithNormalReturn env expr =
     )
   | Some bt -> Basic bt 
 
-  )
-  in 
-  [(True, Emp, ret)] 
+  ) in 
+  ret 
 
 
 let instantiateInstance (ins:instant) (vb:(string * basic_t) list)  : instant  = 
@@ -710,7 +741,8 @@ let rec findNormalReturn handler =
     (match lhs.ppat_desc with 
     | Ppat_effect (_, _) 
     | Ppat_exception _   -> findNormalReturn xs 
-    | _ -> rhs)
+    | _ ->     
+      ("v", rhs))
   ;;
 
 let concatenateEffects (eff1:spec) (eff2:spec) : spec = 
@@ -813,29 +845,12 @@ let deleteTailSYH  (li:'a list) =
     | x :: xs -> aux xs (List.append acc [x])
   in aux li []
 
-let rec findMapping_aux str s : returnValue = 
-  match s with 
-  | [] -> Basic (VARName str)
-  | (x, t) :: xs -> 
-    if String.compare x str == 0 then 
-      (match t with 
-      | Basic bt -> 
-        let nextName = (string_of_basic_type bt ) in 
-        let temp = findMapping_aux nextName xs in 
-        if String.compare (string_of_returnValue temp) nextName == 0 then temp
-        else t  
-      | _ ->  t 
-      )
-    else findMapping_aux str xs 
 
-let findMapping str s : string = 
-  let v = findMapping_aux str s in 
-  string_of_returnValue v 
 
-let rec argumentBinder (formal:string list) (actual:(basic_t list)): (string * returnValue) list =
+let rec argumentBinder (formal:string list) (actual:(returnValue list)): (string * returnValue) list =
   match (formal, actual) with 
   | ([], []) -> []
-  | (x::xs, y::ys) -> (x, Basic y) :: argumentBinder xs ys
+  | (x::xs, y::ys) -> (x, y) :: argumentBinder xs ys
   | (_, _) -> raise (Foo ("argumentBinder error"))
 
 let rec expressionToTerm (exprIn: Parsetree.expression_desc) : term = 
@@ -879,7 +894,7 @@ let eventToEs (ev:event) : es =
      
 
 let rec infer_handling env handler (current:spec) (der:es) (expr:expression): spec = 
-  (*print_string ("infer_handling:" ^ string_of_es der ^ "\n");*)
+  print_string ("infer_handling:" ^ string_of_es der ^ "\n");
   match expr.pexp_desc with 
   | Pexp_fun (_, _, _ (*pattern*), exprIn) -> 
     infer_handling env handler current der exprIn
@@ -887,7 +902,9 @@ let rec infer_handling env handler (current:spec) (der:es) (expr:expression): sp
 (* VALUE *)   
   | Pexp_constant _
   | Pexp_construct _ 
-  | Pexp_ident _ -> [(True, Emp, Basic UNIT)]
+  | Pexp_ident _ -> 
+  
+    [(True, Emp, dealWithNormalReturn env expr)]
    
   | Pexp_apply (fnName, li) -> 
     let name = fnNameToString fnName in 
@@ -895,10 +912,12 @@ let rec infer_handling env handler (current:spec) (der:es) (expr:expression): sp
 
     if String.compare name "continue" == 0 then 
 (* CONTINUE *)
-      (*let (_, continue_value) = (List.hd (List.tl li)) in 
-      let eff_value = infer_of_expression env [(True, Emp)] continue_value in 
+      let (_, continue_value) = (List.hd (List.tl li)) in 
+      let ret = dealWithNormalReturn env  continue_value in 
+
+      (*let eff_value = infer_of_expression env [(True, Emp)] continue_value in 
       *)
-      [(True, der, Basic UNIT)]
+      [(True, der, ret)]
     else if String.compare name "enqueue" == 0 then 
       let (_, hd) = List.hd li in  
       (match hd.pexp_desc with 
@@ -950,18 +969,28 @@ let rec infer_handling env handler (current:spec) (der:es) (expr:expression): sp
 
 
 and handlerCompute env (history:es) handler (p, t, v) : spec = 
-  match (normalES t) with 
-  | Stop -> 
-    let (normalExpr:expression) = findNormalReturn handler in 
-    let ret = infer_handling env handler [(p, history, Basic UNIT)] Emp normalExpr in 
-    (*print_string ("Stop"^ string_of_spec ret ^ "\n"); *)
-    ret
-  | _ -> 
+    print_string ("handlerCompute " ^  string_of_spec [(p, t, v)] ^"\n");
     let (fstSet:event list) = fst t in 
     (*print_string ("fstSet:" ^ List.fold_left (fun acc a -> acc ^ ", " ^ string_of_event a) "" fstSet ^ "\n") ;
 *)
+  if List.length fstSet == 0 then [(p, t, v)]
+  else 
     List.flatten (List.map ( fun f ->
       match f with
+      | StopEv ->   
+        let (formalArgLi, normalExpr) = findNormalReturn handler in 
+        let pushStack = argumentBinder [formalArgLi] [v] in 
+        let () = variableStack :=  (pushStack) :: !variableStack in 
+        let ret = infer_handling env handler [(p, history, v)] Emp normalExpr in 
+      (*print_string ("Stop"^ string_of_spec ret ^ "\n"); *)
+        let () =  variableStack := (List.tl !variableStack) in 
+      
+
+        let der = normalES (derivative t f) in 
+        let rest = handlerCompute env history handler (p, der, v) in 
+         concatenateEffects ret rest
+
+  
       | One (ins) -> 
         let (effName, actualArgLi) = ins in 
         (match (findEffectHanding handler effName) with 
@@ -970,20 +999,21 @@ and handlerCompute env (history:es) handler (p, t, v) : spec =
           List.map (fun (a, b, v)-> (a, Cons(ev, b), v))  (handlerCompute env (Cons (history, ev)) handler (p, derivative t f, v))
         | Some (expr, formalArgLi) -> 
 
-          let pushStack = argumentBinder formalArgLi actualArgLi in 
+          let pushStack = argumentBinder formalArgLi (List.map (fun a -> Basic a) actualArgLi ) in 
           let () = variableStack :=  (pushStack) :: !variableStack in 
-          (*print_string ( string_of_variableStack (List.flatten !variableStack) ^ "\n");
-          *)
+          print_string ( string_of_variableStack (List.flatten !variableStack) ^ "\n");
+          
 
         (* *)
         
           let der = normalES (derivative t f) in 
-          (*print_string ("with Effect: " ^ string_of_instant ins^ " -> " ^ string_of_es der ^ "\n");*)
+          print_string ("with Effect: " ^ string_of_instant ins^ " -> " ^ string_of_es der ^ "\n");
           let effects = infer_handling env handler [(p, history, v)] (der) expr in 
+          print_string ("with Effect:: " ^  string_of_spec effects ^"\n");
+
           let () =  variableStack := (List.tl !variableStack) in 
-          let rest = 
-          handlerReasoning env handler effects in 
-          (*print_string ("rest = " ^ string_of_spec rest ^ "\n");*)
+          let rest = handlerReasoning env handler effects in 
+          print_string ("rest = " ^ string_of_spec rest ^ "\n");
           rest
 
           (*
@@ -998,12 +1028,14 @@ and handlerCompute env (history:es) handler (p, t, v) : spec =
         )    
       | _ ->  
         let ev =  eventToEs f in 
-        List.map (fun (a, b, v)-> (a, Cons(ev, b), v))  (handlerCompute env (Cons (history, ev)) handler (p, derivative t f, v))
+        List.map (fun (a, b, v)-> (a, Cons(ev, b), v))  
+        (handlerCompute env (Cons (history, ev)) handler (p, derivative t f, v))
 
-      
     ) fstSet)
 
 and handlerReasoning env handler eff : spec = 
+  print_string ("handlerReasoning " ^  string_of_spec eff ^"\n");
+
   List.flatten (List.map (fun tuple-> handlerCompute env Emp handler tuple) eff)
 
 
@@ -1043,7 +1075,7 @@ and infer_of_expression (env) (current:spec) expr: spec =
 (* VALUE *)
   | Pexp_constant _ 
   | Pexp_construct _ 
-  | Pexp_ident _ -> dealWithNormalReturn env expr 
+  | Pexp_ident _ -> [(True, Emp, dealWithNormalReturn env expr) ]
   | Pexp_sequence (ex1, ex2) -> 
   let eff1 = infer_of_expression env current ex1 in 
   let eff2 = infer_of_expression env (concatenateEffects current eff1) ex2 in 
@@ -1093,14 +1125,16 @@ and infer_of_expression (env) (current:spec) expr: spec =
         let rest = infer_of_expression env his let_expression in 
         concatenateEffects eff rest
 
-    | Pexp_ident _ -> dealWithNormalReturn env head.pvb_expr 
+    | Pexp_ident _ ->[(True, Emp, dealWithNormalReturn env head.pvb_expr ) ] 
             
     | _ -> raise (Foo (var_name ^ "\n" ^string_of_expression_kind (head.pvb_expr.pexp_desc) )) 
     )
     | Pexp_match (ex, case_li) -> 
       let ex_eff = normalSpec (infer_of_expression env [(True, Emp, Basic UNIT)] ex) in 
-      (*print_string ("Pexp_match " ^  string_of_spec ex_eff ^"\n");*)
+      print_string ("\nPexp_match " ^  string_of_spec ex_eff ^"\n");
       let eff_handled = handlerReasoning env case_li (concatnateEffEs ex_eff Stop) in 
+      print_string ("Pexp_match " ^  string_of_spec eff_handled ^"\n");
+
       eff_handled 
 
 
@@ -1137,6 +1171,8 @@ and infer_of_expression (env) (current:spec) expr: spec =
           (*print_string (List.fold_left (fun acc (str, t) -> acc ^ "\n" ^ str ^ "->" ^ string_of_basic_type t) "" (List.flatten !variableStack));*)
           let lhs' = findMapping lhs (List.flatten !variableStack) in 
           let rhs' = findMapping rhs (List.flatten !variableStack) in 
+          print_string ("\n"^ string_of_variableStack (List.flatten !variableStack) ^ "\n");
+
           [(True, Singleton (HeapOp (PointsTo (lhs', Var rhs'))), Basic UNIT)]
 
         | _ -> raise (Foo ("Pexp_apply:"^ string_of_expression_kind (templhs.pexp_desc) ^ " " ^ string_of_expression_kind (temprhs.pexp_desc)))
@@ -1184,7 +1220,7 @@ and infer_of_expression (env) (current:spec) expr: spec =
 
             else 
   
-            let pushStack = argumentBinder fnFormals fnActuals in 
+            let pushStack = argumentBinder fnFormals (List.map (fun a -> Basic a) fnActuals )  in 
             (*print_string ("printing pushStack: "^ string_of_variableStack pushStack ^ "\n");
             *)
             let () = variableStack :=  (pushStack) :: !variableStack in 
@@ -1198,8 +1234,12 @@ and infer_of_expression (env) (current:spec) expr: spec =
           )
         | Some s -> s )
             in
+            
       
             let vb = var_binding arg_formal (List.map (fun (_, b) -> b) li) in 
+            (*print_string ("****\n"^ string_of_basic_v (vb) ^ "\n");
+            print_string (string_of_int (List.length arg_formal) ^ " " ^ string_of_int (List.length li));
+*)
             let postcon' = instantiateEff (List.hd post) vb in 
             let (*precon'*) _ = instantiateEff pre vb in 
       
