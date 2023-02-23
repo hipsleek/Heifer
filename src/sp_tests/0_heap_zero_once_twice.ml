@@ -43,9 +43,9 @@ let callee2 ()
 
 let main_aux ()
 (*@  requires (true, emp, ()) @*)
-(*@  ensures  (true,  {i->0}.{i->i+1}.[i=1].Done.{i->i+1}.[i=1].Done, ()) @*)
+(*@  ensures  (true,  {i->0}, ()) @*)
 =
-  match callee2 () with
+  match callee1 () with
   | v -> print_string ("Done 0 \n"); perform Done 
   | effect Zero k -> ()
 (*      

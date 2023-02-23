@@ -242,6 +242,7 @@ let string_of_kappa_inclusion (lhs:sp_spec) (rhs:sp_spec) :string =
   string_of_sp_spec lhs ^" |- " ^string_of_sp_spec rhs 
 
 
+
 let rec normalES (es:es):es = 
   match es with
   | Bot -> es
@@ -305,6 +306,20 @@ let normalTuple (pi, es, v)  = (normalPure pi, normalES es, v)
 
 let normalSpec eff : spec = List.map (fun a -> normalTuple a) eff
 
+let string_of_trs_spec_list (eff:trs_spec list) : string = 
+  List.fold_left (fun acc a -> acc^ ", "^ 
+  match a with 
+  | Trace tuple -> string_of_spec [tuple]
+  | ConcreteTrace tuple -> string_of_sp_spec [tuple]
+  ) "" eff
+
+let normaltrs_spec_list (eff:trs_spec list) : trs_spec list = 
+  List.map (fun a ->
+  match a with 
+  | Trace (p, es, v) ->  Trace (normalPure p, normalES es, v) 
+  | ConcreteTrace (p, k, v) -> ConcreteTrace (normalPure p, k, v)
+  ) eff
+
 let rec string_of_policies ps: string = 
   match ps with 
   | [] -> ""
@@ -315,7 +330,7 @@ let rec string_of_policies ps: string =
     | Normal es -> "Normal " ^ string_of_es es 
     ) ^ string_of_policies xs 
 
-    
+
 let rec kappaToPure kappa : pi =
   match kappa with 
   | EmptyHeap -> True

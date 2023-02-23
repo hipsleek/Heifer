@@ -1350,6 +1350,8 @@ let rec computeValue p t: term option =
 
 
 let rec updateKappa (state:pi) kappa name term : (kappa option)  = 
+  print_string ("updateKappa: " ^ string_of_pi state ^ " " ^ 
+  string_of_kappa kappa ^ " " ^ name ^ " " ^ string_of_term term^ "\n");
   match kappa with
   | EmptyHeap -> Some (PointsTo(name, term))
   | PointsTo (str, _) -> 
@@ -1432,7 +1434,7 @@ let infer_of_value_binding rec_flag env vb: string * env * experiemntal_data =
       let postcondition = List.map (fun (p, es, v) -> tryToNormalise (p, es, v)) (concatenateEffects pre (List.hd post)) in 
       let (_, _, trs_str) = printReport final' postcondition in
 
-      "[Final  Effects] " ^ string_of_spec (normalSpec final) ^ "\n"^ infer_time ^ "\n" ^ trs_str ^"\n")
+      "[Final  Effects] " ^ string_of_trs_spec_list (normaltrs_spec_list final') ^ "\n"^ infer_time ^ "\n" ^ trs_str ^"\n")
       (*(string_of_inclusion final_effects post) ^ "\n" ^*)
       (*"[T.r.s: Verification for Post Condition]\n" ^ *)
     (*in
