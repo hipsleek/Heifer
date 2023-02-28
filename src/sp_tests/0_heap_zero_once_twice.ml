@@ -17,7 +17,6 @@ let callee0 ()
   Printf.printf "i = %d\n%!" !i;
   assert (!i = 1)
 
-
 let callee1 () 
 (*@  requires (true, emp, ())   @*)
 (*@  ensures  (true, {i->0}.Once.{i->i+1}.[i=1], ()) @*)
@@ -45,7 +44,7 @@ let main_aux ()
 (*@  requires (true, emp, ()) @*)
 (*@  ensures  (true,  {i->0}, ()) @*)
 =
-  match callee1 () with
+  match callee2 () with
   | v -> print_string ("Done 0 \n"); perform Done 
   | effect Zero k -> ()
 (*      

@@ -167,7 +167,11 @@ let comparePointsTo (s1, t1) (s2, t2) : bool =
 let compareKappa (k1:kappa) (k2:kappa) : bool = 
   match (k1, k2) with 
   | (EmptyHeap, EmptyHeap) -> true 
-  | (PointsTo pt1, PointsTo pt2) -> (*comparePointsTo*) pt1 == pt2
+  | (PointsTo pt1, PointsTo pt2) -> 
+    (*print_string ("compayring " ^ string_of_kappa k1 ^ " and " ^  
+    string_of_kappa k2 ^ " = " ^ string_of_bool (pt1 = pt2) ^"\n");*)
+    pt1 = pt2
+    (*comparePointsTo pt1 == pt2*)
   | (Disjoin _, Disjoin _)
   | (Implication _, Implication _) -> raise (Foo "compareKappa TBD")
   | _ -> false
@@ -197,7 +201,7 @@ let entailsEvent (ev1:event) (ev2:event): bool =
   | (One (str1), One (str2)) -> compareInstant str1 str2
   | (One (str1), Zero (str2)) -> not (compareInstant str1 str2)
   | (EvHeapOp (k1), EvHeapOp (k2))-> compareKappa k1 k2
-  | (EvAssert (p1), EvAssert (p2))-> comparePure p1 p2
+  | (EvAssert (p1), EvAssert (p2))-> p1 = p2
   | (_, Zero (_)) -> true 
   | _ -> false 
 

@@ -307,11 +307,22 @@ let normalTuple (pi, es, v)  = (normalPure pi, normalES es, v)
 let normalSpec eff : spec = List.map (fun a -> normalTuple a) eff
 
 let string_of_trs_spec_list (eff:trs_spec list) : string = 
-  List.fold_left (fun acc a -> acc^ ", "^ 
-  match a with 
-  | Trace tuple -> string_of_spec [tuple]
-  | ConcreteTrace tuple -> string_of_sp_spec [tuple]
-  ) "" eff
+  let rec helper acc li = 
+    match li with 
+    | [] -> ""
+    | [a] -> 
+      (
+        match a with 
+        | Trace tuple -> string_of_spec [tuple]
+        | ConcreteTrace tuple -> string_of_sp_spec [tuple]
+      )
+    | a :: xs -> 
+      helper (acc^ ", " ^ 
+        match a with 
+        | Trace tuple -> string_of_spec [tuple]
+        | ConcreteTrace tuple -> string_of_sp_spec [tuple]
+      )  xs 
+  in helper "" eff
 
 let normaltrs_spec_list (eff:trs_spec list) : trs_spec list = 
   List.map (fun a ->

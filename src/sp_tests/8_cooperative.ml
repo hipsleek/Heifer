@@ -4,12 +4,12 @@ effect Yield : unit
 let i = Sys.opaque_identity (ref 0)
 
 let async f 
-(*@  requires (true, _^* ,()) @*)
+(*@  requires (true, emp ,()) @*)
 (*@ ensures (true, Async (f),()) @*)
 = perform (Async f)
 
 let yield ()
-(*@  requires (true, _^* ,()) @*)
+(*@  requires (true,emp ,()) @*)
 (*@ ensures (true, Yield,()) @*)
 = perform Yield
 
@@ -20,7 +20,7 @@ let dequeue () =
     else Queue.pop q ()
 
 let task1 () 
-(*@  requires (true, _^* ,()) @*)
+(*@  requires (true, emp ,()) @*)
 (*@  ensures  (true, {i->i+3}.Yield.{i->i+6},()) @*)
 = 
   Printf.printf "adding %s\n%!" (string_of_int 3);
@@ -33,7 +33,7 @@ let task1 ()
   
 
 let task2 () 
-(*@  requires (true, _^* ,()) @*)
+(*@  requires (true, emp ,()) @*)
 (*@  ensures  (true, {i->i+7},()) @*)
 = 
   Printf.printf "adding %s\n%!" (string_of_int 7);
@@ -42,7 +42,7 @@ let task2 ()
 
 
 let task3 () 
-(*@  requires (true, _^* ,()) @*)
+(*@  requires (true, emp ,()) @*)
 (*@  ensures  (true, [i=16].{i->i+9},()) @*)
 =
   Printf.printf "adding %s\n%!" (string_of_int 9);
@@ -52,7 +52,7 @@ let task3 ()
 
 
 let prog () 
-(*@ requires (true, _^* ,()) @*)
+(*@ requires (true, emp ,()) @*)
 (*@ ensures (true, Async(task1).Async(task2).Async(task3),()) @*)
 =
   async (task1);
@@ -62,15 +62,15 @@ let prog ()
 let rec handler arg_f =
   match arg_f () with 
   | v -> dequeue () 
-  | effect (Async f) k -> 
+  | effect (Async f1) k -> 
     enqueue (continue k)
-    ; handler f  
+    ; handler f1  
   | effect Yield k -> 
     enqueue (continue k);
     dequeue ()
 
 let main 
-(*@ requires (true, _^* ,()) @*)
+(*@ requires (true, emp ,()) @*)
 (*@ ensures (true, {i->i+3}.{i->i+7}.{i->i+6}.[i=16].{i->i+9},()) @*)
 = handler prog 
 

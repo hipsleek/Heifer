@@ -21,29 +21,44 @@ let rec lookup m (i:int) : bool option =
     then Some assign 
     else lookup xs i
 
-let rec delete m (i:int) : ((int * bool) list) = 
+let rec delete_aux m (i:int) : ((int * bool) list) = 
   match m with 
   | [] -> [] 
   | (idx, assign) :: xs -> 
     if i == idx 
     then xs 
-    else (idx, assign) :: (delete xs i)
+    else (idx, assign) :: (delete_aux xs i)
+
+let rec delete (idx:int) = 
+  my_record := delete_aux !my_record idx
+
+let rec insert (i, b)  = 
+  my_record := (i, b) ::!my_record
+
+let rec string_of_record (m:((int * bool) list)) : string = 
+  match m with 
+  | [] -> ""
+  | (idx, assign) :: xs -> 
+    string_of_int idx ^ " : " ^ 
+    string_of_bool assign ^ "\n" ^ 
+    string_of_record xs 
 
 let satisfy (p:oprations): bool = 
   match (interp p) with 
   | v -> v 
   | effect (Lable idx) k -> 
+    print_string ("\n------------ \n");
+    print_string(string_of_record (!my_record));
     (
       match lookup !my_record idx with
       | Some b -> continue k b 
       | None -> 
-        (my_record := (idx, true)::!my_record; (continue (Obj.clone_continuation k) true)) 
+        (insert (idx, true); (continue (Obj.clone_continuation k) true)) 
         || 
-        (my_record := (idx, false)::!my_record; 
+        (delete idx; insert (idx, false); 
           ((continue k false) 
           || 
-          (my_record := delete !my_record idx; false)
-          )
+          (delete idx; false))
         )
     )
 

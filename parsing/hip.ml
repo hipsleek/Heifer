@@ -897,7 +897,7 @@ let eventToEs (ev:event) : es =
      
 
 let rec infer_handling env handler (current:spec) (der:es) (expr:expression): spec = 
-  print_string ("infer_handling:" ^ string_of_es der ^ "\n");
+  (*print_string ("infer_handling:" ^ string_of_es der ^ "\n");*)
   match expr.pexp_desc with 
   | Pexp_fun (_, _, _ (*pattern*), exprIn) -> 
     infer_handling env handler current der exprIn
@@ -972,7 +972,7 @@ let rec infer_handling env handler (current:spec) (der:es) (expr:expression): sp
 
 
 and handlerCompute env (history:es) handler (p, t, v) : spec = 
-    print_string ("handlerCompute " ^  string_of_spec [(p, t, v)] ^"\n");
+    (*print_string ("handlerCompute " ^  string_of_spec [(p, t, v)] ^"\n");*)
     let (fstSet:event list) = fst t in 
     (*print_string ("fstSet:" ^ List.fold_left (fun acc a -> acc ^ ", " ^ string_of_event a) "" fstSet ^ "\n") ;
 *)
@@ -1006,17 +1006,15 @@ and handlerCompute env (history:es) handler (p, t, v) : spec =
           let () = variableStack :=  (pushStack) :: !variableStack in 
           print_string ( string_of_variableStack (List.flatten !variableStack) ^ "\n");
           
-
-        (* *)
         
           let der = normalES (derivative t f) in 
-          print_string ("with Effect: " ^ string_of_instant ins^ " -> " ^ string_of_es der ^ "\n");
+          (*print_string ("with Effect: " ^ string_of_instant ins^ " -> " ^ string_of_es der ^ "\n");*)
           let effects = infer_handling env handler [(p, history, v)] (der) expr in 
-          print_string ("with Effect:: " ^  string_of_spec effects ^"\n");
+          (*print_string ("with Effect:: " ^  string_of_spec effects ^"\n");*)
 
           let () =  variableStack := (List.tl !variableStack) in 
           let rest = handlerReasoning env handler effects in 
-          print_string ("rest = " ^ string_of_spec rest ^ "\n");
+          (*print_string ("rest = " ^ string_of_spec rest ^ "\n");*)
           rest
 
           (*
@@ -1037,7 +1035,7 @@ and handlerCompute env (history:es) handler (p, t, v) : spec =
     ) fstSet)
 
 and handlerReasoning env handler eff : spec = 
-  print_string ("handlerReasoning " ^  string_of_spec eff ^"\n");
+  (*print_string ("handlerReasoning " ^  string_of_spec eff ^"\n");*)
 
   List.flatten (List.map (fun tuple-> handlerCompute env Emp handler tuple) eff)
 
@@ -1134,9 +1132,9 @@ and infer_of_expression (env) (current:spec) expr: spec =
     )
     | Pexp_match (ex, case_li) -> 
       let ex_eff = normalSpec (infer_of_expression env [(True, Emp, Basic UNIT)] ex) in 
-      print_string ("\nPexp_match " ^  string_of_spec ex_eff ^"\n");
+      (*print_string ("\nPexp_match " ^  string_of_spec ex_eff ^"\n");*)
       let eff_handled = handlerReasoning env case_li (concatnateEffEs ex_eff Stop) in 
-      print_string ("Pexp_match " ^  string_of_spec eff_handled ^"\n");
+      (*print_string ("Pexp_match " ^  string_of_spec eff_handled ^"\n");*)
 
       eff_handled 
 
@@ -1183,8 +1181,10 @@ and infer_of_expression (env) (current:spec) expr: spec =
 
       else if String.compare name "Printf.printf" == 0 then [(True, Emp, Basic UNIT)]
       else if String.compare name "print_string" == 0 then [(True, Emp, Basic UNIT)]
+      (*
       else if String.compare name "enqueue" == 0 then [(True, Emp, Basic UNIT)]
       else if String.compare name "dequeue" == 0 then [(True, Emp, Basic UNIT)]
+      *)
       
 
 
@@ -1203,12 +1203,14 @@ and infer_of_expression (env) (current:spec) expr: spec =
         (match Env.find_fn name env with
         | None -> 
           (match retriveFuntionWithoutSpecDefinition name !env_function_without_spec with
-          | None -> raise (Foo ("no definition for " ^ name))
+          | None -> raise (Foo ("no definition for " ^ name ^  " \n"^ 
+          Pprintast.string_of_expression  expr ^ "\n\n" 
+          ))
             
           (*{ pre = default_spec_pre; post = [default_spec_post]; formals = []}*)
           | Some (_, fnBody, fnFormals) -> 
-            (*print_string (name^ ":lsllslsllslls\n" );
-            *)
+            print_string (name^ ":lsllslsllslls\n" );
+            
 
             let maybebasic_tList = (List.map (fun (_, b) -> expressionToBasicT b) li) in 
             let fnActuals = (List.fold_left (fun acc a -> match a with | None -> acc | Some a' -> List.append acc [a'] )[] maybebasic_tList) in 
@@ -1350,8 +1352,8 @@ let rec computeValue p t: term option =
 
 
 let rec updateKappa (state:pi) kappa name term : (kappa option)  = 
-  print_string ("updateKappa: " ^ string_of_pi state ^ " " ^ 
-  string_of_kappa kappa ^ " " ^ name ^ " " ^ string_of_term term^ "\n");
+  (*print_string ("updateKappa: " ^ string_of_pi state ^ " " ^ 
+  string_of_kappa kappa ^ " " ^ name ^ " " ^ string_of_term term^ "\n");*)
   match kappa with
   | EmptyHeap -> Some (PointsTo(name, term))
   | PointsTo (str, _) -> 
@@ -1424,15 +1426,19 @@ let infer_of_value_binding rec_flag env vb: string * env * experiemntal_data =
   else
 
 
+
+    let final' = List.map (fun (p, es, v) -> tryToNormalise (p, es, v)) final in 
+    let postcondition = List.map (fun (p, es, v) -> tryToNormalise (p, es, v)) (concatenateEffects pre (List.hd post)) in 
+    let (res, time, trs_str) = printReport final' postcondition in
+
+    let ex_res = (if res then ([time], []) else ([], [time])) in 
+
     let header =
       "\n========== Function: "^ fn_name ^" ==========\n" ^
       "[Pre  Condition] " ^ string_of_spec pre ^"\n"^
       "[Post Condition] " ^ string_of_spec (List.hd post) ^"\n"^
       (let infer_time = "[Inference Time: " ^ string_of_float ((Sys.time() -. startTimeStamp) *. 1000.0) ^ " ms]" in
       
-      let final' = List.map (fun (p, es, v) -> tryToNormalise (p, es, v)) final in 
-      let postcondition = List.map (fun (p, es, v) -> tryToNormalise (p, es, v)) (concatenateEffects pre (List.hd post)) in 
-      let (_, _, trs_str) = printReport final' postcondition in
 
       "[Final  Effects] " ^ string_of_trs_spec_list (normaltrs_spec_list final') ^ "\n"^ infer_time ^ "\n" ^ trs_str ^"\n")
       (*(string_of_inclusion final_effects post) ^ "\n" ^*)
@@ -1445,7 +1451,7 @@ let infer_of_value_binding rec_flag env vb: string * env * experiemntal_data =
       else (succeed_time, List.append [time]  fail_time)
       ) ([], []) post 
       *)
-    in header , env, ([], [])
+    in header , env, ex_res
 
 
   (*
