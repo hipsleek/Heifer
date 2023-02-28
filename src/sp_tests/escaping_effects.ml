@@ -1,37 +1,42 @@
 
 (* https://patrick.sirref.org/posts/escaping-effects *)
 
-effect A : (unit -> unit) -> unit
-effect B : string
+(* Cooperative concurrency.
+   Takes a function to run at some later point. *)
+effect Async : (unit -> unit) -> unit
 
-let do_a f = perform (A f)
+(* Reader monad/environment effect.
+   Allows reading global values *)
+effect Env : string
+
+let async f = perform (Async f)
 let run_a f =
   match f () with
-  | effect (A f) k ->
-    print_endline ("handling A");
+  | effect (Async f) k ->
+    print_endline ("handling Async");
     f ();
     continue k ()
   | v -> v
 
-let do_b () = perform B
+let read () = perform Env
 let run_b f =
   match f () with
-  | effect B k ->
-    print_endline ("handling B");
-    continue k "B"
+  | effect Env k ->
+    print_endline ("handling Env");
+    continue k "Env"
   | v -> v
 
 let unhandled () =
   run_a @@ fun _ ->
     run_b @@ fun _ ->
-      do_a (fun () ->
-        print_endline (do_b ()))
+      async (fun () ->
+        print_endline (read ()))
 
 let ok () =
   run_b @@ fun _ -> (* only change how handlers are nested *)
     run_a @@ fun _ ->
-      do_a (fun () ->
-        print_endline (do_b ()))
+      async (fun () ->
+        print_endline (read ()))
 
 let () =
   ok ();
