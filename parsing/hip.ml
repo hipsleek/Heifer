@@ -948,7 +948,13 @@ let rec infer_handling env handler (current:spec) (der:es) (expr:expression): sp
     else if String.compare name "dequeue" == 0 then 
       let temp = dequeue () in 
       (*print_string ("dequeue result : " ^ string_of_es temp ^ "\n");*)
-      [(True, temp, Basic UNIT)]
+      let eff = handlerCompute env Emp handler (True, temp, Basic UNIT) in 
+      print_string ("\ninfer_handling post: "^ string_of_spec eff ^ "\n");
+      match eff with 
+      | [] -> [(True, temp, Basic UNIT)]
+      | (_, der', _)::_ -> 
+
+      [(True, der', Basic UNIT)]
 
 
 
