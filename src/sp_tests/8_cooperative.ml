@@ -1,16 +1,17 @@
 effect Async : (unit -> unit) -> unit 
 effect Yield : unit 
 
-let i = Sys.opaque_identity (ref 0)
+let i = Sys.opaque_identity (ref 0) 
+
 
 let async f 
 (*@  requires (true, emp ,()) @*)
-(*@ ensures (true, Async (f),()) @*)
+(*@ ensures (true, Async (f),Async(f)?) @*)
 = perform (Async f)
 
 let yield ()
 (*@  requires (true,emp ,()) @*)
-(*@ ensures (true, Yield,()) @*)
+(*@ ensures (true, Yield,Yield?) @*)
 = perform Yield
 
 let q = Queue.create ()
@@ -69,10 +70,13 @@ let rec handler arg_f =
     enqueue (continue k);
     dequeue ()
 
+
 let main 
 (*@ requires (true, emp ,()) @*)
-(*@ ensures (true, {i->i+3}.{i->i+7}.{i->i+6}.[i=16].{i->i+9},()) @*)
-= handler prog 
+(*@ ensures (true, {i->0}.{i->i+3}.{i->i+7}.{i->i+6}.[i=16].{i->i+9},()) @*)
+= 
+let i = Sys.opaque_identity (ref 0) in 
+  handler prog 
 
 
 (*

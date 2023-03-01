@@ -2542,6 +2542,7 @@ effect_trace_value:
 
 returnValue:
   | v = effect_trace_value {Basic v}
+    | n = UIDENT QUESTION {Placeholder(n, [])}
   | n = UIDENT LPAREN args = list(effect_trace_value) RPAREN QUESTION {Placeholder(n, args)}
   | n = UIDENT LPAREN args = list(effect_trace_value) 
     RPAREN QUESTION LPAREN v = effect_trace_value RPAREN {ResultOfPlaceholder((n, args), v)}

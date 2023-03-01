@@ -42,7 +42,7 @@ let callee2 ()
 
 let main_aux ()
 (*@  requires (true, emp, ()) @*)
-(*@  ensures  (true,  {i->0}, ()) @*)
+(*@  ensures  (true, {i->0}.{i->i + 1}.[i=1].Done.{i->i + 1}.[i=1].Done, Done?) @*)
 =
   match callee2 () with
   | v -> print_string ("Done 0 \n"); perform Done 
