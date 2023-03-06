@@ -27,12 +27,6 @@ type basic_t = BINT of int | UNIT | VARName of string
 
 type instant = string * (basic_t list) 
 
-type returnValue = 
-    | Basic of basic_t
-    | Placeholder of instant 
-    | ResultOfPlaceholder of (instant * basic_t)
-
-
 type term = 
     | Num of int
     | TList of (term list)
@@ -54,68 +48,29 @@ type pi =
   | Not    of pi 
   | Predicate of string * term
 
-
 type kappa = 
   | EmptyHeap
   | PointsTo of (string * term)
   | Disjoin of kappa * kappa
   | Implication of kappa * kappa
 
-type event =
-  | One of instant (* Foo *)
-  | Zero of instant (* ~Foo *)
-  | EvHeapOp of kappa
-  | EvAssert of pi 
-  | Any (* _ *)
-  | StopEv (* Stop *)
-
-
-type singleton =
-  | Event of instant (* Foo! *)
-  | NotEvent of instant 
-  | HeapOp of kappa (* Foo? *)
-  | DelayAssert of pi (* Foo *)
-
-type es = Bot 
-        | Emp   
-        | Singleton of singleton
-        | Underline
-        | Cons of es * es
-        | ESOr of es * es
-        | Kleene of es (* 0 or more, but finite*)
-        | Stop
-
-type heapES = 
-      | EmpHeapES 
-      | SingleHeapES of kappa 
-      | AssertHeapES of pi 
-      | ConsHeapES of (heapES * heapES) 
-      | DisjHeapES of (heapES * heapES) 
-
 type stagedSpec = 
-      | BotStagedSpec
-      | NoramlReturn of (heapES * returnValue) 
-      | RaisingEff of (heapES * pi * instant * stagedSpec)
+      | Require of kappa 
+      | NoramlReturn of (kappa * basic_t) 
+      | RaisingEff of (kappa * instant)
+      | Exists of (string list)
 
-type generalSpec = (pi * stagedSpec) list 
+type linearStagedSpec = stagedSpec list
 
-type spec = (pi * es * returnValue) list 
-type sp_spec = (pi * kappa * returnValue) list
+type spec = (pi * linearStagedSpec) list 
 
-type stack = string * returnValue
-type side = (string * (es * es)) list   (* Eff(f()) = _^*.A -> U^*.(Res \/ emp) *)
 
-type trs_spec = Trace of (pi * es * returnValue) | ConcreteTrace of (pi * kappa * returnValue)
-
-let default_es_pre =  (Kleene(Underline))
-let default_es_post = Emp
-
-let default_spec_pre = [(True, default_es_pre, Basic UNIT)]
-let default_spec_post = [(True, default_es_post, Basic UNIT)]
-
-type policy = Eff of string * es * es | Exn of string | Normal of es
-
-type evn = (es * es) list 
+(* 
+Flatten Form
+============
+S ::= req H | H & Norm | H & Eff | local v*
+N ::= \/ {S;..;S}
+*)
 
 type constant =
     Pconst_integer of string * char option

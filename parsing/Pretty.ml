@@ -124,12 +124,6 @@ let string_of_instant (str, ar_Li): string =
   in
   Format.sprintf "%s%s" str args
 
-let string_of_returnValue (v:returnValue) : string = 
-  match v with
-  | Basic v -> string_of_basic_type v 
-  | Placeholder ins -> string_of_instant ins ^ "?"
-  | ResultOfPlaceholder (ins, v) ->  string_of_instant ins ^ "?(" ^ string_of_basic_type v ^")"
-
 
 let rec string_of_term t : string = 
   match t with 
@@ -182,114 +176,15 @@ let rec string_of_pi pi : string =
   | Not    p -> "!" ^ string_of_pi p
   | Predicate (str, t) -> str ^ "(" ^ string_of_term t ^ ")"
 
-let string_of_event ev : string = 
-  match ev with 
-  | One ins ->  string_of_instant ins 
-  | Zero ins -> "!" ^ string_of_instant ins 
-  | EvHeapOp k -> "{" ^ string_of_kappa k ^ "}"
-  | EvAssert p ->  "[" ^ string_of_pi p ^ "]"
-  | Any  -> "_"
-  | StopEv -> "stop"
 
 
-let rec string_of_singleton (s : singleton) : string = 
-  match s with
-  | Event (str, []) -> str
-  | Event (str, args) -> Format.sprintf "%s(%s)" str (List.map string_of_basic_type args |> String.concat ", ")
-  | NotEvent s -> "~" ^ (string_of_singleton (Event s))
-  | HeapOp k -> "{" ^ string_of_kappa k ^ "}"
-  | DelayAssert k  -> "[" ^ string_of_pi k ^ "]"
-
-
-let rec string_of_es es : string = 
-  match es with 
-  | Bot -> "⊥"
-  | Emp -> "ε"
-  | Singleton s  -> string_of_singleton s
-  | Cons (es1, es2) -> ""^string_of_es es1 ^"⋅"^ string_of_es es2 ^""
-  | ESOr (es1, es2) -> "("^string_of_es es1 ^")+("^ string_of_es es2 ^")"
-  | Kleene es1 -> "("^string_of_es es1^")★"
-  | Underline -> "_"
-  | Stop -> "†"
-
-let string_of_tuple (pi, es, v) : string = 
-  string_of_pi pi ^ ", " ^  string_of_es es^ ", " ^  string_of_returnValue v   ;;
-
-let string_of_sptuple (pi, kappa, v) : string = 
-  string_of_pi pi ^ ", {" ^  string_of_kappa kappa^ "}, " ^  string_of_returnValue v   ;;
-
-
-let rec string_of_spec (eff:spec) :string =
-  match eff with
-  | [] -> ""
-  | [x] -> "(" ^ string_of_tuple x ^ ")"
-  | x::xs ->  "(" ^ string_of_tuple x ^ ") \\/ " ^ string_of_spec xs
+let string_of_spec (_:spec) :string = failwith "TBD"
 ;;  
-
-let rec string_of_sp_spec  (eff:sp_spec) : string = 
-  match eff with
-  | [] -> ""
-  | [x] -> "(" ^ string_of_sptuple x ^ ")"
-  | x::xs ->  "(" ^ string_of_sptuple x ^ ") \\/ " ^ string_of_sp_spec xs
 
 
 
 let string_of_inclusion (lhs:spec) (rhs:spec) :string = 
   string_of_spec lhs ^" |- " ^string_of_spec rhs 
-  ;;
-
-let string_of_kappa_inclusion (lhs:sp_spec) (rhs:sp_spec) :string = 
-  string_of_sp_spec lhs ^" |- " ^string_of_sp_spec rhs 
-
-
-
-let rec normalES (es:es):es = 
-  match es with
-  | Bot -> es
-  | Emp -> es
-  | Singleton _ -> es
-  | Underline -> es
-  | Stop -> es
-
-(*| Cons (Cons (esIn1, esIn2), es2)-> 
-    normalES (Cons (esIn1, normalES (Cons (esIn2, es2)))) *)
-  | Cons (es1, es2) ->  
-      let normalES1 = normalES es1 in
-      let normalES2 = normalES es2 in
-      (match (normalES1, normalES2) with 
-      | (Emp, _) -> normalES2 
-      | (_, Emp) -> normalES1
-      | (Bot, _) -> Bot
-      | (_, ESOr (es21, es22)) -> ESOr (Cons(es1, es21), Cons(es1, es22))
-      | (ESOr (es11, es12), _) -> ESOr (Cons(es11, es2), Cons(es12, es2)) 
-
-      | _ -> 
-          Cons (normalES1, normalES2)
-      ;)
-  | ESOr (es1, es2) -> 
-      (match (normalES es1  , normalES es2  ) with 
-        (Bot, Bot) -> Bot
-      | (Bot, norml_es2) -> norml_es2
-      | (norml_es1, Bot) -> norml_es1
-      | (ESOr(es1In, es2In), norml_es2 ) ->
-        ESOr (ESOr(es1In, es2In), norml_es2 )
-      | (norml_es2, ESOr(es1In, es2In) ) ->
-        ESOr (norml_es2, ESOr(es1In, es2In))
-      | (Emp, Kleene norml_es2) ->  Kleene norml_es2
-      | (Kleene norml_es2, Emp) ->  Kleene norml_es2
-
-      | (norml_es1, norml_es2) -> ESOr (norml_es1, norml_es2)
-      ;)
-
-  | Kleene es1 -> 
-      let normalInside = normalES es1 in 
-      (match normalInside with
-        Emp -> Emp
-      | Kleene esIn1 ->  Kleene (normalES esIn1  )
-      | ESOr(Emp, aa) -> Kleene aa
-      | _ ->  Kleene normalInside)
-
-
   ;;
 
 
@@ -302,44 +197,6 @@ let rec normalPure p =
 ;;
 
 
-let normalTuple (pi, es, v)  = (normalPure pi, normalES es, v)
-
-let normalSpec eff : spec = List.map (fun a -> normalTuple a) eff
-
-let string_of_trs_spec_list (eff:trs_spec list) : string = 
-  let rec helper acc li = 
-    match li with 
-    | [] -> ""
-    | [a] -> 
-      (
-        match a with 
-        | Trace tuple -> string_of_spec [tuple]
-        | ConcreteTrace tuple -> string_of_sp_spec [tuple]
-      )
-    | a :: xs -> 
-      helper (acc^ ", " ^ 
-        match a with 
-        | Trace tuple -> string_of_spec [tuple]
-        | ConcreteTrace tuple -> string_of_sp_spec [tuple]
-      )  xs 
-  in helper "" eff
-
-let normaltrs_spec_list (eff:trs_spec list) : trs_spec list = 
-  List.map (fun a ->
-  match a with 
-  | Trace (p, es, v) ->  Trace (normalPure p, normalES es, v) 
-  | ConcreteTrace (p, k, v) -> ConcreteTrace (normalPure p, k, v)
-  ) eff
-
-let rec string_of_policies ps: string = 
-  match ps with 
-  | [] -> ""
-  | x::xs -> 
-    (match x with 
-    | Eff (str, es, afterCond) -> "Effect "^ str ^ " -> " ^ string_of_es (es) ^ " ++  "  ^string_of_es  afterCond ^ "\n"
-    | Exn str -> "Exeption " ^ str ^ "\n"
-    | Normal es -> "Normal " ^ string_of_es es 
-    ) ^ string_of_policies xs 
 
 
 let rec kappaToPure kappa : pi =
