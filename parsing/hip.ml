@@ -1500,7 +1500,10 @@ let infer_of_value_binding rec_flag env vb: string * env * experiemntal_data =
 
 
 
+    let startTimeStampnomral = Sys.time() in
     let final' = List.map (fun (p, es, v) -> tryToNormalise (p, es, v)) final in 
+    let normaltime = "[Normalisation Time: " ^ string_of_float ((Sys.time() -. startTimeStampnomral) *. 1000.0) ^ " ms]" in
+
     let postcondition = List.map (fun (p, es, v) -> tryToNormalise (p, es, v)) (concatenateEffects pre (List.hd post)) in 
     let (res, time, trs_str) = printReport final' postcondition in
 
@@ -1513,7 +1516,7 @@ let infer_of_value_binding rec_flag env vb: string * env * experiemntal_data =
       (let infer_time = "[Inference Time: " ^ string_of_float ((Sys.time() -. startTimeStamp) *. 1000.0) ^ " ms]" in
       
       "[RawPostEffects] " ^ string_of_spec final ^ "\n" ^ 
-      "[Final  Effects] " ^ string_of_trs_spec_list (normaltrs_spec_list final') ^ "\n"^ infer_time ^ "\n" ^ trs_str ^"\n")
+      "[Final  Effects] " ^ string_of_trs_spec_list (normaltrs_spec_list final') ^ "\n"^ infer_time ^ "\n" ^ normaltime ^ "\n" ^ trs_str ^"\n")
       (*(string_of_inclusion final_effects post) ^ "\n" ^*)
       (*"[T.r.s: Verification for Post Condition]\n" ^ *)
     (*in
