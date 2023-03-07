@@ -23,9 +23,9 @@
 open Asttypes
 
 (* basic term *)
-type basic_t = BINT of int | UNIT | VARName of string
+type basic_t = BINT of int | UNIT | VARName of string | List of int list 
 
-type instant = string * (basic_t list) 
+type instant = string * (basic_t list * basic_t) 
 
 type term = 
     | Num of int
@@ -52,12 +52,11 @@ type kappa =
   | EmptyHeap
   | PointsTo of (string * term)
   | Disjoin of kappa * kappa
-  | Implication of kappa * kappa
 
 type stagedSpec = 
       | Require of kappa 
       | NoramlReturn of (kappa * basic_t) 
-      | RaisingEff of (kappa * instant)
+      | RaisingEff of (kappa * instant * basic_t ) (* basic_t is the resumned value *)
       | Exists of (string list)
 
 type linearStagedSpec = stagedSpec list
