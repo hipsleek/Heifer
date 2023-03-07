@@ -198,8 +198,9 @@ let rec string_of_effectList (specs:spec list):string =
 let string_of_effectspec spec:string =
     match spec with
     | None -> "<no spec given>"
-    | Some (pr, po) -> Format.sprintf "requires %s ensures %s" (string_of_spec pr) (string_of_effectList po)
-
+    (* | Some (pr, po) ->
+      Format.sprintf "requires %s ensures %s" (string_of_spec pr) (string_of_effectList po) *)
+    | Some p -> string_of_spec p
 
 let string_of_value_binding vb : string = 
   let pattern = vb.pvb_pat in 
@@ -574,7 +575,7 @@ let instantiateInstance (ins:instant) (vb:(string * basic_t) list)  : instant  =
         | _ -> x :: (helper xs)
       )
   in 
-  let (a, li) = ins in (a, helper li)
+  let Instant (a, li) = ins in Instant (a, helper li)
 ;;
   
 
@@ -729,7 +730,10 @@ let rec expressionToTerm (exprIn: Parsetree.expression_desc) : term =
      
 
 
-let rec infer_of_expression (_) (_:spec) _: spec =  failwith "TBD"
+let rec infer_of_expression (_) (spec:spec) _: spec =
+  Format.printf "\n---\nparsed: %s\n---@." (string_of_effectspec (Some spec));
+  spec
+  (* failwith "TBD expr" *)
   (*
   let current  =  current in 
   match expr.pexp_desc with 
@@ -957,26 +961,28 @@ and infer_value_binding rec_flag env vb =
   | None ->     
     env_function_without_spec := (fn_name, body, formals) :: !env_function_without_spec;
     None (*default_spec_pre, [default_spec_post]*)
-  | Some (pre, post) -> 
-  let spec = ( pre, post) in 
-  let (pre, post) = spec in
+  (* | Some (pre, post) ->  *)
+  | Some spec ->
+  (* let spec = ( pre, post) in  *)
+  (* let (pre, post) = spec in *)
 
   (*let env = Env.reset_side_spec pre_side env in  *)
   let env =
     match rec_flag with
     | Nonrecursive -> env
     | Recursive -> 
-      Env.add_fn fn_name {pre; post; formals} env
+      (* TODO *)
+      Env.add_fn fn_name {pre=spec; post=[]; formals} env
   in
 
-  let final =  (infer_of_expression env pre body) in
+  let final =  (infer_of_expression env spec body) in
 
   let final =  final in 
 
-  let env1 = Env.add_fn fn_name { pre; post; formals } env in
+  let env1 = Env.add_fn fn_name { pre=spec; post=[]; formals } env in
   
 
-  Some (pre, post, ( final), env1, fn_name)
+  Some (spec, [], ( final), env1, fn_name)
 
 
 
@@ -1039,14 +1045,14 @@ let rec updateKappa (state:pi) kappa name term : (kappa option)  =
     | Some t -> Some (PointsTo(name, t))
     | None ->  None 
   else Some kappa
-  | Disjoin (k1, k2) -> 
+  | SepConj (k1, k2) -> 
     (match (updateKappa (state) k1 name term, updateKappa state k2 name term) with 
-    | (Some k1, Some k2) -> Some (Disjoin (k1, k2))
+    | (Some k1, Some k2) -> Some (SepConj (k1, k2))
     | _ -> None )
-  | Implication (k1, k2) -> 
+  (* | Implication (k1, k2) -> 
     (match (updateKappa state k1 name term, updateKappa state k2 name term) with 
     | (Some k1, Some k2) -> Some (Implication (k1, k2))
-    | _ -> None )
+    | _ -> None ) *)
 
 
 let accumulateKappa k1 k2 : kappa option = 
@@ -1066,7 +1072,8 @@ let infer_of_value_binding rec_flag env vb: string * env * experiemntal_data =
   if String.equal fn_name "()" then
     "", env, ([], [])
   else
-    failwith "TBD"
+    "", env, ([], [])
+    (* failwith "TBD value binding" *)
 
 
 
@@ -1161,7 +1168,7 @@ let rec infer_of_program env x: string * env * experiemntal_data =
       "", Env.add_effect name def env, ([], [])
     | Peff_rebind _ -> failwith "unsupported effect spec rebind"
     end
-  | _ -> failwith "TBD"
+  | _ -> failwith "TBD program"
   ;;
 
 

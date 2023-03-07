@@ -25,7 +25,8 @@ open Asttypes
 (* basic term *)
 type basic_t = BINT of int | UNIT | VARName of string | List of int list 
 
-type instant = string * (basic_t list * basic_t) 
+(* an occurrence of an effect *)
+type instant = Instant of string * basic_t list
 
 type term = 
     | Num of int
@@ -51,17 +52,18 @@ type pi =
 type kappa = 
   | EmptyHeap
   | PointsTo of (string * term)
-  | Disjoin of kappa * kappa
+  | SepConj of kappa * kappa
 
 type stagedSpec = 
       | Require of kappa 
-      | NoramlReturn of (kappa * basic_t) 
-      | RaisingEff of (kappa * instant * basic_t ) (* basic_t is the resumned value *)
+      | NormalReturn of (kappa * basic_t list)
+      | RaisingEff of (kappa * instant * basic_t ) (* basic_t is a placeholder for the resumned value *)
       | Exists of (string list)
 
-type linearStagedSpec = stagedSpec list
+(* type linearStagedSpec = stagedSpec list *)
 
-type spec = (pi * linearStagedSpec) list 
+(* type spec = (pi * linearStagedSpec) list  *)
+type spec = stagedSpec list 
 
 
 (* 
@@ -313,7 +315,8 @@ and expression =
      pexp_loc: Location.t;
      pexp_loc_stack: location_stack;
      pexp_attributes: attributes; (* ... [@id1] [@id2] *)
-     pexp_effectspec: (spec * spec list) option;
+     pexp_effectspec: spec option;
+     (* (spec * spec list) option; *)
     }
 
 and expression_desc =

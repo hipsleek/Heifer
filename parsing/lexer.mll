@@ -48,6 +48,7 @@ let keyword_table =
     "done", DONE;
     "downto", DOWNTO;
     "effect", EFFECT;
+    "ex", EXISTS;
     "else", ELSE;
     "end", END;
     "exception", EXCEPTION;
@@ -57,7 +58,7 @@ let keyword_table =
     "fun", FUN;
     "function", FUNCTION;
     "functor", FUNCTOR;
-    "requires", REQUIRES;
+    "req", REQUIRES;
     "ensures", ENSURES;
 
     "emp", EMP;

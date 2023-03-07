@@ -607,6 +607,7 @@ let mk_directive ~loc name arg =
 %token DOTDOT
 %token DOWNTO
 %token EFFECT
+%token EXISTS
 %token ELSE
 %token END
 %token EOF
@@ -2547,28 +2548,24 @@ returnValue:
   | n = UIDENT LPAREN args = list(effect_trace_value) 
     RPAREN QUESTION LPAREN v = effect_trace_value RPAREN {ResultOfPlaceholder((n, args), v)}
 
-heapkappa:
-| EMP { EmptyHeap }
-| str=LIDENT MINUSGREATER args = pure_formula_term {PointsTo(str, args)}
 
+// effect_trace:
+//   // | UNDERSCORE { Underline }
+//   | EMP { Emp }
+//   | n = UIDENT { Singleton (Event (n, [])) }
+//   | n = UIDENT LPAREN args = list(effect_trace_value) RPAREN { Singleton (Event (n, args)) }
 
-effect_trace:
-  | UNDERSCORE { Underline }
-  | EMP { Emp }
-  | n = UIDENT { Singleton (Event (n, [])) }
-  | n = UIDENT LPAREN args = list(effect_trace_value) RPAREN { Singleton (Event (n, args)) }
+//   | TILDE n = UIDENT { Singleton (NotEvent (n, [])) }
+//   | TILDE n = UIDENT LPAREN args = list(effect_trace_value) RPAREN { Singleton (NotEvent (n, args)) }
+//   | LBRACE k=heapkappa RBRACE {Singleton(HeapOp k)}
 
-  | TILDE n = UIDENT { Singleton (NotEvent (n, [])) }
-  | TILDE n = UIDENT LPAREN args = list(effect_trace_value) RPAREN { Singleton (NotEvent (n, args)) }
-  | LBRACE k=heapkappa RBRACE {Singleton(HeapOp k)}
+//   | LBRACKET k=pure_formula RBRACKET {Singleton(DelayAssert k)}
 
-  | LBRACKET k=pure_formula RBRACKET {Singleton(DelayAssert k)}
-
-  | effect_trace DOT effect_trace { Cons ($1, $3) }
-  | effect_trace DISJUNCTION effect_trace { ESOr ($1, $3) }
-  | effect_trace KLEENE { Kleene $1 }
-  | LPAREN effect_trace RPAREN { $2 }
-;
+//   | effect_trace DOT effect_trace { Cons ($1, $3) }
+//   | effect_trace DISJUNCTION effect_trace { ESOr ($1, $3) }
+//   | effect_trace KLEENE { Kleene $1 }
+//   | LPAREN effect_trace RPAREN { $2 }
+// ;
 
 
 list_of_list:
@@ -2642,7 +2639,7 @@ heapES:
 
 
 stagedSpec : 
-| oppre = heapES SEMI  v = returnValue  { NoramlReturn (oppre, v) }
+| oppre = heapES SEMI  v = returnValue  { NormalReturn (oppre, v) }
 | oppre = heapES SEMI n = UIDENT REQUIRES prec=pure_formula 
   ENSURES rest = stagedSpec  { RaisingEff(oppre,  prec, (n, []), rest) }
 
@@ -2650,51 +2647,85 @@ stagedSpec :
   REQUIRES prec=pure_formula  ENSURES rest = stagedSpec 
   { RaisingEff(oppre, prec, (n, args),  rest) }
 
+// esAndReturn:
+// // | t= effect_trace COMMA  v=returnValue {t, v}
+// | HASH 
+//   t= stagedSpec  
+//   { let rec heapES2ES (hs:heapES) : es = 
+//       match hs with 
+//       | EmpHeapES  -> Emp 
+//       | SingleHeapES k -> Singleton (HeapOp k)
+//       | AssertHeapES pi -> Singleton (DelayAssert pi)
+//       | ConsHeapES (hs1, hs2) -> Cons (heapES2ES hs1, heapES2ES hs2)
+//       | DisjHeapES (hs1, hs2) -> ESOr (heapES2ES hs1, heapES2ES hs2)
 
-esAndReturn:
-| t= effect_trace COMMA  v=returnValue {t, v}
-| HASH 
-  t= stagedSpec  
-  { let rec heapES2ES (hs:heapES) : es = 
-      match hs with 
-      | EmpHeapES  -> Emp 
-      | SingleHeapES k -> Singleton (HeapOp k)
-      | AssertHeapES pi -> Singleton (DelayAssert pi)
-      | ConsHeapES (hs1, hs2) -> Cons (heapES2ES hs1, heapES2ES hs2)
-      | DisjHeapES (hs1, hs2) -> ESOr (heapES2ES hs1, heapES2ES hs2)
-
-    in 
+//     in 
     
-    let rec stagedSpec2heapES (s:stagedSpec) : (es * returnValue) = 
-      match s with 
-      | BotStagedSpec -> (Bot, Basic UNIT)
-      | NoramlReturn (preop, bt) -> (heapES2ES preop, bt)
-      | RaisingEff (preop, pi, ins,  stageEs) -> 
-        let (restES, ret) = stagedSpec2heapES stageEs in 
-        (Cons (heapES2ES preop, 
-         Cons (Singleton(DelayAssert pi), 
-         Cons (Singleton(Event ins), restES))), ret)
-   in 
-   stagedSpec2heapES t}
+//     let rec stagedSpec2heapES (s:stagedSpec) : (es * returnValue) = 
+//       match s with 
+//       | BotStagedSpec -> (Bot, Basic UNIT)
+//       | NormalReturn (preop, bt) -> (heapES2ES preop, bt)
+//       | RaisingEff (preop, pi, ins,  stageEs) -> 
+//         let (restES, ret) = stagedSpec2heapES stageEs in 
+//         (Cons (heapES2ES preop, 
+//          Cons (Singleton(DelayAssert pi), 
+//          Cons (Singleton(Event ins), restES))), ret)
+//    in 
+//    stagedSpec2heapES t}
 
+// LPAREN 
+// p=pure_formula COMMA 
+  // esAndReturn = esAndReturn RPAREN 
+  // rest = effect_spec_aux{
+  //   let (t, v) = esAndReturn in 
+  //   (p, t, v)::rest}
 
+// list_of_post_condition:
+// | {[]}
+// | LSPECCOMMENT ENSURES post = effect_spec RSPECCOMMENT
+// // rest = list_of_post_condition
+// // {post :: rest}
+// { [post] }
+
+stagedSpecArgs :
+  | h=heapkappa COMMA rest=separated_nonempty_list(COMMA, effect_trace_value) { (h, rest) }
+
+stagedSpec1 : 
+  | EXISTS vs=nonempty_list(LIDENT) { Exists vs }
+  | REQUIRES heap=heapkappa { Require heap }
+  | constr=UIDENT args=delimited(LPAREN, stagedSpecArgs, RPAREN)
+  {
+    match constr, args with
+    | "Norm", (h, a) -> NormalReturn (h, a)
+    | _, (h, a) ->
+      (* why is basic stuff like this not available *)
+      let rec split xs =
+        match xs with
+        | [] -> failwith "split"
+        | [x] -> ([], x)
+        | x :: xs ->
+          let init, last = split xs in
+          (x :: init, last)
+      in
+      let init, last = split a in
+      RaisingEff (h, Instant (constr, init), last)
+  }
+
+heapkappa:
+| EMP { EmptyHeap }
+| str=LIDENT MINUSGREATER args = pure_formula_term
+  { PointsTo(str, args) }
+| a=heapkappa STAR b=heapkappa
+  { SepConj(a, b) }
 
 effect_spec:
-| LPAREN p=pure_formula COMMA 
-  esAndReturn = esAndReturn RPAREN 
-  rest = effect_spec_aux {
-    let (t, v) = esAndReturn in 
-    (p, t, v)::rest}
-
-
-list_of_post_condition:
-| {[]}
-| LSPECCOMMENT ENSURES post = effect_spec RSPECCOMMENT rest = list_of_post_condition {post :: rest}
+| stages=separated_nonempty_list(SEMI, stagedSpec1) { stages }
 
 fn_contract:
-  | LSPECCOMMENT REQUIRES pre = effect_spec RSPECCOMMENT
-    post_condition = list_of_post_condition 
-    {Some (pre, post_condition)}
+  | LSPECCOMMENT spec = effect_spec RSPECCOMMENT
+    // post_condition = list_of_post_condition 
+    {Some spec}
+// Some ([], spec)
       (*{
         let is_trace = function `Trace e -> Some e | _ -> None in
         let is_pure = function `Pure e -> Some e | _ -> None in

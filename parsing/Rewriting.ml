@@ -79,8 +79,8 @@ let compareKappa (k1:kappa) (k2:kappa) : bool =
     string_of_kappa k2 ^ " = " ^ string_of_bool (pt1 = pt2) ^"\n");*)
     pt1 = pt2
     (*comparePointsTo pt1 == pt2*)
-  | (Disjoin _, Disjoin _)
-  | (Implication _, Implication _) -> raise (Foo "compareKappa TBD")
+  | (SepConj _, SepConj _)
+  (* | (Implication _, Implication _) -> raise (Foo "compareKappa TBD") *)
   | _ -> false
 
 
@@ -100,12 +100,12 @@ let comparePure (p1:pi) (p2:pi) : bool =
 
 
 
-let  check_containment (_:spec) (_:spec) :(bool * binary_tree) = failwith "TBD"
+let  check_containment (_:spec) (_:spec) :(bool * binary_tree) = failwith "TBD check_containment"
 
 ;;
 
 
-let printReport (_:spec) (_:spec) :(bool * float * string) =  failwith "TBD"
+let printReport (_:spec) (_:spec) :(bool * float * string) =  failwith "TBD printReport"
 (*
   let startTimeStamp = Sys.time() in
   let (tLHS, cLHS) = partionTraceAndCOncrteTrace lhs in 

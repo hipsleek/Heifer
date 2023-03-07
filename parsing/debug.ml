@@ -27,6 +27,7 @@ let string_of_token =
 | DOTDOT -> "DOTDOT"
 | DOWNTO -> "DOWNTO"
 | EFFECT -> "EFFECT"
+| EXISTS -> "EXISTS"
 | ELSE -> "ELSE"
 | END -> "END"
 | EOF -> "EOF"

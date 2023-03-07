@@ -103,7 +103,7 @@ let compareBasic (p1:basic_t) (p2:basic_t) :bool =
 let compareParm (p1:basic_t list) (p2:basic_t list) :bool = 
   List.equal compareBasic p1 p2
 
-let compareInstant ((n1, a1):instant) ((n2, a2):instant) :bool = 
+let compareInstant (Instant (n1, a1)) (Instant (n2, a2)) :bool = 
   String.equal n1 n2 && compareParm a1 a2
   
 
@@ -112,6 +112,9 @@ let string_of_basic_type a : string =
   | BINT i -> string_of_int i 
   | UNIT -> "()"
   | VARName s -> s
+  | List s ->
+    Format.asprintf "[%s]"
+      (List.map string_of_int s |> String.concat "; ")
 
 
 let string_of_instant (str, ar_Li): string = 
@@ -160,8 +163,8 @@ let rec string_of_kappa (k:kappa) : string =
   match k with
   | EmptyHeap -> "emp"
   | PointsTo  (str, args) -> Format.sprintf "%s->%s" str (List.map string_of_term [args] |> String.concat ", ")
-  | Disjoin (k1, k2) -> string_of_kappa k1 ^ "*" ^ string_of_kappa k2 
-  | Implication (k1, k2) -> string_of_kappa k1 ^ "-*" ^ string_of_kappa k2 
+  | SepConj (k1, k2) -> string_of_kappa k1 ^ "*" ^ string_of_kappa k2 
+  (* | Implication (k1, k2) -> string_of_kappa k1 ^ "-*" ^ string_of_kappa k2  *)
 
 
 
@@ -176,12 +179,22 @@ let rec string_of_pi pi : string =
   | Not    p -> "!" ^ string_of_pi p
   | Predicate (str, t) -> str ^ "(" ^ string_of_term t ^ ")"
 
+let string_of_args args =
+  List.map string_of_basic_type args |> String.concat ", "
 
+let string_of_stages (st:stagedSpec) : string =
+  match st with
+  | Require h ->
+    Format.asprintf "req %s" (string_of_kappa h)
+  | NormalReturn (heap, args) ->
+    Format.asprintf "Norm(%s, %s)" (string_of_kappa heap) (string_of_args args)
+  | RaisingEff (heap, Instant (name, args), ret) ->
+    Format.asprintf "%s(%s, %s, %s)" name (string_of_kappa heap) (string_of_args args) (string_of_basic_type ret)
+  | Exists vs ->
+    Format.asprintf "ex %s" (String.concat " " vs)
 
-let string_of_spec (_:spec) :string = failwith "TBD"
-;;  
-
-
+let string_of_spec (spec:spec) :string =
+  spec |> List.map string_of_stages |> String.concat "; "
 
 let string_of_inclusion (lhs:spec) (rhs:spec) :string = 
   string_of_spec lhs ^" |- " ^string_of_spec rhs 
@@ -203,7 +216,7 @@ let rec kappaToPure kappa : pi =
   match kappa with 
   | EmptyHeap -> True
   | PointsTo (str, t) -> Atomic(EQ, Var str, t)
-  | Disjoin (k1, k2) -> And (kappaToPure k1, kappaToPure k2)
-  | Implication (k1, k2) -> Imply (kappaToPure k1, kappaToPure k2)
+  | SepConj (k1, k2) -> And (kappaToPure k1, kappaToPure k2)
+  (* | Implication (k1, k2) -> Imply (kappaToPure k1, kappaToPure k2) *)
 
  
