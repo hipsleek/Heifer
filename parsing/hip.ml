@@ -727,11 +727,51 @@ let rec expressionToTerm (exprIn: Parsetree.expression_desc) : term =
     | _ -> raise (Foo ("ai you ... helper" ^ string_of_expression_kind (exprIn) ) )
 
 
-     
+let rec sl_dom (h:kappa) =
+  match h with
+  | EmptyHeap -> []
+  | PointsTo (s, _) -> [s]
+  | SepConj (a, b) -> sl_dom a @ sl_dom b
+
+let intersect xs ys =
+  List.fold_right (fun c t -> if List.mem c ys then c :: t else t) xs []
+
+let sl_disjoint h1 h2 =
+  match intersect (sl_dom h1) (sl_dom h2) with
+  | [] -> true
+  | _ -> false
+
+let normalize spec =
+  let rec one_pass (s:spec) =
+    match s with
+    | [] | [_] -> s, false
+    | s1 :: s2 :: ss ->
+      let s3, c =
+        match s1, s2 with
+        | Require h1, Require h2 -> [Require (SepConj (h1, h2))], true
+        | NormalReturn (h, _), Require h2 when sl_disjoint h h2 -> [s2; s1], true
+        | _, _ -> [s1; s2], false
+      in
+      let hd, tl =
+        match s3 with
+        | [] -> [], []
+        | h :: t -> [h], t
+      in
+      let s5, c1 = one_pass (tl @ ss) in
+      hd @ s5, c || c1
+  in
+  let rec to_fixed_point spec =
+    let spec, changed = one_pass spec in
+    if not changed then spec else to_fixed_point spec
+  in
+  to_fixed_point spec
+
 
 
 let rec infer_of_expression (_) (spec:spec) _: spec =
-  Format.printf "\n---\nparsed: %s\n---@." (string_of_effectspec (Some spec));
+  Format.printf "\n---\nparsed: %s\nnormalized: %s\n---@."
+  (string_of_effectspec (Some spec))
+  (string_of_effectspec (Some (normalize spec)));
   spec
   (* failwith "TBD expr" *)
   (*

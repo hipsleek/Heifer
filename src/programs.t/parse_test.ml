@@ -3,6 +3,7 @@ effect Zero : unit
 let test () 
 (*@ ex x ret z u;
    Norm(x->0, ());
+   req y->1;
    Label(emp, ret);
    req x->z; Norm(x->z+1, ());
    req x->1;
