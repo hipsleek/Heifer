@@ -21,57 +21,7 @@
 *)
 
 open Asttypes
-
-(* basic term *)
-type basic_t = BINT of int | UNIT | VARName of string | List of int list 
-
-(* an occurrence of an effect *)
-type instant = Instant of string * basic_t list
-
-type term = 
-    | Num of int
-    | TList of (term list)
-    | TTupple of (term list)
-    | Var of string
-    | Plus of term * term 
-    | Minus of term * term 
-    | TListAppend of term * term
-
-type bin_op = GT | LT | EQ | GTEQ | LTEQ
-
-type pi = 
-  | True
-  | False
-  | Atomic of bin_op * term * term
-  | And    of pi * pi
-  | Or     of pi * pi
-  | Imply  of pi * pi
-  | Not    of pi 
-  | Predicate of string * term
-
-type kappa = 
-  | EmptyHeap
-  | PointsTo of (string * term)
-  | SepConj of kappa * kappa
-
-type stagedSpec = 
-      | Require of kappa 
-      | NormalReturn of (kappa * basic_t list)
-      | RaisingEff of (kappa * instant * basic_t ) (* basic_t is a placeholder for the resumned value *)
-      | Exists of (string list)
-
-(* type linearStagedSpec = stagedSpec list *)
-
-(* type spec = (pi * linearStagedSpec) list  *)
-type spec = stagedSpec list 
-
-
-(* 
-Flatten Form
-============
-S ::= req H | H & Norm | H & Eff | local v*
-N ::= \/ {S;..;S}
-*)
+include Entail
 
 type constant =
     Pconst_integer of string * char option
