@@ -127,4 +127,4 @@ let check_entail : spec -> spec -> spec option =
 let%expect_test "entailments" =
   let test l r = Format.printf "%s |- %s ==> %s@." (string_of_spec l) (string_of_spec r) (check_entail l r |> string_of_option string_of_spec) in
   test [Ensures (PointsTo ("x", Num 1))] [Ensures (PointsTo ("x", Num 1))];
-  [%expect {| [1; 2; 3] |}]
+  [%expect {| x->1 |- x->1 ==> Some x->1 |}]
