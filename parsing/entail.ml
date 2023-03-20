@@ -120,11 +120,29 @@ S ::= req H | H & Norm | H & Eff | local v*
 N ::= \/ {S;..;S}
 *)
 
-let check_entail : spec -> spec -> spec option =
+let check_heap_entail : kappa -> kappa -> kappa option =
   fun n1 _n2 ->
     Some n1
 
-let%expect_test "entailments" =
-  let test l r = Format.printf "%s |- %s ==> %s@." (string_of_spec l) (string_of_spec r) (check_entail l r |> string_of_option string_of_spec) in
-  test [Ensures (PointsTo ("x", Num 1))] [Ensures (PointsTo ("x", Num 1))];
+let%expect_test "heap_entail" =
+  let test l r = Format.printf "%s |- %s ==> %s@." (string_of_kappa l) (string_of_kappa r) (check_heap_entail l r |> string_of_option string_of_kappa) in
+  test (PointsTo ("x", Num 1)) (PointsTo ("x", Num 1));
   [%expect {| x->1 |- x->1 ==> Some x->1 |}]
+
+let check_staged_entail : spec -> spec -> spec option =
+  fun n1 n2 ->
+    Some (n1 @ n2)
+
+let%expect_test "staged_entail" =
+  let test l r = Format.printf "%s |= %s ==> %s@." (string_of_spec l) (string_of_spec r) (check_staged_entail l r |> string_of_option string_of_spec) in
+  test [Ensures (PointsTo ("x", Num 1))] [Ensures (PointsTo ("x", Num 1))];
+  [%expect {| x->1 |= x->1 ==> Some x->1; x->1 |}]
+
+let check_staged_subsumption : spec -> spec -> bool =
+  fun _n1 _n2 ->
+    true
+
+let%expect_test "staged_subsumption" =
+  let test l r = Format.printf "%s %s %s@." (string_of_spec l) (if check_staged_subsumption l r then "|--" else "|-/-") (string_of_spec r) in
+  test [Ensures (PointsTo ("x", Num 1))] [Ensures (PointsTo ("x", Num 1))];
+  [%expect {| x->1 |-- x->1 |}]
