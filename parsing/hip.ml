@@ -732,6 +732,8 @@ let rec sl_dom (h:kappa) =
   | EmptyHeap -> []
   | PointsTo (s, _) -> [s]
   | SepConj (a, b) -> sl_dom a @ sl_dom b
+  | MagicWand (a, b) -> sl_dom a @ sl_dom b
+
 
 let intersect xs ys =
   List.fold_right (fun c t -> if List.mem c ys then c :: t else t) xs []
@@ -1090,6 +1092,7 @@ let rec updateKappa (state:pi) kappa name term : (kappa option)  =
     (match (updateKappa (state) k1 name term, updateKappa state k2 name term) with 
     | (Some k1, Some k2) -> Some (SepConj (k1, k2))
     | _ -> None )
+  | MagicWand (_, _) -> failwith "updateKappa unimplemented"
   (* | Implication (k1, k2) -> 
     (match (updateKappa state k1 name term, updateKappa state k2 name term) with 
     | (Some k1, Some k2) -> Some (Implication (k1, k2))

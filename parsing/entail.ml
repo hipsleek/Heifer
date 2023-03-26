@@ -30,6 +30,8 @@ type kappa =
   | EmptyHeap
   | PointsTo of (string * term)
   | SepConj of kappa * kappa
+  | MagicWand of kappa * kappa
+
 
 type stagedSpec = 
       (* common *)
@@ -39,7 +41,7 @@ type stagedSpec =
       | Ensures of kappa 
       | HigherOrder of (string * basic_t list)
       (* effects *)
-      | NormalReturn of (kappa * basic_t list)
+      | NormalReturn of (kappa * basic_t)
       | RaisingEff of (kappa * instant * basic_t ) (* basic_t is a placeholder for the resumned value *)
 
 (* type linearStagedSpec = stagedSpec list *)
@@ -88,6 +90,7 @@ let rec string_of_kappa (k:kappa) : string =
   | EmptyHeap -> "emp"
   | PointsTo  (str, args) -> Format.sprintf "%s->%s" str (List.map string_of_term [args] |> String.concat ", ")
   | SepConj (k1, k2) -> string_of_kappa k1 ^ "*" ^ string_of_kappa k2 
+  | MagicWand (k1, k2) -> string_of_kappa k1 ^ "-*" ^ string_of_kappa k2 
   (* | Implication (k1, k2) -> string_of_kappa k1 ^ "-*" ^ string_of_kappa k2  *)
 
 let string_of_stages (st:stagedSpec) : string =
@@ -98,8 +101,8 @@ let string_of_stages (st:stagedSpec) : string =
     Format.asprintf "%s" (string_of_kappa h)
   | HigherOrder (f, args) ->
     Format.asprintf "%s$(%s)" f (string_of_args args)
-  | NormalReturn (heap, args) ->
-    Format.asprintf "Norm(%s, %s)" (string_of_kappa heap) (string_of_args args)
+  | NormalReturn (heap, ret) ->
+    Format.asprintf "Norm(%s, %s)" (string_of_kappa heap) (string_of_basic_type ret) (*string_of_args args*)
   | RaisingEff (heap, Instant (name, args), ret) ->
     Format.asprintf "%s(%s, %s, %s)" name (string_of_kappa heap) (string_of_args args) (string_of_basic_type ret)
   | Exists vs ->

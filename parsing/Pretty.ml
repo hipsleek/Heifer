@@ -158,6 +158,8 @@ let rec kappaToPure kappa : pi =
   | EmptyHeap -> True
   | PointsTo (str, t) -> Atomic(EQ, Var str, t)
   | SepConj (k1, k2) -> And (kappaToPure k1, kappaToPure k2)
+  | MagicWand (_, _) -> failwith "kappaToPure unimplemented"
+
   (* | Implication (k1, k2) -> Imply (kappaToPure k1, kappaToPure k2) *)
 
  

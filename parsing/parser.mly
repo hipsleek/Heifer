@@ -2696,7 +2696,10 @@ stagedSpec1 :
   | constr=UIDENT args=delimited(LPAREN, stagedSpecArgs, RPAREN)
   {
     match constr, args with
-    | "Norm", (h, a) -> NormalReturn (h, a)
+    | "Norm", (h, a) -> 
+      (match a with 
+      | [] ->  failwith "stagedSpec1 NormalReturn" 
+      | x ::_  -> NormalReturn (h, x))
     | _, (h, a) ->
       (* why is basic stuff like this not available *)
       let rec split xs =

@@ -12,3 +12,7 @@ eval $(opam env)
 
 cd parsing
 dune exec ./hip.exe ../src/sp_tests/0_heap_zero_once_twice.ml
+
+
+opam switch 4.14.0+flambda
+dune exec ./hip.exe ../src/programs.t/parse_test.ml
