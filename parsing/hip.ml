@@ -1107,16 +1107,16 @@ let accumulateKappa k1 k2 : kappa option =
 
         
 
-let infer_of_value_binding rec_flag env vb: string * env * experiemntal_data =
+let infer_of_value_binding rec_flag env vb: string * env  =
   match  infer_value_binding rec_flag env vb with 
-  | None -> "", env, ([], [])
+  | None -> "", env 
   | Some (_, _, _, _,fn_name) (*Some (pre, post, final, env, fn_name) *) -> 
 
   (* don't report things like let () = ..., which isn't a function  *)
   if String.equal fn_name "()" then
-    "", env, ([], [])
+    "", env
   else
-    "", env, ([], [])
+    "", env
     (* failwith "TBD value binding" *)
 
 
@@ -1154,7 +1154,7 @@ let infer_of_value_binding rec_flag env vb: string * env * experiemntal_data =
 
 
 (* returns the inference result as a string to be printed *)
-let rec infer_of_program env x: string * env * experiemntal_data =
+let rec infer_of_program env x: string * env =
   match x.pstr_desc with
   | Pstr_value (rec_flag, x::_ (*value_binding list*)) ->
     infer_of_value_binding rec_flag env x
@@ -1162,17 +1162,17 @@ let rec infer_of_program env x: string * env * experiemntal_data =
   | Pstr_module m ->
     (* when we see a module, infer inside it *)
     let name = m.pmb_name.txt |> Option.get in
-    let res, menv, _ =
+    let res, menv =
       match m.pmb_expr.pmod_desc with
       | Pmod_structure str ->
-        List.fold_left (fun (s, env, aaaa) si ->
-          let r, env, _ = infer_of_program env si in
-          r :: s, env, aaaa) ([], env, ([], [])) str
+        List.fold_left (fun (s, env) si ->
+          let r, env = infer_of_program env si in
+          r :: s, env) ([], env) str
       | _ -> failwith "infer_of_program: unimplemented module expression type"
     in
     let res = String.concat "\n" (Format.sprintf "--- Module %s---" name :: res) in
     let env1 = Env.add_module name menv env in
-    res, env1, ([], [])
+    res, env1
 
   | Pstr_open info ->
     (* when we see a structure item like: open A... *)
@@ -1186,7 +1186,7 @@ let rec infer_of_program env x: string * env * experiemntal_data =
       | _ -> failwith "infer_of_program: unimplemented open type, can only open names"
     in
     (* ... dump all the bindings in that module into the current environment and continue *)
-    "", Env.open_module name env,  ([], [])
+    "", Env.open_module name env 
 
   | Pstr_effect { peff_name; peff_kind; _ } ->
     begin match peff_kind with
@@ -1209,7 +1209,7 @@ let rec infer_of_program env x: string * env * experiemntal_data =
       let res = split_params_fn res
         |> (fun (a, b) -> (List.map core_type_to_typ a, core_type_to_typ b)) in
       let def = { params; res } in
-      "", Env.add_effect name def env, ([], [])
+      "", Env.add_effect name def env
     | Peff_rebind _ -> failwith "unsupported effect spec rebind"
     end
   | _ -> failwith "TBD program"
@@ -1244,38 +1244,24 @@ print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
       let progs = Parser.implementation Lexer.token (Lexing.from_string line) in
 
       
-      (* Dump AST -dparsetree-style *)
-      (* Format.printf "%a@." Printast.implementation progs; *)
 
-      (*print_string (Pprintast.string_of_structure progs ) ; 
-      print_endline (List.fold_left (fun acc a -> acc ^ "\n" ^ string_of_program a) "" progs);
-
-      *)
-
-      let results, _ , ex_res=
-        List.fold_left (fun (s, env, (aaa, bbb)) a ->
-          let spec, env1, (aa, bb) = infer_of_program env a in
-          spec :: s, env1, (List.append aaa aa, List.append bbb bb)
-        ) ([], Env.empty, ([], [])) progs
+      let results, _ =
+        List.fold_left (fun (s, env) a ->
+          let spec, env1 = infer_of_program env a in
+          spec :: s, env1
+        ) ([], Env.empty) progs
       in
-      let print_summary li = 
-        string_of_float ((List.fold_left (fun acc a -> acc +. a) 0.0 li) /. (float_of_int (List.length li) )) ^ " out of " ^ 
-        string_of_int  (List.length li) ^" test case(s) \n" in 
-      let (yeah, ohhh) = ex_res in 
-      let (yeah_number, ohhh_number) = (print_summary yeah, print_summary ohhh) in 
-       
+ 
       print_endline (results |> List.rev |> String.concat "");
 
-      print_endline ("Average Proving Time (ms) is " ^ yeah_number ^ "Average DisProving Time (ms) is " ^ ohhh_number );
 
 
       (* 
       print_endline (testSleek ());
 
       *)
-      (*print_endline (Pprintast.string_of_structure progs ) ; 
-      print_endline ("---");
-      print_endline (List.fold_left (fun acc a -> acc ^ forward a) "" progs);*)
+      (*print_endline (Pprintast.string_of_structure progs ) ; *)
+      
       flush stdout;                (* 现在写入默认设备 *)
       close_in ic                  (* 关闭输入通道 *)
 
