@@ -82,12 +82,14 @@ let rec string_of_core_type (p:core_type) :string =
   | _ -> "\nlsllsls\n"
   ;;
 
+let is_alpha = function 'a' .. 'z' | 'A' .. 'Z' -> true | _ -> false
 
 let rec string_of_core_lang (e:core_lang) :string =
   match e with
   | CValue v -> string_of_basic_type v
   | CLet (v, e, e1) -> Format.sprintf "let %s = %s in\n%s" v (string_of_core_lang e) (string_of_core_lang e1)
   | CIfELse (i, t, e) -> Format.sprintf "if %s then %s else %s" (string_of_basic_type i)  (string_of_core_lang t) (string_of_core_lang e)
+  | CFunCall (f, [a; b]) when not (is_alpha (String.get f 0)) -> Format.sprintf "%s %s %s" (string_of_basic_type a) f (string_of_basic_type b)
   | CFunCall (f, xs) -> Format.sprintf "%s %s" f (List.map string_of_basic_type xs |> String.concat " ")
   | CWrite (v, e) -> Format.sprintf "%s := %s" v (string_of_basic_type e)
   | CRef v -> Format.sprintf "ref %s" (string_of_basic_type v)
@@ -981,7 +983,7 @@ let expr_to_formula (expr:expression) : pi * kappa =
       begin match i with
       | "=" ->
         begin match a.pexp_desc, b.pexp_desc with
-        | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident p; _}); _}, [_]), _ ->
+        | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident "!"; _}); _}, [_, {pexp_desc = Pexp_ident {txt=Lident p; _}; _}]), _ ->
           True, PointsTo (p, expr_to_term b)
         | _ ->
           failwith (Format.asprintf "unknown kind of equality: %a" Pprintast.expression expr)
@@ -1006,6 +1008,8 @@ let expr_to_formula (expr:expression) : pi * kappa =
   | Pexp_construct ({txt=Lident "false"; _}, None) -> False, EmptyHeap
   | _ ->
     failwith (Format.asprintf "unknown kind of formula: %a" Pprintast.expression expr)
+
+let primitives = ["+"; "-"]
 
 (** the env just tracks the names of bound functions *)
 let rec transformation (env:string list) (expr:expression) : core_lang =
@@ -1036,7 +1040,7 @@ let rec transformation (env:string list) (expr:expression) : core_lang =
   | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, [_, {pexp_desc = Pexp_ident {txt=Lident x; _}; _}; _, e]) when name = ":=" ->
     let v = verifier_getAfreeVar () in
     CLet (v, transformation env e, CWrite (x, VARName v))
-  | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, args) when List.mem name env ->
+  | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, args) when List.mem name env || List.mem name primitives ->
     let rec loop args vars =
       match List.rev args with
       | [] -> CFunCall (name, List.map (fun v -> VARName v) vars)
