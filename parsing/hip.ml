@@ -82,6 +82,22 @@ let rec string_of_core_type (p:core_type) :string =
   | _ -> "\nlsllsls\n"
   ;;
 
+
+let rec string_of_core_lang (e:core_lang) :string =
+  match e with
+| CValue v -> string_of_basic_type v
+| CLet (v, e, e1) -> Format.sprintf "let %s = %s in\n%s" v (string_of_core_lang e) (string_of_core_lang e1)
+| CIfELse (i, t, e) -> Format.sprintf "if %s then %s else %s" (string_of_basic_type i)  (string_of_core_lang t) (string_of_core_lang e)
+| CFunCall (f, xs) -> Format.sprintf "%s %s" f (List.map string_of_basic_type xs |> String.concat " ")
+| CWrite (v, e) -> Format.sprintf "%s := %s" v (string_of_basic_type e)
+| CRef v -> Format.sprintf "ref %s" (string_of_basic_type v)
+| CRead v -> Format.sprintf "!%s" v
+| CAssert (p, h) -> Format.sprintf "assert (%s && %s)" (string_of_pi p) (string_of_kappa h)
+| CPerform (eff, Some arg) -> Format.sprintf "perform %s %s" eff (string_of_basic_type arg)
+| CPerform (eff, None) -> Format.sprintf "perform %s" eff
+| CMatch (e, (v, norm), hs) -> Format.sprintf "match %s with\n| %s -> %s\n%s" (string_of_core_lang e) v (string_of_core_lang norm) (List.map (fun (name, v, body) -> Format.asprintf "| effect %s %s -> %s" name v (string_of_core_lang body)) hs |> String.concat "\n")
+| CResume v -> Format.sprintf "continue k %s" (string_of_basic_type v)
+
 let debug_string_of_core_type t =
   Format.asprintf "type %a@." Pprintast.core_type t
 
@@ -1020,25 +1036,25 @@ let rec transformation (env:string list) (expr:expression) : core_lang =
   (* | Pexp_construct _  *)
   (* | Pexp_ident _ -> [(True, Emp, dealWithNormalReturn env expr) ]
   | Pexp_sequence (ex1, ex2) ->  *)
-  | Pexp_fun _ -> 
+  | Pexp_fun _ ->
     failwith "only for higher-order, TBD"
-  | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, ((_, {pexp_desc = Pexp_construct ({txt=Lident eff; _}, _); _}) :: rest)) when name = "perform" -> 
+  | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, ((_, {pexp_desc = Pexp_construct ({txt=Lident eff; _}, _); _}) :: rest)) when name = "perform" ->
     begin match rest with
     | (_, a) :: _ ->
     let v = verifier_getAfreeVar () in
       CLet (v, transformation env a, CPerform (eff, Some (VARName v)))
     | _ -> CPerform (eff, None)
     end
-  | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, [_, _k; _, e]) when name = "continue" -> 
+  | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, [_, _k; _, e]) when name = "continue" ->
     let v = verifier_getAfreeVar () in
     CLet (v, transformation env e, CResume (VARName v))
-  | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, [_, a]) when name = "ref" -> 
+  | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, [_, a]) when name = "ref" ->
     let v = verifier_getAfreeVar () in
     CLet (v, transformation env a, CRef (VARName v))
-  | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, [_, {pexp_desc = Pexp_ident {txt=Lident x; _}; _}; _, e]) when name = ":=" -> 
+  | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, [_, {pexp_desc = Pexp_ident {txt=Lident x; _}; _}; _, e]) when name = ":=" ->
     let v = verifier_getAfreeVar () in
     CLet (v, transformation env e, CWrite (x, VARName v))
-  | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, args) when List.mem name env -> 
+  | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, args) when List.mem name env ->
     let rec loop args vars =
       match List.rev args with
       | [] -> CFunCall (name, List.map (fun v -> VARName v) vars)
@@ -1047,7 +1063,7 @@ let rec transformation (env:string list) (expr:expression) : core_lang =
         CLet (v, transformation env a, loop args1 (v :: vars))
     in
     loop args []
-  | Pexp_apply (_f, _args) -> 
+  | Pexp_apply (_f, _args) ->
     (* unknown function call, e.g. printf. translate to assert true for now *)
     CAssert (True, EmptyHeap)
   | Pexp_sequence (a, b) ->
@@ -1055,13 +1071,33 @@ let rec transformation (env:string list) (expr:expression) : core_lang =
   | Pexp_assert e ->
     let p, k = expr_to_formula e in
     CAssert (p, k)
-  | Pexp_let (_rec, vb::_vbs, e) -> 
+  | Pexp_let (_rec, vb::_vbs, e) ->
     let var_name = string_of_pattern (vb.pvb_pat) in 
     let exprIn = vb.pvb_expr in 
     CLet (var_name, transformation env exprIn, transformation env e)
-  | Pexp_ifthenelse (if_, then_, Some else_) -> 
+  | Pexp_ifthenelse (if_, then_, Some else_) ->
     let v = verifier_getAfreeVar () in
     CLet (v, transformation env if_, CIfELse (VARName v, transformation env then_, transformation env else_))
+  | Pexp_match (e, cases) ->
+    let norm =
+      match cases |> List.filter_map (fun c ->
+        match c.pc_lhs.ppat_desc with
+        | Ppat_var {txt=v; _} -> Some (v, transformation env c.pc_rhs)
+        | _ -> failwith (Format.asprintf "unknown pattern: %a" Pprintast.pattern c.pc_lhs)
+      ) with
+      | [] -> failwith (Format.asprintf "no value case: %a" Pprintast.expression expr)
+      | c :: _ -> c
+    in
+    let effs =
+      match cases |> List.filter_map (fun c ->
+        match c.pc_lhs.ppat_desc with
+        | Ppat_effect (p1, p2) -> Some (string_of_pattern p1, string_of_pattern p2, transformation env c.pc_rhs)
+        | _ -> failwith (Format.asprintf "unknown pattern: %a" Pprintast.pattern c.pc_lhs)
+      ) with
+      | [] -> failwith (Format.asprintf "no effect case: %a" Pprintast.expression expr)
+      | c -> c
+    in
+    CMatch (transformation env e, norm, effs)
   | _ ->
     failwith (Format.asprintf "expression not in core language: %a" Pprintast.expression expr)
 
