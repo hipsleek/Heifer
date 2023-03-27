@@ -1641,7 +1641,7 @@ print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
 
       List.iter (fun (_name, _params, spec, body) ->
         let _spec1 = infer_of_expression methods spec body in
-        ()
+        print_endline ("\nfinal:\n" ^string_of_spec_list _spec1)
       ) methods;
 
       (* let results, _ =

@@ -222,6 +222,11 @@ let string_of_stages (st:stagedSpec) : string =
 let string_of_spec (spec:spec) :string =
   spec |> List.map string_of_stages |> String.concat "; "
 
+let rec string_of_spec_list (specs:spec list) : string = 
+  match specs with 
+  | [] -> ""
+  | [x] -> string_of_spec x 
+  | x :: xs -> string_of_spec x ^ " \\/ " ^ string_of_spec_list xs 
 
 let string_of_inclusion (lhs:spec) (rhs:spec) :string = 
   string_of_spec lhs ^" |- " ^string_of_spec rhs 
