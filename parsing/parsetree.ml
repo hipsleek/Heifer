@@ -65,22 +65,23 @@ type attribute = {
 
 
 
-and core_handler_ops = (string * string * expression) list
+and core_handler_ops = (string * string * core_lang) list
 
 and core_lang = 
       | CValue of core_value 
-      | CLet of (string * expression) * expression
-      | CIfELse of expression * expression * expression
-      | CFunCall of string * (expression) list
-      | CWrite of string * expression 
+      | CLet of (string * core_lang) * core_lang
+      | CIfELse of core_lang * core_lang * core_lang
+      | CFunCall of string * (core_lang) list
+      | CWrite of string * core_lang 
       | CRef of core_value
       | CRead of string 
       | CAssert of pi * kappa 
       | CPerform of string  * core_value 
-      | CMatch of expression * (string * expression) * core_handler_ops
+      | CMatch of core_lang * (string * core_lang) * core_handler_ops
       | CResume of core_value 
 
-
+and meth_def = string * (string list) * (spec list) * core_lang
+and core_program = meth_def list
 
 
 

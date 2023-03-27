@@ -771,12 +771,22 @@ let normalize spec =
 
 
 
-let rec infer_of_expression (_) (spec:spec) _: spec =
-  Format.printf "\n---\nparsed: %s\nnormalized: %s\n---@."
+let  infer_of_expression _ (_:spec) (_:core_lang): spec = []
+
+let infer_of_expression_shell (_:spec list) (_:core_lang): spec =
+  []
+
+
+let rec transformation (_:expression) : core_lang = failwith "TBD"
+
+  (* failwith "TBD expr"
+  
+    Format.printf "\n---\nparsed: %s\nnormalized: %s\n---@."
   (string_of_effectspec (Some spec))
   (string_of_effectspec (Some (normalize spec)));
   spec
-  (* failwith "TBD expr" *)
+
+  *)
   (*
   let current  =  current in 
   match expr.pexp_desc with 
@@ -1018,7 +1028,7 @@ and infer_value_binding rec_flag env vb =
       Env.add_fn fn_name {pre=spec; post=[]; formals} env
   in
 
-  let final =  (infer_of_expression env spec body) in
+  let final =  (infer_of_expression env spec (transformation body)) in
 
   let final =  final in 
 

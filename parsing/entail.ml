@@ -42,6 +42,7 @@ type stagedSpec =
       | HigherOrder of (string * basic_t list)
       (* effects *)
       | RaisingEff of (pi * kappa * instant * basic_t ) (* basic_t is a placeholder for the resumned value *)
+      
 
 (* type linearStagedSpec = stagedSpec list *)
 
@@ -128,5 +129,5 @@ let%expect_test "staged_subsumption" =
   let test l r = Format.printf "%s %s %s@." (string_of_spec l) (if check_staged_subsumption l r then "|--" else "|-/-") (string_of_spec r) in
   test [Ensures (PointsTo ("x", Num 1))] [Ensures (PointsTo ("x", Num 1))];
   [%expect {| x->1 |-- x->1 |}]
-  
+
 *)
