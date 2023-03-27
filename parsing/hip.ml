@@ -1009,6 +1009,7 @@ let expr_to_formula (expr:expression) : pi * kappa =
   | _ ->
     failwith (Format.asprintf "unknown kind of formula: %a" Pprintast.expression expr)
 
+
 let primitives = ["+"; "-"]
 
 (** the env just tracks the names of bound functions *)
@@ -1027,28 +1028,26 @@ let rec transformation (env:string list) (expr:expression) : core_lang =
   | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, ((_, {pexp_desc = Pexp_construct ({txt=Lident eff; _}, _); _}) :: rest)) when name = "perform" ->
     begin match rest with
     | (_, a) :: _ ->
-    let v = verifier_getAfreeVar () in
-      CLet (v, transformation env a, CPerform (eff, Some (VARName v)))
+      transformation env a |> maybe_var (fun v -> CPerform (eff, Some v))
     | _ -> CPerform (eff, None)
     end
   | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, [_, _k; _, e]) when name = "continue" ->
-    let v = verifier_getAfreeVar () in
-    CLet (v, transformation env e, CResume (VARName v))
+    transformation env e |> maybe_var (fun v -> CResume v)
+  | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, [_, {pexp_desc=Pexp_ident {txt=Lident v;_}; _}]) when name = "!" ->
+    CRead v
   | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, [_, a]) when name = "ref" ->
-    let v = verifier_getAfreeVar () in
-    CLet (v, transformation env a, CRef (VARName v))
+    transformation env a |> maybe_var (fun v -> CRef v)
   | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, [_, {pexp_desc = Pexp_ident {txt=Lident x; _}; _}; _, e]) when name = ":=" ->
-    let v = verifier_getAfreeVar () in
-    CLet (v, transformation env e, CWrite (x, VARName v))
+    transformation env e |> maybe_var (fun v -> CWrite (x, v))
   | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Ldot (Lident "Sys", "opaque_identity"); _}); _}, [_, a]) ->
+    (* ignore this *)
     transformation env a
   | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, args) when List.mem name env || List.mem name primitives ->
     let rec loop args vars =
       match List.rev args with
-      | [] -> CFunCall (name, List.map (fun v -> VARName v) vars)
+      | [] -> CFunCall (name, vars)
       | (_, a) :: args1 ->
-        let v = verifier_getAfreeVar () in
-        CLet (v, transformation env a, loop args1 (v :: vars))
+        transformation env a |> maybe_var (fun v -> loop args1 (v :: vars))
     in
     loop args []
   | Pexp_apply (_f, _args) ->
@@ -1064,8 +1063,8 @@ let rec transformation (env:string list) (expr:expression) : core_lang =
     let exprIn = vb.pvb_expr in 
     CLet (var_name, transformation env exprIn, transformation env e)
   | Pexp_ifthenelse (if_, then_, Some else_) ->
-    let v = verifier_getAfreeVar () in
-    CLet (v, transformation env if_, CIfELse (VARName v, transformation env then_, transformation env else_))
+    transformation env if_
+      |> maybe_var (fun v -> CIfELse (v, transformation env then_, transformation env else_))
   | Pexp_match (e, cases) ->
     let norm =
       match cases |> List.filter_map (fun c ->
@@ -1089,6 +1088,14 @@ let rec transformation (env:string list) (expr:expression) : core_lang =
   | _ ->
     failwith (Format.asprintf "expression not in core language: %a" Pprintast.expression expr)
 
+and maybe_var f e =
+  (* generate fewer unnecessary variables *)
+  match e with
+  | CValue v -> f v
+  | _ ->
+    let v = verifier_getAfreeVar () in
+    CLet (v, e, f (VARName v))
+      
   (* failwith "TBD expr"
   
     Format.printf "\n---\nparsed: %s\nnormalized: %s\n---@."
