@@ -226,3 +226,17 @@ let string_of_spec (spec:spec) :string =
 let string_of_inclusion (lhs:spec) (rhs:spec) :string = 
   string_of_spec lhs ^" |- " ^string_of_spec rhs 
   ;;
+
+let string_of_coreLang_kind (expr:core_lang): string = 
+  match expr with 
+  | CValue _ -> "CValue"
+  | CLet  _ -> "CLet"
+  | CIfELse  _ -> "CIfELse"
+  | CFunCall  _ -> "CFunCall"
+  | CWrite  _ -> "CWrite"
+  | CRef _ -> "CRef"
+  | CRead  _ -> "CRead"
+  | CAssert  _ -> "CAssert"
+  | CPerform  _ -> "CPerform"
+  | CMatch  _ -> "CMatch"
+  | CResume  _ -> "CResume"

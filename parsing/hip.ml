@@ -780,7 +780,8 @@ let concatenateSpecsWithSpec (current:spec list) (event:spec list) :  spec list 
 let rec retriveNormalStage (spec:spec) : (pi * kappa * basic_t) = 
   match spec with 
   | [] -> failwith "retriveNormalStage empty spec"
-  | [NormalReturn (pN, hN, retN)] -> (pN, hN, retN)
+  | [NormalReturn (pN, hN, retN)] 
+  | [RaisingEff(pN, hN,_ ,  retN)] -> (pN, hN, retN)
   | _ :: xs -> retriveNormalStage xs 
 
 let is_ident name e =
@@ -882,6 +883,7 @@ let instantiateSpecList (bindings:((string * core_value) list)) (sepcs:spec list
   List.map (fun a -> instantiateSpec bindings a ) sepcs
 
 let rec infer_of_expression (env:meth_def list) (current:spec list) (expr:core_lang): spec list = 
+  print_string (string_of_coreLang_kind expr ^ "\n");
   match expr with
   | CValue v -> 
     let event = NormalReturn (True, EmptyHeap, v) in 
@@ -890,7 +892,11 @@ let rec infer_of_expression (env:meth_def list) (current:spec list) (expr:core_l
   | CLet (str, expr1, expr2) -> 
     let phi1 = infer_of_expression env current expr1 in 
     List.flatten (List.map (fun spec -> 
+      print_endline (string_of_spec(spec));
       let (_, _, retN) = retriveNormalStage spec in 
+      match retN with 
+      | UNIT -> infer_of_expression env current expr2
+      | _ -> 
       let event = NormalReturn (Atomic(EQ, Var str, basic_t2Term retN), EmptyHeap, UNIT) in 
       let current' = concatenateSpecsWithEvent [spec] [event] in 
       infer_of_expression env current' expr2
@@ -909,7 +915,9 @@ let rec infer_of_expression (env:meth_def list) (current:spec list) (expr:core_l
     concatenateSpecsWithEvent current event
 
 
-  | CAssert (p, h) -> concatenateSpecsWithEvent current [Require(p, h)]
+  | CAssert (p, h) -> 
+    let temp = concatenateSpecsWithEvent current [Require(p, h)] in 
+    concatenateSpecsWithEvent temp [(NormalReturn(p, h, UNIT))]
 
   | CPerform (label, arg) -> 
     let arg = 
