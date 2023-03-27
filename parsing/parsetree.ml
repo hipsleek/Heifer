@@ -69,20 +69,20 @@ and core_handler_ops = (string * string * core_lang) list
 
 and core_lang = 
       | CValue of core_value 
-      | CLet of (string * core_lang) * core_lang
+      | CLet of string * core_lang * core_lang
       | CIfELse of core_lang * core_lang * core_lang
       | CFunCall of string * (core_lang) list
       | CWrite of string * core_lang 
       | CRef of core_value
       | CRead of string 
       | CAssert of pi * kappa 
-      | CPerform of string  * core_value 
+      | CPerform of string * core_value option
       | CMatch of core_lang * (string * core_lang) * core_handler_ops
       | CResume of core_value 
 
 and meth_def = string * (string list) * (spec list) * core_lang
-and core_program = meth_def list
-
+and eff_def = string
+and core_program = eff_def list * meth_def list
 
 
 and extension = string loc * payload

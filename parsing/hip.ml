@@ -778,6 +778,11 @@ let rec retriveNormalStage (spec:spec) : (pi * kappa * basic_t) =
   | [NormalReturn (pN, hN, retN)] -> (pN, hN, retN)
   | _ :: xs -> retriveNormalStage xs 
 
+let is_ident name e =
+  match e.pexp_desc with
+  | Pexp_ident {txt=Lident i; _} when name = i -> true
+  | _ -> false
+
 
 let rec infer_of_expression env (current:spec list) (expr:core_lang): spec list = 
   match expr with
@@ -836,9 +841,97 @@ let rec infer_of_expression env (current:spec list) (expr:core_lang): spec list 
 *)
 
 
+let rec expr_to_term (expr:expression) : term =
+  match expr.pexp_desc with
+  | Pexp_constant (Pconst_integer (i, _)) -> Num (int_of_string i)
+  | Pexp_ident {txt=Lident i; _} -> Var i
+  | Pexp_apply ({pexp_desc = Pexp_ident {txt=Lident i; _}; _}, [(_, a); (_, b)]) ->
+      begin match i with
+      | "+" -> Plus (expr_to_term a, expr_to_term b)
+      | "-" -> Minus (expr_to_term a, expr_to_term b)
+      | "@" -> TListAppend (expr_to_term a, expr_to_term b)
+      | _ -> failwith (Format.asprintf "unknown op %s" i)
+      end
+  | _ -> failwith (Format.asprintf "unknown term %a" Pprintast.expression expr)
 
+let expr_to_formula (expr:expression) : pi * kappa =
+  match expr.pexp_desc with
+  | Pexp_apply ({pexp_desc = Pexp_ident {txt=Lident i; _}; _}, [(_, a); (_, b)]) ->
+      begin match i with
+      | "=" ->
+        begin match a.pexp_desc, b.pexp_desc with
+        | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident p; _}); _}, [_]), _ ->
+          True, PointsTo (p, expr_to_term b)
+        | _ ->
+          failwith (Format.asprintf "unknown kind of equality: %a" Pprintast.expression expr)
+        end
+      | "<" -> Atomic (LT, expr_to_term a, expr_to_term b), EmptyHeap
+      | "<=" -> Atomic (LTEQ, expr_to_term a, expr_to_term b), EmptyHeap
+      | ">" -> Atomic (GT, expr_to_term a, expr_to_term b), EmptyHeap
+      | ">=" -> Atomic (GTEQ, expr_to_term a, expr_to_term b), EmptyHeap
+        (* TODO handle heap *)
+      (* | "&&" -> And (expr_to_formula a, expr_to_formula b), EmptyHeap *)
+      (* | "||" -> Or (expr_to_formula a, expr_to_formula b), EmptyHeap *)
+      (* | "=>" -> Imply (expr_to_formula a, expr_to_formula b), EmptyHeap *)
+      | _ ->
+        failwith (Format.asprintf "unknown binary op: %s" i)
+      end
+  | Pexp_apply ({pexp_desc = Pexp_ident {txt=Lident i; _}; _}, [(_, _a)]) ->
+      begin match i with
+      (* | "not" -> Not (expr_to_formula a) *)
+      | _ -> failwith (Format.asprintf "unknown unary op: %s" i)
+      end
+  | Pexp_construct ({txt=Lident "true"; _}, None) -> True, EmptyHeap
+  | Pexp_construct ({txt=Lident "false"; _}, None) -> False, EmptyHeap
+  | _ ->
+    failwith (Format.asprintf "unknown kind of formula: %a" Pprintast.expression expr)
 
-let rec transformation (_:expression) : core_lang = failwith "TBD"
+let rec transformation (expr:expression) : core_lang =
+  match expr.pexp_desc with 
+  | Pexp_constant c ->
+    begin match c with
+    | Pconst_integer (i, _) -> CValue (BINT (int_of_string i))
+    | _ -> failwith (Format.asprintf "unknown kind of constant: %a" Pprintast.expression expr)
+    end
+  (* | Pexp_construct _  *)
+  (* | Pexp_ident _ -> [(True, Emp, dealWithNormalReturn env expr) ]
+  | Pexp_sequence (ex1, ex2) ->  *)
+  | Pexp_fun _ -> 
+    failwith "only for higher-order, TBD"
+  | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, args) when name = "perform" -> 
+    (* infer_of_expression env current exprIn *)
+    let name =
+      begin match List.map snd args with
+      | {pexp_desc = Pexp_construct ({txt=Lident n; _}, _); _} :: _ -> n
+      | _ -> failwith (Format.asprintf "unsupported use of perform: %a" Pprintast.expression expr)
+      end
+    in
+    let arg =
+      begin match args with
+      | [_; (_, a)] ->
+        begin match transformation a with
+        | CValue v -> Some v
+        | _ -> failwith (Format.asprintf "perform called with non-value: %a" Pprintast.expression expr)
+        end
+      | _ -> None
+      end
+    in
+    CPerform (name, arg)
+  | Pexp_apply (_f, _args) -> 
+    (* unknown function call, e.g. printf.
+       translate to assert true for now *)
+    CAssert (True, EmptyHeap)
+  | Pexp_sequence (a, b) ->
+    CLet ("_", transformation a, transformation b)
+  | Pexp_assert e ->
+    let p, k = expr_to_formula e in
+    CAssert (p, k)
+  | Pexp_let (_rec, vb::_vbs, e) -> 
+    let var_name = string_of_pattern (vb.pvb_pat) in 
+    let exprIn = vb.pvb_expr in 
+    CLet (var_name, transformation exprIn, transformation e)
+  | _ ->
+    failwith (Format.asprintf "expression not in core language: %a" Pprintast.expression expr)
 
   (* failwith "TBD expr"
   
@@ -1066,7 +1159,7 @@ let rec transformation (_:expression) : core_lang = failwith "TBD"
     Pprintast.string_of_expression  expr ^ " infer_of_expression not corvered ")) 
     *)
     
-
+(* 
 and infer_value_binding rec_flag env vb =
   let fn_name = string_of_pattern vb.pvb_pat in
   let body = vb.pvb_expr in
@@ -1089,14 +1182,14 @@ and infer_value_binding rec_flag env vb =
       Env.add_fn fn_name {pre=spec; post=[]; formals} env
   in
 
-  let final =  (infer_of_expression env [[NormalReturn (True, EmptyHeap,  UNIT)]] (transformation body)) in
+  (* let final =  (infer_of_expression env [[NormalReturn (True, EmptyHeap,  UNIT)]] (transformation body)) in *)
 
-  let final =  final in 
+  (* let final =  final in  *)
 
   let env1 = Env.add_fn fn_name { pre=spec; post=[]; formals } env in
   
 
-  Some (spec, [], ( final), env1, fn_name)
+  Some (spec, [], ( final), env1, fn_name) *)
 
 
 
@@ -1177,7 +1270,7 @@ let accumulateKappa k1 k2 : kappa option =
 
 
         
-
+(* 
 let infer_of_value_binding rec_flag env vb: string * env  =
   match  infer_value_binding rec_flag env vb with 
   | None -> "", env 
@@ -1188,7 +1281,7 @@ let infer_of_value_binding rec_flag env vb: string * env  =
     "", env
   else
     "", env
-    (* failwith "TBD value binding" *)
+    failwith "TBD value binding" *)
 
 
 
@@ -1223,9 +1316,71 @@ let infer_of_value_binding rec_flag env vb: string * env  =
     in header , env, ex_res
 *)
 
+let transform_str (s : structure_item) =
+  match s.pstr_desc with
+  | Pstr_value (_rec_flag, vb::_vbs_) ->
+    let fn_name = string_of_pattern vb.pvb_pat in
+    let body = vb.pvb_expr in
+    begin match body.pexp_desc with
+    | Pexp_fun (_, _, _, body) ->
+      let formals = collect_param_names body in
+      let spec =
+        match function_spec body with
+        | None -> [] 
+        | Some spec -> [spec]
+      in
+      let e = transformation body in
+      `Meth (fn_name, formals, spec, e)
+    | _ -> failwith "not a function binding"
+    end
+
+  (* let final =  (infer_of_expression env [[NormalReturn (True, EmptyHeap,  UNIT)]] (transformation body)) in *)
+
+  (* let env1 = Env.add_fn fn_name { pre=spec; post=[]; formals } env in *)
+
+  (* Some (spec, [], ( final), env1, fn_name) *)
+    (* infer_of_value_binding rec_flag env x *)
+(* end *)
+
+(* meth_def = string * (string list) * (spec list) * core_lang *)
+    
+  | Pstr_effect { peff_name; peff_kind=_; _ } ->
+      let name = peff_name.txt in
+      `Eff name
+    (* begin match peff_kind with
+    | Peff_decl (args, res) ->
+      (* converts a type of the form a -> b -> c into ([a, b], c) *)
+      let split_params_fn t =
+        let rec loop acc t =
+          match t.ptyp_desc with
+          | Ptyp_arrow (_, a, b) ->
+            (* note that we don't recurse in a *)
+            loop (a :: acc) b
+          | Ptyp_constr ({txt=Lident "int"; _}, [])
+          | Ptyp_constr ({txt=Lident "string"; _}, []) 
+          | Ptyp_constr ({txt=Lident "unit"; _}, []) -> List.rev acc, t
+          | _ -> failwith ("split_params_fn: " ^ debug_string_of_core_type t)
+        in loop [] t
+      in
+      let params = List.map core_type_to_typ args in
+      let res = split_params_fn res
+        |> (fun (a, b) -> (List.map core_type_to_typ a, core_type_to_typ b)) in
+      let def = { params; res } in
+      "", Env.add_effect name def env
+    | Peff_rebind _ -> failwith "unsupported effect spec rebind"
+    end *)
+  | _ -> failwith (Format.asprintf "unknown program element: %a" Pprintast.structure [s])
+
+let transform_strs (strs: structure_item list) : core_program =
+  let effs, mths =
+    List.fold_left (fun (es, ms) c ->
+      match transform_str c with
+      | `Eff a -> a :: es, ms
+      | `Meth a -> es, a :: ms) ([], []) strs
+  in List.rev effs, List.rev mths
 
 (* returns the inference result as a string to be printed *)
-let rec infer_of_program env x: string * env =
+(* let rec infer_of_program env x: string * env =
   match x.pstr_desc with
   | Pstr_value (rec_flag, x::_ (*value_binding list*)) ->
     infer_of_value_binding rec_flag env x
@@ -1284,7 +1439,7 @@ let rec infer_of_program env x: string * env =
     | Peff_rebind _ -> failwith "unsupported effect spec rebind"
     end
   | _ -> failwith "TBD program"
-  ;;
+  ;; *)
 
 
 let debug_tokens str =
@@ -1315,15 +1470,21 @@ print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
       let progs = Parser.implementation Lexer.token (Lexing.from_string line) in
 
       
+      let _effs, methods = transform_strs progs in
 
-      let results, _ =
+      List.iter (fun (_name, _params, spec, body) ->
+        let _spec1 = infer_of_expression spec body in
+        ()
+      ) methods;
+
+      (* let results, _ =
         List.fold_left (fun (s, env) a ->
           let spec, env1 = infer_of_program env a in
           spec :: s, env1
         ) ([], Env.empty) progs
-      in
+      in *)
  
-      print_endline (results |> List.rev |> String.concat "");
+      (* print_endline (results |> List.rev |> String.concat ""); *)
 
 
 
