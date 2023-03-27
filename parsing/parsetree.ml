@@ -81,8 +81,8 @@ and core_lang =
       | CResume of core_value 
 
 and meth_def = string * (string list) * (spec list) * core_lang
-and core_program = meth_def list
-
+and eff_def = string
+and core_program = eff_def list * meth_def list
 
 
 and extension = string loc * payload

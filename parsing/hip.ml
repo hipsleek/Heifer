@@ -771,12 +771,28 @@ let normalize spec =
 
 
 
-let  infer_of_expression _ (current:spec list) (_:core_lang): spec list = current
+let  infer_of_expression (current:spec list) (_:core_lang): spec list = current
 
 
+let rec transformation (expr:expression) : core_lang =
+  match expr.pexp_desc with 
+  | Pexp_constant c ->
+    begin match c with
+    | Pconst_integer (i, _) -> CValue (BINT (int_of_string i))
+    | _ -> failwith "unknown constant"
+    end
+  (* | Pexp_construct _  *)
+  (* | Pexp_ident _ -> [(True, Emp, dealWithNormalReturn env expr) ]
+  | Pexp_sequence (ex1, ex2) ->  *)
 
-
-let rec transformation (_:expression) : core_lang = failwith "TBD"
+  | Pexp_fun _ -> 
+    failwith "function?"
+  | Pexp_apply _ -> 
+    (* infer_of_expression env current exprIn *)
+    failwith "unimplemneted"
+  | _ ->
+    failwith (
+      Format.asprintf "expression not in core language: %a" Pprintast.expression expr)
 
   (* failwith "TBD expr"
   
@@ -1004,7 +1020,7 @@ let rec transformation (_:expression) : core_lang = failwith "TBD"
     Pprintast.string_of_expression  expr ^ " infer_of_expression not corvered ")) 
     *)
     
-
+(* 
 and infer_value_binding rec_flag env vb =
   let fn_name = string_of_pattern vb.pvb_pat in
   let body = vb.pvb_expr in
@@ -1027,14 +1043,14 @@ and infer_value_binding rec_flag env vb =
       Env.add_fn fn_name {pre=spec; post=[]; formals} env
   in
 
-  let final =  (infer_of_expression env [[NormalReturn (True, EmptyHeap,  UNIT)]] (transformation body)) in
+  (* let final =  (infer_of_expression env [[NormalReturn (True, EmptyHeap,  UNIT)]] (transformation body)) in *)
 
-  let final =  final in 
+  (* let final =  final in  *)
 
   let env1 = Env.add_fn fn_name { pre=spec; post=[]; formals } env in
   
 
-  Some (spec, [], ( final), env1, fn_name)
+  Some (spec, [], ( final), env1, fn_name) *)
 
 
 
@@ -1115,7 +1131,7 @@ let accumulateKappa k1 k2 : kappa option =
 
 
         
-
+(* 
 let infer_of_value_binding rec_flag env vb: string * env  =
   match  infer_value_binding rec_flag env vb with 
   | None -> "", env 
@@ -1126,7 +1142,7 @@ let infer_of_value_binding rec_flag env vb: string * env  =
     "", env
   else
     "", env
-    (* failwith "TBD value binding" *)
+    failwith "TBD value binding" *)
 
 
 
@@ -1161,9 +1177,71 @@ let infer_of_value_binding rec_flag env vb: string * env  =
     in header , env, ex_res
 *)
 
+let transform_str (s : structure_item) =
+  match s.pstr_desc with
+  | Pstr_value (_rec_flag, vb::_vbs_) ->
+    let fn_name = string_of_pattern vb.pvb_pat in
+    let body = vb.pvb_expr in
+    begin match body.pexp_desc with
+    | Pexp_fun (_, _, _, body) ->
+      let formals = collect_param_names body in
+      let spec =
+        match function_spec body with
+        | None -> [] 
+        | Some spec -> [spec]
+      in
+      let e = transformation body in
+      `Meth (fn_name, formals, spec, e)
+    | _ -> failwith "not a function binding"
+    end
+
+  (* let final =  (infer_of_expression env [[NormalReturn (True, EmptyHeap,  UNIT)]] (transformation body)) in *)
+
+  (* let env1 = Env.add_fn fn_name { pre=spec; post=[]; formals } env in *)
+
+  (* Some (spec, [], ( final), env1, fn_name) *)
+    (* infer_of_value_binding rec_flag env x *)
+(* end *)
+
+(* meth_def = string * (string list) * (spec list) * core_lang *)
+    
+  | Pstr_effect { peff_name; peff_kind=_; _ } ->
+      let name = peff_name.txt in
+      `Eff name
+    (* begin match peff_kind with
+    | Peff_decl (args, res) ->
+      (* converts a type of the form a -> b -> c into ([a, b], c) *)
+      let split_params_fn t =
+        let rec loop acc t =
+          match t.ptyp_desc with
+          | Ptyp_arrow (_, a, b) ->
+            (* note that we don't recurse in a *)
+            loop (a :: acc) b
+          | Ptyp_constr ({txt=Lident "int"; _}, [])
+          | Ptyp_constr ({txt=Lident "string"; _}, []) 
+          | Ptyp_constr ({txt=Lident "unit"; _}, []) -> List.rev acc, t
+          | _ -> failwith ("split_params_fn: " ^ debug_string_of_core_type t)
+        in loop [] t
+      in
+      let params = List.map core_type_to_typ args in
+      let res = split_params_fn res
+        |> (fun (a, b) -> (List.map core_type_to_typ a, core_type_to_typ b)) in
+      let def = { params; res } in
+      "", Env.add_effect name def env
+    | Peff_rebind _ -> failwith "unsupported effect spec rebind"
+    end *)
+  | _ -> failwith (Format.asprintf "unknown program element: %a" Pprintast.structure [s])
+
+let transform_strs (strs: structure_item list) : core_program =
+  let effs, mths =
+    List.fold_left (fun (es, ms) c ->
+      match transform_str c with
+      | `Eff a -> a :: es, ms
+      | `Meth a -> es, a :: ms) ([], []) strs
+  in List.rev effs, List.rev mths
 
 (* returns the inference result as a string to be printed *)
-let rec infer_of_program env x: string * env =
+(* let rec infer_of_program env x: string * env =
   match x.pstr_desc with
   | Pstr_value (rec_flag, x::_ (*value_binding list*)) ->
     infer_of_value_binding rec_flag env x
@@ -1222,7 +1300,7 @@ let rec infer_of_program env x: string * env =
     | Peff_rebind _ -> failwith "unsupported effect spec rebind"
     end
   | _ -> failwith "TBD program"
-  ;;
+  ;; *)
 
 
 let debug_tokens str =
@@ -1253,15 +1331,21 @@ print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
       let progs = Parser.implementation Lexer.token (Lexing.from_string line) in
 
       
+      let _effs, methods = transform_strs progs in
 
-      let results, _ =
+      List.iter (fun (_name, _params, spec, body) ->
+        let _spec1 = infer_of_expression spec body in
+        ()
+      ) methods;
+
+      (* let results, _ =
         List.fold_left (fun (s, env) a ->
           let spec, env1 = infer_of_program env a in
           spec :: s, env1
         ) ([], Env.empty) progs
-      in
+      in *)
  
-      print_endline (results |> List.rev |> String.concat "");
+      (* print_endline (results |> List.rev |> String.concat ""); *)
 
 
 

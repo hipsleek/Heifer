@@ -18,7 +18,9 @@
 ;; essential right now.
 
 (env
- (dev     (flags (:standard -w +a-4-9-40-41-42-44-45-48-67)))
+ ; (dev     (flags (:standard -w +a-4-9-40-41-42-44-45-48-67)))
+ ; ignore warnings
+ (dev (flags (:standard -warn-error -A)))
  (release (flags (:standard -w +a-4-9-40-41-42-44-45-48-67))))
 
 (rule
