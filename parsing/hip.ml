@@ -770,29 +770,104 @@ let normalize spec =
   to_fixed_point spec
 
 
+let is_ident name e =
+  match e.pexp_desc with
+  | Pexp_ident {txt=Lident i; _} when name = i -> true
+  | _ -> false
 
-let  infer_of_expression (current:spec list) (_:core_lang): spec list = current
+let infer_of_expression (current:spec list) (_:core_lang): spec list = current
 
+let rec expr_to_term (expr:expression) : term =
+  match expr.pexp_desc with
+  | Pexp_constant (Pconst_integer (i, _)) -> Num (int_of_string i)
+  | Pexp_ident {txt=Lident i; _} -> Var i
+  | Pexp_apply ({pexp_desc = Pexp_ident {txt=Lident i; _}; _}, [(_, a); (_, b)]) ->
+      begin match i with
+      | "+" -> Plus (expr_to_term a, expr_to_term b)
+      | "-" -> Minus (expr_to_term a, expr_to_term b)
+      | "@" -> TListAppend (expr_to_term a, expr_to_term b)
+      | _ -> failwith (Format.asprintf "unknown op %s" i)
+      end
+  | _ -> failwith (Format.asprintf "unknown term %a" Pprintast.expression expr)
+
+let rec expr_to_formula (expr:expression) : pi * kappa =
+  match expr.pexp_desc with
+  | Pexp_apply ({pexp_desc = Pexp_ident {txt=Lident i; _}; _}, [(_, a); (_, b)]) ->
+      begin match i with
+      | "=" ->
+        begin match a.pexp_desc, b.pexp_desc with
+        | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident p; _}); _}, [_]), _ ->
+          True, PointsTo (p, expr_to_term b)
+        | _ ->
+          failwith (Format.asprintf "unknown kind of equality: %a" Pprintast.expression expr)
+        end
+      | "<" -> Atomic (LT, expr_to_term a, expr_to_term b), EmptyHeap
+      | "<=" -> Atomic (LTEQ, expr_to_term a, expr_to_term b), EmptyHeap
+      | ">" -> Atomic (GT, expr_to_term a, expr_to_term b), EmptyHeap
+      | ">=" -> Atomic (GTEQ, expr_to_term a, expr_to_term b), EmptyHeap
+        (* TODO handle heap *)
+      (* | "&&" -> And (expr_to_formula a, expr_to_formula b), EmptyHeap *)
+      (* | "||" -> Or (expr_to_formula a, expr_to_formula b), EmptyHeap *)
+      (* | "=>" -> Imply (expr_to_formula a, expr_to_formula b), EmptyHeap *)
+      | _ ->
+        failwith (Format.asprintf "unknown binary op: %s" i)
+      end
+  | Pexp_apply ({pexp_desc = Pexp_ident {txt=Lident i; _}; _}, [(_, a)]) ->
+      begin match i with
+      (* | "not" -> Not (expr_to_formula a) *)
+      | _ -> failwith (Format.asprintf "unknown unary op: %s" i)
+      end
+  | Pexp_construct ({txt=Lident "true"; _}, None) -> True, EmptyHeap
+  | Pexp_construct ({txt=Lident "false"; _}, None) -> False, EmptyHeap
+  | _ ->
+    failwith (Format.asprintf "unknown kind of formula: %a" Pprintast.expression expr)
 
 let rec transformation (expr:expression) : core_lang =
   match expr.pexp_desc with 
   | Pexp_constant c ->
     begin match c with
     | Pconst_integer (i, _) -> CValue (BINT (int_of_string i))
-    | _ -> failwith "unknown constant"
+    | _ -> failwith (Format.asprintf "unknown kind of constant: %a" Pprintast.expression expr)
     end
   (* | Pexp_construct _  *)
   (* | Pexp_ident _ -> [(True, Emp, dealWithNormalReturn env expr) ]
   | Pexp_sequence (ex1, ex2) ->  *)
-
   | Pexp_fun _ -> 
-    failwith "function?"
-  | Pexp_apply _ -> 
+    failwith "only for higher-order, TBD"
+  | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, args) when name = "perform" -> 
     (* infer_of_expression env current exprIn *)
-    failwith "unimplemneted"
+    let name =
+      begin match List.map snd args with
+      | {pexp_desc = Pexp_construct ({txt=Lident n; _}, _); _} :: _ -> n
+      | _ -> failwith (Format.asprintf "unsupported use of perform: %a" Pprintast.expression expr)
+      end
+    in
+    let arg =
+      begin match args with
+      | [_; (_, a)] ->
+        begin match transformation a with
+        | CValue v -> Some v
+        | _ -> failwith (Format.asprintf "perform called with non-value: %a" Pprintast.expression expr)
+        end
+      | _ -> None
+      end
+    in
+    CPerform (name, arg)
+  | Pexp_apply (_f, _args) -> 
+    (* unknown function call, e.g. printf.
+       translate to assert true for now *)
+    CAssert (True, EmptyHeap)
+  | Pexp_sequence (a, b) ->
+    CLet ("_", transformation a, transformation b)
+  | Pexp_assert e ->
+    let p, k = expr_to_formula e in
+    CAssert (p, k)
+  | Pexp_let (_rec, vb::_vbs, e) -> 
+    let var_name = string_of_pattern (vb.pvb_pat) in 
+    let exprIn = vb.pvb_expr in 
+    CLet (var_name, transformation exprIn, transformation e)
   | _ ->
-    failwith (
-      Format.asprintf "expression not in core language: %a" Pprintast.expression expr)
+    failwith (Format.asprintf "expression not in core language: %a" Pprintast.expression expr)
 
   (* failwith "TBD expr"
   
