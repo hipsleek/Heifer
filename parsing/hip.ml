@@ -85,18 +85,18 @@ let rec string_of_core_type (p:core_type) :string =
 
 let rec string_of_core_lang (e:core_lang) :string =
   match e with
-| CValue v -> string_of_basic_type v
-| CLet (v, e, e1) -> Format.sprintf "let %s = %s in\n%s" v (string_of_core_lang e) (string_of_core_lang e1)
-| CIfELse (i, t, e) -> Format.sprintf "if %s then %s else %s" (string_of_basic_type i)  (string_of_core_lang t) (string_of_core_lang e)
-| CFunCall (f, xs) -> Format.sprintf "%s %s" f (List.map string_of_basic_type xs |> String.concat " ")
-| CWrite (v, e) -> Format.sprintf "%s := %s" v (string_of_basic_type e)
-| CRef v -> Format.sprintf "ref %s" (string_of_basic_type v)
-| CRead v -> Format.sprintf "!%s" v
-| CAssert (p, h) -> Format.sprintf "assert (%s && %s)" (string_of_pi p) (string_of_kappa h)
-| CPerform (eff, Some arg) -> Format.sprintf "perform %s %s" eff (string_of_basic_type arg)
-| CPerform (eff, None) -> Format.sprintf "perform %s" eff
-| CMatch (e, (v, norm), hs) -> Format.sprintf "match %s with\n| %s -> %s\n%s" (string_of_core_lang e) v (string_of_core_lang norm) (List.map (fun (name, v, body) -> Format.asprintf "| effect %s %s -> %s" name v (string_of_core_lang body)) hs |> String.concat "\n")
-| CResume v -> Format.sprintf "continue k %s" (string_of_basic_type v)
+  | CValue v -> string_of_basic_type v
+  | CLet (v, e, e1) -> Format.sprintf "let %s = %s in\n%s" v (string_of_core_lang e) (string_of_core_lang e1)
+  | CIfELse (i, t, e) -> Format.sprintf "if %s then %s else %s" (string_of_basic_type i)  (string_of_core_lang t) (string_of_core_lang e)
+  | CFunCall (f, xs) -> Format.sprintf "%s %s" f (List.map string_of_basic_type xs |> String.concat " ")
+  | CWrite (v, e) -> Format.sprintf "%s := %s" v (string_of_basic_type e)
+  | CRef v -> Format.sprintf "ref %s" (string_of_basic_type v)
+  | CRead v -> Format.sprintf "!%s" v
+  | CAssert (p, h) -> Format.sprintf "assert (%s && %s)" (string_of_pi p) (string_of_kappa h)
+  | CPerform (eff, Some arg) -> Format.sprintf "perform %s %s" eff (string_of_basic_type arg)
+  | CPerform (eff, None) -> Format.sprintf "perform %s" eff
+  | CMatch (e, (v, norm), hs) -> Format.sprintf "match %s with\n| %s -> %s\n%s" (string_of_core_lang e) v (string_of_core_lang norm) (List.map (fun (name, v, body) -> Format.asprintf "| effect %s %s -> %s" name v (string_of_core_lang body)) hs |> String.concat "\n")
+  | CResume v -> Format.sprintf "continue k %s" (string_of_basic_type v)
 
 let debug_string_of_core_type t =
   Format.asprintf "type %a@." Pprintast.core_type t
@@ -218,31 +218,13 @@ let string_of_effectspec spec:string =
       Format.sprintf "requires %s ensures %s" (string_of_spec pr) (string_of_effectList po) *)
     | Some p -> string_of_spec p
 
-let string_of_value_binding vb : string = 
-  let pattern = vb.pvb_pat in 
-  let expression = vb.pvb_expr in
-  let attributes = vb.pvb_attributes in 
-  Format.sprintf "%s = %s\n%s\n%s\n"
-    (string_of_pattern pattern)
-    (Pprintast.string_of_expression expression)
-    (string_of_attributes attributes)
-    (string_of_effectspec (function_spec expression))
-
-  ;;
-
-
-
-let string_of_program x : string =
-  (* Pprintast.string_of_structure [x] *)
-  match x.pstr_desc with
-  | Pstr_value (_, l) ->
-    List.fold_left (fun acc a -> acc ^ string_of_value_binding a) "" l
-     
-  | Pstr_effect ed -> 
-    let name = ed.peff_name.txt in 
-    let kind = ed.peff_kind in 
-    (name^ " : " ^ string_of_kind kind)
-  | _ ->  ("empty")
+let rec string_of_program ((_es, ms):core_program) :string =
+  List.map (fun (name, args, spec, body) ->
+    Format.asprintf "let rec %s %s\n(*@ %s @*)\n=\n%s" name
+    (String.concat " " args)
+    (List.map string_of_spec spec |> String.concat "\n\\/\n")
+    (string_of_core_lang body)
+  ) ms |> String.concat "\n\n"
 
 
 let debug_string_of_expression e =
@@ -715,7 +697,7 @@ let deleteTailSYH  (li:'a list) =
 
 
 
-let rec expressionToTerm (exprIn: Parsetree.expression_desc) : term = 
+(* let rec expressionToTerm (exprIn: Parsetree.expression_desc) : term = 
   match exprIn with 
     | Pexp_constant (Pconst_integer (str, _)) -> (Num (int_of_string str))
     | Pexp_ident id -> 
@@ -741,7 +723,7 @@ let rec expressionToTerm (exprIn: Parsetree.expression_desc) : term =
         TList (List.map (fun a -> expressionToTerm a.pexp_desc) (  deleteTailSYH exprLi)) 
       | _ -> (* it is a tuple*)
         TTupple (List.map (fun a -> expressionToTerm a.pexp_desc) exprLi)  ) 
-    | _ -> raise (Foo ("ai you ... helper" ^ string_of_expression_kind (exprIn) ) )
+    | _ -> raise (Foo ("ai you ... helper" ^ string_of_expression_kind (exprIn) ) ) *)
 
 
 let rec sl_dom (h:kappa) =
@@ -1638,6 +1620,8 @@ print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
 
       
       let _effs, methods = transform_strs progs in
+
+      print_endline (string_of_program (_effs, methods));
 
       List.iter (fun (_name, _params, spec, body) ->
         let _spec1 = infer_of_expression methods spec body in
