@@ -1005,7 +1005,7 @@ let rec transformation (env:string list) (expr:expression) : core_lang =
     CLet (var_name, transformation env exprIn, transformation env e)
   | Pexp_ifthenelse (if_, then_, Some else_) -> 
     let v = verifier_getAfreeVar () in
-    CLet (v, transformation env if_, CIfELse (v, transformation env then_, transformation env else_))
+    CLet (v, transformation env if_, CIfELse (VARName v, transformation env then_, transformation env else_))
   | _ ->
     failwith (Format.asprintf "expression not in core language: %a" Pprintast.expression expr)
 
