@@ -222,8 +222,8 @@ let string_of_effectspec spec:string =
 
 let rec string_of_program ((_es, ms):core_program) :string =
   List.map (fun (name, args, spec, body) ->
-    Format.asprintf "let rec %s %s\n(*@ %s @*)\n=\n%s" name
-    (String.concat " " args)
+    Format.asprintf "let rec %s %s\n(*@@ %s @@*)\n=\n%s" name
+    (match args with | [] -> "()" | _ -> String.concat " " args)
     (List.map string_of_spec spec |> String.concat "\n\\/\n")
     (string_of_core_lang body)
   ) ms |> String.concat "\n\n"
@@ -1040,6 +1040,8 @@ let rec transformation (env:string list) (expr:expression) : core_lang =
   | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, [_, {pexp_desc = Pexp_ident {txt=Lident x; _}; _}; _, e]) when name = ":=" ->
     let v = verifier_getAfreeVar () in
     CLet (v, transformation env e, CWrite (x, VARName v))
+  | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Ldot (Lident "Sys", "opaque_identity"); _}); _}, [_, a]) ->
+    transformation env a
   | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, args) when List.mem name env || List.mem name primitives ->
     let rec loop args vars =
       match List.rev args with
