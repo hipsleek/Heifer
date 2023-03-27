@@ -771,10 +771,9 @@ let normalize spec =
 
 
 
-let  infer_of_expression _ (_:spec) (_:core_lang): spec = []
+let  infer_of_expression _ (current:spec list) (_:core_lang): spec list = current
 
-let infer_of_expression_shell (_:spec list) (_:core_lang): spec =
-  []
+
 
 
 let rec transformation (_:expression) : core_lang = failwith "TBD"
@@ -1028,7 +1027,7 @@ and infer_value_binding rec_flag env vb =
       Env.add_fn fn_name {pre=spec; post=[]; formals} env
   in
 
-  let final =  (infer_of_expression env spec (transformation body)) in
+  let final =  (infer_of_expression env [[NormalReturn (True, EmptyHeap,  UNIT)]] (transformation body)) in
 
   let final =  final in 
 
