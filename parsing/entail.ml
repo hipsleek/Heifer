@@ -41,8 +41,8 @@ type stagedSpec =
       | NormalReturn of (pi * kappa * basic_t)
       | HigherOrder of (string * basic_t list)
       (* effects *)
-      | RaisingEff of (pi * kappa * instant * basic_t ) (* basic_t is a placeholder for the resumned value *)
-      
+      | RaisingEff of (pi * kappa * instant * basic_t) (* basic_t is a placeholder for the resumned value *)
+
 
 (* type linearStagedSpec = stagedSpec list *)
 

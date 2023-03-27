@@ -784,13 +784,13 @@ let is_ident name e =
   | _ -> false
 
 
-let rec infer_of_expression env (current:spec list) (expr:core_lang): spec list = 
+let rec infer_of_expression (env:meth_def list) (current:spec list) (expr:core_lang): spec list = 
   match expr with
   | CValue v -> 
     let event = NormalReturn (True, EmptyHeap, v) in 
     concatenateSpecsWithEvent current [event]
 
-  | CLet ((str, expr1), expr2) -> 
+  | CLet (str, expr1, expr2) -> 
     let phi1 = infer_of_expression env current expr1 in 
     List.flatten (List.map (fun spec -> 
       let (_, _, retN) = retriveNormalStage spec in 
@@ -820,24 +820,43 @@ let rec infer_of_expression env (current:spec list) (expr:core_lang): spec list 
     ) phi1)
 
 
-  
+
+  | CRef v -> 
+    let freshVar = verifier_getAfreeVar () in 
+    let event = NormalReturn (True, PointsTo(freshVar, basic_t2Term v), VARName freshVar) in 
+    concatenateSpecsWithEvent current [event]
+
+
+  | CRead str -> 
+    let freshVar = verifier_getAfreeVar () in 
+    let event = [Require(True, PointsTo(str, Var freshVar)); NormalReturn (True, EmptyHeap , VARName freshVar)] in 
+    concatenateSpecsWithEvent current event
+
+
+  | CAssert (p, h) -> concatenateSpecsWithEvent current [Require(p, h)]
+
+  | CPerform (label, arg) -> 
+    let arg = 
+      match arg with 
+      | Some v -> [v]
+      | _ -> []
+    in 
+    let freshVar = verifier_getAfreeVar () in 
+    concatenateSpecsWithEvent current 
+    [RaisingEff(True, EmptyHeap, Instant (label,arg), VARName freshVar)]
+
+
+  | CResume _ -> failwith "infer_of_expression CResume"
+
 
 
   | _ -> failwith "infer_of_expression TBD"
  (*
-  | CRef v -> 
-    let event = NormalReturn (True, EmptyHeap, v) in 
-    concatenateSpecsWithEvent current [event]
-
 
 
     
   | CFunCall of string * (core_lang) list
-  | CRead of string 
-  | CAssert of pi * kappa 
-  | CPerform of string  * core_value 
   | CMatch of core_lang * (string * core_lang) * core_handler_ops
-  | CResume of core_value 
 *)
 
 
@@ -1473,7 +1492,7 @@ print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
       let _effs, methods = transform_strs progs in
 
       List.iter (fun (_name, _params, spec, body) ->
-        let _spec1 = infer_of_expression spec body in
+        let _spec1 = infer_of_expression methods spec body in
         ()
       ) methods;
 

@@ -9,20 +9,14 @@ open Parsetree
 exception Foo of string
 
 
-(*used to generate the free veriables, for subsititution*)
-let freeVar = ["t1"; "t2"; "t3"; "t4";"t5";"t6";"t7";"t8";"t9";"t10"
-              ;"t11"; "t12"; "t13"; "t14";"t15";"t16";"t17";"t18";"t19";"t20"
-              ;"t21"; "t22"; "t23"; "t24";"t25";"t26";"t27";"t28";"t29";"t30"];;
+
+let verifier_counter: int ref = ref 0;;
 
 
-
-let getAfreeVar (varList:string list):string  =
-  let rec findOne li = 
-    match li with 
-        [] -> raise ( Foo "freeVar list too small exception!")
-      | x :: xs -> if (List.exists (fun a -> String.compare a x == 0) varList) == true then findOne xs else x
-  in
-  findOne freeVar
+let verifier_getAfreeVar () :string  =
+  let x = "f"^string_of_int (!verifier_counter) in 
+  verifier_counter := !verifier_counter + 1;
+  x 
 ;;
 
 
