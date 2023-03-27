@@ -82,6 +82,22 @@ let rec string_of_core_type (p:core_type) :string =
   | _ -> "\nlsllsls\n"
   ;;
 
+
+let rec string_of_core_lang (e:core_lang) :string =
+  match e with
+| CValue v -> string_of_basic_type v
+| CLet (v, e, e1) -> Format.sprintf "let %s = %s in\n%s" v (string_of_core_lang e) (string_of_core_lang e1)
+| CIfELse (i, t, e) -> Format.sprintf "if %s then %s else %s" (string_of_basic_type i)  (string_of_core_lang t) (string_of_core_lang e)
+| CFunCall (f, xs) -> Format.sprintf "%s %s" f (List.map string_of_basic_type xs |> String.concat " ")
+| CWrite (v, e) -> Format.sprintf "%s := %s" v (string_of_basic_type e)
+| CRef v -> Format.sprintf "ref %s" (string_of_basic_type v)
+| CRead v -> Format.sprintf "!%s" v
+| CAssert (p, h) -> Format.sprintf "assert (%s && %s)" (string_of_pi p) (string_of_kappa h)
+| CPerform (eff, Some arg) -> Format.sprintf "perform %s %s" eff (string_of_basic_type arg)
+| CPerform (eff, None) -> Format.sprintf "perform %s" eff
+| CMatch (e, (v, norm), hs) -> Format.sprintf "match %s with\n| %s -> %s\n%s" (string_of_core_lang e) v (string_of_core_lang norm) (List.map (fun (name, v, body) -> Format.asprintf "| effect %s %s -> %s" name v (string_of_core_lang body)) hs |> String.concat "\n")
+| CResume v -> Format.sprintf "continue k %s" (string_of_basic_type v)
+
 let debug_string_of_core_type t =
   Format.asprintf "type %a@." Pprintast.core_type t
 
