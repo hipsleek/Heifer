@@ -772,6 +772,10 @@ let normalize spec =
 let concatenateSpecsWithEvent (current:spec list) (event:stagedSpec list) :  spec list = 
   List.map (fun a -> List.append a event) current
 
+let concatenateSpecsWithSpec (current:spec list) (event:spec list) :  spec list = 
+  let temp  = List.map (fun a -> concatenateSpecsWithEvent current a) event in 
+  List.flatten temp
+
 let rec retriveNormalStage (spec:spec) : (pi * kappa * basic_t) = 
   match spec with 
   | [] -> failwith "retriveNormalStage empty spec"
@@ -783,6 +787,41 @@ let is_ident name e =
   | Pexp_ident {txt=Lident i; _} when name = i -> true
   | _ -> false
 
+let rec retriveSpecFromSpec (fname: string) (env:meth_def list) : (string list * spec list) option = 
+  match env with 
+  | [] -> None 
+  | (str, formalArgs,  specLi, _) :: xs ->  
+    if String.compare fname str == 0 then Some (formalArgs, specLi) 
+    else retriveSpecFromSpec fname xs
+
+
+let rec bindFormalNActual (formal: string list) (actual: core_value list) : ((string * core_value) list)= 
+  match (formal, actual) with 
+  | ([], []) -> []
+  | (x::xs , y::ys) -> (x, y) :: bindFormalNActual xs ys
+  | ( _,  _ ) -> failwith "bindFormalNActual different lenth arguments"
+
+let instantiateStages (_:((string * core_value) list))  (stagedSpec:stagedSpec) : stagedSpec = 
+  stagedSpec
+  (*
+
+  match stagedSpec with 
+  | Exists _ -> stagedSpec
+  | Require (pi, kappa) -> Require (instantiatePure bindings pi, instantiateHeap bindings  kappa)
+  (* higher-order functions *)
+  | NormalReturn (instantiatePure bindings pi, instantiateHeap bindings  kappa, instantiatebasic_t ret) 
+  | HigherOrder (str, basic_t_list) -> HigherOrder (str, List.map (fun bt -> instantiatebasic_t bt) basic_t_list)
+  (* effects *)
+  | RaisingEff (pi, kappa, ins, ret)  
+
+*)
+
+
+let instantiateSpec (bindings:((string * core_value) list)) (sepc:spec) : spec = 
+  List.map (fun a -> instantiateStages bindings a ) sepc
+
+let instantiateSpecList (bindings:((string * core_value) list)) (sepcs:spec list) : spec list =  
+  List.map (fun a -> instantiateSpec bindings a ) sepcs
 
 let rec infer_of_expression (env:meth_def list) (current:spec list) (expr:core_lang): spec list = 
   match expr with
@@ -799,25 +838,8 @@ let rec infer_of_expression (env:meth_def list) (current:spec list) (expr:core_l
       infer_of_expression env current' expr2
     ) phi1)
 
-  | CIfELse (expr1, expr2, expr3) -> 
-    let phi1 = infer_of_expression env current expr1 in 
-    List.flatten (List.map (fun spec -> 
-      let (_, _, retN) = retriveNormalStage spec in 
-      let eventThen = NormalReturn (Atomic(GT, basic_t2Term retN, Num 0), EmptyHeap, UNIT) in 
-      let eventElse = NormalReturn (Atomic(LT, basic_t2Term retN, Num 0), EmptyHeap, UNIT) in 
-      let currentThen = concatenateSpecsWithEvent [spec] [eventThen] in 
-      let currentElse = concatenateSpecsWithEvent [spec] [eventElse] in 
-      (infer_of_expression env currentThen expr2) @ 
-      (infer_of_expression env currentElse expr3)
-    ) phi1)
 
-  | CWrite  (str, expr1) -> 
-    let phi1 = infer_of_expression env current expr1 in 
-    List.flatten (List.map (fun spec -> 
-      let (_, _, retN) = retriveNormalStage spec in 
-      let event = NormalReturn (True, PointsTo(str, basic_t2Term  retN), UNIT) in 
-      concatenateSpecsWithEvent [spec] [event]
-    ) phi1)
+
 
 
 
@@ -848,14 +870,40 @@ let rec infer_of_expression (env:meth_def list) (current:spec list) (expr:core_l
 
   | CResume _ -> failwith "infer_of_expression CResume"
 
+  | CFunCall (fname, actualArgs) -> 
+    (match retriveSpecFromSpec fname env with 
+    | None -> failwith ("no implemnetation of " ^ fname )
+    | Some  (formalArgs, spec_of_fname) -> 
+      let bindings = bindFormalNActual formalArgs actualArgs in 
+      let instantiatedSpec =  instantiateSpecList bindings spec_of_fname in 
+      concatenateSpecsWithSpec current instantiatedSpec  
+    )
+
 
 
   | _ -> failwith "infer_of_expression TBD"
  (*
 
+   | CWrite  (str, expr1) -> 
+    let phi1 = infer_of_expression env current expr1 in 
+    List.flatten (List.map (fun spec -> 
+      let (_, _, retN) = retriveNormalStage spec in 
+      let event = NormalReturn (True, PointsTo(str, basic_t2Term  retN), UNIT) in 
+      concatenateSpecsWithEvent [spec] [event]
+    ) phi1)
 
+  | CIfELse (expr1, expr2, expr3) -> 
+    let phi1 = infer_of_expression env current expr1 in 
+    List.flatten (List.map (fun spec -> 
+      let (_, _, retN) = retriveNormalStage spec in 
+      let eventThen = NormalReturn (Atomic(GT, basic_t2Term retN, Num 0), EmptyHeap, UNIT) in 
+      let eventElse = NormalReturn (Atomic(LT, basic_t2Term retN, Num 0), EmptyHeap, UNIT) in 
+      let currentThen = concatenateSpecsWithEvent [spec] [eventThen] in 
+      let currentElse = concatenateSpecsWithEvent [spec] [eventElse] in 
+      (infer_of_expression env currentThen expr2) @ 
+      (infer_of_expression env currentElse expr3)
+    ) phi1)
     
-  | CFunCall of string * (core_lang) list
   | CMatch of core_lang * (string * core_lang) * core_handler_ops
 *)
 

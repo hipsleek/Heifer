@@ -44,6 +44,8 @@ type stagedSpec =
       | RaisingEff of (pi * kappa * instant * basic_t) (* basic_t is a placeholder for the resumned value *)
 
 
+let freshNormalReturnSpec = [NormalReturn (True, EmptyHeap, UNIT)]
+
 (* type linearStagedSpec = stagedSpec list *)
 
 (* type spec = (pi * linearStagedSpec) list  *)
