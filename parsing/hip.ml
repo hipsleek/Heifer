@@ -790,7 +790,7 @@ let rec expr_to_term (expr:expression) : term =
       end
   | _ -> failwith (Format.asprintf "unknown term %a" Pprintast.expression expr)
 
-let rec expr_to_formula (expr:expression) : pi * kappa =
+let expr_to_formula (expr:expression) : pi * kappa =
   match expr.pexp_desc with
   | Pexp_apply ({pexp_desc = Pexp_ident {txt=Lident i; _}; _}, [(_, a); (_, b)]) ->
       begin match i with
@@ -812,7 +812,7 @@ let rec expr_to_formula (expr:expression) : pi * kappa =
       | _ ->
         failwith (Format.asprintf "unknown binary op: %s" i)
       end
-  | Pexp_apply ({pexp_desc = Pexp_ident {txt=Lident i; _}; _}, [(_, a)]) ->
+  | Pexp_apply ({pexp_desc = Pexp_ident {txt=Lident i; _}; _}, [(_, _a)]) ->
       begin match i with
       (* | "not" -> Not (expr_to_formula a) *)
       | _ -> failwith (Format.asprintf "unknown unary op: %s" i)
