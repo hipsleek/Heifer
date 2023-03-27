@@ -1001,7 +1001,8 @@ let expr_to_formula (expr:expression) : pi * kappa =
   | _ ->
     failwith (Format.asprintf "unknown kind of formula: %a" Pprintast.expression expr)
 
-let rec transformation (expr:expression) : core_lang =
+(** the env just tracks the names of bound functions *)
+let rec transformation (env:string list) (expr:expression) : core_lang =
   match expr.pexp_desc with 
   | Pexp_constant c ->
     begin match c with
@@ -1013,38 +1014,46 @@ let rec transformation (expr:expression) : core_lang =
   | Pexp_sequence (ex1, ex2) ->  *)
   | Pexp_fun _ -> 
     failwith "only for higher-order, TBD"
-  | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, args) when name = "perform" -> 
-    (* infer_of_expression env current exprIn *)
-    let name =
-      begin match List.map snd args with
-      | {pexp_desc = Pexp_construct ({txt=Lident n; _}, _); _} :: _ -> n
-      | _ -> failwith (Format.asprintf "unsupported use of perform: %a" Pprintast.expression expr)
-      end
+  | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, ((_, {pexp_desc = Pexp_construct ({txt=Lident eff; _}, _); _}) :: rest)) when name = "perform" -> 
+    begin match rest with
+    | (_, a) :: _ ->
+    let v = verifier_getAfreeVar () in
+      CLet (v, transformation env a, CPerform (eff, Some (VARName v)))
+    | _ -> CPerform (eff, None)
+    end
+  | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, [_, _k; _, e]) when name = "continue" -> 
+    let v = verifier_getAfreeVar () in
+    CLet (v, transformation env e, CResume (VARName v))
+  | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, [_, a]) when name = "ref" -> 
+    let v = verifier_getAfreeVar () in
+    CLet (v, transformation env a, CRef (VARName v))
+  | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, [_, {pexp_desc = Pexp_ident {txt=Lident x; _}; _}; _, e]) when name = ":=" -> 
+    let v = verifier_getAfreeVar () in
+    CLet (v, transformation env e, CWrite (x, VARName v))
+  | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, args) when List.mem name env -> 
+    let rec loop args vars =
+      match List.rev args with
+      | [] -> CFunCall (name, List.map (fun v -> VARName v) vars)
+      | (_, a) :: args1 ->
+        let v = verifier_getAfreeVar () in
+        CLet (v, transformation env a, loop args1 (v :: vars))
     in
-    let arg =
-      begin match args with
-      | [_; (_, a)] ->
-        begin match transformation a with
-        | CValue v -> Some v
-        | _ -> failwith (Format.asprintf "perform called with non-value: %a" Pprintast.expression expr)
-        end
-      | _ -> None
-      end
-    in
-    CPerform (name, arg)
+    loop args []
   | Pexp_apply (_f, _args) -> 
-    (* unknown function call, e.g. printf.
-       translate to assert true for now *)
+    (* unknown function call, e.g. printf. translate to assert true for now *)
     CAssert (True, EmptyHeap)
   | Pexp_sequence (a, b) ->
-    CLet ("_", transformation a, transformation b)
+    CLet ("_", transformation env a, transformation env b)
   | Pexp_assert e ->
     let p, k = expr_to_formula e in
     CAssert (p, k)
   | Pexp_let (_rec, vb::_vbs, e) -> 
     let var_name = string_of_pattern (vb.pvb_pat) in 
     let exprIn = vb.pvb_expr in 
-    CLet (var_name, transformation exprIn, transformation e)
+    CLet (var_name, transformation env exprIn, transformation env e)
+  | Pexp_ifthenelse (if_, then_, Some else_) -> 
+    let v = verifier_getAfreeVar () in
+    CLet (v, transformation env if_, CIfELse (VARName v, transformation env then_, transformation env else_))
   | _ ->
     failwith (Format.asprintf "expression not in core language: %a" Pprintast.expression expr)
 
@@ -1430,7 +1439,7 @@ let infer_of_value_binding rec_flag env vb: string * env  =
     in header , env, ex_res
 *)
 
-let transform_str (s : structure_item) =
+let transform_str env (s : structure_item) =
   match s.pstr_desc with
   | Pstr_value (_rec_flag, vb::_vbs_) ->
     let fn_name = string_of_pattern vb.pvb_pat in
@@ -1443,7 +1452,7 @@ let transform_str (s : structure_item) =
         | None -> [] 
         | Some spec -> [spec]
       in
-      let e = transformation body in
+      let e = transformation env body in
       `Meth (fn_name, formals, spec, e)
     | _ -> failwith "not a function binding"
     end
@@ -1486,11 +1495,11 @@ let transform_str (s : structure_item) =
   | _ -> failwith (Format.asprintf "unknown program element: %a" Pprintast.structure [s])
 
 let transform_strs (strs: structure_item list) : core_program =
-  let effs, mths =
-    List.fold_left (fun (es, ms) c ->
-      match transform_str c with
-      | `Eff a -> a :: es, ms
-      | `Meth a -> es, a :: ms) ([], []) strs
+  let _env, effs, mths =
+    List.fold_left (fun (env, es, ms) c ->
+      match transform_str env c with
+      | `Eff a -> env, a :: es, ms
+      | `Meth ((name, _, _, _) as a) -> name :: env, es, a :: ms) ([], [], []) strs
   in List.rev effs, List.rev mths
 
 (* returns the inference result as a string to be printed *)
