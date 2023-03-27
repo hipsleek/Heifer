@@ -781,7 +781,7 @@ let instantiateSpecList (bindings:((string * core_value) list)) (sepcs:spec list
   List.map (fun a -> instantiateSpec bindings a ) sepcs
 
 let rec infer_of_expression (env:meth_def list) (current:spec list) (expr:core_lang): spec list = 
-  print_string (string_of_coreLang_kind expr ^ "\n");
+  (*print_string (string_of_coreLang_kind expr ^ "\n"); *)
   match expr with
   | CValue v -> 
     let event = NormalReturn (True, EmptyHeap, v) in 
@@ -790,10 +790,12 @@ let rec infer_of_expression (env:meth_def list) (current:spec list) (expr:core_l
   | CLet (str, expr1, expr2) -> 
     let phi1 = infer_of_expression env current expr1 in 
     List.flatten (List.map (fun spec -> 
-      print_endline (string_of_spec(spec));
+      (*print_endline (string_of_spec(spec)); *)
+      if String.compare str "_" == 0 then infer_of_expression env [spec] expr2
+      else 
       let (_, _, retN) = retriveNormalStage spec in 
       match retN with 
-      | UNIT -> infer_of_expression env current expr2
+      | UNIT -> infer_of_expression env [spec] expr2
       | _ -> 
       let event = NormalReturn (Atomic(EQ, Var str, retN), EmptyHeap, UNIT) in 
       let current' = concatenateSpecsWithEvent [spec] [event] in 
@@ -831,7 +833,20 @@ let rec infer_of_expression (env:meth_def list) (current:spec list) (expr:core_l
   | CResume _ -> failwith "infer_of_expression CResume"
 
   | CFunCall (fname, actualArgs) -> 
-    if String.compare fname "+" == 0 then failwith ("no implemnetation of " ^ fname )
+    if String.compare fname "+" == 0 then 
+      match actualArgs with 
+      | x1::x2::[] -> 
+      let event = NormalReturn (True, EmptyHeap, Plus(x1, x2)) in 
+      concatenateSpecsWithEvent current [event]
+      | _ -> failwith ("wrong aruguments of + " )
+
+    else if String.compare fname "-" == 0 then 
+      match actualArgs with 
+      | x1::x2::[] -> 
+      let event = NormalReturn (True, EmptyHeap, Minus(x1, x2)) in 
+      concatenateSpecsWithEvent current [event]
+      | _ -> failwith ("wrong aruguments of - " )
+
     else 
     (match retriveSpecFromSpec fname env with 
     | None -> failwith ("no implemnetation of " ^ fname )
@@ -1491,6 +1506,88 @@ let debug_tokens str =
   let s = tokens |> List.map Debug.string_of_token |> String.concat " " in
   Format.printf "%s@." s
 
+let rec domainOfHeap (h:kappa) : string list = 
+  match h with 
+  | EmptyHeap -> []
+  | PointsTo (str, _) -> [str]
+  | SepConj (k1, k2) -> (domainOfHeap k1) @ (domainOfHeap k2)
+  | MagicWand (k1, k2) -> (domainOfHeap k1) @ (domainOfHeap k2)
+
+
+let overlap domain1 domain2 : bool = 
+  let rec exists str li  = 
+    match li with 
+    | [] -> false 
+    | x :: xs -> if String.compare x str == 0 then true else exists str xs 
+  in 
+  let rec iterateh1 li = 
+    match li with
+    | [] -> false 
+    | y::ys -> if exists y domain2 then true else iterateh1 ys
+  in iterateh1 domain1
+
+let domainOverlap h1 h2 = 
+  let domain1 = domainOfHeap h1 in 
+  let domain2 = domainOfHeap h2 in 
+  overlap domain1 domain2
+
+
+let () = assert (overlap ["x"] ["x"] = true)
+let () = assert (overlap ["x"] ["y"] = false)
+let () = assert (overlap ["x"] [] = false)
+
+let () = assert (overlap ["x";"y"] ["y";"z"] = true )
+
+let normaliseHeap (h) : kappa = 
+  match h with 
+  | MagicWand (EmptyHeap, h1) -> h1
+  | MagicWand (_, EmptyHeap) -> EmptyHeap
+
+  | SepConj (EmptyHeap, h1) -> h1
+  | SepConj (h1, EmptyHeap) -> h1
+  | _ -> h
+
+let mergeEns (pi1, h1) (pi2, h2) = 
+  (*if domainOverlap h1 h2 then failwith "domainOverlap in mergeEns"
+  else 
+  *)
+  (normalPure (And (pi1, pi2)), normaliseHeap (SepConj (h1, h2)))
+
+
+
+let normalization_stagedSpec (acc:normalisedStagedSpec) (stagedSpec:stagedSpec) : normalisedStagedSpec = 
+  let (effectStages, normalStage) = acc in 
+  let (existential, req, ens, ret) = normalStage in 
+  match stagedSpec with
+  | Exists li -> (effectStages, (existential@li, req, ens, ret))
+  | Require (pi, heap) -> 
+    let (_, h2) = ens in 
+    let magicWandHeap = normaliseHeap (MagicWand (h2, heap)) in 
+    let normalStage' = (existential, mergeEns req (pi, magicWandHeap), ens, ret) in 
+    (effectStages, normalStage')
+
+  (* higher-order functions *)
+  | NormalReturn (pi, heap, ret') -> (effectStages, (existential, req, mergeEns ens (pi, heap), ret'))
+  | HigherOrder _ -> failwith "later "
+  (* effects *)
+  | RaisingEff (pi, heap,ins, ret') -> 
+    (effectStages@[(existential, req, mergeEns ens (pi, heap), ins , ret')], freshNoramlStage)
+
+let rec normalization_spec (acc:normalisedStagedSpec) (spec:spec) : normalisedStagedSpec = 
+  match spec with 
+  | [] -> acc 
+  | x :: xs -> 
+    let acc' = normalization_stagedSpec acc x in 
+    normalization_spec acc' xs 
+
+
+
+let normalization_spec_list (specLi:spec list): spec list = 
+  List.map (fun a -> 
+    let normalisedStagedSpec = normalization_spec ([], freshNoramlStage) a in 
+    normalisedStagedSpec2Spec normalisedStagedSpec
+    
+  ) specLi
 
 
 let () =
@@ -1512,8 +1609,14 @@ print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
       print_endline (string_of_program (_effs, methods));
 
       List.iter (fun (_name, _params, spec, body) ->
-        let _spec1 = infer_of_expression methods spec body in
-        print_endline ("\nfinal:\n" ^string_of_spec_list _spec1)
+        let _spec1 = infer_of_expression methods [freshNormalReturnSpec] body in
+        let header =
+          "\n========== Function: "^ _name ^" ==========\n" ^
+          "[Specification] " ^ string_of_spec_list spec ^"\n"^          
+          "[Raw Post Spec] " ^ string_of_spec_list _spec1 ^ "\n" ^ 
+          "[Normed   Post] " ^ string_of_spec_list (normalization_spec_list  _spec1) ^"\n"
+        in 
+        print_string (header)
       ) methods;
 
       (* let results, _ =

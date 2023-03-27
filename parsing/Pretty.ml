@@ -125,6 +125,7 @@ let rec kappaToPure kappa : pi =
 let rec string_of_term t : string = 
   match t with 
   | Num i -> string_of_int i 
+  | UNIT -> "()"
   | Var str -> str
   | Plus (t1, t2) -> string_of_term t1 ^ " + " ^ string_of_term t2
   | Minus (t1, t2) -> string_of_term t1 ^ " - " ^ string_of_term t2
@@ -164,7 +165,7 @@ let rec string_of_kappa (k:kappa) : string =
   | EmptyHeap -> "emp"
   | PointsTo  (str, args) -> Format.sprintf "%s->%s" str (List.map string_of_term [args] |> String.concat ", ")
   | SepConj (k1, k2) -> string_of_kappa k1 ^ "*" ^ string_of_kappa k2 
-  | MagicWand (k1, k2) -> string_of_kappa k1 ^ "-*" ^ string_of_kappa k2 
+  | MagicWand (k1, k2) -> "(" ^ string_of_kappa k1 ^ "-*" ^ string_of_kappa k2  ^ ")"
   (* | Implication (k1, k2) -> string_of_kappa k1 ^ "-*" ^ string_of_kappa k2  *)
 
 let rec string_of_pi pi : string = 
@@ -200,8 +201,8 @@ let rec string_of_spec_list (specs:spec list) : string =
   | [x] -> string_of_spec x 
   | x :: xs -> string_of_spec x ^ " \\/ " ^ string_of_spec_list xs 
 
-let string_of_inclusion (lhs:spec) (rhs:spec) :string = 
-  string_of_spec lhs ^" |- " ^string_of_spec rhs 
+let string_of_inclusion (lhs:spec list) (rhs:spec list) :string = 
+  string_of_spec_list lhs ^" |- " ^string_of_spec_list rhs 
   ;;
 
 let string_of_coreLang_kind (expr:core_lang): string = 

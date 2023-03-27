@@ -42,14 +42,34 @@ type stagedSpec =
       | RaisingEff of (pi * kappa * instant * term) (* term is a placeholder for the resumned value *)
 
 
+type effectStage =  (string list* (pi * kappa ) * (pi * kappa) * instant * term)
+type normalStage =  (string list* (pi * kappa ) * (pi * kappa) * term)
+
+type normalisedStagedSpec = effectStage list * normalStage
+
 let freshNormalReturnSpec = [NormalReturn (True, EmptyHeap, UNIT)]
+let freshNoramlStage = ([], (True, EmptyHeap), (True, EmptyHeap), UNIT) 
 
 (* type linearStagedSpec = stagedSpec list *)
 
 (* type spec = (pi * linearStagedSpec) list  *)
 type spec = stagedSpec list 
 
+let rec effectStaged2Spec (effectStages:effectStage list ) : spec = 
+  match effectStages with
+  | [] -> []
+  | (existiental, (p1, h1), (p2, h2), ins, ret) :: xs  -> 
+    [Exists existiental; Require(p1, h1); RaisingEff(p2, h2, ins, ret)] @ effectStaged2Spec xs 
 
+let normalStaged2Spec (normalStage:normalStage ) : spec = 
+  match normalStage with
+  | (existiental, (p1, h1), (p2, h2), ret)   -> 
+    [Exists existiental; Require(p1, h1); NormalReturn(p2, h2, ret)] 
+
+
+let normalisedStagedSpec2Spec (normalisedStagedSpec:normalisedStagedSpec) : spec  = 
+  let (effS, normalS) = normalisedStagedSpec in 
+  effectStaged2Spec effS @ normalStaged2Spec normalS
 
 let string_of_option to_s o :string =
   match o with
