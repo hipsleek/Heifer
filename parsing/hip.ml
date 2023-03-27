@@ -769,9 +769,71 @@ let normalize spec =
   in
   to_fixed_point spec
 
+let concatenateSpecsWithEvent (current:spec list) (event:stagedSpec list) :  spec list = 
+  List.map (fun a -> List.append a event) current
+
+let rec retriveNormalStage (spec:spec) : (pi * kappa * basic_t) = 
+  match spec with 
+  | [] -> failwith "retriveNormalStage empty spec"
+  | [NormalReturn (pN, hN, retN)] -> (pN, hN, retN)
+  | _ :: xs -> retriveNormalStage xs 
 
 
-let  infer_of_expression _ (current:spec list) (_:core_lang): spec list = current
+let rec infer_of_expression env (current:spec list) (expr:core_lang): spec list = 
+  match expr with
+  | CValue v -> 
+    let event = NormalReturn (True, EmptyHeap, v) in 
+    concatenateSpecsWithEvent current [event]
+
+  | CLet ((str, expr1), expr2) -> 
+    let phi1 = infer_of_expression env current expr1 in 
+    List.flatten (List.map (fun spec -> 
+      let (_, _, retN) = retriveNormalStage spec in 
+      let event = NormalReturn (Atomic(EQ, Var str, basic_t2Term retN), EmptyHeap, UNIT) in 
+      let current' = concatenateSpecsWithEvent [spec] [event] in 
+      infer_of_expression env current' expr2
+    ) phi1)
+
+  | CIfELse (expr1, expr2, expr3) -> 
+    let phi1 = infer_of_expression env current expr1 in 
+    List.flatten (List.map (fun spec -> 
+      let (_, _, retN) = retriveNormalStage spec in 
+      let eventThen = NormalReturn (Atomic(GT, basic_t2Term retN, Num 0), EmptyHeap, UNIT) in 
+      let eventElse = NormalReturn (Atomic(LT, basic_t2Term retN, Num 0), EmptyHeap, UNIT) in 
+      let currentThen = concatenateSpecsWithEvent [spec] [eventThen] in 
+      let currentElse = concatenateSpecsWithEvent [spec] [eventElse] in 
+      (infer_of_expression env currentThen expr2) @ 
+      (infer_of_expression env currentElse expr3)
+    ) phi1)
+
+  | CWrite  (str, expr1) -> 
+    let phi1 = infer_of_expression env current expr1 in 
+    List.flatten (List.map (fun spec -> 
+      let (_, _, retN) = retriveNormalStage spec in 
+      let event = NormalReturn (True, PointsTo(str, basic_t2Term  retN), UNIT) in 
+      concatenateSpecsWithEvent [spec] [event]
+    ) phi1)
+
+
+  
+
+
+  | _ -> failwith "infer_of_expression TBD"
+ (*
+  | CRef v -> 
+    let event = NormalReturn (True, EmptyHeap, v) in 
+    concatenateSpecsWithEvent current [event]
+
+
+
+    
+  | CFunCall of string * (core_lang) list
+  | CRead of string 
+  | CAssert of pi * kappa 
+  | CPerform of string  * core_value 
+  | CMatch of core_lang * (string * core_lang) * core_handler_ops
+  | CResume of core_value 
+*)
 
 
 

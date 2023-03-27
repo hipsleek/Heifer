@@ -140,6 +140,14 @@ let rec kappaToPure kappa : pi =
   (* | Implication (k1, k2) -> Imply (kappaToPure k1, kappaToPure k2) *)
 
  
+let basic_t2Term (a) : term = 
+  match a with 
+  | BINT i -> Num i 
+  | VARName s -> Var s
+  | List s -> TList (List.map (fun a -> Num a) s )
+  | _ -> failwith "basic_t2Term"
+     
+
 
 let string_of_basic_type a : string = 
   match a with 
