@@ -3,7 +3,7 @@
 type basic_t = BINT of int | UNIT | VARName of string | List of int list 
 
 (* an occurrence of an effect *)
-type instant = Instant of string * basic_t list
+type instant = string * basic_t list
 
 type term = 
     | Num of int
@@ -12,7 +12,6 @@ type term =
     | Var of string
     | Plus of term * term 
     | Minus of term * term 
-    | TListAppend of term * term
 
 type bin_op = GT | LT | EQ | GTEQ | LTEQ
 

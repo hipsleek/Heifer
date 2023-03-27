@@ -96,7 +96,7 @@ let compareBasic (p1:basic_t) (p2:basic_t) :bool =
 let compareParm (p1:basic_t list) (p2:basic_t list) :bool = 
   List.equal compareBasic p1 p2
 
-let compareInstant (Instant (n1, a1)) (Instant (n2, a2)) :bool = 
+let compareInstant ( (n1, a1)) ( (n2, a2)) :bool = 
   String.equal n1 n2 && compareParm a1 a2
   
 
@@ -186,7 +186,6 @@ let rec string_of_term t : string =
       | [x] -> string_of_term x
       | x:: xs -> string_of_term x ^";"^ helper xs 
     in "[" ^ helper nLi ^ "]"
-  | TListAppend (t1, t2) -> string_of_term t1 ^ " ++ " ^ string_of_term t2
 
 let rec string_of_kappa (k:kappa) : string = 
   match k with
@@ -215,7 +214,7 @@ let string_of_stages (st:stagedSpec) : string =
     Format.asprintf "%s$(%s)" f (string_of_args args)
   | NormalReturn (pi, heap, ret) ->
     Format.asprintf "Norm(%s, %s,  %s)" (string_of_kappa heap) (string_of_pi pi)  (string_of_basic_type ret) (*string_of_args args*)
-  | RaisingEff (pi, heap, Instant (name, args), ret) ->
+  | RaisingEff (pi, heap, (name, args), ret) ->
     Format.asprintf "%s(%s, %s, %s, %s)" name (string_of_kappa heap) (string_of_pi pi)  (string_of_args args) (string_of_basic_type ret)
   | Exists vs ->
     Format.asprintf "ex %s" (String.concat " " vs)

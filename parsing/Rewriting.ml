@@ -10,8 +10,7 @@ let rec term_to_expr ctx : Parsetree.term -> Expr.expr = function
   | Var v          -> Arithmetic.Integer.mk_const_s ctx v
   | Plus (t1, t2)  -> Arithmetic.mk_add ctx [ term_to_expr ctx t1; term_to_expr ctx t2 ]
   | Minus (t1, t2) -> Arithmetic.mk_sub ctx [ term_to_expr ctx t1; term_to_expr ctx t2 ]
-  | TTupple _ | TList _ 
-  | TListAppend (_, _) -> raise (Foo "Rewriting.ml->term_to_expr")
+  | TTupple _ | TList _  -> raise (Foo "Rewriting.ml->term_to_expr")
 
 let rec pi_to_expr ctx : Parsetree.pi -> Expr.expr = function
   | True                -> Boolean.mk_true ctx

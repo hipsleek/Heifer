@@ -559,13 +559,14 @@ let rec var_binding (formal:string list) (actual: expression list) : (string * b
     )
   | _ -> []
   ;;
-
-let instantiateInstance (ins:instant) (vb:(string * basic_t) list)  : instant  = 
-  let rec findbinding str vb_li =
+let rec findbinding str vb_li =
     match vb_li with 
     | [] -> VARName str 
     | (name, v) :: xs -> if String.compare name str == 0 then v else  findbinding str xs
-  in
+
+
+let instantiateInstance (ins:instant) (vb:(string * basic_t) list)  : instant  = 
+
   let rec helper li =
     match li with 
     | [] -> [] 
@@ -575,7 +576,7 @@ let instantiateInstance (ins:instant) (vb:(string * basic_t) list)  : instant  =
         | _ -> x :: (helper xs)
       )
   in 
-  let Instant (a, li) = ins in Instant (a, helper li)
+  let (a, li) = ins in (a, helper li)
 ;;
   
 
@@ -801,20 +802,77 @@ let rec bindFormalNActual (formal: string list) (actual: core_value list) : ((st
   | (x::xs , y::ys) -> (x, y) :: bindFormalNActual xs ys
   | ( _,  _ ) -> failwith "bindFormalNActual different lenth arguments"
 
-let instantiateStages (_:((string * core_value) list))  (stagedSpec:stagedSpec) : stagedSpec = 
-  stagedSpec
-  (*
 
+let rec instantiateTerms (bindings:((string * core_value) list)) (t:term) : term = 
+  match t with
+  | Num _ -> t
+  | Var str -> 
+    let binding = findbinding str bindings in 
+    basic_t2Term binding
+
+  | TList (tLi) -> TList (List.map (fun t1 -> instantiateTerms bindings t1) tLi)
+  | TTupple (tLi) -> TList (List.map (fun t1 -> instantiateTerms bindings t1) tLi)
+  | Plus (t1, t2) -> Plus (instantiateTerms bindings t1, instantiateTerms bindings t2)
+  | Minus (t1, t2) -> Minus (instantiateTerms bindings t1, instantiateTerms bindings t2)
+
+
+
+let rec instantiatePure (bindings:((string * core_value) list)) (pi:pi) : pi = 
+  match pi with
+  | True
+  | False -> pi
+  | Atomic (bop, t1, t2) -> Atomic (bop, instantiateTerms bindings t1, instantiateTerms bindings t2)
+  | And    (p1, p2) -> And (instantiatePure bindings p1, instantiatePure bindings p2)
+  | Or     (p1, p2) -> Or (instantiatePure bindings p1, instantiatePure bindings p2)
+  | Imply  (p1, p2) -> Imply (instantiatePure bindings p1, instantiatePure bindings p2)
+  | Not    p1 -> Not (instantiatePure bindings p1)
+  | Predicate (str, t1) -> Predicate(str, instantiateTerms bindings t1)
+
+let rec instantiateHeap (bindings:((string * core_value) list)) (kappa:kappa) : kappa = 
+  match kappa with 
+  | EmptyHeap -> kappa
+  | PointsTo (str, t1) -> 
+    let binding = findbinding str bindings in 
+    let newName = (match binding with 
+    | VARName str1 -> str1
+    | _ -> str
+    ) in 
+    PointsTo (newName, instantiateTerms bindings t1)
+
+  | SepConj (k1, k2) -> SepConj (instantiateHeap bindings k1, instantiateHeap bindings k2)
+  | MagicWand (k1, k2) -> MagicWand (instantiateHeap bindings k1, instantiateHeap bindings k2)
+
+
+let instantiatebasic_t (bindings:((string * core_value) list)) a : basic_t = 
+  match a with 
+  | VARName s -> 
+    let binding = findbinding s bindings in 
+    let newName = (match binding with 
+    | VARName str1 -> str1
+    | _ -> s
+    ) in 
+    VARName newName
+
+  | _ ->a     
+
+
+let instantiateStages (bindings:((string * core_value) list))  (stagedSpec:stagedSpec) : stagedSpec = 
   match stagedSpec with 
   | Exists _ -> stagedSpec
-  | Require (pi, kappa) -> Require (instantiatePure bindings pi, instantiateHeap bindings  kappa)
+  | Require (pi, kappa) -> 
+    Require (instantiatePure bindings pi, instantiateHeap bindings  kappa)
   (* higher-order functions *)
-  | NormalReturn (instantiatePure bindings pi, instantiateHeap bindings  kappa, instantiatebasic_t ret) 
-  | HigherOrder (str, basic_t_list) -> HigherOrder (str, List.map (fun bt -> instantiatebasic_t bt) basic_t_list)
+  | NormalReturn (pi, kappa, ret) -> 
+    NormalReturn(instantiatePure bindings pi, instantiateHeap bindings  kappa, instantiatebasic_t bindings ret) 
+  | HigherOrder (str, basic_t_list) -> 
+    HigherOrder (str, List.map (fun bt -> instantiatebasic_t bindings bt) basic_t_list)
   (* effects *)
-  | RaisingEff (pi, kappa, ins, ret)  
+  | RaisingEff (pi, kappa, (label, basic_t_list), ret)  -> 
+    RaisingEff (instantiatePure bindings pi, instantiateHeap bindings  kappa, (label, 
+    List.map (fun bt -> instantiatebasic_t bindings bt) basic_t_list
+    ),  instantiatebasic_t bindings ret) 
 
-*)
+
 
 
 let instantiateSpec (bindings:((string * core_value) list)) (sepc:spec) : spec = 
@@ -839,10 +897,6 @@ let rec infer_of_expression (env:meth_def list) (current:spec list) (expr:core_l
     ) phi1)
 
 
-
-
-
-
   | CRef v -> 
     let freshVar = verifier_getAfreeVar () in 
     let event = NormalReturn (True, PointsTo(freshVar, basic_t2Term v), VARName freshVar) in 
@@ -865,7 +919,7 @@ let rec infer_of_expression (env:meth_def list) (current:spec list) (expr:core_l
     in 
     let freshVar = verifier_getAfreeVar () in 
     concatenateSpecsWithEvent current 
-    [RaisingEff(True, EmptyHeap, Instant (label,arg), VARName freshVar)]
+    [RaisingEff(True, EmptyHeap, (label,arg), VARName freshVar)]
 
 
   | CResume _ -> failwith "infer_of_expression CResume"
@@ -879,30 +933,25 @@ let rec infer_of_expression (env:meth_def list) (current:spec list) (expr:core_l
       concatenateSpecsWithSpec current instantiatedSpec  
     )
 
+  | CWrite  (str, v) -> 
+    let event = NormalReturn (True, PointsTo(str, basic_t2Term v), UNIT) in 
+    concatenateSpecsWithEvent current [event]
+
+
+  | CIfELse (v, expr2, expr3) -> 
+    let eventThen = NormalReturn (Atomic(GT, basic_t2Term v, Num 0), EmptyHeap, UNIT) in 
+    let eventElse = NormalReturn (Atomic(LT, basic_t2Term v, Num 0), EmptyHeap, UNIT) in 
+    let currentThen = concatenateSpecsWithEvent current [eventThen] in 
+    let currentElse = concatenateSpecsWithEvent current [eventElse] in 
+    (infer_of_expression env currentThen expr2) @ 
+    (infer_of_expression env currentElse expr3)
 
 
   | _ -> failwith "infer_of_expression TBD"
  (*
 
-   | CWrite  (str, expr1) -> 
-    let phi1 = infer_of_expression env current expr1 in 
-    List.flatten (List.map (fun spec -> 
-      let (_, _, retN) = retriveNormalStage spec in 
-      let event = NormalReturn (True, PointsTo(str, basic_t2Term  retN), UNIT) in 
-      concatenateSpecsWithEvent [spec] [event]
-    ) phi1)
 
-  | CIfELse (expr1, expr2, expr3) -> 
-    let phi1 = infer_of_expression env current expr1 in 
-    List.flatten (List.map (fun spec -> 
-      let (_, _, retN) = retriveNormalStage spec in 
-      let eventThen = NormalReturn (Atomic(GT, basic_t2Term retN, Num 0), EmptyHeap, UNIT) in 
-      let eventElse = NormalReturn (Atomic(LT, basic_t2Term retN, Num 0), EmptyHeap, UNIT) in 
-      let currentThen = concatenateSpecsWithEvent [spec] [eventThen] in 
-      let currentElse = concatenateSpecsWithEvent [spec] [eventElse] in 
-      (infer_of_expression env currentThen expr2) @ 
-      (infer_of_expression env currentElse expr3)
-    ) phi1)
+
     
   | CMatch of core_lang * (string * core_lang) * core_handler_ops
 *)
@@ -916,7 +965,6 @@ let rec expr_to_term (expr:expression) : term =
       begin match i with
       | "+" -> Plus (expr_to_term a, expr_to_term b)
       | "-" -> Minus (expr_to_term a, expr_to_term b)
-      | "@" -> TListAppend (expr_to_term a, expr_to_term b)
       | _ -> failwith (Format.asprintf "unknown op %s" i)
       end
   | _ -> failwith (Format.asprintf "unknown term %a" Pprintast.expression expr)
@@ -1301,7 +1349,6 @@ let rec computeValue p t: term option =
     | (Some (Num i1), Some(Num i2)) -> Some (Num (i1-i2))
     | _ -> None 
     )
-  | TListAppend _
   | TList _
   | TTupple _ -> raise (Foo "computeValue error") 
 

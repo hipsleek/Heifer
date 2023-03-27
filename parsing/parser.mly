@@ -2591,12 +2591,10 @@ pure_formula_term:
   (*| pure_formula_term rest = pure_formula_term_aux { 
     let (op, t) = rest in 
     if String.compare op "+" == 0 then Plus ($1, t) 
-    else TListAppend($1, t)}
     *)
 
     
   | pure_formula_term PLUS pure_formula_term { Plus ($1, $3) }
-  | pure_formula_term PLUSPLUS pure_formula_term { TListAppend ($1, $3) }
   | pure_formula_term MINUS pure_formula_term { Minus ($1, $3) }
   | LPAREN pure_formula_term RPAREN { $2 }
 ;
@@ -2711,7 +2709,7 @@ stagedSpec1 :
           (x :: init, last)
       in
       let init, last = split a in
-      RaisingEff (p, h, Instant (constr, init), last)
+      RaisingEff (p, h, (constr, init), last)
   }
 
 heapkappa:
