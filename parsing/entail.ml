@@ -1,17 +1,16 @@
 
-(* basic term *)
-type basic_t = BINT of int | UNIT | VARName of string | List of int list 
-
-(* an occurrence of an effect *)
-type instant = string * basic_t list
-
 type term = 
+    | UNIT 
     | Num of int
     | TList of (term list)
     | TTupple of (term list)
     | Var of string
     | Plus of term * term 
     | Minus of term * term 
+
+(* an occurrence of an effect *)
+type instant = string * term list
+
 
 type bin_op = GT | LT | EQ | GTEQ | LTEQ
 
@@ -37,10 +36,10 @@ type stagedSpec =
       | Exists of (string list)
       | Require of pi * kappa 
       (* higher-order functions *)
-      | NormalReturn of (pi * kappa * basic_t)
-      | HigherOrder of (string * basic_t list)
+      | NormalReturn of (pi * kappa * term)
+      | HigherOrder of (string * term list)
       (* effects *)
-      | RaisingEff of (pi * kappa * instant * basic_t) (* basic_t is a placeholder for the resumned value *)
+      | RaisingEff of (pi * kappa * instant * term) (* term is a placeholder for the resumned value *)
 
 
 let freshNormalReturnSpec = [NormalReturn (True, EmptyHeap, UNIT)]

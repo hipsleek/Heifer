@@ -23,7 +23,7 @@
 open Asttypes
 include Entail
 
-type core_value = basic_t
+type core_value = term
 
 type constant =
     Pconst_integer of string * char option

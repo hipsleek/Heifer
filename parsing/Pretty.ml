@@ -85,20 +85,6 @@ let rec separate li f sep : string =
   | x ::xs -> f x ^ sep ^ separate xs f sep
   ;;
 
-let compareBasic (p1:basic_t) (p2:basic_t) :bool = 
-  match (p1, p2) with 
-  | (BINT x, BINT y) -> x = y
-  | (UNIT, UNIT) -> true
-  | (VARName s1, VARName s2) -> String.compare s1 s2 == 0
-
-  | _ -> false
-
-let compareParm (p1:basic_t list) (p2:basic_t list) :bool = 
-  List.equal compareBasic p1 p2
-
-let compareInstant ( (n1, a1)) ( (n2, a2)) :bool = 
-  String.equal n1 n2 && compareParm a1 a2
-  
 
 
 
@@ -132,38 +118,9 @@ let rec kappaToPure kappa : pi =
 
   (* | Implication (k1, k2) -> Imply (kappaToPure k1, kappaToPure k2) *)
 
- 
-let basic_t2Term (a) : term = 
-  match a with 
-  | BINT i -> Num i 
-  | VARName s -> Var s
-  | List s -> TList (List.map (fun a -> Num a) s )
-  | _ -> failwith "basic_t2Term"
-     
 
 
-let string_of_basic_type a : string = 
-  match a with 
-  | BINT i -> string_of_int i 
-  | UNIT -> "()"
-  | VARName s -> s
-  | List s ->
-    Format.asprintf "[%s]"
-      (List.map string_of_int s |> String.concat "; ")
 
-let string_of_instant (str, ar_Li): string = 
-  (* syntax is like OCaml type constructors, e.g. Foo, Foo (), Foo (1, ()) *)
-  let args =
-    match ar_Li with
-    | [] -> ""
-    | [t] -> Format.sprintf "(%s)" (string_of_basic_type t)
-    | _ -> Format.sprintf "(%s)" (separate (ar_Li) (string_of_basic_type) (","));
-  in
-  Format.sprintf "%s%s" str args
-
-
-let string_of_args args =
-  List.map string_of_basic_type args |> String.concat ", "
 
 let rec string_of_term t : string = 
   match t with 
@@ -186,6 +143,21 @@ let rec string_of_term t : string =
       | [x] -> string_of_term x
       | x:: xs -> string_of_term x ^";"^ helper xs 
     in "[" ^ helper nLi ^ "]"
+
+let string_of_instant (str, ar_Li): string = 
+  (* syntax is like OCaml type constructors, e.g. Foo, Foo (), Foo (1, ()) *)
+  let args =
+    match ar_Li with
+    | [] -> ""
+    | [t] -> Format.sprintf "(%s)" (string_of_term t)
+    | _ -> Format.sprintf "(%s)" (separate (ar_Li) (string_of_term) (","));
+  in
+  Format.sprintf "%s%s" str args
+
+
+let string_of_args args =
+  List.map string_of_term args |> String.concat ", "
+
 
 let rec string_of_kappa (k:kappa) : string = 
   match k with
@@ -213,9 +185,9 @@ let string_of_stages (st:stagedSpec) : string =
   | HigherOrder (f, args) ->
     Format.asprintf "%s$(%s)" f (string_of_args args)
   | NormalReturn (pi, heap, ret) ->
-    Format.asprintf "Norm(%s, %s,  %s)" (string_of_kappa heap) (string_of_pi pi)  (string_of_basic_type ret) (*string_of_args args*)
+    Format.asprintf "Norm(%s, %s,  %s)" (string_of_kappa heap) (string_of_pi pi)  (string_of_term ret) (*string_of_args args*)
   | RaisingEff (pi, heap, (name, args), ret) ->
-    Format.asprintf "%s(%s, %s, %s, %s)" name (string_of_kappa heap) (string_of_pi pi)  (string_of_args args) (string_of_basic_type ret)
+    Format.asprintf "%s(%s, %s, %s, %s)" name (string_of_kappa heap) (string_of_pi pi)  (string_of_args args) (string_of_term ret)
   | Exists vs ->
     Format.asprintf "ex %s" (String.concat " " vs)
 

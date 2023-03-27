@@ -86,19 +86,19 @@ let is_alpha = function 'a' .. 'z' | 'A' .. 'Z' -> true | _ -> false
 
 let rec string_of_core_lang (e:core_lang) :string =
   match e with
-  | CValue v -> string_of_basic_type v
+  | CValue v -> string_of_term v
   | CLet (v, e, e1) -> Format.sprintf "let %s = %s in\n%s" v (string_of_core_lang e) (string_of_core_lang e1)
-  | CIfELse (i, t, e) -> Format.sprintf "if %s then %s else %s" (string_of_basic_type i)  (string_of_core_lang t) (string_of_core_lang e)
-  | CFunCall (f, [a; b]) when not (is_alpha (String.get f 0)) -> Format.sprintf "%s %s %s" (string_of_basic_type a) f (string_of_basic_type b)
-  | CFunCall (f, xs) -> Format.sprintf "%s %s" f (List.map string_of_basic_type xs |> String.concat " ")
-  | CWrite (v, e) -> Format.sprintf "%s := %s" v (string_of_basic_type e)
-  | CRef v -> Format.sprintf "ref %s" (string_of_basic_type v)
+  | CIfELse (i, t, e) -> Format.sprintf "if %s then %s else %s" (string_of_term i)  (string_of_core_lang t) (string_of_core_lang e)
+  | CFunCall (f, [a; b]) when not (is_alpha (String.get f 0)) -> Format.sprintf "%s %s %s" (string_of_term a) f (string_of_term b)
+  | CFunCall (f, xs) -> Format.sprintf "%s %s" f (List.map string_of_term xs |> String.concat " ")
+  | CWrite (v, e) -> Format.sprintf "%s := %s" v (string_of_term e)
+  | CRef v -> Format.sprintf "ref %s" (string_of_term v)
   | CRead v -> Format.sprintf "!%s" v
   | CAssert (p, h) -> Format.sprintf "assert (%s && %s)" (string_of_pi p) (string_of_kappa h)
-  | CPerform (eff, Some arg) -> Format.sprintf "perform %s %s" eff (string_of_basic_type arg)
+  | CPerform (eff, Some arg) -> Format.sprintf "perform %s %s" eff (string_of_term arg)
   | CPerform (eff, None) -> Format.sprintf "perform %s" eff
   | CMatch (e, (v, norm), hs) -> Format.sprintf "match %s with\n| %s -> %s\n%s" (string_of_core_lang e) v (string_of_core_lang norm) (List.map (fun (name, v, body) -> Format.asprintf "| effect %s %s -> %s" name v (string_of_core_lang body)) hs |> String.concat "\n")
-  | CResume v -> Format.sprintf "continue k %s" (string_of_basic_type v)
+  | CResume v -> Format.sprintf "continue k %s" (string_of_term v)
 
 let debug_string_of_core_type t =
   Format.asprintf "type %a@." Pprintast.core_type t
@@ -220,7 +220,7 @@ let string_of_effectspec spec:string =
       Format.sprintf "requires %s ensures %s" (string_of_spec pr) (string_of_effectList po) *)
     | Some p -> string_of_spec p
 
-let rec string_of_program ((_es, ms):core_program) :string =
+let string_of_program ((_es, ms):core_program) :string =
   List.map (fun (name, args, spec, body) ->
     Format.asprintf "let rec %s %s\n(*@@ %s @@*)\n=\n%s" name
     (match args with | [] -> "()" | _ -> String.concat " " args)
@@ -310,7 +310,7 @@ let rec retriveFuntionWithoutSpecDefinition str li =
 let rec string_of_basic_v li: string = 
   match li with 
   | [] -> ""
-  | (str, bt) :: xs ->(str ^ "=" ^ string_of_basic_type bt  ^ ", ") ^ string_of_basic_v xs 
+  | (str, bt) :: xs ->(str ^ "=" ^ string_of_term bt  ^ ", ") ^ string_of_basic_v xs 
 
 
 module Env = struct
@@ -488,96 +488,15 @@ let fnNameToString fnName: string =
     | _ -> "fnNameToString: dont know " ^ debug_string_of_expression fnName
     ;;
 
-let expressionToBasicT ex : basic_t option=
-  match ex.pexp_desc with 
-  | Pexp_constant cons ->
-    (match cons with 
-    | Pconst_integer (str, _) -> Some (BINT (int_of_string str))
-    | _ -> None
-    (*raise (Foo (Pprintast.string_of_expression  ex ^ " expressionToBasicT error2")*)
-    
-
-    (*| _ -> None (*raise (Foo (Pprintast.string_of_expression  ex ^ " expressionToBasicT error1"))*)
-    *)
-    )
-  | Pexp_construct _ -> Some (UNIT)
-  | Pexp_ident l -> Some (VARName (getIndentName l.txt))
-  | _ -> None 
-
-  (*
-  | _ -> raise (Foo (Pprintast.string_of_expression  ex ^ " expressionToBasicT error2"))
-
-  | Pexp_let _ -> raise (Foo "Pexp_i")
-  | Pexp_function _ -> raise (Foo "Pexp_i")
-  | Pexp_fun _ -> raise (Foo "Pexp_i")
-  | Pexp_apply _ -> raise (Foo "Pexp_i")
-  | Pexp_match _ -> raise (Foo "Pexp_iden")
-  | Pexp_try _ -> raise (Foo "Pexp_iden")
-  | Pexp_tuple _ -> raise (Foo "Pexp_iden")
-
-  | Pexp_variant _ -> raise (Foo "Pexp_ident")
-  | Pexp_record _ -> raise (Foo "Pexp_ident")
-  | Pexp_field _ -> raise (Foo "Pexp_ident")
-  | Pexp_setfield _ -> raise (Foo "Pexp_ident")
-  | Pexp_array _ -> raise (Foo "Pexp_ident")
-  | Pexp_ifthenelse _ -> raise (Foo "Pexp_ident")
-  | Pexp_sequence _ -> raise (Foo "Pexp_ident")
-  | Pexp_while _ -> raise (Foo "Pexp_ident")
-  | Pexp_for _ -> raise (Foo "Pexp_ident")
-  | Pexp_constraint _ -> raise (Foo "Pexp_ident")
-  | Pexp_coerce _ -> raise (Foo "Pexp_ident")
 
 
-  | Pexp_send _ -> raise (Foo "Pexp_ident2")
-  | Pexp_new _ -> raise (Foo "Pexp_ident2")
-  | Pexp_setinstvar _ -> raise (Foo "Pexp_ident2")
-  | Pexp_override _ -> raise (Foo "Pexp_ident2")
-  | Pexp_letmodule _ -> raise (Foo "Pexp_ident2")
-  | Pexp_letexception _ -> raise (Foo "Pexp_ident2")
-  | Pexp_assert _ -> raise (Foo "Pexp_ident2")
-  | Pexp_lazy _ -> raise (Foo "Pexp_ident2")
-  | Pexp_poly _ -> raise (Foo "Pexp_ident3")
-  | Pexp_object _ -> raise (Foo "Pexp_ident3")
-  | Pexp_newtype _ -> raise (Foo "Pexp_ident3")
-  | Pexp_pack _ -> raise (Foo "Pexp_ident3")
-  | Pexp_open _ -> raise (Foo "Pexp_ident3")
-  | Pexp_letop _ -> raise (Foo "Pexp_ident3")
-  | Pexp_extension _ -> raise (Foo "Pexp_ident3")
-  | Pexp_unreachable  -> raise (Foo "Pexp_ident3")
-  *)
- 
- (* | _ -> raise (Foo (Pprintast.string_of_expression  ex ^ " expressionToBasicT error2"))
-*)
-
-let rec var_binding (formal:string list) (actual: expression list) : (string * basic_t) list = 
-  match (formal, actual) with 
-  | (x::xs, expr::ys) -> 
-    (match expressionToBasicT expr with
-    | Some v ->
-    (x, v) :: (var_binding xs ys)
-    | None -> (var_binding xs ys)
-    )
-  | _ -> []
-  ;;
 let rec findbinding str vb_li =
     match vb_li with 
-    | [] -> VARName str 
+    | [] -> Var str 
     | (name, v) :: xs -> if String.compare name str == 0 then v else  findbinding str xs
 
 
-let instantiateInstance (ins:instant) (vb:(string * basic_t) list)  : instant  = 
 
-  let rec helper li =
-    match li with 
-    | [] -> [] 
-    | x ::xs -> 
-      ( match x with 
-        | VARName str -> (findbinding str vb) :: (helper xs)
-        | _ -> x :: (helper xs)
-      )
-  in 
-  let (a, li) = ins in (a, helper li)
-;;
   
 
 
@@ -595,18 +514,7 @@ let getEffName l =
     | Pexp_construct (a, _) -> getIndentName a.txt 
     | _ -> raise (Foo "getEffName error")
 ;;
-let getEffNameArg l = 
-    let (_, temp) = l in 
-    match temp.pexp_desc with 
-    | Pexp_construct (_, argL) -> 
-      (match argL with 
-      | None -> []
-      | Some a -> 
-        match expressionToBasicT a with 
-        | Some v -> [v]
-        | None -> [])
-    | _ -> raise (Foo "getEffNameArg error")
-;;
+
 
 let rec findNormalReturn handler = 
   match handler with 
@@ -777,7 +685,7 @@ let concatenateSpecsWithSpec (current:spec list) (event:spec list) :  spec list 
   let temp  = List.map (fun a -> concatenateSpecsWithEvent current a) event in 
   List.flatten temp
 
-let rec retriveNormalStage (spec:spec) : (pi * kappa * basic_t) = 
+let rec retriveNormalStage (spec:spec) : (pi * kappa * term) = 
   match spec with 
   | [] -> failwith "retriveNormalStage empty spec"
   | [NormalReturn (pN, hN, retN)] 
@@ -806,10 +714,11 @@ let rec bindFormalNActual (formal: string list) (actual: core_value list) : ((st
 
 let rec instantiateTerms (bindings:((string * core_value) list)) (t:term) : term = 
   match t with
-  | Num _ -> t
+  | Num _ 
+  | UNIT -> t
   | Var str -> 
     let binding = findbinding str bindings in 
-    basic_t2Term binding
+    binding
 
   | TList (tLi) -> TList (List.map (fun t1 -> instantiateTerms bindings t1) tLi)
   | TTupple (tLi) -> TList (List.map (fun t1 -> instantiateTerms bindings t1) tLi)
@@ -835,7 +744,7 @@ let rec instantiateHeap (bindings:((string * core_value) list)) (kappa:kappa) : 
   | PointsTo (str, t1) -> 
     let binding = findbinding str bindings in 
     let newName = (match binding with 
-    | VARName str1 -> str1
+    | Var str1 -> str1
     | _ -> str
     ) in 
     PointsTo (newName, instantiateTerms bindings t1)
@@ -844,17 +753,6 @@ let rec instantiateHeap (bindings:((string * core_value) list)) (kappa:kappa) : 
   | MagicWand (k1, k2) -> MagicWand (instantiateHeap bindings k1, instantiateHeap bindings k2)
 
 
-let instantiatebasic_t (bindings:((string * core_value) list)) a : basic_t = 
-  match a with 
-  | VARName s -> 
-    let binding = findbinding s bindings in 
-    let newName = (match binding with 
-    | VARName str1 -> str1
-    | _ -> s
-    ) in 
-    VARName newName
-
-  | _ ->a     
 
 
 let instantiateStages (bindings:((string * core_value) list))  (stagedSpec:stagedSpec) : stagedSpec = 
@@ -864,14 +762,14 @@ let instantiateStages (bindings:((string * core_value) list))  (stagedSpec:stage
     Require (instantiatePure bindings pi, instantiateHeap bindings  kappa)
   (* higher-order functions *)
   | NormalReturn (pi, kappa, ret) -> 
-    NormalReturn(instantiatePure bindings pi, instantiateHeap bindings  kappa, instantiatebasic_t bindings ret) 
+    NormalReturn(instantiatePure bindings pi, instantiateHeap bindings  kappa, instantiateTerms bindings ret) 
   | HigherOrder (str, basic_t_list) -> 
-    HigherOrder (str, List.map (fun bt -> instantiatebasic_t bindings bt) basic_t_list)
+    HigherOrder (str, List.map (fun bt -> instantiateTerms bindings bt) basic_t_list)
   (* effects *)
   | RaisingEff (pi, kappa, (label, basic_t_list), ret)  -> 
     RaisingEff (instantiatePure bindings pi, instantiateHeap bindings  kappa, (label, 
-    List.map (fun bt -> instantiatebasic_t bindings bt) basic_t_list
-    ),  instantiatebasic_t bindings ret) 
+    List.map (fun bt -> instantiateTerms bindings bt) basic_t_list
+    ),  instantiateTerms bindings ret) 
 
 
 
@@ -897,7 +795,7 @@ let rec infer_of_expression (env:meth_def list) (current:spec list) (expr:core_l
       match retN with 
       | UNIT -> infer_of_expression env current expr2
       | _ -> 
-      let event = NormalReturn (Atomic(EQ, Var str, basic_t2Term retN), EmptyHeap, UNIT) in 
+      let event = NormalReturn (Atomic(EQ, Var str, retN), EmptyHeap, UNIT) in 
       let current' = concatenateSpecsWithEvent [spec] [event] in 
       infer_of_expression env current' expr2
     ) phi1)
@@ -905,13 +803,13 @@ let rec infer_of_expression (env:meth_def list) (current:spec list) (expr:core_l
 
   | CRef v -> 
     let freshVar = verifier_getAfreeVar () in 
-    let event = NormalReturn (True, PointsTo(freshVar, basic_t2Term v), VARName freshVar) in 
+    let event = NormalReturn (True, PointsTo(freshVar, v), Var freshVar) in 
     concatenateSpecsWithEvent current [event]
 
 
   | CRead str -> 
     let freshVar = verifier_getAfreeVar () in 
-    let event = [Require(True, PointsTo(str, Var freshVar)); NormalReturn (True, EmptyHeap , VARName freshVar)] in 
+    let event = [Require(True, PointsTo(str, Var freshVar)); NormalReturn (True, EmptyHeap , Var freshVar)] in 
     concatenateSpecsWithEvent current event
 
 
@@ -927,12 +825,14 @@ let rec infer_of_expression (env:meth_def list) (current:spec list) (expr:core_l
     in 
     let freshVar = verifier_getAfreeVar () in 
     concatenateSpecsWithEvent current 
-    [RaisingEff(True, EmptyHeap, (label,arg), VARName freshVar)]
+    [RaisingEff(True, EmptyHeap, (label,arg), Var freshVar)]
 
 
   | CResume _ -> failwith "infer_of_expression CResume"
 
   | CFunCall (fname, actualArgs) -> 
+    if String.compare fname "+" == 0 then failwith ("no implemnetation of " ^ fname )
+    else 
     (match retriveSpecFromSpec fname env with 
     | None -> failwith ("no implemnetation of " ^ fname )
     | Some  (formalArgs, spec_of_fname) -> 
@@ -942,13 +842,13 @@ let rec infer_of_expression (env:meth_def list) (current:spec list) (expr:core_l
     )
 
   | CWrite  (str, v) -> 
-    let event = NormalReturn (True, PointsTo(str, basic_t2Term v), UNIT) in 
+    let event = NormalReturn (True, PointsTo(str, v), UNIT) in 
     concatenateSpecsWithEvent current [event]
 
 
   | CIfELse (v, expr2, expr3) -> 
-    let eventThen = NormalReturn (Atomic(GT, basic_t2Term v, Num 0), EmptyHeap, UNIT) in 
-    let eventElse = NormalReturn (Atomic(LT, basic_t2Term v, Num 0), EmptyHeap, UNIT) in 
+    let eventThen = NormalReturn (Atomic(GT, v, Num 0), EmptyHeap, UNIT) in 
+    let eventElse = NormalReturn (Atomic(LT, v, Num 0), EmptyHeap, UNIT) in 
     let currentThen = concatenateSpecsWithEvent current [eventThen] in 
     let currentElse = concatenateSpecsWithEvent current [eventElse] in 
     (infer_of_expression env currentThen expr2) @ 
@@ -1017,7 +917,7 @@ let rec transformation (env:string list) (expr:expression) : core_lang =
   match expr.pexp_desc with 
   | Pexp_constant c ->
     begin match c with
-    | Pconst_integer (i, _) -> CValue (BINT (int_of_string i))
+    | Pconst_integer (i, _) -> CValue (Num (int_of_string i))
     | _ -> failwith (Format.asprintf "unknown kind of constant: %a" Pprintast.expression expr)
     end
   (* | Pexp_construct _  *)
@@ -1094,7 +994,7 @@ and maybe_var f e =
   | CValue v -> f v
   | _ ->
     let v = verifier_getAfreeVar () in
-    CLet (v, e, f (VARName v))
+    CLet (v, e, f (Var v))
       
   (* failwith "TBD expr"
   
@@ -1232,7 +1132,7 @@ and maybe_var f e =
 
           let lhs = getIndentName (id1.txt) in 
           let rhs = getIndentName (id2.txt) in 
-          (*print_string (List.fold_left (fun acc (str, t) -> acc ^ "\n" ^ str ^ "->" ^ string_of_basic_type t) "" (List.flatten !variableStack));*)
+          (*print_string (List.fold_left (fun acc (str, t) -> acc ^ "\n" ^ str ^ "->" ^ string_of_term t) "" (List.flatten !variableStack));*)
           let lhs' = findMapping lhs (List.flatten !variableStack) in 
           let rhs' = findMapping rhs (List.flatten !variableStack) in 
           print_string ("\n"^ string_of_variableStack (List.flatten !variableStack) ^ "\n");
@@ -1284,7 +1184,7 @@ and maybe_var f e =
               (*
               print_string (name ^ "\n");  
               print_string (List.fold_left (fun acc a -> acc ^ " " ^ a) "" fnFormals ^ "\n");
-              print_string (List.fold_left (fun acc a -> acc ^ " " ^ string_of_basic_type a) "" fnActuals ^ "\n");
+              print_string (List.fold_left (fun acc a -> acc ^ " " ^ string_of_term a) "" fnActuals ^ "\n");
               *)
               raise (Foo "argumentBinder length does not match")
 
@@ -1385,7 +1285,8 @@ let rec lookUpFromPure p str : term option =
 
 let rec computeValue p t: term option =
   match t with
-  | Num _ -> Some t
+  | Num _ 
+  | UNIT -> Some t
   | Var str -> lookUpFromPure p str 
   | Plus (t1, t2) -> 
     (match (computeValue p t1, computeValue p t2) with 
@@ -1402,33 +1303,7 @@ let rec computeValue p t: term option =
 
 
 
-let rec updateKappa (state:pi) kappa name term : (kappa option)  = 
-  (*print_string ("updateKappa: " ^ string_of_pi state ^ " " ^ 
-  string_of_kappa kappa ^ " " ^ name ^ " " ^ string_of_term term^ "\n");*)
-  match kappa with
-  | EmptyHeap -> Some (PointsTo(name, term))
-  | PointsTo (str, _) -> 
-  if String.compare str name == 0 then 
-    let value = computeValue state term in 
-    match value with 
-    | Some t -> Some (PointsTo(name, t))
-    | None ->  None 
-  else Some kappa
-  | SepConj (k1, k2) -> 
-    (match (updateKappa (state) k1 name term, updateKappa state k2 name term) with 
-    | (Some k1, Some k2) -> Some (SepConj (k1, k2))
-    | _ -> None )
-  | MagicWand (_, _) -> failwith "updateKappa unimplemented"
-  (* | Implication (k1, k2) -> 
-    (match (updateKappa state k1 name term, updateKappa state k2 name term) with 
-    | (Some k1, Some k2) -> Some (Implication (k1, k2))
-    | _ -> None ) *)
 
-
-let accumulateKappa k1 k2 : kappa option = 
-  match k2 with
-  | PointsTo (str, t) -> updateKappa (kappaToPure k1) k1 str t 
-  | _ -> raise (Foo "accumulateKappa error")
 
 
         
