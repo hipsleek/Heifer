@@ -752,7 +752,7 @@ let normalize spec =
         match s1, s2 with
         (* this is not sound *)
         (* | Require h1, Require h2 -> [Require (SepConj (h1, h2))], true *)
-        | NormalReturn (h, _), Require h2 when sl_disjoint h h2 -> [s2; s1], true
+        | NormalReturn (_, h, _), Require (_, h2) when sl_disjoint h h2 -> [s2; s1], true
         | _, _ -> [s1; s2], false
       in
       let hd, tl =

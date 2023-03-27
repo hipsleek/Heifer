@@ -2688,19 +2688,19 @@ stagedSpec :
 // { [post] }
 
 stagedSpecArgs :
-  | h=heapkappa COMMA rest=separated_nonempty_list(COMMA, effect_trace_value) { (h, rest) }
+  | h=heapkappa COMMA rest=separated_nonempty_list(COMMA, effect_trace_value) { (True, h, rest) }
 
 stagedSpec1 : 
   | EXISTS vs=nonempty_list(LIDENT) { Exists vs }
-  | REQUIRES heap=heapkappa { Require heap }
+  | REQUIRES heap=heapkappa { Require (True, heap) }
   | constr=UIDENT args=delimited(LPAREN, stagedSpecArgs, RPAREN)
   {
     match constr, args with
-    | "Norm", (h, a) -> 
+    | "Norm", (p, h, a) -> 
       (match a with 
       | [] ->  failwith "stagedSpec1 NormalReturn" 
-      | x ::_  -> NormalReturn (h, x))
-    | _, (h, a) ->
+      | x ::_  -> NormalReturn (p, h, x))
+    | _, (p, h, a) ->
       (* why is basic stuff like this not available *)
       let rec split xs =
         match xs with
@@ -2711,7 +2711,7 @@ stagedSpec1 :
           (x :: init, last)
       in
       let init, last = split a in
-      RaisingEff (h, Instant (constr, init), last)
+      RaisingEff (p, h, Instant (constr, init), last)
   }
 
 heapkappa:

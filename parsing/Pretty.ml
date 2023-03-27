@@ -107,15 +107,6 @@ let compareInstant (Instant (n1, a1)) (Instant (n2, a2)) :bool =
   String.equal n1 n2 && compareParm a1 a2
   
 
-let string_of_instant (str, ar_Li): string = 
-  (* syntax is like OCaml type constructors, e.g. Foo, Foo (), Foo (1, ()) *)
-  let args =
-    match ar_Li with
-    | [] -> ""
-    | [t] -> Format.sprintf "(%s)" (string_of_basic_type t)
-    | _ -> Format.sprintf "(%s)" (separate (ar_Li) (string_of_basic_type) (","));
-  in
-  Format.sprintf "%s%s" str args
 
 
 let string_of_bin_op op : string =
@@ -126,20 +117,6 @@ let string_of_bin_op op : string =
   | GTEQ -> ">="
   | LTEQ -> "<="
 
-let rec string_of_pi pi : string = 
-  match pi with 
-  | True -> "true"
-  | False -> "false"
-  | Atomic (op, t1, t2) -> string_of_term t1 ^ string_of_bin_op op ^ string_of_term t2
-  | And   (p1, p2) -> string_of_pi p1 ^ "/\\" ^ string_of_pi p2
-  | Or     (p1, p2) -> string_of_pi p1 ^ "\\/" ^ string_of_pi p2
-  | Imply  (p1, p2) -> string_of_pi p1 ^ "->" ^ string_of_pi p2
-  | Not    p -> "!" ^ string_of_pi p
-  | Predicate (str, t) -> str ^ "(" ^ string_of_term t ^ ")"
-
-let string_of_inclusion (lhs:spec) (rhs:spec) :string = 
-  string_of_spec lhs ^" |- " ^string_of_spec rhs 
-  ;;
 
 
 let rec normalPure p = 
@@ -163,3 +140,89 @@ let rec kappaToPure kappa : pi =
   (* | Implication (k1, k2) -> Imply (kappaToPure k1, kappaToPure k2) *)
 
  
+
+let string_of_basic_type a : string = 
+  match a with 
+  | BINT i -> string_of_int i 
+  | UNIT -> "()"
+  | VARName s -> s
+  | List s ->
+    Format.asprintf "[%s]"
+      (List.map string_of_int s |> String.concat "; ")
+
+let string_of_instant (str, ar_Li): string = 
+  (* syntax is like OCaml type constructors, e.g. Foo, Foo (), Foo (1, ()) *)
+  let args =
+    match ar_Li with
+    | [] -> ""
+    | [t] -> Format.sprintf "(%s)" (string_of_basic_type t)
+    | _ -> Format.sprintf "(%s)" (separate (ar_Li) (string_of_basic_type) (","));
+  in
+  Format.sprintf "%s%s" str args
+
+
+let string_of_args args =
+  List.map string_of_basic_type args |> String.concat ", "
+
+let rec string_of_term t : string = 
+  match t with 
+  | Num i -> string_of_int i 
+  | Var str -> str
+  | Plus (t1, t2) -> string_of_term t1 ^ " + " ^ string_of_term t2
+  | Minus (t1, t2) -> string_of_term t1 ^ " - " ^ string_of_term t2
+  | TTupple nLi -> 
+    let rec helper li = 
+      match li with
+      | [] -> ""
+      | [x] -> string_of_term x
+      | x:: xs -> string_of_term x ^","^ helper xs 
+    in "(" ^ helper nLi ^ ")"
+
+  | TList nLi -> 
+    let rec helper li = 
+      match li with
+      | [] -> ""
+      | [x] -> string_of_term x
+      | x:: xs -> string_of_term x ^";"^ helper xs 
+    in "[" ^ helper nLi ^ "]"
+  | TListAppend (t1, t2) -> string_of_term t1 ^ " ++ " ^ string_of_term t2
+
+let rec string_of_kappa (k:kappa) : string = 
+  match k with
+  | EmptyHeap -> "emp"
+  | PointsTo  (str, args) -> Format.sprintf "%s->%s" str (List.map string_of_term [args] |> String.concat ", ")
+  | SepConj (k1, k2) -> string_of_kappa k1 ^ "*" ^ string_of_kappa k2 
+  | MagicWand (k1, k2) -> string_of_kappa k1 ^ "-*" ^ string_of_kappa k2 
+  (* | Implication (k1, k2) -> string_of_kappa k1 ^ "-*" ^ string_of_kappa k2  *)
+
+let rec string_of_pi pi : string = 
+  match pi with 
+  | True -> "true"
+  | False -> "false"
+  | Atomic (op, t1, t2) -> string_of_term t1 ^ string_of_bin_op op ^ string_of_term t2
+  | And   (p1, p2) -> string_of_pi p1 ^ "/\\" ^ string_of_pi p2
+  | Or     (p1, p2) -> string_of_pi p1 ^ "\\/" ^ string_of_pi p2
+  | Imply  (p1, p2) -> string_of_pi p1 ^ "->" ^ string_of_pi p2
+  | Not    p -> "!" ^ string_of_pi p
+  | Predicate (str, t) -> str ^ "(" ^ string_of_term t ^ ")"
+
+let string_of_stages (st:stagedSpec) : string =
+  match st with
+  | Require (p, h) ->
+    Format.asprintf "req %s /\\ %s" (string_of_pi p) (string_of_kappa h)
+  | HigherOrder (f, args) ->
+    Format.asprintf "%s$(%s)" f (string_of_args args)
+  | NormalReturn (pi, heap, ret) ->
+    Format.asprintf "Norm(%s, %s,  %s)" (string_of_kappa heap) (string_of_pi pi)  (string_of_basic_type ret) (*string_of_args args*)
+  | RaisingEff (pi, heap, Instant (name, args), ret) ->
+    Format.asprintf "%s(%s, %s, %s, %s)" name (string_of_kappa heap) (string_of_pi pi)  (string_of_args args) (string_of_basic_type ret)
+  | Exists vs ->
+    Format.asprintf "ex %s" (String.concat " " vs)
+
+let string_of_spec (spec:spec) :string =
+  spec |> List.map string_of_stages |> String.concat "; "
+
+
+let string_of_inclusion (lhs:spec) (rhs:spec) :string = 
+  string_of_spec lhs ^" |- " ^string_of_spec rhs 
+  ;;

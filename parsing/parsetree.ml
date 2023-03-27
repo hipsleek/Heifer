@@ -23,6 +23,8 @@
 open Asttypes
 include Entail
 
+type core_value = basic_t
+
 type constant =
     Pconst_integer of string * char option
   (* 3 3l 3L 3n
@@ -60,6 +62,27 @@ type attribute = {
           Metadata containers passed around within the AST.
           The compiler ignores unknown attributes.
        *)
+
+
+
+and core_handler_ops = (string * string * expression) list
+
+and core_lang = 
+      | CValue of core_value 
+      | CLet of (string * expression) * expression
+      | CIfELse of expression * expression * expression
+      | CFunCall of string * (expression) list
+      | CWrite of string * expression 
+      | CRef of core_value
+      | CRead of string 
+      | CAssert of pi * kappa 
+      | CPerform of string  * core_value 
+      | CMatch of expression * (string * expression) * core_handler_ops
+      | CResume of core_value 
+
+
+
+
 
 and extension = string loc * payload
       (* [%id ARG]
