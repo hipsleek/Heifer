@@ -1307,7 +1307,8 @@ let transform_str env (s : structure_item) =
       in
       let e = transformation env body in
       `Meth (fn_name, formals, spec, e)
-    | _ -> failwith "not a function binding"
+    | _ ->
+      failwith (Format.asprintf "not a function binding: %a" Pprintast.expression body)
     end
 
   (* let final =  (infer_of_expression env [[NormalReturn (True, EmptyHeap,  UNIT)]] (transformation body)) in *)
