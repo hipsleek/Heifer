@@ -17,6 +17,8 @@
 
 %{
 
+open Types
+
 open Asttypes
 open Longident
 open Parsetree

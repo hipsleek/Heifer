@@ -5,6 +5,8 @@ open Parsetree
 open Asttypes
 open Rewriting
 open Pretty
+open Types
+open Entail
 
 let rec input_lines file =
   match try [input_line file] with End_of_file -> [] with

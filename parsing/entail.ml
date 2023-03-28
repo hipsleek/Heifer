@@ -1,59 +1,6 @@
 
-type term = 
-    | UNIT 
-    | Num of int
-    | TList of (term list)
-    | TTupple of (term list)
-    | Var of string
-    | Plus of term * term 
-    | Minus of term * term 
-
-(* an occurrence of an effect *)
-type instant = string * term list
-
-
-type bin_op = GT | LT | EQ | GTEQ | LTEQ
-
-type pi = 
-  | True
-  | False
-  | Atomic of bin_op * term * term
-  | And    of pi * pi
-  | Or     of pi * pi
-  | Imply  of pi * pi
-  | Not    of pi 
-  | Predicate of string * term
-
-type kappa = 
-  | EmptyHeap
-  | PointsTo of (string * term)
-  | SepConj of kappa * kappa
-  | MagicWand of kappa * kappa
-
-
-type stagedSpec = 
-      (* common *)
-      | Exists of (string list)
-      | Require of pi * kappa 
-      (* higher-order functions *)
-      | NormalReturn of (pi * kappa * term)
-      | HigherOrder of (string * term list)
-      (* effects *)
-      | RaisingEff of (pi * kappa * instant * term) (* term is a placeholder for the resumned value *)
-
-
-type effectStage =  (string list* (pi * kappa ) * (pi * kappa) * instant * term)
-type normalStage =  (string list* (pi * kappa ) * (pi * kappa) * term)
-
-type normalisedStagedSpec = effectStage list * normalStage
-
-let freshNormalReturnSpec = [NormalReturn (True, EmptyHeap, UNIT)]
-let freshNoramlStage = ([], (True, EmptyHeap), (True, EmptyHeap), UNIT) 
-
-(* type linearStagedSpec = stagedSpec list *)
-
-(* type spec = (pi * linearStagedSpec) list  *)
-type spec = stagedSpec list 
+open Types
+open Pretty
 
 let rec effectStaged2Spec (effectStages:effectStage list ) : spec = 
   match effectStages with
@@ -133,12 +80,12 @@ and check_staged_subsumption : spec -> spec -> bool =
       end && check_staged_subsumption n3 n4
     | _ -> false
 
-(*
-
 let%expect_test "heap_entail" =
   let test l r = Format.printf "%s |- %s ==> %s@." (string_of_kappa l) (string_of_kappa r) (check_heap_entail l r |> string_of_option string_of_kappa) in
   test (PointsTo ("x", Num 1)) (PointsTo ("x", Num 1));
   [%expect {| x->1 |- x->1 ==> Some emp |}]
+
+(*
 
 let%expect_test "staged_entail" =
   let test l r = Format.printf "%s |= %s ==> %s@." (string_of_spec l) (string_of_spec r) (check_staged_entail l r |> string_of_option string_of_spec) in

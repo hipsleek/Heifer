@@ -1,18 +1,18 @@
 
 open List
-open Parsetree
+open Types
 open Pretty
 open Z3
 
 
-let rec term_to_expr ctx : Parsetree.term -> Expr.expr = function
+let rec term_to_expr ctx : term -> Expr.expr = function
   | Num n        -> Arithmetic.Integer.mk_numeral_i ctx n
   | Var v          -> Arithmetic.Integer.mk_const_s ctx v
   | Plus (t1, t2)  -> Arithmetic.mk_add ctx [ term_to_expr ctx t1; term_to_expr ctx t2 ]
   | Minus (t1, t2) -> Arithmetic.mk_sub ctx [ term_to_expr ctx t1; term_to_expr ctx t2 ]
   | TTupple _ | TList _ | UNIT -> raise (Foo "Rewriting.ml->term_to_expr") 
 
-let rec pi_to_expr ctx : Parsetree.pi -> Expr.expr = function
+let rec pi_to_expr ctx : pi -> Expr.expr = function
   | True                -> Boolean.mk_true ctx
   | False               -> Boolean.mk_false ctx
   | Atomic (op, t1, t2) -> (

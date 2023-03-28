@@ -3,7 +3,7 @@
 ----------------------------------------------------*)
 
 open Printf
-open Parsetree
+open Types
 
 
 exception Foo of string

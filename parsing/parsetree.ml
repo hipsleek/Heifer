@@ -21,9 +21,7 @@
 *)
 
 open Asttypes
-include Entail
-
-type core_value = term
+open Types
 
 type constant =
     Pconst_integer of string * char option
@@ -62,28 +60,6 @@ type attribute = {
           Metadata containers passed around within the AST.
           The compiler ignores unknown attributes.
        *)
-
-
-
-and core_handler_ops = (string * string * core_lang) list
-
-and core_lang = 
-      | CValue of core_value 
-      | CLet of string * core_lang * core_lang
-      | CIfELse of core_value * core_lang * core_lang
-      | CFunCall of string * (core_value) list
-      | CWrite of string * core_value  
-      | CRef of core_value
-      | CRead of string 
-      | CAssert of pi * kappa 
-      | CPerform of string * core_value option
-      | CMatch of core_lang * (string * core_lang) * core_handler_ops
-      | CResume of core_value 
-
-and meth_def = string * (string list) * (spec list) * core_lang
-and eff_def = string
-and core_program = eff_def list * meth_def list
-
 
 and extension = string loc * payload
       (* [%id ARG]
