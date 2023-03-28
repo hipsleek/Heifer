@@ -651,7 +651,7 @@ let instantiateStages (bindings:((string * core_value) list))  (stagedSpec:stage
   | RaisingEff (pi, kappa, (label, basic_t_list), ret)  -> 
     RaisingEff (instantiatePure bindings pi, instantiateHeap bindings  kappa, (label, 
     List.map (fun bt -> instantiateTerms bindings bt) basic_t_list
-    ),  instantiateTerms bindings ret) 
+    ),  ret) 
 
 
 
@@ -670,7 +670,7 @@ let rec lookforHandlingCases ops (label:string) =
     then Some (arg, expr) 
     else lookforHandlingCases xs label 
 
-let (continueationCxt: ((spec * term * (string * core_lang) * core_handler_ops) option) ref)  = ref None 
+let (continueationCxt: ((spec * string * (string * core_lang) * core_handler_ops) option) ref)  = ref None 
 
 let rec handling_spec env (spec:normalisedStagedSpec) (normal:(string * core_lang)) (ops:core_handler_ops) : spec list = 
   let (normFormalArg, expRet) = normal in 
@@ -683,6 +683,11 @@ let rec handling_spec env (spec:normalisedStagedSpec) (normal:(string * core_lan
     infer_of_expression env [current] expRet
   | x :: xs -> 
     let (existiental, (p1, h1), (p2, h2), (label, effactualArgs), ret) = x in 
+    let ret = match ret with 
+    | Var ret -> ret
+    | _ -> failwith "effect return is not var"
+
+    in
 
     (match lookforHandlingCases ops label with 
     | None -> concatenateEventWithSpecs (effectStage2Spec [x]) (handling_spec env (xs, normalS) normal ops )
@@ -756,7 +761,10 @@ and infer_of_expression (env:meth_def list) (current:spec list) (expr:core_lang)
   | CResume v ->  
       (match !continueationCxt with 
       | None -> failwith "resume in a wrong context"
-      | Some (continue_spec, ret, _, _) -> failwith "resume in a wrong context"
+      | Some (continue_spec, ret, normal, ops) -> 
+          let bindings = bindFormalNActual [ret] [v] in 
+          let instantiatedSpec =  instantiateSpec bindings continue_spec in 
+          handling_spec env (normalise_spec  ([], freshNoramlStage) instantiatedSpec)  normal ops
       )
 
   | CFunCall (fname, actualArgs) -> 

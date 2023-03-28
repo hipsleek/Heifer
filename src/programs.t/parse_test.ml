@@ -1,7 +1,7 @@
 effect Zero : unit
 
 let test () 
-(*@ ex x ret z u;
+(*@ ex i ret z u;
    Norm(i->0, ());
    Zero(emp, ret);
    req i->z; Norm(i->z+1, ());
