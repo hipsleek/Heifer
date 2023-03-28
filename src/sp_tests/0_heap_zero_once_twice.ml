@@ -31,7 +31,7 @@ let main_aux ()
     (continue (Obj.clone_continuation k) ()); (continue k ())
 
 
-let main 
+let main ()
 (*@ 
    Norm(emp, ())
 @*)
