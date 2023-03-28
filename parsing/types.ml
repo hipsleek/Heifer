@@ -30,13 +30,15 @@ type kappa =
   | SepConj of kappa * kappa
   | MagicWand of kappa * kappa
 
+(* a formula which describes a program state *)
+type state = pi * kappa
 
 type stagedSpec = 
       (* common *)
       | Exists of (string list)
       | Require of pi * kappa 
+      | NormalReturn of (pi * kappa * term) (* H /\ Pure /\ res=term *)
       (* higher-order functions *)
-      | NormalReturn of (pi * kappa * term)
       | HigherOrder of (string * term list)
       (* effects *)
       | RaisingEff of (pi * kappa * instant * term) (* term is a placeholder for the resumned value *)
@@ -73,5 +75,5 @@ and core_lang =
       | CResume of core_value 
 
 type meth_def = string * (string list) * (spec list) * core_lang
-type eff_def = string
-type core_program = eff_def list * meth_def list
+(* type eff_def = string *)
+type core_program = string list * meth_def list
