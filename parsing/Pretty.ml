@@ -362,6 +362,8 @@ let rec string_of_kappa (k:kappa) : string =
   | MagicWand (k1, k2) -> "(" ^ string_of_kappa k1 ^ "-*" ^ string_of_kappa k2  ^ ")"
   (* | Implication (k1, k2) -> string_of_kappa k1 ^ "-*" ^ string_of_kappa k2  *)
 
+let string_of_state (p, h) : string =
+  Format.asprintf "%s /\\ %s" (string_of_pi p) (string_of_kappa h)
 
 let string_of_stages (st:stagedSpec) : string =
   match st with

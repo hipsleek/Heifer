@@ -30,13 +30,15 @@ type kappa =
   | SepConj of kappa * kappa
   | MagicWand of kappa * kappa
 
+(* a formula which describes a program state *)
+type state = pi * kappa
 
 type stagedSpec = 
       (* common *)
       | Exists of (string list)
       | Require of pi * kappa 
+      | NormalReturn of (pi * kappa * term) (* H /\ Pure /\ res=term *)
       (* higher-order functions *)
-      | NormalReturn of (pi * kappa * term)
       | HigherOrder of (string * term list)
       (* effects *)
       | RaisingEff of (pi * kappa * instant * term) (* term is a placeholder for the resumned value *)

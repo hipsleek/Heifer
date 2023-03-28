@@ -11,6 +11,10 @@ let string_of_option to_s o : string =
    N ::= \/ {S;..;S}
 *)
 
+let rec to_fixed_point f spec =
+  let spec, changed = f spec in
+  if not changed then spec else to_fixed_point f spec
+
 let current_state : spec -> kappa =
  fun sp ->
   let rec loop current sp =
@@ -27,21 +31,26 @@ let current_state : spec -> kappa =
   loop EmptyHeap sp
 
 module Heap = struct
-  let entails : kappa -> kappa -> kappa option =
-   fun n1 n2 ->
-    match (n1, n2) with
-    | EmptyHeap, EmptyHeap -> Some EmptyHeap
+  let normalize_pure : pi -> pi = fun p -> p
+  let normalize_heap : kappa -> kappa = fun h -> h
+  let normalize : state -> state = fun (p, h) -> (p, h)
+
+  (* let check k v a c = *)
+  let entails : state -> state -> state option =
+   fun (_p1, h1) (_p2, h2) ->
+    match (h1, h2) with
+    | EmptyHeap, EmptyHeap -> Some (True, EmptyHeap)
     | PointsTo (s1, v1), PointsTo (s2, v2) when String.equal s1 s2 && v1 = v2 ->
-      Some EmptyHeap
+      Some (True, EmptyHeap)
     | _, _ -> None
 
   let%expect_test "heap_entail" =
     let test l r =
-      Format.printf "%s |- %s ==> %s@." (string_of_kappa l) (string_of_kappa r)
-        (entails l r |> string_of_option string_of_kappa)
+      Format.printf "%s |- %s ==> %s@." (string_of_state l) (string_of_state r)
+        (entails l r |> string_of_option string_of_state)
     in
-    test (PointsTo ("x", Num 1)) (PointsTo ("x", Num 1));
-    [%expect {| x->1 |- x->1 ==> Some emp |}]
+    test (True, PointsTo ("x", Num 1)) (True, PointsTo ("x", Num 1));
+    [%expect {| T /\ x->1 |- T /\ x->1 ==> Some T /\ emp |}]
 end
 
 let rec check_staged_entail : spec -> spec -> spec option =
@@ -55,12 +64,16 @@ and check_staged_subsumption : spec -> spec -> bool =
   | [], [] -> true
   | d1 :: n3, d2 :: n4 ->
     (match (d1, d2) with
-    | Require (_, h1), Require (_, h2) ->
+    | Require (p1, h1), Require (p2, h2) ->
       (* contravariance *)
-      (match Heap.entails h2 h1 with Some _ -> true | None -> false)
-    | NormalReturn (_, h1, _), NormalReturn (_, h2, _) ->
+      (match Heap.entails (p1, h1) (p2, h2) with
+      | Some _ -> true
+      | None -> false)
+    | NormalReturn (p1, h1, _), NormalReturn (p2, h2, _) ->
       (* covariance *)
-      (match Heap.entails h1 h2 with Some _ -> true | None -> false)
+      (match Heap.entails (p1, h1) (p2, h2) with
+      | Some _ -> true
+      | None -> false)
     | _ -> failwith "unimplemented")
     && check_staged_subsumption n3 n4
   | _ -> false
@@ -105,14 +118,14 @@ module Normalize = struct
             ([NormalReturn (And (p1, p2), SepConj (h1, h2), r1)], true)
           | NormalReturn (p1, h1, r1), Require (p2, h2) ->
             (* rule 3 *)
-            let r = Heap.entails h1 h2 in
+            let r = Heap.entails (p1, h1) (p2, h2) in
             begin
               match r with
               | None when sl_disjoint h1 h2 ->
                 (* rule 4 *)
                 ([s2; s1], true)
               | None -> ([s1; s2], false)
-              | Some r -> ([NormalReturn (And (p1, p2), r, r1)], true)
+              | Some r -> ([NormalReturn (And (p1, p2), snd r, r1)], true)
             end
           | _, _ -> ([s1; s2], false)
         in
@@ -120,11 +133,7 @@ module Normalize = struct
         let s5, c1 = one_pass (tl @ ss) in
         (hd @ s5, c || c1)
     in
-    let rec to_fixed_point spec =
-      let spec, changed = one_pass spec in
-      if not changed then spec else to_fixed_point spec
-    in
-    if false then to_fixed_point spec else one_pass spec |> fst
+    if false then to_fixed_point one_pass spec else one_pass spec |> fst
 
   let%expect_test "normalize" =
     let test name s =
