@@ -73,5 +73,5 @@ and core_lang =
       | CResume of core_value 
 
 type meth_def = string * (string list) * (spec list) * core_lang
-type eff_def = string
-type core_program = eff_def list * meth_def list
+(* type eff_def = string *)
+type core_program = string list * meth_def list
