@@ -127,14 +127,72 @@ module Normalize = struct
     if false then to_fixed_point spec else one_pass spec |> fst
 
   let%expect_test "normalize" =
-    let test s =
-      Format.printf "%s ==> %s@." (string_of_spec s)
+    let test name s =
+      Format.printf "--- %s\n%s\n%s\n@." name (string_of_spec s)
         (normalize s |> string_of_spec)
     in
-    test
+    test "inert"
       [
         Require (True, PointsTo ("x", Num 1));
         NormalReturn (True, PointsTo ("x", Num 1), UNIT);
       ];
-    [%expect {| req T /\ x->1; Norm(x->1 /\ T, ()) ==> req T /\ x->1; Norm(x->1 /\ T, ()) |}]
+    test "rule 4"
+      [
+        NormalReturn (True, PointsTo ("x", Num 1), UNIT);
+        Require (True, PointsTo ("y", Num 1));
+      ];
+    test "rule 3 (TODO heap entailment)"
+      [
+        NormalReturn (True, PointsTo ("x", Num 1), UNIT);
+        Require (True, PointsTo ("x", Num 2));
+      ];
+    test "rule 1"
+      [
+        Require (True, PointsTo ("x", Num 2));
+        Require (True, PointsTo ("y", Num 2));
+      ];
+    test "rule 1 weird"
+      [
+        Require (True, PointsTo ("x", Num 2));
+        Require (True, PointsTo ("x", Num 2));
+      ];
+    test "rule 2"
+      [
+        NormalReturn (True, PointsTo ("x", Num 1), UNIT);
+        NormalReturn (True, PointsTo ("y", Num 1), UNIT);
+      ];
+    test "rule 2 weird"
+      [
+        NormalReturn (True, PointsTo ("x", Num 1), UNIT);
+        NormalReturn (True, PointsTo ("x", Num 1), UNIT);
+      ];
+    [%expect
+      {|
+        --- inert
+        req T /\ x->1; Norm(x->1 /\ T, ())
+        req T /\ x->1; Norm(x->1 /\ T, ())
+
+        --- rule 4
+        Norm(x->1 /\ T, ()); req T /\ y->1
+        req T /\ y->1; Norm(x->1 /\ T, ())
+
+        --- rule 3 (TODO heap entailment)
+        Norm(x->1 /\ T, ()); req T /\ x->2
+        Norm(x->1 /\ T, ()); req T /\ x->2
+
+        --- rule 1
+        req T /\ x->2; req T /\ y->2
+        req T/\T /\ x->2*y->2
+
+        --- rule 1 weird
+        req T /\ x->2; req T /\ x->2
+        req T/\T /\ x->2*x->2
+
+        --- rule 2
+        Norm(x->1 /\ T, ()); Norm(y->1 /\ T, ())
+        Norm(x->1*y->1 /\ T/\T, ())
+
+        --- rule 2 weird
+        Norm(x->1 /\ T, ()); Norm(x->1 /\ T, ())
+        Norm(x->1*x->1 /\ T/\T, ()) |}]
 end
