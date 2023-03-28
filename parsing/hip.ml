@@ -727,11 +727,17 @@ let rec handling_spec env (spec:normalisedStagedSpec) (normal:(string * core_lan
     infer_of_expression env [current] expRet
   | x :: xs -> 
     let (existiental, (p1, h1), (p2, h2), (label, effactualArgs), ret) = x in 
+
     (match lookforHandlingCases ops label with 
     | None -> concatenateEventWithSpecs (effectStage2Spec [x]) (handling_spec env (xs, normalS) normal ops )
     | Some (effFormalArg, exprEff) -> 
+      let pure = 
+        match effactualArgs with 
+        | [] -> True 
+        | effactualArg ::_ -> Atomic(EQ, Var effFormalArg, effactualArg) 
+      in 
       let current = [Exists existiental; Require(p1, h1); 
-        NormalReturn(And(p2, Atomic(EQ, Var effFormalArg, effactualArg)), h2, UNIT)] in 
+        NormalReturn(And(p2, pure), h2, UNIT)] in 
       let () = continueationCxt := Some (normalisedStagedSpec2Spec (xs, normalS),  ret) in 
       let temp = infer_of_expression env [current] exprEff in 
       let () = continueationCxt := None in 
