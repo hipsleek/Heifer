@@ -6,7 +6,10 @@ let rec effectStaged2Spec (effectStages:effectStage list ) : spec =
   match effectStages with
   | [] -> []
   | (existiental, (p1, h1), (p2, h2), ins, ret) :: xs  -> 
-    [Exists existiental; Require(p1, h1); RaisingEff(p2, h2, ins, ret)] @ effectStaged2Spec xs 
+    (match (p1, h1) with 
+    | (True, EmptyHeap) -> [Exists existiental; RaisingEff(p2, h2, ins, ret)] 
+    | _ -> [Exists existiental; Require(p1, h1); RaisingEff(p2, h2, ins, ret)]) 
+    @ effectStaged2Spec xs 
 
 let normalStaged2Spec (normalStage:normalStage ) : spec = 
   match normalStage with

@@ -101,8 +101,8 @@ let rec string_of_term t : string =
   | Num i -> string_of_int i 
   | UNIT -> "()"
   | Var str -> str
-  | Plus (t1, t2) -> string_of_term t1 ^ " + " ^ string_of_term t2
-  | Minus (t1, t2) -> string_of_term t1 ^ " - " ^ string_of_term t2
+  | Plus (t1, t2) -> string_of_term t1 ^ "+" ^ string_of_term t2
+  | Minus (t1, t2) -> string_of_term t1 ^ "-" ^ string_of_term t2
   | TTupple nLi -> 
     let rec helper li = 
       match li with
@@ -370,9 +370,9 @@ let string_of_stages (st:stagedSpec) : string =
   | HigherOrder (f, args) ->
     Format.asprintf "%s$(%s); " f (string_of_args args)
   | NormalReturn (pi, heap, ret) ->
-    Format.asprintf "Norm(%s, %s,  %s); " (string_of_kappa heap) (string_of_pi pi)  (string_of_term ret) (*string_of_args args*)
+    Format.asprintf "Norm(%s /\\ %s,  %s); " (string_of_kappa heap) (string_of_pi pi)  (string_of_term ret) (*string_of_args args*)
   | RaisingEff (pi, heap, (name, args), ret) ->
-    Format.asprintf "%s(%s, %s, %s, %s); " name (string_of_kappa heap) (string_of_pi pi)  (string_of_args args) (string_of_term ret)
+    Format.asprintf "%s(%s /\\ %s, %s, %s); " name (string_of_kappa heap) (string_of_pi pi)  (string_of_args args) (string_of_term ret)
   | Exists [] -> ""
   | Exists vs ->
     Format.asprintf "ex %s; " (String.concat " " vs)

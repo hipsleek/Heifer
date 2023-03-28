@@ -2,18 +2,19 @@ effect Zero : unit
 
 let test () 
 (*@ ex x ret z u;
-   Norm(x->0, ());
-   Label(emp, ret);
-   req x->z; Norm(x->z+1, ());
-   req x->1;
-   Norm(x->1, ())
+   Norm(i->0, ());
+   Zero(emp, ret);
+   req i->z; Norm(i->z+1, ());
+   req i->1;
+   Norm(i->1, ())
 @*)
 =
   let i = Sys.opaque_identity (ref 0) in 
-  perform Zero;
+  let ret = perform Zero in 
   i := !i + 1;
   Printf.printf "i = %d\n%!" !i;
-  assert (!i = 1)
+  assert (!i = 1);
+  ret
 
 let hello () 
 (*@ ex v; req x->1 * y->2; Norm(z->3, w); Eff(z->3, v, u, r) @*)

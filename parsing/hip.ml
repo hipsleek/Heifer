@@ -1529,7 +1529,7 @@ let normaliseHeap (h) : (kappa * pi) =
     if String.compare s1 s2 == 0 then (EmptyHeap, Atomic(EQ, t1, t2))
     else (h, True)
   | SepConj (PointsTo (s1, t1), PointsTo (s2, t2)) -> 
-    if String.compare s1 s2 == 0 then (PointsTo (s2, t2), Atomic(EQ, t1, t2))
+    if String.compare s1 s2 == 0 then (PointsTo (s1, t1), Atomic(EQ, t1, t2))
     else (h, True)
 
 
