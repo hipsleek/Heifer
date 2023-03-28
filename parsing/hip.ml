@@ -928,7 +928,8 @@ let rec transformation (env:string list) (expr:expression) : core_lang =
       match cases |> List.filter_map (fun c ->
         match c.pc_lhs.ppat_desc with
         | Ppat_var {txt=v; _} -> Some (v, transformation env c.pc_rhs)
-        | _ -> failwith (Format.asprintf "unknown pattern: %a" Pprintast.pattern c.pc_lhs)
+        | _ -> None
+        (* failwith (Format.asprintf "unknown pattern: %a" Pprintast.pattern c.pc_lhs) *)
       ) with
       | [] -> failwith (Format.asprintf "no value case: %a" Pprintast.expression expr)
       | c :: _ -> c
@@ -937,7 +938,9 @@ let rec transformation (env:string list) (expr:expression) : core_lang =
       match cases |> List.filter_map (fun c ->
         match c.pc_lhs.ppat_desc with
         | Ppat_effect (p1, p2) -> Some (string_of_pattern p1, string_of_pattern p2, transformation env c.pc_rhs)
-        | _ -> failwith (Format.asprintf "unknown pattern: %a" Pprintast.pattern c.pc_lhs)
+        | _ ->
+          (* failwith (Format.asprintf "unknown effect pattern: %a" Pprintast.pattern c.pc_lhs) *)
+          None
       ) with
       | [] -> failwith (Format.asprintf "no effect case: %a" Pprintast.expression expr)
       | c -> c
