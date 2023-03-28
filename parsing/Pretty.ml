@@ -368,19 +368,19 @@ let string_of_state (p, h) : string =
 let string_of_stages (st:stagedSpec) : string =
   match st with
   | Require (p, h) ->
-    Format.asprintf "req %s /\\ %s; " (string_of_pi p) (string_of_kappa h)
+    Format.asprintf "req %s /\\ %s" (string_of_pi p) (string_of_kappa h)
   | HigherOrder (f, args) ->
     Format.asprintf "%s$(%s); " f (string_of_args args)
   | NormalReturn (pi, heap, ret) ->
-    Format.asprintf "Norm(%s /\\ %s,  %s); " (string_of_kappa heap) (string_of_pi pi)  (string_of_term ret) (*string_of_args args*)
+    Format.asprintf "Norm(%s /\\ %s, %s)" (string_of_kappa heap) (string_of_pi pi)  (string_of_term ret)
   | RaisingEff (pi, heap, (name, args), ret) ->
-    Format.asprintf "%s(%s /\\ %s, %s, %s); " name (string_of_kappa heap) (string_of_pi pi)  (string_of_args args) (string_of_term ret)
+    Format.asprintf "%s(%s /\\ %s, %s, %s)" name (string_of_kappa heap) (string_of_pi pi)  (string_of_args args) (string_of_term ret)
   | Exists [] -> ""
   | Exists vs ->
-    Format.asprintf "ex %s; " (String.concat " " vs)
+    Format.asprintf "ex %s" (String.concat " " vs)
 
 let string_of_spec (spec:spec) :string =
-  spec |> List.map string_of_stages |> String.concat ""
+  spec |> List.map string_of_stages |> String.concat "; "
 
 let rec string_of_spec_list (specs:spec list) : string = 
   match specs with 
