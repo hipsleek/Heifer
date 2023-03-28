@@ -54,17 +54,26 @@
  (mode fallback))
 
 (library
- (name entail)
- (modules entail)
+ (name core)
+ (modules types Rewriting Pretty entail)
+ (wrapped false)
+ (libraries z3)
  (inline_tests)
  (preprocess (pps ppx_expect ppx_deriving.std)))
 
+(library
+ (name ocamlfrontend)
+ (modules
+ parser lexer Syntaxerr Pprintast Printast Asttypes Ast_helper Longident Parsetree Location Warnings Misc Terminfo Docstrings Build_path_prefix_map Clflags Profile Numbers Identifiable Arg_helper CamlinternalMenhirLib Debug)
+ (libraries core)
+ (wrapped false))
+
 (executables
  (names hip)
- (modules parser lexer Syntaxerr hip Pretty Rewriting Pprintast Printast Asttypes Ast_helper Longident Parsetree Location Warnings Misc Terminfo Docstrings Build_path_prefix_map Clflags Profile Numbers Identifiable Arg_helper CamlinternalMenhirLib Debug)
-(libraries z3 entail)
- (flags :standard -w -70)
-)
+ (modules hip)
+ (libraries core ocamlfrontend)
+ (flags :standard -w -70))
+
 (install
  (section bin)
  (files (hip.exe as hip)))
