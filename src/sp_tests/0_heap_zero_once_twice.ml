@@ -1,53 +1,21 @@
-effect Twice : unit
-effect Once : unit
 effect Zero : unit
-effect Done : unit
 
-let callee0 () 
-(*@ ex x ret z u;
-   Zero(i->0, ret);
-   req i->0; Norm(i->1, ());
-   Norm(i->1, ())
+let test () 
+(*@ ex i ret z u;
+   Norm(i->0, ());
+   Zero(emp, ret);
+   req i->z; Norm(i->z+1, ());
+   req i->1;
+   Norm(i->1, ret)
 @*)
-= 
+=
   let i = Sys.opaque_identity (ref 0) in 
-  perform Zero;
+  let ret = perform Zero in 
   i := !i + 1;
   Printf.printf "i = %d\n%!" !i;
-  assert (!i = 1)
+  assert (!i = 1);
+  ret
 
-let callee1 () 
-(*@ ex x ret z u;
-   Norm(i->0, ());
-   Once(emp, ret);
-   req i->z; Norm(i->z+1, ());
-   req i->1;
-   Norm(i->1, ())
-@*)
-= 
-  let i = Sys.opaque_identity (ref 0) in
-  perform Once;
-  i := !i + 1;
-  Printf.printf "i = %d\n%!" !i;
-  assert (!i = 1)
-
-(* 1. ASSERTION IN THE SPEC *)
-(* 2. MUILTISHOT GENERALISE *)
-
-let callee2 () 
-(*@ ex x ret z u;
-   Norm(i->0, ());
-   Twice(emp, ret);
-   req i->z; Norm(i->z+1, ());
-   req i->1;
-   Norm(i->1, ())
-@*)
-= 
-  let i = Sys.opaque_identity (ref 0) in
-  perform Twice;
-  i := !i + 1;
-  Printf.printf "i = %d\n%!" !i;
-  assert (!i = 1)
 
 let main_aux ()
 (*@ ex x ret z u;
