@@ -754,10 +754,10 @@ and infer_of_expression (env:meth_def list) (current:spec list) (expr:core_lang)
 
 
   | CResume v ->  
-      match !continueationCxt with 
+      (match !continueationCxt with 
       | None -> failwith "resume in a wrong context"
-      | Some (continue_spec, ret) -> 
-      
+      | Some (continue_spec, ret, _, _) -> failwith "resume in a wrong context"
+      )
 
   | CFunCall (fname, actualArgs) -> 
     if String.compare fname "+" == 0 then 
