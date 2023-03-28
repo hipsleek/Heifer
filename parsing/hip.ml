@@ -1298,25 +1298,6 @@ let rec lookUpFromPure p str : term option =
   | Predicate _ -> None (*raise (Foo "lookUpFromPure error")*)
 
 
-let rec computeValue p t: term option =
-  match t with
-  | Num _ 
-  | UNIT -> Some t
-  | Var str -> lookUpFromPure p str 
-  | Plus (t1, t2) -> 
-    (match (computeValue p t1, computeValue p t2) with 
-    | (Some (Num i1), Some(Num i2)) -> Some (Num (i1+i2))
-    | _ -> None 
-    )
-  | Minus (t1, t2) -> 
-    (match (computeValue p t1, computeValue p t2) with 
-    | (Some (Num i1), Some(Num i2)) -> Some (Num (i1-i2))
-    | _ -> None 
-    )
-  | TList _
-  | TTupple _ -> raise (Foo "computeValue error") 
-
-
 
 
 
@@ -1538,20 +1519,28 @@ let () = assert (overlap ["x"] [] = false)
 
 let () = assert (overlap ["x";"y"] ["y";"z"] = true )
 
-let normaliseHeap (h) : kappa = 
+let normaliseHeap (h) : (kappa * pi) = 
   match h with 
-  | MagicWand (EmptyHeap, h1) -> h1
-  | MagicWand (_, EmptyHeap) -> EmptyHeap
+  | MagicWand (EmptyHeap, h1) -> (h1, True)
+  | MagicWand (_, EmptyHeap) -> (EmptyHeap, True)
+  | MagicWand (PointsTo (s1, t1), PointsTo (s2, t2)) -> 
+    if String.compare s1 s2 == 0 then (EmptyHeap, Atomic(EQ, t1, t2))
+    else (h, True)
+  | SepConj (PointsTo (s1, t1), PointsTo (s2, t2)) -> 
+    if String.compare s1 s2 == 0 then (PointsTo (s2, t2), Atomic(EQ, t1, t2))
+    else (h, True)
 
-  | SepConj (EmptyHeap, h1) -> h1
-  | SepConj (h1, EmptyHeap) -> h1
-  | _ -> h
+
+  | SepConj (EmptyHeap, h1) -> (h1, True)
+  | SepConj (h1, EmptyHeap) -> (h1, True)
+  | _ -> (h, True)
 
 let mergeEns (pi1, h1) (pi2, h2) = 
   (*if domainOverlap h1 h2 then failwith "domainOverlap in mergeEns"
   else 
   *)
-  (normalPure (And (pi1, pi2)), normaliseHeap (SepConj (h1, h2)))
+  let (heap, unification) = normaliseHeap (SepConj (h1, h2)) in 
+  (normalPure (And(And (pi1, pi2), unification)), heap)
 
 
 
@@ -1562,8 +1551,8 @@ let normalization_stagedSpec (acc:normalisedStagedSpec) (stagedSpec:stagedSpec) 
   | Exists li -> (effectStages, (existential@li, req, ens, ret))
   | Require (pi, heap) -> 
     let (_, h2) = ens in 
-    let magicWandHeap = normaliseHeap (MagicWand (h2, heap)) in 
-    let normalStage' = (existential, mergeEns req (pi, magicWandHeap), ens, ret) in 
+    let (magicWandHeap, unification) = normaliseHeap (MagicWand (h2, heap)) in 
+    let normalStage' = (existential, mergeEns req (And(pi, unification), magicWandHeap), ens, ret) in 
     (effectStages, normalStage')
 
   (* higher-order functions *)
@@ -1613,6 +1602,7 @@ print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
         let header =
           "\n========== Function: "^ _name ^" ==========\n" ^
           "[Specification] " ^ string_of_spec_list spec ^"\n"^          
+          "[Normed   Spec] " ^ string_of_spec_list (normalization_spec_list  spec) ^"\n\n"^          
           "[Raw Post Spec] " ^ string_of_spec_list _spec1 ^ "\n" ^ 
           "[Normed   Post] " ^ string_of_spec_list (normalization_spec_list  _spec1) ^"\n"
         in 

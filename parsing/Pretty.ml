@@ -4,7 +4,7 @@
 
 open Printf
 open Parsetree
-
+open Z3
 
 exception Foo of string
 
@@ -96,32 +96,6 @@ let string_of_bin_op op : string =
   | GTEQ -> ">="
   | LTEQ -> "<="
 
-
-
-let rec normalPure p = 
-  match p with
-  | And (True, p1) -> normalPure p1
-  | And (p1, True) -> normalPure p1
-  | And (p1, p2) -> And (normalPure p1, normalPure p2)
-  | _ -> p 
-;;
-
-
-
-
-let rec kappaToPure kappa : pi =
-  match kappa with 
-  | EmptyHeap -> True
-  | PointsTo (str, t) -> Atomic(EQ, Var str, t)
-  | SepConj (k1, k2) -> And (kappaToPure k1, kappaToPure k2)
-  | MagicWand (_, _) -> failwith "kappaToPure unimplemented"
-
-  (* | Implication (k1, k2) -> Imply (kappaToPure k1, kappaToPure k2) *)
-
-
-
-
-
 let rec string_of_term t : string = 
   match t with 
   | Num i -> string_of_int i 
@@ -144,6 +118,226 @@ let rec string_of_term t : string =
       | [x] -> string_of_term x
       | x:: xs -> string_of_term x ^";"^ helper xs 
     in "[" ^ helper nLi ^ "]"
+
+
+let rec string_of_pi pi : string = 
+  match pi with 
+  | True -> "T"
+  | False -> "F"
+  | Atomic (op, t1, t2) -> string_of_term t1 ^ string_of_bin_op op ^ string_of_term t2
+  | And   (p1, p2) -> string_of_pi p1 ^ "/\\" ^ string_of_pi p2
+  | Or     (p1, p2) -> string_of_pi p1 ^ "\\/" ^ string_of_pi p2
+  | Imply  (p1, p2) -> string_of_pi p1 ^ "->" ^ string_of_pi p2
+  | Not    p -> "!" ^ string_of_pi p
+  | Predicate (str, t) -> str ^ "(" ^ string_of_term t ^ ")"
+
+
+
+let rec stricTcompareTerm (term1:term) (term2:term) : bool = 
+  match (term1, term2) with 
+    (Var s1, Var s2) -> String.compare s1 s2 == 0
+  | (Num n1, Num n2) -> n1 == n2 
+  | (Plus (tIn1, num1), Plus (tIn2, num2)) -> stricTcompareTerm tIn1 tIn2 && stricTcompareTerm num1  num2
+  | (Minus (tIn1, num1), Minus (tIn2, num2)) -> stricTcompareTerm tIn1 tIn2 && stricTcompareTerm num1  num2
+  | _ -> false 
+  ;;
+
+
+let rec comparePure (pi1:pi) (pi2:pi):bool = 
+  match (pi1 , pi2) with 
+    (True, True) -> true
+  | (False, False) -> true 
+  | (Atomic(GT, t1, t11),  Atomic(GT, t2, t22)) -> stricTcompareTerm t1 t2 && stricTcompareTerm t11  t22
+  | (Atomic (LT, t1, t11),  Atomic(LT, t2, t22)) -> stricTcompareTerm t1 t2 && stricTcompareTerm t11  t22
+  | (Atomic (GTEQ, t1, t11),  Atomic(GTEQ, t2, t22)) -> stricTcompareTerm t1 t2 && stricTcompareTerm t11  t22
+  | (Atomic (LTEQ, t1, t11),  Atomic(LTEQ, t2, t22)) -> stricTcompareTerm t1 t2 && stricTcompareTerm t11  t22
+  | (Atomic (EQ, t1, t11),  Atomic(EQ, t2, t22)) -> stricTcompareTerm t1 t2 && stricTcompareTerm t11  t22
+  | (Or (p1, p2), Or (p3, p4)) ->
+      (comparePure p1 p3 && comparePure p2 p4) || (comparePure p1 p4 && comparePure p2 p3)
+  | (And (p1, p2), And (p3, p4)) ->
+      (comparePure p1 p3 && comparePure p2 p4) || (comparePure p1 p4 && comparePure p2 p3)
+  | (Not p1, Not p2) -> comparePure p1 p2
+  | _ -> false
+  ;;
+
+let rec getAllPi piIn acc= 
+    (match piIn with 
+      And (pi1, pi2) -> (getAllPi pi1 acc ) @ (getAllPi pi2 acc )
+    | _ -> acc  @[piIn]
+    )
+    ;;
+
+let rec existPi pi li = 
+    (match li with 
+      [] -> false 
+    | x :: xs -> if comparePure pi x then true else existPi pi xs 
+    )
+    ;;
+
+
+(**********************************************)
+exception FooAskz3 of string
+
+
+
+let rec getAllVarFromTerm (t:term) (acc:string list):string list = 
+  match t with
+| Var ( name) -> List.append acc [name]
+| Plus (t1, t2) -> 
+    let cur = getAllVarFromTerm t1 acc in 
+    getAllVarFromTerm t2 cur
+| Minus (t1, t2) -> 
+    let cur = getAllVarFromTerm t1 acc in 
+    getAllVarFromTerm t2 cur
+| _ -> acc
+;;
+
+
+
+
+
+let addAssert (str:string) :string =
+  "(assert " ^ str ^ " ) \n (check-sat) \n"
+  ;;
+
+let counter : int ref = ref 0 ;;
+
+
+let (historyTable: ((string * bool)list)ref) = ref [] ;;
+
+let rec existInhistoryTable pi table= 
+  match table with 
+  | [] -> None
+  | (x, b)::xs -> 
+    if String.compare x (string_of_pi pi) == 0 then Some b 
+    else existInhistoryTable pi  xs
+
+
+
+
+let rec term_to_expr ctx : term -> Z3.Expr.expr = function
+  | ((Num n))        -> Z3.Arithmetic.Real.mk_numeral_i ctx n
+  | ((Var v))           -> Z3.Arithmetic.Real.mk_const_s ctx v
+  | ((UNIT))           -> Z3.Arithmetic.Real.mk_const_s ctx "unit"
+  (*
+  | Gen i          -> Z3.Arithmetic.Real.mk_const_s ctx ("t" ^ string_of_int i ^ "'")
+  *)
+  | Plus (t1, t2)  -> Z3.Arithmetic.mk_add ctx [ term_to_expr ctx t1; term_to_expr ctx t2 ]
+  | Minus (t1, t2) -> Z3.Arithmetic.mk_sub ctx [ term_to_expr ctx t1; term_to_expr ctx t2 ]
+  | TList _|TTupple _ ->  failwith "term_to_expr"
+
+let rec pi_to_expr ctx : pi -> Expr.expr = function
+  | True                -> Z3.Boolean.mk_true ctx
+  | False               -> Z3.Boolean.mk_false ctx
+  | Atomic (GT, t1, t2) -> 
+      let t1 = term_to_expr ctx t1 in
+      let t2 = term_to_expr ctx t2 in
+      Z3.Arithmetic.mk_gt ctx t1 t2
+  | Atomic (GTEQ, t1, t2) -> 
+      let t1 = term_to_expr ctx t1 in
+      let t2 = term_to_expr ctx t2 in
+      Z3.Arithmetic.mk_ge ctx t1 t2
+  | Atomic (LT, t1, t2) -> 
+      let t1 = term_to_expr ctx t1 in
+      let t2 = term_to_expr ctx t2 in
+      Z3.Arithmetic.mk_lt ctx t1 t2
+  | Atomic (LTEQ, t1, t2) -> 
+      let t1 = term_to_expr ctx t1 in
+      let t2 = term_to_expr ctx t2 in
+      Z3.Arithmetic.mk_le ctx t1 t2
+  | Atomic (EQ, t1, t2) -> 
+      let newP = And (Atomic (GTEQ, t1, t2), Atomic (LTEQ, t1, t2)) in 
+      pi_to_expr ctx newP
+  | Imply (p1, p2) ->  pi_to_expr ctx (Or(Not p1, p2))
+  | Predicate (_, _) -> failwith "pi_to_expr"
+(*
+  | Atomic (op, t1, t2) -> (
+      let t1 = term_to_expr ctx t1 in
+      let t2 = term_to_expr ctx t2 in
+      match op with
+      | Eq -> Z3.Boolean.mk_eq ctx t1 t2
+      | LT -> Z3.Arithmetic.mk_lt ctx t1 t2
+      | Le -> Z3.Arithmetic.mk_le ctx t1 t2
+      | GT -> Z3.Arithmetic.mk_gt ctx t1 t2
+      | Ge -> Z3.Arithmetic.mk_ge ctx t1 t2)
+      *)
+  | And (pi1, pi2)      -> Z3.Boolean.mk_and ctx [ pi_to_expr ctx pi1; pi_to_expr ctx pi2 ]
+  | Or (pi1, pi2)       -> Z3.Boolean.mk_or ctx [ pi_to_expr ctx pi1; pi_to_expr ctx pi2 ]
+  (*| Imply (pi1, pi2)    -> Z3.Boolean.mk_implies ctx (pi_to_expr ctx pi1) (pi_to_expr ctx pi2)
+  *)
+  | Not pi              -> Z3.Boolean.mk_not ctx (pi_to_expr ctx pi)
+
+
+let check pi =
+  let cfg = [ ("model", "false"); ("proof", "false") ] in
+  let ctx = mk_context cfg in
+  let expr = pi_to_expr ctx pi in
+  (* print_endline (Expr.to_string expr); *)
+  let goal = Goal.mk_goal ctx true true false in
+  (* print_endline (Goal.to_string goal); *)
+  Goal.add goal [ expr ];
+  let solver = Solver.mk_simple_solver ctx in
+  List.iter (fun a -> Solver.add solver [ a ]) (Goal.get_formulas goal);
+  let sat = Solver.check solver [] == Solver.SATISFIABLE in
+  (* print_endline (Solver.to_string solver); *)
+  sat
+
+let askZ3 pi = 
+  match existInhistoryTable pi !historyTable with 
+  | Some b  -> b
+  | None ->
+  
+  let _ = counter := !counter + 1 in 
+  let re = check pi in 
+  let ()= historyTable := (string_of_pi pi, re)::!historyTable in 
+  
+  re;;
+
+
+let entailConstrains pi1 pi2 = 
+
+  let sat = not (askZ3 (Not (Or (Not pi1, pi2)))) in
+  (*
+  print_string (showPure pi1 ^" -> " ^ showPure pi2 ^" == ");
+  print_string (string_of_bool (sat) ^ "\n");
+  *)
+  sat;;
+
+let normalPure (pi:pi):pi = 
+  let allPi = getAllPi pi [] in
+  let rec clear_Pi pi li = 
+    (match li with 
+      [] -> [pi]
+    | x :: xs -> if existPi pi li then clear_Pi x xs else [pi] @ (clear_Pi x xs)
+    )in 
+  let finalPi = clear_Pi True allPi in
+  let rec connectPi li acc = 
+    (match li with 
+      [] -> acc 
+    | x :: xs -> if entailConstrains True x then (connectPi xs acc) else And (x, (connectPi xs acc)) 
+    ) in 
+  let filte_true = List.filter (fun ele-> not (comparePure ele True)  ) finalPi in 
+  if List.length filte_true == 0 then  True
+  else connectPi (List.tl filte_true) (List.hd filte_true)
+  ;;
+
+
+
+
+
+let rec kappaToPure kappa : pi =
+  match kappa with 
+  | EmptyHeap -> True
+  | PointsTo (str, t) -> Atomic(EQ, Var str, t)
+  | SepConj (k1, k2) -> And (kappaToPure k1, kappaToPure k2)
+  | MagicWand (_, _) -> failwith "kappaToPure unimplemented"
+
+  (* | Implication (k1, k2) -> Imply (kappaToPure k1, kappaToPure k2) *)
+
+
+
+
+
 
 let string_of_instant (str, ar_Li): string = 
   (* syntax is like OCaml type constructors, e.g. Foo, Foo (), Foo (1, ()) *)
@@ -168,32 +362,23 @@ let rec string_of_kappa (k:kappa) : string =
   | MagicWand (k1, k2) -> "(" ^ string_of_kappa k1 ^ "-*" ^ string_of_kappa k2  ^ ")"
   (* | Implication (k1, k2) -> string_of_kappa k1 ^ "-*" ^ string_of_kappa k2  *)
 
-let rec string_of_pi pi : string = 
-  match pi with 
-  | True -> "true"
-  | False -> "false"
-  | Atomic (op, t1, t2) -> string_of_term t1 ^ string_of_bin_op op ^ string_of_term t2
-  | And   (p1, p2) -> string_of_pi p1 ^ "/\\" ^ string_of_pi p2
-  | Or     (p1, p2) -> string_of_pi p1 ^ "\\/" ^ string_of_pi p2
-  | Imply  (p1, p2) -> string_of_pi p1 ^ "->" ^ string_of_pi p2
-  | Not    p -> "!" ^ string_of_pi p
-  | Predicate (str, t) -> str ^ "(" ^ string_of_term t ^ ")"
 
 let string_of_stages (st:stagedSpec) : string =
   match st with
   | Require (p, h) ->
-    Format.asprintf "req %s /\\ %s" (string_of_pi p) (string_of_kappa h)
+    Format.asprintf "req %s /\\ %s; " (string_of_pi p) (string_of_kappa h)
   | HigherOrder (f, args) ->
-    Format.asprintf "%s$(%s)" f (string_of_args args)
+    Format.asprintf "%s$(%s); " f (string_of_args args)
   | NormalReturn (pi, heap, ret) ->
-    Format.asprintf "Norm(%s, %s,  %s)" (string_of_kappa heap) (string_of_pi pi)  (string_of_term ret) (*string_of_args args*)
+    Format.asprintf "Norm(%s, %s,  %s); " (string_of_kappa heap) (string_of_pi pi)  (string_of_term ret) (*string_of_args args*)
   | RaisingEff (pi, heap, (name, args), ret) ->
-    Format.asprintf "%s(%s, %s, %s, %s)" name (string_of_kappa heap) (string_of_pi pi)  (string_of_args args) (string_of_term ret)
+    Format.asprintf "%s(%s, %s, %s, %s); " name (string_of_kappa heap) (string_of_pi pi)  (string_of_args args) (string_of_term ret)
+  | Exists [] -> ""
   | Exists vs ->
-    Format.asprintf "ex %s" (String.concat " " vs)
+    Format.asprintf "ex %s; " (String.concat " " vs)
 
 let string_of_spec (spec:spec) :string =
-  spec |> List.map string_of_stages |> String.concat "; "
+  spec |> List.map string_of_stages |> String.concat ""
 
 let rec string_of_spec_list (specs:spec list) : string = 
   match specs with 
