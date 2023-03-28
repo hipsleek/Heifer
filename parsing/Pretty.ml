@@ -70,6 +70,15 @@ let get_children = function
     | Leaf -> []
     | Node (_, li) -> List.filter ((<>) Leaf) li;;
 
+let rule ?(children=[]) fmt = Format.kasprintf (fun s -> Node (s, children)) fmt
+
+type proof = binary_tree
+
+let string_of_proof tree = printTree
+~line_prefix:"│"
+(* ~line_prefix:" " *)
+~get_name ~get_children tree
+
 let rec input_lines file =
   match try [input_line file] with End_of_file -> [] with
    [] -> []
@@ -268,19 +277,28 @@ let rec pi_to_expr ctx : pi -> Expr.expr = function
   | Not pi              -> Z3.Boolean.mk_not ctx (pi_to_expr ctx pi)
 
 
-let check pi =
+let check ?(debug=false) ?(postprocess_expr=fun _ctx e -> e) pi =
   let cfg = [ ("model", "false"); ("proof", "false") ] in
   let ctx = mk_context cfg in
   let expr = pi_to_expr ctx pi in
-  (* print_endline (Expr.to_string expr); *)
+  let expr = postprocess_expr ctx expr in
+  if debug then Format.printf "z3: %s@." (Expr.to_string expr);
   let goal = Goal.mk_goal ctx true true false in
-  (* print_endline (Goal.to_string goal); *)
+  (* if debug then print_endline (Goal.to_string goal); *)
   Goal.add goal [ expr ];
   let solver = Solver.mk_simple_solver ctx in
   List.iter (fun a -> Solver.add solver [ a ]) (Goal.get_formulas goal);
   let sat = Solver.check solver [] == Solver.SATISFIABLE in
-  (* print_endline (Solver.to_string solver); *)
+  if debug then Format.printf "sat: %b@." sat;
   sat
+
+(* this is a separate function which doesn't cache results because exists isn't in pi *)
+let askZ3_exists vars pi = 
+  let postprocess_expr ctx e =
+    let int_sort = Z3.Arithmetic.Integer.mk_sort ctx in
+    Z3.Quantifier.(expr_of_quantifier (mk_exists ctx (List.map (fun _ -> int_sort) vars) (List.map (Z3.Symbol.mk_string ctx) vars) e None [] [] None None))
+  in
+  check ~debug:false ~postprocess_expr pi
 
 let askZ3 pi = 
   match existInhistoryTable pi !historyTable with 

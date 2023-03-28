@@ -788,9 +788,12 @@ and infer_of_expression (env:meth_def list) (current:spec list) (expr:core_lang)
     (match retriveSpecFromSpec fname env with 
     | None -> failwith ("no implemnetation of " ^ fname )
     | Some  (formalArgs, spec_of_fname) -> 
+<<<<<<< HEAD
       (*print_endline ("formal:" ^ (formalArgs |> String.concat ", ")      );
       print_endline ("actual:" ^ string_of_args actualArgs);
       *)
+=======
+>>>>>>> 36f43de1461aa97e2094a450ebaf28d614eb3a6c
       let bindings = bindFormalNActual formalArgs actualArgs in 
       let instantiatedSpec =  instantiateSpecList bindings spec_of_fname in 
       concatenateSpecsWithSpec current instantiatedSpec  
@@ -1308,7 +1311,6 @@ let transform_str env (s : structure_item) =
     begin match fn.pexp_desc with
     | Pexp_fun (_, _, _, body) ->
       let formals = collect_param_names fn in
-      Format.printf "formals: %a@." (Format.pp_print_list Format.pp_print_string) formals;
       let spec =
         match function_spec body with
         | None -> [] 
