@@ -714,7 +714,7 @@ let rec lookforHandlingCases ops (label:string) =
     then Some (arg, expr) 
     else lookforHandlingCases xs label 
 
-let (continueationCxt: ((spec * term) option) ref)  = ref None 
+let (continueationCxt: ((spec * term * (string * core_lang) * core_handler_ops) option) ref)  = ref None 
 
 let rec handling_spec env (spec:normalisedStagedSpec) (normal:(string * core_lang)) (ops:core_handler_ops) : spec list = 
   let (normFormalArg, expRet) = normal in 
@@ -738,7 +738,7 @@ let rec handling_spec env (spec:normalisedStagedSpec) (normal:(string * core_lan
       in 
       let current = [Exists existiental; Require(p1, h1); 
         NormalReturn(And(p2, pure), h2, UNIT)] in 
-      let () = continueationCxt := Some (normalisedStagedSpec2Spec (xs, normalS),  ret) in 
+      let () = continueationCxt := Some (normalisedStagedSpec2Spec (xs, normalS),  ret, normal, ops) in 
       let temp = infer_of_expression env [current] exprEff in 
       let () = continueationCxt := None in 
       temp
@@ -797,7 +797,11 @@ and infer_of_expression (env:meth_def list) (current:spec list) (expr:core_lang)
     [RaisingEff(True, EmptyHeap, (label,arg), Var freshVar)]
 
 
-  | CResume _ -> failwith "infer_of_expression CResume"
+  | CResume v ->  
+      match !continueationCxt with 
+      | None -> failwith "resume in a wrong context"
+      | Some (continue_spec, ret) -> 
+      
 
   | CFunCall (fname, actualArgs) -> 
     if String.compare fname "+" == 0 then 
