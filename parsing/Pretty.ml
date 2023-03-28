@@ -403,3 +403,115 @@ let string_of_coreLang_kind (expr:core_lang): string =
   | CPerform  _ -> "CPerform"
   | CMatch  _ -> "CMatch"
   | CResume  _ -> "CResume"
+
+
+let rec domainOfHeap (h:kappa) : string list = 
+  match h with 
+  | EmptyHeap -> []
+  | PointsTo (str, _) -> [str]
+  | SepConj (k1, k2) -> (domainOfHeap k1) @ (domainOfHeap k2)
+  | MagicWand (k1, k2) -> (domainOfHeap k1) @ (domainOfHeap k2)
+
+
+let overlap domain1 domain2 : bool = 
+  let rec exists str li  = 
+    match li with 
+    | [] -> false 
+    | x :: xs -> if String.compare x str == 0 then true else exists str xs 
+  in 
+  let rec iterateh1 li = 
+    match li with
+    | [] -> false 
+    | y::ys -> if exists y domain2 then true else iterateh1 ys
+  in iterateh1 domain1
+
+let domainOverlap h1 h2 = 
+  let domain1 = domainOfHeap h1 in 
+  let domain2 = domainOfHeap h2 in 
+  overlap domain1 domain2
+
+
+let () = assert (overlap ["x"] ["x"] = true)
+let () = assert (overlap ["x"] ["y"] = false)
+let () = assert (overlap ["x"] [] = false)
+
+let () = assert (overlap ["x";"y"] ["y";"z"] = true )
+
+let normaliseHeap (h) : (kappa * pi) = 
+  match h with 
+  | MagicWand (EmptyHeap, h1) -> (h1, True)
+  | MagicWand (_, EmptyHeap) -> (EmptyHeap, True)
+  | MagicWand (PointsTo (s1, t1), PointsTo (s2, t2)) -> 
+    if String.compare s1 s2 == 0 then (EmptyHeap, Atomic(EQ, t1, t2))
+    else (h, True)
+  | SepConj (PointsTo (s1, t1), PointsTo (s2, t2)) -> 
+    if String.compare s1 s2 == 0 then (PointsTo (s1, t1), Atomic(EQ, t1, t2))
+    else (h, True)
+
+
+  | SepConj (EmptyHeap, h1) -> (h1, True)
+  | SepConj (h1, EmptyHeap) -> (h1, True)
+  | _ -> (h, True)
+
+let mergeEns (pi1, h1) (pi2, h2) = 
+  (*if domainOverlap h1 h2 then failwith "domainOverlap in mergeEns"
+  else 
+  *)
+  let (heap, unification) = normaliseHeap (SepConj (h1, h2)) in 
+  (normalPure (And(And (pi1, pi2), unification)), heap)
+
+
+
+let normalise_stagedSpec (acc:normalisedStagedSpec) (stagedSpec:stagedSpec) : normalisedStagedSpec = 
+  let (effectStages, normalStage) = acc in 
+  let (existential, req, ens, ret) = normalStage in 
+  match stagedSpec with
+  | Exists li -> (effectStages, (existential@li, req, ens, ret))
+  | Require (pi, heap) -> 
+    let (_, h2) = ens in 
+    let (magicWandHeap, unification) = normaliseHeap (MagicWand (h2, heap)) in 
+    let normalStage' = (existential, mergeEns req (And(pi, unification), magicWandHeap), ens, ret) in 
+    (effectStages, normalStage')
+
+  (* higher-order functions *)
+  | NormalReturn (pi, heap, ret') -> (effectStages, (existential, req, mergeEns ens (pi, heap), ret'))
+  | HigherOrder _ -> failwith "later "
+  (* effects *)
+  | RaisingEff (pi, heap,ins, ret') -> 
+    (effectStages@[(existential, req, mergeEns ens (pi, heap), ins , ret')], freshNoramlStage)
+
+let rec normalise_spec (acc:normalisedStagedSpec) (spec:spec) : normalisedStagedSpec = 
+  match spec with 
+  | [] -> acc 
+  | x :: xs -> 
+    let acc' = normalise_stagedSpec acc x in 
+    normalise_spec acc' xs 
+
+let rec effectStage2Spec (effectStages:effectStage list ) : spec = 
+  match effectStages with
+  | [] -> []
+  | (existiental, (p1, h1), (p2, h2), ins, ret) :: xs  -> 
+    (match (p1, h1) with 
+    | (True, EmptyHeap) -> [Exists existiental; RaisingEff(p2, h2, ins, ret)] 
+    | _ -> [Exists existiental; Require(p1, h1); RaisingEff(p2, h2, ins, ret)]) 
+    @ effectStage2Spec xs 
+
+let normalStage2Spec (normalStage:normalStage ) : spec = 
+  match normalStage with
+  | ([], (True, EmptyHeap), (True, EmptyHeap), UNIT)  -> []  
+  | (existiental, (p1, h1), (p2, h2), ret)   -> 
+    [Exists existiental; Require(p1, h1); NormalReturn(p2, h2, ret)] 
+
+
+
+let normalisedStagedSpec2Spec (normalisedStagedSpec:normalisedStagedSpec) : spec  = 
+  let (effS, normalS) = normalisedStagedSpec in 
+  effectStage2Spec effS @ normalStage2Spec normalS
+
+
+let normalise_spec_list (specLi:spec list): spec list = 
+  List.map (fun a -> 
+    let normalisedStagedSpec = normalise_spec ([], freshNoramlStage) a in 
+    normalisedStagedSpec2Spec normalisedStagedSpec
+    
+  ) specLi

@@ -2,24 +2,8 @@
 open Types
 open Pretty
 
-let rec effectStaged2Spec (effectStages:effectStage list ) : spec = 
-  match effectStages with
-  | [] -> []
-  | (existiental, (p1, h1), (p2, h2), ins, ret) :: xs  -> 
-    (match (p1, h1) with 
-    | (True, EmptyHeap) -> [Exists existiental; RaisingEff(p2, h2, ins, ret)] 
-    | _ -> [Exists existiental; Require(p1, h1); RaisingEff(p2, h2, ins, ret)]) 
-    @ effectStaged2Spec xs 
-
-let normalStaged2Spec (normalStage:normalStage ) : spec = 
-  match normalStage with
-  | (existiental, (p1, h1), (p2, h2), ret)   -> 
-    [Exists existiental; Require(p1, h1); NormalReturn(p2, h2, ret)] 
 
 
-let normalisedStagedSpec2Spec (normalisedStagedSpec:normalisedStagedSpec) : spec  = 
-  let (effS, normalS) = normalisedStagedSpec in 
-  effectStaged2Spec effS @ normalStaged2Spec normalS
 
 let string_of_option to_s o :string =
   match o with

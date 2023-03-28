@@ -431,55 +431,6 @@ let rec find_arg_formal name full: string list =
 
 ;;
 
-(*
-let rec eliminatePartial (es:es) env :es = 
-  match es with
-
-  | Send (eff_name, arg_list) ->
-    let eff_arg_length = List.length  arg_list in 
-    let eff_formal_arg_length = Env.find_effect_arg_length eff_name env in 
-    (match eff_formal_arg_length with 
-    | None -> raise (Foo (eff_name ^ " is not defined"))
-    | Some n -> 
-      (*if String.compare eff_name "Goo" == 0 then 
-      raise (Foo (string_of_int eff_arg_length ^ ":"^ string_of_int n))
-      else 
-      *)
-      (*4 Q when it is at the end, no need to add Q *)
-      if eff_arg_length < n || eff_arg_length == 0 then Emp else es 
-    )
-
-
-  | Cons (es1, es2) ->  Cons (eliminatePartial es1 env, eliminatePartial es2 env)
-      
-  | ESOr (es1, es2) -> ESOr (eliminatePartial es1 env, eliminatePartial es2 env)
-      
-  | Omega es1 -> Omega (eliminatePartial es1 env)
-      
-  | Kleene es1 -> Kleene (eliminatePartial es1 env)
-
-  | Bot -> es
-  | Emp -> es
-  | Event _ -> es
-  | Not _ -> es 
-  | Underline -> es
-  | Stop -> raise (Foo "eliminatePartial")
-
-      
-
-
-
-  ;;
-
-let eliminatePartiaShall spec env : spec = 
-  let (pi, es, side) = spec in 
-  (pi, eliminatePartial es env, side);;
-
-
-
-
-
-*)
 
   
 
@@ -498,8 +449,6 @@ let rec findbinding str vb_li =
     | (name, v) :: xs -> if String.compare name str == 0 then v else  findbinding str xs
 
 
-
-  
 
 
 let rec string_of_list (li: 'a list ) (f : 'a -> 'b) : string = 
@@ -609,41 +558,13 @@ let deleteTailSYH  (li:'a list) =
 
 
 
-(* let rec expressionToTerm (exprIn: Parsetree.expression_desc) : term = 
-  match exprIn with 
-    | Pexp_constant (Pconst_integer (str, _)) -> (Num (int_of_string str))
-    | Pexp_ident id -> 
-      
-      let lhs = getIndentName (id.txt) in 
-      Var (lhs)
-
-    | Pexp_apply (_, exprInLi) -> 
-      let (_, temp) =  (List.hd exprInLi) in
-      (match temp.pexp_desc with 
-      | Pexp_ident id -> Var (getIndentName (id.txt) )
-      | _ -> raise (Foo "ai you ... 1")
-      )
-    | Pexp_construct (_, Some expr) -> 
-      (*print_string ( Pprintast.string_of_expression  expr^ "\n" );*)
-      expressionToTerm expr.pexp_desc
-
-    | Pexp_tuple (exprLi) -> 
-      if List.length exprLi == 0 then TTupple []
-      else 
-      (match (getLastEleFromList exprLi).pexp_desc with 
-      | Pexp_construct (_, None) -> (* it is a list*)
-        TList (List.map (fun a -> expressionToTerm a.pexp_desc) (  deleteTailSYH exprLi)) 
-      | _ -> (* it is a tuple*)
-        TTupple (List.map (fun a -> expressionToTerm a.pexp_desc) exprLi)  ) 
-    | _ -> raise (Foo ("ai you ... helper" ^ string_of_expression_kind (exprIn) ) ) *)
-
-
 let rec sl_dom (h:kappa) =
   match h with
   | EmptyHeap -> []
   | PointsTo (s, _) -> [s]
   | SepConj (a, b) -> sl_dom a @ sl_dom b
-  | MagicWand (a, b) -> sl_dom a @ sl_dom b
+  | MagicWand (_, _) -> failwith "sl_dom"
+  (*  sl_dom b - sl_dom a *)
 
 
 let intersect xs ys =
@@ -773,7 +694,11 @@ let instantiateStages (bindings:((string * core_value) list))  (stagedSpec:stage
     List.map (fun bt -> instantiateTerms bindings bt) basic_t_list
     ),  instantiateTerms bindings ret) 
 
+let handling_spec (spec:spec) ((normFormalArg, expRet):(string * core_lang)) (ops:core_handler_ops) : spec list = 
+  let normalise_spec = normalise_spec  ([], freshNoramlStage) spec in 
+  []
 
+ 
 
 
 let instantiateSpec (bindings:((string * core_value) list)) (sepc:spec) : spec = 
@@ -872,13 +797,20 @@ let rec infer_of_expression (env:meth_def list) (current:spec list) (expr:core_l
     (infer_of_expression env currentElse expr3)
 
 
-  | _ -> failwith "infer_of_expression TBD"
+  | CMatch (expr1, (normFormalArg, expRet), ops) ->
+    let phi1 = infer_of_expression env [freshNormalReturnSpec] expr1 in 
+    let afterHanldering = List.flatten (
+      List.map (fun spec -> 
+        handling_spec spec  (normFormalArg, expRet) ops
+      ) phi1
+    ) in 
+    concatenateSpecsWithSpec current afterHanldering
+
  (*
 
 
 
     
-  | CMatch of core_lang * (string * core_lang) * core_handler_ops
 *)
 
 
@@ -1491,96 +1423,6 @@ let debug_tokens str =
   let s = tokens |> List.map Debug.string_of_token |> String.concat " " in
   Format.printf "%s@." s
 
-let rec domainOfHeap (h:kappa) : string list = 
-  match h with 
-  | EmptyHeap -> []
-  | PointsTo (str, _) -> [str]
-  | SepConj (k1, k2) -> (domainOfHeap k1) @ (domainOfHeap k2)
-  | MagicWand (k1, k2) -> (domainOfHeap k1) @ (domainOfHeap k2)
-
-
-let overlap domain1 domain2 : bool = 
-  let rec exists str li  = 
-    match li with 
-    | [] -> false 
-    | x :: xs -> if String.compare x str == 0 then true else exists str xs 
-  in 
-  let rec iterateh1 li = 
-    match li with
-    | [] -> false 
-    | y::ys -> if exists y domain2 then true else iterateh1 ys
-  in iterateh1 domain1
-
-let domainOverlap h1 h2 = 
-  let domain1 = domainOfHeap h1 in 
-  let domain2 = domainOfHeap h2 in 
-  overlap domain1 domain2
-
-
-let () = assert (overlap ["x"] ["x"] = true)
-let () = assert (overlap ["x"] ["y"] = false)
-let () = assert (overlap ["x"] [] = false)
-
-let () = assert (overlap ["x";"y"] ["y";"z"] = true )
-
-let normaliseHeap (h) : (kappa * pi) = 
-  match h with 
-  | MagicWand (EmptyHeap, h1) -> (h1, True)
-  | MagicWand (_, EmptyHeap) -> (EmptyHeap, True)
-  | MagicWand (PointsTo (s1, t1), PointsTo (s2, t2)) -> 
-    if String.compare s1 s2 == 0 then (EmptyHeap, Atomic(EQ, t1, t2))
-    else (h, True)
-  | SepConj (PointsTo (s1, t1), PointsTo (s2, t2)) -> 
-    if String.compare s1 s2 == 0 then (PointsTo (s1, t1), Atomic(EQ, t1, t2))
-    else (h, True)
-
-
-  | SepConj (EmptyHeap, h1) -> (h1, True)
-  | SepConj (h1, EmptyHeap) -> (h1, True)
-  | _ -> (h, True)
-
-let mergeEns (pi1, h1) (pi2, h2) = 
-  (*if domainOverlap h1 h2 then failwith "domainOverlap in mergeEns"
-  else 
-  *)
-  let (heap, unification) = normaliseHeap (SepConj (h1, h2)) in 
-  (normalPure (And(And (pi1, pi2), unification)), heap)
-
-
-
-let normalization_stagedSpec (acc:normalisedStagedSpec) (stagedSpec:stagedSpec) : normalisedStagedSpec = 
-  let (effectStages, normalStage) = acc in 
-  let (existential, req, ens, ret) = normalStage in 
-  match stagedSpec with
-  | Exists li -> (effectStages, (existential@li, req, ens, ret))
-  | Require (pi, heap) -> 
-    let (_, h2) = ens in 
-    let (magicWandHeap, unification) = normaliseHeap (MagicWand (h2, heap)) in 
-    let normalStage' = (existential, mergeEns req (And(pi, unification), magicWandHeap), ens, ret) in 
-    (effectStages, normalStage')
-
-  (* higher-order functions *)
-  | NormalReturn (pi, heap, ret') -> (effectStages, (existential, req, mergeEns ens (pi, heap), ret'))
-  | HigherOrder _ -> failwith "later "
-  (* effects *)
-  | RaisingEff (pi, heap,ins, ret') -> 
-    (effectStages@[(existential, req, mergeEns ens (pi, heap), ins , ret')], freshNoramlStage)
-
-let rec normalization_spec (acc:normalisedStagedSpec) (spec:spec) : normalisedStagedSpec = 
-  match spec with 
-  | [] -> acc 
-  | x :: xs -> 
-    let acc' = normalization_stagedSpec acc x in 
-    normalization_spec acc' xs 
-
-
-
-let normalization_spec_list (specLi:spec list): spec list = 
-  List.map (fun a -> 
-    let normalisedStagedSpec = normalization_spec ([], freshNoramlStage) a in 
-    normalisedStagedSpec2Spec normalisedStagedSpec
-    
-  ) specLi
 
 
 let () =
@@ -1606,9 +1448,9 @@ print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
         let header =
           "\n========== Function: "^ _name ^" ==========\n" ^
           "[Specification] " ^ string_of_spec_list spec ^"\n"^          
-          "[Normed   Spec] " ^ string_of_spec_list (normalization_spec_list  spec) ^"\n\n"^          
+          "[Normed   Spec] " ^ string_of_spec_list ((normalise_spec_list  spec)) ^"\n\n"^          
           "[Raw Post Spec] " ^ string_of_spec_list _spec1 ^ "\n" ^ 
-          "[Normed   Post] " ^ string_of_spec_list (normalization_spec_list  _spec1) ^"\n"
+          "[Normed   Post] " ^ string_of_spec_list ((normalise_spec_list  _spec1)) ^"\n"
         in 
         print_string (header)
       ) methods;

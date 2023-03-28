@@ -6,7 +6,7 @@ let test ()
    Zero(emp, ret);
    req i->z; Norm(i->z+1, ());
    req i->1;
-   Norm(i->1, ())
+   Norm(i->1, ret)
 @*)
 =
   let i = Sys.opaque_identity (ref 0) in 
