@@ -874,14 +874,13 @@ let rec transformation (env:string list) (expr:expression) : core_lang =
   match expr.pexp_desc with 
   | Pexp_ident {txt=Lident i; _} ->
     CValue (Var i)
+  | Pexp_construct ({txt=Lident "()"; _}, None) ->
+    CValue (UNIT)
   | Pexp_constant c ->
     begin match c with
     | Pconst_integer (i, _) -> CValue (Num (int_of_string i))
     | _ -> failwith (Format.asprintf "unknown kind of constant: %a" Pprintast.expression expr)
     end
-  (* | Pexp_construct _  *)
-  (* | Pexp_ident _ -> [(True, Emp, dealWithNormalReturn env expr) ]
-  | Pexp_sequence (ex1, ex2) ->  *)
   | Pexp_fun _ ->
     failwith "only for higher-order, TBD"
   | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, ((_, {pexp_desc = Pexp_construct ({txt=Lident eff; _}, _); _}) :: rest)) when name = "perform" ->
