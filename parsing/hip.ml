@@ -932,6 +932,8 @@ let primitives = ["+"; "-"]
 (** the env just tracks the names of bound functions *)
 let rec transformation (env:string list) (expr:expression) : core_lang =
   match expr.pexp_desc with 
+  | Pexp_ident {txt=Lident i; _} ->
+    CValue (Var i)
   | Pexp_constant c ->
     begin match c with
     | Pconst_integer (i, _) -> CValue (Num (int_of_string i))
