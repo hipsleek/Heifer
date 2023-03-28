@@ -1303,10 +1303,11 @@ let transform_str env (s : structure_item) =
   match s.pstr_desc with
   | Pstr_value (_rec_flag, vb::_vbs_) ->
     let fn_name = string_of_pattern vb.pvb_pat in
-    let body = vb.pvb_expr in
-    begin match body.pexp_desc with
+    let fn = vb.pvb_expr in
+    begin match fn.pexp_desc with
     | Pexp_fun (_, _, _, body) ->
-      let formals = collect_param_names body in
+      let formals = collect_param_names fn in
+      Format.printf "formals: %a@." (Format.pp_print_list Format.pp_print_string) formals;
       let spec =
         match function_spec body with
         | None -> [] 
@@ -1315,7 +1316,7 @@ let transform_str env (s : structure_item) =
       let e = transformation env body in
       `Meth (fn_name, formals, spec, e)
     | _ ->
-      failwith (Format.asprintf "not a function binding: %a" Pprintast.expression body)
+      failwith (Format.asprintf "not a function binding: %a" Pprintast.expression fn)
     end
 
   (* let final =  (infer_of_expression env [[NormalReturn (True, EmptyHeap,  UNIT)]] (transformation body)) in *)
