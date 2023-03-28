@@ -274,48 +274,48 @@ module Normalize = struct
     in
     if false then to_fixed_point one_pass spec else one_pass spec |> fst
 
-  (* let%expect_test "normalize" =
-     let test name s =
-       Format.printf "--- %s\n%s\n%s\n@." name (string_of_spec s)
-         (normalize s |> string_of_spec)
-     in
-     test "inert"
-       [
-         Require (True, PointsTo ("x", Num 1));
-         NormalReturn (True, PointsTo ("x", Num 1), UNIT);
-       ];
-     test "rule 4"
-       [
-         NormalReturn (True, PointsTo ("x", Num 1), UNIT);
-         Require (True, PointsTo ("y", Num 1));
-       ];
-     test "rule 3 (TODO heap entailment)"
-       [
-         NormalReturn (True, PointsTo ("x", Num 1), UNIT);
-         Require (True, PointsTo ("x", Num 2));
-       ];
-     test "rule 1"
-       [
-         Require (True, PointsTo ("x", Num 2));
-         Require (True, PointsTo ("y", Num 2));
-       ];
-     test "rule 1 weird"
-       [
-         Require (True, PointsTo ("x", Num 2));
-         Require (True, PointsTo ("x", Num 2));
-       ];
-     test "rule 2"
-       [
-         NormalReturn (True, PointsTo ("x", Num 1), UNIT);
-         NormalReturn (True, PointsTo ("y", Num 1), UNIT);
-       ];
-     test "rule 2 weird"
-       [
-         NormalReturn (True, PointsTo ("x", Num 1), UNIT);
-         NormalReturn (True, PointsTo ("x", Num 1), UNIT);
-       ];
-     [%expect
-       {|
+  let%expect_test "normalize" =
+    let test name s =
+      Format.printf "--- %s\n%s\n%s\n@." name (string_of_spec s)
+        (normalize s |> string_of_spec)
+    in
+    test "inert"
+      [
+        Require (True, PointsTo ("x", Num 1));
+        NormalReturn (True, PointsTo ("x", Num 1), UNIT);
+      ];
+    test "rule 4"
+      [
+        NormalReturn (True, PointsTo ("x", Num 1), UNIT);
+        Require (True, PointsTo ("y", Num 1));
+      ];
+    test "rule 3 (TODO prob wrong)"
+      [
+        NormalReturn (True, PointsTo ("x", Num 1), UNIT);
+        Require (True, PointsTo ("x", Num 2));
+      ];
+    test "rule 1"
+      [
+        Require (True, PointsTo ("x", Num 2));
+        Require (True, PointsTo ("y", Num 2));
+      ];
+    test "rule 1 weird"
+      [
+        Require (True, PointsTo ("x", Num 2));
+        Require (True, PointsTo ("x", Num 2));
+      ];
+    test "rule 2"
+      [
+        NormalReturn (True, PointsTo ("x", Num 1), UNIT);
+        NormalReturn (True, PointsTo ("y", Num 1), UNIT);
+      ];
+    test "rule 2 weird"
+      [
+        NormalReturn (True, PointsTo ("x", Num 1), UNIT);
+        NormalReturn (True, PointsTo ("x", Num 1), UNIT);
+      ];
+    [%expect
+      {|
          --- inert
          req T /\ x->1; Norm(x->1 /\ T, ())
          req T /\ x->1; Norm(x->1 /\ T, ())
@@ -324,9 +324,9 @@ module Normalize = struct
          Norm(x->1 /\ T, ()); req T /\ y->1
          req T /\ y->1; Norm(x->1 /\ T, ())
 
-         --- rule 3 (TODO heap entailment)
+         --- rule 3 (TODO prob wrong)
          Norm(x->1 /\ T, ()); req T /\ x->2
-         Norm(x->1 /\ T, ()); req T /\ x->2
+         Norm(emp /\ T/\T/\2=1, ())
 
          --- rule 1
          req T /\ x->2; req T /\ y->2
@@ -342,5 +342,5 @@ module Normalize = struct
 
          --- rule 2 weird
          Norm(x->1 /\ T, ()); Norm(x->1 /\ T, ())
-         Norm(x->1*x->1 /\ T/\T, ()) |}] *)
+         Norm(x->1*x->1 /\ T/\T, ()) |}]
 end
