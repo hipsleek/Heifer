@@ -499,10 +499,34 @@ let rec effectStage2Spec (effectStages:effectStage list ) : spec =
     @ effectStage2Spec xs 
 
 let normalStage2Spec (normalStage:normalStage ) : spec = 
+  let (existiental, (p1, h1), (p2, h2), ret) = normalStage in 
+  (match existiental with 
+  | [] -> [] 
+  | _ -> [Exists existiental])
+  @
+  (match (p1, h1) with 
+  | (True, EmptyHeap) -> []
+  | _ -> [Require(p1, h1)])
+  @
+  (match (p2, h2, ret) with 
+  | (True, EmptyHeap, UNIT) -> []
+  | _ -> [NormalReturn(p2, h2, ret)])
+
+
+
+
+(*
   match normalStage with
   | ([], (True, EmptyHeap), (True, EmptyHeap), UNIT)  -> []  
+  | ([], (True, EmptyHeap), (p2, h2), ret)   -> 
+    [NormalReturn(p2, h2, ret)] 
+  | ([], (p1, h1), (p2, h2), ret)   -> 
+    [Require(p1, h1); NormalReturn(p2, h2, ret)] 
   | (existiental, (p1, h1), (p2, h2), ret)   -> 
     [Exists existiental; Require(p1, h1); NormalReturn(p2, h2, ret)] 
+
+
+*)
 
 
 

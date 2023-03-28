@@ -1,41 +1,30 @@
-effect Zero : unit
+effect Zero : int 
+effect Once : int 
+effect Twice : int 
 
 let test () 
 (*@ ex i ret z u;
-   Norm(i->0, ());
-   Zero(emp, ret);
-   req i->z; Norm(i->z+1, ());
-   req i->1;
+   Zero(i->0, ret);
+   req i->0; 
    Norm(i->1, ret)
 @*)
 =
   let i = Sys.opaque_identity (ref 0) in 
-  let ret = perform Zero in 
+  let ret = perform Once in 
   i := !i + 1;
-  Printf.printf "i = %d\n%!" !i;
   assert (!i = 1);
   ret
-
 
 let main_aux ()
 (*@ ex x ret z u;
    Norm(i->2, ())
 @*)
 =
-  match callee2 () with
-  | v -> print_string ("Done 0 \n"); perform Done 
-  | effect Zero k -> ()
+  match test () with
+  | v -> v
+  | effect Zero k -> (-1)
   | effect Once k ->
-    (continue k ()); 
+    (continue k 1); 
   | effect Twice k ->
-    (continue (Obj.clone_continuation k) ()); (continue k ())
+    let _ = (continue (Obj.clone_continuation k) 1) in (continue k 2)
 
-
-let main ()
-(*@ 
-   Norm(emp, ())
-@*)
-= 
-  match main_aux () with 
-  | x ->  ()
-  | effect Done k -> print_string ("Done here\n"); continue k ()
