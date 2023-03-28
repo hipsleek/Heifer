@@ -195,7 +195,9 @@ let collect_param_names rhs =
             | _ -> raise (Foo "collect_param_names other type")
           )
         
-        | _ ->  []
+        | _ ->
+          (* dummy name for things like a unit pattern, so we at least have the same number of parameters *)
+          [verifier_getAfreeVar ()]
 
           (* we don't currently recurse inside patterns to pull out variables, so something like
 
