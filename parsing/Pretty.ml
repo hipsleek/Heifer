@@ -381,7 +381,12 @@ let rec string_of_kappa (k:kappa) : string =
   (* | Implication (k1, k2) -> string_of_kappa k1 ^ "-*" ^ string_of_kappa k2  *)
 
 let string_of_state (p, h) : string =
-  Format.asprintf "%s /\\ %s" (string_of_pi p) (string_of_kappa h)
+  match h, p with
+  | EmptyHeap, _ -> string_of_pi p
+  | _, True -> string_of_kappa h
+  | _ ->
+    (* Format.asprintf "%s /\\ %s" (string_of_kappa h) (string_of_pi p) *)
+    Format.asprintf "%s*%s" (string_of_kappa h) (string_of_pi p)
 
 let string_of_stages (st:stagedSpec) : string =
   match st with

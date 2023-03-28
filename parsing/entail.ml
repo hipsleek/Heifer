@@ -104,6 +104,7 @@ module Heap = struct
   let rec check :
       kappa -> string list -> state -> state -> (proof * state, proof) result =
    fun k vs a c ->
+    (* TODO we are probably not normalizing in all the right places, and there is no preprocessing to uniquely name variables *)
     let a = normalize a in
     let c = normalize c in
     match (a, c) with
@@ -171,22 +172,22 @@ module Heap = struct
     test (True, PointsTo ("x", Var "b")) (True, PointsTo ("x", Var "a"));
     [%expect
       {|
-      T /\ x->1 |- T /\ y->2 ==> FAIL
+      x->1 |- y->2 ==> FAIL
       │[ent-match] could not match y->2 on RHS
 
-      T /\ x->1 |- T /\ x->1 ==> 1=1 /\ emp
+      x->1 |- x->1 ==> 1=1
       │[ent-match] x
       │└── [ent-emp]
 
-      T /\ x->1*y->2 |- T /\ x->1 ==> 1=1 /\ emp
+      x->1*y->2 |- x->1 ==> 1=1
       │[ent-match] x
       │└── [ent-emp]
 
-      T /\ x->1 |- T /\ x->a ==> a=1 /\ emp
+      x->1 |- x->a ==> a=1
       │[ent-match] x
       │└── [ent-emp]
 
-      T /\ x->b |- T /\ x->a ==> a=b /\ emp
+      x->b |- x->a ==> a=b
       │[ent-match] x
       │└── [ent-emp] |}]
 end
