@@ -98,7 +98,8 @@ module Heap = struct
       let v = verifier_getAfreeVar () in
       And (Atomic (EQ, Var v, Var x), Atomic (GT, Var v, Num 0))
     | SepConj (a, b) -> And (xpure a, xpure b)
-    | MagicWand (_, _) -> failwith (Format.asprintf "xpure for magic wand")
+    | MagicWand (_, _) ->
+      failwith (Format.asprintf "xpure for magic wand not implemented")
 
   let rec check :
       kappa -> string list -> state -> state -> (proof * state, proof) result =
@@ -124,12 +125,18 @@ module Heap = struct
       | Some ((x, v), h2') -> begin
         (* match on h1 *)
         match split_find x h1 with
-        | Some (v1, h1') when v1 = v -> begin
-          match check (SepConj (k, PointsTo (x, v))) vs (p1, h1') (p2, h2') with
+        | Some (v1, h1') -> begin
+          match
+            check
+              (SepConj (k, PointsTo (x, v)))
+              vs
+              (And (p1, Atomic (EQ, v, v1)), h1')
+              (p2, h2')
+          with
           | Error s -> Error (rule ~children:[s] "[ent-match] %s" x)
           | Ok (pf, res) -> Ok (rule ~children:[pf] "[ent-match] %s" x, res)
         end
-        | _ ->
+        | None ->
           Error
             (rule "[ent-match] could not match %s->%s on RHS" x
                (string_of_term v))
@@ -160,15 +167,26 @@ module Heap = struct
     test
       (True, SepConj (PointsTo ("x", Num 1), PointsTo ("y", Num 2)))
       (True, PointsTo ("x", Num 1));
-    [%expect {|
+    test (True, PointsTo ("x", Num 1)) (True, PointsTo ("x", Var "a"));
+    test (True, PointsTo ("x", Var "b")) (True, PointsTo ("x", Var "a"));
+    [%expect
+      {|
       T /\ x->1 |- T /\ y->2 ==> FAIL
       │[ent-match] could not match y->2 on RHS
 
-      T /\ x->1 |- T /\ x->1 ==> T /\ emp
+      T /\ x->1 |- T /\ x->1 ==> 1=1 /\ emp
       │[ent-match] x
       │└── [ent-emp]
 
-      T /\ x->1*y->2 |- T /\ x->1 ==> T /\ emp
+      T /\ x->1*y->2 |- T /\ x->1 ==> 1=1 /\ emp
+      │[ent-match] x
+      │└── [ent-emp]
+
+      T /\ x->1 |- T /\ x->a ==> a=1 /\ emp
+      │[ent-match] x
+      │└── [ent-emp]
+
+      T /\ x->b |- T /\ x->a ==> a=b /\ emp
       │[ent-match] x
       │└── [ent-emp] |}]
 end
