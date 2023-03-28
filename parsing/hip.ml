@@ -6,7 +6,6 @@ open Asttypes
 open Rewriting
 open Pretty
 open Types
-open Entail
 
 let rec input_lines file =
   match try [input_line file] with End_of_file -> [] with
@@ -601,8 +600,12 @@ let normalize spec =
   in
   to_fixed_point spec
 
-let concatenateSpecsWithEvent (current:spec list) (event:stagedSpec list) :  spec list = 
+let concatenateSpecsWithEvent (current:spec list) (event:spec) :  spec list = 
   List.map (fun a -> List.append a event) current
+
+let concatenateEventWithSpecs  (event:spec) (current:spec list) :  spec list = 
+  List.map (fun a -> List.append event a ) current
+
 
 let concatenateSpecsWithSpec (current:spec list) (event:spec list) :  spec list = 
   let temp  = List.map (fun a -> concatenateSpecsWithEvent current a) event in 
@@ -694,11 +697,7 @@ let instantiateStages (bindings:((string * core_value) list))  (stagedSpec:stage
     List.map (fun bt -> instantiateTerms bindings bt) basic_t_list
     ),  instantiateTerms bindings ret) 
 
-let handling_spec (spec:spec) ((normFormalArg, expRet):(string * core_lang)) (ops:core_handler_ops) : spec list = 
-  let normalise_spec = normalise_spec  ([], freshNoramlStage) spec in 
-  []
 
- 
 
 
 let instantiateSpec (bindings:((string * core_value) list)) (sepc:spec) : spec = 
@@ -707,7 +706,42 @@ let instantiateSpec (bindings:((string * core_value) list)) (sepc:spec) : spec =
 let instantiateSpecList (bindings:((string * core_value) list)) (sepcs:spec list) : spec list =  
   List.map (fun a -> instantiateSpec bindings a ) sepcs
 
-let rec infer_of_expression (env:meth_def list) (current:spec list) (expr:core_lang): spec list = 
+let rec lookforHandlingCases ops (label:string) = 
+  match ops with 
+  | [] -> None
+  | (str, arg, expr)::xs -> 
+    if String.compare label str == 0 
+    then Some (arg, expr) 
+    else lookforHandlingCases xs label 
+
+let (continueationCxt: ((spec * term) option) ref)  = ref None 
+
+let rec handling_spec env (spec:normalisedStagedSpec) (normal:(string * core_lang)) (ops:core_handler_ops) : spec list = 
+  let (normFormalArg, expRet) = normal in 
+  let (effS, normalS) = spec in 
+  match effS with 
+  | [] -> 
+    let (existiental, (p1, h1), (p2, h2), ret) = normalS in 
+    let current = [Exists existiental; Require(p1, h1); 
+    NormalReturn(And(p2, Atomic(EQ, Var normFormalArg, ret)), h2, ret)] in 
+    infer_of_expression env [current] expRet
+  | x :: xs -> 
+    let (existiental, (p1, h1), (p2, h2), (label, effactualArgs), ret) = x in 
+    (match lookforHandlingCases ops label with 
+    | None -> concatenateEventWithSpecs (effectStage2Spec [x]) (handling_spec env (xs, normalS) normal ops )
+    | Some (effFormalArg, exprEff) -> 
+      let current = [Exists existiental; Require(p1, h1); 
+        NormalReturn(And(p2, Atomic(EQ, Var effFormalArg, effactualArg)), h2, UNIT)] in 
+      let () = continueationCxt := Some (normalisedStagedSpec2Spec (xs, normalS),  ret) in 
+      let temp = infer_of_expression env [current] exprEff in 
+      let () = continueationCxt := None in 
+      temp
+
+    )
+
+
+ 
+and infer_of_expression (env:meth_def list) (current:spec list) (expr:core_lang): spec list = 
   (*print_string (string_of_coreLang_kind expr ^ "\n"); *)
   match expr with
   | CValue v -> 
@@ -801,7 +835,7 @@ let rec infer_of_expression (env:meth_def list) (current:spec list) (expr:core_l
     let phi1 = infer_of_expression env [freshNormalReturnSpec] expr1 in 
     let afterHanldering = List.flatten (
       List.map (fun spec -> 
-        handling_spec spec  (normFormalArg, expRet) ops
+        handling_spec env (normalise_spec  ([], freshNoramlStage) spec)  (normFormalArg, expRet) ops
       ) phi1
     ) in 
     concatenateSpecsWithSpec current afterHanldering
