@@ -634,7 +634,6 @@ let rec instantiateHeap (bindings:((string * core_value) list)) (kappa:kappa) : 
     PointsTo (newName, instantiateTerms bindings t1)
 
   | SepConj (k1, k2) -> SepConj (instantiateHeap bindings k1, instantiateHeap bindings k2)
-  | MagicWand (k1, k2) -> MagicWand (instantiateHeap bindings k1, instantiateHeap bindings k2)
 
 
 
@@ -675,13 +674,16 @@ let rec lookforHandlingCases ops (label:string) =
 let (continueationCxt: ((spec * string * (string * core_lang) * core_handler_ops) option) ref)  = ref None 
 
 let rec handling_spec env (spec:normalisedStagedSpec) (normal:(string * core_lang)) (ops:core_handler_ops) : spec list = 
+  
+  (*print_endline("\nhandling_spec =====> " ^ string_of_spec (normalisedStagedSpec2Spec spec));
+*)
   let (normFormalArg, expRet) = normal in 
   let (effS, normalS) = spec in 
   match effS with 
   | [] -> 
     let (existiental, (p1, h1), (p2, h2), ret) = normalS in 
     let current = [Exists existiental; Require(p1, h1); 
-    NormalReturn(And(p2, Atomic(EQ, Var normFormalArg, ret)), h2, ret)] in 
+    NormalReturn(normalPure (And(p2, Atomic(EQ, Var normFormalArg, ret))), h2, ret)] in 
     infer_of_expression env [current] expRet
   | x :: xs -> 
     let (existiental, (p1, h1), (p2, h2), (label, effactualArgs), ret) = x in 
@@ -700,9 +702,12 @@ let rec handling_spec env (spec:normalisedStagedSpec) (normal:(string * core_lan
         | effactualArg ::_ -> Atomic(EQ, Var effFormalArg, effactualArg) 
       in 
       let current = [Exists existiental; Require(p1, h1); 
-        NormalReturn(And(p2, pure), h2, UNIT)] in 
+        NormalReturn(normalPure(And(p2, pure)), h2, Var ret)] in 
+        
+
       let () = continueationCxt := Some (normalisedStagedSpec2Spec (xs, normalS),  ret, normal, ops) in 
       let temp = infer_of_expression env [current] exprEff in 
+
       let () = continueationCxt := None in 
       temp
 
@@ -766,7 +771,9 @@ and infer_of_expression (env:meth_def list) (current:spec list) (expr:core_lang)
       | Some (continue_spec, ret, normal, ops) -> 
           let bindings = bindFormalNActual [ret] [v] in 
           let instantiatedSpec =  instantiateSpec bindings continue_spec in 
-          handling_spec env (normalise_spec  ([], freshNoramlStage) instantiatedSpec)  normal ops
+          let instantiatedCurrent =  instantiateSpecList bindings current in 
+          let temp = handling_spec env (normalise_spec  ([], freshNoramlStage) instantiatedSpec)  normal ops in 
+          concatenateSpecsWithSpec instantiatedCurrent temp
       )
 
   | CFunCall (fname, actualArgs) -> 
@@ -811,7 +818,10 @@ and infer_of_expression (env:meth_def list) (current:spec list) (expr:core_lang)
     let phi1 = infer_of_expression env [freshNormalReturnSpec] expr1 in 
     let afterHanldering = List.flatten (
       List.map (fun spec -> 
-        handling_spec env (normalise_spec  ([], freshNoramlStage) spec)  (normFormalArg, expRet) ops
+        print_endline("\nCMatch =====> " ^ string_of_spec spec);
+        let normalisedSpec= (normalise_spec  ([], freshNoramlStage) spec) in 
+
+        handling_spec env  normalisedSpec (normFormalArg, expRet) ops
       ) phi1
     ) in 
     concatenateSpecsWithSpec current afterHanldering

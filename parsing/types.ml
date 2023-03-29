@@ -28,7 +28,7 @@ type kappa =
   | EmptyHeap
   | PointsTo of (string * term)
   | SepConj of kappa * kappa
-  | MagicWand of kappa * kappa
+  (*| MagicWand of kappa * kappa*)
 
 (* a formula which describes a program state *)
 type state = pi * kappa

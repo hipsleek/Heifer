@@ -76,7 +76,6 @@ module Heap = struct
     | SepConj (a, b) -> begin
       match split_one a with None -> split_one b | Some r -> Some r
     end
-    | MagicWand (_, _) -> failwith "cannot split magic wand"
 
   (** like split_one, but searches for a particular points-to *)
   let rec split_find : string -> kappa -> (term * kappa) option =
@@ -88,7 +87,6 @@ module Heap = struct
     | SepConj (a, b) -> begin
       match split_find n a with None -> split_find n b | Some r -> Some r
     end
-    | MagicWand (_, _) -> failwith "cannot split_find magic wand"
 
   let rec xpure : kappa -> pi =
    fun h ->
@@ -98,8 +96,6 @@ module Heap = struct
       let v = verifier_getAfreeVar () in
       And (Atomic (EQ, Var v, Var x), Atomic (GT, Var v, Num 0))
     | SepConj (a, b) -> And (xpure a, xpure b)
-    | MagicWand (_, _) ->
-      failwith (Format.asprintf "xpure for magic wand not implemented")
 
   let rec check :
       kappa -> string list -> state -> state -> (proof * state, proof) result =
@@ -233,7 +229,6 @@ module Normalize = struct
     | EmptyHeap -> []
     | PointsTo (s, _) -> [s]
     | SepConj (a, b) -> sl_dom a @ sl_dom b
-    | MagicWand (a, b) -> sl_dom a @ sl_dom b
 
   let intersect xs ys =
     List.fold_right (fun c t -> if List.mem c ys then c :: t else t) xs []

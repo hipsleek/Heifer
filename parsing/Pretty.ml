@@ -348,7 +348,6 @@ let rec kappaToPure kappa : pi =
   | EmptyHeap -> True
   | PointsTo (str, t) -> Atomic(EQ, Var str, t)
   | SepConj (k1, k2) -> And (kappaToPure k1, kappaToPure k2)
-  | MagicWand (_, _) -> failwith "kappaToPure unimplemented"
 
   (* | Implication (k1, k2) -> Imply (kappaToPure k1, kappaToPure k2) *)
 
@@ -377,7 +376,7 @@ let rec string_of_kappa (k:kappa) : string =
   | EmptyHeap -> "emp"
   | PointsTo  (str, args) -> Format.sprintf "%s->%s" str (List.map string_of_term [args] |> String.concat ", ")
   | SepConj (k1, k2) -> string_of_kappa k1 ^ "*" ^ string_of_kappa k2 
-  | MagicWand (k1, k2) -> "(" ^ string_of_kappa k1 ^ "-*" ^ string_of_kappa k2  ^ ")"
+  (*| MagicWand (k1, k2) -> "(" ^ string_of_kappa k1 ^ "-*" ^ string_of_kappa k2  ^ ")" *)
   (* | Implication (k1, k2) -> string_of_kappa k1 ^ "-*" ^ string_of_kappa k2  *)
 
 let string_of_state (p, h) : string =
@@ -398,7 +397,6 @@ let string_of_stages (st:stagedSpec) : string =
     Format.asprintf "Norm(%s /\\ %s, %s)" (string_of_kappa heap) (string_of_pi pi)  (string_of_term ret)
   | RaisingEff (pi, heap, (name, args), ret) ->
     Format.asprintf "%s(%s /\\ %s, %s, %s)" name (string_of_kappa heap) (string_of_pi pi)  (string_of_args args) (string_of_term ret)
-  | Exists [] -> ""
   | Exists vs ->
     Format.asprintf "ex %s" (String.concat " " vs)
 
@@ -435,7 +433,7 @@ let rec domainOfHeap (h:kappa) : string list =
   | EmptyHeap -> []
   | PointsTo (str, _) -> [str]
   | SepConj (k1, k2) -> (domainOfHeap k1) @ (domainOfHeap k2)
-  | MagicWand (k1, k2) -> (domainOfHeap k1) @ (domainOfHeap k2)
+  (*| MagicWand (k1, k2) -> (domainOfHeap k1) @ (domainOfHeap k2) *)
 
 
 let overlap domain1 domain2 : bool = 
@@ -462,18 +460,14 @@ let () = assert (overlap ["x"] [] = false)
 
 let () = assert (overlap ["x";"y"] ["y";"z"] = true )
 
+
+
+
 let normaliseHeap (h) : (kappa * pi) = 
   match h with 
-  | MagicWand (EmptyHeap, h1) -> (h1, True)
-  | MagicWand (_, EmptyHeap) -> (EmptyHeap, True)
-  | MagicWand (PointsTo (s1, t1), PointsTo (s2, t2)) -> 
-    if String.compare s1 s2 == 0 then (EmptyHeap, Atomic(EQ, t1, t2))
-    else (h, True)
   | SepConj (PointsTo (s1, t1), PointsTo (s2, t2)) -> 
     if String.compare s1 s2 == 0 then (PointsTo (s1, t1), Atomic(EQ, t1, t2))
     else (h, True)
-
-
   | SepConj (EmptyHeap, h1) -> (h1, True)
   | SepConj (h1, EmptyHeap) -> (h1, True)
   | _ -> (h, True)
@@ -481,21 +475,111 @@ let normaliseHeap (h) : (kappa * pi) =
 let mergeEns (pi1, h1) (pi2, h2) = 
   (*if domainOverlap h1 h2 then failwith "domainOverlap in mergeEns"
   else 
+
   *)
+
+  
   let (heap, unification) = normaliseHeap (SepConj (h1, h2)) in 
+  print_endline (string_of_kappa (SepConj (h1, h2)) ^ " =====> ");
+  print_endline (string_of_kappa heap ^ "   and    " ^ string_of_pi unification);
+
   (normalPure (And(And (pi1, pi2), unification)), heap)
 
 
+let rec string_of_normalisedStagedSpec (spec:normalisedStagedSpec) : string = 
+  let (effS, normalS) = spec in 
+  match effS with 
+  | [] -> 
+    let (existiental, (p1, h1), (p2, h2), ret) = normalS in 
+    let current = [Exists existiental; Require(p1, h1); NormalReturn(p2, h2, ret)] in 
+    string_of_spec current 
+  | x :: xs  -> 
+    (let (existiental, (p1, h1), (p2, h2), ins, ret) = x in 
+    let current = [Exists existiental; Require(p1, h1); RaisingEff(p2, h2, ins, ret)] in 
+    string_of_spec current )
+    ^ string_of_normalisedStagedSpec (xs, normalS) 
+
+
+let rec list_of_heap h = 
+   match h with 
+   | EmptyHeap -> []
+   | PointsTo (v, t) -> [(v, t)]
+   | SepConj (h1, h2) -> list_of_heap h1 @ list_of_heap h2
+
+let rec deleteFromHeapList li (x, t1)  = 
+  match li with 
+  | [] -> failwith "deleteFromHeapList not found"
+  | (y, t2)::ys -> if String.compare x y == 0 && stricTcompareTerm t1 t2 then ys
+    else (y, t2):: (deleteFromHeapList ys (x, t1))
+
+let rec kappa_of_list li = 
+  match li with 
+  | [] -> EmptyHeap 
+  | (x, v)::xs ->  SepConj (PointsTo (x, v), kappa_of_list xs)
+
+
+(* the accumption is h1 |- h2 ~~~~> r, and return r *)
+let getheapResidue h1 h2 : kappa =  
+  let listOfHeap1 = list_of_heap h1 in 
+  let listOfHeap2 = list_of_heap h2 in 
+  let rec helper acc li = 
+    match li with 
+    | [] -> acc 
+    | (x, v) :: xs  -> 
+      let acc' = deleteFromHeapList acc (x, v) in 
+      helper acc' xs
+  in 
+  let temp = helper listOfHeap1 listOfHeap2  in 
+  kappa_of_list temp 
+  
+let rec deleteFromHeapListIfHas li (x, t1) : (((string * term) list) *pi) = 
+  match li with 
+  | [] -> ([], True)
+  | (y, t2)::ys -> 
+    if String.compare x y == 0 then (ys, Atomic (EQ, t1, t2))
+    else 
+      let (res, uni) = (deleteFromHeapListIfHas ys (x, t1)) in 
+      ((y, t2):: res, uni)
+      
+
+
+(* h1 * h |- h2, returns h and unificiation *)
+let normaliseMagicWand  h1 h2 : (kappa * pi) = 
+  let listOfHeap1 = list_of_heap h1 in 
+  let listOfHeap2 = list_of_heap h2 in 
+  let rec helper (acc:(((string * term) list) *pi)) li = 
+    let (heapLi, unification) = acc in 
+    match li with 
+    | [] -> acc 
+    | (x, v) :: xs  -> 
+      let (heapLi', unification')  = deleteFromHeapListIfHas heapLi (x, v) in 
+      helper (heapLi', And (unification, unification')) xs
+  in 
+  let (temp, unifinication) = helper (listOfHeap2, True) listOfHeap1  in 
+  (kappa_of_list temp , unifinication)
+
+
+  
+
 
 let normalise_stagedSpec (acc:normalisedStagedSpec) (stagedSpec:stagedSpec) : normalisedStagedSpec = 
+  print_endline("\nnormalise_stagedSpec =====> " ^ string_of_normalisedStagedSpec(acc));
+  print_endline("\nadding  " ^ string_of_stages (stagedSpec));
+
+
   let (effectStages, normalStage) = acc in 
   let (existential, req, ens, ret) = normalStage in 
   match stagedSpec with
   | Exists li -> (effectStages, (existential@li, req, ens, ret))
   | Require (pi, heap) -> 
-    let (_, h2) = ens in 
-    let (magicWandHeap, unification) = normaliseHeap (MagicWand (h2, heap)) in 
-    let normalStage' = (existential, mergeEns req (And(pi, unification), magicWandHeap), ens, ret) in 
+    let (p2, h2) = ens in 
+    let (magicWandHeap, unification) = normaliseMagicWand h2 heap in 
+    print_endline (string_of_kappa (magicWandHeap) ^ " magic Wand ");
+
+    (* not only need to get the magic wand, but also need to delete the common part from h2*)
+    let (h2',   unification')    = normaliseMagicWand heap h2 in 
+
+    let normalStage' = (existential, mergeEns req (And(pi, unification), magicWandHeap), (normalPure (And(p2, unification')), h2'), ret) in 
     (effectStages, normalStage')
 
   (* higher-order functions *)
@@ -516,9 +600,15 @@ let rec effectStage2Spec (effectStages:effectStage list ) : spec =
   match effectStages with
   | [] -> []
   | (existiental, (p1, h1), (p2, h2), ins, ret) :: xs  -> 
+    (match existiental with 
+    | [] -> [] 
+    | _ -> [Exists existiental])
+    @
     (match (p1, h1) with 
-    | (True, EmptyHeap) -> [Exists existiental; RaisingEff(p2, h2, ins, ret)] 
-    | _ -> [Exists existiental; Require(p1, h1); RaisingEff(p2, h2, ins, ret)]) 
+    | (True, EmptyHeap) -> []
+    | _ -> [Require(p1, h1)])
+    @
+    ([RaisingEff(p2, h2, ins, ret)])
     @ effectStage2Spec xs 
 
 let normalStage2Spec (normalStage:normalStage ) : spec = 
@@ -537,22 +627,6 @@ let normalStage2Spec (normalStage:normalStage ) : spec =
 
 
 
-
-(*
-  match normalStage with
-  | ([], (True, EmptyHeap), (True, EmptyHeap), UNIT)  -> []  
-  | ([], (True, EmptyHeap), (p2, h2), ret)   -> 
-    [NormalReturn(p2, h2, ret)] 
-  | ([], (p1, h1), (p2, h2), ret)   -> 
-    [Require(p1, h1); NormalReturn(p2, h2, ret)] 
-  | (existiental, (p1, h1), (p2, h2), ret)   -> 
-    [Exists existiental; Require(p1, h1); NormalReturn(p2, h2, ret)] 
-
-
-*)
-
-
-
 let normalisedStagedSpec2Spec (normalisedStagedSpec:normalisedStagedSpec) : spec  = 
   let (effS, normalS) = normalisedStagedSpec in 
   effectStage2Spec effS @ normalStage2Spec normalS
@@ -564,3 +638,6 @@ let normalise_spec_list (specLi:spec list): spec list =
     normalisedStagedSpec2Spec normalisedStagedSpec
     
   ) specLi
+
+
+
