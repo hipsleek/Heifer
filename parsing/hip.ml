@@ -682,9 +682,13 @@ let rec handling_spec env (spec:normalisedStagedSpec) (normal:(string * core_lan
   match effS with 
   | [] -> 
     let (existiental, (p1, h1), (p2, h2), ret) = normalS in 
-    let current = [Exists existiental; Require(p1, h1); 
-    NormalReturn(normalPure (And(p2, Atomic(EQ, Var normFormalArg, ret))), h2, ret)] in 
-    infer_of_expression env [current] expRet
+
+    let bindings = bindFormalNActual [normFormalArg] [ret] in 
+    let current = [Exists existiental; Require(p1, h1); NormalReturn(p2, h2, ret)] in 
+    let temp = infer_of_expression env [current] expRet in 
+    instantiateSpecList bindings temp
+
+    
   | x :: xs -> 
     let (existiental, (p1, h1), (p2, h2), (label, effactualArgs), ret) = x in 
     let ret = match ret with 
@@ -818,7 +822,7 @@ and infer_of_expression (env:meth_def list) (current:spec list) (expr:core_lang)
     let phi1 = infer_of_expression env [freshNormalReturnSpec] expr1 in 
     let afterHanldering = List.flatten (
       List.map (fun spec -> 
-        print_endline("\nCMatch =====> " ^ string_of_spec spec);
+        (*print_endline("\nCMatch =====> " ^ string_of_spec spec);*)
         let normalisedSpec= (normalise_spec  ([], freshNoramlStage) spec) in 
 
         handling_spec env  normalisedSpec (normFormalArg, expRet) ops

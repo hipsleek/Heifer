@@ -4,7 +4,7 @@ effect Twice : int
 
 let test () 
 (*@ ex i ret z u;
-   Twice(i->0, ret);
+   Zero(i->0, ret);
    req i-> -; 
    Norm(i->1, ret)
 @*)
