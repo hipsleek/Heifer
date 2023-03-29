@@ -2589,6 +2589,7 @@ pure_formula_term:
   | LPAREN n = list_of_TupleTerms RPAREN {TTupple n}
 
 
+  | MINUS {Var "_"}
   | v = LIDENT { Var v }
   (*| pure_formula_term rest = pure_formula_term_aux { 
     let (op, t) = rest in 

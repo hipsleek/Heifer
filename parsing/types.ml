@@ -26,6 +26,7 @@ type pi =
 
 type kappa = 
   | EmptyHeap
+    (* x -> -   means x is allocated, and - is encoded as Var "_" *)
   | PointsTo of (string * term)
   | SepConj of kappa * kappa
   (*| MagicWand of kappa * kappa*)

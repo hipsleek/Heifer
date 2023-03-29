@@ -480,9 +480,9 @@ let mergeEns (pi1, h1) (pi2, h2) =
 
   
   let (heap, unification) = normaliseHeap (SepConj (h1, h2)) in 
-  print_endline (string_of_kappa (SepConj (h1, h2)) ^ " =====> ");
+  (*print_endline (string_of_kappa (SepConj (h1, h2)) ^ " =====> ");
   print_endline (string_of_kappa heap ^ "   and    " ^ string_of_pi unification);
-
+*)
   (normalPure (And(And (pi1, pi2), unification)), heap)
 
 
@@ -506,16 +506,12 @@ let rec list_of_heap h =
    | PointsTo (v, t) -> [(v, t)]
    | SepConj (h1, h2) -> list_of_heap h1 @ list_of_heap h2
 
+(*
 let rec deleteFromHeapList li (x, t1)  = 
   match li with 
   | [] -> failwith "deleteFromHeapList not found"
   | (y, t2)::ys -> if String.compare x y == 0 && stricTcompareTerm t1 t2 then ys
     else (y, t2):: (deleteFromHeapList ys (x, t1))
-
-let rec kappa_of_list li = 
-  match li with 
-  | [] -> EmptyHeap 
-  | (x, v)::xs ->  SepConj (PointsTo (x, v), kappa_of_list xs)
 
 
 (* the accumption is h1 |- h2 ~~~~> r, and return r *)
@@ -531,12 +527,26 @@ let getheapResidue h1 h2 : kappa =
   in 
   let temp = helper listOfHeap1 listOfHeap2  in 
   kappa_of_list temp 
+
+*)
+
+let rec kappa_of_list li = 
+  match li with 
+  | [] -> EmptyHeap 
+  | (x, v)::xs ->  SepConj (PointsTo (x, v), kappa_of_list xs)
+
+
   
 let rec deleteFromHeapListIfHas li (x, t1) : (((string * term) list) *pi) = 
   match li with 
   | [] -> ([], True)
   | (y, t2)::ys -> 
-    if String.compare x y == 0 then (ys, Atomic (EQ, t1, t2))
+    if String.compare x y == 0 then 
+      if stricTcompareTerm t1 t2 
+          || stricTcompareTerm t1 (Var "_") 
+          || stricTcompareTerm t2 (Var "_") 
+      then (ys, True)
+      else (ys, Atomic (EQ, t1, t2))
     else 
       let (res, uni) = (deleteFromHeapListIfHas ys (x, t1)) in 
       ((y, t2):: res, uni)
@@ -563,9 +573,9 @@ let normaliseMagicWand  h1 h2 : (kappa * pi) =
 
 
 let normalise_stagedSpec (acc:normalisedStagedSpec) (stagedSpec:stagedSpec) : normalisedStagedSpec = 
-  print_endline("\nnormalise_stagedSpec =====> " ^ string_of_normalisedStagedSpec(acc));
+  (*print_endline("\nnormalise_stagedSpec =====> " ^ string_of_normalisedStagedSpec(acc));
   print_endline("\nadding  " ^ string_of_stages (stagedSpec));
-
+*)
 
   let (effectStages, normalStage) = acc in 
   let (existential, req, ens, ret) = normalStage in 
@@ -574,7 +584,7 @@ let normalise_stagedSpec (acc:normalisedStagedSpec) (stagedSpec:stagedSpec) : no
   | Require (pi, heap) -> 
     let (p2, h2) = ens in 
     let (magicWandHeap, unification) = normaliseMagicWand h2 heap in 
-    print_endline (string_of_kappa (magicWandHeap) ^ " magic Wand ");
+    (*print_endline (string_of_kappa (magicWandHeap) ^ " magic Wand "); *)
 
     (* not only need to get the magic wand, but also need to delete the common part from h2*)
     let (h2',   unification')    = normaliseMagicWand heap h2 in 
@@ -625,11 +635,24 @@ let normalStage2Spec (normalStage:normalStage ) : spec =
   | (True, EmptyHeap, UNIT) -> []
   | _ -> [NormalReturn(p2, h2, ret)])
 
+let rec detectfailedAssertions (spec:spec) : spec = 
+  match spec with 
+  | [] -> []
+  | Require (pi, heap) :: xs  -> 
+    (
+      let pi' = normalPure pi in 
+      match entailConstrains pi' (False) with 
+      | true  -> [Require (False , heap)]
+      | _ -> Require (pi' , heap) ::  detectfailedAssertions xs 
+    )
+  (* higher-order functions *)
+  | x :: xs -> x :: detectfailedAssertions xs 
+
 
 
 let normalisedStagedSpec2Spec (normalisedStagedSpec:normalisedStagedSpec) : spec  = 
   let (effS, normalS) = normalisedStagedSpec in 
-  effectStage2Spec effS @ normalStage2Spec normalS
+  detectfailedAssertions (effectStage2Spec effS @ normalStage2Spec normalS)
 
 
 let normalise_spec_list (specLi:spec list): spec list = 

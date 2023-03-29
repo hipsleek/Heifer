@@ -4,8 +4,8 @@ effect Twice : int
 
 let test () 
 (*@ ex i ret z u;
-   Once(i->0, ret);
-   req i->0; 
+   Twice(i->0, ret);
+   req i-> -; 
    Norm(i->1, ret)
 @*)
 =
