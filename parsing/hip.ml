@@ -1471,16 +1471,22 @@ print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
 
       print_endline (string_of_program (_effs, methods));
 
+      let incremental = Array.length Sys.argv >= 3 && String.equal Sys.argv.(2) "-incremental" in
+
       List.iter (fun (_name, _params, spec, body) ->
-        let _spec1 = infer_of_expression methods [freshNormalReturnSpec] body in
-        let header =
-          "\n========== Function: "^ _name ^" ==========\n" ^
-          "[Specification] " ^ string_of_spec_list spec ^"\n"^          
-          "[Normed   Spec] " ^ string_of_spec_list ((normalise_spec_list  spec)) ^"\n\n"^          
-          "[Raw Post Spec] " ^ string_of_spec_list _spec1 ^ "\n" ^ 
-          "[Normed   Post] " ^ string_of_spec_list ((normalise_spec_list  _spec1)) ^"\n"
-        in 
-        print_string (header)
+        if not incremental then begin
+          let _spec1 = infer_of_expression methods [freshNormalReturnSpec] body in
+          let header =
+            "\n========== Function: "^ _name ^" ==========\n" ^
+            "[Specification] " ^ string_of_spec_list spec ^"\n"^          
+            "[Normed   Spec] " ^ string_of_spec_list ((normalise_spec_list  spec)) ^"\n\n"^          
+            "[Raw Post Spec] " ^ string_of_spec_list _spec1 ^ "\n" ^ 
+            "[Normed   Post] " ^ string_of_spec_list ((normalise_spec_list  _spec1)) ^"\n"
+          in 
+          print_string (header)
+        end else begin
+          print_endline "incremental";
+        end
       ) methods;
 
       (* let results, _ =
