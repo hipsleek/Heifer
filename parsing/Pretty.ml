@@ -367,9 +367,14 @@ let string_of_instant (str, ar_Li): string =
   Format.sprintf "%s%s" str args
 
 
-let string_of_args args =
-  List.map string_of_term args |> String.concat ", "
+let string_of_list p xs =
+  match xs with
+  | [] -> "[]"
+  | _ ->
+    let a = List.map p xs |> String.concat "; " in
+    Format.asprintf "[%s]" a
 
+let string_of_args args = string_of_list string_of_term args
 
 let rec string_of_kappa (k:kappa) : string = 
   match k with
