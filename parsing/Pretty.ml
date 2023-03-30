@@ -691,6 +691,7 @@ let%expect_test "normalise spec" =
     NormalReturn (True, PointsTo ("x", Plus (Var "a", Num 1)), UNIT) ];
   test [
     NormalReturn (True, PointsTo ("x", Num 1), UNIT);
+    Require (True, PointsTo("x", Var "1"));
     RaisingEff (True, PointsTo ("x", Num 1), ("E", [Num 3]), UNIT);
     NormalReturn (True, PointsTo ("y", Num 2), UNIT) ];
   test [
@@ -700,8 +701,8 @@ let%expect_test "normalise spec" =
 [%expect
 {|
   ex ; req 2=1 /\ emp; Norm(emp /\ 1=2, ())
-  ex ; req T /\ x->1*emp*y->2*emp; Norm(x->1*emp*y->2 /\ T, ())
+  ex ; req T /\ x->1*y->2; Norm(x->1*y->2 /\ T, ())
   ex ; req 1=a /\ emp; Norm(x->a+1 /\ a=1, ())
-  ex ; req T /\ emp; E(x->1 /\ 1=1, [3], ())ex ; req T /\ emp; Norm(y->2 /\ T, ())
+  ex ; req 1=1 /\ emp; E(x->1 /\ 1=1, [3], ())ex ; req T /\ emp; Norm(y->2 /\ T, ())
   ex ; req T /\ emp; f(x->1 /\ T, [3], ())ex ; req T /\ emp; Norm(y->2 /\ T, ())
 |}]
