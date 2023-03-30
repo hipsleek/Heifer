@@ -1,17 +1,34 @@
 effect Exchange: int -> int
 
-let x = Sys.opaque_identity (ref 11) 
 
-let exchange (m:int)
-(*@  requires (true, emp, ret)   @*)
-(*@  ensures (true, Exchange (m), Exchange(m)?)   @*)
-= let res = perform (Exchange m) in 
-  res
+let exchange () 
+(*@  
+   ex old;
+   Exchange(emp, 5, old);
+   Norm(emp, old)
+@*)
+= let res = perform (Exchange 5) in 
+  res 
 
-let exchange_hanlder (old:int) (n:int)
-(*@  requires (true, emp, ret)   @*)
-(*@  ensures (true, {x->n}, old)   @*)
-= match exchange n with 
+let exchange_hanlder (y:int ref)
+(*@  
+   ex old; 
+   req y -> old; 
+   Norm(y -> 5, old)
+@*)
+= match exchange () with 
   | v -> v 
-  | effect (Exchange v) k -> 
-    x := v; continue k old
+  | effect (Exchange n) k -> 
+    let old = !y in 
+    y := n; 
+    continue k old
+
+let main ()
+(*@  
+   Norm(x -> 5, 11)
+@*)
+= 
+  let x = ref 11 in 
+  let res = exchange_hanlder x in 
+  print_endline (string_of_int res);
+  res
