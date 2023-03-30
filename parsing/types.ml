@@ -35,15 +35,14 @@ type kappa =
 type state = pi * kappa
 
 type stagedSpec = 
-      (* common *)
-      | Exists of (string list)
+      | Exists of string list
       | Require of pi * kappa 
-      | NormalReturn of (pi * kappa * term) (* H /\ Pure /\ res=term *)
-      (* higher-order functions *)
-      (* | HigherOrder of (string * term list) *)
+      (* H /\ P /\ res=term *)
+      | NormalReturn of (pi * kappa * term)
+      (* higher-order functions: H /\ P /\ f$(...args, term) *)
       | HigherOrder of (pi * kappa * instant * term)
-      (* effects *)
-      | RaisingEff of (pi * kappa * instant * term) (* term is a placeholder for the resumed value, pi/\kappa is the state before the perform *)
+      (* effects: H /\ P /\ E(...args, v), term is always a placeholder variable *)
+      | RaisingEff of (pi * kappa * instant * term)
 
 
 type effectStage =  (string list* (pi * kappa ) * (pi * kappa) * instant * term)

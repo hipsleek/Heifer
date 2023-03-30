@@ -4,6 +4,12 @@ open Pretty
 let string_of_option to_s o : string =
   match o with Some a -> "Some " ^ to_s a | None -> "None"
 
+module Res = struct
+  let ( let* ) = Result.bind
+
+  type 'a pf = (proof * 'a, proof) result
+end
+
 (*
    Flatten Form
    ============
@@ -97,8 +103,7 @@ module Heap = struct
       And (Atomic (EQ, Var v, Var x), Atomic (GT, Var v, Num 0))
     | SepConj (a, b) -> And (xpure a, xpure b)
 
-  let rec check :
-      kappa -> string list -> state -> state -> (proof * state, proof) result =
+  let rec check : kappa -> string list -> state -> state -> state Res.pf =
    fun k vs a c ->
     (* TODO we are probably not normalizing in all the right places, and there is no preprocessing to uniquely name variables *)
     let a = normalize a in
@@ -188,40 +193,118 @@ module Heap = struct
       │└── [ent-emp] |}]
 end
 
-let rec check_staged_entail : spec -> spec -> spec option =
+let check_staged_entail : spec -> spec -> spec option =
  fun n1 n2 ->
-  (* check_heap_entail (current_state n1) (current_state n2) *)
-  Some (n1 @ n2)
+  let norm = normalise_spec (n1 @ n2) in
+  Some (normalisedStagedSpec2Spec norm)
 
-and check_staged_subsumption : spec -> spec -> bool =
- fun n1 n2 ->
-  match (n1, n2) with
-  | [], [] -> true
-  | d1 :: n3, d2 :: n4 ->
-    (match (d1, d2) with
-    | Require (p1, h1), Require (p2, h2) ->
-      (* contravariance *)
-      (match Heap.entails (p1, h1) (p2, h2) with
-      | Ok _ -> true
-      | Error _ -> false)
-    | NormalReturn (p1, h1, _), NormalReturn (p2, h2, _) ->
-      (* covariance *)
-      (match Heap.entails (p1, h1) (p2, h2) with
-      | Ok _ -> true
-      | Error _ -> false)
-    | _ -> failwith "unimplemented")
-    && check_staged_subsumption n3 n4
-  | _ -> false
+let check_staged_subsumption : spec -> spec -> (state, proof) result =
+  let open Res in
+  fun n1 n2 ->
+    let es1, ns1 = normalise_spec n1 in
+    let es2, ns2 = normalise_spec n2 in
+    let rec loop :
+        state -> effectStage list -> effectStage list -> (state, proof) result =
+     fun (pp1, ph1) es1 es2 ->
+      (* recurse down both lists in parallel *)
+      match (es1, es2) with
+      | ( (_vs1, (p1, h1), (qp1, qh1), (n1, a1), r1) :: es1',
+          (_vs2, (p2, h2), (qp2, qh2), (n2, a2), r2) :: es2' ) -> begin
+        (* contravariance of preconditions *)
+        let* _pf1, (pr, hr) =
+          Heap.entails (And (pp1, p2), SepConj (ph1, h2)) (p1, h1)
+        in
+        (* covariance of postconditions *)
+        let* _pf2, (pr, hr) =
+          Heap.entails (And (qp1, pr), SepConj (qh1, hr)) (qp2, qh2)
+        in
+        (* compare effect names *)
+        let* _ = if String.equal n1 n2 then Ok () else Error (rule "uh oh") in
+        (* unify effect params and return value *)
+        let unify =
+          List.fold_right
+            (fun (a, b) t -> And (t, Atomic (EQ, a, b)))
+            (List.map2 (fun a b -> (a, b)) a1 a2)
+            (Atomic (EQ, r1, r2))
+        in
+        loop (And (unify, pr), hr) es1' es2'
+      end
+      | [], [] ->
+        (* base case: check the normal stage at the end *)
+        let (_vs1, (p1, h1), (qp1, qh1), r1), (_vs2, (p2, h2), (qp2, qh2), r2) =
+          (ns1, ns2)
+        in
+        (* contravariance *)
+        let* _pf1, (pr, hr) =
+          Heap.entails (And (pp1, p2), SepConj (ph1, h2)) (p1, h1)
+        in
+        (* covariance *)
+        let* _pf2, (pr, hr) =
+          Heap.entails (And (qp1, pr), SepConj (qh1, hr)) (qp2, qh2)
+        in
+        (* unify return value *)
+        let pure = Atomic (EQ, r1, r2) in
+        Ok (And (pr, pure), hr)
+      | _ -> Error (rule "unequal length")
+    in
+    loop (True, EmptyHeap) es1 es2
 
-(* let%expect_test "staged_entail" =
-     let test l r = Format.printf "%s |= %s ==> %s@." (string_of_spec l) (string_of_spec r) (check_staged_entail l r |> string_of_option string_of_spec) in
-     test [NormalReturn (PointsTo ("x", Num 1))] [NormalReturn (PointsTo ("x", Num 1))];
-     [%expect {| x->1 |= x->1 ==> Some x->1; x->1 |}]
+let%expect_test "staged subsumption" =
+  let test name l r =
+    let res = check_staged_subsumption l r in
+    Format.printf "\n--- %s\n%s\n%s\n%s%s@." name (string_of_spec l)
+      (match res with Ok _ -> "|--" | Error _ -> "|-/-")
+      (string_of_spec r)
+      (match res with
+      | Ok residue -> Format.asprintf "\n==> %s" (string_of_state residue)
+      | Error _ -> "")
+  in
+  test "identity"
+    [
+      Require (True, PointsTo ("x", Num 1));
+      NormalReturn (True, PointsTo ("x", Num 1), Var "r");
+    ]
+    [
+      Require (True, PointsTo ("x", Num 1));
+      NormalReturn (True, PointsTo ("x", Num 1), Var "r");
+    ];
+  test "variables"
+    [
+      Require (True, PointsTo ("x", Var "a"));
+      NormalReturn (True, PointsTo ("x", Plus (Var "a", Num 1)), Var "r");
+    ]
+    [
+      Require (True, PointsTo ("x", Num 1));
+      NormalReturn (True, PointsTo ("x", Num 2), Var "r");
+    ];
+  test "contradiction?"
+    [
+      Require (True, PointsTo ("x", Var "a"));
+      NormalReturn (True, PointsTo ("x", Plus (Var "a", Num 1)), Var "r");
+    ]
+    [
+      Require (True, PointsTo ("x", Num 1));
+      NormalReturn (True, PointsTo ("x", Num 1), Var "r");
+    ];
+  [%expect
+    {|
+    --- identity
+    req T /\ x->1; Norm(x->1 /\ T, r)
+    |--
+    req T /\ x->1; Norm(x->1 /\ T, r)
+    ==> 1=1/\r=r
 
-   let%expect_test "staged_subsumption" =
-     let test l r = Format.printf "%s %s %s@." (string_of_spec l) (if check_staged_subsumption l r then "|--" else "|-/-") (string_of_spec r) in
-     test [NormalReturn (PointsTo ("x", Num 1))] [NormalReturn (PointsTo ("x", Num 1))];
-     [%expect {| x->1 |-- x->1 |}] *)
+    --- variables
+    req T /\ x->a; Norm(x->a+1 /\ T, r)
+    |--
+    req T /\ x->1; Norm(x->2 /\ T, r)
+    ==> 2=a+1/\a=1/\r=r
+
+    --- contradiction?
+    req T /\ x->a; Norm(x->a+1 /\ T, r)
+    |--
+    req T /\ x->1; Norm(x->1 /\ T, r)
+    ==> 1=a+1/\a=1/\r=r |}]
 
 module Normalize = struct
   let rec sl_dom (h : kappa) =

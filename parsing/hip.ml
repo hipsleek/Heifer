@@ -785,7 +785,7 @@ and infer_of_expression (env:meth_def list) (current:spec list) (expr:core_lang)
           (* after instantiate the pre stages, remove the existential quantifier for ret *)
           let instantiatedCurrent' = removeExist instantiatedCurrent ret in 
 
-          let temp = handling_spec env (normalise_spec  ([], freshNoramlStage) instantiatedSpec)  normal ops in 
+          let temp = handling_spec env (normalise_spec instantiatedSpec)  normal ops in 
           concatenateSpecsWithSpec instantiatedCurrent' temp
       )
 
@@ -832,7 +832,7 @@ and infer_of_expression (env:meth_def list) (current:spec list) (expr:core_lang)
     let afterHanldering = List.flatten (
       List.map (fun spec -> 
         (*print_endline("\nCMatch =====> " ^ string_of_spec spec); *)
-        let normalisedSpec= (normalise_spec  ([], freshNoramlStage) spec) in 
+        let normalisedSpec= (normalise_spec spec) in 
 
         handling_spec env  normalisedSpec (normFormalArg, expRet) ops
       ) phi1
