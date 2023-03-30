@@ -61,6 +61,7 @@ type spec = stagedSpec list
 
 type core_value = term
 
+(* (Label n) _k -> e *)
 type core_handler_ops = (string * string * core_lang) list
 
 and core_lang = 
