@@ -1,34 +1,39 @@
 effect Exchange: int -> int
 
-
-let exchange () 
+let exchange (m:int)
 (*@  
-   ex old;
-   Exchange(emp, 5, old);
-   Norm(emp, old)
+   ex ret;
+   Exchange(emp, m, ret);
+   Norm(emp, ret)
 @*)
-= let res = perform (Exchange 5) in 
-  res 
+= perform (Exchange m)
 
-let exchange_hanlder (y:int ref)
+
+let exc_hanlder (y:int ref) (new_v:int)
 (*@  
-   ex old; 
-   req y -> old; 
-   Norm(y -> 5, old)
+   ex old_v; 
+   req y -> old_v; 
+   Norm(y -> new_v, old_v)
 @*)
-= match exchange () with 
+= match exchange new_v with 
   | v -> v 
   | effect (Exchange n) k -> 
-    let old = !y in 
+    let old_v = !y in 
     y := n; 
-    continue k old
+    continue k old_v
 
-let main ()
+(*
+
+
+
+let main 
 (*@  
-   Norm(x -> 5, 11)
+  ex x;
+  Norm(x -> 5, 11)
 @*)
 = 
   let x = ref 11 in 
-  let res = exchange_hanlder x in 
+  let res = exc_hanlder x 5 in 
   print_endline (string_of_int res);
   res
+  *)

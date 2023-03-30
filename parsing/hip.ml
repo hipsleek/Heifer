@@ -769,7 +769,8 @@ and infer_of_expression (env:meth_def list) (current:spec list) (expr:core_lang)
     in 
     let freshVar = verifier_getAfreeVar () in 
     concatenateSpecsWithEvent current 
-    [Exists [freshVar];RaisingEff(True, EmptyHeap, (label,arg), Var freshVar)]
+    [Exists [freshVar];RaisingEff(True, EmptyHeap, (label,arg), Var freshVar);
+    NormalReturn (True, EmptyHeap, Var freshVar)]
 
 
   | CResume v ->  

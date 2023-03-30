@@ -148,6 +148,7 @@ let rec stricTcompareTerm (term1:term) (term2:term) : bool =
   | (Num n1, Num n2) -> n1 == n2 
   | (Plus (tIn1, num1), Plus (tIn2, num2)) -> stricTcompareTerm tIn1 tIn2 && stricTcompareTerm num1  num2
   | (Minus (tIn1, num1), Minus (tIn2, num2)) -> stricTcompareTerm tIn1 tIn2 && stricTcompareTerm num1  num2
+  | (UNIT, UNIT) -> true 
   | _ -> false 
   ;;
 
@@ -441,16 +442,17 @@ let rec domainOfHeap (h:kappa) : string list =
   (*| MagicWand (k1, k2) -> (domainOfHeap k1) @ (domainOfHeap k2) *)
 
 
-let overlap domain1 domain2 : bool = 
-  let rec exists str li  = 
+let rec existStr str li  = 
     match li with 
     | [] -> false 
-    | x :: xs -> if String.compare x str == 0 then true else exists str xs 
-  in 
+    | x :: xs -> if String.compare x str == 0 then true else existStr str xs 
+
+
+let overlap domain1 domain2 : bool = 
   let rec iterateh1 li = 
     match li with
     | [] -> false 
-    | y::ys -> if exists y domain2 then true else iterateh1 ys
+    | y::ys -> if existStr y domain2 then true else iterateh1 ys
   in iterateh1 domain1
 
 let domainOverlap h1 h2 = 
@@ -543,41 +545,52 @@ let rec kappa_of_list li =
   | (x, v)::xs ->  SepConj (PointsTo (x, v), kappa_of_list xs)
 
 
-  
-let rec deleteFromHeapListIfHas li (x, t1) : (((string * term) list) *pi) = 
+(* (x, t1)  -* (y, t2) *)  
+let rec deleteFromHeapListIfHas li (x, t1) existential: (((string * term) list) *pi) = 
   match li with 
   | [] -> ([], True)
   | (y, t2)::ys -> 
     if String.compare x y == 0 then 
+      match (t1, t2) with 
+      (* x->11 -* x-> z   ~~~>   emp *)
+      | (Num _, Var t2Str) ->  
+        if existStr t2Str existential then (ys, True)
+        else (ys, Atomic (EQ, t1, t2))
+      | (_, _) -> 
       if stricTcompareTerm t1 t2 
           || stricTcompareTerm t1 (Var "_") 
           || stricTcompareTerm t2 (Var "_") 
       then (ys, True)
       else (ys, Atomic (EQ, t1, t2))
     else 
-      let (res, uni) = (deleteFromHeapListIfHas ys (x, t1)) in 
+      let (res, uni) = (deleteFromHeapListIfHas ys (x, t1) existential) in 
       ((y, t2):: res, uni)
       
 
 
-(* h1 * h |- h2, returns h and unificiation *)
-let normaliseMagicWand  h1 h2 : (kappa * pi) = 
+(* h1 * h |- h2, returns h and unificiation 
+x -> 3 |- x -> z   -> (emp, true )
+x -> z |- x -> 3   -> (emp, )
+*)
+let normaliseMagicWand  h1 h2 existential : (kappa * pi) = 
   let listOfHeap1 = list_of_heap h1 in 
   let listOfHeap2 = list_of_heap h2 in 
-  let rec helper (acc:(((string * term) list) *pi)) li = 
+  let rec helper (acc:(((string * term) list) * pi)) li = 
     let (heapLi, unification) = acc in 
     match li with 
     | [] -> acc 
     | (x, v) :: xs  -> 
-      let (heapLi', unification')  = deleteFromHeapListIfHas heapLi (x, v) in 
+      let (heapLi', unification')  = deleteFromHeapListIfHas heapLi (x, v) existential in 
       helper (heapLi', And (unification, unification')) xs
   in 
   let (temp, unifinication) = helper (listOfHeap2, True) listOfHeap1  in 
   (normaliseHeap (kappa_of_list temp) , unifinication)
 
 
-  
+(*
+let () = assert ((normaliseMagicWand (PointsTo("x", Num 3)) (PointsTo("x", Var "z"))) == (EmptyHeap, Atomic(EQ, Num 3, Var "z"))) ;;
 
+*)
 
 let normalise_stagedSpec (acc:normalisedStagedSpec) (stagedSpec:stagedSpec) : normalisedStagedSpec = 
   (*print_endline("\nnormalise_stagedSpec =====> " ^ string_of_normalisedStagedSpec(acc));
@@ -590,11 +603,11 @@ let normalise_stagedSpec (acc:normalisedStagedSpec) (stagedSpec:stagedSpec) : no
   | Exists li -> (effectStages, (existential@li, req, ens, ret))
   | Require (pi, heap) -> 
     let (p2, h2) = ens in 
-    let (magicWandHeap, unification) = normaliseMagicWand h2 heap in 
+    let (magicWandHeap, unification) = normaliseMagicWand h2 heap existential in 
     (*print_endline (string_of_kappa (magicWandHeap) ^ " magic Wand "); *)
 
     (* not only need to get the magic wand, but also need to delete the common part from h2*)
-    let (h2',   unification')    = normaliseMagicWand heap h2 in 
+    let (h2',   unification')    = normaliseMagicWand heap h2 existential in 
 
     let normalStage' = (existential, mergeEns req (And(pi, unification), magicWandHeap), (normalPure (And(p2, unification')), h2'), ret) in 
     (effectStages, normalStage')
