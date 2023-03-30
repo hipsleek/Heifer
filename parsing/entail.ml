@@ -306,120 +306,140 @@ let%expect_test "staged subsumption" =
     req T /\ x->1; Norm(x->1 /\ T, r)
     ==> 1=a+1/\a=1/\r=r |}]
 
-module Normalize = struct
-  let rec sl_dom (h : kappa) =
-    match h with
-    | EmptyHeap -> []
-    | PointsTo (s, _) -> [s]
-    | SepConj (a, b) -> sl_dom a @ sl_dom b
+(* module Normalize = struct
+     let rec sl_dom (h : kappa) =
+       match h with
+       | EmptyHeap -> []
+       | PointsTo (s, _) -> [s]
+       | SepConj (a, b) -> sl_dom a @ sl_dom b
 
-  let intersect xs ys =
-    List.fold_right (fun c t -> if List.mem c ys then c :: t else t) xs []
+     let intersect xs ys =
+       List.fold_right (fun c t -> if List.mem c ys then c :: t else t) xs []
 
-  let sl_disjoint h1 h2 =
-    match intersect (sl_dom h1) (sl_dom h2) with [] -> true | _ -> false
+     let sl_disjoint h1 h2 =
+       match intersect (sl_dom h1) (sl_dom h2) with [] -> true | _ -> false
 
-  let normalize spec =
-    let rec one_pass (s : spec) =
-      match s with
-      | [] | [_] -> (s, false)
-      | s1 :: s2 :: ss ->
-        let s3, c =
-          match (s1, s2) with
-          | Require (p1, h1), Require (p2, h2) ->
-            (* rule 1 *)
-            ([Require (And (p1, p2), SepConj (h1, h2))], true)
-          | NormalReturn (p1, h1, r1), NormalReturn (p2, h2, r2) when r1 = r2 ->
-            (* rule 2 *)
-            (* the equality at the end is res=a /\ res=b *)
-            ([NormalReturn (And (p1, p2), SepConj (h1, h2), r1)], true)
-          | NormalReturn (p1, h1, r1), Require (p2, h2) ->
-            (* rule 3 *)
-            let r = Heap.entails (p1, h1) (p2, h2) in
-            begin
-              match r with
-              | Error _ when sl_disjoint h1 h2 ->
-                (* rule 4 *)
-                ([s2; s1], true)
-              | Error _ -> ([s1; s2], false)
-              | Ok (_pf, (rp, rh)) ->
-                ([NormalReturn (And (And (p1, p2), rp), rh, r1)], true)
-            end
-          | _, _ -> ([s1; s2], false)
-        in
-        let hd, tl = match s3 with [] -> ([], []) | h :: t -> ([h], t) in
-        let s5, c1 = one_pass (tl @ ss) in
-        (hd @ s5, c || c1)
-    in
-    if false then to_fixed_point one_pass spec else one_pass spec |> fst
+     let normalize spec =
+       let rec one_pass (s : spec) =
+         match s with
+         | [] | [_] -> (s, false)
+         | s1 :: s2 :: ss ->
+           let s3, c =
+             match (s1, s2) with
+             | Require (p1, h1), Require (p2, h2) ->
+               (* rule 1 *)
+               ([Require (And (p1, p2), SepConj (h1, h2))], true)
+             | NormalReturn (p1, h1, r1), NormalReturn (p2, h2, r2) when r1 = r2 ->
+               (* rule 2 *)
+               (* the equality at the end is res=a /\ res=b *)
+               ([NormalReturn (And (p1, p2), SepConj (h1, h2), r1)], true)
+             | NormalReturn (p1, h1, r1), Require (p2, h2) ->
+               (* rule 3 *)
+               let r = Heap.entails (p1, h1) (p2, h2) in
+               begin
+                 match r with
+                 | Error _ when sl_disjoint h1 h2 ->
+                   (* rule 4 *)
+                   ([s2; s1], true)
+                 | Error _ -> ([s1; s2], false)
+                 | Ok (_pf, (rp, rh)) ->
+                   ([NormalReturn (And (And (p1, p2), rp), rh, r1)], true)
+               end
+             | _, _ -> ([s1; s2], false)
+           in
+           let hd, tl = match s3 with [] -> ([], []) | h :: t -> ([h], t) in
+           let s5, c1 = one_pass (tl @ ss) in
+           (hd @ s5, c || c1)
+       in
+       if false then to_fixed_point one_pass spec else one_pass spec |> fst
 
-  let%expect_test "normalize" =
-    let test name s =
-      Format.printf "--- %s\n%s\n%s\n@." name (string_of_spec s)
-        (normalize s |> string_of_spec)
-    in
-    test "inert"
-      [
-        Require (True, PointsTo ("x", Num 1));
-        NormalReturn (True, PointsTo ("x", Num 1), UNIT);
-      ];
-    test "rule 4"
-      [
-        NormalReturn (True, PointsTo ("x", Num 1), UNIT);
-        Require (True, PointsTo ("y", Num 1));
-      ];
-    test "rule 3 (TODO prob wrong)"
-      [
-        NormalReturn (True, PointsTo ("x", Num 1), UNIT);
-        Require (True, PointsTo ("x", Num 2));
-      ];
-    test "rule 1"
-      [
-        Require (True, PointsTo ("x", Num 2));
-        Require (True, PointsTo ("y", Num 2));
-      ];
-    test "rule 1 weird"
-      [
-        Require (True, PointsTo ("x", Num 2));
-        Require (True, PointsTo ("x", Num 2));
-      ];
-    test "rule 2"
-      [
-        NormalReturn (True, PointsTo ("x", Num 1), UNIT);
-        NormalReturn (True, PointsTo ("y", Num 1), UNIT);
-      ];
-    test "rule 2 weird"
-      [
-        NormalReturn (True, PointsTo ("x", Num 1), UNIT);
-        NormalReturn (True, PointsTo ("x", Num 1), UNIT);
-      ];
-    [%expect
-      {|
-         --- inert
-         req T /\ x->1; Norm(x->1 /\ T, ())
-         req T /\ x->1; Norm(x->1 /\ T, ())
+     let%expect_test "normalize" =
+       let test name s =
+         Format.printf "--- %s\n%s\n%s\n@." name (string_of_spec s)
+           (normalize s |> string_of_spec)
+       in
+       test "inert"
+         [
+           Require (True, PointsTo ("x", Num 1));
+           NormalReturn (True, PointsTo ("x", Num 1), UNIT);
+         ];
+       test "rule 4"
+         [
+           NormalReturn (True, PointsTo ("x", Num 1), UNIT);
+           Require (True, PointsTo ("y", Num 1));
+         ];
+       test "rule 3 (TODO prob wrong)"
+         [
+           NormalReturn (True, PointsTo ("x", Num 1), UNIT);
+           Require (True, PointsTo ("x", Num 2));
+         ];
+       test "rule 1"
+         [
+           Require (True, PointsTo ("x", Num 2));
+           Require (True, PointsTo ("y", Num 2));
+         ];
+       test "rule 1 weird"
+         [
+           Require (True, PointsTo ("x", Num 2));
+           Require (True, PointsTo ("x", Num 2));
+         ];
+       test "rule 2"
+         [
+           NormalReturn (True, PointsTo ("x", Num 1), UNIT);
+           NormalReturn (True, PointsTo ("y", Num 1), UNIT);
+         ];
+       test "rule 2 weird"
+         [
+           NormalReturn (True, PointsTo ("x", Num 1), UNIT);
+           NormalReturn (True, PointsTo ("x", Num 1), UNIT);
+         ];
+       [%expect
+         {|
+            --- inert
+            req T /\ x->1; Norm(x->1 /\ T, ())
+            req T /\ x->1; Norm(x->1 /\ T, ())
 
-         --- rule 4
-         Norm(x->1 /\ T, ()); req T /\ y->1
-         req T /\ y->1; Norm(x->1 /\ T, ())
+            --- rule 4
+            Norm(x->1 /\ T, ()); req T /\ y->1
+            req T /\ y->1; Norm(x->1 /\ T, ())
 
-         --- rule 3 (TODO prob wrong)
-         Norm(x->1 /\ T, ()); req T /\ x->2
-         Norm(emp /\ T/\T/\2=1, ())
+            --- rule 3 (TODO prob wrong)
+            Norm(x->1 /\ T, ()); req T /\ x->2
+            Norm(emp /\ T/\T/\2=1, ())
 
-         --- rule 1
-         req T /\ x->2; req T /\ y->2
-         req T/\T /\ x->2*y->2
+            --- rule 1
+            req T /\ x->2; req T /\ y->2
+            req T/\T /\ x->2*y->2
 
-         --- rule 1 weird
-         req T /\ x->2; req T /\ x->2
-         req T/\T /\ x->2*x->2
+            --- rule 1 weird
+            req T /\ x->2; req T /\ x->2
+            req T/\T /\ x->2*x->2
 
-         --- rule 2
-         Norm(x->1 /\ T, ()); Norm(y->1 /\ T, ())
-         Norm(x->1*y->1 /\ T/\T, ())
+            --- rule 2
+            Norm(x->1 /\ T, ()); Norm(y->1 /\ T, ())
+            Norm(x->1*y->1 /\ T/\T, ())
 
-         --- rule 2 weird
-         Norm(x->1 /\ T, ()); Norm(x->1 /\ T, ())
-         Norm(x->1*x->1 /\ T/\T, ()) |}]
-end
+            --- rule 2 weird
+            Norm(x->1 /\ T, ()); Norm(x->1 /\ T, ())
+            Norm(x->1*x->1 /\ T/\T, ()) |}]
+   end *)
+
+type star_entail = (stagedSpec list * state) * spec
+
+let incremental_rules (pre : star_entail) (e : core_lang) =
+  let _, current = pre in
+  match e with
+  | CRead v ->
+    let f = verifier_getAfreeVar () in
+    (* Heap.entails current  *)
+    failwith ""
+  | CLet (_, _, _) -> failwith "not done"
+  | CValue _ -> failwith "not done"
+  | CIfELse (_, _, _) -> failwith "not done"
+  | CFunCall (_, _) -> failwith "not done"
+  | CWrite (_, _) -> failwith "not done"
+  | CRef _ -> failwith "not done"
+  | CAssert (_, _) -> failwith "not done"
+  | CPerform (_, _) -> failwith "not done"
+  | CMatch (_, _, _) -> failwith "not done"
+  | CResume _ -> failwith "not done"
