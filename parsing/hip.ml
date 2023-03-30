@@ -900,11 +900,10 @@ let rec transformation (env:string list) (expr:expression) : core_lang =
     end
   | Pexp_fun _ ->
     failwith "only for higher-order, TBD"
-  | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, ((_, {pexp_desc = Pexp_construct ({txt=Lident eff; _}, _); _}) :: rest)) when name = "perform" ->
-    begin match rest with
-    | (_, a) :: _ ->
-      transformation env a |> maybe_var (fun v -> CPerform (eff, Some v))
-    | _ -> CPerform (eff, None)
+  | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, ((_, {pexp_desc = Pexp_construct ({txt=Lident eff; _}, args); _}) :: _)) when name = "perform" ->
+    begin match args with
+    | Some a -> transformation env a |> maybe_var (fun v -> CPerform (eff, Some v))
+    | None -> CPerform (eff, None)
     end
   | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, [_, _k; _, e]) when name = "continue" ->
     transformation env e |> maybe_var (fun v -> CResume v)
