@@ -700,7 +700,7 @@ let rec handling_spec env (spec:normalisedStagedSpec) (normal:(string * core_lan
     (match lookforHandlingCases ops label with 
     | None -> concatenateEventWithSpecs (effectStage2Spec [x]) (handling_spec env (xs, normalS) normal ops )
     | Some (effFormalArg, exprEff) -> 
-      print_string ("formal argument for label is " ^ effFormalArg ^ "\n");
+      (*print_string ("formal argument for label is " ^ effFormalArg ^ "\n"); *)
       let pure = 
         match effactualArgs with 
         | [] -> True 
@@ -737,21 +737,26 @@ and infer_of_expression (env:meth_def list) (current:spec list) (expr:core_lang)
       match retN with 
       | UNIT -> infer_of_expression env [spec] expr2
       | _ -> 
-      let event = NormalReturn (Atomic(EQ, Var str, retN), EmptyHeap, UNIT) in 
-      let current' = concatenateSpecsWithEvent [spec] [event] in 
-      infer_of_expression env current' expr2
+
+      let bindings = bindFormalNActual [str] [retN] in 
+
+      let event = NormalReturn (True, EmptyHeap, UNIT) in 
+      let phi2 = infer_of_expression env [[event]] expr2 in 
+      let phi2' = instantiateSpecList bindings phi2 in 
+      concatenateEventWithSpecs spec phi2' 
+      
     ) phi1)
 
 
   | CRef v -> 
     let freshVar = verifier_getAfreeVar () in 
     let event = NormalReturn (True, PointsTo(freshVar, v), Var freshVar) in 
-    concatenateSpecsWithEvent current [event]
+    concatenateSpecsWithEvent current [Exists [freshVar];event]
 
 
   | CRead str -> 
     let freshVar = verifier_getAfreeVar () in 
-    let event = [Require(True, PointsTo(str, Var freshVar)); NormalReturn (True, EmptyHeap , Var freshVar)] in 
+    let event = [Exists [freshVar];Require(True, PointsTo(str, Var freshVar)); NormalReturn (True, EmptyHeap , Var freshVar)] in 
     concatenateSpecsWithEvent current event
 
 
@@ -760,6 +765,7 @@ and infer_of_expression (env:meth_def list) (current:spec list) (expr:core_lang)
     concatenateSpecsWithEvent temp [(NormalReturn(p, h, UNIT))]
 
   | CPerform (label, arg) -> 
+        
     let arg = 
       match arg with 
       | Some v -> [v]
@@ -767,7 +773,7 @@ and infer_of_expression (env:meth_def list) (current:spec list) (expr:core_lang)
     in 
     let freshVar = verifier_getAfreeVar () in 
     concatenateSpecsWithEvent current 
-    [RaisingEff(True, EmptyHeap, (label,arg), Var freshVar)]
+    [Exists [freshVar];RaisingEff(True, EmptyHeap, (label,arg), Var freshVar)]
 
 
   | CResume v ->  
@@ -823,7 +829,7 @@ and infer_of_expression (env:meth_def list) (current:spec list) (expr:core_lang)
     let phi1 = infer_of_expression env [freshNormalReturnSpec] expr1 in 
     let afterHanldering = List.flatten (
       List.map (fun spec -> 
-        print_endline("\nCMatch =====> " ^ string_of_spec spec);
+        (*print_endline("\nCMatch =====> " ^ string_of_spec spec); *)
         let normalisedSpec= (normalise_spec  ([], freshNoramlStage) spec) in 
 
         handling_spec env  normalisedSpec (normFormalArg, expRet) ops
