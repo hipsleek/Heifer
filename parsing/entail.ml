@@ -64,8 +64,8 @@ module Heap = struct
 
   let normalize : state -> state =
    fun (p, h) ->
-    let h, p1 = normaliseHeap h in
-    (normalize_pure (And (p, p1)), h)
+    let h = normaliseHeap h in
+    (normalize_pure p, h)
 
   (** given a nonempty heap formula, splits it into a points-to expression and another heap formula *)
   let rec split_one : kappa -> ((string * term) * kappa) option =

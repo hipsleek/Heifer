@@ -463,14 +463,16 @@ let () = assert (overlap ["x";"y"] ["y";"z"] = true )
 
 
 
-let normaliseHeap (h) : (kappa * pi) = 
+let rec normaliseHeap (h) : (kappa) = 
   match h with 
+  (*
   | SepConj (PointsTo (s1, t1), PointsTo (s2, t2)) -> 
     if String.compare s1 s2 == 0 then (PointsTo (s1, t1), Atomic(EQ, t1, t2))
     else (h, True)
-  | SepConj (EmptyHeap, h1) -> (h1, True)
-  | SepConj (h1, EmptyHeap) -> (h1, True)
-  | _ -> (h, True)
+  *)
+  | SepConj (EmptyHeap, h1) -> (normaliseHeap h1)
+  | SepConj (h1, EmptyHeap) -> (normaliseHeap h1)
+  | _ -> (h)
 
 let mergeEns (pi1, h1) (pi2, h2) = 
   (*if domainOverlap h1 h2 then failwith "domainOverlap in mergeEns"
@@ -479,11 +481,11 @@ let mergeEns (pi1, h1) (pi2, h2) =
   *)
 
   
-  let (heap, unification) = normaliseHeap (SepConj (h1, h2)) in 
+  let (heap) = normaliseHeap (SepConj (h1, h2)) in 
   (*print_endline (string_of_kappa (SepConj (h1, h2)) ^ " =====> ");
   print_endline (string_of_kappa heap ^ "   and    " ^ string_of_pi unification);
 *)
-  (normalPure (And(And (pi1, pi2), unification)), heap)
+  (normalPure (And (pi1, pi2)), heap)
 
 
 let rec string_of_normalisedStagedSpec (spec:normalisedStagedSpec) : string = 
@@ -566,7 +568,7 @@ let normaliseMagicWand  h1 h2 : (kappa * pi) =
       helper (heapLi', And (unification, unification')) xs
   in 
   let (temp, unifinication) = helper (listOfHeap2, True) listOfHeap1  in 
-  (kappa_of_list temp , unifinication)
+  (normaliseHeap (kappa_of_list temp) , unifinication)
 
 
   
