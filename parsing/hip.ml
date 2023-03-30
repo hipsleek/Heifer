@@ -645,9 +645,9 @@ let instantiateStages (bindings:((string * core_value) list))  (stagedSpec:stage
     Require (instantiatePure bindings pi, instantiateHeap bindings  kappa)
   (* higher-order functions *)
   | NormalReturn (pi, kappa, ret) -> 
-    NormalReturn(instantiatePure bindings pi, instantiateHeap bindings  kappa, instantiateTerms bindings ret) 
-  | HigherOrder (str, basic_t_list) -> 
-    HigherOrder (str, List.map (fun bt -> instantiateTerms bindings bt) basic_t_list)
+    NormalReturn(instantiatePure bindings pi, instantiateHeap bindings kappa, instantiateTerms bindings ret) 
+  | HigherOrder (pi, kappa, (str, basic_t_list), ret) -> 
+    HigherOrder (instantiatePure bindings pi, instantiateHeap bindings kappa, (str, List.map (fun bt -> instantiateTerms bindings bt) basic_t_list), instantiateTerms bindings ret)
   (* effects *)
   | RaisingEff (pi, kappa, (label, basic_t_list), ret)  -> 
     RaisingEff (instantiatePure bindings pi, instantiateHeap bindings  kappa, (label, 

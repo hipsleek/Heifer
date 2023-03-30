@@ -396,8 +396,8 @@ let string_of_stages (st:stagedSpec) : string =
   match st with
   | Require (p, h) ->
     Format.asprintf "req %s /\\ %s" (string_of_pi p) (string_of_kappa h)
-  | HigherOrder (f, args) ->
-    Format.asprintf "%s$(%s); " f (string_of_args args)
+  | HigherOrder (pi, h, (f, args), ret) ->
+    Format.asprintf "%s /\ %s /\ %s$(%s, %s); " (string_of_pi pi) (string_of_kappa h) f (string_of_args args) (string_of_term ret)
   | NormalReturn (pi, heap, ret) ->
     Format.asprintf "Norm(%s /\\ %s, %s)" (string_of_kappa heap) (string_of_pi pi)  (string_of_term ret)
   | RaisingEff (pi, heap, (name, args), ret) ->
@@ -597,11 +597,13 @@ let normalise_stagedSpec (acc:normalisedStagedSpec) (stagedSpec:stagedSpec) : no
     let normalStage' = (existential, mergeEns req (And(pi, unification), magicWandHeap), (normalPure (And(p2, unification')), h2'), ret) in 
     (effectStages, normalStage')
 
-  (* higher-order functions *)
   | NormalReturn (pi, heap, ret') -> (effectStages, (existential, req, mergeEns ens (pi, heap), ret'))
-  | HigherOrder _ -> failwith "later "
   (* effects *)
   | RaisingEff (pi, heap,ins, ret') -> 
+    (effectStages@[(existential, req, mergeEns ens (pi, heap), ins , ret')], freshNoramlStage)
+  (* higher-order functions *)
+  | HigherOrder (pi, heap, ins, ret') ->
+    (* same as RaisingEff *)
     (effectStages@[(existential, req, mergeEns ens (pi, heap), ins , ret')], freshNoramlStage)
 
 let rec normalise_spec (acc:normalisedStagedSpec) (spec:spec) : normalisedStagedSpec = 

@@ -40,9 +40,10 @@ type stagedSpec =
       | Require of pi * kappa 
       | NormalReturn of (pi * kappa * term) (* H /\ Pure /\ res=term *)
       (* higher-order functions *)
-      | HigherOrder of (string * term list)
+      (* | HigherOrder of (string * term list) *)
+      | HigherOrder of (pi * kappa * instant * term)
       (* effects *)
-      | RaisingEff of (pi * kappa * instant * term) (* term is a placeholder for the resumned value *)
+      | RaisingEff of (pi * kappa * instant * term) (* term is a placeholder for the resumed value, pi/\kappa is the state before the perform *)
 
 
 type effectStage =  (string list* (pi * kappa ) * (pi * kappa) * instant * term)
@@ -51,7 +52,7 @@ type normalStage =  (string list* (pi * kappa ) * (pi * kappa) * term)
 type normalisedStagedSpec = effectStage list * normalStage
 
 let freshNormalReturnSpec = [NormalReturn (True, EmptyHeap, UNIT)]
-let freshNoramlStage = ([], (True, EmptyHeap), (True, EmptyHeap), UNIT) 
+let freshNoramlStage : normalStage = ([], (True, EmptyHeap), (True, EmptyHeap), UNIT) 
 
 (* type linearStagedSpec = stagedSpec list *)
 
