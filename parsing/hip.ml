@@ -645,9 +645,9 @@ let instantiateStages (bindings:((string * core_value) list))  (stagedSpec:stage
     Require (instantiatePure bindings pi, instantiateHeap bindings  kappa)
   (* higher-order functions *)
   | NormalReturn (pi, kappa, ret) -> 
-    NormalReturn(instantiatePure bindings pi, instantiateHeap bindings  kappa, instantiateTerms bindings ret) 
-  | HigherOrder (str, basic_t_list) -> 
-    HigherOrder (str, List.map (fun bt -> instantiateTerms bindings bt) basic_t_list)
+    NormalReturn(instantiatePure bindings pi, instantiateHeap bindings kappa, instantiateTerms bindings ret) 
+  | HigherOrder (pi, kappa, (str, basic_t_list), ret) -> 
+    HigherOrder (instantiatePure bindings pi, instantiateHeap bindings kappa, (str, List.map (fun bt -> instantiateTerms bindings bt) basic_t_list), instantiateTerms bindings ret)
   (* effects *)
   | RaisingEff (pi, kappa, (label, basic_t_list), ret)  -> 
     RaisingEff (instantiatePure bindings pi, instantiateHeap bindings  kappa, (label, 
@@ -946,7 +946,6 @@ let rec transformation (env:string list) (expr:expression) : core_lang =
         match c.pc_lhs.ppat_desc with
         | Ppat_var {txt=v; _} -> Some (v, transformation env c.pc_rhs)
         | _ -> None
-        (* failwith (Format.asprintf "unknown pattern: %a" Pprintast.pattern c.pc_lhs) *)
       ) with
       | [] -> failwith (Format.asprintf "no value case: %a" Pprintast.expression expr)
       | c :: _ -> c
@@ -954,10 +953,18 @@ let rec transformation (env:string list) (expr:expression) : core_lang =
     let effs =
       match cases |> List.filter_map (fun c ->
         match c.pc_lhs.ppat_desc with
-        | Ppat_effect (p1, p2) -> Some (string_of_pattern p1, string_of_pattern p2, transformation env c.pc_rhs)
-        | _ ->
-          (* failwith (Format.asprintf "unknown effect pattern: %a" Pprintast.pattern c.pc_lhs) *)
-          None
+        | Ppat_effect (peff, _pk) ->
+          let label, arg_binder =
+            let arg =
+              match peff with
+              | {ppat_desc = Ppat_construct (_name, Some a); _} -> string_of_pattern a
+              | {ppat_desc = Ppat_construct (_name, None); _} -> verifier_getAfreeVar ()
+              | _ -> failwith (Format.asprintf "unknown kind of effect constructor pattern: %a" Pprintast.pattern peff)
+            in
+            string_of_pattern peff, arg
+          in
+          Some (label, arg_binder, transformation env c.pc_rhs)
+        | _ -> None
       ) with
       | [] -> failwith (Format.asprintf "no effect case: %a" Pprintast.expression expr)
       | c -> c
@@ -1471,16 +1478,22 @@ print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
 
       print_endline (string_of_program (_effs, methods));
 
+      let incremental = Array.length Sys.argv >= 3 && String.equal Sys.argv.(2) "-incremental" in
+
       List.iter (fun (_name, _params, spec, body) ->
-        let _spec1 = infer_of_expression methods [freshNormalReturnSpec] body in
-        let header =
-          "\n========== Function: "^ _name ^" ==========\n" ^
-          "[Specification] " ^ string_of_spec_list spec ^"\n"^          
-          "[Normed   Spec] " ^ string_of_spec_list ((normalise_spec_list  spec)) ^"\n\n"^          
-          "[Raw Post Spec] " ^ string_of_spec_list _spec1 ^ "\n" ^ 
-          "[Normed   Post] " ^ string_of_spec_list ((normalise_spec_list  _spec1)) ^"\n"
-        in 
-        print_string (header)
+        if not incremental then begin
+          let _spec1 = infer_of_expression methods [freshNormalReturnSpec] body in
+          let header =
+            "\n========== Function: "^ _name ^" ==========\n" ^
+            "[Specification] " ^ string_of_spec_list spec ^"\n"^          
+            "[Normed   Spec] " ^ string_of_spec_list ((normalise_spec_list  spec)) ^"\n\n"^          
+            "[Raw Post Spec] " ^ string_of_spec_list _spec1 ^ "\n" ^ 
+            "[Normed   Post] " ^ string_of_spec_list ((normalise_spec_list  _spec1)) ^"\n"
+          in 
+          print_string (header)
+        end else begin
+          print_endline "incremental";
+        end
       ) methods;
 
       (* let results, _ =

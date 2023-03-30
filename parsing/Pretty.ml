@@ -367,9 +367,14 @@ let string_of_instant (str, ar_Li): string =
   Format.sprintf "%s%s" str args
 
 
-let string_of_args args =
-  List.map string_of_term args |> String.concat ", "
+let string_of_list p xs =
+  match xs with
+  | [] -> "[]"
+  | _ ->
+    let a = List.map p xs |> String.concat "; " in
+    Format.asprintf "[%s]" a
 
+let string_of_args args = string_of_list string_of_term args
 
 let rec string_of_kappa (k:kappa) : string = 
   match k with
@@ -391,8 +396,8 @@ let string_of_stages (st:stagedSpec) : string =
   match st with
   | Require (p, h) ->
     Format.asprintf "req %s /\\ %s" (string_of_pi p) (string_of_kappa h)
-  | HigherOrder (f, args) ->
-    Format.asprintf "%s$(%s); " f (string_of_args args)
+  | HigherOrder (pi, h, (f, args), ret) ->
+    Format.asprintf "%s /\ %s /\ %s$(%s, %s); " (string_of_pi pi) (string_of_kappa h) f (string_of_args args) (string_of_term ret)
   | NormalReturn (pi, heap, ret) ->
     Format.asprintf "Norm(%s /\\ %s, %s)" (string_of_kappa heap) (string_of_pi pi)  (string_of_term ret)
   | RaisingEff (pi, heap, (name, args), ret) ->
@@ -594,11 +599,13 @@ let normalise_stagedSpec (acc:normalisedStagedSpec) (stagedSpec:stagedSpec) : no
     let normalStage' = (existential, mergeEns req (And(pi, unification), magicWandHeap), (normalPure (And(p2, unification')), h2'), ret) in 
     (effectStages, normalStage')
 
-  (* higher-order functions *)
   | NormalReturn (pi, heap, ret') -> (effectStages, (existential, req, mergeEns ens (pi, heap), ret'))
-  | HigherOrder _ -> failwith "later "
   (* effects *)
   | RaisingEff (pi, heap,ins, ret') -> 
+    (effectStages@[(existential, req, mergeEns ens (pi, heap), ins , ret')], freshNoramlStage)
+  (* higher-order functions *)
+  | HigherOrder (pi, heap, ins, ret') ->
+    (* same as RaisingEff *)
     (effectStages@[(existential, req, mergeEns ens (pi, heap), ins , ret')], freshNoramlStage)
 
 let rec normalise_spec (acc:normalisedStagedSpec) (spec:spec) : normalisedStagedSpec = 
@@ -665,4 +672,36 @@ let normalise_spec_list (specLi:spec list): spec list =
   ) specLi
 
 
-
+let%expect_test "normalise spec" =
+  let test s =
+    let n = normalise_spec ([], freshNoramlStage) s in
+    print_endline (string_of_normalisedStagedSpec n)
+  in
+  test [
+    NormalReturn (True, PointsTo ("x", Num 2), UNIT);
+    Require (True, PointsTo("x", Num 1)) ];
+  test [
+    Require (True, PointsTo("x", Num 1));
+    NormalReturn (True, PointsTo ("x", Num 1), UNIT);
+    Require (True, PointsTo("y", Num 2));
+    NormalReturn (True, PointsTo ("y", Num 2), UNIT) ];
+  test [
+    NormalReturn (True, PointsTo ("x", Num 1), UNIT);
+    Require (True, PointsTo("x", Var "a"));
+    NormalReturn (True, PointsTo ("x", Plus (Var "a", Num 1)), UNIT) ];
+  test [
+    NormalReturn (True, PointsTo ("x", Num 1), UNIT);
+    RaisingEff (True, PointsTo ("x", Num 1), ("E", [Num 3]), UNIT);
+    NormalReturn (True, PointsTo ("y", Num 2), UNIT) ];
+  test [
+    NormalReturn (True, PointsTo ("x", Num 1), UNIT);
+    HigherOrder (True, EmptyHeap, ("f", [Num 3]), UNIT);
+    NormalReturn (True, PointsTo ("y", Num 2), UNIT) ];
+[%expect
+{|
+  ex ; req 2=1 /\ emp; Norm(emp /\ 1=2, ())
+  ex ; req T /\ x->1*emp*y->2*emp; Norm(x->1*emp*y->2 /\ T, ())
+  ex ; req 1=a /\ emp; Norm(x->a+1 /\ a=1, ())
+  ex ; req T /\ emp; E(x->1 /\ 1=1, [3], ())ex ; req T /\ emp; Norm(y->2 /\ T, ())
+  ex ; req T /\ emp; f(x->1 /\ T, [3], ())ex ; req T /\ emp; Norm(y->2 /\ T, ())
+|}]
