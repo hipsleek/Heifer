@@ -671,6 +671,27 @@ let normalise_spec_list (specLi:spec list): spec list =
     
   ) specLi
 
+let rec deleteFromStringList str (li:string list) = 
+  match li with 
+  | [] -> [] 
+  | x ::xs -> if String.compare x str == 0 then xs 
+    else x :: deleteFromStringList str xs
+
+let removeExist (specs:spec list) str : spec list =
+  (*print_endline ("removeExist ===>   " ^ str );
+  *)
+  let aux (stage:stagedSpec): stagedSpec = 
+    match stage with 
+    | Exists strli -> 
+      Exists (deleteFromStringList str strli)
+    | _ -> stage
+  in 
+  let helper (spec:spec) : spec = 
+    List.map (fun a -> aux a) spec 
+  in 
+  List.map (fun a -> helper a) specs
+
+
 
 let%expect_test "normalise spec" =
   let test s =
@@ -706,3 +727,4 @@ let%expect_test "normalise spec" =
   ex ; req 1=1 /\ emp; E(x->1 /\ 1=1, [3], ())ex ; req T /\ emp; Norm(y->2 /\ T, ())
   ex ; req T /\ emp; f(x->1 /\ T, [3], ())ex ; req T /\ emp; Norm(y->2 /\ T, ())
 |}]
+

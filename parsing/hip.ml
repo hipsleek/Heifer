@@ -707,9 +707,8 @@ let rec handling_spec env (spec:normalisedStagedSpec) (normal:(string * core_lan
         | effactualArg ::_ -> Atomic(EQ, Var effFormalArg, effactualArg) 
       in 
       let current = [Exists existiental; Require(p1, h1); 
-        NormalReturn(normalPure(And(p2, pure)), h2, Var ret)] in 
+        NormalReturn(normalPure(And(p2, pure)), h2, UNIT)] in  (* Var ret *)
         
-
       let () = continueationCxt := Some (normalisedStagedSpec2Spec (xs, normalS),  ret, normal, ops) in 
       let temp = infer_of_expression env [current] exprEff in 
 
@@ -739,11 +738,8 @@ and infer_of_expression (env:meth_def list) (current:spec list) (expr:core_lang)
       | _ -> 
 
       let bindings = bindFormalNActual [str] [retN] in 
-
-      let event = NormalReturn (True, EmptyHeap, UNIT) in 
-      let phi2 = infer_of_expression env [[event]] expr2 in 
-      let phi2' = instantiateSpecList bindings phi2 in 
-      concatenateEventWithSpecs spec phi2' 
+      let phi2 = infer_of_expression env [spec] expr2 in 
+      instantiateSpecList bindings phi2
       
     ) phi1)
 
@@ -781,10 +777,15 @@ and infer_of_expression (env:meth_def list) (current:spec list) (expr:core_lang)
       | None -> failwith "resume in a wrong context"
       | Some (continue_spec, ret, normal, ops) -> 
           let bindings = bindFormalNActual [ret] [v] in 
+          (* instantiate the rest of the stages *)
           let instantiatedSpec =  instantiateSpec bindings continue_spec in 
+          (* instantiate the pre stages *)
           let instantiatedCurrent =  instantiateSpecList bindings current in 
+          (* after instantiate the pre stages, remove the existential quantifier for ret *)
+          let instantiatedCurrent' = removeExist instantiatedCurrent ret in 
+
           let temp = handling_spec env (normalise_spec  ([], freshNoramlStage) instantiatedSpec)  normal ops in 
-          concatenateSpecsWithSpec instantiatedCurrent temp
+          concatenateSpecsWithSpec instantiatedCurrent' temp
       )
 
   | CFunCall (fname, actualArgs) -> 
