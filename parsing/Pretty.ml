@@ -387,27 +387,29 @@ let rec string_of_kappa (k:kappa) : string =
 
 let string_of_state (p, h) : string =
   match h, p with
-  | EmptyHeap, _ -> string_of_pi p
   | _, True -> string_of_kappa h
+  | EmptyHeap, _ -> string_of_pi p
   | _ ->
-    (* Format.asprintf "%s /\\ %s" (string_of_kappa h) (string_of_pi p) *)
-    Format.asprintf "%s*%s" (string_of_kappa h) (string_of_pi p)
+    Format.asprintf "%s /\\ %s" (string_of_kappa h) (string_of_pi p)
+    (* Format.asprintf "%s*%s" (string_of_kappa h) (string_of_pi p) *)
 
 let string_of_stages (st:stagedSpec) : string =
   match st with
   | Require (p, h) ->
-    Format.asprintf "req %s /\\ %s" (string_of_pi p) (string_of_kappa h)
+    Format.asprintf "req %s" (string_of_state (p, h))
   | HigherOrder (pi, h, (f, args), ret) ->
-    Format.asprintf "%s /\ %s /\ %s$(%s, %s); " (string_of_pi pi) (string_of_kappa h) f (string_of_args args) (string_of_term ret)
+    Format.asprintf "%s /\ %s$(%s, %s); " (string_of_state (pi, h)) f (string_of_args args) (string_of_term ret)
   | NormalReturn (pi, heap, ret) ->
-    Format.asprintf "Norm(%s /\\ %s, %s)" (string_of_kappa heap) (string_of_pi pi)  (string_of_term ret)
+    Format.asprintf "Norm(%s, %s)" (string_of_state (pi, heap))  (string_of_term ret)
   | RaisingEff (pi, heap, (name, args), ret) ->
-    Format.asprintf "%s(%s /\\ %s, %s, %s)" name (string_of_kappa heap) (string_of_pi pi)  (string_of_args args) (string_of_term ret)
+    Format.asprintf "%s(%s, %s, %s)" name (string_of_state (pi, heap)) (string_of_args args) (string_of_term ret)
   | Exists vs ->
     Format.asprintf "ex %s" (String.concat " " vs)
 
 let string_of_spec (spec:spec) :string =
-  spec |> List.map string_of_stages |> String.concat "; "
+  spec
+  (* |> List.filter (function Exists [] -> false | _ -> true) *)
+  |> List.map string_of_stages |> String.concat "; "
 
 let rec string_of_spec_list (specs:spec list) : string = 
   match specs with 
