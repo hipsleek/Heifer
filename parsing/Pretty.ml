@@ -621,12 +621,14 @@ let normalise_stagedSpec (acc:normalisedStagedSpec) (stagedSpec:stagedSpec) : no
     (* same as RaisingEff *)
     (effectStages@[(existential, req, mergeEns ens (pi, heap), ins , ret')], freshNoramlStage)
 
-let rec normalise_spec (acc:normalisedStagedSpec) (spec:spec) : normalisedStagedSpec = 
+let rec normalise_spec_ (acc:normalisedStagedSpec) (spec:spec) : normalisedStagedSpec = 
   match spec with 
   | [] -> acc 
   | x :: xs -> 
     let acc' = normalise_stagedSpec acc x in 
-    normalise_spec acc' xs 
+    normalise_spec_ acc' xs 
+
+let normalise_spec = normalise_spec_ ([], freshNoramlStage)
 
 let rec effectStage2Spec (effectStages:effectStage list ) : spec = 
   match effectStages with
@@ -679,7 +681,7 @@ let normalisedStagedSpec2Spec (normalisedStagedSpec:normalisedStagedSpec) : spec
 
 let normalise_spec_list (specLi:spec list): spec list = 
   List.map (fun a -> 
-    let normalisedStagedSpec = normalise_spec ([], freshNoramlStage) a in 
+    let normalisedStagedSpec = normalise_spec a in 
     normalisedStagedSpec2Spec normalisedStagedSpec
     
   ) specLi
@@ -708,7 +710,7 @@ let removeExist (specs:spec list) str : spec list =
 
 let%expect_test "normalise spec" =
   let test s =
-    let n = normalise_spec ([], freshNoramlStage) s in
+    let n = normalise_spec s in
     print_endline (string_of_normalisedStagedSpec n)
   in
   test [
