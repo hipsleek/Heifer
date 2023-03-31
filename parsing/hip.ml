@@ -205,8 +205,9 @@ let collect_param_names rhs =
 
              will be treated as if it has no formal params. *)
       in
-      name @ traverse_to_body body
-    | _ -> []
+      let ns, body = traverse_to_body body in
+      name @ ns, body
+    | _ -> ([], e)
   in
   traverse_to_body rhs
 
@@ -1333,8 +1334,8 @@ let transform_str env (s : structure_item) =
     let fn_name = string_of_pattern vb.pvb_pat in
     let fn = vb.pvb_expr in
     begin match fn.pexp_desc with
-    | Pexp_fun (_, _, _, body) ->
-      let formals = collect_param_names fn in
+    | Pexp_fun _ ->
+      let formals, body = collect_param_names fn in
       let spec =
         match function_spec body with
         | None -> [] 
