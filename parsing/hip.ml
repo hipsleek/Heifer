@@ -775,7 +775,8 @@ and infer_of_expression (env:meth_def list) (current:spec list) (expr:core_lang)
       | Var freshV -> 
         let bindings = bindFormalNActual [freshV] [Var str] in 
         let spec' = instantiateSpec bindings spec in 
-        infer_of_expression env [spec'] expr2 
+        let spec' = removeExist [spec'] freshV in 
+        infer_of_expression env spec' expr2 
       | _ -> 
         let bindings = bindFormalNActual [str] [retN] in 
         let phi2 = infer_of_expression env [spec] expr2 in 
