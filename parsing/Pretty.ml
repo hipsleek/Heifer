@@ -72,7 +72,7 @@ let get_children = function
     | Leaf -> []
     | Node (_, li) -> List.filter ((<>) Leaf) li;;
 
-let rule ?(children=[]) fmt = Format.kasprintf (fun s -> Node (s, children)) fmt
+let rule ?(children=[]) ?(success=true) ~name fmt = Format.kasprintf (fun s -> Node (Format.asprintf "[%s]%s %s" name (if success then "" else red " FAIL") s, children)) fmt
 
 type proof = binary_tree
 
@@ -138,7 +138,7 @@ let rec string_of_pi pi : string =
   | Atomic (op, t1, t2) -> string_of_term t1 ^ string_of_bin_op op ^ string_of_term t2
   | And   (p1, p2) -> string_of_pi p1 ^ "/\\" ^ string_of_pi p2
   | Or     (p1, p2) -> string_of_pi p1 ^ "\\/" ^ string_of_pi p2
-  | Imply  (p1, p2) -> string_of_pi p1 ^ "->" ^ string_of_pi p2
+  | Imply  (p1, p2) -> string_of_pi p1 ^ "=>" ^ string_of_pi p2
   | Not    p -> "!" ^ string_of_pi p
   | Predicate (str, t) -> str ^ "(" ^ string_of_term t ^ ")"
 

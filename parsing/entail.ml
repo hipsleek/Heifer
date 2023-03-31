@@ -111,17 +111,16 @@ module Heap = struct
     let c = normalize c in
     match (a, c) with
     | (p1, h1), (p2, EmptyHeap) ->
-      let sat =
-        askZ3_exists vs (Imply (And (xpure (SepConj (h1, k)), p1), p2))
-      in
+      let fml = Imply (And (xpure (SepConj (h1, k)), p1), p2) in
+      let sat = askZ3_exists vs fml in
       if sat then
         let pf =
           (* rule "xpure(%s * %s /\\ %s) => %s" (string_of_kappa h1)
              (string_of_kappa k) (string_of_pi p1) (string_of_pi p2) *)
-          rule "[ent-emp]"
+          rule ~name:"ent-emp" "%s" (string_of_pi fml)
         in
         Ok (pf, (p1, h1))
-      else Error (rule "[ent-emp] FAIL")
+      else Error (rule ~name:"ent-emp" ~success:false "%s" (string_of_pi fml))
     | (p1, h1), (p2, h2) -> begin
       (* we know h2 is non-empty *)
       match split_one h2 with
@@ -136,13 +135,20 @@ module Heap = struct
               (And (p1, Atomic (EQ, v, v1)), h1')
               (p2, h2')
           with
-          | Error s -> Error (rule ~children:[s] "[ent-match] %s" x)
-          | Ok (pf, res) -> Ok (rule ~children:[pf] "[ent-match] %s" x, res)
+          | Error s ->
+            Error
+              (rule ~children:[s] ~name:"ent-match" ~success:false
+                 "%s->%s and %s->%s" x (string_of_term v) x (string_of_term v1))
+          | Ok (pf, res) ->
+            Ok
+              ( rule ~children:[pf] ~name:"ent-match" "%s->%s and %s->%s" x
+                  (string_of_term v) x (string_of_term v1),
+                res )
         end
         | None ->
           Error
-            (rule "[ent-match] could not match %s->%s on RHS" x
-               (string_of_term v))
+            (rule ~name:"ent-match" ~success:false
+               "could not match %s->%s on RHS" x (string_of_term v))
         (* failwith
            (Format.asprintf "Heap.check: could not match %s->%s on RHS" x
               (string_of_term v)) *)
@@ -175,23 +181,23 @@ module Heap = struct
     [%expect
       {|
       x->1 |- y->2 ==> FAIL
-      │[ent-match] could not match y->2 on RHS
+      │[ent-match][31m FAIL[0m could not match y->2 on RHS
 
       x->1 |- x->1 ==> 1=1
-      │[ent-match] x
-      │└── [ent-emp]
+      │[ent-match] x->1 and x->1
+      │└── [ent-emp] T/\T/\f0=x/\f0>0/\1=1=>T
 
       x->1*y->2 |- x->1 ==> 1=1
-      │[ent-match] x
-      │└── [ent-emp]
+      │[ent-match] x->1 and x->1
+      │└── [ent-emp] T/\T/\f1=x/\f1>0/\1=1=>T
 
       x->1 |- x->a ==> a=1
-      │[ent-match] x
-      │└── [ent-emp]
+      │[ent-match] x->a and x->1
+      │└── [ent-emp] T/\T/\f2=x/\f2>0/\a=1=>T
 
       x->b |- x->a ==> a=b
-      │[ent-match] x
-      │└── [ent-emp] |}]
+      │[ent-match] x->a and x->b
+      │└── [ent-emp] T/\T/\f3=x/\f3>0/\a=b=>T |}]
 end
 
 let check_staged_entail : spec -> spec -> spec option =
@@ -209,18 +215,21 @@ let check_staged_subsumption : spec -> spec -> state Res.pf =
      fun (pp1, ph1) es1 es2 ->
       (* recurse down both lists in parallel *)
       match (es1, es2) with
-      | ( (_vs1, (p1, h1), (qp1, qh1), (n1, a1), r1) :: es1',
-          (_vs2, (p2, h2), (qp2, qh2), (n2, a2), r2) :: es2' ) -> begin
+      | ( (_vs1, (p1, h1), (qp1, qh1), (nm1, a1), r1) :: es1',
+          (_vs2, (p2, h2), (qp2, qh2), (nm2, a2), r2) :: es2' ) -> begin
         (* contravariance of preconditions *)
-        let* _pf1, (pr, hr) =
+        let* pf1, (pr, hr) =
           Heap.entails (And (pp1, p2), SepConj (ph1, h2)) (p1, h1)
         in
         (* covariance of postconditions *)
-        let* _pf2, (pr, hr) =
+        let* pf2, (pr, hr) =
           Heap.entails (And (qp1, pr), SepConj (qh1, hr)) (qp2, qh2)
         in
         (* compare effect names *)
-        let* _ = if String.equal n1 n2 then Ok () else Error (rule "uh oh") in
+        let* _ =
+          if String.equal nm1 nm2 then Ok ()
+          else Error (rule ~name:"name-equal" "uh oh")
+        in
         (* unify effect params and return value *)
         let unify =
           List.fold_right
@@ -229,7 +238,11 @@ let check_staged_subsumption : spec -> spec -> state Res.pf =
             (Atomic (EQ, r1, r2))
         in
         let* pf, res = loop (And (unify, pr), hr) es1' es2' in
-        Ok (rule ~children:[pf] "[subsumption-match]", res)
+        Ok
+          ( rule ~children:[pf1; pf2; pf] ~name:"subsumption-stage" "%s |= %s"
+              (string_of_spec (effectStage2Spec es1))
+              (string_of_spec (effectStage2Spec es2)),
+            res )
       end
       | [], [] ->
         (* base case: check the normal stage at the end *)
@@ -237,17 +250,22 @@ let check_staged_subsumption : spec -> spec -> state Res.pf =
           (ns1, ns2)
         in
         (* contravariance *)
-        let* _pf1, (pr, hr) =
+        let* pf1, (pr, hr) =
           Heap.entails (And (pp1, p2), SepConj (ph1, h2)) (p1, h1)
         in
         (* covariance *)
-        let* _pf2, (pr, hr) =
+        let* pf2, (pr, hr) =
           Heap.entails (And (qp1, pr), SepConj (qh1, hr)) (qp2, qh2)
         in
         (* unify return value *)
         let pure = Atomic (EQ, r1, r2) in
-        Ok (rule "[subsumption-base]", (And (pr, pure), hr))
-      | _ -> Error (rule "FAIL unequal length")
+        Ok
+          ( rule ~children:[pf1; pf2] ~name:"subsumption-base" "%s |= %s"
+              (string_of_spec (normalStage2Spec ns1))
+              (string_of_spec (normalStage2Spec ns2)),
+            (And (pr, pure), hr) )
+      | _ ->
+        Error (rule ~name:"subsumption-stage" ~success:false "unequal length")
     in
     loop (True, EmptyHeap) es1 es2
 
@@ -310,7 +328,11 @@ let%expect_test "staged subsumption" =
     |--
     req x->1; Norm(x->1, r)
     ==> 1=1/\r=r
-    │[subsumption-base]
+    │[subsumption-base] req x->1; Norm(x->1, r) |= req x->1; Norm(x->1, r)
+    │├── [ent-match] x->1 and x->1
+    ││   └── [ent-emp] T/\T/\f4=x/\f4>0/\1=1=>T
+    │└── [ent-match] x->1 and x->1
+    │    └── [ent-emp] T/\T/\f5=x/\f5>0/\1=1=>T
 
 
     --- variables
@@ -318,7 +340,11 @@ let%expect_test "staged subsumption" =
     |--
     req x->1; Norm(x->2, r)
     ==> 2=a+1/\a=1/\r=r
-    │[subsumption-base]
+    │[subsumption-base] req x->a; Norm(x->a+1, r) |= req x->1; Norm(x->2, r)
+    │├── [ent-match] x->a and x->1
+    ││   └── [ent-emp] T/\T/\f6=x/\f6>0/\a=1=>T
+    │└── [ent-match] x->2 and x->a+1
+    │    └── [ent-emp] T/\T/\f7=x/\f7>0/\2=a+1/\a=1=>T
 
 
     --- contradiction?
@@ -326,7 +352,11 @@ let%expect_test "staged subsumption" =
     |--
     req x->1; Norm(x->1, r)
     ==> 1=a+1/\a=1/\r=r
-    │[subsumption-base]
+    │[subsumption-base] req x->a; Norm(x->a+1, r) |= req x->1; Norm(x->1, r)
+    │├── [ent-match] x->a and x->1
+    ││   └── [ent-emp] T/\T/\f8=x/\f8>0/\a=1=>T
+    │└── [ent-match] x->1 and x->a+1
+    │    └── [ent-emp] T/\T/\f9=x/\f9>0/\1=a+1/\a=1=>T
 
 
     --- eff stage
@@ -334,8 +364,15 @@ let%expect_test "staged subsumption" =
     |--
     E(x->a+1, [], r); req x->1; Norm(x->1, r)
     ==> 1=a+1/\a=1/\r=r
-    │[subsumption-match]
-    │└── [subsumption-base] |}]
+    │[subsumption-stage] E(x->a+1, [], r) |= E(x->a+1, [], r)
+    │├── [ent-emp] T/\T/\T=>T
+    │├── [ent-match] x->a+1 and x->a+1
+    ││   └── [ent-emp] T/\T/\f10=x/\f10>0/\a+1=a+1=>T
+    │└── [subsumption-base] req x->a; Norm(x->a+1, r) |= req x->1; Norm(x->1, r)
+    │    ├── [ent-match] x->a and x->1
+    │    │   └── [ent-emp] T/\T/\f11=x/\f11>0/\a=1/\r=r=>T
+    │    └── [ent-match] x->1 and x->a+1
+    │        └── [ent-emp] T/\T/\f12=x/\f12>0/\1=a+1/\a=1=>T |}]
 
 (**
   Subsumption between disjunctive specs.
@@ -344,13 +381,13 @@ let%expect_test "staged subsumption" =
   Currently just returns the residue for the RHS disjunct that succeeds and doesn't print anything.
 *)
 let subsumes_disj ds1 ds2 =
-  List.find_map
+  List.map
     (fun s2 ->
-      let res = List.map (fun s1 -> check_staged_subsumption s1 s2) ds1 in
-      let all_succeeded = List.for_all Result.is_ok res in
-      if all_succeeded then
-        Some (List.map2 (fun s1 r -> (s1, s2, Result.get_ok r)) ds1 res)
-      else None)
+      List.map (fun s1 -> (s1, s2, check_staged_subsumption s1 s2)) ds1
+      (* in *)
+      (* res *)
+      (* let all_succeeded = List.for_all (fun (_, _, r) -> Result.is_ok r) res in *)
+      (* if all_succeeded then Some res else None *))
     ds2
 
 (* module Normalize = struct
@@ -471,9 +508,9 @@ let subsumes_disj ds1 ds2 =
             Norm(x->1*x->1 /\ T/\T, ()) |}]
    end *)
 
-type star_entail = (stagedSpec list * state) * spec
+type entail_star = (stagedSpec list * state) * spec
 
-let incremental_rules (pre : star_entail) (e : core_lang) =
+let incremental_rules (pre : entail_star) (e : core_lang) =
   let _, _current = pre in
   match e with
   | CRead _v ->
