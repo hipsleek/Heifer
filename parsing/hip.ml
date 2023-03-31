@@ -181,41 +181,6 @@ let function_spec rhs =
     in
     traverse_to_body rhs
 
-(** given the rhs of a function declaration with let like
-  [let f = fun x -> fun y -> ... -> e], returns ([x; y], e) *)
-let collect_param_names rhs =
-  let rec traverse_to_body e =
-    match e.pexp_desc with
-    | Pexp_constraint (e, _t) ->
-      (* ignore constraints *)
-      traverse_to_body e
-    | Pexp_fun (_, _, name, body) ->
-      let name =
-        match name.ppat_desc with
-        | Ppat_var s -> [s.txt]
-        | Ppat_constraint (p, _ ) -> 
-          (
-            match p.ppat_desc with
-            | Ppat_var s -> [s.txt]
-            | _ -> raise (Foo "collect_param_names other type")
-          )
-        
-        | _ ->
-          (* dummy name for things like a unit pattern, so we at least have the same number of parameters *)
-          [verifier_getAfreeVar ()]
-
-          (* we don't currently recurse inside patterns to pull out variables, so something like
-
-             let f () (Foo a) = 1
-
-             will be treated as if it has no formal params. *)
-      in
-      let ns, body = traverse_to_body body in
-      name @ ns, body
-    | _ -> ([], e)
-  in
-  traverse_to_body rhs
-
 let rec string_of_effectList (specs:spec list):string =
   match specs with 
   | [] -> ""
@@ -1400,6 +1365,44 @@ let infer_of_value_binding rec_flag env vb: string * env  =
       *)
     in header , env, ex_res
 *)
+
+(**
+  In OCaml, a function definition like
+    [let f x y : int = e]
+  is represented in the AST as
+    [let f = (fun x -> fun y -> ... -> e : int)].
+  Given the RHS of the f binding, this returns
+    [([x; y], e)].
+*)
+let collect_param_names rhs =
+    let rec traverse_to_body e =
+      match e.pexp_desc with
+      | Pexp_constraint (e, _t) ->
+        (* ignore constraints *)
+        traverse_to_body e
+      | Pexp_fun (_, _, name, body) ->
+        let name =
+          match name.ppat_desc with
+          | Ppat_var s -> [s.txt]
+          | Ppat_constraint (p, _ ) -> 
+            (
+              match p.ppat_desc with
+              | Ppat_var s -> [s.txt]
+              | _ -> raise (Foo "collect_param_names other type")
+            )
+          
+          | _ ->
+            (* dummy name for things like a unit pattern, so we at least have the same number of parameters *)
+            [verifier_getAfreeVar ()]
+            (* we don't currently recurse inside patterns to pull out variables, so something like
+              let f () (Foo a) = 1
+              will be treated as if it has no formal params. *)
+        in
+        let ns, body = traverse_to_body body in
+        name @ ns, body
+      | _ -> ([], e)
+    in
+    traverse_to_body rhs
 
 let transform_str env (s : structure_item) =
   match s.pstr_desc with
