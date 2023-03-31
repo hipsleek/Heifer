@@ -502,13 +502,15 @@ let rec string_of_normalisedStagedSpec (spec:normalisedStagedSpec) : string =
   match effS with 
   | [] -> 
     let (existiental, (p1, h1), (p2, h2), ret) = normalS in 
-    let current = [Exists existiental; Require(p1, h1); NormalReturn(p2, h2, ret)] in 
+    let ex = match existiental with [] -> [] | _ -> [Exists existiental] in
+    let current = ex @ [Require(p1, h1); NormalReturn(p2, h2, ret)] in
     string_of_spec current 
   | x :: xs  -> 
     (let (existiental, (p1, h1), (p2, h2), ins, ret) = x in 
-    let current = [Exists existiental; Require(p1, h1); RaisingEff(p2, h2, ins, ret)] in 
+    let ex = match existiental with [] -> [] | _ -> [Exists existiental] in
+    let current = ex @ [Require(p1, h1); RaisingEff(p2, h2, ins, ret)] in
     string_of_spec current )
-    ^ string_of_normalisedStagedSpec (xs, normalS) 
+    ^ "; " ^ string_of_normalisedStagedSpec (xs, normalS)
 
 
 let rec list_of_heap h = 
