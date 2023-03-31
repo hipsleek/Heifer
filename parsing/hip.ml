@@ -908,7 +908,7 @@ let rec transformation (env:string list) (expr:expression) : core_lang =
     | _ -> failwith (Format.asprintf "unknown kind of constant: %a" Pprintast.expression expr)
     end
   | Pexp_fun _ ->
-    failwith "only for higher-order, TBD"
+    failwith (Format.asprintf "only for higher-order, TBD: %a" Pprintast.expression expr)
   | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, ((_, {pexp_desc = Pexp_construct ({txt=Lident eff; _}, args); _}) :: _)) when name = "perform" ->
     begin match args with
     | Some a -> transformation env a |> maybe_var (fun v -> CPerform (eff, Some v))
