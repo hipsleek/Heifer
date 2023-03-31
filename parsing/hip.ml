@@ -7,6 +7,10 @@ open Rewriting
 open Pretty
 open Types
 
+let reset = "\u{001b}[0m"
+let green text = "\u{001b}[32m" ^ text ^ reset
+let red text = "\u{001b}[31m" ^ text ^ reset
+
 let rec input_lines file =
   match try [input_line file] with End_of_file -> [] with
    [] -> []
@@ -1567,15 +1571,26 @@ print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
 
       List.iter (fun (_name, _params, spec, body) ->
         if not incremental then begin
-          let _spec1 = infer_of_expression methods [freshNormalReturnSpec] body in
+          let spec1 = infer_of_expression methods [freshNormalReturnSpec] body in
+          let ns = normalise_spec_list spec in
+          let ns1 = normalise_spec_list spec1 in
           let header =
             "\n========== Function: "^ _name ^" ==========\n" ^
-            "[Specification] " ^ string_of_spec_list spec ^"\n"^          
-            "[Normed   Spec] " ^ string_of_spec_list ((normalise_spec_list  spec)) ^"\n\n"^          
-            "[Raw Post Spec] " ^ string_of_spec_list _spec1 ^ "\n" ^ 
-            "[Normed   Post] " ^ string_of_spec_list ((normalise_spec_list  _spec1)) ^"\n"
-          in 
-          print_string (header)
+            "[Specification] " ^ string_of_spec_list spec ^"\n" ^
+            "[Normed   Spec] " ^ string_of_spec_list ns ^"\n\n" ^
+            "[Raw Post Spec] " ^ string_of_spec_list spec1 ^ "\n" ^
+            "[Normed   Post] " ^ string_of_spec_list ns1 ^"\n" ^
+            "\n[Verification]\n"
+          in
+          let residue = Entail.subsumes_disj spec spec1 in
+          print_string (header);
+          begin match residue with
+          | None -> Format.printf "%s\n%s\n%s@." (string_of_spec_list ns) (red "|/=") (string_of_spec_list ns1)
+          | Some res ->
+            List.iter (fun (s1, s2, st) ->
+              Format.printf "%s\n%s\n%s\n%s\n%s@." (string_of_spec s1) (green "|=") (string_of_spec s2) (green "==>") (string_of_state st)
+            ) res
+          end
         end else begin
           print_endline "incremental";
         end

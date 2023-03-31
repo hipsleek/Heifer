@@ -306,6 +306,22 @@ let%expect_test "staged subsumption" =
     req T /\ x->1; Norm(x->1 /\ T, r)
     ==> 1=a+1/\a=1/\r=r |}]
 
+(**
+  Subsumption between disjunctive specs.
+  S1 \/ S2 |= S3 \/ S4
+
+  Currently just returns the residue for the RHS disjunct that succeeds and doesn't print anything.
+*)
+let subsumes_disj ds1 ds2 =
+  List.find_map
+    (fun s2 ->
+      let res = List.map (fun s1 -> check_staged_subsumption s1 s2) ds1 in
+      let all_succeeded = List.for_all Result.is_ok res in
+      if all_succeeded then
+        Some (List.map2 (fun s1 r -> (s1, s2, Result.get_ok r)) ds1 res)
+      else None)
+    ds2
+
 (* module Normalize = struct
      let rec sl_dom (h : kappa) =
        match h with
