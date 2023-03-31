@@ -138,7 +138,7 @@ let rec string_of_pi pi : string =
   | Atomic (op, t1, t2) -> string_of_term t1 ^ string_of_bin_op op ^ string_of_term t2
   | And   (p1, p2) -> string_of_pi p1 ^ "/\\" ^ string_of_pi p2
   | Or     (p1, p2) -> string_of_pi p1 ^ "\\/" ^ string_of_pi p2
-  | Imply  (p1, p2) -> string_of_pi p1 ^ "->" ^ string_of_pi p2
+  | Imply  (p1, p2) -> string_of_pi p1 ^ "=>" ^ string_of_pi p2
   | Not    p -> "!" ^ string_of_pi p
   | Predicate (str, t) -> str ^ "(" ^ string_of_term t ^ ")"
 
