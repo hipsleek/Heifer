@@ -485,8 +485,8 @@ let rec normaliseHeap (h) : (kappa) =
   | SepConj (h1, EmptyHeap) -> (normaliseHeap h1)
   | _ -> (h)
 
-let mergeEns (pi1, h1) (pi2, h2) = 
-  (*if domainOverlap h1 h2 then failwith "domainOverlap in mergeEns"
+let mergeState (pi1, h1) (pi2, h2) = 
+  (*if domainOverlap h1 h2 then failwith "domainOverlap in mergeState"
   else 
 
   *)
@@ -598,6 +598,15 @@ let () = assert ((normaliseMagicWand (PointsTo("x", Num 3)) (PointsTo("x", Var "
 
 *)
 
+(* req p1 /\ h1 |== p2 /\ h2 ~~~~~~> frameReq, frame ens 
+
+let abductionReasoning (p1, h1) (p2, h2) existential : ((pi*kappa) * (pi*kappa)) = 
+  failwith "abductionReasoning"
+
+
+*)
+
+
 let normalise_stagedSpec (acc:normalisedStagedSpec) (stagedSpec:stagedSpec) : normalisedStagedSpec = 
   (*print_endline("\nnormalise_stagedSpec =====> " ^ string_of_normalisedStagedSpec(acc));
   print_endline("\nadding  " ^ string_of_stages (stagedSpec));
@@ -615,17 +624,17 @@ let normalise_stagedSpec (acc:normalisedStagedSpec) (stagedSpec:stagedSpec) : no
     (* not only need to get the magic wand, but also need to delete the common part from h2*)
     let (h2',   unification')    = normaliseMagicWand heap h2 existential in 
 
-    let normalStage' = (existential, mergeEns req (And(pi, unification), magicWandHeap), (normalPure (And(p2, unification')), h2'), ret) in 
+    let normalStage' = (existential, mergeState req (And(pi, unification), magicWandHeap), (normalPure (And(p2, unification')), h2'), ret) in 
     (effectStages, normalStage')
 
-  | NormalReturn (pi, heap, ret') -> (effectStages, (existential, req, mergeEns ens (pi, heap), ret'))
+  | NormalReturn (pi, heap, ret') -> (effectStages, (existential, req, mergeState ens (pi, heap), ret'))
   (* effects *)
   | RaisingEff (pi, heap,ins, ret') -> 
-    (effectStages@[(existential, req, mergeEns ens (pi, heap), ins , ret')], freshNoramlStage)
+    (effectStages@[(existential, req, mergeState ens (pi, heap), ins , ret')], freshNoramlStage)
   (* higher-order functions *)
   | HigherOrder (pi, heap, ins, ret') ->
     (* same as RaisingEff *)
-    (effectStages@[(existential, req, mergeEns ens (pi, heap), ins , ret')], freshNoramlStage)
+    (effectStages@[(existential, req, mergeState ens (pi, heap), ins , ret')], freshNoramlStage)
 
 let rec normalise_spec_ (acc:normalisedStagedSpec) (spec:spec) : normalisedStagedSpec = 
   match spec with 

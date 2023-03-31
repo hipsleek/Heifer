@@ -38,5 +38,4 @@ dune exec ./hip.exe ../src/sp_tests/2b_memory_cell_mix_handler.ml
 
 
 todo:
-1. delete non used exist
 2. magic wand.

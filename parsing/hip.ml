@@ -682,6 +682,19 @@ let rec instantiateExistientalVar
     ((instantiateExistientalVar_aux ex bindings, req, ens, ins, ret) :: rest, norm')
 
 
+let instantiateExistientalVarSpec   (spec:spec) 
+(bindings:((string * string) list)): spec = 
+  let normalSpec = normalise_spec spec in 
+  normalisedStagedSpec2Spec (instantiateExistientalVar normalSpec bindings)
+
+
+
+let isFreshVar str : bool = 
+  if String.get str 0 == 'f' then true else false 
+
+let () = assert (isFreshVar "f10" ==true )
+let () = assert (isFreshVar "s10" ==false )
+
 
 let renamingexistientalVar (specs:spec list): spec list = 
   List.map (
@@ -773,10 +786,23 @@ and infer_of_expression (env:meth_def list) (current:spec list) (expr:core_lang)
       match retN with 
       | UNIT -> infer_of_expression env [spec] expr2
       | Var freshV -> 
-        let bindings = bindFormalNActual [freshV] [Var str] in 
-        let spec' = instantiateSpec bindings spec in 
-        let spec' = removeExist [spec'] freshV in 
-        infer_of_expression env spec' expr2 
+        if isFreshVar freshV then 
+          (print_endline ("replacing " ^ freshV ^ " with " ^str);
+          print_endline ("spec   " ^ string_of_spec spec);
+          (* instantiate the exist value first *)
+          let bindings = bindNewNames [freshV] [str] in 
+          let spec' = instantiateExistientalVarSpec spec bindings in 
+          print_endline ("spec'  " ^ string_of_spec spec');
+          (* instantiate the terms value first *)
+          let bindings = bindFormalNActual [freshV] [Var str] in 
+          let spec' = instantiateSpec bindings spec' in 
+          print_endline ("spec'' " ^ string_of_spec spec');
+          (*let spec' = removeExist [spec'] freshV in *)
+          infer_of_expression env [spec'] expr2 )
+        else 
+          let bindings = bindFormalNActual [str] [retN] in 
+          let phi2 = infer_of_expression env [spec] expr2 in 
+          instantiateSpecList bindings phi2
       | _ -> 
         let bindings = bindFormalNActual [str] [retN] in 
         let phi2 = infer_of_expression env [spec] expr2 in 
