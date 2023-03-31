@@ -181,9 +181,14 @@ let function_spec rhs =
     in
     traverse_to_body rhs
 
+(** given the rhs of a function declaration with let like
+  [let f = fun x -> fun y -> ... -> e], returns ([x; y], e) *)
 let collect_param_names rhs =
   let rec traverse_to_body e =
     match e.pexp_desc with
+    | Pexp_constraint (e, _t) ->
+      (* ignore constraints *)
+      traverse_to_body e
     | Pexp_fun (_, _, name, body) ->
       let name =
         match name.ppat_desc with
