@@ -5,7 +5,7 @@ effect Twice : int
 let test () 
 (*@ ex i ret z u;
    Zero(i->0, ret);
-   req i-> -; 
+   req i-> 0; 
    Norm(i->1, ret)
 @*)
 =

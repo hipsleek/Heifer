@@ -557,9 +557,8 @@ let rec deleteFromHeapListIfHas li (x, t1) existential: (((string * term) list) 
         if existStr t2Str existential then (ys, True)
         else (ys, Atomic (EQ, t1, t2))
       | (_, _) -> 
-      if stricTcompareTerm t1 t2 
-          || stricTcompareTerm t1 (Var "_") 
-          || stricTcompareTerm t2 (Var "_") 
+      if stricTcompareTerm t2 (Var "_") then (ys, True)
+      else if stricTcompareTerm t1 t2 || stricTcompareTerm t1 (Var "_") 
       then (ys, True)
       else (ys, Atomic (EQ, t1, t2))
     else 
