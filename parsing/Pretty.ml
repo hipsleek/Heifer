@@ -656,7 +656,7 @@ let normalStage2Spec (normalStage:normalStage ) : spec =
   | _ -> [Require(p1, h1)])
   @
   (match (p2, h2, ret) with 
-  | (True, EmptyHeap, UNIT) -> []
+  (*| (True, EmptyHeap, UNIT) -> [] *)
   | _ -> [NormalReturn(p2, h2, ret)])
 
 let rec detectfailedAssertions (spec:spec) : spec = 

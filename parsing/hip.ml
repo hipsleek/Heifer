@@ -824,7 +824,8 @@ and infer_of_expression (env:meth_def list) (current:spec list) (expr:core_lang)
 
   | CRead str -> 
     let freshVar = verifier_getAfreeVar () in 
-    let event = [Exists [freshVar];Require(True, PointsTo(str, Var freshVar)); NormalReturn (True, EmptyHeap , Var freshVar)] in 
+    let event = [Exists [freshVar];Require(True, PointsTo(str, Var freshVar)); 
+      NormalReturn (True, PointsTo(str, Var freshVar) , Var freshVar)] in 
     concatenateSpecsWithEvent current event
 
 
@@ -850,6 +851,8 @@ and infer_of_expression (env:meth_def list) (current:spec list) (expr:core_lang)
       (match !continueationCxt with 
       | None -> failwith "resume in a wrong context"
       | Some (continue_spec, ret, normal, ops) -> 
+
+          print_endline ("C = " ^ string_of_spec continue_spec);
           let bindings = bindFormalNActual [ret] [v] in 
           (* instantiate the rest of the stages *)
           let instantiatedSpec =  instantiateSpec bindings continue_spec in 
@@ -859,6 +862,8 @@ and infer_of_expression (env:meth_def list) (current:spec list) (expr:core_lang)
           let instantiatedCurrent' = removeExist instantiatedCurrent ret in 
 
           let temp = handling_spec env (normalise_spec instantiatedSpec)  normal ops in 
+          print_endline ("C' = " ^ string_of_spec_list temp);
+
           concatenateSpecsWithSpec instantiatedCurrent' temp
       )
 
@@ -889,8 +894,11 @@ and infer_of_expression (env:meth_def list) (current:spec list) (expr:core_lang)
 
 
   | CWrite  (str, v) -> 
-    let event = NormalReturn (True, PointsTo(str, v), UNIT) in 
-    concatenateSpecsWithEvent current [event]
+    let freshVar = verifier_getAfreeVar () in 
+
+    let event = [Exists [freshVar];Require(True, PointsTo(str, Var freshVar)); 
+                  NormalReturn (True, PointsTo(str, v), UNIT)] in 
+    concatenateSpecsWithEvent current event
 
 
   | CIfELse (v, expr2, expr3) -> 
@@ -906,7 +914,7 @@ and infer_of_expression (env:meth_def list) (current:spec list) (expr:core_lang)
     let phi1 = infer_of_expression env [freshNormalReturnSpec] expr1 in 
     let afterHanldering = List.flatten (
       List.map (fun spec -> 
-        (*print_endline("\nCMatch =====> " ^ string_of_spec spec); *)
+        print_endline("\nCMatch =====> " ^ string_of_spec spec); 
         let normalisedSpec= (normalise_spec spec) in 
 
         handling_spec env  normalisedSpec (normFormalArg, expRet) ops

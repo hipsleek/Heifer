@@ -20,13 +20,13 @@ let write n
 = perform (Write n)
 
 
-let read_handler () 
+let read_handler ()
 (*@ 
   ex i; 
   Norm(i->0,  0)
 @*)
 = let i = Sys.opaque_identity (ref 0) in 
-  match read () with 
+  match read ();read () with 
   | v -> v
   | effect Read k -> (continue k (!i)) 
 
@@ -39,7 +39,7 @@ let write_handler  ()
 @*)
 =
   let i = Sys.opaque_identity (ref 0) in 
-  match write 10 with
+  match write 10; write 20 with
   | v -> !i (*print_string (string_of_int !i) *)
   | effect (Write x) k -> i := x; (continue k ())
 
