@@ -551,14 +551,15 @@ let rec deleteFromHeapListIfHas li (x, t1) existential: (((string * term) list) 
   | [] -> ([], True)
   | (y, t2)::ys -> 
     if String.compare x y == 0 then 
+      if stricTcompareTerm t2 (Var "_") then (ys, True)
+      else 
       match (t1, t2) with 
       (* x->11 -* x-> z   ~~~>   emp *)
       | (Num _, Var t2Str) ->  
         if existStr t2Str existential then (ys, True)
         else (ys, Atomic (EQ, t1, t2))
       | (_, _) -> 
-      if stricTcompareTerm t2 (Var "_") then (ys, True)
-      else if stricTcompareTerm t1 t2 || stricTcompareTerm t1 (Var "_") 
+      if stricTcompareTerm t1 t2 || stricTcompareTerm t1 (Var "_") 
       then (ys, True)
       else (ys, Atomic (EQ, t1, t2))
     else 
@@ -676,7 +677,6 @@ let rec detectfailedAssertions (spec:spec) : spec =
 let normalisedStagedSpec2Spec (normalisedStagedSpec:normalisedStagedSpec) : spec  = 
   let (effS, normalS) = normalisedStagedSpec in 
   detectfailedAssertions (effectStage2Spec effS @ normalStage2Spec normalS)
-
 
 let normalise_spec_list (specLi:spec list): spec list = 
   List.map (fun a -> 

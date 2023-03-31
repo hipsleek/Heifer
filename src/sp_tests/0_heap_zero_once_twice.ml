@@ -3,8 +3,8 @@ effect Once : int
 effect Twice : int 
 
 let test () 
-(*@ ex i ret z u;
-   Zero(i->0, ret);
+(*@ ex i ret;
+   Once(i->0, ret);
    req i-> 0; 
    Norm(i->1, ret)
 @*)
@@ -16,7 +16,7 @@ let test ()
   ret
 
 let main_aux ()
-(*@ ex x ret z u;
+(*@ ex i;
    Norm(i->2, ())
 @*)
 =

@@ -19,14 +19,14 @@ dune exec ./hip.exe ../src/programs.t/parse_test.ml
 
 
 
-working examples:
+# Working Examples:
 
-(paper figure 20)
+- (paper figure 20, exchange values ) 
 dune exec ./hip.exe ../src/sp_tests/7b_exchange.ml
 
-(paper figure 3)
+- (paper figure 3, multi-shot demonstration)
 dune exec ./hip.exe ../src/sp_tests/0_heap_zero_once_twice.ml
 
-
-(paper figure 3, weakened version)
+- (paper figure 3, multi-shot demonstration ==> weakened version)
 dune exec ./hip.exe ../src/sp_tests/0a_heap_zero_once_twice.ml
+

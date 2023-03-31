@@ -587,12 +587,12 @@ let is_ident name e =
   | Pexp_ident {txt=Lident i; _} when name = i -> true
   | _ -> false
 
-let rec retriveSpecFromSpec (fname: string) (env:meth_def list) : (string list * spec list) option = 
+let rec retriveSpecFromEnv (fname: string) (env:meth_def list) : (string list * spec list) option = 
   match env with 
   | [] -> None 
   | (str, formalArgs,  specLi, _) :: xs ->  
     if String.compare fname str == 0 then Some (formalArgs, specLi) 
-    else retriveSpecFromSpec fname xs
+    else retriveSpecFromEnv fname xs
 
 
 let rec bindFormalNActual (formal: string list) (actual: core_value list) : ((string * core_value) list)= 
@@ -600,6 +600,17 @@ let rec bindFormalNActual (formal: string list) (actual: core_value list) : ((st
   | ([], []) -> []
   | (x::xs , y::ys) -> (x, y) :: bindFormalNActual xs ys
   | ( _,  _ ) -> failwith "bindFormalNActual different lenth arguments"
+
+let rec bindNewNames (formal: string list) (actual: string list) : ((string * string) list)= 
+  match (formal, actual) with 
+  | ([], []) -> []
+  | (x::xs , y::ys) -> (x, y) :: bindNewNames xs ys
+  | ( _,  _ ) -> failwith "bindNewNames different lenth arguments"
+
+
+
+
+  
 
 
 let rec instantiateTerms (bindings:((string * core_value) list)) (t:term) : term = 
@@ -658,9 +669,7 @@ let instantiateStages (bindings:((string * core_value) list))  (stagedSpec:stage
   | RaisingEff (pi, kappa, (label, basic_t_list), ret)  -> 
     RaisingEff (instantiatePure bindings pi, instantiateHeap bindings  kappa, (label, 
     List.map (fun bt -> instantiateTerms bindings bt) basic_t_list
-    ),  ret) 
-
-
+    ), instantiateTerms bindings ret) 
 
 
 let instantiateSpec (bindings:((string * core_value) list)) (sepc:spec) : spec = 
@@ -668,6 +677,62 @@ let instantiateSpec (bindings:((string * core_value) list)) (sepc:spec) : spec =
 
 let instantiateSpecList (bindings:((string * core_value) list)) (sepcs:spec list) : spec list =  
   List.map (fun a -> instantiateSpec bindings a ) sepcs
+
+
+let rec getExistientalVar (spec:normalisedStagedSpec) : string list = 
+  let (effS, normalS)  =  spec  in 
+  match effS with 
+  | [] -> 
+    let (ex, _, _, _) = normalS in ex 
+  | (ex, _, _, _, _) :: xs -> 
+    ex @ getExistientalVar (xs, normalS)
+
+
+let rec findNewName str vb_li =
+    match vb_li with 
+    | [] -> str 
+    | (name, new_name) :: xs -> if String.compare name str == 0 then new_name else  findNewName str xs
+
+
+
+let rec instantiateExistientalVar_aux (li:string list)   (bindings:((string * string) list)) : string list = 
+  match li with 
+  | [] -> []
+  | str :: xs  -> 
+    let str' = findNewName  str bindings in 
+    str' :: instantiateExistientalVar_aux xs bindings
+
+
+let rec instantiateExistientalVar 
+  (spec:normalisedStagedSpec) 
+  (bindings:((string * string) list)): normalisedStagedSpec = 
+
+  let (effS, normalS)  =  spec  in 
+  match effS with 
+  | [] -> 
+    let (ex, req, ens, ret) = normalS in 
+    ([], (instantiateExistientalVar_aux ex bindings, req, ens, ret))
+  | (ex, req, ens, ins, ret) :: xs -> 
+    let (rest, norm') = instantiateExistientalVar (xs, normalS) bindings in 
+    ((instantiateExistientalVar_aux ex bindings, req, ens, ins, ret) :: rest, norm')
+
+
+
+let renamingexistientalVar (specs:spec list): spec list = 
+  List.map (
+    fun spec -> 
+      let normalSpec = normalise_spec spec in 
+      let existientalVar = getExistientalVar normalSpec in 
+      let newNames = List.map (fun _ -> (verifier_getAfreeVar ())) existientalVar in 
+      let newNameTerms = List.map (fun a -> Var a) newNames in 
+      let bindings = bindNewNames existientalVar newNames in 
+      let temp = instantiateExistientalVar normalSpec bindings in 
+      let bindings = bindFormalNActual existientalVar newNameTerms in 
+      instantiateSpec bindings (normalisedStagedSpec2Spec temp)
+  ) specs
+
+
+
 
 let rec lookforHandlingCases ops (label:string) = 
   match ops with 
@@ -813,13 +878,15 @@ and infer_of_expression (env:meth_def list) (current:spec list) (expr:core_lang)
       | _ -> failwith ("wrong aruguments of - " )
 
     else 
-    (match retriveSpecFromSpec fname env with 
+    (match retriveSpecFromEnv fname env with 
     | None -> failwith ("no implemnetation of " ^ fname )
     | Some  (formalArgs, spec_of_fname) -> 
-      let bindings = bindFormalNActual formalArgs actualArgs in 
+      let spec_of_fname =renamingexistientalVar spec_of_fname in 
+      let bindings = bindFormalNActual (formalArgs) (actualArgs) in 
       let instantiatedSpec =  instantiateSpecList bindings spec_of_fname in 
       concatenateSpecsWithSpec current instantiatedSpec  
     )
+
 
   | CWrite  (str, v) -> 
     let event = NormalReturn (True, PointsTo(str, v), UNIT) in 
