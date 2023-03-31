@@ -2533,41 +2533,10 @@ fun_binding:
       { let exp = mkexp_constraint ~loc:$sloc e t in
       { exp with pexp_effectspec = c } }
 ;
-effect_trace_value:
-  | INT
-    {
-      let (i, _) = $1 in
-      Num (int_of_string i)
-    }
-  | v = LIDENT {Var v} 
-  | LPAREN RPAREN { UNIT }
-;
-
-returnValue:
-  | v = effect_trace_value {Basic v}
-    | n = UIDENT QUESTION {Placeholder(n, [])}
-  | n = UIDENT LPAREN args = list(effect_trace_value) RPAREN QUESTION {Placeholder(n, args)}
-  | n = UIDENT LPAREN args = list(effect_trace_value) 
-    RPAREN QUESTION LPAREN v = effect_trace_value RPAREN {ResultOfPlaceholder((n, args), v)}
+effect_trace_value:pure_formula_term{$1};
 
 
-// effect_trace:
-//   // | UNDERSCORE { Underline }
-//   | EMP { Emp }
-//   | n = UIDENT { Singleton (Event (n, [])) }
-//   | n = UIDENT LPAREN args = list(effect_trace_value) RPAREN { Singleton (Event (n, args)) }
 
-//   | TILDE n = UIDENT { Singleton (NotEvent (n, [])) }
-//   | TILDE n = UIDENT LPAREN args = list(effect_trace_value) RPAREN { Singleton (NotEvent (n, args)) }
-//   | LBRACE k=heapkappa RBRACE {Singleton(HeapOp k)}
-
-//   | LBRACKET k=pure_formula RBRACKET {Singleton(DelayAssert k)}
-
-//   | effect_trace DOT effect_trace { Cons ($1, $3) }
-//   | effect_trace DISJUNCTION effect_trace { ESOr ($1, $3) }
-//   | effect_trace KLEENE { Kleene $1 }
-//   | LPAREN effect_trace RPAREN { $2 }
-// ;
 
 
 list_of_list:
@@ -2639,54 +2608,6 @@ heapES:
 | k1 = heapES DISJUNCTION k2 = heapES {DisjHeapES (k1, k2) }
 
 
-stagedSpec : 
-| oppre = heapES SEMI  v = returnValue  { NormalReturn (oppre, v) }
-| oppre = heapES SEMI n = UIDENT REQUIRES prec=pure_formula 
-  ENSURES rest = stagedSpec  { RaisingEff(oppre,  prec, (n, []), rest) }
-
-| oppre = heapES SEMI n = UIDENT LPAREN args = list(effect_trace_value)  
-  REQUIRES prec=pure_formula  ENSURES rest = stagedSpec 
-  { RaisingEff(oppre, prec, (n, args),  rest) }
-
-// esAndReturn:
-// // | t= effect_trace COMMA  v=returnValue {t, v}
-// | HASH 
-//   t= stagedSpec  
-//   { let rec heapES2ES (hs:heapES) : es = 
-//       match hs with 
-//       | EmpHeapES  -> Emp 
-//       | SingleHeapES k -> Singleton (HeapOp k)
-//       | AssertHeapES pi -> Singleton (DelayAssert pi)
-//       | ConsHeapES (hs1, hs2) -> Cons (heapES2ES hs1, heapES2ES hs2)
-//       | DisjHeapES (hs1, hs2) -> ESOr (heapES2ES hs1, heapES2ES hs2)
-
-//     in 
-    
-//     let rec stagedSpec2heapES (s:stagedSpec) : (es * returnValue) = 
-//       match s with 
-//       | BotStagedSpec -> (Bot, Basic UNIT)
-//       | NormalReturn (preop, bt) -> (heapES2ES preop, bt)
-//       | RaisingEff (preop, pi, ins,  stageEs) -> 
-//         let (restES, ret) = stagedSpec2heapES stageEs in 
-//         (Cons (heapES2ES preop, 
-//          Cons (Singleton(DelayAssert pi), 
-//          Cons (Singleton(Event ins), restES))), ret)
-//    in 
-//    stagedSpec2heapES t}
-
-// LPAREN 
-// p=pure_formula COMMA 
-  // esAndReturn = esAndReturn RPAREN 
-  // rest = effect_spec_aux{
-  //   let (t, v) = esAndReturn in 
-  //   (p, t, v)::rest}
-
-// list_of_post_condition:
-// | {[]}
-// | LSPECCOMMENT ENSURES post = effect_spec RSPECCOMMENT
-// // rest = list_of_post_condition
-// // {post :: rest}
-// { [post] }
 
 stagedSpecArgs :
   | h=heapkappa COMMA rest=separated_nonempty_list(COMMA, effect_trace_value) { (True, h, rest) }

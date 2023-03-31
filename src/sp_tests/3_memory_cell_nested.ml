@@ -21,9 +21,13 @@ let write n
 
 let client () 
 (*@ 
-   ex ret; 
-   Read(emp, ret);
-   Norm(emp, ret)
+  ex x1; 
+  Read(emp, x1); 
+  ex x2; 
+  Write(emp, (x1+1), x2); 
+  ex x3; 
+  Read(emp, x3); 
+  Norm(emp, x3)
 @*)
 = let x = read () in 
   let x' = x + 1 in 
@@ -32,9 +36,9 @@ let client ()
 
 let handler1 () 
 (*@ 
-   ex ret; 
-   Read(emp, ret);
-   Norm(emp, ret)
+  ex ret ret1; 
+  Read(emp, ret); 
+  Read(i->ret+1,  ret1)
 @*)
 = 
   match client () with
