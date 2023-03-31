@@ -772,12 +772,14 @@ and infer_of_expression (env:meth_def list) (current:spec list) (expr:core_lang)
       let (_, _, retN) = retriveNormalStage spec in 
       match retN with 
       | UNIT -> infer_of_expression env [spec] expr2
+      | Var freshV -> 
+        let bindings = bindFormalNActual [freshV] [Var str] in 
+        let spec' = instantiateSpec bindings spec in 
+        infer_of_expression env [spec'] expr2 
       | _ -> 
-
-      let bindings = bindFormalNActual [str] [retN] in 
-      let phi2 = infer_of_expression env [spec] expr2 in 
-      instantiateSpecList bindings phi2
-      
+        let bindings = bindFormalNActual [str] [retN] in 
+        let phi2 = infer_of_expression env [spec] expr2 in 
+        instantiateSpecList bindings phi2
     ) phi1)
 
 
@@ -817,7 +819,9 @@ and infer_of_expression (env:meth_def list) (current:spec list) (expr:core_lang)
       | None -> failwith "resume in a wrong context"
       | Some (continue_spec, ret, normal, ops) -> 
 
+          (*
           print_endline ("C = " ^ string_of_spec continue_spec);
+          *)
           let bindings = bindFormalNActual [ret] [v] in 
           (* instantiate the rest of the stages *)
           let instantiatedSpec =  instantiateSpec bindings continue_spec in 
@@ -827,8 +831,9 @@ and infer_of_expression (env:meth_def list) (current:spec list) (expr:core_lang)
           let instantiatedCurrent' = removeExist instantiatedCurrent ret in 
 
           let temp = handling_spec env (normalise_spec instantiatedSpec)  normal ops in 
+          (*
           print_endline ("C' = " ^ string_of_spec_list temp);
-
+      *)
           concatenateSpecsWithSpec instantiatedCurrent' temp
       )
 
@@ -879,7 +884,7 @@ and infer_of_expression (env:meth_def list) (current:spec list) (expr:core_lang)
     let phi1 = infer_of_expression env [freshNormalReturnSpec] expr1 in 
     let afterHanldering = List.flatten (
       List.map (fun spec -> 
-        print_endline("\nCMatch =====> " ^ string_of_spec spec); 
+        (*print_endline("\nCMatch =====> " ^ string_of_spec spec); *)
         let normalisedSpec= (normalise_spec spec) in 
 
         handling_spec env  normalisedSpec (normFormalArg, expRet) ops

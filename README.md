@@ -34,3 +34,9 @@ dune exec ./hip.exe ../src/sp_tests/0a_heap_zero_once_twice.ml
 dune exec ./hip.exe ../src/sp_tests/2_memory_cell.ml   
 dune exec ./hip.exe ../src/sp_tests/2a_memory_cell.ml
 dune exec ./hip.exe ../src/sp_tests/2b_memory_cell_mix_handler.ml
+
+
+
+todo:
+1. delete non used exist
+2. magic wand.
