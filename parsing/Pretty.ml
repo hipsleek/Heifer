@@ -545,7 +545,7 @@ let rec kappa_of_list li =
   | (x, v)::xs ->  SepConj (PointsTo (x, v), kappa_of_list xs)
 
 
-(* (x, t1)  -* (y, t2) *)  
+(* (x, t1) -* (y, t2) *)  
 let rec deleteFromHeapListIfHas li (x, t1) existential: (((string * term) list) *pi) = 
   match li with 
   | [] -> ([], True)

@@ -768,6 +768,7 @@ and infer_of_expression (env:meth_def list) (current:spec list) (expr:core_lang)
       | _ -> []
     in 
     let freshVar = verifier_getAfreeVar () in 
+    (* after adding the perfome stage, we need to add a normal return. *)
     concatenateSpecsWithEvent current 
     [Exists [freshVar];RaisingEff(True, EmptyHeap, (label,arg), Var freshVar);
     NormalReturn (True, EmptyHeap, Var freshVar)]
