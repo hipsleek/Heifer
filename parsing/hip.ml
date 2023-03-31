@@ -1339,13 +1339,13 @@ let transform_str env (s : structure_item) =
     let fn_name = string_of_pattern vb.pvb_pat in
     let fn = vb.pvb_expr in
     begin match fn.pexp_desc with
-    | Pexp_fun _ ->
-      let formals, body = collect_param_names fn in
+    | Pexp_fun (_, _, _, tlbody) ->
       let spec =
-        match function_spec body with
+        match function_spec tlbody with
         | None -> [] 
         | Some spec -> [spec]
       in
+      let formals, body = collect_param_names fn in
       let e = transformation env body in
       `Meth (fn_name, formals, spec, e)
     | _ ->
