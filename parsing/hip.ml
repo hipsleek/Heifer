@@ -1588,20 +1588,31 @@ print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
             "[Specification] " ^ string_of_spec_list spec ^"\n" ^
             "[Normed   Spec] " ^ string_of_spec_list ns ^"\n\n" ^
             "[Raw Post Spec] " ^ string_of_spec_list spec1 ^ "\n" ^
-            "[Normed   Post] " ^ string_of_spec_list ns1 ^"\n" ^
-            "\n[Verification]\n"
+            "[Normed   Post] " ^ string_of_spec_list ns1 ^"\n"
           in
-          let residue = Entail.subsumes_disj spec spec1 in
           print_string (header);
-          begin match residue with
-          | None -> Format.printf "%s\n%s\n%s@." (string_of_spec_list ns) (Pretty.red "|/=") (string_of_spec_list ns1)
-          | Some res ->
-            List.iter (fun (s1, s2, (_pf, st)) ->
+          let disj_res = Entail.subsumes_disj spec spec1 in
+          let success = List.exists (fun r -> List.for_all (fun (_, _, r1) -> Result.is_ok r1) r) disj_res in
+          begin if success then
+            print_endline (Pretty.green "\n[Verification]")
+          else
+            print_endline (Pretty.red "\n[Verification]")
+          end;
+          List.iter (fun dr ->
+            (* one of these should succeed *)
+            List.iter (fun (s1, s2, res) ->
+              (* all of these should succeed *)
               let n1 = normalise_spec s1 |> normalisedStagedSpec2Spec in
               let n2 = normalise_spec s2 |> normalisedStagedSpec2Spec in
-              Format.printf "%s\n%s\n%s\n%s\n%s@." (string_of_spec n1) (Pretty.green "|=") (string_of_spec n2) (green "==>") (string_of_state st)
-            ) res
-          end
+              Format.printf "%s\n%s\n%s\n%s%s@."
+              (string_of_spec n1)
+              (match res with Ok _ -> Pretty.green "|=" | Error _ -> Pretty.red "|/=")
+              (string_of_spec n2)
+              (match res with Ok _ -> green "==>\n" | Error _ -> "\n")
+              (match res with
+               | Ok (pf, st) -> string_of_state st ^ "\n\n" ^ string_of_proof pf
+               | Error pf -> string_of_proof pf)) dr
+          ) disj_res
         end else begin
           print_endline "incremental";
         end

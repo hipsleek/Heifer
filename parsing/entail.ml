@@ -117,10 +117,10 @@ module Heap = struct
         let pf =
           (* rule "xpure(%s * %s /\\ %s) => %s" (string_of_kappa h1)
              (string_of_kappa k) (string_of_pi p1) (string_of_pi p2) *)
-          rule "[ent-emp] %s" (string_of_pi fml)
+          rule ~name:"ent-emp" "%s" (string_of_pi fml)
         in
         Ok (pf, (p1, h1))
-      else Error (rule "[ent-emp] FAIL %s" (string_of_pi fml))
+      else Error (rule ~name:"ent-emp" ~success:false "%s" (string_of_pi fml))
     | (p1, h1), (p2, h2) -> begin
       (* we know h2 is non-empty *)
       match split_one h2 with
@@ -137,18 +137,18 @@ module Heap = struct
           with
           | Error s ->
             Error
-              (rule ~children:[s] "[ent-match] FAIL %s->%s and %s->%s" x
-                 (string_of_term v) x (string_of_term v1))
+              (rule ~children:[s] ~name:"ent-match" ~success:false
+                 "%s->%s and %s->%s" x (string_of_term v) x (string_of_term v1))
           | Ok (pf, res) ->
             Ok
-              ( rule ~children:[pf] "[ent-match] %s->%s and %s->%s" x
+              ( rule ~children:[pf] ~name:"ent-match" "%s->%s and %s->%s" x
                   (string_of_term v) x (string_of_term v1),
                 res )
         end
         | None ->
           Error
-            (rule "could not match %s->%s on RHS [ent-match]" x
-               (string_of_term v))
+            (rule ~name:"ent-match" ~success:false
+               "could not match %s->%s on RHS" x (string_of_term v))
         (* failwith
            (Format.asprintf "Heap.check: could not match %s->%s on RHS" x
               (string_of_term v)) *)
@@ -181,7 +181,7 @@ module Heap = struct
     [%expect
       {|
       x->1 |- y->2 ==> FAIL
-      │could not match y->2 on RHS [ent-match]
+      │[ent-match][31m FAIL[0m could not match y->2 on RHS
 
       x->1 |- x->1 ==> 1=1
       │[ent-match] x->1 and x->1
@@ -226,7 +226,10 @@ let check_staged_subsumption : spec -> spec -> state Res.pf =
           Heap.entails (And (qp1, pr), SepConj (qh1, hr)) (qp2, qh2)
         in
         (* compare effect names *)
-        let* _ = if String.equal nm1 nm2 then Ok () else Error (rule "uh oh") in
+        let* _ =
+          if String.equal nm1 nm2 then Ok ()
+          else Error (rule ~name:"name-equal" "uh oh")
+        in
         (* unify effect params and return value *)
         let unify =
           List.fold_right
@@ -236,7 +239,7 @@ let check_staged_subsumption : spec -> spec -> state Res.pf =
         in
         let* pf, res = loop (And (unify, pr), hr) es1' es2' in
         Ok
-          ( rule ~children:[pf1; pf2; pf] "[subsumption-stage] %s |= %s"
+          ( rule ~children:[pf1; pf2; pf] ~name:"subsumption-stage" "%s |= %s"
               (string_of_spec (effectStage2Spec es1))
               (string_of_spec (effectStage2Spec es2)),
             res )
@@ -257,11 +260,12 @@ let check_staged_subsumption : spec -> spec -> state Res.pf =
         (* unify return value *)
         let pure = Atomic (EQ, r1, r2) in
         Ok
-          ( rule ~children:[pf1; pf2] "[subsumption-base] %s |= %s"
+          ( rule ~children:[pf1; pf2] ~name:"subsumption-base" "%s |= %s"
               (string_of_spec (normalStage2Spec ns1))
               (string_of_spec (normalStage2Spec ns2)),
             (And (pr, pure), hr) )
-      | _ -> Error (rule "FAIL unequal length")
+      | _ ->
+        Error (rule ~name:"subsumption-stage" ~success:false "unequal length")
     in
     loop (True, EmptyHeap) es1 es2
 
@@ -377,13 +381,13 @@ let%expect_test "staged subsumption" =
   Currently just returns the residue for the RHS disjunct that succeeds and doesn't print anything.
 *)
 let subsumes_disj ds1 ds2 =
-  List.find_map
+  List.map
     (fun s2 ->
-      let res = List.map (fun s1 -> check_staged_subsumption s1 s2) ds1 in
-      let all_succeeded = List.for_all Result.is_ok res in
-      if all_succeeded then
-        Some (List.map2 (fun s1 r -> (s1, s2, Result.get_ok r)) ds1 res)
-      else None)
+      List.map (fun s1 -> (s1, s2, check_staged_subsumption s1 s2)) ds1
+      (* in *)
+      (* res *)
+      (* let all_succeeded = List.for_all (fun (_, _, r) -> Result.is_ok r) res in *)
+      (* if all_succeeded then Some res else None *))
     ds2
 
 (* module Normalize = struct

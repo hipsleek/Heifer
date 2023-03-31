@@ -72,7 +72,7 @@ let get_children = function
     | Leaf -> []
     | Node (_, li) -> List.filter ((<>) Leaf) li;;
 
-let rule ?(children=[]) fmt = Format.kasprintf (fun s -> Node (s, children)) fmt
+let rule ?(children=[]) ?(success=true) ~name fmt = Format.kasprintf (fun s -> Node (Format.asprintf "[%s]%s %s" name (if success then "" else red " FAIL") s, children)) fmt
 
 type proof = binary_tree
 
