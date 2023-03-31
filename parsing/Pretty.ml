@@ -8,7 +8,9 @@ open Z3
 
 exception Foo of string
 
-
+let reset = "\u{001b}[0m"
+let green text = "\u{001b}[32m" ^ text ^ reset
+let red text = "\u{001b}[31m" ^ text ^ reset
 
 let verifier_counter: int ref = ref 0;;
 
@@ -739,10 +741,10 @@ let%expect_test "normalise spec" =
     NormalReturn (True, PointsTo ("y", Num 2), UNIT) ];
 [%expect
 {|
-  ex ; req 2=1 /\ emp; Norm(emp /\ 1=2, ())
-  ex ; req T /\ x->1*y->2; Norm(x->1*y->2 /\ T, ())
-  ex ; req 1=a /\ emp; Norm(x->a+1 /\ a=1, ())
-  ex ; req 1=1 /\ emp; E(x->1 /\ 1=1, [3], ())ex ; req T /\ emp; Norm(y->2 /\ T, ())
-  ex ; req T /\ emp; f(x->1 /\ T, [3], ())ex ; req T /\ emp; Norm(y->2 /\ T, ())
+  req 2=1; Norm(1=2, ())
+  req x->1*y->2; Norm(x->1*y->2, ())
+  req 1=a; Norm(x->a+1 /\ a=1, ())
+  req 1=1; E(x->1 /\ 1=1, [3], ()); req emp; Norm(y->2, ())
+  req emp; f(x->1, [3], ()); req emp; Norm(y->2, ())
 |}]
 

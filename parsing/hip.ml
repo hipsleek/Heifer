@@ -7,10 +7,6 @@ open Rewriting
 open Pretty
 open Types
 
-let reset = "\u{001b}[0m"
-let green text = "\u{001b}[32m" ^ text ^ reset
-let red text = "\u{001b}[31m" ^ text ^ reset
-
 let rec input_lines file =
   match try [input_line file] with End_of_file -> [] with
    [] -> []
@@ -1585,12 +1581,12 @@ print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
           let residue = Entail.subsumes_disj spec spec1 in
           print_string (header);
           begin match residue with
-          | None -> Format.printf "%s\n%s\n%s@." (string_of_spec_list ns) (red "|/=") (string_of_spec_list ns1)
+          | None -> Format.printf "%s\n%s\n%s@." (string_of_spec_list ns) (Pretty.red "|/=") (string_of_spec_list ns1)
           | Some res ->
-            List.iter (fun (s1, s2, st) ->
+            List.iter (fun (s1, s2, (_pf, st)) ->
               let n1 = normalise_spec s1 |> normalisedStagedSpec2Spec in
               let n2 = normalise_spec s2 |> normalisedStagedSpec2Spec in
-              Format.printf "%s\n%s\n%s\n%s\n%s@." (string_of_spec n1) (green "|=") (string_of_spec n2) (green "==>") (string_of_state st)
+              Format.printf "%s\n%s\n%s\n%s\n%s@." (string_of_spec n1) (Pretty.green "|=") (string_of_spec n2) (green "==>") (string_of_state st)
             ) res
           end
         end else begin

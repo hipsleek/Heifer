@@ -7,6 +7,7 @@ let string_of_option to_s o : string =
 module Res = struct
   let ( let* ) = Result.bind
 
+  (* type 'a pf = proof * 'a option *)
   type 'a pf = (proof * 'a, proof) result
 end
 
@@ -198,13 +199,13 @@ let check_staged_entail : spec -> spec -> spec option =
   let norm = normalise_spec (n1 @ n2) in
   Some (normalisedStagedSpec2Spec norm)
 
-let check_staged_subsumption : spec -> spec -> (state, proof) result =
+let check_staged_subsumption : spec -> spec -> state Res.pf =
   let open Res in
   fun n1 n2 ->
     let es1, ns1 = normalise_spec n1 in
     let es2, ns2 = normalise_spec n2 in
-    let rec loop :
-        state -> effectStage list -> effectStage list -> (state, proof) result =
+    let rec loop : state -> effectStage list -> effectStage list -> state Res.pf
+        =
      fun (pp1, ph1) es1 es2 ->
       (* recurse down both lists in parallel *)
       match (es1, es2) with
@@ -227,7 +228,8 @@ let check_staged_subsumption : spec -> spec -> (state, proof) result =
             (List.map2 (fun a b -> (a, b)) a1 a2)
             (Atomic (EQ, r1, r2))
         in
-        loop (And (unify, pr), hr) es1' es2'
+        let* pf, res = loop (And (unify, pr), hr) es1' es2' in
+        Ok (rule ~children:[pf] "[subsumption-match]", res)
       end
       | [], [] ->
         (* base case: check the normal stage at the end *)
@@ -244,8 +246,8 @@ let check_staged_subsumption : spec -> spec -> (state, proof) result =
         in
         (* unify return value *)
         let pure = Atomic (EQ, r1, r2) in
-        Ok (And (pr, pure), hr)
-      | _ -> Error (rule "unequal length")
+        Ok (rule "[subsumption-base]", (And (pr, pure), hr))
+      | _ -> Error (rule "FAIL unequal length")
     in
     loop (True, EmptyHeap) es1 es2
 
@@ -256,8 +258,10 @@ let%expect_test "staged subsumption" =
       (match res with Ok _ -> "|--" | Error _ -> "|-/-")
       (string_of_spec r)
       (match res with
-      | Ok residue -> Format.asprintf "\n==> %s" (string_of_state residue)
-      | Error _ -> "")
+      | Ok (pf, residue) ->
+        Format.asprintf "\n==> %s\n%s" (string_of_state residue)
+          (string_of_proof pf)
+      | Error pf -> Format.asprintf "\n%s" (string_of_proof pf))
   in
   test "identity"
     [
@@ -286,25 +290,52 @@ let%expect_test "staged subsumption" =
       Require (True, PointsTo ("x", Num 1));
       NormalReturn (True, PointsTo ("x", Num 1), Var "r");
     ];
+  test "eff stage"
+    [
+      RaisingEff
+        (True, PointsTo ("x", Plus (Var "a", Num 1)), ("E", []), Var "r");
+      Require (True, PointsTo ("x", Var "a"));
+      NormalReturn (True, PointsTo ("x", Plus (Var "a", Num 1)), Var "r");
+    ]
+    [
+      RaisingEff
+        (True, PointsTo ("x", Plus (Var "a", Num 1)), ("E", []), Var "r");
+      Require (True, PointsTo ("x", Num 1));
+      NormalReturn (True, PointsTo ("x", Num 1), Var "r");
+    ];
   [%expect
     {|
     --- identity
-    req T /\ x->1; Norm(x->1 /\ T, r)
+    req x->1; Norm(x->1, r)
     |--
-    req T /\ x->1; Norm(x->1 /\ T, r)
+    req x->1; Norm(x->1, r)
     ==> 1=1/\r=r
+    │[subsumption-base]
+
 
     --- variables
-    req T /\ x->a; Norm(x->a+1 /\ T, r)
+    req x->a; Norm(x->a+1, r)
     |--
-    req T /\ x->1; Norm(x->2 /\ T, r)
+    req x->1; Norm(x->2, r)
     ==> 2=a+1/\a=1/\r=r
+    │[subsumption-base]
+
 
     --- contradiction?
-    req T /\ x->a; Norm(x->a+1 /\ T, r)
+    req x->a; Norm(x->a+1, r)
     |--
-    req T /\ x->1; Norm(x->1 /\ T, r)
-    ==> 1=a+1/\a=1/\r=r |}]
+    req x->1; Norm(x->1, r)
+    ==> 1=a+1/\a=1/\r=r
+    │[subsumption-base]
+
+
+    --- eff stage
+    E(x->a+1, [], r); req x->a; Norm(x->a+1, r)
+    |--
+    E(x->a+1, [], r); req x->1; Norm(x->1, r)
+    ==> 1=a+1/\a=1/\r=r
+    │[subsumption-match]
+    │└── [subsumption-base] |}]
 
 (**
   Subsumption between disjunctive specs.
@@ -443,10 +474,10 @@ let subsumes_disj ds1 ds2 =
 type star_entail = (stagedSpec list * state) * spec
 
 let incremental_rules (pre : star_entail) (e : core_lang) =
-  let _, current = pre in
+  let _, _current = pre in
   match e with
-  | CRead v ->
-    let f = verifier_getAfreeVar () in
+  | CRead _v ->
+    let _f = verifier_getAfreeVar () in
     (* Heap.entails current  *)
     failwith ""
   | CLet (_, _, _) -> failwith "not done"
