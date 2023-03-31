@@ -8,7 +8,9 @@ open Z3
 
 exception Foo of string
 
-
+let reset = "\u{001b}[0m"
+let green text = "\u{001b}[32m" ^ text ^ reset
+let red text = "\u{001b}[31m" ^ text ^ reset
 
 let verifier_counter: int ref = ref 0;;
 
@@ -387,27 +389,29 @@ let rec string_of_kappa (k:kappa) : string =
 
 let string_of_state (p, h) : string =
   match h, p with
-  | EmptyHeap, _ -> string_of_pi p
   | _, True -> string_of_kappa h
+  | EmptyHeap, _ -> string_of_pi p
   | _ ->
-    (* Format.asprintf "%s /\\ %s" (string_of_kappa h) (string_of_pi p) *)
-    Format.asprintf "%s*%s" (string_of_kappa h) (string_of_pi p)
+    Format.asprintf "%s /\\ %s" (string_of_kappa h) (string_of_pi p)
+    (* Format.asprintf "%s*%s" (string_of_kappa h) (string_of_pi p) *)
 
 let string_of_stages (st:stagedSpec) : string =
   match st with
   | Require (p, h) ->
-    Format.asprintf "req %s /\\ %s" (string_of_pi p) (string_of_kappa h)
+    Format.asprintf "req %s" (string_of_state (p, h))
   | HigherOrder (pi, h, (f, args), ret) ->
-    Format.asprintf "%s /\ %s /\ %s$(%s, %s); " (string_of_pi pi) (string_of_kappa h) f (string_of_args args) (string_of_term ret)
+    Format.asprintf "%s /\ %s$(%s, %s); " (string_of_state (pi, h)) f (string_of_args args) (string_of_term ret)
   | NormalReturn (pi, heap, ret) ->
-    Format.asprintf "Norm(%s /\\ %s, %s)" (string_of_kappa heap) (string_of_pi pi)  (string_of_term ret)
+    Format.asprintf "Norm(%s, %s)" (string_of_state (pi, heap))  (string_of_term ret)
   | RaisingEff (pi, heap, (name, args), ret) ->
-    Format.asprintf "%s(%s /\\ %s, %s, %s)" name (string_of_kappa heap) (string_of_pi pi)  (string_of_args args) (string_of_term ret)
+    Format.asprintf "%s(%s, %s, %s)" name (string_of_state (pi, heap)) (string_of_args args) (string_of_term ret)
   | Exists vs ->
     Format.asprintf "ex %s" (String.concat " " vs)
 
 let string_of_spec (spec:spec) :string =
-  spec |> List.map string_of_stages |> String.concat "; "
+  spec
+  (* |> List.filter (function Exists [] -> false | _ -> true) *)
+  |> List.map string_of_stages |> String.concat "; "
 
 let rec string_of_spec_list (specs:spec list) : string = 
   match specs with 
@@ -500,13 +504,15 @@ let rec string_of_normalisedStagedSpec (spec:normalisedStagedSpec) : string =
   match effS with 
   | [] -> 
     let (existiental, (p1, h1), (p2, h2), ret) = normalS in 
-    let current = [Exists existiental; Require(p1, h1); NormalReturn(p2, h2, ret)] in 
+    let ex = match existiental with [] -> [] | _ -> [Exists existiental] in
+    let current = ex @ [Require(p1, h1); NormalReturn(p2, h2, ret)] in
     string_of_spec current 
   | x :: xs  -> 
     (let (existiental, (p1, h1), (p2, h2), ins, ret) = x in 
-    let current = [Exists existiental; Require(p1, h1); RaisingEff(p2, h2, ins, ret)] in 
+    let ex = match existiental with [] -> [] | _ -> [Exists existiental] in
+    let current = ex @ [Require(p1, h1); RaisingEff(p2, h2, ins, ret)] in
     string_of_spec current )
-    ^ string_of_normalisedStagedSpec (xs, normalS) 
+    ^ "; " ^ string_of_normalisedStagedSpec (xs, normalS)
 
 
 let rec list_of_heap h = 
@@ -735,10 +741,10 @@ let%expect_test "normalise spec" =
     NormalReturn (True, PointsTo ("y", Num 2), UNIT) ];
 [%expect
 {|
-  ex ; req 2=1 /\ emp; Norm(emp /\ 1=2, ())
-  ex ; req T /\ x->1*y->2; Norm(x->1*y->2 /\ T, ())
-  ex ; req 1=a /\ emp; Norm(x->a+1 /\ a=1, ())
-  ex ; req 1=1 /\ emp; E(x->1 /\ 1=1, [3], ())ex ; req T /\ emp; Norm(y->2 /\ T, ())
-  ex ; req T /\ emp; f(x->1 /\ T, [3], ())ex ; req T /\ emp; Norm(y->2 /\ T, ())
+  req 2=1; Norm(1=2, ())
+  req x->1*y->2; Norm(x->1*y->2, ())
+  req 1=a; Norm(x->a+1 /\ a=1, ())
+  req 1=1; E(x->1 /\ 1=1, [3], ()); req emp; Norm(y->2, ())
+  req emp; f(x->1, [3], ()); req emp; Norm(y->2, ())
 |}]
 

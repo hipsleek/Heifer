@@ -181,41 +181,6 @@ let function_spec rhs =
     in
     traverse_to_body rhs
 
-(** given the rhs of a function declaration with let like
-  [let f = fun x -> fun y -> ... -> e], returns ([x; y], e) *)
-let collect_param_names rhs =
-  let rec traverse_to_body e =
-    match e.pexp_desc with
-    | Pexp_constraint (e, _t) ->
-      (* ignore constraints *)
-      traverse_to_body e
-    | Pexp_fun (_, _, name, body) ->
-      let name =
-        match name.ppat_desc with
-        | Ppat_var s -> [s.txt]
-        | Ppat_constraint (p, _ ) -> 
-          (
-            match p.ppat_desc with
-            | Ppat_var s -> [s.txt]
-            | _ -> raise (Foo "collect_param_names other type")
-          )
-        
-        | _ ->
-          (* dummy name for things like a unit pattern, so we at least have the same number of parameters *)
-          [verifier_getAfreeVar ()]
-
-          (* we don't currently recurse inside patterns to pull out variables, so something like
-
-             let f () (Foo a) = 1
-
-             will be treated as if it has no formal params. *)
-      in
-      let ns, body = traverse_to_body body in
-      name @ ns, body
-    | _ -> ([], e)
-  in
-  traverse_to_body rhs
-
 let rec string_of_effectList (specs:spec list):string =
   match specs with 
   | [] -> ""
@@ -1409,6 +1374,44 @@ let infer_of_value_binding rec_flag env vb: string * env  =
     in header , env, ex_res
 *)
 
+(**
+  In OCaml, a function definition like
+    [let f x y : int = e]
+  is represented in the AST as
+    [let f = (fun x -> fun y -> ... -> e : int)].
+  Given the RHS of the f binding, this returns
+    [([x; y], e)].
+*)
+let collect_param_names rhs =
+    let rec traverse_to_body e =
+      match e.pexp_desc with
+      | Pexp_constraint (e, _t) ->
+        (* ignore constraints *)
+        traverse_to_body e
+      | Pexp_fun (_, _, name, body) ->
+        let name =
+          match name.ppat_desc with
+          | Ppat_var s -> [s.txt]
+          | Ppat_constraint (p, _ ) -> 
+            (
+              match p.ppat_desc with
+              | Ppat_var s -> [s.txt]
+              | _ -> raise (Foo "collect_param_names other type")
+            )
+          
+          | _ ->
+            (* dummy name for things like a unit pattern, so we at least have the same number of parameters *)
+            [verifier_getAfreeVar ()]
+            (* we don't currently recurse inside patterns to pull out variables, so something like
+              let f () (Foo a) = 1
+              will be treated as if it has no formal params. *)
+        in
+        let ns, body = traverse_to_body body in
+        name @ ns, body
+      | _ -> ([], e)
+    in
+    traverse_to_body rhs
+
 let transform_str env (s : structure_item) =
   match s.pstr_desc with
   | Pstr_value (_rec_flag, vb::_vbs_) ->
@@ -1572,15 +1575,28 @@ print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
 
       List.iter (fun (_name, _params, spec, body) ->
         if not incremental then begin
-          let _spec1 = infer_of_expression methods [freshNormalReturnSpec] body in
+          let spec1 = infer_of_expression methods [freshNormalReturnSpec] body in
+          let ns = normalise_spec_list spec in
+          let ns1 = normalise_spec_list spec1 in
           let header =
             "\n========== Function: "^ _name ^" ==========\n" ^
-            "[Specification] " ^ string_of_spec_list spec ^"\n"^          
-            "[Normed   Spec] " ^ string_of_spec_list ((normalise_spec_list  spec)) ^"\n\n"^          
-            "[Raw Post Spec] " ^ string_of_spec_list _spec1 ^ "\n" ^ 
-            "[Normed   Post] " ^ string_of_spec_list ((normalise_spec_list  _spec1)) ^"\n"
-          in 
-          print_string (header)
+            "[Specification] " ^ string_of_spec_list spec ^"\n" ^
+            "[Normed   Spec] " ^ string_of_spec_list ns ^"\n\n" ^
+            "[Raw Post Spec] " ^ string_of_spec_list spec1 ^ "\n" ^
+            "[Normed   Post] " ^ string_of_spec_list ns1 ^"\n" ^
+            "\n[Verification]\n"
+          in
+          let residue = Entail.subsumes_disj spec spec1 in
+          print_string (header);
+          begin match residue with
+          | None -> Format.printf "%s\n%s\n%s@." (string_of_spec_list ns) (Pretty.red "|/=") (string_of_spec_list ns1)
+          | Some res ->
+            List.iter (fun (s1, s2, (_pf, st)) ->
+              let n1 = normalise_spec s1 |> normalisedStagedSpec2Spec in
+              let n2 = normalise_spec s2 |> normalisedStagedSpec2Spec in
+              Format.printf "%s\n%s\n%s\n%s\n%s@." (string_of_spec n1) (Pretty.green "|=") (string_of_spec n2) (green "==>") (string_of_state st)
+            ) res
+          end
         end else begin
           print_endline "incremental";
         end
