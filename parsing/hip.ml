@@ -1588,7 +1588,9 @@ print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
           | None -> Format.printf "%s\n%s\n%s@." (string_of_spec_list ns) (red "|/=") (string_of_spec_list ns1)
           | Some res ->
             List.iter (fun (s1, s2, st) ->
-              Format.printf "%s\n%s\n%s\n%s\n%s@." (string_of_spec s1) (green "|=") (string_of_spec s2) (green "==>") (string_of_state st)
+              let n1 = normalise_spec s1 |> normalisedStagedSpec2Spec in
+              let n2 = normalise_spec s2 |> normalisedStagedSpec2Spec in
+              Format.printf "%s\n%s\n%s\n%s\n%s@." (string_of_spec n1) (green "|=") (string_of_spec n2) (green "==>") (string_of_state st)
             ) res
           end
         end else begin
