@@ -707,19 +707,20 @@ let rec handling_spec env (spec:normalisedStagedSpec) (normal:(string * core_lan
     | None -> concatenateEventWithSpecs (effectStage2Spec [x]) (handling_spec env (xs, normalS) normal ops )
     | Some (effFormalArg, exprEff) -> 
       (*print_string ("formal argument for label is " ^ effFormalArg ^ "\n"); *)
-      let pure = 
+      let bindings = 
         match effactualArgs with 
-        | [] -> True 
-        | effactualArg ::_ -> Atomic(EQ, Var effFormalArg, effactualArg) 
+        | [] -> [] 
+        | effactualArg ::_ -> [(effFormalArg, effactualArg)]
       in 
       let current = [Exists existiental; Require(p1, h1); 
-        NormalReturn(normalPure(And(p2, pure)), h2, UNIT)] in  (* Var ret *)
+        NormalReturn(p2, h2, UNIT)] in  (* Var ret *)
         
       let () = continueationCxt := Some (normalisedStagedSpec2Spec (xs, normalS),  ret, normal, ops) in 
       let temp = infer_of_expression env [current] exprEff in 
 
       let () = continueationCxt := None in 
-      temp
+
+      instantiateSpecList bindings temp
 
     )
 

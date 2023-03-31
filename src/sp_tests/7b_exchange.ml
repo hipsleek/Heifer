@@ -22,11 +22,8 @@ let exc_hanlder (y: int ref) (new_v:int): int
     y := n; 
     continue k old_v
 
-(*
 
-
-
-let main 
+let main ()
 (*@  
   ex x;
   Norm(x -> 5, 11)
@@ -36,4 +33,4 @@ let main
   let res = exc_hanlder x 5 in 
   print_endline (string_of_int res);
   res
-  *)
+
