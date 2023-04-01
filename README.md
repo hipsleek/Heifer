@@ -39,4 +39,13 @@ dune exec ./hip.exe ../src/sp_tests/2c_memory_cell_mix_handler.ml
 dune exec ./hip.exe ../src/sp_tests/3_memory_cell_nested.ml
 dune exec ./hip.exe ../src/sp_tests/3a_memory_cell_nested.ml
 
+dune exec ./hip.exe ../src/sp_tests/3b_memory_cell_nested.ml
+has a bug
+
+- paper example: two pointers 
+15_two_pointers.ml 
+
+- paper example: backtracking 
+16_z_flip.ml 
+
 

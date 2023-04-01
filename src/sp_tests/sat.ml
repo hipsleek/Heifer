@@ -32,8 +32,8 @@ let rec delete_aux m (i:int) : ((int * bool) list) =
 let rec delete (idx:int) = 
   my_record := delete_aux !my_record idx
 
-let rec insert (i, b)  = 
-  my_record := (i, b) ::!my_record
+let rec insert (i, b) = 
+  my_record := (i, b) :: !my_record
 
 let rec string_of_record (m:((int * bool) list)) : string = 
   match m with 

@@ -789,7 +789,7 @@ and infer_of_expression (env:meth_def list) (current:spec list) (expr:core_lang)
       | UNIT -> infer_of_expression env [spec] expr2
       | Var freshV -> 
         if String.compare str "_" == 0 then infer_of_expression env [spec] expr2
-        else if String.compare str "i" == 0 then 
+        else if String.compare str "i" == 0 || String.compare str "j" == 0  then 
           (
           (*print_endline ("replacing " ^ freshV ^ " with " ^str);
           print_endline ("spec   " ^ string_of_spec spec);*)

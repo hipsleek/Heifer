@@ -19,40 +19,45 @@ let write n
 @*)
 = perform (Write n)
 
-let client () 
+let test ()
 (*@ 
-  ex x2;
-  Write(emp, 10, x2); 
+  ex x1; 
+  Read(emp, x1); 
+  ex x2; 
+  Write(emp, (x1+1), x2); 
   ex x3; 
   Read(emp, x3); 
   Norm(emp, x3)
 @*)
-= write 10;
+= 
+  let x = read () in 
+  let y = x +1 in 
+  write y;
   read () 
-  
 
-let handler1 i 
+let write_handler i  
 (*@ 
-  ex z; 
-  req i -> z;
-  Read(i ->10, x3); 
-  Norm(emp, x3)
+  ex x1 ret z; 
+  Read(emp, x1); 
+  req i-> z; 
+  Read(i->x1+1,  ret);
+  Norm(emp, ret)
 @*)
 = 
-  match client () with
+  match test () with
   | v -> v
   | effect (Write x) k -> i := x; (continue k ())
 
 
-let handler2  ()
+let read_handler  ()
 (*@ 
-   ex i; 
-   Norm(i->10, ())
+  ex i; 
+  Norm(i->2,  10)
 @*)
 =
   let i = Sys.opaque_identity (ref 0) in 
-  match handler1 i with
-  | v -> () (*print_string (string_of_int !i) *)
+  match write_handler i with
+  | v -> v 
   | effect Read k -> (continue k (!i))
 
 
