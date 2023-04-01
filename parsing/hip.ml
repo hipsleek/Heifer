@@ -690,7 +690,11 @@ let instantiateExistientalVarSpec   (spec:spec)
 
 
 let isFreshVar str : bool = 
-  if String.get str 0 == 'f' then true else false 
+  if String.length str < 1 then false 
+  else 
+    let a = String.get str 0 in 
+    (*let b = String.get str 1 in *)
+    if a='f' (*&& b ='f'*) then true else false 
 
 let () = assert (isFreshVar "f10" ==true )
 let () = assert (isFreshVar "s10" ==false )
@@ -780,25 +784,25 @@ and infer_of_expression (env:meth_def list) (current:spec list) (expr:core_lang)
     let phi1 = infer_of_expression env current expr1 in 
     List.flatten (List.map (fun spec -> 
       (*print_endline (string_of_spec(spec)); *)
-      if String.compare str "_" == 0 then infer_of_expression env [spec] expr2
-      else 
       let (_, _, retN) = retriveNormalStage spec in 
       match retN with 
       | UNIT -> infer_of_expression env [spec] expr2
       | Var freshV -> 
-        if isFreshVar freshV then 
-          (print_endline ("replacing " ^ freshV ^ " with " ^str);
-          print_endline ("spec   " ^ string_of_spec spec);
+        if String.compare str "_" == 0 then infer_of_expression env [spec] expr2
+        else if String.compare str "i" == 0 then 
+          (
+          (*print_endline ("replacing " ^ freshV ^ " with " ^str);
+          print_endline ("spec   " ^ string_of_spec spec);*)
           (* instantiate the exist value first *)
           let bindings = bindNewNames [freshV] [str] in 
           let spec' = instantiateExistientalVarSpec spec bindings in 
-          print_endline ("spec'  " ^ string_of_spec spec');
+          (*print_endline ("spec'  " ^ string_of_spec spec');*)
           (* instantiate the terms value first *)
           let bindings = bindFormalNActual [freshV] [Var str] in 
           let spec' = instantiateSpec bindings spec' in 
-          print_endline ("spec'' " ^ string_of_spec spec');
+          (*print_endline ("spec'' " ^ string_of_spec spec'); *)
           (*let spec' = removeExist [spec'] freshV in *)
-          infer_of_expression env [spec'] expr2 )
+          infer_of_expression env [spec'] expr2)
         else 
           let bindings = bindFormalNActual [str] [retN] in 
           let phi2 = infer_of_expression env [spec] expr2 in 

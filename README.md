@@ -34,8 +34,9 @@ dune exec ./hip.exe ../src/sp_tests/0a_heap_zero_once_twice.ml
 dune exec ./hip.exe ../src/sp_tests/2_memory_cell.ml   
 dune exec ./hip.exe ../src/sp_tests/2a_memory_cell.ml
 dune exec ./hip.exe ../src/sp_tests/2b_memory_cell_mix_handler.ml
+dune exec ./hip.exe ../src/sp_tests/2c_memory_cell_mix_handler.ml
+
+dune exec ./hip.exe ../src/sp_tests/3_memory_cell_nested.ml
+dune exec ./hip.exe ../src/sp_tests/3a_memory_cell_nested.ml
 
 
-
-todo:
-2. magic wand.
