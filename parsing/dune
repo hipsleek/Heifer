@@ -55,7 +55,7 @@
 
 (library
  (name core)
- (modules types Rewriting Pretty entail)
+ (modules types Rewriting Pretty entail forward_rules incr_rules)
  (wrapped false)
  (libraries z3)
  (inline_tests)

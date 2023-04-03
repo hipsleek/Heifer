@@ -508,23 +508,3 @@ let subsumes_disj ds1 ds2 =
             Norm(x->1 /\ T, ()); Norm(x->1 /\ T, ())
             Norm(x->1*x->1 /\ T/\T, ()) |}]
    end *)
-
-type entail_star = (stagedSpec list * state) * spec
-
-let incremental_rules (pre : entail_star) (e : core_lang) =
-  let _, _current = pre in
-  match e with
-  | CRead _v ->
-    let _f = verifier_getAfreeVar () in
-    (* Heap.entails current  *)
-    failwith ""
-  | CLet (_, _, _) -> failwith "not done"
-  | CValue _ -> failwith "not done"
-  | CIfELse (_, _, _) -> failwith "not done"
-  | CFunCall (_, _) -> failwith "not done"
-  | CWrite (_, _) -> failwith "not done"
-  | CRef _ -> failwith "not done"
-  | CAssert (_, _) -> failwith "not done"
-  | CPerform (_, _) -> failwith "not done"
-  | CMatch (_, _, _) -> failwith "not done"
-  | CResume _ -> failwith "not done"
