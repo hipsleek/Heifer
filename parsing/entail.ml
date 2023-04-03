@@ -160,6 +160,7 @@ module Heap = struct
    fun s1 s2 -> check EmptyHeap [] s1 s2
 
   let%expect_test "heap_entail" =
+    Pretty.colours := false;
     let test l r =
       let res =
         match entails l r with
@@ -181,7 +182,7 @@ module Heap = struct
     [%expect
       {|
       x->1 |- y->2 ==> FAIL
-      │[ent-match][31m FAIL[0m could not match y->2 on RHS
+      │[ent-match] FAIL could not match y->2 on RHS
 
       x->1 |- x->1 ==> 1=1
       │[ent-match] x->1 and x->1
