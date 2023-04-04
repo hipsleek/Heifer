@@ -168,8 +168,38 @@ module Heap = struct
     | (p1, h1), (p2, h2) -> begin
       (* we know h2 is non-empty *)
       match split_one h2 with
+      | Some ((x, v), h2') when List.mem x vs ->
+        (* x is bound and could potentially be instantiated with anything on the right side, so try everything *)
+        let r1 =
+          Res.any ~name:"ent-match-any"
+            ~to_s:(string_of_pair Fun.id string_of_term) (list_of_heap h1)
+            (fun (x1, v1) ->
+              let v2, h1' = split_find x1 h1 |> Option.get in
+              check_qf
+                (SepConj (k, PointsTo (x1, v1)))
+                vs
+                ( And
+                    ( p1,
+                      And
+                        ( Atomic (EQ, Var x1, Var x),
+                          And (Atomic (EQ, v, v2), Atomic (EQ, v, v1)) ) ),
+                  h1' )
+                (p2, h2'))
+        in
+        begin
+          match r1 with
+          | Error s ->
+            Error
+              (rule ~children:[s] ~name:"ent-match" ~success:false
+                 "ex %s. %s->%s" x x (string_of_term v))
+          | Ok (pf, res) ->
+            Ok
+              ( rule ~children:[pf] ~name:"ent-match" "ex. %s %s->%s" x x
+                  (string_of_term v),
+                res )
+        end
       | Some ((x, v), h2') -> begin
-        (* match on h1 *)
+        (* x is free. match against h1 exactly *)
         match split_find x h1 with
         | Some (v1, h1') -> begin
           match

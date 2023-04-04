@@ -374,6 +374,9 @@ let string_of_instant (str, ar_Li): string =
   Format.sprintf "%s%s" str args
 
 
+let string_of_pair pa pb (a,b) =
+  Format.asprintf "(%s, %s)" (pa a) (pb b)
+
 let string_of_list p xs =
   match xs with
   | [] -> "[]"
