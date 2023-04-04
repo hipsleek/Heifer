@@ -15,28 +15,32 @@ module Res = struct
   type 'a pf = (proof * 'a, proof) result
 
   let all :
-      name:string -> to_s:('a -> string) -> 'a list -> ('a -> 'b pf) -> unit pf
-      =
+      name:string ->
+      to_s:('a -> string) ->
+      'a list ->
+      ('a -> 'b pf) ->
+      'b list pf =
    fun ~name ~to_s vs f ->
-    let rec loop pfs vs =
+    let rec loop pfs rs vs =
       match vs with
-      | [] -> Ok (rule ~children:(List.rev pfs) ~name "", ())
+      (* special case, just inline the rule *)
+      | [] -> Ok (rule ~children:(List.rev pfs) ~name "", rs)
+      | [x] -> f x |> Result.map (fun (p, a) -> (p, [a]))
       | x :: xs ->
         let res = f x in
         (match res with
         | Error p ->
           Error (rule ~children:(List.rev (p :: pfs)) ~name "%s" (to_s x))
-        | Ok (p, _r) ->
-          (* TODO combining results doesn't seem to be needed *)
-          loop (p :: pfs) xs)
+        | Ok (p, r) -> loop (p :: pfs) (r :: rs) xs)
     in
-    loop [] vs
+    loop [] [] vs
 
   let any :
       name:string -> to_s:('a -> string) -> 'a list -> ('a -> 'b pf) -> 'b pf =
    fun ~name ~to_s vs f ->
     match vs with
     | [] -> failwith "choice must be nonempty"
+    | [x] -> f x (* special case, just inline *)
     | v :: vs ->
       (* return the first non-failing result, or the last failure if all fail *)
       let rec loop v vs =
