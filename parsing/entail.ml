@@ -287,16 +287,17 @@ let check_staged_subsumption : spec -> spec -> state Res.pf =
      fun (pp1, ph1) es1 es2 ->
       (* recurse down both lists in parallel *)
       match (es1, es2) with
-      | ( (_vs1, (p1, h1), (qp1, qh1), (nm1, a1), r1) :: es1',
-          (_vs2, (p2, h2), (qp2, qh2), (nm2, a2), r2) :: es2' ) -> begin
+      | ( (vs1, (p1, h1), (qp1, qh1), (nm1, a1), r1) :: es1',
+          (vs2, (p2, h2), (qp2, qh2), (nm2, a2), r2) :: es2' ) -> begin
         (* contravariance of preconditions *)
         let* pf1, (pr, hr) =
-          (* TODO vars *)
-          Heap.entails ([], (And (pp1, p2), SepConj (ph1, h2))) ([], (p1, h1))
+          Heap.entails (vs2, (And (pp1, p2), SepConj (ph1, h2))) (vs1, (p1, h1))
         in
         (* covariance of postconditions *)
         let* pf2, (pr, hr) =
-          Heap.entails ([], (And (qp1, pr), SepConj (qh1, hr))) ([], (qp2, qh2))
+          Heap.entails
+            (vs1, (And (qp1, pr), SepConj (qh1, hr)))
+            (vs2, (qp2, qh2))
         in
         (* compare effect names *)
         let* _ =
@@ -319,17 +320,18 @@ let check_staged_subsumption : spec -> spec -> state Res.pf =
       end
       | [], [] ->
         (* base case: check the normal stage at the end *)
-        let (_vs1, (p1, h1), (qp1, qh1), r1), (_vs2, (p2, h2), (qp2, qh2), r2) =
+        let (vs1, (p1, h1), (qp1, qh1), r1), (vs2, (p2, h2), (qp2, qh2), r2) =
           (ns1, ns2)
         in
         (* contravariance *)
         let* pf1, (pr, hr) =
-          (* TODO vars *)
-          Heap.entails ([], (And (pp1, p2), SepConj (ph1, h2))) ([], (p1, h1))
+          Heap.entails (vs2, (And (pp1, p2), SepConj (ph1, h2))) (vs1, (p1, h1))
         in
         (* covariance *)
         let* pf2, (pr, hr) =
-          Heap.entails ([], (And (qp1, pr), SepConj (qh1, hr))) ([], (qp2, qh2))
+          Heap.entails
+            (vs1, (And (qp1, pr), SepConj (qh1, hr)))
+            (vs2, (qp2, qh2))
         in
         (* unify return value *)
         let pure = Atomic (EQ, r1, r2) in
