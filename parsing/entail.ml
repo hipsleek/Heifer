@@ -472,7 +472,7 @@ module Normalize = struct
   let sl_disjoint h1 h2 =
     match intersect (sl_dom h1) (sl_dom h2) with [] -> true | _ -> false
 
-  let normalize spec =
+  let normalize__ spec =
     let rec one_pass (s : spec) =
       match s with
       | [] | [_] -> (s, false)
@@ -510,7 +510,7 @@ module Normalize = struct
   let%expect_test "normalize" =
     let test name s =
       Format.printf "--- %s\n%s\n%s\n@." name (string_of_spec s)
-        (normalize s |> string_of_spec)
+        (normalize__ s |> string_of_spec)
     in
     test "inert"
       [
