@@ -142,11 +142,27 @@ module Heap = struct
       And (Atomic (EQ, Var v, Var x), Atomic (GT, Var v, Num 0))
     | SepConj (a, b) -> And (xpure a, xpure b)
 
-  let rec check : kappa -> string list -> state -> state -> state Res.pf =
-   fun k vs a c ->
+  type 'a quantified = string list * 'a
+
+  let string_of_quantified to_s (vs, e) =
+    match vs with
+    | [] -> to_s e
+    | _ :: _ -> Format.asprintf "ex %s. %s" (String.concat " " vs) (to_s e)
+
+  let rec check_qf :
+      kappa ->
+      string list ->
+      state ->
+      state ->
+      (* state quantified -> *)
+      (* state quantified -> *)
+      state Res.pf =
+   fun k vs ante conseq ->
     (* TODO we are probably not normalizing in all the right places, and there is no preprocessing to uniquely name variables *)
-    let a = normalize a in
-    let c = normalize c in
+    (* let _avs, a = ante in *)
+    (* let _cvs, c = conseq in *)
+    let a = normalize ante in
+    let c = normalize conseq in
     match (a, c) with
     | (p1, h1), (p2, EmptyHeap) ->
       let fml = Imply (And (xpure (SepConj (h1, k)), p1), p2) in
@@ -167,7 +183,7 @@ module Heap = struct
         match split_find x h1 with
         | Some (v1, h1') -> begin
           match
-            check
+            check_qf
               (SepConj (k, PointsTo (x, v)))
               vs
               (And (p1, Atomic (EQ, v, v1)), h1')
@@ -194,8 +210,17 @@ module Heap = struct
       | None -> failwith (Format.asprintf "could not split LHS, bug?")
     end
 
-  let entails : state -> state -> (proof * state, proof) result =
-   fun s1 s2 -> check EmptyHeap [] s1 s2
+  let check_exists :
+      kappa ->
+      string list ->
+      state quantified ->
+      state quantified ->
+      state Res.pf =
+   fun k vs (avs, ante) (cvs, conseq) -> check_qf k vs ante conseq
+
+  let entails :
+      state quantified -> state quantified -> (proof * state, proof) result =
+   fun s1 s2 -> check_exists EmptyHeap [] s1 s2
 
   let%expect_test "heap_entail" =
     Pretty.colours := false;
@@ -207,16 +232,22 @@ module Heap = struct
           Format.asprintf "%s\n%s" (string_of_state residue)
             (string_of_proof pf)
       in
-      Format.printf "%s |- %s ==> %s@." (string_of_state l) (string_of_state r)
+      Format.printf "%s |- %s ==> %s@."
+        (string_of_quantified string_of_state l)
+        (string_of_quantified string_of_state r)
         res
     in
-    test (True, PointsTo ("x", Num 1)) (True, PointsTo ("y", Num 2));
-    test (True, PointsTo ("x", Num 1)) (True, PointsTo ("x", Num 1));
+    test ([], (True, PointsTo ("x", Num 1))) ([], (True, PointsTo ("y", Num 2)));
+    test ([], (True, PointsTo ("x", Num 1))) ([], (True, PointsTo ("x", Num 1)));
     test
-      (True, SepConj (PointsTo ("x", Num 1), PointsTo ("y", Num 2)))
-      (True, PointsTo ("x", Num 1));
-    test (True, PointsTo ("x", Num 1)) (True, PointsTo ("x", Var "a"));
-    test (True, PointsTo ("x", Var "b")) (True, PointsTo ("x", Var "a"));
+      ([], (True, SepConj (PointsTo ("x", Num 1), PointsTo ("y", Num 2))))
+      ([], (True, PointsTo ("x", Num 1)));
+    test
+      ([], (True, PointsTo ("x", Num 1)))
+      ([], (True, PointsTo ("x", Var "a")));
+    test
+      ([], (True, PointsTo ("x", Var "b")))
+      ([], (True, PointsTo ("x", Var "a")));
     [%expect
       {|
       x->1 |- y->2 ==> FAIL
@@ -258,11 +289,12 @@ let check_staged_subsumption : spec -> spec -> state Res.pf =
           (_vs2, (p2, h2), (qp2, qh2), (nm2, a2), r2) :: es2' ) -> begin
         (* contravariance of preconditions *)
         let* pf1, (pr, hr) =
-          Heap.entails (And (pp1, p2), SepConj (ph1, h2)) (p1, h1)
+          (* TODO vars *)
+          Heap.entails ([], (And (pp1, p2), SepConj (ph1, h2))) ([], (p1, h1))
         in
         (* covariance of postconditions *)
         let* pf2, (pr, hr) =
-          Heap.entails (And (qp1, pr), SepConj (qh1, hr)) (qp2, qh2)
+          Heap.entails ([], (And (qp1, pr), SepConj (qh1, hr))) ([], (qp2, qh2))
         in
         (* compare effect names *)
         let* _ =
@@ -290,11 +322,12 @@ let check_staged_subsumption : spec -> spec -> state Res.pf =
         in
         (* contravariance *)
         let* pf1, (pr, hr) =
-          Heap.entails (And (pp1, p2), SepConj (ph1, h2)) (p1, h1)
+          (* TODO vars *)
+          Heap.entails ([], (And (pp1, p2), SepConj (ph1, h2))) ([], (p1, h1))
         in
         (* covariance *)
         let* pf2, (pr, hr) =
-          Heap.entails (And (qp1, pr), SepConj (qh1, hr)) (qp2, qh2)
+          Heap.entails ([], (And (qp1, pr), SepConj (qh1, hr))) ([], (qp2, qh2))
         in
         (* unify return value *)
         let pure = Atomic (EQ, r1, r2) in
@@ -453,7 +486,8 @@ module Normalize = struct
             ([NormalReturn (And (p1, p2), SepConj (h1, h2), r1)], true)
           | NormalReturn (p1, h1, r1), Require (p2, h2) ->
             (* rule 3 *)
-            let r = Heap.entails (p1, h1) (p2, h2) in
+            (* TODO vars *)
+            let r = Heap.entails ([], (p1, h1)) ([], (p2, h2)) in
             begin
               match r with
               | Error _ when sl_disjoint h1 h2 ->

@@ -83,7 +83,8 @@ let rec incremental_rules :
       ( rule ~name:"incr-ref" "%s" (string_of_term v),
         ((p, SepConj (h, PointsTo ("res", v))), right) )
   | CAssert (p, h) ->
-    let res = Heap.entails left (p, h) in
+    (* TODO vars *)
+    let res = Heap.entails ([], left) ([], (p, h)) in
     begin
       match res with
       | Ok (pf, _) ->
