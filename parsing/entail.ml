@@ -8,7 +8,45 @@ module Res = struct
   let ( let* ) = Result.bind
 
   (* type 'a pf = proof * 'a option *)
+
+  (** A proof tree or counterexample produced during search.
+      Disjunction is not shown explicitly, so only successful disjuncts appear.
+      If the proof fails, represents a counterexample, which shows one path to the failure. *)
   type 'a pf = (proof * 'a, proof) result
+
+  let all :
+      name:string -> to_s:('a -> string) -> 'a list -> ('a -> 'b pf) -> unit pf
+      =
+   fun ~name ~to_s vs f ->
+    let rec loop pfs vs =
+      match vs with
+      | [] -> Ok (rule ~children:(List.rev pfs) ~name "", ())
+      | x :: xs ->
+        let res = f x in
+        (match res with
+        | Error p ->
+          Error (rule ~children:(List.rev (p :: pfs)) ~name "%s" (to_s x))
+        | Ok (p, _r) ->
+          (* TODO combining results doesn't seem to be needed *)
+          loop (p :: pfs) xs)
+    in
+    loop [] vs
+
+  let any :
+      name:string -> to_s:('a -> string) -> 'a list -> ('a -> 'b pf) -> 'b pf =
+   fun ~name ~to_s vs f ->
+    match vs with
+    | [] -> failwith "choice must be nonempty"
+    | v :: vs ->
+      (* return the first non-failing result, or the last failure if all fail *)
+      let rec loop v vs =
+        let res = f v in
+        match (res, vs) with
+        | Ok (p, r), _ -> Ok (rule ~name ~children:[p] "%s" (to_s v), r)
+        | Error p, [] -> Error (rule ~name ~children:[p] "%s" (to_s v))
+        | Error _, v1 :: vs1 -> loop v1 vs1
+      in
+      loop v vs
 end
 
 (*
@@ -382,14 +420,9 @@ let%expect_test "staged subsumption" =
   Currently just returns the residue for the RHS disjunct that succeeds and doesn't print anything.
 *)
 let subsumes_disj ds1 ds2 =
-  List.map
-    (fun s2 ->
-      List.map (fun s1 -> (s1, s2, check_staged_subsumption s1 s2)) ds1
-      (* in *)
-      (* res *)
-      (* let all_succeeded = List.for_all (fun (_, _, r) -> Result.is_ok r) res in *)
-      (* if all_succeeded then Some res else None *))
-    ds2
+  Res.all ~name:"subsumes-disj-lhs-all" ~to_s:string_of_spec ds1 (fun s1 ->
+      Res.any ~name:"subsumes-disj-rhs-any" ~to_s:string_of_spec ds2 (fun s2 ->
+          check_staged_subsumption s1 s2))
 
 (* module Normalize = struct
      let rec sl_dom (h : kappa) =
@@ -480,31 +513,31 @@ let subsumes_disj ds1 ds2 =
          ];
        [%expect
          {|
-            --- inert
-            req T /\ x->1; Norm(x->1 /\ T, ())
-            req T /\ x->1; Norm(x->1 /\ T, ())
+               --- inert
+               req T /\ x->1; Norm(x->1 /\ T, ())
+               req T /\ x->1; Norm(x->1 /\ T, ())
 
-            --- rule 4
-            Norm(x->1 /\ T, ()); req T /\ y->1
-            req T /\ y->1; Norm(x->1 /\ T, ())
+               --- rule 4
+               Norm(x->1 /\ T, ()); req T /\ y->1
+               req T /\ y->1; Norm(x->1 /\ T, ())
 
-            --- rule 3 (TODO prob wrong)
-            Norm(x->1 /\ T, ()); req T /\ x->2
-            Norm(emp /\ T/\T/\2=1, ())
+               --- rule 3 (TODO prob wrong)
+               Norm(x->1 /\ T, ()); req T /\ x->2
+               Norm(emp /\ T/\T/\2=1, ())
 
-            --- rule 1
-            req T /\ x->2; req T /\ y->2
-            req T/\T /\ x->2*y->2
+               --- rule 1
+               req T /\ x->2; req T /\ y->2
+               req T/\T /\ x->2*y->2
 
-            --- rule 1 weird
-            req T /\ x->2; req T /\ x->2
-            req T/\T /\ x->2*x->2
+               --- rule 1 weird
+               req T /\ x->2; req T /\ x->2
+               req T/\T /\ x->2*x->2
 
-            --- rule 2
-            Norm(x->1 /\ T, ()); Norm(y->1 /\ T, ())
-            Norm(x->1*y->1 /\ T/\T, ())
+               --- rule 2
+               Norm(x->1 /\ T, ()); Norm(y->1 /\ T, ())
+               Norm(x->1*y->1 /\ T/\T, ())
 
-            --- rule 2 weird
-            Norm(x->1 /\ T, ()); Norm(x->1 /\ T, ())
-            Norm(x->1*x->1 /\ T/\T, ()) |}]
+               --- rule 2 weird
+               Norm(x->1 /\ T, ()); Norm(x->1 /\ T, ())
+               Norm(x->1*x->1 /\ T/\T, ()) |}]
    end *)
