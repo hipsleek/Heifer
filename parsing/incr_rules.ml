@@ -169,7 +169,7 @@ let%expect_test _ =
     --- ref
     {a->1 |--* Norm(a->1, b)}
     !a
-    {a->f13 /\ f13=1/\res=f13 |--* Norm(a->1, b)}
+    {a->f14 /\ f14=1/\res=f14 |--* Norm(a->1, b)}
 
     │[incr-deref] a
 
@@ -188,7 +188,7 @@ let%expect_test _ =
     let n = !p in
     let m = plus n 1 in
     p := m
-    {p->m /\ m=a+b/\n=f14/\f15=f14/\res=() |--* ex n; ex m; req p->a; Norm(a->a+1, ())}
+    {p->m /\ m=a+b/\n=f15/\f16=f15/\res=() |--* ex n; ex m; req p->a; Norm(a->a+1, ())}
 
     │[incr-let] n
     │├── [incr-deref] p
