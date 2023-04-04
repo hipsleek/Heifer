@@ -17,6 +17,9 @@ let red text = "\u{001b}[31m" ^ text ^ reset |> maybe_colours text
 
 let verifier_counter: int ref = ref 0;;
 
+(* only for testing! to make tests deterministic *)
+let verifier_counter_reset () = verifier_counter := 0
+
 
 let verifier_getAfreeVar () :string  =
   let x = "f"^string_of_int (!verifier_counter) in 
@@ -730,6 +733,7 @@ let removeExist (specs:spec list) str : spec list =
 
 
 let%expect_test "normalise spec" =
+  verifier_counter_reset ();
   let test s =
     let n = normalise_spec s in
     print_endline (string_of_normalisedStagedSpec n)

@@ -172,8 +172,11 @@ module Heap = struct
         (* x is bound and could potentially be instantiated with anything on the right side, so try everything *)
         let r1 =
           Res.any ~name:"ent-match-any"
-            ~to_s:(string_of_pair Fun.id string_of_term) (list_of_heap h1)
-            (fun (x1, v1) ->
+            ~to_s:(fun ((lx, lv), (rx, rv)) ->
+              Format.asprintf "%s->%s and ex %s. %s->%s" lx (string_of_term lv)
+                rx rx (string_of_term rv))
+            (list_of_heap h1 |> List.map (fun a -> (a, (x, v))))
+            (fun ((x1, v1), _) ->
               let v2, h1' = split_find x1 h1 |> Option.get in
               check_qf
                 (SepConj (k, PointsTo (x1, v1)))
@@ -194,7 +197,7 @@ module Heap = struct
                  "ex %s. %s->%s" x x (string_of_term v))
           | Ok (pf, res) ->
             Ok
-              ( rule ~children:[pf] ~name:"ent-match" "ex. %s %s->%s" x x
+              ( rule ~children:[pf] ~name:"ent-match" "ex %s. %s->%s" x x
                   (string_of_term v),
                 res )
         end
@@ -255,6 +258,7 @@ module Heap = struct
    fun s1 s2 -> check_exists s1 s2
 
   let%expect_test "heap_entail" =
+    verifier_counter_reset ();
     Pretty.colours := false;
     let test l r =
       let res =
@@ -280,6 +284,13 @@ module Heap = struct
     test
       ([], (True, PointsTo ("x", Var "b")))
       ([], (True, PointsTo ("x", Var "a")));
+    (* quantified *)
+    test
+      ([], (True, PointsTo ("x", Var "b")))
+      (["x"], (True, PointsTo ("x", Var "a")));
+    test
+      ([], (True, SepConj (PointsTo ("y", Var "c"), PointsTo ("x", Var "b"))))
+      (["x"], (True, PointsTo ("x", Var "a")));
     [%expect
       {|
       x->1 |- y->2 ==> FAIL
@@ -299,7 +310,17 @@ module Heap = struct
 
       x->b |- x->a ==> a=b
       │[ent-match] x->a and x->b
-      │└── [ent-emp] T/\T/\f3=x/\f3>0/\a=b=>T |}]
+      │└── [ent-emp] T/\T/\f3=x/\f3>0/\a=b=>T
+
+      x->b |- ex x. x->a ==> a=b/\x=f4
+      │[ent-match] ex f4. f4->a
+      │└── [ent-match-any] x->b and ex f4. f4->a
+      │    └── [ent-emp] T/\T/\f5=x/\f5>0/\a=b/\x=f4=>T
+
+      y->c*x->b |- ex x. x->a ==> a=c/\y=f6
+      │[ent-match] ex f6. f6->a
+      │└── [ent-match-any] y->c and ex f6. f6->a
+      │    └── [ent-emp] T/\T/\f7=y/\f7>0/\a=c/\y=f6=>T |}]
 end
 
 let check_staged_entail : spec -> spec -> spec option =
@@ -376,6 +397,7 @@ let check_staged_subsumption : spec -> spec -> state Res.pf =
     loop (True, EmptyHeap) es1 es2
 
 let%expect_test "staged subsumption" =
+  verifier_counter_reset ();
   let test name l r =
     let res = check_staged_subsumption l r in
     Format.printf "\n--- %s\n%s\n%s\n%s%s@." name (string_of_spec l)
@@ -436,9 +458,9 @@ let%expect_test "staged subsumption" =
     ==> 1=1/\r=r
     │[subsumption-base] req x->1; Norm(x->1, r) |= req x->1; Norm(x->1, r)
     │├── [ent-match] x->1 and x->1
-    ││   └── [ent-emp] T/\T/\f4=x/\f4>0/\1=1=>T
+    ││   └── [ent-emp] T/\T/\f0=x/\f0>0/\1=1=>T
     │└── [ent-match] x->1 and x->1
-    │    └── [ent-emp] T/\T/\f5=x/\f5>0/\1=1=>T
+    │    └── [ent-emp] T/\T/\f1=x/\f1>0/\1=1=>T
 
 
     --- variables
@@ -448,9 +470,9 @@ let%expect_test "staged subsumption" =
     ==> 2=a+1/\a=1/\r=r
     │[subsumption-base] req x->a; Norm(x->a+1, r) |= req x->1; Norm(x->2, r)
     │├── [ent-match] x->a and x->1
-    ││   └── [ent-emp] T/\T/\f6=x/\f6>0/\a=1=>T
+    ││   └── [ent-emp] T/\T/\f2=x/\f2>0/\a=1=>T
     │└── [ent-match] x->2 and x->a+1
-    │    └── [ent-emp] T/\T/\f7=x/\f7>0/\2=a+1/\a=1=>T
+    │    └── [ent-emp] T/\T/\f3=x/\f3>0/\2=a+1/\a=1=>T
 
 
     --- contradiction?
@@ -460,9 +482,9 @@ let%expect_test "staged subsumption" =
     ==> 1=a+1/\a=1/\r=r
     │[subsumption-base] req x->a; Norm(x->a+1, r) |= req x->1; Norm(x->1, r)
     │├── [ent-match] x->a and x->1
-    ││   └── [ent-emp] T/\T/\f8=x/\f8>0/\a=1=>T
+    ││   └── [ent-emp] T/\T/\f4=x/\f4>0/\a=1=>T
     │└── [ent-match] x->1 and x->a+1
-    │    └── [ent-emp] T/\T/\f9=x/\f9>0/\1=a+1/\a=1=>T
+    │    └── [ent-emp] T/\T/\f5=x/\f5>0/\1=a+1/\a=1=>T
 
 
     --- eff stage
@@ -473,12 +495,12 @@ let%expect_test "staged subsumption" =
     │[subsumption-stage] E(x->a+1, [], r) |= E(x->a+1, [], r)
     │├── [ent-emp] T/\T/\T=>T
     │├── [ent-match] x->a+1 and x->a+1
-    ││   └── [ent-emp] T/\T/\f10=x/\f10>0/\a+1=a+1=>T
+    ││   └── [ent-emp] T/\T/\f6=x/\f6>0/\a+1=a+1=>T
     │└── [subsumption-base] req x->a; Norm(x->a+1, r) |= req x->1; Norm(x->1, r)
     │    ├── [ent-match] x->a and x->1
-    │    │   └── [ent-emp] T/\T/\f11=x/\f11>0/\a=1/\r=r=>T
+    │    │   └── [ent-emp] T/\T/\f7=x/\f7>0/\a=1/\r=r=>T
     │    └── [ent-match] x->1 and x->a+1
-    │        └── [ent-emp] T/\T/\f12=x/\f12>0/\1=a+1/\a=1=>T |}]
+    │        └── [ent-emp] T/\T/\f8=x/\f8>0/\1=a+1/\a=1=>T |}]
 
 (**
   Subsumption between disjunctive specs.
@@ -540,6 +562,7 @@ module Normalize = struct
     if false then to_fixed_point one_pass spec else one_pass spec |> fst
 
   let%expect_test "normalize" =
+    verifier_counter_reset ();
     let test name s =
       Format.printf "--- %s\n%s\n%s\n@." name (string_of_spec s)
         (normalize__ s |> string_of_spec)

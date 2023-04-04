@@ -128,6 +128,7 @@ let rec incremental_rules :
   | CResume _ -> failwith "not done, effect-related"
 
 let%expect_test _ =
+  verifier_counter_reset ();
   let test ?fn_env name l r =
     let res = incremental_rules ?fn_env l r in
     Format.printf "--- %s\n{%s}\n%s\n%s\n\n%s@." name (string_of_entail_star l)
@@ -170,7 +171,7 @@ let%expect_test _ =
     --- ref
     {a->1 |--* Norm(a->1, b)}
     !a
-    {a->f14 /\ f14=1/\res=f14 |--* Norm(a->1, b)}
+    {a->f0 /\ f0=1/\res=f0 |--* Norm(a->1, b)}
 
     │[incr-deref] a
 
@@ -189,7 +190,7 @@ let%expect_test _ =
     let n = !p in
     let m = plus n 1 in
     p := m
-    {p->m /\ m=a+b/\n=f15/\f16=f15/\res=() |--* ex n; ex m; req p->a; Norm(a->a+1, ())}
+    {p->m /\ m=a+b/\n=f1/\f2=f1/\res=() |--* ex n; ex m; req p->a; Norm(a->a+1, ())}
 
     │[incr-let] n
     │├── [incr-deref] p
