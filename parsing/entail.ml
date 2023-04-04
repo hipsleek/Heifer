@@ -149,18 +149,8 @@ module Heap = struct
     | [] -> to_s e
     | _ :: _ -> Format.asprintf "ex %s. %s" (String.concat " " vs) (to_s e)
 
-  let rec check_qf :
-      kappa ->
-      string list ->
-      state ->
-      state ->
-      (* state quantified -> *)
-      (* state quantified -> *)
-      state Res.pf =
+  let rec check_qf : kappa -> string list -> state -> state -> state Res.pf =
    fun k vs ante conseq ->
-    (* TODO we are probably not normalizing in all the right places, and there is no preprocessing to uniquely name variables *)
-    (* let _avs, a = ante in *)
-    (* let _cvs, c = conseq in *)
     let a = normalize ante in
     let c = normalize conseq in
     match (a, c) with
@@ -210,17 +200,29 @@ module Heap = struct
       | None -> failwith (Format.asprintf "could not split LHS, bug?")
     end
 
-  let check_exists :
-      kappa ->
-      string list ->
-      state quantified ->
-      state quantified ->
-      state Res.pf =
-   fun k vs (avs, ante) (cvs, conseq) -> check_qf k vs ante conseq
+  let check_exists : state quantified -> state quantified -> state Res.pf =
+   fun (avs, ante) (cvs, conseq) ->
+    (* replace left side with fresh variables *)
+    let left =
+      let p, h = ante in
+      let fresh = List.map (fun a -> (a, Var (verifier_getAfreeVar ()))) avs in
+      ( Forward_rules.instantiatePure fresh p,
+        Forward_rules.instantiateHeap fresh h )
+    in
+    let right, vs =
+      (* do the same for the right side, but track them *)
+      let p, h = conseq in
+      let fresh_names = List.map (fun a -> (a, verifier_getAfreeVar ())) cvs in
+      let fresh_vars = List.map (fun (a, b) -> (a, Var b)) fresh_names in
+      ( ( Forward_rules.instantiatePure fresh_vars p,
+          Forward_rules.instantiateHeap fresh_vars h ),
+        List.map snd fresh_names )
+    in
+    check_qf EmptyHeap vs left right
 
   let entails :
       state quantified -> state quantified -> (proof * state, proof) result =
-   fun s1 s2 -> check_exists EmptyHeap [] s1 s2
+   fun s1 s2 -> check_exists s1 s2
 
   let%expect_test "heap_entail" =
     Pretty.colours := false;
