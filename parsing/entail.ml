@@ -286,11 +286,11 @@ module Heap = struct
       ([], (True, PointsTo ("x", Var "a")));
     (* quantified *)
     test
-      ([], (True, PointsTo ("x", Var "b")))
-      (["x"], (True, PointsTo ("x", Var "a")));
-    test
       ([], (True, SepConj (PointsTo ("y", Var "c"), PointsTo ("x", Var "b"))))
       (["x"], (True, PointsTo ("x", Var "a")));
+    test
+      ([], (True, SepConj (PointsTo ("y", Var "3"), PointsTo ("x", Var "2"))))
+      (["x"], (True, PointsTo ("x", Var "1+1")));
     [%expect
       {|
       x->1 |- y->2 ==> FAIL
@@ -312,15 +312,15 @@ module Heap = struct
       │[ent-match] x->a and x->b
       │└── [ent-emp] T/\T/\f3=x/\f3>0/\a=b=>T
 
-      x->b |- ex x. x->a ==> a=b/\x=f4
+      y->c*x->b |- ex x. x->a ==> a=c/\y=f4
       │[ent-match] ex f4. f4->a
-      │└── [ent-match-any] x->b and ex f4. f4->a
-      │    └── [ent-emp] T/\T/\f5=x/\f5>0/\a=b/\x=f4=>T
+      │└── [ent-match-any] y->c and ex f4. f4->a
+      │    └── [ent-emp] T/\T/\f5=y/\f5>0/\a=c/\y=f4=>T
 
-      y->c*x->b |- ex x. x->a ==> a=c/\y=f6
-      │[ent-match] ex f6. f6->a
-      │└── [ent-match-any] y->c and ex f6. f6->a
-      │    └── [ent-emp] T/\T/\f7=y/\f7>0/\a=c/\y=f6=>T |}]
+      y->3*x->2 |- ex x. x->1+1 ==> 1+1=3/\y=f6
+      │[ent-match] ex f6. f6->1+1
+      │└── [ent-match-any] y->3 and ex f6. f6->1+1
+      │    └── [ent-emp] T/\T/\f7=y/\f7>0/\1+1=3/\y=f6=>T |}]
 end
 
 let check_staged_entail : spec -> spec -> spec option =
