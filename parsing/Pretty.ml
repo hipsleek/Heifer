@@ -236,9 +236,9 @@ let rec existInhistoryTable pi table=
 
 
 let rec term_to_expr ctx : term -> Z3.Expr.expr = function
-  | ((Num n))        -> Z3.Arithmetic.Real.mk_numeral_i ctx n
-  | ((Var v))           -> Z3.Arithmetic.Real.mk_const_s ctx v
-  | ((UNIT))           -> Z3.Arithmetic.Real.mk_const_s ctx "unit"
+  | ((Num n))        -> Z3.Arithmetic.Integer.mk_numeral_i ctx n
+  | ((Var v))           -> Z3.Arithmetic.Integer.mk_const_s ctx v
+  | ((UNIT))           -> Z3.Arithmetic.Integer.mk_const_s ctx "unit"
   (*
   | Gen i          -> Z3.Arithmetic.Real.mk_const_s ctx ("t" ^ string_of_int i ^ "'")
   *)
@@ -266,9 +266,10 @@ let rec pi_to_expr ctx : pi -> Expr.expr = function
       let t2 = term_to_expr ctx t2 in
       Z3.Arithmetic.mk_le ctx t1 t2
   | Atomic (EQ, t1, t2) -> 
-      let newP = And (Atomic (GTEQ, t1, t2), Atomic (LTEQ, t1, t2)) in 
-      pi_to_expr ctx newP
-  | Imply (p1, p2) ->  pi_to_expr ctx (Or(Not p1, p2))
+      let t1 = term_to_expr ctx t1 in
+      let t2 = term_to_expr ctx t2 in
+      Z3.Boolean.mk_eq ctx t1 t2
+  | Imply (p1, p2) -> Z3.Boolean.mk_implies ctx (pi_to_expr ctx p1) (pi_to_expr ctx p2)
   | Predicate (_, _) -> failwith "pi_to_expr"
 (*
   | Atomic (op, t1, t2) -> (
@@ -288,19 +289,27 @@ let rec pi_to_expr ctx : pi -> Expr.expr = function
   | Not pi              -> Z3.Boolean.mk_not ctx (pi_to_expr ctx pi)
 
 
-let check ?(debug=false) ?(postprocess_expr=fun _ctx e -> e) pi =
-  let cfg = [ ("model", "false"); ("proof", "false") ] in
-  let ctx = mk_context cfg in
-  let expr = pi_to_expr ctx pi in
-  let expr = postprocess_expr ctx expr in
+let check_sat ?(debug=false) f =
+  (* let cfg = [ ("model", "false"); ("proof", "false") ] in *)
+  (* let cfg = [ ("proof", "false") ] in *)
+  (* let ctx = mk_context cfg in *)
+  let ctx = mk_context [] in
+  let expr = f ctx in
   if debug then Format.printf "z3: %s@." (Expr.to_string expr);
-  let goal = Goal.mk_goal ctx true true false in
-  (* if debug then print_endline (Goal.to_string goal); *)
-  Goal.add goal [ expr ];
+  (* let goal = Goal.mk_goal ctx true true false in *)
+  (* Goal.add goal [ expr ]; *)
+  (* let goal = Goal.simplify goal None in *)
+  (* if debug then Format.printf "goal: %s@." (Goal.to_string goal); *)
   let solver = Solver.mk_simple_solver ctx in
-  List.iter (fun a -> Solver.add solver [ a ]) (Goal.get_formulas goal);
+  (* List.iter (fun a -> Solver.add solver [ a ]) (Goal.get_formulas goal); *)
+  Solver.add solver [expr];
   let sat = Solver.check solver [] == Solver.SATISFIABLE in
   if debug then Format.printf "sat: %b@." sat;
+  if debug then begin
+  match Solver.get_model solver with
+  | None -> Format.printf "no model@."
+  | Some m -> Format.printf "model: %s@." (Model.to_string m)
+  end;
   sat
 
 let check ?(debug=false) pi =
