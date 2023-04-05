@@ -189,7 +189,7 @@ module Heap = struct
     match (a, c) with
     | (p1, h1), (p2, EmptyHeap) ->
       let left = And (xpure (SepConj (h1, k)), p1) in
-      let valid = entails_exists ~debug:true left vs p2 in
+      let valid = entails_exists ~debug:false left vs p2 in
       if valid then
         let pf =
           (* rule "xpure(%s * %s /\\ %s) => %s" (string_of_kappa h1)

@@ -315,9 +315,12 @@ let check_sat ?(debug=false) f =
 let check ?(debug=false) pi =
   check_sat ~debug (fun ctx -> pi_to_expr ctx pi)
 
+(* see https://discuss.ocaml.org/t/different-z3-outputs-when-using-the-api-vs-cli/9348/3 and https://github.com/Z3Prover/z3/issues/5841 *)
 let ex_quantify_expr vars ctx e =
-  let int_sort = Z3.Arithmetic.Integer.mk_sort ctx in
-  Z3.Quantifier.(expr_of_quantifier (mk_exists ctx (List.map (fun _ -> int_sort) vars) (List.map (Z3.Symbol.mk_string ctx) vars) e None [] [] None None))
+  match vars with
+  | [] -> e
+  | _ :: _ ->
+    Z3.Quantifier.(expr_of_quantifier (mk_exists_const ctx (List.map (Z3.Arithmetic.Integer.mk_const_s ctx) vars) e None [] [] None None))
 
 (** check if [p1 => ex vs. p2] is valid. this is a separate function which doesn't cache results because exists isn't in pi *)
 let entails_exists ?(debug=false) p1 vs p2 = 
