@@ -13,7 +13,10 @@ let toss_twice ()
    Flip(emp, ret1);
    Norm(emp, [ret; ret1])
 @*)
-= [flip () && flip ()]
+= 
+   let a = flip () in 
+   let b = flip () in 
+   [a&&b]
   
 
 let all_results () 
@@ -21,14 +24,16 @@ let all_results ()
    Norm(i->6, [true;false;false])
 @*)
 = let i = Sys.opaque_identity (ref 0) in 
-  match toss_twice () with
+  let temp = (match toss_twice () with
   | v ->  v
   | effect Flip k ->
      i := !i + 1;
-     let res1 = (continue (Obj.clone_continuation k) (true)) in  
+     let res1 = (continue (Obj.clone_continuation k) (false)) in  
      i := !i + 1;
-     let res2 = (continue k (false)) in 
-     res1 @ res2 
+     let res2 = (continue k (true)) in 
+     res1 @ res2 ) in 
+   print_endline (string_of_int (!i)); 
+   temp
 
 let () = 
   List.iter (fun a -> print_endline (string_of_bool a)) (all_results ())

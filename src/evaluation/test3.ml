@@ -42,6 +42,27 @@ let main_aux ()
     (continue (Obj.clone_continuation k) ());
     (continue (Obj.clone_continuation k) ());
     (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
     (continue k ())
   );
   print_endline (string_of_int !i)
+

@@ -1205,8 +1205,8 @@ print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
             "[Normed   Spec] " ^ string_of_spec_list ns ^"\n\n" ^
             "[Raw Post Spec] " ^ string_of_spec_list spec1 ^ "\n" ^
             "[Normed   Post] " ^ string_of_spec_list ns1 ^"\n\n" ^ 
-            "[Forward  Time] " ^ string_of_float ((time_stamp_afterForward -. time_stamp_beforeForward) (* *. 1000.0 *)) ^ " seconds\n" ^ 
-            "[Normal   Time] " ^ string_of_float ((time_stamp_afterNormal -. time_stamp_afterForward) (* *. 1000.0 *)) ^ " seonds\n"  
+            "[Forward  Time] " ^ string_of_float ((time_stamp_afterForward -. time_stamp_beforeForward) *. 1000.0 ) ^ " ms\n" ^ 
+            "[Normal   Time] " ^ string_of_float ((time_stamp_afterNormal -. time_stamp_afterForward) *. 1000.0) ^ " ms\n"  
 
         
           in
@@ -1238,7 +1238,7 @@ print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
                 string_of_proof pf
               | Error pf -> string_of_proof pf);
 
-          print_endline ("[Entail   Time] " ^ string_of_float ((time_stamp_afterEntail -. time_stamp_beforeEntail) (* *. 1000.0 *)) ^ " seonds\n")
+          print_endline ("[Entail   Time] " ^ string_of_float ((time_stamp_afterEntail -. time_stamp_beforeEntail) *. 1000.0) ^ " ms\n")
                       
 
 

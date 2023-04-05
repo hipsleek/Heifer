@@ -13,7 +13,14 @@ let test i
   i := !i + 1;
   let ret = perform Eff in 
   i := !i + 1;
+  let ret = perform Eff in 
+  i := !i + 1;
+  let ret = perform Eff in 
+  i := !i + 1;
+  let ret = perform Eff in 
+  i := !i + 1;
   ret
+
 
 let main_aux ()
 (*@ ex i;
@@ -42,6 +49,27 @@ let main_aux ()
     (continue (Obj.clone_continuation k) ());
     (continue (Obj.clone_continuation k) ());
     (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
     (continue k ())
   );
   print_endline (string_of_int !i)
+

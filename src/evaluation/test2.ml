@@ -13,6 +13,12 @@ let test i
   i := !i + 1;
   let ret = perform Eff in 
   i := !i + 1;
+  let ret = perform Eff in 
+  i := !i + 1;
+  let ret = perform Eff in 
+  i := !i + 1;
+  let ret = perform Eff in 
+  i := !i + 1;
   ret
 
 let main_aux ()
