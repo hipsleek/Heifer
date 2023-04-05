@@ -180,10 +180,14 @@ module Heap = struct
     | [] -> to_s e
     | _ :: _ -> Format.asprintf "ex %s. %s" (String.concat " " vs) (to_s e)
 
+  let debug = false
+
   let rec check_qf : kappa -> string list -> state -> state -> state Res.pf =
    fun k vs ante conseq ->
-    (* Format.printf "check_qf %s %s %s |- %s@." (string_of_kappa k)
-       (string_of_list Fun.id vs) (string_of_state ante) (string_of_state conseq); *)
+    if debug then
+      Format.printf "check_qf %s %s | %s |- %s@." (string_of_kappa k)
+        (string_of_list Fun.id vs) (string_of_state ante)
+        (string_of_state conseq);
     let a = normalize ante in
     let c = normalize conseq in
     match (a, c) with
@@ -272,11 +276,12 @@ module Heap = struct
 
   let check_exists : state quantified -> state quantified -> state Res.pf =
    fun (avs, ante) (cvs, conseq) ->
-    (* Format.printf "check_exists (%s, %s) (%s, %s)@."
-       (string_of_list Fun.id avs)
-       (string_of_state ante)
-       (string_of_list Fun.id cvs)
-       (string_of_state conseq); *)
+    if debug then
+      Format.printf "check_exists (%s, %s) |- (%s, %s)@."
+        (string_of_list Fun.id avs)
+        (string_of_state ante)
+        (string_of_list Fun.id cvs)
+        (string_of_state conseq);
     (* replace left side with fresh variables *)
     let left =
       let p, h = ante in
@@ -379,12 +384,21 @@ let check_staged_subsumption : spec -> spec -> state Res.pf =
   fun n1 n2 ->
     let es1, ns1 = normalise_spec n1 in
     let es2, ns2 = normalise_spec n2 in
-    let rec loop : state -> effectStage list -> effectStage list -> state pf =
+    let rec loop :
+        state ->
+        string list * effectStage list ->
+        string list * effectStage list ->
+        state pf =
      fun (_acc_p1, _acc_h1) es1 es2 ->
       (* recurse down both lists in parallel *)
       match (es1, es2) with
-      | ( (vs1, (p1, h1), (qp1, qh1), (nm1, _a1), r1) :: es1',
-          (vs2, (p2, h2), (qp2, qh2), (nm2, _a2), r2) :: es2' ) -> begin
+      | ( (vs1', (vs1, (p1, h1), (qp1, qh1), (nm1, _a1), r1) :: es1'),
+          (vs2', (vs2, (p2, h2), (qp2, qh2), (nm2, _a2), r2) :: es2') ) -> begin
+        (* bound variables continue to the bound in the rest of the expression *)
+        (* TODO propagate any constraints we discover on them *)
+        (* TODO this is not very efficient *)
+        let vs1 = List.sort_uniq String.compare (vs1 @ vs1') in
+        let vs2 = List.sort_uniq String.compare (vs2 @ vs2') in
         (* contravariance of preconditions *)
         let* pf1, (pr, hr) = Heap.entails (vs2, (p2, h2)) (vs1, (p1, h1)) in
         (* covariance of postconditions *)
@@ -408,18 +422,20 @@ let check_staged_subsumption : spec -> spec -> state Res.pf =
                True
            in *)
         (* let* pf, res = loop (And (unify, pr), hr) es1' es2' in *)
-        let* pf, res = loop (True, EmptyHeap) es1' es2' in
+        let* pf, res = loop (True, EmptyHeap) (vs1, es1') (vs2, es2') in
         Ok
           ( rule ~children:[pf1; pf2; pf] ~name:"subsumption-stage" "%s |= %s"
-              (string_of_spec (effectStage2Spec es1))
-              (string_of_spec (effectStage2Spec es2)),
+              (string_of_spec (effectStage2Spec (snd es1)))
+              (string_of_spec (effectStage2Spec (snd es2))),
             res )
       end
-      | [], [] ->
+      | (vs1', []), (vs2', []) ->
         (* base case: check the normal stage at the end *)
         let (vs1, (p1, h1), (qp1, qh1), r1), (vs2, (p2, h2), (qp2, qh2), r2) =
           (ns1, ns2)
         in
+        let vs1 = List.sort_uniq String.compare (vs1 @ vs1') in
+        let vs2 = List.sort_uniq String.compare (vs2 @ vs2') in
         (* contravariance *)
         let* pf1, (pr, hr) = Heap.entails (vs2, (p2, h2)) (vs1, (p1, h1)) in
         (* covariance *)
@@ -440,7 +456,7 @@ let check_staged_subsumption : spec -> spec -> state Res.pf =
       | _ ->
         Error (rule ~name:"subsumption-stage" ~success:false "unequal length")
     in
-    loop (True, EmptyHeap) es1 es2
+    loop (True, EmptyHeap) ([], es1) ([], es2)
 
 let%expect_test "staged subsumption" =
   verifier_counter_reset ();
