@@ -188,16 +188,20 @@ module Heap = struct
     let c = normalize conseq in
     match (a, c) with
     | (p1, h1), (p2, EmptyHeap) ->
-      let fml = Imply (And (xpure (SepConj (h1, k)), p1), p2) in
-      let sat = askZ3_exists_valid vs fml in
-      if sat then
+      let left = And (xpure (SepConj (h1, k)), p1) in
+      let valid = entails_exists ~debug:true left vs p2 in
+      if valid then
         let pf =
           (* rule "xpure(%s * %s /\\ %s) => %s" (string_of_kappa h1)
              (string_of_kappa k) (string_of_pi p1) (string_of_pi p2) *)
-          rule ~name:"ent-emp" "%s" (string_of_pi fml)
+          rule ~name:"ent-emp" "%s => ex %s. %s" (string_of_pi left)
+            (String.concat " " vs) (string_of_pi p2)
         in
         Ok (pf, (p1, h1))
-      else Error (rule ~name:"ent-emp" ~success:false "%s" (string_of_pi fml))
+      else
+        Error
+          (rule ~name:"ent-emp" ~success:false "%s => ex %s. %s"
+             (string_of_pi left) (String.concat " " vs) (string_of_pi p2))
     | (p1, h1), (p2, h2) -> begin
       (* we know h2 is non-empty *)
       match split_one h2 with
@@ -213,7 +217,7 @@ module Heap = struct
               let v2, h1' = split_find x1 h1 |> Option.get in
               check_qf
                 (SepConj (k, PointsTo (x1, v1)))
-                vs
+                (List.filter (fun v1 -> not (String.equal v1 x)) vs)
                 ( And
                     ( p1,
                       And
@@ -376,26 +380,20 @@ let check_staged_subsumption : spec -> spec -> state Res.pf =
     let es1, ns1 = normalise_spec n1 in
     let es2, ns2 = normalise_spec n2 in
     let rec loop : state -> effectStage list -> effectStage list -> state pf =
-     fun (acc_p1, acc_h1) es1 es2 ->
+     fun (_acc_p1, _acc_h1) es1 es2 ->
       (* recurse down both lists in parallel *)
       match (es1, es2) with
-      | ( (vs1, (p1, h1), (qp1, qh1), (nm1, a1), r1) :: es1',
-          (vs2, (p2, h2), (qp2, qh2), (nm2, a2), r2) :: es2' ) -> begin
+      | ( (vs1, (p1, h1), (qp1, qh1), (nm1, _a1), r1) :: es1',
+          (vs2, (p2, h2), (qp2, qh2), (nm2, _a2), r2) :: es2' ) -> begin
         (* contravariance of preconditions *)
-        let* pf1, (pr, hr) =
-          Heap.entails
-            ( vs2,
-              ( And (acc_p1, And (p2, Atomic (EQ, r2, Var "res"))),
-                SepConj (acc_h1, h2) ) )
-            (vs1, (And (p1, Atomic (EQ, r1, Var "res")), h1))
-        in
+        let* pf1, (pr, hr) = Heap.entails (vs2, (p2, h2)) (vs1, (p1, h1)) in
         (* covariance of postconditions *)
-        let* pf2, (pr, hr) =
+        let* pf2, (_pr, _hr) =
           Heap.entails
             ( vs1,
               ( And (qp1, And (pr, Atomic (EQ, r1, Var "res"))),
                 SepConj (qh1, hr) ) )
-            (vs2, (And (qp2, Atomic (EQ, r1, Var "res")), qh2))
+            (vs2, (And (qp2, Atomic (EQ, r2, Var "res")), qh2))
         in
         (* compare effect names *)
         let* _ =
@@ -403,13 +401,14 @@ let check_staged_subsumption : spec -> spec -> state Res.pf =
           else Error (rule ~name:"name-equal" "uh oh")
         in
         (* unify effect params and return value *)
-        let unify =
-          List.fold_right
-            (fun (a, b) t -> And (t, Atomic (EQ, a, b)))
-            (List.map2 (fun a b -> (a, b)) a1 a2)
-            True
-        in
-        let* pf, res = loop (And (unify, pr), hr) es1' es2' in
+        (* let unify =
+             List.fold_right
+               (fun (a, b) t -> And (t, Atomic (EQ, a, b)))
+               (List.map2 (fun a b -> (a, b)) a1 a2)
+               True
+           in *)
+        (* let* pf, res = loop (And (unify, pr), hr) es1' es2' in *)
+        let* pf, res = loop (True, EmptyHeap) es1' es2' in
         Ok
           ( rule ~children:[pf1; pf2; pf] ~name:"subsumption-stage" "%s |= %s"
               (string_of_spec (effectStage2Spec es1))
@@ -422,18 +421,12 @@ let check_staged_subsumption : spec -> spec -> state Res.pf =
           (ns1, ns2)
         in
         (* contravariance *)
-        let* pf1, (pr, hr) =
-          Heap.entails
-            ( vs2,
-              ( And (acc_p1, And (p2, Atomic (EQ, r1, Var "res"))),
-                SepConj (acc_h1, h2) ) )
-            (vs1, (And (p1, Atomic (EQ, r2, Var "res")), h1))
-        in
+        let* pf1, (pr, hr) = Heap.entails (vs2, (p2, h2)) (vs1, (p1, h1)) in
         (* covariance *)
         let* pf2, (pr, hr) =
           Heap.entails
             ( vs1,
-              ( And (qp1, And (pr, Atomic (EQ, r1, Var "res"))),
+              ( And (And (qp1, Atomic (EQ, r1, Var "res")), pr),
                 SepConj (qh1, hr) ) )
             (vs2, (And (qp2, Atomic (EQ, r2, Var "res")), qh2))
         in
