@@ -182,6 +182,8 @@ module Heap = struct
 
   let rec check_qf : kappa -> string list -> state -> state -> state Res.pf =
    fun k vs ante conseq ->
+    (* Format.printf "check_qf %s %s %s |- %s@." (string_of_kappa k)
+       (string_of_list Fun.id vs) (string_of_state ante) (string_of_state conseq); *)
     let a = normalize ante in
     let c = normalize conseq in
     match (a, c) with
@@ -266,6 +268,11 @@ module Heap = struct
 
   let check_exists : state quantified -> state quantified -> state Res.pf =
    fun (avs, ante) (cvs, conseq) ->
+    (* Format.printf "check_exists (%s, %s) (%s, %s)@."
+       (string_of_list Fun.id avs)
+       (string_of_state ante)
+       (string_of_list Fun.id cvs)
+       (string_of_state conseq); *)
     (* replace left side with fresh variables *)
     let left =
       let p, h = ante in
