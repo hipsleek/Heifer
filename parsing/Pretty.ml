@@ -290,10 +290,8 @@ let rec pi_to_expr ctx : pi -> Expr.expr = function
 
 
 let check_sat ?(debug=false) f =
-  (* let cfg = [ ("model", "false"); ("proof", "false") ] in *)
-  (* let cfg = [ ("proof", "false") ] in *)
-  (* let ctx = mk_context cfg in *)
-  let ctx = mk_context [] in
+  let cfg = (if debug then [("model", "false")] else []) @ [ ("proof", "false") ] in
+  let ctx = mk_context cfg in
   let expr = f ctx in
   if debug then Format.printf "z3: %s@." (Expr.to_string expr);
   (* let goal = Goal.mk_goal ctx true true false in *)
@@ -301,9 +299,7 @@ let check_sat ?(debug=false) f =
   (* let goal = Goal.simplify goal None in *)
   (* if debug then Format.printf "goal: %s@." (Goal.to_string goal); *)
   let solver = Solver.mk_simple_solver ctx in
-  (* List.iter (fun a -> Solver.add solver [ a ]) (Goal.get_formulas goal); *)
-  Solver.add solver [expr];
-  let sat = Solver.check solver [] == Solver.SATISFIABLE in
+  let sat = Solver.check solver [expr] == Solver.SATISFIABLE in
   if debug then Format.printf "sat: %b@." sat;
   if debug then begin
   match Solver.get_model solver with
