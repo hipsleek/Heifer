@@ -15,17 +15,18 @@ module Res = struct
   type 'a pf = (proof * 'a, proof) result
 
   let all :
+      ?may_elide:bool ->
       name:string ->
       to_s:('a -> string) ->
       'a list ->
       ('a -> 'b pf) ->
       'b list pf =
-   fun ~name ~to_s vs f ->
+   fun ?(may_elide = false) ~name ~to_s vs f ->
     let rec loop pfs rs vs =
       match vs with
       (* special case, just inline the rule *)
       | [] -> Ok (rule ~children:(List.rev pfs) ~name "", rs)
-      | [x] -> f x |> Result.map (fun (p, a) -> (p, [a]))
+      | [x] when may_elide -> f x |> Result.map (fun (p, a) -> (p, [a]))
       | x :: xs ->
         let res = f x in
         (match res with
@@ -36,11 +37,16 @@ module Res = struct
     loop [] [] vs
 
   let any :
-      name:string -> to_s:('a -> string) -> 'a list -> ('a -> 'b pf) -> 'b pf =
-   fun ~name ~to_s vs f ->
+      ?may_elide:bool ->
+      name:string ->
+      to_s:('a -> string) ->
+      'a list ->
+      ('a -> 'b pf) ->
+      'b pf =
+   fun ?(may_elide = false) ~name ~to_s vs f ->
     match vs with
     | [] -> failwith "choice must be nonempty"
-    | [x] -> f x (* special case, just inline *)
+    | [x] when may_elide -> f x (* special case, just inline *)
     | v :: vs ->
       (* return the first non-failing result, or the last failure if all fail *)
       let rec loop v vs =
@@ -137,14 +143,35 @@ module Heap = struct
       match split_find n a with None -> split_find n b | Some r -> Some r
     end
 
-  let rec xpure : kappa -> pi =
+  let conj xs =
+    match xs with
+    | [] -> True
+    | x :: xs -> List.fold_right (fun c t -> And (c, t)) xs x
+
+  let pairwise_var_inequality v1 v2 =
+    List.concat_map
+      (fun x ->
+        List.filter_map
+          (fun y ->
+            if String.equal x y then None
+            else Some (Not (Atomic (EQ, Var x, Var y))))
+          v2)
+      v1
+    |> conj
+
+  let xpure : kappa -> pi =
    fun h ->
-    match h with
-    | EmptyHeap -> True
-    | PointsTo (x, _t) ->
-      let v = verifier_getAfreeVar () in
-      And (Atomic (EQ, Var v, Var x), Atomic (GT, Var v, Num 0))
-    | SepConj (a, b) -> And (xpure a, xpure b)
+    let rec run h =
+      match h with
+      | EmptyHeap -> (True, [])
+      | PointsTo (x, _t) -> (Atomic (GT, Var x, Num 0), [x])
+      | SepConj (a, b) ->
+        let a, v1 = run a in
+        let b, v2 = run b in
+        (And (a, And (b, pairwise_var_inequality v1 v2)), [])
+    in
+    let p, _vs = run h in
+    p
 
   type 'a quantified = string list * 'a
 
@@ -242,14 +269,18 @@ module Heap = struct
     (* replace left side with fresh variables *)
     let left =
       let p, h = ante in
-      let fresh = List.map (fun a -> (a, Var (verifier_getAfreeVar ()))) avs in
+      let fresh =
+        List.map (fun a -> (a, Var (verifier_getAfreeVar ~from:a ()))) avs
+      in
       ( Forward_rules.instantiatePure fresh p,
         Forward_rules.instantiateHeap fresh h )
     in
     let right, vs =
       (* do the same for the right side, but track them *)
       let p, h = conseq in
-      let fresh_names = List.map (fun a -> (a, verifier_getAfreeVar ())) cvs in
+      let fresh_names =
+        List.map (fun a -> (a, verifier_getAfreeVar ~from:a ())) cvs
+      in
       let fresh_vars = List.map (fun (a, b) -> (a, Var b)) fresh_names in
       ( ( Forward_rules.instantiatePure fresh_vars p,
           Forward_rules.instantiateHeap fresh_vars h ),
@@ -337,22 +368,27 @@ let check_staged_subsumption : spec -> spec -> state Res.pf =
   fun n1 n2 ->
     let es1, ns1 = normalise_spec n1 in
     let es2, ns2 = normalise_spec n2 in
-    let rec loop : state -> effectStage list -> effectStage list -> state Res.pf
-        =
-     fun (pp1, ph1) es1 es2 ->
+    let rec loop : state -> effectStage list -> effectStage list -> state pf =
+     fun (acc_p1, acc_h1) es1 es2 ->
       (* recurse down both lists in parallel *)
       match (es1, es2) with
       | ( (vs1, (p1, h1), (qp1, qh1), (nm1, a1), r1) :: es1',
           (vs2, (p2, h2), (qp2, qh2), (nm2, a2), r2) :: es2' ) -> begin
         (* contravariance of preconditions *)
         let* pf1, (pr, hr) =
-          Heap.entails (vs2, (And (pp1, p2), SepConj (ph1, h2))) (vs1, (p1, h1))
+          Heap.entails
+            ( vs2,
+              ( And (acc_p1, And (p2, Atomic (EQ, r2, Var "res"))),
+                SepConj (acc_h1, h2) ) )
+            (vs1, (And (p1, Atomic (EQ, r1, Var "res")), h1))
         in
         (* covariance of postconditions *)
         let* pf2, (pr, hr) =
           Heap.entails
-            (vs1, (And (qp1, pr), SepConj (qh1, hr)))
-            (vs2, (qp2, qh2))
+            ( vs1,
+              ( And (qp1, And (pr, Atomic (EQ, r1, Var "res"))),
+                SepConj (qh1, hr) ) )
+            (vs2, (And (qp2, Atomic (EQ, r1, Var "res")), qh2))
         in
         (* compare effect names *)
         let* _ =
@@ -364,7 +400,7 @@ let check_staged_subsumption : spec -> spec -> state Res.pf =
           List.fold_right
             (fun (a, b) t -> And (t, Atomic (EQ, a, b)))
             (List.map2 (fun a b -> (a, b)) a1 a2)
-            (Atomic (EQ, r1, r2))
+            True
         in
         let* pf, res = loop (And (unify, pr), hr) es1' es2' in
         Ok
@@ -380,13 +416,19 @@ let check_staged_subsumption : spec -> spec -> state Res.pf =
         in
         (* contravariance *)
         let* pf1, (pr, hr) =
-          Heap.entails (vs2, (And (pp1, p2), SepConj (ph1, h2))) (vs1, (p1, h1))
+          Heap.entails
+            ( vs2,
+              ( And (acc_p1, And (p2, Atomic (EQ, r1, Var "res"))),
+                SepConj (acc_h1, h2) ) )
+            (vs1, (And (p1, Atomic (EQ, r2, Var "res")), h1))
         in
         (* covariance *)
         let* pf2, (pr, hr) =
           Heap.entails
-            (vs1, (And (qp1, pr), SepConj (qh1, hr)))
-            (vs2, (qp2, qh2))
+            ( vs1,
+              ( And (qp1, And (pr, Atomic (EQ, r1, Var "res"))),
+                SepConj (qh1, hr) ) )
+            (vs2, (And (qp2, Atomic (EQ, r2, Var "res")), qh2))
         in
         (* unify return value *)
         let pure = Atomic (EQ, r1, r2) in
@@ -513,9 +555,10 @@ let%expect_test "staged subsumption" =
   Currently just returns the residue for the RHS disjunct that succeeds and doesn't print anything.
 *)
 let subsumes_disj ds1 ds2 =
-  Res.all ~name:"subsumes-disj-lhs-all" ~to_s:string_of_spec ds1 (fun s1 ->
-      Res.any ~name:"subsumes-disj-rhs-any" ~to_s:string_of_spec ds2 (fun s2 ->
-          check_staged_subsumption s1 s2))
+  Res.all ~may_elide:true ~name:"subsumes-disj-lhs-all" ~to_s:string_of_spec ds1
+    (fun s1 ->
+      Res.any ~may_elide:true ~name:"subsumes-disj-rhs-any" ~to_s:string_of_spec
+        ds2 (fun s2 -> check_staged_subsumption s1 s2))
 
 module Normalize = struct
   let rec sl_dom (h : kappa) =

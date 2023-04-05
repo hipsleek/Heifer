@@ -21,8 +21,9 @@ let verifier_counter: int ref = ref 0;;
 let verifier_counter_reset () = verifier_counter := 0
 
 
-let verifier_getAfreeVar () :string  =
-  let x = "f"^string_of_int (!verifier_counter) in 
+let verifier_getAfreeVar ?from () :string  =
+  let prefix = from |> Option.map (fun v -> v ^ "_") |> Option.value ~default:"f" in
+  let x = prefix ^ ""^string_of_int (!verifier_counter) in 
   verifier_counter := !verifier_counter + 1;
   x 
 ;;
