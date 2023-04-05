@@ -303,13 +303,20 @@ let check ?(debug=false) ?(postprocess_expr=fun _ctx e -> e) pi =
   if debug then Format.printf "sat: %b@." sat;
   sat
 
-(* this is a separate function which doesn't cache results because exists isn't in pi *)
-let askZ3_exists vars pi = 
-  let postprocess_expr ctx e =
+  let quantify_expr vars ctx e =
     let int_sort = Z3.Arithmetic.Integer.mk_sort ctx in
     Z3.Quantifier.(expr_of_quantifier (mk_exists ctx (List.map (fun _ -> int_sort) vars) (List.map (Z3.Symbol.mk_string ctx) vars) e None [] [] None None))
+
+(* this is a separate function which doesn't cache results because exists isn't in pi *)
+let askZ3_exists vars pi = 
+  check ~debug:false ~postprocess_expr:(quantify_expr vars) pi
+
+let askZ3_exists_valid vars pi = 
+  (* check if the negation is unsat *)
+  let postprocess_expr ctx e =
+    Z3.Boolean.mk_not ctx (quantify_expr vars ctx e)
   in
-  check ~debug:false ~postprocess_expr pi
+  check ~debug:false ~postprocess_expr pi |> not
 
 let askZ3 pi = 
   match existInhistoryTable pi !historyTable with 

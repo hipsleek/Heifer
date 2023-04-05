@@ -187,7 +187,7 @@ module Heap = struct
     match (a, c) with
     | (p1, h1), (p2, EmptyHeap) ->
       let fml = Imply (And (xpure (SepConj (h1, k)), p1), p2) in
-      let sat = askZ3_exists vs fml in
+      let sat = askZ3_exists_valid vs fml in
       if sat then
         let pf =
           (* rule "xpure(%s * %s /\\ %s) => %s" (string_of_kappa h1)
