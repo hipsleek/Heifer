@@ -1192,20 +1192,33 @@ print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
 
       List.iter (fun (_name, _params, spec, body) ->
         if not incremental then begin
+          let time_stamp_beforeForward = Sys.time() in
           let spec1 = infer_of_expression methods [freshNormalReturnSpec] body in
+          let time_stamp_afterForward = Sys.time() in
           let ns = normalise_spec_list spec in
           let ns1 = normalise_spec_list spec1 in
+          let time_stamp_afterNormal = Sys.time() in
+
           let header =
             "\n========== Function: "^ _name ^" ==========\n" ^
             "[Specification] " ^ string_of_spec_list spec ^"\n" ^
             "[Normed   Spec] " ^ string_of_spec_list ns ^"\n\n" ^
             "[Raw Post Spec] " ^ string_of_spec_list spec1 ^ "\n" ^
-            "[Normed   Post] " ^ string_of_spec_list ns1 ^"\n"
+            "[Normed   Post] " ^ string_of_spec_list ns1 ^"\n\n" ^ 
+            "[Forward  Time] " ^ string_of_float ((time_stamp_afterForward -. time_stamp_beforeForward) (* *. 1000.0 *)) ^ " seconds\n" ^ 
+            "[Normal   Time] " ^ string_of_float ((time_stamp_afterNormal -. time_stamp_afterForward) (* *. 1000.0 *)) ^ " seonds\n"  
+
+        
           in
           print_string (header);
-          let spec = normalise_spec_list spec in
-          let spec1 = normalise_spec_list spec1 in
+          let spec = ns in
+          let spec1 = ns1 in
+
+          let time_stamp_beforeEntail = Sys.time() in
+
           let disj_res = Entail.subsumes_disj spec spec1 in
+          let time_stamp_afterEntail = Sys.time() in
+
           (* let success = List.exists (fun r -> List.for_all (fun (_, _, r1) -> Result.is_ok r1) r) disj_res in *)
           begin match disj_res with
           | Error _ ->
@@ -1223,7 +1236,11 @@ print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
               | Ok (pf, _what) ->
                 (* string_of_state st ^ "\n\n" ^ *)
                 string_of_proof pf
-              | Error pf -> string_of_proof pf)
+              | Error pf -> string_of_proof pf);
+
+          print_endline ("[Entail   Time] " ^ string_of_float ((time_stamp_afterEntail -. time_stamp_beforeEntail) (* *. 1000.0 *)) ^ " seonds\n")
+                      
+
 
           (* List.iter (fun dr ->
             (* one of these should succeed *)

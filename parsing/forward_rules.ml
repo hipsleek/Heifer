@@ -330,9 +330,9 @@ and infer_of_expression (env:meth_def list) (current:spec list) (expr:core_lang)
           let bindings = bindFormalNActual [ret] [v] in 
           (* instantiate the rest of the stages *)
 
-          print_endline (string_of_spec_list continue_specs);
+          (*print_endline (string_of_spec_list continue_specs); *)
           let continue_specs = renamingexistientalVar continue_specs in 
-          print_endline ("=====\n" ^string_of_spec_list continue_specs);
+          (*print_endline ("=====\n" ^string_of_spec_list continue_specs);*)
     
           let instantiatedSpecs =  instantiateSpecList bindings continue_specs in 
           (* instantiate the pre stages *)
