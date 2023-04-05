@@ -198,7 +198,7 @@ let rec lookforHandlingCases ops (label:string) =
     then Some (arg, expr) 
     else lookforHandlingCases xs label 
 
-let (continueationCxt: ((spec * string * (string * core_lang) * core_handler_ops) option) ref)  = ref None 
+let (continueationCxt: ((spec list * string * (string * core_lang) * core_handler_ops) option) ref)  = ref None 
 
 let rec handling_spec env (spec:normalisedStagedSpec) (normal:(string * core_lang)) (ops:core_handler_ops) : spec list = 
   
@@ -235,10 +235,10 @@ let rec handling_spec env (spec:normalisedStagedSpec) (normal:(string * core_lan
       in 
       let current = [Exists existiental; Require(p1, h1); 
         NormalReturn(p2, h2, UNIT)] in  (* Var ret *)
-        
-      let () = continueationCxt := Some (normalisedStagedSpec2Spec (xs, normalS),  ret, normal, ops) in 
-      let temp = infer_of_expression env [current] exprEff in 
 
+      let continueation_spec = normalisedStagedSpec2Spec (xs, normalS) in 
+      let () = continueationCxt := Some ([continueation_spec],  ret, normal, ops) in 
+      let temp = infer_of_expression env [current] exprEff in 
       let () = continueationCxt := None in 
 
       instantiateSpecList bindings temp
@@ -322,23 +322,29 @@ and infer_of_expression (env:meth_def list) (current:spec list) (expr:core_lang)
   | CResume v ->  
       (match !continueationCxt with 
       | None -> failwith "resume in a wrong context"
-      | Some (continue_spec, ret, normal, ops) -> 
+      | Some (continue_specs, ret, normal, ops) -> 
 
           (*
           print_endline ("C = " ^ string_of_spec continue_spec);
           *)
           let bindings = bindFormalNActual [ret] [v] in 
           (* instantiate the rest of the stages *)
-          let instantiatedSpec =  instantiateSpec bindings continue_spec in 
+
+          print_endline (string_of_spec_list continue_specs);
+          let continue_specs = renamingexistientalVar continue_specs in 
+          print_endline ("=====\n" ^string_of_spec_list continue_specs);
+    
+          let instantiatedSpecs =  instantiateSpecList bindings continue_specs in 
           (* instantiate the pre stages *)
           let instantiatedCurrent =  instantiateSpecList bindings current in 
           (* after instantiate the pre stages, remove the existential quantifier for ret *)
           let instantiatedCurrent' = removeExist instantiatedCurrent ret in 
 
-          let temp = handling_spec env (normalise_spec instantiatedSpec)  normal ops in 
-          (*
-          print_endline ("C' = " ^ string_of_spec_list temp);
-      *)
+          let temp = 
+            List.flatten (
+              List.map  (fun a -> handling_spec env (normalise_spec a)  normal ops) instantiatedSpecs
+            )
+             in 
           concatenateSpecsWithSpec instantiatedCurrent' temp
       )
 
@@ -361,7 +367,10 @@ and infer_of_expression (env:meth_def list) (current:spec list) (expr:core_lang)
     (match retriveSpecFromEnv fname env with 
     | None -> failwith ("no implemnetation of " ^ fname )
     | Some  (formalArgs, spec_of_fname) -> 
+      print_endline (string_of_spec_list spec_of_fname);
       let spec_of_fname =renamingexistientalVar spec_of_fname in 
+      print_endline ("====\n"^ string_of_spec_list spec_of_fname);
+
       let bindings = bindFormalNActual (formalArgs) (actualArgs) in 
       let instantiatedSpec =  instantiateSpecList bindings spec_of_fname in 
       concatenateSpecsWithSpec current instantiatedSpec  

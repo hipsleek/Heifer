@@ -1,31 +1,78 @@
+effect Eff : unit 
 
-effect Foo : (unit -> unit)
-effect Goo : (unit -> unit)
+let test i 
+(*@ ex i ret;
+   Eff(i->0, ret);
+   ex z ;
+   req i-> z; 
+   Norm(i->z+1, ())
+@*)
+=
+  let i = Sys.opaque_identity (ref 0) in 
+  let ret = perform Eff in 
+  i := !i + 1;
+  ret
 
-let f () 
-(*@  requires (true, emp, ())   @*)
-(*@  ensures  (true, (Foo!).(Goo!).Goo?().Foo?(), ()) @*)
-(*@  ensures  (true, (Foo!).(Goo!).Goo?()._, ()) @*)
-(*@  ensures  (true, ((Foo!).(Goo!).Goo?()._)^*, ()) @*)
+let main_aux ()
+(*@ ex i;
+   Norm(i->1, 1)
+@*)
+=
+  (match test () with
+  | v -> v 
+  | effect Eff k ->
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue k ())
+  );
+  print_endline (string_of_int !i)
 
-(*@  ensures  (true, (Foo!).Goo?().Foo?(), ()) @*)
-(*@  ensures  (true, (Foo!).(Goo!).Goo?(), ()) @*)
-(*@  ensures  (true, (_)^w, ()) @*)
+  (*
 
-= 
-  let x = perform Foo in 
-  let y = perform Goo in 
-  y ();
-  x ()
-
-let handler 
-(*@  requires (true, emp, ())   @*)
-(*@  ensures  (true, (Foo), ()) @*)
-(*@  ensures  (true, (Foo)^*, ()) @*)
-(*@  ensures  (true, (Goo), ()) @*)
-(*@  ensures  (true, (Goo)^*, ()) @*)
-
-= 
-  match f () with 
-  | x -> x
-  | effect Foo k -> () 
+  *)
