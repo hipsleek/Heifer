@@ -202,8 +202,8 @@ let (continueationCxt: ((spec list * string * (string * core_lang) * core_handle
 
 let rec handling_spec env (spec:normalisedStagedSpec) (normal:(string * core_lang)) (ops:core_handler_ops) : spec list = 
   
-  print_endline("\nhandling_spec =====> " ^ string_of_spec (normalisedStagedSpec2Spec spec));
-
+  (*print_endline("\nhandling_spec =====> " ^ string_of_spec (normalisedStagedSpec2Spec spec));
+*)
   let (normFormalArg, expRet) = normal in 
   let (effS, normalS) = spec in 
   match effS with 
