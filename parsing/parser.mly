@@ -2545,7 +2545,6 @@ list_of_list:
 | SEMI n = INT rest = list_of_list {let (i, _) = n in (int_of_string i)::rest}
 
 list_of_TupleTerms:
-| {[]}
 | n = pure_formula_term {[n]}
 | COMMA n = pure_formula_term rest = list_of_TupleTerms {n::rest}
 
@@ -2555,6 +2554,7 @@ pure_formula_term:
   | n = INT { let (i, _) = n in Num (int_of_string i) }
   | LBRACKET n = list_of_list RBRACKET {TList (List.map (fun a -> Num a) n)}
 
+  | LPAREN RPAREN {UNIT}
   | LPAREN n = list_of_TupleTerms RPAREN {TTupple n}
 
 
