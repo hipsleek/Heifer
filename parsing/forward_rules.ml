@@ -263,6 +263,7 @@ and infer_of_expression (env:meth_def list) (current:spec list) (expr:core_lang)
       | UNIT -> infer_of_expression env [spec] expr2
       | Var freshV -> 
         if String.compare str "_" == 0 then infer_of_expression env [spec] expr2
+        (*
         else if String.compare str "i" == 0 || String.compare str "j" == 0  then 
           (
           (*print_endline ("replacing " ^ freshV ^ " with " ^str);
@@ -277,6 +278,7 @@ and infer_of_expression (env:meth_def list) (current:spec list) (expr:core_lang)
           (*print_endline ("spec'' " ^ string_of_spec spec'); *)
           (*let spec' = removeExist [spec'] freshV in *)
           infer_of_expression env [spec'] expr2)
+        *)
         else 
           let bindings = bindFormalNActual [str] [retN] in 
           let phi2 = infer_of_expression env [spec] expr2 in 
@@ -376,10 +378,18 @@ and infer_of_expression (env:meth_def list) (current:spec list) (expr:core_lang)
       concatenateSpecsWithSpec current instantiatedSpec  
     )
 
+(* 
+ex i; Norm(i->0, i); ex f4; 
+Eff(emp, [], f4); 
+ex f5 f6; 
+req i->f5; 
+Norm(i->f5, f5+1); 
+req i->f6; 
+Norm(i->f5+1, ()); Norm(emp, f4)
+*)
 
   | CWrite  (str, v) -> 
     let freshVar = verifier_getAfreeVar () in 
-
     let event = [Exists [freshVar];Require(True, PointsTo(str, Var freshVar)); 
                   NormalReturn (True, PointsTo(str, v), UNIT)] in 
     concatenateSpecsWithEvent current event

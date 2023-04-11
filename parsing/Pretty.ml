@@ -621,20 +621,19 @@ let normalise_stagedSpec (acc:normalisedStagedSpec) (stagedSpec:stagedSpec) : no
   (*print_endline("\nnormalise_stagedSpec =====> " ^ string_of_normalisedStagedSpec(acc));
   print_endline("\nadding  " ^ string_of_stages (stagedSpec));
 *)
-
   let (effectStages, normalStage) = acc in 
   let (existential, req, ens, ret) = normalStage in 
   match stagedSpec with
   | Exists li -> (effectStages, (existential@li, req, ens, ret))
-  | Require (pi, heap) -> 
+  | Require (p3, h3) -> 
     let (p2, h2) = ens in 
-    let (magicWandHeap, unification) = normaliseMagicWand h2 heap existential in 
+    let (magicWandHeap, unification) = normaliseMagicWand h2 h3 existential in 
     (*print_endline (string_of_kappa (magicWandHeap) ^ " magic Wand "); *)
 
     (* not only need to get the magic wand, but also need to delete the common part from h2*)
-    let (h2',   unification')    = normaliseMagicWand heap h2 existential in 
+    let (h2',   unification')    = normaliseMagicWand h3 h2 existential in 
 
-    let normalStage' = (existential, mergeState req (And(pi, unification), magicWandHeap), (normalPure (And(p2, unification')), h2'), ret) in 
+    let normalStage' = (existential, mergeState req (And(p3, unification), magicWandHeap), (normalPure (And(p2, unification')), h2'), ret) in 
     (effectStages, normalStage')
 
   | NormalReturn (pi, heap, ret') -> (effectStages, (existential, req, mergeState ens (pi, heap), ret'))

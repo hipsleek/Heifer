@@ -49,3 +49,8 @@ has a bug
 16_z_flip.ml 
 
 
+
+TODO:
+design the experiments to show that:
+re-reasoning does not cause too much overhead. 
+we can reason about multi-shot efficiently. 
