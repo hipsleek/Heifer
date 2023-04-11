@@ -21,8 +21,9 @@ let verifier_counter: int ref = ref 0;;
 let verifier_counter_reset () = verifier_counter := 0
 
 
-let verifier_getAfreeVar () :string  =
-  let x = "f"^string_of_int (!verifier_counter) in 
+let verifier_getAfreeVar ?from () :string  =
+  let prefix = from |> Option.map (fun v -> v ^ "_") |> Option.value ~default:"f" in
+  let x = prefix ^ ""^string_of_int (!verifier_counter) in 
   verifier_counter := !verifier_counter + 1;
   x 
 ;;
@@ -235,9 +236,9 @@ let rec existInhistoryTable pi table=
 
 
 let rec term_to_expr ctx : term -> Z3.Expr.expr = function
-  | ((Num n))        -> Z3.Arithmetic.Real.mk_numeral_i ctx n
-  | ((Var v))           -> Z3.Arithmetic.Real.mk_const_s ctx v
-  | ((UNIT))           -> Z3.Arithmetic.Real.mk_const_s ctx "unit"
+  | ((Num n))        -> Z3.Arithmetic.Integer.mk_numeral_i ctx n
+  | ((Var v))           -> Z3.Arithmetic.Integer.mk_const_s ctx v
+  | ((UNIT))           -> Z3.Arithmetic.Integer.mk_const_s ctx "unit"
   (*
   | Gen i          -> Z3.Arithmetic.Real.mk_const_s ctx ("t" ^ string_of_int i ^ "'")
   *)
@@ -265,9 +266,10 @@ let rec pi_to_expr ctx : pi -> Expr.expr = function
       let t2 = term_to_expr ctx t2 in
       Z3.Arithmetic.mk_le ctx t1 t2
   | Atomic (EQ, t1, t2) -> 
-      let newP = And (Atomic (GTEQ, t1, t2), Atomic (LTEQ, t1, t2)) in 
-      pi_to_expr ctx newP
-  | Imply (p1, p2) ->  pi_to_expr ctx (Or(Not p1, p2))
+      let t1 = term_to_expr ctx t1 in
+      let t2 = term_to_expr ctx t2 in
+      Z3.Boolean.mk_eq ctx t1 t2
+  | Imply (p1, p2) -> Z3.Boolean.mk_implies ctx (pi_to_expr ctx p1) (pi_to_expr ctx p2)
   | Predicate (_, _) -> failwith "pi_to_expr"
 (*
   | Atomic (op, t1, t2) -> (
@@ -287,28 +289,42 @@ let rec pi_to_expr ctx : pi -> Expr.expr = function
   | Not pi              -> Z3.Boolean.mk_not ctx (pi_to_expr ctx pi)
 
 
-let check ?(debug=false) ?(postprocess_expr=fun _ctx e -> e) pi =
-  let cfg = [ ("model", "false"); ("proof", "false") ] in
+let check_sat ?(debug=false) f =
+  let cfg = (if debug then [("model", "false")] else []) @ [ ("proof", "false") ] in
   let ctx = mk_context cfg in
-  let expr = pi_to_expr ctx pi in
-  let expr = postprocess_expr ctx expr in
+  let expr = f ctx in
   if debug then Format.printf "z3: %s@." (Expr.to_string expr);
-  let goal = Goal.mk_goal ctx true true false in
-  (* if debug then print_endline (Goal.to_string goal); *)
-  Goal.add goal [ expr ];
+  (* let goal = Goal.mk_goal ctx true true false in *)
+  (* Goal.add goal [ expr ]; *)
+  (* let goal = Goal.simplify goal None in *)
+  (* if debug then Format.printf "goal: %s@." (Goal.to_string goal); *)
   let solver = Solver.mk_simple_solver ctx in
-  List.iter (fun a -> Solver.add solver [ a ]) (Goal.get_formulas goal);
-  let sat = Solver.check solver [] == Solver.SATISFIABLE in
+  let sat = Solver.check solver [expr] == Solver.SATISFIABLE in
   if debug then Format.printf "sat: %b@." sat;
+  if debug then begin
+  match Solver.get_model solver with
+  | None -> Format.printf "no model@."
+  | Some m -> Format.printf "model: %s@." (Model.to_string m)
+  end;
   sat
 
-(* this is a separate function which doesn't cache results because exists isn't in pi *)
-let askZ3_exists vars pi = 
-  let postprocess_expr ctx e =
-    let int_sort = Z3.Arithmetic.Integer.mk_sort ctx in
-    Z3.Quantifier.(expr_of_quantifier (mk_exists ctx (List.map (fun _ -> int_sort) vars) (List.map (Z3.Symbol.mk_string ctx) vars) e None [] [] None None))
+let check ?(debug=false) pi =
+  check_sat ~debug (fun ctx -> pi_to_expr ctx pi)
+
+(* see https://discuss.ocaml.org/t/different-z3-outputs-when-using-the-api-vs-cli/9348/3 and https://github.com/Z3Prover/z3/issues/5841 *)
+let ex_quantify_expr vars ctx e =
+  match vars with
+  | [] -> e
+  | _ :: _ ->
+    Z3.Quantifier.(expr_of_quantifier (mk_exists_const ctx (List.map (Z3.Arithmetic.Integer.mk_const_s ctx) vars) e None [] [] None None))
+
+(** check if [p1 => ex vs. p2] is valid. this is a separate function which doesn't cache results because exists isn't in pi *)
+let entails_exists ?(debug=false) p1 vs p2 = 
+  let f ctx = Z3.Boolean.mk_not ctx
+    (Z3.Boolean.mk_implies ctx (pi_to_expr ctx p1)
+      (ex_quantify_expr vs ctx (pi_to_expr ctx p2)))
   in
-  check ~debug:false ~postprocess_expr pi
+  not (check_sat ~debug f)
 
 let askZ3 pi = 
   match existInhistoryTable pi !historyTable with 
@@ -782,5 +798,5 @@ let rec string_of_core_lang (e:core_lang) :string =
   | CAssert (p, h) -> Format.sprintf "assert (%s && %s)" (string_of_pi p) (string_of_kappa h)
   | CPerform (eff, Some arg) -> Format.sprintf "perform %s %s" eff (string_of_term arg)
   | CPerform (eff, None) -> Format.sprintf "perform %s" eff
-  | CMatch (e, (v, norm), hs) -> Format.sprintf "match %s with\n| %s -> %s\n%s" (string_of_core_lang e) v (string_of_core_lang norm) (List.map (fun (name, v, body) -> Format.asprintf "| effect %s %s -> %s" name v (string_of_core_lang body)) hs |> String.concat "\n")
+  | CMatch (e, (v, norm), hs) -> Format.sprintf "match %s with\n| %s -> %s\n%s" (string_of_core_lang e) v (string_of_core_lang norm) (List.map (fun (name, v, body) -> Format.asprintf "| effect %s k -> %s" (match v with None -> name | Some v -> Format.asprintf "(%s %s)" name v) (string_of_core_lang body)) hs |> String.concat "\n")
   | CResume v -> Format.sprintf "continue k %s" (string_of_term v)

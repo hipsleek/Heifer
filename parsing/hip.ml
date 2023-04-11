@@ -629,8 +629,8 @@ let rec transformation (env:string list) (expr:expression) : core_lang =
           let label, arg_binder =
             let arg =
               match peff with
-              | {ppat_desc = Ppat_construct (_name, Some a); _} -> string_of_pattern a
-              | {ppat_desc = Ppat_construct (_name, None); _} -> verifier_getAfreeVar ()
+              | {ppat_desc = Ppat_construct (_name, Some a); _} -> Some (string_of_pattern a)
+              | {ppat_desc = Ppat_construct (_name, None); _} -> None
               | _ -> failwith (Format.asprintf "unknown kind of effect constructor pattern: %a" Pprintast.pattern peff)
             in
             string_of_pattern peff, arg

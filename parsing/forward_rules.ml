@@ -229,9 +229,9 @@ let rec handling_spec env (spec:normalisedStagedSpec) (normal:(string * core_lan
     | Some (effFormalArg, exprEff) -> 
       (*print_string ("formal argument for label is " ^ effFormalArg ^ "\n"); *)
       let bindings = 
-        match effactualArgs with 
-        | [] -> [] 
-        | effactualArg ::_ -> [(effFormalArg, effactualArg)]
+        match effFormalArg, effactualArgs with 
+        | _, [] | None, _ -> [] 
+        | Some e, effactualArg ::_ -> [(e, effactualArg)]
       in 
       let current = [Exists existiental; Require(p1, h1); 
         NormalReturn(p2, h2, UNIT)] in  (* Var ret *)
