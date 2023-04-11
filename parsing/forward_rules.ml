@@ -198,12 +198,12 @@ let rec lookforHandlingCases ops (label:string) =
     then Some (arg, expr) 
     else lookforHandlingCases xs label 
 
-let (continueationCxt: ((spec list * string * (string * core_lang) * core_handler_ops) option) ref)  = ref None 
+let (continueationCxt: ((spec list * string * (string * core_lang) * core_handler_ops) list) ref)  = ref [] 
 
 let rec handling_spec env (spec:normalisedStagedSpec) (normal:(string * core_lang)) (ops:core_handler_ops) : spec list = 
   
-  (*print_endline("\nhandling_spec =====> " ^ string_of_spec (normalisedStagedSpec2Spec spec));
-*)
+  print_endline("\nhandling_spec =====> " ^ string_of_spec (normalisedStagedSpec2Spec spec));
+
   let (normFormalArg, expRet) = normal in 
   let (effS, normalS) = spec in 
   match effS with 
@@ -237,9 +237,9 @@ let rec handling_spec env (spec:normalisedStagedSpec) (normal:(string * core_lan
         NormalReturn(p2, h2, UNIT)] in  (* Var ret *)
 
       let continueation_spec = normalisedStagedSpec2Spec (xs, normalS) in 
-      let () = continueationCxt := Some ([continueation_spec],  ret, normal, ops) in 
+      let () = continueationCxt := ([continueation_spec],  ret, normal, ops) :: !continueationCxt in 
       let temp = infer_of_expression env [current] exprEff in 
-      let () = continueationCxt := None in 
+      let () = continueationCxt := List.tl (!continueationCxt) in 
 
       instantiateSpecList bindings temp
 
@@ -285,7 +285,8 @@ and infer_of_expression (env:meth_def list) (current:spec list) (expr:core_lang)
           instantiateSpecList bindings phi2
           *)
       | _ -> 
-        if String.compare str "_" == 0 then infer_of_expression env [spec] expr2
+        if String.compare str "_" == 0 
+        then infer_of_expression env [spec] expr2
         else 
           let bindings = bindFormalNActual [str] [retN] in 
           let phi2 = infer_of_expression env [spec] expr2 in 
@@ -326,8 +327,8 @@ and infer_of_expression (env:meth_def list) (current:spec list) (expr:core_lang)
 
   | CResume v ->  
       (match !continueationCxt with 
-      | None -> failwith "resume in a wrong context"
-      | Some (continue_specs, ret, normal, ops) -> 
+      | [] -> failwith "resume in a wrong context"
+      | (continue_specs, ret, normal, ops) :: _ -> 
 
           (*
           print_endline ("C = " ^ string_of_spec continue_spec);

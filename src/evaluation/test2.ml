@@ -1,53 +1,39 @@
 effect Eff : unit 
 
-let test i 
-(*@ ex i ret;
-   Eff(i->0, ret);
-   ex z ;
-   req i-> z; 
-   Norm(i->z+1, ())
+let test ()  
+(*@ ex r1 r2 r3 r4 r5 r6 r7 r8;
+   Eff(emp, r1);
+   Eff(emp, r2);
+   Eff(emp, r3);
+    Eff(emp, r4);
+    Eff(emp, r5);
+    Eff(emp, r6);
+        Eff(emp, r7);
+                Eff(emp, r8);
+
+  Norm(emp, r8)
+
 @*)
-=
-  let i = Sys.opaque_identity (ref 0) in 
-  let ret = perform Eff in 
-  i := !i + 1;
-  let ret = perform Eff in 
-  i := !i + 1;
-  let ret = perform Eff in 
-  i := !i + 1;
-  let ret = perform Eff in 
-  i := !i + 1;
-  let ret = perform Eff in 
-  i := !i + 1;
-  ret
+= 
+  perform Eff;
+  perform Eff;
+  perform Eff
+
+
 
 let main_aux ()
 (*@ ex i;
-   Norm(i->1, 1)
+   Norm(i->4, 4)
 @*)
-=
+= 
+  let i = Sys.opaque_identity (ref 0) in 
   (match test () with
   | v -> v 
   | effect Eff k ->
+    i:=!i+1;
     (continue (Obj.clone_continuation k) ());
+    i:=!i+1;
     (continue (Obj.clone_continuation k) ());
-    (continue (Obj.clone_continuation k) ());
-    (continue (Obj.clone_continuation k) ());
-    (continue (Obj.clone_continuation k) ());
-    (continue (Obj.clone_continuation k) ());
-    (continue (Obj.clone_continuation k) ());
-    (continue (Obj.clone_continuation k) ());
-    (continue (Obj.clone_continuation k) ());
-    (continue (Obj.clone_continuation k) ());
-    (continue (Obj.clone_continuation k) ());
-    (continue (Obj.clone_continuation k) ());
-    (continue (Obj.clone_continuation k) ());
-    (continue (Obj.clone_continuation k) ());
-    (continue (Obj.clone_continuation k) ());
-    (continue (Obj.clone_continuation k) ());
-    (continue (Obj.clone_continuation k) ());
-    (continue (Obj.clone_continuation k) ());
-    (continue (Obj.clone_continuation k) ());
-    (continue k ())
   );
-  print_endline (string_of_int !i)
+
+
