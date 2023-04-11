@@ -4,25 +4,142 @@ let test ()
 (*@ ex i ret;
    Eff(i->0, ret);
    ex z ; req i-> z; 
-   Norm(i->z+1, ret)
+   Norm(i->z+1, z+1)
 @*)
 = 
   let i = Sys.opaque_identity (ref 0) in 
   let ret = perform Eff in 
   i := !i + 1;
-  (*print_endline (string_of_int !i);*)
   !i
 
 
 let main_aux ()
 (*@ ex i;
-   Norm(i->2, 2)
+   Norm(i->4, 4)
 @*)
 = (match test () with
   | v -> v 
   | effect Eff k ->
+
+
     (continue (Obj.clone_continuation k) ());
-    (continue k ())
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+        (* 10 *)
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+            (* 20 *)
+        (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+                (* 30 *)
+        (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+                    (* 40 *)
+
+        (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+                    (* 50 *)
+
+        (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+                    (* 60 *)
+
+            (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+                    (* 70 *)
+
+            (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+                    (* 80 *)
+
+            (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+                    (* 90 *)
+            (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+    (continue (Obj.clone_continuation k) ());
+                    (* 100 *)
+
+
+
   );
 
 

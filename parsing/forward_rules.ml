@@ -372,9 +372,9 @@ and infer_of_expression (env:meth_def list) (current:spec list) (expr:core_lang)
     (match retriveSpecFromEnv fname env with 
     | None -> failwith ("no implemnetation of " ^ fname )
     | Some  (formalArgs, spec_of_fname) -> 
-      print_endline (string_of_spec_list spec_of_fname);
+      (*print_endline (string_of_spec_list spec_of_fname);*)
       let spec_of_fname =renamingexistientalVar spec_of_fname in 
-      print_endline ("====\n"^ string_of_spec_list spec_of_fname);
+      (*print_endline ("====\n"^ string_of_spec_list spec_of_fname);*)
 
       let bindings = bindFormalNActual (formalArgs) (actualArgs) in 
       let instantiatedSpec =  instantiateSpecList bindings spec_of_fname in 
