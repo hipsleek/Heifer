@@ -11,22 +11,18 @@ let test ()
   let ret = perform Eff in 
   i := !i + 1;
   (*print_endline (string_of_int !i);*)
-  ret
+  !i
 
-(*
 
 let main_aux ()
 (*@ ex i;
-   Norm(i->4, 4)
+   Norm(i->2, 2)
 @*)
 = (match test () with
   | v -> v 
   | effect Eff k ->
     (continue (Obj.clone_continuation k) ());
-    (continue (Obj.clone_continuation k) ());
-    (continue (Obj.clone_continuation k) ());
     (continue k ())
   );
 
 
-*)

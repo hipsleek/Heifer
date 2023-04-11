@@ -261,9 +261,9 @@ and infer_of_expression (env:meth_def list) (current:spec list) (expr:core_lang)
       let (_, _, retN) = retriveNormalStage spec in 
       match retN with 
       | UNIT -> infer_of_expression env [spec] expr2
-      | Var freshV -> 
+      (*| Var freshV -> 
         if String.compare str "_" == 0 then infer_of_expression env [spec] expr2
-        (*
+        
         else if String.compare str "i" == 0 || String.compare str "j" == 0  then 
           (
           (*print_endline ("replacing " ^ freshV ^ " with " ^str);
@@ -278,15 +278,18 @@ and infer_of_expression (env:meth_def list) (current:spec list) (expr:core_lang)
           (*print_endline ("spec'' " ^ string_of_spec spec'); *)
           (*let spec' = removeExist [spec'] freshV in *)
           infer_of_expression env [spec'] expr2)
-        *)
+        
         else 
           let bindings = bindFormalNActual [str] [retN] in 
           let phi2 = infer_of_expression env [spec] expr2 in 
           instantiateSpecList bindings phi2
+          *)
       | _ -> 
-        let bindings = bindFormalNActual [str] [retN] in 
-        let phi2 = infer_of_expression env [spec] expr2 in 
-        instantiateSpecList bindings phi2
+        if String.compare str "_" == 0 then infer_of_expression env [spec] expr2
+        else 
+          let bindings = bindFormalNActual [str] [retN] in 
+          let phi2 = infer_of_expression env [spec] expr2 in 
+          instantiateSpecList bindings phi2
     ) phi1)
 
 
