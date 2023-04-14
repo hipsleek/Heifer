@@ -452,7 +452,7 @@ let string_of_stages (st:stagedSpec) : string =
   | Require (p, h) ->
     Format.asprintf "req %s" (string_of_state (p, h))
   | HigherOrder (pi, h, (f, args), ret) ->
-    Format.asprintf "%s /\ %s$(%s, %s); " (string_of_state (pi, h)) f (string_of_args args) (string_of_term ret)
+    Format.asprintf "%s /\\ %s$(%s, %s); " (string_of_state (pi, h)) f (string_of_args args) (string_of_term ret)
   | NormalReturn (pi, heap, ret) ->
     Format.asprintf "Norm(%s, %s)" (string_of_state (pi, heap))  (string_of_term ret)
   | RaisingEff (pi, heap, (name, args), ret) ->
@@ -784,8 +784,9 @@ let%expect_test "normalise spec" =
   verifier_counter_reset ();
   let test s =
     let n = normalise_spec s in
-    print_endline (string_of_normalisedStagedSpec n)
+    Format.printf "%s\n==>\n%s\n@." (string_of_spec s) (string_of_normalisedStagedSpec n)
   in
+  print_endline "--- norm\n";
   test [
     NormalReturn (True, PointsTo ("x", Num 2), UNIT);
     Require (True, PointsTo("x", Num 1)) ];
@@ -799,6 +800,17 @@ let%expect_test "normalise spec" =
     Require (True, PointsTo("x", Var "a"));
     NormalReturn (True, PointsTo ("x", Plus (Var "a", Num 1)), UNIT) ];
   test [
+    NormalReturn (True, SepConj (PointsTo ("x", Num 1), PointsTo ("y", Num 2)), UNIT);
+    Require (True, PointsTo("x", Var "a"));
+    NormalReturn (True, PointsTo ("x", Plus (Var "a", Num 1)), UNIT)
+    ];
+  test [
+    NormalReturn (Atomic(EQ, Var"a", Num 3), (PointsTo ("y", Var "a")), UNIT);
+    Require (Atomic(EQ, Var "b", Var "a"), PointsTo("x", Var "b"));
+    NormalReturn (True, PointsTo ("x", Plus (Var "b", Num 1)), UNIT)
+    ];
+  print_endline "--- eff\n";
+  test [
     NormalReturn (True, PointsTo ("x", Num 1), UNIT);
     Require (True, PointsTo("x", Var "1"));
     RaisingEff (True, PointsTo ("x", Num 1), ("E", [Num 3]), UNIT);
@@ -809,10 +821,36 @@ let%expect_test "normalise spec" =
     NormalReturn (True, PointsTo ("y", Num 2), UNIT) ];
 [%expect
 {|
+  --- norm
+
+  Norm(x->2, ()); req x->1
+  ==>
   req 2=1; Norm(1=2, ())
+
+  req x->1; Norm(x->1, ()); req y->2; Norm(y->2, ())
+  ==>
   req x->1*y->2; Norm(x->1*y->2, ())
+
+  Norm(x->1, ()); req x->a; Norm(x->a+1, ())
+  ==>
   req 1=a; Norm(x->a+1 /\ a=1, ())
+
+  Norm(x->1*y->2, ()); req x->a; Norm(x->a+1, ())
+  ==>
+  req 1=a; Norm(y->2*x->a+1 /\ a=1, ())
+
+  Norm(y->a /\ a=3, ()); req x->b /\ b=a; Norm(x->b+1, ())
+  ==>
+  req x->b /\ b=a; Norm(y->a*x->b+1 /\ a=3, ())
+
+  --- eff
+
+  Norm(x->1, ()); req x->1; E(x->1, [3], ()); Norm(y->2, ())
+  ==>
   req 1=1; E(x->1 /\ 1=1, [3], ()); req emp; Norm(y->2, ())
+
+  Norm(x->1, ()); emp /\ f$([3], ()); ; Norm(y->2, ())
+  ==>
   req emp; f(x->1, [3], ()); req emp; Norm(y->2, ())
 |}]
 
