@@ -347,7 +347,32 @@ let entailConstrains pi1 pi2 =
   *)
   sat;;
 
-let normalPure (pi:pi):pi = 
+let rec normalPure (pi:pi):pi = 
+  match pi with 
+  | And    (p1, p2) -> 
+    let p1 = normalPure p1 in 
+    let p2 = normalPure p2 in 
+    (match (p1, p2) with
+    | (True, _) -> p2
+    | (_, True) -> p1
+    | (False, _) ->False
+    | (_, False) ->False
+    | (_, _) -> And (p1, p2)
+    )
+  | Or     (p1, p2) -> 
+    let p1 = normalPure p1 in 
+    let p2 = normalPure p2 in 
+    (match (p1, p2) with
+    | (True, _) -> True
+    | (_, True) -> True
+    | (False, _) -> p2
+    | (_, False) -> p1
+    | (_, _) -> Or (p1, p2)
+    )
+  | Not    p1 -> Not (normalPure p1 )
+  | _ -> pi
+  
+  (*
   let allPi = getAllPi pi [] in
   let rec clear_Pi pi li = 
     (match li with 
@@ -364,6 +389,7 @@ let normalPure (pi:pi):pi =
   if List.length filte_true == 0 then  True
   else connectPi (List.tl filte_true) (List.hd filte_true)
   ;;
+  *)
 
 
 
@@ -512,11 +538,6 @@ let rec normaliseHeap (h) : (kappa) =
   | _ -> (h)
 
 let mergeState (pi1, h1) (pi2, h2) = 
-  (*if domainOverlap h1 h2 then failwith "domainOverlap in mergeState"
-  else 
-
-  *)
-
   
   let (heap) = normaliseHeap (SepConj (h1, h2)) in 
   (*print_endline (string_of_kappa (SepConj (h1, h2)) ^ " =====> ");
@@ -660,7 +681,14 @@ let rec normalise_spec_ (acc:normalisedStagedSpec) (spec:spec) : normalisedStage
   match spec with 
   | [] -> acc 
   | x :: xs -> 
+    (*let time_1 = Sys.time() in*)
     let acc' = normalise_stagedSpec acc x in 
+    (*let time_2 = Sys.time() in
+    let during = time_2 -. time_1 in 
+    (
+    print_endline (string_of_stages x );
+    print_endline ("[testing   Time] " ^ string_of_float ((during) *. 1000.0) ^ " ms\n"));
+*)
     normalise_spec_ acc' xs 
 
 let normalise_spec = normalise_spec_ ([], freshNoramlStage)

@@ -15,7 +15,7 @@ let test ()
 
 let main_aux ()
 (*@ ex i;
-   Norm(i->4, 4)
+   Norm(i->200, 200)
 @*)
 = (match test () with
   | v -> v 
@@ -33,6 +33,7 @@ let main_aux ()
     (continue (Obj.clone_continuation k) ());
     (continue (Obj.clone_continuation k) ());
         (* 10 *)
+     (continue (Obj.clone_continuation k) ());
     (continue (Obj.clone_continuation k) ());
     (continue (Obj.clone_continuation k) ());
     (continue (Obj.clone_continuation k) ());
@@ -42,8 +43,7 @@ let main_aux ()
     (continue (Obj.clone_continuation k) ());
     (continue (Obj.clone_continuation k) ());
     (continue (Obj.clone_continuation k) ());
-    (continue (Obj.clone_continuation k) ());
-            (* 20 *)
+           (* 20 *)
         (continue (Obj.clone_continuation k) ());
     (continue (Obj.clone_continuation k) ());
     (continue (Obj.clone_continuation k) ());
@@ -54,7 +54,7 @@ let main_aux ()
     (continue (Obj.clone_continuation k) ());
     (continue (Obj.clone_continuation k) ());
     (continue (Obj.clone_continuation k) ());
-                (* 30 *)
+              (* 30 *)
         (continue (Obj.clone_continuation k) ());
     (continue (Obj.clone_continuation k) ());
     (continue (Obj.clone_continuation k) ());
@@ -240,7 +240,7 @@ let main_aux ()
     (continue (Obj.clone_continuation k) ());
     (continue (Obj.clone_continuation k) ());
                     (* 190 *)
-          (continue (Obj.clone_continuation k) ());
+       (continue (Obj.clone_continuation k) ());
     (continue (Obj.clone_continuation k) ());
     (continue (Obj.clone_continuation k) ());
     (continue (Obj.clone_continuation k) ());
@@ -251,7 +251,7 @@ let main_aux ()
     (continue (Obj.clone_continuation k) ());
     (continue (Obj.clone_continuation k) ());
                     (* 200 *)
-
+  
 
   );
 
