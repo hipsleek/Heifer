@@ -599,8 +599,8 @@ let rec deleteFromHeapListIfHas li (x, t1) existential flag: (((string * term) l
         if stricTcompareTerm t1 t2 || stricTcompareTerm t1 (Var "_") 
         then (ys, True)
         else 
-          if flag then (ys, True)
-          else (ys, Atomic (EQ, t1, t2))
+          if flag then (ys, Atomic (EQ, t1, t2) )
+          else (ys, Atomic (EQ, t1, t2) )
     else 
       let (res, uni) = (deleteFromHeapListIfHas ys (x, t1) existential) flag in 
       ((y, t2):: res, uni)
@@ -626,18 +626,6 @@ let normaliseMagicWand  h1 h2 existential flag: (kappa * pi) =
   (normaliseHeap (kappa_of_list temp) , unifinication)
 
 
-(*
-let () = assert ((normaliseMagicWand (PointsTo("x", Num 3)) (PointsTo("x", Var "z"))) == (EmptyHeap, Atomic(EQ, Num 3, Var "z"))) ;;
-
-*)
-
-(* req p1 /\ h1 |== p2 /\ h2 ~~~~~~> frameReq, frame ens 
-
-let abductionReasoning (p1, h1) (p2, h2) existential : ((pi*kappa) * (pi*kappa)) = 
-  failwith "abductionReasoning"
-
-
-*)
 
 let normalise_stagedSpec (acc:normalisedStagedSpec) (stagedSpec:stagedSpec) : normalisedStagedSpec = 
   (*print_endline("\nnormalise_stagedSpec =====> " ^ string_of_normalisedStagedSpec(acc));
@@ -654,6 +642,7 @@ let normalise_stagedSpec (acc:normalisedStagedSpec) (stagedSpec:stagedSpec) : no
 
     (* not only need to get the magic wand, but also need to delete the common part from h2*)
     let (h2',   unification')    = normaliseMagicWand h3 h2 existential false in 
+
 
     let normalStage' = (existential, mergeState req (And(p3, unification), magicWandHeap), (normalPure (And(p2, unification')), h2'), ret) in 
     (effectStages, normalStage')

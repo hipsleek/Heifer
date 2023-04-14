@@ -17,7 +17,7 @@ let test ()
 
 let main_aux ()
 (*@ ex i;
-   Norm(i-> 100, ())
+   Norm(i->0, 100)
 @*)
 =
   match test () with

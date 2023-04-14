@@ -19,16 +19,6 @@ let write n
 @*)
 = perform (Write n)
 
-let test1 ()
-(*@ 
-  Write(emp, 10, x2); 
-  ex x3; 
-  Read(emp, x3); 
-  Norm(emp, x3)
-@*)
-= 
-  write 10;
-  read ()
 
 let test ()
 (*@ 
@@ -38,34 +28,26 @@ let test ()
   Write(emp, (x1+1), x2); 
   ex x3; 
   Read(emp, x3); 
-  Norm(emp, x3)
+  ex x4; 
+  Write(emp, (x3+1), x4); 
+  ex x5; 
+  Read(emp, x5); 
+  Norm(emp, x5)
 @*)
 = 
   let x = read () in 
-  let y = x +1 in 
-  write y;
-  read () 
+  write (x+1);
+  let z = read () in 
+  write (z+1);
+  read ()
 
 let handler () 
 (*@ 
   ex i; 
-  Norm(i->10,  10)
+  Norm(i->2,  2)
 @*)
 = let i = Sys.opaque_identity (ref 0) in 
   match test () with 
-  | v -> !i
-  | effect Read k -> (continue k (!i)) 
-  | effect (Write x) k -> i := x; (continue k ())
-
-
-
-let handler1 () 
-(*@ 
-  ex i; 
-  Norm(i->10,  10)
-@*)
-= let i = Sys.opaque_identity (ref 0) in 
-  match test1 () with 
   | v -> !i
   | effect Read k -> (continue k (!i)) 
   | effect (Write x) k -> i := x; (continue k ())

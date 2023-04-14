@@ -35,7 +35,7 @@ let read_handler ()
 let write_handler  ()
 (*@ 
   ex i; 
-  Norm(i->10,  10)
+  Norm(i->20,  20)
 @*)
 =
   let i = Sys.opaque_identity (ref 0) in 

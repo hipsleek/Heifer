@@ -4,20 +4,20 @@ effect Twice : int
 
 let test () 
 (*@ ex i ret;
-   Zero(i->0, ret);
+   Twice(i->0, ret);
    req i-> 0; 
    Norm(i->1, ret)
 @*)
 =
   let i = Sys.opaque_identity (ref 0) in 
-  let ret = perform Zero in 
+  let ret = perform Twice in 
   i := !i + 1;
   assert (!i = 1);
   ret
 
 let main_aux ()
 (*@ ex i;
-   Norm(i-> 100, ())
+   Norm(i->2, 2)
 @*)
 =
   match test () with

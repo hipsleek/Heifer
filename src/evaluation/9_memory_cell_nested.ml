@@ -46,7 +46,7 @@ let handler1 i
 let handler2  ()
 (*@ 
   ex i; 
-  Norm(i->10,  10)
+  Norm(i->10,  ())
 @*)
 =
   let i = Sys.opaque_identity (ref 0) in 

@@ -21,6 +21,10 @@ dune exec ./hip.exe ../src/programs.t/parse_test.ml
 
 # Working Examples:
 
+everything in the folder of evaluation 
+
+
+
 - (paper figure 20, exchange values ) 
 dune exec ./hip.exe ../src/sp_tests/7b_exchange.ml
 

@@ -868,15 +868,36 @@ let res =
   | (EmptyHeap, _) -> false
   | (PointsTo (v1, t1), PointsTo (v2, t2)) -> 
     if existStr v2 !exGlobal && stricTcompareTerm t1 t2 then 
-    let () = unifyGlobal := And (!unifyGlobal, And (Atomic(EQ, Var v1, Var v2), p1)) in 
-    true
-    else 
+      let () = unifyGlobal := And (!unifyGlobal, And (Atomic(EQ, Var v1, Var v2), p1)) in 
+      print_string ("adding " ^ string_of_pi (And (Atomic(EQ, Var v1, Var v2), p1)) ^ "\n");
+      true
+    else if existStr v2 !exGlobal then 
+      let () = unifyGlobal := And (!unifyGlobal, And (Atomic(EQ, Var v1, Var v2), p1)) in 
+      print_string ("adding " ^ string_of_pi (And (Atomic(EQ, Var v1, Var v2), p1)) ^ "\n");
       let lhs = (And(p1,  Atomic(EQ, Var v1, t1) )) in 
       let rhs = (And(p2,  Atomic(EQ, Var v2, t2) )) in 
-      (entailConstrains lhs rhs)
+      print_endline ( "yoyo1\n");
+      print_endline (string_of_pi (!unifyGlobal));
+      (entailConstrains (And(lhs, !unifyGlobal)) rhs)
+
+    else 
+      (match (t2) with 
+      | Var t2Str -> 
+        if existStr t2Str !exGlobal then 
+          let () = unifyGlobal := And (!unifyGlobal, And (Atomic(EQ, t1, t2), p1)) in 
+          print_string ("adding " ^ string_of_pi (And (Atomic(EQ, t1, t2), p1)) ^ "\n");
+          true
+        else 
+          let lhs = (And(p1,  Atomic(EQ, Var v1, t1) )) in 
+          let rhs = (And(p2,  Atomic(EQ, Var v2, t2) )) in 
+          (entailConstrains (And(lhs, !unifyGlobal)) rhs)
+      | _ -> 
+      let lhs = (And(p1,  Atomic(EQ, Var v1, t1) )) in 
+      let rhs = (And(p2,  Atomic(EQ, Var v2, t2) )) in 
+      (entailConstrains (And(lhs, !unifyGlobal)) rhs))
       
   | _ -> failwith ("not supporting other heap")
-in print_endline (string_of_bool res); res
+in print_string (string_of_bool res ^ "\n\n"); res
 
 
 
@@ -884,8 +905,8 @@ let checkEntialmentForNormalFlow (lhs:normalStage) (rhs:normalStage) : bool =
   let (ex1, (pi1, heap1), (pi2, heap2), r1) = lhs in 
   let (ex2, (pi3, heap3), (pi4, heap4), r2) = rhs in  
   let () = exGlobal := !exGlobal @ ex1 @ ex2 in 
-  let (covariant)     = speration_logic_ential (pi2, heap2) (pi4, heap4) in 
   let (contravariant) = speration_logic_ential (pi3, heap3) (pi1, heap1) in 
+  let (covariant)     = speration_logic_ential (pi2, heap2) (pi4, heap4) in 
   let returnValue   = entailConstrains !unifyGlobal (Atomic(EQ, r1, r2)) in 
   covariant && contravariant && returnValue
 
@@ -902,9 +923,8 @@ let checkEntialMentForEffFlow (lhs:effectStage) (rhs:effectStage) : (bool) =
   let (ex1, (pi1, heap1), (pi2, heap2), (eff1, v1), r1) = lhs in 
   let (ex2, (pi3, heap3), (pi4, heap4), (eff2, v2), r2) = rhs in  
   let () = exGlobal := !exGlobal @ ex1 @ ex2 in 
-
-  let (covariant)     = speration_logic_ential (pi2, heap2) (pi4, heap4) in 
   let (contravariant) = speration_logic_ential (pi3, heap3) (pi1, heap1) in 
+  let (covariant)     = speration_logic_ential (pi2, heap2) (pi4, heap4) in 
   let effectName    = String.compare eff1 eff2 == 0  in 
   let effArgument   = compareEffectArgument !unifyGlobal v1 v2 in 
   let () =  unifyGlobal := And (!unifyGlobal, (Atomic(EQ, r1, r2))) in 
@@ -964,7 +984,7 @@ print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
       
       let _effs, methods = transform_strs progs in
 
-      print_endline (string_of_program (_effs, methods));
+      (*print_endline (string_of_program (_effs, methods));*)
 
       let incremental = Array.length Sys.argv >= 3 && String.equal Sys.argv.(2) "-incremental" in
 
@@ -992,17 +1012,19 @@ print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
             "[Normed   Post] " ^ string_of_spec_list inferred_spec_n ^"\n\n" ^ 
             "[Forward  Time] " ^ string_of_float ((time_stamp_afterForward -. time_stamp_beforeForward) *. 1000.0 ) ^ " ms\n" ^ 
             "[Normal   Time] " ^ string_of_float ((time_stamp_afterNormal -. time_stamp_afterForward) *. 1000.0) ^ " ms\n"  ^ 
-            "[Ential  Check] " ^ string_of_bool res ^ " " ^ string_of_float ((time_stamp_afterEntail  -. time_stamp_afterNormal) *. 1000.0) ^ " ms\n" 
+            "[Ential  Check] " ^ 
+            (if res then (Pretty.green "true")
+             else (Pretty.red "false")) ^ " " ^ string_of_float ((time_stamp_afterEntail  -. time_stamp_afterNormal) *. 1000.0) ^ " ms\n" 
 
         
           in
           print_string (header);
-
+(* 
           let time_stamp_beforeEntail = Sys.time() in
 
           let disj_res = Entail.subsumes_disj inferred_spec_n given_spec_n in
           let time_stamp_afterEntail = Sys.time() in
-
+     
           (* let success = List.exists (fun r -> List.for_all (fun (_, _, r1) -> Result.is_ok r1) r) disj_res in *)
           begin match disj_res with
           | Error _ ->
@@ -1023,8 +1045,10 @@ print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
               | Error pf -> string_of_proof pf);
 
           print_endline ("[Entail   Time] " ^ string_of_float ((time_stamp_afterEntail -. time_stamp_beforeEntail) *. 1000.0) ^ " ms\n")
-                      
+ *)
+                 
 
+          print_endline("")
 
           (* List.iter (fun dr ->
             (* one of these should succeed *)
