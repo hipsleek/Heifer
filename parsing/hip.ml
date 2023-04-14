@@ -856,6 +856,65 @@ let debug_tokens str =
   let s = tokens |> List.map Debug.string_of_token |> String.concat " " in
   Format.printf "%s@." s
 
+let speration_logic_ential (p1, h1) (p2, h2) : bool = 
+  print_endline (string_of_state (p1, h1) ^" ==> "^  string_of_state (p2, h2));
+  true 
+
+let checkEntialMentForNormalFlow (unification:pi) (lhs:normalStage) (rhs:normalStage) : bool = 
+  let (_, (pi1, heap1), (pi2, heap2), r1) = lhs in 
+  let (_, (pi3, heap3), (pi4, heap4), r2) = rhs in  
+  let covariant     = speration_logic_ential (And(unification, pi2), heap2) (pi4, heap4) in 
+  let contravariant = speration_logic_ential (And(unification, pi3), heap3) (pi1, heap1) in 
+  let returnValue   = entailConstrains unification (Atomic(EQ, r1, r2)) in 
+  covariant && contravariant && returnValue
+
+
+let rec compareEffectArgument unification v1 v2 =  
+  match (v1, v2) with 
+  | ([], []) -> true 
+  | (x::xs, y::ys) -> 
+    let r1 = entailConstrains unification (Atomic(EQ, x, y)) in 
+    r1 && (compareEffectArgument unification xs ys)
+  | (_, _) -> false 
+
+let checkEntialMentForEffFlow (unification:pi) (lhs:effectStage) (rhs:effectStage) : (bool * pi) = 
+  let (_, (pi1, heap1), (pi2, heap2), (eff1, v1), r1) = lhs in 
+  let (_, (pi3, heap3), (pi4, heap4), (eff2, v2), r2) = rhs in  
+  let covariant     = speration_logic_ential (And(unification, pi2), heap2) (pi4, heap4) in 
+  let contravariant = speration_logic_ential (And(unification, pi3), heap3) (pi1, heap1) in 
+  let effectName    = String.compare eff1 eff2 == 0  in 
+  let effArgument   = compareEffectArgument unification v1 v2 in 
+  (covariant && contravariant && effectName && effArgument,  (Atomic(EQ, r1, r2))) 
+
+let rec entailmentchecking_aux (unification:pi) (lhs:normalisedStagedSpec) (rhs:normalisedStagedSpec) : (bool) = 
+  let (effSLHS, normalSLHS)  =  lhs  in 
+  let (effSRHS, normalSRHS)  =  rhs  in 
+  match (effSLHS, effSRHS) with 
+  | ([], []) -> checkEntialMentForNormalFlow unification normalSLHS normalSRHS 
+  | (x::xs, y::ys) -> 
+    let (r1, p) = checkEntialMentForEffFlow unification x y in 
+    let r2 = entailmentchecking_aux (And(p, unification)) (xs, normalSLHS) (ys, normalSRHS) in 
+    r1 && r2
+  | (_, _) -> false 
+
+
+let rec entailmentchecking_helper (lhs:normalisedStagedSpec) (rhs:normalisedStagedSpec list) : (bool) =
+  match rhs with 
+  | [] -> false 
+  | y::ys -> 
+    let r1 = entailmentchecking_aux True lhs y in 
+    let r2 = entailmentchecking_helper lhs ys in 
+    r1 || r2
+
+
+let rec entailmentchecking (lhs:normalisedStagedSpec list) (rhs:normalisedStagedSpec list) : (bool) = 
+  match (lhs) with 
+  | [] -> true 
+  | x :: xs -> 
+    let r1 = entailmentchecking_helper x rhs in 
+    let r2 = entailmentchecking xs rhs in 
+    r1 && r2
+
 
 
 let () =
@@ -883,9 +942,16 @@ print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
           let time_stamp_beforeForward = Sys.time() in
           let inferred_spec = infer_of_expression methods [freshNormalReturnSpec] body in
           let time_stamp_afterForward = Sys.time() in
-          let given_spec_n = normalise_spec_list given_spec in
-          let inferred_spec_n = normalise_spec_list inferred_spec in
+          let given_spec_n = normalise_spec_list_aux1 given_spec in
+          let inferred_spec_n = normalise_spec_list_aux1 inferred_spec in
           let time_stamp_afterNormal = Sys.time() in
+          let (res) = entailmentchecking inferred_spec_n given_spec_n in 
+          let time_stamp_afterEntail = Sys.time() in
+
+
+          let given_spec_n = normalise_spec_list_aux2 given_spec_n in
+          let inferred_spec_n = normalise_spec_list_aux2 inferred_spec_n in
+
 
           let header =
             "\n========== Function: "^ _name ^" ==========\n" ^
@@ -894,7 +960,8 @@ print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
             "[Raw Post Spec] " ^ string_of_spec_list inferred_spec ^ "\n" ^
             "[Normed   Post] " ^ string_of_spec_list inferred_spec_n ^"\n\n" ^ 
             "[Forward  Time] " ^ string_of_float ((time_stamp_afterForward -. time_stamp_beforeForward) *. 1000.0 ) ^ " ms\n" ^ 
-            "[Normal   Time] " ^ string_of_float ((time_stamp_afterNormal -. time_stamp_afterForward) *. 1000.0) ^ " ms\n"  
+            "[Normal   Time] " ^ string_of_float ((time_stamp_afterNormal -. time_stamp_afterForward) *. 1000.0) ^ " ms\n"  ^ 
+            "[Ential  Check] " ^ string_of_bool res ^ " " ^ string_of_float ((time_stamp_afterEntail  -. time_stamp_afterNormal) *. 1000.0) ^ " ms\n" 
 
         
           in

@@ -724,12 +724,22 @@ let normalisedStagedSpec2Spec (normalisedStagedSpec:normalisedStagedSpec) : spec
   let (effS, normalS) = normalisedStagedSpec in 
   detectfailedAssertions (effectStage2Spec effS @ normalStage2Spec normalS)
 
+let normalise_spec_list_aux1 (specLi:spec list): normalisedStagedSpec list = 
+  List.map (fun a -> normalise_spec a
+  ) specLi
+
+let normalise_spec_list_aux2 (specLi:normalisedStagedSpec list): spec list = 
+  List.map (fun a -> normalisedStagedSpec2Spec a
+  ) specLi
+
+
 let normalise_spec_list (specLi:spec list): spec list = 
   List.map (fun a -> 
     let normalisedStagedSpec = normalise_spec a in 
     normalisedStagedSpec2Spec normalisedStagedSpec
     
   ) specLi
+
 
 let rec deleteFromStringList str (li:string list) = 
   match li with 
@@ -806,3 +816,4 @@ let rec string_of_core_lang (e:core_lang) :string =
   | CPerform (eff, None) -> Format.sprintf "perform %s" eff
   | CMatch (e, (v, norm), hs) -> Format.sprintf "match %s with\n| %s -> %s\n%s" (string_of_core_lang e) v (string_of_core_lang norm) (List.map (fun (name, v, body) -> Format.asprintf "| effect %s k -> %s" (match v with None -> name | Some v -> Format.asprintf "(%s %s)" name v) (string_of_core_lang body)) hs |> String.concat "\n")
   | CResume v -> Format.sprintf "continue k %s" (string_of_term v)
+
