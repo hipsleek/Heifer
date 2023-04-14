@@ -1017,7 +1017,12 @@ print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
           let given_spec_n = normalise_spec_list_aux1 given_spec in
           let inferred_spec_n = normalise_spec_list_aux1 inferred_spec in
           let time_stamp_afterNormal = Sys.time() in
-          let (res) = entailmentchecking inferred_spec_n given_spec_n in 
+          let res = entailmentchecking inferred_spec_n given_spec_n in
+          (* let res =
+            match Entail.subsumes_disj inferred_spec given_spec with
+            | Ok _ -> true
+            | Error _ -> false
+          in  *)
           let time_stamp_afterEntail = Sys.time() in
 
 
