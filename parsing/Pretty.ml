@@ -289,16 +289,21 @@ let rec pi_to_expr ctx : pi -> Expr.expr = function
   | Not pi              -> Z3.Boolean.mk_not ctx (pi_to_expr ctx pi)
 
 
+let z3_query (_ : string) = ()
+
 let check_sat ?(debug=false) f =
   let cfg = (if debug then [("model", "false")] else []) @ [ ("proof", "false") ] in
   let ctx = mk_context cfg in
   let expr = f ctx in
+  (* z3_query (Expr.to_string expr); *)
   if debug then Format.printf "z3: %s@." (Expr.to_string expr);
   (* let goal = Goal.mk_goal ctx true true false in *)
   (* Goal.add goal [ expr ]; *)
   (* let goal = Goal.simplify goal None in *)
   (* if debug then Format.printf "goal: %s@." (Goal.to_string goal); *)
   let solver = Solver.mk_simple_solver ctx in
+  Solver.add solver [expr];
+  z3_query (Z3.Solver.to_string solver);
   let sat = Solver.check solver [expr] == Solver.SATISFIABLE in
   if debug then Format.printf "sat: %b@." sat;
   if debug then begin
@@ -872,3 +877,8 @@ let rec string_of_core_lang (e:core_lang) :string =
   | CMatch (e, (v, norm), hs) -> Format.sprintf "match %s with\n| %s -> %s\n%s" (string_of_core_lang e) v (string_of_core_lang norm) (List.map (fun (name, v, body) -> Format.asprintf "| effect %s k -> %s" (match v with None -> name | Some v -> Format.asprintf "(%s %s)" name v) (string_of_core_lang body)) hs |> String.concat "\n")
   | CResume v -> Format.sprintf "continue k %s" (string_of_term v)
 
+let string_of_effect_stage (vs, pre, post, eff, ret) =
+  Format.asprintf "ex %s. req %s; ens %s /\\ %s /\\ res=%s" (String.concat " " vs) (string_of_state pre) (string_of_state post) (string_of_instant eff) (string_of_term ret)
+
+let string_of_normal_stage (vs, pre, post, ret) =
+  Format.asprintf "ex %s. req %s; ens %s /\\ res=%s" (String.concat " " vs) (string_of_state pre) (string_of_state post) (string_of_term ret)
