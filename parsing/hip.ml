@@ -856,16 +856,37 @@ let debug_tokens str =
   let s = tokens |> List.map Debug.string_of_token |> String.concat " " in
   Format.printf "%s@." s
 
-let speration_logic_ential (p1, h1) (p2, h2) : bool = 
-  print_endline (string_of_state (p1, h1) ^" ==> "^  string_of_state (p2, h2));
-  true 
+let (exGlobal:(string list) ref) =  ref []
+let (unifyGlobal: pi ref) = ref True  
 
-let checkEntialMentForNormalFlow (unification:pi) (lhs:normalStage) (rhs:normalStage) : bool = 
-  let (_, (pi1, heap1), (pi2, heap2), r1) = lhs in 
-  let (_, (pi3, heap3), (pi4, heap4), r2) = rhs in  
-  let covariant     = speration_logic_ential (And(unification, pi2), heap2) (pi4, heap4) in 
-  let contravariant = speration_logic_ential (And(unification, pi3), heap3) (pi1, heap1) in 
-  let returnValue   = entailConstrains unification (Atomic(EQ, r1, r2)) in 
+
+let speration_logic_ential (p1, h1) (p2, h2) : (bool) = 
+print_endline (string_of_state (p1, h1) ^" ==> "^  string_of_state (p2, h2));
+let res = 
+  match (h1, h2) with 
+  | (_, EmptyHeap) -> true
+  | (EmptyHeap, _) -> false
+  | (PointsTo (v1, t1), PointsTo (v2, t2)) -> 
+    if existStr v2 !exGlobal && stricTcompareTerm t1 t2 then 
+    let () = unifyGlobal := And (!unifyGlobal, And (Atomic(EQ, Var v1, Var v2), p1)) in 
+    true
+    else 
+      let lhs = (And(p1,  Atomic(EQ, Var v1, t1) )) in 
+      let rhs = (And(p2,  Atomic(EQ, Var v2, t2) )) in 
+      (entailConstrains lhs rhs)
+      
+  | _ -> failwith ("not supporting other heap")
+in print_endline (string_of_bool res); res
+
+
+
+let checkEntialmentForNormalFlow (lhs:normalStage) (rhs:normalStage) : bool = 
+  let (ex1, (pi1, heap1), (pi2, heap2), r1) = lhs in 
+  let (ex2, (pi3, heap3), (pi4, heap4), r2) = rhs in  
+  let () = exGlobal := !exGlobal @ ex1 @ ex2 in 
+  let (covariant)     = speration_logic_ential (pi2, heap2) (pi4, heap4) in 
+  let (contravariant) = speration_logic_ential (pi3, heap3) (pi1, heap1) in 
+  let returnValue   = entailConstrains !unifyGlobal (Atomic(EQ, r1, r2)) in 
   covariant && contravariant && returnValue
 
 
@@ -877,23 +898,28 @@ let rec compareEffectArgument unification v1 v2 =
     r1 && (compareEffectArgument unification xs ys)
   | (_, _) -> false 
 
-let checkEntialMentForEffFlow (unification:pi) (lhs:effectStage) (rhs:effectStage) : (bool * pi) = 
-  let (_, (pi1, heap1), (pi2, heap2), (eff1, v1), r1) = lhs in 
-  let (_, (pi3, heap3), (pi4, heap4), (eff2, v2), r2) = rhs in  
-  let covariant     = speration_logic_ential (And(unification, pi2), heap2) (pi4, heap4) in 
-  let contravariant = speration_logic_ential (And(unification, pi3), heap3) (pi1, heap1) in 
-  let effectName    = String.compare eff1 eff2 == 0  in 
-  let effArgument   = compareEffectArgument unification v1 v2 in 
-  (covariant && contravariant && effectName && effArgument,  (Atomic(EQ, r1, r2))) 
+let checkEntialMentForEffFlow (lhs:effectStage) (rhs:effectStage) : (bool) = 
+  let (ex1, (pi1, heap1), (pi2, heap2), (eff1, v1), r1) = lhs in 
+  let (ex2, (pi3, heap3), (pi4, heap4), (eff2, v2), r2) = rhs in  
+  let () = exGlobal := !exGlobal @ ex1 @ ex2 in 
 
-let rec entailmentchecking_aux (unification:pi) (lhs:normalisedStagedSpec) (rhs:normalisedStagedSpec) : (bool) = 
+  let (covariant)     = speration_logic_ential (pi2, heap2) (pi4, heap4) in 
+  let (contravariant) = speration_logic_ential (pi3, heap3) (pi1, heap1) in 
+  let effectName    = String.compare eff1 eff2 == 0  in 
+  let effArgument   = compareEffectArgument !unifyGlobal v1 v2 in 
+  let () =  unifyGlobal := And (!unifyGlobal, (Atomic(EQ, r1, r2))) in 
+  (covariant && contravariant && effectName && effArgument) 
+
+let rec entailmentchecking_aux (lhs:normalisedStagedSpec) (rhs:normalisedStagedSpec) : (bool) = 
+  print_endline (string_of_normalisedStagedSpec lhs ^" |===> "^ string_of_normalisedStagedSpec rhs);
+  
   let (effSLHS, normalSLHS)  =  lhs  in 
   let (effSRHS, normalSRHS)  =  rhs  in 
   match (effSLHS, effSRHS) with 
-  | ([], []) -> checkEntialMentForNormalFlow unification normalSLHS normalSRHS 
+  | ([], []) -> checkEntialmentForNormalFlow normalSLHS normalSRHS 
   | (x::xs, y::ys) -> 
-    let (r1, p) = checkEntialMentForEffFlow unification x y in 
-    let r2 = entailmentchecking_aux (And(p, unification)) (xs, normalSLHS) (ys, normalSRHS) in 
+    let (r1) = checkEntialMentForEffFlow x y in 
+    let r2 = entailmentchecking_aux (xs, normalSLHS) (ys, normalSRHS) in 
     r1 && r2
   | (_, _) -> false 
 
@@ -902,7 +928,12 @@ let rec entailmentchecking_helper (lhs:normalisedStagedSpec) (rhs:normalisedStag
   match rhs with 
   | [] -> false 
   | y::ys -> 
-    let r1 = entailmentchecking_aux True lhs y in 
+
+    let () = exGlobal := [] in 
+    let () = unifyGlobal := True in 
+
+    let r1 = entailmentchecking_aux lhs y in 
+    
     let r2 = entailmentchecking_helper lhs ys in 
     r1 || r2
 

@@ -26,7 +26,7 @@ let exc_hanlder (y: int ref) (new_v:int): int
 let main ()
 (*@  
   ex x;
-  Norm(x -> 5, 11)
+  Norm(x -> 50, 11)
 @*)
 = 
   let x = ref 11 in 
