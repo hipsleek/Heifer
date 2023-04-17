@@ -19,9 +19,16 @@
 
 (env
  ; (dev     (flags (:standard -w +a-4-9-40-41-42-44-45-48-67)))
+
  ; ignore warnings
- (dev (flags (:standard -warn-error -A)))
- (release (flags (:standard -w +a-4-9-40-41-42-44-45-48-67))))
+ (dev (flags (:standard -warn-error -A))
+  (js_of_ocaml
+    (flags (:standard --enable=effects))
+    (build_runtime_flags (:standard --enable=effects))))
+ (release (flags (:standard -w +a-4-9-40-41-42-44-45-48-67))
+  (js_of_ocaml
+   (flags (:standard --enable=effects))
+   (build_runtime_flags (:standard --enable=effects)))))
 
 (rule
  (targets camlinternalMenhirLib.ml)
@@ -54,9 +61,13 @@
  (mode fallback))
 
 (library
+ (name types)
+ (modules types))
+
+(library
  (name core)
- (modules types Rewriting Pretty entail forward_rules incr_rules)
- (libraries z3)
+ (modules Rewriting Pretty entail forward_rules incr_rules)
+ (libraries types provers)
  (inline_tests)
  (preprocess (pps ppx_expect ppx_deriving.std)))
 
@@ -72,11 +83,16 @@
  (modules hiplib)
  (libraries core ocamlfrontend))
 
-(executables
- (names hip)
+(executable
+ (name hip)
  (modules hip)
- (libraries hiplib)
- (flags :standard -w -70))
+ (libraries hiplib provers_native))
+
+(executable
+ (name hipjs)
+ (modules hipjs)
+ (libraries brr hiplib provers_js)
+ (modes js))
 
 (install
  (section bin)

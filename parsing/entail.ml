@@ -122,7 +122,7 @@ module Heap = struct
      in
      to_fixed_point once *)
 
-  let normalize_pure : pi -> pi = normalPure
+  let normalize_pure : pi -> pi = Provers.normalPure
 
   (* let normalize_heap : kappa -> kappa * pi =
      fun h -> to_fixed_point_ptr_eq normaliseHeap h *)
@@ -304,7 +304,7 @@ module Heap = struct
     match (a, c) with
     | (p1, h1), (p2, EmptyHeap) ->
       let left = And (xpure (SepConj (h1, k)), p1) in
-      let valid = entails_exists ~debug:false left vs p2 in
+      let valid = Provers.entails_exists left vs p2 in
       if valid then
         let pf =
           (* rule "xpure(%s * %s /\\ %s) => %s" (string_of_kappa h1)
@@ -707,7 +707,7 @@ let rec check_staged_subsumption2 :
       [Imply (pre_l, pre_r); Imply (post_l, post_r); Atomic (EQ, r1, r2)]
     in
 
-    let res = entails_exists True all_vars (Heap.conj (fml @ so_far)) in
+    let res = Provers.entails_exists True all_vars (Heap.conj (fml @ so_far)) in
     show_fml (fml @ so_far);
     if res then
       Ok

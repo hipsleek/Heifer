@@ -7,7 +7,7 @@ open Asttypes
 (* get rid of the alias *)
 type string = label
 open Core
-open Rewriting
+(* open Rewriting *)
 open Pretty
 open Types
 
@@ -661,8 +661,8 @@ type experiemntal_data = (float list * float list)
 
 
 
-let enatilmentHeapAssertion k1 pi : bool = 
-  let (re, _) = check_pure (kappaToPure k1) pi in re
+(* let enatilmentHeapAssertion k1 pi : bool = 
+  let (re, _) = check_pure (kappaToPure k1) pi in re *)
 
 let rec lookUpFromPure p str : term option = 
   match p with 
@@ -897,7 +897,7 @@ let res =
       let rhs = (And(p2,  Atomic(EQ, Var v2, t2) )) in 
       print_endline ( "yoyo1\n");
       print_endline (string_of_pi (!unifyGlobal));
-      (entailConstrains (And(lhs, !unifyGlobal)) rhs)
+      (Provers.entailConstrains (And(lhs, !unifyGlobal)) rhs)
 
     else 
       (match (t2) with 
@@ -909,11 +909,11 @@ let res =
         else 
           let lhs = (And(p1,  Atomic(EQ, Var v1, t1) )) in 
           let rhs = (And(p2,  Atomic(EQ, Var v2, t2) )) in 
-          (entailConstrains (And(lhs, !unifyGlobal)) rhs)
+          (Provers.entailConstrains (And(lhs, !unifyGlobal)) rhs)
       | _ -> 
       let lhs = (And(p1,  Atomic(EQ, Var v1, t1) )) in 
       let rhs = (And(p2,  Atomic(EQ, Var v2, t2) )) in 
-      (entailConstrains (And(lhs, !unifyGlobal)) rhs))
+      (Provers.entailConstrains (And(lhs, !unifyGlobal)) rhs))
 
   | (SepConj ( sp1, sp2), SepConj ( sp3, sp4)) -> 
     speration_logic_ential (p1, sp1) (p2, sp3) && speration_logic_ential (p1, sp2) (p2, sp4)
@@ -929,7 +929,7 @@ let checkEntialmentForNormalFlow (lhs:normalStage) (rhs:normalStage) : bool =
   let () = exGlobal := !exGlobal @ ex1 @ ex2 in 
   let (contravariant) = speration_logic_ential (pi3, heap3) (pi1, heap1) in 
   let (covariant)     = speration_logic_ential (pi2, heap2) (pi4, heap4) in 
-  let returnValue   = entailConstrains !unifyGlobal (Atomic(EQ, r1, r2)) in 
+  let returnValue   = Provers.entailConstrains !unifyGlobal (Atomic(EQ, r1, r2)) in 
   covariant && contravariant && returnValue
 
 
@@ -937,7 +937,7 @@ let rec compareEffectArgument unification v1 v2 =
   match (v1, v2) with 
   | ([], []) -> true 
   | (x::xs, y::ys) -> 
-    let r1 = entailConstrains unification (Atomic(EQ, x, y)) in 
+    let r1 = Provers.entailConstrains unification (Atomic(EQ, x, y)) in 
     r1 && (compareEffectArgument unification xs ys)
   | (_, _) -> false 
 

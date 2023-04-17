@@ -2,9 +2,9 @@
 open List
 open Types
 open Pretty
-open Z3
+(* open Z3 *)
 
-
+(* 
 let rec term_to_expr ctx : term -> Expr.expr = function
   | Num n        -> Arithmetic.Integer.mk_numeral_i ctx n
   | Var v          -> Arithmetic.Integer.mk_const_s ctx v
@@ -42,13 +42,13 @@ let check p1 p2 : bool =
   Solver.add solver [ expr ];
   let sat = not (Solver.check solver [] == Solver.SATISFIABLE) in
   (*print_endline (Solver.to_string solver); *)
-  sat
+  sat *)
 
-let check_pure p1 p2 : (bool * string) = 
+(* let check_pure p1 p2 : (bool * string) = 
   let sat = check  p1 p2 in
   let _ = string_of_pi p1 ^" => " ^ string_of_pi p2 in 
   let buffur = ("[PURE]"(*^(pure)*)^ " " ^(if sat then "Succeed\n" else "Fail\n")  )
-  in (sat, buffur)
+  in (sat, buffur) *)
 
 
 

@@ -17,7 +17,7 @@
 
 %{
 
-open Core.Types
+open Types
 
 open Asttypes
 open Longident
