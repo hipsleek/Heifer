@@ -69,10 +69,15 @@
  (flags :standard -w -A)
  (wrapped false))
 
+(library
+ (name hiplib)
+ (modules hiplib)
+ (libraries core ocamlfrontend))
+
 (executables
  (names hip)
  (modules hip)
- (libraries core ocamlfrontend)
+ (libraries hiplib)
  (flags :standard -w -70))
 
 (install
