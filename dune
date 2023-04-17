@@ -27,3 +27,11 @@
  (targets bundle.js)
  (deps main.js)
  (action (run browserify main.js -o bundle.js --standalone z3)))
+
+(rule
+ (alias web)
+ (targets (dir deploy))
+ (deps coi-serviceworker.min.js hipjs.bc.js bundle.js index.html z3-built.js z3-built.wasm z3-built.worker.js)
+ (action (progn
+  (run mkdir deploy)
+  (run cp %{deps} %{targets}))))

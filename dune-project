@@ -2,3 +2,4 @@
 (using experimental_building_ocaml_compiler_with_dune 0.1)
 (using coq 0.2)
 (cram enable)
+(using directory-targets 0.1)
