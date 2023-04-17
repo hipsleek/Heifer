@@ -7,8 +7,8 @@ var z3;
 
 init().then(a => {
   z3 = a;
-  console.log('1');
-  ocaml_ready()
+  ocaml_ready();
+  enable_buttons();
 })
 
 // function new_ctx(s) { return new Context('main'); }

@@ -58,3 +58,16 @@ TODO:
 design the experiments to show that:
 re-reasoning does not cause too much overhead. 
 we can reason about multi-shot efficiently. 
+
+# Build web version
+
+```sh
+npm install z3-solver
+npm install -g browserify
+dune build @web
+```
+
+```sh
+cd _build/default
+python -m http.server 8005
+```

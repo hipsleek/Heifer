@@ -990,6 +990,87 @@ let rec entailmentchecking (lhs:normalisedStagedSpec list) (rhs:normalisedStaged
     r1 && r2
 
 
+let run_string incremental line =
+  let progs = Parser.implementation Lexer.token (Lexing.from_string line) in
+  let _effs, methods = transform_strs progs in
+  List.iter (fun (_name, _params, given_spec, body) ->
+    if not incremental then begin
+      let time_stamp_beforeForward = Sys.time() in
+      let inferred_spec = infer_of_expression methods [freshNormalReturnSpec] body in
+      let time_stamp_afterForward = Sys.time() in
+      let given_spec_n = normalise_spec_list_aux1 given_spec in
+      let inferred_spec_n = normalise_spec_list_aux1 inferred_spec in
+      let time_stamp_afterNormal = Sys.time() in
+      let res = entailmentchecking inferred_spec_n given_spec_n in
+      (* let res =
+        match Entail.subsumes_disj inferred_spec given_spec with
+        | Ok _ -> true
+        | Error _ -> false
+      in  *)
+      let time_stamp_afterEntail = Sys.time() in
+
+
+      let given_spec_n = normalise_spec_list_aux2 given_spec_n in
+      let inferred_spec_n = normalise_spec_list_aux2 inferred_spec_n in
+
+
+      let header =
+        "\n========== Function: "^ _name ^" ==========\n" ^
+        "[Specification] " ^ string_of_spec_list given_spec ^"\n" ^
+        "[Normed   Spec] " ^ string_of_spec_list given_spec_n ^"\n\n" ^
+        "[Raw Post Spec] " ^ string_of_spec_list inferred_spec ^ "\n" ^
+        "[Normed   Post] " ^ string_of_spec_list inferred_spec_n ^"\n\n" ^ 
+        "[Forward  Time] " ^ string_of_float ((time_stamp_afterForward -. time_stamp_beforeForward) *. 1000.0 ) ^ " ms\n" ^ 
+        "[Normal   Time] " ^ string_of_float ((time_stamp_afterNormal -. time_stamp_afterForward) *. 1000.0) ^ " ms\n"  ^ 
+        "[Ential  Check] " ^ 
+        (if res then (Pretty.green "true")
+          else (Pretty.red "false")) ^ " " ^ string_of_float ((time_stamp_afterEntail  -. time_stamp_afterNormal) *. 1000.0) ^ " ms\n" 
+
+    
+      in
+      print_string (header);
+(* 
+      let time_stamp_beforeEntail = Sys.time() in
+
+      let disj_res = Entail.subsumes_disj inferred_spec_n given_spec_n in
+      let time_stamp_afterEntail = Sys.time() in
+  
+      (* let success = List.exists (fun r -> List.for_all (fun (_, _, r1) -> Result.is_ok r1) r) disj_res in *)
+      begin match disj_res with
+      | Error _ ->
+        print_endline (Pretty.red "\n[Verification]")
+      | Ok _ ->
+        print_endline (Pretty.green "\n[Verification]")
+      end;
+
+      Format.printf "%s\n%s\n%s\n%s%s@."
+        (string_of_spec_list inferred_spec_n)
+        (match disj_res with Ok _ -> Pretty.green "|=" | Error _ -> Pretty.red "|/=")
+        (string_of_spec_list given_spec_n)
+        (match disj_res with Ok _ -> green "==>\n" | Error _ -> "\n")
+        (match disj_res with
+          | Ok (pf, _what) ->
+            (* string_of_state st ^ "\n\n" ^ *)
+            string_of_proof pf
+          | Error pf -> string_of_proof pf);
+
+      print_endline ("[Entail   Time] " ^ string_of_float ((time_stamp_afterEntail -. time_stamp_beforeEntail) *. 1000.0) ^ " ms\n")
+*)
+              
+
+      print_endline("")
+
+      (* List.iter (fun dr ->
+        (* one of these should succeed *)
+        List.iter (fun (s1, s2, res) ->
+          (* all of these should succeed *)
+          let n1 = normalise_spec s1 |> normalisedStagedSpec2Spec in
+          let n2 = normalise_spec s2 |> normalisedStagedSpec2Spec in
+      ) disj_res *)
+    end else begin
+      print_endline "incremental";
+    end
+  ) methods
 
 let main () =
   let inputfile = (Sys.getcwd () ^ "/" ^ Sys.argv.(1)) in
@@ -1002,93 +1083,11 @@ print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
       
       (* debug_tokens line; *)
 
-      let progs = Parser.implementation Lexer.token (Lexing.from_string line) in
-
-      
-      let _effs, methods = transform_strs progs in
-
       (*print_endline (string_of_program (_effs, methods));*)
 
       let incremental = Array.length Sys.argv >= 3 && String.equal Sys.argv.(2) "-incremental" in
+      run_string incremental line;
 
-      List.iter (fun (_name, _params, given_spec, body) ->
-        if not incremental then begin
-          let time_stamp_beforeForward = Sys.time() in
-          let inferred_spec = infer_of_expression methods [freshNormalReturnSpec] body in
-          let time_stamp_afterForward = Sys.time() in
-          let given_spec_n = normalise_spec_list_aux1 given_spec in
-          let inferred_spec_n = normalise_spec_list_aux1 inferred_spec in
-          let time_stamp_afterNormal = Sys.time() in
-          let res = entailmentchecking inferred_spec_n given_spec_n in
-          (* let res =
-            match Entail.subsumes_disj inferred_spec given_spec with
-            | Ok _ -> true
-            | Error _ -> false
-          in  *)
-          let time_stamp_afterEntail = Sys.time() in
-
-
-          let given_spec_n = normalise_spec_list_aux2 given_spec_n in
-          let inferred_spec_n = normalise_spec_list_aux2 inferred_spec_n in
-
-
-          let header =
-            "\n========== Function: "^ _name ^" ==========\n" ^
-            "[Specification] " ^ string_of_spec_list given_spec ^"\n" ^
-            "[Normed   Spec] " ^ string_of_spec_list given_spec_n ^"\n\n" ^
-            "[Raw Post Spec] " ^ string_of_spec_list inferred_spec ^ "\n" ^
-            "[Normed   Post] " ^ string_of_spec_list inferred_spec_n ^"\n\n" ^ 
-            "[Forward  Time] " ^ string_of_float ((time_stamp_afterForward -. time_stamp_beforeForward) *. 1000.0 ) ^ " ms\n" ^ 
-            "[Normal   Time] " ^ string_of_float ((time_stamp_afterNormal -. time_stamp_afterForward) *. 1000.0) ^ " ms\n"  ^ 
-            "[Ential  Check] " ^ 
-            (if res then (Pretty.green "true")
-             else (Pretty.red "false")) ^ " " ^ string_of_float ((time_stamp_afterEntail  -. time_stamp_afterNormal) *. 1000.0) ^ " ms\n" 
-
-        
-          in
-          print_string (header);
-(* 
-          let time_stamp_beforeEntail = Sys.time() in
-
-          let disj_res = Entail.subsumes_disj inferred_spec_n given_spec_n in
-          let time_stamp_afterEntail = Sys.time() in
-     
-          (* let success = List.exists (fun r -> List.for_all (fun (_, _, r1) -> Result.is_ok r1) r) disj_res in *)
-          begin match disj_res with
-          | Error _ ->
-            print_endline (Pretty.red "\n[Verification]")
-          | Ok _ ->
-            print_endline (Pretty.green "\n[Verification]")
-          end;
-
-          Format.printf "%s\n%s\n%s\n%s%s@."
-            (string_of_spec_list inferred_spec_n)
-            (match disj_res with Ok _ -> Pretty.green "|=" | Error _ -> Pretty.red "|/=")
-            (string_of_spec_list given_spec_n)
-            (match disj_res with Ok _ -> green "==>\n" | Error _ -> "\n")
-            (match disj_res with
-              | Ok (pf, _what) ->
-                (* string_of_state st ^ "\n\n" ^ *)
-                string_of_proof pf
-              | Error pf -> string_of_proof pf);
-
-          print_endline ("[Entail   Time] " ^ string_of_float ((time_stamp_afterEntail -. time_stamp_beforeEntail) *. 1000.0) ^ " ms\n")
- *)
-                 
-
-          print_endline("")
-
-          (* List.iter (fun dr ->
-            (* one of these should succeed *)
-            List.iter (fun (s1, s2, res) ->
-              (* all of these should succeed *)
-              let n1 = normalise_spec s1 |> normalisedStagedSpec2Spec in
-              let n2 = normalise_spec s2 |> normalisedStagedSpec2Spec in
-          ) disj_res *)
-        end else begin
-          print_endline "incremental";
-        end
-      ) methods;
 
       (* let results, _ =
         List.fold_left (fun (s, env) a ->

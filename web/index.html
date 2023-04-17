@@ -17,7 +17,49 @@
 
 <body>
 
-  <button onclick="main()">hello</button>
+  <textarea id="input" rows="20" cols="120"></textarea>
+  <script>
+    const inp = document.querySelector('#input');
+
+    var s = `effect Eff : unit
+
+let test ()
+(*@ ex i ;
+  Eff(i->0, ret);
+  req i-> z;
+  Norm(i->z+1, ret)
+@*)
+=
+  let i = Sys.opaque_identity (ref 0) in
+  let ret = perform Eff in
+  i := !i + 1;
+  ret`;
+
+    inp.value = s;
+
+    function run() {
+      hip_run_string(false, inp.value);
+    }
+    function enable_buttons() {
+      document.querySelector('#run-btn').disabled = false;
+    }
+  </script>
+  <button id="run-btn" disabled onclick="run()">Run</button>
+  <button id="clear-btn" onclick="clear_output()">Clear</button>
+  <textarea id="output" rows="20" cols="120"></textarea>
+  <script>
+    const field = document.querySelector('#output');
+    const old_console = console;
+    window.console = {
+      log(...args) {
+        field.value += args.join(' ') + '\n';
+        // old_console.log(...args);
+      }
+    };
+    function clear_output() {
+      field.value = '';
+    }
+  </script>
 
 </body>
 

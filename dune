@@ -1,5 +1,5 @@
 
-; for building web version
+; build web version
 
 (rule
  (action (copy parsing/hipjs.bc.js hipjs.bc.js)))
@@ -8,20 +8,22 @@
 
 (rule
  (target coi-serviceworker.min.js)
- (action (run curl -OL https://raw.githubusercontent.com/gzuidhof/coi-serviceworker/master/coi-serviceworker.min.js)))
+ (action (run curl -sOL https://raw.githubusercontent.com/gzuidhof/coi-serviceworker/master/coi-serviceworker.min.js)))
 
 (rule
  (alias web)
- (deps coi-serviceworker.min.js hipjs.bc.js bundle.js)
+ (deps coi-serviceworker.min.js hipjs.bc.js bundle.js z3-built.js z3-built.wasm z3-built.worker.js)
  (action (copy web/index.html index.html)))
 
 (rule
- (targets z3-built.js z3-built.wasm z3-built.worker.js bundle.js)
- (deps main.js)
+ (targets z3-built.js z3-built.wasm z3-built.worker.js)
+ (deps (source_tree node_modules))
  (action (progn
-  (run npm install z3-solver browserify)
-  (run cp node_modules/z3-solver/build/z3-built.js z3-built.js)
   (run cp node_modules/z3-solver/build/z3-built.wasm z3-built.wasm)
   (run cp node_modules/z3-solver/build/z3-built.worker.js z3-built.worker.js)
-  (system "node_modules/.bin/browserify main.js -o bundle.js --standalone z3")
-  )))
+  (run cp node_modules/z3-solver/build/z3-built.js z3-built.js))))
+
+(rule
+ (targets bundle.js)
+ (deps main.js)
+ (action (run browserify main.js -o bundle.js --standalone z3)))

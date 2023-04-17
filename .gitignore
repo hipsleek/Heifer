@@ -3,3 +3,5 @@ _build/
 *.conflicts
 boot/menhir/*.ml*
 .DS_Store
+node_modules
+package*.json

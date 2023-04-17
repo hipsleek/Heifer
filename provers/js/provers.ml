@@ -63,7 +63,7 @@ type _ Effect.t += Ask : pi -> bool t
 let askZ3 v = perform (Ask v)
 let entails_exists _ _ _ = true
 let entailConstrains _ _ = true
-let normalPure _ = failwith "unimplemented"
+let normalPure p = p
 
 let handle f =
   try_with f ()
@@ -76,7 +76,7 @@ let handle f =
               (fun (k : (a, _) continuation) ->
                 let f ctx = build_fml pi ctx in
                 let k1 sat =
-                  print_endline "got result!!";
+                  (* print_endline "got result!!"; *)
                   continue k sat
                 in
                 (Jv.call (Jv.get Jv.global "z3") "solve")
