@@ -1,10 +1,12 @@
 
 
 exception Foo of string
+open Ocamlfrontend
 open Parsetree
 open Asttypes
 (* get rid of the alias *)
 type string = label
+open Core
 open Rewriting
 open Pretty
 open Types

@@ -21,7 +21,7 @@
 *)
 
 open Asttypes
-open Types
+open Core.Types
 
 type constant =
     Pconst_integer of string * char option

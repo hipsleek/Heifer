@@ -56,7 +56,6 @@
 (library
  (name core)
  (modules types Rewriting Pretty entail forward_rules incr_rules)
- (wrapped false)
  (libraries z3)
  (inline_tests)
  (preprocess (pps ppx_expect ppx_deriving.std)))
@@ -66,8 +65,7 @@
  (modules
  parser lexer Syntaxerr Pprintast Printast Asttypes Ast_helper Longident Parsetree Location Warnings Misc Terminfo Docstrings Build_path_prefix_map Clflags Profile Numbers Identifiable Arg_helper CamlinternalMenhirLib Debug)
  (libraries core)
- (flags :standard -w -A)
- (wrapped false))
+ (flags :standard -w -A))
 
 (library
  (name hiplib)
