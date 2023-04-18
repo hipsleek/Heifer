@@ -52,6 +52,7 @@ has a bug
 
 
 
+<<<<<<< HEAD
 
 
 # What is inside the `root directory` ?
@@ -81,3 +82,22 @@ opam switch 4.14.0+flambda
 dune exec ./hip.exe ../src/programs.t/parse_test.ml
 
 
+=======
+TODO:
+design the experiments to show that:
+re-reasoning does not cause too much overhead. 
+we can reason about multi-shot efficiently. 
+
+# Build web version
+
+```sh
+npm install z3-solver
+npm install -g browserify
+dune build @web
+```
+
+```sh
+cd _build/default
+python -m http.server 8005
+```
+>>>>>>> f109ddd921f33788f54cb5cd9addd7342a165288

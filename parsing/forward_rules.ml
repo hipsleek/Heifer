@@ -179,7 +179,7 @@ let renamingexistientalVar (specs:spec list): spec list =
     fun spec -> 
       let normalSpec = normalise_spec spec in 
       let existientalVar = getExistientalVar normalSpec in 
-      let newNames = List.map (fun _ -> (verifier_getAfreeVar ())) existientalVar in 
+      let newNames = List.map (fun n -> (verifier_getAfreeVar ~from:n ())) existientalVar in 
       let newNameTerms = List.map (fun a -> Var a) newNames in 
       let bindings = bindNewNames existientalVar newNames in 
       let temp = instantiateExistientalVar normalSpec bindings in 
@@ -301,7 +301,7 @@ and infer_of_expression (env:meth_def list) (current:spec list) (expr:core_lang)
 
 
   | CRead str -> 
-    let freshVar = verifier_getAfreeVar () in 
+    let freshVar = verifier_getAfreeVar ~from:str () in 
     let event = [Exists [freshVar];Require(True, PointsTo(str, Var freshVar)); 
       NormalReturn (True, PointsTo(str, Var freshVar) , Var freshVar)] in 
     concatenateSpecsWithEvent current event
@@ -318,7 +318,7 @@ and infer_of_expression (env:meth_def list) (current:spec list) (expr:core_lang)
       | Some v -> [v]
       | _ -> []
     in 
-    let freshVar = verifier_getAfreeVar () in 
+    let freshVar = verifier_getAfreeVar ~from:"res" () in 
     (* after adding the perfome stage, we need to add a normal return. *)
     concatenateSpecsWithEvent current 
     [Exists [freshVar];RaisingEff(True, EmptyHeap, (label,arg), Var freshVar);

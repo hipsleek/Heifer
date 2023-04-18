@@ -1,0 +1,37 @@
+
+; build web version
+
+(rule
+ (action (copy parsing/hipjs.bc.js hipjs.bc.js)))
+(rule
+ (action (copy web/main.js main.js)))
+
+(rule
+ (target coi-serviceworker.min.js)
+ (action (run curl -sOL https://raw.githubusercontent.com/gzuidhof/coi-serviceworker/master/coi-serviceworker.min.js)))
+
+(rule
+ (alias web)
+ (deps coi-serviceworker.min.js hipjs.bc.js bundle.js z3-built.js z3-built.wasm z3-built.worker.js)
+ (action (copy web/index.html index.html)))
+
+(rule
+ (targets z3-built.js z3-built.wasm z3-built.worker.js)
+ (deps (source_tree node_modules))
+ (action (progn
+  (run cp node_modules/z3-solver/build/z3-built.wasm z3-built.wasm)
+  (run cp node_modules/z3-solver/build/z3-built.worker.js z3-built.worker.js)
+  (run cp node_modules/z3-solver/build/z3-built.js z3-built.js))))
+
+(rule
+ (targets bundle.js)
+ (deps main.js)
+ (action (run browserify main.js -o bundle.js --standalone z3)))
+
+(rule
+ (alias web)
+ (targets (dir deploy))
+ (deps coi-serviceworker.min.js hipjs.bc.js bundle.js index.html z3-built.js z3-built.wasm z3-built.worker.js)
+ (action (progn
+  (run mkdir deploy)
+  (run cp %{deps} %{targets}))))

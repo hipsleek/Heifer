@@ -1,4 +1,5 @@
-(lang dune 2.7)
+(lang dune 3.7)
 (using experimental_building_ocaml_compiler_with_dune 0.1)
 (using coq 0.2)
 (cram enable)
+(using directory-targets 0.1)
