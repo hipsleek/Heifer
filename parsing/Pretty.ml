@@ -561,7 +561,7 @@ let rec detectfailedAssertions (spec:spec) : spec =
   | Require (pi, heap) :: xs  -> 
     (
       let pi' = Provers.normalPure pi in 
-      match Provers.entailConstrains pi' (False) with 
+      match ProversEx.entailConstrains pi' (False) with 
       | true  -> [Require (False , heap)]
       | _ -> Require (pi' , heap) ::  detectfailedAssertions xs 
     )

@@ -897,7 +897,7 @@ let res =
       let rhs = (And(p2,  Atomic(EQ, Var v2, t2) )) in 
       (*print_endline ( "yoyo1\n");
       print_endline (string_of_pi (!unifyGlobal));*)
-      (Provers.entailConstrains (And(lhs, !unifyGlobal)) rhs)
+      (ProversEx.entailConstrains (And(lhs, !unifyGlobal)) rhs)
 
     else 
       (match (t2) with 
@@ -909,11 +909,11 @@ let res =
         else 
           let lhs = (And(p1,  Atomic(EQ, Var v1, t1) )) in 
           let rhs = (And(p2,  Atomic(EQ, Var v2, t2) )) in 
-          (Provers.entailConstrains (And(lhs, !unifyGlobal)) rhs)
+          (ProversEx.entailConstrains (And(lhs, !unifyGlobal)) rhs)
       | _ -> 
       let lhs = (And(p1,  Atomic(EQ, Var v1, t1) )) in 
       let rhs = (And(p2,  Atomic(EQ, Var v2, t2) )) in 
-      (Provers.entailConstrains (And(lhs, !unifyGlobal)) rhs))
+      (ProversEx.entailConstrains (And(lhs, !unifyGlobal)) rhs))
 
   | (SepConj ( sp1, sp2), SepConj ( sp3, sp4)) -> 
     speration_logic_ential (p1, sp1) (p2, sp3) && speration_logic_ential (p1, sp2) (p2, sp4)
@@ -929,7 +929,7 @@ let checkEntialmentForNormalFlow (lhs:normalStage) (rhs:normalStage) : bool =
   let () = exGlobal := !exGlobal @ ex1 @ ex2 in 
   let (contravariant) = speration_logic_ential (pi3, heap3) (pi1, heap1) in 
   let (covariant)     = speration_logic_ential (pi2, heap2) (pi4, heap4) in 
-  let returnValue   = Provers.entailConstrains !unifyGlobal (Atomic(EQ, r1, r2)) in 
+  let returnValue   = ProversEx.entailConstrains !unifyGlobal (Atomic(EQ, r1, r2)) in 
   covariant && contravariant && returnValue
 
 
@@ -937,7 +937,7 @@ let rec compareEffectArgument unification v1 v2 =
   match (v1, v2) with 
   | ([], []) -> true 
   | (x::xs, y::ys) -> 
-    let r1 = Provers.entailConstrains unification (Atomic(EQ, x, y)) in 
+    let r1 = ProversEx.entailConstrains unification (Atomic(EQ, x, y)) in 
     r1 && (compareEffectArgument unification xs ys)
   | (_, _) -> false 
 
@@ -990,7 +990,7 @@ let rec entailmentchecking (lhs:normalisedStagedSpec list) (rhs:normalisedStaged
     r1 && r2
 
 
-let run_string incremental line =
+let run_string_ incremental line =
   let progs = Parser.implementation Lexer.token (Lexing.from_string line) in
   let _effs, methods = transform_strs progs in
   List.iter (fun (_name, _params, given_spec, body) ->
@@ -1072,6 +1072,9 @@ let run_string incremental line =
     end
   ) methods
 
+let run_string incr s =
+  Provers.handle (fun () -> run_string_ incr s)
+
 let main () =
   let inputfile = (Sys.getcwd () ^ "/" ^ Sys.argv.(1)) in
 (*    let outputfile = (Sys.getcwd ()^ "/" ^ Sys.argv.(2)) in
@@ -1118,4 +1121,3 @@ print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
       raise e                      (* 以出错的形式退出: 文件已关闭,但通道没有写入东西 *)
 
    ;;
-
