@@ -873,7 +873,7 @@ let normaliseKappa k =
   | _ -> k 
 
 let rec speration_logic_ential (p1, h1) (p2, h2) : (bool) = 
-print_endline (string_of_state (p1, h1) ^" ==> "^  string_of_state (p2, h2));
+(*print_endline (string_of_state (p1, h1) ^" ==> "^  string_of_state (p2, h2)); *)
 let h1 = normaliseKappa h1 in 
 let h2 = normaliseKappa h2 in 
 let res = 
@@ -883,20 +883,20 @@ let res =
   | (PointsTo (v1, t1), PointsTo (v2, t2)) -> 
     if existStr v2 !exGlobal && stricTcompareTerm t1 t2 then 
       let () = unifyGlobal := And (!unifyGlobal, And (Atomic(EQ, Var v1, Var v2), p1)) in 
-      print_string ("adding " ^ string_of_pi (And (Atomic(EQ, Var v1, Var v2), p1)) ^ "\n");
+      (*print_string ("adding " ^ string_of_pi (And (Atomic(EQ, Var v1, Var v2), p1)) ^ "\n");*)
       true
     else if existStr v2 !exGlobal then 
       if term_is_Extiatential t2 !exGlobal then 
         let () = unifyGlobal := And (!unifyGlobal, And (Atomic(EQ, t1, t2), p1)) in 
-        print_string ("adding " ^ string_of_pi (And (Atomic(EQ, t1, t2), p1)) ^ "\n");
+        (*print_string ("adding " ^ string_of_pi (And (Atomic(EQ, t1, t2), p1)) ^ "\n");*)
         true
       else 
       let () = unifyGlobal := And (!unifyGlobal, And (Atomic(EQ, Var v1, Var v2), p1)) in 
-      print_string ("adding " ^ string_of_pi (And (Atomic(EQ, Var v1, Var v2), p1)) ^ "\n");
+      (*print_string ("adding " ^ string_of_pi (And (Atomic(EQ, Var v1, Var v2), p1)) ^ "\n");*)
       let lhs = (And(p1,  Atomic(EQ, Var v1, t1) )) in 
       let rhs = (And(p2,  Atomic(EQ, Var v2, t2) )) in 
-      print_endline ( "yoyo1\n");
-      print_endline (string_of_pi (!unifyGlobal));
+      (*print_endline ( "yoyo1\n");
+      print_endline (string_of_pi (!unifyGlobal));*)
       (Provers.entailConstrains (And(lhs, !unifyGlobal)) rhs)
 
     else 
@@ -904,7 +904,7 @@ let res =
       | Var t2Str -> 
         if existStr t2Str !exGlobal then 
           let () = unifyGlobal := And (!unifyGlobal, And (Atomic(EQ, t1, t2), p1)) in 
-          print_string ("adding " ^ string_of_pi (And (Atomic(EQ, t1, t2), p1)) ^ "\n");
+          (*print_string ("adding " ^ string_of_pi (And (Atomic(EQ, t1, t2), p1)) ^ "\n");*)
           true
         else 
           let lhs = (And(p1,  Atomic(EQ, Var v1, t1) )) in 
@@ -919,7 +919,7 @@ let res =
     speration_logic_ential (p1, sp1) (p2, sp3) && speration_logic_ential (p1, sp2) (p2, sp4)
       
   | _ -> failwith ("not supporting other heap")
-in print_string (string_of_bool res ^ "\n\n"); res
+in (*print_string (string_of_bool res ^ "\n\n");*) res
 
 
 
@@ -953,9 +953,9 @@ let checkEntialMentForEffFlow (lhs:effectStage) (rhs:effectStage) : (bool) =
   (covariant && contravariant && effectName && effArgument) 
 
 let rec entailmentchecking_aux (lhs:normalisedStagedSpec) (rhs:normalisedStagedSpec) : (bool) = 
-  print_endline (string_of_pi (!unifyGlobal));
+  (*print_endline (string_of_pi (!unifyGlobal));
   print_endline (string_of_normalisedStagedSpec lhs ^" |===> "^ string_of_normalisedStagedSpec rhs);
-  
+  *)
   let (effSLHS, normalSLHS)  =  lhs  in 
   let (effSRHS, normalSRHS)  =  rhs  in 
   match (effSLHS, effSRHS) with 

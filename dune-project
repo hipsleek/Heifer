@@ -1,4 +1,4 @@
-(lang dune 3.7)
+(lang dune 3.6)
 (using experimental_building_ocaml_compiler_with_dune 0.1)
 (using coq 0.2)
 (cram enable)
