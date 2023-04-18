@@ -132,14 +132,6 @@ let askZ3 pi =
     let () = historyTable := (hash_pi pi, re) :: !historyTable in
     re
 
-let entailConstrains pi1 pi2 =
-  let sat = not (askZ3 (Not (Or (Not pi1, pi2)))) in
-  (*
-  print_string (showPure pi1 ^" -> " ^ showPure pi2 ^" == ");
-  print_string (string_of_bool (sat) ^ "\n");
-  *)
-  sat
-
 let rec normalPure (pi : pi) : pi =
   match pi with
   | And (p1, p2) ->

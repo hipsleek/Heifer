@@ -62,7 +62,6 @@ type _ Effect.t += Ask : pi -> bool t
 
 let askZ3 v = perform (Ask v)
 let entails_exists _ _ _ = true
-let entailConstrains _ _ = true
 let normalPure p = p
 
 let handle f =

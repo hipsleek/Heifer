@@ -66,7 +66,7 @@
 
 (library
  (name core)
- (modules Rewriting Pretty entail forward_rules incr_rules)
+ (modules ProversEx Rewriting Pretty entail forward_rules incr_rules)
  (libraries types provers)
  (inline_tests)
  (preprocess (pps ppx_expect ppx_deriving.std)))
