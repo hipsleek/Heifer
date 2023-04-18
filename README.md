@@ -1,40 +1,38 @@
-# Automated Verification for Multi-shot Continuations 
+# Separation Logic for Unrestricted Effect Handlers 
 
-
-
-1. for primitive shared-memory concurrency
-2. for memory manipulating nested handlers
-3. connection with monadic. 
-4. expressiveness between algebraic effects and reset/shift 
-
-
-eval $(opam env)
-
-cd parsing
-dune exec ./hip.exe ../src/sp_tests/0_heap_zero_once_twice.ml
-
-
-opam switch 4.14.0+flambda
-dune exec ./hip.exe ../src/programs.t/parse_test.ml
+This work proposes a novel calculus based on Staged Separation Logic 
+(SSL) to support unrestricted effect handlers, 
+where zero/one/multi-shot continuations co-exist together with imperative effects.
+SSL summaries behaviors in stages, 
+explicitly revealing performed algebraic effects;
+and allows modular descriptions/reasoning for  
+effectful programs and their handlers. 
+Our staged specification intuitively provides insights into unhandled effects 
+and failed assertions. 
+To show the feasibility, we prototype the automated verification system, 
+prove its correctness, report 
+on case studies, and present initial experimental results. 
 
 
 
 # Working Examples:
 
-everything in the folder of evaluation 
+All the example in 'src/evaluation' folder. 
+In particular, 
+
+- (example for exchange values ) 
+dune exec ./hip.exe ../src/evaluation/11_exchange.ml
+
+- (paper example multi-shot demonstration)
+dune exec ./hip.exe ../src/evaluation/0_heap_zero_once_twice.ml
+dune exec ./hip.exe ../src/evaluation/1_heap_zero_once_twice.ml
+dune exec ./hip.exe ../src/evaluation/2_heap_zero_once_twice.ml
 
 
-
-- (paper figure 20, exchange values ) 
-dune exec ./hip.exe ../src/sp_tests/7b_exchange.ml
-
-- (paper figure 3, multi-shot demonstration)
-dune exec ./hip.exe ../src/sp_tests/0_heap_zero_once_twice.ml
-
-- (paper figure 3, multi-shot demonstration ==> weakened version)
+- (paper example multi-shot demonstration ==> weakened version)
 dune exec ./hip.exe ../src/sp_tests/0a_heap_zero_once_twice.ml
 
-- (state monad examples) 
+- (paper example state monad examples) 
 dune exec ./hip.exe ../src/sp_tests/2_memory_cell.ml   
 dune exec ./hip.exe ../src/sp_tests/2a_memory_cell.ml
 dune exec ./hip.exe ../src/sp_tests/2b_memory_cell_mix_handler.ml
@@ -54,7 +52,32 @@ has a bug
 
 
 
-TODO:
-design the experiments to show that:
-re-reasoning does not cause too much overhead. 
-we can reason about multi-shot efficiently. 
+
+
+# What is inside the `root directory` ?
+
+There are four main files/folders under the root directory:
+- Makefile: a make file to make sure the parsing is working 
+- README.md: instructions of get hands on the project
+- parsing: the folder contains the source code
+    1. "parsetree.ml": contains the AST structure 
+    2. "parser.mly": implements the parser 
+    3. "hip.ml": the main file of our forward verifier and entailment checking 
+    6. "Pretty.ml": contains most of the pretty printing functions
+- src: the folder contains the test cases
+    2. "evaluation/": contains the test cases for the evaluation 
+
+
+
+
+
+eval $(opam env)
+
+cd parsing
+dune exec ./hip.exe ../src/sp_tests/0_heap_zero_once_twice.ml
+
+
+opam switch 4.14.0+flambda
+dune exec ./hip.exe ../src/programs.t/parse_test.ml
+
+

@@ -75,6 +75,3 @@
  (libraries core ocamlfrontend)
  (flags :standard -w -70))
 
-(install
- (section bin)
- (files (hip.exe as hip)))
