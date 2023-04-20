@@ -87,7 +87,7 @@ let check_sat ?(debug = false) f =
   end;
   sat
 
-let check ?(debug = false) pi = check_sat ~debug (fun ctx -> pi_to_expr ctx pi)
+let check ?debug pi = check_sat ?debug (fun ctx -> pi_to_expr ctx pi)
 
 (* see https://discuss.ocaml.org/t/different-z3-outputs-when-using-the-api-vs-cli/9348/3 and https://github.com/Z3Prover/z3/issues/5841 *)
 let ex_quantify_expr vars ctx e =

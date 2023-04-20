@@ -435,31 +435,31 @@ module Heap = struct
       x->1 |- y->2 ==> FAIL
       │[ent-match] FAIL could not match y->2 on RHS
 
-      x->1 |- x->1 ==> 1=1
+      x->1 |- x->1 ==> 1=1 []
       │[ent-match] x->1 and x->1
-      │└── [ent-emp] T/\T/\f0=x/\f0>0/\1=1=>T
+      │└── [ent-emp] x>0/\1=1 => T
 
-      x->1*y->2 |- x->1 ==> 1=1
+      x->1*y->2 |- x->1 ==> 1=1 []
       │[ent-match] x->1 and x->1
-      │└── [ent-emp] T/\T/\f1=x/\f1>0/\1=1=>T
+      │└── [ent-emp] x>0/\1=1 => T
 
-      x->1 |- x->a ==> a=1
+      x->1 |- x->a ==> a=1 []
       │[ent-match] x->a and x->1
-      │└── [ent-emp] T/\T/\f2=x/\f2>0/\a=1=>T
+      │└── [ent-emp] x>0/\a=1 => T
 
-      x->b |- x->a ==> a=b
+      x->b |- x->a ==> a=b []
       │[ent-match] x->a and x->b
-      │└── [ent-emp] T/\T/\f3=x/\f3>0/\a=b=>T
+      │└── [ent-emp] x>0/\a=b => T
 
-      y->c*x->b |- ex x. x->a ==> a=c/\y=f4
-      │[ent-match] ex f4. f4->a
-      │└── [ent-match-any] y->c and ex f4. f4->a
-      │    └── [ent-emp] T/\T/\f5=y/\f5>0/\a=c/\y=f4=>T
+      y->c*x->b |- ex x. x->a ==> y=x/\a=c [x := y]
+      │[ent-match] ex x. x->a
+      │└── [ent-match-any] y->c and ex x. x->a
+      │    └── [ent-emp] y>0/\y=x/\a=c => a=c
 
-      y->3*x->2 |- ex x. x->1+1 ==> 1+1=3/\y=f6
-      │[ent-match] ex f6. f6->1+1
-      │└── [ent-match-any] y->3 and ex f6. f6->1+1
-      │    └── [ent-emp] T/\T/\f7=y/\f7>0/\1+1=3/\y=f6=>T |}]
+      y->3*x->2 |- ex x. x->1+1 ==> y=x/\1+1=3 [x := y]
+      │[ent-match] ex x. x->1+1
+      │└── [ent-match-any] y->3 and ex x. x->1+1
+      │    └── [ent-emp] y>0/\y=x/\1+1=3 => 1+1=3 |}]
 end
 
 let check_staged_entail : spec -> spec -> spec option =
@@ -610,12 +610,12 @@ let rec check_staged_subsumption_ :
         (And (pr, pure), hr) )
   | _ -> Error (rule ~name:"subsumption-stage" ~success:false "unequal length")
 
-let show_fml (_ : pi list) = ()
+(* let show_fml (_ : pi list) = () *)
 
 let rec check_staged_subsumption2 :
     int ->
     string list ->
-    pi list ->
+    (string * pi) list ->
     normalisedStagedSpec ->
     normalisedStagedSpec ->
     state pf =
@@ -637,10 +637,12 @@ let rec check_staged_subsumption2 :
         (Format.asprintf "post%d" i)
         True all_vars (qp1, qh1) (qp2, qh2)
     in
+    (* TODO heap backtracking is not working because check_qf2 never fails, and the use of any is inside there *)
     let fml =
       [
-        Imply (pre_l, pre_r);
-        Imply (Heap.conj [post_l], Heap.conj [post_r; triv]);
+        (Format.asprintf "pre stage %d" i, Imply (pre_l, pre_r));
+        ( Format.asprintf "post stage %d" i,
+          Imply (Heap.conj [post_l], Heap.conj [post_r; triv]) );
       ]
     in
     (* compare effect names *)
@@ -674,11 +676,30 @@ let rec check_staged_subsumption2 :
       Heap.check_qf2 "postn" True all_vars (qp1, qh1) (qp2, qh2)
     in
     let fml =
-      [Imply (pre_l, pre_r); Imply (post_l, post_r); Atomic (EQ, r1, r2)]
+      [
+        ("norm pre", Imply (pre_l, pre_r));
+        ("norm post", Imply (post_l, post_r));
+        ("norm res eq", Atomic (EQ, r1, r2));
+      ]
     in
 
-    let res = Provers.entails_exists True all_vars (Heap.conj (fml @ so_far)) in
-    show_fml (fml @ so_far);
+    let res =
+      Provers.entails_exists True all_vars
+        (Heap.conj (List.rev (List.map snd (fml @ so_far))))
+    in
+    let debug = true in
+    if debug then begin
+      Format.printf "%s\nz3: %s@."
+        (string_of_quantified
+           (fun a ->
+             List.map
+               (fun (c, f) -> Format.asprintf "%s // %s" (string_of_pi f) c)
+               a
+             |> String.concat "\n/\\ ")
+           (all_vars, fml @ so_far))
+        (if res then "valid" else "not valid")
+    end;
+    (* show_fml (fml @ so_far); *)
     if res then
       Ok
         ( rule ~children:[] ~name:"subsumption-base" "%s |= %s"
@@ -764,56 +785,55 @@ let%expect_test "staged subsumption" =
     ];
   [%expect
     {|
+    T=>T // norm pre
+    /\ T=>T // norm post
+    /\ r=r // norm res eq
+    z3: valid
+
     --- identity
     req x->1; Norm(x->1, r)
     |--
     req x->1; Norm(x->1, r)
-    ==> 1=1/\r=r
+    ==> emp
     │[subsumption-base] req x->1; Norm(x->1, r) |= req x->1; Norm(x->1, r)
-    │├── [ent-match] x->1 and x->1
-    ││   └── [ent-emp] T/\T/\f0=x/\f0>0/\1=1=>T
-    │└── [ent-match] x->1 and x->1
-    │    └── [ent-emp] T/\T/\f1=x/\f1>0/\1=1=>T
 
+    T=>T // norm pre
+    /\ T=>T // norm post
+    /\ r=r // norm res eq
+    z3: valid
 
     --- variables
     req x->a; Norm(x->a+1, r)
     |--
     req x->1; Norm(x->2, r)
-    ==> 2=a+1/\a=1/\r=r
+    ==> emp
     │[subsumption-base] req x->a; Norm(x->a+1, r) |= req x->1; Norm(x->2, r)
-    │├── [ent-match] x->a and x->1
-    ││   └── [ent-emp] T/\T/\f2=x/\f2>0/\a=1=>T
-    │└── [ent-match] x->2 and x->a+1
-    │    └── [ent-emp] T/\T/\f3=x/\f3>0/\2=a+1/\a=1=>T
 
+    T=>T // norm pre
+    /\ T=>T // norm post
+    /\ r=r // norm res eq
+    z3: valid
 
     --- contradiction?
     req x->a; Norm(x->a+1, r)
     |--
     req x->1; Norm(x->1, r)
-    ==> 1=a+1/\a=1/\r=r
+    ==> emp
     │[subsumption-base] req x->a; Norm(x->a+1, r) |= req x->1; Norm(x->1, r)
-    │├── [ent-match] x->a and x->1
-    ││   └── [ent-emp] T/\T/\f4=x/\f4>0/\a=1=>T
-    │└── [ent-match] x->1 and x->a+1
-    │    └── [ent-emp] T/\T/\f5=x/\f5>0/\1=a+1/\a=1=>T
 
+    T=>T // norm pre
+    /\ T=>T // norm post
+    /\ r=r // norm res eq
+    /\ T=>T // pre stage 0
+    /\ T=>r=r // post stage 0
+    z3: valid
 
     --- eff stage
     E(x->a+1, [], r); req x->a; Norm(x->a+1, r)
     |--
     E(x->a+1, [], r); req x->1; Norm(x->1, r)
-    ==> 1=a+1/\a=1/\r=r
-    │[subsumption-stage] E(x->a+1, [], r) |= E(x->a+1, [], r)
-    │├── [ent-emp] T/\T/\T=>T
-    │├── [ent-match] x->a+1 and x->a+1
-    ││   └── [ent-emp] T/\T/\f6=x/\f6>0/\a+1=a+1=>T
-    │└── [subsumption-base] req x->a; Norm(x->a+1, r) |= req x->1; Norm(x->1, r)
-    │    ├── [ent-match] x->a and x->1
-    │    │   └── [ent-emp] T/\T/\f7=x/\f7>0/\a=1/\r=r=>T
-    │    └── [ent-match] x->1 and x->a+1
-    │        └── [ent-emp] T/\T/\f8=x/\f8>0/\1=a+1/\a=1=>T |}]
+    ==> emp
+    │[subsumption-stage] E(x->a+1, [], r); req x->a; Norm(x->a+1, r) |= E(x->a+1, [], r); req x->1; Norm(x->1, r) |}]
 
 (**
   Subsumption between disjunctive specs.

@@ -3,47 +3,47 @@ effect Eff : unit
 
 (* basic *)
 
-let test10_t ()  (*@ Norm(emp, 0) @*) = 0
+let test10_true ()  (*@ Norm(emp, 0) @*) = 0
 (* implicit normal stage *)
 
-let test6_t ()  (*@ Norm(emp, 0) @*) =
+let test6_true ()  (*@ Norm(emp, 0) @*) =
   let j = 0 in
   j (* intermediate bindings don't matter? *)
 
-let test7_f ()  (*@ Norm(emp, j) @*) =
+let test7_false ()  (*@ Norm(emp, j) @*) =
   let j = 0 in
   j (* j is not a param *)
 
-let test8_f ()  (*@ Norm(emp, k) @*) =
+let test8_false ()  (*@ Norm(emp, k) @*) =
   let j = 0 in
   j (* k is not a param *)
 
-let test9_t ()  (*@ ex j; Norm(emp, j) @*) =
+let test9_true ()  (*@ ex j; Norm(emp, j) @*) =
   let j = 0 in
   j (* existential j should work *)
 
-let test4_t ()  (*@ ex i; Norm(i->0, i) @*) =
+let test4_true ()  (*@ ex i; Norm(i->0, i) @*) =
   let i = ref 0 in 
   i (* heap *)
 
-let test5_t ()  (*@ ex i; Norm(i->0, 1) @*) =
+let test5_true ()  (*@ ex i; Norm(i->0, 1) @*) =
   let i = ref 0 in 
   !i + 1 (* heap value *)
 
-let test6_t ()  (*@ ex i; Norm(i->1, 1) @*) =
+let test6_true ()  (*@ ex i; Norm(i->1, 1) @*) =
   let i = ref 0 in 
   i := !i + 1; (* assignment *)
   !i
 
-let test11_t ()  (*@ Eff(emp, ()) @*) =
+let test11_true ()  (*@ Eff(emp, ()) @*) =
   let ret = perform Eff in
   ret
 
-let test12_f ()  (*@ Eff(emp, ()) @*) =
+let test12_false ()  (*@ Eff(emp, ()) @*) =
   let ret = perform Eff in
   1
 
-let test_t ()  
+let test_true ()  
 (*@ ex i ;
    Eff(i->0, ret);
    req i-> z; 
@@ -55,7 +55,7 @@ let test_t ()
   i := !i + 1;
   ret
 
-let test1_f ()  
+let test1_false ()  
 (*@ ex i ;
    Eff(i->0, ret);
    req i-> z; 
@@ -67,7 +67,7 @@ let test1_f ()
   i := !i + 1;
   !i (* wrong *)
 
-let test2_f ()  
+let test2_false ()  
 (*@ ex i ;
    Eff(i->0, ret);
    req i-> z; 
@@ -79,7 +79,7 @@ let test2_f ()
   (* state unchanged *)
   ret
 
-let test3_f ()  
+let test3_false ()  
 (*@ ex i ;
    Eff(i->0, ret);
    req i-> z; 
@@ -90,6 +90,59 @@ let test3_f ()
   let ret = perform Eff in 
   i := !i + 2; (* wrong stae *)
   ret
+
+let test13_true ()  
+(*@ ex a b;
+   Norm(a->0 * b->1, 1)
+@*)
+= 
+  let i = ref 0 in 
+  let j = ref 1 in 
+  1
+
+let test18_true ()  
+(*@ ex a b;
+   Norm(a->1 * b->0, 1)
+@*)
+= 
+  let i = ref 0 in 
+  let j = ref 1 in 
+  1
+
+let test14_false ()  
+(*@ ex a b;
+   Norm(a->1 * b->1, 1)
+@*)
+= 
+  let i = ref 0 in 
+  let j = ref 1 in 
+  1
+
+let test15_true ()  
+(*@
+   req a->1;
+   Norm(a->1, 1)
+@*)
+= 
+  1
+
+let test16_false ()  
+(*@ ex a;
+   req a->1;
+   Norm(a->1, 1)
+@*)
+= 
+  let i = ref 0 in 
+  1
+
+let test17_true ()  
+(*@ ex b;
+   req a->1;
+   Norm(a->1 * b->0, 1)
+@*)
+= 
+  let i = ref 0 in 
+  1
 
 (* the inferred post state of this function is weird, probably because the existentials are gone *)
 

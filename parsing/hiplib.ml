@@ -1025,7 +1025,8 @@ let run_string_ incremental line =
         "[Entail  Check] " ^ 
         (if res then (Pretty.green "true")
           else (Pretty.red "false")) ^ "\n" ^
-        "[Entail  Time] " ^ string_of_float ((time_stamp_afterEntail  -. time_stamp_afterNormal) *. 1000.0) ^ " ms\n" 
+        "[Entail  Time] " ^ string_of_float ((time_stamp_afterEntail  -. time_stamp_afterNormal) *. 1000.0) ^ " ms\n" ^
+        (String.init (String.length _name + 32) (fun _ -> '=')) ^ "\n"
 
     
       in
