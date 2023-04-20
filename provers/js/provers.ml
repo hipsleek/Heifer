@@ -1,4 +1,4 @@
-open Types
+open Hiptypes
 
 let rec build_term : Jv.t -> term -> Jv.t =
  fun ctx t ->

@@ -1,5 +1,5 @@
 open Brr
-open Types
+open Hiptypes
 
 let ready () =
   Provers.handle (fun () ->
