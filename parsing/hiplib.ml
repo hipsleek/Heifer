@@ -923,7 +923,7 @@ in (*print_string (string_of_bool res ^ "\n\n");*) res
 
 
 
-let checkEntialmentForNormalFlow (lhs:normalStage) (rhs:normalStage) : bool = 
+let checkEntailmentForNormalFlow (lhs:normalStage) (rhs:normalStage) : bool = 
   let (ex1, (pi1, heap1), (pi2, heap2), r1) = lhs in 
   let (ex2, (pi3, heap3), (pi4, heap4), r2) = rhs in  
   let () = exGlobal := !exGlobal @ ex1 @ ex2 in 
@@ -941,7 +941,7 @@ let rec compareEffectArgument unification v1 v2 =
     r1 && (compareEffectArgument unification xs ys)
   | (_, _) -> false 
 
-let checkEntialMentForEffFlow (lhs:effectStage) (rhs:effectStage) : (bool) = 
+let checkEntailMentForEffFlow (lhs:effectStage) (rhs:effectStage) : (bool) = 
   let (ex1, (pi1, heap1), (pi2, heap2), (eff1, v1), r1) = lhs in 
   let (ex2, (pi3, heap3), (pi4, heap4), (eff2, v2), r2) = rhs in  
   let () = exGlobal := !exGlobal @ ex1 @ ex2 in 
@@ -959,9 +959,9 @@ let rec entailmentchecking_aux (lhs:normalisedStagedSpec) (rhs:normalisedStagedS
   let (effSLHS, normalSLHS)  =  lhs  in 
   let (effSRHS, normalSRHS)  =  rhs  in 
   match (effSLHS, effSRHS) with 
-  | ([], []) -> checkEntialmentForNormalFlow normalSLHS normalSRHS 
+  | ([], []) -> checkEntailmentForNormalFlow normalSLHS normalSRHS 
   | (x::xs, y::ys) -> 
-    let (r1) = checkEntialMentForEffFlow x y in 
+    let (r1) = checkEntailMentForEffFlow x y in 
     let r2 = entailmentchecking_aux (xs, normalSLHS) (ys, normalSRHS) in 
     r1 && r2
   | (_, _) -> false 
@@ -1022,9 +1022,10 @@ let run_string_ incremental line =
         "[Normed   Post] " ^ string_of_spec_list inferred_spec_n ^"\n\n" ^ 
         "[Forward  Time] " ^ string_of_float ((time_stamp_afterForward -. time_stamp_beforeForward) *. 1000.0 ) ^ " ms\n" ^ 
         "[Normal   Time] " ^ string_of_float ((time_stamp_afterNormal -. time_stamp_afterForward) *. 1000.0) ^ " ms\n"  ^ 
-        "[Ential  Check] " ^ 
+        "[Entail  Check] " ^ 
         (if res then (Pretty.green "true")
-          else (Pretty.red "false")) ^ " " ^ string_of_float ((time_stamp_afterEntail  -. time_stamp_afterNormal) *. 1000.0) ^ " ms\n" 
+          else (Pretty.red "false")) ^ "\n" ^
+        "[Entail  Time] " ^ string_of_float ((time_stamp_afterEntail  -. time_stamp_afterNormal) *. 1000.0) ^ " ms\n" 
 
     
       in
