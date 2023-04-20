@@ -2,4 +2,5 @@
 (library
  (name provers)
  (libraries types)
- (virtual_modules provers))
+ (virtual_modules provers)
+ (default_implementation provers_native))

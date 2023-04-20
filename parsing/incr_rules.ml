@@ -190,7 +190,7 @@ let%expect_test _ =
     let n = !p in
     let m = plus n 1 in
     p := m
-    {p->m /\ m=a+b/\n=f1/\f2=f1/\res=() |--* ex n; ex m; req p->a; Norm(a->a+1, ())}
+    {p->m /\ n=f1/\m=a+b/\f2=f1/\res=() |--* ex n; ex m; req p->a; Norm(a->a+1, ())}
 
     │[incr-let] n
     │├── [incr-deref] p
