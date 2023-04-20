@@ -3,6 +3,8 @@ name: Main workflow
 on:
   pull_request:
   push:
+    branches:
+      - StagedSL
   schedule:
     # Prime the caches every Monday
     - cron: 0 1 * * MON
