@@ -1,6 +1,8 @@
 open Types
 open Pretty
 
+let string_of_pi p = string_of_pi (ProversEx.normalize_pure p)
+
 let string_of_option to_s o : string =
   match o with Some a -> "Some " ^ to_s a | None -> "None"
 
@@ -63,14 +65,6 @@ end
 
 open Res
 
-let rec to_fixed_point f spec =
-  let spec, changed = f spec in
-  if not changed then spec else to_fixed_point f spec
-
-let rec to_fixed_point_ptr_eq f spec =
-  let spec1 = f spec in
-  if spec == spec1 then spec else to_fixed_point_ptr_eq f spec
-
 let current_state : spec -> kappa =
  fun sp ->
   let rec loop current sp =
@@ -100,37 +94,13 @@ let string_of_instantiations kvs =
   |> String.concat ", " |> Format.asprintf "[%s]"
 
 module Heap = struct
-  (* let normalize_pure : pi -> pi =
-     let rec once p =
-       match p with
-       | True | False | Atomic _ | Predicate _ -> (p, false)
-       | And (a, b) ->
-         let a1, c1 = once a in
-         let b1, c2 = once b in
-         if c1 || c2 then (And (a1, b1), true) else (p, false)
-       | Or (a, b) ->
-         let a1, c1 = once a in
-         let b1, c2 = once b in
-         if c1 || c2 then (Or (a1, b1), true) else (p, false)
-       | Imply (a, b) ->
-         let a1, c1 = once a in
-         let b1, c2 = once b in
-         if c1 || c2 then (Imply (a1, b1), true) else (p, false)
-       | Not a ->
-         let a1, c1 = once a in
-         if c1 then (Not a1, true) else (p, false)
-     in
-     to_fixed_point once *)
-
-  let normalize_pure : pi -> pi = Provers.normalPure
-
   (* let normalize_heap : kappa -> kappa * pi =
      fun h -> to_fixed_point_ptr_eq normaliseHeap h *)
 
   let normalize : state -> state =
    fun (p, h) ->
     let h = normaliseHeap h in
-    (normalize_pure p, h)
+    (ProversEx.normalize_pure p, h)
 
   (** given a nonempty heap formula, splits it into a points-to expression and another heap formula *)
   let rec split_one : kappa -> ((string * term) * kappa) option =
@@ -309,14 +279,14 @@ module Heap = struct
         let pf =
           (* rule "xpure(%s * %s /\\ %s) => %s" (string_of_kappa h1)
              (string_of_kappa k) (string_of_pi p1) (string_of_pi p2) *)
-          rule ~name:"ent-emp" "%s => ex %s. %s" (string_of_pi left)
-            (String.concat " " vs) (string_of_pi p2)
+          rule ~name:"ent-emp" "%s => %s" (string_of_pi left)
+            (string_of_quantified string_of_pi (vs, p2))
         in
         Ok (pf, ((p1, h1), []))
       else
         Error
-          (rule ~name:"ent-emp" ~success:false "%s => ex %s. %s"
-             (string_of_pi left) (String.concat " " vs) (string_of_pi p2))
+          (rule ~name:"ent-emp" ~success:false "%s => %s" (string_of_pi left)
+             (string_of_quantified string_of_pi (vs, p2)))
     | (p1, h1), (p2, h2) -> begin
       (* we know h2 is non-empty *)
       match split_one h2 with
@@ -903,7 +873,8 @@ module Normalize = struct
         let s5, c1 = one_pass (tl @ ss) in
         (hd @ s5, c || c1)
     in
-    if false then to_fixed_point one_pass spec else one_pass spec |> fst
+    if false then ProversEx.to_fixed_point one_pass spec
+    else one_pass spec |> fst
 
   let%expect_test "normalize" =
     verifier_counter_reset ();
