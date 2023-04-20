@@ -39,6 +39,10 @@ let test11_t ()  (*@ Eff(emp, ()) @*) =
   let ret = perform Eff in
   ret
 
+let test12_f ()  (*@ Eff(emp, ()) @*) =
+  let ret = perform Eff in
+  1
+
 let test_t ()  
 (*@ ex i ;
    Eff(i->0, ret);
