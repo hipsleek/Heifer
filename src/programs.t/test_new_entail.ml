@@ -106,11 +106,20 @@ let test13_true ()
 
 let test18_true ()  
 (*@ ex a b;
-   Norm(a->1 * b->0, 1)
+   Norm(a->1+1 * b->0, 1)
 @*)
 = 
   let i = ref 0 in 
-  let j = ref 1 in 
+  let j = ref 2 in 
+  1
+
+let test20_true i
+(*@ ex b;
+   req i->1;
+   Norm(i->1 * b->2, 1)
+@*)
+=
+  let j = ref 2 in 
   1
 
 let test14_false ()  
