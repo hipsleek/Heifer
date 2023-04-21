@@ -1,4 +1,4 @@
-open Types
+open Hiptypes
 
 val askZ3 : pi -> bool
 val entails_exists : pi -> string list -> pi -> bool

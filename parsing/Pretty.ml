@@ -3,7 +3,7 @@
 ----------------------------------------------------*)
 
 open Printf
-open Types
+open Hiptypes
 
 exception Foo of string
 

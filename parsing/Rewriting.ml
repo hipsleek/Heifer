@@ -1,6 +1,6 @@
 
 open List
-open Types
+open Hiptypes
 open Pretty
 (* open Z3 *)
 

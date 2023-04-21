@@ -17,7 +17,7 @@
 
 %{
 
-open Types
+open Hiptypes
 
 open Asttypes
 open Longident

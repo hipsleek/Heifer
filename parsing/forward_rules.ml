@@ -1,5 +1,5 @@
 
-open Types
+open Hiptypes
 open Pretty
 
 let rec findbinding str vb_li =

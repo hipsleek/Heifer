@@ -1,6 +1,6 @@
 
 (library
  (name provers)
- (libraries types)
+ (libraries hiptypes)
  (virtual_modules provers)
  (default_implementation provers_native))

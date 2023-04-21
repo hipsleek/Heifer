@@ -9,7 +9,7 @@ type string = label
 open Core
 (* open Rewriting *)
 open Pretty
-open Types
+open Hiptypes
 
 let rec input_lines file =
   match try [input_line file] with End_of_file -> [] with

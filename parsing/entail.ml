@@ -1,4 +1,4 @@
-open Types
+open Hiptypes
 open Pretty
 
 let string_of_pi p = string_of_pi (ProversEx.normalize_pure p)

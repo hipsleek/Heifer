@@ -1,4 +1,4 @@
-open Types
+open Hiptypes
 open Entail
 open Pretty
 

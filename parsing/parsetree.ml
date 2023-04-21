@@ -21,7 +21,7 @@
 *)
 
 open Asttypes
-open Types
+open Hiptypes
 
 type constant =
     Pconst_integer of string * char option

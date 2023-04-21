@@ -61,13 +61,13 @@
  (mode fallback))
 
 (library
- (name types)
- (modules types))
+ (name hiptypes)
+ (modules hiptypes))
 
 (library
  (name core)
  (modules ProversEx Rewriting Pretty entail forward_rules incr_rules)
- (libraries types provers)
+ (libraries hiptypes provers)
  (inline_tests)
  (preprocess (pps ppx_expect ppx_deriving.std)))
 

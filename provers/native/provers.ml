@@ -1,4 +1,4 @@
-include Types
+include Hiptypes
 
 (* open Types *)
 open Z3
