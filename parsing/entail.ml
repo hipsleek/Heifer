@@ -932,31 +932,31 @@ module Normalize = struct
       ];
     [%expect
       {|
-               --- inert
-               req x->1; Norm(x->1, ())
-               req x->1; Norm(x->1, ())
+      --- inert
+      req x->1; Norm(x->1, ())
+      req x->1; Norm(x->1, ())
 
-               --- rule 4
-               Norm(x->1, ()); req y->1
-               req y->1; Norm(x->1, ())
+      --- rule 4
+      Norm(x->1, ()); req y->1
+      req y->1; Norm(x->1, ())
 
-               --- rule 3 (TODO prob wrong)
-               Norm(x->1, ()); req x->2
-               Norm(T/\T/\2=1, ())
+      --- rule 3 (TODO prob wrong)
+      Norm(x->1, ()); req x->2
+      Norm(T/\T/\2=1, ())
 
-               --- rule 1
-               req x->2; req y->2
-               req x->2*y->2 /\ T/\T
+      --- rule 1
+      req x->2; req y->2
+      req x->2*y->2 /\ T/\T
 
-               --- rule 1 weird
-               req x->2; req x->2
-               req x->2*x->2 /\ T/\T
+      --- rule 1 weird
+      req x->2; req x->2
+      req x->2*x->2 /\ T/\T
 
-               --- rule 2
-               Norm(x->1, ()); Norm(y->1, ())
-               Norm(x->1*y->1 /\ T/\T, ())
+      --- rule 2
+      Norm(x->1, ()); Norm(y->1, ())
+      Norm(x->1*y->1 /\ T/\T, ())
 
-               --- rule 2 weird
-               Norm(x->1, ()); Norm(x->1, ())
-               Norm(x->1*x->1 /\ T/\T, ()) |}]
+      --- rule 2 weird
+      Norm(x->1, ()); Norm(x->1, ())
+      Norm(x->1*x->1 /\ T/\T, ()) |}]
 end

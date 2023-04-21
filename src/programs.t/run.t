@@ -1,14 +1,5 @@
 
   $ hip test_new_entail.ml 2>&1 | grep 'Function\|Entail.*Check' | ./check.py
-  ========== Function: test20_true ==========
-  [Entail  Check] false
-  
-  ========== Function: test15_true ==========
-  [Entail  Check] false
-  
-  ========== Function: test17_true ==========
-  [Entail  Check] false
-  
 
   $ hip test_new_entail.ml 2>&1 | ./sanitize.sh
   T=>T // norm pre: emp |= emp
@@ -295,15 +286,52 @@
   [Entail  Check] true
   ===========================================
   
+  ex f0 b. T=>T // norm pre: i->1 |= i->1
+  /\ T=>T // norm post: i->1*f0->2 |= i->1*b->2
+  /\ 1=1 // norm res eq: 1 = 1
+  z3: valid
+  
   
   ========== Function: test20_true ==========
   [Specification] ex b; req i->1; Norm(i->1*b->2, 1)
   [Normed   Spec] ex b; req i->1; Norm(i->1*b->2, 1)
   
-  [Raw Post Spec] Norm(emp, ()); ex f0; Norm(f0->2, f0); Norm(emp, 1)
-  [Normed   Post] ex f0; Norm(f0->2, 1)
+  [Raw Post Spec] Norm(emp, ()); req i->1; Norm(i->1, ()); ex f0; Norm(f0->2, f0); Norm(emp, 1)
+  [Normed   Post] ex f0; req i->1; Norm(i->1*f0->2, 1)
   
-  [Entail  Check] false
+  [Entail  Check] true
+  ===========================================
+  
+  ex f0 b. T=>T // norm pre: i->1 |= i->1
+  /\ T=>T // norm post: i->1*f0->2 |= i->1*b->2
+  /\ 1=1 // norm res eq: 1 = 1
+  z3: valid
+  
+  
+  ========== Function: test21_true ==========
+  [Specification] ex b; req i->1; Norm(i->1*b->2, 1)
+  [Normed   Spec] ex b; req i->1; Norm(i->1*b->2, 1)
+  
+  [Raw Post Spec] Norm(emp, ()); req i->1; Norm(i->1, ()); ex f0; Norm(f0->2, f0); req f0->2; Norm(f0->2, ()); Norm(emp, 1)
+  [Normed   Post] ex f0; req i->1; Norm(i->1*f0->2, 1)
+  
+  [Entail  Check] true
+  ===========================================
+  
+  ex f0 j_1 i a. T=>T // norm pre: emp |= emp
+  /\ j_1=2=>a=j_1 // norm post: f0->j_1 /\ j_1=2 |= i->a
+  /\ ()=() // norm res eq: () = ()
+  z3: valid
+  
+  
+  ========== Function: test22_true ==========
+  [Specification] ex i a; Norm(i->a, ())
+  [Normed   Spec] ex i a; Norm(i->a, ())
+  
+  [Raw Post Spec] Norm(emp, ()); ex f0; Norm(f0->2, f0); ex j_1; req f0->j_1; Norm(f0->j_1, j_1); req f0->j_1; Norm(f0->j_1, ())
+  [Normed   Post] ex f0 j_1; Norm(f0->j_1 /\ j_1=2, ())
+  
+  [Entail  Check] true
   ===========================================
   
   ex f0 f1 a b. T=>T // norm pre: emp |= emp
@@ -327,15 +355,20 @@
   [Entail  Check] true
   ============================================
   
+  T=>T // norm pre: a->1 |= a->1
+  /\ T=>T // norm post: a->1 |= a->1
+  /\ 1=1 // norm res eq: 1 = 1
+  z3: valid
+  
   
   ========== Function: test15_true ==========
   [Specification] req a->1; Norm(a->1, 1)
   [Normed   Spec] req a->1; Norm(a->1, 1)
   
-  [Raw Post Spec] Norm(emp, ()); Norm(emp, 1)
-  [Normed   Post] Norm(emp, 1)
+  [Raw Post Spec] Norm(emp, ()); req a->1; Norm(a->1, ()); Norm(emp, 1)
+  [Normed   Post] req a->1; Norm(a->1, 1)
   
-  [Entail  Check] false
+  [Entail  Check] true
   ===========================================
   
   ex f0 a. a>0=>T // norm pre: a->1 |= emp
@@ -354,14 +387,19 @@
   [Entail  Check] false
   ============================================
   
+  ex f0 b. T=>T // norm pre: a->1 |= a->1
+  /\ T=>T // norm post: a->1*f0->0 |= a->1*b->0
+  /\ 1=1 // norm res eq: 1 = 1
+  z3: valid
+  
   
   ========== Function: test17_true ==========
   [Specification] ex b; req a->1; Norm(a->1*b->0, 1)
   [Normed   Spec] ex b; req a->1; Norm(a->1*b->0, 1)
   
-  [Raw Post Spec] Norm(emp, ()); ex f0; Norm(f0->0, f0); Norm(emp, 1)
-  [Normed   Post] ex f0; Norm(f0->0, 1)
+  [Raw Post Spec] Norm(emp, ()); req a->1; Norm(a->1, ()); ex f0; Norm(f0->0, f0); Norm(emp, 1)
+  [Normed   Post] ex f0; req a->1; Norm(a->1*f0->0, 1)
   
-  [Entail  Check] false
+  [Entail  Check] true
   ===========================================
   

@@ -526,25 +526,41 @@ let rec expr_to_term (expr:expression) : term =
       end
   | _ -> failwith (Format.asprintf "unknown term %a" Pprintast.expression expr)
 
-let expr_to_formula (expr:expression) : pi * kappa =
+let rec expr_to_formula (expr:expression) : pi * kappa =
   match expr.pexp_desc with
   | Pexp_apply ({pexp_desc = Pexp_ident {txt=Lident i; _}; _}, [(_, a); (_, b)]) ->
       begin match i with
       | "=" ->
+        (* !i=a is allowed as shorthand for i-->a, but equalities between pointer values, e.g. !i=!j, are not generally allowed. they can be expressed using let v=!i in assert (!j=v). *)
         begin match a.pexp_desc, b.pexp_desc with
         | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident "!"; _}); _}, [_, {pexp_desc = Pexp_ident {txt=Lident p; _}; _}]), _ ->
           True, PointsTo (p, expr_to_term b)
         | _ ->
-          failwith (Format.asprintf "unknown kind of equality: %a" Pprintast.expression expr)
+          Atomic (EQ, expr_to_term a, expr_to_term b), EmptyHeap
         end
       | "<" -> Atomic (LT, expr_to_term a, expr_to_term b), EmptyHeap
       | "<=" -> Atomic (LTEQ, expr_to_term a, expr_to_term b), EmptyHeap
       | ">" -> Atomic (GT, expr_to_term a, expr_to_term b), EmptyHeap
       | ">=" -> Atomic (GTEQ, expr_to_term a, expr_to_term b), EmptyHeap
-        (* TODO handle heap *)
-      (* | "&&" -> And (expr_to_formula a, expr_to_formula b), EmptyHeap *)
-      (* | "||" -> Or (expr_to_formula a, expr_to_formula b), EmptyHeap *)
-      (* | "=>" -> Imply (expr_to_formula a, expr_to_formula b), EmptyHeap *)
+      | "&&" ->
+        let p1, h1 = expr_to_formula a in
+        let p2, h2 = expr_to_formula b in
+        And (p1, p2), SepConj (h1, h2)
+      | "=>" ->
+        let p1, _h1 = expr_to_formula a in
+        let p2, _h2 = expr_to_formula b in
+        Imply (p1, p2), EmptyHeap (* no magic wand *)
+      | "||" ->
+        let p1, _h1 = expr_to_formula a in
+        let p2, _h2 = expr_to_formula b in
+        Or (p1, p2), EmptyHeap (* heap disjunction is not possible *)
+      | "-->" ->
+        let v =
+          match expr_to_term a with
+          | Var s -> s
+          | _ -> failwith (Format.asprintf "invalid lhs of points to: %a" Pprintast.expression a)
+        in
+        True, PointsTo (v, expr_to_term b)
       | _ ->
         failwith (Format.asprintf "unknown binary op: %s" i)
       end
@@ -993,6 +1009,7 @@ let rec entailmentchecking (lhs:normalisedStagedSpec list) (rhs:normalisedStaged
 let run_string_ incremental line =
   let progs = Parser.implementation Lexer.token (Lexing.from_string line) in
   let _effs, methods = transform_strs progs in
+  (* print_endline (string_of_program (_effs, methods)); *)
   List.iter (fun (_name, _params, given_spec, body) ->
     (* this is done so tests are independent.
        each function is analyzed in isolation so this is safe. *)
@@ -1089,8 +1106,6 @@ print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
       let line = List.fold_right (fun x acc -> acc ^ "\n" ^ x) (List.rev lines) "" in
       
       (* debug_tokens line; *)
-
-      (*print_endline (string_of_program (_effs, methods));*)
 
       run_string incremental line;
 

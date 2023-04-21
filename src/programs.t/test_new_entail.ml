@@ -113,14 +113,35 @@ let test18_true ()
   let j = ref 2 in 
   1
 
-let test20_true i
+let test20_true ()
 (*@ ex b;
    req i->1;
    Norm(i->1 * b->2, 1)
 @*)
 =
+  assert (i-->1);
   let j = ref 2 in 
   1
+
+let test21_true ()
+(*@ ex b;
+   req i->1;
+   Norm(i->1 * b->2, 1)
+@*)
+=
+  assert (!i = 1);
+  let j = ref 2 in 
+  assert (!j = 2);
+  1
+
+let test22_true ()
+(*@ ex i a;
+   Norm(i->a, ())
+@*)
+=
+  let j = ref 2 in 
+  let z = !j in
+  assert (!j = z)
 
 let test14_false ()  
 (*@ ex a b;
@@ -137,6 +158,7 @@ let test15_true ()
    Norm(a->1, 1)
 @*)
 = 
+  assert (a-->1);
   1
 
 let test16_false ()  
@@ -154,6 +176,7 @@ let test17_true ()
    Norm(a->1 * b->0, 1)
 @*)
 = 
+  assert (a-->1);
   let i = ref 0 in 
   1
 
