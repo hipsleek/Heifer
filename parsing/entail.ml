@@ -622,9 +622,14 @@ let rec check_staged_subsumption2 :
     in
     let fml =
       [
-        (Format.asprintf "pre stage %d" i, Imply (pre_l, pre_r));
-        ( Format.asprintf "post stage %d" i,
+        ( Format.asprintf "post stage %d: %s |= %s" i
+            (string_of_state (qp1, qh1))
+            (string_of_state (qp2, qh2)),
           Imply (conj [post_l], conj [post_r; triv]) );
+        ( Format.asprintf "pre stage %d: %s |= %s" i
+            (string_of_state (p2, h2))
+            (string_of_state (p1, h1)),
+          Imply (pre_l, pre_r) );
       ]
     in
     let* _ =
@@ -655,15 +660,22 @@ let rec check_staged_subsumption2 :
     in
     let fml =
       [
-        ("norm pre", Imply (pre_l, pre_r));
-        ("norm post", Imply (post_l, post_r));
-        ("norm res eq", Atomic (EQ, r1, r2));
+        ( Format.asprintf "norm res eq: %s = %s" (string_of_term r1)
+            (string_of_term r2),
+          Atomic (EQ, r1, r2) );
+        ( Format.asprintf "norm post: %s |= %s"
+            (string_of_state (qp1, qh1))
+            (string_of_state (qp2, qh2)),
+          Imply (post_l, post_r) );
+        ( Format.asprintf "norm pre: %s |= %s "
+            (string_of_state (p2, h2))
+            (string_of_state (p1, h1)),
+          Imply (pre_l, pre_r) );
       ]
     in
 
     let res =
-      Provers.entails_exists True all_vars
-        (conj (List.rev (List.map snd (fml @ so_far))))
+      Provers.entails_exists True all_vars (conj (List.map snd (fml @ so_far)))
     in
     let debug = true in
     if debug then begin
@@ -674,7 +686,7 @@ let rec check_staged_subsumption2 :
                (fun (c, f) -> Format.asprintf "%s // %s" (string_of_pi f) c)
                a
              |> String.concat "\n/\\ ")
-           (all_vars, fml @ so_far))
+           (all_vars, List.rev (fml @ so_far)))
         (if res then "valid" else "not valid")
     end;
     if res then
