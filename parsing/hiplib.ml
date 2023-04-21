@@ -1077,8 +1077,7 @@ let run_string_ incremental line =
 let run_string incr s =
   Provers.handle (fun () -> run_string_ incr s)
 
-let main () =
-  let inputfile = (Sys.getcwd () ^ "/" ^ Sys.argv.(1)) in
+let run_file incremental inputfile =
 (*    let outputfile = (Sys.getcwd ()^ "/" ^ Sys.argv.(2)) in
 print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
   let ic = open_in inputfile in
@@ -1090,7 +1089,6 @@ print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
 
       (*print_endline (string_of_program (_effs, methods));*)
 
-      let incremental = Array.length Sys.argv >= 3 && String.equal Sys.argv.(2) "-incremental" in
       run_string incremental line;
 
 
@@ -1123,3 +1121,8 @@ print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
       raise e                      (* 以出错的形式退出: 文件已关闭,但通道没有写入东西 *)
 
    ;;
+
+let main () =
+  let inputfile = (Sys.getcwd () ^ "/" ^ Sys.argv.(1)) in
+  let incremental = Array.length Sys.argv >= 3 && String.equal Sys.argv.(2) "-incremental" in
+  run_file incremental inputfile
