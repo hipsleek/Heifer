@@ -1,51 +1,17 @@
 
-  $ hip test_new_entail.ml 2>&1 | grep 'Function\|Entail' | grep true
-  ========== Function: test10_true ==========
-  [Entail  Check] true
-  ========== Function: test6_true ==========
-  [Entail  Check] true
-  ========== Function: test9_true ==========
-  [Entail  Check] true
-  ========== Function: test4_true ==========
-  [Entail  Check] true
-  ========== Function: test5_true ==========
-  [Entail  Check] true
-  ========== Function: test6_true ==========
-  [Entail  Check] true
-  ========== Function: test11_true ==========
-  [Entail  Check] true
+  $ hip test_new_entail.ml 2>&1 | grep 'Function\|Entail.*Check' | ./check.py
   ========== Function: test19_true ==========
-  ========== Function: test0_true ==========
-  [Entail  Check] true
-  ========== Function: test13_true ==========
-  [Entail  Check] true
-  ========== Function: test18_true ==========
-  [Entail  Check] true
+  [Entail  Check] false
+  
   ========== Function: test20_true ==========
-  [Entail  Check] true
+  [Entail  Check] false
+  
   ========== Function: test15_true ==========
+  [Entail  Check] false
+  
   ========== Function: test17_true ==========
-
-  $ hip test_new_entail.ml 2>&1 | grep 'Function\|Entail' | grep false
-  ========== Function: test7_false ==========
   [Entail  Check] false
-  ========== Function: test8_false ==========
-  [Entail  Check] false
-  ========== Function: test12_false ==========
-  [Entail  Check] false
-  [Entail  Check] false
-  ========== Function: test1_false ==========
-  [Entail  Check] false
-  ========== Function: test2_false ==========
-  [Entail  Check] false
-  ========== Function: test3_false ==========
-  [Entail  Check] false
-  [Entail  Check] false
-  ========== Function: test14_false ==========
-  [Entail  Check] false
-  ========== Function: test16_false ==========
-  [Entail  Check] false
-  [Entail  Check] false
+  
 
   $ hip test_new_entail.ml 2>&1 | ./sanitize.sh
   T=>T // norm pre
