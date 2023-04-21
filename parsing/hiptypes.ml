@@ -51,7 +51,9 @@ type normalStage =  (string list* (pi * kappa ) * (pi * kappa) * term)
 type normalisedStagedSpec = effectStage list * normalStage
 
 let freshNormalReturnSpec = [NormalReturn (True, EmptyHeap, UNIT)]
-let freshNoramlStage : normalStage = ([], (True, EmptyHeap), (True, EmptyHeap), UNIT) 
+(* let freshNormalStage : normalStage = ([], (True, EmptyHeap), (True, EmptyHeap), UNIT)  *)
+
+let freshNormStageVar v : normalStage = ([v], (True, EmptyHeap), (True, EmptyHeap), Var v) 
 
 (* type linearStagedSpec = stagedSpec list *)
 

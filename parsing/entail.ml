@@ -667,7 +667,7 @@ let rec check_staged_subsumption2 :
             (string_of_state (qp1, qh1))
             (string_of_state (qp2, qh2)),
           Imply (post_l, post_r) );
-        ( Format.asprintf "norm pre: %s |= %s "
+        ( Format.asprintf "norm pre: %s |= %s"
             (string_of_state (p2, h2))
             (string_of_state (p1, h1)),
           Imply (pre_l, pre_r) );
@@ -774,9 +774,9 @@ let%expect_test "staged subsumption" =
     ];
   [%expect
     {|
-    T=>T // norm pre
-    /\ T=>T // norm post
-    /\ r=r // norm res eq
+    T=>T // norm pre: x->1 |= x->1
+    /\ T=>T // norm post: x->1 |= x->1
+    /\ r=r // norm res eq: r = r
     z3: valid
 
 
@@ -787,9 +787,9 @@ let%expect_test "staged subsumption" =
     ==> emp
     │[subsumption-base] req x->1; Norm(x->1, r) |= req x->1; Norm(x->1, r)
 
-    T=>T // norm pre
-    /\ T=>T // norm post
-    /\ r=r // norm res eq
+    T=>T // norm pre: x->1 |= x->a
+    /\ T=>T // norm post: x->a+1 |= x->2
+    /\ r=r // norm res eq: r = r
     z3: valid
 
 
@@ -800,9 +800,9 @@ let%expect_test "staged subsumption" =
     ==> emp
     │[subsumption-base] req x->a; Norm(x->a+1, r) |= req x->1; Norm(x->2, r)
 
-    T=>T // norm pre
-    /\ T=>T // norm post
-    /\ r=r // norm res eq
+    T=>T // norm pre: x->1 |= x->a
+    /\ T=>T // norm post: x->a+1 |= x->1
+    /\ r=r // norm res eq: r = r
     z3: valid
 
 
@@ -813,11 +813,11 @@ let%expect_test "staged subsumption" =
     ==> emp
     │[subsumption-base] req x->a; Norm(x->a+1, r) |= req x->1; Norm(x->1, r)
 
-    T=>T // norm pre
-    /\ T=>T // norm post
-    /\ r=r // norm res eq
-    /\ T=>T // pre stage 0
-    /\ T=>r=r // post stage 0
+    T=>T // pre stage 0: emp |= emp
+    /\ T=>r=r // post stage 0: x->a+1 |= x->a+1
+    /\ T=>T // norm pre: x->1 |= x->a
+    /\ T=>T // norm post: x->a+1 |= x->1
+    /\ r=r // norm res eq: r = r
     z3: valid
 
 

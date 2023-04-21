@@ -1,8 +1,5 @@
 
   $ hip test_new_entail.ml 2>&1 | grep 'Function\|Entail.*Check' | ./check.py
-  ========== Function: test19_true ==========
-  [Entail  Check] false
-  
   ========== Function: test20_true ==========
   [Entail  Check] false
   
@@ -14,9 +11,9 @@
   
 
   $ hip test_new_entail.ml 2>&1 | ./sanitize.sh
-  T=>T // norm pre
-  /\ T=>T // norm post
-  /\ 0=0 // norm res eq
+  T=>T // norm pre: emp |= emp
+  /\ T=>T // norm post: emp |= emp
+  /\ 0=0 // norm res eq: 0 = 0
   z3: valid
   
   
@@ -30,9 +27,9 @@
   [Entail  Check] true
   ===========================================
   
-  T=>T // norm pre
-  /\ T=>T // norm post
-  /\ 0=0 // norm res eq
+  T=>T // norm pre: emp |= emp
+  /\ T=>T // norm post: emp |= emp
+  /\ 0=0 // norm res eq: 0 = 0
   z3: valid
   
   
@@ -46,9 +43,9 @@
   [Entail  Check] true
   ==========================================
   
-  T=>T // norm pre
-  /\ T=>T // norm post
-  /\ 0=j // norm res eq
+  T=>T // norm pre: emp |= emp
+  /\ T=>T // norm post: emp |= emp
+  /\ 0=j // norm res eq: 0 = j
   z3: not valid
   
   
@@ -62,9 +59,9 @@
   [Entail  Check] false
   ===========================================
   
-  T=>T // norm pre
-  /\ T=>T // norm post
-  /\ 0=k // norm res eq
+  T=>T // norm pre: emp |= emp
+  /\ T=>T // norm post: emp |= emp
+  /\ 0=k // norm res eq: 0 = k
   z3: not valid
   
   
@@ -78,9 +75,9 @@
   [Entail  Check] false
   ===========================================
   
-  ex j. T=>T // norm pre
-  /\ T=>T // norm post
-  /\ 0=j // norm res eq
+  ex j. T=>T // norm pre: emp |= emp
+  /\ T=>T // norm post: emp |= emp
+  /\ 0=j // norm res eq: 0 = j
   z3: valid
   
   
@@ -94,9 +91,9 @@
   [Entail  Check] true
   ==========================================
   
-  ex f0 i. T=>T // norm pre
-  /\ T=>0=0 // norm post
-  /\ f0=i // norm res eq
+  ex f0 i. T=>T // norm pre: emp |= emp
+  /\ T=>0=0 // norm post: f0->0 |= i->0
+  /\ f0=i // norm res eq: f0 = i
   z3: valid
   
   
@@ -110,9 +107,9 @@
   [Entail  Check] true
   ==========================================
   
-  ex f0 i_1 i. T=>T // norm pre
-  /\ i_1=0=>0=i_1 // norm post
-  /\ i_1+1=1 // norm res eq
+  ex f0 i_1 i. T=>T // norm pre: emp |= emp
+  /\ i_1=0=>0=i_1 // norm post: f0->i_1 /\ i_1=0 |= i->0
+  /\ i_1+1=1 // norm res eq: i_1+1 = 1
   z3: valid
   
   
@@ -126,9 +123,9 @@
   [Entail  Check] true
   ==========================================
   
-  ex f0 i_1 f2 i_3 i. T=>i_1=f2/\i_1+1=i_3 // norm pre
-  /\ i_1=0/\f2=i_1/\i_3=i_1+1=>1=i_3 // norm post
-  /\ i_3=1 // norm res eq
+  ex f0 i_1 f2 i_3 i. T=>i_1=f2/\i_1+1=i_3 // norm pre: emp |= i_1=f2/\i_1+1=i_3
+  /\ i_1=0/\f2=i_1/\i_3=i_1+1=>1=i_3 // norm post: f0->i_3 /\ i_1=0/\f2=i_1/\i_3=i_1+1 |= i->1
+  /\ i_3=1 // norm res eq: i_3 = 1
   z3: valid
   
   
@@ -142,17 +139,17 @@
   [Entail  Check] true
   ==========================================
   
-  ex res_0. T=>T // norm pre
-  /\ T=>T // norm post
-  /\ res_0=() // norm res eq
-  /\ T=>T // pre stage 0
-  /\ T=>res_0=() // post stage 0
+  ex res_0 n_8. T=>T // pre stage 0: emp |= emp
+  /\ T=>res_0=() // post stage 0: emp |= emp
+  /\ T=>T // norm pre: emp |= emp
+  /\ T=>T // norm post: emp |= emp
+  /\ res_0=n_8 // norm res eq: res_0 = n_8
   z3: valid
   
   
   ========== Function: test11_true ==========
   [Specification] Eff(emp, [], ())
-  [Normed   Spec] Eff(emp, [], ()); Norm(emp, ())
+  [Normed   Spec] Eff(emp, [], ()); ex n_2; Norm(emp, n_2)
   
   [Raw Post Spec] Norm(emp, ()); ex res_0; Eff(emp, [], res_0); Norm(emp, res_0); Norm(emp, res_0)
   [Normed   Post] ex res_0; Eff(emp, [], res_0); Norm(emp, res_0)
@@ -160,47 +157,47 @@
   [Entail  Check] true
   ===========================================
   
-  ex res_0. T=>T // norm pre
-  /\ T=>T // norm post
-  /\ 1=() // norm res eq
-  /\ T=>T // pre stage 0
-  /\ T=>res_0=() // post stage 0
-  z3: not valid
+  ex res_0 n_8. T=>T // pre stage 0: emp |= emp
+  /\ T=>res_0=() // post stage 0: emp |= emp
+  /\ T=>T // norm pre: emp |= emp
+  /\ T=>T // norm post: emp |= emp
+  /\ 1=n_8 // norm res eq: 1 = n_8
+  z3: valid
   
   
   ========== Function: test12_false ==========
   [Specification] Eff(emp, [], ())
-  [Normed   Spec] Eff(emp, [], ()); Norm(emp, ())
+  [Normed   Spec] Eff(emp, [], ()); ex n_2; Norm(emp, n_2)
   
   [Raw Post Spec] Norm(emp, ()); ex res_0; Eff(emp, [], res_0); Norm(emp, res_0); Norm(emp, 1)
   [Normed   Post] ex res_0; Eff(emp, [], res_0); Norm(emp, 1)
   
-  [Entail  Check] false
+  [Entail  Check] true
   ============================================
   
-  ex res_0 r. T=>T // norm pre
-  /\ T=>T // norm post
-  /\ 1=() // norm res eq
-  /\ T=>T // pre stage 0
-  /\ T=>res_0=r // post stage 0
-  z3: not valid
+  ex res_0 r n_8. T=>T // pre stage 0: emp |= emp
+  /\ T=>res_0=r // post stage 0: emp |= emp
+  /\ T=>T // norm pre: emp |= emp
+  /\ T=>T // norm post: emp |= emp
+  /\ 1=n_8 // norm res eq: 1 = n_8
+  z3: valid
   
   
   ========== Function: test19_true ==========
   [Specification] ex r; Eff(emp, [], r)
-  [Normed   Spec] ex r; Eff(emp, [], r); Norm(emp, ())
+  [Normed   Spec] ex r; Eff(emp, [], r); ex n_2; Norm(emp, n_2)
   
   [Raw Post Spec] Norm(emp, ()); ex res_0; Eff(emp, [], res_0); Norm(emp, res_0); Norm(emp, 1)
   [Normed   Post] ex res_0; Eff(emp, [], res_0); Norm(emp, 1)
   
-  [Entail  Check] false
+  [Entail  Check] true
   ===========================================
   
-  ex f0 res_1 i_2 f3 i. T=>i_2=z/\i_2=f3 // norm pre
-  /\ f3=i_2=>z+1=i_2+1 // norm post
-  /\ res_1=ret // norm res eq
-  /\ T=>T // pre stage 0
-  /\ T=>res_1=ret/\0=0 // post stage 0
+  ex f0 res_1 i_2 f3 i. T=>T // pre stage 0: emp |= emp
+  /\ T=>res_1=ret/\0=0 // post stage 0: f0->0 |= i->0
+  /\ T=>i_2=z/\i_2=f3 // norm pre: i->z |= f0->i_2 /\ i_2=f3
+  /\ f3=i_2=>z+1=i_2+1 // norm post: f0->i_2+1 /\ f3=i_2 |= i->z+1
+  /\ res_1=ret // norm res eq: res_1 = ret
   z3: valid
   
   
@@ -214,11 +211,11 @@
   [Entail  Check] true
   ==========================================
   
-  ex f0 res_1 i_2 f3 i_4 i. T=>i_2=z/\i_2=f3/\i_2+1=i_4 // norm pre
-  /\ f3=i_2/\i_4=i_2+1=>z+1=i_4 // norm post
-  /\ i_4=ret // norm res eq
-  /\ T=>T // pre stage 0
-  /\ T=>res_1=ret/\0=0 // post stage 0
+  ex f0 res_1 i_2 f3 i_4 i. T=>T // pre stage 0: emp |= emp
+  /\ T=>res_1=ret/\0=0 // post stage 0: f0->0 |= i->0
+  /\ T=>i_2=z/\i_2=f3/\i_2+1=i_4 // norm pre: i->z |= f0->i_2 /\ i_2=f3/\i_2+1=i_4
+  /\ f3=i_2/\i_4=i_2+1=>z+1=i_4 // norm post: f0->i_4 /\ f3=i_2/\i_4=i_2+1 |= i->z+1
+  /\ i_4=ret // norm res eq: i_4 = ret
   z3: not valid
   
   
@@ -243,11 +240,11 @@
   [Entail  Check] false
   ===========================================
   
-  ex f0 res_1 i_2 f3 i. T=>i_2=z/\i_2=f3 // norm pre
-  /\ f3=i_2=>z+1=i_2+2 // norm post
-  /\ res_1=ret // norm res eq
-  /\ T=>T // pre stage 0
-  /\ T=>res_1=ret/\0=0 // post stage 0
+  ex f0 res_1 i_2 f3 i. T=>T // pre stage 0: emp |= emp
+  /\ T=>res_1=ret/\0=0 // post stage 0: f0->0 |= i->0
+  /\ T=>i_2=z/\i_2=f3 // norm pre: i->z |= f0->i_2 /\ i_2=f3
+  /\ f3=i_2=>z+1=i_2+2 // norm post: f0->i_2+2 /\ f3=i_2 |= i->z+1
+  /\ res_1=ret // norm res eq: res_1 = ret
   z3: not valid
   
   
@@ -261,9 +258,9 @@
   [Entail  Check] false
   ===========================================
   
-  ex f0 f1 a b. T=>T // norm pre
-  /\ T=>0=0 // norm post
-  /\ 1=1 // norm res eq
+  ex f0 f1 a b. T=>T // norm pre: emp |= emp
+  /\ T=>0=0 // norm post: f0->0*f1->1 |= a->0*b->1
+  /\ 1=1 // norm res eq: 1 = 1
   z3: valid
   
   
@@ -277,14 +274,14 @@
   [Entail  Check] true
   ===========================================
   
-  ex f0 f1 a b. T=>T // norm pre
-  /\ T=>1+1=0 // norm post
-  /\ 1=1 // norm res eq
+  ex f0 f1 a b. T=>T // norm pre: emp |= emp
+  /\ T=>1+1=0 // norm post: f0->0*f1->2 |= a->1+1*b->0
+  /\ 1=1 // norm res eq: 1 = 1
   z3: not valid
   
-  ex f0 f1 a b. T=>T // norm pre
-  /\ T=>1+1=2 // norm post
-  /\ 1=1 // norm res eq
+  ex f0 f1 a b. T=>T // norm pre: emp |= emp
+  /\ T=>1+1=2 // norm post: f0->0*f1->2 |= a->1+1*b->0
+  /\ 1=1 // norm res eq: 1 = 1
   z3: valid
   
   
@@ -309,14 +306,14 @@
   [Entail  Check] false
   ===========================================
   
-  ex f0 f1 a b. T=>T // norm pre
-  /\ T=>1=0 // norm post
-  /\ 1=1 // norm res eq
+  ex f0 f1 a b. T=>T // norm pre: emp |= emp
+  /\ T=>1=0 // norm post: f0->0*f1->1 |= a->1*b->1
+  /\ 1=1 // norm res eq: 1 = 1
   z3: not valid
   
-  ex f0 f1 a b. T=>T // norm pre
-  /\ T=>1=1 // norm post
-  /\ 1=1 // norm res eq
+  ex f0 f1 a b. T=>T // norm pre: emp |= emp
+  /\ T=>1=1 // norm post: f0->0*f1->1 |= a->1*b->1
+  /\ 1=1 // norm res eq: 1 = 1
   z3: valid
   
   
@@ -341,9 +338,9 @@
   [Entail  Check] false
   ===========================================
   
-  ex f0 a. a>0=>T // norm pre
-  /\ T=>1=0 // norm post
-  /\ 1=1 // norm res eq
+  ex f0 a. a>0=>T // norm pre: a->1 |= emp
+  /\ T=>1=0 // norm post: f0->0 |= a->1
+  /\ 1=1 // norm res eq: 1 = 1
   z3: not valid
   
   

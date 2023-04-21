@@ -507,11 +507,13 @@ let normalise_stagedSpec (acc:normalisedStagedSpec) (stagedSpec:stagedSpec) : no
   | NormalReturn (pi, heap, ret') -> (effectStages, (existential, req, mergeState ens (pi, heap), ret'))
   (* effects *)
   | RaisingEff (pi, heap,ins, ret') -> 
-    (effectStages@[(existential, req, mergeState ens (pi, heap), ins , ret')], freshNoramlStage)
+    (* move current norm state "behind" this effect boundary *)
+    let v = verifier_getAfreeVar ~from:"n" () in
+    (effectStages@[(existential, req, mergeState ens (pi, heap), ins , ret')], freshNormStageVar v)
   (* higher-order functions *)
   | HigherOrder (pi, heap, ins, ret') ->
-    (* same as RaisingEff *)
-    (effectStages@[(existential, req, mergeState ens (pi, heap), ins , ret')], freshNoramlStage)
+    let v = verifier_getAfreeVar ~from:"n" () in
+    (effectStages@[(existential, req, mergeState ens (pi, heap), ins , ret')], freshNormStageVar v)
 
 let rec normalise_spec_ (acc:normalisedStagedSpec) (spec:spec) : normalisedStagedSpec = 
   match spec with 
@@ -527,7 +529,65 @@ let rec normalise_spec_ (acc:normalisedStagedSpec) (spec:spec) : normalisedStage
 *)
     normalise_spec_ acc' xs 
 
-let normalise_spec = normalise_spec_ ([], freshNoramlStage)
+let used_vars (sp : normalisedStagedSpec) =
+  let rec used_vars_term (t : term) =
+    match t with
+    | UNIT | Num _ -> []
+    | TList ts | TTupple ts -> List.concat_map used_vars_term ts
+    | Var s -> [s]
+    | Plus (a, b) | Minus (a, b) -> used_vars_term a @ used_vars_term b
+  in
+  let rec used_vars_pi (p : pi) =
+    match p with
+    | True | False -> []
+    | Atomic (_, a, b) -> used_vars_term a @ used_vars_term b
+    | And (a, b) | Or (a, b) | Imply (a, b) -> used_vars_pi a @ used_vars_pi b
+    | Not a -> used_vars_pi a
+    | Predicate (_, t) -> used_vars_term t
+  in
+  let rec used_vars_heap (h : kappa) =
+    match h with
+    | EmptyHeap -> []
+    | PointsTo (a, t) -> a :: used_vars_term t
+    | SepConj (a, b) -> used_vars_heap a @ used_vars_heap b
+  in
+  let used_vars_state (p, h) = used_vars_pi p @ used_vars_heap h in
+  let used_vars_eff (_vs, pre, post, (_eff, ts), ret) =
+    used_vars_state pre @ used_vars_state post
+    @ List.concat_map used_vars_term ts
+    @ used_vars_term ret
+  in
+  let used_vars_norm (_vs, pre, post, ret) =
+    used_vars_state pre @ used_vars_state post @ used_vars_term ret
+  in
+  let effs, norm = sp in
+  List.concat_map used_vars_eff effs @ used_vars_norm norm
+  |> List.sort_uniq String.compare
+
+let remove_redundant_vars sp1 =
+  let sp2 =
+    let used = used_vars sp1 in
+    let effs, norm = sp1 in
+    let norm1 =
+      let vs, pre, post, ret = norm in
+      (List.filter (fun a -> List.mem a used) vs, pre, post, ret)
+    in
+    let effs1 =
+      List.map
+        (fun (vs, pre, post, eff, ret) ->
+          (List.filter (fun a -> List.mem a used) vs, pre, post, eff, ret))
+        effs
+    in
+    (effs1, norm1)
+  in
+  sp2
+
+let normalise_spec sp =
+  let v = verifier_getAfreeVar ~from:"n" () in
+  let acc = ([], freshNormStageVar v) in
+  let sp1 = normalise_spec_ acc sp in
+  (* remove redundant vars which may have appeared due to fresh stages *)
+  sp1 |> remove_redundant_vars
 
 let rec effectStage2Spec (effectStages:effectStage list ) : spec = 
   match effectStages with
