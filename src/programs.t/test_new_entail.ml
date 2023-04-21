@@ -43,7 +43,11 @@ let test12_false ()  (*@ Eff(emp, ()) @*) =
   let ret = perform Eff in
   1
 
-let test_true ()  
+let test19_true ()  (*@ ex r; Eff(emp, r) @*) =
+  let ret = perform Eff in
+  1
+
+let test0_true ()  
 (*@ ex i ;
    Eff(i->0, ret);
    req i-> z; 
