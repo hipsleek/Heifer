@@ -294,9 +294,12 @@ let string_of_stages (st:stagedSpec) : string =
     Format.asprintf "ex %s" (String.concat " " vs)
 
 let string_of_spec (spec:spec) :string =
-  spec
-  (* |> List.filter (function Exists [] -> false | _ -> true) *)
-  |> List.map string_of_stages |> String.concat "; "
+  match spec with
+  | [] -> "<empty>"
+  | _ ->
+    spec
+    (* |> List.filter (function Exists [] -> false | _ -> true) *)
+    |> List.map string_of_stages |> String.concat "; "
 
 let rec string_of_spec_list (specs:spec list) : string = 
   match specs with 
