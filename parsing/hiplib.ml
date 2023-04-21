@@ -994,6 +994,9 @@ let run_string_ incremental line =
   let progs = Parser.implementation Lexer.token (Lexing.from_string line) in
   let _effs, methods = transform_strs progs in
   List.iter (fun (_name, _params, given_spec, body) ->
+    (* this is done so tests are independent.
+       each function is analyzed in isolation so this is safe. *)
+    Pretty.verifier_counter_reset ();
     if not incremental then begin
       let time_stamp_beforeForward = Sys.time() in
       let inferred_spec = infer_of_expression methods [freshNormalReturnSpec] body in
