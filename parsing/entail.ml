@@ -288,7 +288,7 @@ module Heap = struct
 
   let%expect_test "heap_entail" =
     verifier_counter_reset ();
-    Pretty.colours := false;
+    Pretty.colours := `None;
     let test l r =
       let res =
         match entails l r with

@@ -12,6 +12,6 @@ let main () =
   Jv.set Jv.global "ocaml_ready" (Jv.callback ~arity:1 ready);
   Jv.set Jv.global "hip_run_string"
     (Jv.callback ~arity:2 (fun inc s ->
-         Hiplib.run_string (Jv.to_bool inc) (Jv.to_string s)))
+         Hiplib.run_string ~js:true (Jv.to_bool inc) (Jv.to_string s)))
 
 let () = main ()

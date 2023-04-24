@@ -7,12 +7,20 @@ open Hiptypes
 
 exception Foo of string
 
-let colours = ref true
+let colours : [`Html|`Ansi|`None] ref = ref `Ansi
 
-let maybe_colours alt s = if !colours then s else alt
-let reset = "\u{001b}[0m" |> maybe_colours ""
-let green text = "\u{001b}[32m" ^ text ^ reset |> maybe_colours text
-let red text = "\u{001b}[31m" ^ text ^ reset |> maybe_colours text
+let col ~ansi ~html text = 
+  (match !colours with
+  | `None -> ""
+  | `Ansi -> ansi
+  | `Html -> html) ^ text ^
+  (match !colours with
+  | `None -> ""
+  | `Ansi -> "\u{001b}[0m"
+  | `Html -> "</span>")
+ 
+let red text = col ~ansi:"\u{001b}[31m" ~html:"<span class=\"output-error\">" text
+let green text = col ~ansi:"\u{001b}[32m" ~html:"<span class=\"output-ok\">" text
 
 let verifier_counter: int ref = ref 0;;
 

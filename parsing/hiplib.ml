@@ -1094,7 +1094,8 @@ let run_string_ incremental line =
     end
   ) methods
 
-let run_string incr s =
+let run_string ?(js=false) incr s =
+  if js then Pretty.colours := `Html;
   Provers.handle (fun () -> run_string_ incr s)
 
 let run_file incremental inputfile =
