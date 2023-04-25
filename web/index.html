@@ -51,6 +51,10 @@
 
         display: flex;
         flex-flow: column;
+
+        /* this size causes no resizing of the output div when the output lines get long. */
+        /* an alternative is break-all, see below */
+        /* max-width: 37%; */
       }
 
       #toolbar button {
@@ -80,6 +84,11 @@
         border-radius: 3px;
         padding: 0px 5px;
       }
+
+      .output-line {
+        overflow-wrap: anywhere;
+        /* overflow-wrap: break-word; */
+      }
     </style>
   </head>
 
@@ -87,10 +96,12 @@
     <div id="editor">
       <textarea id="input"></textarea>
     </div>
-    <script>
-      const inp = document.querySelector("#input");
-
-      var s = `effect Eff : unit
+    <div id="panel">
+      <div id="toolbar">
+        <button id="run-btn" disabled onclick="run()">Run</button>
+        <select name="examples" id="examples" onchange="load_example(this)">
+          <option
+            value="effect Eff : unit
 
 let test ()
 (*@ ex i ;
@@ -102,42 +113,15 @@ let test ()
   let i = Sys.opaque_identity (ref 0) in
   let ret = perform Eff in
   i := !i + 1;
-  ret`;
-
-      inp.value = s;
-
-      function run() {
-        clear_output();
-        hip_run_string(false, inp.value);
-      }
-      function enable_buttons() {
-        document.querySelector("#run-btn").disabled = false;
-      }
-    </script>
-    <div id="panel">
-      <div id="toolbar">
-        <button id="run-btn" disabled onclick="run()">Run</button>
-        <select name="examples" id="examples">
-          <option value="">Examples</option>
+  ret"
+          >
+            Hello world
+          </option>
+          $MORE
         </select>
       </div>
       <div id="output"></div>
     </div>
-    <script>
-      const field = document.querySelector("#output");
-      const old_console = console;
-      window.console = {
-        log(...args) {
-          // field.value += args.join(' ') + '\n';
-          field.innerHTML +=
-            "<div>" + args.join(" ").replace(/\n/g, "</div><div>") + "</div>";
-          // field.textContent += args.join(" ");
-          // old_console.log(...args);
-        },
-      };
-      function clear_output() {
-        field.innerHTML = "";
-      }
-    </script>
+    <script type="text/javascript" src="page.js"></script>
   </body>
 </html>

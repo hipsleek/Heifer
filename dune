@@ -12,8 +12,9 @@
 
 (rule
  (alias web)
- (deps coi-serviceworker.min.js hipjs.bc.js bundle.js z3-built.js z3-built.wasm z3-built.worker.js)
- (action (copy web/index.html index.html)))
+ (target index.html)
+ (deps (source_tree src/evaluation) web/index.html coi-serviceworker.min.js hipjs.bc.js bundle.js z3-built.js z3-built.wasm z3-built.worker.js page.js)
+ (action (run web/examples.sh web/index.html index.html)))
 
 (rule
  (targets z3-built.js z3-built.wasm z3-built.worker.js)
@@ -29,9 +30,12 @@
  (action (run browserify main.js -o bundle.js --standalone z3)))
 
 (rule
+ (action (copy web/page.js page.js)))
+
+(rule
  (alias web)
  (targets (dir deploy))
- (deps coi-serviceworker.min.js hipjs.bc.js bundle.js index.html z3-built.js z3-built.wasm z3-built.worker.js)
+ (deps coi-serviceworker.min.js hipjs.bc.js bundle.js index.html z3-built.js z3-built.wasm z3-built.worker.js page.js)
  (action (progn
   (run mkdir deploy)
   (run cp %{deps} %{targets}))))

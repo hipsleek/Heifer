@@ -1,15 +1,17 @@
+// This file is built into bundle.js via browserify
+
 // import { init } from 'z3-solver';
-const { init } = require('z3-solver');
+const { init } = require("z3-solver");
 // const process = require('process');
 // import process from 'process';
 
 var z3;
 
-init().then(a => {
+init().then((a) => {
   z3 = a;
   ocaml_ready();
   enable_buttons();
-})
+});
 
 // function new_ctx(s) { return new Context('main'); }
 // function int(ctx, n) { return ctx.Int.const(n); }
@@ -25,17 +27,17 @@ function solve(f, k) {
   // console.log(Context);
 
   // const { Context } = init();
-  const ctx = new Context('main');
+  const ctx = new Context("main");
   // const { Solver, Int, And } = ctx;
   // const x = Int.const('x');
   const solver = new ctx.Solver();
   solver.add(f(ctx));
   // solver.add(And(x.ge(0), x.le(9)));
-  solver.check().then(res => {
-    k(res === 'sat')
+  solver.check().then((res) => {
+    k(res === "sat");
     // console.log(res);
     // console.log(typeof res);
-  })
+  });
 }
 module.exports = { solve };
 // window.solve = solve;
