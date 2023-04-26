@@ -180,13 +180,13 @@ let string_of_effectspec spec:string =
       Format.sprintf "requires %s ensures %s" (string_of_spec pr) (string_of_effectList po) *)
     | Some p -> string_of_spec p
 
-let string_of_program ((_es, ms):core_program) :string =
+let string_of_program (cp:core_program) :string =
   List.map (fun (name, args, spec, body) ->
     Format.asprintf "let rec %s %s\n(*@@ %s @@*)\n=\n%s" name
     (match args with | [] -> "()" | _ -> String.concat " " args)
     (List.map string_of_spec spec |> String.concat "\n\\/\n")
     (string_of_core_lang body)
-  ) ms |> String.concat "\n\n"
+  ) cp.cp_methods |> String.concat "\n\n"
 
 
 let debug_string_of_expression e =
@@ -797,7 +797,7 @@ let transform_strs (strs: structure_item list) : core_program =
       match transform_str env c with
       | `Eff a -> env, a :: es, ms
       | `Meth ((name, _, _, _) as a) -> name :: env, es, a :: ms) ([], [], []) strs
-  in List.rev effs, List.rev mths
+  in { cp_effs = List.rev effs; cp_methods = List.rev mths; cp_preds = [] }
 
 (* returns the inference result as a string to be printed *)
 (* let rec infer_of_program env x: string * env =
@@ -1008,7 +1008,7 @@ let rec entailmentchecking (lhs:normalisedStagedSpec list) (rhs:normalisedStaged
 
 let run_string_ incremental line =
   let progs = Parser.implementation Lexer.token (Lexing.from_string line) in
-  let _effs, methods = transform_strs progs in
+  let prog = transform_strs progs in
   (* print_endline (string_of_program (_effs, methods)); *)
   List.iter (fun (_name, _params, given_spec, body) ->
     (* this is done so tests are independent.
@@ -1016,7 +1016,7 @@ let run_string_ incremental line =
     Pretty.verifier_counter_reset ();
     if not incremental then begin
       let time_stamp_beforeForward = Sys.time() in
-      let inferred_spec = infer_of_expression methods [freshNormalReturnSpec] body in
+      let inferred_spec = infer_of_expression prog.cp_methods [freshNormalReturnSpec] body in
       let time_stamp_afterForward = Sys.time() in
       let given_spec_n = normalise_spec_list_aux1 given_spec in
       let inferred_spec_n = normalise_spec_list_aux1 inferred_spec in
@@ -1092,7 +1092,7 @@ let run_string_ incremental line =
     end else begin
       print_endline "incremental";
     end
-  ) methods
+  ) prog.cp_methods
 
 let run_string ?(js=false) incr s =
   if js then Pretty.colours := `Html;
