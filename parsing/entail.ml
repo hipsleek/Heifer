@@ -65,21 +65,6 @@ end
 
 open Res
 
-let current_state : spec -> kappa =
- fun sp ->
-  let rec loop current sp =
-    match sp with
-    | [] -> current
-    | HigherOrder _ :: s -> loop EmptyHeap s
-    | Exists _ :: s -> loop current s
-    | Require _ :: s ->
-      (* TODO look at this for pure constraints *)
-      loop current s
-    | NormalReturn (_, h, _) :: s -> loop (SepConj (current, h)) s
-    | RaisingEff _ :: _ -> failwith "unimplemented"
-  in
-  loop EmptyHeap sp
-
 type 'a quantified = string list * 'a
 
 let string_of_quantified to_s (vs, e) =
@@ -831,8 +816,6 @@ let%expect_test "staged subsumption" =
 (**
   Subsumption between disjunctive specs.
   S1 \/ S2 |= S3 \/ S4
-
-  Currently just returns the residue for the RHS disjunct that succeeds and doesn't print anything.
 *)
 let subsumes_disj ds1 ds2 =
   Res.all ~may_elide:true ~name:"subsumes-disj-lhs-all" ~to_s:string_of_spec ds1

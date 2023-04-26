@@ -300,6 +300,8 @@ let string_of_stages (st:stagedSpec) : string =
     Format.asprintf "%s(%s, %s, %s)" name (string_of_state (pi, heap)) (string_of_args args) (string_of_term ret)
   | Exists vs ->
     Format.asprintf "ex %s" (String.concat " " vs)
+  | Pred {name; vars} ->
+    Format.asprintf "%s(%s)" name (String.concat " " vars)
 
 let string_of_spec (spec:spec) :string =
   match spec with
@@ -522,6 +524,8 @@ let normalise_stagedSpec (acc:normalisedStagedSpec) (stagedSpec:stagedSpec) : no
   | HigherOrder (pi, heap, ins, ret') ->
     let v = verifier_getAfreeVar ~from:"n" () in
     (effectStages@[(existential, req, mergeState ens (pi, heap), ins , ret')], freshNormStageVar v)
+  | Pred {name; _} ->
+    failwith (Format.asprintf "cannot normalise predicate %s" name)
 
 let rec normalise_spec_ (acc:normalisedStagedSpec) (spec:spec) : normalisedStagedSpec = 
   match spec with 
@@ -572,7 +576,7 @@ let used_vars (sp : normalisedStagedSpec) =
   List.concat_map used_vars_eff effs @ used_vars_norm norm
   |> List.sort_uniq String.compare
 
-let remove_redundant_vars sp1 =
+let remove_redundant_vars : normalisedStagedSpec -> normalisedStagedSpec = fun sp1 ->
   let sp2 =
     let used = used_vars sp1 in
     let effs, norm = sp1 in

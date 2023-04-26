@@ -43,10 +43,11 @@ type stagedSpec =
       | HigherOrder of (pi * kappa * instant * term)
       (* effects: H /\ P /\ E(...args, v), term is always a placeholder variable *)
       | RaisingEff of (pi * kappa * instant * term)
-      | Pred of { vars: string list }
+      | Pred of { name : string; vars: string list }
 
 (* type spec = (pi * linearStagedSpec) list  *)
-type spec = stagedSpec list (* disjunctive *)
+type spec = stagedSpec list
+type disj_spec = spec list
 
 type effectStage =  (string list* (pi * kappa ) * (pi * kappa) * instant * term)
 type normalStage =  (string list* (pi * kappa ) * (pi * kappa) * term)
@@ -85,7 +86,7 @@ type meth_def = string * (string list) * (spec list) * core_lang
 type pred_def = {
   p_name: string;
   p_vars: string;
-  p_body: spec;
+  p_body: disj_spec;
 }
 
 type core_program = {
