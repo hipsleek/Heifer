@@ -1,16 +1,18 @@
 (function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.z3 = f()}})(function(){var define,module,exports;return (function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
+// This file is built into bundle.js via browserify
+
 // import { init } from 'z3-solver';
-const { init } = require('z3-solver');
+const { init } = require("z3-solver");
 // const process = require('process');
 // import process from 'process';
 
 var z3;
 
-init().then(a => {
+init().then((a) => {
   z3 = a;
   ocaml_ready();
   enable_buttons();
-})
+});
 
 // function new_ctx(s) { return new Context('main'); }
 // function int(ctx, n) { return ctx.Int.const(n); }
@@ -26,17 +28,17 @@ function solve(f, k) {
   // console.log(Context);
 
   // const { Context } = init();
-  const ctx = new Context('main');
+  const ctx = new Context("main");
   // const { Solver, Int, And } = ctx;
   // const x = Int.const('x');
   const solver = new ctx.Solver();
   solver.add(f(ctx));
   // solver.add(And(x.ge(0), x.le(9)));
-  solver.check().then(res => {
-    k(res === 'sat')
+  solver.check().then((res) => {
+    k(res === "sat");
     // console.log(res);
     // console.log(typeof res);
-  })
+  });
 }
 module.exports = { solve };
 // window.solve = solve;
