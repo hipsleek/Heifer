@@ -40,10 +40,11 @@ type stagedSpec =
       (* H /\ P /\ res=term *)
       | NormalReturn of (pi * kappa * term)
       (* higher-order functions: H /\ P /\ f$(...args, term) *)
+      (* this constructor is also used for inductive predicate applications *)
       | HigherOrder of (pi * kappa * instant * term)
       (* effects: H /\ P /\ E(...args, v), term is always a placeholder variable *)
       | RaisingEff of (pi * kappa * instant * term)
-      | Pred of { name : string; vars: string list }
+      (* | IndPred of { name : string; args: term list } *)
 
 (* type spec = (pi * linearStagedSpec) list  *)
 type spec = stagedSpec list
@@ -85,7 +86,7 @@ type meth_def = string * (string list) * (spec list) * core_lang
 
 type pred_def = {
   p_name: string;
-  p_vars: string;
+  p_params: string list;
   p_body: disj_spec;
 }
 

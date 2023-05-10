@@ -293,15 +293,15 @@ let string_of_stages (st:stagedSpec) : string =
   | Require (p, h) ->
     Format.asprintf "req %s" (string_of_state (p, h))
   | HigherOrder (pi, h, (f, args), ret) ->
-    Format.asprintf "%s /\\ %s$(%s, %s); " (string_of_state (pi, h)) f (string_of_args args) (string_of_term ret)
+    Format.asprintf "%s(%s, %s, %s)" f (string_of_state (pi, h)) (string_of_args args) (string_of_term ret)
   | NormalReturn (pi, heap, ret) ->
     Format.asprintf "Norm(%s, %s)" (string_of_state (pi, heap))  (string_of_term ret)
   | RaisingEff (pi, heap, (name, args), ret) ->
     Format.asprintf "%s(%s, %s, %s)" name (string_of_state (pi, heap)) (string_of_args args) (string_of_term ret)
   | Exists vs ->
     Format.asprintf "ex %s" (String.concat " " vs)
-  | Pred {name; vars} ->
-    Format.asprintf "%s(%s)" name (String.concat " " vars)
+  (* | IndPred {name; args} -> *)
+    (* Format.asprintf "%s(%s)" name (String.concat " " (List.map string_of_term args)) *)
 
 let string_of_spec (spec:spec) :string =
   match spec with
@@ -316,6 +316,9 @@ let rec string_of_spec_list (specs:spec list) : string =
   | [] -> ""
   | [x] -> string_of_spec x 
   | x :: xs -> string_of_spec x ^ " \\/ " ^ string_of_spec_list xs 
+
+let string_of_pred ({ p_name; p_params; p_body } : pred_def) : string =
+  Format.asprintf "%s(%s) :- %s" p_name (String.concat "," p_params) (string_of_spec_list p_body)
 
 let string_of_inclusion (lhs:spec list) (rhs:spec list) :string = 
   string_of_spec_list lhs ^" |- " ^string_of_spec_list rhs 
@@ -524,8 +527,8 @@ let normalise_stagedSpec (acc:normalisedStagedSpec) (stagedSpec:stagedSpec) : no
   | HigherOrder (pi, heap, ins, ret') ->
     let v = verifier_getAfreeVar ~from:"n" () in
     (effectStages@[(existential, req, mergeState ens (pi, heap), ins , ret')], freshNormStageVar v)
-  | Pred {name; _} ->
-    failwith (Format.asprintf "cannot normalise predicate %s" name)
+  (* | IndPred {name; _} -> *)
+    (* failwith (Format.asprintf "cannot normalise predicate %s" name) *)
 
 let rec normalise_spec_ (acc:normalisedStagedSpec) (spec:spec) : normalisedStagedSpec = 
   match spec with 
@@ -757,7 +760,7 @@ let%expect_test "normalise spec" =
   ==>
   req 1=1; E(x->1 /\ 1=1, [3], ()); req emp; Norm(y->2, ())
 
-  Norm(x->1, ()); emp /\ f$([3], ()); ; Norm(y->2, ())
+  Norm(x->1, ()); f(emp, [3], ()); Norm(y->2, ())
   ==>
   req emp; f(x->1, [3], ()); req emp; Norm(y->2, ())
 |}]

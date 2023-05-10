@@ -78,6 +78,50 @@ let string_of_instantiations kvs =
   List.map (fun (k, v) -> Format.asprintf "%s := %s" k v) kvs
   |> String.concat ", " |> Format.asprintf "[%s]"
 
+(** a lemma is a formula such as f$(a, r) |= c(a, r) *)
+type lemma = {
+  l_name : string;
+  l_vars : string list;
+  l_left : stagedSpec;
+  l_right : spec;
+}
+
+let instantiate_lemma : lemma -> term list -> lemma =
+ fun lem args ->
+  let bs = List.map2 (fun a b -> (a, b)) lem.l_vars args in
+  {
+    lem with
+    l_left = (Forward_rules.instantiateStages bs) lem.l_left;
+    l_right = List.map (Forward_rules.instantiateStages bs) lem.l_right;
+  }
+
+let instantiate_pred : pred_def -> term list -> pred_def =
+ fun pred args ->
+  let bs = List.map2 (fun a b -> (a, b)) pred.p_params args in
+  {
+    pred with
+    p_body =
+      List.map
+        (fun b -> List.map (Forward_rules.instantiateStages bs) b)
+        pred.p_body;
+  }
+
+(** single application *)
+let apply_lemma : lemma -> spec -> spec =
+ fun lem sp ->
+  let tr s =
+    (* for now, lemmas are only applied from left to right, and the left side must be a predicate *)
+    match (s, lem.l_left) with
+    | Exists _, _ | Require (_, _), _ | NormalReturn _, _ | RaisingEff _, _ ->
+      [s]
+    | ( HigherOrder (_p, _h, (name, args), _r),
+        HigherOrder (_, _, (name1, _args1), _) )
+      when String.equal name name1 ->
+      (instantiate_lemma lem args).l_right
+    | HigherOrder _, _ -> [s]
+  in
+  List.concat_map tr sp
+
 let conj xs =
   match xs with
   | [] -> True
@@ -490,15 +534,22 @@ let rec check_staged_subsumption_ :
 (* let debug = false *)
 let ( let@ ) f x = f x
 
+(** Given two heap formulae, matches points-to predicates
+  may backtrack if the locations are quantified.
+  returns (by invoking the continuation) when matching is complete (when right is empty).
+
+  id: human-readable name
+  vs: quantified variables
+  k: continuation
+*)
 let rec check_qf2 :
     string ->
-    pi ->
     string list ->
     state ->
     state ->
     (pi * pi -> 'a Res.pf) ->
     'a Res.pf =
- fun id eqs vs ante conseq k ->
+ fun id vs ante conseq k ->
   let a = Heap.normalize ante in
   let c = Heap.normalize conseq in
   match (a, c) with
@@ -536,7 +587,7 @@ let rec check_qf2 :
               let _unifier = Atomic (EQ, Var fl, Var fr) in
               let triv = Atomic (EQ, v, v1) in
               (* matching ptr values are added as an eq to the right side, since we don't have a term := term substitution function *)
-              check_qf2 id True vs (conj [p1], h1') (conj [p2; triv], h2') k)
+              check_qf2 id vs (conj [p1], h1') (conj [p2; triv], h2') k)
         in
         begin
           match r1 with
@@ -557,7 +608,7 @@ let rec check_qf2 :
         (* let  *)
         (* And (p1, Atomic (EQ, v, v1)) *)
         (* match *)
-        check_qf2 (* (SepConj (k, PointsTo (x, v))) *) id eqs vs
+        check_qf2 (* (SepConj (k, PointsTo (x, v))) *) id vs
           (conj [p1], h1')
           (conj [p2], h2')
           k
@@ -583,6 +634,17 @@ let rec check_qf2 :
     | None -> failwith (Format.asprintf "could not split LHS, bug?")
   end
 
+(** recurses down a normalised staged spec, matching stages,
+   translating away heap predicates to build a pure formula,
+   then proving it at the end.
+
+   quantifiers are left to z3 to instantiate because they are shared across stages,
+   so instantiation has to be delayed until we know the entire formula.
+   
+   i: index of stage
+   all_vars: quantified variables
+   so_far: conjuncts of the formula we're building, together with human-readable form
+*)
 let rec check_staged_subsumption2 :
     int ->
     string list ->
@@ -598,12 +660,11 @@ let rec check_staged_subsumption2 :
 
     let triv = Atomic (EQ, r1, r2) in
 
-    (* let _ = *)
     let@ pre_l, pre_r =
-      check_qf2 (Format.asprintf "pre%d" i) True all_vars (p2, h2) (p1, h1)
+      check_qf2 (Format.asprintf "pre%d" i) all_vars (p2, h2) (p1, h1)
     in
     let@ post_l, post_r =
-      check_qf2 (Format.asprintf "post%d" i) True all_vars (qp1, qh1) (qp2, qh2)
+      check_qf2 (Format.asprintf "post%d" i) all_vars (qp1, qh1) (qp2, qh2)
     in
     let fml =
       [
@@ -638,11 +699,9 @@ let rec check_staged_subsumption2 :
     in
 
     (* contra *)
-    let@ pre_l, pre_r = check_qf2 "pren" True all_vars (p2, h2) (p1, h1) in
+    let@ pre_l, pre_r = check_qf2 "pren" all_vars (p2, h2) (p1, h1) in
     (* cov *)
-    let@ post_l, post_r =
-      check_qf2 "postn" True all_vars (qp1, qh1) (qp2, qh2)
-    in
+    let@ post_l, post_r = check_qf2 "postn" all_vars (qp1, qh1) (qp2, qh2) in
     let fml =
       [
         ( Format.asprintf "norm res eq: %s = %s" (string_of_term r1)
@@ -683,20 +742,35 @@ let rec check_staged_subsumption2 :
     else Error (rule ~name:"subsumption-base" ~success:false "fail")
   | _ -> Error (rule ~name:"subsumption-stage" ~success:false "unequal length")
 
-let check_staged_subsumption : spec -> spec -> state Res.pf =
- fun n1 n2 ->
-  (* replace quantified variables on the left side with fresh variables *)
-  let es1, ns1 =
-    let norm = normalise_spec n1 in
-    norm
-    (* let vars = Forward_rules.getExistientalVar norm in
-       let vars_fresh =
-         List.map (fun v -> (v, Var (verifier_getAfreeVar ()))) vars
-       in
-       let es1, (_, pre, post, ret) = instantiate_existentials vars_fresh norm in
-       ( List.map (fun (_, pre, post, eff, ret) -> ([], pre, post, eff, ret)) es1,
-         ([], pre, post, ret) ) *)
+(** f;a;e \/ b and a == c \/ d
+  => f;(c \/ d);e \/ b
+  => f;c;e \/ f;d;e \/ b *)
+let unfold_predicate : pred_def -> disj_spec -> disj_spec =
+ fun pred ds ->
+  let rec loop prefix already s =
+    match s with
+    | [] -> List.map List.rev prefix
+    | HigherOrder (_p, _h, (name, args), _r) :: s1
+      when String.equal name pred.p_name && not (List.mem name already) ->
+      (* unfold *)
+      let pred1 = instantiate_pred pred args in
+      let pref : disj_spec =
+        List.concat_map (fun p -> List.map (fun b -> b @ p) pred1.p_body) prefix
+      in
+      loop pref already s1
+    | c :: s1 ->
+      let pref = List.map (fun p -> c :: p) prefix in
+      loop pref already s1
   in
+  List.concat_map (fun s -> loop [] [] s) ds
+
+let check_staged_subsumption : lemma list -> spec -> spec -> state Res.pf =
+ fun lems n1 n2 ->
+  (* apply lemmas once *)
+  let n1 = List.fold_right apply_lemma lems n1 in
+  let n2 = List.fold_right apply_lemma lems n2 in
+  (* proceed *)
+  let es1, ns1 = normalise_spec n1 in
   let es2, ns2 = normalise_spec n2 in
   (* check_staged_subsumption_ (es1, ns1) (es2, ns2) *)
   check_staged_subsumption2 0
@@ -704,10 +778,26 @@ let check_staged_subsumption : spec -> spec -> state Res.pf =
     @ Forward_rules.getExistientalVar (es2, ns2))
     [] (es1, ns1) (es2, ns2)
 
+(**
+  Subsumption between disjunctive specs.
+  S1 \/ S2 |= S3 \/ S4
+*)
+let subsumes_disj :
+    lemma list -> pred_def list -> disj_spec -> disj_spec -> state list Res.pf =
+ fun lems preds ds1 ds2 ->
+  (* unfold all predicates once *)
+  let ds1 = List.fold_right unfold_predicate preds ds1 in
+  let ds2 = List.fold_right unfold_predicate preds ds2 in
+  (* proceed *)
+  Res.all ~may_elide:true ~name:"subsumes-disj-lhs-all" ~to_s:string_of_spec ds1
+    (fun s1 ->
+      Res.any ~may_elide:true ~name:"subsumes-disj-rhs-any" ~to_s:string_of_spec
+        ds2 (fun s2 -> check_staged_subsumption lems s1 s2))
+
 let%expect_test "staged subsumption" =
   verifier_counter_reset ();
   let test name l r =
-    let res = check_staged_subsumption l r in
+    let res = check_staged_subsumption [] l r in
     Format.printf "\n--- %s\n%s\n%s\n%s%s@." name (string_of_spec l)
       (match res with Ok _ -> "|--" | Error _ -> "|-/-")
       (string_of_spec r)
@@ -812,16 +902,6 @@ let%expect_test "staged subsumption" =
     E(x->a+1, [], r); req x->1; Norm(x->1, r)
     ==> emp
     │[subsumption-stage] E(x->a+1, [], r); req x->a; Norm(x->a+1, r) |= E(x->a+1, [], r); req x->1; Norm(x->1, r) |}]
-
-(**
-  Subsumption between disjunctive specs.
-  S1 \/ S2 |= S3 \/ S4
-*)
-let subsumes_disj ds1 ds2 =
-  Res.all ~may_elide:true ~name:"subsumes-disj-lhs-all" ~to_s:string_of_spec ds1
-    (fun s1 ->
-      Res.any ~may_elide:true ~name:"subsumes-disj-rhs-any" ~to_s:string_of_spec
-        ds2 (fun s2 -> check_staged_subsumption s1 s2))
 
 module Normalize = struct
   let rec sl_dom (h : kappa) =

@@ -582,6 +582,10 @@ let rec transformation (env:string list) (expr:expression) : core_lang =
   match expr.pexp_desc with 
   | Pexp_ident {txt=Lident i; _} ->
     CValue (Var i)
+  | Pexp_construct ({txt=Lident "true"; _}, None) ->
+    CValue (Num 0)
+  | Pexp_construct ({txt=Lident "false"; _}, None) ->
+    CValue (Num 1)
   | Pexp_construct ({txt=Lident "()"; _}, None) ->
     CValue (UNIT)
   | Pexp_constant c ->
@@ -744,11 +748,11 @@ let transform_str env (s : structure_item) =
     | Pexp_fun (_, _, _, tlbody) ->
       let spec =
         match function_spec tlbody with
-        | None -> [] 
-        | Some spec -> [spec]
+        | None -> failwith (Format.asprintf "%s has no spec, not yet supported" fn_name)
+        | Some spec -> spec
       in
       let formals, body = collect_param_names fn in
-      let e = transformation env body in
+      let e = transformation (fn_name :: formals @ env) body in
       `Meth (fn_name, formals, spec, e)
     | _ ->
       failwith (Format.asprintf "not a function binding: %a" Pprintast.expression fn)
@@ -1009,7 +1013,7 @@ let rec entailmentchecking (lhs:normalisedStagedSpec list) (rhs:normalisedStaged
 let run_string_ incremental line =
   let progs = Parser.implementation Lexer.token (Lexing.from_string line) in
   let prog = transform_strs progs in
-  (* print_endline (string_of_program (_effs, methods)); *)
+  (* print_endline (string_of_program prog); *)
   List.iter (fun (_name, _params, given_spec, body) ->
     (* this is done so tests are independent.
        each function is analyzed in isolation so this is safe. *)
@@ -1023,7 +1027,7 @@ let run_string_ incremental line =
       let time_stamp_afterNormal = Sys.time() in
       (* let res = entailmentchecking inferred_spec_n given_spec_n in *)
       let res =
-        match Entail.subsumes_disj inferred_spec given_spec with
+        match Entail.subsumes_disj [] [] inferred_spec given_spec with
         | Ok _ -> true
         | Error _ -> false
       in 

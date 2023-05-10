@@ -2635,6 +2635,22 @@ stagedSpec1 :
       let init, last = split a in
       RaisingEff (p, h, (constr, init), last)
   }
+  | constr=LIDENT args=delimited(LPAREN, separated_nonempty_list(COMMA, effect_trace_value), RPAREN)
+  {
+    (* INFIXOP0 *)
+    (* we dn't check if the infix op is a dollar *)
+    (* why is basic stuff like this not available *)
+    let rec split xs =
+      match xs with
+      | [] -> failwith "split"
+      | [x] -> ([], x)
+      | x :: xs ->
+        let init, last = split xs in
+        (x :: init, last)
+    in
+    let init, last = split args in
+    HigherOrder (True, EmptyHeap, (constr, init), last)
+  }
 
 heapkappa:
 | EMP { EmptyHeap }
@@ -2647,7 +2663,7 @@ effect_spec:
 | stages=separated_nonempty_list(SEMI, stagedSpec1) { stages }
 
 fn_contract:
-  | LSPECCOMMENT spec = effect_spec RSPECCOMMENT
+  | LSPECCOMMENT spec=separated_nonempty_list(DISJUNCTION, effect_spec) RSPECCOMMENT
     // post_condition = list_of_post_condition 
     {Some spec}
 // Some ([], spec)

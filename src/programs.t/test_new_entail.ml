@@ -47,6 +47,18 @@ let test19_true ()  (*@ ex r; Eff(emp, r) @*) =
   let ret = perform Eff in
   1
 
+let test21_true ()  
+(*@ ex i ret;
+   Eff(i->0, ret);
+   req i-> z; 
+   Norm(i->z+1, ret)
+@*)
+= 
+  let i = Sys.opaque_identity (ref 0) in 
+  let ret = perform Eff in 
+  i := !i + 1;
+  ret
+
 let test0_true ()  
 (*@ ex i ;
    Eff(i->0, ret);
