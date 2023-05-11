@@ -50,7 +50,16 @@ type stagedSpec =
 type spec = stagedSpec list
 type disj_spec = spec list
 
-type effectStage =  (string list* (pi * kappa ) * (pi * kappa) * instant * term)
+(* type effectStage =  (string list* (pi * kappa ) * (pi * kappa) * instant * term) *)
+type effectStage = {
+  e_evars : string list;
+  e_pre : pi * kappa;
+  e_post : pi * kappa;
+  e_constr : instant;
+  e_ret : term;
+  e_typ : [`Eff | `Fn];
+}
+
 type normalStage =  (string list* (pi * kappa ) * (pi * kappa) * term)
 
 type normalisedStagedSpec = effectStage list * normalStage
@@ -81,8 +90,27 @@ and core_lang =
       | CMatch of core_lang * (string * core_lang) * core_handler_ops
       | CResume of core_value 
 
-type meth_def = string * (string list) * (spec list) * core_lang
+type tactic =
+  | Unfold_right
+  | Unfold_left
+  | Apply of string
+
+type meth_def = {
+  m_name : string;
+  m_params : string list;
+  m_spec : spec list;
+  m_body : core_lang;
+  m_tactics : tactic list;
+}
 (* type eff_def = string *)
+
+(** a lemma is a formula such as f$(a, r) |= c(a, r) *)
+type lemma = {
+  l_name : string;
+  (* l_params : string list; *)
+  l_left : stagedSpec;
+  l_right : spec;
+}
 
 type pred_def = {
   p_name: string;
@@ -92,6 +120,15 @@ type pred_def = {
 
 type core_program = {
   cp_effs: string list;
-  cp_preds: pred_def list;
+  cp_predicates: pred_def list;
+  cp_lemmas: lemma list;
   cp_methods: meth_def list;
 }
+
+let rec split_last xs =
+  match xs with
+  | [] -> failwith "split_last"
+  | [x] -> ([], x)
+  | x :: xs ->
+    let init, last = split_last xs in
+    (x :: init, last)

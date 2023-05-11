@@ -61,7 +61,9 @@ let rec pi_to_expr ctx : pi -> Expr.expr = function
   *)
   | Not pi -> Z3.Boolean.mk_not ctx (pi_to_expr ctx pi)
 
-let z3_query (_ : string) = ()
+let z3_query (_s : string) =
+  (* Format.printf "z3: %s@." _s; *)
+  ()
 
 let check_sat ?(debug = false) f =
   let cfg =
@@ -109,6 +111,10 @@ let entails_exists p1 vs p2 =
       (Z3.Boolean.mk_implies ctx (pi_to_expr ctx p1)
          (ex_quantify_expr vs ctx (pi_to_expr ctx p2)))
   in
+  not (check_sat ~debug:false f)
+
+let valid p =
+  let f ctx = Z3.Boolean.mk_not ctx (pi_to_expr ctx p) in
   not (check_sat ~debug:false f)
 
 let (historyTable : (string * bool) list ref) = ref []

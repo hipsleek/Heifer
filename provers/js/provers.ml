@@ -61,6 +61,7 @@ open Effect.Deep
 type _ Effect.t += Ask : pi -> bool t
 
 let askZ3 v = perform (Ask v)
+let valid p = not (askZ3 (Not p))
 let entails_exists _ _ _ = true
 let normalPure p = p
 

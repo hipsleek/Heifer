@@ -391,6 +391,10 @@ rule token = parse
   | ".~"
       { error lexbuf
           (Reserved_sequence (".~", Some "is reserved for use in MetaOCaml")) }
+  | "predicate"
+      { PREDICATE }
+  | "lemma"
+      { LEMMA }
   | "~" (lowercase identchar * as name) ':'
       { check_label_name lexbuf name;
         LABEL name }

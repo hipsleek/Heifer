@@ -8,32 +8,45 @@ let test10_true ()  (*@ Norm(emp, 0) @*) = 0
 
 let test6_true ()  (*@ Norm(emp, 0) @*) =
   let j = 0 in
-  j (* intermediate bindings don't matter? *)
+  j
+(* intermediate bindings don't matter? *)
 
 let test7_false ()  (*@ Norm(emp, j) @*) =
   let j = 0 in
-  j (* j is not a param *)
+  j
+(* j is not a param *)
 
 let test8_false ()  (*@ Norm(emp, k) @*) =
   let j = 0 in
-  j (* k is not a param *)
+  j
+(* k is not a param *)
 
-let test9_true ()  (*@ ex j; Norm(emp, j) @*) =
+let test9_true ()  (*@ ex r; Norm(emp, r) @*) =
   let j = 0 in
-  j (* existential j should work *)
+  j
+(* existential should work *)
 
 let test4_true ()  (*@ ex i; Norm(i->0, i) @*) =
   let i = ref 0 in 
-  i (* heap *)
+  i
+(* new heap, hence existential *)
 
 let test5_true ()  (*@ ex i; Norm(i->0, 1) @*) =
   let i = ref 0 in 
-  !i + 1 (* heap value *)
+  !i + 1
+(* heap read *)
 
 let test6_true ()  (*@ ex i; Norm(i->1, 1) @*) =
   let i = ref 0 in 
-  i := !i + 1; (* assignment *)
+  i := !i + 1;
   !i
+(* assignment *)
+
+let test22_false ()  (*@ ex i; Norm(i->1, 1) @*) =
+  let i = ref 0 in 
+  i := !i + 2;
+  !i
+(* wrong value *)
 
 let test11_true ()  (*@ Eff(emp, ()) @*) =
   let ret = perform Eff in
@@ -104,7 +117,7 @@ let test3_false ()
 = 
   let i = Sys.opaque_identity (ref 0) in 
   let ret = perform Eff in 
-  i := !i + 2; (* wrong stae *)
+  i := !i + 2; (* wrong state *)
   ret
 
 let test13_true ()  

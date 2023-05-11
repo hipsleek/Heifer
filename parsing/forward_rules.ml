@@ -30,8 +30,8 @@ let rec retrieve_return_value (spec:spec) : term =
 let rec retriveSpecFromEnv (fname: string) (env:meth_def list) : (string list * spec list) option = 
   match env with 
   | [] -> None 
-  | (str, formalArgs,  specLi, _) :: xs ->  
-    if String.compare fname str == 0 then Some (formalArgs, specLi) 
+  | m :: xs ->  
+    if String.compare fname m.m_name == 0 then Some (m.m_params, m.m_spec) 
     else retriveSpecFromEnv fname xs
 
 
@@ -127,8 +127,8 @@ let rec getExistientalVar (spec:normalisedStagedSpec) : string list =
   match effS with 
   | [] -> 
     let (ex, _, _, _) = normalS in ex 
-  | (ex, _, _, _, _) :: xs -> 
-    ex @ getExistientalVar (xs, normalS)
+  | eff :: xs -> 
+    eff.e_evars @ getExistientalVar (xs, normalS)
 
 
 let rec findNewName str vb_li =
@@ -155,9 +155,9 @@ let rec instantiateExistientalVar
   | [] -> 
     let (ex, req, ens, ret) = normalS in 
     ([], (instantiateExistientalVar_aux ex bindings, req, ens, ret))
-  | (ex, req, ens, ins, ret) :: xs -> 
+  | eff :: xs -> 
     let (rest, norm') = instantiateExistientalVar (xs, normalS) bindings in 
-    ((instantiateExistientalVar_aux ex bindings, req, ens, ins, ret) :: rest, norm')
+    (({eff with e_evars = instantiateExistientalVar_aux eff.e_evars bindings}) :: rest, norm')
 
 
 let instantiateExistientalVarSpec   (spec:spec) 
@@ -191,6 +191,10 @@ let renamingexistientalVar (specs:spec list): spec list =
       instantiateSpec bindings (normalisedStagedSpec2Spec temp)
   ) specs
 
+let freshen (specs:disj_spec): disj_spec = 
+  renamingexistientalVar specs
+  |> List.map (List.filter (function Exists _ -> false | _ -> true))
+
 
 
 
@@ -221,13 +225,13 @@ let rec handling_spec env (spec:normalisedStagedSpec) (normal:(string * core_lan
 
     
   | x :: xs -> 
-    let (existiental, (p1, h1), (p2, h2), (label, effactualArgs), ret) = x in 
-    let ret = match ret with 
+    let ret = match x.e_ret with 
     | Var ret -> ret
     | _ -> failwith "effect return is not var"
 
     in
 
+    let (label, effactualArgs) = x.e_constr in
     (match lookforHandlingCases ops label with 
     | None -> concatenateEventWithSpecs (effectStage2Spec [x]) (handling_spec env (xs, normalS) normal ops )
     | Some (effFormalArg, exprEff) -> 
@@ -237,7 +241,9 @@ let rec handling_spec env (spec:normalisedStagedSpec) (normal:(string * core_lan
         | _, [] | None, _ -> [] 
         | Some e, effactualArg ::_ -> [(e, effactualArg)]
       in 
-      let current = [Exists existiental; Require(p1, h1); 
+    let (p1, h1) = x.e_pre in
+    let (p2, h2) = x.e_post in
+      let current = [Exists x.e_evars; Require(p1, h1); 
         NormalReturn(p2, h2, UNIT)] in  (* Var ret *)
 
       let continueation_spec = normalisedStagedSpec2Spec (xs, normalS) in 
@@ -381,7 +387,8 @@ and infer_of_expression (env:meth_def list) (current:spec list) (expr:core_lang)
         [[Exists [ret]; HigherOrder (True, EmptyHeap, (fname, actualArgs), Var ret)]]
       | Some (formalArgs, spec_of_fname) -> 
         (*print_endline (string_of_spec_list spec_of_fname);*)
-        let spec = renamingexistientalVar spec_of_fname in
+        (* let spec = renamingexistientalVar spec_of_fname in *)
+        let spec = freshen spec_of_fname in
         let bindings = bindFormalNActual (formalArgs) (actualArgs) in 
         let instantiatedSpec =  instantiateSpecList bindings spec in 
         instantiatedSpec

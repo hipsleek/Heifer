@@ -288,12 +288,12 @@ let string_of_state (p, h) : string =
     Format.asprintf "%s /\\ %s" (string_of_kappa h) (string_of_pi p)
     (* Format.asprintf "%s*%s" (string_of_kappa h) (string_of_pi p) *)
 
-let string_of_stages (st:stagedSpec) : string =
+let string_of_stage (st:stagedSpec) : string =
   match st with
   | Require (p, h) ->
     Format.asprintf "req %s" (string_of_state (p, h))
   | HigherOrder (pi, h, (f, args), ret) ->
-    Format.asprintf "%s(%s, %s, %s)" f (string_of_state (pi, h)) (string_of_args args) (string_of_term ret)
+    Format.asprintf "%s$(%s, %s, %s)" f (string_of_state (pi, h)) (string_of_args args) (string_of_term ret)
   | NormalReturn (pi, heap, ret) ->
     Format.asprintf "Norm(%s, %s)" (string_of_state (pi, heap))  (string_of_term ret)
   | RaisingEff (pi, heap, (name, args), ret) ->
@@ -305,20 +305,21 @@ let string_of_stages (st:stagedSpec) : string =
 
 let string_of_spec (spec:spec) :string =
   match spec with
-  | [] -> "<empty>"
+  | [] -> "<empty spec>"
   | _ ->
     spec
     (* |> List.filter (function Exists [] -> false | _ -> true) *)
-    |> List.map string_of_stages |> String.concat "; "
+    |> List.map string_of_stage |> String.concat "; "
 
-let rec string_of_spec_list (specs:spec list) : string = 
+let string_of_spec_list (specs:spec list) : string = 
   match specs with 
-  | [] -> ""
-  | [x] -> string_of_spec x 
-  | x :: xs -> string_of_spec x ^ " \\/ " ^ string_of_spec_list xs 
+  | [] -> "<empty disj>"
+  | _ :: _ -> List.map string_of_spec specs |> String.concat " \\/ "
+
+let string_of_disj_spec (s:disj_spec) : string = string_of_spec_list s
 
 let string_of_pred ({ p_name; p_params; p_body } : pred_def) : string =
-  Format.asprintf "%s(%s) :- %s" p_name (String.concat "," p_params) (string_of_spec_list p_body)
+  Format.asprintf "%s(%s) == %s" p_name (String.concat "," p_params) (string_of_spec_list p_body)
 
 let string_of_inclusion (lhs:spec list) (rhs:spec list) :string = 
   string_of_spec_list lhs ^" |- " ^string_of_spec_list rhs 
@@ -404,9 +405,9 @@ let rec string_of_normalisedStagedSpec (spec:normalisedStagedSpec) : string =
     let current = ex @ [Require(p1, h1); NormalReturn(p2, h2, ret)] in
     string_of_spec current 
   | x :: xs  -> 
-    (let (existiental, (p1, h1), (p2, h2), ins, ret) = x in 
-    let ex = match existiental with [] -> [] | _ -> [Exists existiental] in
-    let current = ex @ [Require(p1, h1); RaisingEff(p2, h2, ins, ret)] in
+    (let {e_pre = (p1, h1); e_post = (p2, h2); _} = x in
+    let ex = match x.e_evars with [] -> [] | _ -> [Exists x.e_evars] in
+    let current = ex @ [Require(p1, h1); RaisingEff(p2, h2, x.e_constr, x.e_ret)] in
     string_of_spec current )
     ^ "; " ^ string_of_normalisedStagedSpec (xs, normalS)
 
@@ -522,11 +523,11 @@ let normalise_stagedSpec (acc:normalisedStagedSpec) (stagedSpec:stagedSpec) : no
   | RaisingEff (pi, heap,ins, ret') -> 
     (* move current norm state "behind" this effect boundary *)
     let v = verifier_getAfreeVar ~from:"n" () in
-    (effectStages@[(existential, req, mergeState ens (pi, heap), ins , ret')], freshNormStageVar v)
+    (effectStages@[{e_evars = existential; e_pre = req; e_post = mergeState ens (pi, heap); e_constr = ins ; e_ret = ret'; e_typ = `Eff}], freshNormStageVar v)
   (* higher-order functions *)
   | HigherOrder (pi, heap, ins, ret') ->
     let v = verifier_getAfreeVar ~from:"n" () in
-    (effectStages@[(existential, req, mergeState ens (pi, heap), ins , ret')], freshNormStageVar v)
+    (effectStages@[{e_evars = existential; e_pre = req; e_post = mergeState ens (pi, heap); e_constr = ins ; e_ret = ret'; e_typ = `Fn}], freshNormStageVar v)
   (* | IndPred {name; _} -> *)
     (* failwith (Format.asprintf "cannot normalise predicate %s" name) *)
 
@@ -567,10 +568,10 @@ let used_vars (sp : normalisedStagedSpec) =
     | SepConj (a, b) -> used_vars_heap a @ used_vars_heap b
   in
   let used_vars_state (p, h) = used_vars_pi p @ used_vars_heap h in
-  let used_vars_eff (_vs, pre, post, (_eff, ts), ret) =
-    used_vars_state pre @ used_vars_state post
-    @ List.concat_map used_vars_term ts
-    @ used_vars_term ret
+  let used_vars_eff eff =
+    used_vars_state eff.e_pre @ used_vars_state eff.e_post
+    @ List.concat_map used_vars_term (snd eff.e_constr)
+    @ used_vars_term eff.e_ret
   in
   let used_vars_norm (_vs, pre, post, ret) =
     used_vars_state pre @ used_vars_state post @ used_vars_term ret
@@ -589,8 +590,8 @@ let remove_redundant_vars : normalisedStagedSpec -> normalisedStagedSpec = fun s
     in
     let effs1 =
       List.map
-        (fun (vs, pre, post, eff, ret) ->
-          (List.filter (fun a -> List.mem a used) vs, pre, post, eff, ret))
+        (fun eff ->
+          { eff with e_evars = List.filter (fun a -> List.mem a used) eff.e_evars })
         effs
     in
     (effs1, norm1)
@@ -607,16 +608,19 @@ let normalise_spec sp =
 let rec effectStage2Spec (effectStages:effectStage list ) : spec = 
   match effectStages with
   | [] -> []
-  | (existiental, (p1, h1), (p2, h2), ins, ret) :: xs  -> 
-    (match existiental with 
+  | eff :: xs ->
+    let p2, h2 = eff.e_post in
+    (match eff.e_evars with 
     | [] -> [] 
-    | _ -> [Exists existiental])
+    | _ -> [Exists eff.e_evars])
     @
-    (match (p1, h1) with 
+    (match eff.e_pre with 
     | (True, EmptyHeap) -> []
-    | _ -> [Require(p1, h1)])
+    | (p1, h1) -> [Require(p1, h1)])
     @
-    ([RaisingEff(p2, h2, ins, ret)])
+    [match eff.e_typ with
+    | `Eff -> RaisingEff(p2, h2, eff.e_constr, eff.e_ret)
+    | `Fn -> HigherOrder(p2, h2, eff.e_constr, eff.e_ret)]
     @ effectStage2Spec xs 
 
 let normalStage2Spec (normalStage:normalStage ) : spec = 
@@ -760,7 +764,7 @@ let%expect_test "normalise spec" =
   ==>
   req 1=1; E(x->1 /\ 1=1, [3], ()); req emp; Norm(y->2, ())
 
-  Norm(x->1, ()); f(emp, [3], ()); Norm(y->2, ())
+  Norm(x->1, ()); f$(emp, [3], ()); Norm(y->2, ())
   ==>
   req emp; f(x->1, [3], ()); req emp; Norm(y->2, ())
 |}]

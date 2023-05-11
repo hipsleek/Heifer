@@ -78,26 +78,27 @@ let string_of_instantiations kvs =
   List.map (fun (k, v) -> Format.asprintf "%s := %s" k v) kvs
   |> String.concat ", " |> Format.asprintf "[%s]"
 
-(** a lemma is a formula such as f$(a, r) |= c(a, r) *)
-type lemma = {
-  l_name : string;
-  l_vars : string list;
-  l_left : stagedSpec;
-  l_right : spec;
-}
-
-let instantiate_lemma : lemma -> term list -> lemma =
- fun lem args ->
-  let bs = List.map2 (fun a b -> (a, b)) lem.l_vars args in
+let instantiate_lemma : lemma -> term list -> term -> lemma =
+ fun lem args ret ->
+  let params, ret_param =
+    match lem.l_left with
+    | HigherOrder (_, _, (_, params), Var ret_param) ->
+      ( List.map (function Var s -> s | _ -> failwith "not a var") params,
+        [(ret_param, ret)] )
+    | _ -> failwith "unknown kind of lemma"
+  in
+  let bs = ret_param @ List.map2 (fun a b -> (a, b)) params args in
   {
     lem with
     l_left = (Forward_rules.instantiateStages bs) lem.l_left;
     l_right = List.map (Forward_rules.instantiateStages bs) lem.l_right;
   }
 
-let instantiate_pred : pred_def -> term list -> pred_def =
- fun pred args ->
-  let bs = List.map2 (fun a b -> (a, b)) pred.p_params args in
+let instantiate_pred : pred_def -> term list -> term -> pred_def =
+ fun pred args ret ->
+  (* the predicate should have one more arg than arguments given for the return value, which we'll substitute with the return term from the caller *)
+  let params, ret_param = split_last pred.p_params in
+  let bs = (ret_param, ret) :: List.map2 (fun a b -> (a, b)) params args in
   {
     pred with
     p_body =
@@ -114,10 +115,9 @@ let apply_lemma : lemma -> spec -> spec =
     match (s, lem.l_left) with
     | Exists _, _ | Require (_, _), _ | NormalReturn _, _ | RaisingEff _, _ ->
       [s]
-    | ( HigherOrder (_p, _h, (name, args), _r),
-        HigherOrder (_, _, (name1, _args1), _) )
-      when String.equal name name1 ->
-      (instantiate_lemma lem args).l_right
+    | HigherOrder (_p, _h, (name, args), r), HigherOrder (_, _, (lem_name, _), _)
+      when String.equal name lem_name ->
+      (instantiate_lemma lem args r).l_right
     | HigherOrder _, _ -> [s]
   in
   List.concat_map tr sp
@@ -394,12 +394,18 @@ let instantiate_state bindings (p, h) =
 
 let instantiate_existentials_effect_stage bindings =
   let names = List.map fst bindings in
-  fun (vs, pre, post, (eff, t), ret) ->
-    ( List.filter (fun v -> not (List.mem v names)) vs,
-      instantiate_state bindings pre,
-      instantiate_state bindings post,
-      (eff, List.map (Forward_rules.instantiateTerms bindings) t),
-      Forward_rules.instantiateTerms bindings ret )
+  fun eff ->
+    {
+      eff with
+      e_evars = List.filter (fun v -> not (List.mem v names)) eff.e_evars;
+      e_pre = instantiate_state bindings eff.e_pre;
+      e_post = instantiate_state bindings eff.e_post;
+      e_constr =
+        ( fst eff.e_constr,
+          List.map (Forward_rules.instantiateTerms bindings) (snd eff.e_constr)
+        );
+      e_ret = Forward_rules.instantiateTerms bindings eff.e_ret;
+    }
 
 (** actually instantiates existentials, vs what the forward rules version does *)
 let instantiate_existentials :
@@ -426,110 +432,130 @@ let freshen_existentials vs state =
    ( List.map (fun (_, pre, post, eff, ret) -> ([], pre, post, eff, ret)) es1,
      ([], pre, post, ret) ) *)
 
-let rec check_staged_subsumption_ :
-    normalisedStagedSpec -> normalisedStagedSpec -> state pf =
- fun s1 s2 ->
-  (* recurse down both lists in parallel *)
-  match (s1, s2) with
-  | (es1 :: es1r, ns1), (es2 :: es2r, ns2) -> begin
-    let vs1, (p1, h1), (qp1, qh1), (nm1, _a1), r1 = es1 in
-    let vs2, (p2, h2), (qp2, qh2), (nm2, _a2), r2 = es2 in
-    (* bound variables continue to be bound in the rest of the expression *)
-    (* TODO propagate any constraints we discover on them *)
-    (* let vs1 = List.sort_uniq String.compare (vs1 @ vs1') in *)
-    (* let vs1 = [] in *)
-    (* TODO this is not very efficient *)
-    (* let vs2 = List.sort_uniq String.compare (vs2 @ vs2') in *)
-    let sub, pre = freshen_existentials vs2 (p2, h2) in
-    (* let r2 = Forward_rules.instantiateTerms sub r2 in *)
-    let es2r = List.map (instantiate_existentials_effect_stage sub) es2r in
-
-    (* contravariance of preconditions *)
-    let* pf1, ((pr, hr), inst1) = Heap.entails ([], pre) (vs1, (p1, h1)) in
-
-    let sub, post = freshen_existentials vs1 (qp1, qh1) in
-    (* let ns1 =  *)
-    (* let es1r = List.map (instantiate_existentials_effect_stage sub) es1r in *)
-    let es1r, ns1 = instantiate_existentials sub (es1r, ns1) in
-    let r1 = Forward_rules.instantiateTerms sub r1 in
-
-    (* covariance of postconditions *)
-    let* pf2, ((_pr, _hr), inst2) =
-      let qp1, qh1 = post in
-      Heap.entails
-        ( [],
-          (And (qp1, And (pr, Atomic (EQ, r1, Var "res"))), SepConj (qh1, hr))
-        )
-        (vs2, (And (qp2, Atomic (EQ, r2, Var "res")), qh2))
-    in
-    (* compare effect names *)
-    let* _ =
-      if String.equal nm1 nm2 then Ok ()
-      else Error (rule ~name:"name-equal" "uh oh")
-    in
-    (* TODO prove return values are the same as part of the heap entailment? *)
-    (* unify effect params and return value *)
-    (* let unify =
-         List.fold_right
-           (fun (a, b) t -> And (t, Atomic (EQ, a, b)))
-           (List.map2 (fun a b -> (a, b)) a1 a2)
-           (Atomic (EQ, r1, r2))
-       in *)
-    let inst =
-      let ret =
-        match (r2, r1) with
-        | Var s2, Var s1 when List.mem s2 vs2 ->
-          (* both r1 and r2 are effects so their return terms should be variables. the real check is whether r2 is quantified *)
-          [(s2, s1)]
-        | _ -> []
+(* let rec check_staged_subsumption_ :
+      normalisedStagedSpec -> normalisedStagedSpec -> state pf =
+   fun s1 s2 ->
+    (* recurse down both lists in parallel *)
+    match (s1, s2) with
+    | (es1 :: es1r, ns1), (es2 :: es2r, ns2) -> begin
+      let {
+        e_evars = vs1;
+        e_pre = p1, h1;
+        e_post = qp1, qh1;
+        e_constr = nm1, _a1;
+        e_ret = r1;
+        _;
+      } =
+        es1
       in
-      ret @ inst1 @ inst2
-    in
-    (* TODO check if vars are removed from the new spec *)
-    (* substitute the instantiated variables away, also in the state we are maintaining *)
-    (* let es2', ns2 = Forward_rules.instantiateExistientalVar (es2', ns2) inst in *)
-    let es2r, ns2 =
-      instantiate_existentials
-        (List.map (fun (a, b) -> (a, Var b)) inst)
-        (es2r, ns2)
-    in
-    let _vs2 =
-      List.filter (fun v -> not (List.mem v (List.map fst inst))) vs2
-    in
-    let* pf, res = check_staged_subsumption_ (es1r, ns1) (es2r, ns2) in
-    Ok
-      ( rule ~children:[pf1; pf2; pf] ~name:"subsumption-stage" "%s |= %s"
-          (string_of_spec (normalisedStagedSpec2Spec s1))
-          (string_of_spec (normalisedStagedSpec2Spec s2)),
-        res )
-  end
-  | ([], ns1), ([], ns2) ->
-    (* base case: check the normal stage at the end *)
-    let (vs1, (p1, h1), (qp1, qh1), r1), (vs2, (p2, h2), (qp2, qh2), r2) =
-      (ns1, ns2)
-    in
-    (* let vs1 = List.sort_uniq String.compare (vs1 @ vs1') in *)
-    (* let vs2 = List.sort_uniq String.compare (vs2 @ vs2') in *)
-    (* contravariance *)
-    let* pf1, ((pr, hr), _inst1) =
-      Heap.entails (vs2, (p2, h2)) (vs1, (p1, h1))
-    in
-    (* covariance *)
-    let* pf2, ((pr, hr), _inst2) =
-      Heap.entails
-        ( vs1,
-          (And (And (qp1, Atomic (EQ, Var "res", r1)), pr), SepConj (qh1, hr))
-        )
-        (vs2, (And (qp2, Atomic (EQ, Var "res", r2)), qh2))
-    in
-    (* unify return value *)
-    let pure = Atomic (EQ, r1, r2) in
-    Ok
-      ( rule ~children:[pf1; pf2] ~name:"subsumption-base" "%s |= %s"
-          (string_of_spec (normalStage2Spec ns1))
-          (string_of_spec (normalStage2Spec ns2)),
-        (And (pr, pure), hr) )
-  | _ -> Error (rule ~name:"subsumption-stage" ~success:false "unequal length")
+      let {
+        e_evars = vs2;
+        e_pre = p2, h2;
+        e_post = qp2, qh2;
+        e_constr = nm2, _a2;
+        e_ret = r2;
+        _;
+      } =
+        es2
+      in
+      (* bound variables continue to be bound in the rest of the expression *)
+      (* TODO propagate any constraints we discover on them *)
+      (* let vs1 = List.sort_uniq String.compare (vs1 @ vs1') in *)
+      (* let vs1 = [] in *)
+      (* TODO this is not very efficient *)
+      (* let vs2 = List.sort_uniq String.compare (vs2 @ vs2') in *)
+      let sub, pre = freshen_existentials vs2 (p2, h2) in
+      (* let r2 = Forward_rules.instantiateTerms sub r2 in *)
+      let es2r = List.map (instantiate_existentials_effect_stage sub) es2r in
+
+      (* contravariance of preconditions *)
+      let* pf1, ((pr, hr), inst1) = Heap.entails ([], pre) (vs1, (p1, h1)) in
+
+      let sub, post = freshen_existentials vs1 (qp1, qh1) in
+      (* let ns1 =  *)
+      (* let es1r = List.map (instantiate_existentials_effect_stage sub) es1r in *)
+      let es1r, ns1 = instantiate_existentials sub (es1r, ns1) in
+      let r1 = Forward_rules.instantiateTerms sub r1 in
+
+      let res_v = verifier_getAfreeVar ~from:"res" () in
+      (* covariance of postconditions *)
+      let* pf2, ((_pr, _hr), inst2) =
+        let qp1, qh1 = post in
+        Heap.entails
+          ( [],
+            (And (qp1, And (pr, Atomic (EQ, r1, Var res_v))), SepConj (qh1, hr))
+          )
+          (vs2, (And (qp2, Atomic (EQ, r2, Var res_v)), qh2))
+      in
+      (* compare effect names *)
+      let* _ =
+        if String.equal nm1 nm2 then Ok ()
+        else Error (rule ~name:"name-equal" "uh oh")
+      in
+      (* TODO prove return values are the same as part of the heap entailment? *)
+      (* unify effect params and return value *)
+      (* let unify =
+           List.fold_right
+             (fun (a, b) t -> And (t, Atomic (EQ, a, b)))
+             (List.map2 (fun a b -> (a, b)) a1 a2)
+             (Atomic (EQ, r1, r2))
+         in *)
+      let inst =
+        let ret =
+          match (r2, r1) with
+          | Var s2, Var s1 when List.mem s2 vs2 ->
+            (* both r1 and r2 are effects so their return terms should be variables. the real check is whether r2 is quantified *)
+            [(s2, s1)]
+          | _ -> []
+        in
+        ret @ inst1 @ inst2
+      in
+      (* TODO check if vars are removed from the new spec *)
+      (* substitute the instantiated variables away, also in the state we are maintaining *)
+      (* let es2', ns2 = Forward_rules.instantiateExistientalVar (es2', ns2) inst in *)
+      let es2r, ns2 =
+        instantiate_existentials
+          (List.map (fun (a, b) -> (a, Var b)) inst)
+          (es2r, ns2)
+      in
+      let _vs2 =
+        List.filter (fun v -> not (List.mem v (List.map fst inst))) vs2
+      in
+      let* pf, res = check_staged_subsumption_ (es1r, ns1) (es2r, ns2) in
+      Ok
+        ( rule ~children:[pf1; pf2; pf] ~name:"subsumption-stage" "%s |= %s"
+            (string_of_spec (normalisedStagedSpec2Spec s1))
+            (string_of_spec (normalisedStagedSpec2Spec s2)),
+          res )
+    end
+    | ([], ns1), ([], ns2) ->
+      (* base case: check the normal stage at the end *)
+      let (vs1, (p1, h1), (qp1, qh1), r1), (vs2, (p2, h2), (qp2, qh2), r2) =
+        (ns1, ns2)
+      in
+      (* let vs1 = List.sort_uniq String.compare (vs1 @ vs1') in *)
+      (* let vs2 = List.sort_uniq String.compare (vs2 @ vs2') in *)
+      (* contravariance *)
+      let* pf1, ((pr, hr), _inst1) =
+        Heap.entails (vs2, (p2, h2)) (vs1, (p1, h1))
+      in
+      let res_v = verifier_getAfreeVar ~from:"res" () in
+      (* covariance *)
+      let* pf2, ((pr, hr), _inst2) =
+        Heap.entails
+          ( vs1,
+            (And (And (qp1, Atomic (EQ, Var res_v, r1)), pr), SepConj (qh1, hr))
+          )
+          (vs2, (And (qp2, Atomic (EQ, Var res_v, r2)), qh2))
+      in
+      (* unify return value *)
+      let pure = Atomic (EQ, r1, r2) in
+      Ok
+        ( rule ~children:[pf1; pf2] ~name:"subsumption-base" "%s |= %s"
+            (string_of_spec (normalStage2Spec ns1))
+            (string_of_spec (normalStage2Spec ns2)),
+          (And (pr, pure), hr) )
+    | _ -> Error (rule ~name:"subsumption-stage" ~success:false "unequal length") *)
 
 (* let debug = false *)
 let ( let@ ) f x = f x
@@ -604,13 +630,13 @@ let rec check_qf2 :
     | Some ((x, v), h2') -> begin
       (* x is free. match against h1 exactly *)
       match Heap.split_find x h1 with
-      | Some (_v1, h1') -> begin
+      | Some (v1, h1') -> begin
         (* let  *)
         (* And (p1, Atomic (EQ, v, v1)) *)
         (* match *)
         check_qf2 (* (SepConj (k, PointsTo (x, v))) *) id vs
           (conj [p1], h1')
-          (conj [p2], h2')
+          (conj [p2; And (p1, Atomic (EQ, v, v1))], h2')
           k
         (* with
            | Error s ->
@@ -655,10 +681,26 @@ let rec check_staged_subsumption2 :
  fun i all_vars so_far s1 s2 ->
   match (s1, s2) with
   | (es1 :: es1r, ns1), (es2 :: es2r, ns2) -> begin
-    let _vs1, (p1, h1), (qp1, qh1), (nm1, _a1), r1 = es1 in
-    let _vs2, (p2, h2), (qp2, qh2), (nm2, _a2), r2 = es2 in
-
-    let triv = Atomic (EQ, r1, r2) in
+    (* let _vs1, (p1, h1), (qp1, qh1), (nm1, _a1), r1 = es1 in *)
+    (* let _vs2, (p2, h2), (qp2, qh2), (nm2, _a2), r2 = es2 in *)
+    let {
+      e_pre = p1, h1;
+      e_post = qp1, qh1;
+      e_constr = nm1, _a1;
+      e_ret = r1;
+      _;
+    } =
+      es1
+    in
+    let {
+      e_pre = p2, h2;
+      e_post = qp2, qh2;
+      e_constr = nm2, _a2;
+      e_ret = r2;
+      _;
+    } =
+      es2
+    in
 
     let@ pre_l, pre_r =
       check_qf2 (Format.asprintf "pre%d" i) all_vars (p2, h2) (p1, h1)
@@ -666,12 +708,15 @@ let rec check_staged_subsumption2 :
     let@ post_l, post_r =
       check_qf2 (Format.asprintf "post%d" i) all_vars (qp1, qh1) (qp2, qh2)
     in
+    let res_v = verifier_getAfreeVar ~from:"res" () in
     let fml =
       [
         ( Format.asprintf "post stage %d: %s |= %s" i
             (string_of_state (qp1, qh1))
             (string_of_state (qp2, qh2)),
-          Imply (conj [post_l], conj [post_r; triv]) );
+          Imply
+            ( conj [post_l; Atomic (EQ, Var res_v, r1)],
+              conj [post_r; Atomic (EQ, Var res_v, r2)] ) );
         ( Format.asprintf "pre stage %d: %s |= %s" i
             (string_of_state (p2, h2))
             (string_of_state (p1, h1)),
@@ -702,15 +747,18 @@ let rec check_staged_subsumption2 :
     let@ pre_l, pre_r = check_qf2 "pren" all_vars (p2, h2) (p1, h1) in
     (* cov *)
     let@ post_l, post_r = check_qf2 "postn" all_vars (qp1, qh1) (qp2, qh2) in
+    let res_v = verifier_getAfreeVar ~from:"res" () in
     let fml =
       [
-        ( Format.asprintf "norm res eq: %s = %s" (string_of_term r1)
-            (string_of_term r2),
-          Atomic (EQ, r1, r2) );
+        (* ( Format.asprintf "norm res eq: %s = %s" (string_of_term r1)
+             (string_of_term r2),
+           Atomic (EQ, r1, r2) ); *)
         ( Format.asprintf "norm post: %s |= %s"
             (string_of_state (qp1, qh1))
             (string_of_state (qp2, qh2)),
-          Imply (post_l, post_r) );
+          Imply
+            ( conj [post_l; Atomic (EQ, Var res_v, r1)],
+              conj [post_r; Atomic (EQ, Var res_v, r2)] ) );
         ( Format.asprintf "norm pre: %s |= %s"
             (string_of_state (p2, h2))
             (string_of_state (p1, h1)),
@@ -720,10 +768,11 @@ let rec check_staged_subsumption2 :
 
     let res =
       Provers.entails_exists True all_vars (conj (List.map snd (fml @ so_far)))
+      (* Provers.valid (conj (List.map snd (fml @ so_far))) *)
     in
     let debug = true in
     if debug then begin
-      Format.printf "%s\nz3: %s\n@."
+      Format.printf "vc\n%s\nz3: %s\n@."
         (string_of_quantified
            (fun a ->
              List.map
@@ -740,286 +789,365 @@ let rec check_staged_subsumption2 :
             (string_of_spec (normalStage2Spec ns2)),
           (True, EmptyHeap) )
     else Error (rule ~name:"subsumption-base" ~success:false "fail")
-  | _ -> Error (rule ~name:"subsumption-stage" ~success:false "unequal length")
+  | _ ->
+    Format.printf "FAIL, unequal length\n%s\n|=\n%s\n@."
+      (string_of_normalisedStagedSpec s1)
+      (string_of_normalisedStagedSpec s2);
+    Error (rule ~name:"subsumption-stage" ~success:false "unequal length")
+
+let extract_binders spec =
+  let binders, rest =
+    List.partition_map (function Exists vs -> Left vs | s -> Right s) spec
+  in
+  (List.concat binders, rest)
+
+let rec unfold_predicate_aux pred prefix already s : disj_spec =
+  match s with
+  | [] -> List.map List.rev prefix
+  | HigherOrder (_p, _h, (name, args), ret) :: s1
+    when String.equal name pred.p_name && not (List.mem name already) ->
+    (* unfold *)
+    let pred1 = instantiate_pred pred args ret in
+    let pref : disj_spec =
+      List.concat_map
+        (fun p -> List.map (fun b -> List.rev b @ p) pred1.p_body)
+        prefix
+    in
+    unfold_predicate_aux pred pref already s1
+  | c :: s1 ->
+    let pref = List.map (fun p -> c :: p) prefix in
+    unfold_predicate_aux pred pref already s1
 
 (** f;a;e \/ b and a == c \/ d
   => f;(c \/ d);e \/ b
   => f;c;e \/ f;d;e \/ b *)
 let unfold_predicate : pred_def -> disj_spec -> disj_spec =
  fun pred ds ->
-  let rec loop prefix already s =
-    match s with
-    | [] -> List.map List.rev prefix
-    | HigherOrder (_p, _h, (name, args), _r) :: s1
-      when String.equal name pred.p_name && not (List.mem name already) ->
-      (* unfold *)
-      let pred1 = instantiate_pred pred args in
-      let pref : disj_spec =
-        List.concat_map (fun p -> List.map (fun b -> b @ p) pred1.p_body) prefix
-      in
-      loop pref already s1
-    | c :: s1 ->
-      let pref = List.map (fun p -> c :: p) prefix in
-      loop pref already s1
-  in
-  List.concat_map (fun s -> loop [] [] s) ds
+  let init_prefix = [[]] in
+  List.concat_map
+    (fun s ->
+      (* move all binders to the front, then unfold in the rest, so scope isn't changed. for example, if we have (ex a. b), and unfold (b = c \/ d), we don't want to get ((ex a. c) \/ (ex a.d)) *)
+      (* unfortunately our representation does not allow this *)
+      (* let binders, rest = extract_binders s in *)
+      let rest = s in
+      let res = unfold_predicate_aux pred init_prefix [] rest in
+      res
+      (* Exists binders :: res *))
+    ds
 
-let check_staged_subsumption : lemma list -> spec -> spec -> state Res.pf =
- fun lems n1 n2 ->
-  (* apply lemmas once *)
-  let n1 = List.fold_right apply_lemma lems n1 in
-  let n2 = List.fold_right apply_lemma lems n2 in
+let check_staged_subsumption : spec -> spec -> state Res.pf =
+ fun n1 n2 ->
   (* proceed *)
   let es1, ns1 = normalise_spec n1 in
   let es2, ns2 = normalise_spec n2 in
+  Format.printf "norm, subsumption\n%s\n|=\n%s\n@."
+    (string_of_normalisedStagedSpec (es1, ns1))
+    (string_of_normalisedStagedSpec (es2, ns2));
   (* check_staged_subsumption_ (es1, ns1) (es2, ns2) *)
   check_staged_subsumption2 0
     (Forward_rules.getExistientalVar (es1, ns1)
     @ Forward_rules.getExistientalVar (es2, ns2))
     [] (es1, ns1) (es2, ns2)
 
+let apply_tactics ts lems preds (ds1 : disj_spec) (ds2 : disj_spec) =
+  Format.printf "before tactics\n%s\n|=\n%s\n@." (string_of_disj_spec ds1)
+    (string_of_disj_spec ds2);
+  List.fold_left
+    (fun t c ->
+      let r =
+        match c with
+        | Unfold_right ->
+          Format.printf "unfold right@.";
+          let ds1, ds2 = t in
+          let ds2 = List.fold_right unfold_predicate preds ds2 in
+          (ds1, ds2)
+        | Unfold_left ->
+          Format.printf "unfold left@.";
+          let ds1, ds2 = t in
+          let ds1 = List.fold_right unfold_predicate preds ds1 in
+          (ds1, ds2)
+        | Apply l ->
+          Format.printf "apply %s@." l;
+          ( List.map
+              (List.fold_right apply_lemma
+                 (List.filter (fun le -> String.equal le.l_name l) lems))
+              ds1,
+            ds2 )
+      in
+      Format.printf "%s\n|=\n%s\n@."
+        (string_of_disj_spec (fst r))
+        (string_of_disj_spec (snd r));
+      r)
+    (ds1, ds2) ts
+
+let before_solve : disj_spec -> disj_spec -> unit = fun _ _ -> ()
+
 (**
   Subsumption between disjunctive specs.
   S1 \/ S2 |= S3 \/ S4
 *)
-let subsumes_disj :
-    lemma list -> pred_def list -> disj_spec -> disj_spec -> state list Res.pf =
- fun lems preds ds1 ds2 ->
-  (* unfold all predicates once *)
-  let ds1 = List.fold_right unfold_predicate preds ds1 in
-  let ds2 = List.fold_right unfold_predicate preds ds2 in
+let check_staged_subsumption_disj :
+    tactic list ->
+    lemma list ->
+    pred_def list ->
+    disj_spec ->
+    disj_spec ->
+    state list Res.pf =
+ fun ts lems preds ds1 ds2 ->
+  let ds1, ds2 = apply_tactics ts lems preds ds1 ds2 in
+  before_solve ds1 ds2;
   (* proceed *)
   Res.all ~may_elide:true ~name:"subsumes-disj-lhs-all" ~to_s:string_of_spec ds1
     (fun s1 ->
       Res.any ~may_elide:true ~name:"subsumes-disj-rhs-any" ~to_s:string_of_spec
-        ds2 (fun s2 -> check_staged_subsumption lems s1 s2))
+        ds2 (fun s2 -> check_staged_subsumption s1 s2))
 
-let%expect_test "staged subsumption" =
-  verifier_counter_reset ();
-  let test name l r =
-    let res = check_staged_subsumption [] l r in
-    Format.printf "\n--- %s\n%s\n%s\n%s%s@." name (string_of_spec l)
-      (match res with Ok _ -> "|--" | Error _ -> "|-/-")
-      (string_of_spec r)
-      (match res with
-      | Ok (pf, residue) ->
-        Format.asprintf "\n==> %s\n%s" (string_of_state residue)
-          (string_of_proof pf)
-      | Error pf -> Format.asprintf "\n%s" (string_of_proof pf))
-  in
-  test "identity"
-    [
-      Require (True, PointsTo ("x", Num 1));
-      NormalReturn (True, PointsTo ("x", Num 1), Var "r");
-    ]
-    [
-      Require (True, PointsTo ("x", Num 1));
-      NormalReturn (True, PointsTo ("x", Num 1), Var "r");
-    ];
-  test "variables"
-    [
-      Require (True, PointsTo ("x", Var "a"));
-      NormalReturn (True, PointsTo ("x", Plus (Var "a", Num 1)), Var "r");
-    ]
-    [
-      Require (True, PointsTo ("x", Num 1));
-      NormalReturn (True, PointsTo ("x", Num 2), Var "r");
-    ];
-  test "contradiction?"
-    [
-      Require (True, PointsTo ("x", Var "a"));
-      NormalReturn (True, PointsTo ("x", Plus (Var "a", Num 1)), Var "r");
-    ]
-    [
-      Require (True, PointsTo ("x", Num 1));
-      NormalReturn (True, PointsTo ("x", Num 1), Var "r");
-    ];
-  test "eff stage"
-    [
-      RaisingEff
-        (True, PointsTo ("x", Plus (Var "a", Num 1)), ("E", []), Var "r");
-      Require (True, PointsTo ("x", Var "a"));
-      NormalReturn (True, PointsTo ("x", Plus (Var "a", Num 1)), Var "r");
-    ]
-    [
-      RaisingEff
-        (True, PointsTo ("x", Plus (Var "a", Num 1)), ("E", []), Var "r");
-      Require (True, PointsTo ("x", Num 1));
-      NormalReturn (True, PointsTo ("x", Num 1), Var "r");
-    ];
-  [%expect
-    {|
-    T=>T // norm pre: x->1 |= x->1
-    /\ T=>T // norm post: x->1 |= x->1
-    /\ r=r // norm res eq: r = r
-    z3: valid
+(* let%expect_test "staged subsumption" =
+     verifier_counter_reset ();
+     let test name l r =
+       let res = check_staged_subsumption l r in
+       Format.printf "\n--- %s\n%s\n%s\n%s%s@." name (string_of_spec l)
+         (match res with Ok _ -> "|--" | Error _ -> "|-/-")
+         (string_of_spec r)
+         (match res with
+         | Ok (pf, residue) ->
+           Format.asprintf "\n==> %s\n%s" (string_of_state residue)
+             (string_of_proof pf)
+         | Error pf -> Format.asprintf "\n%s" (string_of_proof pf))
+     in
+     test "identity"
+       [
+         Require (True, PointsTo ("x", Num 1));
+         NormalReturn (True, PointsTo ("x", Num 1), Var "r");
+       ]
+       [
+         Require (True, PointsTo ("x", Num 1));
+         NormalReturn (True, PointsTo ("x", Num 1), Var "r");
+       ];
+     test "variables"
+       [
+         Require (True, PointsTo ("x", Var "a"));
+         NormalReturn (True, PointsTo ("x", Plus (Var "a", Num 1)), Var "r");
+       ]
+       [
+         Require (True, PointsTo ("x", Num 1));
+         NormalReturn (True, PointsTo ("x", Num 2), Var "r");
+       ];
+     test "contradiction?"
+       [
+         Require (True, PointsTo ("x", Var "a"));
+         NormalReturn (True, PointsTo ("x", Plus (Var "a", Num 1)), Var "r");
+       ]
+       [
+         Require (True, PointsTo ("x", Num 1));
+         NormalReturn (True, PointsTo ("x", Num 1), Var "r");
+       ];
+     test "eff stage"
+       [
+         RaisingEff
+           (True, PointsTo ("x", Plus (Var "a", Num 1)), ("E", []), Var "r");
+         Require (True, PointsTo ("x", Var "a"));
+         NormalReturn (True, PointsTo ("x", Plus (Var "a", Num 1)), Var "r");
+       ]
+       [
+         RaisingEff
+           (True, PointsTo ("x", Plus (Var "a", Num 1)), ("E", []), Var "r");
+         Require (True, PointsTo ("x", Num 1));
+         NormalReturn (True, PointsTo ("x", Num 1), Var "r");
+       ];
+     [%expect
+       {|
+       norm, subsumption
+       req x->1; Norm(x->1, r)
+       |=
+       req x->1; Norm(x->1, r)
 
-
-    --- identity
-    req x->1; Norm(x->1, r)
-    |--
-    req x->1; Norm(x->1, r)
-    ==> emp
-    │[subsumption-base] req x->1; Norm(x->1, r) |= req x->1; Norm(x->1, r)
-
-    T=>T // norm pre: x->1 |= x->a
-    /\ T=>T // norm post: x->a+1 |= x->2
-    /\ r=r // norm res eq: r = r
-    z3: valid
+       vc
+       T=>T // norm pre: x->1 |= x->1
+       /\ res=r=>res=r // norm post: x->1 |= x->1
+       z3: valid
 
 
-    --- variables
-    req x->a; Norm(x->a+1, r)
-    |--
-    req x->1; Norm(x->2, r)
-    ==> emp
-    │[subsumption-base] req x->a; Norm(x->a+1, r) |= req x->1; Norm(x->2, r)
+       --- identity
+       req x->1; Norm(x->1, r)
+       |--
+       req x->1; Norm(x->1, r)
+       ==> emp
+       │[subsumption-base] req x->1; Norm(x->1, r) |= req x->1; Norm(x->1, r)
 
-    T=>T // norm pre: x->1 |= x->a
-    /\ T=>T // norm post: x->a+1 |= x->1
-    /\ r=r // norm res eq: r = r
-    z3: valid
+       norm, subsumption
+       req x->a; Norm(x->a+1, r)
+       |=
+       req x->1; Norm(x->2, r)
 
-
-    --- contradiction?
-    req x->a; Norm(x->a+1, r)
-    |--
-    req x->1; Norm(x->1, r)
-    ==> emp
-    │[subsumption-base] req x->a; Norm(x->a+1, r) |= req x->1; Norm(x->1, r)
-
-    T=>T // pre stage 0: emp |= emp
-    /\ T=>r=r // post stage 0: x->a+1 |= x->a+1
-    /\ T=>T // norm pre: x->1 |= x->a
-    /\ T=>T // norm post: x->a+1 |= x->1
-    /\ r=r // norm res eq: r = r
-    z3: valid
+       vc
+       T=>T // norm pre: x->1 |= x->a
+       /\ res=r=>res=r // norm post: x->a+1 |= x->2
+       z3: valid
 
 
-    --- eff stage
-    E(x->a+1, [], r); req x->a; Norm(x->a+1, r)
-    |--
-    E(x->a+1, [], r); req x->1; Norm(x->1, r)
-    ==> emp
-    │[subsumption-stage] E(x->a+1, [], r); req x->a; Norm(x->a+1, r) |= E(x->a+1, [], r); req x->1; Norm(x->1, r) |}]
+       --- variables
+       req x->a; Norm(x->a+1, r)
+       |--
+       req x->1; Norm(x->2, r)
+       ==> emp
+       │[subsumption-base] req x->a; Norm(x->a+1, r) |= req x->1; Norm(x->2, r)
 
-module Normalize = struct
-  let rec sl_dom (h : kappa) =
-    match h with
-    | EmptyHeap -> []
-    | PointsTo (s, _) -> [s]
-    | SepConj (a, b) -> sl_dom a @ sl_dom b
+       norm, subsumption
+       req x->a; Norm(x->a+1, r)
+       |=
+       req x->1; Norm(x->1, r)
 
-  let intersect xs ys =
-    List.fold_right (fun c t -> if List.mem c ys then c :: t else t) xs []
+       vc
+       T=>T // norm pre: x->1 |= x->a
+       /\ res=r=>res=r // norm post: x->a+1 |= x->1
+       z3: valid
 
-  let sl_disjoint h1 h2 =
-    match intersect (sl_dom h1) (sl_dom h2) with [] -> true | _ -> false
 
-  let normalize__ spec =
-    let rec one_pass (s : spec) =
-      match s with
-      | [] | [_] -> (s, false)
-      | s1 :: s2 :: ss ->
-        let s3, c =
-          match (s1, s2) with
-          | Require (p1, h1), Require (p2, h2) ->
-            (* rule 1 *)
-            ([Require (And (p1, p2), SepConj (h1, h2))], true)
-          | NormalReturn (p1, h1, r1), NormalReturn (p2, h2, r2) when r1 = r2 ->
-            (* rule 2 *)
-            (* the equality at the end is res=a /\ res=b *)
-            ([NormalReturn (And (p1, p2), SepConj (h1, h2), r1)], true)
-          | NormalReturn (p1, h1, r1), Require (p2, h2) ->
-            (* rule 3 *)
-            (* TODO vars *)
-            let r = Heap.entails ([], (p1, h1)) ([], (p2, h2)) in
-            begin
-              match r with
-              | Error _ when sl_disjoint h1 h2 ->
-                (* rule 4 *)
-                ([s2; s1], true)
-              | Error _ -> ([s1; s2], false)
-              | Ok (_pf, ((rp, rh), _inst)) ->
-                ([NormalReturn (And (And (p1, p2), rp), rh, r1)], true)
-            end
-          | _, _ -> ([s1; s2], false)
-        in
-        let hd, tl = match s3 with [] -> ([], []) | h :: t -> ([h], t) in
-        let s5, c1 = one_pass (tl @ ss) in
-        (hd @ s5, c || c1)
-    in
-    if false then ProversEx.to_fixed_point one_pass spec
-    else one_pass spec |> fst
+       --- contradiction?
+       req x->a; Norm(x->a+1, r)
+       |--
+       req x->1; Norm(x->1, r)
+       ==> emp
+       │[subsumption-base] req x->a; Norm(x->a+1, r) |= req x->1; Norm(x->1, r)
 
-  let%expect_test "normalize" =
-    verifier_counter_reset ();
-    let test name s =
-      Format.printf "--- %s\n%s\n%s\n@." name (string_of_spec s)
-        (normalize__ s |> string_of_spec)
-    in
-    test "inert"
-      [
-        Require (True, PointsTo ("x", Num 1));
-        NormalReturn (True, PointsTo ("x", Num 1), UNIT);
-      ];
-    test "rule 4"
-      [
-        NormalReturn (True, PointsTo ("x", Num 1), UNIT);
-        Require (True, PointsTo ("y", Num 1));
-      ];
-    test "rule 3 (TODO prob wrong)"
-      [
-        NormalReturn (True, PointsTo ("x", Num 1), UNIT);
-        Require (True, PointsTo ("x", Num 2));
-      ];
-    test "rule 1"
-      [
-        Require (True, PointsTo ("x", Num 2));
-        Require (True, PointsTo ("y", Num 2));
-      ];
-    test "rule 1 weird"
-      [
-        Require (True, PointsTo ("x", Num 2));
-        Require (True, PointsTo ("x", Num 2));
-      ];
-    test "rule 2"
-      [
-        NormalReturn (True, PointsTo ("x", Num 1), UNIT);
-        NormalReturn (True, PointsTo ("y", Num 1), UNIT);
-      ];
-    test "rule 2 weird"
-      [
-        NormalReturn (True, PointsTo ("x", Num 1), UNIT);
-        NormalReturn (True, PointsTo ("x", Num 1), UNIT);
-      ];
-    [%expect
-      {|
-      --- inert
-      req x->1; Norm(x->1, ())
-      req x->1; Norm(x->1, ())
+       norm, subsumption
+       req emp; E(x->a+1, [], r); req x->a; Norm(x->a+1, r)
+       |=
+       req emp; E(x->a+1, [], r); req x->1; Norm(x->1, r)
 
-      --- rule 4
-      Norm(x->1, ()); req y->1
-      req y->1; Norm(x->1, ())
+       vc
+       T=>T // pre stage 0: emp |= emp
+       /\ res=r=>res=r // post stage 0: x->a+1 |= x->a+1
+       /\ T=>T // norm pre: x->1 |= x->a
+       /\ res=r=>res=r // norm post: x->a+1 |= x->1
+       z3: valid
 
-      --- rule 3 (TODO prob wrong)
-      Norm(x->1, ()); req x->2
-      Norm(T/\T/\2=1, ())
 
-      --- rule 1
-      req x->2; req y->2
-      req x->2*y->2 /\ T/\T
+       --- eff stage
+       E(x->a+1, [], r); req x->a; Norm(x->a+1, r)
+       |--
+       E(x->a+1, [], r); req x->1; Norm(x->1, r)
+       ==> emp
+       │[subsumption-stage] E(x->a+1, [], r); req x->a; Norm(x->a+1, r) |= E(x->a+1, [], r); req x->1; Norm(x->1, r) |}]
 
-      --- rule 1 weird
-      req x->2; req x->2
-      req x->2*x->2 /\ T/\T
+   module Normalize = struct
+     let rec sl_dom (h : kappa) =
+       match h with
+       | EmptyHeap -> []
+       | PointsTo (s, _) -> [s]
+       | SepConj (a, b) -> sl_dom a @ sl_dom b
 
-      --- rule 2
-      Norm(x->1, ()); Norm(y->1, ())
-      Norm(x->1*y->1 /\ T/\T, ())
+     let intersect xs ys =
+       List.fold_right (fun c t -> if List.mem c ys then c :: t else t) xs []
 
-      --- rule 2 weird
-      Norm(x->1, ()); Norm(x->1, ())
-      Norm(x->1*x->1 /\ T/\T, ()) |}]
-end
+     let sl_disjoint h1 h2 =
+       match intersect (sl_dom h1) (sl_dom h2) with [] -> true | _ -> false
+
+     let normalize__ spec =
+       let rec one_pass (s : spec) =
+         match s with
+         | [] | [_] -> (s, false)
+         | s1 :: s2 :: ss ->
+           let s3, c =
+             match (s1, s2) with
+             | Require (p1, h1), Require (p2, h2) ->
+               (* rule 1 *)
+               ([Require (And (p1, p2), SepConj (h1, h2))], true)
+             | NormalReturn (p1, h1, r1), NormalReturn (p2, h2, r2) when r1 = r2 ->
+               (* rule 2 *)
+               (* the equality at the end is res=a /\ res=b *)
+               ([NormalReturn (And (p1, p2), SepConj (h1, h2), r1)], true)
+             | NormalReturn (p1, h1, r1), Require (p2, h2) ->
+               (* rule 3 *)
+               (* TODO vars *)
+               let r = Heap.entails ([], (p1, h1)) ([], (p2, h2)) in
+               begin
+                 match r with
+                 | Error _ when sl_disjoint h1 h2 ->
+                   (* rule 4 *)
+                   ([s2; s1], true)
+                 | Error _ -> ([s1; s2], false)
+                 | Ok (_pf, ((rp, rh), _inst)) ->
+                   ([NormalReturn (And (And (p1, p2), rp), rh, r1)], true)
+               end
+             | _, _ -> ([s1; s2], false)
+           in
+           let hd, tl = match s3 with [] -> ([], []) | h :: t -> ([h], t) in
+           let s5, c1 = one_pass (tl @ ss) in
+           (hd @ s5, c || c1)
+       in
+       if false then ProversEx.to_fixed_point one_pass spec
+       else one_pass spec |> fst
+
+     let%expect_test "normalize" =
+       verifier_counter_reset ();
+       let test name s =
+         Format.printf "--- %s\n%s\n%s\n@." name (string_of_spec s)
+           (normalize__ s |> string_of_spec)
+       in
+       test "inert"
+         [
+           Require (True, PointsTo ("x", Num 1));
+           NormalReturn (True, PointsTo ("x", Num 1), UNIT);
+         ];
+       test "rule 4"
+         [
+           NormalReturn (True, PointsTo ("x", Num 1), UNIT);
+           Require (True, PointsTo ("y", Num 1));
+         ];
+       test "rule 3 (TODO prob wrong)"
+         [
+           NormalReturn (True, PointsTo ("x", Num 1), UNIT);
+           Require (True, PointsTo ("x", Num 2));
+         ];
+       test "rule 1"
+         [
+           Require (True, PointsTo ("x", Num 2));
+           Require (True, PointsTo ("y", Num 2));
+         ];
+       test "rule 1 weird"
+         [
+           Require (True, PointsTo ("x", Num 2));
+           Require (True, PointsTo ("x", Num 2));
+         ];
+       test "rule 2"
+         [
+           NormalReturn (True, PointsTo ("x", Num 1), UNIT);
+           NormalReturn (True, PointsTo ("y", Num 1), UNIT);
+         ];
+       test "rule 2 weird"
+         [
+           NormalReturn (True, PointsTo ("x", Num 1), UNIT);
+           NormalReturn (True, PointsTo ("x", Num 1), UNIT);
+         ];
+       [%expect
+         {|
+         --- inert
+         req x->1; Norm(x->1, ())
+         req x->1; Norm(x->1, ())
+
+         --- rule 4
+         Norm(x->1, ()); req y->1
+         req y->1; Norm(x->1, ())
+
+         --- rule 3 (TODO prob wrong)
+         Norm(x->1, ()); req x->2
+         Norm(T/\T/\2=1, ())
+
+         --- rule 1
+         req x->2; req y->2
+         req x->2*y->2 /\ T/\T
+
+         --- rule 1 weird
+         req x->2; req x->2
+         req x->2*x->2 /\ T/\T
+
+         --- rule 2
+         Norm(x->1, ()); Norm(y->1, ())
+         Norm(x->1*y->1 /\ T/\T, ())
+
+         --- rule 2 weird
+         Norm(x->1, ()); Norm(x->1, ())
+         Norm(x->1*x->1 /\ T/\T, ()) |}]
+   end *)

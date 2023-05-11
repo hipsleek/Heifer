@@ -151,6 +151,27 @@ let findFormalArgFromPattern (p): string list =
 
   | _ -> []
 
+let rec get_tactic e =
+  match e with
+  | { pexp_desc = Pexp_ident { txt = Lident "unfold_right"; _ }; _ } ->
+    [Unfold_right]
+  | { pexp_desc = Pexp_ident { txt = Lident "unfold_left"; _ }; _ } ->
+    [Unfold_left]
+  | { pexp_desc = Pexp_apply ({pexp_desc = Pexp_ident { txt = Lident "apply"; _ }; _}, [(_, {pexp_desc = Pexp_ident { txt = Lident lem; _ }; _})]); _ } ->
+    [Apply lem]
+  | { pexp_desc = Pexp_sequence (e1, e2); _ } ->
+    let a = get_tactic e1 in
+    let b = get_tactic e2 in
+    a @ b
+  | _ -> []
+
+let collect_annotations attrs =
+  List.fold_right
+    (fun c t ->
+      match c.attr_payload with
+      | PStr [{ pstr_desc = Pstr_eval (e, _); _ }] when String.equal "proof" c.attr_name.txt -> get_tactic e
+      | _ -> t)
+    attrs []
 
 (** Given the RHS of a let binding, returns the es it is annotated with *)
 let function_spec rhs =
@@ -181,11 +202,11 @@ let string_of_effectspec spec:string =
     | Some p -> string_of_spec p
 
 let string_of_program (cp:core_program) :string =
-  List.map (fun (name, args, spec, body) ->
-    Format.asprintf "let rec %s %s\n(*@@ %s @@*)\n=\n%s" name
-    (match args with | [] -> "()" | _ -> String.concat " " args)
-    (List.map string_of_spec spec |> String.concat "\n\\/\n")
-    (string_of_core_lang body)
+  List.map (fun m ->
+    Format.asprintf "let rec %s %s\n(*@@ %s @@*)\n=\n%s" m.m_name
+    (match m.m_params with | [] -> "()" | _ -> String.concat " " m.m_params)
+    (List.map string_of_spec m.m_spec |> String.concat "\n\\/\n")
+    (string_of_core_lang m.m_body)
   ) cp.cp_methods |> String.concat "\n\n"
 
 
@@ -742,6 +763,7 @@ let collect_param_names rhs =
 let transform_str env (s : structure_item) =
   match s.pstr_desc with
   | Pstr_value (_rec_flag, vb::_vbs_) ->
+    let tactics = collect_annotations vb.pvb_attributes in
     let fn_name = string_of_pattern vb.pvb_pat in
     let fn = vb.pvb_expr in
     begin match fn.pexp_desc with
@@ -753,7 +775,7 @@ let transform_str env (s : structure_item) =
       in
       let formals, body = collect_param_names fn in
       let e = transformation (fn_name :: formals @ env) body in
-      `Meth (fn_name, formals, spec, e)
+      `Meth (fn_name, formals, spec, e, tactics)
     | _ ->
       failwith (Format.asprintf "not a function binding: %a" Pprintast.expression fn)
     end
@@ -768,6 +790,8 @@ let transform_str env (s : structure_item) =
 
 (* meth_def = string * (string list) * (spec list) * core_lang *)
     
+  | Pstr_lemma (l_name, l_left, l_right) -> `Lem { l_name; l_left; l_right }
+  | Pstr_predicate (p_name, p_params, p_body) -> `Pred {p_name; p_params; p_body}
   | Pstr_effect { peff_name; peff_kind=_; _ } ->
       let name = peff_name.txt in
       `Eff name
@@ -796,12 +820,14 @@ let transform_str env (s : structure_item) =
   | _ -> failwith (Format.asprintf "unknown program element: %a" Pprintast.structure [s])
 
 let transform_strs (strs: structure_item list) : core_program =
-  let _env, effs, mths =
-    List.fold_left (fun (env, es, ms) c ->
+  let _env, effs, mths, preds, lems =
+    List.fold_left (fun (env, es, ms, ps, ls) c ->
       match transform_str env c with
-      | `Eff a -> env, a :: es, ms
-      | `Meth ((name, _, _, _) as a) -> name :: env, es, a :: ms) ([], [], []) strs
-  in { cp_effs = List.rev effs; cp_methods = List.rev mths; cp_preds = [] }
+      | `Lem l -> env, es, ms, ps, l :: ls
+      | `Pred p -> env, es, ms, p :: ps, ls
+      | `Eff a -> env, a :: es, ms, ps, ls
+      | `Meth (m_name, m_params, m_spec, m_body, m_tactics) -> m_name :: env, es, { m_name; m_params; m_spec; m_body; m_tactics } :: ms, ps, ls) ([], [], [], [], []) strs
+  in { cp_effs = List.rev effs; cp_methods = List.rev mths; cp_predicates = preds; cp_lemmas = lems }
 
 (* returns the inference result as a string to be printed *)
 (* let rec infer_of_program env x: string * env =
@@ -962,8 +988,8 @@ let rec compareEffectArgument unification v1 v2 =
   | (_, _) -> false 
 
 let checkEntailMentForEffFlow (lhs:effectStage) (rhs:effectStage) : (bool) = 
-  let (ex1, (pi1, heap1), (pi2, heap2), (eff1, v1), r1) = lhs in 
-  let (ex2, (pi3, heap3), (pi4, heap4), (eff2, v2), r2) = rhs in  
+  let {e_evars=ex1; e_pre=(pi1, heap1); e_post=(pi2, heap2); e_constr=(eff1, v1); e_ret=r1; _} = lhs in 
+  let {e_evars=ex2; e_pre=(pi3, heap3); e_post=(pi4, heap4); e_constr=(eff2, v2); e_ret=r2; _} = rhs in  
   let () = exGlobal := !exGlobal @ ex1 @ ex2 in 
   let (contravariant) = speration_logic_ential (pi3, heap3) (pi1, heap1) in 
   let (covariant)     = speration_logic_ential (pi2, heap2) (pi4, heap4) in 
@@ -1014,7 +1040,7 @@ let run_string_ incremental line =
   let progs = Parser.implementation Lexer.token (Lexing.from_string line) in
   let prog = transform_strs progs in
   (* print_endline (string_of_program prog); *)
-  List.iter (fun (_name, _params, given_spec, body) ->
+  List.iter (fun {m_spec = given_spec; m_body = body; m_name; m_tactics; _} ->
     (* this is done so tests are independent.
        each function is analyzed in isolation so this is safe. *)
     Pretty.verifier_counter_reset ();
@@ -1027,7 +1053,9 @@ let run_string_ incremental line =
       let time_stamp_afterNormal = Sys.time() in
       (* let res = entailmentchecking inferred_spec_n given_spec_n in *)
       let res =
-        match Entail.subsumes_disj [] [] inferred_spec given_spec with
+        match Entail.check_staged_subsumption_disj m_tactics
+        prog.cp_lemmas prog.cp_predicates
+        inferred_spec given_spec with
         | Ok _ -> true
         | Error _ -> false
       in 
@@ -1039,7 +1067,7 @@ let run_string_ incremental line =
 
 
       let header =
-        "\n========== Function: "^ _name ^" ==========\n" ^
+        "\n========== Function: "^ m_name ^" ==========\n" ^
         "[Specification] " ^ string_of_spec_list given_spec ^"\n" ^
         "[Normed   Spec] " ^ string_of_spec_list given_spec_n ^"\n\n" ^
         "[Raw Post Spec] " ^ string_of_spec_list inferred_spec ^ "\n" ^
@@ -1050,7 +1078,7 @@ let run_string_ incremental line =
         (if res then (Pretty.green "true")
           else (Pretty.red "false")) ^ "\n" ^
         "[Entail  Time] " ^ string_of_float ((time_stamp_afterEntail  -. time_stamp_afterNormal) *. 1000.0) ^ " ms\n" ^
-        (String.init (String.length _name + 32) (fun _ -> '=')) ^ "\n"
+        (String.init (String.length m_name + 32) (fun _ -> '=')) ^ "\n"
 
     
       in

@@ -719,6 +719,8 @@ let mk_directive ~loc name arg =
 %token <string * Location.t> COMMENT
 %token LSPECCOMMENT
 %token RSPECCOMMENT
+%token PREDICATE
+%token LEMMA
 %token <Docstrings.docstring> DOCSTRING
 
 %token EOL
@@ -1341,6 +1343,10 @@ structure_item:
       { val_of_let_bindings ~loc:$sloc $1 }
   | EFFECT effect_declaration
       { mkstr ~loc:$sloc (Pstr_effect $2) }
+  | LSPECCOMMENT PREDICATE name=LIDENT args=delimited(LPAREN, separated_nonempty_list(COMMA, LIDENT), RPAREN) EQUAL body=separated_nonempty_list(DISJUNCTION, effect_spec) RSPECCOMMENT
+    { mkstr ~loc:$sloc (Pstr_predicate (name, args, body)) }
+  | LSPECCOMMENT LEMMA name=LIDENT EQUAL left=stagedSpec1 IMPLICATION right=effect_spec RSPECCOMMENT
+    { mkstr ~loc:$sloc (Pstr_lemma (name, left, right)) }
   | mkstr(
       item_extension post_item_attributes
         { let docs = symbol_docs $sloc in
@@ -2595,7 +2601,7 @@ pure_formula:
   | v = LIDENT LPAREN a = pure_formula_term RPAREN { Predicate (v, a) }
 ;
 
-
+(*
 effect_spec_aux:
 | {[]}
 | DISJUNCTION eff= effect_spec {eff}
@@ -2606,11 +2612,12 @@ heapES:
 | LBRACKET p = pure_formula RBRACKET {AssertHeapES p}
 | k1 = heapES DOT k2 = heapES {ConsHeapES (k1, k2) }
 | k1 = heapES DISJUNCTION k2 = heapES {DisjHeapES (k1, k2) }
-
+*)
 
 
 stagedSpecArgs :
   | h=heapkappa COMMA rest=separated_nonempty_list(COMMA, effect_trace_value) { (True, h, rest) }
+  | p=pure_formula CONJUNCTION h=heapkappa COMMA rest=separated_nonempty_list(COMMA, effect_trace_value) { (p, h, rest) }
 
 stagedSpec1 : 
   | EXISTS vs=nonempty_list(LIDENT) { Exists vs }
@@ -2623,32 +2630,14 @@ stagedSpec1 :
       | [] ->  failwith "stagedSpec1 NormalReturn" 
       | x ::_  -> NormalReturn (p, h, x))
     | _, (p, h, a) ->
-      (* why is basic stuff like this not available *)
-      let rec split xs =
-        match xs with
-        | [] -> failwith "split"
-        | [x] -> ([], x)
-        | x :: xs ->
-          let init, last = split xs in
-          (x :: init, last)
-      in
-      let init, last = split a in
+      let init, last = split_last a in
       RaisingEff (p, h, (constr, init), last)
   }
   | constr=LIDENT args=delimited(LPAREN, separated_nonempty_list(COMMA, effect_trace_value), RPAREN)
   {
     (* INFIXOP0 *)
-    (* we dn't check if the infix op is a dollar *)
-    (* why is basic stuff like this not available *)
-    let rec split xs =
-      match xs with
-      | [] -> failwith "split"
-      | [x] -> ([], x)
-      | x :: xs ->
-        let init, last = split xs in
-        (x :: init, last)
-    in
-    let init, last = split args in
+    (* we don't check if the infix op is a dollar *)
+    let init, last = split_last args in
     HigherOrder (True, EmptyHeap, (constr, init), last)
   }
 
