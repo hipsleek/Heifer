@@ -22,6 +22,7 @@ function run() {
 }
 function enable_buttons() {
   document.querySelector("#run-btn").disabled = false;
+  document.querySelector("#share-btn").disabled = false;
 }
 function load_example(s) {
   clear_output();
@@ -30,19 +31,38 @@ function load_example(s) {
 
 const field = document.querySelector("#output");
 const old_console = console;
-window.console = {
-  log(...args) {
-    // field.value += args.join(' ') + '\n';
-    field.innerHTML +=
-      '<div class="output-line">' +
-      args.join(" ").replace(/\n/g, '</div><div class="output-line">') +
-      "</div>";
-    // field.textContent += args.join(" ");
-    // old_console.log(...args);
-  },
-};
+
+const redirect_output = true;
+if (redirect_output) {
+  window.console = {
+    log(...args) {
+      // field.value += args.join(' ') + '\n';
+      field.innerHTML +=
+        '<div class="output-line">' +
+        args.join(" ").replace(/\n/g, '</div><div class="output-line">') +
+        "</div>";
+      // field.textContent += args.join(" ");
+      // old_console.log(...args);
+    },
+  };
+}
+
 function clear_output() {
   field.innerHTML = "";
 }
 
-load_example(document.querySelector("#examples"));
+function share() {
+  const url = new URL(window.location);
+  url.search = new URLSearchParams({ c: window.btoa(inp.value) });
+  // this navigates away
+  // window.location = url.toString();
+  history.pushState({}, "Shared URL", url.toString());
+}
+
+const queryParams = new URLSearchParams(window.location.search);
+if (queryParams.get("c") !== null) {
+  const code = window.atob(queryParams.get("c"));
+  inp.value = code;
+} else {
+  load_example(document.querySelector("#examples"));
+}
