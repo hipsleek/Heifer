@@ -1,24 +1,6 @@
-const inp = document.querySelector("#input");
-
-//       var s = `effect Eff : unit
-
-// let test ()
-// (*@ ex i ;
-//   Eff(i->0, ret);
-//   req i-> z;
-//   Norm(i->z+1, ret)
-// @*)
-// =
-//   let i = Sys.opaque_identity (ref 0) in
-//   let ret = perform Eff in
-//   i := !i + 1;
-//   ret`;
-
-// inp.value = s;
-
 function run() {
   clear_output();
-  hip_run_string(false, inp.value);
+  hip_run_string(false, editorGet());
 }
 function enable_buttons() {
   document.querySelector("#run-btn").disabled = false;
@@ -26,9 +8,10 @@ function enable_buttons() {
 }
 function load_example(s) {
   clear_output();
-  inp.value = s.value;
+  editorSet(s.value);
 }
 
+// const inp = document.querySelector("#input");
 const field = document.querySelector("#output");
 const old_console = console;
 
@@ -53,16 +36,61 @@ function clear_output() {
 
 function share() {
   const url = new URL(window.location);
-  url.search = new URLSearchParams({ c: window.btoa(inp.value) });
+  url.search = new URLSearchParams({ c: window.btoa(editorGet()) });
   // this navigates away
   // window.location = url.toString();
   history.pushState({}, "Shared URL", url.toString());
 }
 
-const queryParams = new URLSearchParams(window.location.search);
-if (queryParams.get("c") !== null) {
-  const code = window.atob(queryParams.get("c"));
-  inp.value = code;
-} else {
-  load_example(document.querySelector("#examples"));
+let editor;
+function setupEditor() {
+  editor = ace.edit("editor");
+  editor.setTheme("ace/theme/xcode");
+  editor.setShowPrintMargin(false);
+  editor.setHighlightActiveLine(false);
+  editor.setOption("displayIndentGuides", false);
+  editor.session.setUseWorker(false);
+  editor.session.setUseWrapMode(true);
+  editor.session.setOptions({
+    mode: "ace/mode/ocaml",
+    tabSize: 2,
+    useSoftTabs: true,
+    fontSize: "14pt",
+  });
+  editor.commands.addCommand({
+    name: "Run",
+    bindKey: { win: "Ctrl-Enter", mac: "Command-Enter" },
+    exec: function (_editor) {
+      run();
+    },
+    // scrollIntoView: "cursor",
+  });
+  editor.focus();
 }
+
+function editorSet(s) {
+  // inp.value = s;
+  editor.setValue(s, -1);
+}
+
+function editorGet(s) {
+  // return inp.value;
+  return editor.getValue();
+}
+
+function vim() {
+  editor.setKeyboardHandler("ace/keyboard/vim");
+}
+
+function main() {
+  const queryParams = new URLSearchParams(window.location.search);
+  if (queryParams.get("c") !== null) {
+    const code = window.atob(queryParams.get("c"));
+    editorSet(code);
+  } else {
+    load_example(document.querySelector("#examples"));
+  }
+}
+
+setupEditor();
+main();
