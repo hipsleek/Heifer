@@ -28,6 +28,7 @@ function solve(f, k) {
 
   // const { Context } = init();
   const ctx = new Context("main");
+  window.ctx = ctx;
   // const { Solver, Int, And } = ctx;
   // const x = Int.const('x');
   const solver = new ctx.Solver();

@@ -393,7 +393,7 @@ let mergeState (pi1, h1) (pi2, h2) =
   (*print_endline (string_of_kappa (SepConj (h1, h2)) ^ " =====> ");
   print_endline (string_of_kappa heap ^ "   and    " ^ string_of_pi unification);
 *)
-  (Provers.normalPure (And (pi1, pi2)), heap)
+  (ProversEx.normalize_pure (And (pi1, pi2)), heap)
 
 
 let rec string_of_normalisedStagedSpec (spec:normalisedStagedSpec) : string = 
@@ -515,7 +515,7 @@ let normalise_stagedSpec (acc:normalisedStagedSpec) (stagedSpec:stagedSpec) : no
     let (h2',   unification')    = normaliseMagicWand h3 h2 existential false in 
 
 
-    let normalStage' = (existential, mergeState req (And(p3, unification), magicWandHeap), (Provers.normalPure (And(p2, unification')), h2'), ret) in 
+    let normalStage' = (existential, mergeState req (And(p3, unification), magicWandHeap), (ProversEx.normalize_pure (And(p2, unification')), h2'), ret) in 
     (effectStages, normalStage')
 
   | NormalReturn (pi, heap, ret') -> (effectStages, (existential, req, mergeState ens (pi, heap), ret'))
@@ -642,7 +642,7 @@ let rec detectfailedAssertions (spec:spec) : spec =
   | [] -> []
   | Require (pi, heap) :: xs  -> 
     (
-      let pi' = Provers.normalPure pi in 
+      let pi' = ProversEx.normalize_pure pi in 
       match ProversEx.entailConstrains pi' (False) with 
       | true  -> [Require (False , heap)]
       | _ -> Require (pi' , heap) ::  detectfailedAssertions xs 

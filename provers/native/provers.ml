@@ -138,27 +138,4 @@ let askZ3 pi =
     let () = historyTable := (hash_pi pi, re) :: !historyTable in
     re
 
-let rec normalPure (pi : pi) : pi =
-  match pi with
-  | And (p1, p2) ->
-    let p1 = normalPure p1 in
-    let p2 = normalPure p2 in
-    (match (p1, p2) with
-    | True, _ -> p2
-    | _, True -> p1
-    | False, _ -> False
-    | _, False -> False
-    | _, _ -> And (p1, p2))
-  | Or (p1, p2) ->
-    let p1 = normalPure p1 in
-    let p2 = normalPure p2 in
-    (match (p1, p2) with
-    | True, _ -> True
-    | _, True -> True
-    | False, _ -> p2
-    | _, False -> p1
-    | _, _ -> Or (p1, p2))
-  | Not p1 -> Not (normalPure p1)
-  | _ -> pi
-
 let handle f = f ()
