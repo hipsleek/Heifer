@@ -276,7 +276,7 @@ function setupEditor() {
       start: [
         {
           token: "comment",
-          regex: "\\(\\*.*?\\*\\)\\s*?$",
+          regex: "\\(\\*.*?\\*\\)\\s*?",
         },
         {
           token: "comment",
