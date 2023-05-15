@@ -12,6 +12,8 @@
     <script type="text/javascript" src="z3-built.js"></script>
     <script type="text/javascript" src="bundle.js"></script>
     <script type="text/javascript" defer src="hipjs.bc.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ace-builds@1.20.0/src-min-noconflict/ace.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ace-builds@1.20.0/src-min-noconflict/ace.min.js"></script>
     <style>
       /* layout taken from https://github.com/mwillsey/egg-smol */
       body {
@@ -93,9 +95,10 @@
   </head>
 
   <body>
-    <div id="editor">
-      <textarea id="input"></textarea>
-    </div>
+    <div id="editor"></div>
+    <!-- <div id="editor">
+      <textarea id="input" spellcheck="false"></textarea>
+    </div> -->
     <div id="panel">
       <div id="toolbar">
         <button id="run-btn" disabled onclick="run()">Run</button>
@@ -656,6 +659,7 @@ let handler2  ()
   | v -> v (*print_string (string_of_int !i) *)
   | effect Read k -> (continue k (!i))">src/evaluation/9_memory_cell_nested.ml</option>
         </select>
+        <button id="share-btn" disabled onclick="share()">Share</button>
       </div>
       <div id="output"></div>
     </div>
