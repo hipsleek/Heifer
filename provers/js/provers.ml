@@ -77,14 +77,17 @@ let entails_exists p1 vs p2 =
         Jv.apply (Jv.get ctx "Implies")
           [|
             build_fml p1 ctx;
-            Jv.apply (Jv.get ctx "Exists")
-              [|
-                Jv.of_list
-                  (fun v ->
-                    Jv.call (Jv.get ctx "Int") "const" [| Jv.of_string v |])
-                  vs;
-                build_fml p2 ctx;
-              |];
+            (match vs with
+            | [] -> build_fml p2 ctx
+            | _ :: _ ->
+              Jv.apply (Jv.get ctx "Exists")
+                [|
+                  Jv.of_list
+                    (fun v ->
+                      Jv.call (Jv.get ctx "Int") "const" [| Jv.of_string v |])
+                    vs;
+                  build_fml p2 ctx;
+                |]);
           |];
       |]
   in
