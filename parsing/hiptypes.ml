@@ -8,6 +8,9 @@ type term =
     | Plus of term * term 
     | Minus of term * term 
 
+let term_true = Num 0
+let term_false = Num 1
+
 (* an occurrence of an effect *)
 type instant = string * term list
 
