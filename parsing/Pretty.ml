@@ -792,3 +792,13 @@ let string_of_effect_stage (vs, pre, post, eff, ret) =
 
 let string_of_normal_stage (vs, pre, post, ret) =
   Format.asprintf "ex %s. req %s; ens %s /\\ res=%s" (String.concat " " vs) (string_of_state pre) (string_of_state post) (string_of_term ret)
+
+let string_of_existentials vs = 
+  match vs with
+  | [] -> ""
+  | _ :: _ -> Format.asprintf "ex %s. " (String.concat "," vs)
+
+let string_of_res b = if b then green "true" else red "false"
+
+let string_of_option to_s o : string =
+  match o with Some a -> "Some " ^ to_s a | None -> "None"

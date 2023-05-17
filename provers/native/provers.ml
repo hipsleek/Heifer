@@ -107,9 +107,13 @@ let ex_quantify_expr vars ctx e =
 (** check if [p1 => ex vs. p2] is valid. this is a separate function which doesn't cache results because exists isn't in pi *)
 let entails_exists p1 vs p2 =
   let f ctx =
-    Z3.Boolean.mk_not ctx
-      (Z3.Boolean.mk_implies ctx (pi_to_expr ctx p1)
-         (ex_quantify_expr vs ctx (pi_to_expr ctx p2)))
+    let r =
+      Z3.Boolean.mk_not ctx
+        (Z3.Boolean.mk_implies ctx (pi_to_expr ctx p1)
+           (ex_quantify_expr vs ctx (pi_to_expr ctx p2)))
+    in
+    (* Format.printf "oblig: %s@." (Expr.to_string r); *)
+    r
   in
   not (check_sat ~debug:false f)
 

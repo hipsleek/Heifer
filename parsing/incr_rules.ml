@@ -20,13 +20,14 @@ let staged_to_state s =
   let _es, (_vs, _pre, (p, h), v) = normalise_spec s in
   (And (p, Atomic (EQ, Var "res", v)), h)
 
+open Res.Res
+
 let rec incremental_rules :
     ?fn_env:(string * fn_spec) list ->
     entail_star ->
     core_lang ->
-    entail_star Res.pf =
+    entail_star pf =
  fun ?(fn_env = []) pre e ->
-  let open Res in
   let left, right = pre in
   match e with
   | CRead v ->

@@ -1052,13 +1052,7 @@ let run_string_ incremental line =
       let inferred_spec_n = normalise_spec_list_aux1 inferred_spec in
       let time_stamp_afterNormal = Sys.time() in
       (* let res = entailmentchecking inferred_spec_n given_spec_n in *)
-      let res =
-        match Entail.check_staged_subsumption_disj m_tactics
-        prog.cp_lemmas prog.cp_predicates
-        inferred_spec given_spec with
-        | Ok _ -> true
-        | Error _ -> false
-      in 
+      let res = Entail.check_staged_subsumption_disj m_tactics prog.cp_lemmas prog.cp_predicates inferred_spec given_spec in 
       let time_stamp_afterEntail = Sys.time() in
 
 
@@ -1075,8 +1069,7 @@ let run_string_ incremental line =
         "[Forward  Time] " ^ string_of_float ((time_stamp_afterForward -. time_stamp_beforeForward) *. 1000.0 ) ^ " ms\n" ^ 
         "[Normal   Time] " ^ string_of_float ((time_stamp_afterNormal -. time_stamp_afterForward) *. 1000.0) ^ " ms\n"  ^ 
         "[Entail  Check] " ^ 
-        (if res then (Pretty.green "true")
-          else (Pretty.red "false")) ^ "\n" ^
+        (string_of_res res) ^ "\n" ^
         "[Entail  Time] " ^ string_of_float ((time_stamp_afterEntail  -. time_stamp_afterNormal) *. 1000.0) ^ " ms\n" ^
         (String.init (String.length m_name + 32) (fun _ -> '=')) ^ "\n"
 
