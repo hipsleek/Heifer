@@ -85,3 +85,14 @@ TODO:
 design the experiments to show that:
 re-reasoning does not cause too much overhead. 
 we can reason about multi-shot efficiently. 
+
+
+
+======HIGH ORDER=======
+1. dune exec ./hip.exe ../src/programs.t/test_ho.ml
+
+2. dune exec ./hip.exe ../src/programs.t/test_new_entail.ml
+
+
+TODO: write compose and applyN in 1 
+verify the results in 2. 
