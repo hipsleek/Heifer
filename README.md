@@ -51,8 +51,10 @@ has a bug
 16_z_flip.ml 
 
 
+# SYH old entailment (hiplib)
 
-
+2, 10, for normalization 
+8, 11 for entailment 
 
 # What is inside the `root directory` ?
 
