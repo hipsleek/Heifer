@@ -2616,12 +2616,11 @@ heapES:
 
 
 stagedSpecArgs :
-  | h=heapkappa COMMA rest=separated_nonempty_list(COMMA, effect_trace_value) { (True, h, rest) }
-  | p=pure_formula CONJUNCTION h=heapkappa COMMA rest=separated_nonempty_list(COMMA, effect_trace_value) { (p, h, rest) }
+  | s=statefml COMMA rest=separated_nonempty_list(COMMA, effect_trace_value) { (fst s, snd s, rest) }
 
 stagedSpec1 : 
   | EXISTS vs=nonempty_list(LIDENT) { Exists vs }
-  | REQUIRES heap=heapkappa { Require (True, heap) }
+  | REQUIRES f=statefml { Require (fst f, snd f) }
   | constr=UIDENT args=delimited(LPAREN, stagedSpecArgs, RPAREN)
   {
     match constr, args with
@@ -2640,6 +2639,10 @@ stagedSpec1 :
     let init, last = split_last args in
     HigherOrder (True, EmptyHeap, (constr, init), last)
   }
+
+statefml:
+  | h=heapkappa { (True, h) }
+  | p=pure_formula CONJUNCTION h=heapkappa { (p, h) }
 
 heapkappa:
 | EMP { EmptyHeap }
