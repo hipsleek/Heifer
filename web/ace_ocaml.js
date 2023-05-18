@@ -5,7 +5,7 @@ var OcamlHighlightRules = function () {
     "exception|external|for|fun|function|functor|if|in|include|" +
     "inherit|initializer|lazy|let|match|method|module|mutable|new|" +
     "object|of|open|or|private|rec|sig|struct|then|to|try|type|val|" +
-    "virtual|when|while|with";
+    "virtual|when|while|with|effect";
 
   var builtinConstants = "true|false";
 
@@ -227,12 +227,13 @@ var OcamlHighlightRules = function () {
   this.$rules = {
     start: [
       {
-        token: "comment",
-        regex: "\\(\\*.*?\\*\\)\\s*?",
+        token: "constant.numeric",
+        regex: "\\(\\*@",
+        next: "spec_comment",
       },
       {
         token: "comment",
-        regex: "\\(\\*.*",
+        regex: "\\(\\*",
         next: "comment",
       },
       {
@@ -290,6 +291,16 @@ var OcamlHighlightRules = function () {
       },
       {
         defaultToken: "comment",
+      },
+    ],
+    spec_comment: [
+      {
+        token: "constant.numeric", // closing comment
+        regex: "@?\\*\\)",
+        next: "start",
+      },
+      {
+        defaultToken: "constant.numeric",
       },
     ],
 
