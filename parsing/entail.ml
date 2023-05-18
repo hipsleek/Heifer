@@ -591,151 +591,99 @@ let vars_in_pi pi =
   in
   aux pi
 
-(** recurses down a normalised staged spec, matching stages,
+(** Recurses down a normalised staged spec, matching stages,
    translating away heap predicates to build a pure formula,
-   then proving it at the end.
+   and proving subsumption of each pair of stages.
+   Residue from previous stages is assumed.
 
-   quantifiers are left to z3 to instantiate because they are shared across stages,
-   so instantiation has to be delayed until we know the entire formula.
+   Matching of quantified locations may cause backtracking.
+   Other quantifiers are left to z3 to instantiate.
    
    i: index of stage
-   all_vars: quantified variables
-   so_far: conjuncts of the formula we're building, together with human-readable form
+   all_vars: all quantified variables
 *)
 let rec check_staged_subsumption2 :
-    int ->
-    string list ->
-    (string * pi) list ->
-    normalisedStagedSpec ->
-    normalisedStagedSpec ->
-    pf =
- fun i all_vars so_far s1 s2 ->
+    int -> string list -> normalisedStagedSpec -> normalisedStagedSpec -> pf =
+ fun i all_vars s1 s2 ->
   match (s1, s2) with
   | (es1 :: es1r, ns1), (es2 :: es2r, ns2) -> begin
-    (* let _vs1, (p1, h1), (qp1, qh1), (nm1, _a1), r1 = es1 in *)
-    (* let _vs2, (p2, h2), (qp2, qh2), (nm2, _a2), r2 = es2 in *)
-    let {
-      e_pre = p1, h1;
-      e_post = qp1, qh1;
-      e_constr = nm1, _a1;
-      e_ret = r1;
-      _;
-    } =
-      es1
-    in
-    let {
-      e_pre = p2, h2;
-      e_post = qp2, qh2;
-      e_constr = nm2, _a2;
-      e_ret = r2;
-      _;
-    } =
-      es2
-    in
-    let@ pre_l, pre_r =
-      check_qf2 (Format.asprintf "pre%d" i) all_vars (p2, h2) (p1, h1)
-    in
-    let pre_res = Provers.entails_exists pre_l es1.e_evars pre_r in
-    Format.printf "(Eff pre %d) %s => %s%s ==> %s@." i (string_of_pi pre_l)
-      (string_of_existentials es1.e_evars)
-      (string_of_pi pre_r) (string_of_res pre_res);
-    let used_vars = vars_in_pi pre_l @ vars_in_pi pre_r in
-    let@ post_l, post_r =
-      check_qf2 (Format.asprintf "post%d" i) all_vars (qp1, qh1) (qp2, qh2)
-    in
-    let post_vars =
-      List.filter (fun v -> not (List.mem v used_vars)) es2.e_evars
-    in
-    let post_res = Provers.entails_exists post_l post_vars post_r in
-    Format.printf "(Eff post %d) %s => %s%s ==> %s@." i (string_of_pi post_l)
-      (string_of_existentials post_vars)
-      (string_of_pi post_r) (string_of_res post_res);
-    let res_v = verifier_getAfreeVar ~from:"res" () in
-    let fml =
-      [
-        ( Format.asprintf "post stage %d: %s |= %s" i
-            (string_of_state (qp1, qh1))
-            (string_of_state (qp2, qh2)),
-          Imply
-            ( conj [post_l; Atomic (EQ, Var res_v, r1)],
-              conj [post_r; Atomic (EQ, Var res_v, r2)] ) );
-        ( Format.asprintf "pre stage %d: %s |= %s" i
-            (string_of_state (p2, h2))
-            (string_of_state (p1, h1)),
-          Imply (pre_l, pre_r) );
-      ]
+    (* fail fast by doing easy checks first *)
+    let c1, a1 = es1.e_constr in
+    let c2, a2 = es2.e_constr in
+    let* _ =
+      let r = String.equal c1 c2 in
+      if not r then Format.printf "FAIL, constr %s != %s@." c1 c2;
+      r
     in
     let* _ =
-      String.equal nm1 nm2
-      (* Ok ()
-         else Error (rule ~name:"name-equal" "eff not equal") *)
+      let l1 = List.length a1 in
+      let l2 = List.length a2 in
+      let r = l1 = l2 in
+      if not r then Format.printf "FAIL, arg length %d != %d@." l1 l2;
+      r
     in
-    check_staged_subsumption2 (i + 1) all_vars (fml @ so_far) (es1r, ns1)
-      (es2r, ns2)
+    let* _ =
+      let arg_eqs = conj (List.map2 (fun x y -> Atomic (EQ, x, y)) a1 a2) in
+      let post2 =
+        let p, h = es2.e_post in
+        (conj [arg_eqs; p], h)
+      in
+      stage_subsumes
+        (Format.asprintf "Eff %d" i)
+        all_vars
+        (es1.e_evars, (es1.e_pre, es1.e_post, es1.e_ret))
+        (es2.e_evars, (es2.e_pre, post2, es2.e_ret))
+    in
+    check_staged_subsumption2 (i + 1) all_vars (es1r, ns1) (es2r, ns2)
   end
   | ([], ns1), ([], ns2) ->
     (* base case: check the normal stage at the end *)
     let (vs1, (p1, h1), (qp1, qh1), r1), (vs2, (p2, h2), (qp2, qh2), r2) =
       (ns1, ns2)
     in
-
-    (* contra *)
-    let@ pre_l, pre_r = check_qf2 "pren" all_vars (p2, h2) (p1, h1) in
-    let pre_res = Provers.entails_exists pre_l vs1 pre_r in
-    Format.printf "(Norm pre) %s => %s%s ==> %s@." (string_of_pi pre_l)
-      (string_of_existentials vs1)
-      (string_of_pi pre_r) (string_of_res pre_res);
-    (* cov *)
-    let new_univ = vars_in_pi pre_l @ vars_in_pi pre_r in
-    let vs22 = List.filter (fun v -> not (List.mem v new_univ)) vs2 in
-    let@ post_l, post_r = check_qf2 "postn" all_vars (qp1, qh1) (qp2, qh2) in
-    let post_res = Provers.entails_exists (conj [pre_r; post_l]) vs22 post_r in
-    Format.printf "(Norm post) %s => %s%s ==> %s@."
-      (string_of_pi (conj [pre_r; post_l]))
-      (string_of_existentials vs22)
-      (string_of_pi post_r) (string_of_res post_res);
-    let res_v = verifier_getAfreeVar ~from:"res" () in
-    let fml =
-      [
-        (* ( Format.asprintf "norm res eq: %s = %s" (string_of_term r1)
-             (string_of_term r2),
-           Atomic (EQ, r1, r2) ); *)
-        ( Format.asprintf "norm post: %s |= %s"
-            (string_of_state (qp1, qh1))
-            (string_of_state (qp2, qh2)),
-          Imply
-            ( conj [post_l; Atomic (EQ, Var res_v, r1)],
-              conj [post_r; Atomic (EQ, Var res_v, r2)] ) );
-        ( Format.asprintf "norm pre: %s |= %s"
-            (string_of_state (p2, h2))
-            (string_of_state (p1, h1)),
-          Imply (pre_l, pre_r) );
-      ]
-    in
-
-    (* let res =
-         Provers.entails_exists True all_vars (conj (List.map snd (fml @ so_far)))
-         (* Provers.valid (conj (List.map snd (fml @ so_far))) *)
-       in *)
-    let res = true in
-    let debug = false in
-    if debug then begin
-      Format.printf "vc\n%s\nz3: %s\n@."
-        (string_of_quantified
-           (fun a ->
-             List.map
-               (fun (c, f) -> Format.asprintf "%s // %s" (string_of_pi f) c)
-               a
-             |> String.concat "\n/\\ ")
-           (all_vars, List.rev (fml @ so_far)))
-        (if res then "valid" else "not valid")
-    end;
-    res
+    stage_subsumes "Norm" all_vars
+      (vs1, ((p1, h1), (qp1, qh1), r1))
+      (vs2, ((p2, h2), (qp2, qh2), r2))
   | _ ->
     Format.printf "FAIL, unequal length\n%s\n|=\n%s\n@."
       (string_of_normalisedStagedSpec s1)
       (string_of_normalisedStagedSpec s2);
     false
+
+and stage_subsumes :
+    string ->
+    string list ->
+    (state * state * term) quantified ->
+    (state * state * term) quantified ->
+    pf =
+ fun what all_vars s1 s2 ->
+  let vs1, (pre1, post1, ret1) = s1 in
+  let vs2, (pre2, post2, ret2) = s2 in
+  (* TODO replace uses of all_vars. this is for us to know if locations on the rhs are quantified. a smaller set of vars is possible *)
+  (* contravariance *)
+  let@ pre_l, pre_r = check_qf2 "pren" all_vars pre2 pre1 in
+  let pre_res = Provers.entails_exists pre_l vs1 pre_r in
+  Format.printf "(%s pre) %s => %s%s ==> %s@." what (string_of_pi pre_l)
+    (string_of_existentials vs1)
+    (string_of_pi pre_r) (string_of_res pre_res);
+  let* _ = pre_res in
+  (* cov *)
+  let new_univ = vars_in_pi pre_l @ vars_in_pi pre_r in
+  let vs22 = List.filter (fun v -> not (List.mem v new_univ)) vs2 in
+  let res_v = verifier_getAfreeVar ~from:"res" () in
+  let@ post_l, post_r = check_qf2 "postn" all_vars post1 post2 in
+  (* TODO carry residue forward after this? *)
+  let post_res =
+    Provers.entails_exists
+      (conj [pre_r; post_l; Atomic (EQ, Var res_v, ret1)])
+      vs22
+      (conj [post_r; Atomic (EQ, Var res_v, ret2)])
+  in
+  Format.printf "(%s post) %s => %s%s ==> %s@." what
+    (string_of_pi (conj [pre_r; post_l]))
+    (string_of_existentials vs22)
+    (string_of_pi post_r) (string_of_res post_res);
+  post_res
 
 let extract_binders spec =
   let binders, rest =
@@ -789,7 +737,7 @@ let check_staged_subsumption : spec -> spec -> pf =
   check_staged_subsumption2 0
     (Forward_rules.getExistientalVar (es1, ns1)
     @ Forward_rules.getExistientalVar (es2, ns2))
-    [] (es1, ns1) (es2, ns2)
+    (es1, ns1) (es2, ns2)
 
 let apply_tactics ts lems preds (ds1 : disj_spec) (ds2 : disj_spec) =
   Format.printf "before tactics\n%s\n|=\n%s\n@." (string_of_disj_spec ds1)

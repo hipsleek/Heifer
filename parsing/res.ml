@@ -92,7 +92,7 @@ module Option = struct
 end
 
 module Backtrack = struct
-  let bind o f = match o with false -> false | true -> f ()
+  let bind o f = match o with false -> false | true -> f true
   let ( let* ) = bind
 
   type pf = bool
