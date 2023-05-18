@@ -1039,11 +1039,14 @@ let rec entailmentchecking (lhs:normalisedStagedSpec list) (rhs:normalisedStaged
 let run_string_ incremental line =
   let progs = Parser.implementation Lexer.token (Lexing.from_string line) in
   let prog = transform_strs progs in
-  (* print_endline (string_of_program prog); *)
+  let vcr = !Pretty.verifier_counter in
+  let debug_parser = false in
+  if debug_parser then Format.printf "parsed: %s@." (string_of_program prog);
   List.iter (fun {m_spec = given_spec; m_body = body; m_name; m_tactics; _} ->
     (* this is done so tests are independent.
-       each function is analyzed in isolation so this is safe. *)
-    Pretty.verifier_counter_reset ();
+       each function is analyzed in isolation so this is safe.
+       we must, however, reset to the current checkpoint, as parsing uses fresh variables... *)
+    Pretty.verifier_counter_reset_to vcr;
     if not incremental then begin
       let time_stamp_beforeForward = Sys.time() in
       let inferred_spec = infer_of_expression prog.cp_methods [freshNormalReturnSpec] body in

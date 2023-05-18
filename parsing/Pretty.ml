@@ -26,6 +26,7 @@ let verifier_counter: int ref = ref 0;;
 
 (* only for testing! to make tests deterministic *)
 let verifier_counter_reset () = verifier_counter := 0
+let verifier_counter_reset_to n = verifier_counter := n
 
 
 let verifier_getAfreeVar ?from () :string  =

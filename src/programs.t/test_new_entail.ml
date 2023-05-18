@@ -3,33 +3,40 @@ effect Eff : unit
 
 (* basic *)
 
-let test10_true ()  (*@ Norm(emp, 0) @*) = 0
+let test10_true ()
+  (*@ Norm(emp, 0) @*) =
+  0
 (* implicit normal stage *)
 
-let test6_true ()  (*@ Norm(emp, 0) @*) =
+let test6_true ()
+  (*@ Norm(emp, 0) @*) =
   let j = 0 in
   j
 (* intermediate bindings don't matter? *)
 
-let test7_false ()  (*@ Norm(emp, j) @*) =
+let test7_false ()
+  (*@ Norm(emp, j) @*) =
   let j = 0 in
   j
 (* j is not a param *)
 
-let test8_false ()  (*@ Norm(emp, k) @*) =
+let test8_false ()
+  (*@ Norm(emp, k) @*) =
   let j = 0 in
   j
 (* k is not a param *)
 
-let test9_true ()  (*@ ex r; Norm(emp, r) @*) =
+let test9_true ()
+  (*@ ex r; Norm(emp, r) @*) =
   let j = 0 in
   j
-(* existential should work *)
+(* existential return value *)
 
-let test4_true ()  (*@ ex i; Norm(i->0, i) @*) =
+let test4_true ()
+  (*@ ex i; Norm(i->0, i) @*) =
   let i = ref 0 in 
   i
-(* new heap, hence existential *)
+(* new heap location, hence existential *)
 
 let test5_true ()  (*@ ex i; Norm(i->0, 1) @*) =
   let i = ref 0 in 
@@ -40,7 +47,7 @@ let test6_true ()  (*@ ex i; Norm(i->1, 1) @*) =
   let i = ref 0 in 
   i := !i + 1;
   !i
-(* assignment *)
+(* heap update *)
 
 let test23_false ()  (*@ ex i; Norm(i->1, 1) @*) =
   let i = ref 0 in 
@@ -218,4 +225,17 @@ let fa a (*@ req a=1/\emp; Norm(emp, 2) @*) = a + 1
 
 let test26_true ()  (*@ Norm(emp, 2) @*) =
   let ret = fa 1 in
+  ret
+
+let two_locations_true () 
+(*@ ex i j z1 z2 ret;
+   E(i->0 * j->0, ret);
+   req i->z1 * j->z2; 
+   Norm(i->z1+1*j->z2+1, ret)
+@*)
+= let i = ref 0 in 
+  let j = ref 0 in 
+  let ret = perform (E) in 
+  i := !i + 1;
+  j := !j + 1;
   ret
