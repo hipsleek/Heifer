@@ -786,252 +786,53 @@ let check_staged_subsumption_disj :
       any ~name:"subsumes-disj-rhs-any" ds2 (fun s2 ->
           check_staged_subsumption s1 s2))
 
-(* let%expect_test "staged subsumption" =
-     verifier_counter_reset ();
-     let test name l r =
-       let res = check_staged_subsumption l r in
-       Format.printf "\n--- %s\n%s\n%s\n%s%s@." name (string_of_spec l)
-         (match res with Ok _ -> "|--" | Error _ -> "|-/-")
-         (string_of_spec r)
-         (match res with
-         | Ok (pf, residue) ->
-           Format.asprintf "\n==> %s\n%s" (string_of_state residue)
-             (string_of_proof pf)
-         | Error pf -> Format.asprintf "\n%s" (string_of_proof pf))
-     in
-     test "identity"
-       [
-         Require (True, PointsTo ("x", Num 1));
-         NormalReturn (True, PointsTo ("x", Num 1), Var "r");
-       ]
-       [
-         Require (True, PointsTo ("x", Num 1));
-         NormalReturn (True, PointsTo ("x", Num 1), Var "r");
-       ];
-     test "variables"
-       [
-         Require (True, PointsTo ("x", Var "a"));
-         NormalReturn (True, PointsTo ("x", Plus (Var "a", Num 1)), Var "r");
-       ]
-       [
-         Require (True, PointsTo ("x", Num 1));
-         NormalReturn (True, PointsTo ("x", Num 2), Var "r");
-       ];
-     test "contradiction?"
-       [
-         Require (True, PointsTo ("x", Var "a"));
-         NormalReturn (True, PointsTo ("x", Plus (Var "a", Num 1)), Var "r");
-       ]
-       [
-         Require (True, PointsTo ("x", Num 1));
-         NormalReturn (True, PointsTo ("x", Num 1), Var "r");
-       ];
-     test "eff stage"
-       [
-         RaisingEff
-           (True, PointsTo ("x", Plus (Var "a", Num 1)), ("E", []), Var "r");
-         Require (True, PointsTo ("x", Var "a"));
-         NormalReturn (True, PointsTo ("x", Plus (Var "a", Num 1)), Var "r");
-       ]
-       [
-         RaisingEff
-           (True, PointsTo ("x", Plus (Var "a", Num 1)), ("E", []), Var "r");
-         Require (True, PointsTo ("x", Num 1));
-         NormalReturn (True, PointsTo ("x", Num 1), Var "r");
-       ];
-     [%expect
-       {|
-       norm, subsumption
-       req x->1; Norm(x->1, r)
-       |=
-       req x->1; Norm(x->1, r)
+let%expect_test _ =
+  let left =
+    [
+      [
+        Exists ["q"; "q1"];
+        Require (True, PointsTo ("x", Var "q"));
+        NormalReturn
+          (Atomic (GT, Var "q1", Var "q"), PointsTo ("x", Var "q1"), Num 2);
+      ];
+    ]
+  in
+  let right =
+    [
+      [
+        Exists ["p"];
+        Require (True, PointsTo ("x", Var "p"));
+        NormalReturn (True, PointsTo ("x", Plus (Var "p", Num 1)), Num 2);
+      ];
+    ]
+  in
+  Format.printf "%b@." (check_staged_subsumption_disj [] [] [] left right);
+  Format.printf "%b@." (check_staged_subsumption_disj [] [] [] right left);
+  [%expect {|
+    before tactics
+    ex q q1; req x->q; Norm(x->q1 /\ q1>q, 2)
+    |=
+    ex p; req x->p; Norm(x->p+1, 2)
 
-       vc
-       T=>T // norm pre: x->1 |= x->1
-       /\ res=r=>res=r // norm post: x->1 |= x->1
-       z3: valid
+    norm, subsumption
+    ex q q1; req x->q; Norm(x->q1 /\ q1>q, 2)
+    |=
+    ex p; req x->p; Norm(x->p+1, 2)
 
+    (Norm pre) T => ex q,q1. q=p ==> true
+    (Norm post) q1>q/\q=p => q1>q/\p+1=q1 ==> false
+    false
+    before tactics
+    ex p; req x->p; Norm(x->p+1, 2)
+    |=
+    ex q q1; req x->q; Norm(x->q1 /\ q1>q, 2)
 
-       --- identity
-       req x->1; Norm(x->1, r)
-       |--
-       req x->1; Norm(x->1, r)
-       ==> emp
-       │[subsumption-base] req x->1; Norm(x->1, r) |= req x->1; Norm(x->1, r)
+    norm, subsumption
+    ex p; req x->p; Norm(x->p+1, 2)
+    |=
+    ex q q1; req x->q; Norm(x->q1 /\ q1>q, 2)
 
-       norm, subsumption
-       req x->a; Norm(x->a+1, r)
-       |=
-       req x->1; Norm(x->2, r)
-
-       vc
-       T=>T // norm pre: x->1 |= x->a
-       /\ res=r=>res=r // norm post: x->a+1 |= x->2
-       z3: valid
-
-
-       --- variables
-       req x->a; Norm(x->a+1, r)
-       |--
-       req x->1; Norm(x->2, r)
-       ==> emp
-       │[subsumption-base] req x->a; Norm(x->a+1, r) |= req x->1; Norm(x->2, r)
-
-       norm, subsumption
-       req x->a; Norm(x->a+1, r)
-       |=
-       req x->1; Norm(x->1, r)
-
-       vc
-       T=>T // norm pre: x->1 |= x->a
-       /\ res=r=>res=r // norm post: x->a+1 |= x->1
-       z3: valid
-
-
-       --- contradiction?
-       req x->a; Norm(x->a+1, r)
-       |--
-       req x->1; Norm(x->1, r)
-       ==> emp
-       │[subsumption-base] req x->a; Norm(x->a+1, r) |= req x->1; Norm(x->1, r)
-
-       norm, subsumption
-       req emp; E(x->a+1, [], r); req x->a; Norm(x->a+1, r)
-       |=
-       req emp; E(x->a+1, [], r); req x->1; Norm(x->1, r)
-
-       vc
-       T=>T // pre stage 0: emp |= emp
-       /\ res=r=>res=r // post stage 0: x->a+1 |= x->a+1
-       /\ T=>T // norm pre: x->1 |= x->a
-       /\ res=r=>res=r // norm post: x->a+1 |= x->1
-       z3: valid
-
-
-       --- eff stage
-       E(x->a+1, [], r); req x->a; Norm(x->a+1, r)
-       |--
-       E(x->a+1, [], r); req x->1; Norm(x->1, r)
-       ==> emp
-       │[subsumption-stage] E(x->a+1, [], r); req x->a; Norm(x->a+1, r) |= E(x->a+1, [], r); req x->1; Norm(x->1, r) |}]
-
-   module Normalize = struct
-     let rec sl_dom (h : kappa) =
-       match h with
-       | EmptyHeap -> []
-       | PointsTo (s, _) -> [s]
-       | SepConj (a, b) -> sl_dom a @ sl_dom b
-
-     let intersect xs ys =
-       List.fold_right (fun c t -> if List.mem c ys then c :: t else t) xs []
-
-     let sl_disjoint h1 h2 =
-       match intersect (sl_dom h1) (sl_dom h2) with [] -> true | _ -> false
-
-     let normalize__ spec =
-       let rec one_pass (s : spec) =
-         match s with
-         | [] | [_] -> (s, false)
-         | s1 :: s2 :: ss ->
-           let s3, c =
-             match (s1, s2) with
-             | Require (p1, h1), Require (p2, h2) ->
-               (* rule 1 *)
-               ([Require (And (p1, p2), SepConj (h1, h2))], true)
-             | NormalReturn (p1, h1, r1), NormalReturn (p2, h2, r2) when r1 = r2 ->
-               (* rule 2 *)
-               (* the equality at the end is res=a /\ res=b *)
-               ([NormalReturn (And (p1, p2), SepConj (h1, h2), r1)], true)
-             | NormalReturn (p1, h1, r1), Require (p2, h2) ->
-               (* rule 3 *)
-               (* TODO vars *)
-               let r = Heap.entails ([], (p1, h1)) ([], (p2, h2)) in
-               begin
-                 match r with
-                 | Error _ when sl_disjoint h1 h2 ->
-                   (* rule 4 *)
-                   ([s2; s1], true)
-                 | Error _ -> ([s1; s2], false)
-                 | Ok (_pf, ((rp, rh), _inst)) ->
-                   ([NormalReturn (And (And (p1, p2), rp), rh, r1)], true)
-               end
-             | _, _ -> ([s1; s2], false)
-           in
-           let hd, tl = match s3 with [] -> ([], []) | h :: t -> ([h], t) in
-           let s5, c1 = one_pass (tl @ ss) in
-           (hd @ s5, c || c1)
-       in
-       if false then ProversEx.to_fixed_point one_pass spec
-       else one_pass spec |> fst
-
-     let%expect_test "normalize" =
-       verifier_counter_reset ();
-       let test name s =
-         Format.printf "--- %s\n%s\n%s\n@." name (string_of_spec s)
-           (normalize__ s |> string_of_spec)
-       in
-       test "inert"
-         [
-           Require (True, PointsTo ("x", Num 1));
-           NormalReturn (True, PointsTo ("x", Num 1), UNIT);
-         ];
-       test "rule 4"
-         [
-           NormalReturn (True, PointsTo ("x", Num 1), UNIT);
-           Require (True, PointsTo ("y", Num 1));
-         ];
-       test "rule 3 (TODO prob wrong)"
-         [
-           NormalReturn (True, PointsTo ("x", Num 1), UNIT);
-           Require (True, PointsTo ("x", Num 2));
-         ];
-       test "rule 1"
-         [
-           Require (True, PointsTo ("x", Num 2));
-           Require (True, PointsTo ("y", Num 2));
-         ];
-       test "rule 1 weird"
-         [
-           Require (True, PointsTo ("x", Num 2));
-           Require (True, PointsTo ("x", Num 2));
-         ];
-       test "rule 2"
-         [
-           NormalReturn (True, PointsTo ("x", Num 1), UNIT);
-           NormalReturn (True, PointsTo ("y", Num 1), UNIT);
-         ];
-       test "rule 2 weird"
-         [
-           NormalReturn (True, PointsTo ("x", Num 1), UNIT);
-           NormalReturn (True, PointsTo ("x", Num 1), UNIT);
-         ];
-       [%expect
-         {|
-         --- inert
-         req x->1; Norm(x->1, ())
-         req x->1; Norm(x->1, ())
-
-         --- rule 4
-         Norm(x->1, ()); req y->1
-         req y->1; Norm(x->1, ())
-
-         --- rule 3 (TODO prob wrong)
-         Norm(x->1, ()); req x->2
-         Norm(T/\T/\2=1, ())
-
-         --- rule 1
-         req x->2; req y->2
-         req x->2*y->2 /\ T/\T
-
-         --- rule 1 weird
-         req x->2; req x->2
-         req x->2*x->2 /\ T/\T
-
-         --- rule 2
-         Norm(x->1, ()); Norm(y->1, ())
-         Norm(x->1*y->1 /\ T/\T, ())
-
-         --- rule 2 weird
-         Norm(x->1, ()); Norm(x->1, ())
-         Norm(x->1*x->1 /\ T/\T, ()) |}]
-   end *)
+    (Norm pre) T => ex p. p=q ==> true
+    (Norm post) p=q => ex q1. q1=p+1/\q1>q ==> true
+    true
+          |}]
