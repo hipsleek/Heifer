@@ -82,7 +82,9 @@ module Heap = struct
     | EmptyHeap -> None
     | PointsTo (x, v) -> Some ((x, v), EmptyHeap)
     | SepConj (a, b) -> begin
-      match split_one a with None -> split_one b | Some r -> Some r
+      match split_one a with
+      | None -> split_one b
+      | Some (c, r) -> Some (c, SepConj (r, b))
     end
 
   (** like split_one, but searches for a particular points-to *)
@@ -93,7 +95,10 @@ module Heap = struct
     | PointsTo (x, v) when x = n -> Some (v, EmptyHeap)
     | PointsTo _ -> None
     | SepConj (a, b) -> begin
-      match split_find n a with None -> split_find n b | Some r -> Some r
+      match split_find n a with
+      | None ->
+        split_find n b |> Option.map (fun (t, b1) -> (t, SepConj (a, b1)))
+      | Some (t, a1) -> Some (t, SepConj (a1, b))
     end
 
   let pairwise_var_inequality v1 v2 =
@@ -516,8 +521,11 @@ let rec check_qf2 :
     (pi * pi -> 'a option) ->
     'a option =
  fun id vs ante conseq k ->
+  let debug = false in
   let a = Heap.normalize ante in
   let c = Heap.normalize conseq in
+  if debug then
+    Format.printf "%s |- %s@." (string_of_state ante) (string_of_state conseq);
   match (a, c) with
   | (p1, h1), (p2, EmptyHeap) ->
     let left = And (Heap.xpure h1, p1) in
@@ -553,9 +561,6 @@ let rec check_qf2 :
       (* x is free. match against h1 exactly *)
       match Heap.split_find x h1 with
       | Some (v1, h1') -> begin
-        (* let  *)
-        (* And (p1, Atomic (EQ, v, v1)) *)
-        (* match *)
         check_qf2 (* (SepConj (k, PointsTo (x, v))) *) id vs
           (conj [p1], h1')
           (conj [p2; And (p1, Atomic (EQ, v, v1))], h2')
