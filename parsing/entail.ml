@@ -303,9 +303,9 @@ module Heap = struct
       │[ent-match] x->1 and x->1
       │└── [ent-emp] x>0/\1=1 => T
 
-      x->1*y->2 |- x->1 ==> 1=1 []
+      x->1*y->2 |- x->1 ==> y->2 /\ 1=1 []
       │[ent-match] x->1 and x->1
-      │└── [ent-emp] x>0/\1=1 => T
+      │└── [ent-emp] y>0/\x>0/\1=1 => T
 
       x->1 |- x->a ==> a=1 []
       │[ent-match] x->a and x->1
@@ -315,15 +315,15 @@ module Heap = struct
       │[ent-match] x->a and x->b
       │└── [ent-emp] x>0/\a=b => T
 
-      y->c*x->b |- ex x. x->a ==> y=x/\a=c [x := y]
+      y->c*x->b |- ex x. x->a ==> x->b /\ y=x/\a=c [x := y]
       │[ent-match] ex x. x->a
       │└── [ent-match-any] y->c and ex x. x->a
-      │    └── [ent-emp] y>0/\y=x/\a=c => a=c
+      │    └── [ent-emp] x>0/\y>0/\y=x/\a=c => a=c
 
-      y->3*x->2 |- ex x. x->1+1 ==> y=x/\1+1=3 [x := y]
+      y->3*x->2 |- ex x. x->1+1 ==> x->2 /\ y=x/\1+1=3 [x := y]
       │[ent-match] ex x. x->1+1
       │└── [ent-match-any] y->3 and ex x. x->1+1
-      │    └── [ent-emp] y>0/\y=x/\1+1=3 => 1+1=3 |}]
+      │    └── [ent-emp] x>0/\y>0/\y=x/\1+1=3 => 1+1=3 |}]
 end
 
 let check_staged_entail : spec -> spec -> spec option =
@@ -838,28 +838,28 @@ let%expect_test _ =
     {|
     before tactics
     ex q q1; req x->q; Norm(x->q1 /\ q1>q, 2)
-    |=
+    <:
     ex p; req x->p; Norm(x->p+1, 2)
 
     norm, subsumption
     ex q q1; req x->q; Norm(x->q1 /\ q1>q, 2)
-    |=
+    <:
     ex p; req x->p; Norm(x->p+1, 2)
 
     (Norm pre) T => ex q,q1. q=p ==> true
-    (Norm post) q1>q/\q=p => q1>q/\p+1=q1 ==> false
+    (Norm post) q1>q/\q=p => 2=2/\q1>q/\p+1=q1 ==> false
     false
     before tactics
     ex p; req x->p; Norm(x->p+1, 2)
-    |=
+    <:
     ex q q1; req x->q; Norm(x->q1 /\ q1>q, 2)
 
     norm, subsumption
     ex p; req x->p; Norm(x->p+1, 2)
-    |=
+    <:
     ex q q1; req x->q; Norm(x->q1 /\ q1>q, 2)
 
     (Norm pre) T => ex p. p=q ==> true
-    (Norm post) p=q => ex q1. q1=p+1/\q1>q ==> true
+    (Norm post) p=q => ex q1. 2=2/\q1=p+1/\q1>q ==> true
     true
           |}]
