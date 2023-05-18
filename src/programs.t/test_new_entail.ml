@@ -42,23 +42,26 @@ let test6_true ()  (*@ ex i; Norm(i->1, 1) @*) =
   !i
 (* assignment *)
 
-let test22_false ()  (*@ ex i; Norm(i->1, 1) @*) =
+let test23_false ()  (*@ ex i; Norm(i->1, 1) @*) =
   let i = ref 0 in 
   i := !i + 2;
   !i
 (* wrong value *)
 
-let test11_true ()  (*@ Eff(emp, ()) @*) =
+let test19_true ()  (*@ ex r; Eff(emp, r) @*) =
+  let ret = perform Eff in
+  1
+(* we don't consider Eff's type. unless it is unit (which we don't special-case anyway), we won't know the return value, and the forward rules indeed ensure that the return value of Eff constructors is always a variable. thus the only correct spec for this is that it returns something. *)
+
+let test25_false ()  (*@ Eff(emp, ()) @*) =
   let ret = perform Eff in
   ret
+(* we can't justify that whatever Eff returns is unit *)
 
 let test12_false ()  (*@ Eff(emp, ()) @*) =
   let ret = perform Eff in
   1
-
-let test19_true ()  (*@ ex r; Eff(emp, r) @*) =
-  let ret = perform Eff in
-  1
+(* this fails for the same reason. the return value is not checked *)
 
 let test21_true ()  
 (*@ ex i ret;
@@ -73,7 +76,7 @@ let test21_true ()
   ret
 
 let test0_true ()  
-(*@ ex i ;
+(*@ ex i z ret;
    Eff(i->0, ret);
    req i-> z; 
    Norm(i->z+1, ret)
@@ -85,7 +88,7 @@ let test0_true ()
   ret
 
 let test1_false ()  
-(*@ ex i ;
+(*@ ex i z ret;
    Eff(i->0, ret);
    req i-> z; 
    Norm(i->z+1, ret)
@@ -97,7 +100,7 @@ let test1_false ()
   !i (* wrong *)
 
 let test2_false ()  
-(*@ ex i ;
+(*@ ex i z ret;
    Eff(i->0, ret);
    req i-> z; 
    Norm(i->z+1, ret)
@@ -109,7 +112,7 @@ let test2_false ()
   ret
 
 let test3_false ()  
-(*@ ex i ;
+(*@ ex i z ret;
    Eff(i->0, ret);
    req i-> z; 
    Norm(i->z+1, ret)
@@ -219,3 +222,9 @@ let main_aux ()
        (continue k ())
      );
 *)
+
+let f1 () (*@ Norm(emp, 1) @*) = 1
+
+let test24_true ()  (*@ Norm(emp, 1) @*) =
+  let ret = f1 () in
+  ret
