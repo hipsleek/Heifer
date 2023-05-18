@@ -208,23 +208,14 @@ let test17_true ()
   let i = ref 0 in 
   1
 
-(* the inferred post state of this function is weird, probably because the existentials are gone *)
-
-(*
-let main_aux ()
-   (*@ ex i;
-      Norm(i->2, ())
-   @*)
-   = (match test () with
-     | v -> v
-     | effect Eff k ->
-       (continue (Obj.clone_continuation k) ());
-       (continue k ())
-     );
-*)
-
 let f1 () (*@ Norm(emp, 1) @*) = 1
 
 let test24_true ()  (*@ Norm(emp, 1) @*) =
   let ret = f1 () in
+  ret
+
+let fa a (*@ req a=1/\emp; Norm(emp, 2) @*) = a + 1
+
+let test26_true ()  (*@ Norm(emp, 2) @*) =
+  let ret = fa 1 in
   ret

@@ -294,7 +294,7 @@
   (Eff 0 pre) T => ex f0,res_1. T ==> true
   (Eff 0 post) T => ex i,ret. res_1=ret/\0=0 ==> true
   (Norm pre) res_1=ret/\0=0 => ex i_2,f3. i_2=z/\i_2=f3 ==> true
-  (Norm post) f3=i_2/\res_1=ret/\0=0/\i_2=z/\i_2=f3 => res_1=ret/\z+1=i_2+1 ==> true
+  (Norm post) f3=i_2/\i_2=z/\i_2=f3/\res_1=ret/\0=0 => res_1=ret/\z+1=i_2+1 ==> true
   
   ========== Function: test21_true ==========
   [Specification] ex i ret; Eff(i->0, [], ret); req i->z; Norm(i->z+1, ret)
@@ -319,7 +319,7 @@
   (Eff 0 pre) T => ex f0,res_1. T ==> true
   (Eff 0 post) T => ex i,z,ret. res_1=ret/\0=0 ==> true
   (Norm pre) res_1=ret/\0=0 => ex i_2,f3. i_2=z/\i_2=f3 ==> true
-  (Norm post) f3=i_2/\res_1=ret/\0=0/\i_2=z/\i_2=f3 => res_1=ret/\z+1=i_2+1 ==> true
+  (Norm post) f3=i_2/\i_2=z/\i_2=f3/\res_1=ret/\0=0 => res_1=ret/\z+1=i_2+1 ==> true
   
   ========== Function: test0_true ==========
   [Specification] ex i z ret; Eff(i->0, [], ret); req i->z; Norm(i->z+1, ret)
@@ -344,7 +344,7 @@
   (Eff 0 pre) T => ex f0,res_1. T ==> true
   (Eff 0 post) T => ex i,z,ret. res_1=ret/\0=0 ==> true
   (Norm pre) res_1=ret/\0=0 => ex i_2,f3,i_4. i_2=z/\i_2=f3/\i_2+1=i_4 ==> true
-  (Norm post) f3=i_2/\i_4=i_2+1/\res_1=ret/\0=0/\i_2=z/\i_2=f3/\i_2+1=i_4 => i_4=ret/\z+1=i_4 ==> false
+  (Norm post) f3=i_2/\i_4=i_2+1/\i_2=z/\i_2=f3/\i_2+1=i_4/\res_1=ret/\0=0 => i_4=ret/\z+1=i_4 ==> false
   
   ========== Function: test1_false ==========
   [Specification] ex i z ret; Eff(i->0, [], ret); req i->z; Norm(i->z+1, ret)
@@ -393,7 +393,7 @@
   (Eff 0 pre) T => ex f0,res_1. T ==> true
   (Eff 0 post) T => ex i,z,ret. res_1=ret/\0=0 ==> true
   (Norm pre) res_1=ret/\0=0 => ex i_2,f3. i_2=z/\i_2=f3 ==> true
-  (Norm post) f3=i_2/\res_1=ret/\0=0/\i_2=z/\i_2=f3 => res_1=ret/\z+1=i_2+2 ==> false
+  (Norm post) f3=i_2/\i_2=z/\i_2=f3/\res_1=ret/\0=0 => res_1=ret/\z+1=i_2+2 ==> false
   
   ========== Function: test3_false ==========
   [Specification] ex i z ret; Eff(i->0, [], ret); req i->z; Norm(i->z+1, ret)
@@ -579,7 +579,7 @@
   ex a; req a->1; Norm(a->1, 1)
   
   (Norm pre) a>0 => ex f0. T ==> true
-  (Norm post) T => 1=1/\1=0 ==> false
+  (Norm post) a>0 => 1=1/\1=0 ==> false
   
   ========== Function: test16_false ==========
   [Specification] ex a; req a->1; Norm(a->1, 1)
@@ -656,6 +656,52 @@
   
   [Raw Post Spec] Norm(emp, ()); Norm(emp, 1); Norm(emp, 1)
   [Normed   Post] Norm(emp, 1)
+  
+  [Entail  Check] true
+  ===========================================
+  
+  before tactics
+  Norm(emp, ()); Norm(emp, a+1)
+  <:
+  req a=1; Norm(emp, 2)
+  
+  norm, subsumption
+  req emp; Norm(emp, a+1)
+  <:
+  req a=1; Norm(emp, 2)
+  
+  (Norm pre) a=1 => T ==> true
+  (Norm post) a=1 => a+1=2 ==> true
+  
+  ========== Function: fa ==========
+  [Specification] req a=1; Norm(emp, 2)
+  [Normed   Spec] req a=1; Norm(emp, 2)
+  
+  [Raw Post Spec] Norm(emp, ()); Norm(emp, a+1)
+  [Normed   Post] Norm(emp, a+1)
+  
+  [Entail  Check] true
+  ==================================
+  
+  before tactics
+  Norm(emp, ()); req 1=1; Norm(emp, 2); Norm(emp, 2)
+  <:
+  Norm(emp, 2)
+  
+  norm, subsumption
+  req 1=1; Norm(emp, 2)
+  <:
+  req emp; Norm(emp, 2)
+  
+  (Norm pre) T => 1=1 ==> true
+  (Norm post) 1=1 => 2=2 ==> true
+  
+  ========== Function: test26_true ==========
+  [Specification] Norm(emp, 2)
+  [Normed   Spec] Norm(emp, 2)
+  
+  [Raw Post Spec] Norm(emp, ()); req 1=1; Norm(emp, 2); Norm(emp, 2)
+  [Normed   Post] req 1=1; Norm(emp, 2)
   
   [Entail  Check] true
   ===========================================

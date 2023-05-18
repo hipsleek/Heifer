@@ -614,7 +614,7 @@ let with_pure pi ((p, h) : state) : state = (conj [p; pi], h)
    i: index of stage
    all_vars: all quantified variables
 *)
-let rec check_staged_subsumption2 :
+let rec check_staged_subsumption_aux :
     int ->
     string list ->
     pi ->
@@ -647,7 +647,7 @@ let rec check_staged_subsumption2 :
         (es1.e_evars, (es1.e_pre, es1.e_post, es1.e_ret))
         (es2.e_evars, (es2.e_pre, with_pure arg_eqs es2.e_post, es2.e_ret))
     in
-    check_staged_subsumption2 (i + 1) all_vars
+    check_staged_subsumption_aux (i + 1) all_vars
       (conj [assump; residue])
       (es1r, ns1) (es2r, ns2)
   end
@@ -688,7 +688,7 @@ and stage_subsumes :
     Format.printf "(%s pre) %s => %s%s ==> %s@." what (string_of_pi left)
       (string_of_existentials vs1)
       (string_of_pi right) (string_of_res pre_res);
-    of_bool (conj [pre_r; assump]) pre_res
+    of_bool (conj [pre_l; pre_r; assump]) pre_res
   in
   (* covariance *)
   let new_univ = vars_in_pi pre_l @ vars_in_pi pre_r in
@@ -758,7 +758,7 @@ let check_staged_subsumption : spec -> spec -> unit option =
     (string_of_normalisedStagedSpec (es1, ns1))
     (string_of_normalisedStagedSpec (es2, ns2));
   (* check_staged_subsumption_ (es1, ns1) (es2, ns2) *)
-  check_staged_subsumption2 0
+  check_staged_subsumption_aux 0
     (Forward_rules.getExistientalVar (es1, ns1)
     @ Forward_rules.getExistientalVar (es2, ns2))
     True (es1, ns1) (es2, ns2)
