@@ -59,22 +59,25 @@ end
 
 module Option = struct
   let ( let* ) = Option.bind
-  let to_bool = Option.is_some
+  let succeeded = Option.is_some
+  let ok = Some ()
+  let fail = None
+  let check b = if b then ok else fail
+  let of_bool default b = if b then Some default else None
+  let pure a = Some a
 
-  type pf = unit option
-
-  let all : 'a list -> ('a -> pf) -> pf =
+  let all : 'a list -> ('a -> 'b option) -> 'b list option =
    fun vs f ->
     let rec loop rs vs =
       match vs with
-      | [] -> Some ()
+      | [] -> Some []
       | x :: xs ->
         let res = f x in
         (match res with None -> None | Some r -> loop (r :: rs) xs)
     in
     loop [] vs
 
-  let any : name:string -> 'a list -> ('a -> pf) -> pf =
+  let any : name:string -> 'a list -> ('a -> 'b option) -> 'b option =
    fun ~name vs f ->
     match vs with
     | [] ->
@@ -91,13 +94,13 @@ module Option = struct
       loop v vs
 end
 
-module Backtrack = struct
+module Bool = struct
   let bind o f = match o with false -> false | true -> f true
   let ( let* ) = bind
 
-  type pf = bool
+  (* type success = bool *)
 
-  let all : 'a list -> ('a -> pf) -> pf =
+  let all : 'a list -> ('a -> bool) -> bool =
    fun vs f ->
     let rec loop vs =
       match vs with
@@ -108,7 +111,7 @@ module Backtrack = struct
     in
     loop vs
 
-  let any : name:string -> 'a list -> ('a -> pf) -> pf =
+  let any : name:string -> 'a list -> ('a -> bool) -> bool =
    fun ~name vs f ->
     match vs with
     | [] -> failwith (Format.asprintf "choice empty: %s" name)
