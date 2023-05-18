@@ -522,6 +522,7 @@ let rec check_qf2 :
     'a option =
  fun id vs ante conseq k ->
   let debug = false in
+  (* TODO ptr equalities? *)
   let a = Heap.normalize ante in
   let c = Heap.normalize conseq in
   if debug then
@@ -676,9 +677,17 @@ and stage_subsumes :
     (state * state * term) quantified ->
     pi option =
  fun what all_vars assump s1 s2 ->
+  let debug = false in
   let vs1, (pre1, post1, ret1) = s1 in
   let vs2, (pre2, post2, ret2) = s2 in
   (* TODO replace uses of all_vars. this is for us to know if locations on the rhs are quantified. a smaller set of vars is possible *)
+  if debug then
+    Format.printf "(%s) %s * (%sreq %s ens %s) <: (%sreq %s ens %s)@." what
+      (string_of_pi assump)
+      (string_of_existentials vs1)
+      (string_of_state pre1) (string_of_state post1)
+      (string_of_existentials vs2)
+      (string_of_state pre1) (string_of_state post2);
   (* contravariance *)
   let@ pre_l, pre_r = check_qf2 "pren" all_vars pre2 pre1 in
   let* assump =
