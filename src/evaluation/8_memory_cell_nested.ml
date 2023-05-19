@@ -33,7 +33,7 @@ let client ()
 
 let handler1 i 
 (*@ 
-  ex z; 
+  ex z x3;
   req i -> z;
   Read(i ->10, x3); 
   Norm(emp, x3)
