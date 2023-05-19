@@ -1042,21 +1042,25 @@ let run_string_ incremental line =
   let vcr = !Pretty.verifier_counter in
   let debug_parser = false in
   if debug_parser then Format.printf "parsed: %s@." (string_of_program prog);
-  List.iter (fun {m_spec = given_spec; m_body = body; m_name; m_tactics; _} ->
+  List.iter (fun ({m_spec = given_spec; _} as meth) ->
     (* this is done so tests are independent.
        each function is analyzed in isolation so this is safe.
        we must, however, reset to the current checkpoint, as parsing uses fresh variables... *)
     Pretty.verifier_counter_reset_to vcr;
     if not incremental then begin
       let time_stamp_beforeForward = Sys.time() in
-      let inferred_spec = infer_of_expression prog.cp_methods [freshNormalReturnSpec] body in
+      let inferred_spec =
+        (* within a method body, params/locals should shadow functions defined outside *)
+        let method_env = prog.cp_methods |> List.filter (fun m -> not (List.mem m.m_name meth.m_params)) in
+        infer_of_expression method_env [freshNormalReturnSpec] meth.m_body
+      in
       let time_stamp_afterForward = Sys.time() in
       let given_spec_n = normalise_spec_list_aux1 given_spec in
       let inferred_spec_n = normalise_spec_list_aux1 inferred_spec in
       let time_stamp_afterNormal = Sys.time() in
       (* SYH old entailment  *)
       (* let res = entailmentchecking inferred_spec_n given_spec_n in *)
-      let res = Entail.check_staged_subsumption_disj m_tactics prog.cp_lemmas prog.cp_predicates inferred_spec given_spec in
+      let res = Entail.check_staged_subsumption_disj meth.m_tactics prog.cp_lemmas prog.cp_predicates inferred_spec given_spec in
       (*let res = Entail.check_staged_subsumption_disj m_tactics prog.cp_lemmas prog.cp_predicates inferred_spec given_spec in  *)
       let time_stamp_afterEntail = Sys.time() in
 
@@ -1066,7 +1070,7 @@ let run_string_ incremental line =
 
 
       let header =
-        "\n========== Function: "^ m_name ^" ==========\n" ^
+        "\n========== Function: "^ meth.m_name ^" ==========\n" ^
         "[Specification] " ^ string_of_spec_list given_spec ^"\n" ^
         "[Normed   Spec] " ^ string_of_spec_list given_spec_n ^"\n\n" ^
         "[Raw Post Spec] " ^ string_of_spec_list inferred_spec ^ "\n" ^
@@ -1076,7 +1080,7 @@ let run_string_ incremental line =
         "[Entail  Check] " ^ 
         (string_of_res res) ^ "\n" ^
         "[Entail  Time] " ^ string_of_float ((time_stamp_afterEntail  -. time_stamp_afterNormal) *. 1000.0) ^ " ms\n" ^
-        (String.init (String.length m_name + 32) (fun _ -> '=')) ^ "\n"
+        (String.init (String.length meth.m_name + 32) (fun _ -> '=')) ^ "\n"
 
     
       in
