@@ -124,6 +124,7 @@ function main() {
   } else {
     load_example(document.querySelector("#examples"));
   }
+  postExampleLoad();
 }
 
 setupEditor();
