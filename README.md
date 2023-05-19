@@ -1,4 +1,4 @@
-# Separation Logic for Unrestricted Effect Handlers 
+# Separation Logic for Unrestricted Effect Handlers
 
 This work proposes a novel calculus based on Staged Separation Logic 
 (SSL) to support unrestricted effect handlers, 
@@ -55,6 +55,11 @@ has a bug
 
 2, 10, for normalization 
 8, 11 for entailment 
+
+8, 11: different results due to weakest precondition. the preconditions inferred for the actual impl seem a bit too strong?
+2: has req F. new entailment seems correct, should be false?
+10, write_handler: is the spec right? there's no prior info about x1
+10, read_handler: depends on write_handler, TBC
 
 # What is inside the `root directory` ?
 
