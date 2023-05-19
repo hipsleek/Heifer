@@ -50,3 +50,21 @@ let[@proof unfold_left] rec test10_false b n
   (*@ Norm(emp, 0) @*) =
   test5_true b n
 (* missing induction hypothesis *)
+
+let compose_true f g x 
+(*@
+  ex r_g; g(x, r_g);
+  ex r_f; f(r_g, r_f);
+  Norm (emp, r_f)
+@*)
+= f (g x)
+
+let compose_exists_false f g x 
+(*@
+  ex r_g r_f;
+  g(x, r_g);
+  f(r_g, r_f);
+  Norm (emp, r_f)
+@*)
+= f (g x)
+(* the positions of existentials matter and have to match the implementation, due to the way proving is done at each stage *)

@@ -72,6 +72,8 @@ let freshNormalReturnSpec = [NormalReturn (True, EmptyHeap, UNIT)]
 
 let freshNormStageVar v : normalStage = ([v], (True, EmptyHeap), (True, EmptyHeap), Var v) 
 
+let freshNormStageRet r : normalStage = ([], (True, EmptyHeap), (True, EmptyHeap), r) 
+
 (* type linearStagedSpec = stagedSpec list *)
 
 

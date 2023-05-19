@@ -57,8 +57,13 @@ let test23_false ()  (*@ ex i; Norm(i->1, 1) @*) =
 
 let test19_true ()  (*@ ex r; Eff(emp, r) @*) =
   let ret = perform Eff in
+  ret
+(* this is the only correct implementation. note that the spec is implicitly completed with ... Norm(emp, r), the return value of the previous stage. *)
+
+let test27_true ()  (*@ ex r; Eff(emp, r); ex r1; Norm(emp, r1) @*) =
+  let ret = perform Eff in
   1
-(* we don't consider Eff's type. unless it is unit (which we don't special-case anyway), we won't know the return value, and the forward rules indeed ensure that the return value of Eff constructors is always a variable. thus the only correct spec for this is that it returns something. *)
+(* if we explicitly give a Norm, the return value of perform and the function can differ *)
 
 let test25_false ()  (*@ Eff(emp, ()) @*) =
   let ret = perform Eff in

@@ -519,16 +519,15 @@ let normalise_stagedSpec (acc:normalisedStagedSpec) (stagedSpec:stagedSpec) : no
     let normalStage' = (existential, mergeState req (And(p3, unification), magicWandHeap), (ProversEx.normalize_pure (And(p2, unification')), h2'), ret) in 
     (effectStages, normalStage')
 
-  | NormalReturn (pi, heap, ret') -> (effectStages, (existential, req, mergeState ens (pi, heap), ret'))
+  | NormalReturn (pi, heap, ret') ->
+    (effectStages, (existential, req, mergeState ens (pi, heap), ret'))
   (* effects *)
   | RaisingEff (pi, heap,ins, ret') -> 
-    (* move current norm state "behind" this effect boundary *)
-    let v = verifier_getAfreeVar ~from:"n" () in
-    (effectStages@[{e_evars = existential; e_pre = req; e_post = mergeState ens (pi, heap); e_constr = ins ; e_ret = ret'; e_typ = `Eff}], freshNormStageVar v)
+    (* move current norm state "behind" this effect boundary. the return value is implicitly that of the current stage *)
+    (effectStages@[{e_evars = existential; e_pre = req; e_post = mergeState ens (pi, heap); e_constr = ins ; e_ret = ret'; e_typ = `Eff}], freshNormStageRet ret')
   (* higher-order functions *)
   | HigherOrder (pi, heap, ins, ret') ->
-    let v = verifier_getAfreeVar ~from:"n" () in
-    (effectStages@[{e_evars = existential; e_pre = req; e_post = mergeState ens (pi, heap); e_constr = ins ; e_ret = ret'; e_typ = `Fn}], freshNormStageVar v)
+    (effectStages@[{e_evars = existential; e_pre = req; e_post = mergeState ens (pi, heap); e_constr = ins ; e_ret = ret'; e_typ = `Fn}], freshNormStageRet ret')
   (* | IndPred {name; _} -> *)
     (* failwith (Format.asprintf "cannot normalise predicate %s" name) *)
 
