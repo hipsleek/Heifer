@@ -56,7 +56,7 @@ let rec build_fml : pi -> Jv.t -> Jv.t =
     (* Jv.of_bool true *)
   | False ->
     (* Jv.of_bool false *)
-    Jv.call (Jv.get ctx "Bool") "val" [| Jv.of_bool true |]
+    Jv.call (Jv.get ctx "Bool") "val" [| Jv.of_bool false |]
   | Atomic (op, a, b) -> build_op ctx op a b
   | Predicate (_, _) -> failwith "not implemented"
 
