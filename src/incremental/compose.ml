@@ -7,18 +7,21 @@ let compose f g x
 @*)
 = f (g x)
 
-(*
 let f x 
 (*@ ex z;
-    req x -> z;
-    ens Norm(x->z+1 /\ ret = z +1, ret) @*)
-= x := !x + 1; x
+    req x->z;
+    ex ret;
+    Norm(ret=z+1/\x->ret, ret) @*)
+= x := !x + 1; !x
 
 let g x 
 (*@ ex z;
-    req x -> z;
-    ens Norm(x->z*2 /\ ret = z*2, ret) @*)
-= x:= !x * 2; x 
+    req x->z;
+    ex ret;
+    Norm(ret=z+z/\x->z+z, ret) @*)
+= x:= !x + !x; !x
+
+(*
 
 let caller2 ()
 (*@
