@@ -10,18 +10,15 @@ let compose f g x
 let f x 
 (*@ ex z;
     req x->z;
-    ex ret;
-    Norm(ret=z+1/\x->ret, ret) @*)
-= x := !x + 1; !x
+    Norm(x->z+1, x) @*)
+= x := !x + 1; x
 
 let g x 
 (*@ ex z;
     req x->z;
     ex ret;
-    Norm(ret=z+z/\x->z+z, ret) @*)
-= x:= !x + !x; !x
-
-(*
+    Norm(ret=z+z/\x->z+z, x) @*)
+= x:= !x + !x; x
 
 let caller2 ()
 (*@
