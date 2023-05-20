@@ -4,7 +4,9 @@ files=(src/examples/*.ml src/evaluation/*.ml)
 
 for file in "${files[@]}"; do
   contents="$(sed 's/"/\&quot;/g' < "$file")"
-  transformed_contents="<option value=\"$contents\">$file</option>"
+  # name=$(echo "$file" | sed 's@src/@@g')
+  name="$file"
+  transformed_contents="<option value=\"$contents\">$name</option>"
   output+="$transformed_contents"
 done
 
