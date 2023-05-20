@@ -281,11 +281,11 @@ type env = {
 type function_without_spec = (string * expression * string list)
 let (env_function_without_spec: ((function_without_spec list)ref)) = ref [] 
 
-let rec retriveFuntionWithoutSpecDefinition str li = 
+let rec retrieveFuntionWithoutSpecDefinition str li = 
   match li with 
   | [] ->  None 
   | (s, b, f) :: xs  -> if String.compare s str == 0 then (Some (s, b, f)) 
-  else retriveFuntionWithoutSpecDefinition str xs 
+  else retrieveFuntionWithoutSpecDefinition str xs 
 
 
 let rec string_of_basic_v li: string = 

@@ -27,25 +27,36 @@ let rec retrieve_return_value (spec:spec) : term =
   | [RaisingEff(_, _, _, retN)] -> retN
   | _ :: xs -> retrieve_return_value xs 
 
-let rec retriveSpecFromEnv (fname: string) (env:meth_def list) : (string list * spec list) option = 
-  match env with 
+let rec replace_return_value (t:term) (spec:spec) : spec = 
+  match spec with 
+  | [] -> failwith "replace_return_value empty spec"
+  | [HigherOrder (p, h, i, _)] -> [HigherOrder (p, h, i, t)]
+  | [NormalReturn (p, h, _)] -> [NormalReturn (p, h, t)]
+  | [RaisingEff(p, h, i, _)] -> [RaisingEff (p, h, i, t)]
+  | s :: ss -> s :: replace_return_value t ss
+
+let (*rec*) retrieveSpecFromEnv (fname: string) (env:meth_def list) : (string list * spec list) option = 
+  (* match env with 
   | [] -> None 
   | m :: xs ->  
     if String.compare fname m.m_name == 0 then Some (m.m_params, m.m_spec) 
-    else retriveSpecFromEnv fname xs
+    else retriveSpecFromEnv fname xs *)
+  List.find_map (fun m -> if String.equal fname m.m_name then Some (m.m_params, m.m_spec) else None) env
 
 
-let rec bindFormalNActual (formal: string list) (actual: core_value list) : ((string * core_value) list)= 
-  match (formal, actual) with 
+let (*rec*) bindFormalNActual (formal: string list) (actual: core_value list) : ((string * core_value) list)= 
+  (* match (formal, actual) with 
   | ([], []) -> []
   | (x::xs , y::ys) -> (x, y) :: bindFormalNActual xs ys
-  | ( _,  _ ) -> failwith "bindFormalNActual different lenth arguments"
+  | ( _,  _ ) -> failwith "bindFormalNActual different lenth arguments" *)
+  List.map2 (fun a b -> (a, b)) formal actual
 
-let rec bindNewNames (formal: string list) (actual: string list) : ((string * string) list)= 
-  match (formal, actual) with 
+let (*rec*) bindNewNames (formal: string list) (actual: string list) : ((string * string) list)= 
+  (* match (formal, actual) with 
   | ([], []) -> []
   | (x::xs , y::ys) -> (x, y) :: bindNewNames xs ys
-  | ( _,  _ ) -> failwith "bindNewNames different lenth arguments"
+  | ( _,  _ ) -> failwith "bindNewNames different lenth arguments" *)
+  List.map2 (fun a b -> (a, b)) formal actual
 
 
 
@@ -115,15 +126,15 @@ let instantiateStages (bindings:((string * core_value) list))  (stagedSpec:stage
 
 
 
-let instantiateSpec (bindings:((string * core_value) list)) (sepc:spec) : spec = 
+let instantiateSpec (bindings:((string * core_value) list)) (sepc:spec) : spec =
   List.map (fun a -> instantiateStages bindings a ) sepc
 
-let instantiateSpecList (bindings:((string * core_value) list)) (sepcs:spec list) : spec list =  
+let instantiateSpecList (bindings:((string * core_value) list)) (sepcs:disj_spec) : disj_spec =
   List.map (fun a -> instantiateSpec bindings a ) sepcs
 
 
 let rec getExistientalVar (spec:normalisedStagedSpec) : string list = 
-  let (effS, normalS)  =  spec  in 
+  let (effS, normalS) = spec in 
   match effS with 
   | [] -> 
     let (ex, _, _, _) = normalS in ex 
@@ -178,6 +189,7 @@ let () = assert (isFreshVar "f10" ==true )
 let () = assert (isFreshVar "s10" ==false )
 
 
+(** substitutes existentials with fresh variables *)
 let renamingexistientalVar (specs:spec list): spec list = 
   List.map (
     fun spec -> 
@@ -191,11 +203,51 @@ let renamingexistientalVar (specs:spec list): spec list =
       instantiateSpec bindings (normalisedStagedSpec2Spec temp)
   ) specs
 
+(** substitutes existentials with fresh variables, and the resulting formula has no quantifiers *)
 let freshen (specs:disj_spec): disj_spec = 
   renamingexistientalVar specs
   |> List.map (List.filter (function Exists _ -> false | _ -> true))
 
 
+let instantiate_higher_order_functions fn_args (spec:disj_spec) : disj_spec =
+  List.concat_map (fun ss ->
+    let rec loop (acc:disj_spec) (ss:spec) =
+      match ss with
+      | [] -> List.map List.rev acc
+      | s :: ss1 ->
+        begin match s with
+        | Exists _ | Require (_, _)
+        | NormalReturn _ | RaisingEff _ ->
+          loop (List.map (fun tt -> s :: tt) acc) ss1
+        | HigherOrder (_p, _h, (name, args), ret) ->
+          let matching = List.find_map (fun (mname, mspec) ->
+            match mspec with
+            | Some (mparams, msp) when String.equal mname name && List.length mparams = List.length args ->
+            Some (mparams, msp)
+            | _ -> None) fn_args in
+          begin match matching with
+          | None ->
+            loop (List.map (fun tt -> s :: tt) acc) ss1
+          | Some (mparams, mspec) ->
+            let bs = bindFormalNActual mparams args in
+            let instantiated = instantiateSpecList bs (renamingexistientalVar mspec)
+              (* replace return value with whatever x was replaced with *)
+            in
+            (* reversed because we're really adding in reverse to each element of the outer list - the ordering of the (set of) disjuncts doesn't matter *)
+            let res = List.concat_map (fun tt ->
+              List.map (fun dis -> List.rev dis @ tt) instantiated) acc in
+            let ret1 = match ret with Var s -> s | _ -> failwith (Format.asprintf "return value of ho %s was not a var" (string_of_term ret)) in
+            (* instantiate the return value in the remainder of the input before using it *)
+            let ss2 =
+              let bs = List.map (fun s -> (ret1, retrieve_return_value s)) instantiated in
+              instantiateSpec bs ss1
+            in
+            loop res ss2
+          end
+        end
+    in
+    loop [[]] ss
+  ) spec
 
 
 let rec lookforHandlingCases ops (label:string) = 
@@ -257,7 +309,7 @@ let rec handling_spec env (spec:normalisedStagedSpec) (normal:(string * core_lan
 
 
  
-and infer_of_expression (env:meth_def list) (current:spec list) (expr:core_lang): spec list = 
+and infer_of_expression (env:meth_def list) (current:disj_spec) (expr:core_lang): disj_spec = 
   (*print_string (string_of_coreLang_kind expr ^ "\n"); *)
   match expr with
   | CValue v -> 
@@ -381,16 +433,31 @@ and infer_of_expression (env:meth_def list) (current:spec list) (expr:core_lang)
 
     else 
     let spec_of_fname =
-      match retriveSpecFromEnv fname env with 
+      match retrieveSpecFromEnv fname env with 
       | None ->
         let ret = verifier_getAfreeVar () in
         [[Exists [ret]; HigherOrder (True, EmptyHeap, (fname, actualArgs), Var ret)]]
       | Some (formalArgs, spec_of_fname) -> 
-        (*print_endline (string_of_spec_list spec_of_fname);*)
-        (* let spec = renamingexistientalVar spec_of_fname in *)
-        let spec = freshen spec_of_fname in
+        (* TODO should we keep existentials? *)
+        let spec = renamingexistientalVar spec_of_fname in
+        (* let spec = freshen spec_of_fname in *)
+        (* Format.printf "after freshen: %s@." (string_of_disj_spec spec); *)
+        let spec =
+          (* we've encountered a function call, e.g. f x y.
+            we look up the spec for f. say it looks like:
+              let f g h (*@ g$(...); ... @*) = ...
+            we now want to instantiate g with the spec for x. *)
+          let fnArgs = List.map2 (fun p x ->
+            match x with
+            | Var a -> (p, retrieveSpecFromEnv a env)
+            | _ -> (p, None) (* if a is a lambda, get its spec here *)
+            ) formalArgs actualArgs
+          in
+          instantiate_higher_order_functions fnArgs spec
+        in
+        (* Format.printf "after ho fns: %s@." (string_of_disj_spec spec); *)
         let bindings = bindFormalNActual (formalArgs) (actualArgs) in 
-        let instantiatedSpec =  instantiateSpecList bindings spec in 
+        let instantiatedSpec = instantiateSpecList bindings spec in 
         instantiatedSpec
         (*print_endline ("====\n"^ string_of_spec_list spec_of_fname);*)
     in

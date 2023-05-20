@@ -1,5 +1,5 @@
 
-let compose f g x 
+let compose f g x
 (*@
   ex r_g; g(x, r_g);
   ex r_f; f(r_g, r_f);
@@ -14,23 +14,20 @@ let f x
 = x := !x + 1; x
 
 let g x 
-(*@ ex z;
-    req x->z;
+(*@ ex u;
+    req x->u;
     ex ret;
-    Norm(ret=z+z/\x->z+z, x) @*)
-= x:= !x + !x; x
-
-let caller2 ()
-(*@
-ex x;
-ens Norm(x->4, 4) @*)
-= let x = ref 1 in 
-  compose g f x 
+    Norm(ret=u+u/\x->u+u, x) @*)
+= x := !x + !x; x
 
 let caller1 () 
-(*@
-ex x;
-ens Norm(x->3, 3) @*)
+(*@ ex w; Norm(w->4, 4) @*)
 = let x = ref 1 in
-  compose f g x
-*)
+  let y1 = compose f g x in
+  !y1
+
+let caller2 ()
+(*@ ex w; Norm(w->3, 3) @*)
+= let y = ref 1 in 
+  let y1 = compose g f y in
+  !y1

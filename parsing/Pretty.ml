@@ -289,7 +289,7 @@ let string_of_state (p, h) : string =
     Format.asprintf "%s /\\ %s" (string_of_kappa h) (string_of_pi p)
     (* Format.asprintf "%s*%s" (string_of_kappa h) (string_of_pi p) *)
 
-let string_of_stage (st:stagedSpec) : string =
+let string_of_staged_spec (st:stagedSpec) : string =
   match st with
   | Require (p, h) ->
     Format.asprintf "req %s" (string_of_state (p, h))
@@ -310,7 +310,7 @@ let string_of_spec (spec:spec) :string =
   | _ ->
     spec
     (* |> List.filter (function Exists [] -> false | _ -> true) *)
-    |> List.map string_of_stage |> String.concat "; "
+    |> List.map string_of_staged_spec |> String.concat "; "
 
 let string_of_spec_list (specs:spec list) : string = 
   match specs with 
