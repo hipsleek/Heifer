@@ -128,7 +128,345 @@ let test ()
           >
             Hello world
           </option>
-          <option value=src/evaluation/6_memory_cell_mix_handler.ml data-text="effect Read : int 
+          <option value=src/examples/compose.ml data-text="
+let compose f g x
+(*@
+  ex r_g; g(x, r_g);
+  ex r_f; f(r_g, r_f);
+  Norm (emp, r_f)
+@*)
+= f (g x)
+
+let f x 
+(*@ ex z;
+    req x->z;
+    Norm(x->z+1, x) @*)
+= x := !x + 1; x
+
+let g x 
+(*@ ex u;
+    req x->u;
+    ex ret;
+    Norm(ret=u+u/\x->u+u, x) @*)
+= x := !x + !x; x
+
+let caller1 () 
+(*@ ex w; Norm(w->4, 4) @*)
+= let x = ref 1 in
+  let y1 = compose f g x in
+  !y1
+
+let caller2 ()
+(*@ ex w; Norm(w->3, 3) @*)
+= let y = ref 1 in 
+  let y1 = compose g f y in
+  !y1">src/examples/compose.ml</option><option value=src/evaluation/0_heap_zero_once_twice.ml data-text="effect Zero : int 
+effect Once : int 
+effect Twice : int 
+
+let test () 
+(*@ ex i ret;
+   Zero(i->0, ret);
+   req i-> 0; 
+   Norm(i->1, ret)
+@*)
+=
+  let i = Sys.opaque_identity (ref 0) in 
+  let ret = perform Zero in 
+  i := !i + 1;
+  assert (!i = 1);
+  ret
+
+let main_aux ()
+(*@ ex i;
+   Norm(i->0, 100)
+@*)
+=
+  match test () with
+  | v -> v
+  | effect Zero k -> 100
+  | effect Once k ->
+    (continue k 1); 
+  | effect Twice k ->
+    let _ = (continue (Obj.clone_continuation k) 1) in (continue k 2)">src/evaluation/0_heap_zero_once_twice.ml</option><option value=src/evaluation/10_memory_cell_nested.ml data-text="effect Read : int 
+effect Write : int -> unit 
+
+(* let (i: int ref) = Sys.opaque_identity (ref 0) *)
+
+let read () 
+(*@ 
+   ex ret; 
+   Read(emp, ret);
+   Norm(emp, ret)
+@*)
+= perform Read
+
+let write n 
+(*@ 
+   ex ret; 
+   Write(emp, n,  ret);
+   Norm(emp, ret)
+@*)
+= perform (Write n)
+
+let test ()
+(*@ 
+  ex x1; 
+  Read(emp, x1); 
+  ex x2; 
+  Write(emp, (x1+1), x2); 
+  ex x3; 
+  Read(emp, x3); 
+  Norm(emp, x3)
+@*)
+= 
+  let x = read () in 
+  let y = x +1 in 
+  write y;
+  read () 
+
+let write_handler i  
+(*@ 
+  ex x1 ret z; 
+  Read(emp, x1); 
+  req i-> z; 
+  Read(i->x1+1,  ret);
+  Norm(emp, ret)
+@*)
+= 
+  match test () with
+  | v -> v
+  | effect (Write x) k -> i := x; (continue k ())
+
+
+let read_handler  ()
+(*@ 
+  ex i; 
+  Norm(i->2,  10)
+@*)
+=
+  let i = Sys.opaque_identity (ref 0) in 
+  match write_handler i with
+  | v -> v 
+  | effect Read k -> (continue k (!i))">src/evaluation/10_memory_cell_nested.ml</option><option value=src/evaluation/11_exchange.ml data-text="effect Exchange: int -> int
+
+let exchange (m:int)
+(*@  
+   ex ret;
+   Exchange(emp, m, ret);
+   Norm(emp, ret)
+@*)
+= perform (Exchange m)
+
+
+let exc_hanlder (y: int ref) (new_v:int): int
+(*@  
+   ex old_v; 
+   req y -> old_v; 
+   Norm(y -> new_v, old_v)
+@*)
+= match exchange new_v with 
+  | v -> v 
+  | effect (Exchange n) k -> 
+    let old_v = !y in 
+    y := n; 
+    continue k old_v
+
+
+let main ()
+(*@  
+  ex x;
+  Norm(x -> 5, 11)
+@*)
+= 
+  let x = ref 11 in 
+  let res = exc_hanlder x 5 in 
+  print_endline (string_of_int res);
+  res">src/evaluation/11_exchange.ml</option><option value=src/evaluation/12_two_pointers.ml data-text="effect E: unit 
+
+let two_locations () 
+(*@ ex i j z1 z2 ret;
+   E(i->0 * j->0, ret);
+   req i->z1 * j->z2; 
+   Norm(i->z1+1*j->z2+1, ret)
+@*)
+= let i = ref 0 in 
+  let j = ref 0 in 
+  let ret = perform (E) in 
+  i := !i + 1;
+  j := !j + 1;
+  ret">src/evaluation/12_two_pointers.ml</option><option value=src/evaluation/1_heap_zero_once_twice.ml data-text="effect Zero : int 
+effect Once : int 
+effect Twice : int 
+
+let test () 
+(*@ ex i ret;
+   Once(i->0, ret);
+   req i-> 0; 
+   Norm(i->1, ret)
+@*)
+=
+  let i = Sys.opaque_identity (ref 0) in 
+  let ret = perform Once in 
+  i := !i + 1;
+  assert (!i = 1);
+  ret
+
+let main_aux ()
+(*@ ex i;
+   Norm(i->1, 1)
+@*)
+=
+  match test () with
+  | v -> v
+  | effect Zero k -> (-1)
+  | effect Once k ->
+    (continue k 1); 
+  | effect Twice k ->
+    let _ = (continue (Obj.clone_continuation k) 1) in (continue k 2)">src/evaluation/1_heap_zero_once_twice.ml</option><option value=src/evaluation/2_heap_zero_once_twice.ml data-text="effect Zero : int 
+effect Once : int 
+effect Twice : int 
+
+let test () 
+(*@ ex i ret;
+   Twice(i->0, ret);
+   req i-> 0; 
+   Norm(i->1, ret)
+@*)
+=
+  let i = Sys.opaque_identity (ref 0) in 
+  let ret = perform Twice in 
+  i := !i + 1;
+  assert (!i = 1);
+  ret
+
+let main_aux ()
+(*@ ex i;
+   Norm(i->2, 2)
+@*)
+=
+  match test () with
+  | v -> v
+  | effect Zero k -> 100
+  | effect Once k ->
+    (continue k 1); 
+  | effect Twice k ->
+    let _ = (continue (Obj.clone_continuation k) 1) in (continue k 2)">src/evaluation/2_heap_zero_once_twice.ml</option><option value=src/evaluation/3_nestedHandlers.ml data-text="effect E : int 
+effect F : string 
+
+let foo () 
+(*@ 
+   ex ret; 
+   F(emp, ret);
+   Norm(emp, ret)
+@*)
+= perform F
+
+let bar () 
+(*@ 
+   ex ret; 
+   F(emp, ret);
+   Norm(emp, ret)
+@*)
+=
+  match foo () with 
+  | x -> x 
+  | effect E k -> (failwith &quot;impossible&quot;)
+
+let baz () 
+(*@ 
+   Norm(emp, 1)
+@*)
+=
+  match bar () with 
+  | x -> x 
+  | effect F k -> continue k 1">src/evaluation/3_nestedHandlers.ml</option><option value=src/evaluation/4_memory_cell.ml data-text="effect Read : int 
+effect Write : int -> unit 
+
+(* let (i: int ref) = Sys.opaque_identity (ref 0) *)
+
+let read () 
+(*@ 
+   ex ret; 
+   Read(emp, ret);
+   Norm(emp, ret)
+@*)
+= perform Read
+
+let write n 
+(*@ 
+   ex ret; 
+   Write(emp, n,  ret);
+   Norm(emp, ret)
+@*)
+= perform (Write n)
+
+
+let read_handler () 
+(*@ 
+  ex i; 
+  Norm(i->0,  0)
+@*)
+= let i = Sys.opaque_identity (ref 0) in 
+  match read () with 
+  | v -> v
+  | effect Read k -> (continue k (!i)) 
+
+
+
+let write_handler  ()
+(*@ 
+  ex i; 
+  Norm(i->10,  10)
+@*)
+=
+  let i = Sys.opaque_identity (ref 0) in 
+  match write 10 with
+  | v -> !i (*print_string (string_of_int !i) *)
+  | effect (Write x) k -> i := x; (continue k ())">src/evaluation/4_memory_cell.ml</option><option value=src/evaluation/5_memory_cell.ml data-text="effect Read : int 
+effect Write : int -> unit 
+
+(* let (i: int ref) = Sys.opaque_identity (ref 0) *)
+
+let read () 
+(*@ 
+   ex ret; 
+   Read(emp, ret);
+   Norm(emp, ret)
+@*)
+= perform Read
+
+let write n 
+(*@ 
+   ex ret; 
+   Write(emp, n,  ret);
+   Norm(emp, ret)
+@*)
+= perform (Write n)
+
+
+let read_handler ()
+(*@ 
+  ex i; 
+  Norm(i->0,  0)
+@*)
+= let i = Sys.opaque_identity (ref 0) in 
+  match read ();read () with 
+  | v -> v
+  | effect Read k -> (continue k (!i)) 
+
+
+
+let write_handler  ()
+(*@ 
+  ex i; 
+  Norm(i->20,  20)
+@*)
+=
+  let i = Sys.opaque_identity (ref 0) in 
+  match write 10; write 20 with
+  | v -> !i (*print_string (string_of_int !i) *)
+  | effect (Write x) k -> i := x; (continue k ())">src/evaluation/5_memory_cell.ml</option><option value=src/evaluation/6_memory_cell_mix_handler.ml data-text="effect Read : int 
 effect Write : int -> unit 
 
 (* let (i: int ref) = Sys.opaque_identity (ref 0) *)
@@ -198,41 +536,7 @@ let handler1 ()
   match test1 () with 
   | v -> !i
   | effect Read k -> (continue k (!i)) 
-  | effect (Write x) k -> i := x; (continue k ())">src/evaluation/6_memory_cell_mix_handler.ml</option><option value=src/evaluation/11_exchange.ml data-text="effect Exchange: int -> int
-
-let exchange (m:int)
-(*@  
-   ex ret;
-   Exchange(emp, m, ret);
-   Norm(emp, ret)
-@*)
-= perform (Exchange m)
-
-
-let exc_hanlder (y: int ref) (new_v:int): int
-(*@  
-   ex old_v; 
-   req y -> old_v; 
-   Norm(y -> new_v, old_v)
-@*)
-= match exchange new_v with 
-  | v -> v 
-  | effect (Exchange n) k -> 
-    let old_v = !y in 
-    y := n; 
-    continue k old_v
-
-
-let main ()
-(*@  
-  ex x;
-  Norm(x -> 5, 11)
-@*)
-= 
-  let x = ref 11 in 
-  let res = exc_hanlder x 5 in 
-  print_endline (string_of_int res);
-  res">src/evaluation/11_exchange.ml</option><option value=src/evaluation/10_memory_cell_nested.ml data-text="effect Read : int 
+  | effect (Write x) k -> i := x; (continue k ())">src/evaluation/6_memory_cell_mix_handler.ml</option><option value=src/evaluation/7_memory_cell_mix_handler.ml data-text="effect Read : int 
 effect Write : int -> unit 
 
 (* let (i: int ref) = Sys.opaque_identity (ref 0) *)
@@ -252,6 +556,7 @@ let write n
    Norm(emp, ret)
 @*)
 = perform (Write n)
+
 
 let test ()
 (*@ 
@@ -261,138 +566,29 @@ let test ()
   Write(emp, (x1+1), x2); 
   ex x3; 
   Read(emp, x3); 
-  Norm(emp, x3)
+  ex x4; 
+  Write(emp, (x3+1), x4); 
+  ex x5; 
+  Read(emp, x5); 
+  Norm(emp, x5)
 @*)
 = 
   let x = read () in 
-  let y = x +1 in 
-  write y;
-  read () 
+  write (x+1);
+  let z = read () in 
+  write (z+1);
+  read ()
 
-let write_handler i  
-(*@ 
-  ex x1 ret z; 
-  Read(emp, x1); 
-  req i-> z; 
-  Read(i->x1+1,  ret);
-  Norm(emp, ret)
-@*)
-= 
-  match test () with
-  | v -> v
-  | effect (Write x) k -> i := x; (continue k ())
-
-
-let read_handler  ()
+let handler () 
 (*@ 
   ex i; 
-  Norm(i->2,  10)
-@*)
-=
-  let i = Sys.opaque_identity (ref 0) in 
-  match write_handler i with
-  | v -> v 
-  | effect Read k -> (continue k (!i))">src/evaluation/10_memory_cell_nested.ml</option><option value=src/evaluation/0_heap_zero_once_twice.ml data-text="effect Zero : int 
-effect Once : int 
-effect Twice : int 
-
-let test () 
-(*@ ex i ret;
-   Zero(i->0, ret);
-   req i-> 0; 
-   Norm(i->1, ret)
-@*)
-=
-  let i = Sys.opaque_identity (ref 0) in 
-  let ret = perform Zero in 
-  i := !i + 1;
-  assert (!i = 1);
-  ret
-
-let main_aux ()
-(*@ ex i;
-   Norm(i->0, 100)
-@*)
-=
-  match test () with
-  | v -> v
-  | effect Zero k -> 100
-  | effect Once k ->
-    (continue k 1); 
-  | effect Twice k ->
-    let _ = (continue (Obj.clone_continuation k) 1) in (continue k 2)">src/evaluation/0_heap_zero_once_twice.ml</option><option value=src/evaluation/4_memory_cell.ml data-text="effect Read : int 
-effect Write : int -> unit 
-
-(* let (i: int ref) = Sys.opaque_identity (ref 0) *)
-
-let read () 
-(*@ 
-   ex ret; 
-   Read(emp, ret);
-   Norm(emp, ret)
-@*)
-= perform Read
-
-let write n 
-(*@ 
-   ex ret; 
-   Write(emp, n,  ret);
-   Norm(emp, ret)
-@*)
-= perform (Write n)
-
-
-let read_handler () 
-(*@ 
-  ex i; 
-  Norm(i->0,  0)
+  Norm(i->2,  2)
 @*)
 = let i = Sys.opaque_identity (ref 0) in 
-  match read () with 
-  | v -> v
+  match test () with 
+  | v -> !i
   | effect Read k -> (continue k (!i)) 
-
-
-
-let write_handler  ()
-(*@ 
-  ex i; 
-  Norm(i->10,  10)
-@*)
-=
-  let i = Sys.opaque_identity (ref 0) in 
-  match write 10 with
-  | v -> !i (*print_string (string_of_int !i) *)
-  | effect (Write x) k -> i := x; (continue k ())">src/evaluation/4_memory_cell.ml</option><option value=src/evaluation/3_nestedHandlers.ml data-text="effect E : int 
-effect F : string 
-
-let foo () 
-(*@ 
-   ex ret; 
-   F(emp, ret);
-   Norm(emp, ret)
-@*)
-= perform F
-
-let bar () 
-(*@ 
-   ex ret; 
-   F(emp, ret);
-   Norm(emp, ret)
-@*)
-=
-  match foo () with 
-  | x -> x 
-  | effect E k -> (failwith &quot;impossible&quot;)
-
-let baz () 
-(*@ 
-   Norm(emp, 1)
-@*)
-=
-  match bar () with 
-  | x -> x 
-  | effect F k -> continue k 1">src/evaluation/3_nestedHandlers.ml</option><option value=src/evaluation/8_memory_cell_nested.ml data-text="effect Read : int 
+  | effect (Write x) k -> i := x; (continue k ())">src/evaluation/7_memory_cell_mix_handler.ml</option><option value=src/evaluation/8_memory_cell_nested.ml data-text="effect Read : int 
 effect Write : int -> unit 
 
 (* let (i: int ref) = Sys.opaque_identity (ref 0) *)
@@ -447,35 +643,7 @@ let handler2  ()
   let i = Sys.opaque_identity (ref 0) in 
   match handler1 i with
   | v -> () (*print_string (string_of_int !i) *)
-  | effect Read k -> (continue k (!i))">src/evaluation/8_memory_cell_nested.ml</option><option value=src/evaluation/2_heap_zero_once_twice.ml data-text="effect Zero : int 
-effect Once : int 
-effect Twice : int 
-
-let test () 
-(*@ ex i ret;
-   Twice(i->0, ret);
-   req i-> 0; 
-   Norm(i->1, ret)
-@*)
-=
-  let i = Sys.opaque_identity (ref 0) in 
-  let ret = perform Twice in 
-  i := !i + 1;
-  assert (!i = 1);
-  ret
-
-let main_aux ()
-(*@ ex i;
-   Norm(i->2, 2)
-@*)
-=
-  match test () with
-  | v -> v
-  | effect Zero k -> 100
-  | effect Once k ->
-    (continue k 1); 
-  | effect Twice k ->
-    let _ = (continue (Obj.clone_continuation k) 1) in (continue k 2)">src/evaluation/2_heap_zero_once_twice.ml</option><option value=src/evaluation/9_memory_cell_nested.ml data-text="effect Read : int 
+  | effect Read k -> (continue k (!i))">src/evaluation/8_memory_cell_nested.ml</option><option value=src/evaluation/9_memory_cell_nested.ml data-text="effect Read : int 
 effect Write : int -> unit 
 
 (* let (i: int ref) = Sys.opaque_identity (ref 0) *)
@@ -529,143 +697,7 @@ let handler2  ()
   let i = Sys.opaque_identity (ref 0) in 
   match handler1 i with
   | v -> v (*print_string (string_of_int !i) *)
-  | effect Read k -> (continue k (!i))">src/evaluation/9_memory_cell_nested.ml</option><option value=src/evaluation/7_memory_cell_mix_handler.ml data-text="effect Read : int 
-effect Write : int -> unit 
-
-(* let (i: int ref) = Sys.opaque_identity (ref 0) *)
-
-let read () 
-(*@ 
-   ex ret; 
-   Read(emp, ret);
-   Norm(emp, ret)
-@*)
-= perform Read
-
-let write n 
-(*@ 
-   ex ret; 
-   Write(emp, n,  ret);
-   Norm(emp, ret)
-@*)
-= perform (Write n)
-
-
-let test ()
-(*@ 
-  ex x1; 
-  Read(emp, x1); 
-  ex x2; 
-  Write(emp, (x1+1), x2); 
-  ex x3; 
-  Read(emp, x3); 
-  ex x4; 
-  Write(emp, (x3+1), x4); 
-  ex x5; 
-  Read(emp, x5); 
-  Norm(emp, x5)
-@*)
-= 
-  let x = read () in 
-  write (x+1);
-  let z = read () in 
-  write (z+1);
-  read ()
-
-let handler () 
-(*@ 
-  ex i; 
-  Norm(i->2,  2)
-@*)
-= let i = Sys.opaque_identity (ref 0) in 
-  match test () with 
-  | v -> !i
-  | effect Read k -> (continue k (!i)) 
-  | effect (Write x) k -> i := x; (continue k ())">src/evaluation/7_memory_cell_mix_handler.ml</option><option value=src/evaluation/5_memory_cell.ml data-text="effect Read : int 
-effect Write : int -> unit 
-
-(* let (i: int ref) = Sys.opaque_identity (ref 0) *)
-
-let read () 
-(*@ 
-   ex ret; 
-   Read(emp, ret);
-   Norm(emp, ret)
-@*)
-= perform Read
-
-let write n 
-(*@ 
-   ex ret; 
-   Write(emp, n,  ret);
-   Norm(emp, ret)
-@*)
-= perform (Write n)
-
-
-let read_handler ()
-(*@ 
-  ex i; 
-  Norm(i->0,  0)
-@*)
-= let i = Sys.opaque_identity (ref 0) in 
-  match read ();read () with 
-  | v -> v
-  | effect Read k -> (continue k (!i)) 
-
-
-
-let write_handler  ()
-(*@ 
-  ex i; 
-  Norm(i->20,  20)
-@*)
-=
-  let i = Sys.opaque_identity (ref 0) in 
-  match write 10; write 20 with
-  | v -> !i (*print_string (string_of_int !i) *)
-  | effect (Write x) k -> i := x; (continue k ())">src/evaluation/5_memory_cell.ml</option><option value=src/evaluation/12_two_pointers.ml data-text="effect E: unit 
-
-let two_locations () 
-(*@ ex i j z1 z2 ret;
-   E(i->0 * j->0, ret);
-   req i->z1 * j->z2; 
-   Norm(i->z1+1*j->z2+1, ret)
-@*)
-= let i = ref 0 in 
-  let j = ref 0 in 
-  let ret = perform (E) in 
-  i := !i + 1;
-  j := !j + 1;
-  ret">src/evaluation/12_two_pointers.ml</option><option value=src/evaluation/1_heap_zero_once_twice.ml data-text="effect Zero : int 
-effect Once : int 
-effect Twice : int 
-
-let test () 
-(*@ ex i ret;
-   Once(i->0, ret);
-   req i-> 0; 
-   Norm(i->1, ret)
-@*)
-=
-  let i = Sys.opaque_identity (ref 0) in 
-  let ret = perform Once in 
-  i := !i + 1;
-  assert (!i = 1);
-  ret
-
-let main_aux ()
-(*@ ex i;
-   Norm(i->1, 1)
-@*)
-=
-  match test () with
-  | v -> v
-  | effect Zero k -> (-1)
-  | effect Once k ->
-    (continue k 1); 
-  | effect Twice k ->
-    let _ = (continue (Obj.clone_continuation k) 1) in (continue k 2)">src/evaluation/1_heap_zero_once_twice.ml</option>
+  | effect Read k -> (continue k (!i))">src/evaluation/9_memory_cell_nested.ml</option>
         </select>
         <button id="share-btn" disabled onclick="share()">Share</button>
       </div>
@@ -705,7 +737,7 @@ let main_aux ()
     <script>
       // this is substituted at build time and is used in page.js
       function postExampleLoad() {
-        console.log("Built Sun May 21 14:06:42 UTC 2023");
+        console.log("Built Sun May 21 14:15:35 UTC 2023");
         console.log("loading z3...");
       }
     </script>
