@@ -89,8 +89,8 @@ function setupEditor() {
     mode: "ace/mode/ocaml1",
     tabSize: 2,
     useSoftTabs: true,
-    fontSize: "14pt",
   });
+  editor.setFontSize("12px");
   editor.commands.addCommand({
     name: "Run",
     bindKey: { win: "Ctrl-Enter", mac: "Command-Enter" },
