@@ -82,6 +82,7 @@ function setupEditor() {
   editor.setShowPrintMargin(false);
   editor.setHighlightActiveLine(false);
   editor.setOption("displayIndentGuides", false);
+  editor.commands.bindKey("Cmd-L", null);
   editor.session.setUseWorker(false);
   editor.session.setUseWrapMode(true);
   editor.session.setOptions({
