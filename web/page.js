@@ -6,40 +6,39 @@ function enable_buttons() {
   document.querySelector("#run-btn").disabled = false;
   document.querySelector("#share-btn").disabled = false;
 }
-function load_example(s) {
+
+const examples = document.querySelector("#examples");
+function load_selected_example() {
   clear_output();
-  editorSet(s.value);
+  editorSet(current_example_text());
+}
+function current_example_name() {
+  return examples[examples.selectedIndex].value;
+}
+function current_example_text() {
+  return examples[examples.selectedIndex].dataset.text.trim();
 }
 
 // const inp = document.querySelector("#input");
 const field = document.querySelector("#output");
-const old_console = console;
-
-const redirect_output = true;
-if (redirect_output) {
-  window.console = {
-    log(...args) {
-      // field.value += args.join(' ') + '\n';
-      field.innerHTML +=
-        '<div class="output-line">' +
-        args.join(" ").replace(/\n/g, '</div><div class="output-line">') +
-        "</div>";
-      // field.textContent += args.join(" ");
-      // old_console.log(...args);
-    },
-  };
-}
+// const old_console = console;
 
 function clear_output() {
   field.innerHTML = "";
 }
 
 function share() {
-  const url = new URL(window.location);
-  url.search = new URLSearchParams({ c: window.btoa(editorGet()) });
-  // this navigates away
-  // window.location = url.toString();
-  history.pushState({}, "Shared URL", url.toString());
+  if (editorGet().trim() === current_example_text()) {
+    const url = new URL(window.location);
+    url.search = new URLSearchParams({ example: current_example_name() });
+    history.pushState({}, "Shared Example URL", url.toString());
+  } else {
+    const url = new URL(window.location);
+    url.search = new URLSearchParams({ code: window.btoa(editorGet()) });
+    // this navigates away
+    // window.location = url.toString();
+    history.pushState({}, "Shared Code URL", url.toString());
+  }
 }
 
 let editor;
@@ -107,7 +106,7 @@ function editorSet(s) {
   editor.setValue(s, -1);
 }
 
-function editorGet(s) {
+function editorGet() {
   // return inp.value;
   return editor.getValue();
 }
@@ -118,11 +117,14 @@ function vim() {
 
 function main() {
   const queryParams = new URLSearchParams(window.location.search);
-  if (queryParams.get("c") !== null) {
-    const code = window.atob(queryParams.get("c"));
+  if (queryParams.get("code") !== null) {
+    const code = window.atob(queryParams.get("code"));
     editorSet(code);
+  } else if (queryParams.get("example") !== null) {
+    examples.value = queryParams.get("example");
+    load_selected_example();
   } else {
-    load_example(document.querySelector("#examples"));
+    load_selected_example();
   }
   postExampleLoad();
 }
