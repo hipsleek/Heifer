@@ -8,11 +8,6 @@
 
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>ESL Demo</title>
-    <script src="coi-serviceworker.min.js"></script>
-    <script type="text/javascript" src="z3-built.js"></script>
-    <!-- bundle.js (main.js) requires ocaml_ready to be defined -->
-    <script type="text/javascript" defer src="hipjs.bc.js"></script>
-    <script type="text/javascript" defer src="bundle.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/ace-builds@1.20.0/src-min-noconflict/ace.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/ace-builds@1.20.0/src-min-noconflict/ace.min.js"></script>
     <style>
@@ -110,9 +105,14 @@
     <div id="panel">
       <div id="toolbar">
         <button id="run-btn" disabled onclick="run()">Run</button>
-        <select name="examples" id="examples" onchange="load_example(this)">
+        <select
+          name="examples"
+          id="examples"
+          onchange="load_selected_example()"
+        >
           <option
-            value="effect Eff : unit
+            value="hello"
+            data-text="effect Eff : unit
 
 let test ()
 (*@ ex i z ret;
@@ -128,7 +128,7 @@ let test ()
           >
             Hello world
           </option>
-          <option value="">src/examples/*.ml</option><option value="effect Zero : int 
+          <option value=src/examples/*.ml data-text="">src/examples/*.ml</option><option value=src/evaluation/0_heap_zero_once_twice.ml data-text="effect Zero : int 
 effect Once : int 
 effect Twice : int 
 
@@ -156,7 +156,7 @@ let main_aux ()
   | effect Once k ->
     (continue k 1); 
   | effect Twice k ->
-    let _ = (continue (Obj.clone_continuation k) 1) in (continue k 2)">src/evaluation/0_heap_zero_once_twice.ml</option><option value="effect Read : int 
+    let _ = (continue (Obj.clone_continuation k) 1) in (continue k 2)">src/evaluation/0_heap_zero_once_twice.ml</option><option value=src/evaluation/10_memory_cell_nested.ml data-text="effect Read : int 
 effect Write : int -> unit 
 
 (* let (i: int ref) = Sys.opaque_identity (ref 0) *)
@@ -216,7 +216,7 @@ let read_handler  ()
   let i = Sys.opaque_identity (ref 0) in 
   match write_handler i with
   | v -> v 
-  | effect Read k -> (continue k (!i))">src/evaluation/10_memory_cell_nested.ml</option><option value="effect Exchange: int -> int
+  | effect Read k -> (continue k (!i))">src/evaluation/10_memory_cell_nested.ml</option><option value=src/evaluation/11_exchange.ml data-text="effect Exchange: int -> int
 
 let exchange (m:int)
 (*@  
@@ -250,7 +250,7 @@ let main ()
   let x = ref 11 in 
   let res = exc_hanlder x 5 in 
   print_endline (string_of_int res);
-  res">src/evaluation/11_exchange.ml</option><option value="effect E: unit 
+  res">src/evaluation/11_exchange.ml</option><option value=src/evaluation/12_two_pointers.ml data-text="effect E: unit 
 
 let two_locations () 
 (*@ ex i j z1 z2 ret;
@@ -263,7 +263,7 @@ let two_locations ()
   let ret = perform (E) in 
   i := !i + 1;
   j := !j + 1;
-  ret">src/evaluation/12_two_pointers.ml</option><option value="effect Zero : int 
+  ret">src/evaluation/12_two_pointers.ml</option><option value=src/evaluation/1_heap_zero_once_twice.ml data-text="effect Zero : int 
 effect Once : int 
 effect Twice : int 
 
@@ -291,7 +291,7 @@ let main_aux ()
   | effect Once k ->
     (continue k 1); 
   | effect Twice k ->
-    let _ = (continue (Obj.clone_continuation k) 1) in (continue k 2)">src/evaluation/1_heap_zero_once_twice.ml</option><option value="effect Zero : int 
+    let _ = (continue (Obj.clone_continuation k) 1) in (continue k 2)">src/evaluation/1_heap_zero_once_twice.ml</option><option value=src/evaluation/2_heap_zero_once_twice.ml data-text="effect Zero : int 
 effect Once : int 
 effect Twice : int 
 
@@ -319,7 +319,7 @@ let main_aux ()
   | effect Once k ->
     (continue k 1); 
   | effect Twice k ->
-    let _ = (continue (Obj.clone_continuation k) 1) in (continue k 2)">src/evaluation/2_heap_zero_once_twice.ml</option><option value="effect E : int 
+    let _ = (continue (Obj.clone_continuation k) 1) in (continue k 2)">src/evaluation/2_heap_zero_once_twice.ml</option><option value=src/evaluation/3_nestedHandlers.ml data-text="effect E : int 
 effect F : string 
 
 let foo () 
@@ -348,7 +348,7 @@ let baz ()
 =
   match bar () with 
   | x -> x 
-  | effect F k -> continue k 1">src/evaluation/3_nestedHandlers.ml</option><option value="effect Read : int 
+  | effect F k -> continue k 1">src/evaluation/3_nestedHandlers.ml</option><option value=src/evaluation/4_memory_cell.ml data-text="effect Read : int 
 effect Write : int -> unit 
 
 (* let (i: int ref) = Sys.opaque_identity (ref 0) *)
@@ -391,7 +391,7 @@ let write_handler  ()
   let i = Sys.opaque_identity (ref 0) in 
   match write 10 with
   | v -> !i (*print_string (string_of_int !i) *)
-  | effect (Write x) k -> i := x; (continue k ())">src/evaluation/4_memory_cell.ml</option><option value="effect Read : int 
+  | effect (Write x) k -> i := x; (continue k ())">src/evaluation/4_memory_cell.ml</option><option value=src/evaluation/5_memory_cell.ml data-text="effect Read : int 
 effect Write : int -> unit 
 
 (* let (i: int ref) = Sys.opaque_identity (ref 0) *)
@@ -434,7 +434,7 @@ let write_handler  ()
   let i = Sys.opaque_identity (ref 0) in 
   match write 10; write 20 with
   | v -> !i (*print_string (string_of_int !i) *)
-  | effect (Write x) k -> i := x; (continue k ())">src/evaluation/5_memory_cell.ml</option><option value="effect Read : int 
+  | effect (Write x) k -> i := x; (continue k ())">src/evaluation/5_memory_cell.ml</option><option value=src/evaluation/6_memory_cell_mix_handler.ml data-text="effect Read : int 
 effect Write : int -> unit 
 
 (* let (i: int ref) = Sys.opaque_identity (ref 0) *)
@@ -504,7 +504,7 @@ let handler1 ()
   match test1 () with 
   | v -> !i
   | effect Read k -> (continue k (!i)) 
-  | effect (Write x) k -> i := x; (continue k ())">src/evaluation/6_memory_cell_mix_handler.ml</option><option value="effect Read : int 
+  | effect (Write x) k -> i := x; (continue k ())">src/evaluation/6_memory_cell_mix_handler.ml</option><option value=src/evaluation/7_memory_cell_mix_handler.ml data-text="effect Read : int 
 effect Write : int -> unit 
 
 (* let (i: int ref) = Sys.opaque_identity (ref 0) *)
@@ -556,7 +556,7 @@ let handler ()
   match test () with 
   | v -> !i
   | effect Read k -> (continue k (!i)) 
-  | effect (Write x) k -> i := x; (continue k ())">src/evaluation/7_memory_cell_mix_handler.ml</option><option value="effect Read : int 
+  | effect (Write x) k -> i := x; (continue k ())">src/evaluation/7_memory_cell_mix_handler.ml</option><option value=src/evaluation/8_memory_cell_nested.ml data-text="effect Read : int 
 effect Write : int -> unit 
 
 (* let (i: int ref) = Sys.opaque_identity (ref 0) *)
@@ -611,7 +611,7 @@ let handler2  ()
   let i = Sys.opaque_identity (ref 0) in 
   match handler1 i with
   | v -> () (*print_string (string_of_int !i) *)
-  | effect Read k -> (continue k (!i))">src/evaluation/8_memory_cell_nested.ml</option><option value="effect Read : int 
+  | effect Read k -> (continue k (!i))">src/evaluation/8_memory_cell_nested.ml</option><option value=src/evaluation/9_memory_cell_nested.ml data-text="effect Read : int 
 effect Write : int -> unit 
 
 (* let (i: int ref) = Sys.opaque_identity (ref 0) *)
@@ -671,13 +671,48 @@ let handler2  ()
       </div>
       <div id="output"></div>
     </div>
+    <script type="text/javascript">
+      const redirect_output = true;
+      if (redirect_output) {
+        const field = document.querySelector("#output");
+        window.console = new Proxy(console, {
+          get(_target, prop, _receiver) {
+            let args = [...arguments];
+            // old_console.warn(args);
+            if (prop === "log") {
+              return (...args) => {
+                // field.value += args.join(' ') + '\n';
+                field.innerHTML +=
+                  '<div class="output-line">' +
+                  args
+                    .join(" ")
+                    .replace(/\n/g, '</div><div class="output-line">') +
+                  "</div>";
+                // field.textContent += args.join(" ");
+                // old_console.log(...args);
+              };
+            } else {
+              return Reflect.get(...arguments);
+            }
+          },
+        });
+      }
+    </script>
+    <script src="coi-serviceworker.min.js"></script>
+    <!-- z3-built has to be deferred -->
+    <script type="text/javascript" src="z3-built.js"></script>
     <script type="text/javascript" src="ace_ocaml.js"></script>
     <script>
+      // this is substituted at build time and is used in page.js
       function postExampleLoad() {
-        console.log("Built Sat May 20 15:08:44 UTC 2023");
+        console.log("Built Sun May 21 13:48:23 UTC 2023");
         console.log("loading z3...");
       }
     </script>
     <script type="text/javascript" src="page.js"></script>
+    <!-- hipjs logs to the console (page) -->
+    <script type="text/javascript" src="hipjs.bc.js"></script>
+    <!-- bundle.js/main.js requires ocaml_ready (hipjs) and enable_buttons (page) to be defined -->
+    <script type="text/javascript" src="bundle.js"></script>
   </body>
 </html>
