@@ -857,12 +857,12 @@ let%expect_test _ =
   Format.printf "%b@." (check_staged_subsumption_disj [] [] [] right left);
   [%expect
     {|
-    before tactics
+    before tactics:
     ex q q1; req x->q; Norm(x->q1 /\ q1>q, 2)
     <:
     ex p; req x->p; Norm(x->p+1, 2)
 
-    norm, subsumption
+    normalized:
     ex q q1; req x->q; Norm(x->q1 /\ q1>q, 2)
     <:
     ex p; req x->p; Norm(x->p+1, 2)
@@ -870,12 +870,12 @@ let%expect_test _ =
     (Norm pre) T => ex q,q1. q=p ==> true
     (Norm post) q1>q/\q=p => 2=2/\q1>q/\p+1=q1 ==> false
     false
-    before tactics
+    before tactics:
     ex p; req x->p; Norm(x->p+1, 2)
     <:
     ex q q1; req x->q; Norm(x->q1 /\ q1>q, 2)
 
-    norm, subsumption
+    normalized:
     ex p; req x->p; Norm(x->p+1, 2)
     <:
     ex q q1; req x->q; Norm(x->q1 /\ q1>q, 2)
