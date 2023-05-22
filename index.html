@@ -128,7 +128,28 @@ let test ()
           >
             Hello world
           </option>
-          <option value=src/examples/compose.ml data-text="
+          <option value=src/examples/applyN.ml data-text="
+let rec applyN_unfolded f x n
+  (*@
+    Norm(n=0/\emp, x) \/
+    req n>0/\emp; ex r2; f(x, r2); ex r1; applyN(f, r2, n-1, r1); Norm(emp, r1)
+  @*)
+=
+if n = 0 then x
+else let r = f x in applyN_unfolded f r (n-1)
+
+(*@ predicate applyN(f, x, n, res) =
+  Norm(n=0/\emp, x) \/
+  req n>0/\emp; ex r; f(x, r); ex r1; applyN(f, r, n-1, r1); Norm(emp, r1)
+@*)
+
+let[@proof unfold_right] rec applyN f x n
+  (*@ ex r3; applyN(f, x, n, r3) @*)
+=
+if n = 0 then x
+else let r = f x in applyN f r (n-1)
+
+(* add ; Norm(emp, r3) *)">src/examples/applyN.ml</option><option value=src/examples/compose.ml data-text="
 let compose f g x
 (*@
   ex r_g; g(x, r_g);
@@ -737,7 +758,7 @@ let handler2  ()
     <script>
       // this is substituted at build time and is used in page.js
       function postExampleLoad() {
-        console.log("Built Mon May 22 10:09:13 UTC 2023");
+        console.log("Built Mon May 22 16:24:43 UTC 2023");
         console.log("loading z3...");
       }
     </script>
