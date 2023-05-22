@@ -597,7 +597,7 @@ let rec expr_to_formula (expr:expression) : pi * kappa =
     failwith (Format.asprintf "unknown kind of formula: %a" Pprintast.expression expr)
 
 
-(** the env just tracks the names of bound functions *)
+(** see [transform_str] for what env is *)
 let rec transformation (env:string list) (expr:expression) : core_lang =
   match expr.pexp_desc with 
   | Pexp_ident {txt=Lident i; _} ->
@@ -614,23 +614,30 @@ let rec transformation (env:string list) (expr:expression) : core_lang =
     | _ -> failwith (Format.asprintf "unknown kind of constant: %a" Pprintast.expression expr)
     end
   | Pexp_fun _ ->
-    failwith (Format.asprintf "only for higher-order, TBD: %a" Pprintast.expression expr)
+    failwith (Format.asprintf "lambda; only for higher-order, not yet implemented: %a" Pprintast.expression expr)
+  (* perform *)
   | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, ((_, {pexp_desc = Pexp_construct ({txt=Lident eff; _}, args); _}) :: _)) when name = "perform" ->
     begin match args with
     | Some a -> transformation env a |> maybe_var (fun v -> CPerform (eff, Some v))
     | None -> CPerform (eff, None)
     end
+  (* continue *)
   | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, [_, _k; _, e]) when name = "continue" ->
     transformation env e |> maybe_var (fun v -> CResume v)
+  (* dereference *)
   | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, [_, {pexp_desc=Pexp_ident {txt=Lident v;_}; _}]) when name = "!" ->
     CRead v
+  (* ref *)
   | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, [_, a]) when name = "ref" ->
     transformation env a |> maybe_var (fun v -> CRef v)
+  (* assign *)
   | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, [_, {pexp_desc = Pexp_ident {txt=Lident x; _}; _}; _, e]) when name = ":=" ->
     transformation env e |> maybe_var (fun v -> CWrite (x, v))
+  (* transparent *)
   | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Ldot (Lident "Sys", "opaque_identity"); _}); _}, [_, a]) ->
     (* ignore this *)
     transformation env a
+  (* primitive or invocation of higher-order function passed as argument *)
   | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, args) when List.mem name env || List.mem name primitives ->
     let rec loop vars args =
       match args with
