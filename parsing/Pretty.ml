@@ -584,24 +584,6 @@ let used_vars (sp : normalisedStagedSpec) =
   List.concat_map used_vars_eff effs @ used_vars_norm norm
   |> List.sort_uniq String.compare
 
-let remove_redundant_vars : normalisedStagedSpec -> normalisedStagedSpec = fun sp1 ->
-  let sp2 =
-    let used = used_vars sp1 in
-    let effs, norm = sp1 in
-    let norm1 =
-      let vs, pre, post, ret = norm in
-      (List.filter (fun a -> List.mem a used) vs, pre, post, ret)
-    in
-    let effs1 =
-      List.map
-        (fun eff ->
-          { eff with e_evars = List.filter (fun a -> List.mem a used) eff.e_evars })
-        effs
-    in
-    (effs1, norm1)
-  in
-  sp2
-
 (* this moves existentials inward and removes unused ones *)
 let optimize_existentials : normalisedStagedSpec -> normalisedStagedSpec = fun (ess, norm) ->
   let rec loop unused acc es =
