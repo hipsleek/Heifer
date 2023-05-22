@@ -12,7 +12,6 @@
   TESTS FAILED
   ========== Function: test2_true ==========
   ========== Function: test3_true ==========
-  ========== Function: test6_true ==========
 
   $ results ../evaluation/0_heap_zero_once_twice.ml
   ========== Function: test ==========
@@ -140,6 +139,12 @@
   ========== Function: g ==========
   [Entail  Check] true
   ========== Function: caller1 ==========
-  [Entail  Check] true
+  [Entail  Check] false
   ========== Function: caller2 ==========
+  [Entail  Check] false
+
+  $ results ../examples/applyN.ml
+  ========== Function: applyN_unfolded ==========
+  [Entail  Check] true
+  ========== Function: applyN ==========
   [Entail  Check] true
