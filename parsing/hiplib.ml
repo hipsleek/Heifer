@@ -597,8 +597,6 @@ let rec expr_to_formula (expr:expression) : pi * kappa =
     failwith (Format.asprintf "unknown kind of formula: %a" Pprintast.expression expr)
 
 
-let primitives = ["+"; "-"]
-
 (** the env just tracks the names of bound functions *)
 let rec transformation (env:string list) (expr:expression) : core_lang =
   match expr.pexp_desc with 

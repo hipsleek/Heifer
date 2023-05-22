@@ -260,6 +260,8 @@ let rec lookforHandlingCases ops (label:string) =
 
 let (continueationCxt: ((spec list * string * (string * core_lang) * core_handler_ops) list) ref)  = ref [] 
 
+let primitives = ["+"; "-"; "="]
+
 let rec handling_spec env (spec:normalisedStagedSpec) (normal:(string * core_lang)) (ops:core_handler_ops) : spec list = 
   
   (*print_endline("\nhandling_spec =====> " ^ string_of_spec (normalisedStagedSpec2Spec spec));
@@ -417,21 +419,21 @@ and infer_of_expression (env:meth_def list) (current:disj_spec) (expr:core_lang)
       )
 
   | CFunCall (fname, actualArgs) -> 
-    if String.compare fname "+" == 0 then 
-      match actualArgs with 
-      | x1::x2::[] -> 
-      let event = NormalReturn (True, EmptyHeap, Plus(x1, x2)) in 
-      concatenateSpecsWithEvent current [event]
-      | _ -> failwith ("wrong aruguments of + " )
+    if List.mem fname primitives then begin
+      match fname, actualArgs with
+      | "+", [x1; x2] ->
+        let event = NormalReturn (True, EmptyHeap, Plus(x1, x2)) in 
+        concatenateSpecsWithEvent current [event]
+      | "-", [x1; x2] ->
+        let event = NormalReturn (True, EmptyHeap, Minus(x1, x2)) in 
+        concatenateSpecsWithEvent current [event]
+      | "=", [x1; x2] ->
+        (* TODO bool values, or at least Eq constructor in term *)
+        let event = NormalReturn (Atomic (EQ, x1, x2), EmptyHeap, UNIT) in 
+        concatenateSpecsWithEvent current [event]
+      | _ -> failwith (Format.asprintf "unknown primitive: %s, args: %s" fname (string_of_list string_of_term actualArgs))
 
-    else if String.compare fname "-" == 0 then 
-      match actualArgs with 
-      | x1::x2::[] -> 
-      let event = NormalReturn (True, EmptyHeap, Minus(x1, x2)) in 
-      concatenateSpecsWithEvent current [event]
-      | _ -> failwith ("wrong aruguments of - " )
-
-    else 
+    end else 
     let spec_of_fname =
       match retrieveSpecFromEnv fname env with 
       | None ->
