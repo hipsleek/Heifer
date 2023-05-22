@@ -531,8 +531,9 @@ let normalise_stagedSpec (acc:normalisedStagedSpec) (stagedSpec:stagedSpec) : no
   (* | IndPred {name; _} -> *)
     (* failwith (Format.asprintf "cannot normalise predicate %s" name) *)
 
-let rec normalise_spec_ (acc:normalisedStagedSpec) (spec:spec) : normalisedStagedSpec = 
-  match spec with 
+let (*rec*) normalise_spec_ (acc:normalisedStagedSpec) (spec:spec) : normalisedStagedSpec =
+  List.fold_left normalise_stagedSpec acc spec
+  (* match spec with
   | [] -> acc 
   | x :: xs -> 
     (*let time_1 = Sys.time() in*)
@@ -543,7 +544,7 @@ let rec normalise_spec_ (acc:normalisedStagedSpec) (spec:spec) : normalisedStage
     print_endline (string_of_stages x );
     print_endline ("[testing   Time] " ^ string_of_float ((during) *. 1000.0) ^ " ms\n"));
 *)
-    normalise_spec_ acc' xs 
+    normalise_spec_ acc' xs  *)
 
 let used_vars (sp : normalisedStagedSpec) =
   let rec used_vars_term (t : term) =
