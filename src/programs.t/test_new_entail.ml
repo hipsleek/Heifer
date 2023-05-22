@@ -244,3 +244,8 @@ let two_locations_true ()
   i := !i + 1;
   j := !j + 1;
   ret
+
+let if_disj_true b
+(*@ Norm(emp, 1) \/ Norm(emp, 2)
+@*)
+= if b then 1 else 2
