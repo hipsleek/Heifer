@@ -7,7 +7,7 @@ open Hiptypes
 
 exception Foo of string
 
-let colours : [`Html|`Ansi|`None] ref = ref `Ansi
+let colours : [`Html|`Ansi|`None] ref = ref `None
 
 let col ~ansi ~html text = 
   (match !colours with

@@ -1,5 +1,6 @@
 
 
+module Pretty = Core.Pretty
 exception Foo of string
 open Ocamlfrontend
 open Parsetree
@@ -1128,8 +1129,7 @@ let run_string_ incremental line =
     end
   ) prog.cp_methods
 
-let run_string ?(js=false) incr s =
-  if js then Pretty.colours := `Html;
+let run_string incr s =
   Provers.handle (fun () -> run_string_ incr s)
 
 let run_file incremental inputfile =
