@@ -11,7 +11,6 @@
   $ check test_ho.ml
   TESTS FAILED
   ========== Function: test2_true ==========
-  ========== Function: test3_true ==========
 
   $ results ../evaluation/0_heap_zero_once_twice.ml
   ========== Function: test ==========
@@ -115,7 +114,7 @@
   ========== Function: test ==========
   [Entail  Check] true
   ========== Function: write_handler ==========
-  [Entail  Check] false
+  [Entail  Check] true
   ========== Function: read_handler ==========
   [Entail  Check] false
 

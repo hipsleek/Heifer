@@ -59,7 +59,7 @@ let compose_true f g x
 @*)
 = f (g x)
 
-let compose_exists_false f g x 
+let compose_exists_true f g x
 (*@
   ex r_g r_f;
   g(x, r_g);
@@ -67,4 +67,5 @@ let compose_exists_false f g x
   Norm (emp, r_f)
 @*)
 = f (g x)
-(* the positions of existentials matter and have to match the implementation, due to the way proving is done at each stage *)
+(* the positions of existentials matter and have to match the implementation, due to the way proving is done at each stage.
+we optimize the positions of existentials automatically so this passes. *)
