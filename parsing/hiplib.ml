@@ -1051,8 +1051,12 @@ let run_string_ incremental line =
     if not incremental then begin
       let time_stamp_beforeForward = Sys.time() in
       let inferred_spec =
-        (* within a method body, params/locals should shadow functions defined outside *)
-        let method_env = prog.cp_methods |> List.filter (fun m -> not (List.mem m.m_name meth.m_params)) in
+        let method_env = prog.cp_methods
+          (* within a method body, params/locals should shadow functions defined outside *)
+          |> List.filter (fun m -> not (List.mem m.m_name meth.m_params))
+          (* treat recursive calls as abstract, as recursive functions should be summarized using predicates *)
+          |> List.filter (fun m -> not (String.equal m.m_name meth.m_name))
+        in
         infer_of_expression method_env [freshNormalReturnSpec] meth.m_body
       in
       let time_stamp_afterForward = Sys.time() in
