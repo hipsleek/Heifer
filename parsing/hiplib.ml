@@ -634,13 +634,13 @@ let rec transformation (env:string list) (expr:expression) : core_lang =
     (* ignore this *)
     transformation env a
   | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, args) when List.mem name env || List.mem name primitives ->
-    let rec loop args vars =
-      match List.rev args with
-      | [] -> CFunCall (name, vars)
+    let rec loop vars args =
+      match args with
+      | [] -> CFunCall (name, List.rev vars)
       | (_, a) :: args1 ->
-        transformation env a |> maybe_var (fun v -> loop args1 (v :: vars))
+        transformation env a |> maybe_var (fun v -> loop (v :: vars) args1)
     in
-    loop args []
+    loop [] args
   | Pexp_apply (_f, _args) ->
     (* unknown function call, e.g. printf. translate to assert true for now *)
     CAssert (True, EmptyHeap)
