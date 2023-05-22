@@ -664,7 +664,7 @@ let rec check_staged_subsumption_aux :
     in
     ok
   | _ ->
-    Format.printf "FAIL, unequal length\n%s\n|=\n%s\n@."
+    Format.printf "FAIL, unequal length\n%s\n<:\n%s\n@."
       (string_of_normalisedStagedSpec s1)
       (string_of_normalisedStagedSpec s2);
     None
@@ -682,7 +682,8 @@ and stage_subsumes :
   let vs2, (pre2, post2, ret2) = s2 in
   (* TODO replace uses of all_vars. this is for us to know if locations on the rhs are quantified. a smaller set of vars is possible *)
   if debug then
-    Format.printf "(%s) %s * (%sreq %s ens %s) <: (%sreq %s ens %s)@." what
+    Format.printf "%s %s * (%sreq %s; ens %s) <: (%sreq %s; ens %s)@."
+      (Pretty.yellow (Format.asprintf "(%s)" what))
       (string_of_pi assump)
       (string_of_existentials vs1)
       (string_of_state pre1) (string_of_state post1)
@@ -694,7 +695,9 @@ and stage_subsumes :
     let left = conj [assump; pre_l] in
     let right = pre_r in
     let pre_res = Provers.entails_exists left vs1 right in
-    Format.printf "(%s pre) %s => %s%s ==> %s@." what (string_of_pi left)
+    Format.printf "%s %s => %s%s ==> %s@."
+      (Pretty.yellow (Format.asprintf "(%s pre)" what))
+      (string_of_pi left)
       (string_of_existentials vs1)
       (string_of_pi right) (string_of_res pre_res);
     of_bool (conj [pre_l; pre_r; assump]) pre_res
@@ -711,7 +714,9 @@ and stage_subsumes :
     let left = conj [assump; post_l] in
     let right = conj [post_r; Atomic (EQ, ret1, ret2)] in
     let post_res = Provers.entails_exists left vs22 right in
-    Format.printf "(%s post) %s => %s%s ==> %s@." what (string_of_pi left)
+    Format.printf "%s %s => %s%s ==> %s@."
+      (Pretty.yellow (Format.asprintf "(%s post)" what))
+      (string_of_pi left)
       (string_of_existentials vs22)
       (string_of_pi right) (string_of_res post_res);
     of_bool (conj [right; assump]) post_res
@@ -763,7 +768,8 @@ let check_staged_subsumption : spec -> spec -> unit option =
   (* proceed *)
   let es1, ns1 = normalise_spec n1 in
   let es2, ns2 = normalise_spec n2 in
-  Format.printf "norm, subsumption\n%s\n<:\n%s\n@."
+  Format.printf "%s\n%s\n<:\n%s\n@."
+    (Pretty.yellow "normalized:")
     (string_of_normalisedStagedSpec (es1, ns1))
     (string_of_normalisedStagedSpec (es2, ns2));
   (* check_staged_subsumption_ (es1, ns1) (es2, ns2) *)
@@ -773,24 +779,25 @@ let check_staged_subsumption : spec -> spec -> unit option =
     True (es1, ns1) (es2, ns2)
 
 let apply_tactics ts lems preds (ds1 : disj_spec) (ds2 : disj_spec) =
-  Format.printf "before tactics\n%s\n<:\n%s\n@." (string_of_disj_spec ds1)
-    (string_of_disj_spec ds2);
+  Format.printf "%s\n%s\n<:\n%s\n@."
+    (Pretty.yellow "before tactics:")
+    (string_of_disj_spec ds1) (string_of_disj_spec ds2);
   List.fold_left
     (fun t c ->
       let r =
         match c with
         | Unfold_right ->
-          Format.printf "unfold right@.";
+          print_endline (Pretty.yellow "unfold right");
           let ds1, ds2 = t in
           let ds2 = List.fold_right unfold_predicate preds ds2 in
           (ds1, ds2)
         | Unfold_left ->
-          Format.printf "unfold left@.";
+          print_endline (Pretty.yellow "unfold left");
           let ds1, ds2 = t in
           let ds1 = List.fold_right unfold_predicate preds ds1 in
           (ds1, ds2)
         | Apply l ->
-          Format.printf "apply %s@." l;
+          print_endline (Pretty.yellow (Format.sprintf "apply %s@." l));
           ( List.map
               (List.fold_right apply_lemma
                  (List.filter (fun le -> String.equal le.l_name l) lems))
@@ -813,11 +820,16 @@ let check_staged_subsumption_disj :
     tactic list -> lemma list -> pred_def list -> disj_spec -> disj_spec -> bool
     =
  fun ts lems preds ds1 ds2 ->
+  let debug = false in
   let ds1, ds2 = apply_tactics ts lems preds ds1 ds2 in
   before_solve ds1 ds2;
   (* proceed *)
   all ds1 (fun s1 ->
+      if debug then
+        Format.printf "%s %s@." (Pretty.yellow "(all)") (string_of_spec s1);
       any ~name:"subsumes-disj-rhs-any" ds2 (fun s2 ->
+          if debug then
+            Format.printf "%s %s@." (Pretty.yellow "(any)") (string_of_spec s2);
           check_staged_subsumption s1 s2))
   |> succeeded
 

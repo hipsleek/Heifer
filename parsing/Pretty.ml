@@ -21,6 +21,8 @@ let col ~ansi ~html text =
  
 let red text = col ~ansi:"\u{001b}[31m" ~html:"<span class=\"output-error\">" text
 let green text = col ~ansi:"\u{001b}[32m" ~html:"<span class=\"output-ok\">" text
+let yellow text = col ~ansi:"\u{001b}[33m" ~html:"<span class=\"output-emph\">" text
+let emph text = col ~ansi:"\u{001b}[1;4m" ~html:"<span class=\"output-emph\">" text
 
 let verifier_counter: int ref = ref 0;;
 

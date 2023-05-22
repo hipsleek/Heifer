@@ -1042,7 +1042,7 @@ let run_string_ incremental line =
   let prog = transform_strs progs in
   let vcr = !Pretty.verifier_counter in
   let debug_parser = false in
-  if debug_parser then Format.printf "parsed: %s@." (string_of_program prog);
+  if debug_parser then Format.printf "%s: %s@." (Pretty.yellow "parsed") (string_of_program prog);
   List.iter (fun ({m_spec = given_spec; _} as meth) ->
     (* this is done so tests are independent.
        each function is analyzed in isolation so this is safe.
