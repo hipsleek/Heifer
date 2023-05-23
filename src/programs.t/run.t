@@ -138,9 +138,9 @@
   ========== Function: g ==========
   [Entail  Check] true
   ========== Function: caller1 ==========
-  [Entail  Check] false
+  [Entail  Check] true
   ========== Function: caller2 ==========
-  [Entail  Check] false
+  [Entail  Check] true
 
   $ results ../examples/applyN.ml
   ========== Function: applyN_unfolded ==========
