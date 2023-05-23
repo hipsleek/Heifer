@@ -53,3 +53,11 @@ let incr2 x
 let[@proof unfold_left; apply ih2] sum2 ()
 (*@ Norm(emp, 20) @*)
 = applyN incr2 0 10
+
+(*@
+  lemma ih3 = applyN(incr, x, n, res) => Norm(res=x+n/\emp, res)
+@*)
+
+let[@proof unfold_left; apply ih3] summary x n
+(*@ req n>0/\emp; ex r4; Norm(r4=x+n/\emp, r4) @*)
+= applyN incr x n

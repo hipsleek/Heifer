@@ -155,3 +155,5 @@
   [Entail  Check] true
   ========== Function: sum2 ==========
   [Entail  Check] true
+  ========== Function: summary ==========
+  [Entail  Check] true
