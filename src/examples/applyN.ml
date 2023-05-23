@@ -19,3 +19,15 @@ let[@proof unfold_right] rec applyN f x n
 =
 if n = 0 then x
 else let r = f x in applyN f r (n-1)
+
+let incr x
+(*@ Norm(emp, x+1) @*)
+= x + 1
+
+(*@
+  lemma ih = applyN(incr, x, n, res) => Norm(res=x+n/\emp, res)
+@*)
+
+let[@proof unfold_left; apply ih] sum ()
+(*@ Norm(emp, 10) @*)
+= applyN incr 0 10

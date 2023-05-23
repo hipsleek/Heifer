@@ -147,3 +147,7 @@
   [Entail  Check] true
   ========== Function: applyN ==========
   [Entail  Check] true
+  ========== Function: incr ==========
+  [Entail  Check] true
+  ========== Function: sum ==========
+  [Entail  Check] true

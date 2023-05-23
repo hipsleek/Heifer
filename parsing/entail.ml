@@ -500,7 +500,6 @@ let freshen_existentials vs state =
           (And (pr, pure), hr) )
     | _ -> Error (rule ~name:"subsumption-stage" ~success:false "unequal length") *)
 
-(* let debug = false *)
 let ( let@ ) f x = f x
 
 open Res.Option
@@ -660,10 +659,10 @@ and stage_subsumes :
     (state * state * term) quantified ->
     pi option =
  fun what all_vars assump s1 s2 ->
-  let debug = false in
   let vs1, (pre1, post1, ret1) = s1 in
   let vs2, (pre2, post2, ret2) = s2 in
   (* TODO replace uses of all_vars. this is for us to know if locations on the rhs are quantified. a smaller set of vars is possible *)
+  let debug = true in
   if debug then
     Format.printf "%s %s * (%sreq %s; ens %s) <: (%sreq %s; ens %s)@."
       (Pretty.yellow (Format.asprintf "(%s)" what))
@@ -752,7 +751,7 @@ let check_staged_subsumption : spec -> spec -> unit option =
   let es1, ns1 = normalise_spec n1 in
   let es2, ns2 = normalise_spec n2 in
   Format.printf "%s\n%s\n<:\n%s\n@."
-    (Pretty.yellow "normalized:")
+    (Pretty.yellow "normalized")
     (string_of_normalisedStagedSpec (es1, ns1))
     (string_of_normalisedStagedSpec (es2, ns2));
   (* check_staged_subsumption_ (es1, ns1) (es2, ns2) *)
@@ -763,7 +762,7 @@ let check_staged_subsumption : spec -> spec -> unit option =
 
 let apply_tactics ts lems preds (ds1 : disj_spec) (ds2 : disj_spec) =
   Format.printf "%s\n%s\n<:\n%s\n@."
-    (Pretty.yellow "before tactics:")
+    (Pretty.yellow "before tactics")
     (string_of_disj_spec ds1) (string_of_disj_spec ds2);
   List.fold_left
     (fun t c ->
@@ -803,7 +802,7 @@ let check_staged_subsumption_disj :
     tactic list -> lemma list -> pred_def list -> disj_spec -> disj_spec -> bool
     =
  fun ts lems preds ds1 ds2 ->
-  let debug = false in
+  let debug = true in
   let ds1, ds2 = apply_tactics ts lems preds ds1 ds2 in
   before_solve ds1 ds2;
   (* proceed *)
@@ -840,29 +839,35 @@ let%expect_test _ =
   Format.printf "%b@." (check_staged_subsumption_disj [] [] [] right left);
   [%expect
     {|
-    before tactics:
+    before tactics
     ex q q1; req x->q; Norm(x->q1 /\ q1>q, 2)
     <:
     ex p; req x->p; Norm(x->p+1, 2)
 
-    normalized:
+    (all) ex q q1; req x->q; Norm(x->q1 /\ q1>q, 2)
+    (any) ex p; req x->p; Norm(x->p+1, 2)
+    normalized
     ex q q1; req x->q; Norm(x->q1 /\ q1>q, 2)
     <:
     ex p; req x->p; Norm(x->p+1, 2)
 
+    (Norm) T * (ex q,q1. req x->q; ens x->q1 /\ q1>q) <: (ex p. req x->q; ens x->p+1)
     (Norm pre) T => ex q,q1. q=p ==> true
     (Norm post) q1>q/\q=p => 2=2/\q1>q/\p+1=q1 ==> false
     false
-    before tactics:
+    before tactics
     ex p; req x->p; Norm(x->p+1, 2)
     <:
     ex q q1; req x->q; Norm(x->q1 /\ q1>q, 2)
 
-    normalized:
+    (all) ex p; req x->p; Norm(x->p+1, 2)
+    (any) ex q q1; req x->q; Norm(x->q1 /\ q1>q, 2)
+    normalized
     ex p; req x->p; Norm(x->p+1, 2)
     <:
     ex q q1; req x->q; Norm(x->q1 /\ q1>q, 2)
 
+    (Norm) T * (ex p. req x->p; ens x->p+1) <: (ex q,q1. req x->p; ens x->q1 /\ q1>q)
     (Norm pre) T => ex p. p=q ==> true
     (Norm post) p=q => ex q1. 2=2/\q1=p+1/\q1>q ==> true
     true
