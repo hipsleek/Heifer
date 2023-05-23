@@ -28,6 +28,6 @@ let incr x
   lemma ih = applyN(incr, x, n, res) => Norm(res=x+n/\emp, res)
 @*)
 
-let[@proof unfold_left; apply ih] sum ()
+let[@proof unfold_left; case 1 (apply ih)] sum ()
 (*@ Norm(emp, 10) @*)
 = applyN incr 0 10

@@ -756,26 +756,30 @@ let check_staged_subsumption : spec -> spec -> unit option =
     @ Forward_rules.getExistientalVar (es2, ns2))
     True (es1, ns1) (es2, ns2)
 
-let apply_tactics ts lems preds (ds1 : disj_spec) (ds2 : disj_spec) =
-  info "%s\n%s\n<:\n%s\n@."
-    (Pretty.yellow "before tactics")
-    (string_of_disj_spec ds1) (string_of_disj_spec ds2);
+let rec apply_tactics ts lems preds (ds1 : disj_spec) (ds2 : disj_spec) =
   List.fold_left
     (fun t c ->
+      let ds1, ds2 = t in
       let r =
         match c with
         | Unfold_right ->
-          info "%s" (Pretty.yellow "unfold right");
-          let ds1, ds2 = t in
+          info "%s@." (Pretty.yellow "unfold right");
           let ds2 = List.fold_right unfold_predicate preds ds2 in
           (ds1, ds2)
         | Unfold_left ->
-          info "%s" (Pretty.yellow "unfold left");
-          let ds1, ds2 = t in
+          info "%s@." (Pretty.yellow "unfold left");
           let ds1 = List.fold_right unfold_predicate preds ds1 in
           (ds1, ds2)
+        | Case (i, ta) ->
+          (* case works on the left only *)
+          info "%s@." (Pretty.yellow (Format.sprintf "case %d" i));
+          let ds, _ = apply_tactics [ta] lems preds [List.nth ds1 i] ds2 in
+          (* unfolding (or otherwise adding disjuncts) inside case will break use of hd *)
+          let ds11 = replace_nth i (List.hd ds) ds1 in
+          (ds11, ds2)
         | Apply l ->
-          info "%s" (Pretty.yellow (Format.sprintf "apply %s@." l));
+          (* apply works on the left only *)
+          info "%s@." (Pretty.yellow (Format.sprintf "apply %s" l));
           ( List.map
               (List.fold_right apply_lemma
                  (List.filter (fun le -> String.equal le.l_name l) lems))
@@ -788,8 +792,6 @@ let apply_tactics ts lems preds (ds1 : disj_spec) (ds2 : disj_spec) =
       r)
     (ds1, ds2) ts
 
-let before_solve : disj_spec -> disj_spec -> unit = fun _ _ -> ()
-
 (**
   Subsumption between disjunctive specs.
   S1 \/ S2 |= S3 \/ S4
@@ -798,8 +800,10 @@ let check_staged_subsumption_disj :
     tactic list -> lemma list -> pred_def list -> disj_spec -> disj_spec -> bool
     =
  fun ts lems preds ds1 ds2 ->
+  info "%s\n%s\n<:\n%s\n@."
+    (Pretty.yellow "before tactics")
+    (string_of_disj_spec ds1) (string_of_disj_spec ds2);
   let ds1, ds2 = apply_tactics ts lems preds ds1 ds2 in
-  before_solve ds1 ds2;
   (* proceed *)
   all ds1 (fun s1 ->
       info "%s %s@." (Pretty.yellow "(all)") (string_of_spec s1);

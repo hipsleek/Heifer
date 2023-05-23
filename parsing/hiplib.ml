@@ -161,6 +161,9 @@ let rec get_tactic e =
     [Unfold_left]
   | { pexp_desc = Pexp_apply ({pexp_desc = Pexp_ident { txt = Lident "apply"; _ }; _}, [(_, {pexp_desc = Pexp_ident { txt = Lident lem; _ }; _})]); _ } ->
     [Apply lem]
+  | { pexp_desc = Pexp_apply ({pexp_desc = Pexp_ident { txt = Lident "case"; _ }; _}, [(_, {pexp_desc = Pexp_constant (Pconst_integer (i, _)); _}); (_, sub)]); _ } ->
+    let t = List.hd (get_tactic sub) in
+    [Case (int_of_string i, t)]
   | { pexp_desc = Pexp_sequence (e1, e2); _ } ->
     let a = get_tactic e1 in
     let b = get_tactic e2 in

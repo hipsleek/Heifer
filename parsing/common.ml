@@ -24,3 +24,10 @@ let info fmt =
       if !debug_level >= dbg_info then print_string s;
       flush stdout)
     fmt
+
+let rec replace_nth n y xs =
+  match (n, xs) with
+  | 0, [] -> []
+  | 0, _ :: xs -> y :: xs
+  | _, [] -> []
+  | _, x :: xs1 -> x :: replace_nth (n - 1) y xs1
