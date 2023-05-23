@@ -444,6 +444,8 @@ and infer_of_expression (env:meth_def list) (current:disj_spec) (expr:core_lang)
         let spec = renamingexistientalVar spec_of_fname in
         (* let spec = freshen spec_of_fname in *)
         (* Format.printf "after freshen: %s@." (string_of_disj_spec spec); *)
+        if List.compare_lengths formalArgs actualArgs <> 0 then
+          failwith (Format.asprintf "too few args. formals: %s, actual: %s@." (string_of_list Fun.id formalArgs) (string_of_list string_of_term actualArgs));
         let spec =
           (* we've encountered a function call, e.g. f x y.
             we look up the spec for f. say it looks like:
