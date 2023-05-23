@@ -712,7 +712,7 @@ let rec unfold_predicate_aux pred prefix already s : disj_spec =
   | [] -> List.map List.rev prefix
   | HigherOrder (_p, _h, (name, args), ret) :: s1
     when String.equal name pred.p_name && not (List.mem name already) ->
-    (* unfold *)
+    info "unfolding %s@." name;
     let pred1 = instantiate_pred pred args ret in
     let pref : disj_spec =
       List.concat_map
@@ -763,11 +763,15 @@ let rec apply_tactics ts lems preds (ds1 : disj_spec) (ds2 : disj_spec) =
       let r =
         match c with
         | Unfold_right ->
-          info "%s@." (Pretty.yellow "unfold right");
+          info "%s %s@."
+            (Pretty.yellow "unfold right")
+            (string_of_list (fun p -> p.p_name) preds);
           let ds2 = List.fold_right unfold_predicate preds ds2 in
           (ds1, ds2)
         | Unfold_left ->
-          info "%s@." (Pretty.yellow "unfold left");
+          info "%s %s@."
+            (Pretty.yellow "unfold left")
+            (string_of_list (fun p -> p.p_name) preds);
           let ds1 = List.fold_right unfold_predicate preds ds1 in
           (ds1, ds2)
         | Case (i, ta) ->

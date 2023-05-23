@@ -25,6 +25,11 @@ let incr x
 = x + 1
 
 (*@
+  predicate incr(x, res) =
+    Norm(res=x+1/\emp, res)
+@*)
+
+(*@
   lemma ih = applyN(incr, x, n, res) => Norm(res=x+n/\emp, res)
 @*)
 

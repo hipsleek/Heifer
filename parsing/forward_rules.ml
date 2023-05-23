@@ -115,7 +115,12 @@ let instantiateStages (bindings:((string * core_value) list))  (stagedSpec:stage
   | NormalReturn (pi, kappa, ret) -> 
     NormalReturn(instantiatePure bindings pi, instantiateHeap bindings kappa, instantiateTerms bindings ret) 
   | HigherOrder (pi, kappa, (str, basic_t_list), ret) -> 
-    HigherOrder (instantiatePure bindings pi, instantiateHeap bindings kappa, (str, List.map (fun bt -> instantiateTerms bindings bt) basic_t_list), instantiateTerms bindings ret)
+    let constr =
+      match List.assoc_opt str bindings with
+      | Some (Var s) -> s
+      | _ -> str
+    in
+    HigherOrder (instantiatePure bindings pi, instantiateHeap bindings kappa, (constr, List.map (fun bt -> instantiateTerms bindings bt) basic_t_list), instantiateTerms bindings ret)
   (* effects *)
   | RaisingEff (pi, kappa, (label, basic_t_list), ret)  -> 
     RaisingEff (instantiatePure bindings pi, instantiateHeap bindings  kappa, (label, 
