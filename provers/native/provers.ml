@@ -65,7 +65,8 @@ let z3_query (_s : string) =
   (* Format.printf "z3: %s@." _s; *)
   ()
 
-let check_sat ?(debug = false) f =
+let check_sat f =
+  let debug = false in
   let cfg =
     (if debug then [("model", "false")] else []) @ [("proof", "false")]
   in
@@ -89,7 +90,7 @@ let check_sat ?(debug = false) f =
   end;
   sat
 
-let check ?debug pi = check_sat ?debug (fun ctx -> pi_to_expr ctx pi)
+let check pi = check_sat (fun ctx -> pi_to_expr ctx pi)
 
 (* see https://discuss.ocaml.org/t/different-z3-outputs-when-using-the-api-vs-cli/9348/3 and https://github.com/Z3Prover/z3/issues/5841 *)
 let ex_quantify_expr vars ctx e =
@@ -102,8 +103,6 @@ let ex_quantify_expr vars ctx e =
            (List.map (Z3.Arithmetic.Integer.mk_const_s ctx) vars)
            e None [] [] None None))
 
-(* ?(debug = false) *)
-
 (** check if [p1 => ex vs. p2] is valid. this is a separate function which doesn't cache results because exists isn't in pi *)
 let entails_exists p1 vs p2 =
   let f ctx =
@@ -115,11 +114,11 @@ let entails_exists p1 vs p2 =
     (* Format.printf "oblig: %s@." (Expr.to_string r); *)
     r
   in
-  not (check_sat ~debug:false f)
+  not (check_sat f)
 
 let valid p =
   let f ctx = Z3.Boolean.mk_not ctx (pi_to_expr ctx p) in
-  not (check_sat ~debug:false f)
+  not (check_sat f)
 
 let (historyTable : (string * bool) list ref) = ref []
 let hash_pi pi = string_of_int (Hashtbl.hash pi)

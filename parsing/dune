@@ -62,7 +62,7 @@
 
 (library
  (name hiptypes)
- (modules hiptypes))
+ (modules common hiptypes))
 
 (library
  (name core)

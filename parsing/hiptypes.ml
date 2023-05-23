@@ -130,10 +130,4 @@ type core_program = {
   cp_methods: meth_def list;
 }
 
-let rec split_last xs =
-  match xs with
-  | [] -> failwith "split_last"
-  | [x] -> ([], x)
-  | x :: xs ->
-    let init, last = split_last xs in
-    (x :: init, last)
+include Common

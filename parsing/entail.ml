@@ -520,12 +520,10 @@ let rec check_qf2 :
     (pi * pi -> 'a option) ->
     'a option =
  fun id vs ante conseq k ->
-  let debug = false in
   (* TODO ptr equalities? *)
   let a = Heap.normalize ante in
   let c = Heap.normalize conseq in
-  if debug then
-    Format.printf "%s |- %s@." (string_of_state ante) (string_of_state conseq);
+  debug "%s |- %s@." (string_of_state ante) (string_of_state conseq);
   match (a, c) with
   | (p1, h1), (p2, EmptyHeap) ->
     let left = And (Heap.xpure h1, p1) in
@@ -662,22 +660,20 @@ and stage_subsumes :
   let vs1, (pre1, post1, ret1) = s1 in
   let vs2, (pre2, post2, ret2) = s2 in
   (* TODO replace uses of all_vars. this is for us to know if locations on the rhs are quantified. a smaller set of vars is possible *)
-  let debug = true in
-  if debug then
-    Format.printf "%s %s * (%sreq %s; ens %s) <: (%sreq %s; ens %s)@."
-      (Pretty.yellow (Format.asprintf "(%s)" what))
-      (string_of_pi assump)
-      (string_of_existentials vs1)
-      (string_of_state pre1) (string_of_state post1)
-      (string_of_existentials vs2)
-      (string_of_state pre1) (string_of_state post2);
+  info "%s %s * (%sreq %s; ens %s) <: (%sreq %s; ens %s)@."
+    (Pretty.yellow (Format.asprintf "(%s)" what))
+    (string_of_pi assump)
+    (string_of_existentials vs1)
+    (string_of_state pre1) (string_of_state post1)
+    (string_of_existentials vs2)
+    (string_of_state pre1) (string_of_state post2);
   (* contravariance *)
   let@ pre_l, pre_r = check_qf2 "pren" all_vars pre2 pre1 in
   let* assump =
     let left = conj [assump; pre_l] in
     let right = pre_r in
     let pre_res = Provers.entails_exists left vs1 right in
-    Format.printf "%s %s => %s%s ==> %s@."
+    info "%s %s => %s%s ==> %s@."
       (Pretty.yellow (Format.asprintf "(%s pre)" what))
       (string_of_pi left)
       (string_of_existentials vs1)
@@ -696,7 +692,7 @@ and stage_subsumes :
     let left = conj [assump; post_l] in
     let right = conj [post_r; Atomic (EQ, ret1, ret2)] in
     let post_res = Provers.entails_exists left vs22 right in
-    Format.printf "%s %s => %s%s ==> %s@."
+    info "%s %s => %s%s ==> %s@."
       (Pretty.yellow (Format.asprintf "(%s post)" what))
       (string_of_pi left)
       (string_of_existentials vs22)
@@ -750,7 +746,7 @@ let check_staged_subsumption : spec -> spec -> unit option =
   (* proceed *)
   let es1, ns1 = normalise_spec n1 in
   let es2, ns2 = normalise_spec n2 in
-  Format.printf "%s\n%s\n<:\n%s\n@."
+  info "%s\n%s\n<:\n%s\n@."
     (Pretty.yellow "normalized")
     (string_of_normalisedStagedSpec (es1, ns1))
     (string_of_normalisedStagedSpec (es2, ns2));
@@ -761,7 +757,7 @@ let check_staged_subsumption : spec -> spec -> unit option =
     True (es1, ns1) (es2, ns2)
 
 let apply_tactics ts lems preds (ds1 : disj_spec) (ds2 : disj_spec) =
-  Format.printf "%s\n%s\n<:\n%s\n@."
+  info "%s\n%s\n<:\n%s\n@."
     (Pretty.yellow "before tactics")
     (string_of_disj_spec ds1) (string_of_disj_spec ds2);
   List.fold_left
@@ -769,24 +765,24 @@ let apply_tactics ts lems preds (ds1 : disj_spec) (ds2 : disj_spec) =
       let r =
         match c with
         | Unfold_right ->
-          print_endline (Pretty.yellow "unfold right");
+          info "%s" (Pretty.yellow "unfold right");
           let ds1, ds2 = t in
           let ds2 = List.fold_right unfold_predicate preds ds2 in
           (ds1, ds2)
         | Unfold_left ->
-          print_endline (Pretty.yellow "unfold left");
+          info "%s" (Pretty.yellow "unfold left");
           let ds1, ds2 = t in
           let ds1 = List.fold_right unfold_predicate preds ds1 in
           (ds1, ds2)
         | Apply l ->
-          print_endline (Pretty.yellow (Format.sprintf "apply %s@." l));
+          info "%s" (Pretty.yellow (Format.sprintf "apply %s@." l));
           ( List.map
               (List.fold_right apply_lemma
                  (List.filter (fun le -> String.equal le.l_name l) lems))
               ds1,
             ds2 )
       in
-      Format.printf "%s\n<:\n%s\n@."
+      info "%s\n<:\n%s\n@."
         (string_of_disj_spec (fst r))
         (string_of_disj_spec (snd r));
       r)
@@ -802,16 +798,13 @@ let check_staged_subsumption_disj :
     tactic list -> lemma list -> pred_def list -> disj_spec -> disj_spec -> bool
     =
  fun ts lems preds ds1 ds2 ->
-  let debug = true in
   let ds1, ds2 = apply_tactics ts lems preds ds1 ds2 in
   before_solve ds1 ds2;
   (* proceed *)
   all ds1 (fun s1 ->
-      if debug then
-        Format.printf "%s %s@." (Pretty.yellow "(all)") (string_of_spec s1);
+      info "%s %s@." (Pretty.yellow "(all)") (string_of_spec s1);
       any ~name:"subsumes-disj-rhs-any" ds2 (fun s2 ->
-          if debug then
-            Format.printf "%s %s@." (Pretty.yellow "(any)") (string_of_spec s2);
+          info "%s %s@." (Pretty.yellow "(any)") (string_of_spec s2);
           check_staged_subsumption s1 s2))
   |> succeeded
 
@@ -837,38 +830,7 @@ let%expect_test _ =
   in
   Format.printf "%b@." (check_staged_subsumption_disj [] [] [] left right);
   Format.printf "%b@." (check_staged_subsumption_disj [] [] [] right left);
-  [%expect
-    {|
-    before tactics
-    ex q q1; req x->q; Norm(x->q1 /\ q1>q, 2)
-    <:
-    ex p; req x->p; Norm(x->p+1, 2)
-
-    (all) ex q q1; req x->q; Norm(x->q1 /\ q1>q, 2)
-    (any) ex p; req x->p; Norm(x->p+1, 2)
-    normalized
-    ex q q1; req x->q; Norm(x->q1 /\ q1>q, 2)
-    <:
-    ex p; req x->p; Norm(x->p+1, 2)
-
-    (Norm) T * (ex q,q1. req x->q; ens x->q1 /\ q1>q) <: (ex p. req x->q; ens x->p+1)
-    (Norm pre) T => ex q,q1. q=p ==> true
-    (Norm post) q1>q/\q=p => 2=2/\q1>q/\p+1=q1 ==> false
+  [%expect {|
     false
-    before tactics
-    ex p; req x->p; Norm(x->p+1, 2)
-    <:
-    ex q q1; req x->q; Norm(x->q1 /\ q1>q, 2)
-
-    (all) ex p; req x->p; Norm(x->p+1, 2)
-    (any) ex q q1; req x->q; Norm(x->q1 /\ q1>q, 2)
-    normalized
-    ex p; req x->p; Norm(x->p+1, 2)
-    <:
-    ex q q1; req x->q; Norm(x->q1 /\ q1>q, 2)
-
-    (Norm) T * (ex p. req x->p; ens x->p+1) <: (ex q,q1. req x->p; ens x->q1 /\ q1>q)
-    (Norm pre) T => ex p. p=q ==> true
-    (Norm post) p=q => ex q1. 2=2/\q1=p+1/\q1>q ==> true
     true
           |}]
