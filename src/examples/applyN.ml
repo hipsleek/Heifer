@@ -36,3 +36,20 @@ let incr x
 let[@proof unfold_left; case 1 (apply ih)] sum ()
 (*@ Norm(emp, 10) @*)
 = applyN incr 0 10
+
+let incr2 x
+(*@ Norm(emp, x+2) @*)
+= x + 2
+
+(*@
+  predicate incr2(x, res) =
+    Norm(res=x+2/\emp, res)
+@*)
+
+(*@
+  lemma ih2 = applyN(incr, x, n, res) => Norm(res=x+n+n/\emp, res)
+@*)
+
+let[@proof unfold_left; case 1 (apply ih2)] sum ()
+(*@ Norm(emp, 20) @*)
+= applyN incr2 0 10
