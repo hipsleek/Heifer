@@ -182,7 +182,15 @@ let incr2 x
 
 let[@proof unfold_left; apply ih2] sum2 ()
 (*@ Norm(emp, 20) @*)
-= applyN incr2 0 10">src/examples/applyN.ml</option><option value=src/examples/compose.ml data-text="
+= applyN incr2 0 10
+
+(*@
+  lemma ih3 = applyN(incr, x, n, res) => Norm(res=x+n/\emp, res)
+@*)
+
+let[@proof unfold_left; apply ih3] summary x n
+(*@ req n>0/\emp; ex r4; Norm(r4=x+n/\emp, r4) @*)
+= applyN incr x n">src/examples/applyN.ml</option><option value=src/examples/compose.ml data-text="
 let compose f g x
 (*@
   ex r_g; g(x, r_g);
@@ -205,13 +213,13 @@ let g x
 = x := !x + !x; x
 
 let caller1 () 
-(*@ ex w; Norm(w->4, 4) @*)
+(*@ ex w; Norm(w->3, 3) @*)
 = let x = ref 1 in
   let y1 = compose f g x in
   !y1
 
 let caller2 ()
-(*@ ex w; Norm(w->3, 3) @*)
+(*@ ex w; Norm(w->4, 4) @*)
 = let y = ref 1 in 
   let y1 = compose g f y in
   !y1">src/examples/compose.ml</option><option value=src/evaluation/0_heap_zero_once_twice.ml data-text="effect Zero : int 
@@ -754,6 +762,11 @@ let handler2  ()
   | effect Read k -> (continue k (!i))">src/evaluation/9_memory_cell_nested.ml</option>
         </select>
         <button id="share-btn" disabled onclick="share()">Share</button>
+        <span style="display: inline-block">
+          <!-- prevent the checkbox and label from wrapping separately -->
+          <input type="checkbox" id="debug" style="vertical-align: middle" />
+          <label for="debug" style="vertical-align: middle">Debug</label>
+        </span>
       </div>
       <div id="output"></div>
     </div>
@@ -791,7 +804,7 @@ let handler2  ()
     <script>
       // this is substituted at build time and is used in page.js
       function postExampleLoad() {
-        console.log("Built Tue May 23 14:28:13 UTC 2023");
+        console.log("Built Tue May 23 16:53:41 UTC 2023");
         console.log("loading z3...");
       }
     </script>
