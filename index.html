@@ -148,7 +148,41 @@ let[@proof unfold_right] rec applyN f x n
 (*@ ex r3; applyN(f, x, n, r3) @*)
 =
 if n = 0 then x
-else let r = f x in applyN f r (n-1)">src/examples/applyN.ml</option><option value=src/examples/compose.ml data-text="
+else let r = f x in applyN f r (n-1)
+
+let incr x
+(*@ Norm(emp, x+1) @*)
+= x + 1
+
+(*@
+  predicate incr(x, res) =
+    Norm(res=x+1/\emp, res)
+@*)
+
+(*@
+  lemma ih = applyN(incr, x, n, res) => Norm(res=x+n/\emp, res)
+@*)
+
+let[@proof unfold_left; apply ih] sum ()
+(*@ Norm(emp, 10) @*)
+= applyN incr 0 10
+
+let incr2 x
+(*@ Norm(emp, x+2) @*)
+= x + 2
+
+(*@
+  predicate incr2(x, res) =
+    Norm(res=x+2/\emp, res)
+@*)
+
+(*@
+  lemma ih2 = applyN(incr, x, n, res) => Norm(res=x+n+n/\emp, res)
+@*)
+
+let[@proof unfold_left; apply ih2] sum2 ()
+(*@ Norm(emp, 20) @*)
+= applyN incr2 0 10">src/examples/applyN.ml</option><option value=src/examples/compose.ml data-text="
 let compose f g x
 (*@
   ex r_g; g(x, r_g);
@@ -757,7 +791,7 @@ let handler2  ()
     <script>
       // this is substituted at build time and is used in page.js
       function postExampleLoad() {
-        console.log("Built Mon May 22 17:41:51 UTC 2023");
+        console.log("Built Tue May 23 12:41:47 UTC 2023");
         console.log("loading z3...");
       }
     </script>
