@@ -151,3 +151,7 @@
   [Entail  Check] true
   ========== Function: sum ==========
   [Entail  Check] true
+  ========== Function: incr2 ==========
+  [Entail  Check] true
+  ========== Function: sum2 ==========
+  [Entail  Check] true
