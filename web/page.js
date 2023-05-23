@@ -21,7 +21,12 @@ function current_example_text() {
 
 // const inp = document.querySelector("#input");
 const field = document.querySelector("#output");
-// const old_console = console;
+const debug = document.querySelector("#debug");
+const old_console = console;
+
+function debug_output() {
+  return debug.checked;
+}
 
 function clear_output() {
   field.innerHTML = "";
