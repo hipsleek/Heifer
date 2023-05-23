@@ -131,6 +131,11 @@ let test ()
           $MORE
         </select>
         <button id="share-btn" disabled onclick="share()">Share</button>
+        <span style="display: inline-block">
+          <!-- prevent the checkbox and label from wrapping separately -->
+          <input type="checkbox" id="debug" style="vertical-align: middle" />
+          <label for="debug" style="vertical-align: middle">Debug</label>
+        </span>
       </div>
       <div id="output"></div>
     </div>
