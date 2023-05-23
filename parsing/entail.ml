@@ -610,14 +610,14 @@ let rec check_staged_subsumption_aux :
     let c2, a2 = es2.e_constr in
     let* _ =
       let r = String.equal c1 c2 in
-      if not r then Format.printf "FAIL, constr %s != %s@." c1 c2;
+      if not r then info "FAIL, constr %s != %s@." c1 c2;
       ok
     in
     let* _ =
       let l1 = List.length a1 in
       let l2 = List.length a2 in
       let r = l1 = l2 in
-      if not r then Format.printf "FAIL, arg length %d != %d@." l1 l2;
+      if not r then info "FAIL, arg length %d != %d@." l1 l2;
       ok
     in
     let* residue =
@@ -644,7 +644,7 @@ let rec check_staged_subsumption_aux :
     in
     ok
   | _ ->
-    Format.printf "FAIL, unequal length\n%s\n<:\n%s\n@."
+    info "FAIL, unequal length\n%s\n<:\n%s\n@."
       (string_of_normalisedStagedSpec s1)
       (string_of_normalisedStagedSpec s2);
     None
