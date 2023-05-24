@@ -548,41 +548,50 @@ let (*rec*) normalise_spec_ (acc:normalisedStagedSpec) (spec:spec) : normalisedS
 *)
     normalise_spec_ acc' xs  *)
 
+module SSet = struct
+  include Set.Make (String)
+  let concat sets = List.fold_right union sets empty
+end
+
+let string_of_sset s =
+  Format.asprintf "{%s}" (String.concat "," (SSet.elements s))
+
 let rec used_vars_term (t : term) =
   match t with
-  | UNIT | Num _ -> []
-  | TList ts | TTupple ts -> List.concat_map used_vars_term ts
-  | Var s -> [s]
-  | Plus (a, b) | Minus (a, b) -> used_vars_term a @ used_vars_term b
+  | UNIT | Num _ -> SSet.empty
+  | TList ts | TTupple ts -> SSet.concat (List.map used_vars_term ts)
+  | Var s -> SSet.singleton s
+  | Plus (a, b) | Minus (a, b) -> SSet.union (used_vars_term a) (used_vars_term b)
 
 let rec used_vars_pi (p : pi) =
   match p with
-  | True | False -> []
-  | Atomic (_, a, b) -> used_vars_term a @ used_vars_term b
-  | And (a, b) | Or (a, b) | Imply (a, b) -> used_vars_pi a @ used_vars_pi b
+  | True | False -> SSet.empty
+  | Atomic (_, a, b) -> SSet.union (used_vars_term a) (used_vars_term b)
+  | And (a, b) | Or (a, b) | Imply (a, b) -> SSet.union (used_vars_pi a) (used_vars_pi b)
   | Not a -> used_vars_pi a
   | Predicate (_, t) -> used_vars_term t
 
 let rec used_vars_heap (h : kappa) =
   match h with
-  | EmptyHeap -> []
-  | PointsTo (a, t) -> a :: used_vars_term t
-  | SepConj (a, b) -> used_vars_heap a @ used_vars_heap b
+  | EmptyHeap -> SSet.empty
+  | PointsTo (a, t) -> SSet.add a (used_vars_term t)
+  | SepConj (a, b) -> SSet.union (used_vars_heap a) (used_vars_heap b)
 
-let used_vars_state (p, h) = used_vars_pi p @ used_vars_heap h
+let used_vars_state (p, h) = SSet.union (used_vars_pi p) (used_vars_heap h)
 
 let used_vars_eff eff =
-  used_vars_state eff.e_pre @ used_vars_state eff.e_post
-  @ List.concat_map used_vars_term (snd eff.e_constr)
-  @ used_vars_term eff.e_ret
+  SSet.concat [
+    used_vars_state eff.e_pre ; used_vars_state eff.e_post;
+    SSet.concat (List.map used_vars_term (snd eff.e_constr));
+    used_vars_term eff.e_ret
+  ]
 
 let used_vars_norm (_vs, pre, post, ret) =
-  used_vars_state pre @ used_vars_state post @ used_vars_term ret
+  SSet.concat [used_vars_state pre; used_vars_state post; used_vars_term ret]
 
 let used_vars (sp : normalisedStagedSpec) =
   let effs, norm = sp in
-  List.concat_map used_vars_eff effs @ used_vars_norm norm
-  |> List.sort_uniq String.compare
+  SSet.concat (used_vars_norm norm :: List.map used_vars_eff effs) 
 
 (* this moves existentials inward and removes unused ones *)
 let optimize_existentials : normalisedStagedSpec -> normalisedStagedSpec = fun (ess, norm) ->
@@ -591,18 +600,18 @@ let optimize_existentials : normalisedStagedSpec -> normalisedStagedSpec = fun (
     | [] -> unused, List.rev acc
     | e :: rest ->
       let used = used_vars_eff e in
-      let may_be_used = e.e_evars @ unused in
-      let used_ex, unused_ex = List.partition (fun v -> List.mem v used) may_be_used in
-      loop (unused_ex @ unused) ({ e with e_evars = used_ex } :: acc) rest
+      let available = SSet.union (SSet.of_list e.e_evars) unused in
+      let used_ex, unused_ex = SSet.partition (fun v -> SSet.mem v used) available in
+      loop (SSet.union unused_ex unused) ({ e with e_evars = SSet.elements used_ex } :: acc) rest
   in
-  let unused, es1 = loop [] [] ess in
+  let unused, es1 = loop SSet.empty [] ess in
   let norm1 =
       let used = used_vars_norm norm in
       let (evars, h, p, r) = norm in
-      let may_be_used = evars @ unused in
+      let may_be_used = SSet.union (SSet.of_list evars) unused in
       (* unused ones are dropped *)
-      let used_ex, _unused_ex = List.partition (fun v -> List.mem v used) may_be_used in
-      (used_ex, h, p, r)
+      let used_ex, _unused_ex = SSet.partition (fun v -> SSet.mem v used) may_be_used in
+      (SSet.elements used_ex, h, p, r)
   in
   (es1, norm1)
 

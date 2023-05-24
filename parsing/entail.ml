@@ -681,8 +681,8 @@ and stage_subsumes :
     of_bool (conj [pre_l; pre_r; assump]) pre_res
   in
   (* covariance *)
-  let new_univ = used_vars_pi pre_l @ used_vars_pi pre_r in
-  let vs22 = List.filter (fun v -> not (List.mem v new_univ)) vs2 in
+  let new_univ = SSet.union (used_vars_pi pre_l) (used_vars_pi pre_r) in
+  let vs22 = List.filter (fun v -> not (SSet.mem v new_univ)) vs2 in
   (* let res_v = verifier_getAfreeVar ~from:"res" () in *)
   let@ post_l, post_r = check_qf2 "postn" all_vars post1 post2 in
   let* residue =
