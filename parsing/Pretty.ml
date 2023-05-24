@@ -595,16 +595,16 @@ let used_vars (sp : normalisedStagedSpec) =
 
 (* this moves existentials inward and removes unused ones *)
 let optimize_existentials : normalisedStagedSpec -> normalisedStagedSpec = fun (ess, norm) ->
-  let rec loop unused acc es =
+  let rec loop already_used unused acc es =
     match es with
     | [] -> unused, List.rev acc
     | e :: rest ->
-      let used = used_vars_eff e in
-      let available = SSet.union (SSet.of_list e.e_evars) unused in
-      let used_ex, unused_ex = SSet.partition (fun v -> SSet.mem v used) available in
-      loop (SSet.union unused_ex unused) ({ e with e_evars = SSet.elements used_ex } :: acc) rest
+      let available = SSet.diff (SSet.union (SSet.of_list e.e_evars) unused) already_used in
+      let needed = SSet.diff (used_vars_eff e) already_used in
+      let used_ex, unused_ex = SSet.partition (fun v -> SSet.mem v needed) available in
+      loop (SSet.union already_used used_ex) (unused_ex ) ({ e with e_evars = SSet.elements used_ex } :: acc) rest
   in
-  let unused, es1 = loop SSet.empty [] ess in
+  let unused, es1 = loop SSet.empty SSet.empty [] ess in
   let norm1 =
       let used = used_vars_norm norm in
       let (evars, h, p, r) = norm in

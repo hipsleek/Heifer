@@ -37,10 +37,9 @@ let test ()
 
 let write_handler i  
 (*@ 
-  ex x1;
+  ex x1 ret z;
   Read(emp, x1); 
-  ex z ret; 
-  req i-> z; 
+  req i->z; 
   Read(i->x1+1,  ret);
   Norm(emp, ret)
 @*)
