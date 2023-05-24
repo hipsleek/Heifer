@@ -289,8 +289,9 @@ let test ()
 
 let write_handler i  
 (*@ 
-  ex x1 ret z; 
+  ex x1;
   Read(emp, x1); 
+  ex z ret; 
   req i-> z; 
   Read(i->x1+1,  ret);
   Norm(emp, ret)
@@ -304,13 +305,15 @@ let write_handler i
 let read_handler  ()
 (*@ 
   ex i; 
-  Norm(i->2,  10)
+  Norm(i->1,  1)
 @*)
 =
   let i = Sys.opaque_identity (ref 0) in 
   match write_handler i with
   | v -> v 
-  | effect Read k -> (continue k (!i))">src/evaluation/10_memory_cell_nested.ml</option><option value=src/evaluation/11_exchange.ml data-text="effect Exchange: int -> int
+  | effect Read k -> 
+    let x = !i in
+    (continue k (x))">src/evaluation/10_memory_cell_nested.ml</option><option value=src/evaluation/11_exchange.ml data-text="effect Exchange: int -> int
 
 let exchange (m:int)
 (*@  
@@ -804,7 +807,7 @@ let handler2  ()
     <script>
       // this is substituted at build time and is used in page.js
       function postExampleLoad() {
-        console.log("Built Tue May 23 17:28:06 UTC 2023");
+        console.log("Built Wed May 24 14:44:21 UTC 2023");
         console.log("loading z3...");
       }
     </script>
