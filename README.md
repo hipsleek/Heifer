@@ -103,3 +103,6 @@ we can reason about multi-shot efficiently.
 
 TODO: write compose and applyN in 1 
 verify the results in 2. 
+
+
+info "FAIL, constr %s != %s@." c1 c2;

@@ -116,7 +116,7 @@
   ========== Function: write_handler ==========
   [Entail  Check] true
   ========== Function: read_handler ==========
-  [Entail  Check] false
+  [Entail  Check] true
 
   $ results ../evaluation/11_exchange.ml
   ========== Function: exchange ==========

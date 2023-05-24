@@ -665,6 +665,7 @@ let normalisedStagedSpec2Spec (normalisedStagedSpec:normalisedStagedSpec) : spec
   let (effS, normalS) = normalisedStagedSpec in 
   detectfailedAssertions (effectStage2Spec effS @ normalStage2Spec normalS)
 
+(* spec list -> normalisedStagedSpec list *)
 let normalise_spec_list_aux1 (specLi:spec list): normalisedStagedSpec list = 
   List.map (fun a -> normalise_spec a
   ) specLi

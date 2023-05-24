@@ -294,7 +294,6 @@ let rec handling_spec env (spec:normalisedStagedSpec) (normal:(string * core_lan
     (match lookforHandlingCases ops label with 
     | None -> concatenateEventWithSpecs (effectStage2Spec [x]) (handling_spec env (xs, normalS) normal ops )
     | Some (effFormalArg, exprEff) -> 
-      (*print_string ("formal argument for label is " ^ effFormalArg ^ "\n"); *)
       let bindings = 
         match effFormalArg, effactualArgs with 
         | _, [] | None, _ -> [] 
@@ -358,8 +357,12 @@ and infer_of_expression (env:meth_def list) (current:disj_spec) (expr:core_lang)
         then infer_of_expression env [spec] expr2
         else 
           let bindings = bindFormalNActual [str] [retN] in 
-          let phi2 = infer_of_expression env [spec] expr2 in 
-          instantiateSpecList bindings phi2
+
+          (* Here, we only instantiate the expr2 and concate spec -- the spec for expr 1 -- in front *)
+          let phi2 = infer_of_expression env [freshNormalReturnSpec] expr2 in 
+          let phi2' = instantiateSpecList bindings phi2 in 
+          (* print_endline (string_of_spec_list phi2' ^ "\n"); *)
+          concatenateSpecsWithSpec [spec] phi2'
     ) phi1)
 
 
@@ -505,7 +508,7 @@ Norm(i->f5+1, ()); Norm(emp, f4)
       List.map (fun spec -> 
         (*print_endline("\nCMatch =====> " ^ string_of_spec spec); *)
         let normalisedSpec= (normalise_spec spec) in 
-
+        (* print_endline("\nnormaled =====> " ^ string_of_normalisedStagedSpec normalisedSpec);  *)
         handling_spec env  normalisedSpec (normFormalArg, expRet) ops
       ) phi1
     ) in 
