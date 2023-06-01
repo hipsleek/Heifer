@@ -65,13 +65,13 @@ let match_lemma :
           in
           (* alpha conversion: binders are equal up to renaming *)
           (* https://coq.inria.fr/refman/language/core/conversion.html *)
-          let bs =
-            match (l1.e_ret, s1.e_ret) with
-            | Var vl, Var vs
-              when List.mem vl l1.e_evars && List.mem vs s1.e_evars ->
-              (vl, Var vs) :: bs
-            | _ -> bs
-          in
+          (* let bs =
+               match (l1.e_ret, s1.e_ret) with
+               | Var vl, Var vs
+                 when List.mem vl l1.e_evars && List.mem vs s1.e_evars ->
+                 (vl, Var vs) :: bs
+               | _ -> bs
+             in *)
           (* TODO check if the bindings to the same name agree. if not, fail unification *)
           (* && match List.assoc_opt a acc with
                                   | None -> true
