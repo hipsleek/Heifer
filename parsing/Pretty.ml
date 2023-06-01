@@ -410,7 +410,10 @@ let rec string_of_normalisedStagedSpec (spec:normalisedStagedSpec) : string =
   | x :: xs  -> 
     (let {e_pre = (p1, h1); e_post = (p2, h2); _} = x in
     let ex = match x.e_evars with [] -> [] | _ -> [Exists x.e_evars] in
-    let current = ex @ [Require(p1, h1); RaisingEff(p2, h2, x.e_constr, x.e_ret)] in
+    let current = ex @ [Require(p1, h1);
+    (match x.e_typ with
+    | `Eff -> RaisingEff(p2, h2, x.e_constr, x.e_ret)
+    | `Fn -> HigherOrder(p2, h2, x.e_constr, x.e_ret))] in
     string_of_spec current )
     ^ "; " ^ string_of_normalisedStagedSpec (xs, normalS)
 
@@ -821,3 +824,30 @@ let string_of_res b = if b then green "true" else red "false"
 
 let string_of_option to_s o : string =
   match o with Some a -> "Some " ^ to_s a | None -> "None"
+
+let string_of_lemma l =
+  Format.asprintf "%s: forall %s, %s ==> %s" l.l_name (string_of_list Fun.id l.l_params) (string_of_spec l.l_left) (string_of_spec l.l_right)
+
+let dbg_none = 0
+let dbg_info = 1
+let dbg_debug = 2
+let debug_level = ref dbg_none
+
+let debug ?title fmt =
+  Format.kasprintf
+    (fun s ->
+      if !debug_level >= dbg_debug then (
+title |>
+        Option.iter (fun s -> print_endline (yellow s)) ;
+        print_string s;
+      flush stdout))
+    fmt
+
+let info ?title fmt =
+  Format.kasprintf
+    (fun s ->
+      if !debug_level >= dbg_info then
+      ( title |> Option.iter (fun s -> print_endline (yellow s)) ;
+        print_string s;
+      flush stdout ))
+    fmt

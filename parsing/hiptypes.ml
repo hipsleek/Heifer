@@ -68,7 +68,7 @@ type normalStage =  (string list* (pi * kappa ) * (pi * kappa) * term)
 type normalisedStagedSpec = effectStage list * normalStage
 
 let freshNormalReturnSpec = [NormalReturn (True, EmptyHeap, UNIT)]
-(* let freshNormalStage : normalStage = ([], (True, EmptyHeap), (True, EmptyHeap), UNIT)  *)
+let freshNormalStage : normalStage = ([], (True, EmptyHeap), (True, EmptyHeap), UNIT) 
 
 let freshNormStageVar v : normalStage = ([v], (True, EmptyHeap), (True, EmptyHeap), Var v) 
 
@@ -104,17 +104,17 @@ type tactic =
 type meth_def = {
   m_name : string;
   m_params : string list;
-  m_spec : spec list;
+  m_spec : disj_spec;
   m_body : core_lang;
   m_tactics : tactic list;
 }
 (* type eff_def = string *)
 
-(** a lemma is a formula such as f$(a, r) |= c(a, r) *)
+(** a lemma is an entailment between (non-disjunctive) staged specs A <: B *)
 type lemma = {
   l_name : string;
-  (* l_params : string list; *)
-  l_left : stagedSpec;
+  l_params : string list;
+  l_left : spec;
   l_right : spec;
 }
 

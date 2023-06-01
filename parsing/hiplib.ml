@@ -800,7 +800,9 @@ let transform_str env (s : structure_item) =
 
 (* meth_def = string * (string list) * (spec list) * core_lang *)
     
-  | Pstr_lemma (l_name, l_left, l_right) -> `Lem { l_name; l_left; l_right }
+  | Pstr_lemma (_l_name, _l_left, _l_right) ->
+    failwith "lemma case, TODO"
+    (* `Lem { l_name; l_left; l_right } *)
   | Pstr_predicate (p_name, p_params, p_body) -> `Pred {p_name; p_params; p_body}
   | Pstr_effect { peff_name; peff_kind=_; _ } ->
       let name = peff_name.txt in
@@ -1073,7 +1075,7 @@ let run_string_ incremental line =
       let time_stamp_afterNormal = Sys.time() in
       (* SYH old entailment  *)
       (* let res = entailmentchecking inferred_spec_n given_spec_n in *)
-      let res = Entail.check_staged_subsumption_disj meth.m_tactics prog.cp_lemmas prog.cp_predicates inferred_spec given_spec in
+      let res = Entail.check_staged_subsumption_disj meth.m_params meth.m_tactics prog.cp_lemmas prog.cp_predicates inferred_spec given_spec in
       (*let res = Entail.check_staged_subsumption_disj m_tactics prog.cp_lemmas prog.cp_predicates inferred_spec given_spec in  *)
       let time_stamp_afterEntail = Sys.time() in
 
@@ -1081,6 +1083,8 @@ let run_string_ incremental line =
       let given_spec_n = normalise_spec_list_aux2 given_spec_n in
       let inferred_spec_n = normalise_spec_list_aux2 inferred_spec_n in
 
+      (* let string_of_time = string_of_float in *)
+      let string_of_time = Format.asprintf "%.0f" in
 
       let header =
         "\n========== Function: "^ meth.m_name ^" ==========\n" ^
@@ -1088,11 +1092,11 @@ let run_string_ incremental line =
         "[Normed   Spec] " ^ string_of_spec_list given_spec_n ^"\n\n" ^
         "[Raw Post Spec] " ^ string_of_spec_list inferred_spec ^ "\n" ^
         "[Normed   Post] " ^ string_of_spec_list inferred_spec_n ^"\n\n" ^ 
-        "[Forward  Time] " ^ string_of_float ((time_stamp_afterForward -. time_stamp_beforeForward) *. 1000.0 ) ^ " ms\n" ^ 
-        "[Normal   Time] " ^ string_of_float ((time_stamp_afterNormal -. time_stamp_afterForward) *. 1000.0) ^ " ms\n"  ^ 
+        "[Forward  Time] " ^ string_of_time ((time_stamp_afterForward -. time_stamp_beforeForward) *. 1000.0 ) ^ " ms\n" ^ 
+        "[Normal   Time] " ^ string_of_time ((time_stamp_afterNormal -. time_stamp_afterForward) *. 1000.0) ^ " ms\n"  ^ 
         "[Entail  Check] " ^ 
         (string_of_res res) ^ "\n" ^
-        "[Entail  Time] " ^ string_of_float ((time_stamp_afterEntail  -. time_stamp_afterNormal) *. 1000.0) ^ " ms\n" ^
+        "[Entail  Time] " ^ string_of_time ((time_stamp_afterEntail  -. time_stamp_afterNormal) *. 1000.0) ^ " ms\n" ^
         (String.init (String.length meth.m_name + 32) (fun _ -> '=')) ^ "\n"
 
     

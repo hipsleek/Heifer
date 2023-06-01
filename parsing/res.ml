@@ -59,32 +59,50 @@ end
 
 module Option = struct
   let ( let* ) = Option.bind
+  let ( let+ ) a f = Option.map f a
   let succeeded = Option.is_some
   let ok = Some ()
   let fail = None
   let check b = if b then ok else fail
+  let or_else o k = match o with None -> k () | Some _ -> o
   let of_bool default b = if b then Some default else None
   let pure a = Some a
 
-  let all : 'a list -> ('a -> 'b option) -> 'b list option =
-   fun vs f ->
+  let all_ :
+      to_s:('a -> string) -> 'a list -> ('a -> 'b option) -> 'b list option =
+   fun ~to_s vs f ->
     let rec loop rs vs =
       match vs with
       | [] -> Some []
       | x :: xs ->
+        info "%s %s@." (Pretty.yellow "(all)") (to_s x);
         let res = f x in
         (match res with None -> None | Some r -> loop (r :: rs) xs)
     in
-    loop [] vs
+    match vs with
+    (* special case *)
+    | [x] -> f x |> Option.map (fun y -> [y])
+    | _ -> loop [] vs
 
-  let any : name:string -> 'a list -> ('a -> 'b option) -> 'b option =
-   fun ~name vs f ->
+  let all : to_s:('a -> string) -> 'a list -> ('a -> 'b option) -> unit option =
+   fun ~to_s vs f -> all_ ~to_s vs f |> Option.map (fun _ -> ())
+
+  let any :
+      name:string ->
+      to_s:('a -> string) ->
+      'a list ->
+      ('a -> 'b option) ->
+      'b option =
+   fun ~name ~to_s vs f ->
     match vs with
     | [] ->
       (* Error (rule ~name "choice empty") *)
       failwith (Format.asprintf "choice empty: %s" name)
+      (* special case *)
+    | [x] -> f x
     | v :: vs ->
       let rec loop v vs =
+        info "%s %s@." (Pretty.yellow "(any)") (to_s v);
         let res = f v in
         match (res, vs) with
         | Some r, _ -> Some r
@@ -92,37 +110,13 @@ module Option = struct
         | None, v1 :: vs1 -> loop v1 vs1
       in
       loop v vs
-end
 
-module Bool = struct
-  let bind o f = match o with false -> false | true -> f true
-  let ( let* ) = bind
+  let ensure cond = if cond then ok else fail
 
-  (* type success = bool *)
-
-  let all : 'a list -> ('a -> bool) -> bool =
-   fun vs f ->
-    let rec loop vs =
-      match vs with
-      | [] -> true
-      | x :: xs ->
-        let res = f x in
-        if res then loop xs else false
-    in
-    loop vs
-
-  let any : name:string -> 'a list -> ('a -> bool) -> bool =
-   fun ~name vs f ->
-    match vs with
-    | [] -> failwith (Format.asprintf "choice empty: %s" name)
-    | v :: vs ->
-      (* return the first non-failing result, or the last failure if all fail *)
-      let rec loop v vs =
-        let res = f v in
-        match (res, vs) with
-        | true, _ -> true
-        | false, [] -> false
-        | false, v1 :: vs1 -> loop v1 vs1
-      in
-      loop v vs
+  let either :
+      name:string ->
+      (* to_s:(bool -> string) -> *)
+      (bool -> 'b option) ->
+      'b option =
+   fun ~name f -> any ~name ~to_s:string_of_bool [true; false] f
 end

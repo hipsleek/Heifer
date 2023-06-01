@@ -70,6 +70,7 @@ let rec instantiateTerms (bindings:((string * core_value) list)) (t:term) : term
   | UNIT -> t
   | Var str -> 
     let binding = findbinding str bindings in 
+    (* Format.printf "got var %s. binding is %s@." str (string_of_term binding); *)
     binding
 
   | TList (tLi) -> TList (List.map (fun t1 -> instantiateTerms bindings t1) tLi)
@@ -113,6 +114,7 @@ let instantiateStages (bindings:((string * core_value) list))  (stagedSpec:stage
     Require (instantiatePure bindings pi, instantiateHeap bindings  kappa)
   (* higher-order functions *)
   | NormalReturn (pi, kappa, ret) -> 
+    (* print_endline ("NORMAL RETURN"); *)
     NormalReturn(instantiatePure bindings pi, instantiateHeap bindings kappa, instantiateTerms bindings ret) 
   | HigherOrder (pi, kappa, (str, basic_t_list), ret) -> 
     let constr =
@@ -169,9 +171,12 @@ let rec instantiateExistientalVar
   let (effS, normalS)  =  spec  in 
   match effS with 
   | [] -> 
+
+    (* print_endline ("nROMRAL STATGE"); *)
     let (ex, req, ens, ret) = normalS in 
     ([], (instantiateExistientalVar_aux ex bindings, req, ens, ret))
   | eff :: xs -> 
+    (* print_endline ("EFF STATGE"); *)
     let (rest, norm') = instantiateExistientalVar (xs, normalS) bindings in 
     (({eff with e_evars = instantiateExistientalVar_aux eff.e_evars bindings}) :: rest, norm')
 
@@ -192,7 +197,6 @@ let isFreshVar str : bool =
 
 let () = assert (isFreshVar "f10" ==true )
 let () = assert (isFreshVar "s10" ==false )
-
 
 (** substitutes existentials with fresh variables *)
 let renamingexistientalVar (specs:spec list): spec list = 
