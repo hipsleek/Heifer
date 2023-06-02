@@ -45,9 +45,12 @@ let match_lemma :
     | l1 :: les1, s1 :: ses1 ->
       (* matching is only done on constructors. other fields (state) probably have to be matched also but may require proof. not yet needed. also we probably shouldn't be invoking a prover for this, coq uses norm then syntactic equality to unify *)
       (* https://coq.inria.fr/refman/proof-engine/tactics.html#coq:tacn.apply *)
-      let lc, la = l1.e_constr in
-      let sc, sa = s1.e_constr in
-      if (not (String.equal lc sc)) || not (List.compare_lengths la sa = 0) then
+      let lcons, largs = l1.e_constr in
+      let scons, sargs = s1.e_constr in
+      if
+        (not (String.equal lcons scons))
+        || not (List.compare_lengths largs sargs = 0)
+      then
         (* try to find a match lower down *)
         (* TODO we should forget bindings when this happens *)
         loop bound
@@ -58,9 +61,11 @@ let match_lemma :
         (* unify, get substitution, check it, then continue matching *)
         try
           let bs =
-            List.map2 (fun a1 a2 -> (a1, a2)) (l1.e_ret :: la) (s1.e_ret :: sa)
+            List.map2
+              (fun a1 a2 -> (a1, a2))
+              (l1.e_ret :: largs) (s1.e_ret :: sargs)
             |> List.filter_map (function
-                 | Var a, b when List.mem a bound -> Some (a, b)
+                 | Var l, s when List.mem l bound -> Some (l, s)
                  | _ -> None)
           in
           (* alpha conversion: binders are equal up to renaming *)
@@ -105,6 +110,8 @@ let apply_lemma : lemma -> spec -> spec =
   match match_lemma lem.l_params lem sp with
   | None -> sp (* must be == *)
   | Some (bs, prefix, suffix) ->
+    debug ~title:"apply_lemma bindings" "%s@."
+      (string_of_list (string_of_pair Fun.id string_of_term) bs);
     let inst_lem_rhs =
       List.map (Forward_rules.instantiateStages bs) lem.l_right
     in
@@ -921,7 +928,8 @@ and try_other_measures :
       |> Option.iter (fun l ->
              info
                ~title:(Format.asprintf "applied: %s" l.l_name)
-               "%s\n\n%s\n<:\n%s\n@." (string_of_lemma l) (string_of_spec s1_1)
+               "%s\n\nafter:\n%s\n<:\n%s\n@." (string_of_lemma l)
+               (string_of_spec s1_1)
                (string_of_normalisedStagedSpec s2));
       (match applied with
       | Some app ->
@@ -930,7 +938,7 @@ and try_other_measures :
           i assump (normalise_spec s1_1) s2
       | None ->
         (* no predicates to try unfolding *)
-        info "FAIL, constr %s != %s@."
+        info "ran out of tricks to make constructors %s and %s match@."
           (string_of_option Fun.id c1)
           (string_of_option Fun.id c2);
         fail))
