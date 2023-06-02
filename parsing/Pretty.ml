@@ -551,14 +551,6 @@ let (*rec*) normalise_spec_ (acc:normalisedStagedSpec) (spec:spec) : normalisedS
 *)
     normalise_spec_ acc' xs  *)
 
-module SSet = struct
-  include Set.Make (String)
-  let concat sets = List.fold_right union sets empty
-end
-
-let string_of_sset s =
-  Format.asprintf "{%s}" (String.concat "," (SSet.elements s))
-
 let rec used_vars_term (t : term) =
   match t with
   | UNIT | Num _ -> SSet.empty
@@ -827,6 +819,15 @@ let string_of_option to_s o : string =
 
 let string_of_lemma l =
   Format.asprintf "%s: forall %s, %s ==> %s" l.l_name (string_of_list Fun.id l.l_params) (string_of_spec l.l_left) (string_of_spec l.l_right)
+
+(* let string_of_time = string_of_float *)
+let string_of_time = Format.asprintf "%.0f"
+
+let string_of_sset s =
+  Format.asprintf "{%s}" (String.concat ", " (SSet.elements s))
+
+let string_of_smap pp s =
+  Format.asprintf "{%s}" (String.concat ", " (List.map (fun (k, v) -> Format.asprintf "%s -> %s" k (pp v)) (SMap.bindings s)))
 
 let dbg_none = 0
 let dbg_info = 1

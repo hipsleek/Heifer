@@ -230,11 +230,6 @@ let rec getIndentName (l:Longident.t): string =
         )
         ;;
 
-module SMap = Map.Make (struct
-  type t = string
-  let compare = compare
-end)
-
 (* information we record after seeing a function *)
 type fn_spec = {
   pre: spec;
@@ -836,9 +831,9 @@ let transform_strs (strs: structure_item list) : core_program =
     List.fold_left (fun (env, es, ms, ps, ls) c ->
       match transform_str env c with
       | `Lem l -> env, es, ms, ps, l :: ls
-      | `Pred p -> env, es, ms, p :: ps, ls
+      | `Pred p -> env, es, ms, SMap.add p.p_name p ps, ls
       | `Eff a -> env, a :: es, ms, ps, ls
-      | `Meth (m_name, m_params, m_spec, m_body, m_tactics) -> m_name :: env, es, { m_name; m_params; m_spec; m_body; m_tactics } :: ms, ps, ls) ([], [], [], [], []) strs
+      | `Meth (m_name, m_params, m_spec, m_body, m_tactics) -> m_name :: env, es, { m_name; m_params; m_spec; m_body; m_tactics } :: ms, ps, ls) ([], [], [], SMap.empty, []) strs
   in { cp_effs = List.rev effs; cp_methods = List.rev mths; cp_predicates = preds; cp_lemmas = lems }
 
 (* returns the inference result as a string to be printed *)
@@ -1052,98 +1047,99 @@ let run_string_ incremental line =
   let progs = Parser.implementation Lexer.token (Lexing.from_string line) in
   let prog = transform_strs progs in
   let vcr = !Pretty.verifier_counter in
-  debug "%s: %s@." (Pretty.yellow "parsed") (string_of_program prog);
-  List.iter (fun ({m_spec = given_spec; _} as meth) ->
-    (* this is done so tests are independent.
+  info "%s: %s@." (Pretty.yellow "parsed") (string_of_program prog);
+
+
+Format.printf "all predicates %s@." (string_of_smap string_of_pred prog.cp_predicates);
+
+  (* predicates are inferred as we handle methods *)
+  List.fold_left (fun preds ({m_spec = given_spec; _} as meth) ->
+  (* List.iter (fun ({m_spec = given_spec; _} as meth) -> *)
+    (* reset fresh variable counter so tests are independent.
        each function is analyzed in isolation so this is safe.
-       we must, however, reset to the current checkpoint, as parsing uses fresh variables... *)
+       we must, however, reset to the current checkpoint, as parsing uses fresh variables. *)
     Pretty.verifier_counter_reset_to vcr;
-    if not incremental then begin
-      let time_stamp_beforeForward = Sys.time() in
-      let inferred_spec =
-        let method_env = prog.cp_methods
-          (* within a method body, params/locals should shadow functions defined outside *)
-          |> List.filter (fun m -> not (List.mem m.m_name meth.m_params))
-          (* treat recursive calls as abstract, as recursive functions should be summarized using predicates *)
-          |> List.filter (fun m -> not (String.equal m.m_name meth.m_name))
+    let new_preds =
+      if not incremental then begin
+        let time_stamp_beforeForward = Sys.time() in
+        let inferred_spec =
+          let method_env = prog.cp_methods
+            (* within a method body, params/locals should shadow functions defined outside *)
+            |> List.filter (fun m -> not (List.mem m.m_name meth.m_params))
+            (* treat recursive calls as abstract, as recursive functions should be summarized using predicates *)
+            |> List.filter (fun m -> not (String.equal m.m_name meth.m_name))
+          in
+          infer_of_expression method_env [freshNormalReturnSpec] meth.m_body
         in
-        infer_of_expression method_env [freshNormalReturnSpec] meth.m_body
-      in
-      let time_stamp_afterForward = Sys.time() in
-      let given_spec_n = normalise_spec_list_aux1 given_spec in
-      let inferred_spec_n = normalise_spec_list_aux1 inferred_spec in
-      let time_stamp_afterNormal = Sys.time() in
-      (* SYH old entailment  *)
-      (* let res = entailmentchecking inferred_spec_n given_spec_n in *)
-      let res = Entail.check_staged_subsumption_disj meth.m_params meth.m_tactics prog.cp_lemmas prog.cp_predicates inferred_spec given_spec in
-      (*let res = Entail.check_staged_subsumption_disj m_tactics prog.cp_lemmas prog.cp_predicates inferred_spec given_spec in  *)
-      let time_stamp_afterEntail = Sys.time() in
+        let time_stamp_afterForward = Sys.time() in
+        let given_spec_n = normalise_spec_list_aux1 given_spec in
+        let inferred_spec_n = normalise_spec_list_aux1 inferred_spec in
+        let time_stamp_afterNormal = Sys.time() in
+        (* SYH old entailment  *)
+        (* let res = entailmentchecking inferred_spec_n given_spec_n in *)
+        let res = Entail.check_staged_subsumption_disj meth.m_params meth.m_tactics prog.cp_lemmas prog.cp_predicates inferred_spec given_spec in
+        (*let res = Entail.check_staged_subsumption_disj m_tactics prog.cp_lemmas prog.cp_predicates inferred_spec given_spec in  *)
+        let time_stamp_afterEntail = Sys.time() in
 
 
-      let given_spec_n = normalise_spec_list_aux2 given_spec_n in
-      let inferred_spec_n = normalise_spec_list_aux2 inferred_spec_n in
+        let given_spec_n = normalise_spec_list_aux2 given_spec_n in
+        let inferred_spec_n = normalise_spec_list_aux2 inferred_spec_n in
 
-      (* let string_of_time = string_of_float in *)
-      let string_of_time = Format.asprintf "%.0f" in
+        let header =
+          "\n========== Function: "^ meth.m_name ^" ==========\n" ^
+          "[Specification] " ^ string_of_spec_list given_spec ^"\n" ^
+          "[Normed   Spec] " ^ string_of_spec_list given_spec_n ^"\n\n" ^
+          "[Raw Post Spec] " ^ string_of_spec_list inferred_spec ^ "\n" ^
+          "[Normed   Post] " ^ string_of_spec_list inferred_spec_n ^"\n\n" ^ 
+          "[Forward  Time] " ^ string_of_time ((time_stamp_afterForward -. time_stamp_beforeForward) *. 1000.0 ) ^ " ms\n" ^ 
+          "[Normal   Time] " ^ string_of_time ((time_stamp_afterNormal -. time_stamp_afterForward) *. 1000.0) ^ " ms\n"  ^ 
+          "[Entail  Check] " ^ 
+          (string_of_res res) ^ "\n" ^
+          "[Entail  Time] " ^ string_of_time ((time_stamp_afterEntail  -. time_stamp_afterNormal) *. 1000.0) ^ " ms\n" ^
+          (String.init (String.length meth.m_name + 32) (fun _ -> '=')) ^ "\n"
 
-      let header =
-        "\n========== Function: "^ meth.m_name ^" ==========\n" ^
-        "[Specification] " ^ string_of_spec_list given_spec ^"\n" ^
-        "[Normed   Spec] " ^ string_of_spec_list given_spec_n ^"\n\n" ^
-        "[Raw Post Spec] " ^ string_of_spec_list inferred_spec ^ "\n" ^
-        "[Normed   Post] " ^ string_of_spec_list inferred_spec_n ^"\n\n" ^ 
-        "[Forward  Time] " ^ string_of_time ((time_stamp_afterForward -. time_stamp_beforeForward) *. 1000.0 ) ^ " ms\n" ^ 
-        "[Normal   Time] " ^ string_of_time ((time_stamp_afterNormal -. time_stamp_afterForward) *. 1000.0) ^ " ms\n"  ^ 
-        "[Entail  Check] " ^ 
-        (string_of_res res) ^ "\n" ^
-        "[Entail  Time] " ^ string_of_time ((time_stamp_afterEntail  -. time_stamp_afterNormal) *. 1000.0) ^ " ms\n" ^
-        (String.init (String.length meth.m_name + 32) (fun _ -> '=')) ^ "\n"
+      
+        in
+        print_string (header);
+        (* 
+          let time_stamp_beforeEntail = Sys.time() in
 
-    
-      in
-      print_string (header);
-(* 
-      let time_stamp_beforeEntail = Sys.time() in
+          let disj_res = Entail.subsumes_disj inferred_spec_n given_spec_n in
+          let time_stamp_afterEntail = Sys.time() in
+      
+          (* let success = List.exists (fun r -> List.for_all (fun (_, _, r1) -> Result.is_ok r1) r) disj_res in *)
+          begin match disj_res with
+          | Error _ ->
+            print_endline (Pretty.red "\n[Verification]")
+          | Ok _ ->
+            print_endline (Pretty.green "\n[Verification]")
+          end;
 
-      let disj_res = Entail.subsumes_disj inferred_spec_n given_spec_n in
-      let time_stamp_afterEntail = Sys.time() in
-  
-      (* let success = List.exists (fun r -> List.for_all (fun (_, _, r1) -> Result.is_ok r1) r) disj_res in *)
-      begin match disj_res with
-      | Error _ ->
-        print_endline (Pretty.red "\n[Verification]")
-      | Ok _ ->
-        print_endline (Pretty.green "\n[Verification]")
-      end;
+          Format.printf "%s\n%s\n%s\n%s%s@."
+            (string_of_spec_list inferred_spec_n)
+            (match disj_res with Ok _ -> Pretty.green "|=" | Error _ -> Pretty.red "|/=")
+            (string_of_spec_list given_spec_n)
+            (match disj_res with Ok _ -> green "==>\n" | Error _ -> "\n")
+            (match disj_res with
+              | Ok (pf, _what) ->
+                (* string_of_state st ^ "\n\n" ^ *)
+                string_of_proof pf
+              | Error pf -> string_of_proof pf);
 
-      Format.printf "%s\n%s\n%s\n%s%s@."
-        (string_of_spec_list inferred_spec_n)
-        (match disj_res with Ok _ -> Pretty.green "|=" | Error _ -> Pretty.red "|/=")
-        (string_of_spec_list given_spec_n)
-        (match disj_res with Ok _ -> green "==>\n" | Error _ -> "\n")
-        (match disj_res with
-          | Ok (pf, _what) ->
-            (* string_of_state st ^ "\n\n" ^ *)
-            string_of_proof pf
-          | Error pf -> string_of_proof pf);
+          print_endline ("[Entail   Time] " ^ string_of_float ((time_stamp_afterEntail -. time_stamp_beforeEntail) *. 1000.0) ^ " ms\n")
+        *)
 
-      print_endline ("[Entail   Time] " ^ string_of_float ((time_stamp_afterEntail -. time_stamp_beforeEntail) *. 1000.0) ^ " ms\n")
-*)
-              
-
-      print_endline("")
-
-      (* List.iter (fun dr ->
-        (* one of these should succeed *)
-        List.iter (fun (s1, s2, res) ->
-          (* all of these should succeed *)
-          let n1 = normalise_spec s1 |> normalisedStagedSpec2Spec in
-          let n2 = normalise_spec s2 |> normalisedStagedSpec2Spec in
-      ) disj_res *)
-    end else begin
-      print_endline "incremental";
-    end
-  ) prog.cp_methods
+        print_endline("");
+        Some (Entail.derive_predicate meth inferred_spec)
+      end else begin
+        print_endline "incremental";
+        None
+      end
+    in
+    (* ) prog.cp_methods *)
+    match new_preds with
+    | None -> preds
+    | Some p -> SMap.add p.p_name p preds) prog.cp_predicates prog.cp_methods |> ignore
 
 let run_string incr s =
   Provers.handle (fun () -> run_string_ incr s)

@@ -705,7 +705,7 @@ let unfold_predicate_norm :
 (** proof context *)
 type pctx = {
   lems : lemma list;
-  preds : pred_def list;
+  preds : pred_def SMap.t;
   (* all quantified variables in this formula *)
   q_vars : string list;
   (* predicates which have been unfolded, used as an approximation of progress (in the cyclic proof sense) *)
@@ -868,7 +868,7 @@ and try_other_measures :
   (* first try to unfold on the right *)
   match
     let* c2 = c2 in
-    let+ res = List.find_opt (fun p -> String.equal c2 p.p_name) ctx.preds in
+    let+ res = SMap.find_opt c2 ctx.preds in
     (c2, res)
   with
   | Some (c2, def) when not (List.mem c2 ctx.unfolded) ->
@@ -885,7 +885,7 @@ and try_other_measures :
     (* if that fails, unfold on the left *)
     (match
        let* c1 = c1 in
-       let+ res = List.find_opt (fun p -> String.equal c1 p.p_name) ctx.preds in
+       let+ res = SMap.find_opt c1 ctx.preds in
        (c1, res)
      with
     | Some (c1, def) when not (List.mem c1 ctx.unfolded) ->
@@ -993,14 +993,14 @@ let rec apply_tactics ts lems preds (ds1 : disj_spec) (ds2 : disj_spec) =
         | Unfold_right ->
           info "%s %s@."
             (Pretty.yellow "unfold right")
-            (string_of_list (fun p -> p.p_name) preds);
-          let ds2 = List.fold_right unfold_predicate preds ds2 in
+            ((string_of_smap string_of_pred) preds);
+          let ds2 = SMap.fold (fun _n -> unfold_predicate) preds ds2 in
           (ds1, ds2)
         | Unfold_left ->
           info "%s %s@."
             (Pretty.yellow "unfold left")
-            (string_of_list (fun p -> p.p_name) preds);
-          let ds1 = List.fold_right unfold_predicate preds ds1 in
+            (string_of_smap string_of_pred preds);
+          let ds1 = SMap.fold (fun _n -> unfold_predicate) preds ds1 in
           (ds1, ds2)
         | Case (i, ta) ->
           (* case works on the left only *)
@@ -1025,7 +1025,8 @@ let rec apply_tactics ts lems preds (ds1 : disj_spec) (ds2 : disj_spec) =
     (ds1, ds2) ts
 
 let check_staged_subsumption :
-    string list -> lemma list -> pred_def list -> spec -> spec -> unit option =
+    string list -> lemma list -> pred_def SMap.t -> spec -> spec -> unit option
+    =
  fun params lems preds n1 n2 ->
   let es1, ns1 = normalise_spec n1 in
   let es2, ns2 = normalise_spec n2 in
@@ -1047,7 +1048,7 @@ let check_staged_subsumption_disj :
     string list ->
     tactic list ->
     lemma list ->
-    pred_def list ->
+    pred_def SMap.t ->
     disj_spec ->
     disj_spec ->
     bool =
@@ -1080,6 +1081,26 @@ let check_staged_subsumption_disj :
    check_staged_subsumption params lems preds s1 s2)
   |> succeeded
 
+let derive_predicate meth disj =
+  let norm = List.map normalise_spec disj in
+  (* change the last norm stage so it uses res and has an equality constraint *)
+  let new_spec =
+    List.map
+      (fun (effs, (vs, pre, (p, h), r)) ->
+        (effs, (vs, pre, (conj [p; Atomic (EQ, Var "res", r)], h), Var "res")))
+      norm
+    |> List.map normalisedStagedSpec2Spec
+  in
+  let r =
+    {
+      p_name = meth.m_name;
+      p_params = meth.m_params @ ["res"];
+      p_body = new_spec;
+    }
+  in
+  Format.printf "derived predicate %s@." (string_of_pred r);
+  r
+
 let%expect_test _ =
   let left =
     [
@@ -1100,8 +1121,10 @@ let%expect_test _ =
       ];
     ]
   in
-  Format.printf "%b@." (check_staged_subsumption_disj [] [] [] [] left right);
-  Format.printf "%b@." (check_staged_subsumption_disj [] [] [] [] right left);
+  Format.printf "%b@."
+    (check_staged_subsumption_disj [] [] [] SMap.empty left right);
+  Format.printf "%b@."
+    (check_staged_subsumption_disj [] [] [] SMap.empty right left);
   [%expect {|
     false
     true

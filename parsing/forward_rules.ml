@@ -498,8 +498,8 @@ Norm(i->f5+1, ()); Norm(emp, f4)
 
   | CIfELse (v, expr2, expr3) -> 
     (* TODO missing bool *)
-    let eventThen = NormalReturn (Atomic(EQ, v, term_true), EmptyHeap, UNIT) in 
-    let eventElse = NormalReturn (Not(Atomic(EQ, v, term_true)), EmptyHeap, UNIT) in 
+    let eventThen = NormalReturn (Atomic (EQ, v, term_true), EmptyHeap, UNIT) in 
+    let eventElse = NormalReturn (Not (Atomic (EQ, v, term_true)), EmptyHeap, UNIT) in 
     let currentThen = concatenateSpecsWithEvent current [eventThen] in 
     let currentElse = concatenateSpecsWithEvent current [eventElse] in 
     (infer_of_expression env currentThen expr2) @ 

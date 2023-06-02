@@ -1,4 +1,13 @@
 
+module SSet = struct
+  include Set.Make (String)
+  let concat sets = List.fold_right union sets empty
+end
+
+module SMap = struct
+  include Map.Make (String)
+end
+
 type term = 
     | UNIT 
     | Num of int
@@ -120,13 +129,13 @@ type lemma = {
 
 type pred_def = {
   p_name: string;
-  p_params: string list;
+  p_params: string list; (* list to ensure ordering. last param is typically a return value *)
   p_body: disj_spec;
 }
 
 type core_program = {
   cp_effs: string list;
-  cp_predicates: pred_def list;
+  cp_predicates: pred_def SMap.t;
   cp_lemmas: lemma list;
   cp_methods: meth_def list;
 }
