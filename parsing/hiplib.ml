@@ -1107,7 +1107,8 @@ let nonincremental prog ({m_spec = given_spec; _} as meth) =
         Some p
       | Some _ -> None) prog.cp_predicates
     in
-    { prog with cp_predicates } in
+    { prog with cp_predicates }
+  in
   prog
 
 let run_string_ incremental line =

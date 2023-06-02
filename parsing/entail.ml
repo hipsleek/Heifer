@@ -702,6 +702,12 @@ let unfold_predicate_norm :
   List.map normalise_spec
     (unfold_predicate_spec pred (normalisedStagedSpec2Spec sp))
 
+let spec_function_names (spec : spec) =
+  List.concat_map
+    (function HigherOrder (_, _, (f, _), _) -> [f] | _ -> [])
+    spec
+  |> SSet.of_list
+
 (** proof context *)
 type pctx = {
   lems : lemma list;
@@ -902,7 +908,10 @@ and try_other_measures :
       (* if that fails, try to apply a lemma *)
       let eligible =
         ctx.lems
-        (* |> List.filter (fun l -> List.mem l.l_name ctx.unfolded) *)
+        |> List.filter (fun l ->
+               SSet.for_all
+                 (fun n -> List.mem n ctx.unfolded)
+                 (spec_function_names l.l_left))
         |> List.filter (fun l -> not (List.mem l.l_name ctx.applied))
       in
       let s1_1, applied =
