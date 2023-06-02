@@ -11,17 +11,11 @@
   $ check test_ho.ml
   ALL OK!
 
-  $ results ../evaluation/0_heap_zero_once_twice.ml
-  ========== Function: test ==========
-  [Entail  Check] true
-  ========== Function: main_aux ==========
-  [Entail  Check] true
+  $ check ../evaluation/0_heap_zero_once_twice.ml
+  ALL OK!
 
-  $ results ../evaluation/1_heap_zero_once_twice.ml
-  ========== Function: test ==========
-  [Entail  Check] true
-  ========== Function: main_aux ==========
-  [Entail  Check] true
+  $ check ../evaluation/1_heap_zero_once_twice.ml
+  ALL OK!
 
   $ results ../evaluation/2_heap_zero_once_twice.ml
   ========== Function: test ==========
@@ -29,33 +23,14 @@
   ========== Function: main_aux ==========
   [Entail  Check] false
 
-  $ results ../evaluation/3_nestedHandlers.ml
-  ========== Function: foo ==========
-  [Entail  Check] true
-  ========== Function: bar ==========
-  [Entail  Check] true
-  ========== Function: baz ==========
-  [Entail  Check] true
+  $ check ../evaluation/3_nestedHandlers.ml
+  ALL OK!
 
-  $ results ../evaluation/4_memory_cell.ml
-  ========== Function: read ==========
-  [Entail  Check] true
-  ========== Function: write ==========
-  [Entail  Check] true
-  ========== Function: read_handler ==========
-  [Entail  Check] true
-  ========== Function: write_handler ==========
-  [Entail  Check] true
+  $ check ../evaluation/4_memory_cell.ml
+  ALL OK!
 
-  $ results ../evaluation/5_memory_cell.ml
-  ========== Function: read ==========
-  [Entail  Check] true
-  ========== Function: write ==========
-  [Entail  Check] true
-  ========== Function: read_handler ==========
-  [Entail  Check] true
-  ========== Function: write_handler ==========
-  [Entail  Check] true
+  $ check ../evaluation/5_memory_cell.ml
+  ALL OK!
 
   $ results ../evaluation/6_memory_cell_mix_handler.ml
   ========== Function: read ==========
@@ -71,85 +46,27 @@
   ========== Function: handler1 ==========
   [Entail  Check] true
 
-  $ results ../evaluation/7_memory_cell_mix_handler.ml
-  ========== Function: read ==========
-  [Entail  Check] true
-  ========== Function: write ==========
-  [Entail  Check] true
-  ========== Function: test ==========
-  [Entail  Check] true
-  ========== Function: handler ==========
-  [Entail  Check] true
+  $ check ../evaluation/7_memory_cell_mix_handler.ml
+  ALL OK!
 
-  $ results ../evaluation/8_memory_cell_nested.ml
-  ========== Function: read ==========
-  [Entail  Check] true
-  ========== Function: write ==========
-  [Entail  Check] true
-  ========== Function: client ==========
-  [Entail  Check] true
-  ========== Function: handler1 ==========
-  [Entail  Check] true
-  ========== Function: handler2 ==========
-  [Entail  Check] true
+  $ check ../evaluation/8_memory_cell_nested.ml
+  ALL OK!
 
-  $ results ../evaluation/9_memory_cell_nested.ml
-  ========== Function: read ==========
-  [Entail  Check] true
-  ========== Function: write ==========
-  [Entail  Check] true
-  ========== Function: client ==========
-  [Entail  Check] true
-  ========== Function: handler1 ==========
-  [Entail  Check] true
-  ========== Function: handler2 ==========
-  [Entail  Check] true
+  $ check ../evaluation/9_memory_cell_nested.ml
+  ALL OK!
 
-  $ results ../evaluation/10_memory_cell_nested.ml
-  ========== Function: read ==========
-  [Entail  Check] true
-  ========== Function: write ==========
-  [Entail  Check] true
-  ========== Function: test ==========
-  [Entail  Check] true
-  ========== Function: write_handler ==========
-  [Entail  Check] true
-  ========== Function: read_handler ==========
-  [Entail  Check] true
+  $ check ../evaluation/10_memory_cell_nested.ml
+  ALL OK!
 
-  $ results ../evaluation/11_exchange.ml
-  ========== Function: exchange ==========
-  [Entail  Check] true
-  ========== Function: exc_hanlder ==========
-  [Entail  Check] true
-  ========== Function: main ==========
-  [Entail  Check] true
+  $ check ../evaluation/11_exchange.ml
+  ALL OK!
 
-  $ results ../evaluation/12_two_pointers.ml
-  ========== Function: two_locations ==========
-  [Entail  Check] true
+  $ check ../evaluation/12_two_pointers.ml
+  ALL OK!
 
-  $ results ../examples/compose.ml
-  ========== Function: compose ==========
-  [Entail  Check] true
-  ========== Function: f ==========
-  [Entail  Check] true
-  ========== Function: g ==========
-  [Entail  Check] true
-  ========== Function: caller1 ==========
-  [Entail  Check] true
-  ========== Function: caller2 ==========
-  [Entail  Check] true
+  $ check ../examples/compose.ml
+  ALL OK!
 
-  $ results ../examples/applyN.ml
-  ========== Function: applyN_unfolded ==========
-  [Entail  Check] true
-  ========== Function: applyN ==========
-  ========== Function: incr ==========
-  ========== Function: sum ==========
-  [Entail  Check] true
-  ========== Function: incr2 ==========
-  ========== Function: sum2 ==========
-  [Entail  Check] true
-  ========== Function: summary ==========
-  [Entail  Check] true
+  $ check ../examples/applyN.ml
+  TESTS FAILED
+  ========== Function: unsound_false ==========

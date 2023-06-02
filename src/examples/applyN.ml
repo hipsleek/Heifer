@@ -12,16 +12,18 @@ let rec applyN f x n =
 
 let incr x = x + 1
 
-let sum ()
-(*@ Norm(emp, 10) @*)
+let unsound_false ()
+(*@ Norm(emp, 9) @*)
 = applyN incr 0 10
-
-let incr2 x = x + 2
-
-let sum2 ()
-(*@ Norm(emp, 20) @*)
-= applyN incr2 0 10
 
 let summary x n
 (*@ ex r4; Norm(r4=x+n/\emp, r4) @*)
+= applyN incr x n
+
+let summary1_false x n
+(*@ ex r4; Norm(r4=x+n-1/\emp, r4) @*)
+= applyN incr x n
+
+let summary2_false x n
+(*@ ex r4; Norm(r4=x+n+1/\emp, r4) @*)
 = applyN incr x n
