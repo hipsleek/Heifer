@@ -2,7 +2,7 @@
 let rec applyN_unfolded f x n
 (*@
   Norm(n=0/\emp, x) \/
-  req n>0/\emp; ex r2; f(x, r2); ex r1; applyN(f, r2, n-1, r1); Norm(emp, r1)
+  req n>0/\emp; ex r2; f(x, r2); ex r1; applyN_unfolded(f, r2, n-1, r1); Norm(emp, r1)
 @*)
 =
 if n = 0 then x
@@ -14,7 +14,7 @@ else let r = f x in applyN_unfolded f r (n-1)
     req n>0/\emp; ex r; f(x, r); ex r1; applyN(f, r, n-1, r1); Norm(res=r1/\emp, r1)
 @*)
 
-let[@proof unfold_right] rec applyN f x n
+let rec applyN f x n
 (*@ ex r3; applyN(f, x, n, r3) @*)
 =
 if n = 0 then x
@@ -29,11 +29,7 @@ let incr x
     Norm(res=x+1/\emp, res)
 @*)
 
-(*@
-  lemma ih = applyN(incr, x, n, res) => Norm(res=x+n/\emp, res)
-@*)
-
-let[@proof unfold_left; apply ih] sum ()
+let sum ()
 (*@ Norm(emp, 10) @*)
 = applyN incr 0 10
 
@@ -46,18 +42,10 @@ let incr2 x
     Norm(res=x+2/\emp, res)
 @*)
 
-(*@
-  lemma ih2 = applyN(incr, x, n, res) => Norm(res=x+n+n/\emp, res)
-@*)
-
-let[@proof unfold_left; apply ih2] sum2 ()
+let sum2 ()
 (*@ Norm(emp, 20) @*)
 = applyN incr2 0 10
 
-(*@
-  lemma ih3 = applyN(incr, x, n, res) => Norm(res=x+n/\emp, res)
-@*)
-
-let[@proof unfold_left; apply ih3] summary x n
-(*@ req n>0/\emp; ex r4; Norm(r4=x+n/\emp, r4) @*)
+let summary x n
+(*@ ex r4; Norm(r4=x+n/\emp, r4) @*)
 = applyN incr x n

@@ -796,7 +796,7 @@ let transform_str env (s : structure_item) =
 (* meth_def = string * (string list) * (spec list) * core_lang *)
     
   | Pstr_lemma (_l_name, _l_left, _l_right) ->
-    failwith "lemma case, TODO"
+    failwith "parsing user-defined lemma, TODO"
     (* `Lem { l_name; l_left; l_right } *)
   | Pstr_predicate (p_name, p_params, p_body) -> `Pred {p_name; p_params; p_body}
   | Pstr_effect { peff_name; peff_kind=_; _ } ->

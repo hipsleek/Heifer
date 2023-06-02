@@ -780,7 +780,7 @@ let%expect_test "normalise spec" =
 
   Norm(x->1, ()); f$(emp, [3], ()); Norm(y->2, ())
   ==>
-  req emp; f(x->1, [3], ()); req emp; Norm(y->2, ())
+  req emp; f$(x->1, [3], ()); req emp; Norm(y->2, ())
 |}]
 
 let is_alpha = function 'a' .. 'z' | 'A' .. 'Z' -> true | _ -> false

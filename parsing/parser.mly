@@ -2656,16 +2656,16 @@ heapkappa:
   { SepConj(a, b) }
 
 only_effect_spec:
-| separated_nonempty_list(SEMI, stagedSpec1) EOF { ($1:spec) }
+| s=effect_spec EOF { (s:spec) }
 
 effect_spec:
-| separated_nonempty_list(SEMI, stagedSpec1) { $1 }
+| s=separated_nonempty_list(SEMI, stagedSpec1) { s }
 
 only_disj_effect_spec:
-| separated_nonempty_list(DISJUNCTION, effect_spec) EOF { $1 }
+| d=disj_effect_spec EOF { (d:disj_spec) }
 
 disj_effect_spec:
-| separated_nonempty_list(DISJUNCTION, effect_spec) { $1 }
+| d=separated_nonempty_list(DISJUNCTION, effect_spec) { d }
 
 fn_contract:
   | LSPECCOMMENT spec=disj_effect_spec RSPECCOMMENT

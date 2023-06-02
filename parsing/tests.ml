@@ -9,7 +9,7 @@ let parse_disj_spec s =
 
 let%expect_test "renaming existentials" =
   let show a = a |> string_of_disj_spec |> print_endline in
-  Forward_rules.renamingexistientalVar (parse_disj_spec "ex a; Norm(a=1, a)")
+  (* Forward_rules.renamingexistientalVar (parse_disj_spec "ex a; Norm(a=1, a)") *)
+  Forward_rules.renamingexistientalVar [parse_spec "ex a; Norm(emp, a+1)"]
   |> show;
-  [%expect {|
-|}]
+  [%expect {| ex a_1; Norm(emp, a_1+1) |}]

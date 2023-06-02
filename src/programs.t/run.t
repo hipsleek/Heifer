@@ -9,8 +9,7 @@
   ALL OK!
 
   $ check test_ho.ml
-  TESTS FAILED
-  ========== Function: test2_true ==========
+  ALL OK!
 
   $ results ../evaluation/0_heap_zero_once_twice.ml
   ========== Function: test ==========
