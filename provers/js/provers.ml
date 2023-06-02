@@ -21,6 +21,7 @@ r = await s.check()
 let rec build_term : Jv.t -> term -> Jv.t =
  fun ctx t ->
   match t with
+  | Eq (a, b) -> Jv.call (build_term ctx a) "eq" [| build_term ctx b |]
   | Plus (a, b) ->
     Jv.call (build_term ctx a) "add" [| build_term ctx b |]
     (* Jv.call ctx "Add" [| build_term ctx a; build_term ctx b |] *)
@@ -29,7 +30,9 @@ let rec build_term : Jv.t -> term -> Jv.t =
     (* Jv.of_int n *)
     Jv.call (Jv.get ctx "Int") "val" [| Jv.of_int n |]
   | Var s -> Jv.call (Jv.get ctx "Int") "const" [| Jv.of_string s |]
-  | UNIT -> failwith "TODO"
+  | UNIT -> build_term ctx (Var "unit")
+  | TTrue -> Jv.call (Jv.get ctx "Bool") "val" [| Jv.of_bool true |]
+  | TFals -> Jv.call (Jv.get ctx "Bool") "val" [| Jv.of_bool false |]
   | TList _ | TTupple _ -> failwith "not yet implemented"
 
 let build_op : Jv.t -> bin_op -> term -> term -> Jv.t =

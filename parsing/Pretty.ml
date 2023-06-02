@@ -129,7 +129,10 @@ let rec string_of_term t : string =
   match t with 
   | Num i -> string_of_int i 
   | UNIT -> "()"
+  | TTrue -> "true"
+  | TFalse -> "false"
   | Var str -> str
+  | Eq (t1, t2) -> string_of_term t1 ^ "==" ^ string_of_term t2
   | Plus (t1, t2) -> string_of_term t1 ^ "+" ^ string_of_term t2
   | Minus (t1, t2) -> string_of_term t1 ^ "-" ^ string_of_term t2
   | TTupple nLi -> 
@@ -157,7 +160,7 @@ let rec string_of_pi pi : string =
   | And   (p1, p2) -> string_of_pi p1 ^ "/\\" ^ string_of_pi p2
   | Or     (p1, p2) -> string_of_pi p1 ^ "\\/" ^ string_of_pi p2
   | Imply  (p1, p2) -> string_of_pi p1 ^ "=>" ^ string_of_pi p2
-  | Not    p -> "!" ^ string_of_pi p
+  | Not    p -> "not(" ^ string_of_pi p ^ ")"
   | Predicate (str, t) -> str ^ "(" ^ string_of_term t ^ ")"
 
 
@@ -553,10 +556,10 @@ let (*rec*) normalise_spec_ (acc:normalisedStagedSpec) (spec:spec) : normalisedS
 
 let rec used_vars_term (t : term) =
   match t with
-  | UNIT | Num _ -> SSet.empty
+  | TTrue | TFalse | UNIT | Num _ -> SSet.empty
   | TList ts | TTupple ts -> SSet.concat (List.map used_vars_term ts)
   | Var s -> SSet.singleton s
-  | Plus (a, b) | Minus (a, b) -> SSet.union (used_vars_term a) (used_vars_term b)
+  | Eq (a, b) | Plus (a, b) | Minus (a, b) -> SSet.union (used_vars_term a) (used_vars_term b)
 
 let rec used_vars_pi (p : pi) =
   match p with

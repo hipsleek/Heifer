@@ -1028,14 +1028,19 @@ let check_staged_subsumption :
     string list -> lemma list -> pred_def SMap.t -> spec -> spec -> unit option
     =
  fun params lems preds n1 n2 ->
-  let es1, ns1 = normalise_spec n1 in
-  let es2, ns2 = normalise_spec n2 in
+  let ((es1, ns1) as nn1) = normalise_spec n1 in
+  let ((es2, ns2) as nn2) = normalise_spec n2 in
   let q_vars =
     Forward_rules.getExistientalVar (es1, ns1)
     @ Forward_rules.getExistientalVar (es2, ns2)
   in
   let ih_lemma =
-    { l_name = "IH"; l_params = params; l_left = n1; l_right = n2 }
+    {
+      l_name = "IH";
+      l_params = params;
+      l_left = normalisedStagedSpec2Spec nn1;
+      l_right = normalisedStagedSpec2Spec nn2;
+    }
   in
   let ctx = default_pctx (ih_lemma :: lems) preds q_vars in
   check_staged_subsumption_aux ctx 0 True (es1, ns1) (es2, ns2)
@@ -1052,30 +1057,10 @@ let check_staged_subsumption_disj :
     disj_spec ->
     disj_spec ->
     bool =
- fun params ts lems preds ds1 ds2 ->
+ fun params _ts lems preds ds1 ds2 ->
   info ~title:"before tactics" "%s\n<:\n%s\n@." (string_of_disj_spec ds1)
     (string_of_disj_spec ds2);
-  let ds1, ds2 = apply_tactics ts lems preds ds1 ds2 in
-  (* apply unfolding heuristics
-            let es1, ns1 = normalise_spec s1 in
-            let es2, ns2 = normalise_spec s2 in
-            let rec loop es1 es2 =
-              match (es1, es2) with
-              | [], [] -> ()
-              | e1 :: es1r, e2 :: es2r ->
-                let c1, _a1 = e1.e_constr in
-                let c2, _a2 = e2.e_constr in
-                if
-                  (not (String.equal c1 c2))
-                  && List.exists (fun p -> String.equal c2 p.p_name) preds
-                then (
-                  let new_right = List.fold_right unfold_predicate preds ds2 in
-                  info "FAIL, constr %s != %s@." c1 c2;
-                  loop es1r es2r)
-              | _, _ -> failwith "fail uneq length"
-            in
-            loop es1 es2; *)
-  (* proceed *)
+  (* let ds1, ds2 = apply_tactics ts lems preds ds1 ds2 in *)
   (let@ s1 = all ~to_s:string_of_spec ds1 in
    let@ s2 = any ~name:"subsumes-disj-rhs-any" ~to_s:string_of_spec ds2 in
    check_staged_subsumption params lems preds s1 s2)
@@ -1091,15 +1076,11 @@ let derive_predicate meth disj =
       norm
     |> List.map normalisedStagedSpec2Spec
   in
-  let r =
-    {
-      p_name = meth.m_name;
-      p_params = meth.m_params @ ["res"];
-      p_body = new_spec;
-    }
-  in
-  Format.printf "derived predicate %s@." (string_of_pred r);
-  r
+  {
+    p_name = meth.m_name;
+    p_params = meth.m_params @ ["res"];
+    p_body = new_spec;
+  }
 
 let%expect_test _ =
   let left =

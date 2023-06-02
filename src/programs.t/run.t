@@ -145,13 +145,10 @@
   ========== Function: applyN_unfolded ==========
   [Entail  Check] true
   ========== Function: applyN ==========
-  [Entail  Check] true
   ========== Function: incr ==========
-  [Entail  Check] true
   ========== Function: sum ==========
   [Entail  Check] true
   ========== Function: incr2 ==========
-  [Entail  Check] true
   ========== Function: sum2 ==========
   [Entail  Check] true
   ========== Function: summary ==========

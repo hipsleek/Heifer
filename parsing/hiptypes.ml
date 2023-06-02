@@ -16,9 +16,9 @@ type term =
     | Var of string
     | Plus of term * term 
     | Minus of term * term 
-
-let term_true = Num 0
-let term_false = Num 1
+    | Eq of term * term 
+    | TTrue
+    | TFalse
 
 (* an occurrence of an effect *)
 type instant = string * term list
@@ -113,7 +113,7 @@ type tactic =
 type meth_def = {
   m_name : string;
   m_params : string list;
-  m_spec : disj_spec;
+  m_spec : disj_spec option;
   m_body : core_lang;
   m_tactics : tactic list;
 }
