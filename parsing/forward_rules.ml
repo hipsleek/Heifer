@@ -269,7 +269,7 @@ let rec lookforHandlingCases ops (label:string) =
 
 let (continueationCxt: ((spec list * string * (string * core_lang) * core_handler_ops) list) ref)  = ref [] 
 
-let primitives = ["+"; "-"; "="]
+let primitives = ["+"; "-"; "="; "not"]
 
 let rec handling_spec env (spec:normalisedStagedSpec) (normal:(string * core_lang)) (ops:core_handler_ops) : spec list = 
   
@@ -326,9 +326,9 @@ and infer_of_expression (env:meth_def list) (current:disj_spec) (expr:core_lang)
     let event = NormalReturn (True, EmptyHeap, v) in 
     concatenateSpecsWithEvent current [event]
 
-  | CLet (str, expr1, expr2) -> 
+  | CLet (str, expr1, expr2) ->
     let phi1 = infer_of_expression env current expr1 in 
-    List.flatten (List.map (fun spec -> 
+    phi1 |> List.concat_map (fun spec -> 
       (*print_endline (string_of_spec(spec)); *)
       let retN = retrieve_return_value spec in 
       match retN with 
@@ -356,18 +356,16 @@ and infer_of_expression (env:meth_def list) (current:disj_spec) (expr:core_lang)
           let phi2 = infer_of_expression env [spec] expr2 in 
           instantiateSpecList bindings phi2
           *)
+      | _ when String.equal str "_" -> infer_of_expression env [spec] expr2
       | _ -> 
-        if String.compare str "_" == 0 
-        then infer_of_expression env [spec] expr2
-        else 
-          let bindings = bindFormalNActual [str] [retN] in 
+        (* rather than create an existential, we substitute the new variable away *)
+        let bindings = bindFormalNActual [str] [retN] in 
 
-          (* Here, we only instantiate the expr2 and concate spec -- the spec for expr 1 -- in front *)
-          let phi2 = infer_of_expression env [freshNormalReturnSpec] expr2 in 
-          let phi2' = instantiateSpecList bindings phi2 in 
-          (* print_endline (string_of_spec_list phi2' ^ "\n"); *)
-          concatenateSpecsWithSpec [spec] phi2'
-    ) phi1)
+        (* Here, we only instantiate the expr2 and concate spec -- the spec for expr 1 -- in front *)
+        let phi2 = infer_of_expression env [freshNormalReturnSpec] expr2 in
+        let phi2' = instantiateSpecList bindings phi2 in
+        (* print_endline (string_of_spec_list phi2' ^ "\n"); *)
+        concatenateSpecsWithSpec [spec] phi2')
 
 
   | CRef v -> 
@@ -434,14 +432,17 @@ and infer_of_expression (env:meth_def list) (current:disj_spec) (expr:core_lang)
     if List.mem fname primitives then begin
       match fname, actualArgs with
       | "+", [x1; x2] ->
-        let event = NormalReturn (True, EmptyHeap, Plus(x1, x2)) in 
+        let event = NormalReturn (True, EmptyHeap, Plus(x1, x2)) in
         concatenateSpecsWithEvent current [event]
       | "-", [x1; x2] ->
-        let event = NormalReturn (True, EmptyHeap, Minus(x1, x2)) in 
+        let event = NormalReturn (True, EmptyHeap, Minus(x1, x2)) in
         concatenateSpecsWithEvent current [event]
       | "=", [x1; x2] ->
         (* TODO bool values, or at least Eq constructor in term *)
-        let event = NormalReturn (Atomic (EQ, x1, x2), EmptyHeap, UNIT) in 
+        let event = NormalReturn (Atomic (EQ, x1, x2), EmptyHeap, UNIT) in
+        concatenateSpecsWithEvent current [event]
+      | "not", [x1] ->
+        let event = NormalReturn (True, EmptyHeap, Minus (Num 1, x1)) in
         concatenateSpecsWithEvent current [event]
       | _ -> failwith (Format.asprintf "unknown primitive: %s, args: %s" fname (string_of_list string_of_term actualArgs))
 

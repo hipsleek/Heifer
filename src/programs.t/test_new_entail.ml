@@ -240,7 +240,7 @@ let two_locations_true ()
 @*)
 = let i = ref 0 in 
   let j = ref 0 in 
-  let ret = perform (E) in 
+  let ret = perform E in 
   i := !i + 1;
   j := !j + 1;
   ret
@@ -249,3 +249,8 @@ let if_disj_true b
 (*@ Norm(emp, 1) \/ Norm(emp, 2)
 @*)
 = if b then 1 else 2
+
+let if_let_true x
+(*@ Norm(emp, 1) \/ Norm(emp, 2) @*)
+= let y = not x in
+  if y then 1 else 2
