@@ -82,56 +82,56 @@ let%expect_test "apply lemma" =
     hello
     lemma: forall [x], f$(emp, [], x) ==> ex b; Norm(b=2, b)
     original: f$(emp, [], 1)
-    result: ex ; Norm(emp, ()); Norm(1=1, ()); ex b_1; Norm(1=2, 1); Norm(emp, 1)
-    norm: Norm(1=1/\1=2, 1)
+    result: ex ; Norm(emp, ()); Norm(b_1=1, ()); ex b_1; Norm(b_1=2, b_1); Norm(emp, 1)
+    norm: ex b_1; Norm(b_1=1/\b_1=2, 1)
     ---
     prefix
     lemma: forall [x], f$(emp, [], x) ==> ex b; Norm(b=2, b)
     original: g$(emp, [], 2); f$(emp, [], 1)
-    result: g$(emp, [], 2); Norm(emp, ()); Norm(x=1, ()); ex b_1; Norm(x=2, x); f$(emp, [], 1); Norm(emp, 1)
-    norm: g$(emp, [], 2); f$(x=1/\x=2, [], 1); Norm(emp, 1)
+    result: g$(emp, [], 2); Norm(emp, ()); Norm(b_1=1, ()); ex b_1; Norm(b_1=2, b_1); f$(emp, [], 1); Norm(emp, 1)
+    norm: g$(emp, [], 2); ex b_1; f$(b_1=1/\b_1=2, [], 1); Norm(emp, 1)
     ---
     suffix
     lemma: forall [x], f$(emp, [], x) ==> ex b; Norm(b=2, b)
     original: f$(emp, [], 1); g$(emp, [], 2)
-    result: ex ; Norm(emp, ()); Norm(1=2, ()); ex b_1; Norm(1=2, 1); g$(emp, [], 2); Norm(emp, 2)
-    norm: g$(1=2/\1=2, [], 2); Norm(emp, 2)
+    result: ex ; Norm(emp, ()); Norm(b_1=2, ()); ex b_1; Norm(b_1=2, b_1); g$(emp, [], 2); Norm(emp, 2)
+    norm: ex b_1; g$(b_1=2/\b_1=2, [], 2); Norm(emp, 2)
     ---
     related suffix
     lemma: forall [x], f$(emp, [], x) ==> ex b; Norm(b=2, b)
     original: f$(emp, [], x); g$(emp, [], x)
-    result: ex ; Norm(emp, ()); Norm(x=x, ()); ex b_1; Norm(x=2, x); g$(emp, [], x); Norm(emp, x)
-    norm: g$(x=x/\x=2, [], x); Norm(emp, x)
+    result: ex ; Norm(emp, ()); Norm(b_1=x, ()); ex b_1; Norm(b_1=2, b_1); g$(emp, [], x); Norm(emp, x)
+    norm: ex b_1; g$(b_1=x/\b_1=2, [], x); Norm(emp, x)
     ---
     precondition in lemma (currently ignored)
     lemma: forall [x], ex a; req x=1; f$(emp, [], x) ==> ex b; Norm(b=2, b)
     original: f$(emp, [], 1)
-    result: ex ; Norm(emp, ()); Norm(1=1, ()); ex b_1; Norm(1=2, 1); Norm(emp, 1)
-    norm: Norm(1=1/\1=2, 1)
+    result: ex ; Norm(emp, ()); Norm(b_1=1, ()); ex b_1; Norm(b_1=2, b_1); Norm(emp, 1)
+    norm: ex b_1; Norm(b_1=1/\b_1=2, 1)
     ---
     existential in lemma (currently ignored)
     lemma: forall [x], ex a; f$(emp, [], a) ==> ex b; Norm(b=2, b)
     original: f$(emp, [], 1)
-    result: ex ; Norm(emp, ()); Norm(a_3=1, ()); ex b_1; Norm(a_3=2, a_3); Norm(emp, 1)
-    norm: Norm(a_3=1/\a_3=2, 1)
+    result: ex ; Norm(emp, ()); Norm(b_1=1, ()); ex b_1; Norm(b_1=2, b_1); Norm(emp, 1)
+    norm: ex b_1; Norm(b_1=1/\b_1=2, 1)
     ---
     extra state in lemma
     lemma: forall [x], ex a; Norm(a=3, ()); f$(emp, [], a) ==> ex b; Norm(b=2, b)
     original: f$(emp, [], 1)
-    result: ex ; Norm(emp, ()); Norm(a_3=1, ()); ex b_1; Norm(a_3=2, a_3); Norm(emp, 1)
-    norm: Norm(a_3=1/\a_3=2, 1)
+    result: ex ; Norm(emp, ()); Norm(b_1=1, ()); ex b_1; Norm(b_1=2, b_1); Norm(emp, 1)
+    norm: ex b_1; Norm(b_1=1/\b_1=2, 1)
     ---
     constructor different
     lemma: forall [x], f$(emp, [], x) ==> ex b; Norm(b=2, b)
     original: g$(emp, [], 1)
-    result: g$(emp, [], 1); Norm(emp, ()); Norm(x=1, ()); ex b_1; Norm(x=2, x); Norm(emp, 1)
-    norm: g$(emp, [], 1); Norm(x=1/\x=2, 1)
+    result: g$(emp, [], 1); Norm(emp, ()); Norm(b_1=1, ()); ex b_1; Norm(b_1=2, b_1); Norm(emp, 1)
+    norm: g$(emp, [], 1); ex b_1; Norm(b_1=1/\b_1=2, 1)
     ---
     non-param in lemma
     lemma: forall [y], f$(emp, [], x) ==> ex b; Norm(b=2, b)
     original: f$(emp, [], 1)
-    result: ex ; Norm(emp, ()); Norm(x=1, ()); ex b_1; Norm(x=2, x); Norm(emp, 1)
-    norm: Norm(x=1/\x=2, 1)
+    result: ex ; Norm(emp, ()); Norm(b_1=1, ()); ex b_1; Norm(b_1=2, b_1); Norm(emp, 1)
+    norm: ex b_1; Norm(b_1=1/\b_1=2, 1)
     ---
     difficult unification
     lemma: forall [x], f$(emp, [], x+1) ==> ex b; Norm(b=2, b)

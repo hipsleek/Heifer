@@ -106,7 +106,7 @@ let instantiate_res_existential lem =
 let apply_lemma : lemma -> spec -> spec =
  fun lem sp ->
   let lem = rename_exists_lemma lem in
-  let lem = instantiate_res_existential lem in
+  (* let lem = instantiate_res_existential lem in *)
   match match_lemma lem.l_params lem sp with
   | None -> sp (* must be == *)
   | Some (bs, prefix, suffix) ->
