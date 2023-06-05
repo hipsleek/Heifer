@@ -1059,7 +1059,7 @@ let nonincremental prog ({m_spec = given_spec; _} as meth) =
       let time_stamp_afterNormal = Sys.time() in
       (* SYH old entailment  *)
       (* let res = entailmentchecking inferred_spec_n given_spec_n in *)
-      let res = Entail.check_staged_subsumption_disj meth.m_params meth.m_tactics prog.cp_lemmas prog.cp_predicates inferred_spec given_spec in
+      let res = Entail.check_staged_subsumption_disj meth.m_name meth.m_params meth.m_tactics prog.cp_lemmas prog.cp_predicates inferred_spec given_spec in
       (*let res = Entail.check_staged_subsumption_disj m_tactics prog.cp_lemmas prog.cp_predicates inferred_spec given_spec in  *)
       let time_stamp_afterEntail = Sys.time() in
       let given_spec_n = normalise_spec_list_aux2 given_spec_n in
@@ -1085,29 +1085,37 @@ let nonincremental prog ({m_spec = given_spec; _} as meth) =
         "[Normed   Post] " ^ string_of_spec_list (normalise_spec_list_aux2 inferred_spec_n) ^"\n"
       in print_endline header
   end;
+  let prog, pred =
+    (* if the user has not provided a predicate for the given function,
+       produce one from the inferred spec *)
+    let p = Entail.derive_predicate meth inferred_spec in
+    let cp_predicates = SMap.update meth.m_name
+      (function
+      | None ->
+      info ~title:(Format.asprintf "remembering predicate for %s" meth.m_name) "%s" (string_of_pred p);
+        Some p
+      | Some _ -> None) prog.cp_predicates
+    in
+    { prog with cp_predicates }, p
+  in
   let prog =
     (* if the user has not provided a spec for the given function, remember the inferred method spec for future use *)
     match given_spec with
     | None ->
-    info ~title:(Format.asprintf "inferred spec for %s" meth.m_name) "";
-     (* should we use the predicate instead? not doing so saves one unfold *)
-      let cp_methods = List.map (fun m -> if String.equal m.m_name meth.m_name then { m with m_spec = Some inferred_spec } else m ) prog.cp_methods
+      (* using the predicate costs one more unfold but makes the induction hypothesis easier/possible with current heuristics *)
+      (* let msp : disj_spec = inferred_spec in *)
+      let msp : disj_spec =
+        let v = verifier_getAfreeVar ~from:"ret" () in
+        let prr, _ret = split_last pred.p_params in
+        let sp = [Exists [v]; HigherOrder (True, EmptyHeap, (pred.p_name, List.map (fun v1 -> Var v1) prr), Var v)]
+        in
+        [sp]
+      in
+      info ~title:(Format.asprintf "inferred spec for %s" meth.m_name) "%s" (string_of_disj_spec msp);
+      let cp_methods = List.map (fun m -> if String.equal m.m_name meth.m_name then { m with m_spec = Some msp } else m ) prog.cp_methods
       in
       { prog with cp_methods }
     | Some _ -> prog
-  in
-  let prog =
-    (* if the user has not provided a predicate for the given function,
-       remember the inferred spec as one *)
-    let cp_predicates = SMap.update meth.m_name
-      (function
-      | None ->
-        let p = Entail.derive_predicate meth inferred_spec in
-      info ~title:(Format.asprintf "remembering predicate for %s" meth.m_name) "%s@." (string_of_pred p);
-        Some p
-      | Some _ -> None) prog.cp_predicates
-    in
-    { prog with cp_predicates }
   in
   prog
 
@@ -1115,7 +1123,7 @@ let run_string_ incremental line =
   let progs = Parser.implementation Lexer.token (Lexing.from_string line) in
   let prog = transform_strs progs in
   let vcr = !Pretty.verifier_counter in
-  debug "%s: %s@." (Pretty.yellow "parsed") (string_of_program prog);
+  debug ~title:"parsed" "%s" (string_of_program prog);
   debug ~title:"user-specified predicates" "%s@." (string_of_smap string_of_pred prog.cp_predicates);
   (* as we handle methods, predicates are inferred and are used in place of absent specifications, so we have to keep updating the program as we go *)
   List.fold_left (fun prog meth ->

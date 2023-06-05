@@ -12,10 +12,11 @@ let string_of_quantified to_s (vs, e) =
 
 type instantiations = (string * string) list
 
-let string_of_instantiations kvs =
-  List.map (fun (k, v) -> Format.asprintf "%s := %s" k v) kvs
+let string_of_instantiations pv kvs =
+  List.map (fun (k, v) -> Format.asprintf "%s := %s" k (pv v)) kvs
   |> String.concat ", " |> Format.asprintf "[%s]"
 
+let string_of_bindings = string_of_instantiations
 let rename_exists_spec sp = List.hd (Forward_rules.renamingexistientalVar [sp])
 
 let rename_exists_lemma (lem : lemma) : lemma =
@@ -110,8 +111,8 @@ let apply_lemma : lemma -> spec -> spec =
   match match_lemma lem.l_params lem sp with
   | None -> sp (* must be == *)
   | Some (bs, prefix, suffix) ->
-    debug ~title:"apply_lemma bindings" "%s@."
-      (string_of_list (string_of_pair Fun.id string_of_term) bs);
+    info ~title:"apply_lemma bindings" "%s"
+      (string_of_instantiations string_of_term bs);
     let inst_lem_rhs =
       List.map (Forward_rules.instantiateStages bs) lem.l_right
     in
@@ -357,7 +358,7 @@ module Heap = struct
         | Error pf -> Format.asprintf "FAIL\n%s" (string_of_proof pf)
         | Ok (pf, (residue, inst)) ->
           Format.asprintf "%s %s\n%s" (string_of_state residue)
-            (string_of_instantiations inst)
+            (string_of_instantiations Fun.id inst)
             (string_of_proof pf)
       in
       Format.printf "%s |- %s ==> %s@."
@@ -613,7 +614,8 @@ let rec check_qf2 :
   (* TODO ptr equalities? *)
   let a = Heap.normalize ante in
   let c = Heap.normalize conseq in
-  debug "%s |- %s@." (string_of_state ante) (string_of_state conseq);
+  debug ~title:"SL entailment" "%s |- %s" (string_of_state ante)
+    (string_of_state conseq);
   match (a, c) with
   | (p1, h1), (p2, EmptyHeap) ->
     let left = And (Heap.xpure h1, p1) in
@@ -681,7 +683,7 @@ let rec unfold_predicate_aux pred prefix already (s : spec) : disj_spec =
   | [] -> List.map List.rev prefix
   | HigherOrder (_p, _h, (name, args), ret) :: s1
     when String.equal name pred.p_name && not (List.mem name already) ->
-    info ~title:(Format.asprintf "unfolding: %s" name) "@.";
+    info ~title:(Format.asprintf "unfolding: %s" name) "";
     let pred1 = instantiate_pred pred args ret in
     let pref : disj_spec =
       List.concat_map
@@ -727,6 +729,15 @@ type pctx = {
   applied : string list;
 }
 
+let string_of_pctx ctx =
+  Format.asprintf
+    "lemmas: %s\npredicates: %s\nq_vars: %s\nunfolded: %s\napplied: %s@."
+    (string_of_list string_of_lemma ctx.lems)
+    (string_of_smap string_of_pred ctx.preds)
+    (string_of_list Fun.id ctx.q_vars)
+    (string_of_list Fun.id ctx.unfolded)
+    (string_of_list Fun.id ctx.applied)
+
 let default_pctx lems preds q_vars =
   { lems; preds; q_vars; unfolded = []; applied = [] }
 
@@ -749,7 +760,7 @@ let rec check_staged_subsumption_aux :
     normalisedStagedSpec ->
     unit option =
  fun ctx i assump s1 s2 ->
-  info ~title:"subsumption" "%s\n<:\n%s\n@."
+  info ~title:"subsumption" "%s\n<:\n%s"
     (string_of_normalisedStagedSpec s1)
     (string_of_normalisedStagedSpec s2);
   match (s1, s2) with
@@ -762,7 +773,7 @@ let rec check_staged_subsumption_aux :
       let@ _ =
         try_other_measures ctx s1 s2 None (Some c2) i assump |> or_else
       in
-      info "FAIL, constr %s != %s@." c1 c2;
+      info ~title:"FAIL" "constr %s != %s" c1 c2;
       fail
       (* try to unfold the right side, then the left *)
       (* (match List.find_opt (fun p -> String.equal c2 p.p_name) ctx.preds with
@@ -797,7 +808,7 @@ let rec check_staged_subsumption_aux :
                  i assump (normalise_spec s1_1) s2
              | None ->
                (* no predicates to try unfolding *)
-               info "FAIL, constr %s != %s@." c1 c2;
+               info "FAIL, constr %s != %s" c1 c2;
                fail))) *)
     | true ->
       let* _ =
@@ -805,7 +816,7 @@ let rec check_staged_subsumption_aux :
         let l2 = List.length a2 in
         let r = l1 = l2 in
         if not r then (
-          info "FAIL, arg length %s (%d) != %s (%d)@."
+          info ~title:"FAIL" "arg length %s (%d) != %s (%d)"
             (string_of_list string_of_term a1)
             l1
             (string_of_list string_of_term a2)
@@ -847,7 +858,7 @@ let rec check_staged_subsumption_aux :
            { ctx with unfolded = c2 :: ctx.unfolded }
            i assump s1 s2_1
        | _ -> *)
-    info "FAIL, ante is shorter\n%s\n<:\n%s\n@."
+    info ~title:"FAIL" "ante is shorter\n%s\n<:\n%s"
       (string_of_normalisedStagedSpec s1)
       (string_of_normalisedStagedSpec s2);
     fail
@@ -863,7 +874,7 @@ let rec check_staged_subsumption_aux :
            { ctx with unfolded = c1 :: ctx.unfolded }
            i assump s1 s1_1
        | _ -> *)
-    info "FAIL, conseq is shorter\n%s\n<:\n%s\n@."
+    info ~title:"FAIL" "conseq is shorter\n%s\n<:\n%s"
       (string_of_normalisedStagedSpec s1)
       (string_of_normalisedStagedSpec s2);
     fail
@@ -887,7 +898,7 @@ and try_other_measures :
   | Some (c2, def) when not (List.mem c2 ctx.unfolded) ->
     let unf = unfold_predicate_norm def s2 in
     if List.length unf > 1 then
-      info ~title:"after unfolding (right)" "%s\n<:\n%s\n@."
+      info ~title:"after unfolding (right)" "%s\n<:\n%s"
         (string_of_normalisedStagedSpec s1)
         (string_of_disj_spec (List.map normalisedStagedSpec2Spec unf));
     let@ s2_1 = any ~name:"?" ~to_s:string_of_normalisedStagedSpec unf in
@@ -904,7 +915,7 @@ and try_other_measures :
     | Some (c1, def) when not (List.mem c1 ctx.unfolded) ->
       let unf = unfold_predicate_norm def s1 in
       if List.length unf > 1 then
-        info ~title:"after unfolding (left)" "%s\n<:\n%s\n@."
+        info ~title:"after unfolding (left)" "%s\n<:\n%s"
           (string_of_disj_spec (List.map normalisedStagedSpec2Spec unf))
           (string_of_normalisedStagedSpec s2);
       let@ s1_1 = all ~to_s:string_of_normalisedStagedSpec unf in
@@ -928,7 +939,7 @@ and try_other_measures :
       |> Option.iter (fun l ->
              info
                ~title:(Format.asprintf "applied: %s" l.l_name)
-               "%s\n\nafter:\n%s\n<:\n%s\n@." (string_of_lemma l)
+               "%s\n\nafter:\n%s\n<:\n%s" (string_of_lemma l)
                (string_of_spec s1_1)
                (string_of_normalisedStagedSpec s2));
       (match applied with
@@ -938,9 +949,13 @@ and try_other_measures :
           i assump (normalise_spec s1_1) s2
       | None ->
         (* no predicates to try unfolding *)
-        info "ran out of tricks to make constructors %s and %s match@."
-          (string_of_option Fun.id c1)
-          (string_of_option Fun.id c2);
+        info
+          ~title:
+            (Format.asprintf
+               "ran out of tricks to make constructors %s and %s match"
+               (string_of_option Fun.id c1)
+               (string_of_option Fun.id c2))
+          "%s" (string_of_pctx ctx);
         fail))
 
 and stage_subsumes :
@@ -954,9 +969,9 @@ and stage_subsumes :
   let vs1, (pre1, post1, ret1) = s1 in
   let vs2, (pre2, post2, ret2) = s2 in
   (* TODO replace uses of all_vars. this is for us to know if locations on the rhs are quantified. a smaller set of vars is possible *)
-  info "%s %s * (%sreq %s; ens %s) <: (%sreq %s; ens %s)@."
-    (Pretty.yellow (Format.asprintf "(%s)" what))
-    (string_of_pi assump)
+  info
+    ~title:(Format.asprintf "(%s)" what)
+    "%s * (%sreq %s; ens %s) <: (%sreq %s; ens %s)" (string_of_pi assump)
     (string_of_existentials vs1)
     (string_of_state pre1) (string_of_state post1)
     (string_of_existentials vs2)
@@ -967,9 +982,9 @@ and stage_subsumes :
     let left = conj [assump; pre_l] in
     let right = pre_r in
     let pre_res = Provers.entails_exists left vs1 right in
-    info "%s %s => %s%s ==> %s@."
-      (Pretty.yellow (Format.asprintf "(%s pre)" what))
-      (string_of_pi left)
+    info
+      ~title:(Format.asprintf "(%s pre)" what)
+      "%s => %s%s ==> %s" (string_of_pi left)
       (string_of_existentials vs1)
       (string_of_pi right) (string_of_res pre_res);
     of_bool (conj [pre_l; pre_r; assump]) pre_res
@@ -986,9 +1001,9 @@ and stage_subsumes :
     let left = conj [assump; post_l] in
     let right = conj [post_r; Atomic (EQ, ret1, ret2)] in
     let post_res = Provers.entails_exists left vs22 right in
-    info "%s %s => %s%s ==> %s@."
-      (Pretty.yellow (Format.asprintf "(%s post)" what))
-      (string_of_pi left)
+    info
+      ~title:(Format.asprintf "(%s post)" what)
+      "%s => %s%s ==> %s" (string_of_pi left)
       (string_of_existentials vs22)
       (string_of_pi right) (string_of_res post_res);
     of_bool (conj [right; assump]) post_res
@@ -1008,65 +1023,76 @@ let rec apply_tactics ts lems preds (ds1 : disj_spec) (ds2 : disj_spec) =
       let r =
         match c with
         | Unfold_right ->
-          info "%s %s@."
-            (Pretty.yellow "unfold right")
-            ((string_of_smap string_of_pred) preds);
+          info ~title:"unfold left" "%s" ((string_of_smap string_of_pred) preds);
           let ds2 = SMap.fold (fun _n -> unfold_predicate) preds ds2 in
           (ds1, ds2)
         | Unfold_left ->
-          info "%s %s@."
-            (Pretty.yellow "unfold left")
-            (string_of_smap string_of_pred preds);
+          info ~title:"unfold left" "%s" (string_of_smap string_of_pred preds);
           let ds1 = SMap.fold (fun _n -> unfold_predicate) preds ds1 in
           (ds1, ds2)
         | Case (i, ta) ->
           (* case works on the left only *)
-          info "%s@." (Pretty.yellow (Format.sprintf "case %d" i));
+          info ~title:"case" "%d" i;
           let ds, _ = apply_tactics [ta] lems preds [List.nth ds1 i] ds2 in
           (* unfolding (or otherwise adding disjuncts) inside case will break use of hd *)
           let ds11 = replace_nth i (List.hd ds) ds1 in
           (ds11, ds2)
         | Apply l ->
           (* apply works on the left only *)
-          info "%s@." (Pretty.yellow (Format.sprintf "apply %s" l));
+          info ~title:"apply" "%s" l;
           ( List.map
               (List.fold_right apply_lemma
                  (List.filter (fun le -> String.equal le.l_name l) lems))
               ds1,
             ds2 )
       in
-      info "%s\n<:\n%s\n@."
+      info ~title:"after" "%s\n<:\n%s"
         (string_of_disj_spec (fst r))
         (string_of_disj_spec (snd r));
       r)
     (ds1, ds2) ts
 
 let check_staged_subsumption :
-    string list -> lemma list -> pred_def SMap.t -> spec -> spec -> unit option
-    =
- fun params lems preds n1 n2 ->
-  let ((es1, ns1) as nn1) = normalise_spec n1 in
-  let ((es2, ns2) as nn2) = normalise_spec n2 in
+    lemma list -> pred_def SMap.t -> spec -> spec -> unit option =
+ fun lems preds n1 n2 ->
+  let es1, ns1 = normalise_spec n1 in
+  let es2, ns2 = normalise_spec n2 in
   let q_vars =
     Forward_rules.getExistientalVar (es1, ns1)
     @ Forward_rules.getExistientalVar (es2, ns2)
   in
-  let ih_lemma =
-    {
-      l_name = "IH";
-      l_params = params;
-      l_left = normalisedStagedSpec2Spec nn1;
-      l_right = normalisedStagedSpec2Spec nn2;
-    }
-  in
-  let ctx = default_pctx (ih_lemma :: lems) preds q_vars in
+  let ctx = default_pctx lems preds q_vars in
   check_staged_subsumption_aux ctx 0 True (es1, ns1) (es2, ns2)
+
+let create_induction_hypothesis params ds1 ds2 =
+  match (ds1, ds2) with
+  | [s1], [s2] ->
+    let ns1 = s1 |> normalise_spec in
+    let s1 = ns1 |> normalisedStagedSpec2Spec in
+    let used_l = used_vars ns1 in
+    (* heuristic. all parameters must be used meaningfully, otherwise there's nothing to do induction on *)
+    (match List.for_all (fun p -> SSet.mem p used_l) params with
+    | true ->
+      let s2 = s2 |> normalise_spec |> normalisedStagedSpec2Spec in
+      (* quantified variables in lemma are parameters of the function *)
+      let ih =
+        { l_name = "IH"; l_params = params; l_left = s1; l_right = s2 }
+      in
+      info ~title:"induction hypothesis" "%s" (string_of_lemma ih);
+      [ih]
+    | false ->
+      info ~title:"no induction hypothesis" "";
+      [])
+  | _ ->
+    info ~title:"no induction hypothesis" "";
+    []
 
 (**
   Subsumption between disjunctive specs.
   S1 \/ S2 |= S3 \/ S4
 *)
 let check_staged_subsumption_disj :
+    string ->
     string list ->
     tactic list ->
     lemma list ->
@@ -1074,13 +1100,15 @@ let check_staged_subsumption_disj :
     disj_spec ->
     disj_spec ->
     bool =
- fun params _ts lems preds ds1 ds2 ->
-  info ~title:"before tactics" "%s\n<:\n%s\n@." (string_of_disj_spec ds1)
-    (string_of_disj_spec ds2);
+ fun mname params _ts lems preds ds1 ds2 ->
+  info
+    ~title:(Format.asprintf "disj subsumption: %s" mname)
+    "%s\n<:\n%s" (string_of_disj_spec ds1) (string_of_disj_spec ds2);
+  let lems = create_induction_hypothesis params ds1 ds2 @ lems in
   (* let ds1, ds2 = apply_tactics ts lems preds ds1 ds2 in *)
   (let@ s1 = all ~to_s:string_of_spec ds1 in
    let@ s2 = any ~name:"subsumes-disj-rhs-any" ~to_s:string_of_spec ds2 in
-   check_staged_subsumption params lems preds s1 s2)
+   check_staged_subsumption lems preds s1 s2)
   |> succeeded
 
 let derive_predicate meth disj =
@@ -1120,9 +1148,9 @@ let%expect_test _ =
     ]
   in
   Format.printf "%b@."
-    (check_staged_subsumption_disj [] [] [] SMap.empty left right);
+    (check_staged_subsumption_disj "m" [] [] [] SMap.empty left right);
   Format.printf "%b@."
-    (check_staged_subsumption_disj [] [] [] SMap.empty right left);
+    (check_staged_subsumption_disj "n" [] [] [] SMap.empty right left);
   [%expect {|
     false
     true

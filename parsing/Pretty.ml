@@ -837,21 +837,24 @@ let dbg_info = 1
 let dbg_debug = 2
 let debug_level = ref dbg_none
 
-let debug ?title fmt =
+let debug_print title s =
+  if String.length title > 6 then
+    print_string (yellow title ^ " ")
+  else
+    print_endline (yellow title);
+  print_endline s;
+  if not (String.equal "" s) then print_endline ""
+
+let debug ~title fmt =
   Format.kasprintf
     (fun s ->
       if !debug_level >= dbg_debug then (
-title |>
-        Option.iter (fun s -> print_endline (yellow s)) ;
-        print_string s;
-      flush stdout))
+        debug_print title s))
     fmt
 
-let info ?title fmt =
+let info ~title fmt =
   Format.kasprintf
     (fun s ->
-      if !debug_level >= dbg_info then
-      ( title |> Option.iter (fun s -> print_endline (yellow s)) ;
-        print_string s;
-      flush stdout ))
+      if !debug_level >= dbg_info then (
+        debug_print title s))
     fmt

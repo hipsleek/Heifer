@@ -75,7 +75,7 @@ module Option = struct
       match vs with
       | [] -> Some []
       | x :: xs ->
-        info "%s %s@." (Pretty.yellow "(all)") (to_s x);
+        info ~title:"(all)" "%s" (to_s x);
         let res = f x in
         (match res with None -> None | Some r -> loop (r :: rs) xs)
     in
@@ -102,7 +102,7 @@ module Option = struct
     | [x] -> f x
     | v :: vs ->
       let rec loop v vs =
-        info "%s %s@." (Pretty.yellow "(any)") (to_s v);
+        info ~title:"(any)" "%s" (to_s v);
         let res = f v in
         match (res, vs) with
         | Some r, _ -> Some r

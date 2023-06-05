@@ -68,5 +68,4 @@
   ALL OK!
 
   $ check ../examples/applyN.ml
-  TESTS FAILED
-  ========== Function: unsound_false ==========
+  ALL OK!

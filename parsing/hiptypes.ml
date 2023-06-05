@@ -53,6 +53,7 @@ type stagedSpec =
       | NormalReturn of (pi * kappa * term)
       (* higher-order functions: H /\ P /\ f$(...args, term) *)
       (* this constructor is also used for inductive predicate applications *)
+      (* f$(x, y) is HigherOrder(..., ..., (f, [x]), y) *)
       | HigherOrder of (pi * kappa * instant * term)
       (* effects: H /\ P /\ E(...args, v), term is always a placeholder variable *)
       | RaisingEff of (pi * kappa * instant * term)
