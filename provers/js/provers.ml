@@ -32,7 +32,7 @@ let rec build_term : Jv.t -> term -> Jv.t =
   | Var s -> Jv.call (Jv.get ctx "Int") "const" [| Jv.of_string s |]
   | UNIT -> build_term ctx (Var "unit")
   | TTrue -> Jv.call (Jv.get ctx "Bool") "val" [| Jv.of_bool true |]
-  | TFals -> Jv.call (Jv.get ctx "Bool") "val" [| Jv.of_bool false |]
+  | TFalse -> Jv.call (Jv.get ctx "Bool") "val" [| Jv.of_bool false |]
   | TList _ | TTupple _ -> failwith "not yet implemented"
 
 let build_op : Jv.t -> bin_op -> term -> term -> Jv.t =
