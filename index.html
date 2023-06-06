@@ -156,7 +156,42 @@ let summary1_false x n
 
 let summary2_false x n
 (*@ ex r4; Norm(r4=x+n+1/\emp, r4) @*)
-= applyN incr x n">src/examples/applyN.ml</option><option value=src/examples/compose.ml data-text="
+= applyN incr x n">src/examples/applyN.ml</option><option value=src/examples/compare_withRust.ml data-text="
+let list = ref [];;
+
+list := !list @ [42];;
+
+
+let cl i 
+(*@ 
+   ex old; 
+   req list -> old ; 
+   Norm(list->old @ [i], ())
+@*)
+= list := !list @ [i];;
+
+let foo closure j = 
+(*@ 
+   ex new; 
+   closure (emp, i, ());
+   req list -> new ; 
+   Norm(list->new  @ [i+1], ())
+@*)
+  closure(j);
+  list := !list @ [j+1];;
+
+
+foo (cl) 7;;
+(* 
+   ex new; closure (emp, i, ()); req list -> new ; Norm(list->new  @ [i+1], ())
+~~~>
+   ex new; req list -> old ; Norm(list->old @ [7], ()); req list -> new ; Norm(list->new  @ [8], ())
+~~~>
+   Norm(list->[42, 7, 8], ())
+*)
+
+let main = 
+  List.map (fun a -> print_endline (string_of_int a)) (!list);; ">src/examples/compare_withRust.ml</option><option value=src/examples/compose.ml data-text="
 let compose f g x
 (*@
   ex r_g; g(x, r_g);
@@ -783,7 +818,7 @@ let handler2  ()
     <script>
       // this is substituted at build time and is used in page.js
       function postExampleLoad() {
-        console.log("Built Tue Jun  6 17:16:28 UTC 2023");
+        console.log("Built Tue Jun  6 17:26:12 UTC 2023");
         console.log("loading z3...");
       }
     </script>
