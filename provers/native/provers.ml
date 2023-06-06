@@ -1,12 +1,40 @@
+let substring ~search_in s =
+  let re = Str.regexp_string s in
+  try
+    ignore (Str.search_forward re search_in 0);
+    true
+  with Not_found -> false
+
 include Hiptypes
 
 (* open Types *)
 open Z3
 
+let list_int_sort ctx =
+  let int = Z3.Arithmetic.Integer.mk_sort ctx in
+  (* Z3.Z3List.mk_sort ctx (Z3.Symbol.mk_string ctx "List") int *)
+  Z3.Z3List.mk_list_s ctx "List" int
+
+let get_fun_decl ctx s =
+  let list_int = list_int_sort ctx in
+  match s with
+  | "cons" -> Z3.Z3List.get_cons_decl list_int
+  | "head" -> Z3.Z3List.get_head_decl list_int
+  | "tail" -> Z3.Z3List.get_tail_decl list_int
+  | "is_cons" -> Z3.Z3List.get_is_cons_decl list_int
+  | "is_nil" -> Z3.Z3List.get_is_nil_decl list_int
+  | _ -> failwith (Format.asprintf "unknown function: %s" s)
+
 let rec term_to_expr ctx : term -> Z3.Expr.expr = function
   | Num n -> Z3.Arithmetic.Integer.mk_numeral_i ctx n
+  | Var v when substring ~search_in:v "list" ->
+    let list_int = list_int_sort ctx in
+    Z3.Expr.mk_const_s ctx "List" list_int
   | Var v -> Z3.Arithmetic.Integer.mk_const_s ctx v
   | UNIT -> Z3.Arithmetic.Integer.mk_const_s ctx "unit"
+  | Nil ->
+    let list_int = list_int_sort ctx in
+    Z3.Z3List.nil list_int
   (*
   | Gen i          -> Z3.Arithmetic.Real.mk_const_s ctx ("t" ^ string_of_int i ^ "'")
   *)
@@ -18,6 +46,8 @@ let rec term_to_expr ctx : term -> Z3.Expr.expr = function
     Z3.Boolean.mk_eq ctx (term_to_expr ctx t1) (term_to_expr ctx t2)
   | TTrue -> Z3.Boolean.mk_true ctx
   | TFalse -> Z3.Boolean.mk_false ctx
+  | TApp (f, a) ->
+    Z3.Expr.mk_app ctx (get_fun_decl ctx f) (List.map (term_to_expr ctx) a)
   | TList _ | TTupple _ -> failwith "term_to_expr"
 
 let rec pi_to_expr ctx : pi -> Expr.expr = function

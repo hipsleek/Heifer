@@ -151,11 +151,6 @@ let instantiate_pred : pred_def -> term list -> term -> pred_def =
         pred.p_body;
   }
 
-let conj xs =
-  match xs with
-  | [] -> True
-  | x :: xs -> List.fold_right (fun c t -> And (c, t)) xs x
-
 module Heap = struct
   open Res.Res
   (* let normalize_heap : kappa -> kappa * pi =

@@ -125,7 +125,7 @@ let rec incremental_rules :
     Ok (rule ~children:[pf1; pf2] ~name:"incr-if" "", disj t1 e1)
   (* TODO lambda *)
   | CPerform (_, _) -> failwith "not done, effect-related"
-  | CMatch (_, _, _) -> failwith "not done, effect-related"
+  | CMatch (_, _, _, _) -> failwith "not done, effect-related"
   | CResume _ -> failwith "not done, effect-related"
 
 let%expect_test _ =
