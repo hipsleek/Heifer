@@ -40,6 +40,22 @@ let verifier_getAfreeVar ?from () :string  =
 
 
 
+let string_of_pair pa pb (a,b) =
+  Format.asprintf "(%s, %s)" (pa a) (pb b)
+
+let string_of_list p xs =
+  match xs with
+  | [] -> "[]"
+  | _ ->
+    let a = List.map p xs |> String.concat "; " in
+    Format.asprintf "[%s]" a
+
+let string_of_args pp args =
+  match args with
+  | [] -> ""
+  | _ ->
+    let a = String.concat ", " (List.map pp args) in
+    Format.asprintf "(%s)" a
 
 let rec iter f = function
   | [] -> ()
@@ -129,12 +145,14 @@ let rec string_of_term t : string =
   match t with 
   | Num i -> string_of_int i 
   | UNIT -> "()"
+  | Nil -> "[]"
   | TTrue -> "true"
   | TFalse -> "false"
   | Var str -> str
   | Eq (t1, t2) -> string_of_term t1 ^ "==" ^ string_of_term t2
   | Plus (t1, t2) -> string_of_term t1 ^ "+" ^ string_of_term t2
   | Minus (t1, t2) -> string_of_term t1 ^ "-" ^ string_of_term t2
+  | TApp (op, args) -> Format.asprintf "%s(%s)" op (string_of_args string_of_term args)
   | TTupple nLi -> 
     let rec helper li = 
       match li with
@@ -266,18 +284,6 @@ let string_of_instant (str, ar_Li): string =
   Format.sprintf "%s%s" str args
 
 
-let string_of_pair pa pb (a,b) =
-  Format.asprintf "(%s, %s)" (pa a) (pb b)
-
-let string_of_list p xs =
-  match xs with
-  | [] -> "[]"
-  | _ ->
-    let a = List.map p xs |> String.concat "; " in
-    Format.asprintf "[%s]" a
-
-let string_of_args args = string_of_list string_of_term args
-
 let rec string_of_kappa (k:kappa) : string = 
   match k with
   | EmptyHeap -> "emp"
@@ -299,11 +305,11 @@ let string_of_staged_spec (st:stagedSpec) : string =
   | Require (p, h) ->
     Format.asprintf "req %s" (string_of_state (p, h))
   | HigherOrder (pi, h, (f, args), ret) ->
-    Format.asprintf "%s$(%s, %s, %s)" f (string_of_state (pi, h)) (string_of_args args) (string_of_term ret)
+    Format.asprintf "%s$(%s, %s, %s)" f (string_of_state (pi, h)) (string_of_args string_of_term args) (string_of_term ret)
   | NormalReturn (pi, heap, ret) ->
     Format.asprintf "Norm(%s, %s)" (string_of_state (pi, heap))  (string_of_term ret)
   | RaisingEff (pi, heap, (name, args), ret) ->
-    Format.asprintf "%s(%s, %s, %s)" name (string_of_state (pi, heap)) (string_of_args args) (string_of_term ret)
+    Format.asprintf "%s(%s, %s, %s)" name (string_of_state (pi, heap)) (string_of_args string_of_term args) (string_of_term ret)
   | Exists vs ->
     Format.asprintf "ex %s" (String.concat " " vs)
   (* | IndPred {name; args} -> *)
@@ -556,10 +562,11 @@ let (*rec*) normalise_spec_ (acc:normalisedStagedSpec) (spec:spec) : normalisedS
 
 let rec used_vars_term (t : term) =
   match t with
-  | TTrue | TFalse | UNIT | Num _ -> SSet.empty
+  | Nil | TTrue | TFalse | UNIT | Num _ -> SSet.empty
   | TList ts | TTupple ts -> SSet.concat (List.map used_vars_term ts)
   | Var s -> SSet.singleton s
   | Eq (a, b) | Plus (a, b) | Minus (a, b) -> SSet.union (used_vars_term a) (used_vars_term b)
+  | TApp (_, args) -> SSet.concat (List.map used_vars_term args)
 
 let rec used_vars_pi (p : pi) =
   match p with
@@ -788,6 +795,12 @@ let%expect_test "normalise spec" =
 
 let is_alpha = function 'a' .. 'z' | 'A' .. 'Z' -> true | _ -> false
 
+let string_of_constr_call n args =
+  match n, args with
+  | "[]", _ -> "[]"
+  | "::", [a1; a2] -> Format.asprintf "%s :: %s" a1 a2
+  | _ -> Format.asprintf "%s(%s)" n (String.concat ", " args)
+
 let rec string_of_core_lang (e:core_lang) :string =
   match e with
   | CValue v -> string_of_term v
@@ -801,7 +814,7 @@ let rec string_of_core_lang (e:core_lang) :string =
   | CAssert (p, h) -> Format.sprintf "assert (%s && %s)" (string_of_pi p) (string_of_kappa h)
   | CPerform (eff, Some arg) -> Format.sprintf "perform %s %s" eff (string_of_term arg)
   | CPerform (eff, None) -> Format.sprintf "perform %s" eff
-  | CMatch (e, (v, norm), hs) -> Format.sprintf "match %s with\n| %s -> %s\n%s" (string_of_core_lang e) v (string_of_core_lang norm) (List.map (fun (name, v, body) -> Format.asprintf "| effect %s k -> %s" (match v with None -> name | Some v -> Format.asprintf "(%s %s)" name v) (string_of_core_lang body)) hs |> String.concat "\n")
+  | CMatch (e, vs, hs, cs) -> Format.sprintf "match %s with\n%s%s\n%s" (string_of_core_lang e) (match vs with | Some (v, norm) -> Format.asprintf "| %s -> %s\n" v (string_of_core_lang norm) | _ -> "") (List.map (fun (name, v, body) -> Format.asprintf "| effect %s k -> %s" (match v with None -> name | Some v -> Format.asprintf "(%s %s)" name v) (string_of_core_lang body)) hs |> String.concat "\n") (cs |> List.map (fun (n, args, body) -> Format.asprintf "| %s -> %s" (string_of_constr_call n args) (string_of_core_lang body)) |> String.concat "\n")
   | CResume v -> Format.sprintf "continue k %s" (string_of_term v)
 
 let string_of_effect_stage (vs, pre, post, eff, ret) =
@@ -858,3 +871,8 @@ let info ~title fmt =
       if !debug_level >= dbg_info then (
         debug_print title s))
     fmt
+
+let conj xs =
+  match xs with
+  | [] -> True
+  | x :: xs -> List.fold_right (fun c t -> And (c, t)) xs x

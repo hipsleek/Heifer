@@ -637,7 +637,19 @@ let rec transformation (env:string list) (expr:expression) : core_lang =
     (* ignore this *)
     transformation env a
   (* primitive or invocation of higher-order function passed as argument *)
+  | Pexp_construct ({txt=Lident ("[]" as name); _}, None) ->
+    CFunCall (name, [])
+  | Pexp_construct ({txt=Lident ("::" as name); _}, Some ({pexp_desc = Pexp_tuple args; _})) ->
+    (* this is almost the same as the next case. can't be unified because the pattern has a different type *)
+    let rec loop vars args =
+      match args with
+      | [] -> CFunCall (name, List.rev vars)
+      |  a :: args1 ->
+        transformation env a |> maybe_var (fun v -> loop (v :: vars) args1)
+    in
+    loop [] args
   | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, args) when List.mem name env || List.mem name primitives ->
+    (* TODO this doesn't model ocaml's right-to-left evaluation order *)
     let rec loop vars args =
       match args with
       | [] -> CFunCall (name, List.rev vars)
@@ -645,8 +657,9 @@ let rec transformation (env:string list) (expr:expression) : core_lang =
         transformation env a |> maybe_var (fun v -> loop (v :: vars) args1)
     in
     loop [] args
-  | Pexp_apply (_f, _args) ->
+  | Pexp_apply (f, _args) ->
     (* unknown function call, e.g. printf. translate to assert true for now *)
+    debug ~title:"unknown function call" "%a" Pprintast.expression f;
     CAssert (True, EmptyHeap)
   | Pexp_sequence (a, b) ->
     CLet ("_", transformation env a, transformation env b)
@@ -662,16 +675,15 @@ let rec transformation (env:string list) (expr:expression) : core_lang =
       |> maybe_var (fun v -> CIfELse (v, transformation env then_, transformation env else_))
   | Pexp_match (e, cases) ->
     let norm =
-      match cases |> List.filter_map (fun c ->
+      (* may be none for non-effect pattern matches *)
+      cases |> List.find_map (fun c ->
         match c.pc_lhs.ppat_desc with
         | Ppat_var {txt=v; _} -> Some (v, transformation env c.pc_rhs)
-        | _ -> None
-      ) with
-      | [] -> failwith (Format.asprintf "no value case: %a" Pprintast.expression expr)
-      | c :: _ -> c
+        | _ -> None)
     in
     let effs =
-      match cases |> List.filter_map (fun c ->
+      (* may be empty for non-effect pattern matches *)
+      cases |> List.filter_map (fun c ->
         match c.pc_lhs.ppat_desc with
         | Ppat_effect (peff, _pk) ->
           let label, arg_binder =
@@ -684,14 +696,27 @@ let rec transformation (env:string list) (expr:expression) : core_lang =
             string_of_pattern peff, arg
           in
           Some (label, arg_binder, transformation env c.pc_rhs)
-        | _ -> None
-      ) with
-      | [] -> failwith (Format.asprintf "no effect case: %a" Pprintast.expression expr)
-      | c -> c
+        | _ -> None)
     in
-    CMatch (transformation env e, norm, effs)
+    let pattern_cases =
+      (* may be empty for non-effect pattern matches *)
+      cases |> List.filter_map (fun c ->
+        match c.pc_lhs.ppat_desc with
+        | Ppat_construct ({txt=constr; _}, None) ->
+          Some (Longident.last constr, [], transformation env c.pc_rhs)
+        | Ppat_construct ({txt=constr; _}, Some {ppat_desc = Ppat_tuple ps; _}) ->
+          let args = List.filter_map (fun p ->
+            match p.ppat_desc with
+            | Ppat_var {txt=v; _} -> Some v
+            | _ -> None) ps
+          in
+          Some (Longident.last constr, args, transformation env c.pc_rhs)
+        | _ -> None)
+    in
+    CMatch (transformation env e, norm, effs, pattern_cases)
   | _ ->
     failwith (Format.asprintf "expression not in core language: %a" Pprintast.expression expr)
+    (* (Printast.expression 0) expr *)
 
 and maybe_var f e =
   (* generate fewer unnecessary variables *)

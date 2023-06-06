@@ -8,17 +8,19 @@ module SMap = struct
   include Map.Make (String)
 end
 
-type term = 
+type term =
     | UNIT 
     | Num of int
-    | TList of (term list)
-    | TTupple of (term list)
+    | TList of term list
+    | TTupple of term list
     | Var of string
     | Plus of term * term 
     | Minus of term * term 
     | Eq of term * term 
     | TTrue
     | TFalse
+    | TApp of string * term list
+    | Nil
 
 (* an occurrence of an effect *)
 type instant = string * term list
@@ -86,11 +88,13 @@ let freshNormStageRet r : normalStage = ([], (True, EmptyHeap), (True, EmptyHeap
 
 (* type linearStagedSpec = stagedSpec list *)
 
-
 type core_value = term
 
 (* (Label n) _k -> e *)
 type core_handler_ops = (string * string option * core_lang) list
+
+(* x :: xs -> e is represented as ("::", [x, xs], e) *)
+and constr_cases = (string * string list * core_lang) list
 
 and core_lang = 
       | CValue of core_value 
@@ -102,7 +106,8 @@ and core_lang =
       | CRead of string 
       | CAssert of pi * kappa 
       | CPerform of string * core_value option
-      | CMatch of core_lang * (string * core_lang) * core_handler_ops
+      (* match e with | v -> e1 | eff case... | constr case... *)
+      | CMatch of core_lang * (string * core_lang) option * core_handler_ops * constr_cases
       | CResume of core_value 
 
 type tactic =

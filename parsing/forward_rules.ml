@@ -66,7 +66,7 @@ let (*rec*) bindNewNames (formal: string list) (actual: string list) : ((string 
 
 let rec instantiateTerms (bindings:((string * core_value) list)) (t:term) : term = 
   match t with
-  | Num _ | UNIT | TTrue | TFalse -> t
+  | Nil | Num _ | UNIT | TTrue | TFalse -> t
   | Var str -> 
     let binding = findbinding str bindings in 
     (* Format.printf "replacing %s with %s under %s@." str (string_of_term binding) (string_of_list (string_of_pair Fun.id string_of_term) bindings); *)
@@ -77,6 +77,7 @@ let rec instantiateTerms (bindings:((string * core_value) list)) (t:term) : term
   | Plus (t1, t2) -> Plus (instantiateTerms bindings t1, instantiateTerms bindings t2)
   | Eq (t1, t2) -> Eq (instantiateTerms bindings t1, instantiateTerms bindings t2)
   | Minus (t1, t2) -> Minus (instantiateTerms bindings t1, instantiateTerms bindings t2)
+  | TApp (t1, t2) -> TApp (t1, List.map (instantiateTerms bindings) t2)
 
 
 
@@ -269,7 +270,7 @@ let rec lookforHandlingCases ops (label:string) =
 
 let (continueationCxt: ((spec list * string * (string * core_lang) * core_handler_ops) list) ref)  = ref [] 
 
-let primitives = ["+"; "-"; "="; "not"]
+let primitives = ["+"; "-"; "="; "not"; "::"; "[]"]
 
 let rec handling_spec env (spec:normalisedStagedSpec) (normal:(string * core_lang)) (ops:core_handler_ops) : spec list = 
   
@@ -320,6 +321,7 @@ let rec handling_spec env (spec:normalisedStagedSpec) (normal:(string * core_lan
 
  
 and infer_of_expression (env:meth_def list) (current:disj_spec) (expr:core_lang): disj_spec = 
+  (* TODO infer_of_expression is likely O(n^2) due to appending at the end *)
   (* Format.printf "infer_of_expression %s, %s@." (string_of_disj_spec current) (string_of_core_lang expr); *)
   match expr with
   | CValue v -> 
@@ -443,6 +445,12 @@ and infer_of_expression (env:meth_def list) (current:disj_spec) (expr:core_lang)
       | "not", [x1] ->
         let event = NormalReturn (True, EmptyHeap, Minus (Num 1, x1)) in
         concatenateSpecsWithEvent current [event]
+      | "[]", [] ->
+        let event = NormalReturn (True, EmptyHeap, Nil) in
+        concatenateSpecsWithEvent current [event]
+      | "::", [x1; x2] ->
+        let event = NormalReturn (True, EmptyHeap, TApp ("cons", [x1; x2])) in
+        concatenateSpecsWithEvent current [event]
       | _ -> failwith (Format.asprintf "unknown primitive: %s, args: %s" fname (string_of_list string_of_term actualArgs))
 
     end else 
@@ -505,21 +513,48 @@ Norm(i->f5+1, ()); Norm(emp, f4)
     (infer_of_expression env currentElse expr3)
 
 
-  | CMatch (expr1, (normFormalArg, expRet), ops) ->
+  | CMatch (expr1, Some vcase, ops, []) ->
+    (* effects *)
+    let (normFormalArg, expRet) = vcase in
     let phi1 = infer_of_expression env [freshNormalReturnSpec] expr1 in 
-    let afterHanldering = List.flatten (
+    let afterHandling = List.flatten (
       List.map (fun spec -> 
         (*print_endline("\nCMatch =====> " ^ string_of_spec spec); *)
         let normalisedSpec= (normalise_spec spec) in 
         (* print_endline("\nnormaled =====> " ^ string_of_normalisedStagedSpec normalisedSpec);  *)
-        handling_spec env  normalisedSpec (normFormalArg, expRet) ops
+        handling_spec env normalisedSpec (normFormalArg, expRet) ops
       ) phi1
     ) in 
-    concatenateSpecsWithSpec current afterHanldering
+    concatenateSpecsWithSpec current afterHandling
+  | CMatch (discr, None, _, cases) ->
+    (* pattern matching *)
+    (* this is quite similar to if-else. generate a disjunct for each branch with variables bound to the result of destructuring *)
+    let dsp = infer_of_expression env current discr in
+    let dsp = dsp |> List.concat_map (fun sp ->
+      let ret = retrieve_return_value sp in
+      cases |> List.concat_map (fun (constr, vars, body) -> 
+        (* TODO this is hardcoded for lists for now *)
+        match constr, vars with
+        | "[]", [] ->
+          let nil_case =
+            let c = conj [Atomic (EQ, TApp ("is_nil", [ret]), TTrue)] in
+            [NormalReturn (c, EmptyHeap, UNIT)]
+          in 
+          infer_of_expression env (concatenateSpecsWithEvent current nil_case) body
+        | "::", [v1; v2] ->
+          let cons_case =
+            let c = conj [
+              Atomic (EQ, TApp ("is_cons", [ret]), TTrue);
+              Atomic (EQ, TApp ("head", [ret]), Var v1);
+              Atomic (EQ, TApp ("tail", [ret]), Var v2);
+            ] in
+            [Exists [v1; v2]; NormalReturn (c, EmptyHeap, UNIT)]
+          in
+          infer_of_expression env (concatenateSpecsWithEvent current cons_case) body
+        | _ -> failwith (Format.asprintf "unknown constructor: %s" constr)))
+    in
+    dsp
+  | CMatch (_, Some _, _, _ :: _) ->
+    (* TODO combine both kinds of matches *)
+    failwith "unimplemented"
 
- (*
-
-
-
-    
-*)
