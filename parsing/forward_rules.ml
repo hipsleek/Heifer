@@ -41,7 +41,7 @@ let (*rec*) retrieveSpecFromEnv (fname: string) (env:meth_def list) : (string li
   | m :: xs ->  
     if String.compare fname m.m_name == 0 then Some (m.m_params, m.m_spec) 
     else retriveSpecFromEnv fname xs *)
-  List.find_map (fun m -> if String.equal fname m.m_name then Some (m.m_params, m.m_spec) else None) env
+  List.find_map (fun m -> if String.equal fname m.m_name then Some (m.m_params, Option.get m.m_spec) else None) env
 
 
 let (*rec*) bindFormalNActual (formal: string list) (actual: core_value list) : ((string * core_value) list)= 
@@ -66,15 +66,16 @@ let (*rec*) bindNewNames (formal: string list) (actual: string list) : ((string 
 
 let rec instantiateTerms (bindings:((string * core_value) list)) (t:term) : term = 
   match t with
-  | Num _ 
-  | UNIT -> t
+  | Num _ | UNIT | TTrue | TFalse -> t
   | Var str -> 
     let binding = findbinding str bindings in 
+    (* Format.printf "replacing %s with %s under %s@." str (string_of_term binding) (string_of_list (string_of_pair Fun.id string_of_term) bindings); *)
     binding
 
   | TList (tLi) -> TList (List.map (fun t1 -> instantiateTerms bindings t1) tLi)
   | TTupple (tLi) -> TList (List.map (fun t1 -> instantiateTerms bindings t1) tLi)
   | Plus (t1, t2) -> Plus (instantiateTerms bindings t1, instantiateTerms bindings t2)
+  | Eq (t1, t2) -> Eq (instantiateTerms bindings t1, instantiateTerms bindings t2)
   | Minus (t1, t2) -> Minus (instantiateTerms bindings t1, instantiateTerms bindings t2)
 
 
@@ -113,6 +114,7 @@ let instantiateStages (bindings:((string * core_value) list))  (stagedSpec:stage
     Require (instantiatePure bindings pi, instantiateHeap bindings  kappa)
   (* higher-order functions *)
   | NormalReturn (pi, kappa, ret) -> 
+    (* print_endline ("NORMAL RETURN"); *)
     NormalReturn(instantiatePure bindings pi, instantiateHeap bindings kappa, instantiateTerms bindings ret) 
   | HigherOrder (pi, kappa, (str, basic_t_list), ret) -> 
     let constr =
@@ -169,9 +171,12 @@ let rec instantiateExistientalVar
   let (effS, normalS)  =  spec  in 
   match effS with 
   | [] -> 
+
+    (* print_endline ("nROMRAL STATGE"); *)
     let (ex, req, ens, ret) = normalS in 
     ([], (instantiateExistientalVar_aux ex bindings, req, ens, ret))
   | eff :: xs -> 
+    (* print_endline ("EFF STATGE"); *)
     let (rest, norm') = instantiateExistientalVar (xs, normalS) bindings in 
     (({eff with e_evars = instantiateExistientalVar_aux eff.e_evars bindings}) :: rest, norm')
 
@@ -192,7 +197,6 @@ let isFreshVar str : bool =
 
 let () = assert (isFreshVar "f10" ==true )
 let () = assert (isFreshVar "s10" ==false )
-
 
 (** substitutes existentials with fresh variables *)
 let renamingexistientalVar (specs:spec list): spec list = 
@@ -265,7 +269,7 @@ let rec lookforHandlingCases ops (label:string) =
 
 let (continueationCxt: ((spec list * string * (string * core_lang) * core_handler_ops) list) ref)  = ref [] 
 
-let primitives = ["+"; "-"; "="]
+let primitives = ["+"; "-"; "="; "not"]
 
 let rec handling_spec env (spec:normalisedStagedSpec) (normal:(string * core_lang)) (ops:core_handler_ops) : spec list = 
   
@@ -294,7 +298,6 @@ let rec handling_spec env (spec:normalisedStagedSpec) (normal:(string * core_lan
     (match lookforHandlingCases ops label with 
     | None -> concatenateEventWithSpecs (effectStage2Spec [x]) (handling_spec env (xs, normalS) normal ops )
     | Some (effFormalArg, exprEff) -> 
-      (*print_string ("formal argument for label is " ^ effFormalArg ^ "\n"); *)
       let bindings = 
         match effFormalArg, effactualArgs with 
         | _, [] | None, _ -> [] 
@@ -317,15 +320,15 @@ let rec handling_spec env (spec:normalisedStagedSpec) (normal:(string * core_lan
 
  
 and infer_of_expression (env:meth_def list) (current:disj_spec) (expr:core_lang): disj_spec = 
-  (*print_string (string_of_coreLang_kind expr ^ "\n"); *)
+  (* Format.printf "infer_of_expression %s, %s@." (string_of_disj_spec current) (string_of_core_lang expr); *)
   match expr with
   | CValue v -> 
     let event = NormalReturn (True, EmptyHeap, v) in 
     concatenateSpecsWithEvent current [event]
 
-  | CLet (str, expr1, expr2) -> 
+  | CLet (str, expr1, expr2) ->
     let phi1 = infer_of_expression env current expr1 in 
-    List.flatten (List.map (fun spec -> 
+    phi1 |> List.concat_map (fun spec -> 
       (*print_endline (string_of_spec(spec)); *)
       let retN = retrieve_return_value spec in 
       match retN with 
@@ -353,14 +356,16 @@ and infer_of_expression (env:meth_def list) (current:disj_spec) (expr:core_lang)
           let phi2 = infer_of_expression env [spec] expr2 in 
           instantiateSpecList bindings phi2
           *)
+      | _ when String.equal str "_" -> infer_of_expression env [spec] expr2
       | _ -> 
-        if String.compare str "_" == 0 
-        then infer_of_expression env [spec] expr2
-        else 
-          let bindings = bindFormalNActual [str] [retN] in 
-          let phi2 = infer_of_expression env [spec] expr2 in 
-          instantiateSpecList bindings phi2
-    ) phi1)
+        (* rather than create an existential, we substitute the new variable away *)
+        let bindings = bindFormalNActual [str] [retN] in 
+
+        (* Here, we only instantiate the expr2 and concate spec -- the spec for expr 1 -- in front *)
+        let phi2 = infer_of_expression env [freshNormalReturnSpec] expr2 in
+        let phi2' = instantiateSpecList bindings phi2 in
+        (* print_endline (string_of_spec_list phi2' ^ "\n"); *)
+        concatenateSpecsWithSpec [spec] phi2')
 
 
   | CRef v -> 
@@ -427,14 +432,16 @@ and infer_of_expression (env:meth_def list) (current:disj_spec) (expr:core_lang)
     if List.mem fname primitives then begin
       match fname, actualArgs with
       | "+", [x1; x2] ->
-        let event = NormalReturn (True, EmptyHeap, Plus(x1, x2)) in 
+        let event = NormalReturn (True, EmptyHeap, Plus(x1, x2)) in
         concatenateSpecsWithEvent current [event]
       | "-", [x1; x2] ->
-        let event = NormalReturn (True, EmptyHeap, Minus(x1, x2)) in 
+        let event = NormalReturn (True, EmptyHeap, Minus(x1, x2)) in
         concatenateSpecsWithEvent current [event]
       | "=", [x1; x2] ->
-        (* TODO bool values, or at least Eq constructor in term *)
-        let event = NormalReturn (Atomic (EQ, x1, x2), EmptyHeap, UNIT) in 
+        let event = NormalReturn (Atomic (EQ, x1, x2), EmptyHeap, Eq (x1, x2)) in
+        concatenateSpecsWithEvent current [event]
+      | "not", [x1] ->
+        let event = NormalReturn (True, EmptyHeap, Minus (Num 1, x1)) in
         concatenateSpecsWithEvent current [event]
       | _ -> failwith (Format.asprintf "unknown primitive: %s, args: %s" fname (string_of_list string_of_term actualArgs))
 
@@ -490,9 +497,8 @@ Norm(i->f5+1, ()); Norm(emp, f4)
 
 
   | CIfELse (v, expr2, expr3) -> 
-    (* TODO missing bool *)
-    let eventThen = NormalReturn (Atomic(EQ, v, term_true), EmptyHeap, UNIT) in 
-    let eventElse = NormalReturn (Not(Atomic(EQ, v, term_true)), EmptyHeap, UNIT) in 
+    let eventThen = NormalReturn (Atomic (EQ, v, TTrue), EmptyHeap, UNIT) in 
+    let eventElse = NormalReturn (Not (Atomic (EQ, v, TTrue)), EmptyHeap, UNIT) in 
     let currentThen = concatenateSpecsWithEvent current [eventThen] in 
     let currentElse = concatenateSpecsWithEvent current [eventElse] in 
     (infer_of_expression env currentThen expr2) @ 
@@ -505,7 +511,7 @@ Norm(i->f5+1, ()); Norm(emp, f4)
       List.map (fun spec -> 
         (*print_endline("\nCMatch =====> " ^ string_of_spec spec); *)
         let normalisedSpec= (normalise_spec spec) in 
-
+        (* print_endline("\nnormaled =====> " ^ string_of_normalisedStagedSpec normalisedSpec);  *)
         handling_spec env  normalisedSpec (normFormalArg, expRet) ops
       ) phi1
     ) in 

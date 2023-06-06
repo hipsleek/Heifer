@@ -25,7 +25,6 @@ const debug = document.querySelector("#debug");
 const old_console = console;
 
 function debug_output() {
-  old_console.log(debug.checked);
   return debug.checked;
 }
 

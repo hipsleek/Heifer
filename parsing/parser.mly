@@ -823,6 +823,10 @@ The precedences must be listed from low to high.
 %type <Longident.t> parse_mod_longident
 %start parse_any_longident
 %type <Longident.t> parse_any_longident
+%start only_effect_spec
+%type <Hiptypes.spec> only_effect_spec
+%start only_disj_effect_spec
+%type <Hiptypes.disj_spec> only_disj_effect_spec
 %%
 
 /* macros */
@@ -1343,7 +1347,7 @@ structure_item:
       { val_of_let_bindings ~loc:$sloc $1 }
   | EFFECT effect_declaration
       { mkstr ~loc:$sloc (Pstr_effect $2) }
-  | LSPECCOMMENT PREDICATE name=LIDENT args=delimited(LPAREN, separated_nonempty_list(COMMA, LIDENT), RPAREN) EQUAL body=separated_nonempty_list(DISJUNCTION, effect_spec) RSPECCOMMENT
+  | LSPECCOMMENT PREDICATE name=LIDENT args=delimited(LPAREN, separated_nonempty_list(COMMA, LIDENT), RPAREN) EQUAL body=disj_effect_spec RSPECCOMMENT
     { mkstr ~loc:$sloc (Pstr_predicate (name, args, body)) }
   | LSPECCOMMENT LEMMA name=LIDENT EQUAL left=stagedSpec1 IMPLICATION right=effect_spec RSPECCOMMENT
     { mkstr ~loc:$sloc (Pstr_lemma (name, left, right)) }
@@ -2651,11 +2655,20 @@ heapkappa:
 | a=heapkappa STAR b=heapkappa
   { SepConj(a, b) }
 
+only_effect_spec:
+| s=effect_spec EOF { (s:spec) }
+
 effect_spec:
-| stages=separated_nonempty_list(SEMI, stagedSpec1) { stages }
+| s=separated_nonempty_list(SEMI, stagedSpec1) { s }
+
+only_disj_effect_spec:
+| d=disj_effect_spec EOF { (d:disj_spec) }
+
+disj_effect_spec:
+| d=separated_nonempty_list(DISJUNCTION, effect_spec) { d }
 
 fn_contract:
-  | LSPECCOMMENT spec=separated_nonempty_list(DISJUNCTION, effect_spec) RSPECCOMMENT
+  | LSPECCOMMENT spec=disj_effect_spec RSPECCOMMENT
     // post_condition = list_of_post_condition 
     {Some spec}
 // Some ([], spec)

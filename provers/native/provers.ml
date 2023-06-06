@@ -14,6 +14,10 @@ let rec term_to_expr ctx : term -> Z3.Expr.expr = function
     Z3.Arithmetic.mk_add ctx [term_to_expr ctx t1; term_to_expr ctx t2]
   | Minus (t1, t2) ->
     Z3.Arithmetic.mk_sub ctx [term_to_expr ctx t1; term_to_expr ctx t2]
+  | Eq (t1, t2) ->
+    Z3.Boolean.mk_eq ctx (term_to_expr ctx t1) (term_to_expr ctx t2)
+  | TTrue -> Z3.Boolean.mk_true ctx
+  | TFalse -> Z3.Boolean.mk_false ctx
   | TList _ | TTupple _ -> failwith "term_to_expr"
 
 let rec pi_to_expr ctx : pi -> Expr.expr = function

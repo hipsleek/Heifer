@@ -1,4 +1,13 @@
 
+module SSet = struct
+  include Set.Make (String)
+  let concat sets = List.fold_right union sets empty
+end
+
+module SMap = struct
+  include Map.Make (String)
+end
+
 type term = 
     | UNIT 
     | Num of int
@@ -7,9 +16,9 @@ type term =
     | Var of string
     | Plus of term * term 
     | Minus of term * term 
-
-let term_true = Num 0
-let term_false = Num 1
+    | Eq of term * term 
+    | TTrue
+    | TFalse
 
 (* an occurrence of an effect *)
 type instant = string * term list
@@ -44,6 +53,7 @@ type stagedSpec =
       | NormalReturn of (pi * kappa * term)
       (* higher-order functions: H /\ P /\ f$(...args, term) *)
       (* this constructor is also used for inductive predicate applications *)
+      (* f$(x, y) is HigherOrder(..., ..., (f, [x]), y) *)
       | HigherOrder of (pi * kappa * instant * term)
       (* effects: H /\ P /\ E(...args, v), term is always a placeholder variable *)
       | RaisingEff of (pi * kappa * instant * term)
@@ -68,7 +78,7 @@ type normalStage =  (string list* (pi * kappa ) * (pi * kappa) * term)
 type normalisedStagedSpec = effectStage list * normalStage
 
 let freshNormalReturnSpec = [NormalReturn (True, EmptyHeap, UNIT)]
-(* let freshNormalStage : normalStage = ([], (True, EmptyHeap), (True, EmptyHeap), UNIT)  *)
+let freshNormalStage : normalStage = ([], (True, EmptyHeap), (True, EmptyHeap), UNIT) 
 
 let freshNormStageVar v : normalStage = ([v], (True, EmptyHeap), (True, EmptyHeap), Var v) 
 
@@ -104,29 +114,29 @@ type tactic =
 type meth_def = {
   m_name : string;
   m_params : string list;
-  m_spec : spec list;
+  m_spec : disj_spec option;
   m_body : core_lang;
   m_tactics : tactic list;
 }
 (* type eff_def = string *)
 
-(** a lemma is a formula such as f$(a, r) |= c(a, r) *)
+(** a lemma is an entailment between (non-disjunctive) staged specs A <: B *)
 type lemma = {
   l_name : string;
-  (* l_params : string list; *)
-  l_left : stagedSpec;
+  l_params : string list;
+  l_left : spec;
   l_right : spec;
 }
 
 type pred_def = {
   p_name: string;
-  p_params: string list;
+  p_params: string list; (* list to ensure ordering. last param is typically a return value *)
   p_body: disj_spec;
 }
 
 type core_program = {
   cp_effs: string list;
-  cp_predicates: pred_def list;
+  cp_predicates: pred_def SMap.t;
   cp_lemmas: lemma list;
   cp_methods: meth_def list;
 }

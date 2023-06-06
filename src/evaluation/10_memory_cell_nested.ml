@@ -37,9 +37,9 @@ let test ()
 
 let write_handler i  
 (*@ 
-  ex x1 ret z; 
+  ex x1 ret z;
   Read(emp, x1); 
-  req i-> z; 
+  req i->z; 
   Read(i->x1+1,  ret);
   Norm(emp, ret)
 @*)
@@ -52,12 +52,14 @@ let write_handler i
 let read_handler  ()
 (*@ 
   ex i; 
-  Norm(i->2,  10)
+  Norm(i->1,  1)
 @*)
 =
   let i = Sys.opaque_identity (ref 0) in 
   match write_handler i with
   | v -> v 
-  | effect Read k -> (continue k (!i))
+  | effect Read k -> 
+    let x = !i in
+    (continue k (x))
 
 

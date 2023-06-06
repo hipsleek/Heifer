@@ -129,7 +129,10 @@ let rec string_of_term t : string =
   match t with 
   | Num i -> string_of_int i 
   | UNIT -> "()"
+  | TTrue -> "true"
+  | TFalse -> "false"
   | Var str -> str
+  | Eq (t1, t2) -> string_of_term t1 ^ "==" ^ string_of_term t2
   | Plus (t1, t2) -> string_of_term t1 ^ "+" ^ string_of_term t2
   | Minus (t1, t2) -> string_of_term t1 ^ "-" ^ string_of_term t2
   | TTupple nLi -> 
@@ -157,7 +160,7 @@ let rec string_of_pi pi : string =
   | And   (p1, p2) -> string_of_pi p1 ^ "/\\" ^ string_of_pi p2
   | Or     (p1, p2) -> string_of_pi p1 ^ "\\/" ^ string_of_pi p2
   | Imply  (p1, p2) -> string_of_pi p1 ^ "=>" ^ string_of_pi p2
-  | Not    p -> "!" ^ string_of_pi p
+  | Not    p -> "not(" ^ string_of_pi p ^ ")"
   | Predicate (str, t) -> str ^ "(" ^ string_of_term t ^ ")"
 
 
@@ -410,7 +413,10 @@ let rec string_of_normalisedStagedSpec (spec:normalisedStagedSpec) : string =
   | x :: xs  -> 
     (let {e_pre = (p1, h1); e_post = (p2, h2); _} = x in
     let ex = match x.e_evars with [] -> [] | _ -> [Exists x.e_evars] in
-    let current = ex @ [Require(p1, h1); RaisingEff(p2, h2, x.e_constr, x.e_ret)] in
+    let current = ex @ [Require(p1, h1);
+    (match x.e_typ with
+    | `Eff -> RaisingEff(p2, h2, x.e_constr, x.e_ret)
+    | `Fn -> HigherOrder(p2, h2, x.e_constr, x.e_ret))] in
     string_of_spec current )
     ^ "; " ^ string_of_normalisedStagedSpec (xs, normalS)
 
@@ -550,59 +556,60 @@ let (*rec*) normalise_spec_ (acc:normalisedStagedSpec) (spec:spec) : normalisedS
 
 let rec used_vars_term (t : term) =
   match t with
-  | UNIT | Num _ -> []
-  | TList ts | TTupple ts -> List.concat_map used_vars_term ts
-  | Var s -> [s]
-  | Plus (a, b) | Minus (a, b) -> used_vars_term a @ used_vars_term b
+  | TTrue | TFalse | UNIT | Num _ -> SSet.empty
+  | TList ts | TTupple ts -> SSet.concat (List.map used_vars_term ts)
+  | Var s -> SSet.singleton s
+  | Eq (a, b) | Plus (a, b) | Minus (a, b) -> SSet.union (used_vars_term a) (used_vars_term b)
 
 let rec used_vars_pi (p : pi) =
   match p with
-  | True | False -> []
-  | Atomic (_, a, b) -> used_vars_term a @ used_vars_term b
-  | And (a, b) | Or (a, b) | Imply (a, b) -> used_vars_pi a @ used_vars_pi b
+  | True | False -> SSet.empty
+  | Atomic (_, a, b) -> SSet.union (used_vars_term a) (used_vars_term b)
+  | And (a, b) | Or (a, b) | Imply (a, b) -> SSet.union (used_vars_pi a) (used_vars_pi b)
   | Not a -> used_vars_pi a
   | Predicate (_, t) -> used_vars_term t
 
 let rec used_vars_heap (h : kappa) =
   match h with
-  | EmptyHeap -> []
-  | PointsTo (a, t) -> a :: used_vars_term t
-  | SepConj (a, b) -> used_vars_heap a @ used_vars_heap b
+  | EmptyHeap -> SSet.empty
+  | PointsTo (a, t) -> SSet.add a (used_vars_term t)
+  | SepConj (a, b) -> SSet.union (used_vars_heap a) (used_vars_heap b)
 
-let used_vars_state (p, h) = used_vars_pi p @ used_vars_heap h
+let used_vars_state (p, h) = SSet.union (used_vars_pi p) (used_vars_heap h)
 
 let used_vars_eff eff =
-  used_vars_state eff.e_pre @ used_vars_state eff.e_post
-  @ List.concat_map used_vars_term (snd eff.e_constr)
-  @ used_vars_term eff.e_ret
+  SSet.concat [
+    used_vars_state eff.e_pre ; used_vars_state eff.e_post;
+    SSet.concat (List.map used_vars_term (snd eff.e_constr));
+    used_vars_term eff.e_ret
+  ]
 
 let used_vars_norm (_vs, pre, post, ret) =
-  used_vars_state pre @ used_vars_state post @ used_vars_term ret
+  SSet.concat [used_vars_state pre; used_vars_state post; used_vars_term ret]
 
 let used_vars (sp : normalisedStagedSpec) =
   let effs, norm = sp in
-  List.concat_map used_vars_eff effs @ used_vars_norm norm
-  |> List.sort_uniq String.compare
+  SSet.concat (used_vars_norm norm :: List.map used_vars_eff effs) 
 
 (* this moves existentials inward and removes unused ones *)
 let optimize_existentials : normalisedStagedSpec -> normalisedStagedSpec = fun (ess, norm) ->
-  let rec loop unused acc es =
+  let rec loop already_used unused acc es =
     match es with
     | [] -> unused, List.rev acc
     | e :: rest ->
-      let used = used_vars_eff e in
-      let may_be_used = e.e_evars @ unused in
-      let used_ex, unused_ex = List.partition (fun v -> List.mem v used) may_be_used in
-      loop (unused_ex @ unused) ({ e with e_evars = used_ex } :: acc) rest
+      let available = SSet.diff (SSet.union (SSet.of_list e.e_evars) unused) already_used in
+      let needed = SSet.diff (used_vars_eff e) already_used in
+      let used_ex, unused_ex = SSet.partition (fun v -> SSet.mem v needed) available in
+      loop (SSet.union already_used used_ex) (unused_ex ) ({ e with e_evars = SSet.elements used_ex } :: acc) rest
   in
-  let unused, es1 = loop [] [] ess in
+  let unused, es1 = loop SSet.empty SSet.empty [] ess in
   let norm1 =
       let used = used_vars_norm norm in
       let (evars, h, p, r) = norm in
-      let may_be_used = evars @ unused in
+      let may_be_used = SSet.union (SSet.of_list evars) unused in
       (* unused ones are dropped *)
-      let used_ex, _unused_ex = List.partition (fun v -> List.mem v used) may_be_used in
-      (used_ex, h, p, r)
+      let used_ex, _unused_ex = SSet.partition (fun v -> SSet.mem v used) may_be_used in
+      (SSet.elements used_ex, h, p, r)
   in
   (es1, norm1)
 
@@ -665,6 +672,7 @@ let normalisedStagedSpec2Spec (normalisedStagedSpec:normalisedStagedSpec) : spec
   let (effS, normalS) = normalisedStagedSpec in 
   detectfailedAssertions (effectStage2Spec effS @ normalStage2Spec normalS)
 
+(* spec list -> normalisedStagedSpec list *)
 let normalise_spec_list_aux1 (specLi:spec list): normalisedStagedSpec list = 
   List.map (fun a -> normalise_spec a
   ) specLi
@@ -775,7 +783,7 @@ let%expect_test "normalise spec" =
 
   Norm(x->1, ()); f$(emp, [3], ()); Norm(y->2, ())
   ==>
-  req emp; f(x->1, [3], ()); req emp; Norm(y->2, ())
+  req emp; f$(x->1, [3], ()); req emp; Norm(y->2, ())
 |}]
 
 let is_alpha = function 'a' .. 'z' | 'A' .. 'Z' -> true | _ -> false
@@ -811,3 +819,42 @@ let string_of_res b = if b then green "true" else red "false"
 
 let string_of_option to_s o : string =
   match o with Some a -> "Some " ^ to_s a | None -> "None"
+
+let string_of_lemma l =
+  Format.asprintf "%s: forall %s, %s ==> %s" l.l_name (string_of_list Fun.id l.l_params) (string_of_spec l.l_left) (string_of_spec l.l_right)
+
+(* let string_of_time = string_of_float *)
+let string_of_time = Format.asprintf "%.0f"
+
+let string_of_sset s =
+  Format.asprintf "{%s}" (String.concat ", " (SSet.elements s))
+
+let string_of_smap pp s =
+  Format.asprintf "{%s}" (String.concat ", " (List.map (fun (k, v) -> Format.asprintf "%s -> %s" k (pp v)) (SMap.bindings s)))
+
+let dbg_none = 0
+let dbg_info = 1
+let dbg_debug = 2
+let debug_level = ref dbg_none
+
+let debug_print title s =
+  if String.length title > 6 then
+    print_string (yellow title ^ " ")
+  else
+    print_endline (yellow title);
+  print_endline s;
+  if not (String.equal "" s) then print_endline ""
+
+let debug ~title fmt =
+  Format.kasprintf
+    (fun s ->
+      if !debug_level >= dbg_debug then (
+        debug_print title s))
+    fmt
+
+let info ~title fmt =
+  Format.kasprintf
+    (fun s ->
+      if !debug_level >= dbg_info then (
+        debug_print title s))
+    fmt

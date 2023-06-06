@@ -80,8 +80,10 @@
 
 (library
  (name hiplib)
- (modules hiplib)
- (libraries core ocamlfrontend))
+ (modules hiplib tests)
+ (libraries core ocamlfrontend)
+ (inline_tests)
+ (preprocess (pps ppx_expect)))
 
 (executable
  (name hip)
