@@ -188,7 +188,18 @@ let caller2 ()
 (*@ ex w; Norm(w->4, 4) @*)
 = let y = ref 1 in 
   let y1 = compose g f y in
-  !y1">src/examples/compose.ml</option><option value=src/evaluation/0_heap_zero_once_twice.ml data-text="effect Zero : int 
+  !y1">src/examples/compose.ml</option><option value=src/examples/lists.ml data-text="
+let rec map f xs =
+  match xs with
+  | [] -> []
+  | x :: xs1 -> f x :: map f xs1
+
+let incr x = x + 1
+
+
+let sum () : int list
+(*@ Norm(emp, 1) @*)
+= map incr [1; 2]">src/examples/lists.ml</option><option value=src/evaluation/0_heap_zero_once_twice.ml data-text="effect Zero : int 
 effect Once : int 
 effect Twice : int 
 
@@ -772,7 +783,7 @@ let handler2  ()
     <script>
       // this is substituted at build time and is used in page.js
       function postExampleLoad() {
-        console.log("Built Tue Jun  6 16:55:32 UTC 2023");
+        console.log("Built Tue Jun  6 16:58:25 UTC 2023");
         console.log("loading z3...");
       }
     </script>
