@@ -11,8 +11,6 @@ end
 type term =
     | UNIT 
     | Num of int
-    | TList of term list
-    | TTupple of term list
     | Var of string
     | Plus of term * term 
     | Minus of term * term 
@@ -21,6 +19,30 @@ type term =
     | TFalse
     | TApp of string * term list
     | Nil
+    (* unused *)
+    | TList of term list
+    | TTupple of term list
+
+let term_cons c t = TApp ("cons", [c; t])
+
+type typ =
+  | Unit
+  | List_int
+  | Int
+  | Bool
+  | TVar of string
+
+type abs_typ_env = {
+  vartypes: typ SMap.t;
+  eqs: (typ * typ) list
+}
+
+let create_abs_env () =
+  {
+    vartypes = SMap.empty; eqs = []
+  }
+
+type typ_env = typ SMap.t
 
 (* an occurrence of an effect *)
 type instant = string * term list
@@ -147,3 +169,7 @@ type core_program = {
 }
 
 include Common
+
+type 'a quantified = string list * 'a
+
+type instantiations = (string * string) list

@@ -876,3 +876,25 @@ let conj xs =
   match xs with
   | [] -> True
   | x :: xs -> List.fold_right (fun c t -> And (c, t)) xs x
+
+let string_of_type t =
+  match t with
+  | Int -> "int"
+  | Unit -> "unit"
+  | List_int -> "intlist"
+  | Bool -> "bool"
+  | TVar v -> Format.asprintf "tv%s" v
+
+let string_of_abs_env t =
+  Format.asprintf "%s, %s" (string_of_smap string_of_type t.vartypes) (string_of_list (string_of_pair string_of_type string_of_type) t.eqs)
+
+let string_of_quantified to_s (vs, e) =
+  match vs with
+  | [] -> to_s e
+  | _ :: _ -> Format.asprintf "ex %s. %s" (String.concat " " vs) (to_s e)
+
+let string_of_instantiations pv kvs =
+  List.map (fun (k, v) -> Format.asprintf "%s := %s" k (pv v)) kvs
+  |> String.concat ", " |> Format.asprintf "[%s]"
+
+let string_of_bindings = string_of_instantiations

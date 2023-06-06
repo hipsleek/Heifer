@@ -65,7 +65,6 @@ module Option = struct
   let fail = None
   let check b = if b then ok else fail
   let or_else o k = match o with None -> k () | Some _ -> o
-  let of_bool default b = if b then Some default else None
   let pure a = Some a
 
   let all_ :

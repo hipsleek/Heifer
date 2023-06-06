@@ -2547,13 +2547,6 @@ effect_trace_value:pure_formula_term{$1};
 
 
 
-
-
-list_of_list:
-| {[]}
-| n = INT {let (i, _) = n in [int_of_string i]}
-| SEMI n = INT rest = list_of_list {let (i, _) = n in (int_of_string i)::rest}
-
 list_of_TupleTerms:
 | n = pure_formula_term {[n]}
 | COMMA n = pure_formula_term rest = list_of_TupleTerms {n::rest}
@@ -2562,7 +2555,10 @@ list_of_TupleTerms:
 
 pure_formula_term:
   | n = INT { let (i, _) = n in Num (int_of_string i) }
-  | LBRACKET n = list_of_list RBRACKET {TList (List.map (fun a -> Num a) n)}
+  | elts=delimited(LBRACKET, separated_list(SEMI, effect_trace_value), RBRACKET)
+    //{TList (List.map (fun a -> Num a) n)}
+    // turn this into a cascade of conses, like ocaml does, for simplicity
+    { List.fold_right term_cons elts Nil }
 
   | LPAREN RPAREN {UNIT}
   | LPAREN n = list_of_TupleTerms RPAREN {TTupple n}

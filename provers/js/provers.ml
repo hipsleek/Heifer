@@ -75,7 +75,8 @@ let askZ3 p = perform (Ask (build_fml p))
 let valid p = not (askZ3 (Not p))
 
 (* check if p1 => ex vs. p2 is valid *)
-let entails_exists p1 vs p2 =
+let entails_exists _env p1 vs p2 =
+  (* TODO make use of the typing environment *)
   let f ctx =
     Jv.apply (Jv.get ctx "Not")
       [|

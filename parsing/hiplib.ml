@@ -1077,7 +1077,7 @@ let nonincremental prog ({m_spec = given_spec; _} as meth) =
   in
   let time_stamp_afterForward = Sys.time() in
   let inferred_spec_n = normalise_spec_list_aux1 inferred_spec in
-  begin
+  let res =
     match given_spec with
     | Some given_spec ->
       let given_spec_n = normalise_spec_list_aux1 given_spec in
@@ -1102,47 +1102,52 @@ let nonincremental prog ({m_spec = given_spec; _} as meth) =
         "[Entail  Time] " ^ string_of_time ((time_stamp_afterEntail  -. time_stamp_afterNormal) *. 1000.0) ^ " ms\n" ^
         (String.init (String.length meth.m_name + 32) (fun _ -> '=')) ^ "\n"
       in
-      print_endline header
+      print_endline header;
+      res
     | None -> 
       let header =
         "\n========== Function: "^ meth.m_name ^" ==========\n" ^
         "[Raw Post Spec] " ^ string_of_spec_list inferred_spec ^ "\n" ^
         "[Normed   Post] " ^ string_of_spec_list (normalise_spec_list_aux2 inferred_spec_n) ^"\n"
-      in print_endline header
-  end;
-  let prog, pred =
-    (* if the user has not provided a predicate for the given function,
-       produce one from the inferred spec *)
-    let p = Entail.derive_predicate meth inferred_spec in
-    let cp_predicates = SMap.update meth.m_name
-      (function
-      | None ->
-      info ~title:(Format.asprintf "remembering predicate for %s" meth.m_name) "%s" (string_of_pred p);
-        Some p
-      | Some _ -> None) prog.cp_predicates
+      in print_endline header;
+      true
+  in
+  (* only save these specs for use by later functions if verification succeeds *)
+  if not res then prog else begin
+    let prog, pred =
+      (* if the user has not provided a predicate for the given function,
+        produce one from the inferred spec *)
+      let p = Entail.derive_predicate meth inferred_spec in
+      let cp_predicates = SMap.update meth.m_name
+        (function
+        | None ->
+        info ~title:(Format.asprintf "remembering predicate for %s" meth.m_name) "%s" (string_of_pred p);
+          Some p
+        | Some _ -> None) prog.cp_predicates
+      in
+      { prog with cp_predicates }, p
     in
-    { prog with cp_predicates }, p
-  in
-  let prog =
-    (* if the user has not provided a spec for the given function, remember the inferred method spec for future use *)
-    match given_spec with
-    | None ->
-      (* using the predicate costs one more unfold but makes the induction hypothesis easier/possible with current heuristics *)
-      (* let msp : disj_spec = inferred_spec in *)
-      let msp : disj_spec =
-        let v = verifier_getAfreeVar ~from:"ret" () in
-        let prr, _ret = split_last pred.p_params in
-        let sp = [Exists [v]; HigherOrder (True, EmptyHeap, (pred.p_name, List.map (fun v1 -> Var v1) prr), Var v)]
+    let prog =
+      (* if the user has not provided a spec for the given function, remember the inferred method spec for future use *)
+      match given_spec with
+      | None ->
+        (* using the predicate costs one more unfold but makes the induction hypothesis easier/possible with current heuristics *)
+        (* let msp : disj_spec = inferred_spec in *)
+        let msp : disj_spec =
+          let v = verifier_getAfreeVar ~from:"ret" () in
+          let prr, _ret = split_last pred.p_params in
+          let sp = [Exists [v]; HigherOrder (True, EmptyHeap, (pred.p_name, List.map (fun v1 -> Var v1) prr), Var v)]
+          in
+          [sp]
         in
-        [sp]
-      in
-      info ~title:(Format.asprintf "inferred spec for %s" meth.m_name) "%s" (string_of_disj_spec msp);
-      let cp_methods = List.map (fun m -> if String.equal m.m_name meth.m_name then { m with m_spec = Some msp } else m ) prog.cp_methods
-      in
-      { prog with cp_methods }
-    | Some _ -> prog
-  in
-  prog
+        info ~title:(Format.asprintf "inferred spec for %s" meth.m_name) "%s" (string_of_disj_spec msp);
+        let cp_methods = List.map (fun m -> if String.equal m.m_name meth.m_name then { m with m_spec = Some msp } else m ) prog.cp_methods
+        in
+        { prog with cp_methods }
+      | Some _ -> prog
+    in
+    prog
+  end
 
 let run_string_ incremental line =
   let progs = Parser.implementation Lexer.token (Lexing.from_string line) in

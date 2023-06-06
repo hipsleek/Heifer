@@ -1,10 +1,3 @@
-let substring ~search_in s =
-  let re = Str.regexp_string s in
-  try
-    ignore (Str.search_forward re search_in 0);
-    true
-  with Not_found -> false
-
 include Hiptypes
 
 (* open Types *)
@@ -25,12 +18,22 @@ let get_fun_decl ctx s =
   | "is_nil" -> Z3.Z3List.get_is_nil_decl list_int
   | _ -> failwith (Format.asprintf "unknown function: %s" s)
 
-let rec term_to_expr ctx : term -> Z3.Expr.expr = function
+let rec term_to_expr env ctx t : Z3.Expr.expr =
+  match t with
   | Num n -> Z3.Arithmetic.Integer.mk_numeral_i ctx n
-  | Var v when substring ~search_in:v "list" ->
-    let list_int = list_int_sort ctx in
-    Z3.Expr.mk_const_s ctx "List" list_int
-  | Var v -> Z3.Arithmetic.Integer.mk_const_s ctx v
+  | Var v ->
+    (match SMap.find_opt v env with
+    | None ->
+      failwith (Format.asprintf "could not infer type for variable: %s" v)
+    | Some t1 ->
+      (match t1 with
+      | TVar _ ->
+        failwith (Format.asprintf "could not infer type for variable: %s" v)
+      | Int | Unit -> Z3.Arithmetic.Integer.mk_const_s ctx v
+      | List_int ->
+        let list_int = list_int_sort ctx in
+        Z3.Expr.mk_const_s ctx "List" list_int
+      | Bool -> Z3.Boolean.mk_const_s ctx v))
   | UNIT -> Z3.Arithmetic.Integer.mk_const_s ctx "unit"
   | Nil ->
     let list_int = list_int_sort ctx in
@@ -39,42 +42,42 @@ let rec term_to_expr ctx : term -> Z3.Expr.expr = function
   | Gen i          -> Z3.Arithmetic.Real.mk_const_s ctx ("t" ^ string_of_int i ^ "'")
   *)
   | Plus (t1, t2) ->
-    Z3.Arithmetic.mk_add ctx [term_to_expr ctx t1; term_to_expr ctx t2]
+    Z3.Arithmetic.mk_add ctx [term_to_expr env ctx t1; term_to_expr env ctx t2]
   | Minus (t1, t2) ->
-    Z3.Arithmetic.mk_sub ctx [term_to_expr ctx t1; term_to_expr ctx t2]
+    Z3.Arithmetic.mk_sub ctx [term_to_expr env ctx t1; term_to_expr env ctx t2]
   | Eq (t1, t2) ->
-    Z3.Boolean.mk_eq ctx (term_to_expr ctx t1) (term_to_expr ctx t2)
+    Z3.Boolean.mk_eq ctx (term_to_expr env ctx t1) (term_to_expr env ctx t2)
   | TTrue -> Z3.Boolean.mk_true ctx
   | TFalse -> Z3.Boolean.mk_false ctx
   | TApp (f, a) ->
-    Z3.Expr.mk_app ctx (get_fun_decl ctx f) (List.map (term_to_expr ctx) a)
+    Z3.Expr.mk_app ctx (get_fun_decl ctx f) (List.map (term_to_expr env ctx) a)
   | TList _ | TTupple _ -> failwith "term_to_expr"
 
-let rec pi_to_expr ctx : pi -> Expr.expr = function
+let rec pi_to_expr env ctx : pi -> Expr.expr = function
   | True -> Z3.Boolean.mk_true ctx
   | False -> Z3.Boolean.mk_false ctx
   | Atomic (GT, t1, t2) ->
-    let t1 = term_to_expr ctx t1 in
-    let t2 = term_to_expr ctx t2 in
+    let t1 = term_to_expr env ctx t1 in
+    let t2 = term_to_expr env ctx t2 in
     Z3.Arithmetic.mk_gt ctx t1 t2
   | Atomic (GTEQ, t1, t2) ->
-    let t1 = term_to_expr ctx t1 in
-    let t2 = term_to_expr ctx t2 in
+    let t1 = term_to_expr env ctx t1 in
+    let t2 = term_to_expr env ctx t2 in
     Z3.Arithmetic.mk_ge ctx t1 t2
   | Atomic (LT, t1, t2) ->
-    let t1 = term_to_expr ctx t1 in
-    let t2 = term_to_expr ctx t2 in
+    let t1 = term_to_expr env ctx t1 in
+    let t2 = term_to_expr env ctx t2 in
     Z3.Arithmetic.mk_lt ctx t1 t2
   | Atomic (LTEQ, t1, t2) ->
-    let t1 = term_to_expr ctx t1 in
-    let t2 = term_to_expr ctx t2 in
+    let t1 = term_to_expr env ctx t1 in
+    let t2 = term_to_expr env ctx t2 in
     Z3.Arithmetic.mk_le ctx t1 t2
   | Atomic (EQ, t1, t2) ->
-    let t1 = term_to_expr ctx t1 in
-    let t2 = term_to_expr ctx t2 in
+    let t1 = term_to_expr env ctx t1 in
+    let t2 = term_to_expr env ctx t2 in
     Z3.Boolean.mk_eq ctx t1 t2
   | Imply (p1, p2) ->
-    Z3.Boolean.mk_implies ctx (pi_to_expr ctx p1) (pi_to_expr ctx p2)
+    Z3.Boolean.mk_implies ctx (pi_to_expr env ctx p1) (pi_to_expr env ctx p2)
   | Predicate (_, _) -> failwith "pi_to_expr"
   (*
   | Atomic (op, t1, t2) -> (
@@ -88,12 +91,12 @@ let rec pi_to_expr ctx : pi -> Expr.expr = function
       | Ge -> Z3.Arithmetic.mk_ge ctx t1 t2)
       *)
   | And (pi1, pi2) ->
-    Z3.Boolean.mk_and ctx [pi_to_expr ctx pi1; pi_to_expr ctx pi2]
+    Z3.Boolean.mk_and ctx [pi_to_expr env ctx pi1; pi_to_expr env ctx pi2]
   | Or (pi1, pi2) ->
-    Z3.Boolean.mk_or ctx [pi_to_expr ctx pi1; pi_to_expr ctx pi2]
-  (*| Imply (pi1, pi2)    -> Z3.Boolean.mk_implies ctx (pi_to_expr ctx pi1) (pi_to_expr ctx pi2)
+    Z3.Boolean.mk_or ctx [pi_to_expr env ctx pi1; pi_to_expr env ctx pi2]
+  (*| Imply (pi1, pi2)    -> Z3.Boolean.mk_implies ctx (pi_to_expr env ctx pi1) (pi_to_expr env ctx pi2)
   *)
-  | Not pi -> Z3.Boolean.mk_not ctx (pi_to_expr ctx pi)
+  | Not pi -> Z3.Boolean.mk_not ctx (pi_to_expr env ctx pi)
 
 let z3_query (_s : string) =
   (* Format.printf "z3: %s@." _s; *)
@@ -124,7 +127,7 @@ let check_sat f =
   end;
   sat
 
-let check pi = check_sat (fun ctx -> pi_to_expr ctx pi)
+let check pi = check_sat (fun ctx -> pi_to_expr SMap.empty ctx pi)
 
 (* see https://discuss.ocaml.org/t/different-z3-outputs-when-using-the-api-vs-cli/9348/3 and https://github.com/Z3Prover/z3/issues/5841 *)
 let ex_quantify_expr vars ctx e =
@@ -138,12 +141,12 @@ let ex_quantify_expr vars ctx e =
            e None [] [] None None))
 
 (** check if [p1 => ex vs. p2] is valid. this is a separate function which doesn't cache results because exists isn't in pi *)
-let entails_exists p1 vs p2 =
+let entails_exists env p1 vs p2 =
   let f ctx =
     let r =
       Z3.Boolean.mk_not ctx
-        (Z3.Boolean.mk_implies ctx (pi_to_expr ctx p1)
-           (ex_quantify_expr vs ctx (pi_to_expr ctx p2)))
+        (Z3.Boolean.mk_implies ctx (pi_to_expr env ctx p1)
+           (ex_quantify_expr vs ctx (pi_to_expr env ctx p2)))
     in
     (* Format.printf "oblig: %s@." (Expr.to_string r); *)
     r
@@ -151,7 +154,7 @@ let entails_exists p1 vs p2 =
   not (check_sat f)
 
 let valid p =
-  let f ctx = Z3.Boolean.mk_not ctx (pi_to_expr ctx p) in
+  let f ctx = Z3.Boolean.mk_not ctx (pi_to_expr SMap.empty ctx p) in
   not (check_sat f)
 
 let (historyTable : (string * bool) list ref) = ref []
