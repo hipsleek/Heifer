@@ -851,7 +851,7 @@ let dbg_debug = 2
 let debug_level = ref dbg_none
 
 let debug_print title s =
-  if String.length title > 6 then
+  if String.length title < 6 then
     print_string (yellow title ^ " ")
   else
     print_endline (yellow title);
