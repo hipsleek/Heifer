@@ -54,7 +54,7 @@ let string_of_list p xs =
 
 let string_of_args pp args =
   match args with
-  | [] -> ""
+  | [] -> "()"
   | _ ->
     let a = String.concat ", " (List.map pp args) in
     Format.asprintf "(%s)" a

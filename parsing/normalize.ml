@@ -442,11 +442,11 @@ let%expect_test "normalise spec" =
 
   --- eff
 
-  Norm(x->1, ()); req x->1; E(x->1, [3], ()); Norm(y->2, ())
+  Norm(x->1, ()); req x->1; E(x->1, (3), ()); Norm(y->2, ())
   ==>
-  req 1=1; E(x->1 /\ 1=1, [3], ()); req emp; Norm(y->2, ())
+  req 1=1; E(x->1 /\ 1=1, (3), ()); req emp; Norm(y->2, ())
 
-  Norm(x->1, ()); f$(emp, [3], ()); Norm(y->2, ())
+  Norm(x->1, ()); f$(emp, (3), ()); Norm(y->2, ())
   ==>
-  req emp; f$(x->1, [3], ()); req emp; Norm(y->2, ())
+  req emp; f$(x->1, (3), ()); req emp; Norm(y->2, ())
 |}]
