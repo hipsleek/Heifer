@@ -2,6 +2,7 @@ open Ocamlfrontend
 open Core
 open Pretty
 open Hiptypes
+open Normalize
 
 let parse_spec s = Parser.only_effect_spec Lexer.token (Lexing.from_string s)
 

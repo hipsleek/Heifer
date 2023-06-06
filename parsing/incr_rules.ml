@@ -1,6 +1,7 @@
 open Hiptypes
 open Entail
 open Pretty
+open Normalize
 
 (** D |--* N *)
 type entail_star = state * spec

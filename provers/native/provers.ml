@@ -127,7 +127,7 @@ let check_sat f =
   end;
   sat
 
-let check pi = check_sat (fun ctx -> pi_to_expr SMap.empty ctx pi)
+let check env pi = check_sat (fun ctx -> pi_to_expr env ctx pi)
 
 (* see https://discuss.ocaml.org/t/different-z3-outputs-when-using-the-api-vs-cli/9348/3 and https://github.com/Z3Prover/z3/issues/5841 *)
 let ex_quantify_expr vars ctx e =
@@ -169,12 +169,12 @@ let rec existInhistoryTable pi table =
 
 let counter : int ref = ref 0
 
-let askZ3 pi =
+let askZ3 env pi =
   match existInhistoryTable pi !historyTable with
   | Some b -> b
   | None ->
     let _ = counter := !counter + 1 in
-    let re = check pi in
+    let re = check env pi in
     let () = historyTable := (hash_pi pi, re) :: !historyTable in
     re
 

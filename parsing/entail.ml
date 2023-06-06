@@ -1,126 +1,7 @@
 open Hiptypes
 open Pretty
-
-(* record the type (or constraints on) of a program variable in the environment *)
-let assert_var_has_type v t env =
-  match SMap.find_opt v env.vartypes with
-  | None -> { env with vartypes = SMap.add v t env.vartypes }
-  | Some t1 -> { env with eqs = (t, t1) :: env.eqs }
-
-(* record a (nontrivial) equality in the environment *)
-let unify_types t1 t2 env =
-  if t1 = t2 then env else { env with eqs = (t1, t2) :: env.eqs }
-
-(* given a type variable and a substitution (a list of type equalities), finds the concrete type that the type variable is. not efficient. crashes (the entire program) on error *)
-let find_concrete_type t bs =
-  (* find all type variables in the same equivalence class *)
-  let rec same_equiv_class ts ok =
-    match ts with
-    | [] -> ok
-    | t :: ts1 ->
-      let equiv =
-        List.filter_map
-          (fun (a, b) ->
-            if a = t then Some b else if b = t then Some a else None)
-          bs
-        |> List.filter (fun a -> not (List.mem a ok))
-      in
-      same_equiv_class (ts1 @ equiv) (t :: ok)
-  in
-  (* check to ensure there is exactly one concrete type *)
-  let conc =
-    same_equiv_class [t] []
-    |> List.filter (function TVar _ -> false | _ -> true)
-    |> List.sort_uniq compare
-  in
-  match conc with
-  | [t1] -> t1
-  | [] ->
-    failwith (Format.asprintf "failed to infer type for %s" (string_of_type t))
-  | _ :: _ ->
-    failwith
-      (Format.asprintf "type error: %s is used as all of: %s" (string_of_type t)
-         (string_of_list string_of_type conc))
-
-let concrete_type_env abs : typ_env =
-  let all_bindings = abs.eqs in
-  (* figure out the concrete type for each program variable whose type is a type var *)
-  SMap.map
-    (fun v ->
-      match v with TVar _ -> find_concrete_type v all_bindings | _ -> v)
-    abs.vartypes
-
-let get_primitive_type f =
-  match f with
-  | "cons" -> ([Int; List_int], List_int)
-  | "head" -> ([List_int], Int)
-  | "tail" -> ([List_int], List_int)
-  | "is_nil" | "is_cons" -> ([List_int], Bool)
-  | "+" | "-" -> ([Int; Int], Int)
-  | _ -> failwith (Format.asprintf "unknown function: %s" f)
-
-let rec infer_types_term ?hint (env : abs_typ_env) term : typ * abs_typ_env =
-  match (term, hint) with
-  | UNIT, _ -> (Unit, env)
-  | TTrue, _ | TFalse, _ -> (Bool, env)
-  | Nil, _ -> (List_int, env)
-  | Num _, _ -> (Int, env)
-  (* possibly add syntactic heuristics for types, such as names *)
-  | Var v, Some t -> (t, assert_var_has_type v t env)
-  | Var v, None ->
-    let t = TVar (verifier_getAfreeVar ~from:"t" ()) in
-    (t, assert_var_has_type v t env)
-  | Plus (a, b), _ | Minus (a, b), _ ->
-    let _at, env1 = infer_types_term ~hint:Int env a in
-    let _bt, env2 = infer_types_term ~hint:Int env1 b in
-    (Int, env2)
-  | Eq (a, b), _ -> begin
-    try
-      let at, env1 = infer_types_term ~hint:Int env a in
-      let bt, env2 = infer_types_term ~hint:Int env1 b in
-      let env3 = unify_types at bt env2 in
-      (Int, env3)
-    with _ ->
-      let _bt, env1 = infer_types_term ~hint:Int env b in
-      let _at, env2 = infer_types_term ~hint:Int env1 a in
-      (Int, env2)
-  end
-  | TApp (f, args), _ ->
-    let argtypes, ret = get_primitive_type f in
-    let env =
-      (* infer from right to left *)
-      List.fold_left
-        (fun env (a, at) ->
-          let _, env = infer_types_term ~hint:at env a in
-          env)
-        env
-        (List.map2 (fun a b -> (a, b)) args argtypes)
-    in
-    (ret, env)
-  | TList _, _ | TTupple _, _ -> failwith "list/tuple unimplemented"
-
-let rec infer_types_pi env pi =
-  match pi with
-  | True | False -> env
-  | Atomic (EQ, a, b) ->
-    let t1, env = infer_types_term env a in
-    let t2, env = infer_types_term env b in
-    let env = unify_types t1 t2 env in
-    env
-  | Atomic (GT, a, b)
-  | Atomic (LT, a, b)
-  | Atomic (GTEQ, a, b)
-  | Atomic (LTEQ, a, b) -> begin
-    let _t, env = infer_types_term ~hint:Int env a in
-    let _t, env = infer_types_term ~hint:Int env b in
-    env
-  end
-  | And (a, b) | Or (a, b) | Imply (a, b) ->
-    let env = infer_types_pi env a in
-    let env = infer_types_pi env b in
-    env
-  | Not a -> infer_types_pi env a
-  | Predicate (_, _) -> failwith "not implemented"
+open Infer_types
+open Normalize
 
 let string_of_pi p = string_of_pi (ProversEx.normalize_pure p)
 let rename_exists_spec sp = List.hd (Forward_rules.renamingexistientalVar [sp])
@@ -141,9 +22,9 @@ let match_lemma :
     ((string * term) list * spec * normalisedStagedSpec) option =
  fun bound lem sp ->
   (* TODO normal stages are ignored for now *)
-  let les, _ln = Pretty.normalise_spec lem.l_left in
+  let les, _ln = normalise_spec lem.l_left in
   (* let lr = Pretty.normalise_spec lem.l_right in *)
-  let ses, sn = Pretty.normalise_spec sp in
+  let ses, sn = normalise_spec sp in
   (* collects bindings in acc, the prefix of s that is not matched, and goes until les is empty (fully matched). fails if ses becomes empty while les isn't *)
   let rec loop bound prefix acc les ses =
     match (les, ses) with

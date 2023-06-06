@@ -1,6 +1,7 @@
 
 open Hiptypes
 open Pretty
+open Normalize
 
 let rec findbinding str vb_li =
     match vb_li with 

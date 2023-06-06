@@ -12,6 +12,7 @@ open Core
 (* open Rewriting *)
 open Pretty
 open Hiptypes
+open Normalize
 
 let rec input_lines file =
   match try [input_line file] with End_of_file -> [] with
