@@ -231,11 +231,6 @@ let rec map f xs =
 
 let incr x = x + 1
 
-
-let map_inc_false ()
-(*@ Norm(emp, [2; 3]) @*)
-= map incr [1; 2]
-
 let id y = y
 
 let map_id xs
@@ -824,7 +819,7 @@ let handler2  ()
     <script>
       // this is substituted at build time and is used in page.js
       function postExampleLoad() {
-        console.log("Built Tue Jun  6 23:22:26 UTC 2023");
+        console.log("Built Tue Jun  6 23:43:01 UTC 2023");
         console.log("loading z3...");
       }
     </script>
