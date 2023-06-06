@@ -152,7 +152,7 @@ let rec string_of_term t : string =
   | Eq (t1, t2) -> string_of_term t1 ^ "==" ^ string_of_term t2
   | Plus (t1, t2) -> string_of_term t1 ^ "+" ^ string_of_term t2
   | Minus (t1, t2) -> string_of_term t1 ^ "-" ^ string_of_term t2
-  | TApp (op, args) -> Format.asprintf "%s(%s)" op (string_of_args string_of_term args)
+  | TApp (op, args) -> Format.asprintf "%s%s" op (string_of_args string_of_term args)
   | TTupple nLi -> 
     let rec helper li = 
       match li with

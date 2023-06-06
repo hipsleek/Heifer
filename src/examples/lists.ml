@@ -6,8 +6,7 @@ let rec map f xs =
 
 let incr x = x + 1
 
-(*
-let sum ()
-(*@ Norm(emp, [1; 2]) @*)
+
+let sum () : int list
+(*@ Norm(emp, 1) @*)
 = map incr [1; 2]
-*)
