@@ -11,6 +11,9 @@
   $ check test_ho.ml
   ALL OK!
 
+  $ check test_lists.ml
+  ALL OK!
+
   $ check ../evaluation/0_heap_zero_once_twice.ml
   ALL OK!
 
@@ -68,4 +71,7 @@
   ALL OK!
 
   $ check ../examples/applyN.ml
+  ALL OK!
+
+  $ check ../examples/lists.ml
   ALL OK!
