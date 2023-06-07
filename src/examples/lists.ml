@@ -8,6 +8,6 @@ let incr x = x + 1
 
 let id y = y
 
-let map_id xs
+let map_id ys
 (*@ Norm(emp, xs) @*)
-= map id xs
+= map id ys

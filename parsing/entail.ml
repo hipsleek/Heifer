@@ -3,6 +3,23 @@ open Pretty
 open Infer_types
 open Normalize
 
+(** A write-only list that supports efficient accumulation from the back *)
+module Acc : sig
+  type 'a t
+
+  val empty : 'a t
+  val add : 'a -> 'a t -> 'a t
+  val add_all : 'a list -> 'a t -> 'a t
+  val to_list : 'a t -> 'a list
+end = struct
+  type 'a t = 'a list
+
+  let empty = []
+  let add = List.cons
+  let add_all xs t = List.rev xs @ t
+  let to_list = List.rev
+end
+
 let string_of_pi p = string_of_pi (ProversEx.normalize_pure p)
 let rename_exists_spec sp = List.hd (Forward_rules.renamingexistientalVar [sp])
 
@@ -245,7 +262,7 @@ let ( let@ ) f x = f x
 
 open Res.Option
 
-(** Given two heap formulae, matches points-to predicates
+(** Given two heap formulae, matches points-to predicates.
   may backtrack if the locations are quantified.
   returns (by invoking the continuation) when matching is complete (when right is empty).
 
@@ -253,7 +270,7 @@ open Res.Option
   vs: quantified variables
   k: continuation
 *)
-let rec check_qf2 :
+let rec check_qf :
     string ->
     string list ->
     state ->
@@ -296,14 +313,14 @@ let rec check_qf2 :
               let _unifier = Atomic (EQ, Var fl, Var fr) in
               let triv = Atomic (EQ, v, v1) in
               (* matching ptr values are added as an eq to the right side, since we don't have a term := term substitution function *)
-              check_qf2 id vs (conj [p1], h1') (conj [p2; triv], h2') k)
+              check_qf id vs (conj [p1], h1') (conj [p2; triv], h2') k)
         in
         r1)
     | Some ((x, v), h2') -> begin
       (* x is free. match against h1 exactly *)
       match Heap.split_find x h1 with
       | Some (v1, h1') -> begin
-        check_qf2 (*  *) id vs
+        check_qf (*  *) id vs
           (conj [p1], h1')
           (conj [p2; And (p1, Atomic (EQ, v, v1))], h2')
           k
@@ -315,32 +332,35 @@ let rec check_qf2 :
 
 let with_pure pi ((p, h) : state) : state = (conj [p; pi], h)
 
-let rec unfold_predicate_aux pred prefix already (s : spec) : disj_spec =
+let rec unfold_predicate_aux pred prefix (s : spec) : disj_spec =
   match s with
-  | [] -> List.map List.rev prefix
-  | HigherOrder (_p, _h, (name, args), ret) :: s1
-    when String.equal name pred.p_name && not (List.mem name already) ->
+  | [] -> List.map Acc.to_list prefix
+  | HigherOrder (p, h, (name, args), ret) :: s1
+    when String.equal name pred.p_name ->
     info ~title:(Format.asprintf "unfolding: %s" name) "";
     let pred1 = instantiate_pred pred args ret in
-    let pref : disj_spec =
-      List.concat_map
-        (fun p -> List.map (fun b -> List.rev b @ p) pred1.p_body)
-        prefix
+    let prefix =
+      prefix
+      |> List.concat_map (fun p1 ->
+             List.map
+               (fun disj ->
+                 p1 |> Acc.add (NormalReturn (p, h, UNIT)) |> Acc.add_all disj)
+               pred1.p_body)
     in
-    unfold_predicate_aux pred pref already s1
+    unfold_predicate_aux pred prefix s1
   | c :: s1 ->
-    let pref = List.map (fun p -> c :: p) prefix in
-    unfold_predicate_aux pred pref already s1
+    let pref = List.map (fun p -> Acc.add c p) prefix in
+    unfold_predicate_aux pred pref s1
 
 (** f;a;e \/ b and a == c \/ d
   => f;(c \/ d);e \/ b
   => f;c;e \/ f;d;e \/ b *)
 let unfold_predicate : pred_def -> disj_spec -> disj_spec =
  fun pred ds ->
-  List.concat_map (fun s -> unfold_predicate_aux pred [[]] [] s) ds
+  List.concat_map (fun s -> unfold_predicate_aux pred [Acc.empty] s) ds
 
 let unfold_predicate_spec : pred_def -> spec -> disj_spec =
- fun pred sp -> unfold_predicate_aux pred [[]] [] sp
+ fun pred sp -> unfold_predicate_aux pred [Acc.empty] sp
 
 let unfold_predicate_norm :
     pred_def -> normalisedStagedSpec -> normalisedStagedSpec list =
@@ -614,7 +634,7 @@ and stage_subsumes :
     (string_of_existentials vs2)
     (string_of_state pre1) (string_of_state post2);
   (* contravariance *)
-  let@ pre_l, pre_r = check_qf2 "pren" ctx.q_vars pre2 pre1 in
+  let@ pre_l, pre_r = check_qf "pren" ctx.q_vars pre2 pre1 in
   let* assump, tenv =
     let left = conj [assump; pre_l] in
     let right = pre_r in
@@ -638,7 +658,7 @@ and stage_subsumes :
   let new_univ = SSet.union (used_vars_pi pre_l) (used_vars_pi pre_r) in
   let vs22 = List.filter (fun v -> not (SSet.mem v new_univ)) vs2 in
   (* let res_v = verifier_getAfreeVar ~from:"res" () in *)
-  let@ post_l, post_r = check_qf2 "postn" ctx.q_vars post1 post2 in
+  let@ post_l, post_r = check_qf "postn" ctx.q_vars post1 post2 in
   let* residue =
     (* Atomic (EQ, Var res_v, ret1) *)
     (* Atomic (EQ, Var res_v, ret2) *)
