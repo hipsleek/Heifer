@@ -3,7 +3,9 @@ open Hiptypes
 
 let ready () =
   Provers.handle (fun () ->
-      let r = Provers.askZ3 (Not (Atomic (EQ, Num 3, Plus (Num 1, Num 1)))) in
+      let r =
+        Provers.askZ3 SMap.empty (Not (Atomic (EQ, Num 3, Plus (Num 1, Num 1))))
+      in
       Console.(log [str (Format.asprintf "test z3: 1+1=3? %b@." (not r))]);
       ())
 

@@ -6,7 +6,8 @@ let rec map f xs =
 
 let incr x = x + 1
 
+let id y = y
 
-let sum () : int list
-(*@ Norm(emp, 1) @*)
-= map incr [1; 2]
+let map_id ys
+(*@ Norm(emp, xs) @*)
+= map id ys

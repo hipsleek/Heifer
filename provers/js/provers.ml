@@ -71,11 +71,15 @@ open Effect.Deep
 (* function is from ctx to z3 expression *)
 type _ Effect.t += Ask : (Jv.t -> Jv.t) -> bool t
 
-let askZ3 p = perform (Ask (build_fml p))
-let valid p = not (askZ3 (Not p))
+let askZ3 _env p =
+  (* TODO make use of env *)
+  perform (Ask (build_fml p))
+
+let valid p = not (askZ3 SMap.empty (Not p))
 
 (* check if p1 => ex vs. p2 is valid *)
-let entails_exists p1 vs p2 =
+let entails_exists _env p1 vs p2 =
+  (* TODO make use of the typing environment *)
   let f ctx =
     Jv.apply (Jv.get ctx "Not")
       [|

@@ -1,22 +1,26 @@
 open Hiptypes
 open Pretty
+open Infer_types
+open Normalize
+
+(** A write-only list that supports efficient accumulation from the back *)
+module Acc : sig
+  type 'a t
+
+  val empty : 'a t
+  val add : 'a -> 'a t -> 'a t
+  val add_all : 'a list -> 'a t -> 'a t
+  val to_list : 'a t -> 'a list
+end = struct
+  type 'a t = 'a list
+
+  let empty = []
+  let add = List.cons
+  let add_all xs t = List.rev xs @ t
+  let to_list = List.rev
+end
 
 let string_of_pi p = string_of_pi (ProversEx.normalize_pure p)
-
-type 'a quantified = string list * 'a
-
-let string_of_quantified to_s (vs, e) =
-  match vs with
-  | [] -> to_s e
-  | _ :: _ -> Format.asprintf "ex %s. %s" (String.concat " " vs) (to_s e)
-
-type instantiations = (string * string) list
-
-let string_of_instantiations pv kvs =
-  List.map (fun (k, v) -> Format.asprintf "%s := %s" k (pv v)) kvs
-  |> String.concat ", " |> Format.asprintf "[%s]"
-
-let string_of_bindings = string_of_instantiations
 let rename_exists_spec sp = List.hd (Forward_rules.renamingexistientalVar [sp])
 
 let rename_exists_lemma (lem : lemma) : lemma =
@@ -35,9 +39,9 @@ let match_lemma :
     ((string * term) list * spec * normalisedStagedSpec) option =
  fun bound lem sp ->
   (* TODO normal stages are ignored for now *)
-  let les, _ln = Pretty.normalise_spec lem.l_left in
+  let les, _ln = normalise_spec lem.l_left in
   (* let lr = Pretty.normalise_spec lem.l_right in *)
-  let ses, sn = Pretty.normalise_spec sp in
+  let ses, sn = normalise_spec sp in
   (* collects bindings in acc, the prefix of s that is not matched, and goes until les is empty (fully matched). fails if ses becomes empty while les isn't *)
   let rec loop bound prefix acc les ses =
     match (les, ses) with
@@ -152,10 +156,6 @@ let instantiate_pred : pred_def -> term list -> term -> pred_def =
   }
 
 module Heap = struct
-  open Res.Res
-  (* let normalize_heap : kappa -> kappa * pi =
-     fun h -> to_fixed_point_ptr_eq normaliseHeap h *)
-
   let normalize : state -> state =
    fun (p, h) ->
     let h = normaliseHeap h in
@@ -211,205 +211,6 @@ module Heap = struct
     in
     let p, _vs = run h in
     p
-
-  let rec check_qf :
-      kappa -> string list -> state -> state -> (state * instantiations) pf =
-   fun k vs ante conseq ->
-    (* if debug then
-       Format.printf "check_qf %s %s | %s |- %s@." (string_of_kappa k)
-         (string_of_list Fun.id vs) (string_of_state ante)
-         (string_of_state conseq); *)
-    let a = normalize ante in
-    let c = normalize conseq in
-    match (a, c) with
-    | (p1, h1), (p2, EmptyHeap) ->
-      let left = And (xpure (SepConj (h1, k)), p1) in
-      let valid = Provers.entails_exists left vs p2 in
-      if valid then
-        let pf =
-          (* rule "xpure(%s * %s /\\ %s) => %s" (string_of_kappa h1)
-             (string_of_kappa k) (string_of_pi p1) (string_of_pi p2) *)
-          rule ~name:"ent-emp" "%s => %s" (string_of_pi left)
-            (string_of_quantified string_of_pi (vs, p2))
-        in
-        Ok (pf, ((p1, h1), []))
-      else
-        Error
-          (rule ~name:"ent-emp" ~success:false "%s => %s" (string_of_pi left)
-             (string_of_quantified string_of_pi (vs, p2)))
-    | (p1, h1), (p2, h2) -> begin
-      (* we know h2 is non-empty *)
-      match split_one h2 with
-      | Some ((x, v), h2') when List.mem x vs ->
-        (* x is bound and could potentially be instantiated with anything on the right side, so try everything *)
-        let r1 =
-          any ~name:"ent-match-any"
-            ~to_s:(fun ((lx, lv), (rx, rv)) ->
-              Format.asprintf "%s->%s and ex %s. %s->%s" lx (string_of_term lv)
-                rx rx (string_of_term rv))
-            (list_of_heap h1 |> List.map (fun a -> (a, (x, v))))
-            (fun ((x1, v1), _) ->
-              let v2, h1' = split_find x1 h1 |> Option.get in
-              (* matching ptr values are added as an eq to the right side, since we don't have a term := term substitution function *)
-              let* pf, (st, inst) =
-                check_qf
-                  (SepConj (k, PointsTo (x1, v1)))
-                  (List.filter (fun v1 -> not (String.equal v1 x)) vs)
-                  ( And
-                      (p1, And (Atomic (EQ, Var x1, Var x), Atomic (EQ, v, v1))),
-                    h1' )
-                  (And (Atomic (EQ, v, v2), p2), h2')
-              in
-              Ok (pf, (st, (x, x1) :: inst)))
-        in
-        begin
-          match r1 with
-          | Error s ->
-            Error
-              (rule ~children:[s] ~name:"ent-match" ~success:false
-                 "ex %s. %s->%s" x x (string_of_term v))
-          | Ok (pf, res) ->
-            Ok
-              ( rule ~children:[pf] ~name:"ent-match" "ex %s. %s->%s" x x
-                  (string_of_term v),
-                res )
-        end
-      | Some ((x, v), h2') -> begin
-        (* x is free. match against h1 exactly *)
-        match split_find x h1 with
-        | Some (v1, h1') -> begin
-          match
-            check_qf
-              (SepConj (k, PointsTo (x, v)))
-              vs
-              (And (p1, Atomic (EQ, v, v1)), h1')
-              (p2, h2')
-          with
-          | Error s ->
-            Error
-              (rule ~children:[s] ~name:"ent-match" ~success:false
-                 "%s->%s and %s->%s" x (string_of_term v) x (string_of_term v1))
-          | Ok (pf, res) ->
-            Ok
-              ( rule ~children:[pf] ~name:"ent-match" "%s->%s and %s->%s" x
-                  (string_of_term v) x (string_of_term v1),
-                res )
-        end
-        | None ->
-          Error
-            (rule ~name:"ent-match" ~success:false
-               "could not match %s->%s on RHS" x (string_of_term v))
-        (* failwith
-           (Format.asprintf "Heap.check: could not match %s->%s on RHS" x
-              (string_of_term v)) *)
-      end
-      | None -> failwith (Format.asprintf "could not split LHS, bug?")
-    end
-
-  let check_exists :
-      state quantified -> state quantified -> (state * instantiations) pf =
-   fun (avs, ante) (cvs, conseq) ->
-    (* if debug then
-       Format.printf "check_exists (%s, %s) |- (%s, %s)@."
-         (string_of_list Fun.id avs)
-         (string_of_state ante)
-         (string_of_list Fun.id cvs)
-         (string_of_state conseq); *)
-    (* replace left side with fresh variables *)
-    let left =
-      let p, h = ante in
-      let fresh =
-        List.map (fun a -> (a, Var (verifier_getAfreeVar ~from:a ()))) avs
-      in
-      ( Forward_rules.instantiatePure fresh p,
-        Forward_rules.instantiateHeap fresh h )
-    in
-    let right, vs =
-      (* do the same for the right side, but track them *)
-      if false then
-        (* TODO disable for now. when enabled, maintain a mapping so anything keeping track of the variables higher up can also rename... *)
-        let p, h = conseq in
-        let fresh_names =
-          List.map (fun a -> (a, verifier_getAfreeVar ~from:a ())) cvs
-        in
-        let fresh_vars = List.map (fun (a, b) -> (a, Var b)) fresh_names in
-        ( ( Forward_rules.instantiatePure fresh_vars p,
-            Forward_rules.instantiateHeap fresh_vars h ),
-          List.map snd fresh_names )
-      else (conseq, cvs)
-    in
-    check_qf EmptyHeap vs left right
-
-  let entails :
-      state quantified -> state quantified -> (state * instantiations) pf =
-   fun s1 s2 -> check_exists s1 s2
-
-  let%expect_test "heap_entail" =
-    verifier_counter_reset ();
-    Pretty.colours := `None;
-    let test l r =
-      let res =
-        match entails l r with
-        | Error pf -> Format.asprintf "FAIL\n%s" (string_of_proof pf)
-        | Ok (pf, (residue, inst)) ->
-          Format.asprintf "%s %s\n%s" (string_of_state residue)
-            (string_of_instantiations Fun.id inst)
-            (string_of_proof pf)
-      in
-      Format.printf "%s |- %s ==> %s@."
-        (string_of_quantified string_of_state l)
-        (string_of_quantified string_of_state r)
-        res
-    in
-
-    test ([], (True, PointsTo ("x", Num 1))) ([], (True, PointsTo ("y", Num 2)));
-    test ([], (True, PointsTo ("x", Num 1))) ([], (True, PointsTo ("x", Num 1)));
-    test
-      ([], (True, SepConj (PointsTo ("x", Num 1), PointsTo ("y", Num 2))))
-      ([], (True, PointsTo ("x", Num 1)));
-    test
-      ([], (True, PointsTo ("x", Num 1)))
-      ([], (True, PointsTo ("x", Var "a")));
-    test
-      ([], (True, PointsTo ("x", Var "b")))
-      ([], (True, PointsTo ("x", Var "a")));
-    (* quantified *)
-    test
-      ([], (True, SepConj (PointsTo ("y", Var "c"), PointsTo ("x", Var "b"))))
-      (["x"], (True, PointsTo ("x", Var "a")));
-    test
-      ([], (True, SepConj (PointsTo ("y", Var "3"), PointsTo ("x", Var "2"))))
-      (["x"], (True, PointsTo ("x", Var "1+1")));
-    [%expect
-      {|
-      x->1 |- y->2 ==> FAIL
-      │[ent-match] FAIL could not match y->2 on RHS
-
-      x->1 |- x->1 ==> 1=1 []
-      │[ent-match] x->1 and x->1
-      │└── [ent-emp] x>0/\1=1 => T
-
-      x->1*y->2 |- x->1 ==> y->2 /\ 1=1 []
-      │[ent-match] x->1 and x->1
-      │└── [ent-emp] y>0/\x>0/\1=1 => T
-
-      x->1 |- x->a ==> a=1 []
-      │[ent-match] x->a and x->1
-      │└── [ent-emp] x>0/\a=1 => T
-
-      x->b |- x->a ==> a=b []
-      │[ent-match] x->a and x->b
-      │└── [ent-emp] x>0/\a=b => T
-
-      y->c*x->b |- ex x. x->a ==> x->b /\ y=x/\a=c [x := y]
-      │[ent-match] ex x. x->a
-      │└── [ent-match-any] y->c and ex x. x->a
-      │    └── [ent-emp] x>0/\y>0/\y=x/\a=c => a=c
-
-      y->3*x->2 |- ex x. x->1+1 ==> x->2 /\ y=x/\1+1=3 [x := y]
-      │[ent-match] ex x. x->1+1
-      │└── [ent-match-any] y->3 and ex x. x->1+1
-      │    └── [ent-emp] x>0/\y>0/\y=x/\1+1=3 => 1+1=3 |}]
 end
 
 let check_staged_entail : spec -> spec -> spec option =
@@ -457,140 +258,11 @@ let freshen_existentials vs state =
   in
   (vars_fresh, instantiate_state vars_fresh state)
 
-(* let es1, (_, pre, post, ret) = instantiate_existentials vars_fresh norm in
-   ( List.map (fun (_, pre, post, eff, ret) -> ([], pre, post, eff, ret)) es1,
-     ([], pre, post, ret) ) *)
-
-(* let rec check_staged_subsumption_ :
-      normalisedStagedSpec -> normalisedStagedSpec -> state pf =
-   fun s1 s2 ->
-    (* recurse down both lists in parallel *)
-    match (s1, s2) with
-    | (es1 :: es1r, ns1), (es2 :: es2r, ns2) -> begin
-      let {
-        e_evars = vs1;
-        e_pre = p1, h1;
-        e_post = qp1, qh1;
-        e_constr = nm1, _a1;
-        e_ret = r1;
-        _;
-      } =
-        es1
-      in
-      let {
-        e_evars = vs2;
-        e_pre = p2, h2;
-        e_post = qp2, qh2;
-        e_constr = nm2, _a2;
-        e_ret = r2;
-        _;
-      } =
-        es2
-      in
-      (* bound variables continue to be bound in the rest of the expression *)
-      (* TODO propagate any constraints we discover on them *)
-      (* let vs1 = List.sort_uniq String.compare (vs1 @ vs1') in *)
-      (* let vs1 = [] in *)
-      (* TODO this is not very efficient *)
-      (* let vs2 = List.sort_uniq String.compare (vs2 @ vs2') in *)
-      let sub, pre = freshen_existentials vs2 (p2, h2) in
-      (* let r2 = Forward_rules.instantiateTerms sub r2 in *)
-      let es2r = List.map (instantiate_existentials_effect_stage sub) es2r in
-
-      (* contravariance of preconditions *)
-      let* pf1, ((pr, hr), inst1) = Heap.entails ([], pre) (vs1, (p1, h1)) in
-
-      let sub, post = freshen_existentials vs1 (qp1, qh1) in
-      (* let ns1 =  *)
-      (* let es1r = List.map (instantiate_existentials_effect_stage sub) es1r in *)
-      let es1r, ns1 = instantiate_existentials sub (es1r, ns1) in
-      let r1 = Forward_rules.instantiateTerms sub r1 in
-
-      let res_v = verifier_getAfreeVar ~from:"res" () in
-      (* covariance of postconditions *)
-      let* pf2, ((_pr, _hr), inst2) =
-        let qp1, qh1 = post in
-        Heap.entails
-          ( [],
-            (And (qp1, And (pr, Atomic (EQ, r1, Var res_v))), SepConj (qh1, hr))
-          )
-          (vs2, (And (qp2, Atomic (EQ, r2, Var res_v)), qh2))
-      in
-      (* compare effect names *)
-      let* _ =
-        if String.equal nm1 nm2 then Ok ()
-        else Error (rule ~name:"name-equal" "uh oh")
-      in
-      (* TODO prove return values are the same as part of the heap entailment? *)
-      (* unify effect params and return value *)
-      (* let unify =
-           List.fold_right
-             (fun (a, b) t -> And (t, Atomic (EQ, a, b)))
-             (List.map2 (fun a b -> (a, b)) a1 a2)
-             (Atomic (EQ, r1, r2))
-         in *)
-      let inst =
-        let ret =
-          match (r2, r1) with
-          | Var s2, Var s1 when List.mem s2 vs2 ->
-            (* both r1 and r2 are effects so their return terms should be variables. the real check is whether r2 is quantified *)
-            [(s2, s1)]
-          | _ -> []
-        in
-        ret @ inst1 @ inst2
-      in
-      (* TODO check if vars are removed from the new spec *)
-      (* substitute the instantiated variables away, also in the state we are maintaining *)
-      (* let es2', ns2 = Forward_rules.instantiateExistientalVar (es2', ns2) inst in *)
-      let es2r, ns2 =
-        instantiate_existentials
-          (List.map (fun (a, b) -> (a, Var b)) inst)
-          (es2r, ns2)
-      in
-      let _vs2 =
-        List.filter (fun v -> not (List.mem v (List.map fst inst))) vs2
-      in
-      let* pf, res = check_staged_subsumption_ (es1r, ns1) (es2r, ns2) in
-      Ok
-        ( rule ~children:[pf1; pf2; pf] ~name:"subsumption-stage" "%s |= %s"
-            (string_of_spec (normalisedStagedSpec2Spec s1))
-            (string_of_spec (normalisedStagedSpec2Spec s2)),
-          res )
-    end
-    | ([], ns1), ([], ns2) ->
-      (* base case: check the normal stage at the end *)
-      let (vs1, (p1, h1), (qp1, qh1), r1), (vs2, (p2, h2), (qp2, qh2), r2) =
-        (ns1, ns2)
-      in
-      (* let vs1 = List.sort_uniq String.compare (vs1 @ vs1') in *)
-      (* let vs2 = List.sort_uniq String.compare (vs2 @ vs2') in *)
-      (* contravariance *)
-      let* pf1, ((pr, hr), _inst1) =
-        Heap.entails (vs2, (p2, h2)) (vs1, (p1, h1))
-      in
-      let res_v = verifier_getAfreeVar ~from:"res" () in
-      (* covariance *)
-      let* pf2, ((pr, hr), _inst2) =
-        Heap.entails
-          ( vs1,
-            (And (And (qp1, Atomic (EQ, Var res_v, r1)), pr), SepConj (qh1, hr))
-          )
-          (vs2, (And (qp2, Atomic (EQ, Var res_v, r2)), qh2))
-      in
-      (* unify return value *)
-      let pure = Atomic (EQ, r1, r2) in
-      Ok
-        ( rule ~children:[pf1; pf2] ~name:"subsumption-base" "%s |= %s"
-            (string_of_spec (normalStage2Spec ns1))
-            (string_of_spec (normalStage2Spec ns2)),
-          (And (pr, pure), hr) )
-    | _ -> Error (rule ~name:"subsumption-stage" ~success:false "unequal length") *)
-
 let ( let@ ) f x = f x
 
 open Res.Option
 
-(** Given two heap formulae, matches points-to predicates
+(** Given two heap formulae, matches points-to predicates.
   may backtrack if the locations are quantified.
   returns (by invoking the continuation) when matching is complete (when right is empty).
 
@@ -598,7 +270,7 @@ open Res.Option
   vs: quantified variables
   k: continuation
 *)
-let rec check_qf2 :
+let rec check_qf :
     string ->
     string list ->
     state ->
@@ -641,64 +313,54 @@ let rec check_qf2 :
               let _unifier = Atomic (EQ, Var fl, Var fr) in
               let triv = Atomic (EQ, v, v1) in
               (* matching ptr values are added as an eq to the right side, since we don't have a term := term substitution function *)
-              check_qf2 id vs (conj [p1], h1') (conj [p2; triv], h2') k)
+              check_qf id vs (conj [p1], h1') (conj [p2; triv], h2') k)
         in
         r1)
     | Some ((x, v), h2') -> begin
       (* x is free. match against h1 exactly *)
       match Heap.split_find x h1 with
       | Some (v1, h1') -> begin
-        check_qf2 (* (SepConj (k, PointsTo (x, v))) *) id vs
+        check_qf (*  *) id vs
           (conj [p1], h1')
           (conj [p2; And (p1, Atomic (EQ, v, v1))], h2')
           k
-        (* with
-           | Error s ->
-             Error
-               (rule ~children:[s] ~name:"ent-match" ~success:false
-                  "%s->%s and %s->%s" x (string_of_term v) x (string_of_term v1))
-           | Ok (pf, res) ->
-             Ok
-               ( rule ~children:[pf] ~name:"ent-match" "%s->%s and %s->%s" x
-                   (string_of_term v) x (string_of_term v1),
-                 res ) *)
       end
       | None -> None
-      (* failwith
-         (Format.asprintf "Heap.check: could not match %s->%s on RHS" x
-            (string_of_term v)) *)
     end
     | None -> failwith (Format.asprintf "could not split LHS, bug?")
   end
 
 let with_pure pi ((p, h) : state) : state = (conj [p; pi], h)
 
-let rec unfold_predicate_aux pred prefix already (s : spec) : disj_spec =
+let rec unfold_predicate_aux pred prefix (s : spec) : disj_spec =
   match s with
-  | [] -> List.map List.rev prefix
-  | HigherOrder (_p, _h, (name, args), ret) :: s1
-    when String.equal name pred.p_name && not (List.mem name already) ->
+  | [] -> List.map Acc.to_list prefix
+  | HigherOrder (p, h, (name, args), ret) :: s1
+    when String.equal name pred.p_name ->
     info ~title:(Format.asprintf "unfolding: %s" name) "";
     let pred1 = instantiate_pred pred args ret in
-    let pref : disj_spec =
-      List.concat_map
-        (fun p -> List.map (fun b -> List.rev b @ p) pred1.p_body)
-        prefix
+    let prefix =
+      prefix
+      |> List.concat_map (fun p1 ->
+             List.map
+               (fun disj ->
+                 p1 |> Acc.add (NormalReturn (p, h, UNIT)) |> Acc.add_all disj)
+               pred1.p_body)
     in
-    unfold_predicate_aux pred pref already s1
+    unfold_predicate_aux pred prefix s1
   | c :: s1 ->
-    let pref = List.map (fun p -> c :: p) prefix in
-    unfold_predicate_aux pred pref already s1
+    let pref = List.map (fun p -> Acc.add c p) prefix in
+    unfold_predicate_aux pred pref s1
 
 (** f;a;e \/ b and a == c \/ d
   => f;(c \/ d);e \/ b
   => f;c;e \/ f;d;e \/ b *)
 let unfold_predicate : pred_def -> disj_spec -> disj_spec =
  fun pred ds ->
-  List.concat_map (fun s -> unfold_predicate_aux pred [[]] [] s) ds
+  List.concat_map (fun s -> unfold_predicate_aux pred [Acc.empty] s) ds
 
 let unfold_predicate_spec : pred_def -> spec -> disj_spec =
- fun pred sp -> unfold_predicate_aux pred [[]] [] sp
+ fun pred sp -> unfold_predicate_aux pred [Acc.empty] sp
 
 let unfold_predicate_norm :
     pred_def -> normalisedStagedSpec -> normalisedStagedSpec list =
@@ -972,36 +634,51 @@ and stage_subsumes :
     (string_of_existentials vs2)
     (string_of_state pre1) (string_of_state post2);
   (* contravariance *)
-  let@ pre_l, pre_r = check_qf2 "pren" ctx.q_vars pre2 pre1 in
-  let* assump =
+  let@ pre_l, pre_r = check_qf "pren" ctx.q_vars pre2 pre1 in
+  let* assump, tenv =
     let left = conj [assump; pre_l] in
     let right = pre_r in
-    let pre_res = Provers.entails_exists left vs1 right in
+    let tenv =
+      let env = create_abs_env () in
+      let env = infer_types_pi env left in
+      let env = infer_types_pi env right in
+      env
+    in
+    let pre_res =
+      Provers.entails_exists (concrete_type_env tenv) left vs1 right
+    in
     info
       ~title:(Format.asprintf "(%s pre)" what)
       "%s => %s%s ==> %s" (string_of_pi left)
       (string_of_existentials vs1)
       (string_of_pi right) (string_of_res pre_res);
-    of_bool (conj [pre_l; pre_r; assump]) pre_res
+    if pre_res then Some (conj [pre_l; pre_r; assump], tenv) else None
   in
   (* covariance *)
   let new_univ = SSet.union (used_vars_pi pre_l) (used_vars_pi pre_r) in
   let vs22 = List.filter (fun v -> not (SSet.mem v new_univ)) vs2 in
   (* let res_v = verifier_getAfreeVar ~from:"res" () in *)
-  let@ post_l, post_r = check_qf2 "postn" ctx.q_vars post1 post2 in
+  let@ post_l, post_r = check_qf "postn" ctx.q_vars post1 post2 in
   let* residue =
     (* Atomic (EQ, Var res_v, ret1) *)
     (* Atomic (EQ, Var res_v, ret2) *)
     (* don't use fresh variable for the ret value so it carries forward in the residue *)
     let left = conj [assump; post_l] in
     let right = conj [post_r; Atomic (EQ, ret1, ret2)] in
-    let post_res = Provers.entails_exists left vs22 right in
+    let tenv =
+      let env = infer_types_pi tenv left in
+      let env = infer_types_pi env right in
+      env
+    in
+    let post_res =
+      Provers.entails_exists (concrete_type_env tenv) left vs22 right
+    in
     info
       ~title:(Format.asprintf "(%s post)" what)
       "%s => %s%s ==> %s" (string_of_pi left)
       (string_of_existentials vs22)
       (string_of_pi right) (string_of_res post_res);
-    of_bool (conj [right; assump]) post_res
+    if post_res then Some (conj [right; assump]) else None
   in
   pure residue
 
@@ -1121,32 +798,3 @@ let derive_predicate meth disj =
     p_params = meth.m_params @ ["res"];
     p_body = new_spec;
   }
-
-let%expect_test _ =
-  let left =
-    [
-      [
-        Exists ["q"; "q1"];
-        Require (True, PointsTo ("x", Var "q"));
-        NormalReturn
-          (Atomic (GT, Var "q1", Var "q"), PointsTo ("x", Var "q1"), Num 2);
-      ];
-    ]
-  in
-  let right =
-    [
-      [
-        Exists ["p"];
-        Require (True, PointsTo ("x", Var "p"));
-        NormalReturn (True, PointsTo ("x", Plus (Var "p", Num 1)), Num 2);
-      ];
-    ]
-  in
-  Format.printf "%b@."
-    (check_staged_subsumption_disj "m" [] [] [] SMap.empty left right);
-  Format.printf "%b@."
-    (check_staged_subsumption_disj "n" [] [] [] SMap.empty right left);
-  [%expect {|
-    false
-    true
-          |}]
