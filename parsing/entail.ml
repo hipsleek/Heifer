@@ -16,7 +16,7 @@ end = struct
 
   let empty = []
   let add = List.cons
-  let add_all xs t = List.rev xs @ t
+  let add_all xs t = List.fold_left (Fun.flip List.cons) t xs
   let to_list = List.rev
 end
 
