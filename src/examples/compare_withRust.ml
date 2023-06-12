@@ -24,6 +24,8 @@ let foo closure j =
 
 
 foo (cl) 7;;
+
+assert (!list = [42; 7; 8]);;
 (* 
    ex new; closure (emp, i, ()); req list -> new ; Norm(list->new  @ [i+1], ())
 ~~~>
