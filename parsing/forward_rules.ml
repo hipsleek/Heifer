@@ -446,9 +446,6 @@ and infer_of_expression (env:meth_def list) (current:disj_spec) (expr:core_lang)
       | "not", [x1] ->
         let event = NormalReturn (True, EmptyHeap, Minus (Num 1, x1)) in
         concatenateSpecsWithEvent current [event]
-      | "[]", [] ->
-        let event = NormalReturn (True, EmptyHeap, Nil) in
-        concatenateSpecsWithEvent current [event]
       | "::", [x1; x2] ->
         let event = NormalReturn (True, EmptyHeap, TApp ("cons", [x1; x2])) in
         concatenateSpecsWithEvent current [event]

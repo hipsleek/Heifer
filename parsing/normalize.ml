@@ -95,11 +95,11 @@ let rec deleteFromHeapListIfHas li (x, t1) existential flag :
       else
         match (t1, t2) with
         (* x->11 -* x-> z   ~~~>   (emp, true) *)
-        | Num _, Var t2Str ->
+        | (Num _ | UNIT | TTrue | TFalse | Nil), Var t2Str ->
           if existStr t2Str existential then (ys, True)
           else (ys, Atomic (EQ, t1, t2))
         (* x-> z -* x-> 11   ~~~>  (emp, z=11) *)
-        | Var t2Str, Num _ ->
+        | Var t2Str, (Num _ | UNIT | TTrue | TFalse | Nil) ->
           if String.compare t2Str "_" == 0 then (ys, True)
           else (ys, Atomic (EQ, t1, t2))
         | _, _ ->
@@ -133,9 +133,8 @@ let normaliseMagicWand h1 h2 existential flag : kappa * pi =
 
 let normalise_stagedSpec (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
     : normalisedStagedSpec =
-  (*print_endline("\nnormalise_stagedSpec =====> " ^ string_of_normalisedStagedSpec(acc));
-    print_endline("\nadding  " ^ string_of_stages (stagedSpec));
-  *)
+  (* print_endline ("\nnormalise_stagedSpec =====> " ^ string_of_normalisedStagedSpec acc); *)
+  (* print_endline ("\nadding  " ^ string_of_staged_spec stagedSpec); *)
   let effectStages, normalStage = acc in
   let existential, req, ens, ret = normalStage in
   match stagedSpec with
@@ -146,11 +145,14 @@ let normalise_stagedSpec (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
       normaliseMagicWand h2 h3 existential true
     in
 
-    (*print_endline (string_of_kappa (magicWandHeap) ^ " magic Wand "); *)
+    (* print_endline (string_of_kappa magicWandHeap ^ " magic Wand "); *)
+    (* Format.printf "unification %s@." (string_of_pi unification); *)
 
     (* not only need to get the magic wand, but also need to delete the common part from h2*)
     let h2', unification' = normaliseMagicWand h3 h2 existential false in
 
+    (* Format.printf "h2' %s@." (string_of_kappa h2'); *)
+    (* Format.printf "unification' %s@." (string_of_pi unification'); *)
     let normalStage' =
       ( existential,
         mergeState req (And (p3, unification), magicWandHeap),

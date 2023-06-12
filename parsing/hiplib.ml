@@ -638,8 +638,8 @@ let rec transformation (env:string list) (expr:expression) : core_lang =
     (* ignore this *)
     transformation env a
   (* primitive or invocation of higher-order function passed as argument *)
-  | Pexp_construct ({txt=Lident ("[]" as name); _}, None) ->
-    CFunCall (name, [])
+  | Pexp_construct ({txt=Lident "[]"; _}, None) ->
+    CValue Nil
   | Pexp_construct ({txt=Lident ("::" as name); _}, Some ({pexp_desc = Pexp_tuple args; _})) ->
     (* this is almost the same as the next case. can't be unified because the pattern has a different type *)
     let rec loop vars args =
