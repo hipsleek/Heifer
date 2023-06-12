@@ -182,6 +182,8 @@ let foo closure j =
 
 
 foo (cl) 7;;
+
+assert (!list = [42; 7; 8]);;
 (* 
    ex new; closure (emp, i, ()); req list -> new ; Norm(list->new  @ [i+1], ())
 ~~~>
@@ -819,7 +821,7 @@ let handler2  ()
     <script>
       // this is substituted at build time and is used in page.js
       function postExampleLoad() {
-        console.log("Built Mon Jun 12 10:23:34 UTC 2023");
+        console.log("Built Mon Jun 12 17:07:56 UTC 2023");
         console.log("loading z3...");
       }
     </script>
