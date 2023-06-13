@@ -128,7 +128,76 @@ let test ()
           >
             Hello world
           </option>
-          <option value=src/examples/applyN.ml data-text="let rec applyN_unfolded f x n
+          <option value=src/examples/1_second_call_valid.ml data-text="let roll_dice () = 100
+
+let call_ret f = 
+  let x = roll_dice () in 
+  f x
+
+let x = ref (-1)
+
+let cl i = 
+  let r = !x in 
+  x := i; 
+  r;;
+
+(* L1 *)
+cl(2);;
+
+assert (!x > 0);;
+(* L2: the call here is only valid after L1*)
+call_ret(cl);;">src/examples/1_second_call_valid.ml</option><option value=src/examples/2_first_call_valid.ml data-text="let roll_dice () = 100
+
+let call_ret f = 
+  let x = roll_dice () in 
+  f x
+
+let x = ref (1)
+
+let cl i = 
+  let r = !x in 
+  x := r - i; 
+  r;;
+
+
+assert (!x > 0);;
+call_ret(cl);;
+
+assert (!x > 0);;  (* the function call is only valid at the first time *)
+call_ret(cl);;">src/examples/2_first_call_valid.ml</option><option value=src/examples/3_all_zero.ml data-text="
+let (mutlist:(((int ref) list) ref)) = ref [ref 2]
+
+
+let set_all_zero li = List.map (fun a -> a := 0) (!li)  ;;
+
+
+set_all_zero (mutlist);;
+
+assert (!mutlist = [ref 0]);;">src/examples/3_all_zero.ml</option><option value=src/examples/4_composation.ml data-text="
+let (mutlist:(((int ref) list) ref)) = ref [ref 1; ref 2; ref 3; ref 4]
+
+
+let rec take_n n (li:(int ref) list) : (int ref) list  = 
+  if n == 0 then []
+  else 
+    match li with 
+    | [] -> []
+    | x :: xs -> 
+      x :: take_n (n-1) xs 
+
+let rec skip_n n (li:(int ref) list) : (int ref) list  = 
+  if n == 0 then li 
+  else 
+    (match li with 
+    | [] -> []
+    | _ :: xs -> 
+      skip_n (n-1) xs )
+      ;;
+
+mutlist := take_n  3 (!mutlist);;
+mutlist := skip_n  2 (!mutlist);;
+
+assert (!mutlist = [ref 3]);;">src/examples/4_composation.ml</option><option value=src/examples/applyN.ml data-text="let rec applyN_unfolded f x n
 (*@
   Norm(n=0/\emp, x) \/
   req n>0/\emp; ex r2; f(x, r2); ex r1; applyN_unfolded(f, r2, n-1, r1); Norm(emp, r1)
@@ -821,7 +890,7 @@ let handler2  ()
     <script>
       // this is substituted at build time and is used in page.js
       function postExampleLoad() {
-        console.log("Built Mon Jun 12 17:07:56 UTC 2023");
+        console.log("Built Tue Jun 13 12:21:32 UTC 2023");
         console.log("loading z3...");
       }
     </script>
