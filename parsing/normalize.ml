@@ -85,6 +85,8 @@ let rec kappa_of_list li =
   | (x, v) :: xs -> SepConj (PointsTo (x, v), kappa_of_list xs)
 
 (* (x, t1) -* (y, t2) *)
+(* flag true => add to precondition *)
+(* flag false => add to postcondition *)
 let rec deleteFromHeapListIfHas li (x, t1) existential flag :
     (string * term) list * pi =
   match li with
@@ -93,20 +95,33 @@ let rec deleteFromHeapListIfHas li (x, t1) existential flag :
     if String.compare x y == 0 then
       if stricTcompareTerm t2 (Var "_") then (ys, True)
       else
+        (* TODO these cases could be organised better... a few classes:
+           - one side is a variable
+           - both sides are variables
+           - both sides are obviously (un)equal
+           - both sides are not obviously equal (requiring z3 to check)
+        *)
         match (t1, t2) with
-        (* x->11 -* x-> z   ~~~>   (emp, true) *)
-        | (Num _ | UNIT | TTrue | TFalse | Nil), Var t2Str ->
-          if existStr t2Str existential then (ys, True)
-          else (ys, Atomic (EQ, t1, t2))
         (* x-> z -* x-> 11   ~~~>  (emp, z=11) *)
         | Var t2Str, (Num _ | UNIT | TTrue | TFalse | Nil) ->
           if String.compare t2Str "_" == 0 then (ys, True)
           else (ys, Atomic (EQ, t1, t2))
+        (* x->11 -* x-> z   ~~~>   (emp, true) *)
+        | (Num _ | UNIT | TTrue | TFalse | Nil), Var t2Str ->
+          if existStr t2Str existential then (ys, True)
+          else (ys, Atomic (EQ, t1, t2))
+        | Num a, Num b -> (ys, if a = b then True else False)
+        | UNIT, UNIT | TTrue, TTrue | TFalse, TFalse | Nil, Nil -> (ys, True)
         | _, _ ->
           if stricTcompareTerm t1 t2 || stricTcompareTerm t1 (Var "_") then
             (ys, True)
-          else if flag then (ys, Atomic (EQ, t1, t2))
+          else if flag then
+            (* ex a. x->a |- ex b. req x->b *)
+            (* a=b should be added in the result's postcondition.
+               this should be req (emp, true); ens emp, a=b *)
+            (ys, True)
           else (ys, Atomic (EQ, t1, t2))
+        (* | _, _ -> if flag then (ys, Atomic (EQ, t1, t2)) else (ys, True) *)
     else
       let res, uni = (deleteFromHeapListIfHas ys (x, t1) existential) flag in
       ((y, t2) :: res, uni)
@@ -115,6 +130,8 @@ let rec deleteFromHeapListIfHas li (x, t1) existential flag :
    x -> 3 |- x -> z   -> (emp, true )
    x -> z |- x -> 3   -> (emp, z = 3)
 *)
+(* flag true => ens h1; req h2 *)
+(* flag false => req h2; ens h1 *)
 let normaliseMagicWand h1 h2 existential flag : kappa * pi =
   let listOfHeap1 = list_of_heap h1 in
   let listOfHeap2 = list_of_heap h2 in
@@ -133,8 +150,9 @@ let normaliseMagicWand h1 h2 existential flag : kappa * pi =
 
 let normalise_stagedSpec (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
     : normalisedStagedSpec =
-  (* print_endline ("\nnormalise_stagedSpec =====> " ^ string_of_normalisedStagedSpec acc); *)
-  (* print_endline ("\nadding  " ^ string_of_staged_spec stagedSpec); *)
+  (* print_endline
+       ("\nnormalise_stagedSpec =====> " ^ string_of_normalisedStagedSpec acc);
+     print_endline ("\nadding  " ^ string_of_staged_spec stagedSpec); *)
   let effectStages, normalStage = acc in
   let existential, req, ens, ret = normalStage in
   match stagedSpec with
@@ -154,10 +172,9 @@ let normalise_stagedSpec (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
     (* Format.printf "h2' %s@." (string_of_kappa h2'); *)
     (* Format.printf "unification' %s@." (string_of_pi unification'); *)
     let normalStage' =
-      ( existential,
-        mergeState req (And (p3, unification), magicWandHeap),
-        (ProversEx.normalize_pure (And (p2, unification')), h2'),
-        ret )
+      let pre = mergeState req (And (p3, unification), magicWandHeap) in
+      let post = (ProversEx.normalize_pure (And (p2, unification')), h2') in
+      (existential, pre, post, ret)
     in
     (effectStages, normalStage')
   | NormalReturn (pi, heap, ret') ->
@@ -424,7 +441,7 @@ let%expect_test "normalise spec" =
 
   Norm(x->2, ()); req x->1
   ==>
-  req 2=1; Norm(1=2, ())
+  req F; Norm(F, ())
 
   req x->1; Norm(x->1, ()); req y->2; Norm(y->2, ())
   ==>

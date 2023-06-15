@@ -1,8 +1,26 @@
 
-let list = ref [];;
+let f1 ()
+(*@ ex i; Norm(i->[], []) @*)
+= let l = ref [] in
+  !l
 
-list := !list @ [42];;
+let f2 ()
+(*@ ex i; Norm(i->[42], [42]) @*)
+= let l = ref [] in
+  l := 42 :: !l;
+  !l
 
+  (*
+
+ex l. ens l->[] /\ list=l; ex v. req list->v; ens list->v /\ res=v
+A * ENS |- REQ * F
+A = v=[]
+F = emp
+
+      *)
+
+
+(* 
 
 let cl i 
 (*@ 
@@ -35,4 +53,4 @@ assert (!list = [42; 7; 8]);;
 *)
 
 let main = 
-  List.map (fun a -> print_endline (string_of_int a)) (!list);; 
+  List.map (fun a -> print_endline (string_of_int a)) (!list);;  *)

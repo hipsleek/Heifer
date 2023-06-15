@@ -305,12 +305,6 @@ let rec check_qf :
               let _v2, h1' = Heap.split_find x1 h1 |> Option.get in
               (* ptr equality *)
               let _ptr_eq = Atomic (EQ, Var x1, Var x) in
-              (* fresh vars for v and v1 so unifier can be on the left *)
-              let fl = verifier_getAfreeVar ~from:(x ^ "v_" ^ id) () in
-              let fr = verifier_getAfreeVar ~from:(x1 ^ "v_" ^ id) () in
-              let _fleq = Atomic (EQ, Var fl, v) in
-              let _freq = Atomic (EQ, Var fr, v1) in
-              let _unifier = Atomic (EQ, Var fl, Var fr) in
               let triv = Atomic (EQ, v, v1) in
               (* matching ptr values are added as an eq to the right side, since we don't have a term := term substitution function *)
               check_qf id vs (conj [p1], h1') (conj [p2; triv], h2') k)
