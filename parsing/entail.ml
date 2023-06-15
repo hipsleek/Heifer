@@ -33,68 +33,88 @@ let rename_exists_lemma (lem : lemma) : lemma =
 exception Unification_failure
 
 let match_lemma :
-    string list ->
-    lemma ->
-    spec ->
-    ((string * term) list * spec * normalisedStagedSpec) option =
+    string list -> lemma -> spec -> ((string * term) list * spec * spec) option
+    =
+ (* let ( let* ) = Option.bind in *)
  fun bound lem sp ->
-  (* TODO normal stages are ignored for now *)
   let les, _ln = normalise_spec lem.l_left in
   (* let lr = Pretty.normalise_spec lem.l_right in *)
   let ses, sn = normalise_spec sp in
-  (* collects bindings in acc, the prefix of s that is not matched, and goes until les is empty (fully matched). fails if ses becomes empty while les isn't *)
-  let rec loop bound prefix acc les ses =
+  (* collects bindings in bs, prefix is the prefix of s that is not matched, ret is the return value of the last matched state of ses, goes down les and ses in parallel, until les is empty (fully matched). fails if ses becomes empty while les isn't *)
+  let rec loop prefix bs les ses =
+    (* Format.printf "loop %s %s@."
+       (string_of_list (fun l -> fst l.e_constr) les)
+       (string_of_list (fun l -> fst l.e_constr) ses); *)
     match (les, ses) with
-    | [], _ -> Some (acc, List.rev prefix, (ses, sn))
-    | _ :: _, [] -> None
+    | [], [] ->
+      (* TODO how should we check if the normal stage is matched? since we only match functions and arguments *)
+      Some
+        ( bs,
+          Acc.to_list prefix,
+          [ (* (let _, _, (p, h), r = sn in
+               NormalReturn (p, h, r)); *) ] )
+    | [], _ ->
+      (* match normal states *)
+      (* Format.printf "!!! %s@." (string_of_option string_of_term ret); *)
+      (* if a match occurred, there has to be a value *)
+      (* let* r = ret in *)
+      (* Option.bind ret (fun r -> ) *)
+      Some (bs, Acc.to_list prefix, normalisedStagedSpec2Spec (ses, sn))
+    | _ :: _, [] ->
+      (* we still have more effect stages but nothing to match against, so a match is impossible now *)
+      None
     | l1 :: les1, s1 :: ses1 ->
       (* matching is only done on constructors. other fields (state) probably have to be matched also but may require proof. not yet needed. also we probably shouldn't be invoking a prover for this, coq uses norm then syntactic equality to unify *)
       (* https://coq.inria.fr/refman/proof-engine/tactics.html#coq:tacn.apply *)
       let lcons, largs = l1.e_constr in
       let scons, sargs = s1.e_constr in
-      if
-        (not (String.equal lcons scons))
-        || not (List.compare_lengths largs sargs = 0)
-      then
+      let matched =
+        String.equal lcons scons && List.compare_lengths largs sargs = 0
+      in
+      (match matched with
+      | false ->
         (* try to find a match lower down *)
         (* TODO we should forget bindings when this happens *)
-        loop bound
-          (List.rev (normalisedStagedSpec2Spec ([s1], freshNormalStage))
-          @ prefix)
-          acc les1 ses1
-      else (
-        (* unify, get substitution, check it, then continue matching *)
-        try
-          let bs =
-            List.map2
-              (fun a1 a2 -> (a1, a2))
-              (l1.e_ret :: largs) (s1.e_ret :: sargs)
-            |> List.filter_map (function
-                 | Var l, s when List.mem l bound -> Some (l, s)
-                 | _ -> None)
-          in
-          (* alpha conversion: binders are equal up to renaming *)
-          (* https://coq.inria.fr/refman/language/core/conversion.html *)
-          (* let bs =
-               match (l1.e_ret, s1.e_ret) with
-               | Var vl, Var vs
-                 when List.mem vl l1.e_evars && List.mem vs s1.e_evars ->
-                 (vl, Var vs) :: bs
-               | _ -> bs
-             in *)
-          (* TODO check if the bindings to the same name agree. if not, fail unification *)
-          (* && match List.assoc_opt a acc with
-                                  | None -> true
-                                  | Some c when c = b -> false
-                                  | Some _ -> raise Unification_failure *)
-          (* matched, so don't add to the prefix *)
-          let p, h = s1.e_post in
-          loop bound
-            (List.rev [Exists s1.e_evars; NormalReturn (p, h, UNIT)] @ prefix)
-            (bs @ acc) les1 ses1
-        with Unification_failure -> None)
+        (* Format.printf "cannot match@."; *)
+        loop
+          (Acc.add_all
+             (normalisedStagedSpec2Spec ([s1], freshNormalStage))
+             prefix)
+          bs les ses1
+      | true ->
+        (* Format.printf "found match %s@." scons; *)
+        (* we found a match. unify, get substitution, check it, then continue matching *)
+        (try
+           let bs1 =
+             List.map2
+               (fun a1 a2 -> (a1, a2))
+               (l1.e_ret :: largs) (s1.e_ret :: sargs)
+             |> List.filter_map (function
+                  | Var l, s when List.mem l bound -> Some (l, s)
+                  | _ -> None)
+           in
+           (* alpha conversion: binders are equal up to renaming *)
+           (* https://coq.inria.fr/refman/language/core/conversion.html *)
+           (* let bs =
+                match (l1.e_ret, s1.e_ret) with
+                | Var vl, Var vs
+                  when List.mem vl l1.e_evars && List.mem vs s1.e_evars ->
+                  (vl, Var vs) :: bs
+                | _ -> bs
+              in *)
+           (* TODO check if the bindings to the same name agree. if not, fail unification *)
+           (* && match List.assoc_opt a acc with
+                                   | None -> true
+                                   | Some c when c = b -> false
+                                   | Some _ -> raise Unification_failure *)
+           (* matched, so don't add to the prefix *)
+           let p, h = s1.e_post in
+           loop
+             (Acc.add_all [Exists s1.e_evars; NormalReturn (p, h, UNIT)] prefix)
+             (bs1 @ bs) les1 ses1
+         with Unification_failure -> None))
   in
-  loop bound [] [] les ses
+  loop Acc.empty [] les ses
 
 let instantiate_res_existential lem =
   let _, (_, _, _, lret) = normalise_spec lem.l_left in
@@ -107,28 +127,32 @@ let instantiate_res_existential lem =
     }
   | _ -> lem
 
-(** To use a lemma for rewriting, e.g. using l = (N1;N2 <: N3) to rewrite goal N0;N1;N2 to N0;N3, we match l against the goal by unifying segments, collecting bindings for universally-quantified variables, then replacing that portion of the goal once the match is complete. *)
+(** To use a lemma for rewriting, e.g. using l = (N1;N2 <: N3) to rewrite goal N0;N1;N2;N4 to N0;N3;N4, we match l against the goal by unifying segments (prefix=N0, suffix=N4), collecting bindings for universally-quantified variables, then replacing that portion of the goal once the match is complete. *)
 let apply_lemma : lemma -> spec -> spec =
  fun lem sp ->
+  (* Format.printf "lem1 %s@." (string_of_lemma lem); *)
   let lem = rename_exists_lemma lem in
+  (* Format.printf "lem2 %s@." (string_of_lemma lem); *)
   (* let lem = instantiate_res_existential lem in *)
   match match_lemma lem.l_params lem sp with
   | None -> sp (* must be == *)
   | Some (bs, prefix, suffix) ->
-    info ~title:"apply_lemma bindings" "%s"
-      (string_of_instantiations string_of_term bs);
     let inst_lem_rhs =
       List.map (Forward_rules.instantiateStages bs) lem.l_right
     in
     let inst_lem_rhs =
       (* add an extra equality between the return value and the variable it gets bound to outside *)
-      let _, (_, _, _, ret1) = normalise_spec inst_lem_rhs in
-      let _, (_, _, _, ret2) = normalise_spec sp in
-      NormalReturn (Atomic (EQ, ret1, ret2), EmptyHeap, UNIT) :: inst_lem_rhs
+      (* let _, (_, _, _, ret1) = normalise_spec inst_lem_rhs in
+         (* let _, (_, _, _, ret2) = normalise_spec sp in *)
+         NormalReturn (Atomic (EQ, ret1, ret2), EmptyHeap, UNIT) :: *)
+      (* shouldn't always add *)
+      inst_lem_rhs
     in
-    let substituted : spec =
-      prefix @ inst_lem_rhs @ normalisedStagedSpec2Spec suffix
-    in
+    info ~title:"apply_lemma" "bindings: %s\nprefix: %s\nsuffix: %s\nrhs: %s"
+      (string_of_instantiations string_of_term bs)
+      (string_of_spec prefix) (string_of_spec suffix)
+      (string_of_list string_of_staged_spec inst_lem_rhs);
+    let substituted : spec = prefix @ inst_lem_rhs @ suffix in
     substituted
 
 let apply_one_lemma : lemma list -> spec -> spec * lemma option =
@@ -331,7 +355,9 @@ let rec unfold_predicate_aux pred prefix (s : spec) : disj_spec =
   | [] -> List.map Acc.to_list prefix
   | HigherOrder (p, h, (name, args), ret) :: s1
     when String.equal name pred.p_name ->
-    info ~title:(Format.asprintf "unfolding: %s" name) "";
+    info
+      ~title:(Format.asprintf "unfolding: %s" name)
+      "%s" (string_of_pred pred);
     let pred1 = instantiate_pred pred args ret in
     let prefix =
       prefix

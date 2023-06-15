@@ -9,5 +9,5 @@ let incr x = x + 1
 let id y = y
 
 let map_id ys
-(*@ Norm(emp, xs) @*)
+(*@ Norm(emp, ys) @*)
 = map id ys
