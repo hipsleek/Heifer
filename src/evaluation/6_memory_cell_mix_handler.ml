@@ -21,6 +21,7 @@ let write n
 
 let test1 ()
 (*@ 
+  ex x2;
   Write(emp, 10, x2); 
   ex x3; 
   Read(emp, x3); 

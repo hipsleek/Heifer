@@ -15,7 +15,7 @@ let test ()
   assert (!i = 1);
   ret
 
-let main_aux ()
+let main_false ()
 (*@ ex i;
    Norm(i->2, 2)
 @*)

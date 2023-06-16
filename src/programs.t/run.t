@@ -20,11 +20,8 @@
   $ check ../evaluation/1_heap_zero_once_twice.ml
   ALL OK!
 
-  $ results ../evaluation/2_heap_zero_once_twice.ml
-  ========== Function: test ==========
-  [Entail  Check] true
-  ========== Function: main_aux ==========
-  [Entail  Check] false
+  $ check ../evaluation/2_heap_zero_once_twice.ml
+  ALL OK!
 
   $ check ../evaluation/3_nestedHandlers.ml
   ALL OK!
@@ -35,19 +32,8 @@
   $ check ../evaluation/5_memory_cell.ml
   ALL OK!
 
-  $ results ../evaluation/6_memory_cell_mix_handler.ml
-  ========== Function: read ==========
-  [Entail  Check] true
-  ========== Function: write ==========
-  [Entail  Check] true
-  ========== Function: test1 ==========
-  [Entail  Check] false
-  ========== Function: test ==========
-  [Entail  Check] true
-  ========== Function: handler ==========
-  [Entail  Check] true
-  ========== Function: handler1 ==========
-  [Entail  Check] true
+  $ check ../evaluation/6_memory_cell_mix_handler.ml
+  ALL OK!
 
   $ check ../evaluation/7_memory_cell_mix_handler.ml
   ALL OK!
