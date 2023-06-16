@@ -235,6 +235,7 @@ let rec used_vars_term (t : term) =
   | Eq (a, b) | Plus (a, b) | Minus (a, b) ->
     SSet.union (used_vars_term a) (used_vars_term b)
   | TApp (_, args) -> SSet.concat (List.map used_vars_term args)
+  | TLambda _ -> SSet.empty
 
 let rec used_vars_pi (p : pi) =
   match p with

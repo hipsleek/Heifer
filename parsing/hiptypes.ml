@@ -19,6 +19,9 @@ type term =
     | TFalse
     | TApp of string * term list
     | Nil
+    (* pointer to an env of lambda terms. directly having specifications here
+       would make everything in this module mutually recursive... *)
+    | TLambda of string
     (* unused *)
     | TList of term list
     | TTupple of term list
@@ -131,6 +134,7 @@ and core_lang =
       (* match e with | v -> e1 | eff case... | constr case... *)
       | CMatch of core_lang * (string * core_lang) option * core_handler_ops * constr_cases
       | CResume of core_value 
+      | CLambda of string list * disj_spec option * core_lang
 
 type tactic =
   | Unfold_right

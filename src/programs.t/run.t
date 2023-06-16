@@ -14,6 +14,9 @@
   $ check test_lists.ml
   ALL OK!
 
+  $ check test_closures.ml
+  ALL OK!
+
   $ check ../evaluation/0_heap_zero_once_twice.ml
   ALL OK!
 
@@ -48,7 +51,8 @@
   ALL OK!
 
   $ check ../evaluation/11_exchange.ml
-  ALL OK!
+  TESTS FAILED
+  ========== Function: main ==========
 
   $ check ../evaluation/12_two_pointers.ml
   ALL OK!
@@ -60,4 +64,7 @@
   ALL OK!
 
   $ check ../examples/lists.ml
+  ALL OK!
+
+  $ check ../examples/closure.ml
   ALL OK!

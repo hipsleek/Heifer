@@ -194,6 +194,36 @@ let function_spec rhs =
     in
     traverse_to_body rhs
 
+let collect_param_names rhs =
+    let rec traverse_to_body e =
+      match e.pexp_desc with
+      | Pexp_constraint (e, _t) ->
+        (* ignore constraints *)
+        traverse_to_body e
+      | Pexp_fun (_, _, name, body) ->
+        let name =
+          match name.ppat_desc with
+          | Ppat_var s -> [s.txt]
+          | Ppat_constraint (p, _ ) -> 
+            (
+              match p.ppat_desc with
+              | Ppat_var s -> [s.txt]
+              | _ -> raise (Foo "collect_param_names other type")
+            )
+          
+          | _ ->
+            (* dummy name for things like a unit pattern, so we at least have the same number of parameters *)
+            [verifier_getAfreeVar ()]
+            (* we don't currently recurse inside patterns to pull out variables, so something like
+              let f () (Foo a) = 1
+              will be treated as if it has no formal params. *)
+        in
+        let ns, body = traverse_to_body body in
+        name @ ns, body
+      | _ -> ([], e)
+    in
+    traverse_to_body rhs
+
 let rec string_of_effectList (specs:spec list):string =
   match specs with 
   | [] -> ""
@@ -206,14 +236,6 @@ let string_of_effectspec spec:string =
     (* | Some (pr, po) ->
       Format.sprintf "requires %s ensures %s" (string_of_spec pr) (string_of_effectList po) *)
     | Some p -> string_of_spec p
-
-let string_of_program (cp:core_program) :string =
-  List.map (fun m ->
-    Format.asprintf "let rec %s %s\n%s=\n%s" m.m_name
-    (match m.m_params with | [] -> "()" | _ -> String.concat " " m.m_params)
-    ((match m.m_spec with None -> "" | Some s -> s |> List.map string_of_spec |> List.map (Format.asprintf "(*@@ %s @@*)") |> String.concat "\n\\/\n" |> fun s -> s ^ "\n"))
-    (string_of_core_lang m.m_body)
-  ) cp.cp_methods |> String.concat "\n\n"
 
 
 let debug_string_of_expression e =
@@ -423,10 +445,7 @@ let fnNameToString fnName: string =
 
 
 
-let rec string_of_list (li: 'a list ) (f : 'a -> 'b) : string = 
-  match li with 
-  | [] -> ""
-  | x::xs-> f x ^ "," ^ string_of_list xs f ;;
+
 
 
 
@@ -613,8 +632,13 @@ let rec transformation (env:string list) (expr:expression) : core_lang =
     | Pconst_integer (i, _) -> CValue (Num (int_of_string i))
     | _ -> failwith (Format.asprintf "unknown kind of constant: %a" Pprintast.expression expr)
     end
-  | Pexp_fun _ ->
-    failwith (Format.asprintf "lambda; only for higher-order, not yet implemented: %a" Pprintast.expression expr)
+  (* lambda *)
+  | Pexp_fun (_, _, _, body) ->
+    (* see also: Pexp_fun case below in transform_str *)
+    let spec = function_spec body in
+    let formals, body = collect_param_names expr in
+    let e = transformation (formals @ env) body in
+    CLambda (formals, spec, e)
   (* perform *)
   | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, ((_, {pexp_desc = Pexp_construct ({txt=Lident eff; _}, args); _}) :: _)) when name = "perform" ->
     begin match args with
@@ -658,10 +682,18 @@ let rec transformation (env:string list) (expr:expression) : core_lang =
         transformation env a |> maybe_var (fun v -> loop (v :: vars) args1)
     in
     loop [] args
-  | Pexp_apply (f, _args) ->
+  | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, args) ->
     (* unknown function call, e.g. printf. translate to assert true for now *)
-    debug ~title:"unknown function call" "%a" Pprintast.expression f;
-    CAssert (True, EmptyHeap)
+    (* debug ~title:"unknown function call" "%a" Pprintast.expression f; *)
+    (* with higher-order functions, we can no longer know statically which variables are functions, so we give up on doing this and emit a function call *)
+    (* CAssert (True, EmptyHeap) *)
+    let rec loop vars args =
+      match args with
+      | [] -> CFunCall (name, List.rev vars)
+      | (_, a) :: args1 ->
+        transformation env a |> maybe_var (fun v -> loop (v :: vars) args1)
+    in
+    loop [] args
   | Pexp_sequence (a, b) ->
     CLet ("_", transformation env a, transformation env b)
   | Pexp_assert e ->
@@ -761,35 +793,6 @@ let rec lookUpFromPure p str : term option =
 
 
 
-let collect_param_names rhs =
-    let rec traverse_to_body e =
-      match e.pexp_desc with
-      | Pexp_constraint (e, _t) ->
-        (* ignore constraints *)
-        traverse_to_body e
-      | Pexp_fun (_, _, name, body) ->
-        let name =
-          match name.ppat_desc with
-          | Ppat_var s -> [s.txt]
-          | Ppat_constraint (p, _ ) -> 
-            (
-              match p.ppat_desc with
-              | Ppat_var s -> [s.txt]
-              | _ -> raise (Foo "collect_param_names other type")
-            )
-          
-          | _ ->
-            (* dummy name for things like a unit pattern, so we at least have the same number of parameters *)
-            [verifier_getAfreeVar ()]
-            (* we don't currently recurse inside patterns to pull out variables, so something like
-              let f () (Foo a) = 1
-              will be treated as if it has no formal params. *)
-        in
-        let ns, body = traverse_to_body body in
-        name @ ns, body
-      | _ -> ([], e)
-    in
-    traverse_to_body rhs
 
 let transform_str env (s : structure_item) =
   match s.pstr_desc with
@@ -799,6 +802,7 @@ let transform_str env (s : structure_item) =
     let fn = vb.pvb_expr in
     begin match fn.pexp_desc with
     | Pexp_fun (_, _, _, tlbody) ->
+      (* see also: CLambda case *)
       let spec = function_spec tlbody in
       let formals, body = collect_param_names fn in
       let e = transformation (fn_name :: formals @ env) body in
@@ -1073,8 +1077,14 @@ let nonincremental prog ({m_spec = given_spec; _} as meth) =
       |> List.filter (fun m -> not (List.mem m.m_name meth.m_params))
       (* treat recursive calls as abstract, as recursive functions should be summarized using predicates *)
       |> List.filter (fun m -> not (String.equal m.m_name meth.m_name))
+      |> List.map (fun m -> m.m_name, m)
+      |> List.to_seq
+      |> SMap.of_seq
     in
-    infer_of_expression method_env [freshNormalReturnSpec] meth.m_body
+    let env = create_fv_env method_env in
+    let inf, _env = infer_of_expression env [freshNormalReturnSpec] meth.m_body in
+    (* TODO check subsumptions in env.fv_lambda_obl *)
+    inf
   in
   let time_stamp_afterForward = Sys.time() in
   let inferred_spec_n = normalise_spec_list_aux1 inferred_spec in
@@ -1090,6 +1100,7 @@ let nonincremental prog ({m_spec = given_spec; _} as meth) =
       let time_stamp_afterEntail = Sys.time() in
       let given_spec_n = normalise_spec_list_aux2 given_spec_n in
       let inferred_spec_n = normalise_spec_list_aux2 inferred_spec_n in
+      let don't_worry = if not res && String.ends_with ~suffix:"_false" meth.m_name then " (expected)" else "" in
       let header =
         "\n========== Function: "^ meth.m_name ^" ==========\n" ^
         "[Specification] " ^ string_of_spec_list given_spec ^"\n" ^
@@ -1099,7 +1110,7 @@ let nonincremental prog ({m_spec = given_spec; _} as meth) =
         "[Forward  Time] " ^ string_of_time ((time_stamp_afterForward -. time_stamp_beforeForward) *. 1000.0 ) ^ " ms\n" ^ 
         "[Normal   Time] " ^ string_of_time ((time_stamp_afterNormal -. time_stamp_afterForward) *. 1000.0) ^ " ms\n"  ^ 
         "[Entail  Check] " ^ 
-        (string_of_res res) ^ "\n" ^
+        (string_of_res res) ^ don't_worry ^ "\n" ^
         "[Entail  Time] " ^ string_of_time ((time_stamp_afterEntail  -. time_stamp_afterNormal) *. 1000.0) ^ " ms\n" ^
         (String.init (String.length meth.m_name + 32) (fun _ -> '=')) ^ "\n"
       in

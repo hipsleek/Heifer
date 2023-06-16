@@ -155,6 +155,7 @@ let rec string_of_term t : string =
   | Plus (t1, t2) -> string_of_term t1 ^ "+" ^ string_of_term t2
   | Minus (t1, t2) -> string_of_term t1 ^ "-" ^ string_of_term t2
   | TApp (op, args) -> Format.asprintf "%s%s" op (string_of_args string_of_term args)
+  | TLambda name -> Format.asprintf "lambda(%s)" name
   | TTupple nLi -> 
     let rec helper li = 
       match li with
@@ -352,6 +353,7 @@ let string_of_coreLang_kind (expr:core_lang): string =
   | CPerform  _ -> "CPerform"
   | CMatch  _ -> "CMatch"
   | CResume  _ -> "CResume"
+  | CLambda  _ -> "CLambda"
 
 
 
@@ -394,6 +396,7 @@ let rec string_of_core_lang (e:core_lang) :string =
   | CPerform (eff, None) -> Format.sprintf "perform %s" eff
   | CMatch (e, vs, hs, cs) -> Format.sprintf "match %s with\n%s%s\n%s" (string_of_core_lang e) (match vs with | Some (v, norm) -> Format.asprintf "| %s -> %s\n" v (string_of_core_lang norm) | _ -> "") (List.map (fun (name, v, body) -> Format.asprintf "| effect %s k -> %s" (match v with None -> name | Some v -> Format.asprintf "(%s %s)" name v) (string_of_core_lang body)) hs |> String.concat "\n") (cs |> List.map (fun (n, args, body) -> Format.asprintf "| %s -> %s" (string_of_constr_call n args) (string_of_core_lang body)) |> String.concat "\n")
   | CResume v -> Format.sprintf "continue k %s" (string_of_term v)
+  | CLambda (xs, spec, e) -> Format.sprintf "fun %s%s -> %s" (string_of_args Fun.id xs) (match spec with None -> "" | Some ds -> Format.asprintf "(*@ %s @*)" (string_of_disj_spec ds)) (string_of_core_lang e)
 
 let string_of_effect_stage (vs, pre, post, eff, ret) =
   Format.asprintf "ex %s. req %s; ens %s /\\ %s /\\ res=%s" (String.concat " " vs) (string_of_state pre) (string_of_state post) (string_of_instant eff) (string_of_term ret)
@@ -476,3 +479,12 @@ let string_of_instantiations pv kvs =
   |> String.concat ", " |> Format.asprintf "[%s]"
 
 let string_of_bindings = string_of_instantiations
+
+let string_of_meth_def m =
+  Format.asprintf "let rec %s %s\n%s=\n%s" m.m_name
+    (match m.m_params with | [] -> "()" | _ -> String.concat " " m.m_params)
+    ((match m.m_spec with None -> "" | Some s -> s |> List.map string_of_spec |> List.map (Format.asprintf "(*@@ %s @@*)") |> String.concat "\n\\/\n" |> fun s -> s ^ "\n"))
+    (string_of_core_lang m.m_body)
+
+let string_of_program (cp:core_program) :string =
+  List.map string_of_meth_def cp.cp_methods |> String.concat "\n\n"
