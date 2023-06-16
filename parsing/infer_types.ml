@@ -9,6 +9,7 @@ let assert_var_has_type v t env =
 
 (* record a (nontrivial) equality in the environment *)
 let unify_types t1 t2 env =
+  (* Format.printf "unify %s ~ %s@." (string_of_type t1) (string_of_type t2); *)
   if t1 = t2 then env else { env with eqs = (t1, t2) :: env.eqs }
 
 (* given a type variable and a substitution (a list of type equalities), finds the concrete type that the type variable is. not efficient. crashes (the entire program) on error *)
@@ -66,44 +67,51 @@ let get_primitive_type f =
   | _ -> failwith (Format.asprintf "unknown function: %s" f)
 
 let rec infer_types_term ?hint (env : abs_typ_env) term : typ * abs_typ_env =
-  match (term, hint) with
-  | UNIT, _ -> (Unit, env)
-  | TTrue, _ | TFalse, _ -> (Bool, env)
-  | Nil, _ -> (List_int, env)
-  | Num _, _ -> (Int, env)
-  (* possibly add syntactic heuristics for types, such as names *)
-  | Var v, Some t -> (t, assert_var_has_type v t env)
-  | Var v, None ->
-    let t = TVar (verifier_getAfreeVar ~from:v ()) in
-    (t, assert_var_has_type v t env)
-  | Plus (a, b), _ | Minus (a, b), _ ->
-    let _at, env1 = infer_types_term ~hint:Int env a in
-    let _bt, env2 = infer_types_term ~hint:Int env1 b in
-    (Int, env2)
-  | Eq (a, b), _ -> begin
-    try
-      let at, env1 = infer_types_term ~hint:Int env a in
-      let bt, env2 = infer_types_term ~hint:Int env1 b in
-      let env3 = unify_types at bt env2 in
-      (Int, env3)
-    with _ ->
-      let _bt, env1 = infer_types_term ~hint:Int env b in
-      let _at, env2 = infer_types_term ~hint:Int env1 a in
+  let res =
+    match (term, hint) with
+    | UNIT, _ -> (Unit, env)
+    | TTrue, _ | TFalse, _ -> (Bool, env)
+    | Nil, _ -> (List_int, env)
+    | Num _, _ -> (Int, env)
+    (* possibly add syntactic heuristics for types, such as names *)
+    | Var v, Some t -> (t, assert_var_has_type v t env)
+    | Var v, None ->
+      let t = TVar (verifier_getAfreeVar ~from:v ()) in
+      (t, assert_var_has_type v t env)
+    | Plus (a, b), _ | Minus (a, b), _ ->
+      let _at, env1 = infer_types_term ~hint:Int env a in
+      let _bt, env2 = infer_types_term ~hint:Int env1 b in
       (Int, env2)
-  end
-  | TApp (f, args), _ ->
-    let argtypes, ret = get_primitive_type f in
-    let env =
-      (* infer from right to left *)
-      List.fold_left
-        (fun env (a, at) ->
-          let _, env = infer_types_term ~hint:at env a in
-          env)
-        env
-        (List.map2 (fun a b -> (a, b)) args argtypes)
-    in
-    (ret, env)
-  | TList _, _ | TTupple _, _ -> failwith "list/tuple unimplemented"
+    | Eq (a, b), _ -> begin
+      try
+        let at, env1 = infer_types_term ~hint:Int env a in
+        let bt, env2 = infer_types_term ~hint:Int env1 b in
+        (* Format.printf "Eq %s = %s@." (string_of_term a) (string_of_term b); *)
+        let env3 = unify_types at bt env2 in
+        (Bool, env3)
+      with _ ->
+        let _bt, env1 = infer_types_term ~hint:Int env b in
+        let _at, env2 = infer_types_term ~hint:Int env1 a in
+        (Bool, env2)
+    end
+    | TApp (f, args), _ ->
+      let argtypes, ret = get_primitive_type f in
+      let env =
+        (* infer from right to left *)
+        List.fold_left
+          (fun env (a, at) ->
+            let _, env = infer_types_term ~hint:at env a in
+            env)
+          env
+          (List.map2 (fun a b -> (a, b)) args argtypes)
+      in
+      (ret, env)
+    | TList _, _ | TTupple _, _ -> failwith "list/tuple unimplemented"
+  in
+  (* Format.printf "%s : %s -| %s@." (string_of_term term)
+     (string_of_type (fst res))
+     (string_of_abs_env (snd res)); *)
+  res
 
 let rec infer_types_pi env pi =
   match pi with
@@ -111,6 +119,7 @@ let rec infer_types_pi env pi =
   | Atomic (EQ, a, b) ->
     let t1, env = infer_types_term env a in
     let t2, env = infer_types_term env b in
+    (* Format.printf "EQ %s = %s@." (string_of_term a) (string_of_term b); *)
     let env = unify_types t1 t2 env in
     env
   | Atomic (GT, a, b)
