@@ -24,136 +24,62 @@ let string_of_pi p = string_of_pi (ProversEx.normalize_pure p)
 let rename_exists_spec sp = List.hd (Forward_rules.renamingexistientalVar [sp])
 
 let rename_exists_lemma (lem : lemma) : lemma =
-  {
-    lem with
-    l_left = rename_exists_spec lem.l_left;
-    l_right = rename_exists_spec lem.l_right;
-  }
+  { lem with l_right = rename_exists_spec lem.l_right }
 
-exception Unification_failure
-
-let match_lemma :
-    string list -> lemma -> spec -> ((string * term) list * spec * spec) option
-    =
- (* let ( let* ) = Option.bind in *)
- fun bound lem sp ->
-  let les, _ln = normalise_spec lem.l_left in
-  (* let lr = Pretty.normalise_spec lem.l_right in *)
-  let ses, sn = normalise_spec sp in
-  (* collects bindings in bs, prefix is the prefix of s that is not matched, ret is the return value of the last matched state of ses, goes down les and ses in parallel, until les is empty (fully matched). fails if ses becomes empty while les isn't *)
-  let rec loop prefix bs les ses =
-    (* Format.printf "loop %s %s@."
-       (string_of_list (fun l -> fst l.e_constr) les)
-       (string_of_list (fun l -> fst l.e_constr) ses); *)
-    match (les, ses) with
-    | [], [] ->
-      (* TODO how should we check if the normal stage is matched? since we only match functions and arguments *)
-      Some
-        ( bs,
-          Acc.to_list prefix,
-          [ (* (let _, _, (p, h), r = sn in
-               NormalReturn (p, h, r)); *) ] )
-    | [], _ ->
-      (* match normal states *)
-      (* Format.printf "!!! %s@." (string_of_option string_of_term ret); *)
-      (* if a match occurred, there has to be a value *)
-      (* let* r = ret in *)
-      (* Option.bind ret (fun r -> ) *)
-      Some (bs, Acc.to_list prefix, normalisedStagedSpec2Spec (ses, sn))
-    | _ :: _, [] ->
-      (* we still have more effect stages but nothing to match against, so a match is impossible now *)
-      None
-    | l1 :: les1, s1 :: ses1 ->
-      (* matching is only done on constructors. other fields (state) probably have to be matched also but may require proof. not yet needed. also we probably shouldn't be invoking a prover for this, coq uses norm then syntactic equality to unify *)
-      (* https://coq.inria.fr/refman/proof-engine/tactics.html#coq:tacn.apply *)
-      let lcons, largs = l1.e_constr in
-      let scons, sargs = s1.e_constr in
-      let matched =
-        String.equal lcons scons && List.compare_lengths largs sargs = 0
-      in
-      (match matched with
-      | false ->
-        (* try to find a match lower down *)
-        (* TODO we should forget bindings when this happens *)
-        (* Format.printf "cannot match@."; *)
-        loop
-          (Acc.add_all
-             (normalisedStagedSpec2Spec ([s1], freshNormalStage))
-             prefix)
-          bs les ses1
-      | true ->
-        (* Format.printf "found match %s@." scons; *)
-        (* we found a match. unify, get substitution, check it, then continue matching *)
-        (try
-           let bs1 =
-             List.map2
-               (fun a1 a2 -> (a1, a2))
-               (l1.e_ret :: largs) (s1.e_ret :: sargs)
-             |> List.filter_map (function
-                  | Var l, s when List.mem l bound -> Some (l, s)
-                  | _ -> None)
+(** Matches lemma args (which may be params) and concrete args in the expr to be rewritten. If an arg is a param, adds to the returned substitution, otherwise checks if they are equal. Returns None if unification fails and the lemma shouldn't be applied, otherwise returns bindings. *)
+let unify_lem_lhs_args params la a =
+  let exception Unification_failure in
+  try
+    Some
+      (List.fold_left
+         (fun t (la, a) ->
+           let is_param =
+             match la with Var v when List.mem v params -> true | _ -> false
            in
-           (* alpha conversion: binders are equal up to renaming *)
-           (* https://coq.inria.fr/refman/language/core/conversion.html *)
-           (* let bs =
-                match (l1.e_ret, s1.e_ret) with
-                | Var vl, Var vs
-                  when List.mem vl l1.e_evars && List.mem vs s1.e_evars ->
-                  (vl, Var vs) :: bs
-                | _ -> bs
-              in *)
-           (* TODO check if the bindings to the same name agree. if not, fail unification *)
-           (* && match List.assoc_opt a acc with
-                                   | None -> true
-                                   | Some c when c = b -> false
-                                   | Some _ -> raise Unification_failure *)
-           (* matched, so don't add to the prefix *)
-           let p, h = s1.e_post in
-           loop
-             (Acc.add_all [Exists s1.e_evars; NormalReturn (p, h, UNIT)] prefix)
-             (bs1 @ bs) les1 ses1
-         with Unification_failure -> None))
-  in
-  loop Acc.empty [] les ses
+           match (is_param, la) with
+           | true, Var la -> (la, a) :: t
+           | false, _ when la = a -> t
+           | false, _ -> raise_notrace Unification_failure
+           | _, _ -> failwith "invalid state")
+         []
+         (List.map2 (fun a b -> (a, b)) la a))
+  with Unification_failure -> None
 
-let instantiate_res_existential lem =
-  let _, (_, _, _, lret) = normalise_spec lem.l_left in
-  let _, (_, _, _, rret) = normalise_spec lem.l_right in
-  match (lret, rret) with
-  | Var l, Var r ->
-    {
-      lem with
-      l_right = Forward_rules.instantiateSpec [(r, Var l)] lem.l_right;
-    }
-  | _ -> lem
-
-(** To use a lemma for rewriting, e.g. using l = (N1;N2 <: N3) to rewrite goal N0;N1;N2;N4 to N0;N3;N4, we match l against the goal by unifying segments (prefix=N0, suffix=N4), collecting bindings for universally-quantified variables, then replacing that portion of the goal once the match is complete. *)
-let apply_lemma : lemma -> spec -> spec =
+(** goes down the given spec trying to match the lemma's left side, and rewriting on match. may fail *)
+let apply_lemma : lemma -> spec -> spec option =
  fun lem sp ->
-  (* Format.printf "lem1 %s@." (string_of_lemma lem); *)
-  let lem = rename_exists_lemma lem in
-  (* Format.printf "lem2 %s@." (string_of_lemma lem); *)
-  (* let lem = instantiate_res_existential lem in *)
-  match match_lemma lem.l_params lem sp with
-  | None -> sp (* must be == *)
-  | Some (bs, prefix, suffix) ->
-    let inst_lem_rhs =
-      List.map (Forward_rules.instantiateStages bs) lem.l_right
-    in
-    let inst_lem_rhs =
-      (* add an extra equality between the return value and the variable it gets bound to outside *)
-      (* let _, (_, _, _, ret1) = normalise_spec inst_lem_rhs in
-         (* let _, (_, _, _, ret2) = normalise_spec sp in *)
-         NormalReturn (Atomic (EQ, ret1, ret2), EmptyHeap, UNIT) :: *)
-      (* shouldn't always add *)
-      inst_lem_rhs
-    in
-    info ~title:"apply_lemma" "bindings: %s\nprefix: %s\nsuffix: %s\nrhs: %s"
-      (string_of_instantiations string_of_term bs)
-      (string_of_spec prefix) (string_of_spec suffix)
-      (string_of_list string_of_staged_spec inst_lem_rhs);
-    let substituted : spec = prefix @ inst_lem_rhs @ suffix in
-    substituted
+  (* let lem = rename_exists_lemma lem in *)
+  let rec loop ok acc sp =
+    match sp with
+    | [] -> (Acc.to_list acc, ok)
+    | st :: sp1 ->
+      let lf, largs = lem.l_left in
+      (match st with
+      | HigherOrder (p, h, (f, args), r)
+        when (not ok) (* only apply once *) && f = lf ->
+        (match unify_lem_lhs_args lem.l_params largs args with
+        | Some bs ->
+          let inst_lem_rhs =
+            List.map (Forward_rules.instantiateStages bs) lem.l_right
+          in
+          let extra_ret_equality =
+            let rhs_ret = Forward_rules.retrieve_return_value inst_lem_rhs in
+            Atomic (EQ, r, rhs_ret)
+          in
+          loop true
+            (Acc.add_all
+               (NormalReturn (And (p, extra_ret_equality), h, UNIT)
+               :: inst_lem_rhs)
+               acc)
+            sp1
+        | None -> loop ok (Acc.add st acc) sp1)
+      | HigherOrder _ | NormalReturn _ | Exists _
+      | Require (_, _)
+      | RaisingEff _ ->
+        loop ok (Acc.add st acc) sp1)
+  in
+  let r, ok = loop false Acc.empty sp in
+  if ok then Some r else None
 
 let apply_one_lemma : lemma list -> spec -> spec * lemma option =
  fun lems sp ->
@@ -163,7 +89,7 @@ let apply_one_lemma : lemma list -> spec -> spec * lemma option =
       | Some _ -> (sp, app)
       | None ->
         let sp1 = apply_lemma l sp in
-        if sp1 == sp then (sp, app) else (sp1, Some l))
+        (match sp1 with None -> (sp, app) | Some sp1 -> (sp1, Some l)))
     (sp, None) lems
 
 let instantiate_pred : pred_def -> term list -> term -> pred_def =
@@ -388,15 +314,15 @@ let unfold_predicate_norm :
   List.map normalise_spec
     (unfold_predicate_spec pred (normalisedStagedSpec2Spec sp))
 
-let spec_function_names (spec : spec) =
-  List.concat_map
-    (function HigherOrder (_, _, (f, _), _) -> [f] | _ -> [])
-    spec
-  |> SSet.of_list
+(* let spec_function_names (spec : spec) =
+   List.concat_map
+     (function HigherOrder (_, _, (f, _), _) -> [f] | _ -> [])
+     spec
+   |> SSet.of_list *)
 
 (** proof context *)
 type pctx = {
-  lems : lemma list;
+  lems : lemma SMap.t;
   preds : pred_def SMap.t;
   (* all quantified variables in this formula *)
   q_vars : string list;
@@ -409,7 +335,7 @@ type pctx = {
 let string_of_pctx ctx =
   Format.asprintf
     "lemmas: %s\npredicates: %s\nq_vars: %s\nunfolded: %s\napplied: %s@."
-    (string_of_list string_of_lemma ctx.lems)
+    (string_of_smap string_of_lemma ctx.lems)
     (string_of_smap string_of_pred ctx.preds)
     (string_of_list Fun.id ctx.q_vars)
     (string_of_list Fun.id ctx.unfolded)
@@ -452,41 +378,6 @@ let rec check_staged_subsumption_aux :
       in
       info ~title:"FAIL" "constr %s != %s" c1 c2;
       fail
-      (* try to unfold the right side, then the left *)
-      (* (match List.find_opt (fun p -> String.equal c2 p.p_name) ctx.preds with
-         | Some def when not (List.mem c2 ctx.unfolded) ->
-           let unf = unfold_predicate_norm def s2 in
-           let@ s2_1 = any ~name:"?" ~to_s:string_of_normalisedStagedSpec unf in
-           check_staged_subsumption_aux
-             { ctx with unfolded = c2 :: ctx.unfolded }
-             i assump s1 s2_1
-         | _ ->
-           (match List.find_opt (fun p -> String.equal c1 p.p_name) ctx.preds with
-           | Some def when not (List.mem c1 ctx.unfolded) ->
-             let unf = unfold_predicate_norm def s1 in
-             let@ s1_1 = all ~to_s:string_of_normalisedStagedSpec unf in
-             check_staged_subsumption_aux
-               { ctx with unfolded = c1 :: ctx.unfolded }
-               i assump s1_1 s2
-           | _ ->
-             (* try to apply a lemma *)
-             let eligible =
-               ctx.lems
-               |> List.filter (fun l -> List.mem l.l_name ctx.unfolded)
-               |> List.filter (fun l -> not (List.mem l.l_name ctx.applied))
-             in
-             let s1_1, applied =
-               apply_one_lemma eligible (normalisedStagedSpec2Spec s1)
-             in
-             (match applied with
-             | Some app ->
-               check_staged_subsumption_aux
-                 { ctx with applied = app :: ctx.unfolded }
-                 i assump (normalise_spec s1_1) s2
-             | None ->
-               (* no predicates to try unfolding *)
-               info "FAIL, constr %s != %s" c1 c2;
-               fail))) *)
     | true ->
       let* _ =
         let l1 = List.length a1 in
@@ -602,12 +493,10 @@ and try_other_measures :
     | _ ->
       (* if that fails, try to apply a lemma *)
       let eligible =
-        ctx.lems
-        |> List.filter (fun l ->
-               SSet.for_all
-                 (fun n -> List.mem n ctx.unfolded)
-                 (spec_function_names l.l_left))
-        |> List.filter (fun l -> not (List.mem l.l_name ctx.applied))
+        ctx.lems |> SMap.bindings
+        (* |> List.filter (fun (ln, _l) -> List.mem ln ctx.unfolded) *)
+        |> List.filter (fun (ln, _l) -> not (List.mem ln ctx.applied))
+        |> List.map snd
       in
       let s1_1, applied =
         apply_one_lemma eligible (normalisedStagedSpec2Spec s1)
@@ -732,11 +621,12 @@ let rec apply_tactics ts lems preds (ds1 : disj_spec) (ds2 : disj_spec) =
         | Apply l ->
           (* apply works on the left only *)
           info ~title:"apply" "%s" l;
-          ( List.map
-              (List.fold_right apply_lemma
-                 (List.filter (fun le -> String.equal le.l_name l) lems))
-              ds1,
-            ds2 )
+          failwith "apply tactic needs to be updated"
+        (* ( List.map
+             (List.fold_right apply_lemma
+                (List.filter (fun le -> String.equal le.l_name l) lems))
+             ds1,
+           ds2 ) *)
       in
       info ~title:"after" "%s\n<:\n%s"
         (string_of_disj_spec (fst r))
@@ -745,7 +635,7 @@ let rec apply_tactics ts lems preds (ds1 : disj_spec) (ds2 : disj_spec) =
     (ds1, ds2) ts
 
 let check_staged_subsumption :
-    lemma list -> pred_def SMap.t -> spec -> spec -> unit option =
+    lemma SMap.t -> pred_def SMap.t -> spec -> spec -> unit option =
  fun lems preds n1 n2 ->
   let es1, ns1 = normalise_spec n1 in
   let es2, ns2 = normalise_spec n2 in
@@ -757,27 +647,32 @@ let check_staged_subsumption :
   check_staged_subsumption_aux ctx 0 True (es1, ns1) (es2, ns2)
 
 let create_induction_hypothesis params ds1 ds2 =
+  let fail why =
+    info ~title:"no induction hypothesis" why;
+    None
+  in
   match (ds1, ds2) with
   | [s1], [s2] ->
     let ns1 = s1 |> normalise_spec in
-    let s1 = ns1 |> normalisedStagedSpec2Spec in
+    (* let s1 = ns1 |> normalisedStagedSpec2Spec in *)
     let used_l = used_vars ns1 in
     (* heuristic. all parameters must be used meaningfully, otherwise there's nothing to do induction on *)
     (match List.for_all (fun p -> SSet.mem p used_l) params with
     | true ->
-      let s2 = s2 |> normalise_spec |> normalisedStagedSpec2Spec in
-      (* quantified variables in lemma are parameters of the function *)
-      let ih =
-        { l_name = "IH"; l_params = params; l_left = s1; l_right = s2 }
-      in
-      info ~title:"induction hypothesis" "%s" (string_of_lemma ih);
-      [ih]
-    | false ->
-      info ~title:"no induction hypothesis" "";
-      [])
-  | _ ->
-    info ~title:"no induction hypothesis" "";
-    []
+      (match ns1 with
+      | [eff], (_, (True, EmptyHeap), (True, EmptyHeap), r) when r = eff.e_ret
+        ->
+        (* TODO existentials are ignored...? *)
+        let f, a = eff.e_constr in
+        let ih =
+          { l_name = "IH"; l_params = params; l_left = (f, a); l_right = s2 }
+        in
+        info ~title:"induction hypothesis" "%s" (string_of_lemma ih);
+        Some ih
+      | [_], _ -> fail "nontrivial norm stage after"
+      | _ -> fail "not just a single stage")
+    | false -> fail "not all params used")
+  | _ -> fail "left side disjunctive"
 
 (**
   Subsumption between disjunctive specs.
@@ -787,7 +682,7 @@ let check_staged_subsumption_disj :
     string ->
     string list ->
     tactic list ->
-    lemma list ->
+    lemma SMap.t ->
     pred_def SMap.t ->
     disj_spec ->
     disj_spec ->
@@ -796,7 +691,10 @@ let check_staged_subsumption_disj :
   info
     ~title:(Format.asprintf "disj subsumption: %s" mname)
     "%s\n<:\n%s" (string_of_disj_spec ds1) (string_of_disj_spec ds2);
-  let lems = create_induction_hypothesis params ds1 ds2 @ lems in
+  let ih = create_induction_hypothesis params ds1 ds2 in
+  let lems =
+    match ih with None -> lems | Some ih -> SMap.add ih.l_name ih lems
+  in
   (* let ds1, ds2 = apply_tactics ts lems preds ds1 ds2 in *)
   (let@ s1 = all ~to_s:string_of_spec ds1 in
    let@ s2 = any ~name:"subsumes-disj-rhs-any" ~to_s:string_of_spec ds2 in

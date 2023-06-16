@@ -17,7 +17,7 @@ let unsound_false ()
 = applyN incr 0 10
 
 let summary x n
-(*@ ex r4; Norm(r4=x+n/\emp, r4) @*)
+(*@ Norm(emp, x+n) @*)
 = applyN incr x n
 
 let summary1_false x n

@@ -412,7 +412,7 @@ let string_of_option to_s o : string =
   match o with Some a -> "Some " ^ to_s a | None -> "None"
 
 let string_of_lemma l =
-  Format.asprintf "%s: forall %s, %s ==> %s" l.l_name (string_of_list Fun.id l.l_params) (string_of_spec l.l_left) (string_of_spec l.l_right)
+  Format.asprintf "%s: forall %s, %s <: %s" l.l_name (string_of_list Fun.id l.l_params) (string_of_instant l.l_left) (string_of_spec l.l_right)
 
 (* let string_of_time = string_of_float *)
 let string_of_time = Format.asprintf "%.0f"

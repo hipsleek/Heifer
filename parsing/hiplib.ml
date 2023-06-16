@@ -852,10 +852,10 @@ let transform_strs (strs: structure_item list) : core_program =
   let _env, effs, mths, preds, lems =
     List.fold_left (fun (env, es, ms, ps, ls) c ->
       match transform_str env c with
-      | `Lem l -> env, es, ms, ps, l :: ls
+      | `Lem l -> env, es, ms, ps, SMap.add l.p_name l ls
       | `Pred p -> env, es, ms, SMap.add p.p_name p ps, ls
       | `Eff a -> env, a :: es, ms, ps, ls
-      | `Meth (m_name, m_params, m_spec, m_body, m_tactics) -> m_name :: env, es, { m_name; m_params; m_spec; m_body; m_tactics } :: ms, ps, ls) ([], [], [], SMap.empty, []) strs
+      | `Meth (m_name, m_params, m_spec, m_body, m_tactics) -> m_name :: env, es, { m_name; m_params; m_spec; m_body; m_tactics } :: ms, ps, ls) ([], [], [], SMap.empty, SMap.empty) strs
   in { cp_effs = List.rev effs; cp_methods = List.rev mths; cp_predicates = preds; cp_lemmas = lems }
 
 (* returns the inference result as a string to be printed *)

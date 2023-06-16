@@ -147,24 +147,25 @@ type meth_def = {
 }
 (* type eff_def = string *)
 
-(** a lemma is an entailment between (non-disjunctive) staged specs A <: B *)
-type lemma = {
-  l_name : string;
-  l_params : string list;
-  l_left : spec;
-  l_right : spec;
-}
-
+(** A predicate is a name for a parameterized disjunctive spec, of the form [f(x, ...) == spec \/ ...], where x, ... are all parameters *)
 type pred_def = {
   p_name: string;
   p_params: string list; (* list to ensure ordering. last param is typically a return value *)
   p_body: disj_spec;
 }
 
+(** A lemma is an entailment [f(x, ...) <: spec]. The left side restricted to be a function stage (without loss of generality). Some of x, ... may be parameters, but some may not be. *)
+type lemma = {
+  l_name: string;
+  l_params: string list; (* ordered *)
+  l_left: instant; (* for simplicity of rewriting *)
+  l_right: spec; (* could also be disj_spec but not needed *)
+}
+
 type core_program = {
   cp_effs: string list;
   cp_predicates: pred_def SMap.t;
-  cp_lemmas: lemma list;
+  cp_lemmas: lemma SMap.t;
   cp_methods: meth_def list;
 }
 
