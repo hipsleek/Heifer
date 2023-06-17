@@ -216,7 +216,7 @@ let unsound_false ()
 = applyN incr 0 10
 
 let summary x n
-(*@ ex r4; Norm(r4=x+n/\emp, r4) @*)
+(*@ Norm(emp, x+n) @*)
 = applyN incr x n
 
 let summary1_false x n
@@ -225,44 +225,16 @@ let summary1_false x n
 
 let summary2_false x n
 (*@ ex r4; Norm(r4=x+n+1/\emp, r4) @*)
-= applyN incr x n">src/examples/applyN.ml</option><option value=src/examples/compare_withRust.ml data-text="
-let list = ref [];;
-
-list := !list @ [42];;
-
-
-let cl i 
-(*@ 
-   ex old; 
-   req list -> old ; 
-   Norm(list->old @ [i], ())
-@*)
-= list := !list @ [i];;
-
-let foo closure j = 
-(*@ 
-   ex new; 
-   closure (emp, i, ());
-   req list -> new ; 
-   Norm(list->new  @ [i+1], ())
-@*)
-  closure(j);
-  list := !list @ [j+1];;
-
-
-foo (cl) 7;;
-
-assert (!list = [42; 7; 8]);;
-(* 
-   ex new; closure (emp, i, ()); req list -> new ; Norm(list->new  @ [i+1], ())
-~~~>
-   ex new; req list -> old ; Norm(list->old @ [7], ()); req list -> new ; Norm(list->new  @ [8], ())
-~~~>
-   Norm(list->[42, 7, 8], ())
-*)
-
-let main = 
-  List.map (fun a -> print_endline (string_of_int a)) (!list);; ">src/examples/compare_withRust.ml</option><option value=src/examples/compose.ml data-text="
+= applyN incr x n">src/examples/applyN.ml</option><option value=src/examples/closure.ml data-text="
+let main ()
+(*@ ex i; Norm(i->[8;7;42], [8;7;42]) @*)
+= let l = ref [] in
+  l := 42 :: !l;
+  let f i = l := i :: !l in
+  let g h x = h x; l := (x+1) :: !l in
+  g f 7;
+  (* assert (!l = [8;7;42]); *)
+  !l">src/examples/closure.ml</option><option value=src/examples/compose.ml data-text="
 let compose f g x
 (*@
   ex r_g; g(x, r_g);
@@ -305,7 +277,7 @@ let incr x = x + 1
 let id y = y
 
 let map_id ys
-(*@ Norm(emp, xs) @*)
+(*@ Norm(emp, ys) @*)
 = map id ys">src/examples/lists.ml</option><option value=src/evaluation/0_heap_zero_once_twice.ml data-text="effect Zero : int 
 effect Once : int 
 effect Twice : int 
@@ -429,7 +401,7 @@ let main ()
 = 
   let x = ref 11 in 
   let res = exc_hanlder x 5 in 
-  print_endline (string_of_int res);
+  (* print_endline (string_of_int res); *)
   res">src/evaluation/11_exchange.ml</option><option value=src/evaluation/12_two_pointers.ml data-text="effect E: unit 
 
 let two_locations () 
@@ -488,7 +460,7 @@ let test ()
   assert (!i = 1);
   ret
 
-let main_aux ()
+let main_false ()
 (*@ ex i;
    Norm(i->2, 2)
 @*)
@@ -637,6 +609,7 @@ let write n
 
 let test1 ()
 (*@ 
+  ex x2;
   Write(emp, 10, x2); 
   ex x3; 
   Read(emp, x3); 
@@ -890,7 +863,7 @@ let handler2  ()
     <script>
       // this is substituted at build time and is used in page.js
       function postExampleLoad() {
-        console.log("Built Tue Jun 13 12:21:32 UTC 2023");
+        console.log("Built Sat Jun 17 15:00:22 UTC 2023");
         console.log("loading z3...");
       }
     </script>
