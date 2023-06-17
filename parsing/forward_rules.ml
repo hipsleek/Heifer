@@ -231,44 +231,44 @@ let freshen (specs:disj_spec): disj_spec =
 
 
 let instantiate_higher_order_functions fn_args (spec:disj_spec) : disj_spec =
-  List.concat_map (fun ss ->
-    let rec loop (acc:disj_spec) (ss:spec) =
-      match ss with
-      | [] -> List.map List.rev acc
-      | s :: ss1 ->
-        begin match s with
-        | Exists _ | Require (_, _)
-        | NormalReturn _ | RaisingEff _ ->
+  let rec loop (acc:disj_spec) (ss:spec) =
+    match ss with
+    | [] -> List.map List.rev acc
+    | s :: ss1 ->
+      begin match s with
+      | Exists _ | Require (_, _)
+      | NormalReturn _ | RaisingEff _ ->
+        loop (List.map (fun tt -> s :: tt) acc) ss1
+      | HigherOrder (_p, _h, (name, args), ret) ->
+        let matching = List.find_map (fun (mname, mspec) ->
+          match mspec with
+          | Some (mparams, msp) when String.equal mname name && List.length mparams = List.length args ->
+          Some (mparams, msp)
+          | _ -> None) fn_args in
+        begin match matching with
+        | None ->
           loop (List.map (fun tt -> s :: tt) acc) ss1
-        | HigherOrder (_p, _h, (name, args), ret) ->
-          let matching = List.find_map (fun (mname, mspec) ->
-            match mspec with
-            | Some (mparams, msp) when String.equal mname name && List.length mparams = List.length args ->
-            Some (mparams, msp)
-            | _ -> None) fn_args in
-          begin match matching with
-          | None ->
-            loop (List.map (fun tt -> s :: tt) acc) ss1
-          | Some (mparams, mspec) ->
-            let bs = bindFormalNActual mparams args in
-            let instantiated = instantiateSpecList bs (renamingexistientalVar mspec)
-              (* replace return value with whatever x was replaced with *)
-            in
-            (* reversed because we're really adding in reverse to each element of the outer list - the ordering of the (set of) disjuncts doesn't matter *)
-            let res = List.concat_map (fun tt ->
-              List.map (fun dis -> List.rev dis @ tt) instantiated) acc in
-            let ret1 = match ret with Var s -> s | _ -> failwith (Format.asprintf "return value of ho %s was not a var" (string_of_term ret)) in
-            (* instantiate the return value in the remainder of the input before using it *)
-            let ss2 =
-              let bs = List.map (fun s -> (ret1, retrieve_return_value s)) instantiated in
-              instantiateSpec bs ss1
-            in
-            loop res ss2
-          end
+        | Some (mparams, mspec) ->
+          let bs = bindFormalNActual mparams args in
+          let instantiated = instantiateSpecList bs (renamingexistientalVar mspec)
+            (* replace return value with whatever x was replaced with *)
+          in
+          (* reversed because we're really adding in reverse to each element of the outer list - the ordering of the (set of) disjuncts doesn't matter *)
+          let res = List.concat_map (fun tt ->
+            List.map (fun dis -> List.rev dis @ tt) instantiated) acc in
+          let ret1 = match ret with Var s -> s | _ -> failwith (Format.asprintf "return value of ho %s was not a var" (string_of_term ret)) in
+          (* instantiate the return value in the remainder of the input before using it *)
+          let ss2 =
+            let bs = List.map (fun s -> (ret1, retrieve_return_value s)) instantiated in
+            instantiateSpec bs ss1
+          in
+          loop res ss2
         end
-    in
-    loop [[]] ss
-  ) spec
+      end
+  in
+  let res = List.concat_map (fun ss -> loop [[]] ss) spec in
+  info ~title:"instantiate higher order functions" "%s\n\n%s\n\n%s" (string_of_list (string_of_pair Fun.id (string_of_option (string_of_pair (string_of_list Fun.id) (string_of_list string_of_spec)))) fn_args) (string_of_disj_spec spec) (string_of_disj_spec res);
+  res
 
 
 let rec lookforHandlingCases ops (label:string) = 
@@ -475,8 +475,9 @@ and infer_of_expression (env:fvenv) (current:disj_spec) (expr:core_lang): disj_s
         )
 
     | CFunCall (fname, actualArgs) -> 
-      if List.mem fname primitives then begin
-        match fname, actualArgs with
+      (match List.mem fname primitives with
+      | true ->
+        (match fname, actualArgs with
         | "+", [x1; x2] ->
           let event = NormalReturn (True, EmptyHeap, Plus(x1, x2)) in
           concatenateSpecsWithEvent current [event], env
@@ -492,42 +493,45 @@ and infer_of_expression (env:fvenv) (current:disj_spec) (expr:core_lang): disj_s
         | "::", [x1; x2] ->
           let event = NormalReturn (True, EmptyHeap, TApp ("cons", [x1; x2])) in
           concatenateSpecsWithEvent current [event], env
-        | _ -> failwith (Format.asprintf "unknown primitive: %s, args: %s" fname (string_of_list string_of_term actualArgs))
-
-      end else 
-      let spec_of_fname =
-        match retrieveSpecFromEnv fname env with 
-        | None ->
-          let ret = verifier_getAfreeVar () in
-          [[Exists [ret]; HigherOrder (True, EmptyHeap, (fname, actualArgs), Var ret)]]
-        | Some (formalArgs, spec_of_fname) -> 
-          (* TODO should we keep existentials? *)
-          let spec = renamingexistientalVar spec_of_fname in
-          (* let spec = freshen spec_of_fname in *)
-          (* Format.printf "after freshen: %s@." (string_of_disj_spec spec); *)
-          if List.compare_lengths formalArgs actualArgs <> 0 then
-            failwith (Format.asprintf "too few args. formals: %s, actual: %s@." (string_of_list Fun.id formalArgs) (string_of_list string_of_term actualArgs));
-          let spec =
-            (* we've encountered a function call, e.g. f x y.
-              we look up the spec for f. say it looks like:
-                let f g h (*@ g$(...); ... @*) = ...
-              we now want to instantiate g with the spec for x. *)
-            let fnArgs = List.map2 (fun p x ->
-              match x with
-              | Var a -> (p, retrieveSpecFromEnv a env)
-              | _ -> (p, None) (* if a is a lambda, get its spec here *)
-              ) formalArgs actualArgs
+        | _ -> failwith (Format.asprintf "unknown primitive: %s, args: %s" fname (string_of_list string_of_term actualArgs)))
+      | false ->
+        let spec_of_fname =
+          (match retrieveSpecFromEnv fname env with 
+          | None ->
+            let ret = verifier_getAfreeVar () in
+            [[Exists [ret]; HigherOrder (True, EmptyHeap, (fname, actualArgs), Var ret)]]
+          | Some (formalArgs, spec_of_fname) -> 
+            (* TODO should we keep existentials? *)
+            let spec = renamingexistientalVar spec_of_fname in
+            (* let spec = freshen spec_of_fname in *)
+            (* Format.printf "after freshen: %s@." (string_of_disj_spec spec); *)
+            if List.compare_lengths formalArgs actualArgs <> 0 then
+              failwith (Format.asprintf "too few args. formals: %s, actual: %s@." (string_of_list Fun.id formalArgs) (string_of_list string_of_term actualArgs));
+            let spec =
+              (* we've encountered a function call, e.g. f x y.
+                we look up the spec for f. say it looks like:
+                  let f g h (*@ g$(...); ... @*) = ...
+                we now want to instantiate g with the spec for x. *)
+              let fnArgs = List.map2 (fun p x ->
+                match x with
+                | Var a ->
+                  (p, retrieveSpecFromEnv a env)
+                | TLambda _ ->
+                  (* if a is a lambda, get its spec here *)
+                  failwith "lambda case not implemented"
+                | _ ->
+                  (p, None)
+                ) formalArgs actualArgs
+              in
+              instantiate_higher_order_functions fnArgs spec
             in
-            instantiate_higher_order_functions fnArgs spec
-          in
-          (* Format.printf "after ho fns: %s@." (string_of_disj_spec spec); *)
-          let bindings = bindFormalNActual (formalArgs) (actualArgs) in 
-          let instantiatedSpec = instantiateSpecList bindings spec in 
-          instantiatedSpec
-          (*print_endline ("====\n"^ string_of_spec_list spec_of_fname);*)
-      in
-      concatenateSpecsWithSpec current spec_of_fname, env
-
+            (* Format.printf "after ho fns: %s@." (string_of_disj_spec spec); *)
+            let bindings = bindFormalNActual (formalArgs) (actualArgs) in 
+            let instantiatedSpec = instantiateSpecList bindings spec in 
+            instantiatedSpec)
+            (*print_endline ("====\n"^ string_of_spec_list spec_of_fname);*)
+        in
+        concatenateSpecsWithSpec current spec_of_fname, env)
     | CWrite  (str, v) -> 
       let freshVar = verifier_getAfreeVar () in 
       let event = [Exists [freshVar];Require(True, PointsTo(str, Var freshVar)); 
