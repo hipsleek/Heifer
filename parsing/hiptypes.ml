@@ -158,7 +158,7 @@ type pred_def = {
   p_body: disj_spec;
 }
 
-(** A lemma is an entailment [f(x, ...) <: spec]. The left side restricted to be a function stage (without loss of generality). Some of x, ... may be parameters, but some may not be. *)
+(** A lemma is an entailment [f(x, ...) <: spec]. The left side is restricted to be a function stage (without loss of generality). Some of x, ... may be parameters, but some may not be. *)
 type lemma = {
   l_name: string;
   l_params: string list; (* ordered *)

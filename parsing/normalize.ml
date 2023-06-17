@@ -1,35 +1,101 @@
 open Hiptypes
 open Pretty
 
-let rec domainOfHeap (h : kappa) : string list =
-  match h with
-  | EmptyHeap -> []
-  | PointsTo (str, _) -> [str]
-  | SepConj (k1, k2) -> domainOfHeap k1 @ domainOfHeap k2
-(*| MagicWand (k1, k2) -> (domainOfHeap k1) @ (domainOfHeap k2) *)
+let rec findbinding str vb_li =
+  match vb_li with
+  | [] -> Var str
+  | (name, v) :: xs ->
+    if String.compare name str == 0 then v else findbinding str xs
+
+let rec instantiateTerms (bindings : (string * core_value) list) (t : term) :
+    term =
+  match t with
+  | Nil | Num _ | UNIT | TTrue | TFalse -> t
+  | Var str ->
+    let binding = findbinding str bindings in
+    (* Format.printf "replacing %s with %s under %s@." str (string_of_term binding) (string_of_list (string_of_pair Fun.id string_of_term) bindings); *)
+    binding
+  | TList tLi -> TList (List.map (fun t1 -> instantiateTerms bindings t1) tLi)
+  | TTupple tLi -> TList (List.map (fun t1 -> instantiateTerms bindings t1) tLi)
+  | Plus (t1, t2) ->
+    Plus (instantiateTerms bindings t1, instantiateTerms bindings t2)
+  | Eq (t1, t2) ->
+    Eq (instantiateTerms bindings t1, instantiateTerms bindings t2)
+  | Minus (t1, t2) ->
+    Minus (instantiateTerms bindings t1, instantiateTerms bindings t2)
+  | TApp (t1, t2) -> TApp (t1, List.map (instantiateTerms bindings) t2)
+  | TLambda n -> TLambda n
+
+let rec instantiatePure (bindings : (string * core_value) list) (pi : pi) : pi =
+  match pi with
+  | True | False -> pi
+  | Atomic (bop, t1, t2) ->
+    Atomic (bop, instantiateTerms bindings t1, instantiateTerms bindings t2)
+  | And (p1, p2) ->
+    And (instantiatePure bindings p1, instantiatePure bindings p2)
+  | Or (p1, p2) -> Or (instantiatePure bindings p1, instantiatePure bindings p2)
+  | Imply (p1, p2) ->
+    Imply (instantiatePure bindings p1, instantiatePure bindings p2)
+  | Not p1 -> Not (instantiatePure bindings p1)
+  | Predicate (str, t1) -> Predicate (str, instantiateTerms bindings t1)
+
+let rec instantiateHeap (bindings : (string * core_value) list) (kappa : kappa)
+    : kappa =
+  match kappa with
+  | EmptyHeap -> kappa
+  | PointsTo (str, t1) ->
+    let binding = findbinding str bindings in
+    let newName = match binding with Var str1 -> str1 | _ -> str in
+    PointsTo (newName, instantiateTerms bindings t1)
+  | SepConj (k1, k2) ->
+    SepConj (instantiateHeap bindings k1, instantiateHeap bindings k2)
+
+let instantiate_state bindings (p, h) =
+  (instantiatePure bindings p, instantiateHeap bindings h)
+
+let instantiateStages (bindings : (string * core_value) list)
+    (stagedSpec : stagedSpec) : stagedSpec =
+  match stagedSpec with
+  | Exists _ -> stagedSpec
+  | Require (pi, kappa) ->
+    Require (instantiatePure bindings pi, instantiateHeap bindings kappa)
+  (* higher-order functions *)
+  | NormalReturn (pi, kappa, ret) ->
+    NormalReturn
+      ( instantiatePure bindings pi,
+        instantiateHeap bindings kappa,
+        instantiateTerms bindings ret )
+  | HigherOrder (pi, kappa, (str, basic_t_list), ret) ->
+    let constr =
+      match List.assoc_opt str bindings with Some (Var s) -> s | _ -> str
+    in
+    HigherOrder
+      ( instantiatePure bindings pi,
+        instantiateHeap bindings kappa,
+        (constr, List.map (fun bt -> instantiateTerms bindings bt) basic_t_list),
+        instantiateTerms bindings ret )
+  (* effects *)
+  | RaisingEff (pi, kappa, (label, basic_t_list), ret) ->
+    RaisingEff
+      ( instantiatePure bindings pi,
+        instantiateHeap bindings kappa,
+        (label, List.map (fun bt -> instantiateTerms bindings bt) basic_t_list),
+        instantiateTerms bindings ret )
+(* | Pred {name; args}  ->  *)
+(* Pred {name; args = List.map (instantiateTerms bindings) args} *)
+
+let instantiateSpec (bindings : (string * core_value) list) (sepc : spec) : spec
+    =
+  List.map (fun a -> instantiateStages bindings a) sepc
+
+let instantiateSpecList (bindings : (string * core_value) list)
+    (sepcs : disj_spec) : disj_spec =
+  List.map (fun a -> instantiateSpec bindings a) sepcs
 
 let rec existStr str li =
   match li with
   | [] -> false
   | x :: xs -> if String.compare x str == 0 then true else existStr str xs
-
-let overlap domain1 domain2 : bool =
-  let rec iterateh1 li =
-    match li with
-    | [] -> false
-    | y :: ys -> if existStr y domain2 then true else iterateh1 ys
-  in
-  iterateh1 domain1
-
-let domainOverlap h1 h2 =
-  let domain1 = domainOfHeap h1 in
-  let domain2 = domainOfHeap h2 in
-  overlap domain1 domain2
-
-let () = assert (overlap ["x"] ["x"] = true)
-let () = assert (overlap ["x"] ["y"] = false)
-let () = assert (overlap ["x"] [] = false)
-let () = assert (overlap ["x"; "y"] ["y"; "z"] = true)
 
 let rec normaliseHeap h : kappa =
   match h with
@@ -79,6 +145,36 @@ let getheapResidue h1 h2 : kappa =
 
 *)
 
+let rec pure_to_equalities pi =
+  match pi with
+  | Atomic (EQ, Var a, Var b) -> [(a, b)]
+  | And (a, b) -> pure_to_equalities a @ pure_to_equalities b
+  | Atomic (_, _, _)
+  | True | False
+  | Predicate (_, _)
+  | Or (_, _)
+  | Imply (_, _)
+  | Not _ ->
+    []
+
+let pure_to_eq_state (p, _) = pure_to_equalities p
+
+(** see if the given equalities can prove x=y *)
+let are_equal eqs x y =
+  let tenv =
+    x :: y :: List.concat_map (fun (a, b) -> [a; b]) eqs
+    |> List.map (fun a -> (a, Bool))
+    |> List.to_seq |> SMap.of_seq
+  in
+  let left =
+    List.fold_right
+      (fun (a, b) t -> And (t, Atomic (EQ, Var a, Var b)))
+      eqs True
+  in
+  let right = Atomic (EQ, Var x, Var y) in
+  let eq = Provers.entails_exists tenv left [] right in
+  eq
+
 let rec kappa_of_list li =
   match li with
   | [] -> EmptyHeap
@@ -87,12 +183,18 @@ let rec kappa_of_list li =
 (* (x, t1) -* (y, t2) *)
 (* flag true => add to precondition *)
 (* flag false => add to postcondition *)
-let rec deleteFromHeapListIfHas li (x, t1) existential flag :
+let rec deleteFromHeapListIfHas li (x, t1) existential flag eqs :
     (string * term) list * pi =
   match li with
   | [] -> ([], True)
   | (y, t2) :: ys ->
-    if String.compare x y == 0 then
+    let same_loc =
+      let exists_eq =
+        List.mem x existential && List.mem y existential && are_equal eqs x y
+      in
+      String.equal x y || exists_eq
+    in
+    if same_loc then
       if stricTcompareTerm t2 (Var "_") then (ys, True)
       else
         (* TODO these cases could be organised better... a few classes:
@@ -123,7 +225,7 @@ let rec deleteFromHeapListIfHas li (x, t1) existential flag :
           else (ys, Atomic (EQ, t1, t2))
         (* | _, _ -> if flag then (ys, Atomic (EQ, t1, t2)) else (ys, True) *)
     else
-      let res, uni = (deleteFromHeapListIfHas ys (x, t1) existential) flag in
+      let res, uni = deleteFromHeapListIfHas ys (x, t1) existential flag eqs in
       ((y, t2) :: res, uni)
 
 (* h1 * h |- h2, returns h and unificiation
@@ -132,7 +234,7 @@ let rec deleteFromHeapListIfHas li (x, t1) existential flag :
 *)
 (* flag true => ens h1; req h2 *)
 (* flag false => req h2; ens h1 *)
-let normaliseMagicWand h1 h2 existential flag : kappa * pi =
+let normaliseMagicWand h1 h2 existential flag eqs : kappa * pi =
   let listOfHeap1 = list_of_heap h1 in
   let listOfHeap2 = list_of_heap h2 in
   let rec helper (acc : (string * term) list * pi) li =
@@ -141,7 +243,7 @@ let normaliseMagicWand h1 h2 existential flag : kappa * pi =
     | [] -> acc
     | (x, v) :: xs ->
       let heapLi', unification' =
-        deleteFromHeapListIfHas heapLi (x, v) existential flag
+        deleteFromHeapListIfHas heapLi (x, v) existential flag eqs
       in
       helper (heapLi', And (unification, unification')) xs
   in
@@ -150,64 +252,71 @@ let normaliseMagicWand h1 h2 existential flag : kappa * pi =
 
 let normalise_stagedSpec (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
     : normalisedStagedSpec =
-  (* print_endline
-       ("\nnormalise_stagedSpec =====> " ^ string_of_normalisedStagedSpec acc);
-     print_endline ("\nadding  " ^ string_of_staged_spec stagedSpec); *)
-  let effectStages, normalStage = acc in
-  let existential, req, ens, ret = normalStage in
-  match stagedSpec with
-  | Exists li -> (effectStages, (existential @ li, req, ens, ret))
-  | Require (p3, h3) ->
-    let p2, h2 = ens in
-    let magicWandHeap, unification =
-      normaliseMagicWand h2 h3 existential true
-    in
+  let res =
+    let effectStages, normalStage = acc in
+    let existential, req, ens, ret = normalStage in
+    match stagedSpec with
+    | Exists li -> (effectStages, (existential @ li, req, ens, ret))
+    | Require (p3, h3) ->
+      let p2, h2 = ens in
+      let magicWandHeap, unification =
+        normaliseMagicWand h2 h3 existential true (pure_to_equalities p2)
+      in
 
-    (* print_endline (string_of_kappa magicWandHeap ^ " magic Wand "); *)
-    (* Format.printf "unification %s@." (string_of_pi unification); *)
+      (* print_endline (string_of_kappa magicWandHeap ^ " magic Wand "); *)
+      (* Format.printf "unification %s@." (string_of_pi unification); *)
 
-    (* not only need to get the magic wand, but also need to delete the common part from h2*)
-    let h2', unification' = normaliseMagicWand h3 h2 existential false in
+      (* not only need to get the magic wand, but also need to delete the common part from h2*)
+      let h2', unification' =
+        normaliseMagicWand h3 h2 existential false (pure_to_equalities p2)
+      in
 
-    (* Format.printf "h2' %s@." (string_of_kappa h2'); *)
-    (* Format.printf "unification' %s@." (string_of_pi unification'); *)
-    let normalStage' =
-      let pre = mergeState req (And (p3, unification), magicWandHeap) in
-      let post = (ProversEx.normalize_pure (And (p2, unification')), h2') in
-      (existential, pre, post, ret)
-    in
-    (effectStages, normalStage')
-  | NormalReturn (pi, heap, ret') ->
-    (effectStages, (existential, req, mergeState ens (pi, heap), ret'))
-  (* effects *)
-  | RaisingEff (pi, heap, ins, ret') ->
-    (* move current norm state "behind" this effect boundary. the return value is implicitly that of the current stage *)
-    ( effectStages
-      @ [
-          {
-            e_evars = existential;
-            e_pre = req;
-            e_post = mergeState ens (pi, heap);
-            e_constr = ins;
-            e_ret = ret';
-            e_typ = `Eff;
-          };
-        ],
-      freshNormStageRet ret' )
-  (* higher-order functions *)
-  | HigherOrder (pi, heap, ins, ret') ->
-    ( effectStages
-      @ [
-          {
-            e_evars = existential;
-            e_pre = req;
-            e_post = mergeState ens (pi, heap);
-            e_constr = ins;
-            e_ret = ret';
-            e_typ = `Fn;
-          };
-        ],
-      freshNormStageRet ret' )
+      (* Format.printf "h2' %s@." (string_of_kappa h2'); *)
+      (* Format.printf "unification' %s@." (string_of_pi unification'); *)
+      let normalStage' =
+        let pre = mergeState req (And (p3, unification), magicWandHeap) in
+        let post = (ProversEx.normalize_pure (And (p2, unification')), h2') in
+        (existential, pre, post, ret)
+      in
+      (effectStages, normalStage')
+    | NormalReturn (pi, heap, ret') ->
+      (effectStages, (existential, req, mergeState ens (pi, heap), ret'))
+    (* effects *)
+    | RaisingEff (pi, heap, ins, ret') ->
+      (* move current norm state "behind" this effect boundary. the return value is implicitly that of the current stage *)
+      ( effectStages
+        @ [
+            {
+              e_evars = existential;
+              e_pre = req;
+              e_post = mergeState ens (pi, heap);
+              e_constr = ins;
+              e_ret = ret';
+              e_typ = `Eff;
+            };
+          ],
+        freshNormStageRet ret' )
+    (* higher-order functions *)
+    | HigherOrder (pi, heap, ins, ret') ->
+      ( effectStages
+        @ [
+            {
+              e_evars = existential;
+              e_pre = req;
+              e_post = mergeState ens (pi, heap);
+              e_constr = ins;
+              e_ret = ret';
+              e_typ = `Fn;
+            };
+          ],
+        freshNormStageRet ret' )
+  in
+  debug ~title:"normalize step" "%s\n+\n%s\n==>\n%s"
+    (string_of_normalisedStagedSpec acc)
+    (string_of_staged_spec stagedSpec)
+    (string_of_normalisedStagedSpec res);
+  res
+
 (* | IndPred {name; _} -> *)
 (* failwith (Format.asprintf "cannot normalise predicate %s" name) *)
 
@@ -251,6 +360,12 @@ let rec used_vars_heap (h : kappa) =
   | EmptyHeap -> SSet.empty
   | PointsTo (a, t) -> SSet.add a (used_vars_term t)
   | SepConj (a, b) -> SSet.union (used_vars_heap a) (used_vars_heap b)
+
+let rec used_locs_heap (h : kappa) =
+  match h with
+  | EmptyHeap -> SSet.empty
+  | PointsTo (a, _) -> SSet.singleton a
+  | SepConj (a, b) -> SSet.union (used_locs_heap a) (used_locs_heap b)
 
 let used_vars_state (p, h) = SSet.union (used_vars_pi p) (used_vars_heap h)
 
@@ -303,13 +418,63 @@ let optimize_existentials : normalisedStagedSpec -> normalisedStagedSpec =
   in
   (es1, norm1)
 
+(* if we see [ex x; Norm(x->..., ...); ex y; Norm(y->..., ...)] and [x=y] appears somewhere, remove y (the lexicographically larger of the two) *)
+(* this does just one iteration. could do to a fixed point *)
+let simplify_existential_locations sp =
+  let _, ex_loc =
+    List.fold_left
+      (fun (ex, locs) c ->
+        match c with
+        | Exists vs -> (SSet.add_seq (List.to_seq vs) ex, locs)
+        | Require (p, h)
+        | NormalReturn (p, h, _)
+        | HigherOrder (p, h, _, _)
+        | RaisingEff (p, h, _, _) ->
+          ( ex,
+            (* used_locs_heap h *)
+            used_vars_state (p, h)
+            |> SSet.filter (fun l -> SSet.mem l ex)
+            |> SSet.union locs ))
+      (SSet.empty, SSet.empty) sp
+  in
+  let eqs =
+    List.concat_map
+      (fun s ->
+        match s with
+        | Exists _ -> []
+        | Require (p, _)
+        | NormalReturn (p, _, _)
+        | HigherOrder (p, _, _, _)
+        | RaisingEff (p, _, _, _) ->
+          pure_to_equalities p)
+      sp
+  in
+  (* if there is an eq between two existential locations, keep only one *)
+  List.fold_right
+    (fun (a, b) sp ->
+      if a <> b && SSet.mem a ex_loc && SSet.mem b ex_loc then
+        let smaller = if a < b then a else b in
+        let larger = if a < b then b else a in
+        let bs = [(larger, Var smaller)] in
+        instantiateSpec bs sp
+      else sp)
+    eqs sp
+
 let normalise_spec sp =
-  let v = verifier_getAfreeVar ~from:"n" () in
-  let acc = ([], freshNormStageVar v) in
-  let sp1 = normalise_spec_ acc sp in
-  sp1
-  (* redundant vars may appear due to fresh stages *)
-  |> optimize_existentials
+  let r =
+    let sp = simplify_existential_locations sp in
+    let sp =
+      let v = verifier_getAfreeVar ~from:"n" () in
+      let acc = ([], freshNormStageVar v) in
+      normalise_spec_ acc sp
+    in
+    sp
+    (* redundant vars may appear due to fresh stages *)
+    |> optimize_existentials
+  in
+  debug ~title:"normalise" "%s\n\n%s" (string_of_spec sp)
+    (string_of_normalisedStagedSpec r);
+  r
 
 let rec effectStage2Spec (effectStages : effectStage list) : spec =
   match effectStages with
@@ -382,91 +547,3 @@ let removeExist (specs : spec list) str : spec list =
   in
   let helper (spec : spec) : spec = List.map (fun a -> aux a) spec in
   List.map (fun a -> helper a) specs
-
-let%expect_test "normalise spec" =
-  verifier_counter_reset ();
-  let test s =
-    let n = normalise_spec s in
-    Format.printf "%s\n==>\n%s\n@." (string_of_spec s)
-      (string_of_normalisedStagedSpec n)
-  in
-  print_endline "--- norm\n";
-  test
-    [
-      NormalReturn (True, PointsTo ("x", Num 2), UNIT);
-      Require (True, PointsTo ("x", Num 1));
-    ];
-  test
-    [
-      Require (True, PointsTo ("x", Num 1));
-      NormalReturn (True, PointsTo ("x", Num 1), UNIT);
-      Require (True, PointsTo ("y", Num 2));
-      NormalReturn (True, PointsTo ("y", Num 2), UNIT);
-    ];
-  test
-    [
-      NormalReturn (True, PointsTo ("x", Num 1), UNIT);
-      Require (True, PointsTo ("x", Var "a"));
-      NormalReturn (True, PointsTo ("x", Plus (Var "a", Num 1)), UNIT);
-    ];
-  test
-    [
-      NormalReturn
-        (True, SepConj (PointsTo ("x", Num 1), PointsTo ("y", Num 2)), UNIT);
-      Require (True, PointsTo ("x", Var "a"));
-      NormalReturn (True, PointsTo ("x", Plus (Var "a", Num 1)), UNIT);
-    ];
-  test
-    [
-      NormalReturn (Atomic (EQ, Var "a", Num 3), PointsTo ("y", Var "a"), UNIT);
-      Require (Atomic (EQ, Var "b", Var "a"), PointsTo ("x", Var "b"));
-      NormalReturn (True, PointsTo ("x", Plus (Var "b", Num 1)), UNIT);
-    ];
-  print_endline "--- eff\n";
-  test
-    [
-      NormalReturn (True, PointsTo ("x", Num 1), UNIT);
-      Require (True, PointsTo ("x", Var "1"));
-      RaisingEff (True, PointsTo ("x", Num 1), ("E", [Num 3]), UNIT);
-      NormalReturn (True, PointsTo ("y", Num 2), UNIT);
-    ];
-  test
-    [
-      NormalReturn (True, PointsTo ("x", Num 1), UNIT);
-      HigherOrder (True, EmptyHeap, ("f", [Num 3]), UNIT);
-      NormalReturn (True, PointsTo ("y", Num 2), UNIT);
-    ];
-  [%expect
-    {|
-  --- norm
-
-  Norm(x->2, ()); req x->1
-  ==>
-  req F; Norm(F, ())
-
-  req x->1; Norm(x->1, ()); req y->2; Norm(y->2, ())
-  ==>
-  req x->1*y->2; Norm(x->1*y->2, ())
-
-  Norm(x->1, ()); req x->a; Norm(x->a+1, ())
-  ==>
-  req 1=a; Norm(x->a+1 /\ a=1, ())
-
-  Norm(x->1*y->2, ()); req x->a; Norm(x->a+1, ())
-  ==>
-  req 1=a; Norm(y->2*x->a+1 /\ a=1, ())
-
-  Norm(y->a /\ a=3, ()); req x->b /\ b=a; Norm(x->b+1, ())
-  ==>
-  req x->b /\ b=a; Norm(y->a*x->b+1 /\ a=3, ())
-
-  --- eff
-
-  Norm(x->1, ()); req x->1; E(x->1, (3), ()); Norm(y->2, ())
-  ==>
-  req 1=1; E(x->1 /\ 1=1, (3), ()); req emp; Norm(y->2, ())
-
-  Norm(x->1, ()); f$(emp, (3), ()); Norm(y->2, ())
-  ==>
-  req emp; f$(x->1, (3), ()); req emp; Norm(y->2, ())
-|}]

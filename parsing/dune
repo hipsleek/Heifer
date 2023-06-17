@@ -67,7 +67,7 @@
 (library
  (name core)
  (modules ProversEx Rewriting Pretty entail res forward_rules infer_types normalize)
- (libraries hiptypes provers)
+ (libraries str hiptypes provers)
  (inline_tests)
  (preprocess (pps ppx_expect ppx_deriving.std)))
 

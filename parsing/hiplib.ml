@@ -1070,7 +1070,7 @@ let rec entailmentchecking (lhs:normalisedStagedSpec list) (rhs:normalisedStaged
 
 let nonincremental prog ({m_spec = given_spec; _} as meth) =
   let time_stamp_beforeForward = Sys.time() in
-  let inferred_spec =
+  let inferred_spec, predicates, fvenv =
     (* the env is looked up from the program every time, as it's updated as we go *)
     let method_env = prog.cp_methods
       (* within a method body, params/locals should shadow functions defined outside *)
@@ -1082,9 +1082,20 @@ let nonincremental prog ({m_spec = given_spec; _} as meth) =
       |> SMap.of_seq
     in
     let env = create_fv_env method_env in
-    let inf, _env = infer_of_expression env [freshNormalReturnSpec] meth.m_body in
+    let inf, env = infer_of_expression env [freshNormalReturnSpec] meth.m_body in
     (* TODO check subsumptions in env.fv_lambda_obl *)
-    inf
+
+    (* make the new specs inferred for lambdas available to the entailment procedure as predicates *)
+    let preds_with_lambdas =
+      let lambda =
+        env.fv_methods
+        |> SMap.filter (fun k _ -> not (SMap.mem k method_env))
+        |> SMap.map (fun meth -> Entail.derive_predicate meth.m_name meth.m_params (Option.get meth.m_spec)) (* these have to have specs as they did not occur earlier, indicating they are lambdask *)
+        |> SMap.to_seq
+      in
+      SMap.add_seq lambda prog.cp_predicates
+    in
+    inf, preds_with_lambdas, env
   in
   let time_stamp_afterForward = Sys.time() in
   let inferred_spec_n = normalise_spec_list_aux1 inferred_spec in
@@ -1095,7 +1106,7 @@ let nonincremental prog ({m_spec = given_spec; _} as meth) =
       let time_stamp_afterNormal = Sys.time() in
       (* SYH old entailment  *)
       (* let res = entailmentchecking inferred_spec_n given_spec_n in *)
-      let res = Entail.check_staged_subsumption_disj meth.m_name meth.m_params meth.m_tactics prog.cp_lemmas prog.cp_predicates inferred_spec given_spec in
+      let res = Entail.check_staged_subsumption_disj fvenv meth.m_name meth.m_params meth.m_tactics prog.cp_lemmas predicates inferred_spec given_spec in
       (*let res = Entail.check_staged_subsumption_disj m_tactics prog.cp_lemmas prog.cp_predicates inferred_spec given_spec in  *)
       let time_stamp_afterEntail = Sys.time() in
       let given_spec_n = normalise_spec_list_aux2 given_spec_n in
@@ -1129,11 +1140,11 @@ let nonincremental prog ({m_spec = given_spec; _} as meth) =
     let prog, pred =
       (* if the user has not provided a predicate for the given function,
         produce one from the inferred spec *)
-      let p = Entail.derive_predicate meth inferred_spec in
+      let p = Entail.derive_predicate meth.m_name meth.m_params inferred_spec in
       let cp_predicates = SMap.update meth.m_name
         (function
         | None ->
-        info ~title:(Format.asprintf "remembering predicate for %s" meth.m_name) "%s" (string_of_pred p);
+          info ~title:(Format.asprintf "remembering predicate for %s" meth.m_name) "%s" (string_of_pred p);
           Some p
         | Some _ -> None) prog.cp_predicates
       in
@@ -1143,17 +1154,17 @@ let nonincremental prog ({m_spec = given_spec; _} as meth) =
       (* if the user has not provided a spec for the given function, remember the inferred method spec for future use *)
       match given_spec with
       | None ->
-        (* using the predicate costs one more unfold but makes the induction hypothesis easier/possible with current heuristics *)
-        (* let msp : disj_spec = inferred_spec in *)
-        let msp : disj_spec =
+        (* using the predicate instead of the raw inferred spec makes the induction hypothesis possible with current heuristics. it costs one more unfold but that is taken care of by the current entailment procedure, which repeatedly unfolds *)
+        let _mspec : disj_spec = inferred_spec in
+        let mspec : disj_spec =
           let v = verifier_getAfreeVar ~from:"ret" () in
           let prr, _ret = split_last pred.p_params in
           let sp = [Exists [v]; HigherOrder (True, EmptyHeap, (pred.p_name, List.map (fun v1 -> Var v1) prr), Var v)]
           in
           [sp]
         in
-        info ~title:(Format.asprintf "inferred spec for %s" meth.m_name) "%s" (string_of_disj_spec msp);
-        let cp_methods = List.map (fun m -> if String.equal m.m_name meth.m_name then { m with m_spec = Some msp } else m ) prog.cp_methods
+        info ~title:(Format.asprintf "inferred spec for %s" meth.m_name) "%s" (string_of_disj_spec mspec);
+        let cp_methods = List.map (fun m -> if String.equal m.m_name meth.m_name then { m with m_spec = Some mspec } else m ) prog.cp_methods
         in
         { prog with cp_methods }
       | Some _ -> prog
@@ -1169,6 +1180,7 @@ let run_string_ incremental line =
   debug ~title:"user-specified predicates" "%s@." (string_of_smap string_of_pred prog.cp_predicates);
   (* as we handle methods, predicates are inferred and are used in place of absent specifications, so we have to keep updating the program as we go *)
   List.fold_left (fun prog meth ->
+    info ~title:(Format.asprintf "verifying: %s" meth.m_name) "";
     (* reset fresh variable counter so tests are independent.
        each function is analyzed in isolation so this is safe.
        we must, however, reset to the current checkpoint, as parsing uses fresh variables. *)

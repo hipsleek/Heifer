@@ -3,6 +3,8 @@ open Pretty
 open Infer_types
 open Normalize
 
+type fvenv = Forward_rules.fvenv
+
 (** A write-only list that supports efficient accumulation from the back *)
 module Acc : sig
   type 'a t
@@ -21,10 +23,15 @@ end = struct
 end
 
 let string_of_pi p = string_of_pi (ProversEx.normalize_pure p)
+let with_pure pi ((p, h) : state) : state = (conj [p; pi], h)
 let rename_exists_spec sp = List.hd (Forward_rules.renamingexistientalVar [sp])
 
 let rename_exists_lemma (lem : lemma) : lemma =
   { lem with l_right = rename_exists_spec lem.l_right }
+
+let rename_exists_pred (pred : pred_def) : pred_def =
+  (* TODO this probably isn't right *)
+  { pred with p_body = List.map rename_exists_spec pred.p_body }
 
 (** Matches lemma args (which may be params) and concrete args in the expr to be rewritten. If an arg is a param, adds to the returned substitution, otherwise checks if they are equal. Returns None if unification fails and the lemma shouldn't be applied, otherwise returns bindings. *)
 let unify_lem_lhs_args params la a =
@@ -59,9 +66,7 @@ let apply_lemma : lemma -> spec -> spec option =
         when (not ok) (* only apply once *) && f = lf ->
         (match unify_lem_lhs_args lem.l_params largs args with
         | Some bs ->
-          let inst_lem_rhs =
-            List.map (Forward_rules.instantiateStages bs) lem.l_right
-          in
+          let inst_lem_rhs = List.map (instantiateStages bs) lem.l_right in
           let extra_ret_equality =
             let rhs_ret = Forward_rules.retrieve_return_value inst_lem_rhs in
             Atomic (EQ, r, rhs_ret)
@@ -91,19 +96,6 @@ let apply_one_lemma : lemma list -> spec -> spec * lemma option =
         let sp1 = apply_lemma l sp in
         (match sp1 with None -> (sp, app) | Some sp1 -> (sp1, Some l)))
     (sp, None) lems
-
-let instantiate_pred : pred_def -> term list -> term -> pred_def =
- fun pred args ret ->
-  (* the predicate should have one more arg than arguments given for the return value, which we'll substitute with the return term from the caller *)
-  let params, ret_param = split_last pred.p_params in
-  let bs = (ret_param, ret) :: List.map2 (fun a b -> (a, b)) params args in
-  {
-    pred with
-    p_body =
-      List.map
-        (fun b -> List.map (Forward_rules.instantiateStages bs) b)
-        pred.p_body;
-  }
 
 module Heap = struct
   let normalize : state -> state =
@@ -169,8 +161,7 @@ let check_staged_entail : spec -> spec -> spec option =
   Some (normalisedStagedSpec2Spec norm)
 
 let instantiate_state bindings (p, h) =
-  ( Forward_rules.instantiatePure bindings p,
-    Forward_rules.instantiateHeap bindings h )
+  (instantiatePure bindings p, instantiateHeap bindings h)
 
 let instantiate_existentials_effect_stage bindings =
   let names = List.map fst bindings in
@@ -182,9 +173,8 @@ let instantiate_existentials_effect_stage bindings =
       e_post = instantiate_state bindings eff.e_post;
       e_constr =
         ( fst eff.e_constr,
-          List.map (Forward_rules.instantiateTerms bindings) (snd eff.e_constr)
-        );
-      e_ret = Forward_rules.instantiateTerms bindings eff.e_ret;
+          List.map (instantiateTerms bindings) (snd eff.e_constr) );
+      e_ret = instantiateTerms bindings eff.e_ret;
     }
 
 (** actually instantiates existentials, vs what the forward rules version does *)
@@ -198,7 +188,7 @@ let instantiate_existentials :
     ( List.filter (fun v -> not (List.mem v names)) vs,
       instantiate_state bindings pre,
       instantiate_state bindings post,
-      Forward_rules.instantiateTerms bindings ret )
+      instantiateTerms bindings ret )
   in
   (efs1, ns1)
 
@@ -274,17 +264,43 @@ let rec check_qf :
     | None -> failwith (Format.asprintf "could not split LHS, bug?")
   end
 
-let with_pure pi ((p, h) : state) : state = (conj [p; pi], h)
+let instantiate_pred : fvenv -> pred_def -> term list -> term -> pred_def =
+ fun fvenv pred args ret ->
+  (* the predicate should have one more arg than arguments given for the return value, which we'll substitute with the return term from the caller *)
+  let pred = rename_exists_pred pred in
+  let params, ret_param = split_last pred.p_params in
+  let bs = (ret_param, ret) :: List.map2 (fun a b -> (a, b)) params args in
+  (* handle lambda arguments, as instantiating stages can only rename the constructor of a function stage, not replace it with the spec of a lambda literal *)
+  let lambdas =
+    List.map2
+      (fun p a ->
+        match a with
+        | TLambda v ->
+          let l = SMap.find v fvenv.fv_lambda in
+          [(p, l.m_spec |> Option.map (fun s -> (l.m_params, s)))]
+          (* TODO fix the type of this, just leave it out insead of having a list of option *)
+        | _ -> [])
+      params args
+    |> List.concat
+  in
+  let p_body =
+    pred.p_body
+    |> List.map (fun b -> List.map (instantiateStages bs) b)
+    |> Forward_rules.instantiate_higher_order_functions pred.p_name lambdas
+  in
+  { pred with p_body }
 
-let rec unfold_predicate_aux pred prefix (s : spec) : disj_spec =
+let rec unfold_predicate_aux fvenv pred prefix (s : spec) : disj_spec =
   match s with
-  | [] -> List.map Acc.to_list prefix
+  | [] ->
+    let r = List.map Acc.to_list prefix in
+    r
   | HigherOrder (p, h, (name, args), ret) :: s1
     when String.equal name pred.p_name ->
     info
       ~title:(Format.asprintf "unfolding: %s" name)
       "%s" (string_of_pred pred);
-    let pred1 = instantiate_pred pred args ret in
+    let pred1 = instantiate_pred fvenv pred args ret in
     let prefix =
       prefix
       |> List.concat_map (fun p1 ->
@@ -293,32 +309,26 @@ let rec unfold_predicate_aux pred prefix (s : spec) : disj_spec =
                  p1 |> Acc.add (NormalReturn (p, h, UNIT)) |> Acc.add_all disj)
                pred1.p_body)
     in
-    unfold_predicate_aux pred prefix s1
+    unfold_predicate_aux fvenv pred prefix s1
   | c :: s1 ->
     let pref = List.map (fun p -> Acc.add c p) prefix in
-    unfold_predicate_aux pred pref s1
+    unfold_predicate_aux fvenv pred pref s1
+
+(* let unfold_predicate : pred_def -> disj_spec -> disj_spec =
+   fun pred ds ->
+    List.concat_map (fun s -> unfold_predicate_aux pred [Acc.empty] s) ds *)
 
 (** f;a;e \/ b and a == c \/ d
   => f;(c \/ d);e \/ b
   => f;c;e \/ f;d;e \/ b *)
-let unfold_predicate : pred_def -> disj_spec -> disj_spec =
- fun pred ds ->
-  List.concat_map (fun s -> unfold_predicate_aux pred [Acc.empty] s) ds
-
-let unfold_predicate_spec : pred_def -> spec -> disj_spec =
- fun pred sp -> unfold_predicate_aux pred [Acc.empty] sp
+let unfold_predicate_spec : fvenv -> pred_def -> spec -> disj_spec =
+ fun fvenv pred sp -> unfold_predicate_aux fvenv pred [Acc.empty] sp
 
 let unfold_predicate_norm :
-    pred_def -> normalisedStagedSpec -> normalisedStagedSpec list =
- fun pred sp ->
+    fvenv -> pred_def -> normalisedStagedSpec -> normalisedStagedSpec list =
+ fun fvenv pred sp ->
   List.map normalise_spec
-    (unfold_predicate_spec pred (normalisedStagedSpec2Spec sp))
-
-(* let spec_function_names (spec : spec) =
-   List.concat_map
-     (function HigherOrder (_, _, (f, _), _) -> [f] | _ -> [])
-     spec
-   |> SSet.of_list *)
+    (unfold_predicate_spec fvenv pred (normalisedStagedSpec2Spec sp))
 
 (** proof context *)
 type pctx = {
@@ -330,19 +340,33 @@ type pctx = {
   unfolded : string list;
   (* lemmas applied *)
   applied : string list;
+  (* the environment from forward verification, containing lambda definitions *)
+  fvenv : fvenv;
 }
 
 let string_of_pctx ctx =
   Format.asprintf
-    "lemmas: %s\npredicates: %s\nq_vars: %s\nunfolded: %s\napplied: %s@."
+    "lemmas: %s\n\
+     predicates: %s\n\
+     q_vars: %s\n\
+     unfolded: %s\n\
+     applied: %s\n\
+     fvenv: %s@."
     (string_of_smap string_of_lemma ctx.lems)
     (string_of_smap string_of_pred ctx.preds)
     (string_of_list Fun.id ctx.q_vars)
     (string_of_list Fun.id ctx.unfolded)
     (string_of_list Fun.id ctx.applied)
+    "<...>"
 
-let default_pctx lems preds q_vars =
-  { lems; preds; q_vars; unfolded = []; applied = [] }
+let create_pctx lems preds q_vars fvenv =
+  { lems; preds; q_vars; unfolded = []; applied = []; fvenv }
+
+(* let spec_function_names (spec : spec) =
+   List.concat_map
+     (function HigherOrder (_, _, (f, _), _) -> [f] | _ -> [])
+     spec
+   |> SSet.of_list *)
 
 (** Recurses down a normalised staged spec, matching stages,
    translating away heap predicates to build a pure formula,
@@ -355,7 +379,7 @@ let default_pctx lems preds q_vars =
    i: index of stage
    all_vars: all quantified variables
 *)
-let rec check_staged_subsumption_aux :
+let rec check_staged_subsumption_stagewise :
     pctx ->
     int ->
     pi ->
@@ -400,7 +424,7 @@ let rec check_staged_subsumption_aux :
           (es1.e_evars, (es1.e_pre, es1.e_post, es1.e_ret))
           (es2.e_evars, (es2.e_pre, with_pure arg_eqs es2.e_post, es2.e_ret))
       in
-      check_staged_subsumption_aux ctx (i + 1)
+      check_staged_subsumption_stagewise ctx (i + 1)
         (conj [assump; residue])
         (es1r, ns1) (es2r, ns2))
   | ([], ns1), ([], ns2) ->
@@ -417,31 +441,13 @@ let rec check_staged_subsumption_aux :
   | ([], _), (es2 :: _, _) ->
     let c2, _ = es2.e_constr in
     let@ _ = try_other_measures ctx s1 s2 None (Some c2) i assump |> or_else in
-    (* try to unfold predicates *)
-    (* (match List.find_opt (fun p -> String.equal c2 p.p_name) ctx.preds with
-       | Some def when not (List.mem c2 ctx.unfolded) ->
-         let unf = unfold_predicate_norm def s2 in
-         let@ s2_1 = any ~name:"?" ~to_s:string_of_normalisedStagedSpec unf in
-         check_staged_subsumption_aux
-           { ctx with unfolded = c2 :: ctx.unfolded }
-           i assump s1 s2_1
-       | _ -> *)
     info ~title:"FAIL" "ante is shorter\n%s\n<:\n%s"
       (string_of_normalisedStagedSpec s1)
       (string_of_normalisedStagedSpec s2);
     fail
   | (es1 :: _, _), ([], _) ->
-    (* try to unfold predicates *)
     let c1, _ = es1.e_constr in
     let@ _ = try_other_measures ctx s1 s2 (Some c1) None i assump |> or_else in
-    (* match List.find_opt (fun p -> String.equal c1 p.p_name) ctx.preds with
-       | Some def when not (List.mem c1 ctx.unfolded) ->
-         let unf = unfold_predicate_norm def s1 in
-         let@ s1_1 = all ~to_s:string_of_normalisedStagedSpec unf in
-         check_staged_subsumption_aux
-           { ctx with unfolded = c1 :: ctx.unfolded }
-           i assump s1 s1_1
-       | _ -> *)
     info ~title:"FAIL" "conseq is shorter\n%s\n<:\n%s"
       (string_of_normalisedStagedSpec s1)
       (string_of_normalisedStagedSpec s2);
@@ -463,14 +469,14 @@ and try_other_measures :
     let+ res = SMap.find_opt c2 ctx.preds in
     (c2, res)
   with
-  | Some (c2, def) when not (List.mem c2 ctx.unfolded) ->
-    let unf = unfold_predicate_norm def s2 in
-    if List.length unf > 1 then
-      info ~title:"after unfolding (right)" "%s\n<:\n%s"
-        (string_of_normalisedStagedSpec s1)
-        (string_of_disj_spec (List.map normalisedStagedSpec2Spec unf));
+  | Some (c2, pred_def) when not (List.mem c2 ctx.unfolded) ->
+    let unf = unfold_predicate_norm ctx.fvenv pred_def s2 in
+    (* if List.length unf > 1 then *)
+    (* info ~title:"after unfolding (right)" "%s\n<:\n%s"
+       (string_of_normalisedStagedSpec s1)
+       (string_of_disj_spec (List.map normalisedStagedSpec2Spec unf)); *)
     let@ s2_1 = any ~name:"?" ~to_s:string_of_normalisedStagedSpec unf in
-    check_staged_subsumption_aux
+    check_staged_subsumption_stagewise
       { ctx with unfolded = c2 :: ctx.unfolded }
       i assump s1 s2_1
   | _ ->
@@ -481,13 +487,13 @@ and try_other_measures :
        (c1, res)
      with
     | Some (c1, def) when not (List.mem c1 ctx.unfolded) ->
-      let unf = unfold_predicate_norm def s1 in
-      if List.length unf > 1 then
-        info ~title:"after unfolding (left)" "%s\n<:\n%s"
-          (string_of_disj_spec (List.map normalisedStagedSpec2Spec unf))
-          (string_of_normalisedStagedSpec s2);
+      let unf = unfold_predicate_norm ctx.fvenv def s1 in
+      (* if List.length unf > 1 then *)
+      (* info ~title:"after unfolding (left)" "%s\n<:\n%s"
+         (string_of_disj_spec (List.map normalisedStagedSpec2Spec unf))
+         (string_of_normalisedStagedSpec s2); *)
       let@ s1_1 = all ~to_s:string_of_normalisedStagedSpec unf in
-      check_staged_subsumption_aux
+      check_staged_subsumption_stagewise
         { ctx with unfolded = c1 :: ctx.unfolded }
         i assump s1_1 s2
     | _ ->
@@ -510,17 +516,20 @@ and try_other_measures :
                (string_of_normalisedStagedSpec s2));
       (match applied with
       | Some app ->
-        check_staged_subsumption_aux
+        check_staged_subsumption_stagewise
           { ctx with applied = app.l_name :: ctx.unfolded }
           i assump (normalise_spec s1_1) s2
       | None ->
         (* no predicates to try unfolding *)
+        let pp c =
+          match c with
+          | Some f -> Format.asprintf "effect stage %s" f
+          | None -> Format.asprintf "normal stage"
+        in
         info
           ~title:
-            (Format.asprintf
-               "ran out of tricks to make constructors %s and %s match"
-               (string_of_option Fun.id c1)
-               (string_of_option Fun.id c2))
+            (Format.asprintf "ran out of tricks to make %s and %s match" (pp c1)
+               (pp c2))
           "%s" (string_of_pctx ctx);
         fail))
 
@@ -541,7 +550,7 @@ and stage_subsumes :
     (string_of_existentials vs1)
     (string_of_state pre1) (string_of_state post1)
     (string_of_existentials vs2)
-    (string_of_state pre1) (string_of_state post2);
+    (string_of_state pre2) (string_of_state post2);
   (* contravariance *)
   let@ pre_l, pre_r = check_qf "pren" ctx.q_vars pre2 pre1 in
   let* assump, tenv =
@@ -558,7 +567,7 @@ and stage_subsumes :
     in
     info
       ~title:(Format.asprintf "(%s pre)" what)
-      "%s => %s%s ==> %s" (string_of_pi left)
+      "%s => %s%s %s" (string_of_pi left)
       (string_of_existentials vs1)
       (string_of_pi right) (string_of_res pre_res);
     if pre_res then Some (conj [pre_l; pre_r; assump], tenv) else None
@@ -584,7 +593,7 @@ and stage_subsumes :
     in
     info
       ~title:(Format.asprintf "(%s post)" what)
-      "%s => %s%s ==> %s" (string_of_pi left)
+      "%s => %s%s %s" (string_of_pi left)
       (string_of_existentials vs22)
       (string_of_pi right) (string_of_res post_res);
     if post_res then Some (conj [right; assump]) else None
@@ -605,11 +614,11 @@ let rec apply_tactics ts lems preds (ds1 : disj_spec) (ds2 : disj_spec) =
         match c with
         | Unfold_right ->
           info ~title:"unfold left" "%s" ((string_of_smap string_of_pred) preds);
-          let ds2 = SMap.fold (fun _n -> unfold_predicate) preds ds2 in
+          (* let ds2 = SMap.fold (fun _n -> unfold_predicate) preds ds2 in *)
           (ds1, ds2)
         | Unfold_left ->
           info ~title:"unfold left" "%s" (string_of_smap string_of_pred preds);
-          let ds1 = SMap.fold (fun _n -> unfold_predicate) preds ds1 in
+          (* let ds1 = SMap.fold (fun _n -> unfold_predicate) preds ds1 in *)
           (ds1, ds2)
         | Case (i, ta) ->
           (* case works on the left only *)
@@ -635,16 +644,16 @@ let rec apply_tactics ts lems preds (ds1 : disj_spec) (ds2 : disj_spec) =
     (ds1, ds2) ts
 
 let check_staged_subsumption :
-    lemma SMap.t -> pred_def SMap.t -> spec -> spec -> unit option =
- fun lems preds n1 n2 ->
+    fvenv -> lemma SMap.t -> pred_def SMap.t -> spec -> spec -> unit option =
+ fun fvenv lems preds n1 n2 ->
   let es1, ns1 = normalise_spec n1 in
   let es2, ns2 = normalise_spec n2 in
   let q_vars =
     Forward_rules.getExistientalVar (es1, ns1)
     @ Forward_rules.getExistientalVar (es2, ns2)
   in
-  let ctx = default_pctx lems preds q_vars in
-  check_staged_subsumption_aux ctx 0 True (es1, ns1) (es2, ns2)
+  let ctx = create_pctx lems preds q_vars fvenv in
+  check_staged_subsumption_stagewise ctx 0 True (es1, ns1) (es2, ns2)
 
 let create_induction_hypothesis params ds1 ds2 =
   let fail why =
@@ -679,6 +688,7 @@ let create_induction_hypothesis params ds1 ds2 =
   S1 \/ S2 |= S3 \/ S4
 *)
 let check_staged_subsumption_disj :
+    fvenv ->
     string ->
     string list ->
     tactic list ->
@@ -687,7 +697,7 @@ let check_staged_subsumption_disj :
     disj_spec ->
     disj_spec ->
     bool =
- fun mname params _ts lems preds ds1 ds2 ->
+ fun fvenv mname params _ts lems preds ds1 ds2 ->
   info
     ~title:(Format.asprintf "disj subsumption: %s" mname)
     "%s\n<:\n%s" (string_of_disj_spec ds1) (string_of_disj_spec ds2);
@@ -698,10 +708,10 @@ let check_staged_subsumption_disj :
   (* let ds1, ds2 = apply_tactics ts lems preds ds1 ds2 in *)
   (let@ s1 = all ~to_s:string_of_spec ds1 in
    let@ s2 = any ~name:"subsumes-disj-rhs-any" ~to_s:string_of_spec ds2 in
-   check_staged_subsumption lems preds s1 s2)
+   check_staged_subsumption fvenv lems preds s1 s2)
   |> succeeded
 
-let derive_predicate meth disj =
+let derive_predicate m_name m_params disj =
   let norm = List.map normalise_spec disj in
   (* change the last norm stage so it uses res and has an equality constraint *)
   let new_spec =
@@ -711,8 +721,12 @@ let derive_predicate meth disj =
       norm
     |> List.map normalisedStagedSpec2Spec
   in
-  {
-    p_name = meth.m_name;
-    p_params = meth.m_params @ ["res"];
-    p_body = new_spec;
-  }
+  let res =
+    { p_name = m_name; p_params = m_params @ ["res"]; p_body = new_spec }
+  in
+  debug
+    ~title:(Format.asprintf "derive predicate %s" m_name)
+    "%s\n\n%s"
+    (string_of_list string_of_normalisedStagedSpec norm)
+    (string_of_pred res);
+  res

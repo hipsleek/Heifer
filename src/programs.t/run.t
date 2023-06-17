@@ -67,3 +67,9 @@
 
   $ check ../examples/closure.ml
   ALL OK!
+
+  $ check ../examples/1_second_call_valid.ml
+  ALL OK!
+
+  $ check ../examples/2_first_call_valid.ml
+  ALL OK!

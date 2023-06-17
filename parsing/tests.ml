@@ -15,7 +15,7 @@ let parse_fn_stage s =
   | e :: _, _ -> e.e_constr
   | _ -> failwith "failed to parse"
 
-let%expect_test "existentials" =
+let%expect_test "instantiation/renaming of existentials" =
   let show a = a |> string_of_disj_spec |> print_endline in
 
   Pretty.verifier_counter_reset ();
@@ -33,8 +33,8 @@ let%expect_test "existentials" =
   [a] |> show;
   [%expect
     {|
-    ex a_1; Norm(b=1, a_1+1)
-    Norm(b=1, a_1+1)
+    ex a1; Norm(b=1, a1+1)
+    Norm(b=1, a1+1)
     ex b; Norm(b=1, a+1) |}]
 
 let%expect_test "apply lemma" =
@@ -192,3 +192,128 @@ let%expect_test "apply lemma" =
     result: Some ex a; Norm(a=b/\b=2, 3); Norm(T/\1=x, ()); Norm(emp, x); ex r; Norm(r=a+4, r)
     norm: Some ex a r; Norm(a=b/\b=2/\1=x/\r=a+4, r)
     --- |}]
+
+let%expect_test "normalise spec" =
+  verifier_counter_reset ();
+  let test s =
+    let n = normalise_spec s in
+    Format.printf "%s\n==>\n%s\n@." (string_of_spec s)
+      (string_of_normalisedStagedSpec n)
+  in
+  print_endline "--- norm\n";
+  test
+    [
+      NormalReturn (True, PointsTo ("x", Num 2), UNIT);
+      Require (True, PointsTo ("x", Num 1));
+    ];
+  test
+    [
+      Require (True, PointsTo ("x", Num 1));
+      NormalReturn (True, PointsTo ("x", Num 1), UNIT);
+      Require (True, PointsTo ("y", Num 2));
+      NormalReturn (True, PointsTo ("y", Num 2), UNIT);
+    ];
+  test
+    [
+      NormalReturn (True, PointsTo ("x", Num 1), UNIT);
+      Require (True, PointsTo ("x", Var "a"));
+      NormalReturn (True, PointsTo ("x", Plus (Var "a", Num 1)), UNIT);
+    ];
+  test
+    [
+      NormalReturn
+        (True, SepConj (PointsTo ("x", Num 1), PointsTo ("y", Num 2)), UNIT);
+      Require (True, PointsTo ("x", Var "a"));
+      NormalReturn (True, PointsTo ("x", Plus (Var "a", Num 1)), UNIT);
+    ];
+  test
+    [
+      NormalReturn (Atomic (EQ, Var "a", Num 3), PointsTo ("y", Var "a"), UNIT);
+      Require (Atomic (EQ, Var "b", Var "a"), PointsTo ("x", Var "b"));
+      NormalReturn (True, PointsTo ("x", Plus (Var "b", Num 1)), UNIT);
+    ];
+  print_endline "--- existential locations\n";
+  test
+    [
+      Exists ["x"];
+      NormalReturn (Atomic (EQ, Var "x", Var "y"), PointsTo ("x", Num 1), UNIT);
+      Exists ["y"];
+      Require (True, PointsTo ("y", Num 1));
+    ];
+  test
+    [
+      Exists ["x"];
+      NormalReturn (Atomic (EQ, Var "x", Var "y"), PointsTo ("x", Num 2), UNIT);
+      Exists ["y"];
+      Require (True, PointsTo ("y", Num 1));
+    ];
+  test
+    [
+      Exists ["x"];
+      NormalReturn (True, PointsTo ("x", Num 1), UNIT);
+      Exists ["y"];
+      Require (True, PointsTo ("y", Num 1));
+      NormalReturn (Atomic (EQ, Var "x", Var "y"), EmptyHeap, UNIT);
+    ];
+  print_endline "--- eff\n";
+  test
+    [
+      NormalReturn (True, PointsTo ("x", Num 1), UNIT);
+      Require (True, PointsTo ("x", Var "1"));
+      RaisingEff (True, PointsTo ("x", Num 1), ("E", [Num 3]), UNIT);
+      NormalReturn (True, PointsTo ("y", Num 2), UNIT);
+    ];
+  test
+    [
+      NormalReturn (True, PointsTo ("x", Num 1), UNIT);
+      HigherOrder (True, EmptyHeap, ("f", [Num 3]), UNIT);
+      NormalReturn (True, PointsTo ("y", Num 2), UNIT);
+    ];
+  [%expect
+    {|
+  --- norm
+
+  Norm(x->2, ()); req x->1
+  ==>
+  req F; Norm(F, ())
+
+  req x->1; Norm(x->1, ()); req y->2; Norm(y->2, ())
+  ==>
+  req x->1*y->2; Norm(x->1*y->2, ())
+
+  Norm(x->1, ()); req x->a; Norm(x->a+1, ())
+  ==>
+  req 1=a; Norm(x->a+1 /\ a=1, ())
+
+  Norm(x->1*y->2, ()); req x->a; Norm(x->a+1, ())
+  ==>
+  req 1=a; Norm(y->2*x->a+1 /\ a=1, ())
+
+  Norm(y->a /\ a=3, ()); req x->b /\ b=a; Norm(x->b+1, ())
+  ==>
+  req x->b /\ b=a; Norm(y->a*x->b+1 /\ a=3, ())
+
+  --- existential locations
+
+  ex x; Norm(x->1 /\ x=y, ()); ex y; req y->1
+  ==>
+  ex x; req emp; Norm(x=x, ())
+
+  ex x; Norm(x->2 /\ x=y, ()); ex y; req y->1
+  ==>
+  ex x; req F; Norm(x=x/\F, ())
+
+  ex x; Norm(x->1, ()); ex y; req y->1; Norm(x=y, ())
+  ==>
+  ex x; req emp; Norm(x=x, ())
+
+  --- eff
+
+  Norm(x->1, ()); req x->1; E(x->1, (3), ()); Norm(y->2, ())
+  ==>
+  req 1=1; E(x->1 /\ 1=1, (3), ()); req emp; Norm(y->2, ())
+
+  Norm(x->1, ()); f$(emp, (3), ()); Norm(y->2, ())
+  ==>
+  req emp; f$(x->1, (3), ()); req emp; Norm(y->2, ())
+|}]
