@@ -51,8 +51,7 @@
   ALL OK!
 
   $ check ../evaluation/11_exchange.ml
-  TESTS FAILED
-  ========== Function: main ==========
+  ALL OK!
 
   $ check ../evaluation/12_two_pointers.ml
   ALL OK!

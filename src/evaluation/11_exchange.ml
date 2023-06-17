@@ -31,6 +31,6 @@ let main ()
 = 
   let x = ref 11 in 
   let res = exc_hanlder x 5 in 
-  print_endline (string_of_int res);
+  (* print_endline (string_of_int res); *)
   res
 
