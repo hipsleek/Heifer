@@ -398,7 +398,7 @@ let rec check_staged_subsumption_stagewise :
     (match String.equal c1 c2 with
     | false ->
       let@ _ =
-        try_other_measures ctx s1 s2 None (Some c2) i assump |> or_else
+        try_other_measures ctx s1 s2 (Some c1) (Some c2) i assump |> or_else
       in
       info ~title:"FAIL" "constr %s != %s" c1 c2;
       fail
