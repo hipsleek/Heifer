@@ -23,3 +23,36 @@ let map_cl cl_in li =
   assert (!x = l); 
   list'
 
+
+(* fold_rec (acc, f, li, r) = 
+li = nil /\ Norm(ret = acc, ret) 
+\/
+li = x :: xs /\ f$(acc, x, r_f); fold_rec$(r_f, f, xs, r) 
+*)
+let rec fold_rec acc f li = 
+  match li with 
+  | [] -> acc 
+  | x ::xs -> 
+    let acc' = f acc x in 
+    fold_rec acc' f xs 
+
+let rec fold_rec acc f li inv = 
+  match li with 
+  | [] -> inv li acc; acc 
+  | x ::xs -> 
+    let acc' = f acc x in 
+    fold_rec acc' f xs 
+    
+(* 
+Norm (ret = init+ List.sum(li), ret)
+*)
+let fold_client init li = fold_rec init (fun acc a -> acc + a) li
+
+(*
+base case: li = [] -> Norm(ret = 0, ret) 
+inductive case: li = x::xs -> 
+  Norm(r_f = acc+x, r_f); Norm (ret = List.sum(xs), r = r_f+ret)
+
+  fold_rec$(r_f, f, xs) 
+*)
+li = x :: xs =>  x + List.sum(xs) = list.sum(li)
