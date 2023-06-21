@@ -133,14 +133,14 @@ let check_sat f =
 let check env pi = check_sat (fun ctx -> pi_to_expr env ctx pi)
 
 (* see https://discuss.ocaml.org/t/different-z3-outputs-when-using-the-api-vs-cli/9348/3 and https://github.com/Z3Prover/z3/issues/5841 *)
-let ex_quantify_expr vars ctx e =
+let ex_quantify_expr env vars ctx e =
   match vars with
   | [] -> e
   | _ :: _ ->
     Z3.Quantifier.(
       expr_of_quantifier
         (mk_exists_const ctx
-           (List.map (Z3.Arithmetic.Integer.mk_const_s ctx) vars)
+           (List.map (fun v -> term_to_expr env ctx (Var v)) vars)
            e None [] [] None None))
 
 (** check if [p1 => ex vs. p2] is valid. this is a separate function which doesn't cache results because exists isn't in pi *)
@@ -149,7 +149,7 @@ let entails_exists env p1 vs p2 =
     let r =
       Z3.Boolean.mk_not ctx
         (Z3.Boolean.mk_implies ctx (pi_to_expr env ctx p1)
-           (ex_quantify_expr vs ctx (pi_to_expr env ctx p2)))
+           (ex_quantify_expr env vs ctx (pi_to_expr env ctx p2)))
     in
     (* Format.printf "oblig: %s@." (Expr.to_string r); *)
     r
