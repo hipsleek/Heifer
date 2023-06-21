@@ -545,7 +545,7 @@ and stage_subsumes :
     (string_of_state pre2) (string_of_state post2);
   (* contravariance *)
   let@ pre_l, pre_r = check_qf "pren" ctx.q_vars pre2 pre1 in
-  let* assump, tenv =
+  let* pre_residue, tenv =
     let left = conj [assump; pre_l] in
     let right = pre_r in
     let tenv =
@@ -569,11 +569,11 @@ and stage_subsumes :
   let vs22 = List.filter (fun v -> not (SSet.mem v new_univ)) vs2 in
   (* let res_v = verifier_getAfreeVar ~from:"res" () in *)
   let@ post_l, post_r = check_qf "postn" ctx.q_vars post1 post2 in
-  let* residue =
+  let* post_residue =
     (* Atomic (EQ, Var res_v, ret1) *)
     (* Atomic (EQ, Var res_v, ret2) *)
     (* don't use fresh variable for the ret value so it carries forward in the residue *)
-    let left = conj [assump; post_l] in
+    let left = conj [pre_residue; post_l] in
     let right = conj [post_r; Atomic (EQ, ret1, ret2)] in
     let tenv =
       let env = infer_types_pi tenv left in
@@ -588,9 +588,9 @@ and stage_subsumes :
       "%s => %s%s %s" (string_of_pi left)
       (string_of_existentials vs22)
       (string_of_pi right) (string_of_res post_res);
-    if post_res then Some (conj [right; assump]) else None
+    if post_res then Some (conj [left; right; pre_residue]) else None
   in
-  pure residue
+  pure (conj [pre_residue; post_residue])
 
 let extract_binders spec =
   let binders, rest =
