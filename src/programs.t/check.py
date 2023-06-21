@@ -7,6 +7,12 @@ fn = ''
 yet_failed = False
 for l in sys.stdin:
   l = l.rstrip()
+
+  if 'error' in l:
+    yet_failed = True
+    print(l)
+    break
+
   if first:
     fn = l
   else:

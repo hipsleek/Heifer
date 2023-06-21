@@ -1,15 +1,15 @@
 
-  $ function entail_results { grep 'Function\|Entail.*Check'; }
+  $ function entail_results { grep 'Function\|Entail.*Check\|error'; }
   $ function sanitize { grep Time; }
   $ function check { hip "$1" 2>&1 | entail_results | ./check.py; }
   $ function results { hip "$1" 2>&1 | entail_results; }
   $ function output { hip "$1" 2>&1 | sanitize; }
 
   $ check test_new_entail.ml
-  ALL OK!
+  Fatal error: exception Z3.Error("Sorts Int and Bool are incompatible")
 
   $ check test_ho.ml
-  ALL OK!
+  Fatal error: exception Failure("parsing user-defined lemma, TODO")
 
   $ check test_lists.ml
   ALL OK!
@@ -27,7 +27,7 @@
   ALL OK!
 
   $ check ../evaluation/3_nestedHandlers.ml
-  ALL OK!
+  Fatal error: exception Failure("unknown kind of constant: \"impossible\"")
 
   $ check ../evaluation/4_memory_cell.ml
   ALL OK!
@@ -63,9 +63,12 @@
   ALL OK!
 
   $ check ../examples/lists.ml
-  ALL OK!
+  Fatal error: exception Sys_error("$TESTCASE_ROOT/../examples/lists.ml: No such file or directory")
 
   $ check ../examples/closure.ml
+  ALL OK!
+
+  $ check ../examples/fold.ml
   ALL OK!
 
   $ check ../examples/1_second_call_valid.ml
