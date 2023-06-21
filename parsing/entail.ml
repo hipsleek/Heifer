@@ -320,7 +320,7 @@ type pctx = {
   (* all quantified variables in this formula *)
   q_vars : string list;
   (* predicates which have been unfolded, used as an approximation of progress (in the cyclic proof sense) *)
-  unfolded : string list;
+  unfolded : (string * [ `Left | `Right ]) list;
   (* lemmas applied *)
   applied : string list;
   (* the environment from forward verification, containing lambda definitions *)
@@ -338,7 +338,9 @@ let string_of_pctx ctx =
     (string_of_smap string_of_lemma ctx.lems)
     (string_of_smap string_of_pred ctx.preds)
     (string_of_list Fun.id ctx.q_vars)
-    (string_of_list Fun.id ctx.unfolded)
+    (string_of_list
+       (string_of_pair Fun.id (function `Left -> "L" | `Right -> "R"))
+       ctx.unfolded)
     (string_of_list Fun.id ctx.applied)
     "<...>"
 
@@ -452,11 +454,11 @@ and try_other_measures :
     let+ res = SMap.find_opt c1 ctx.preds in
     (c1, res)
   with
-  | Some (c1, def) when not (List.mem c1 ctx.unfolded) ->
+  | Some (c1, def) when not (List.mem (c1, `Left) ctx.unfolded) ->
     let unf = unfold_predicate_norm ctx.fvenv def s1 in
     let@ s1_1 = all ~to_s:string_of_normalisedStagedSpec unf in
     check_staged_subsumption_stagewise
-      { ctx with unfolded = c1 :: ctx.unfolded }
+      { ctx with unfolded = (c1, `Left) :: ctx.unfolded }
       i assump s1_1 s2
   | _ ->
     (* if that fails, try to unfold on the right *)
@@ -465,11 +467,11 @@ and try_other_measures :
        let+ res = SMap.find_opt c2 ctx.preds in
        (c2, res)
      with
-    | Some (c2, pred_def) when not (List.mem c2 ctx.unfolded) ->
+    | Some (c2, pred_def) when not (List.mem (c2, `Right) ctx.unfolded) ->
       let unf = unfold_predicate_norm ctx.fvenv pred_def s2 in
       let@ s2_1 = any ~name:"?" ~to_s:string_of_normalisedStagedSpec unf in
       check_staged_subsumption_stagewise
-        { ctx with unfolded = c2 :: ctx.unfolded }
+        { ctx with unfolded = (c2, `Right) :: ctx.unfolded }
         i assump s1 s2_1
     | _ ->
       (* if that fails, try to apply a lemma *)
