@@ -463,39 +463,31 @@ and try_other_measures :
     pi ->
     unit option =
  fun ctx s1 s2 c1 c2 i assump ->
-  (* first try to unfold on the right *)
+  (* first try to unfold on the left. it works if there is something to unfold (a constructor, and a corresponding definition in the predicate environmet) *)
   match
-    let* c2 = c2 in
-    let+ res = SMap.find_opt c2 ctx.preds in
-    (c2, res)
+    let* c1 = c1 in
+    let+ res = SMap.find_opt c1 ctx.preds in
+    (c1, res)
   with
-  | Some (c2, pred_def) when not (List.mem c2 ctx.unfolded) ->
-    let unf = unfold_predicate_norm ctx.fvenv pred_def s2 in
-    (* if List.length unf > 1 then *)
-    (* info ~title:"after unfolding (right)" "%s\n<:\n%s"
-       (string_of_normalisedStagedSpec s1)
-       (string_of_disj_spec (List.map normalisedStagedSpec2Spec unf)); *)
-    let@ s2_1 = any ~name:"?" ~to_s:string_of_normalisedStagedSpec unf in
+  | Some (c1, def) when not (List.mem c1 ctx.unfolded) ->
+    let unf = unfold_predicate_norm ctx.fvenv def s1 in
+    let@ s1_1 = all ~to_s:string_of_normalisedStagedSpec unf in
     check_staged_subsumption_stagewise
-      { ctx with unfolded = c2 :: ctx.unfolded }
-      i assump s1 s2_1
+      { ctx with unfolded = c1 :: ctx.unfolded }
+      i assump s1_1 s2
   | _ ->
-    (* if that fails, unfold on the left *)
+    (* if that fails, try to unfold on the right *)
     (match
-       let* c1 = c1 in
-       let+ res = SMap.find_opt c1 ctx.preds in
-       (c1, res)
+       let* c2 = c2 in
+       let+ res = SMap.find_opt c2 ctx.preds in
+       (c2, res)
      with
-    | Some (c1, def) when not (List.mem c1 ctx.unfolded) ->
-      let unf = unfold_predicate_norm ctx.fvenv def s1 in
-      (* if List.length unf > 1 then *)
-      (* info ~title:"after unfolding (left)" "%s\n<:\n%s"
-         (string_of_disj_spec (List.map normalisedStagedSpec2Spec unf))
-         (string_of_normalisedStagedSpec s2); *)
-      let@ s1_1 = all ~to_s:string_of_normalisedStagedSpec unf in
+    | Some (c2, pred_def) when not (List.mem c2 ctx.unfolded) ->
+      let unf = unfold_predicate_norm ctx.fvenv pred_def s2 in
+      let@ s2_1 = any ~name:"?" ~to_s:string_of_normalisedStagedSpec unf in
       check_staged_subsumption_stagewise
-        { ctx with unfolded = c1 :: ctx.unfolded }
-        i assump s1_1 s2
+        { ctx with unfolded = c2 :: ctx.unfolded }
+        i assump s1 s2_1
     | _ ->
       (* if that fails, try to apply a lemma *)
       let eligible =
