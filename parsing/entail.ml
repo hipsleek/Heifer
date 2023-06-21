@@ -55,7 +55,7 @@ let unify_lem_lhs_args params la a =
 (** goes down the given spec trying to match the lemma's left side, and rewriting on match. may fail *)
 let apply_lemma : lemma -> spec -> spec option =
  fun lem sp ->
-  (* let lem = rename_exists_lemma lem in *)
+  let lem = rename_exists_lemma lem in
   let rec loop ok acc sp =
     match sp with
     | [] -> (Acc.to_list acc, ok)

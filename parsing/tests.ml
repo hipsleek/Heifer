@@ -117,8 +117,8 @@ let%expect_test "apply lemma" =
     parameter of lemma does not appear on the right
     lemma: forall [x], f <: ex b; Norm(emp, b)
     original: req emp; f$(emp, (), 1); req emp; Norm(emp, 1)
-    result: Some Norm(T/\1=b, ()); ex b; Norm(emp, b)
-    norm: Some ex b; Norm(1=b, b)
+    result: Some Norm(T/\1=b2, ()); ex b2; Norm(emp, b2)
+    norm: Some ex b2; Norm(1=b2, b2)
     ---
     prefix
     lemma: forall [x], f <: Norm(emp, x+1)
