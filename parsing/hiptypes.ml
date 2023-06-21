@@ -178,3 +178,54 @@ include Common
 type 'a quantified = string list * 'a
 
 type instantiations = (string * string) list
+
+(* functions to reify pure formulae because z3 cannot print solvers correctly *)
+
+let ocaml_of_bop bop =
+  match bop with
+  | EQ -> "EQ"
+  | GT -> "GT"
+  | LT -> "LT"
+  | GTEQ -> "GTEQ"
+  | LTEQ -> "LTEQ"
+
+let rec ocaml_of_term term =
+  match term with
+  | TTrue -> "TTrue"
+  | UNIT -> "UNIT"
+  | TFalse -> "TFalse"
+  | Nil -> "Nil"
+  | Num i -> Format.asprintf "Num %d" i
+  | Var v -> Format.asprintf "Var %s" (quote v)
+  | Plus (a, b) ->
+    Format.asprintf "Plus (%s, %s)" (ocaml_of_term a) (ocaml_of_term b)
+  | Minus (a, b) ->
+    Format.asprintf "Minus (%s, %s)" (ocaml_of_term a) (ocaml_of_term b)
+  | Eq (a, b) ->
+    Format.asprintf "Eq (%s, %s)" (ocaml_of_term a) (ocaml_of_term b)
+  | TApp (f, a) ->
+    Format.asprintf "TApp (\"%s\", %s)" f (string_of_list ocaml_of_term a)
+  | TLambda v -> Format.asprintf "TLambda %s" (quote v)
+  | TList _ | TTupple _ -> failwith "asd"
+
+let ocaml_of_type typ =
+  match typ with
+  | Int -> "Int"
+  | Unit -> "Unit"
+  | List_int -> "List_int"
+  | Bool -> "Bool"
+  | TVar v -> Format.asprintf "TVar %s" (quote v)
+
+let rec ocaml_of_pi pi =
+  match pi with
+  | True -> "True"
+  | False -> "False"
+  | Atomic (bop, a, b) ->
+    Format.asprintf "Atomic (%s, %s, %s)" (ocaml_of_bop bop) (ocaml_of_term a)
+      (ocaml_of_term b)
+  | And (a, b) -> Format.asprintf "And (%s, %s)" (ocaml_of_pi a) (ocaml_of_pi b)
+  | Or (a, b) -> Format.asprintf "Or (%s, %s)" (ocaml_of_pi a) (ocaml_of_pi b)
+  | Imply (a, b) ->
+    Format.asprintf "Imply (%s, %s)" (ocaml_of_pi a) (ocaml_of_pi b)
+  | Not a -> Format.asprintf "Not (%s)" (ocaml_of_pi a)
+  | Predicate (_, _) -> failwith "asd"

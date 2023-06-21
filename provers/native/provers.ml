@@ -24,13 +24,27 @@ let rec term_to_expr env ctx t : Z3.Expr.expr =
   | Var v ->
     (match SMap.find_opt v env with
     | None ->
-      failwith (Format.asprintf "could not infer type for variable: %s" v)
+      (* failwith (Format.asprintf "could not infer type for variable: %s" v) *)
+      (* default to int *)
+      Z3.Arithmetic.Integer.mk_const_s ctx v
     | Some t1 ->
+      (* Format.printf "%s : %s@." v
+         (match t1 with
+         | Int -> "Int"
+         | List_int -> "List_int"
+         | Unit -> "unit"
+         | Bool -> "Bool"
+         | TVar _ -> "tvar"); *)
       (match t1 with
       | TVar _ ->
-        failwith (Format.asprintf "could not infer type for variable: %s" v)
-      | Int | Unit -> Z3.Arithmetic.Integer.mk_const_s ctx v
+        (* failwith (Format.asprintf "could not infer type for variable: %s" v) *)
+        (* default to int *)
+        Z3.Arithmetic.Integer.mk_const_s ctx v
+      | Int | Unit ->
+        (* Format.printf "%s is int@." v; *)
+        Z3.Arithmetic.Integer.mk_const_s ctx v
       | List_int ->
+        (* Format.printf "%s is list@." v; *)
         let list_int = list_int_sort ctx in
         Z3.Expr.mk_const_s ctx v list_int
       | Bool -> Z3.Boolean.mk_const_s ctx v))
@@ -101,27 +115,87 @@ let rec pi_to_expr env ctx : pi -> Expr.expr = function
   *)
   | Not pi -> Z3.Boolean.mk_not ctx (pi_to_expr env ctx pi)
 
-let z3_query (_s : string) =
-  (* Format.printf "z3: %s@." _s; *)
-  ()
+(* let z3_query (_s : string) =
+   (* Format.printf "z3: %s@." _s; *)
+   () *)
+
+let _test () =
+  let ctx = Z3.mk_context [] in
+  (* let int = Z3.Arithmetic.Integer.mk_sort ctx in *)
+  let list_int = list_int_sort ctx in
+  let left =
+    (* Z3.Boolean.mk_eq ctx
+       (Z3.Arithmetic.Integer.mk_const_s ctx "a")
+       (Z3.Arithmetic.Integer.mk_numeral_i ctx 1) *)
+    Z3.Boolean.mk_and ctx
+      [
+        Z3.Boolean.mk_eq ctx
+          (Z3.Expr.mk_const_s ctx "a" list_int)
+          (Z3.Z3List.nil list_int);
+        Z3.Boolean.mk_eq ctx
+          (Z3.Expr.mk_const_s ctx "c" list_int)
+          (Z3.Z3List.nil list_int);
+      ]
+  in
+  let right =
+    (* Z3.Boolean.mk_eq ctx
+       (Z3.Arithmetic.Integer.mk_const_s ctx "b")
+       (Z3.Arithmetic.Integer.mk_numeral_i ctx 1) *)
+    Z3.Boolean.mk_and ctx
+      [
+        Z3.Boolean.mk_eq ctx
+          (Z3.Expr.mk_const_s ctx "b" list_int)
+          (Z3.Z3List.nil list_int);
+        Z3.Boolean.mk_eq ctx
+          (Z3.Expr.mk_const_s ctx "d" list_int)
+          (Z3.Z3List.nil list_int);
+      ]
+  in
+  let expr =
+    Z3.Boolean.mk_not ctx
+      (Z3.Boolean.mk_implies ctx left
+         Z3.Quantifier.(
+           expr_of_quantifier
+             (mk_exists_const ctx
+                [
+                  Z3.Expr.mk_const_s ctx "b" list_int;
+                  Z3.Expr.mk_const_s ctx "d" list_int
+                  (* Z3.Expr.mk_const_s ctx "b" int *)
+                  (* Z3.Arithmetic.Integer.mk_const_s ctx "b"; *);
+                ]
+                right None [] [] None None)))
+  in
+  let solver = Solver.mk_simple_solver ctx in
+  Solver.add solver [expr];
+  Format.printf "z3 expr: %s@." (Expr.to_string expr);
+  Format.printf "z3 solver: %s@." (Solver.to_string solver);
+  let sat = Solver.check solver [] == Solver.SATISFIABLE in
+  Format.printf "sat: %b@." sat;
+  match Solver.get_model solver with
+  | None -> Format.printf "no model@."
+  | Some m -> Format.printf "model: %s@." (Model.to_string m)
 
 let check_sat f =
   let debug = false in
+  (* let debug = true in *)
   let cfg =
     (if debug then [("model", "false")] else []) @ [("proof", "false")]
   in
   let ctx = mk_context cfg in
   let expr = f ctx in
+  if debug then Format.printf "z3 expr: %s@." (Expr.to_string expr);
   (* z3_query (Expr.to_string expr); *)
-  if debug then Format.printf "z3: %s@." (Expr.to_string expr);
   (* let goal = Goal.mk_goal ctx true true false in *)
   (* Goal.add goal [ expr ]; *)
   (* let goal = Goal.simplify goal None in *)
   (* if debug then Format.printf "goal: %s@." (Goal.to_string goal); *)
   let solver = Solver.mk_simple_solver ctx in
   Solver.add solver [expr];
-  z3_query (Z3.Solver.to_string solver);
-  let sat = Solver.check solver [expr] == Solver.SATISFIABLE in
+  if debug then Format.printf "z3 expr: %s@." (Expr.to_string expr);
+  if debug then Format.printf "z3 solver: %s@." (Solver.to_string solver);
+  (* z3_query (Z3.Solver.to_string solver); *)
+  (* expr *)
+  let sat = Solver.check solver [] == Solver.SATISFIABLE in
   if debug then Format.printf "sat: %b@." sat;
   if debug then begin
     match Solver.get_model solver with
@@ -152,6 +226,15 @@ let entails_exists env p1 vs p2 =
            (ex_quantify_expr env vs ctx (pi_to_expr env ctx p2)))
     in
     (* Format.printf "oblig: %s@." (Expr.to_string r); *)
+    (* let debug = true in *)
+    let debug = false in
+    if debug then
+      Format.printf "obligation:\n(Provers.entails_exists (%s) (%s) %s (%s))@."
+        (Format.asprintf "SMap.of_seq (List.to_seq %s)"
+           (string_of_list
+              (string_of_pair quote ocaml_of_type)
+              (SMap.bindings env)))
+        (ocaml_of_pi p1) (string_of_list quote vs) (ocaml_of_pi p2);
     r
   in
   not (check_sat f)

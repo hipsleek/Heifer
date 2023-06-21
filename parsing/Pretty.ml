@@ -65,16 +65,6 @@ let%expect_test _ =
   |}]
 
 
-let string_of_pair pa pb (a,b) =
-  Format.asprintf "(%s, %s)" (pa a) (pb b)
-
-let string_of_list p xs =
-  match xs with
-  | [] -> "[]"
-  | _ ->
-    let a = List.map p xs |> String.concat "; " in
-    Format.asprintf "[%s]" a
-
 let string_of_args pp args =
   match args with
   | [] -> "()"

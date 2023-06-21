@@ -5,23 +5,6 @@ open Normalize
 
 type fvenv = Forward_rules.fvenv
 
-(** A write-only list that supports efficient accumulation from the back *)
-module Acc : sig
-  type 'a t
-
-  val empty : 'a t
-  val add : 'a -> 'a t -> 'a t
-  val add_all : 'a list -> 'a t -> 'a t
-  val to_list : 'a t -> 'a list
-end = struct
-  type 'a t = 'a list
-
-  let empty = []
-  let add = List.cons
-  let add_all xs t = List.fold_left (Fun.flip List.cons) t xs
-  let to_list = List.rev
-end
-
 let string_of_pi p = string_of_pi (ProversEx.normalize_pure p)
 let with_pure pi ((p, h) : state) : state = (conj [p; pi], h)
 let rename_exists_spec sp = List.hd (Forward_rules.renamingexistientalVar [sp])

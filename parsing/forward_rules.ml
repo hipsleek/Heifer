@@ -157,43 +157,42 @@ let freshen (specs:disj_spec): disj_spec =
 
 
 let instantiate_higher_order_functions fname fn_args (spec:disj_spec) : disj_spec =
-  let rec loop (acc:disj_spec) (ss:spec) =
+  let rec loop (acc:stagedSpec Acc.t list) (ss:spec) =
     match ss with
-    | [] -> List.map List.rev acc
+    | [] -> List.map Acc.to_list acc
     | s :: ss1 ->
-      begin match s with
-      | Exists _ | Require (_, _)
-      | NormalReturn _ | RaisingEff _ ->
-        loop (List.map (fun tt -> s :: tt) acc) ss1
-      | HigherOrder (_p, _h, (name, args), ret) ->
+      (match s with
+      | Exists _ | Require (_, _) | NormalReturn _ | RaisingEff _ ->
+        loop (List.map (fun tt -> Acc.add s tt) acc) ss1
+      | HigherOrder (p, h, (name, args), ret) ->
         let matching = List.find_map (fun (mname, mspec) ->
           match mspec with
           | Some (mparams, msp) when String.equal mname name && List.length mparams = List.length args ->
           Some (mparams, msp)
-          | _ -> None) fn_args in
-        begin match matching with
+          | _ -> None) fn_args
+        in
+        (match matching with
         | None ->
-          loop (List.map (fun tt -> s :: tt) acc) ss1
+          loop (List.map (fun tt -> Acc.add s tt) acc) ss1
         | Some (mparams, mspec) ->
           let bs = bindFormalNActual mparams args in
           let instantiated = instantiateSpecList bs (renamingexistientalVar mspec)
             (* replace return value with whatever x was replaced with *)
           in
-          (* reversed because we're really adding in reverse to each element of the outer list - the ordering of the (set of) disjuncts doesn't matter *)
-          let res = List.concat_map (fun tt ->
-            List.map (fun dis -> List.rev dis @ tt) instantiated) acc in
+          let res = acc |> List.concat_map (fun tt ->
+            List.map (fun dis -> tt |> Acc.add (NormalReturn (p, h, UNIT)) |> Acc.add_all dis) instantiated)
+          in
           let ret1 = match ret with Var s -> s | _ -> failwith (Format.asprintf "return value of ho %s was not a var" (string_of_term ret)) in
           (* instantiate the return value in the remainder of the input before using it *)
           let ss2 =
             let bs = List.map (fun s -> (ret1, retrieve_return_value s)) instantiated in
             instantiateSpec bs ss1
           in
-          loop res ss2
-        end
-      end
+          loop res ss2))
   in
-  let res = List.concat_map (fun ss -> loop [[]] ss) spec in
-  debug ~title:(Format.asprintf "instantiate higher order function: %s" fname) "args: %s\n\n%s\n==>\n%s" (string_of_list (string_of_pair Fun.id (string_of_option (string_of_pair (string_of_list Fun.id) (string_of_list string_of_spec)))) fn_args) (string_of_disj_spec spec) (string_of_disj_spec res);
+  (* in acc, order of disjuncts doesn't matter *)
+  let res = List.concat_map (fun ss -> loop [Acc.empty] ss) spec in
+info ~title:(Format.asprintf "instantiate higher order function: %s" fname) "args: %s\n\n%s\n==>\n%s" (string_of_list (string_of_pair Fun.id (string_of_option (string_of_pair (string_of_list Fun.id) (string_of_list string_of_spec)))) fn_args) (string_of_disj_spec spec) (string_of_disj_spec res);
   res
 
 
