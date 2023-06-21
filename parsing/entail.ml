@@ -492,7 +492,7 @@ and try_other_measures :
       (match applied with
       | Some app ->
         check_staged_subsumption_stagewise
-          { ctx with applied = app.l_name :: ctx.unfolded }
+          { ctx with applied = app.l_name :: ctx.applied }
           i assump (normalise_spec s1_1) s2
       | None ->
         (* no predicates to try unfolding *)
