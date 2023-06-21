@@ -827,6 +827,8 @@ The precedences must be listed from low to high.
 %type <Hiptypes.spec> only_effect_spec
 %start only_disj_effect_spec
 %type <Hiptypes.disj_spec> only_disj_effect_spec
+%start only_pure_formula
+%type <Hiptypes.pi> only_pure_formula
 %%
 
 /* macros */
@@ -2561,10 +2563,11 @@ pure_formula_term:
     { List.fold_right term_cons elts Nil }
 
   | LPAREN RPAREN {UNIT}
-  | LPAREN n = list_of_TupleTerms RPAREN {TTupple n}
+  // | LPAREN n = list_of_TupleTerms RPAREN {TTupple n}
 
 
   | MINUS {Var "_"}
+  | constr=LIDENT args=delimited(LPAREN, separated_nonempty_list(COMMA, pure_formula_term), RPAREN) { TApp (constr, args) }
   | v = LIDENT { Var v }
   (*| pure_formula_term rest = pure_formula_term_aux { 
     let (op, t) = rest in 
@@ -2572,6 +2575,8 @@ pure_formula_term:
     *)
 
     
+  | TRUE { TTrue }
+  | FALSE { TFalse }
   | pure_formula_term PLUS pure_formula_term { Plus ($1, $3) }
   | pure_formula_term MINUS pure_formula_term { Minus ($1, $3) }
   | LPAREN pure_formula_term RPAREN { $2 }
@@ -2598,8 +2603,11 @@ pure_formula:
   | pure_formula DISJUNCTION pure_formula { Or ($1, $3) }
   | pure_formula IMPLICATION pure_formula { Imply ($1, $3) }
   | TILDE pure_formula { Not ($2) } 
-  | v = LIDENT LPAREN a = pure_formula_term RPAREN { Predicate (v, a) }
+  //| v = LIDENT LPAREN a = pure_formula_term RPAREN { Predicate (v, a) }
 ;
+
+only_pure_formula:
+| p=pure_formula EOF { (p:pi) }
 
 (*
 effect_spec_aux:
