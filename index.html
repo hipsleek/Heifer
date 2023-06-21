@@ -185,31 +185,7 @@ let main ()
   in
   set_all_zero mutlist;
   assert (!mutlist = [ref 0]);
-  0">src/examples/3_all_zero.ml</option><option value=src/examples/4_composation.ml data-text="
-let (mutlist:(((int ref) list) ref)) = ref [ref 1; ref 2; ref 3; ref 4]
-
-
-let rec take_n n (li:(int ref) list) : (int ref) list  = 
-  if n == 0 then []
-  else 
-    match li with 
-    | [] -> []
-    | x :: xs -> 
-      x :: take_n (n-1) xs 
-
-let rec skip_n n (li:(int ref) list) : (int ref) list  = 
-  if n == 0 then li 
-  else 
-    (match li with 
-    | [] -> []
-    | _ :: xs -> 
-      skip_n (n-1) xs )
-      ;;
-
-mutlist := take_n  3 (!mutlist);;
-mutlist := skip_n  2 (!mutlist);;
-
-assert (!mutlist = [ref 3]);;">src/examples/4_composation.ml</option><option value=src/examples/applyN.ml data-text="let rec applyN_unfolded f x n
+  0">src/examples/3_all_zero.ml</option><option value=src/examples/applyN.ml data-text="let rec applyN_unfolded f x n
 (*@
   Norm(n=0/\emp, x) \/
   req n>0/\emp; ex r2; f(x, r2); ex r1; applyN_unfolded(f, r2, n-1, r1); Norm(emp, r1)
@@ -295,13 +271,39 @@ let caller1 ()
 (*@ ex w; Norm(w->4, 4) @*)
 = let y = ref 1 in 
   let y1 = compose g f y in
-  !y1 *)">src/examples/compose.ml</option><option value=src/examples/lists.ml data-text="
+  !y1 *)">src/examples/compose.ml</option><option value=src/examples/fold.ml data-text="
+let rec length li = 
+  match li with 
+  | [] -> 0
+  | x :: xs -> 1 + length xs
+
+let rec foldr f li acc =
+  match li with 
+  | [] -> acc 
+  | x :: xs -> 
+    let acc' = f x acc in 
+    foldr f xs acc'
+
+let foldr_length xs init
+(*@ ex r; length(xs, r); Norm(emp, r+init) @*)
+=
+  let g c t = 1 + t in
+  foldr g xs init
+
+let rec sum li = 
+  match li with 
+  | [] -> 0
+  | x :: xs -> x + sum xs
+
+let foldr_sum xs init
+(*@ ex r; sum(xs, r); Norm(emp, r+init) @*)
+=
+  let g c t = c + t in
+  foldr g xs init">src/examples/fold.ml</option><option value=src/examples/map.ml data-text="
 let rec map f xs =
   match xs with
   | [] -> []
   | x :: xs1 -> f x :: map f xs1
-
-let incr x = x + 1
 
 let id y = y
 
@@ -309,6 +311,24 @@ let map_id ys
 (*@ Norm(emp, ys) @*)
 = map id ys
 
+let succ x = x + 1
+
+let map_not_id_false ys
+(*@ Norm(emp, ys) @*)
+= map succ ys
+
+(* ghost function that specifies what mapping succ should return *)
+let rec succ_list xs =
+  match xs with
+  | [] -> []
+  | x :: xs1 -> succ x :: succ_list xs1
+
+(* we use succ_list in the statement of this lemma *)
+let map_succ ys
+(*@ ex r; succ_list(ys, r); Norm(emp, r) @*)
+= map succ ys
+
+(*
 let x = ref 0 ;; 
 
 let cl n = x := x + 1 ; n 
@@ -319,40 +339,38 @@ let map_cl cl_in li =
   let list' = List.map (fun a -> cl_in a) li in 
   assert (!x = l); 
   list'
+*)">src/examples/map.ml</option><option value=src/examples/take_skip.ml data-text="
+(* let (mutlist:(((int ref) list) ref)) = ref [ref 1; ref 2; ref 3; ref 4] *)
 
 
-(* fold_rec (acc, f, li, r) = 
-li = nil /\ Norm(ret = acc, ret) 
-\/
-li = x :: xs /\ f$(acc, x, r_f); fold_rec$(r_f, f, xs, r) 
-*)
-let rec fold_rec acc f li = 
-  match li with 
-  | [] -> acc 
-  | x ::xs -> 
-    let acc' = f acc x in 
-    fold_rec acc' f xs 
+let rec take n li =
+  (* (li:(int ref) list) : (int ref) list  =  *)
+  if n = 0 then []
+  else 
+    (match li with 
+    | [] -> []
+    | x :: xs -> 
+      x :: take (n-1) xs)
 
-let rec fold_rec acc f li inv = 
-  match li with 
-  | [] -> inv li acc; acc 
-  | x ::xs -> 
-    let acc' = f acc x in 
-    fold_rec acc' f xs 
-    
-(* 
-Norm (ret = init+ List.sum(li), ret)
-*)
-let fold_client init li = fold_rec init (fun acc a -> acc + a) li
+let rec skip n li =
+  (* (li:(int ref) list) : (int ref) list  =  *)
+  if n = 0 then li 
+  else 
+    (match li with 
+    | [] -> []
+    | _ :: xs -> 
+      skip (n-1) xs)
 
-(*
-base case: li = [] -> Norm(ret = 0, ret) 
-inductive case: li = x::xs -> 
-  Norm(r_f = acc+x, r_f); Norm (ret = List.sum(xs), r = r_f+ret)
+      (* ;; *)
 
-  fold_rec$(r_f, f, xs) 
-*)
-li = x :: xs =>  x + List.sum(xs) = list.sum(li)">src/examples/lists.ml</option><option value=src/evaluation/0_heap_zero_once_twice.ml data-text="effect Zero : int 
+let take_skip n xs
+(*@ Norm(emp, []) @*)
+= skip n (take n xs)
+
+(* mutlist := take_n  3 (!mutlist);;
+mutlist := skip_n  2 (!mutlist);;
+
+assert (!mutlist = [ref 3]);; *)">src/examples/take_skip.ml</option><option value=src/evaluation/0_heap_zero_once_twice.ml data-text="effect Zero : int 
 effect Once : int 
 effect Twice : int 
 
@@ -565,7 +583,7 @@ let bar ()
 =
   match foo () with 
   | x -> x 
-  | effect E k -> (failwith &quot;impossible&quot;)
+  | effect E k -> assert false
 
 let baz () 
 (*@ 
@@ -937,7 +955,7 @@ let handler2  ()
     <script>
       // this is substituted at build time and is used in page.js
       function postExampleLoad() {
-        console.log("Built Tue Jun 20 14:23:34 UTC 2023");
+        console.log("Built Wed Jun 21 17:01:53 UTC 2023");
         console.log("loading z3...");
       }
     </script>
