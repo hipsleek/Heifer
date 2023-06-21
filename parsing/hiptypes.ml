@@ -17,6 +17,7 @@ type term =
     | Eq of term * term 
     | TTrue
     | TFalse
+    | TNot of term
     | TApp of string * term list
     | Nil
     (* pointer to an env of lambda terms. directly having specifications here
@@ -192,6 +193,7 @@ let ocaml_of_bop bop =
 let rec ocaml_of_term term =
   match term with
   | TTrue -> "TTrue"
+  | TNot a -> Format.asprintf "TNot (%s)" (ocaml_of_term a)
   | UNIT -> "UNIT"
   | TFalse -> "TFalse"
   | Nil -> "Nil"

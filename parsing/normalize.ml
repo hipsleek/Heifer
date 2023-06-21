@@ -17,6 +17,7 @@ let rec instantiateTerms (bindings : (string * core_value) list) (t : term) :
     binding
   | TList tLi -> TList (List.map (fun t1 -> instantiateTerms bindings t1) tLi)
   | TTupple tLi -> TList (List.map (fun t1 -> instantiateTerms bindings t1) tLi)
+  | TNot t1 -> TNot (instantiateTerms bindings t1)
   | Plus (t1, t2) ->
     Plus (instantiateTerms bindings t1, instantiateTerms bindings t2)
   | Eq (t1, t2) ->
@@ -343,6 +344,7 @@ let rec used_vars_term (t : term) =
   | Var s -> SSet.singleton s
   | Eq (a, b) | Plus (a, b) | Minus (a, b) ->
     SSet.union (used_vars_term a) (used_vars_term b)
+  | TNot a -> used_vars_term a
   | TApp (_, args) -> SSet.concat (List.map used_vars_term args)
   | TLambda _ -> SSet.empty
 

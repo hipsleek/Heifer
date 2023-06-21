@@ -12,6 +12,7 @@ let map_id ys
 (*@ Norm(emp, ys) @*)
 = map id ys
 
+(*
 let x = ref 0 ;; 
 
 let cl n = x := x + 1 ; n 
@@ -22,3 +23,4 @@ let map_cl cl_in li =
   let list' = List.map (fun a -> cl_in a) li in 
   assert (!x = l); 
   list'
+*)

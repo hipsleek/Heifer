@@ -71,6 +71,9 @@ let rec infer_types_term ?hint (env : abs_typ_env) term : typ * abs_typ_env =
     match (term, hint) with
     | UNIT, _ -> (Unit, env)
     | TTrue, _ | TFalse, _ -> (Bool, env)
+    | TNot a, _ ->
+      let _at, env1 = infer_types_term ~hint:Bool env a in
+      (Bool, env1)
     | Nil, _ -> (List_int, env)
     | Num _, _ -> (Int, env)
     (* possibly add syntactic heuristics for types, such as names *)

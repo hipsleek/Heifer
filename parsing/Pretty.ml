@@ -163,6 +163,7 @@ let rec string_of_term t : string =
   | Nil -> "[]"
   | TTrue -> "true"
   | TFalse -> "false"
+  | TNot a -> Format.asprintf "not(%s)" (string_of_term a)
   | Var str -> str
   | Eq (t1, t2) -> string_of_term t1 ^ "==" ^ string_of_term t2
   | Plus (t1, t2) -> string_of_term t1 ^ "+" ^ string_of_term t2

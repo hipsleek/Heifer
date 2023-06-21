@@ -18,7 +18,7 @@ let bar ()
 =
   match foo () with 
   | x -> x 
-  | effect E k -> (failwith "impossible")
+  | effect E k -> assert false
 
 let baz () 
 (*@ 

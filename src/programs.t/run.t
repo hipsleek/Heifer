@@ -6,10 +6,10 @@
   $ function output { hip "$1" 2>&1 | sanitize; }
 
   $ check test_new_entail.ml
-  Fatal error: exception Z3.Error("Sorts Int and Bool are incompatible")
+  ALL OK!
 
   $ check test_ho.ml
-  Fatal error: exception Failure("parsing user-defined lemma, TODO")
+  ALL OK!
 
   $ check test_lists.ml
   ALL OK!
@@ -27,7 +27,7 @@
   ALL OK!
 
   $ check ../evaluation/3_nestedHandlers.ml
-  Fatal error: exception Failure("unknown kind of constant: \"impossible\"")
+  ALL OK!
 
   $ check ../evaluation/4_memory_cell.ml
   ALL OK!
@@ -62,8 +62,8 @@
   $ check ../examples/applyN.ml
   ALL OK!
 
-  $ check ../examples/lists.ml
-  Fatal error: exception Sys_error("$TESTCASE_ROOT/../examples/lists.ml: No such file or directory")
+  $ check ../examples/map.ml
+  ALL OK!
 
   $ check ../examples/closure.ml
   ALL OK!

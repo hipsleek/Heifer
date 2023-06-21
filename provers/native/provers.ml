@@ -66,6 +66,7 @@ let rec term_to_expr env ctx t : Z3.Expr.expr =
     Z3.Boolean.mk_eq ctx (term_to_expr env ctx t1) (term_to_expr env ctx t2)
   | TTrue -> Z3.Boolean.mk_true ctx
   | TFalse -> Z3.Boolean.mk_false ctx
+  | TNot a -> Z3.Boolean.mk_not ctx (term_to_expr env ctx a)
   | TApp (f, a) ->
     Z3.Expr.mk_app ctx (get_fun_decl ctx f) (List.map (term_to_expr env ctx) a)
   | TList _ | TTupple _ -> failwith "term_to_expr"
