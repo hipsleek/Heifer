@@ -34,6 +34,7 @@ let rec build_term : Jv.t -> term -> Jv.t =
   | Nil -> build_term ctx (Var "nil")
   | TTrue -> Jv.call (Jv.get ctx "Bool") "val" [| Jv.of_bool true |]
   | TFalse -> Jv.call (Jv.get ctx "Bool") "val" [| Jv.of_bool false |]
+  | TNot a -> Jv.apply (Jv.get ctx "Not") [| build_term ctx a |]
   | TApp _ -> failwith "?"
   | TLambda _ -> failwith "?"
   | TList _ | TTupple _ -> failwith "not yet implemented"
