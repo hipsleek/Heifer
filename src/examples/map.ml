@@ -39,3 +39,40 @@ let map_cl cl_in li =
   assert (!x = l); 
   list'
 *)
+
+
+let cl_map xs x = 
+(* cl_map (xs, x, ret) = req x -> init; length(xs, r); Norm(x-> init+r /\ ret =xs, ret) *)
+  let f a = x := !x+1; a in 
+  map f xs ;; 
+
+(*
+Inductive case:
+
+map(f, xs, r) |-  req x -> init; length(xs, r); Norm(x-> init+r /\ ret =xs, ret) 
+
+Norm (xs=hd::tl, _); f(hd, r);                         map(f, tl, r1); Norm (emp, r::r1) |-  req x -> init; length(xs, r); Norm(x-> init+r /\ ret =xs, ret) 
+
+Norm (xs=hd::tl, _); req x->init; Norm(x->init+1, hd); map(f, tl, r1); Norm (emp, hd::r1) |-  req x -> init; length(xs, r); Norm(x-> init+r /\ ret =xs, ret) 
+
+LHS: 
+
+Norm (xs=hd::tl, _); req x->init; 
+Norm(x->init+1, hd);  req x -> init'; <=> init+1=init'
+length(tl, r'); Norm(x-> init'+r' /\ ret =tl, ret) 
+Norm (emp, hd::tl)  
+
+Norm (xs=hd::tl, _); req x->init; 
+length(tl, r'); Norm(x-> init+1+r' /\ ret =hd::tl, ret) |- 
+
+
+RHS:
+req x -> init; length(xs, r); Norm(x-> init+r /\ ret =xs, ret) 
+
+req x -> init; Norm (xs=hd::tl, _); 
+length(tl, r'); Norm(x-> init+1+r' /\ ret =xs, ret) 
+
+*)
+
+let li = cl_map [1;2;3];; 
+print_endline (string_of_int (!x))
