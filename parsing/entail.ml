@@ -198,7 +198,7 @@ let rec check_qf :
     string list ->
     state ->
     state ->
-    (pi * pi -> 'a option) ->
+    (pi * pi * kappa -> 'a option) ->
     'a option =
  fun id vs ante conseq k ->
   (* TODO ptr equalities? *)
@@ -209,7 +209,8 @@ let rec check_qf :
   match (a, c) with
   | (p1, h1), (p2, EmptyHeap) ->
     let left = And (Heap.xpure h1, p1) in
-    k (left, p2)
+    (* TODO add more logging to surface what happens in these entailments *)
+    k (left, p2, h1)
   | (p1, h1), (p2, h2) -> begin
     (* we know h2 is non-empty *)
     match Heap.split_one h2 with
@@ -529,7 +530,7 @@ and stage_subsumes :
     (string_of_existentials vs2)
     (string_of_state pre2) (string_of_state post2);
   (* contravariance *)
-  let@ pre_l, pre_r = check_qf "pren" ctx.q_vars pre2 pre1 in
+  let@ pre_l, pre_r, pre_resi_l = check_qf "pren" ctx.q_vars pre2 pre1 in
   let* pre_residue, tenv =
     let left = conj [assump; pre_l] in
     let right = pre_r in
@@ -547,18 +548,24 @@ and stage_subsumes :
       "%s => %s%s %s" (string_of_pi left)
       (string_of_existentials vs1)
       (string_of_pi right) (string_of_res pre_res);
-    if pre_res then Some (conj [pre_l; pre_r; assump], tenv) else None
+    (* TODO why do we need pre_r here? as pre_l has just been proven to subsume pre_r *)
+    if pre_res then Some ((conj [pre_l; pre_r; assump], pre_resi_l), tenv)
+    else None
   in
   (* covariance *)
   let new_univ = SSet.union (used_vars_pi pre_l) (used_vars_pi pre_r) in
   let vs22 = List.filter (fun v -> not (SSet.mem v new_univ)) vs2 in
+  let conj_state (p1, h1) (p2, h2) = (And (p1, p2), SepConj (h1, h2)) in
   (* let res_v = verifier_getAfreeVar ~from:"res" () in *)
-  let@ post_l, post_r = check_qf "postn" ctx.q_vars post1 post2 in
+  let pure_pre_residue = fst pre_residue in
+  let@ post_l, post_r, _post_resi =
+    check_qf "postn" ctx.q_vars (conj_state pre_residue post1) post2
+  in
   let* post_residue =
     (* Atomic (EQ, Var res_v, ret1) *)
     (* Atomic (EQ, Var res_v, ret2) *)
     (* don't use fresh variable for the ret value so it carries forward in the residue *)
-    let left = conj [pre_residue; post_l] in
+    let left = conj [fst pre_residue; post_l] in
     let right = conj [post_r; Atomic (EQ, ret1, ret2)] in
     let tenv =
       let env = infer_types_pi tenv left in
@@ -573,9 +580,9 @@ and stage_subsumes :
       "%s => %s%s %s" (string_of_pi left)
       (string_of_existentials vs22)
       (string_of_pi right) (string_of_res post_res);
-    if post_res then Some (conj [left; right; pre_residue]) else None
+    if post_res then Some (conj [left; right; pure_pre_residue]) else None
   in
-  pure (conj [pre_residue; post_residue])
+  pure (conj [pure_pre_residue; post_residue])
 
 let extract_binders spec =
   let binders, rest =
