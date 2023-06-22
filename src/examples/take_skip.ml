@@ -42,7 +42,7 @@ let rec skip n xs =
     | [] -> []
     | x :: xs1 -> skip (n-1) xs1)
 
-(* the induction hypothesis should be: forall xs, list nat, skip n (take n xs) = [] *)
+(* the induction hypothesis should be: forall xs. skip n (take n xs) = [] *)
 
 let take_skip n xs
 (*@ Norm(emp, []) @*)

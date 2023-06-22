@@ -201,7 +201,8 @@ let test15_true ()
   assert (a-->1);
   1
 
-let test16_false ()  
+(* this is unintuitive, but true as a consequence of the frame rule *)
+let test16 ()  
 (*@ ex a;
    req a->1;
    Norm(a->1, 1)

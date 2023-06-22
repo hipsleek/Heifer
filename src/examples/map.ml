@@ -27,31 +27,28 @@ let map_succ ys
 (*@ ex r; succ_list(ys, r); Norm(emp, r) @*)
 = map succ ys
 
-(*
-let x = ref 0 ;; 
+let rec length xs =
+  match xs with
+  | [] -> 0
+  | x :: xs1 -> 1 + length xs1
 
-let cl n = x := x + 1 ; n 
-
-(* Norm (x -> a /\ l = length(li) /\ ret=list' /\ list'=li, li)  *)
-let map_cl cl_in li = 
-  let l = List.length li in 
-  let list' = List.map (fun a -> cl_in a) li in 
-  assert (!x = l); 
-  list'
-*)
-
-
-let cl_map xs x = 
-(* cl_map (xs, x, ret) = req x -> init; length(xs, r); Norm(x-> init+r /\ ret =xs, ret) *)
+let cl_map xs x
+(*@ ex i; req x->i; ex r; length(xs, r); ex r1; Norm(r1=xs/\x->i+r, r1) @*)
+=
   let f a = x := !x+1; a in 
-  map f xs ;; 
+  map f xs
 
 (*
-Inductive case:
+
+Proof sketch for inductive case:
 
 map(f, xs, r) |-  req x -> init; length(xs, r); Norm(x-> init+r /\ ret =xs, ret) 
 
+[unfold map]
+
 Norm (xs=hd::tl, _); f(hd, r);                         map(f, tl, r1); Norm (emp, r::r1) |-  req x -> init; length(xs, r); Norm(x-> init+r /\ ret =xs, ret) 
+
+[unfold f]
 
 Norm (xs=hd::tl, _); req x->init; Norm(x->init+1, hd); map(f, tl, r1); Norm (emp, hd::r1) |-  req x -> init; length(xs, r); Norm(x-> init+r /\ ret =xs, ret) 
 
@@ -62,17 +59,17 @@ Norm(x->init+1, hd);  req x -> init'; <=> init+1=init'
 length(tl, r'); Norm(x-> init'+r' /\ ret =tl, ret) 
 Norm (emp, hd::tl)  
 
+[norm]
+
 Norm (xs=hd::tl, _); req x->init; 
 length(tl, r'); Norm(x-> init+1+r' /\ ret =hd::tl, ret) |- 
 
-
 RHS:
 req x -> init; length(xs, r); Norm(x-> init+r /\ ret =xs, ret) 
+
+[unfold length]
 
 req x -> init; Norm (xs=hd::tl, _); 
 length(tl, r'); Norm(x-> init+1+r' /\ ret =xs, ret) 
 
 *)
-
-let li = cl_map [1;2;3];; 
-print_endline (string_of_int (!x))
