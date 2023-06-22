@@ -639,17 +639,32 @@ let check_staged_subsumption :
   let ctx = create_pctx lems preds q_vars fvenv in
   check_staged_subsumption_stagewise ctx 0 True (es1, ns1) (es2, ns2)
 
-let create_induction_hypothesis params ds1 ds2 =
-  let fail why =
-    info ~title:"no induction hypothesis" why;
-    None
+let create_induction_hypothesis fvenv params ds1 ds2 =
+  let fail fmt =
+    Format.kasprintf
+      (fun s ->
+        info ~title:"no induction hypothesis" "%s" s;
+        None)
+      fmt
   in
   match (ds1, ds2) with
   | [s1], [s2] ->
     let ns1 = s1 |> normalise_spec in
-    (* let s1 = ns1 |> normalisedStagedSpec2Spec in *)
-    let used_l = used_vars ns1 in
+    let used_l =
+      let used = used_vars ns1 in
+      let lambda_vars =
+        (* TODO can be simplified if specs were allowed inside terms *)
+        collect_lambdas ns1 |> SSet.to_seq |> List.of_seq
+        |> List.map (fun l ->
+               let m = SMap.find l fvenv.Forward_rules.fv_lambda in
+               m.m_spec |> Option.to_list |> List.concat
+               |> List.map normalise_spec |> List.map used_vars |> SSet.concat)
+        |> SSet.concat
+      in
+      SSet.union lambda_vars used
+    in
     (* heuristic. all parameters must be used meaningfully, otherwise there's nothing to do induction on *)
+    (* heuristic: all parameters must be used meaningfully, otherwise there's nothing to do induction on *)
     (match List.for_all (fun p -> SSet.mem p used_l) params with
     | true ->
       (match ns1 with
@@ -664,7 +679,10 @@ let create_induction_hypothesis params ds1 ds2 =
         Some ih
       | [_], _ -> fail "nontrivial norm stage after"
       | _ -> fail "not just a single stage")
-    | false -> fail "not all params used")
+    | false ->
+      fail "not all params used; only %s but params was %s"
+        (string_of_sset used_l)
+        (string_of_list Fun.id params))
   | _ -> fail "left side disjunctive"
 
 (**
@@ -685,7 +703,7 @@ let check_staged_subsumption_disj :
   info
     ~title:(Format.asprintf "disj subsumption: %s" mname)
     "%s\n<:\n%s" (string_of_disj_spec ds1) (string_of_disj_spec ds2);
-  let ih = create_induction_hypothesis params ds1 ds2 in
+  let ih = create_induction_hypothesis fvenv params ds1 ds2 in
   let lems =
     match ih with None -> lems | Some ih -> SMap.add ih.l_name ih lems
   in
