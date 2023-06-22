@@ -36,7 +36,7 @@ type fvenv = {
   (* defined methods, may be added to if lambdas are given names *)
   fv_methods : meth_def SMap.t;
 
-  (* definitions of lambda terms (which are opaque to the smt),
+  (* definitions of lambda terms (which are opaque to smt),
      added to when lambdas are defined *)
   fv_lambda : meth_def SMap.t;
 

@@ -387,6 +387,58 @@ let used_vars (sp : normalisedStagedSpec) =
   let effs, norm = sp in
   SSet.concat (used_vars_norm norm :: List.map used_vars_eff effs)
 
+let rec collect_lambdas_term (t : term) =
+  match t with
+  | Nil | TTrue | TFalse | UNIT | Num _ -> SSet.empty
+  | TList ts | TTupple ts -> SSet.concat (List.map collect_lambdas_term ts)
+  | Var _ -> SSet.empty
+  | Eq (a, b) | Plus (a, b) | Minus (a, b) ->
+    SSet.union (collect_lambdas_term a) (collect_lambdas_term b)
+  | TNot a -> collect_lambdas_term a
+  | TApp (_, args) -> SSet.concat (List.map collect_lambdas_term args)
+  | TLambda l -> SSet.singleton l
+
+let rec collect_lambdas_pi (p : pi) =
+  match p with
+  | True | False -> SSet.empty
+  | Atomic (_, a, b) ->
+    SSet.union (collect_lambdas_term a) (collect_lambdas_term b)
+  | And (a, b) | Or (a, b) | Imply (a, b) ->
+    SSet.union (collect_lambdas_pi a) (collect_lambdas_pi b)
+  | Not a -> collect_lambdas_pi a
+  | Predicate (_, t) -> collect_lambdas_term t
+
+let rec collect_lambdas_heap (h : kappa) =
+  match h with
+  | EmptyHeap -> SSet.empty
+  | PointsTo (_, t) -> collect_lambdas_term t
+  | SepConj (a, b) ->
+    SSet.union (collect_lambdas_heap a) (collect_lambdas_heap b)
+
+let collect_lambdas_state (p, h) =
+  SSet.union (collect_lambdas_pi p) (collect_lambdas_heap h)
+
+let collect_lambdas_eff eff =
+  SSet.concat
+    [
+      collect_lambdas_state eff.e_pre;
+      collect_lambdas_state eff.e_post;
+      SSet.concat (List.map collect_lambdas_term (snd eff.e_constr));
+      collect_lambdas_term eff.e_ret;
+    ]
+
+let collect_lambdas_norm (_vs, pre, post, ret) =
+  SSet.concat
+    [
+      collect_lambdas_state pre;
+      collect_lambdas_state post;
+      collect_lambdas_term ret;
+    ]
+
+let collect_lambdas (sp : normalisedStagedSpec) =
+  let effs, norm = sp in
+  SSet.concat (collect_lambdas_norm norm :: List.map collect_lambdas_eff effs)
+
 (* this moves existentials inward and removes unused ones *)
 let optimize_existentials : normalisedStagedSpec -> normalisedStagedSpec =
  fun (ess, norm) ->
