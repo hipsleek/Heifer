@@ -319,15 +319,19 @@ let%expect_test "normalise spec" =
   req emp; f$(x->1, (3), ()); req emp; Norm(y->2, ())
 |}]
 
-let entails_pure env s1 vars s2 =
-  Provers.entails_exists
-    (SMap.of_seq (List.to_seq env))
-    (parse_pi s1) vars (parse_pi s2)
+let entails_pure env_a s1 vars s2 =
+  let s1 = parse_pi s1 in
+  let s2 = parse_pi s2 in
+  let env = create_abs_env () in
+  let env = Infer_types.infer_types_pi env s1 in
+  let env = Infer_types.infer_types_pi env s2 in
+  let env = Infer_types.concrete_type_env env in
+  let env = SMap.add_seq (List.to_seq env_a) env in
+  Provers.entails_exists env s1 vars s2
 
 let%expect_test _ =
   Format.printf "%b@."
-    (entails_pure
-       [("x16", Int); ("xs", List_int); ("xs17", List_int); ("xs37", List_int)]
+    (entails_pure []
        {|head(xs)=x16/\tail(xs)=xs17/\is_cons(xs)=true/\_f18=1+x16+r|} ["xs37"]
        {|r=_f35/\xs17=xs37/\head(xs)=x36/\tail(xs)=xs37/\is_cons(xs)=true|});
   [%expect {| false |}]
