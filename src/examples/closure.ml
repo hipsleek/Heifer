@@ -1,22 +1,5 @@
 
-(* let main ()
-(*@ Norm(emp, 0) @*)
-=
-let l = ref 0 in
-(* l := !l + 1; *)
-(* l := !l + 1; *)
-let f i = !l in
-!l *)
-
-(* let main ()
-(*@ Norm(emp, [1]) @*)
-=
-let l = ref [1] in
-(* let f i = l := i :: !l; !l in *)
-let f i = !l in
-f 1 *)
-
-let main ()
+let closures ()
 (*@ ex i; Norm(i->[8;7;42], [8;7;42]) @*)
 = let l = ref [] in
   l := 42 :: !l;
@@ -25,3 +8,16 @@ let main ()
   g f 7;
   (* assert (!l = [8;7;42]); *)
   !l
+
+let closures_with_local_state ()
+(*@ Norm(emp, 3) @*)
+=
+  let f =
+    let x = ref 0 in
+    fun () -> x := !x + 1; !x
+  in
+  let g =
+    let x = ref 0 in
+    fun () -> x := !x + 2; !x
+  in
+  f () + g ()
