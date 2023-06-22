@@ -34,8 +34,7 @@ let rec length xs =
 
 let cl_map xs x
 (*@ ex i; req x->i; ex r; length(xs, r); ex r1; Norm(r1=xs/\x->i+r, r1) @*)
-=
-  let f a = x := !x+1; a in 
+= let f a = x := !x+1; a in
   map f xs
 
 (*

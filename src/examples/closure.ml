@@ -10,9 +10,8 @@ let closures ()
   !l
 
 let closures_with_local_state ()
-(*@ Norm(emp, 3) @*)
-=
-  let f =
+(*@ ex i j; Norm(i->1 * j->2, 3) @*)
+= let f =
     let x = ref 0 in
     fun () -> x := !x + 1; !x
   in
