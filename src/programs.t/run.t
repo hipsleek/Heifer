@@ -71,6 +71,9 @@
   $ check ../examples/fold.ml
   ALL OK!
 
+  $ check ../examples/iter.ml
+  ALL OK!
+
   $ check ../examples/1_second_call_valid.ml
   ALL OK!
 
