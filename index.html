@@ -225,9 +225,8 @@ let closures ()
   !l
 
 let closures_with_local_state ()
-(*@ Norm(emp, 3) @*)
-=
-  let f =
+(*@ ex i j; Norm(i->1 * j->2, 3) @*)
+= let f =
     let x = ref 0 in
     fun () -> x := !x + 1; !x
   in
@@ -235,7 +234,17 @@ let closures_with_local_state ()
     let x = ref 0 in
     fun () -> x := !x + 2; !x
   in
-  f () + g ()">src/examples/closure.ml</option><option value=src/examples/compose.ml data-text="
+  f () + g ()
+
+let simple_closures ()
+(*@ Norm(emp, 4) @*)
+= let counter =
+    let x = ref 0 in
+    fun () -> let r = !x in x := !x + 1; r
+  in
+  let x = ref 3 in
+  counter ();
+  counter () + !x">src/examples/closure.ml</option><option value=src/examples/compose.ml data-text="
 let compose f g x
 (*@
   ex r_g; g(x, r_g);
@@ -282,8 +291,12 @@ let rec foldr f li acc =
 
 let foldr_length xs init
 (*@ ex r; length(xs, r); Norm(emp, r+init) @*)
-=
-  let g c t = 1 + t in
+= let g c t = 1 + t in
+  foldr g xs init
+
+let foldr_length_state x xs init
+(*@ ex i; req x->i; ex r; length(xs, r); Norm(x->i+r, r+init) @*)
+= let g c t = x := !x + 1; 1 + t in
   foldr g xs init
 
 let rec sum li = 
@@ -293,8 +306,12 @@ let rec sum li =
 
 let foldr_sum xs init
 (*@ ex r; sum(xs, r); Norm(emp, r+init) @*)
-=
-  let g c t = c + t in
+= let g c t = c + t in
+  foldr g xs init
+
+let foldr_sum_state x xs init
+(*@ ex i; req x->i; ex r; sum(xs, r); Norm(x->i+r, r+init) @*)
+= let g c t = x := !x + c; c + t in
   foldr g xs init">src/examples/fold.ml</option><option value=src/examples/iter.ml data-text="
 let rec build_list n =
   if n = 0 then []
@@ -349,8 +366,7 @@ let rec length xs =
 
 let cl_map xs x
 (*@ ex i; req x->i; ex r; length(xs, r); ex r1; Norm(r1=xs/\x->i+r, r1) @*)
-=
-  let f a = x := !x+1; a in 
+= let f a = x := !x+1; a in
   map f xs
 
 (*
@@ -387,7 +403,21 @@ req x -> init; length(xs, r); Norm(x-> init+r /\ ret =xs, ret)
 req x -> init; Norm (xs=hd::tl, _); 
 length(tl, r'); Norm(x-> init+1+r' /\ ret =xs, ret) 
 
-*)">src/examples/map.ml</option><option value=src/examples/take_skip.ml data-text="
+*)
+
+(* this cannot be proved because the final stage doesn't match after one unfolding *)
+let cl_map_1_false ()
+(*@ Norm(emp, 0) @*)=
+  let y = ref 0 in
+  cl_map [] y;
+  !y
+
+(* this cannot be proved because we bound the number of unfoldings *)
+let cl_map_12_false ()
+(*@ Norm(emp, 2) @*)=
+  let y = ref 0 in
+  cl_map [1;2] y;
+  !y">src/examples/map.ml</option><option value=src/examples/take_skip.ml data-text="
 (* let (mutlist:(((int ref) list) ref)) = ref [ref 1; ref 2; ref 3; ref 4] *)
 
 (* let rec take n li =
@@ -1020,7 +1050,7 @@ let handler2  ()
     <script>
       // this is substituted at build time and is used in page.js
       function postExampleLoad() {
-        console.log("Built Mon Jun 26 10:30:00 UTC 2023");
+        console.log("Built Mon Jun 26 15:09:30 UTC 2023");
         console.log("loading z3...");
       }
     </script>
