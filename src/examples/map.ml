@@ -72,3 +72,17 @@ req x -> init; Norm (xs=hd::tl, _);
 length(tl, r'); Norm(x-> init+1+r' /\ ret =xs, ret) 
 
 *)
+
+(* this cannot be proved because the final stage doesn't match after one unfolding *)
+let cl_map_1_false ()
+(*@ Norm(emp, 0) @*)=
+  let y = ref 0 in
+  cl_map [] y;
+  !y
+
+(* this cannot be proved because we bound the number of unfoldings *)
+let cl_map_12_false ()
+(*@ Norm(emp, 2) @*)=
+  let y = ref 0 in
+  cl_map [1;2] y;
+  !y
