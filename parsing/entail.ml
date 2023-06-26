@@ -176,9 +176,7 @@ let instantiate_existentials :
   (efs1, ns1)
 
 let freshen_existentials vs state =
-  let vars_fresh =
-    List.map (fun v -> (v, Var (verifier_getAfreeVar ~from:v ()))) vs
-  in
+  let vars_fresh = List.map (fun v -> (v, Var (verifier_getAfreeVar v))) vs in
   (vars_fresh, instantiate_state vars_fresh state)
 
 let ( let@ ) f x = f x

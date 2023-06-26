@@ -142,7 +142,7 @@ let renamingexistientalVar (specs:spec list): spec list =
     fun spec -> 
       let normalSpec = normalise_spec spec in 
       let existientalVar = getExistientalVar normalSpec in 
-      let newNames = List.map (fun n -> (verifier_getAfreeVar ~from:n ())) existientalVar in 
+      let newNames = List.map (fun n -> (verifier_getAfreeVar n)) existientalVar in 
       let newNameTerms = List.map (fun a -> Var a) newNames in 
       let bindings = bindNewNames existientalVar newNames in 
       let temp = instantiateExistientalVar normalSpec bindings in 
@@ -363,13 +363,13 @@ and infer_of_expression (env:fvenv) (current:disj_spec) (expr:core_lang): disj_s
           concatenateSpecsWithSpec [spec] phi2', env
         )
     | CRef v -> 
-      let freshVar = verifier_getAfreeVar () in 
+      let freshVar = verifier_getAfreeVar "ref" in 
       let event = NormalReturn (True, PointsTo(freshVar, v), Var freshVar) in 
       concatenateSpecsWithEvent current [Exists [freshVar];event], env
 
 
     | CRead str -> 
-      let freshVar = verifier_getAfreeVar ~from:str () in 
+      let freshVar = verifier_getAfreeVar str in 
       let event = [Exists [freshVar];Require(True, PointsTo(str, Var freshVar)); 
         NormalReturn (True, PointsTo(str, Var freshVar) , Var freshVar)] in 
       concatenateSpecsWithEvent current event, env
@@ -386,7 +386,7 @@ and infer_of_expression (env:fvenv) (current:disj_spec) (expr:core_lang): disj_s
         | Some v -> [v]
         | _ -> []
       in 
-      let freshVar = verifier_getAfreeVar ~from:"res" () in 
+      let freshVar = verifier_getAfreeVar "res" in 
       (* after adding the perfome stage, we need to add a normal return. *)
       concatenateSpecsWithEvent current 
       [Exists [freshVar];RaisingEff(True, EmptyHeap, (label,arg), Var freshVar);
@@ -444,7 +444,7 @@ and infer_of_expression (env:fvenv) (current:disj_spec) (expr:core_lang): disj_s
         let spec_of_fname =
           (match retrieveSpecFromEnv fname env with 
           | None ->
-            let ret = verifier_getAfreeVar () in
+            let ret = verifier_getAfreeVar "ret" in
             [[Exists [ret]; HigherOrder (True, EmptyHeap, (fname, actualArgs), Var ret)]]
           | Some (formalArgs, spec_of_fname) -> 
             (* TODO should we keep existentials? *)
@@ -479,12 +479,12 @@ and infer_of_expression (env:fvenv) (current:disj_spec) (expr:core_lang): disj_s
         in
         let _spec_of_fname =
           (* this is an alternative implementation for this whole case, which simply generates an uninterpreted function and lets the entailment procedure take care of unfolding (since the implementation above can be seen as unfolding once). unfortunately the handler reasoning in the effects work relies on unfolding in the forward reasoning, so we can't switch to it yet, but this implementation should work for higher-order *)
-          let ret = verifier_getAfreeVar ~from:"ret" () in
+          let ret = verifier_getAfreeVar "ret" in
           [[Exists [ret]; HigherOrder (True, EmptyHeap, (fname, actualArgs), Var ret); NormalReturn (True,EmptyHeap, Var ret)]]
         in
         concatenateSpecsWithSpec current spec_of_fname, env)
     | CWrite  (str, v) -> 
-      let freshVar = verifier_getAfreeVar () in 
+      let freshVar = verifier_getAfreeVar "wr" in 
       let event = [Exists [freshVar];Require(True, PointsTo(str, Var freshVar)); 
                     NormalReturn (True, PointsTo(str, v), UNIT)] in 
       concatenateSpecsWithEvent current event, env
@@ -503,7 +503,8 @@ and infer_of_expression (env:fvenv) (current:disj_spec) (expr:core_lang): disj_s
     | CLambda (params, given_spec, body) ->
       let inferred, env = infer_of_expression env [[]] body in
       let inferred = inferred |> List.map (fun s -> s |> normalise_spec |> normalisedStagedSpec2Spec) in
-      let lid = verifier_getAfreeVar ~from:"lambda" () in
+      let lid = verifier_getAfreeVar "lambda" in
+      debug ~title:(Format.asprintf "lambda spec %s" lid) "%s" (string_of_disj_spec inferred);
       let mdef = {
         m_name = lid;
         m_params = params; (* TODO unit param? *)

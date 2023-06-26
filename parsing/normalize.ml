@@ -312,10 +312,10 @@ let normalise_stagedSpec (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
           ],
         freshNormStageRet ret' )
   in
-  debug ~title:"normalize step" "%s\n+\n%s\n==>\n%s"
-    (string_of_normalisedStagedSpec acc)
-    (string_of_staged_spec stagedSpec)
-    (string_of_normalisedStagedSpec res);
+  (* debug ~title:"normalize step" "%s\n+\n%s\n==>\n%s"
+     (string_of_normalisedStagedSpec acc)
+     (string_of_staged_spec stagedSpec)
+     (string_of_normalisedStagedSpec res); *)
   res
 
 (* | IndPred {name; _} -> *)
@@ -518,7 +518,7 @@ let normalise_spec sp =
   let r =
     let sp = simplify_existential_locations sp in
     let sp =
-      let v = verifier_getAfreeVar ~from:"n" () in
+      let v = verifier_getAfreeVar "n" in
       let acc = ([], freshNormStageVar v) in
       normalise_spec_ acc sp
     in

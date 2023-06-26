@@ -79,7 +79,7 @@ let rec infer_types_term ?hint (env : abs_typ_env) term : typ * abs_typ_env =
     (* possibly add syntactic heuristics for types, such as names *)
     | Var v, Some t -> (t, assert_var_has_type v t env)
     | Var v, None ->
-      let t = TVar (verifier_getAfreeVar ~from:v ()) in
+      let t = TVar (verifier_getAfreeVar v) in
       (t, assert_var_has_type v t env)
     | Plus (a, b), _ | Minus (a, b), _ ->
       let _at, env1 = infer_types_term ~hint:Int env a in
