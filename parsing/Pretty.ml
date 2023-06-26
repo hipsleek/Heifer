@@ -57,8 +57,8 @@ let%expect_test _ =
   p (verifier_getAfreeVar v);
   [%expect
   {|
-    _f0
-    _f1
+    v0
+    v1
     a2
     a3
     a4
