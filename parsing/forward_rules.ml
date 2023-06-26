@@ -333,7 +333,6 @@ and infer_of_expression (env:fvenv) (current:disj_spec) (expr:core_lang): disj_s
             | _ -> env
           in
 
-          (* Here, we only instantiate the expr2 and concat spec -- the spec for expr 1 -- in front *)
           let phi2, env, lambdas_in_expr2 =
             let phi2, env1 = infer_of_expression env [freshNormalReturnSpec] expr2 in
             let ll =
@@ -344,6 +343,7 @@ and infer_of_expression (env:fvenv) (current:disj_spec) (expr:core_lang): disj_s
             phi2, env1, ll
           in
 
+          (* Here, we only instantiate the expr2 and *)
           let phi2' = instantiateSpecList bindings phi2 in
 
           (* also substitute inside the specs of lambdas defined in expr2. this has to be done after expr2 is inferred (as then we will know which lambda specs to change), so we need to fix all methods which lambdas have been bound to as well *)
@@ -360,6 +360,7 @@ and infer_of_expression (env:fvenv) (current:disj_spec) (expr:core_lang): disj_s
             { env with fv_lambda; fv_methods }
           in
 
+          (* concat spec -- the spec for expr 1 -- in front *)
           concatenateSpecsWithSpec [spec] phi2', env
         )
     | CRef v -> 
