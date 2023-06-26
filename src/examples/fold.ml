@@ -13,8 +13,12 @@ let rec foldr f li acc =
 
 let foldr_length xs init
 (*@ ex r; length(xs, r); Norm(emp, r+init) @*)
-=
-  let g c t = 1 + t in
+= let g c t = 1 + t in
+  foldr g xs init
+
+let foldr_length_state x xs init
+(*@ ex i; req x->i; ex r; length(xs, r); Norm(x->i+r, r+init) @*)
+= let g c t = x := !x + 1; 1 + t in
   foldr g xs init
 
 let rec sum li = 
@@ -24,6 +28,10 @@ let rec sum li =
 
 let foldr_sum xs init
 (*@ ex r; sum(xs, r); Norm(emp, r+init) @*)
-=
-  let g c t = c + t in
+= let g c t = c + t in
+  foldr g xs init
+
+let foldr_sum_state x xs init
+(*@ ex i; req x->i; ex r; sum(xs, r); Norm(x->i+r, r+init) @*)
+= let g c t = x := !x + c; c + t in
   foldr g xs init
