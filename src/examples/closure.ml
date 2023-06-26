@@ -20,3 +20,13 @@ let closures_with_local_state ()
     fun () -> x := !x + 2; !x
   in
   f () + g ()
+
+let simple_closures ()
+(*@ Norm(emp, 4) @*)
+= let counter =
+    let x = ref 0 in
+    fun () -> let r = !x in x := !x + 1; r
+  in
+  let x = ref 3 in
+  counter ();
+  counter () + !x
