@@ -86,3 +86,19 @@ let cl_map_12_false ()
   let y = ref 0 in
   cl_map [1;2] y;
   !y
+
+let rec incr_list init li =
+  match li with 
+  | [] -> []
+  | x :: xs -> 
+    init :: incr_list (init + 1) xs
+
+let cl_map_incr_l xs x
+(*@ ex i; req x->i; ex r; length(xs, r); ex r1; Norm(x->i+r, r1) @*)
+= let f a = x := !x+1; !x in
+  map f xs
+
+let cl_map_incr_c xs x
+(*@ ex i; req x->i; ex r; incr_list(i+1, xs, r); Norm(emp, r) @*)
+= let f a = x := !x+1; !x in
+  map f xs
