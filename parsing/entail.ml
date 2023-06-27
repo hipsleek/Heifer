@@ -570,8 +570,14 @@ and stage_subsumes :
       let env = infer_types_pi env right in
       env
     in
+    let sanity_res = Provers.askZ3 (concrete_type_env tenv) left in
+    info
+      ~title:(Format.asprintf "(%s check)" what)
+      "%s => %s%s %s" (string_of_pi True) "" (string_of_pi left)
+      (string_of_res sanity_res);
     let post_res =
-      Provers.entails_exists (concrete_type_env tenv) left vs22 right
+      sanity_res
+      && Provers.entails_exists (concrete_type_env tenv) left vs22 right
     in
     info
       ~title:(Format.asprintf "(%s post)" what)
