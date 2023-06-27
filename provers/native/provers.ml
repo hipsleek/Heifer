@@ -227,15 +227,6 @@ let entails_exists env p1 vs p2 =
            (ex_quantify_expr env vs ctx (pi_to_expr env ctx p2)))
     in
     (* Format.printf "oblig: %s@." (Expr.to_string r); *)
-    (* let debug = true in *)
-    let debug = false in
-    if debug then
-      Format.printf "obligation:\n(Provers.entails_exists (%s) (%s) %s (%s))@."
-        (Format.asprintf "SMap.of_seq (List.to_seq %s)"
-           (string_of_list
-              (string_of_pair quote ocaml_of_type)
-              (SMap.bindings env)))
-        (ocaml_of_pi p1) (string_of_list quote vs) (ocaml_of_pi p2);
     r
   in
   not (check_sat f)
