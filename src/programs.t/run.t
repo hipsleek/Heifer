@@ -56,6 +56,12 @@
   $ check ../evaluation/12_two_pointers.ml
   ALL OK!
 
+  $ check ../examples/1_second_call_valid.ml
+  ALL OK!
+
+  $ check ../examples/2_first_call_valid.ml
+  ALL OK!
+
   $ check ../examples/compose.ml
   ALL OK!
 
@@ -74,9 +80,7 @@
   $ check ../examples/iter.ml
   ALL OK!
 
-  $ check ../examples/1_second_call_valid.ml
-  ALL OK!
+This example is very slow
 
-  $ check ../examples/2_first_call_valid.ml
-  ALL OK!
-
+$ check ../examples/all.ml
+ALL OK!
