@@ -80,7 +80,8 @@ let cl_map_1_false ()
   cl_map [] y;
   !y
 
-(* this cannot be proved because we bound the number of unfoldings *)
+(* this cannot be proved because we bound the number of unfoldings.
+   we could fully unfold if given finite constants perhaps *)
 let cl_map_12_false ()
 (*@ Norm(emp, 2) @*)=
   let y = ref 0 in

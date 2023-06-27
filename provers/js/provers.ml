@@ -21,7 +21,10 @@ r = await s.check()
 let rec build_term : Jv.t -> term -> Jv.t =
  fun ctx t ->
   match t with
-  | Eq (a, b) -> Jv.call (build_term ctx a) "eq" [| build_term ctx b |]
+  | Rel (bop, a, b) ->
+    (match bop with
+    | EQ -> Jv.call (build_term ctx a) "eq" [| build_term ctx b |]
+    | _ -> failwith "TODO")
   | Plus (a, b) ->
     Jv.call (build_term ctx a) "add" [| build_term ctx b |]
     (* Jv.call ctx "Add" [| build_term ctx a; build_term ctx b |] *)

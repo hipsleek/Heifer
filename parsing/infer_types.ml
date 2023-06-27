@@ -89,12 +89,8 @@ let rec infer_types_term ?hint (env : abs_typ_env) term : typ * abs_typ_env =
     | Var v, None ->
       let t = TVar (verifier_getAfreeVar v) in
       (t, assert_var_has_type v t env)
-    | Plus (a, b), _ | Minus (a, b), _ ->
-      let _at, env1 = infer_types_term ~hint:Int env a in
-      let _bt, env2 = infer_types_term ~hint:Int env1 b in
-      (Int, env2)
     | TLambda _, _ -> (Int, env)
-    | Eq (a, b), _ -> begin
+    | Rel (EQ, a, b), _ -> begin
       try
         let at, env1 = infer_types_term ~hint:Int env a in
         let bt, env2 = infer_types_term ~hint:Int env1 b in
@@ -106,6 +102,14 @@ let rec infer_types_term ?hint (env : abs_typ_env) term : typ * abs_typ_env =
         let _at, env2 = infer_types_term ~hint:Int env1 a in
         (Bool, env2)
     end
+    | Rel ((GT | LT | GTEQ | LTEQ), a, b), _ ->
+      let _at, env1 = infer_types_term ~hint:Int env a in
+      let _bt, env2 = infer_types_term ~hint:Int env1 b in
+      (Bool, env2)
+    | Plus (a, b), _ | Minus (a, b), _ ->
+      let _at, env1 = infer_types_term ~hint:Int env a in
+      let _bt, env2 = infer_types_term ~hint:Int env1 b in
+      (Int, env2)
     | TApp (f, args), _ ->
       let argtypes, ret = get_primitive_type f in
       let env =

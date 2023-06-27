@@ -62,8 +62,22 @@ let rec term_to_expr env ctx t : Z3.Expr.expr =
     Z3.Arithmetic.mk_add ctx [term_to_expr env ctx t1; term_to_expr env ctx t2]
   | Minus (t1, t2) ->
     Z3.Arithmetic.mk_sub ctx [term_to_expr env ctx t1; term_to_expr env ctx t2]
-  | Eq (t1, t2) ->
-    Z3.Boolean.mk_eq ctx (term_to_expr env ctx t1) (term_to_expr env ctx t2)
+  | Rel (bop, t1, t2) ->
+    (match bop with
+    | EQ ->
+      Z3.Boolean.mk_eq ctx (term_to_expr env ctx t1) (term_to_expr env ctx t2)
+    | GT ->
+      Z3.Arithmetic.mk_gt ctx (term_to_expr env ctx t1)
+        (term_to_expr env ctx t2)
+    | LT ->
+      Z3.Arithmetic.mk_lt ctx (term_to_expr env ctx t1)
+        (term_to_expr env ctx t2)
+    | GTEQ ->
+      Z3.Arithmetic.mk_ge ctx (term_to_expr env ctx t1)
+        (term_to_expr env ctx t2)
+    | LTEQ ->
+      Z3.Arithmetic.mk_le ctx (term_to_expr env ctx t1)
+        (term_to_expr env ctx t2))
   | TTrue -> Z3.Boolean.mk_true ctx
   | TFalse -> Z3.Boolean.mk_false ctx
   | TNot a -> Z3.Boolean.mk_not ctx (term_to_expr env ctx a)

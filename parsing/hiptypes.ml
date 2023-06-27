@@ -8,13 +8,15 @@ module SMap = struct
   include Map.Make (String)
 end
 
+type bin_op = GT | LT | EQ | GTEQ | LTEQ
+
 type term =
     | UNIT 
     | Num of int
     | Var of string
     | Plus of term * term 
     | Minus of term * term 
-    | Eq of term * term 
+    | Rel of bin_op * term * term 
     | TTrue
     | TFalse
     | TAnd of term * term
@@ -53,8 +55,6 @@ type typ_env = typ SMap.t
 (* an occurrence of an effect *)
 type instant = string * term list
 
-
-type bin_op = GT | LT | EQ | GTEQ | LTEQ
 
 type pi = 
   | True

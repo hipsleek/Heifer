@@ -167,7 +167,8 @@ let rec string_of_term t : string =
   | TAnd (a, b) -> Format.asprintf "%s && %s" (string_of_term a) (string_of_term b)
   | TOr (a, b) -> Format.asprintf "%s || %s" (string_of_term a) (string_of_term b)
   | Var str -> str
-  | Eq (t1, t2) -> string_of_term t1 ^ "==" ^ string_of_term t2
+  | Rel (bop, t1, t2) ->
+    string_of_term t1 ^ (match bop with | EQ -> "==" | _ -> string_of_bin_op bop) ^ string_of_term t2
   | Plus (t1, t2) -> string_of_term t1 ^ "+" ^ string_of_term t2
   | Minus (t1, t2) -> string_of_term t1 ^ "-" ^ string_of_term t2
   | TApp (op, args) -> Format.asprintf "%s%s" op (string_of_args string_of_term args)
