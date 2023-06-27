@@ -622,9 +622,9 @@ let rec transformation (env:string list) (expr:expression) : core_lang =
   | Pexp_ident {txt=Lident i; _} ->
     CValue (Var i)
   | Pexp_construct ({txt=Lident "true"; _}, None) ->
-    CValue (Num 0)
+    CValue TTrue
   | Pexp_construct ({txt=Lident "false"; _}, None) ->
-    CValue (Num 1)
+    CValue TFalse
   | Pexp_construct ({txt=Lident "()"; _}, None) ->
     CValue (UNIT)
   | Pexp_constant c ->
