@@ -432,7 +432,8 @@ and infer_of_expression (env:fvenv) (current:disj_spec) (expr:core_lang): disj_s
           let event = NormalReturn (True, EmptyHeap, Minus(x1, x2)) in
           concatenateSpecsWithEvent current [event], env
         | "=", [x1; x2] ->
-          let event = NormalReturn (Atomic (EQ, x1, x2), EmptyHeap, Eq (x1, x2)) in
+          (* let event = NormalReturn (Atomic (EQ, x1, x2), EmptyHeap, Eq (x1, x2)) in *)
+          let event = NormalReturn (True, EmptyHeap, Eq (x1, x2)) in
           concatenateSpecsWithEvent current [event], env
         | "not", [x1] ->
           let event = NormalReturn (True, EmptyHeap, TNot (x1)) in
