@@ -18,6 +18,10 @@ let rec instantiateTerms (bindings : (string * core_value) list) (t : term) :
   | TList tLi -> TList (List.map (fun t1 -> instantiateTerms bindings t1) tLi)
   | TTupple tLi -> TList (List.map (fun t1 -> instantiateTerms bindings t1) tLi)
   | TNot t1 -> TNot (instantiateTerms bindings t1)
+  | TAnd (t1, t2) ->
+    TAnd (instantiateTerms bindings t1, instantiateTerms bindings t2)
+  | TOr (t1, t2) ->
+    TOr (instantiateTerms bindings t1, instantiateTerms bindings t2)
   | Plus (t1, t2) ->
     Plus (instantiateTerms bindings t1, instantiateTerms bindings t2)
   | Eq (t1, t2) ->
@@ -342,7 +346,7 @@ let rec used_vars_term (t : term) =
   | Nil | TTrue | TFalse | UNIT | Num _ -> SSet.empty
   | TList ts | TTupple ts -> SSet.concat (List.map used_vars_term ts)
   | Var s -> SSet.singleton s
-  | Eq (a, b) | Plus (a, b) | Minus (a, b) ->
+  | Eq (a, b) | Plus (a, b) | Minus (a, b) | TAnd (a, b) | TOr (a, b) ->
     SSet.union (used_vars_term a) (used_vars_term b)
   | TNot a -> used_vars_term a
   | TApp (_, args) -> SSet.concat (List.map used_vars_term args)
@@ -392,7 +396,7 @@ let rec collect_lambdas_term (t : term) =
   | Nil | TTrue | TFalse | UNIT | Num _ -> SSet.empty
   | TList ts | TTupple ts -> SSet.concat (List.map collect_lambdas_term ts)
   | Var _ -> SSet.empty
-  | Eq (a, b) | Plus (a, b) | Minus (a, b) ->
+  | Eq (a, b) | Plus (a, b) | Minus (a, b) | TAnd (a, b) | TOr (a, b) ->
     SSet.union (collect_lambdas_term a) (collect_lambdas_term b)
   | TNot a -> collect_lambdas_term a
   | TApp (_, args) -> SSet.concat (List.map collect_lambdas_term args)

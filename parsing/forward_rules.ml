@@ -222,7 +222,7 @@ let%expect_test _ =
   [%expect
     {| [1; 3; 2; 6; 3; 9] 3 |}]
 
-let primitives = ["+"; "-"; "="; "not"; "::"]
+let primitives = ["+"; "-"; "="; "not"; "::"; "&&"; "||"]
 
 let rec handling_spec env (spec:normalisedStagedSpec) (normal:(string * core_lang)) (ops:core_handler_ops) : spec list * fvenv = 
   
@@ -437,6 +437,12 @@ and infer_of_expression (env:fvenv) (current:disj_spec) (expr:core_lang): disj_s
           concatenateSpecsWithEvent current [event], env
         | "not", [x1] ->
           let event = NormalReturn (True, EmptyHeap, TNot (x1)) in
+          concatenateSpecsWithEvent current [event], env
+        | "&&", [x1; x2] ->
+          let event = NormalReturn (True, EmptyHeap, TAnd (x1, x2)) in
+          concatenateSpecsWithEvent current [event], env
+        | "||", [x1; x2] ->
+          let event = NormalReturn (True, EmptyHeap, TOr (x1, x2)) in
           concatenateSpecsWithEvent current [event], env
         | "::", [x1; x2] ->
           let event = NormalReturn (True, EmptyHeap, TApp ("cons", [x1; x2])) in

@@ -67,6 +67,10 @@ let rec term_to_expr env ctx t : Z3.Expr.expr =
   | TTrue -> Z3.Boolean.mk_true ctx
   | TFalse -> Z3.Boolean.mk_false ctx
   | TNot a -> Z3.Boolean.mk_not ctx (term_to_expr env ctx a)
+  | TAnd (a, b) ->
+    Z3.Boolean.mk_and ctx [term_to_expr env ctx a; term_to_expr env ctx b]
+  | TOr (a, b) ->
+    Z3.Boolean.mk_or ctx [term_to_expr env ctx a; term_to_expr env ctx b]
   | TApp (f, a) ->
     Z3.Expr.mk_app ctx (get_fun_decl ctx f) (List.map (term_to_expr env ctx) a)
   | TList _ | TTupple _ -> failwith "term_to_expr"

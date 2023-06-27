@@ -74,6 +74,14 @@ let rec infer_types_term ?hint (env : abs_typ_env) term : typ * abs_typ_env =
     | TNot a, _ ->
       let _at, env1 = infer_types_term ~hint:Bool env a in
       (Bool, env1)
+    | TAnd (a, b), _ ->
+      let _at, env = infer_types_term ~hint:Bool env a in
+      let _bt, env = infer_types_term ~hint:Bool env b in
+      (Bool, env)
+    | TOr (a, b), _ ->
+      let _at, env = infer_types_term ~hint:Bool env a in
+      let _bt, env = infer_types_term ~hint:Bool env b in
+      (Bool, env)
     | Nil, _ -> (List_int, env)
     | Num _, _ -> (Int, env)
     (* possibly add syntactic heuristics for types, such as names *)

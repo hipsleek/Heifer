@@ -164,6 +164,8 @@ let rec string_of_term t : string =
   | TTrue -> "true"
   | TFalse -> "false"
   | TNot a -> Format.asprintf "not(%s)" (string_of_term a)
+  | TAnd (a, b) -> Format.asprintf "%s && %s" (string_of_term a) (string_of_term b)
+  | TOr (a, b) -> Format.asprintf "%s || %s" (string_of_term a) (string_of_term b)
   | Var str -> str
   | Eq (t1, t2) -> string_of_term t1 ^ "==" ^ string_of_term t2
   | Plus (t1, t2) -> string_of_term t1 ^ "+" ^ string_of_term t2

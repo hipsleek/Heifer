@@ -17,6 +17,8 @@ type term =
     | Eq of term * term 
     | TTrue
     | TFalse
+    | TAnd of term * term
+    | TOr of term * term
     | TNot of term
     | TApp of string * term list
     | Nil

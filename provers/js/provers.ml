@@ -35,6 +35,10 @@ let rec build_term : Jv.t -> term -> Jv.t =
   | TTrue -> Jv.call (Jv.get ctx "Bool") "val" [| Jv.of_bool true |]
   | TFalse -> Jv.call (Jv.get ctx "Bool") "val" [| Jv.of_bool false |]
   | TNot a -> Jv.apply (Jv.get ctx "Not") [| build_term ctx a |]
+  | TAnd (a, b) ->
+    Jv.apply (Jv.get ctx "And") [| build_term ctx a; build_term ctx b |]
+  | TOr (a, b) ->
+    Jv.apply (Jv.get ctx "Or") [| build_term ctx a; build_term ctx b |]
   | TApp _ -> failwith "?"
   | TLambda _ -> failwith "?"
   | TList _ | TTupple _ -> failwith "not yet implemented"
