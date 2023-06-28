@@ -12,6 +12,11 @@ let rec all p xs =
   | [] -> true
   | x :: xs1 -> p x && all p xs1
 
+let rec any p xs =
+  match xs with
+  | [] -> false
+  | x :: xs1 -> p x || any p xs1
+
 let is_pos x = x > 0
 
 let is_one x = if x = 1 then true else false
@@ -25,4 +30,9 @@ let all_one n
 
 (* let all_pos n
 (*@ ex xs; all(is_pos, xs, true); Norm(emp, xs) @*)
+= same 1 n *)
+
+(* this can't be proved yet *)
+(* let any_one n
+(*@ req n>1/\emp; ex xs; any(is_one, xs, true); Norm(emp, xs) @*)
 = same 1 n *)
