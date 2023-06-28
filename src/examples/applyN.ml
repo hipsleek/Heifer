@@ -1,8 +1,6 @@
 let rec applyN_unfolded f x n
-(*@
-  Norm(n=0/\emp, x) \/
-  req n>0/\emp; ex r2; f(x, r2); ex r1; applyN_unfolded(f, r2, n-1, r1); Norm(emp, r1)
-@*)
+(*@ Norm(n=0/\emp, x) \/
+  req n>0/\emp; ex r2; f(x, r2); ex r1; applyN_unfolded(f, r2, n-1, r1); Norm(emp, r1) @*)
 = if n = 0 then x
   else let r = f x in applyN_unfolded f r (n-1)
 
