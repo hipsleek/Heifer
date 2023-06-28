@@ -16,10 +16,15 @@ $ DEBUG=0 hyperfine --warmup 2 'dune exec parsing/hip.exe src/examples/calls.ml'
 $ DEBUG=0 time dune exec parsing/hip.exe src/examples/calls.ml > /dev/null
 ```
 
+Project size:
+
+```sh
+$ loc parsing/{hiptypes.ml,common.ml,hiplib.ml,tests.ml,ProversEx.ml,Rewriting.ml,Pretty.ml,entail.ml,res.ml,forward_rules.ml,infer_types.ml,normalize.ml,hip.ml,hipjs.ml}
+```
+
 Stats:
 
 (The following is generated using generate.sh)
-
 
 ```sh
 $ DEBUG=0 hyperfine --warmup 2 'dune exec parsing/hip.exe src/examples/calls.ml'

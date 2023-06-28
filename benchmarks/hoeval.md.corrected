@@ -22,10 +22,22 @@ $ DEBUG=0 time dune exec parsing/hip.exe src/examples/calls.ml > /dev/null
         0.52 real         0.25 user         0.24 sys
 ```
 
+Project size:
+
+```sh
+$ loc parsing/{hiptypes.ml,common.ml,hiplib.ml,tests.ml,ProversEx.ml,Rewriting.ml,Pretty.ml,entail.ml,res.ml,forward_rules.ml,infer_types.ml,normalize.ml,hip.ml,hipjs.ml}
+--------------------------------------------------------------------------------
+ Language             Files        Lines        Blank      Comment         Code
+--------------------------------------------------------------------------------
+ OCaml                   14         4741          599          498         3644
+--------------------------------------------------------------------------------
+ Total                   14         4741          599          498         3644
+--------------------------------------------------------------------------------
+```
+
 Stats:
 
 (The following is generated using generate.sh)
-
 
 ```sh
 $ DEBUG=0 hyperfine --warmup 2 'dune exec parsing/hip.exe src/examples/calls.ml'
