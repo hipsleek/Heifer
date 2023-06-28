@@ -56,10 +56,7 @@
   $ check ../evaluation/12_two_pointers.ml
   ALL OK!
 
-  $ check ../examples/1_second_call_valid.ml
-  ALL OK!
-
-  $ check ../examples/2_first_call_valid.ml
+  $ check ../examples/calls.ml
   ALL OK!
 
   $ check ../examples/compose.ml
