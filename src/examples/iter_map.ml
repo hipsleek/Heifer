@@ -1,30 +1,27 @@
+let rec integers x n =
+  if n = 0 then []
+  else x :: integers (x + 1) (n - 1)
+
+let rec fill_list f n =
+  if n = 0 then []
+  else f () :: fill_list f (n - 1)
+
 let succ x = x + 1
 
-let iter_map_succ x i
-(*@ integers(i, n, r) @*)
-=
-  let counter =
-    fun () ->
-      let r = !x in
-      x := !x + 1;
-      r
-  in
-  (* this definition is coinductive? *)
-  let iter_map f it =
-    fun () -> f (it ())
-  in
-  iter_map succ counter
-
-let itzz n =
-  fill_list counter n
-
-
-
-(*@ ex i; req x->i; ex r; integers(i, n, r) @*)
+(* this should work as well but currently doesn't. check forward rule for iter_map succ counter *)
+let iter_map_succ x n
+(*@ ex i; req x->i; ex r; integers(i+1, n, r) @*)
 = let counter =
     fun () ->
+      (* the debug is x is not picked up as a used var. because this lambda is collapsed by normalization. because it's not substituted properly but the forward rules apparently *)
       let r = !x in
       x := !x + 1;
       r
   in
-  fill_list counter n
+  let iter_map f it =
+    (* we don't support partial application *)
+    let l () = f (it ()) in
+    l
+  in
+  fill_list (iter_map succ counter) n
+  

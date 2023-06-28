@@ -1157,7 +1157,7 @@ let nonincremental prog ({m_spec = given_spec; _} as meth) =
         (* using the predicate instead of the raw inferred spec makes the induction hypothesis possible with current heuristics. it costs one more unfold but that is taken care of by the current entailment procedure, which repeatedly unfolds *)
         let _mspec : disj_spec = inferred_spec in
         let mspec : disj_spec =
-          let v = verifier_getAfreeVar "iret" in
+          let v = verifier_getAfreeVar "infr" in
           let prr, _ret = split_last pred.p_params in
           let sp = [Exists [v]; HigherOrder (True, EmptyHeap, (pred.p_name, List.map (fun v1 -> Var v1) prr), Var v)]
           in

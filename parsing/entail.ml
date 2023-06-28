@@ -684,7 +684,7 @@ let create_induction_hypothesis fvenv params ds1 ds2 =
       | [_], _ -> fail "nontrivial norm stage after"
       | _ -> fail "not just a single stage")
     | false ->
-      fail "not all params used; only %s but params was %s"
+      fail "not all params used by lhs of entailment: params %s, %s used"
         (string_of_sset used_l)
         (string_of_list Fun.id params))
   | _ -> fail "left side disjunctive"
