@@ -400,6 +400,7 @@ let rec check_staged_subsumption_stagewise :
           fail)
         else ok
       in
+      (* pure information propagates forward across stages, not heap info *)
       let* residue =
         let arg_eqs = conj (List.map2 (fun x y -> Atomic (EQ, x, y)) a1 a2) in
         stage_subsumes ctx
