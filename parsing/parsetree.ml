@@ -396,6 +396,7 @@ and case =   (* (P -> E) or (P when E0 -> E) *)
      pc_lhs: pattern;
      pc_guard: expression option;
      pc_rhs: expression;
+     pc_spec: disj_spec option;
    }
 
 and letop =

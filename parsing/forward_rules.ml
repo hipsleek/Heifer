@@ -199,7 +199,7 @@ info ~title:(Format.asprintf "instantiate higher order function: %s" fname) "arg
 let rec lookforHandlingCases ops (label:string) = 
   match ops with 
   | [] -> None
-  | (str, arg, expr)::xs -> 
+  | (str, arg, spec, expr)::xs -> 
     if String.compare label str == 0 
     then Some (arg, expr) 
     else lookforHandlingCases xs label 

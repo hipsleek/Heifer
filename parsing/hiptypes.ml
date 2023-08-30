@@ -114,12 +114,10 @@ let freshNormStageVar v : normalStage = ([v], (True, EmptyHeap), (True, EmptyHea
 
 let freshNormStageRet r : normalStage = ([], (True, EmptyHeap), (True, EmptyHeap), r) 
 
-(* type linearStagedSpec = stagedSpec list *)
-
 type core_value = term
 
-(* (Label n) _k -> e *)
-type core_handler_ops = (string * string option * core_lang) list
+(* (Label n) _k (*@ spec @*) -> e *)
+type core_handler_ops = (string * string option * disj_spec option * core_lang) list
 
 (* x :: xs -> e is represented as ("::", [x, xs], e) *)
 and constr_cases = (string * string list * core_lang) list

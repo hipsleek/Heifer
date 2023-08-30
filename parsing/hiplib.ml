@@ -728,7 +728,7 @@ let rec transformation (env:string list) (expr:expression) : core_lang =
             in
             string_of_pattern peff, arg
           in
-          Some (label, arg_binder, transformation env c.pc_rhs)
+          Some (label, arg_binder, c.pc_spec, transformation env c.pc_rhs)
         | _ -> None)
     in
     let pattern_cases =

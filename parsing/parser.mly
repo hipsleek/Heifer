@@ -2718,6 +2718,8 @@ strict_binding:
 match_case:
     pattern MINUSGREATER seq_expr
       { Exp.case $1 $3 }
+  | p=pattern LSPECCOMMENT spec=disj_effect_spec RSPECCOMMENT MINUSGREATER e=seq_expr
+      { Exp.case p ~spec e }
   | pattern WHEN seq_expr MINUSGREATER seq_expr
       { Exp.case $1 ~guard:$3 $5 }
   | pattern MINUSGREATER DOT

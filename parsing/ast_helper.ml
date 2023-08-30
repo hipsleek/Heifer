@@ -216,11 +216,12 @@ module Exp = struct
   let extension ?loc ?attrs a = mk ?loc ?attrs (Pexp_extension a)
   let unreachable ?loc ?attrs () = mk ?loc ?attrs Pexp_unreachable
 
-  let case lhs ?guard rhs =
+  let case lhs ?guard ?spec rhs =
     {
      pc_lhs = lhs;
      pc_guard = guard;
      pc_rhs = rhs;
+     pc_spec = spec;
     }
 
   let binding_op op pat exp loc =

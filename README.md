@@ -76,8 +76,6 @@ There are four main files/folders under the root directory:
 
 
 
-
-
 eval $(opam env)
 
 cd parsing
@@ -107,3 +105,11 @@ verify the results in 2.
 
 info ~title:"FAIL" "constr %s != %s" c1 c2;
 
+
+# Development
+
+Builds on OCaml 5. Check the [GitHub actions config](.github/workflows/main.yml) for the build dependencies.
+
+`dune test` to run [tests](src/programs.t/run.t).
+
+`dune exec parsing/hip.exe $EXAMPLE` to run examples. Effect-related programs are in [src/evaluation](src/evaluation), higher-order programs are in [src/examples](src/examples). Set `DEBUG=n` for more output.
