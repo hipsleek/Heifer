@@ -81,3 +81,6 @@ This example is very slow
 
 $ check ../examples/all.ml
 ALL OK!
+
+  $ check ../evaluation/abort.ml
+  ALL OK!

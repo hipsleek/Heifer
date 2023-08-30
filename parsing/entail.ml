@@ -202,8 +202,9 @@ let rec check_qf :
   (* TODO ptr equalities? *)
   let a = Heap.normalize ante in
   let c = Heap.normalize conseq in
-  debug ~title:"SL entailment" "%s |- %s" (string_of_state ante)
-    (string_of_state conseq);
+  debug
+    ~title:(Format.asprintf "SL entailment %s" id)
+    "%s |- %s" (string_of_state ante) (string_of_state conseq);
   match (a, c) with
   | (p1, h1), (p2, EmptyHeap) ->
     let left = And (Heap.xpure h1, p1) in
@@ -544,7 +545,7 @@ and stage_subsumes :
     in
     info
       ~title:(Format.asprintf "(%s pre)" what)
-      "%s => %s%s %s" (string_of_pi left)
+      "%s => %s%s\n%s" (string_of_pi left)
       (string_of_existentials vs1)
       (string_of_pi right) (string_of_res pre_res);
     (* TODO why do we need pre_r here? as pre_l has just been proven to subsume pre_r *)
@@ -571,21 +572,37 @@ and stage_subsumes :
       let env = infer_types_pi env right in
       env
     in
-    let sanity_res = Provers.askZ3 (concrete_type_env tenv) left in
-    info
-      ~title:(Format.asprintf "(%s check)" what)
-      "%s => %s%s %s" (string_of_pi True) "" (string_of_pi left)
-      (string_of_res sanity_res);
-    let post_res =
-      sanity_res
-      && Provers.entails_exists (concrete_type_env tenv) left vs22 right
+    let false_not_derived = Provers.askZ3 (concrete_type_env tenv) left in
+    if not false_not_derived then
+      (* since the program is usually on the left, false on the left side of the postcondition means this *)
+      info
+        ~title:(Format.asprintf "warning: false derived in program")
+        "%s => %s%s\n%s" (string_of_pi True) "" (string_of_pi left)
+        (string_of_res false_not_derived);
+    let spec_consistent = Provers.askZ3 (concrete_type_env tenv) right in
+    if not spec_consistent then
+      info
+        ~title:(Format.asprintf "spec is inconsistent")
+        "%s => %s%s\n%s" (string_of_pi True) "" (string_of_pi left)
+        (string_of_res spec_consistent);
+    let check_post =
+      match (false_not_derived, spec_consistent) with
+      | false, false -> true (* false => false *)
+      | false, true ->
+        false (* false derived in program, so block, otherwise explosion *)
+      | true, _ -> true
     in
-    info
-      ~title:(Format.asprintf "(%s post)" what)
-      "%s => %s%s %s" (string_of_pi left)
-      (string_of_existentials vs22)
-      (string_of_pi right) (string_of_res post_res);
-    if post_res then Some (conj [left; right; pure_pre_residue]) else None
+    if not check_post then None
+    else
+      let post_res =
+        Provers.entails_exists (concrete_type_env tenv) left vs22 right
+      in
+      info
+        ~title:(Format.asprintf "(%s post)" what)
+        "%s => %s%s\n%s" (string_of_pi left)
+        (string_of_existentials vs22)
+        (string_of_pi right) (string_of_res post_res);
+      if post_res then Some (conj [left; right; pure_pre_residue]) else None
   in
   pure (conj [pure_pre_residue; post_residue])
 
