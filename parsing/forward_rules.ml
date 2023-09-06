@@ -376,7 +376,7 @@ let rec handling_spec env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj
 
  
 (** may update the environment because of higher order functions *)
-and infer_of_expression (env:fvenv) (current:disj_spec) (expr:core_lang): disj_spec * fvenv = 
+let rec infer_of_expression (env:fvenv) (current:disj_spec) (expr:core_lang): disj_spec * fvenv =
   (* TODO infer_of_expression is likely O(n^2) due to appending at the end *)
   let res, env =
     match expr with
