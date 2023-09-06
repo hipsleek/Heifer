@@ -103,6 +103,7 @@ type effectStage = {
   e_typ : [`Eff | `Fn];
 }
 
+(** existentials, pre, post, ret *)
 type normalStage =  (string list* (pi * kappa ) * (pi * kappa) * term)
 
 type normalisedStagedSpec = effectStage list * normalStage

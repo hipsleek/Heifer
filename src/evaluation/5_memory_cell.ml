@@ -14,7 +14,7 @@ let read ()
 let write n 
 (*@ 
    ex ret; 
-   Write(emp, n,  ret);
+   Write(emp, n, ret);
    Norm(emp, ret)
 @*)
 = perform (Write n)
@@ -23,7 +23,7 @@ let write n
 let read_handler ()
 (*@ 
   ex i; 
-  Norm(i->0,  0)
+  Norm(i->0, 0)
 @*)
 = let i = Sys.opaque_identity (ref 0) in 
   match read ();read () with 
@@ -35,7 +35,7 @@ let read_handler ()
 let write_handler  ()
 (*@ 
   ex i; 
-  Norm(i->20,  20)
+  Norm(i->20, 20)
 @*)
 =
   let i = Sys.opaque_identity (ref 0) in 

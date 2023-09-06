@@ -28,7 +28,7 @@ let read_handler ()
 = let i = Sys.opaque_identity (ref 0) in 
   match read () with 
   | v -> v
-  | effect Read k -> (continue k (!i)) 
+  | effect Read k -> continue k (!i) 
 
 
 

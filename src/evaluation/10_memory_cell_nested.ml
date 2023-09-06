@@ -1,8 +1,6 @@
 effect Read : int 
 effect Write : int -> unit 
 
-(* let (i: int ref) = Sys.opaque_identity (ref 0) *)
-
 let read () 
 (*@ 
    ex ret; 
@@ -52,7 +50,7 @@ let write_handler i
 let read_handler  ()
 (*@ 
   ex i; 
-  Norm(i->1,  1)
+  Norm(i->1, 1)
 @*)
 =
   let i = Sys.opaque_identity (ref 0) in 
@@ -61,5 +59,4 @@ let read_handler  ()
   | effect Read k -> 
     let x = !i in
     (continue k (x))
-
 
