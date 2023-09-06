@@ -810,46 +810,13 @@ let transform_str env (s : structure_item) =
     | _ ->
       failwith (Format.asprintf "not a function binding: %a" Pprintast.expression fn)
     end
-
-  (* let final =  (infer_of_expression env [[NormalReturn (True, EmptyHeap,  UNIT)]] (transformation body)) in *)
-
-  (* let env1 = Env.add_fn fn_name { pre=spec; post=[]; formals } env in *)
-
-  (* Some (spec, [], ( final), env1, fn_name) *)
-    (* infer_of_value_binding rec_flag env x *)
-(* end *)
-
-(* meth_def = string * (string list) * (spec list) * core_lang *)
     
   | Pstr_lemma (_l_name, _l_left, _l_right) ->
     failwith "parsing user-defined lemma, TODO"
-    (* `Lem { l_name; l_left; l_right } *)
   | Pstr_predicate (p_name, p_params, p_body) -> `Pred {p_name; p_params; p_body}
   | Pstr_effect { peff_name; peff_kind=_; _ } ->
       let name = peff_name.txt in
       `Eff name
-    (* begin match peff_kind with
-    | Peff_decl (args, res) ->
-      (* converts a type of the form a -> b -> c into ([a, b], c) *)
-      let split_params_fn t =
-        let rec loop acc t =
-          match t.ptyp_desc with
-          | Ptyp_arrow (_, a, b) ->
-            (* note that we don't recurse in a *)
-            loop (a :: acc) b
-          | Ptyp_constr ({txt=Lident "int"; _}, [])
-          | Ptyp_constr ({txt=Lident "string"; _}, []) 
-          | Ptyp_constr ({txt=Lident "unit"; _}, []) -> List.rev acc, t
-          | _ -> failwith ("split_params_fn: " ^ debug_string_of_core_type t)
-        in loop [] t
-      in
-      let params = List.map core_type_to_typ args in
-      let res = split_params_fn res
-        |> (fun (a, b) -> (List.map core_type_to_typ a, core_type_to_typ b)) in
-      let def = { params; res } in
-      "", Env.add_effect name def env
-    | Peff_rebind _ -> failwith "unsupported effect spec rebind"
-    end *)
   | _ -> failwith (Format.asprintf "unknown program element: %a" Pprintast.structure [s])
 
 let transform_strs (strs: structure_item list) : core_program =
@@ -861,69 +828,6 @@ let transform_strs (strs: structure_item list) : core_program =
       | `Eff a -> env, a :: es, ms, ps, ls
       | `Meth (m_name, m_params, m_spec, m_body, m_tactics) -> m_name :: env, es, { m_name; m_params; m_spec; m_body; m_tactics } :: ms, ps, ls) ([], [], [], SMap.empty, SMap.empty) strs
   in { cp_effs = List.rev effs; cp_methods = List.rev mths; cp_predicates = preds; cp_lemmas = lems }
-
-(* returns the inference result as a string to be printed *)
-(* let rec infer_of_program env x: string * env =
-  match x.pstr_desc with
-  | Pstr_value (rec_flag, x::_ (*value_binding list*)) ->
-    infer_of_value_binding rec_flag env x
-    
-  | Pstr_module m ->
-    (* when we see a module, infer inside it *)
-    let name = m.pmb_name.txt |> Option.get in
-    let res, menv =
-      match m.pmb_expr.pmod_desc with
-      | Pmod_structure str ->
-        List.fold_left (fun (s, env) si ->
-          let r, env = infer_of_program env si in
-          r :: s, env) ([], env) str
-      | _ -> failwith "infer_of_program: unimplemented module expression type"
-    in
-    let res = String.concat "\n" (Format.sprintf "--- Module %s---" name :: res) in
-    let env1 = Env.add_module name menv env in
-    res, env1
-
-  | Pstr_open info ->
-    (* when we see a structure item like: open A... *)
-    let name =
-      match info.popen_expr.pmod_desc with
-      | Pmod_ident name ->
-      begin match name.txt with
-      | Lident s -> s
-      | _ -> failwith "infer_of_program: unimplemented open type, can only open names"
-      end
-      | _ -> failwith "infer_of_program: unimplemented open type, can only open names"
-    in
-    (* ... dump all the bindings in that module into the current environment and continue *)
-    "", Env.open_module name env 
-
-  | Pstr_effect { peff_name; peff_kind; _ } ->
-    begin match peff_kind with
-    | Peff_decl (args, res) ->
-      (* converts a type of the form a -> b -> c into ([a, b], c) *)
-      let split_params_fn t =
-        let rec loop acc t =
-          match t.ptyp_desc with
-          | Ptyp_arrow (_, a, b) ->
-            (* note that we don't recurse in a *)
-            loop (a :: acc) b
-          | Ptyp_constr ({txt=Lident "int"; _}, [])
-          | Ptyp_constr ({txt=Lident "string"; _}, []) 
-          | Ptyp_constr ({txt=Lident "unit"; _}, []) -> List.rev acc, t
-          | _ -> failwith ("split_params_fn: " ^ debug_string_of_core_type t)
-        in loop [] t
-      in
-      let name = peff_name.txt in
-      let params = List.map core_type_to_typ args in
-      let res = split_params_fn res
-        |> (fun (a, b) -> (List.map core_type_to_typ a, core_type_to_typ b)) in
-      let def = { params; res } in
-      "", Env.add_effect name def env
-    | Peff_rebind _ -> failwith "unsupported effect spec rebind"
-    end
-  | _ -> failwith "TBD program"
-  ;; *)
-
 
 let debug_tokens str =
   let lb = Lexing.from_string str in
@@ -1068,7 +972,7 @@ let rec entailmentchecking (lhs:normalisedStagedSpec list) (rhs:normalisedStaged
     let r2 = entailmentchecking xs rhs in 
     r1 && r2
 
-let nonincremental prog ({m_spec = given_spec; _} as meth) =
+let analyze_method prog ({m_spec = given_spec; _} as meth) =
   let time_stamp_beforeForward = Sys.time() in
   let inferred_spec, predicates, fvenv =
     (* the env is looked up from the program every time, as it's updated as we go *)
@@ -1172,7 +1076,7 @@ let nonincremental prog ({m_spec = given_spec; _} as meth) =
     prog
   end
 
-let run_string_ incremental line =
+let run_string_ line =
   let progs = Parser.implementation Lexer.token (Lexing.from_string line) in
   let prog = transform_strs progs in
   let vcr = !Pretty.verifier_counter in
@@ -1185,16 +1089,12 @@ let run_string_ incremental line =
        each function is analyzed in isolation so this is safe.
        we must, however, reset to the current checkpoint, as parsing uses fresh variables. *)
     Pretty.verifier_counter_reset_to vcr;
-    if not incremental then
-      nonincremental prog meth
-    else begin
-      print_endline "incremental"; prog
-    end) prog prog.cp_methods |> ignore
+    analyze_method prog meth) prog prog.cp_methods |> ignore
 
-let run_string incr s =
-  Provers.handle (fun () -> run_string_ incr s)
+let run_string s =
+  Provers.handle (fun () -> run_string_ s)
 
-let run_file incremental inputfile =
+let run_file inputfile =
 (*    let outputfile = (Sys.getcwd ()^ "/" ^ Sys.argv.(2)) in
 print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
   let ic = open_in inputfile in
@@ -1204,7 +1104,7 @@ print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
       
       (* debug_tokens line; *)
 
-      run_string incremental line;
+      run_string line;
 
 
       (* let results, _ =
@@ -1239,5 +1139,4 @@ print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
 
 let main () =
   let inputfile = (Sys.getcwd () ^ "/" ^ Sys.argv.(1)) in
-  let incremental = Array.length Sys.argv >= 3 && String.equal Sys.argv.(2) "-incremental" in
-  run_file incremental inputfile
+  run_file inputfile
