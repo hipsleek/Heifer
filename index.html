@@ -583,8 +583,6 @@ let main_aux ()
     let _ = (continue (Obj.clone_continuation k) 1) in (continue k 2)">src/evaluation/0_heap_zero_once_twice.ml</option><option value=src/evaluation/10_memory_cell_nested.ml data-text="effect Read : int 
 effect Write : int -> unit 
 
-(* let (i: int ref) = Sys.opaque_identity (ref 0) *)
-
 let read () 
 (*@ 
    ex ret; 
@@ -634,7 +632,7 @@ let write_handler i
 let read_handler  ()
 (*@ 
   ex i; 
-  Norm(i->1,  1)
+  Norm(i->1, 1)
 @*)
 =
   let i = Sys.opaque_identity (ref 0) in 
@@ -804,7 +802,7 @@ let read_handler ()
 = let i = Sys.opaque_identity (ref 0) in 
   match read () with 
   | v -> v
-  | effect Read k -> (continue k (!i)) 
+  | effect Read k -> continue k (!i) 
 
 
 
@@ -833,7 +831,7 @@ let read ()
 let write n 
 (*@ 
    ex ret; 
-   Write(emp, n,  ret);
+   Write(emp, n, ret);
    Norm(emp, ret)
 @*)
 = perform (Write n)
@@ -842,7 +840,7 @@ let write n
 let read_handler ()
 (*@ 
   ex i; 
-  Norm(i->0,  0)
+  Norm(i->0, 0)
 @*)
 = let i = Sys.opaque_identity (ref 0) in 
   match read ();read () with 
@@ -854,7 +852,7 @@ let read_handler ()
 let write_handler  ()
 (*@ 
   ex i; 
-  Norm(i->20,  20)
+  Norm(i->20, 20)
 @*)
 =
   let i = Sys.opaque_identity (ref 0) in 
@@ -1092,7 +1090,27 @@ let handler2  ()
   let i = Sys.opaque_identity (ref 0) in 
   match handler1 i with
   | v -> v (*print_string (string_of_int !i) *)
-  | effect Read k -> (continue k (!i))">src/evaluation/9_memory_cell_nested.ml</option>
+  | effect Read k -> (continue k (!i))">src/evaluation/9_memory_cell_nested.ml</option><option value=src/evaluation/abort.ml data-text="effect Zero : unit
+
+let client () 
+(*@ ex r; Zero(emp, (), r); req false/\emp; ex r1; Norm(false/\emp, r1) @*)
+=
+  perform (Zero ());
+  assert false
+
+let handler ()
+(*@ ex r; Norm(r=3/\emp, r) @*)
+=
+  match client () with
+  | v -> 2
+  | effect Zero k -> 3
+
+let invalid_false ()
+(*@ ex r; Norm(false/\emp, r) @*)
+=
+  match client () with
+  | v -> 2
+  | effect Zero k -> continue k ()">src/evaluation/abort.ml</option>
         </select>
         <button id="share-btn" disabled onclick="share()">Share</button>
         <span style="display: inline-block">
@@ -1137,7 +1155,7 @@ let handler2  ()
     <script>
       // this is substituted at build time and is used in page.js
       function postExampleLoad() {
-        console.log("Built Mon Sep  4 09:44:46 UTC 2023");
+        console.log("Built Wed Sep  6 12:57:19 UTC 2023");
         console.log("loading z3...");
       }
     </script>
