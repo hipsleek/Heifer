@@ -1,6 +1,6 @@
 function run() {
   clear_output();
-  hip_run_string(false, editorGet());
+  hip_run_string(editorGet());
 }
 function enable_buttons() {
   document.querySelector("#run-btn").disabled = false;

@@ -14,9 +14,9 @@ let main () =
   (* Console.(log [str "DOM content loaded."]); *)
   Jv.set Jv.global "ocaml_ready" (Jv.callback ~arity:1 ready);
   Jv.set Jv.global "hip_run_string"
-    (Jv.callback ~arity:2 (fun inc s ->
+    (Jv.callback ~arity:1 (fun s ->
          let debug = Jv.call Jv.global "debug_output" [||] |> Jv.to_bool in
          Hiplib.Pretty.debug_level := if debug then 2 else 0;
-         Hiplib.run_string (Jv.to_bool inc) (Jv.to_string s)))
+         Hiplib.run_string (Jv.to_string s)))
 
 let () = main ()
