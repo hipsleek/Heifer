@@ -972,6 +972,18 @@ let rec entailmentchecking (lhs:normalisedStagedSpec list) (rhs:normalisedStaged
     let r2 = entailmentchecking xs rhs in 
     r1 && r2
 
+let check_obligation fvenv meth prog predicates (l, r) =
+  let res = Entail.check_staged_subsumption_disj fvenv meth.m_name meth.m_params meth.m_tactics prog.cp_lemmas predicates l r in
+  let header =
+    "\n========== Obligation: "^ meth.m_name ^" ==========\n" ^
+    "[Specification] " ^ string_of_spec_list r ^"\n" ^
+    "[Normed   Post] " ^ string_of_spec_list l ^"\n\n" ^
+    (* all have to succeed, so no don't_worry *)
+    "[Entail  Check] " ^ (string_of_res res) ^ "\n" ^
+    (String.init (String.length meth.m_name + 32) (fun _ -> '=')) ^ "\n"
+  in
+  print_endline header
+
 let analyze_method prog ({m_spec = given_spec; _} as meth) =
   let time_stamp_beforeForward = Sys.time() in
   let inferred_spec, predicates, fvenv =
@@ -987,7 +999,6 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) =
     in
     let env = create_fv_env method_env in
     let inf, env = infer_of_expression env [freshNormalReturnSpec] meth.m_body in
-    (* TODO check subsumptions in env.fv_lambda_obl *)
 
     (* make the new specs inferred for lambdas available to the entailment procedure as predicates *)
     let preds_with_lambdas =
@@ -1001,6 +1012,11 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) =
     in
     inf, preds_with_lambdas, env
   in
+  (* check misc obligations *)
+  (* TODO stop if we get a failure here? *)
+  fvenv.fv_lambda_obl |> List.iter (check_obligation fvenv meth prog predicates);
+  fvenv.fv_match_obl |> List.iter (check_obligation fvenv meth prog predicates);
+  (* check the main spec *)
   let time_stamp_afterForward = Sys.time() in
   let inferred_spec_n = normalise_spec_list_aux1 inferred_spec in
   let res =
