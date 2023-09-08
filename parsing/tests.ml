@@ -197,9 +197,11 @@ let%expect_test "apply lemma" =
 let%expect_test "normalise spec" =
   verifier_counter_reset ();
   let test s =
-    let n = normalise_spec s in
-    Format.printf "%s\n==>\n%s\n@." (string_of_spec s)
-      (string_of_normalisedStagedSpec n)
+    try
+      let n = normalise_spec s in
+      Format.printf "%s\n==>\n%s\n@." (string_of_spec s)
+        (string_of_normalisedStagedSpec n)
+    with Norm_failure -> Format.printf "%s\n=/=>\n@." (string_of_spec s)
   in
   print_endline "--- norm\n";
   test
@@ -279,8 +281,7 @@ let%expect_test "normalise spec" =
   --- norm
 
   Norm(x->2, ()); req x->1
-  ==>
-  req F; Norm(F, ())
+  =/=>
 
   req x->1; Norm(x->1, ()); req y->2; Norm(y->2, ())
   ==>
@@ -305,8 +306,7 @@ let%expect_test "normalise spec" =
   ex x; req emp; Norm(x=x, ())
 
   ex x; Norm(x->2 /\ x=y, ()); ex y; req y->1
-  ==>
-  ex x; req F; Norm(x=x/\F, ())
+  =/=>
 
   ex x; Norm(x->1, ()); ex y; req y->1; Norm(x=y, ())
   ==>
@@ -315,8 +315,7 @@ let%expect_test "normalise spec" =
   --- eff
 
   Norm(x->1, ()); req x->1; E(x->1, (3), ()); Norm(y->2, ())
-  ==>
-  req F; E(x->1 /\ F, (3), ()); req emp; Norm(y->2, ())
+  =/=>
 
   Norm(x->1, ()); f$(emp, (3), ()); Norm(y->2, ())
   ==>

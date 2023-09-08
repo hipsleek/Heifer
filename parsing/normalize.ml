@@ -1,6 +1,8 @@
 open Hiptypes
 open Pretty
 
+exception Norm_failure
+
 let rec findbinding str vb_li =
   match vb_li with
   | [] -> Var str
@@ -173,7 +175,7 @@ let may_be_equal ex assumptions x y =
   in
   let right = Atomic (EQ, x, y) in
   let eq = Provers.entails_exists tenv assumptions ex right in
-  debug ~at:3 ~title:"provably equal" "%s => ex %s. %s = %s\n%b"
+  debug ~at:3 ~title:"may be equal" "%s => ex %s. %s = %s\n%b"
     (string_of_pi assumptions) (string_of_list Fun.id ex) (string_of_term x)
     (string_of_term y) eq;
   eq
@@ -222,7 +224,7 @@ let rec deleteFromHeapListIfHas li (x, t1) existential flag assumptions :
               | (Num _ | UNIT | TTrue | TFalse | Nil), Var t2Str ->
                 if existStr t2Str existential then (ys, True)
                 else (ys, Atomic (EQ, t1, t2))
-              | Num a, Num b -> (ys, if a = b then True else False)
+              | Num a, Num b -> (ys, if a = b then True else raise Norm_failure)
               | UNIT, UNIT | TTrue, TTrue | TFalse, TFalse | Nil, Nil ->
                 (ys, True)
               | _, _ ->
@@ -238,14 +240,14 @@ let rec deleteFromHeapListIfHas li (x, t1) existential flag assumptions :
           | false ->
             (* handling the simple cases like this speeds things up by about 27% *)
             (match (t1, t2) with
-            | Num a, Num b -> (ys, if a = b then True else False)
+            | Num a, Num b -> (ys, if a = b then True else raise Norm_failure)
             | Var a, Var b when a = b -> (ys, True)
             | UNIT, UNIT | TTrue, TTrue | TFalse, TFalse | Nil, Nil -> (ys, True)
             | _, _ ->
               ( ys,
                 if may_be_equal existential assumptions t1 t2 then
                   Atomic (EQ, t1, t2)
-                else False ))
+                else raise Norm_failure ))
         end
       else
         let res, uni =

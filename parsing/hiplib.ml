@@ -972,20 +972,44 @@ let rec entailmentchecking (lhs:normalisedStagedSpec list) (rhs:normalisedStaged
     let r2 = entailmentchecking xs rhs in 
     r1 && r2
 
-let check_obligation fvenv meth prog predicates (l, r) =
-  let res = Entail.check_staged_subsumption_disj fvenv meth.m_name meth.m_params meth.m_tactics prog.cp_lemmas predicates l r in
+let report_result ?(kind="Function") ?given_spec ?given_spec_n ?inferred_spec ?inferred_spec_n ?forward_time_ms ?entail_time_ms ?result name =
   let header =
-    "\n========== Obligation: "^ meth.m_name ^" ==========\n" ^
-    "[Specification] " ^ string_of_spec_list r ^"\n" ^
-    "[Normed   Post] " ^ string_of_spec_list l ^"\n\n" ^
-    (* all have to succeed, so no don't_worry *)
-    "[Entail  Check] " ^ (string_of_res res) ^ "\n" ^
-    (String.init (String.length meth.m_name + 32) (fun _ -> '=')) ^ "\n"
+    "\n========== " ^ kind ^ ": "^ name ^" ==========\n" ^
+    (match given_spec with
+    | Some s -> "[Specification] " ^ string_of_spec_list s ^ "\n"
+    | None -> "") ^
+    (match given_spec_n with
+    | Some s -> "[Normed   Spec] " ^ string_of_spec_list (normalise_spec_list_aux2 s) ^ "\n"
+    | None -> "") ^
+    (match inferred_spec with
+    | Some s -> "[Raw Post Spec] " ^ string_of_spec_list s ^ "\n"
+    | None -> "") ^
+    (match inferred_spec_n with
+    | Some s -> "[Raw Post Spec] " ^ string_of_spec_list (normalise_spec_list_aux2 s) ^ "\n"
+    | None -> "") ^
+    (match forward_time_ms with
+    | Some t -> "[Forward  Time] " ^ string_of_time t ^ " ms\n"
+    | None -> "") ^
+    (match result with
+    | Some r ->
+      let don't_worry = if not r && String.ends_with ~suffix:"_false" name then " (expected)" else "" in 
+      "[Entail  Check] " ^ (string_of_res r) ^ don't_worry ^ "\n"
+    | None -> "") ^
+    (match entail_time_ms with
+    | Some t -> "[Entail   Time] " ^ string_of_time t ^ " ms\n"
+    | None -> "") ^
+    (String.init (String.length name + 32) (fun _ -> '=')) ^ "\n"
   in
   print_endline header
 
+let check_obligation fvenv meth prog predicates (l, r) =
+  let res = Entail.check_staged_subsumption_disj fvenv meth.m_name meth.m_params meth.m_tactics prog.cp_lemmas predicates l r in
+  report_result ~kind:"Obligation" ~given_spec:r ~inferred_spec:l ~result:res meth.m_name
+
+exception Method_failure
+
 let analyze_method prog ({m_spec = given_spec; _} as meth) =
-  let time_stamp_beforeForward = Sys.time() in
+  let time_stamp_beforeForward = Sys.time () in
   let inferred_spec, predicates, fvenv =
     (* the env is looked up from the program every time, as it's updated as we go *)
     let method_env = prog.cp_methods
@@ -1012,47 +1036,45 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) =
     in
     inf, preds_with_lambdas, env
   in
-  (* check misc obligations *)
-  (* TODO stop if we get a failure here? *)
+  (* check misc obligations. don't stop on failure for now *)
   fvenv.fv_lambda_obl |> List.iter (check_obligation fvenv meth prog predicates);
   fvenv.fv_match_obl |> List.iter (check_obligation fvenv meth prog predicates);
+
   (* check the main spec *)
-  let time_stamp_afterForward = Sys.time() in
-  let inferred_spec_n = normalise_spec_list_aux1 inferred_spec in
+  let time_stamp_afterForward = Sys.time () in
+  let inferred_spec_n =
+    try
+      normalise_spec_list_aux1 inferred_spec
+    with Norm_failure -> report_result ~inferred_spec ~result:false meth.m_name; raise Method_failure
+  in
   let res =
     match given_spec with
     | Some given_spec ->
-      let given_spec_n = normalise_spec_list_aux1 given_spec in
-      let time_stamp_afterNormal = Sys.time() in
-      (* SYH old entailment  *)
-      (* let res = entailmentchecking inferred_spec_n given_spec_n in *)
-      let res = Entail.check_staged_subsumption_disj fvenv meth.m_name meth.m_params meth.m_tactics prog.cp_lemmas predicates inferred_spec given_spec in
-      (*let res = Entail.check_staged_subsumption_disj m_tactics prog.cp_lemmas prog.cp_predicates inferred_spec given_spec in  *)
-      let time_stamp_afterEntail = Sys.time() in
-      let given_spec_n = normalise_spec_list_aux2 given_spec_n in
-      let inferred_spec_n = normalise_spec_list_aux2 inferred_spec_n in
-      let don't_worry = if not res && String.ends_with ~suffix:"_false" meth.m_name then " (expected)" else "" in
-      let header =
-        "\n========== Function: "^ meth.m_name ^" ==========\n" ^
-        "[Specification] " ^ string_of_spec_list given_spec ^"\n" ^
-        "[Normed   Spec] " ^ string_of_spec_list given_spec_n ^"\n\n" ^
-        "[Raw Post Spec] " ^ string_of_spec_list inferred_spec ^ "\n" ^
-        "[Normed   Post] " ^ string_of_spec_list inferred_spec_n ^"\n\n" ^ 
-        "[Forward  Time] " ^ string_of_time ((time_stamp_afterForward -. time_stamp_beforeForward) *. 1000.0 ) ^ " ms\n" ^ 
-        "[Normal   Time] " ^ string_of_time ((time_stamp_afterNormal -. time_stamp_afterForward) *. 1000.0) ^ " ms\n"  ^ 
-        "[Entail  Check] " ^ 
-        (string_of_res res) ^ don't_worry ^ "\n" ^
-        "[Entail  Time] " ^ string_of_time ((time_stamp_afterEntail  -. time_stamp_afterNormal) *. 1000.0) ^ " ms\n" ^
-        (String.init (String.length meth.m_name + 32) (fun _ -> '=')) ^ "\n"
+      let given_spec_n =
+        try
+          normalise_spec_list_aux1 given_spec
+        with Norm_failure -> report_result ~inferred_spec ~inferred_spec_n ~given_spec ~result:false meth.m_name; raise Method_failure
       in
-      print_endline header;
+      let time_stamp_afterNormal = Sys.time () in
+      let res =
+        try
+          let syh_old_entailment = false in
+          match syh_old_entailment with
+          | true -> entailmentchecking inferred_spec_n given_spec_n
+          | false ->
+            (* normalization occurs after unfolding in entailment *)
+            Entail.check_staged_subsumption_disj fvenv meth.m_name meth.m_params meth.m_tactics prog.cp_lemmas predicates inferred_spec given_spec
+        with Norm_failure ->
+          (* norm failing all the way to the top level may prevent some branches from being explored during proof search. this does not happen in any tests yet, however, so keep error-handling simple. if it ever happens, return an option from norm entry points *)
+          false
+      in
+      let time_stamp_afterEntail = Sys.time () in
+      let entail_time_ms = ((time_stamp_afterEntail -. time_stamp_afterNormal) *. 1000.0) in
+      let forward_time_ms = ((time_stamp_afterForward -. time_stamp_beforeForward) *. 1000.0) in
+      report_result ~inferred_spec ~inferred_spec_n ~given_spec ~given_spec_n ~entail_time_ms ~forward_time_ms ~result:res meth.m_name;
       res
-    | None -> 
-      let header =
-        "\n========== Function: "^ meth.m_name ^" ==========\n" ^
-        "[Raw Post Spec] " ^ string_of_spec_list inferred_spec ^ "\n" ^
-        "[Normed   Post] " ^ string_of_spec_list (normalise_spec_list_aux2 inferred_spec_n) ^"\n"
-      in print_endline header;
+    | None ->
+      report_result ~inferred_spec ~inferred_spec_n meth.m_name;
       true
   in
   (* only save these specs for use by later functions if verification succeeds *)
@@ -1105,7 +1127,9 @@ let run_string_ line =
        each function is analyzed in isolation so this is safe.
        we must, however, reset to the current checkpoint, as parsing uses fresh variables. *)
     Pretty.verifier_counter_reset_to vcr;
-    analyze_method prog meth) prog prog.cp_methods |> ignore
+    try
+      analyze_method prog meth
+    with Method_failure -> prog) prog prog.cp_methods |> ignore
 
 let run_string s =
   Provers.handle (fun () -> run_string_ s)
