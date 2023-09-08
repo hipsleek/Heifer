@@ -607,7 +607,7 @@ let rec infer_of_expression (env:fvenv) (current:disj_spec) (expr:core_lang): di
       let inferred, env = infer_of_expression env [[]] body in
       let inferred = inferred |> List.map (fun s -> s |> normalise_spec |> normalisedStagedSpec2Spec) in
       let lid = verifier_getAfreeVar "lambda" in
-      debug ~title:(Format.asprintf "lambda spec %s" lid) "%s" (string_of_disj_spec inferred);
+      debug ~at:2 ~title:(Format.asprintf "lambda spec %s" lid) "%s" (string_of_disj_spec inferred);
       let mdef = {
         m_name = lid;
         m_params = params; (* TODO unit param? *)
@@ -682,6 +682,6 @@ let rec infer_of_expression (env:fvenv) (current:disj_spec) (expr:core_lang): di
       (* TODO *)
       failwith "combining effect handlers and pattern matching not yet unimplemented"
   in
-  debug ~title:"forward rules" "{%s}\n%s\n{%s}" (string_of_disj_spec current) (string_of_core_lang expr) (string_of_disj_spec res);
+  debug ~at:3 ~title:"forward rules" "{%s}\n%s\n{%s}" (string_of_disj_spec current) (string_of_core_lang expr) (string_of_disj_spec res);
   res, env
 

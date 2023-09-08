@@ -202,8 +202,8 @@ let rec check_qf :
   (* TODO ptr equalities? *)
   let a = Heap.normalize ante in
   let c = Heap.normalize conseq in
-  debug
-    ~title:(Format.asprintf "SL entailment %s" id)
+  info
+    ~title:(Format.asprintf "SL entailment (%s)" id)
     "%s |- %s" (string_of_state ante) (string_of_state conseq);
   match (a, c) with
   | (p1, h1), (p2, EmptyHeap) ->
@@ -372,7 +372,7 @@ let rec check_staged_subsumption_stagewise :
     normalisedStagedSpec ->
     unit option =
  fun ctx i assump s1 s2 ->
-  info ~title:"subsumption" "%s\n<:\n%s"
+  info ~title:"flow subsumption" "%s\n<:\n%s"
     (string_of_normalisedStagedSpec s1)
     (string_of_normalisedStagedSpec s2);
   match (s1, s2) with
@@ -523,14 +523,14 @@ and stage_subsumes :
   let vs2, (pre2, post2, ret2) = s2 in
   (* TODO replace uses of all_vars. this is for us to know if locations on the rhs are quantified. a smaller set of vars is possible *)
   info
-    ~title:(Format.asprintf "(%s)" what)
+    ~title:(Format.asprintf "subsumption for stage %s" what)
     "%s * (%sreq %s; ens %s) <: (%sreq %s; ens %s)" (string_of_pi assump)
     (string_of_existentials vs1)
     (string_of_state pre1) (string_of_state post1)
     (string_of_existentials vs2)
     (string_of_state pre2) (string_of_state post2);
   (* contravariance *)
-  let@ pre_l, pre_r, pre_resi_l = check_qf "pren" ctx.q_vars pre2 pre1 in
+  let@ pre_l, pre_r, pre_resi_l = check_qf "pre" ctx.q_vars pre2 pre1 in
   let* pre_residue, tenv =
     let left = conj [assump; pre_l] in
     let right = pre_r in
@@ -544,7 +544,7 @@ and stage_subsumes :
       Provers.entails_exists (concrete_type_env tenv) left vs1 right
     in
     info
-      ~title:(Format.asprintf "(%s pre)" what)
+      ~title:(Format.asprintf "VC %s pre" what)
       "%s => %s%s\n%s" (string_of_pi left)
       (string_of_existentials vs1)
       (string_of_pi right) (string_of_res pre_res);
@@ -559,7 +559,7 @@ and stage_subsumes :
   (* let res_v = verifier_getAfreeVar ~from:"res" () in *)
   let pure_pre_residue = fst pre_residue in
   let@ post_l, post_r, _post_resi =
-    check_qf "postn" ctx.q_vars (conj_state pre_residue post1) post2
+    check_qf "post" ctx.q_vars (conj_state pre_residue post1) post2
   in
   let* post_residue =
     (* Atomic (EQ, Var res_v, ret1) *)
@@ -598,7 +598,7 @@ and stage_subsumes :
         Provers.entails_exists (concrete_type_env tenv) left vs22 right
       in
       info
-        ~title:(Format.asprintf "(%s post)" what)
+        ~title:(Format.asprintf "VC %s post" what)
         "%s => %s%s\n%s" (string_of_pi left)
         (string_of_existentials vs22)
         (string_of_pi right) (string_of_res post_res);
@@ -748,7 +748,7 @@ let derive_predicate m_name m_params disj =
   let res =
     { p_name = m_name; p_params = m_params @ ["res"]; p_body = new_spec }
   in
-  debug
+  debug ~at:2
     ~title:(Format.asprintf "derive predicate %s" m_name)
     "%s\n\n%s"
     (string_of_list string_of_normalisedStagedSpec norm)

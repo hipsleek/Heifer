@@ -684,7 +684,7 @@ let rec transformation (env:string list) (expr:expression) : core_lang =
     loop [] args
   | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, args) ->
     (* unknown function call, e.g. printf. translate to assert true for now *)
-    (* debug ~title:"unknown function call" "%a" Pprintast.expression f; *)
+    (* debug ~at:2 ~title:"unknown function call" "%a" Pprintast.expression f; *)
     (* with higher-order functions, we can no longer know statically which variables are functions, so we give up on doing this and emit a function call *)
     (* CAssert (True, EmptyHeap) *)
     let rec loop vars args =
@@ -1096,8 +1096,8 @@ let run_string_ line =
   let progs = Parser.implementation Lexer.token (Lexing.from_string line) in
   let prog = transform_strs progs in
   let vcr = !Pretty.verifier_counter in
-  debug ~title:"parsed" "%s" (string_of_program prog);
-  debug ~title:"user-specified predicates" "%s@." (string_of_smap string_of_pred prog.cp_predicates);
+  debug ~at:2 ~title:"parsed" "%s" (string_of_program prog);
+  debug ~at:2 ~title:"user-specified predicates" "%s" (string_of_smap string_of_pred prog.cp_predicates);
   (* as we handle methods, predicates are inferred and are used in place of absent specifications, so we have to keep updating the program as we go *)
   List.fold_left (fun prog meth ->
     info ~title:(Format.asprintf "verifying: %s" meth.m_name) "";

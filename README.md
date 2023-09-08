@@ -102,14 +102,22 @@ we can reason about multi-shot efficiently.
 TODO: write compose and applyN in 1 
 verify the results in 2. 
 
-
-info ~title:"FAIL" "constr %s != %s" c1 c2;
-
-
 # Development
 
 Builds on OCaml 5. Check the [GitHub actions config](.github/workflows/main.yml) for the build dependencies.
 
 `dune test` to run [tests](src/programs.t/run.t).
 
-`dune exec parsing/hip.exe $EXAMPLE` to run examples. Effect-related programs are in [src/evaluation](src/evaluation), higher-order programs are in [src/examples](src/examples). Set `DEBUG=n` for more output.
+`dune exec parsing/hip.exe $EXAMPLE` to run examples. Effect-related programs are in [src/evaluation](src/evaluation), higher-order programs are in [src/examples](src/examples).
+
+**Logging**
+
+View log output by setting `DEBUG=n`.
+
+| n    | What                                 |
+| ---- | ------------------------------------ |
+| 0    | Results                              |
+| 1    | Explanations, for users              |
+| >= 2 | More and more detail, for developers |
+
+Add logging using `debug ~at:n ~title:"example" "format string %d" 1;`. `info` is an alias for `debug ~at:1`.

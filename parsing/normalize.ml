@@ -316,10 +316,10 @@ let normalise_stagedSpec (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
           ],
         freshNormStageRet ret' )
   in
-  (* debug ~title:"normalize step" "%s\n+\n%s\n==>\n%s"
-     (string_of_normalisedStagedSpec acc)
-     (string_of_staged_spec stagedSpec)
-     (string_of_normalisedStagedSpec res); *)
+  debug ~at:3 ~title:"normalize step" "%s\n+\n%s\n==>\n%s"
+    (string_of_normalisedStagedSpec acc)
+    (string_of_staged_spec stagedSpec)
+    (string_of_normalisedStagedSpec res);
   res
 
 (* | IndPred {name; _} -> *)
@@ -530,7 +530,7 @@ let normalise_spec sp =
     (* redundant vars may appear due to fresh stages *)
     |> optimize_existentials
   in
-  debug ~title:"normalise" "%s\n\n%s" (string_of_spec sp)
+  debug ~at:2 ~title:"normalise" "%s\n\n%s" (string_of_spec sp)
     (string_of_normalisedStagedSpec r);
   r
 
