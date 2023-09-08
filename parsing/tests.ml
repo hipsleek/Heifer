@@ -302,7 +302,7 @@ let%expect_test "normalise spec" =
 
   ex x; Norm(x->1 /\ x=y, ()); ex y; req y->1
   ==>
-  ex x; req 1=1; Norm(x=x/\1=1, ())
+  ex x; req emp; Norm(x=x, ())
 
   ex x; Norm(x->2 /\ x=y, ()); ex y; req y->1
   ==>
@@ -310,7 +310,7 @@ let%expect_test "normalise spec" =
 
   ex x; Norm(x->1, ()); ex y; req y->1; Norm(x=y, ())
   ==>
-  ex x; req 1=1; Norm(1=1/\x=x, ())
+  ex x; req emp; Norm(x=x, ())
 
   --- eff
 
