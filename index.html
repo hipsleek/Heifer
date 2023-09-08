@@ -258,6 +258,22 @@ let main1_false ()
   call_ret cl;
   assert (!x=3);
   (* the function call is only valid at the first time *)
+  1
+
+let main3_false ()
+(*@ Norm(emp, 1) @*)
+= let x = ref 2 in
+  assert (!x=2);
+  x := !x + 1;
+  assert (!x=4);
+  1
+
+let main4_false ()
+(*@ Norm(emp, 1) @*)
+= let x = ref 2 in
+  assert (!x=2);
+  x := 3;
+  assert (!x=4);
   1">src/examples/calls.ml</option><option value=src/examples/closure.ml data-text="
 let closures ()
 (*@ ex i; Norm(i->[8;7;42], [8;7;42]) @*)
@@ -1155,7 +1171,7 @@ let invalid_false ()
     <script>
       // this is substituted at build time and is used in page.js
       function postExampleLoad() {
-        console.log("Built Wed Sep  6 16:59:37 UTC 2023");
+        console.log("Built Fri Sep  8 16:14:45 UTC 2023");
         console.log("loading z3...");
       }
     </script>
