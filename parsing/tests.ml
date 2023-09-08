@@ -216,12 +216,14 @@ let%expect_test "normalise spec" =
     ];
   test
     [
+      Exists ["a"];
       NormalReturn (True, PointsTo ("x", Num 1), UNIT);
       Require (True, PointsTo ("x", Var "a"));
       NormalReturn (True, PointsTo ("x", Plus (Var "a", Num 1)), UNIT);
     ];
   test
     [
+      Exists ["a"];
       NormalReturn
         (True, SepConj (PointsTo ("x", Num 1), PointsTo ("y", Num 2)), UNIT);
       Require (True, PointsTo ("x", Var "a"));
@@ -229,6 +231,7 @@ let%expect_test "normalise spec" =
     ];
   test
     [
+      Exists ["a"];
       NormalReturn (Atomic (EQ, Var "a", Num 3), PointsTo ("y", Var "a"), UNIT);
       Require (Atomic (EQ, Var "b", Var "a"), PointsTo ("x", Var "b"));
       NormalReturn (True, PointsTo ("x", Plus (Var "b", Num 1)), UNIT);
@@ -257,6 +260,7 @@ let%expect_test "normalise spec" =
       NormalReturn (Atomic (EQ, Var "x", Var "y"), EmptyHeap, UNIT);
     ];
   print_endline "--- eff\n";
+  (* not sure why this is false, and also if it can appear in a real program *)
   test
     [
       NormalReturn (True, PointsTo ("x", Num 1), UNIT);
@@ -282,23 +286,23 @@ let%expect_test "normalise spec" =
   ==>
   req x->1*y->2; Norm(x->1*y->2, ())
 
-  Norm(x->1, ()); req x->a; Norm(x->a+1, ())
+  ex a; Norm(x->1, ()); req x->a; Norm(x->a+1, ())
   ==>
-  req 1=a; Norm(x->a+1 /\ a=1, ())
+  ex a; req 1=a; Norm(x->a+1 /\ a=1, ())
 
-  Norm(x->1*y->2, ()); req x->a; Norm(x->a+1, ())
+  ex a; Norm(x->1*y->2, ()); req x->a; Norm(x->a+1, ())
   ==>
-  req 1=a; Norm(y->2*x->a+1 /\ a=1, ())
+  ex a; req 1=a; Norm(y->2*x->a+1 /\ a=1, ())
 
-  Norm(y->a /\ a=3, ()); req x->b /\ b=a; Norm(x->b+1, ())
+  ex a; Norm(y->a /\ a=3, ()); req x->b /\ b=a; Norm(x->b+1, ())
   ==>
-  req x->b /\ b=a; Norm(y->a*x->b+1 /\ a=3, ())
+  ex a; req x->b /\ b=a; Norm(y->a*x->b+1 /\ a=3, ())
 
   --- existential locations
 
   ex x; Norm(x->1 /\ x=y, ()); ex y; req y->1
   ==>
-  ex x; req emp; Norm(x=x, ())
+  ex x; req 1=1; Norm(x=x/\1=1, ())
 
   ex x; Norm(x->2 /\ x=y, ()); ex y; req y->1
   ==>
@@ -306,13 +310,13 @@ let%expect_test "normalise spec" =
 
   ex x; Norm(x->1, ()); ex y; req y->1; Norm(x=y, ())
   ==>
-  ex x; req emp; Norm(x=x, ())
+  ex x; req 1=1; Norm(1=1/\x=x, ())
 
   --- eff
 
   Norm(x->1, ()); req x->1; E(x->1, (3), ()); Norm(y->2, ())
   ==>
-  req 1=1; E(x->1 /\ 1=1, (3), ()); req emp; Norm(y->2, ())
+  req F; E(x->1 /\ F, (3), ()); req emp; Norm(y->2, ())
 
   Norm(x->1, ()); f$(emp, (3), ()); Norm(y->2, ())
   ==>

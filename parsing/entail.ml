@@ -579,30 +579,15 @@ and stage_subsumes :
         ~title:(Format.asprintf "warning: false derived in program")
         "%s => %s%s\n%s" (string_of_pi True) "" (string_of_pi left)
         (string_of_res false_not_derived);
-    let spec_consistent = Provers.askZ3 (concrete_type_env tenv) right in
-    if not spec_consistent then
-      info
-        ~title:(Format.asprintf "spec is inconsistent")
-        "%s => %s%s\n%s" (string_of_pi True) "" (string_of_pi left)
-        (string_of_res spec_consistent);
-    let check_post =
-      match (false_not_derived, spec_consistent) with
-      | false, false -> true (* false => false *)
-      | false, true ->
-        false (* false derived in program, so block, otherwise explosion *)
-      | true, _ -> true
+    let post_res =
+      Provers.entails_exists (concrete_type_env tenv) left vs22 right
     in
-    if not check_post then None
-    else
-      let post_res =
-        Provers.entails_exists (concrete_type_env tenv) left vs22 right
-      in
-      info
-        ~title:(Format.asprintf "VC %s post" what)
-        "%s => %s%s\n%s" (string_of_pi left)
-        (string_of_existentials vs22)
-        (string_of_pi right) (string_of_res post_res);
-      if post_res then Some (conj [left; right; pure_pre_residue]) else None
+    info
+      ~title:(Format.asprintf "VC %s post" what)
+      "%s => %s%s\n%s" (string_of_pi left)
+      (string_of_existentials vs22)
+      (string_of_pi right) (string_of_res post_res);
+    if post_res then Some (conj [left; right; pure_pre_residue]) else None
   in
   pure (conj [pure_pre_residue; post_residue])
 

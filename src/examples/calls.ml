@@ -50,3 +50,19 @@ let main1_false ()
   assert (!x=3);
   (* the function call is only valid at the first time *)
   1
+
+let main3_false ()
+(*@ Norm(emp, 1) @*)
+= let x = ref 2 in
+  assert (!x=2);
+  x := !x + 1;
+  assert (!x=4);
+  1
+
+let main4_false ()
+(*@ Norm(emp, 1) @*)
+= let x = ref 2 in
+  assert (!x=2);
+  x := 3;
+  assert (!x=4);
+  1

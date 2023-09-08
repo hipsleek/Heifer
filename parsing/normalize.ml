@@ -164,20 +164,18 @@ let rec pure_to_equalities pi =
 
 let pure_to_eq_state (p, _) = pure_to_equalities p
 
-(** see if the given equalities can prove x=y *)
-let are_equal eqs x y =
+(** check if x=y is not invalid (i.e. sat) under the given assumptions *)
+let may_be_equal ex assumptions x y =
   let tenv =
-    x :: y :: List.concat_map (fun (a, b) -> [a; b]) eqs
-    |> List.map (fun a -> (a, Bool))
-    |> List.to_seq |> SMap.of_seq
+    Infer_types.infer_types_pi (create_abs_env ())
+      (And (assumptions, Atomic (EQ, x, y)))
+    |> Infer_types.concrete_type_env
   in
-  let left =
-    List.fold_right
-      (fun (a, b) t -> And (t, Atomic (EQ, Var a, Var b)))
-      eqs True
-  in
-  let right = Atomic (EQ, Var x, Var y) in
-  let eq = Provers.entails_exists tenv left [] right in
+  let right = Atomic (EQ, x, y) in
+  let eq = Provers.entails_exists tenv assumptions ex right in
+  debug ~at:3 ~title:"provably equal" "%s => ex %s. %s = %s\n%b"
+    (string_of_pi assumptions) (string_of_list Fun.id ex) (string_of_term x)
+    (string_of_term y) eq;
   eq
 
 let rec kappa_of_list li =
@@ -185,53 +183,79 @@ let rec kappa_of_list li =
   | [] -> EmptyHeap
   | (x, v) :: xs -> SepConj (PointsTo (x, v), kappa_of_list xs)
 
-(* (x, t1) -* (y, t2) *)
+(* (x, t1) -* (y, t2), where li is a heap containing y *)
 (* flag true => add to precondition *)
 (* flag false => add to postcondition *)
-let rec deleteFromHeapListIfHas li (x, t1) existential flag eqs :
+let rec deleteFromHeapListIfHas li (x, t1) existential flag assumptions :
     (string * term) list * pi =
-  match li with
-  | [] -> ([], True)
-  | (y, t2) :: ys ->
-    let same_loc =
-      let exists_eq =
-        List.mem x existential && List.mem y existential && are_equal eqs x y
+  let res =
+    match li with
+    | [] -> ([], True)
+    | (y, t2) :: ys ->
+      let same_loc =
+        let exists_eq =
+          List.mem x existential && List.mem y existential
+          && may_be_equal existential True (Var x) (Var y)
+        in
+        String.equal x y || exists_eq
       in
-      String.equal x y || exists_eq
-    in
-    if same_loc then
-      if stricTcompareTerm t2 (Var "_") then (ys, True)
+      if same_loc then
+        (* toggles whether or not z3 is used for equality checks. not using z3 is about 3x faster but causes unsoundness due to normalization not producing [req F]s if misses the fact that two values are not equal *)
+        let fast_equality = false in
+        begin
+          match fast_equality with
+          | true ->
+            if stricTcompareTerm t2 (Var "_") then (ys, True)
+            else (
+              (* TODO these cases could be organised better... a few classes:
+                 - one side is a variable
+                 - both sides are variables
+                 - both sides are obviously (un)equal
+                 - both sides are not obviously equal (requiring z3 to check)
+              *)
+              match (t1, t2) with
+              (* x-> z -* x-> 11   ~~~>  (emp, z=11) *)
+              | Var t2Str, (Num _ | UNIT | TTrue | TFalse | Nil) ->
+                if String.compare t2Str "_" == 0 then (ys, True)
+                else (ys, Atomic (EQ, t1, t2))
+              (* x->11 -* x-> z   ~~~>   (emp, true) *)
+              | (Num _ | UNIT | TTrue | TFalse | Nil), Var t2Str ->
+                if existStr t2Str existential then (ys, True)
+                else (ys, Atomic (EQ, t1, t2))
+              | Num a, Num b -> (ys, if a = b then True else False)
+              | UNIT, UNIT | TTrue, TTrue | TFalse, TFalse | Nil, Nil ->
+                (ys, True)
+              | _, _ ->
+                if stricTcompareTerm t1 t2 || stricTcompareTerm t1 (Var "_")
+                then (ys, True)
+                else if flag then
+                  (* ex a. x->a |- ex b. req x->b *)
+                  (* a=b should be added in the result's postcondition.
+                     this should be req (emp, true); ens emp, a=b *)
+                  (ys, True)
+                else (ys, Atomic (EQ, t1, t2))
+                  (* | _, _ -> if flag then (ys, Atomic (EQ, t1, t2)) else (ys, True) *))
+          | false ->
+            ( ys,
+              if may_be_equal existential assumptions t1 t2 then
+                Atomic (EQ, t1, t2)
+              else False )
+        end
       else
-        (* TODO these cases could be organised better... a few classes:
-           - one side is a variable
-           - both sides are variables
-           - both sides are obviously (un)equal
-           - both sides are not obviously equal (requiring z3 to check)
-        *)
-        match (t1, t2) with
-        (* x-> z -* x-> 11   ~~~>  (emp, z=11) *)
-        | Var t2Str, (Num _ | UNIT | TTrue | TFalse | Nil) ->
-          if String.compare t2Str "_" == 0 then (ys, True)
-          else (ys, Atomic (EQ, t1, t2))
-        (* x->11 -* x-> z   ~~~>   (emp, true) *)
-        | (Num _ | UNIT | TTrue | TFalse | Nil), Var t2Str ->
-          if existStr t2Str existential then (ys, True)
-          else (ys, Atomic (EQ, t1, t2))
-        | Num a, Num b -> (ys, if a = b then True else False)
-        | UNIT, UNIT | TTrue, TTrue | TFalse, TFalse | Nil, Nil -> (ys, True)
-        | _, _ ->
-          if stricTcompareTerm t1 t2 || stricTcompareTerm t1 (Var "_") then
-            (ys, True)
-          else if flag then
-            (* ex a. x->a |- ex b. req x->b *)
-            (* a=b should be added in the result's postcondition.
-               this should be req (emp, true); ens emp, a=b *)
-            (ys, True)
-          else (ys, Atomic (EQ, t1, t2))
-        (* | _, _ -> if flag then (ys, Atomic (EQ, t1, t2)) else (ys, True) *)
-    else
-      let res, uni = deleteFromHeapListIfHas ys (x, t1) existential flag eqs in
-      ((y, t2) :: res, uni)
+        let res, uni =
+          deleteFromHeapListIfHas ys (x, t1) existential flag assumptions
+        in
+        ((y, t2) :: res, uni)
+  in
+  let () =
+    let sof = string_of_list (string_of_pair Fun.id string_of_term) in
+    debug ~at:3 ~title:"delete from heap list" "%s -* %s = %s\nex %s"
+      (string_of_pair Fun.id string_of_term (x, t1))
+      (sof li)
+      (string_of_pair sof string_of_pi res)
+      (string_of_list Fun.id existential)
+  in
+  res
 
 (* h1 * h |- h2, returns h and unificiation
    x -> 3 |- x -> z   -> (emp, true )
@@ -239,7 +263,7 @@ let rec deleteFromHeapListIfHas li (x, t1) existential flag eqs :
 *)
 (* flag true => ens h1; req h2 *)
 (* flag false => req h2; ens h1 *)
-let normaliseMagicWand h1 h2 existential flag eqs : kappa * pi =
+let normaliseMagicWand h1 h2 existential flag assumptions : kappa * pi =
   let listOfHeap1 = list_of_heap h1 in
   let listOfHeap2 = list_of_heap h2 in
   let rec helper (acc : (string * term) list * pi) li =
@@ -248,12 +272,12 @@ let normaliseMagicWand h1 h2 existential flag eqs : kappa * pi =
     | [] -> acc
     | (x, v) :: xs ->
       let heapLi', unification' =
-        deleteFromHeapListIfHas heapLi (x, v) existential flag eqs
+        deleteFromHeapListIfHas heapLi (x, v) existential flag assumptions
       in
       helper (heapLi', And (unification, unification')) xs
   in
-  let temp, unifinication = helper (listOfHeap2, True) listOfHeap1 in
-  (normaliseHeap (kappa_of_list temp), unifinication)
+  let temp, unification = helper (listOfHeap2, True) listOfHeap1 in
+  (normaliseHeap (kappa_of_list temp), unification)
 
 let normalise_stagedSpec (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
     : normalisedStagedSpec =
@@ -265,22 +289,25 @@ let normalise_stagedSpec (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
     | Require (p3, h3) ->
       let p2, h2 = ens in
       let magicWandHeap, unification =
-        normaliseMagicWand h2 h3 existential true (pure_to_equalities p2)
+        normaliseMagicWand h2 h3 existential true (And (p2, p3))
       in
 
-      (* print_endline (string_of_kappa magicWandHeap ^ " magic Wand "); *)
-      (* Format.printf "unification %s@." (string_of_pi unification); *)
-
-      (* not only need to get the magic wand, but also need to delete the common part from h2*)
-      let h2', unification' =
-        normaliseMagicWand h3 h2 existential false (pure_to_equalities p2)
+      (* not only need to get the magic wand, but also need to delete the common part from h2 *)
+      let h2', unification1 =
+        (* TODO equalities? *)
+        normaliseMagicWand h3 h2 existential false (And (p2, p3))
+        (* (pure_to_equalities p2) *)
       in
 
-      (* Format.printf "h2' %s@." (string_of_kappa h2'); *)
-      (* Format.printf "unification' %s@." (string_of_pi unification'); *)
+      debug ~at:3 ~title:"biabduction" "%s * %s |- %s * %s"
+        (string_of_state (unification, magicWandHeap))
+        (string_of_state ens)
+        (string_of_state (p3, h3))
+        (string_of_state (unification1, h2'));
+
       let normalStage' =
         let pre = mergeState req (And (p3, unification), magicWandHeap) in
-        let post = (ProversEx.normalize_pure (And (p2, unification')), h2') in
+        let post = (ProversEx.normalize_pure (And (p2, unification1)), h2') in
         (existential, pre, post, ret)
       in
       (effectStages, normalStage')
