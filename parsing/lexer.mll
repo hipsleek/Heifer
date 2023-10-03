@@ -59,7 +59,7 @@ let keyword_table =
     "function", FUNCTION;
     "functor", FUNCTOR;
     "req", REQUIRES;
-    "ensures", ENSURES;
+    "ens", ENSURES;
 
     "emp", EMP;
     "if", IF;

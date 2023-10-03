@@ -516,3 +516,27 @@ let string_of_meth_def m =
 
 let string_of_program (cp:core_program) :string =
   List.map string_of_meth_def cp.cp_methods |> String.concat "\n\n"
+
+let rec split_res p =
+  match p with
+  | True -> True, []
+  | False -> False, []
+  | Atomic (EQ, Var "res", v)
+  | Atomic (EQ, v, Var "res") -> True, [v]
+  | Atomic (_, _, _) -> p, []
+  | And (a, b) ->
+    let l, r = split_res a in
+    let l1, r1 = split_res b in
+    And (l, l1), r @ r1
+  | Or (a, b) ->
+    let l, r = split_res a in
+    let l1, r1 = split_res b in
+    Or (l, l1), r @ r1
+  | Imply (a, b) ->
+    let l, r = split_res a in
+    let l1, r1 = split_res b in
+    Imply (l, l1), r @ r1
+  | Not a ->
+    let l, r = split_res a in
+    Not l, r
+  | Predicate (_, _) -> failwith (Format.asprintf "NYI: predicate")

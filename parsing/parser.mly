@@ -2623,7 +2623,21 @@ stagedSpecArgs :
 
 stagedSpec1 : 
   | EXISTS vs=nonempty_list(LIDENT) { Exists vs }
-  | REQUIRES f=statefml { Require (fst f, snd f) }
+  | REQUIRES f=statefml {
+      let (p, h) = f in
+      Require (p, h)
+    }
+  | ENSURES f=statefml {
+      let (p, h) = f in
+      let (p1, r) = Core.Pretty.split_res p in
+      let r =
+        match r with
+        | [] -> UNIT
+        | [x] -> x
+        | _ -> failwith "too many res bindings"
+      in
+      NormalReturn (p1, h, r)
+    }
   | constr=UIDENT args=delimited(LPAREN, stagedSpecArgs, RPAREN)
   {
     match constr, args with
@@ -2646,6 +2660,7 @@ stagedSpec1 :
 statefml:
   | h=heapkappa { (True, h) }
   | p=pure_formula CONJUNCTION h=heapkappa { (p, h) }
+  | h=heapkappa CONJUNCTION p=pure_formula { (p, h) }
   | p=pure_formula { (p, EmptyHeap) }
 
 heapkappa:

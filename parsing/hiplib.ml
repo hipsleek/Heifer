@@ -1078,7 +1078,7 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) =
       true
   in
   (* only save these specs for use by later functions if verification succeeds *)
-  if not res then prog else begin
+  if not res then prog else (
     let prog, pred =
       (* if the user has not provided a predicate for the given function,
         produce one from the inferred spec *)
@@ -1111,8 +1111,7 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) =
         { prog with cp_methods }
       | Some _ -> prog
     in
-    prog
-  end
+    prog)
 
 let run_string_ line =
   let progs = Parser.implementation Lexer.token (Lexing.from_string line) in

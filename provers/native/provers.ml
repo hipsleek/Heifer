@@ -194,15 +194,20 @@ let _test () =
   | None -> Format.printf "no model@."
   | Some m -> Format.printf "model: %s@." (Model.to_string m)
 
+let debug =
+  try
+    int_of_string (Sys.getenv "DEBUG") >= 4
+  with _ ->
+    false
+
 let check_sat f =
-  let debug = false in
   (* let debug = true in *)
   let cfg =
     (if debug then [("model", "false")] else []) @ [("proof", "false")]
   in
   let ctx = mk_context cfg in
   let expr = f ctx in
-  if debug then Format.printf "z3 expr: %s@." (Expr.to_string expr);
+  (* if debug then Format.printf "z3 expr: %s@." (Expr.to_string expr); *)
   (* z3_query (Expr.to_string expr); *)
   (* let goal = Goal.mk_goal ctx true true false in *)
   (* Goal.add goal [ expr ]; *)
@@ -210,7 +215,7 @@ let check_sat f =
   (* if debug then Format.printf "goal: %s@." (Goal.to_string goal); *)
   let solver = Solver.mk_simple_solver ctx in
   Solver.add solver [expr];
-  if debug then Format.printf "z3 expr: %s@." (Expr.to_string expr);
+  (* if debug then Format.printf "z3 expr: %s@." (Expr.to_string expr); *)
   if debug then Format.printf "z3 solver: %s@." (Solver.to_string solver);
   (* z3_query (Z3.Solver.to_string solver); *)
   (* expr *)
