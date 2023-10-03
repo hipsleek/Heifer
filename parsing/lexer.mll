@@ -566,12 +566,10 @@ rule token = parse
   | "!"  { BANG }
   | "!=" { INFIXOP0 "!=" }
   | "+"  { PLUS }
-  | "++"  { PLUSPLUS }
   | "+." { PLUSDOT }
   | "+=" { PLUSEQ }
   | "-"  { MINUS }
   | "-." { MINUSDOT }
-  | "^*" { KLEENE }
 
 
   | "!" symbolchar_or_hash + as op

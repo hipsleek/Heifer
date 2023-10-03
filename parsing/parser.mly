@@ -627,7 +627,6 @@ let mk_directive ~loc name arg =
 %token IMPLICATION
 %token REQUIRES
 %token ENSURES
-%token KLEENE
 %token EMP
 %token GREATER
 %token GREATERRBRACE
@@ -680,7 +679,7 @@ let mk_directive ~loc name arg =
 %token OR
 /* %token PARSER */
 %token PERCENT
-%token PLUS PLUSPLUS
+%token PLUS
 %token PLUSDOT
 %token PLUSEQ
 %token <string> PREFIXOP
@@ -784,11 +783,10 @@ The precedences must be listed from low to high.
 %nonassoc below_DOT
 %left     DOT
 %nonassoc DOTOP
-%nonassoc KLEENE 
 %nonassoc TILDE                         /* higher than conjunction */
 %left     CONJUNCTION                   /* higher than disjunction */
-%left     DISJUNCTION                   /* should bind less tightly than kleene/omega */
-%right    IMPLICATION                   /* lower than conjunction */
+// %left     DISJUNCTION                   /* should bind less tightly than kleene/omega */
+// %right    IMPLICATION                   /* lower than conjunction */
 /* Finally, the first tokens of simple_expr are above everything else. */
 %nonassoc BACKQUOTE BANG BEGIN CHAR FALSE FLOAT INT
           LBRACE LBRACELESS LBRACKET LBRACKETBAR LIDENT LPAREN
@@ -2545,14 +2543,10 @@ fun_binding:
       { let exp = mkexp_constraint ~loc:$sloc e t in
       { exp with pexp_effectspec = c } }
 ;
-effect_trace_value:pure_formula_term{$1};
 
-
-
-list_of_TupleTerms:
-| n = pure_formula_term {[n]}
-| COMMA n = pure_formula_term rest = list_of_TupleTerms {n::rest}
-
+effect_trace_value:
+  | pure_formula_term {$1}
+;
 
 
 pure_formula_term:
@@ -2600,8 +2594,9 @@ pure_formula:
     Atomic (op, a, b)
   }
   | pure_formula CONJUNCTION pure_formula { And ($1, $3) }
-  | pure_formula DISJUNCTION pure_formula { Or ($1, $3) }
-  | pure_formula IMPLICATION pure_formula { Imply ($1, $3) }
+  // these cause shift-reduce conflicts, are not used, and are not in the symbolic heap fragment
+  // | pure_formula DISJUNCTION pure_formula { Or ($1, $3) }
+  // | pure_formula IMPLICATION pure_formula { Imply ($1, $3) }
   | TILDE pure_formula { Not ($2) } 
   //| v = LIDENT LPAREN a = pure_formula_term RPAREN { Predicate (v, a) }
 ;
@@ -2651,6 +2646,7 @@ stagedSpec1 :
 statefml:
   | h=heapkappa { (True, h) }
   | p=pure_formula CONJUNCTION h=heapkappa { (p, h) }
+  | p=pure_formula { (p, EmptyHeap) }
 
 heapkappa:
 | EMP { EmptyHeap }
