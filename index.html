@@ -208,11 +208,18 @@ let summary1_false x n
 let summary2_false x n
 (*@ ex r4; Norm(r4=x+n+1/\emp, r4) @*)
 = applyN incr x n">src/examples/applyN.ml</option><option value=src/examples/awkward.ml data-text="
-let awkward =
-  let r = ref 0 in
-  fun f -> assert (!r mod 2 = 0); incr r; f(); incr r
+let incr x = x := !x + 1
 
-let () =
+let ignore _ = ()
+
+let main h
+= let r = ref 0 in
+  let awkward = fun f (*@ ex r r1; ens r->0; incr(r, r1); ex r2; h((), r2); ex r3; incr(r, r3) @*) ->
+    assert (!r = 0);
+    incr r;
+    f();
+    incr r
+  in
   ignore (awkward (fun () -> ignore (awkward (fun () -> ()))))">src/examples/awkward.ml</option><option value=src/examples/calls.ml data-text="
 let roll_dice () = 100
 
@@ -1177,7 +1184,7 @@ let invalid_false ()
     <script>
       // this is substituted at build time and is used in page.js
       function postExampleLoad() {
-        console.log("Built Mon Oct  2 09:45:59 UTC 2023");
+        console.log("Built Tue Oct  3 15:23:01 UTC 2023");
         console.log("loading z3...");
       }
     </script>
