@@ -33,14 +33,15 @@ let verifier_counter_reset () = verifier_counter := 0
 let verifier_counter_reset_to n = verifier_counter := n
 
 let end_of_var = Str.regexp "_?[0-9]+$"
-let verifier_getAfreeVar from :string  =
+let verifier_getAfreeVar _from :string  =
   (* this prefix shows provenance, but that turned out to be useless *)
   (* let prefix = from |> Option.map (fun v -> v ^ "_") |> Option.value ~default:"_f" in *)
   let prefix =
     (* match from with *)
     (* | None -> "_f" *)
     (* | Some f -> *)
-      Str.global_replace end_of_var "" from
+      (* Str.global_replace end_of_var "" from *)
+      "v"
   in
   let x = prefix ^ string_of_int (!verifier_counter) in 
   incr verifier_counter;
@@ -59,9 +60,9 @@ let%expect_test _ =
   {|
     v0
     v1
-    a2
-    a3
-    a4
+    v2
+    v3
+    v4
   |}]
 
 

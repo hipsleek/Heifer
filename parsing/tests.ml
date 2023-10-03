@@ -34,8 +34,8 @@ let%expect_test "instantiation/renaming of existentials" =
   [a] |> show;
   [%expect
     {|
-    ex a1; Norm(b=1, a1+1)
-    Norm(b=1, a1+1)
+    ex v1; Norm(b=1, v1+1)
+    Norm(b=1, v1+1)
     ex b; Norm(b=1, a+1) |}]
 
 let%expect_test "apply lemma" =
@@ -118,8 +118,8 @@ let%expect_test "apply lemma" =
     parameter of lemma does not appear on the right
     lemma: forall [x], f <: ex b; Norm(emp, b)
     original: req emp; f$(emp, (), 1); req emp; Norm(emp, 1)
-    result: Some Norm(T/\1=b2, ()); ex b2; Norm(emp, b2)
-    norm: Some ex b2; Norm(1=b2, b2)
+    result: Some Norm(T/\1=v2, ()); ex v2; Norm(emp, v2)
+    norm: Some ex v2; Norm(1=v2, v2)
     ---
     prefix
     lemma: forall [x], f <: Norm(emp, x+1)
