@@ -326,7 +326,12 @@ let string_of_staged_spec (st:stagedSpec) : string =
   | Require (p, h) ->
     Format.asprintf "req %s" (string_of_state (p, h))
   | HigherOrder (pi, h, (f, args), ret) ->
-    Format.asprintf "%s$(%s, %s, %s)" f (string_of_state (pi, h)) (string_of_args string_of_term args) (string_of_term ret)
+    begin match pi, h with
+    | True, EmptyHeap ->
+      Format.asprintf "%s(%s, %s)" f (String.concat ", " (List.map string_of_term args)) (string_of_term ret)
+    | _ ->
+      Format.asprintf "Norm(%s, ()); %s(%s, %s)" (string_of_state (pi, h)) f (String.concat ", " (List.map string_of_term args)) (string_of_term ret)
+    end
   | NormalReturn (pi, heap, ret) ->
     Format.asprintf "Norm(%s, %s)" (string_of_state (pi, heap))  (string_of_term ret)
   | RaisingEff (pi, heap, (name, args), ret) ->
