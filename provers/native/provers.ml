@@ -212,7 +212,8 @@ let check_sat f =
   (* if debug then Format.printf "goal: %s@." (Goal.to_string goal); *)
   let solver = Solver.mk_simple_solver ctx in
   Solver.add solver [expr];
-  (* if debug then Format.printf "z3 expr: %s@." (Expr.to_string expr); *)
+  (* print both because the solver does some simplification *)
+  if debug then Format.printf "z3 expr: %s@." (Expr.to_string expr);
   if debug then Format.printf "z3 solver: %s@." (Solver.to_string solver);
   (* z3_query (Z3.Solver.to_string solver); *)
   (* expr *)
