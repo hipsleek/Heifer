@@ -2574,6 +2574,7 @@ pure_formula_term:
   | pure_formula_term PLUS pure_formula_term { Plus ($1, $3) }
   | pure_formula_term MINUS pure_formula_term { Minus ($1, $3) }
   | LPAREN pure_formula_term RPAREN { $2 }
+  | LPAREN FUN params=nonempty_list(LIDENT) MINUSGREATER ef=disj_effect_spec RPAREN { TLambda (Core.Pretty.verifier_getAfreeVar "plambda", params, ef) }
 ;
 
 pure_formula: 
@@ -2739,6 +2740,8 @@ match_case:
 fun_def:
     MINUSGREATER seq_expr
       { $2 }
+  | c=fn_contract MINUSGREATER e=seq_expr
+      { { e with pexp_effectspec = c } }
   | mkexp(COLON atomic_type MINUSGREATER seq_expr
       { Pexp_constraint ($4, $2) })
       { $1 }
