@@ -197,9 +197,9 @@ let normalise_stagedSpec (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
     : normalisedStagedSpec =
   let res =
     let effectStages, normalStage = acc in
-    let existential, req, ens, ret = normalStage in
+    let existential, req, ens = normalStage in
     match stagedSpec with
-    | Exists li -> (effectStages, (existential @ li, req, ens, ret))
+    | Exists li -> (effectStages, (existential @ li, req, ens))
     | Require (p3, h3) ->
       let p2, h2 = ens in
       let magicWandHeap, unification =
@@ -222,11 +222,15 @@ let normalise_stagedSpec (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
       let normalStage' =
         let pre = mergeState req (And (p3, unification), magicWandHeap) in
         let post = (ProversEx.normalize_pure (And (p2, unification1)), h2') in
-        (existential, pre, post, ret)
+        (existential, pre, post)
       in
       (effectStages, normalStage')
-    | NormalReturn (pi, heap, ret') ->
-      (effectStages, (existential, req, mergeState ens (pi, heap), ret'))
+    | NormalReturn (pi, heap) ->
+      (* pi may contain a res, so split the res out of the previous post *)
+      ( effectStages,
+        ( existential,
+          req,
+          mergeState (remove_res_constraints_state ens) (pi, heap) ) )
     (* effects *)
     | RaisingEff (pi, heap, ins, ret') ->
       (* move current norm state "behind" this effect boundary. the return value is implicitly that of the current stage *)
@@ -235,7 +239,7 @@ let normalise_stagedSpec (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
             {
               e_evars = existential;
               e_pre = req;
-              e_post = mergeState ens (pi, heap);
+              e_post = mergeState (remove_res_constraints_state ens) (pi, heap);
               e_constr = ins;
               e_ret = ret';
               e_typ = `Eff;
@@ -249,7 +253,7 @@ let normalise_stagedSpec (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
             {
               e_evars = existential;
               e_pre = req;
-              e_post = mergeState ens (pi, heap);
+              e_post = mergeState (remove_res_constraints_state ens) (pi, heap);
               e_constr = ins;
               e_ret = ret';
               e_typ = `Fn;
@@ -325,8 +329,8 @@ let used_vars_eff eff =
       used_vars_term eff.e_ret;
     ]
 
-let used_vars_norm (_vs, pre, post, ret) =
-  SSet.concat [used_vars_state pre; used_vars_state post; used_vars_term ret]
+let used_vars_norm (_vs, pre, post) =
+  SSet.concat [used_vars_state pre; used_vars_state post]
 
 let used_vars (sp : normalisedStagedSpec) =
   let effs, norm = sp in
@@ -372,13 +376,8 @@ let collect_lambdas_eff eff =
       collect_lambdas_term eff.e_ret;
     ]
 
-let collect_lambdas_norm (_vs, pre, post, ret) =
-  SSet.concat
-    [
-      collect_lambdas_state pre;
-      collect_lambdas_state post;
-      collect_lambdas_term ret;
-    ]
+let collect_lambdas_norm (_vs, pre, post) =
+  SSet.concat [collect_lambdas_state pre; collect_lambdas_state post]
 
 let collect_lambdas (sp : normalisedStagedSpec) =
   let effs, norm = sp in
@@ -407,13 +406,13 @@ let optimize_existentials : normalisedStagedSpec -> normalisedStagedSpec =
   let unused, es1 = loop SSet.empty SSet.empty [] ess in
   let norm1 =
     let used = used_vars_norm norm in
-    let evars, h, p, r = norm in
+    let evars, h, p = norm in
     let may_be_used = SSet.union (SSet.of_list evars) unused in
     (* unused ones are dropped *)
     let used_ex, _unused_ex =
       SSet.partition (fun v -> SSet.mem v used) may_be_used
     in
-    (SSet.elements used_ex, h, p, r)
+    (SSet.elements used_ex, h, p)
   in
   (es1, norm1)
 
@@ -426,7 +425,7 @@ let simplify_existential_locations sp =
         match c with
         | Exists vs -> (SSet.add_seq (List.to_seq vs) ex, locs)
         | Require (p, h)
-        | NormalReturn (p, h, _)
+        | NormalReturn (p, h)
         | HigherOrder (p, h, _, _)
         | RaisingEff (p, h, _, _) ->
           ( ex,
@@ -442,7 +441,7 @@ let simplify_existential_locations sp =
         match s with
         | Exists _ -> []
         | Require (p, _)
-        | NormalReturn (p, _, _)
+        | NormalReturn (p, _)
         | HigherOrder (p, _, _, _)
         | RaisingEff (p, _, _, _) ->
           pure_to_equalities p)
@@ -471,7 +470,7 @@ let normalise_spec sp =
     (* redundant vars may appear due to fresh stages *)
     |> optimize_existentials
   in
-  debug ~at:2 ~title:"normalise" "%s\n\n%s" (string_of_spec sp)
+  debug ~at:2 ~title:"normalise" "%s\n==>\n%s" (string_of_spec sp)
     (string_of_normalisedStagedSpec r);
   r
 
@@ -492,13 +491,13 @@ let rec effectStage2Spec (effectStages : effectStage list) : spec =
     @ effectStage2Spec xs
 
 let normalStage2Spec (normalStage : normalStage) : spec =
-  let existiental, (p1, h1), (p2, h2), ret = normalStage in
+  let existiental, (p1, h1), (p2, h2) = normalStage in
   (match existiental with [] -> [] | _ -> [Exists existiental])
   @ (match (p1, h1) with True, EmptyHeap -> [] | _ -> [Require (p1, h1)])
   @
-  match (p2, h2, ret) with
+  match (p2, h2) with
   (*| (True, EmptyHeap, UNIT) -> [] *)
-  | _ -> [NormalReturn (p2, h2, ret)]
+  | _ -> [NormalReturn (p2, h2)]
 
 let rec detectfailedAssertions (spec : spec) : spec =
   match spec with

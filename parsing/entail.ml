@@ -58,8 +58,7 @@ let apply_lemma : lemma -> spec -> spec option =
           in
           loop true
             (Acc.add_all
-               (NormalReturn (And (p, extra_ret_equality), h, UNIT)
-               :: inst_lem_rhs)
+               (NormalReturn (And (p, extra_ret_equality), h) :: inst_lem_rhs)
                acc)
             sp1
         | None -> loop ok (Acc.add st acc) sp1)
@@ -169,11 +168,10 @@ let instantiate_existentials :
   let names = List.map fst bindings in
   let efs1 = List.map (instantiate_existentials_effect_stage bindings) efs in
   let ns1 =
-    let vs, pre, post, ret = ns in
+    let vs, pre, post = ns in
     ( List.filter (fun v -> not (List.mem v names)) vs,
       instantiate_state bindings pre,
-      instantiate_state bindings post,
-      instantiateTerms bindings ret )
+      instantiate_state bindings post )
   in
   (efs1, ns1)
 
@@ -269,8 +267,15 @@ let instantiate_pred : fvenv -> pred_def -> term list -> term -> pred_def =
     |> List.concat
   in
   let p_body =
-    pred.p_body
-    |> List.map (fun b -> List.map (instantiateStages bs) b)
+    let bbody =
+      pred.p_body |> List.map (fun b -> List.map (instantiateStages bs) b)
+    in
+    (* Format.printf "bs %s@."
+         (string_of_list (string_of_pair Fun.id string_of_term) bs);
+       Format.printf "pred.p_body %s@." (string_of_disj_spec pred.p_body);
+       Format.printf "bbody %s@."
+         (string_of_list (string_of_list string_of_staged_spec) bbody); *)
+    bbody
     |> Forward_rules.instantiate_higher_order_functions pred.p_name lambdas
   in
   { pred with p_body }
@@ -291,7 +296,7 @@ let rec unfold_predicate_aux fvenv pred prefix (s : spec) : disj_spec =
       |> List.concat_map (fun p1 ->
              List.map
                (fun disj ->
-                 p1 |> Acc.add (NormalReturn (p, h, UNIT)) |> Acc.add_all disj)
+                 p1 |> Acc.add (NormalReturn (p, h)) |> Acc.add_all disj)
                pred1.p_body)
     in
     unfold_predicate_aux fvenv pred prefix s1
@@ -409,21 +414,19 @@ let rec check_staged_subsumption_stagewise :
         stage_subsumes ctx
           (Format.asprintf "Eff %d" i)
           assump
-          (es1.e_evars, (es1.e_pre, es1.e_post, es1.e_ret))
-          (es2.e_evars, (es2.e_pre, with_pure arg_eqs es2.e_post, es2.e_ret))
+          (es1.e_evars, (es1.e_pre, es1.e_post))
+          (es2.e_evars, (es2.e_pre, with_pure arg_eqs es2.e_post))
       in
       check_staged_subsumption_stagewise ctx (i + 1)
         (conj [assump; residue])
         (es1r, ns1) (es2r, ns2))
   | ([], ns1), ([], ns2) ->
     (* base case: check the normal stage at the end *)
-    let (vs1, (p1, h1), (qp1, qh1), r1), (vs2, (p2, h2), (qp2, qh2), r2) =
-      (ns1, ns2)
-    in
+    let (vs1, (p1, h1), (qp1, qh1)), (vs2, (p2, h2), (qp2, qh2)) = (ns1, ns2) in
     let* _residue =
       stage_subsumes ctx "Norm" assump
-        (vs1, ((p1, h1), (qp1, qh1), r1))
-        (vs2, ((p2, h2), (qp2, qh2), r2))
+        (vs1, ((p1, h1), (qp1, qh1)))
+        (vs2, ((p2, h2), (qp2, qh2)))
     in
     ok
   | ([], _), (es2 :: _, _) ->
@@ -517,12 +520,12 @@ and stage_subsumes :
     pctx ->
     string ->
     pi ->
-    (state * state * term) quantified ->
-    (state * state * term) quantified ->
+    (state * state) quantified ->
+    (state * state) quantified ->
     pi option =
  fun ctx what assump s1 s2 ->
-  let vs1, (pre1, post1, ret1) = s1 in
-  let vs2, (pre2, post2, ret2) = s2 in
+  let vs1, (pre1, post1) = s1 in
+  let vs2, (pre2, post2) = s2 in
   (* TODO replace uses of all_vars. this is for us to know if locations on the rhs are quantified. a smaller set of vars is possible *)
   info
     ~title:(Format.asprintf "subsumption for stage %s" what)
@@ -568,13 +571,18 @@ and stage_subsumes :
     (* Atomic (EQ, Var res_v, ret2) *)
     (* don't use fresh variable for the ret value so it carries forward in the residue *)
     let left = conj [fst pre_residue; post_l] in
-    let right = conj [post_r; Atomic (EQ, ret1, ret2)] in
+    (* TODO *)
+    (* let right = conj [post_r; Atomic (EQ, ret1, ret2)] in *)
+    let right = True in
     let tenv =
       let env = infer_types_pi tenv left in
       let env = infer_types_pi env right in
       env
     in
-    let false_not_derived = Provers.askZ3 (concrete_type_env tenv) left in
+    (* Format.printf "left %s@." (string_of_pi left); *)
+    let tenv1 = concrete_type_env tenv in
+    (* Format.printf "tenv %s@." (string_of_smap string_of_type tenv1); *)
+    let false_not_derived = Provers.askZ3 tenv1 left in
     if not false_not_derived then
       (* since the program is usually on the left, false on the left side of the postcondition means this *)
       info
@@ -673,12 +681,12 @@ let create_induction_hypothesis fvenv params ds1 ds2 =
       SSet.union lambda_vars used
     in
     (* heuristic. all parameters must be used meaningfully, otherwise there's nothing to do induction on *)
-    (* heuristic: all parameters must be used meaningfully, otherwise there's nothing to do induction on *)
     (match List.for_all (fun p -> SSet.mem p used_l) params with
     | true ->
       (match ns1 with
-      | [eff], (_, (True, EmptyHeap), (True, EmptyHeap), r) when r = eff.e_ret
-        ->
+      | [eff], (_, (True, EmptyHeap), (post, EmptyHeap))
+        when is_just_res_of post eff.e_ret ->
+        (* when r = eff.e_ret *)
         (* TODO existentials are ignored...? *)
         let f, a = eff.e_constr in
         let ih =
@@ -726,10 +734,7 @@ let derive_predicate m_name m_params disj =
   let norm = List.map normalise_spec disj in
   (* change the last norm stage so it uses res and has an equality constraint *)
   let new_spec =
-    List.map
-      (fun (effs, (vs, pre, (p, h), r)) ->
-        (effs, (vs, pre, (conj [p; Atomic (EQ, Var "res", r)], h), Var "res")))
-      norm
+    List.map (fun (effs, (vs, pre, (p, h))) -> (effs, (vs, pre, (p, h)))) norm
     |> List.map normalisedStagedSpec2Spec
   in
   let res =

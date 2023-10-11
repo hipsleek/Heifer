@@ -80,8 +80,8 @@ and state = pi * kappa
 and stagedSpec = 
       | Exists of string list
       | Require of pi * kappa 
-      (* H /\ P /\ res=term *)
-      | NormalReturn of (pi * kappa * term)
+      (* ens H /\ P, where P may contain contraints on res *)
+      | NormalReturn of (pi * kappa)
       (* higher-order functions: H /\ P /\ f$(...args, term) *)
       (* this constructor is also used for inductive predicate applications *)
       (* f$(x, y) is HigherOrder(..., ..., (f, [x]), y) *)
@@ -94,12 +94,16 @@ and spec = stagedSpec list
 
 and disj_spec = spec list
 
+let res_v = Var "res"
+let res_eq t = Atomic (EQ, res_v, t)
+
 type typ =
   | Unit
   | List_int
   | Int
   | Bool
   | TVar of string
+  | Lamb
 
 let term_cons c t = TApp ("cons", [c; t])
 
@@ -126,17 +130,17 @@ type effectStage = {
   e_typ : [`Eff | `Fn];
 }
 
-(** existentials, pre, post, ret *)
-type normalStage =  (string list* (pi * kappa ) * (pi * kappa) * term)
+(** existentials, pre, post (which may contain constraints on res) *)
+type normalStage =  (string list* (pi * kappa ) * (pi * kappa))
 
 type normalisedStagedSpec = effectStage list * normalStage
 
-let freshNormalReturnSpec = [NormalReturn (True, EmptyHeap, UNIT)]
-let freshNormalStage : normalStage = ([], (True, EmptyHeap), (True, EmptyHeap), UNIT) 
+let freshNormalReturnSpec = [NormalReturn (True, EmptyHeap)]
+let freshNormalStage : normalStage = ([], (True, EmptyHeap), (True, EmptyHeap)) 
 
-let freshNormStageVar v : normalStage = ([v], (True, EmptyHeap), (True, EmptyHeap), Var v) 
+let freshNormStageVar v : normalStage = ([v], (True, EmptyHeap), (res_eq (Var v), EmptyHeap))
 
-let freshNormStageRet r : normalStage = ([], (True, EmptyHeap), (True, EmptyHeap), r) 
+let freshNormStageRet r : normalStage = ([], (True, EmptyHeap), (res_eq r, EmptyHeap)) 
 
 
 

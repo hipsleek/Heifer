@@ -35,9 +35,9 @@ let%expect_test "instantiation/renaming of existentials" =
   [a] |> show;
   [%expect
     {|
-    ex v1; Norm(b=1, v1+1)
-    Norm(b=1, v1+1)
-    ex b; Norm(b=1, a+1) |}]
+    ex v1; Norm(res=v1+1/\b=1)
+    Norm(res=v1+1/\b=1)
+    ex b; Norm(res=a+1/\b=1) |}]
 
 let%expect_test "apply lemma" =
   let test ~what ~lem:(params, left, right) applied_to =
@@ -60,7 +60,7 @@ let%expect_test "apply lemma" =
          (spec |> Option.map normalise_spec
          |> Option.map normalisedStagedSpec2Spec))
   in
-  let l_succ = (["x"], {|f(x)|}, {|Norm(emp, x+1)|}) in
+  let l_succ = (["x"], {|f(x)|}, {|ens res=x+1|}) in
   test ~what:"hello" ~lem:l_succ {|f(1)|};
   test ~what:"constructor different, no match" ~lem:l_succ {|g(1)|};
   test ~what:"lemma causes contradiction"
@@ -99,100 +99,100 @@ let%expect_test "apply lemma" =
   [%expect
     {|
     hello
-    lemma: forall [x], f <: Norm(emp, x+1)
-    original: req emp; f(, 1); req emp; Norm(emp, 1)
-    result: Some Norm(T/\1=x+1, ()); Norm(emp, x+1)
-    norm: Some Norm(1=x+1, x+1)
+    lemma: forall [x], f <: Norm(res=x+1)
+    original: req emp; f(, 1); req emp; Norm(res=1)
+    result: Some Norm(T/\1=x+1); Norm(res=x+1)
+    norm: Some Norm(1=x+1/\res=x+1)
     ---
     constructor different, no match
-    lemma: forall [x], f <: Norm(emp, x+1)
-    original: req emp; g(, 1); req emp; Norm(emp, 1)
+    lemma: forall [x], f <: Norm(res=x+1)
+    original: req emp; g(, 1); req emp; Norm(res=1)
     result: None
     norm: None
     ---
     lemma causes contradiction
-    lemma: forall [x], f <: Norm(x=2, x)
-    original: req emp; f(, 1); req emp; Norm(emp, 1)
-    result: Some Norm(T/\1=x, ()); Norm(x=2, x)
-    norm: Some Norm(1=x/\x=2, x)
+    lemma: forall [x], f <: Norm(res=x/\x=2)
+    original: req emp; f(, 1); req emp; Norm(res=1)
+    result: Some Norm(T/\1=x); Norm(res=x/\x=2)
+    norm: Some Norm(1=x/\res=x/\x=2)
     ---
     parameter of lemma does not appear on the right
-    lemma: forall [x], f <: ex b; Norm(emp, b)
-    original: req emp; f(, 1); req emp; Norm(emp, 1)
-    result: Some Norm(T/\1=v2, ()); ex v2; Norm(emp, v2)
-    norm: Some ex v2; Norm(1=v2, v2)
+    lemma: forall [x], f <: ex b; Norm(res=b/\T)
+    original: req emp; f(, 1); req emp; Norm(res=1)
+    result: Some Norm(T/\1=v2); ex v2; Norm(res=v2)
+    norm: Some ex v2; Norm(1=v2/\res=v2)
     ---
     prefix
-    lemma: forall [x], f <: Norm(emp, x+1)
-    original: req emp; g(, 2); req emp; f(, 1); req emp; Norm(emp, 1)
-    result: Some g(, 2); Norm(T/\1=x+1, ()); Norm(emp, x+1)
-    norm: Some g(, 2); Norm(1=x+1, x+1)
+    lemma: forall [x], f <: Norm(res=x+1)
+    original: req emp; g(, 2); req emp; f(, 1); req emp; Norm(res=1)
+    result: Some g(, 2); Norm(T/\1=x+1); Norm(res=x+1)
+    norm: Some g(, 2); Norm(1=x+1/\res=x+1)
     ---
     suffix
-    lemma: forall [x], f <: Norm(emp, x+1)
-    original: req emp; f(, 1); req emp; g(, 2); req emp; Norm(emp, 2)
-    result: Some Norm(T/\1=x+1, ()); Norm(emp, x+1); g(, 2)
-    norm: Some Norm(1=x+1, ()); g(, 2); Norm(emp, 2)
+    lemma: forall [x], f <: Norm(res=x+1)
+    original: req emp; f(, 1); req emp; g(, 2); req emp; Norm(res=2)
+    result: Some Norm(T/\1=x+1); Norm(res=x+1); g(, 2)
+    norm: Some ens 1=x+1; g(, 2); Norm(res=2)
     ---
     related suffix
-    lemma: forall [x], f <: Norm(emp, x+1)
-    original: req emp; f(, y); req emp; g(, y); req emp; Norm(emp, y)
-    result: Some Norm(T/\y=x+1, ()); Norm(emp, x+1); g(, y)
-    norm: Some Norm(y=x+1, ()); g(, y); Norm(emp, y)
+    lemma: forall [x], f <: Norm(res=x+1)
+    original: req emp; f(, y); req emp; g(, y); req emp; Norm(res=y)
+    result: Some Norm(T/\y=x+1); Norm(res=x+1); g(, y)
+    norm: Some ens y=x+1; g(, y); Norm(res=y)
     ---
     precondition in lemma (currently ignored)
-    lemma: forall [x], f <: Norm(emp, x)
-    original: req emp; f(, 1); req emp; Norm(emp, 1)
-    result: Some Norm(T/\1=x, ()); Norm(emp, x)
-    norm: Some Norm(1=x, x)
+    lemma: forall [x], f <: Norm(res=x/\T)
+    original: req emp; f(, 1); req emp; Norm(res=1)
+    result: Some Norm(T/\1=x); Norm(res=x)
+    norm: Some Norm(1=x/\res=x)
     ---
     existential in lemma (currently ignored, seems wrong)
-    lemma: forall [x], f <: Norm(a=1, x)
-    original: req emp; f(, 1); req emp; Norm(emp, 1)
-    result: Some Norm(T/\1=x, ()); Norm(a=1, x)
-    norm: Some Norm(1=x/\a=1, x)
+    lemma: forall [x], f <: Norm(res=x/\a=1)
+    original: req emp; f(, 1); req emp; Norm(res=1)
+    result: Some Norm(T/\1=x); Norm(res=x/\a=1)
+    norm: Some Norm(1=x/\res=x/\a=1)
     ---
     existential in lemma involved in match (seems wrong)
-    lemma: forall [x], f <: Norm(emp, x)
-    original: req emp; f(, 1); req emp; Norm(emp, 1)
-    result: Some Norm(T/\1=x, ()); Norm(emp, x)
-    norm: Some Norm(1=x, x)
+    lemma: forall [x], f <: Norm(res=x/\T)
+    original: req emp; f(, 1); req emp; Norm(res=1)
+    result: Some Norm(T/\1=x); Norm(res=x)
+    norm: Some Norm(1=x/\res=x)
     ---
     existential and extra state in lemma (fix existential first)
-    lemma: forall [x], f <: Norm(emp, x)
-    original: req emp; f(, 1); req emp; Norm(emp, 1)
-    result: Some Norm(T/\1=x, ()); Norm(emp, x)
-    norm: Some Norm(1=x, x)
+    lemma: forall [x], f <: Norm(res=x/\T)
+    original: req emp; f(, 1); req emp; Norm(res=1)
+    result: Some Norm(T/\1=x); Norm(res=x)
+    norm: Some Norm(1=x/\res=x)
     ---
     extra state to be matched
-    lemma: forall [x], f <: Norm(emp, x+1)
-    original: req emp; Norm(b=2, ()); f(, 1); req emp; Norm(emp, 1)
-    result: Some Norm(b=2, 2); Norm(T/\1=x+1, ()); Norm(emp, x+1)
-    norm: Some Norm(b=2/\1=x+1, x+1)
+    lemma: forall [x], f <: Norm(res=x+1)
+    original: req emp; ens b=2; f(, 1); req emp; Norm(res=1)
+    result: Some Norm(res=2/\b=2); Norm(T/\1=x+1); Norm(res=x+1)
+    norm: Some Norm(b=2/\1=x+1/\res=x+1)
     ---
     extra precondition to be matched
-    lemma: forall [x], f <: Norm(emp, x+1)
-    original: req b=2; f(, 1); req emp; Norm(emp, 1)
-    result: Some req b=2; Norm(emp, 2); Norm(T/\1=x+1, ()); Norm(emp, x+1)
-    norm: Some req b=2; Norm(1=x+1, x+1)
+    lemma: forall [x], f <: Norm(res=x+1)
+    original: req b=2; f(, 1); req emp; Norm(res=1)
+    result: Some req b=2; Norm(res=2/\T); Norm(T/\1=x+1); Norm(res=x+1)
+    norm: Some req b=2; Norm(1=x+1/\res=x+1)
     ---
     difficult unification
-    lemma: forall [x], f <: Norm(emp, x+2)
-    original: req emp; f(, 1); req emp; Norm(emp, 1)
-    result: Some Norm(T/\1=x+2, ()); Norm(emp, x+2)
-    norm: Some Norm(1=x+2, x+2)
+    lemma: forall [x], f <: Norm(res=x+2/\T)
+    original: req emp; f(, 1); req emp; Norm(res=1)
+    result: Some Norm(T/\1=x+2); Norm(res=x+2)
+    norm: Some Norm(1=x+2/\res=x+2)
     ---
     normal stage at the end is actually not matched
-    lemma: forall [x], f <: Norm(emp, x+1)
-    original: req emp; f(, 1); req emp; Norm(emp, 1)
-    result: Some Norm(T/\1=x+1, ()); Norm(emp, x+1)
-    norm: Some Norm(1=x+1, x+1)
+    lemma: forall [x], f <: Norm(res=x+1/\T)
+    original: req emp; f(, 1); req emp; Norm(res=1)
+    result: Some Norm(T/\1=x+1); Norm(res=x+1)
+    norm: Some Norm(1=x+1/\res=x+1)
     ---
     map
-    lemma: forall [x], f <: Norm(emp, x)
-    original: ex a; req emp; Norm(a=b/\b=2, ()); f(, 1); ex r; req emp; Norm(r=a+4, r)
-    result: Some ex a; Norm(a=b/\b=2, 3); Norm(T/\1=x, ()); Norm(emp, x); ex r; Norm(r=a+4, r)
-    norm: Some ex a r; Norm(a=b/\b=2/\1=x/\r=a+4, r)
+    lemma: forall [x], f <: Norm(res=x/\T)
+    original: ex a; req emp; ens a=b/\b=2; f(, 1); ex r; req emp; Norm(res=r/\r=a+4)
+    result: Some ex a; Norm(res=3/\a=b/\b=2); Norm(T/\1=x); Norm(res=x); ex r; Norm(res=r/\r=a+4)
+    norm: Some ex a r; Norm(a=b/\b=2/\1=x/\res=r/\r=a+4)
     --- |}]
 
 let%expect_test "normalise spec" =
@@ -207,120 +207,119 @@ let%expect_test "normalise spec" =
   print_endline "--- norm\n";
   test
     [
-      NormalReturn (True, PointsTo ("x", Num 2), UNIT);
+      NormalReturn (True, PointsTo ("x", Num 2));
       Require (True, PointsTo ("x", Num 1));
     ];
   test
     [
       Require (True, PointsTo ("x", Num 1));
-      NormalReturn (True, PointsTo ("x", Num 1), UNIT);
+      NormalReturn (True, PointsTo ("x", Num 1));
       Require (True, PointsTo ("y", Num 2));
-      NormalReturn (True, PointsTo ("y", Num 2), UNIT);
+      NormalReturn (True, PointsTo ("y", Num 2));
     ];
   test
     [
       Exists ["a"];
-      NormalReturn (True, PointsTo ("x", Num 1), UNIT);
+      NormalReturn (True, PointsTo ("x", Num 1));
       Require (True, PointsTo ("x", Var "a"));
-      NormalReturn (True, PointsTo ("x", Plus (Var "a", Num 1)), UNIT);
+      NormalReturn (True, PointsTo ("x", Plus (Var "a", Num 1)));
     ];
   test
     [
       Exists ["a"];
-      NormalReturn
-        (True, SepConj (PointsTo ("x", Num 1), PointsTo ("y", Num 2)), UNIT);
+      NormalReturn (True, SepConj (PointsTo ("x", Num 1), PointsTo ("y", Num 2)));
       Require (True, PointsTo ("x", Var "a"));
-      NormalReturn (True, PointsTo ("x", Plus (Var "a", Num 1)), UNIT);
+      NormalReturn (True, PointsTo ("x", Plus (Var "a", Num 1)));
     ];
   test
     [
       Exists ["a"];
-      NormalReturn (Atomic (EQ, Var "a", Num 3), PointsTo ("y", Var "a"), UNIT);
+      NormalReturn (Atomic (EQ, Var "a", Num 3), PointsTo ("y", Var "a"));
       Require (Atomic (EQ, Var "b", Var "a"), PointsTo ("x", Var "b"));
-      NormalReturn (True, PointsTo ("x", Plus (Var "b", Num 1)), UNIT);
+      NormalReturn (True, PointsTo ("x", Plus (Var "b", Num 1)));
     ];
   print_endline "--- existential locations\n";
   test
     [
       Exists ["x"];
-      NormalReturn (Atomic (EQ, Var "x", Var "y"), PointsTo ("x", Num 1), UNIT);
+      NormalReturn (Atomic (EQ, Var "x", Var "y"), PointsTo ("x", Num 1));
       Exists ["y"];
       Require (True, PointsTo ("y", Num 1));
     ];
   test
     [
       Exists ["x"];
-      NormalReturn (Atomic (EQ, Var "x", Var "y"), PointsTo ("x", Num 2), UNIT);
+      NormalReturn (Atomic (EQ, Var "x", Var "y"), PointsTo ("x", Num 2));
       Exists ["y"];
       Require (True, PointsTo ("y", Num 1));
     ];
   test
     [
       Exists ["x"];
-      NormalReturn (True, PointsTo ("x", Num 1), UNIT);
+      NormalReturn (True, PointsTo ("x", Num 1));
       Exists ["y"];
       Require (True, PointsTo ("y", Num 1));
-      NormalReturn (Atomic (EQ, Var "x", Var "y"), EmptyHeap, UNIT);
+      NormalReturn (Atomic (EQ, Var "x", Var "y"), EmptyHeap);
     ];
   print_endline "--- eff\n";
   (* not sure why this is false, and also if it can appear in a real program *)
   test
     [
-      NormalReturn (True, PointsTo ("x", Num 1), UNIT);
+      NormalReturn (True, PointsTo ("x", Num 1));
       Require (True, PointsTo ("x", Var "1"));
       RaisingEff (True, PointsTo ("x", Num 1), ("E", [Num 3]), UNIT);
-      NormalReturn (True, PointsTo ("y", Num 2), UNIT);
+      NormalReturn (True, PointsTo ("y", Num 2));
     ];
   test
     [
-      NormalReturn (True, PointsTo ("x", Num 1), UNIT);
+      NormalReturn (True, PointsTo ("x", Num 1));
       HigherOrder (True, EmptyHeap, ("f", [Num 3]), UNIT);
-      NormalReturn (True, PointsTo ("y", Num 2), UNIT);
+      NormalReturn (True, PointsTo ("y", Num 2));
     ];
   [%expect
     {|
   --- norm
 
-  Norm(x->2, ()); req x->1
+  Norm(x->2); req x->1
   =/=>
 
-  req x->1; Norm(x->1, ()); req y->2; Norm(y->2, ())
+  req x->1; Norm(x->1); req y->2; Norm(y->2)
   ==>
-  req x->1*y->2; Norm(x->1*y->2, ())
+  req x->1*y->2; Norm(x->1*y->2)
 
-  ex a; Norm(x->1, ()); req x->a; Norm(x->a+1, ())
+  ex a; Norm(x->1); req x->a; Norm(x->a+1)
   ==>
-  ex a; req 1=a; Norm(x->a+1 /\ a=1, ())
+  ex a; req 1=a; Norm(x->a+1 /\ a=1)
 
-  ex a; Norm(x->1*y->2, ()); req x->a; Norm(x->a+1, ())
+  ex a; Norm(x->1*y->2); req x->a; Norm(x->a+1)
   ==>
-  ex a; req 1=a; Norm(y->2*x->a+1 /\ a=1, ())
+  ex a; req 1=a; Norm(y->2*x->a+1 /\ a=1)
 
-  ex a; Norm(y->a /\ a=3, ()); req x->b /\ b=a; Norm(x->b+1, ())
+  ex a; Norm(y->a /\ a=3); req x->b /\ b=a; Norm(x->b+1)
   ==>
-  ex a; req x->b /\ b=a; Norm(y->a*x->b+1 /\ a=3, ())
+  ex a; req x->b /\ b=a; Norm(y->a*x->b+1 /\ a=3)
 
   --- existential locations
 
-  ex x; Norm(x->1 /\ x=y, ()); ex y; req y->1
+  ex x; Norm(x->1 /\ x=y); ex y; req y->1
   ==>
-  ex x; req emp; Norm(x=x, ())
+  ex x; req emp; Norm(x=x)
 
-  ex x; Norm(x->2 /\ x=y, ()); ex y; req y->1
+  ex x; Norm(x->2 /\ x=y); ex y; req y->1
   =/=>
 
-  ex x; Norm(x->1, ()); ex y; req y->1; Norm(x=y, ())
+  ex x; Norm(x->1); ex y; req y->1; Norm(x=y)
   ==>
-  ex x; req emp; Norm(x=x, ())
+  ex x; req emp; Norm(x=x)
 
   --- eff
 
-  Norm(x->1, ()); req x->1; E(x->1, (3), ()); Norm(y->2, ())
+  Norm(x->1); req x->1; E(x->1, (3), ()); Norm(y->2)
   =/=>
 
-  Norm(x->1, ()); f(3, ()); Norm(y->2, ())
+  Norm(x->1); f(3, ()); Norm(y->2)
   ==>
-  req emp; Norm(x->1, ()); f(3, ()); req emp; Norm(y->2, ())
+  req emp; ens x->1; f(3, ()); req emp; Norm(y->2)
 |}]
 
 let entails_pure env_a s1 vars s2 =

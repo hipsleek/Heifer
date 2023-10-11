@@ -90,7 +90,7 @@ let rec infer_types_term ?hint (env : abs_typ_env) term : typ * abs_typ_env =
     | Var v, None ->
       let t = TVar (verifier_getAfreeVar v) in
       (t, assert_var_has_type v t env)
-    | TLambda _, _ -> (Int, env)
+    | TLambda _, _ -> (Lamb, env)
     | Rel (EQ, a, b), _ -> begin
       try
         let at, env1 = infer_types_term ~hint:Int env a in

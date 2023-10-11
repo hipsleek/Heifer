@@ -41,7 +41,7 @@ let rec term_to_expr env ctx t : Z3.Expr.expr =
         (* failwith (Format.asprintf "could not infer type for variable: %s" v) *)
         (* default to int *)
         Z3.Arithmetic.Integer.mk_const_s ctx v
-      | Int | Unit ->
+      | Int | Unit | Lamb ->
         (* Format.printf "%s is int@." v; *)
         Z3.Arithmetic.Integer.mk_const_s ctx v
       | List_int ->

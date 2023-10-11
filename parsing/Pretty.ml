@@ -199,10 +199,10 @@ and string_of_staged_spec (st:stagedSpec) : string =
     | True, EmptyHeap ->
       Format.asprintf "%s(%s, %s)" f (String.concat ", " (List.map string_of_term args)) (string_of_term ret)
     | _ ->
-      Format.asprintf "Norm(%s, ()); %s(%s, %s)" (string_of_state (pi, h)) f (String.concat ", " (List.map string_of_term args)) (string_of_term ret)
+      Format.asprintf "ens %s; %s(%s, %s)" (string_of_state (pi, h)) f (String.concat ", " (List.map string_of_term args)) (string_of_term ret)
     end
-  | NormalReturn (pi, heap, ret) ->
-    Format.asprintf "Norm(%s, %s)" (string_of_state (pi, heap))  (string_of_term ret)
+  | NormalReturn (pi, heap) ->
+    Format.asprintf "Norm(%s)" (string_of_state (pi, heap))
   | RaisingEff (pi, heap, (name, args), ret) ->
     Format.asprintf "%s(%s, %s, %s)" name (string_of_state (pi, heap)) (string_of_args string_of_term args) (string_of_term ret)
   | Exists vs ->
@@ -384,9 +384,9 @@ let rec string_of_normalisedStagedSpec (spec:normalisedStagedSpec) : string =
   let (effS, normalS) = spec in 
   match effS with 
   | [] -> 
-    let (existiental, (p1, h1), (p2, h2), ret) = normalS in 
+    let (existiental, (p1, h1), (p2, h2)) = normalS in 
     let ex = match existiental with [] -> [] | _ -> [Exists existiental] in
-    let current = ex @ [Require(p1, h1); NormalReturn(p2, h2, ret)] in
+    let current = ex @ [Require(p1, h1); NormalReturn(p2, h2)] in
     string_of_spec current 
   | x :: xs  -> 
     (let {e_pre = (p1, h1); e_post = (p2, h2); _} = x in
@@ -419,7 +419,7 @@ let rec string_of_core_lang (e:core_lang) :string =
   | CPerform (eff, None) -> Format.sprintf "perform %s" eff
   | CMatch (e, vs, hs, cs) -> Format.sprintf "match %s with\n%s%s\n%s" (string_of_core_lang e) (match vs with | Some (v, norm) -> Format.asprintf "| %s -> %s\n" v (string_of_core_lang norm) | _ -> "") (string_of_core_handler_ops hs) (string_of_constr_cases cs)
   | CResume v -> Format.sprintf "continue k %s" (string_of_term v)
-  | CLambda (xs, spec, e) -> Format.sprintf "fun %s%s -> %s" (string_of_args Fun.id xs) (match spec with None -> "" | Some ds -> Format.asprintf "(*@ %s @*)" (string_of_disj_spec ds)) (string_of_core_lang e)
+  | CLambda (xs, spec, e) -> Format.sprintf "fun %s%s -> %s" (String.concat " " xs) (match spec with None -> "" | Some ds -> Format.asprintf " (*@@ %s @@*)" (string_of_disj_spec ds)) (string_of_core_lang e)
 
 and string_of_constr_cases cs =
   cs |> List.map (fun (n, args, body) -> Format.asprintf "| %s -> %s" (string_of_constr_call n args) (string_of_core_lang body)) |> String.concat "\n"
@@ -492,6 +492,7 @@ let string_of_type t =
   | Unit -> "unit"
   | List_int -> "intlist"
   | Bool -> "bool"
+  | Lamb -> "lambda"
   | TVar v -> Format.asprintf "'%s" v
 
 let string_of_abs_env t =
@@ -540,3 +541,28 @@ let rec split_res p =
     let l, r = split_res a in
     Not l, r
   | Predicate (_, _) -> failwith (Format.asprintf "NYI: predicate")
+
+
+let get_res p =
+(* Format.printf "not an equality on res: %s@." (string_of_pi p); *)
+  let _rest, eqs = split_res p in
+  match eqs with
+  | [] ->
+    Format.printf "hi@.";
+    failwith (Format.asprintf "not an equality on res: %s" (string_of_pi p))
+  | [r] -> r
+  | _ ->
+    failwith (Format.asprintf "many possible res values: %s" (string_of_pi p))
+
+let is_just_res_of pi t =
+  let _, res = split_res pi in
+  match res with
+  | [r] -> r = t
+  | _ -> false
+
+let remove_res_constraints p =
+  let r, _ = split_res p in
+  r
+
+let remove_res_constraints_state (p, h) =
+  (remove_res_constraints p, h)

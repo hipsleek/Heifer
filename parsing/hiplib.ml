@@ -908,13 +908,12 @@ in (*print_string (string_of_bool res ^ "\n\n");*) res
 
 
 let checkEntailmentForNormalFlow (lhs:normalStage) (rhs:normalStage) : bool = 
-  let (ex1, (pi1, heap1), (pi2, heap2), r1) = lhs in 
-  let (ex2, (pi3, heap3), (pi4, heap4), r2) = rhs in  
+  let (ex1, (pi1, heap1), (pi2, heap2)) = lhs in 
+  let (ex2, (pi3, heap3), (pi4, heap4)) = rhs in  
   let () = exGlobal := !exGlobal @ ex1 @ ex2 in 
   let (contravariant) = speration_logic_ential (pi3, heap3) (pi1, heap1) in 
   let (covariant)     = speration_logic_ential (pi2, heap2) (pi4, heap4) in 
-  let returnValue   = ProversEx.entailConstrains !unifyGlobal (Atomic(EQ, r1, r2)) in 
-  covariant && contravariant && returnValue
+  covariant && contravariant
 
 
 let rec compareEffectArgument unification v1 v2 =  

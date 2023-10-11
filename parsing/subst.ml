@@ -1,5 +1,4 @@
 open Hiptypes
-open Pretty
 
 let rec findNewName str vb_li =
   match vb_li with
@@ -21,8 +20,8 @@ let rec instantiateExistientalVar (spec : normalisedStagedSpec)
   match effS with
   | [] ->
     (* print_endline ("nROMRAL STATGE"); *)
-    let ex, req, ens, ret = normalS in
-    ([], (instantiateExistientalVar_aux ex bindings, req, ens, ret))
+    let ex, req, ens = normalS in
+    ([], (instantiateExistientalVar_aux ex bindings, req, ens))
   | eff :: xs ->
     (* print_endline ("EFF STATGE"); *)
     let rest, norm' = instantiateExistientalVar (xs, normalS) bindings in
@@ -95,11 +94,8 @@ and instantiateStages (bindings : (string * core_value) list)
   | Require (pi, kappa) ->
     Require (instantiatePure bindings pi, instantiateHeap bindings kappa)
   (* higher-order functions *)
-  | NormalReturn (pi, kappa, ret) ->
-    NormalReturn
-      ( instantiatePure bindings pi,
-        instantiateHeap bindings kappa,
-        instantiateTerms bindings ret )
+  | NormalReturn (pi, kappa) ->
+    NormalReturn (instantiatePure bindings pi, instantiateHeap bindings kappa)
   | HigherOrder (pi, kappa, (str, basic_t_list), ret) ->
     let constr =
       match List.assoc_opt str bindings with Some (Var s) -> s | _ -> str

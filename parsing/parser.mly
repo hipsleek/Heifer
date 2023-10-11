@@ -2622,6 +2622,8 @@ heapES:
 
 stagedSpecArgs :
   | s=statefml COMMA rest=separated_nonempty_list(COMMA, effect_trace_value) { (fst s, snd s, rest) }
+  | s=statefml { (fst s, snd s, []) }
+
 
 stagedSpec1 : 
   | EXISTS vs=nonempty_list(LIDENT) { Exists vs }
@@ -2631,6 +2633,7 @@ stagedSpec1 :
     }
   | ENSURES f=statefml {
       let (p, h) = f in
+      (*
       let (p1, r) = Pretty.split_res p in
       let r =
         match r with
@@ -2638,15 +2641,17 @@ stagedSpec1 :
         | [x] -> x
         | _ -> failwith "too many res bindings"
       in
-      NormalReturn (p1, h, r)
+      *)
+      NormalReturn (p, h)
     }
   | constr=UIDENT args=delimited(LPAREN, stagedSpecArgs, RPAREN)
   {
     match constr, args with
-    | "Norm", (p, h, a) -> 
-      (match a with 
-      | [] ->  failwith "stagedSpec1 NormalReturn" 
-      | x ::_  -> NormalReturn (p, h, x))
+    | "Norm", (p, h, []) -> NormalReturn (p, h)
+    | "Norm", (p, h, [r]) ->
+      (* backward compat *)
+      NormalReturn (And (res_eq r, p), h)
+    | "Norm", (p, h, _) -> failwith "norm cannot have more than 2 args"
     | _, (p, h, a) ->
       let init, last = split_last a in
       RaisingEff (p, h, (constr, init), last)

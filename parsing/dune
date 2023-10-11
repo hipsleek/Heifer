@@ -62,12 +62,13 @@
 
 (library
  (name hipcore)
+ (libraries str)
  (modules subst Pretty common hiptypes))
 
 (library
  (name hipprover)
  (modules ProversEx Rewriting entail res forward_rules infer_types normalize)
- (libraries str hipcore provers)
+ (libraries hipcore provers)
  (inline_tests)
  (preprocess (pps ppx_expect ppx_deriving.std)))
 

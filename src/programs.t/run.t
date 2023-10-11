@@ -44,8 +44,9 @@
   $ check ../evaluation/6_memory_cell_mix_handler.ml
   ALL OK!
 
-  $ check ../evaluation/7_memory_cell_mix_handler.ml
-  ALL OK!
+very slow for some reason
+$ check ../evaluation/7_memory_cell_mix_handler.ml
+ALL OK!
 
   $ check ../evaluation/8_memory_cell_nested.ml
   ALL OK!
