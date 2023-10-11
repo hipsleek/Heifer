@@ -518,12 +518,13 @@ let string_of_meth_def m =
 let string_of_program (cp:core_program) :string =
   List.map string_of_meth_def cp.cp_methods |> String.concat "\n\n"
 
+(* implements the [pi = pi_other and pi_res] split from the ho paper *)
 let rec split_res p =
   match p with
   | True -> True, []
   | False -> False, []
-  | Atomic (EQ, Var "res", v)
-  | Atomic (EQ, v, Var "res") -> True, [v]
+  | Atomic (_, Var "res", _)
+  | Atomic (_, _, Var "res") -> True, [p]
   | Atomic (_, _, _) -> p, []
   | And (a, b) ->
     let l, r = split_res a in
@@ -542,27 +543,31 @@ let rec split_res p =
     Not l, r
   | Predicate (_, _) -> failwith (Format.asprintf "NYI: predicate")
 
+let split_res_fml p =
+  let rest, constrs = split_res p in
+  let fml = List.fold_right (fun c t -> And (c, t)) constrs True in
+  rest, fml
 
-let get_res p =
-(* Format.printf "not an equality on res: %s@." (string_of_pi p); *)
+let get_res_value p =
   let _rest, eqs = split_res p in
   match eqs with
-  | [] ->
-    Format.printf "hi@.";
+  | [Atomic (EQ, Var "res", t)]
+  | [Atomic (EQ, t, Var "res")] -> t
+  | [Atomic (_, _, _)] ->
     failwith (Format.asprintf "not an equality on res: %s" (string_of_pi p))
-  | [r] -> r
+  | [] ->
+    failwith (Format.asprintf "no mention of res: %s" (string_of_pi p))
   | _ ->
     failwith (Format.asprintf "many possible res values: %s" (string_of_pi p))
 
 let is_just_res_of pi t =
-  let _, res = split_res pi in
-  match res with
-  | [r] -> r = t
-  | _ -> false
+  (get_res_value pi) = t
 
 let remove_res_constraints p =
-  let r, _ = split_res p in
-  r
+  let r, rez = split_res_fml p in
+  let nv = verifier_getAfreeVar "split" in
+  And (r, Subst.instantiatePure ["res", Var nv] rez), nv
 
 let remove_res_constraints_state (p, h) =
-  (remove_res_constraints p, h)
+  let p1, nv = remove_res_constraints p in
+  (p1, h), nv

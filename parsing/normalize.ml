@@ -226,20 +226,22 @@ let normalise_stagedSpec (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
       in
       (effectStages, normalStage')
     | NormalReturn (pi, heap) ->
-      (* pi may contain a res, so split the res out of the previous post *)
+       (* pi may contain a res, so split the res out of the previous post *)
+       let ens1, nr = remove_res_constraints_state ens in
       ( effectStages,
-        ( existential,
+        ( nr :: existential,
           req,
-          mergeState (remove_res_constraints_state ens) (pi, heap) ) )
+          mergeState ens1 (pi, heap) ) )
     (* effects *)
     | RaisingEff (pi, heap, ins, ret') ->
+       let ens1, nr = remove_res_constraints_state ens in
       (* move current norm state "behind" this effect boundary. the return value is implicitly that of the current stage *)
       ( effectStages
         @ [
             {
-              e_evars = existential;
+              e_evars = nr :: existential;
               e_pre = req;
-              e_post = mergeState (remove_res_constraints_state ens) (pi, heap);
+              e_post = mergeState ens1 (pi, heap);
               e_constr = ins;
               e_ret = ret';
               e_typ = `Eff;
@@ -248,12 +250,13 @@ let normalise_stagedSpec (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
         freshNormStageRet ret' )
     (* higher-order functions *)
     | HigherOrder (pi, heap, ins, ret') ->
+       let ens1, nr = remove_res_constraints_state ens in
       ( effectStages
         @ [
             {
-              e_evars = existential;
+              e_evars = nr :: existential;
               e_pre = req;
-              e_post = mergeState (remove_res_constraints_state ens) (pi, heap);
+              e_post = mergeState ens1 (pi, heap);
               e_constr = ins;
               e_ret = ret';
               e_typ = `Fn;

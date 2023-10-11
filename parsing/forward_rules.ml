@@ -19,7 +19,7 @@ let concatenateSpecsWithSpec (current:disj_spec) (event:disj_spec) :  disj_spec 
 let rec retrieve_return_value (spec:spec) : term = 
   match spec with 
   | [] -> failwith "retrieve_return_value empty spec"
-  | [NormalReturn (pi, _)] -> get_res pi
+  | [NormalReturn (pi, _)] -> get_res_value pi
   | [HigherOrder (_, _, _, retN)]
   | [RaisingEff(_, _, _, retN)] -> retN
   | _ :: xs -> retrieve_return_value xs 
@@ -221,7 +221,6 @@ let primitives = ["+"; "-"; "="; "not"; "::"; "&&"; "||"; ">"; "<"; ">="; "<="]
 
 (** given the spec of the scrutinee, symbolically executes it against the handler *)
 let rec handling_spec env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj_spec)) (h_ops:(string * string option * disj_spec) list) : spec list * fvenv = 
-  (* Format.printf "handling_spec <===== %s@." (string_of_spec (normalisedStagedSpec2Spec scr_spec)); *)
   let (scr_eff_stages, scr_normal) = scr_spec in 
   match scr_eff_stages with 
   | [] ->
@@ -230,17 +229,20 @@ let rec handling_spec env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj
 
     let current =
       (* Given match 1 with v -> v | effect ..., replace v with 1 in the value case *)
-      let (_, _, _) = scr_normal in 
-      let bindings = bindFormalNActual [h_val_param] [res_v] in 
-      let spec = instantiateSpecList bindings h_val_spec in
+      let (_, _, _) = scr_normal in
+
+      let new_res = verifier_getAfreeVar "res" in
+      let h_spec = instantiateSpecList [h_val_param, Var new_res] h_val_spec in
 
       (* the heap state present in the scrutinee also carries forward *)
-      let (ex, (p1, h1), (p2, h2)) = scr_normal in 
-      let hist = [[Exists ex; Require (p1, h1); NormalReturn (p2, h2)]] in
-      concatenateSpecsWithSpec hist spec
+      let (ex, (p1, h1), (p2, h2)) = scr_normal in
+      let p2 = instantiatePure ["res", Var new_res] p2 in
+      let hist = [[Exists (new_res::ex); Require (p1, h1); NormalReturn (p2, h2)]] in
+      concatenateSpecsWithSpec hist h_spec
     in
 
-    (* Format.printf "handling_spec =====> %s@." (string_of_disj_spec current); *)
+    debug ~at:4 ~title:"handling_spec: completely handled" "%s\n==>\n%s" (string_of_spec (normalisedStagedSpec2Spec scr_spec)) (string_of_disj_spec current);
+
     current, env
     
   | x :: xs ->
@@ -255,7 +257,11 @@ let rec handling_spec env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj
     | None ->
       (* effect x is unhandled. handle the rest of the trace and append it after the unhandled effect. this assumption is sound for deep handlers, as if x is resumed, xs will be handled under this handler. *)
       let r, env = handling_spec env (xs, scr_normal) h_norm h_ops in
-      concatenateEventWithSpecs (effectStage2Spec [x]) (r), env
+      let current = concatenateEventWithSpecs (effectStage2Spec [x]) (r) in
+
+      debug ~at:4 ~title:"handling_spec: unhandled" "%s\n==>\n%s" (string_of_spec (normalisedStagedSpec2Spec scr_spec)) (string_of_disj_spec current);
+
+      current, env
 
     | Some (effFormalArg, handler_body_spec) ->
       (* effect x is handled by a branch of the form (| _ param -> spec) *)
@@ -329,7 +335,10 @@ let rec handling_spec env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj
               foldl1 concatenateSpecsWithSpec handled
           in
           let norm = normalisedStagedSpec2Spec ([], norm_stage) in
-          concatenateSpecsWithEvent handled norm, env)
+          let current = concatenateSpecsWithEvent handled norm in
+
+          debug ~at:4 ~title:"handling_spec: handled" "%s\n==>\n%s" (string_of_spec (normalisedStagedSpec2Spec scr_spec)) (string_of_disj_spec current);
+          current, env)
       in
       let res =
         (* after handling stage/effect x, make sure the heap state associated with it propagates, *)

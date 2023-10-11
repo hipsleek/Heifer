@@ -1,5 +1,6 @@
 open Hipcore
 include Hiptypes
+open Pretty
 
 (* open Types *)
 open Z3
@@ -213,8 +214,8 @@ let check_sat f =
   let solver = Solver.mk_simple_solver ctx in
   Solver.add solver [expr];
   (* print both because the solver does some simplification *)
-  if debug then Format.printf "z3 expr: %s@." (Expr.to_string expr);
-  if debug then Format.printf "z3 solver: %s@." (Solver.to_string solver);
+  if debug then Format.printf "z3 sat, expr: %s@." (Expr.to_string expr);
+  if debug then Format.printf "z3 sat, solver: %s@." (Solver.to_string solver);
   (* z3_query (Z3.Solver.to_string solver); *)
   (* expr *)
   let sat = Solver.check solver [] == Solver.SATISFIABLE in
@@ -226,7 +227,9 @@ let check_sat f =
   end;
   sat
 
-let check env pi = check_sat (fun ctx -> pi_to_expr env ctx pi)
+let check env pi =
+  if debug then Format.printf "z3 sat, pi: %s@." (string_of_pi pi);
+  check_sat (fun ctx -> pi_to_expr env ctx pi)
 
 (* see https://discuss.ocaml.org/t/different-z3-outputs-when-using-the-api-vs-cli/9348/3 and https://github.com/Z3Prover/z3/issues/5841 *)
 let ex_quantify_expr env vars ctx e =
@@ -241,6 +244,9 @@ let ex_quantify_expr env vars ctx e =
 
 (** check if [p1 => ex vs. p2] is valid. this is a separate function which doesn't cache results because exists isn't in pi *)
 let entails_exists env p1 vs p2 =
+  if debug then
+    Format.printf "z3 valid: %s => ex %s. %s@." (string_of_pi p1)
+      (String.concat " " vs) (string_of_pi p2);
   let f ctx =
     let r =
       Z3.Boolean.mk_not ctx

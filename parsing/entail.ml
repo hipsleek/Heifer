@@ -412,10 +412,12 @@ let rec check_staged_subsumption_stagewise :
       let* residue =
         let arg_eqs = conj (List.map2 (fun x y -> Atomic (EQ, x, y)) a1 a2) in
         stage_subsumes ctx
-          (Format.asprintf "Eff %d" i)
+          (Format.asprintf "effect stage %d" i)
           assump
-          (es1.e_evars, (es1.e_pre, es1.e_post))
-          (es2.e_evars, (es2.e_pre, with_pure arg_eqs es2.e_post))
+          (es1.e_evars, (es1.e_pre, with_pure (res_eq es1.e_ret) es1.e_post))
+          ( es2.e_evars,
+            (es2.e_pre, with_pure (And (arg_eqs, res_eq es2.e_ret)) es2.e_post)
+          )
       in
       check_staged_subsumption_stagewise ctx (i + 1)
         (conj [assump; residue])
@@ -424,7 +426,7 @@ let rec check_staged_subsumption_stagewise :
     (* base case: check the normal stage at the end *)
     let (vs1, (p1, h1), (qp1, qh1)), (vs2, (p2, h2), (qp2, qh2)) = (ns1, ns2) in
     let* _residue =
-      stage_subsumes ctx "Norm" assump
+      stage_subsumes ctx "normal stage" assump
         (vs1, ((p1, h1), (qp1, qh1)))
         (vs2, ((p2, h2), (qp2, qh2)))
     in
@@ -528,8 +530,8 @@ and stage_subsumes :
   let vs2, (pre2, post2) = s2 in
   (* TODO replace uses of all_vars. this is for us to know if locations on the rhs are quantified. a smaller set of vars is possible *)
   info
-    ~title:(Format.asprintf "subsumption for stage %s" what)
-    "%s * (%sreq %s; ens %s) <: (%sreq %s; ens %s)" (string_of_pi assump)
+    ~title:(Format.asprintf "subsumption for %s" what)
+    "%s * (%sreq %s; ens %s)\n<:\n(%sreq %s; ens %s)" (string_of_pi assump)
     (string_of_existentials vs1)
     (string_of_state pre1) (string_of_state post1)
     (string_of_existentials vs2)
@@ -549,7 +551,7 @@ and stage_subsumes :
       Provers.entails_exists (concrete_type_env tenv) left vs1 right
     in
     info
-      ~title:(Format.asprintf "VC for precondition of %s stage" what)
+      ~title:(Format.asprintf "VC for precondition of %s" what)
       "%s => %s%s\n%s" (string_of_pi left)
       (string_of_existentials vs1)
       (string_of_pi right) (string_of_res pre_res);
@@ -561,19 +563,17 @@ and stage_subsumes :
   let new_univ = SSet.union (used_vars_pi pre_l) (used_vars_pi pre_r) in
   let vs22 = List.filter (fun v -> not (SSet.mem v new_univ)) vs2 in
   let conj_state (p1, h1) (p2, h2) = (And (p1, p2), SepConj (h1, h2)) in
-  (* let res_v = verifier_getAfreeVar ~from:"res" () in *)
   let pure_pre_residue = fst pre_residue in
   let@ post_l, post_r, _post_resi =
     check_qf "post" ctx.q_vars (conj_state pre_residue post1) post2
   in
   let* post_residue =
-    (* Atomic (EQ, Var res_v, ret1) *)
-    (* Atomic (EQ, Var res_v, ret2) *)
     (* don't use fresh variable for the ret value so it carries forward in the residue *)
+    (* let _a, r = split_res_fml post_l in *)
+    (* let left = conj [fst pre_residue; post_l] in *)
+    (* let right = conj [post_r; r] in *)
     let left = conj [fst pre_residue; post_l] in
-    (* TODO *)
-    (* let right = conj [post_r; Atomic (EQ, ret1, ret2)] in *)
-    let right = True in
+    let right = conj [post_r] in
     let tenv =
       let env = infer_types_pi tenv left in
       let env = infer_types_pi env right in
@@ -589,15 +589,21 @@ and stage_subsumes :
         ~title:(Format.asprintf "warning: false derived in program")
         "%s => %s%s\n%s" (string_of_pi True) "" (string_of_pi left)
         (string_of_res false_not_derived);
-    let post_res =
+    let post_result =
       Provers.entails_exists (concrete_type_env tenv) left vs22 right
     in
     info
-      ~title:(Format.asprintf "VC for postcondition of %s stage" what)
+      ~title:(Format.asprintf "VC for postcondition of %s" what)
       "%s => %s%s\n%s" (string_of_pi left)
       (string_of_existentials vs22)
-      (string_of_pi right) (string_of_res post_res);
-    if post_res then Some (conj [left; right; pure_pre_residue]) else None
+      (string_of_pi right)
+      (string_of_res post_result);
+    let f = verifier_getAfreeVar "" in
+    let left = instantiatePure [("res", Var f)] left in
+    let right = instantiatePure [("res", Var f)] right in
+    (* let left = fst (split_res left) in *)
+    (* let right = fst (split_res left) in *)
+    if post_result then Some (conj [left; right; pure_pre_residue]) else None
   in
   pure (conj [pure_pre_residue; post_residue])
 
