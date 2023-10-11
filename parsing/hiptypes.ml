@@ -24,14 +24,75 @@ type term =
     | TNot of term
     | TApp of string * term list
     | Nil
-    (* pointer to an env of lambda terms. directly having specifications here
-       would make everything in this module mutually recursive... *)
-    | TLambda of string
+    (* the string is just an identifier for uniqueness *)
+    | TLambda of string * disj_spec
     (* unused *)
     | TList of term list
     | TTupple of term list
 
-let term_cons c t = TApp ("cons", [c; t])
+(* (Label n) _k (*@ spec @*) -> e *)
+and core_handler_ops = (string * string option * disj_spec option * core_lang) list
+
+(* x :: xs -> e is represented as ("::", [x, xs], e) *)
+and constr_cases = (string * string list * core_lang) list
+
+and core_lang = 
+      | CValue of core_value 
+      | CLet of string * core_lang * core_lang
+      | CIfELse of core_value * core_lang * core_lang
+      | CFunCall of string * (core_value) list
+      | CWrite of string * core_value  
+      | CRef of core_value
+      | CRead of string 
+      | CAssert of pi * kappa 
+      | CPerform of string * core_value option
+      (* match e with | v -> e1 | eff case... | constr case... *)
+      | CMatch of core_lang * (string * core_lang) option * core_handler_ops * constr_cases
+      | CResume of core_value 
+      | CLambda of string list * disj_spec option * core_lang
+
+and core_value = term
+
+(* an occurrence of an effect *)
+and instant = string * term list
+
+
+and pi = 
+  | True
+  | False
+  | Atomic of bin_op * term * term
+  | And    of pi * pi
+  | Or     of pi * pi
+  | Imply  of pi * pi
+  | Not    of pi 
+  | Predicate of string * term
+
+and kappa = 
+  | EmptyHeap
+    (* x -> -   means x is allocated, and - is encoded as Var "_" *)
+  | PointsTo of (string * term)
+  | SepConj of kappa * kappa
+  (*| MagicWand of kappa * kappa*)
+
+(* a formula which describes a program state *)
+and state = pi * kappa
+
+and stagedSpec = 
+      | Exists of string list
+      | Require of pi * kappa 
+      (* H /\ P /\ res=term *)
+      | NormalReturn of (pi * kappa * term)
+      (* higher-order functions: H /\ P /\ f$(...args, term) *)
+      (* this constructor is also used for inductive predicate applications *)
+      (* f$(x, y) is HigherOrder(..., ..., (f, [x]), y) *)
+      | HigherOrder of (pi * kappa * instant * term)
+      (* effects: H /\ P /\ E(...args, v), term is always a placeholder variable *)
+      | RaisingEff of (pi * kappa * instant * term)
+      (* | IndPred of { name : string; args: term list } *)
+
+and spec = stagedSpec list
+
+and disj_spec = spec list
 
 type typ =
   | Unit
@@ -39,6 +100,8 @@ type typ =
   | Int
   | Bool
   | TVar of string
+
+let term_cons c t = TApp ("cons", [c; t])
 
 type abs_typ_env = {
   vartypes: typ SMap.t;
@@ -52,46 +115,6 @@ let create_abs_env () =
 
 type typ_env = typ SMap.t
 
-(* an occurrence of an effect *)
-type instant = string * term list
-
-
-type pi = 
-  | True
-  | False
-  | Atomic of bin_op * term * term
-  | And    of pi * pi
-  | Or     of pi * pi
-  | Imply  of pi * pi
-  | Not    of pi 
-  | Predicate of string * term
-
-type kappa = 
-  | EmptyHeap
-    (* x -> -   means x is allocated, and - is encoded as Var "_" *)
-  | PointsTo of (string * term)
-  | SepConj of kappa * kappa
-  (*| MagicWand of kappa * kappa*)
-
-(* a formula which describes a program state *)
-type state = pi * kappa
-
-type stagedSpec = 
-      | Exists of string list
-      | Require of pi * kappa 
-      (* H /\ P /\ res=term *)
-      | NormalReturn of (pi * kappa * term)
-      (* higher-order functions: H /\ P /\ f$(...args, term) *)
-      (* this constructor is also used for inductive predicate applications *)
-      (* f$(x, y) is HigherOrder(..., ..., (f, [x]), y) *)
-      | HigherOrder of (pi * kappa * instant * term)
-      (* effects: H /\ P /\ E(...args, v), term is always a placeholder variable *)
-      | RaisingEff of (pi * kappa * instant * term)
-      (* | IndPred of { name : string; args: term list } *)
-
-(* type spec = (pi * linearStagedSpec) list  *)
-type spec = stagedSpec list
-type disj_spec = spec list
 
 (* type effectStage =  (string list* (pi * kappa ) * (pi * kappa) * instant * term) *)
 type effectStage = {
@@ -115,28 +138,7 @@ let freshNormStageVar v : normalStage = ([v], (True, EmptyHeap), (True, EmptyHea
 
 let freshNormStageRet r : normalStage = ([], (True, EmptyHeap), (True, EmptyHeap), r) 
 
-type core_value = term
 
-(* (Label n) _k (*@ spec @*) -> e *)
-type core_handler_ops = (string * string option * disj_spec option * core_lang) list
-
-(* x :: xs -> e is represented as ("::", [x, xs], e) *)
-and constr_cases = (string * string list * core_lang) list
-
-and core_lang = 
-      | CValue of core_value 
-      | CLet of string * core_lang * core_lang
-      | CIfELse of core_value * core_lang * core_lang
-      | CFunCall of string * (core_value) list
-      | CWrite of string * core_value  
-      | CRef of core_value
-      | CRead of string 
-      | CAssert of pi * kappa 
-      | CPerform of string * core_value option
-      (* match e with | v -> e1 | eff case... | constr case... *)
-      | CMatch of core_lang * (string * core_lang) option * core_handler_ops * constr_cases
-      | CResume of core_value 
-      | CLambda of string list * disj_spec option * core_lang
 
 type tactic =
   | Unfold_right

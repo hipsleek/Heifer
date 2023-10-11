@@ -31,9 +31,9 @@ let rec instantiateTerms (bindings : (string * core_value) list) (t : term) :
   | Minus (t1, t2) ->
     Minus (instantiateTerms bindings t1, instantiateTerms bindings t2)
   | TApp (t1, t2) -> TApp (t1, List.map (instantiateTerms bindings) t2)
-  | TLambda n -> TLambda n
+  | TLambda (n, sp) -> TLambda (n, instantiateSpecList bindings sp)
 
-let rec instantiatePure (bindings : (string * core_value) list) (pi : pi) : pi =
+and instantiatePure (bindings : (string * core_value) list) (pi : pi) : pi =
   match pi with
   | True | False -> pi
   | Atomic (bop, t1, t2) ->
@@ -46,7 +46,7 @@ let rec instantiatePure (bindings : (string * core_value) list) (pi : pi) : pi =
   | Not p1 -> Not (instantiatePure bindings p1)
   | Predicate (str, t1) -> Predicate (str, instantiateTerms bindings t1)
 
-let rec instantiateHeap (bindings : (string * core_value) list) (kappa : kappa)
+and instantiateHeap (bindings : (string * core_value) list) (kappa : kappa)
     : kappa =
   match kappa with
   | EmptyHeap -> kappa
@@ -57,10 +57,10 @@ let rec instantiateHeap (bindings : (string * core_value) list) (kappa : kappa)
   | SepConj (k1, k2) ->
     SepConj (instantiateHeap bindings k1, instantiateHeap bindings k2)
 
-let instantiate_state bindings (p, h) =
+and instantiate_state bindings (p, h) =
   (instantiatePure bindings p, instantiateHeap bindings h)
 
-let instantiateStages (bindings : (string * core_value) list)
+and instantiateStages (bindings : (string * core_value) list)
     (stagedSpec : stagedSpec) : stagedSpec =
   match stagedSpec with
   | Exists _ -> stagedSpec
@@ -91,11 +91,11 @@ let instantiateStages (bindings : (string * core_value) list)
 (* | Pred {name; args}  ->  *)
 (* Pred {name; args = List.map (instantiateTerms bindings) args} *)
 
-let instantiateSpec (bindings : (string * core_value) list) (sepc : spec) : spec
+and instantiateSpec (bindings : (string * core_value) list) (sepc : spec) : spec
     =
   List.map (fun a -> instantiateStages bindings a) sepc
 
-let instantiateSpecList (bindings : (string * core_value) list)
+and instantiateSpecList (bindings : (string * core_value) list)
     (sepcs : disj_spec) : disj_spec =
   List.map (fun a -> instantiateSpec bindings a) sepcs
 
@@ -435,7 +435,7 @@ let rec collect_lambdas_term (t : term) =
     SSet.union (collect_lambdas_term a) (collect_lambdas_term b)
   | TNot a -> collect_lambdas_term a
   | TApp (_, args) -> SSet.concat (List.map collect_lambdas_term args)
-  | TLambda l -> SSet.singleton l
+  | TLambda (l, _sp) -> SSet.singleton l
 
 let rec collect_lambdas_pi (p : pi) =
   match p with

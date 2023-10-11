@@ -173,7 +173,7 @@ let rec string_of_term t : string =
   | Plus (t1, t2) -> string_of_term t1 ^ "+" ^ string_of_term t2
   | Minus (t1, t2) -> string_of_term t1 ^ "-" ^ string_of_term t2
   | TApp (op, args) -> Format.asprintf "%s%s" op (string_of_args string_of_term args)
-  | TLambda name -> Format.asprintf "lambda(%s)" name
+  | TLambda (_name, sp) -> Format.asprintf "lambda(%s)" (string_of_disj_spec sp)
   | TTupple nLi -> 
     let rec helper li = 
       match li with
@@ -190,8 +190,69 @@ let rec string_of_term t : string =
       | x:: xs -> string_of_term x ^";"^ helper xs 
     in "[" ^ helper nLi ^ "]"
 
+and string_of_staged_spec (st:stagedSpec) : string =
+  match st with
+  | Require (p, h) ->
+    Format.asprintf "req %s" (string_of_state (p, h))
+  | HigherOrder (pi, h, (f, args), ret) ->
+    begin match pi, h with
+    | True, EmptyHeap ->
+      Format.asprintf "%s(%s, %s)" f (String.concat ", " (List.map string_of_term args)) (string_of_term ret)
+    | _ ->
+      Format.asprintf "Norm(%s, ()); %s(%s, %s)" (string_of_state (pi, h)) f (String.concat ", " (List.map string_of_term args)) (string_of_term ret)
+    end
+  | NormalReturn (pi, heap, ret) ->
+    Format.asprintf "Norm(%s, %s)" (string_of_state (pi, heap))  (string_of_term ret)
+  | RaisingEff (pi, heap, (name, args), ret) ->
+    Format.asprintf "%s(%s, %s, %s)" name (string_of_state (pi, heap)) (string_of_args string_of_term args) (string_of_term ret)
+  | Exists vs ->
+    Format.asprintf "ex %s" (String.concat " " vs)
+  (* | IndPred {name; args} -> *)
+    (* Format.asprintf "%s(%s)" name (String.concat " " (List.map string_of_term args)) *)
 
-let rec string_of_pi pi : string = 
+and string_of_spec (spec:spec) :string =
+  match spec with
+  | [] -> "<empty spec>"
+  | _ ->
+    spec
+    (* |> List.filter (function Exists [] -> false | _ -> true) *)
+    |> List.map string_of_staged_spec |> String.concat "; "
+
+and string_of_spec_list (specs:spec list) : string = 
+  match specs with 
+  | [] -> "<empty disj>"
+  | _ :: _ -> List.map string_of_spec specs |> String.concat " \\/ "
+
+and string_of_disj_spec (s:disj_spec) : string = string_of_spec_list s
+
+and string_of_instant (str, ar_Li): string = 
+  (* syntax is like OCaml type constructors, e.g. Foo, Foo (), Foo (1, ()) *)
+  let args =
+    match ar_Li with
+    | [] -> ""
+    | [t] -> Format.sprintf "(%s)" (string_of_term t)
+    | _ -> Format.sprintf "(%s)" (separate (ar_Li) (string_of_term) (","));
+  in
+  Format.sprintf "%s%s" str args
+
+
+and string_of_kappa (k:kappa) : string = 
+  match k with
+  | EmptyHeap -> "emp"
+  | PointsTo  (str, args) -> Format.sprintf "%s->%s" str (List.map string_of_term [args] |> String.concat ", ")
+  | SepConj (k1, k2) -> string_of_kappa k1 ^ "*" ^ string_of_kappa k2 
+  (*| MagicWand (k1, k2) -> "(" ^ string_of_kappa k1 ^ "-*" ^ string_of_kappa k2  ^ ")" *)
+  (* | Implication (k1, k2) -> string_of_kappa k1 ^ "-*" ^ string_of_kappa k2  *)
+
+and string_of_state (p, h) : string =
+  match h, p with
+  | _, True -> string_of_kappa h
+  | EmptyHeap, _ -> string_of_pi p
+  | _ ->
+    Format.asprintf "%s /\\ %s" (string_of_kappa h) (string_of_pi p)
+    (* Format.asprintf "%s*%s" (string_of_kappa h) (string_of_pi p) *)
+
+and string_of_pi pi : string = 
   match pi with 
   | True -> "T"
   | False -> "F"
@@ -294,67 +355,6 @@ let rec kappaToPure kappa : pi =
 
 
 
-let string_of_instant (str, ar_Li): string = 
-  (* syntax is like OCaml type constructors, e.g. Foo, Foo (), Foo (1, ()) *)
-  let args =
-    match ar_Li with
-    | [] -> ""
-    | [t] -> Format.sprintf "(%s)" (string_of_term t)
-    | _ -> Format.sprintf "(%s)" (separate (ar_Li) (string_of_term) (","));
-  in
-  Format.sprintf "%s%s" str args
-
-
-let rec string_of_kappa (k:kappa) : string = 
-  match k with
-  | EmptyHeap -> "emp"
-  | PointsTo  (str, args) -> Format.sprintf "%s->%s" str (List.map string_of_term [args] |> String.concat ", ")
-  | SepConj (k1, k2) -> string_of_kappa k1 ^ "*" ^ string_of_kappa k2 
-  (*| MagicWand (k1, k2) -> "(" ^ string_of_kappa k1 ^ "-*" ^ string_of_kappa k2  ^ ")" *)
-  (* | Implication (k1, k2) -> string_of_kappa k1 ^ "-*" ^ string_of_kappa k2  *)
-
-let string_of_state (p, h) : string =
-  match h, p with
-  | _, True -> string_of_kappa h
-  | EmptyHeap, _ -> string_of_pi p
-  | _ ->
-    Format.asprintf "%s /\\ %s" (string_of_kappa h) (string_of_pi p)
-    (* Format.asprintf "%s*%s" (string_of_kappa h) (string_of_pi p) *)
-
-let string_of_staged_spec (st:stagedSpec) : string =
-  match st with
-  | Require (p, h) ->
-    Format.asprintf "req %s" (string_of_state (p, h))
-  | HigherOrder (pi, h, (f, args), ret) ->
-    begin match pi, h with
-    | True, EmptyHeap ->
-      Format.asprintf "%s(%s, %s)" f (String.concat ", " (List.map string_of_term args)) (string_of_term ret)
-    | _ ->
-      Format.asprintf "Norm(%s, ()); %s(%s, %s)" (string_of_state (pi, h)) f (String.concat ", " (List.map string_of_term args)) (string_of_term ret)
-    end
-  | NormalReturn (pi, heap, ret) ->
-    Format.asprintf "Norm(%s, %s)" (string_of_state (pi, heap))  (string_of_term ret)
-  | RaisingEff (pi, heap, (name, args), ret) ->
-    Format.asprintf "%s(%s, %s, %s)" name (string_of_state (pi, heap)) (string_of_args string_of_term args) (string_of_term ret)
-  | Exists vs ->
-    Format.asprintf "ex %s" (String.concat " " vs)
-  (* | IndPred {name; args} -> *)
-    (* Format.asprintf "%s(%s)" name (String.concat " " (List.map string_of_term args)) *)
-
-let string_of_spec (spec:spec) :string =
-  match spec with
-  | [] -> "<empty spec>"
-  | _ ->
-    spec
-    (* |> List.filter (function Exists [] -> false | _ -> true) *)
-    |> List.map string_of_staged_spec |> String.concat "; "
-
-let string_of_spec_list (specs:spec list) : string = 
-  match specs with 
-  | [] -> "<empty disj>"
-  | _ :: _ -> List.map string_of_spec specs |> String.concat " \\/ "
-
-let string_of_disj_spec (s:disj_spec) : string = string_of_spec_list s
 
 let string_of_pred ({ p_name; p_params; p_body } : pred_def) : string =
   Format.asprintf "%s(%s) == %s" p_name (String.concat "," p_params) (string_of_spec_list p_body)

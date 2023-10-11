@@ -49,7 +49,7 @@ let rec term_to_expr env ctx t : Z3.Expr.expr =
         Z3.Expr.mk_const_s ctx v list_int
       | Bool -> Z3.Boolean.mk_const_s ctx v))
   | UNIT -> Z3.Arithmetic.Integer.mk_const_s ctx "unit"
-  | TLambda n ->
+  | TLambda (n, _sp) ->
     (* TODO int constant might not be appropriate *)
     Z3.Arithmetic.Integer.mk_const_s ctx (Format.asprintf "lambda_%s" n)
   | Nil ->
