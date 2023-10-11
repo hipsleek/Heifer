@@ -1,7 +1,9 @@
+open Hipcore
 open Hiptypes
 open Pretty
 open Infer_types
 open Normalize
+open Subst
 
 type fvenv = Forward_rules.fvenv
 
@@ -544,7 +546,7 @@ and stage_subsumes :
       Provers.entails_exists (concrete_type_env tenv) left vs1 right
     in
     info
-      ~title:(Format.asprintf "VC %s pre" what)
+      ~title:(Format.asprintf "VC for precondition of %s stage" what)
       "%s => %s%s\n%s" (string_of_pi left)
       (string_of_existentials vs1)
       (string_of_pi right) (string_of_res pre_res);
@@ -583,7 +585,7 @@ and stage_subsumes :
       Provers.entails_exists (concrete_type_env tenv) left vs22 right
     in
     info
-      ~title:(Format.asprintf "VC %s post" what)
+      ~title:(Format.asprintf "VC for postcondition of %s stage" what)
       "%s => %s%s\n%s" (string_of_pi left)
       (string_of_existentials vs22)
       (string_of_pi right) (string_of_res post_res);

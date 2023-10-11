@@ -21,6 +21,7 @@
 *)
 
 open Asttypes
+open Hipcore
 open Hiptypes
 
 type constant =

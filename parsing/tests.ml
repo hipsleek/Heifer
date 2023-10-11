@@ -1,5 +1,6 @@
 open Ocamlfrontend
-open Core
+open Hipcore
+open Hipprover
 open Pretty
 open Hiptypes
 open Normalize

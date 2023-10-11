@@ -121,3 +121,14 @@ View log output by setting `DEBUG=n`.
 | >= 2 | More and more detail, for developers |
 
 Add logging using `debug ~at:n ~title:"example" "format string %d" 1;`. `info` is an alias for `debug ~at:1`.
+
+# Project structure
+
+- Hipcore: core language and spec AST and pure functions for manipulating it
+- Hipprover: code which depends on calls to an external prover, e.g. normalization
+- Ocamlfrontend: OCaml parser
+- Hiplib: interface for all the above modules
+- Hipjs, Hip: CLI and web frontends
+- Provers: prover back ends which translate Hipcore types into SMT
+
+[This file](parsing/dune) lists the submodules of the various libraries.

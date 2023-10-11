@@ -47,7 +47,7 @@ let verifier_getAfreeVar _from :string  =
   incr verifier_counter;
   x 
 
-let%expect_test _ =
+(* let%expect_test _ =
   let p = print_endline in
   verifier_counter_reset ();
   p (verifier_getAfreeVar "v");
@@ -63,7 +63,7 @@ let%expect_test _ =
     v2
     v3
     v4
-  |}]
+  |}] *)
 
 
 let string_of_args pp args =

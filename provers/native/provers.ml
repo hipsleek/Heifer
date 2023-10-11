@@ -1,3 +1,4 @@
+open Hipcore
 include Hiptypes
 
 (* open Types *)
@@ -194,11 +195,7 @@ let _test () =
   | None -> Format.printf "no model@."
   | Some m -> Format.printf "model: %s@." (Model.to_string m)
 
-let debug =
-  try
-    int_of_string (Sys.getenv "DEBUG") >= 4
-  with _ ->
-    false
+let debug = try int_of_string (Sys.getenv "DEBUG") >= 4 with _ -> false
 
 let check_sat f =
   (* let debug = true in *)

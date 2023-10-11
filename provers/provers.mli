@@ -1,3 +1,4 @@
+open Hipcore
 open Hiptypes
 
 val askZ3 : typ_env -> pi -> bool

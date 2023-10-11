@@ -61,13 +61,13 @@
  (mode fallback))
 
 (library
- (name hiptypes)
- (modules common hiptypes))
+ (name hipcore)
+ (modules subst Pretty common hiptypes))
 
 (library
- (name core)
- (modules ProversEx Rewriting Pretty entail res forward_rules infer_types normalize)
- (libraries str hiptypes provers)
+ (name hipprover)
+ (modules ProversEx Rewriting entail res forward_rules infer_types normalize)
+ (libraries str hipcore provers)
  (inline_tests)
  (preprocess (pps ppx_expect ppx_deriving.std)))
 
@@ -75,13 +75,13 @@
  (name ocamlfrontend)
  (modules
  parser lexer Syntaxerr Pprintast Printast Asttypes Ast_helper Longident Parsetree Location Warnings Misc Terminfo Docstrings Build_path_prefix_map Clflags Profile Numbers Identifiable Arg_helper CamlinternalMenhirLib Debug)
- (libraries core)
+ (libraries hipprover)
  (flags :standard -w -A))
 
 (library
  (name hiplib)
  (modules hiplib tests)
- (libraries core ocamlfrontend)
+ (libraries hipprover ocamlfrontend)
  (inline_tests)
  (preprocess (pps ppx_expect)))
 

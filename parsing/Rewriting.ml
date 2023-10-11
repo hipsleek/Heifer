@@ -1,4 +1,5 @@
 
+open Hipcore
 open List
 open Hiptypes
 open Pretty

@@ -17,6 +17,7 @@
 
 %{
 
+open Hipcore
 open Hiptypes
 
 open Asttypes
@@ -822,11 +823,11 @@ The precedences must be listed from low to high.
 %start parse_any_longident
 %type <Longident.t> parse_any_longident
 %start only_effect_spec
-%type <Hiptypes.spec> only_effect_spec
+%type <Hipcore.Hiptypes.spec> only_effect_spec
 %start only_disj_effect_spec
-%type <Hiptypes.disj_spec> only_disj_effect_spec
+%type <Hipcore.Hiptypes.disj_spec> only_disj_effect_spec
 %start only_pure_formula
-%type <Hiptypes.pi> only_pure_formula
+%type <Hipcore.Hiptypes.pi> only_pure_formula
 %%
 
 /* macros */
@@ -2574,7 +2575,7 @@ pure_formula_term:
   | pure_formula_term PLUS pure_formula_term { Plus ($1, $3) }
   | pure_formula_term MINUS pure_formula_term { Minus ($1, $3) }
   | LPAREN pure_formula_term RPAREN { $2 }
-  | LPAREN FUN params=nonempty_list(LIDENT) MINUSGREATER ef=disj_effect_spec RPAREN { TLambda (Core.Pretty.verifier_getAfreeVar "plambda", params, ef) }
+  | LPAREN FUN params=nonempty_list(LIDENT) MINUSGREATER ef=disj_effect_spec RPAREN { TLambda (Pretty.verifier_getAfreeVar "plambda", params, ef) }
 ;
 
 pure_formula: 
@@ -2630,7 +2631,7 @@ stagedSpec1 :
     }
   | ENSURES f=statefml {
       let (p, h) = f in
-      let (p1, r) = Core.Pretty.split_res p in
+      let (p1, r) = Pretty.split_res p in
       let r =
         match r with
         | [] -> UNIT

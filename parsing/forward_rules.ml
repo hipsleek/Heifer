@@ -1,7 +1,9 @@
 
+open Hipcore
 open Hiptypes
 open Pretty
 open Normalize
+include Subst
 
 
 let concatenateSpecsWithEvent (current:disj_spec) (event:spec) : disj_spec = 
@@ -104,36 +106,6 @@ let rec getExistientalVar (spec:normalisedStagedSpec) : string list =
     eff.e_evars @ getExistientalVar (xs, normalS)
 
 
-let rec findNewName str vb_li =
-    match vb_li with 
-    | [] -> str 
-    | (name, new_name) :: xs -> if String.compare name str == 0 then new_name else  findNewName str xs
-
-
-
-let rec instantiateExistientalVar_aux (li:string list)   (bindings:((string * string) list)) : string list = 
-  match li with 
-  | [] -> []
-  | str :: xs  -> 
-    let str' = findNewName  str bindings in 
-    str' :: instantiateExistientalVar_aux xs bindings
-
-
-let rec instantiateExistientalVar 
-  (spec:normalisedStagedSpec) 
-  (bindings:((string * string) list)): normalisedStagedSpec = 
-
-  let (effS, normalS)  =  spec  in 
-  match effS with 
-  | [] -> 
-
-    (* print_endline ("nROMRAL STATGE"); *)
-    let (ex, req, ens, ret) = normalS in 
-    ([], (instantiateExistientalVar_aux ex bindings, req, ens, ret))
-  | eff :: xs -> 
-    (* print_endline ("EFF STATGE"); *)
-    let (rest, norm') = instantiateExistientalVar (xs, normalS) bindings in 
-    (({eff with e_evars = instantiateExistientalVar_aux eff.e_evars bindings}) :: rest, norm')
 
 
 let instantiateExistientalVarSpec   (spec:spec) 
@@ -685,4 +657,3 @@ let rec infer_of_expression (env:fvenv) (current:disj_spec) (expr:core_lang): di
   in
   debug ~at:3 ~title:"forward rules" "{%s}\n%s\n{%s}" (string_of_disj_spec current) (string_of_core_lang expr) (string_of_disj_spec res);
   res, env
-
