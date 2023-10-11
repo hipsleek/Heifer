@@ -20,6 +20,9 @@
   $ check test_match.ml
   ALL OK!
 
+  $ check test_lambda.ml
+  ALL OK!
+
   $ check ../evaluation/0_heap_zero_once_twice.ml
   ALL OK!
 
