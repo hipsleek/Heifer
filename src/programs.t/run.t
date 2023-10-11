@@ -1,8 +1,6 @@
 
-  $ function entail_results { grep 'Function\|Entail.*Check\|error'; }
+  $ function check { TEST=1 hip "$1" 2>&1; }
   $ function sanitize { grep Time; }
-  $ function check { hip "$1" 2>&1 | entail_results | ./check.py; }
-  $ function results { hip "$1" 2>&1 | entail_results; }
   $ function output { hip "$1" 2>&1 | sanitize; }
 
   $ check test_new_entail.ml

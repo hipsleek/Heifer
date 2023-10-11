@@ -15,6 +15,9 @@ open Pretty
 open Hiptypes
 open Normalize
 
+let test_mode = ref false
+let tests_failed = ref false
+
 let rec input_lines file =
   match try [input_line file] with End_of_file -> [] with
    [] -> []
@@ -972,7 +975,7 @@ let rec entailmentchecking (lhs:normalisedStagedSpec list) (rhs:normalisedStaged
     let r2 = entailmentchecking xs rhs in 
     r1 && r2
 
-let report_result ?(kind="Function") ?given_spec ?given_spec_n ?inferred_spec ?inferred_spec_n ?forward_time_ms ?entail_time_ms ?result name =
+let normal_report ?(kind="Function") ?given_spec ?given_spec_n ?inferred_spec ?inferred_spec_n ?forward_time_ms ?entail_time_ms ?result name =
   let header =
     "\n========== " ^ kind ^ ": "^ name ^" ==========\n" ^
     (match given_spec with
@@ -1001,6 +1004,23 @@ let report_result ?(kind="Function") ?given_spec ?given_spec_n ?inferred_spec ?i
     (String.init (String.length name + 32) (fun _ -> '=')) ^ "\n"
   in
   print_endline header
+
+let test_report ?kind:_ ?given_spec:_ ?given_spec_n:_ ?inferred_spec:_ ?inferred_spec_n:_ ?forward_time_ms:_ ?entail_time_ms:_ ?result name =
+  let false_expected = String.ends_with ~suffix:"_false" name in
+  match result with
+  | Some true when false_expected ->
+    tests_failed := true;
+    Format.printf "FAILED: %s@." name
+  | Some false when not false_expected ->
+    tests_failed := true;
+    Format.printf "FAILED: %s@." name
+  | _ -> ()
+
+let report_result ?kind ?given_spec ?given_spec_n ?inferred_spec ?inferred_spec_n ?forward_time_ms ?entail_time_ms ?result name =
+  let f =
+    if !test_mode then test_report else normal_report
+  in
+  f ?kind ?given_spec ?given_spec_n ?inferred_spec ?inferred_spec_n ?forward_time_ms ?entail_time_ms ?result name
 
 let check_obligation fvenv meth prog predicates (l, r) =
   let res = Entail.check_staged_subsumption_disj fvenv meth.m_name meth.m_params meth.m_tactics prog.cp_lemmas predicates l r in
@@ -1178,4 +1198,5 @@ print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
 
 let main () =
   let inputfile = (Sys.getcwd () ^ "/" ^ Sys.argv.(1)) in
-  run_file inputfile
+  run_file inputfile;
+  if !test_mode && not !tests_failed then Format.printf "ALL OK!@."
