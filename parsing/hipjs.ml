@@ -1,4 +1,5 @@
 open Brr
+open Hipcore
 open Hiptypes
 
 let ready () =

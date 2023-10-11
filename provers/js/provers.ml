@@ -1,3 +1,4 @@
+open Hipcore
 open Hiptypes
 
 (*
