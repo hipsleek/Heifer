@@ -25,7 +25,7 @@ type term =
     | TApp of string * term list
     | Nil
     (* the string is just an identifier for uniqueness *)
-    | TLambda of string * disj_spec
+    | TLambda of string * string list * disj_spec
     (* unused *)
     | TList of term list
     | TTupple of term list

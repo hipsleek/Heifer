@@ -31,7 +31,7 @@ let rec instantiateTerms (bindings : (string * core_value) list) (t : term) :
   | Minus (t1, t2) ->
     Minus (instantiateTerms bindings t1, instantiateTerms bindings t2)
   | TApp (t1, t2) -> TApp (t1, List.map (instantiateTerms bindings) t2)
-  | TLambda (n, sp) -> TLambda (n, instantiateSpecList bindings sp)
+  | TLambda (n, params, sp) -> TLambda (n, params, instantiateSpecList bindings sp)
 
 and instantiatePure (bindings : (string * core_value) list) (pi : pi) : pi =
   match pi with
@@ -435,7 +435,7 @@ let rec collect_lambdas_term (t : term) =
     SSet.union (collect_lambdas_term a) (collect_lambdas_term b)
   | TNot a -> collect_lambdas_term a
   | TApp (_, args) -> SSet.concat (List.map collect_lambdas_term args)
-  | TLambda (l, _sp) -> SSet.singleton l
+  | TLambda (l, _params, _sp) -> SSet.singleton l
 
 let rec collect_lambdas_pi (p : pi) =
   match p with

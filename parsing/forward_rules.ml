@@ -427,7 +427,7 @@ let rec infer_of_expression (env:fvenv) (current:disj_spec) (expr:core_lang): di
             match phi1 with
             | [p] ->
               (match retrieve_return_value p with
-              | TLambda (n, _sp) ->
+              | TLambda (n, _params, _sp) ->
                 let lspec = SMap.find n env.fv_lambda in
                 (* rename, so created predicate will match *)
                 let lspec = { lspec with m_name = str } in
@@ -622,7 +622,7 @@ let rec infer_of_expression (env:fvenv) (current:disj_spec) (expr:core_lang): di
         | Some g -> { env with fv_lambda_obl = (inferred, g) :: env.fv_lambda_obl }
       in
       (* TODO given *)
-      let event = NormalReturn (True, EmptyHeap, TLambda (lid, inferred)) in 
+      let event = NormalReturn (True, EmptyHeap, TLambda (lid, params, inferred)) in 
       concatenateSpecsWithEvent current [event], env
 
     | CMatch (scr, Some val_case, eff_cases, []) -> (* effects *)

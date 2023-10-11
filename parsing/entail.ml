@@ -258,7 +258,7 @@ let instantiate_pred : fvenv -> pred_def -> term list -> term -> pred_def =
     List.map2
       (fun p a ->
         match a with
-        | TLambda (v, _sp) ->
+        | TLambda (v, _params, _sp) ->
           let l = SMap.find v fvenv.fv_lambda in
           [(p, l.m_spec |> Option.map (fun s -> (l.m_params, s)))]
           (* TODO fix the type of this, just leave it out insead of having a list of option *)
