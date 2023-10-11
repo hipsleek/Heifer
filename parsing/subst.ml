@@ -1,4 +1,5 @@
 open Hiptypes
+open Pretty
 
 let rec findNewName str vb_li =
   match vb_li with
@@ -129,10 +130,12 @@ and instantiateSpecList (bindings : (string * core_value) list)
 (* if alpha_equiv(t1, t2), then hash t1 = hash t2 *)
 let hash_lambda t =
   match t with
-  | TLambda (id, params, spec) ->
-    let bs = List.map (fun p -> (p, Pretty.verifier_getAfreeVar "p")) params in
+  | TLambda (_id, params, spec) ->
+    let bs = List.mapi (fun i p -> (p, "l" ^ string_of_int i)) params in
     let renamed =
       instantiateSpecList (List.map (fun (p, v) -> (p, Var v)) bs) spec
     in
-    Hashtbl.hash (TLambda (id, List.map snd bs, renamed))
+    let n = TLambda ("id", List.map snd bs, renamed) in
+    (* Format.printf "renamed %s@." (string_of_term n); *)
+    Hashtbl.hash n
   | _ -> failwith (Format.asprintf "not a lambda: %s" "(cannot print)")
