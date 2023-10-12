@@ -1197,18 +1197,7 @@ print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
 
    ;;
 
-let maybe_file_mode f =
-  if not !file_mode then f ()
-  else
-    (let oc = open_out "test" in
-    Format.set_formatter_out_channel oc;
-    f ();
-    close_out oc)
-
-let real_main () =
+let main () =
   let inputfile = (Sys.getcwd () ^ "/" ^ Sys.argv.(1)) in
   run_file inputfile;
   if !test_mode && not !tests_failed then Format.printf "ALL OK!@."
-
-let main () =
-  maybe_file_mode real_main

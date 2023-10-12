@@ -11,20 +11,21 @@ exception Foo of string
 
 let colours : [`Html|`Ansi|`None] ref = ref `None
 
-let col ~ansi ~html text = 
+let col ~ansi ~html ~title text =
   (match !colours with
+  | `None when title -> "==== "
   | `None -> ""
   | `Ansi -> ansi
   | `Html -> html) ^ text ^
   (match !colours with
+  | `None when title -> " ===="
   | `None -> ""
   | `Ansi -> "\u{001b}[0m"
   | `Html -> "</span>")
- 
-let red text = col ~ansi:"\u{001b}[31m" ~html:"<span class=\"output-error\">" text
-let green text = col ~ansi:"\u{001b}[32m" ~html:"<span class=\"output-ok\">" text
-let yellow text = col ~ansi:"\u{001b}[33m" ~html:"<span class=\"output-emph\">" text
-let emph text = col ~ansi:"\u{001b}[1;4m" ~html:"<span class=\"output-emph\">" text
+
+let red text = col ~ansi:"\u{001b}[31m" ~html:"<span class=\"output-error\">" ~title:false text
+let green text = col ~ansi:"\u{001b}[32m" ~html:"<span class=\"output-ok\">" ~title:false text
+let yellow text = col ~ansi:"\u{001b}[33m" ~html:"<span class=\"output-emph\">" ~title:true text
 
 let verifier_counter: int ref = ref 0;;
 
@@ -43,9 +44,9 @@ let verifier_getAfreeVar _from :string  =
       (* Str.global_replace end_of_var "" from *)
       "v"
   in
-  let x = prefix ^ string_of_int (!verifier_counter) in 
+  let x = prefix ^ string_of_int (!verifier_counter) in
   incr verifier_counter;
-  x 
+  x
 
 (* let%expect_test _ =
   let p = print_endline in
@@ -139,8 +140,8 @@ let rec input_lines file =
 
   ;;
 
-let rec separate li f sep : string = 
-  match li with 
+let rec separate li f sep : string =
+  match li with
   | [] -> ""
   | [x] -> f x
   | x ::xs -> f x ^ sep ^ separate xs f sep
@@ -150,16 +151,16 @@ let rec separate li f sep : string =
 
 
 let string_of_bin_op op : string =
-  match op with 
-  | GT -> ">" 
-  | LT -> "<" 
-  | EQ -> "=" 
+  match op with
+  | GT -> ">"
+  | LT -> "<"
+  | EQ -> "="
   | GTEQ -> ">="
   | LTEQ -> "<="
 
-let rec string_of_term t : string = 
-  match t with 
-  | Num i -> string_of_int i 
+let rec string_of_term t : string =
+  match t with
+  | Num i -> string_of_int i
   | UNIT -> "()"
   | Nil -> "[]"
   | TTrue -> "true"
@@ -174,20 +175,20 @@ let rec string_of_term t : string =
   | Minus (t1, t2) -> string_of_term t1 ^ "-" ^ string_of_term t2
   | TApp (op, args) -> Format.asprintf "%s%s" op (string_of_args string_of_term args)
   | TLambda (_name, params, sp) -> Format.asprintf "lambda(\\%s -> %s)" (String.concat " " params) (string_of_disj_spec sp)
-  | TTupple nLi -> 
-    let rec helper li = 
+  | TTupple nLi ->
+    let rec helper li =
       match li with
       | [] -> ""
       | [x] -> string_of_term x
-      | x:: xs -> string_of_term x ^","^ helper xs 
+      | x:: xs -> string_of_term x ^","^ helper xs
     in "(" ^ helper nLi ^ ")"
 
-  | TList nLi -> 
-    let rec helper li = 
+  | TList nLi ->
+    let rec helper li =
       match li with
       | [] -> ""
       | [x] -> string_of_term x
-      | x:: xs -> string_of_term x ^";"^ helper xs 
+      | x:: xs -> string_of_term x ^";"^ helper xs
     in "[" ^ helper nLi ^ "]"
 
 and string_of_staged_spec (st:stagedSpec) : string =
@@ -218,14 +219,14 @@ and string_of_spec (spec:spec) :string =
     (* |> List.filter (function Exists [] -> false | _ -> true) *)
     |> List.map string_of_staged_spec |> String.concat "; "
 
-and string_of_spec_list (specs:spec list) : string = 
-  match specs with 
+and string_of_spec_list (specs:spec list) : string =
+  match specs with
   | [] -> "<empty disj>"
   | _ :: _ -> List.map string_of_spec specs |> String.concat " \\/ "
 
 and string_of_disj_spec (s:disj_spec) : string = string_of_spec_list s
 
-and string_of_instant (str, ar_Li): string = 
+and string_of_instant (str, ar_Li): string =
   (* syntax is like OCaml type constructors, e.g. Foo, Foo (), Foo (1, ()) *)
   let args =
     match ar_Li with
@@ -236,11 +237,11 @@ and string_of_instant (str, ar_Li): string =
   Format.sprintf "%s%s" str args
 
 
-and string_of_kappa (k:kappa) : string = 
+and string_of_kappa (k:kappa) : string =
   match k with
   | EmptyHeap -> "emp"
   | PointsTo  (str, args) -> Format.sprintf "%s->%s" str (List.map string_of_term [args] |> String.concat ", ")
-  | SepConj (k1, k2) -> string_of_kappa k1 ^ "*" ^ string_of_kappa k2 
+  | SepConj (k1, k2) -> string_of_kappa k1 ^ "*" ^ string_of_kappa k2
   (*| MagicWand (k1, k2) -> "(" ^ string_of_kappa k1 ^ "-*" ^ string_of_kappa k2  ^ ")" *)
   (* | Implication (k1, k2) -> string_of_kappa k1 ^ "-*" ^ string_of_kappa k2  *)
 
@@ -252,8 +253,8 @@ and string_of_state (p, h) : string =
     Format.asprintf "%s /\\ %s" (string_of_kappa h) (string_of_pi p)
     (* Format.asprintf "%s*%s" (string_of_kappa h) (string_of_pi p) *)
 
-and string_of_pi pi : string = 
-  match pi with 
+and string_of_pi pi : string =
+  match pi with
   | True -> "T"
   | False -> "F"
   | Atomic (op, t1, t2) -> string_of_term t1 ^ string_of_bin_op op ^ string_of_term t2
@@ -265,21 +266,21 @@ and string_of_pi pi : string =
 
 
 
-let rec stricTcompareTerm (term1:term) (term2:term) : bool = 
-  match (term1, term2) with 
+let rec stricTcompareTerm (term1:term) (term2:term) : bool =
+  match (term1, term2) with
     (Var s1, Var s2) -> String.compare s1 s2 == 0
-  | (Num n1, Num n2) -> n1 == n2 
+  | (Num n1, Num n2) -> n1 == n2
   | (Plus (tIn1, num1), Plus (tIn2, num2)) -> stricTcompareTerm tIn1 tIn2 && stricTcompareTerm num1  num2
   | (Minus (tIn1, num1), Minus (tIn2, num2)) -> stricTcompareTerm tIn1 tIn2 && stricTcompareTerm num1  num2
-  | (UNIT, UNIT) -> true 
-  | _ -> false 
+  | (UNIT, UNIT) -> true
+  | _ -> false
   ;;
 
 
-let rec comparePure (pi1:pi) (pi2:pi):bool = 
-  match (pi1 , pi2) with 
+let rec comparePure (pi1:pi) (pi2:pi):bool =
+  match (pi1 , pi2) with
     (True, True) -> true
-  | (False, False) -> true 
+  | (False, False) -> true
   | (Atomic(GT, t1, t11),  Atomic(GT, t2, t22)) -> stricTcompareTerm t1 t2 && stricTcompareTerm t11  t22
   | (Atomic (LT, t1, t11),  Atomic(LT, t2, t22)) -> stricTcompareTerm t1 t2 && stricTcompareTerm t11  t22
   | (Atomic (GTEQ, t1, t11),  Atomic(GTEQ, t2, t22)) -> stricTcompareTerm t1 t2 && stricTcompareTerm t11  t22
@@ -293,17 +294,17 @@ let rec comparePure (pi1:pi) (pi2:pi):bool =
   | _ -> false
   ;;
 
-let rec getAllPi piIn acc= 
-    (match piIn with 
+let rec getAllPi piIn acc=
+    (match piIn with
       And (pi1, pi2) -> (getAllPi pi1 acc ) @ (getAllPi pi2 acc )
     | _ -> acc  @[piIn]
     )
     ;;
 
-let rec existPi pi li = 
-    (match li with 
-      [] -> false 
-    | x :: xs -> if comparePure pi x then true else existPi pi xs 
+let rec existPi pi li =
+    (match li with
+      [] -> false
+    | x :: xs -> if comparePure pi x then true else existPi pi xs
     )
     ;;
 
@@ -313,14 +314,14 @@ exception FooAskz3 of string
 
 
 
-let rec getAllVarFromTerm (t:term) (acc:string list):string list = 
+let rec getAllVarFromTerm (t:term) (acc:string list):string list =
   match t with
 | Var ( name) -> List.append acc [name]
-| Plus (t1, t2) -> 
-    let cur = getAllVarFromTerm t1 acc in 
+| Plus (t1, t2) ->
+    let cur = getAllVarFromTerm t1 acc in
     getAllVarFromTerm t2 cur
-| Minus (t1, t2) -> 
-    let cur = getAllVarFromTerm t1 acc in 
+| Minus (t1, t2) ->
+    let cur = getAllVarFromTerm t1 acc in
     getAllVarFromTerm t2 cur
 | _ -> acc
 ;;
@@ -343,7 +344,7 @@ let addAssert (str:string) :string =
 
 
 let rec kappaToPure kappa : pi =
-  match kappa with 
+  match kappa with
   | EmptyHeap -> True
   | PointsTo (str, t) -> Atomic(EQ, Var str, t)
   | SepConj (k1, k2) -> And (kappaToPure k1, kappaToPure k2)
@@ -359,12 +360,12 @@ let rec kappaToPure kappa : pi =
 let string_of_pred ({ p_name; p_params; p_body } : pred_def) : string =
   Format.asprintf "%s(%s) == %s" p_name (String.concat "," p_params) (string_of_spec_list p_body)
 
-let string_of_inclusion (lhs:spec list) (rhs:spec list) :string = 
-  string_of_spec_list lhs ^" |- " ^string_of_spec_list rhs 
+let string_of_inclusion (lhs:spec list) (rhs:spec list) :string =
+  string_of_spec_list lhs ^" |- " ^string_of_spec_list rhs
   ;;
 
-let string_of_coreLang_kind (expr:core_lang): string = 
-  match expr with 
+let string_of_coreLang_kind (expr:core_lang): string =
+  match expr with
   | CValue _ -> "CValue"
   | CLet  _ -> "CLet"
   | CIfELse  _ -> "CIfELse"
@@ -380,15 +381,15 @@ let string_of_coreLang_kind (expr:core_lang): string =
 
 
 
-let rec string_of_normalisedStagedSpec (spec:normalisedStagedSpec) : string = 
-  let (effS, normalS) = spec in 
-  match effS with 
-  | [] -> 
-    let (existiental, (p1, h1), (p2, h2)) = normalS in 
+let rec string_of_normalisedStagedSpec (spec:normalisedStagedSpec) : string =
+  let (effS, normalS) = spec in
+  match effS with
+  | [] ->
+    let (existiental, (p1, h1), (p2, h2)) = normalS in
     let ex = match existiental with [] -> [] | _ -> [Exists existiental] in
     let current = ex @ [Require(p1, h1); NormalReturn(p2, h2)] in
-    string_of_spec current 
-  | x :: xs  -> 
+    string_of_spec current
+  | x :: xs  ->
     (let {e_pre = (p1, h1); e_post = (p2, h2); _} = x in
     let ex = match x.e_evars with [] -> [] | _ -> [Exists x.e_evars] in
     let current = ex @ [Require(p1, h1);
@@ -426,9 +427,9 @@ and string_of_constr_cases cs =
 
 and string_of_core_handler_ops hs =
   List.map (fun (name, v, spec, body) ->
-    let spec = spec |> Option.map (fun s -> Format.asprintf "(*@@ %s @@*)" (string_of_disj_spec s)) |> Option.value ~default:"" in
-    Format.asprintf "| effect %s k %s-> %s"
-      (match v with None -> name | Some v -> Format.asprintf "(%s %s)" name v) (string_of_core_lang body) spec) hs |> String.concat "\n"
+    let spec = spec |> Option.map (fun s -> Format.asprintf " (*@@ %s @@*)" (string_of_disj_spec s)) |> Option.value ~default:"" in
+    Format.asprintf "| effect %s k%s -> %s"
+      (match v with None -> name | Some v -> Format.asprintf "(%s %s)" name v) spec (string_of_core_lang body)) hs |> String.concat "\n"
 
 let string_of_effect_stage (vs, pre, post, eff, ret) =
   Format.asprintf "ex %s. req %s; ens %s /\\ %s /\\ res=%s" (String.concat " " vs) (string_of_state pre) (string_of_state post) (string_of_instant eff) (string_of_term ret)
@@ -436,7 +437,7 @@ let string_of_effect_stage (vs, pre, post, eff, ret) =
 let string_of_normal_stage (vs, pre, post, ret) =
   Format.asprintf "ex %s. req %s; ens %s /\\ res=%s" (String.concat " " vs) (string_of_state pre) (string_of_state post) (string_of_term ret)
 
-let string_of_existentials vs = 
+let string_of_existentials vs =
   match vs with
   | [] -> ""
   | _ :: _ -> Format.asprintf "ex %s. " (String.concat "," vs)
