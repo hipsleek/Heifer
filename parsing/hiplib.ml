@@ -15,6 +15,7 @@ open Pretty
 open Hiptypes
 open Normalize
 
+let file_mode = ref false
 let test_mode = ref false
 let tests_failed = ref false
 
@@ -1003,7 +1004,7 @@ let normal_report ?(kind="Function") ?given_spec ?given_spec_n ?inferred_spec ?i
     | None -> "") ^
     (String.init (String.length name + 32) (fun _ -> '=')) ^ "\n"
   in
-  print_endline header
+  Format.printf "%s@." header
 
 let test_report ?kind:_ ?given_spec:_ ?given_spec_n:_ ?inferred_spec:_ ?inferred_spec_n:_ ?forward_time_ms:_ ?entail_time_ms:_ ?result name =
   let false_expected = String.ends_with ~suffix:"_false" name in
@@ -1196,7 +1197,18 @@ print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
 
    ;;
 
-let main () =
+let maybe_file_mode f =
+  if not !file_mode then f ()
+  else
+    (let oc = open_out "test" in
+    Format.set_formatter_out_channel oc;
+    f ();
+    close_out oc)
+
+let real_main () =
   let inputfile = (Sys.getcwd () ^ "/" ^ Sys.argv.(1)) in
   run_file inputfile;
   if !test_mode && not !tests_failed then Format.printf "ALL OK!@."
+
+let main () =
+  maybe_file_mode real_main
