@@ -231,12 +231,15 @@ let rec handling_spec env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj
       (* Given match 1 with v -> v | effect ..., replace v with 1 in the value case *)
       let (_, _, _) = scr_normal in
 
-      let new_res = verifier_getAfreeVar "res" in
+      let new_res = verifier_getAfreeVar "rez" in
+      Format.printf "new_res: %s@."  new_res;
       let h_spec = instantiateSpecList [h_val_param, Var new_res] h_val_spec in
+      Format.printf "h_spec: %s@." (string_of_disj_spec h_spec);
 
       (* the heap state present in the scrutinee also carries forward *)
       let (ex, (p1, h1), (p2, h2)) = scr_normal in
       let p2 = instantiatePure ["res", Var new_res] p2 in
+      Format.printf "p2: %s@." (string_of_pi p2);
       let hist = [[Exists (new_res::ex); Require (p1, h1); NormalReturn (p2, h2)]] in
       concatenateSpecsWithSpec hist h_spec
     in
@@ -266,10 +269,12 @@ let rec handling_spec env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj
     | Some (effFormalArg, handler_body_spec) ->
       (* effect x is handled by a branch of the form (| _ param -> spec) *)
 
+      debug ~at:5 ~title:"before freshen" "%s" (string_of_disj_spec handler_body_spec);
+
       (* freshen, as each instance of the handler body should not interfere with previous ones *)
       let handler_body_spec = renamingexistientalVar handler_body_spec in
 
-      (* Format.printf "handler body spec\n%s@." (string_of_disj_spec handler_body_spec); *)
+      debug ~at:5 ~title:(Format.asprintf "handler_body_spec for effect stage %s" (fst x.e_constr)) "%s" (string_of_disj_spec handler_body_spec);
 
       (* the rest of the trace is now the spec of the continuation *)
       let continuation_spec = normalisedStagedSpec2Spec (xs, scr_normal) in 
@@ -278,7 +283,8 @@ let rec handling_spec env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj
         (* make use of the handler body spec instead of reanalyzing. for each of its disjuncts, ... *)
         handler_body_spec |> concat_map_state env (fun handler_body env ->
           let (eff_stages, norm_stage) = normalise_spec handler_body in
-          (* ... each continue stage should be substituted with the spec for continue *)
+
+          (* ... each continue stage in this disjunct of the handler spec should be substituted with the spec for continue *)
           let handled, env = eff_stages |> map_state env (fun h_eff_stage env ->
             match h_eff_stage.e_constr with
             | ("continue", [cont_arg]) ->
@@ -300,7 +306,7 @@ let rec handling_spec env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj
                 instantiateSpecList bindings continue_specs
               in
 
-              (* Format.printf "continue spec\n%s@." (string_of_disj_spec instantiatedSpecs); *)
+              debug ~at:5 ~title:"continue spec" "%s" (string_of_disj_spec instantiatedSpecs);
 
               (* deeply (recursively) handle the rest of each continuation, to figure out the full effects of this continue. note that this is the place where we indirectly recurse on xs, by making it the spec of continue and recursing on each continue stage. this gives rise to tree recursion in a multishot setting. *)
               let handled_rest, env = 
@@ -309,10 +315,14 @@ let rec handling_spec env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj
                   r, env)
               in
 
+              debug ~at:5 ~title:"handled_rest" "%s" (string_of_disj_spec handled_rest);
+
               (* add an equality between the result of continue and q above (the return term of this stage) *)
               let handled_rest =
                 constrain_final_res handled_rest h_eff_stage.e_ret 
               in
+
+              debug ~at:5 ~title:"handled_rest 1" "%s" (string_of_disj_spec handled_rest);
 
               (* ensure heap state present in this part of the scrutinee propagates *)
               let handled_rest =
@@ -320,10 +330,20 @@ let rec handling_spec env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj
                 let existing = [Exists e_evars; Require (p1, h1); NormalReturn (p2, h2)] in
                 concatenateEventWithSpecs existing handled_rest 
               in
+
+              (* rename res *)
+              let nv= verifier_getAfreeVar "rez" in
+              let handled_rest = instantiateSpecList ["res", Var nv] handled_rest in
+
               handled_rest, env
             | _ ->
               (* not a continue stage, so just append without doing anything *)
-              [normalisedStagedSpec2Spec ([h_eff_stage], freshNormalStage)], env)
+              let current = [normalisedStagedSpec2Spec ([h_eff_stage], freshNormalStage)] in
+
+              let nv= verifier_getAfreeVar "rez" in
+              let current = instantiateSpecList ["res", Var nv] current in
+
+              current, env)
           in
           let handled =
             match handled with
@@ -335,6 +355,7 @@ let rec handling_spec env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj
               foldl1 concatenateSpecsWithSpec handled
           in
           let norm = normalisedStagedSpec2Spec ([], norm_stage) in
+
           let current = concatenateSpecsWithEvent handled norm in
 
           debug ~at:4 ~title:"handling_spec: handled" "%s\n==>\n%s" (string_of_spec (normalisedStagedSpec2Spec scr_spec)) (string_of_disj_spec current);

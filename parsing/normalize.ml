@@ -56,8 +56,11 @@ let simplify_pure (p : pi) : pi =
       if c1 then (Not a1, true) else (p, false)
   in
   let r = to_fixed_point once p in
-  debug ~at:4 ~title:"simplify_pure" "%s\n==>\n%s" (string_of_pi p)
-    (string_of_pi r);
+  (match (p, r) with
+  | True, True -> ()
+  | _ ->
+    debug ~at:4 ~title:"simplify_pure" "%s\n==>\n%s" (string_of_pi p)
+      (string_of_pi r));
   r
 
 let simplify_state (p, h) = (simplify_pure p, simplify_heap h)
