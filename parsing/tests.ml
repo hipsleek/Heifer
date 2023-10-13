@@ -35,8 +35,8 @@ let%expect_test "instantiation/renaming of existentials" =
   [a] |> show;
   [%expect
     {|
-    ex v1; Norm(res=v1+1/\b=1)
-    Norm(res=v1+1/\b=1)
+    ex v2; Norm(res=v2+1/\b=1)
+    Norm(res=v2+1/\b=1)
     ex b; Norm(res=a+1/\b=1) |}]
 
 let%expect_test "apply lemma" =
@@ -100,99 +100,99 @@ let%expect_test "apply lemma" =
     {|
     hello
     lemma: forall [x], f <: Norm(res=x+1)
-    original: req emp; f(, 1); req emp; Norm(res=1)
+    original: req emp; f(1); req emp; Norm(res=1)
     result: Some Norm(T/\1=x+1); Norm(res=x+1)
     norm: Some Norm(1=x+1/\res=x+1)
     ---
     constructor different, no match
     lemma: forall [x], f <: Norm(res=x+1)
-    original: req emp; g(, 1); req emp; Norm(res=1)
+    original: req emp; g(1); req emp; Norm(res=1)
     result: None
     norm: None
     ---
     lemma causes contradiction
     lemma: forall [x], f <: Norm(res=x/\x=2)
-    original: req emp; f(, 1); req emp; Norm(res=1)
+    original: req emp; f(1); req emp; Norm(res=1)
     result: Some Norm(T/\1=x); Norm(res=x/\x=2)
     norm: Some Norm(1=x/\res=x/\x=2)
     ---
     parameter of lemma does not appear on the right
     lemma: forall [x], f <: ex b; Norm(res=b/\T)
-    original: req emp; f(, 1); req emp; Norm(res=1)
-    result: Some Norm(T/\1=v2); ex v2; Norm(res=v2)
-    norm: Some ex v2; Norm(1=v2/\res=v2)
+    original: req emp; f(1); req emp; Norm(res=1)
+    result: Some Norm(T/\1=v4); ex v4; Norm(res=v4)
+    norm: Some ex v4; Norm(1=v4/\res=v4)
     ---
     prefix
     lemma: forall [x], f <: Norm(res=x+1)
-    original: req emp; g(, 2); req emp; f(, 1); req emp; Norm(res=1)
-    result: Some g(, 2); Norm(T/\1=x+1); Norm(res=x+1)
-    norm: Some g(, 2); Norm(1=x+1/\res=x+1)
+    original: req emp; g(2); ex v10; req emp; ens v10=2; f(, 1); req emp; Norm(res=1)
+    result: Some g(2); Norm(T/\1=x+1); Norm(res=x+1)
+    norm: Some g(2); ex v6; Norm(v6=2/\1=x+1/\res=x+1)
     ---
     suffix
     lemma: forall [x], f <: Norm(res=x+1)
-    original: req emp; f(, 1); req emp; g(, 2); req emp; Norm(res=2)
-    result: Some Norm(T/\1=x+1); Norm(res=x+1); g(, 2)
-    norm: Some ens 1=x+1; g(, 2); Norm(res=2)
+    original: req emp; f(1); ex v10; req emp; ens v10=1; g(, 2); req emp; Norm(res=2)
+    result: Some Norm(T/\1=x+1); Norm(res=x+1); g(2)
+    norm: Some ex v7; ens 1=x+1/\v7=x+1; g(, 2); Norm(res=2)
     ---
     related suffix
     lemma: forall [x], f <: Norm(res=x+1)
-    original: req emp; f(, y); req emp; g(, y); req emp; Norm(res=y)
-    result: Some Norm(T/\y=x+1); Norm(res=x+1); g(, y)
-    norm: Some ens y=x+1; g(, y); Norm(res=y)
+    original: req emp; f(y); req emp; g(y); req emp; Norm(res=y)
+    result: Some Norm(T/\y=x+1); Norm(res=x+1); g(y)
+    norm: Some ex v7; ens y=x+1/\v7=x+1; g(, y); Norm(res=y)
     ---
     precondition in lemma (currently ignored)
     lemma: forall [x], f <: Norm(res=x/\T)
-    original: req emp; f(, 1); req emp; Norm(res=1)
+    original: req emp; f(1); req emp; Norm(res=1)
     result: Some Norm(T/\1=x); Norm(res=x)
     norm: Some Norm(1=x/\res=x)
     ---
     existential in lemma (currently ignored, seems wrong)
     lemma: forall [x], f <: Norm(res=x/\a=1)
-    original: req emp; f(, 1); req emp; Norm(res=1)
+    original: req emp; f(1); req emp; Norm(res=1)
     result: Some Norm(T/\1=x); Norm(res=x/\a=1)
     norm: Some Norm(1=x/\res=x/\a=1)
     ---
     existential in lemma involved in match (seems wrong)
     lemma: forall [x], f <: Norm(res=x/\T)
-    original: req emp; f(, 1); req emp; Norm(res=1)
+    original: req emp; f(1); req emp; Norm(res=1)
     result: Some Norm(T/\1=x); Norm(res=x)
     norm: Some Norm(1=x/\res=x)
     ---
     existential and extra state in lemma (fix existential first)
     lemma: forall [x], f <: Norm(res=x/\T)
-    original: req emp; f(, 1); req emp; Norm(res=1)
+    original: req emp; f(1); req emp; Norm(res=1)
     result: Some Norm(T/\1=x); Norm(res=x)
     norm: Some Norm(1=x/\res=x)
     ---
     extra state to be matched
     lemma: forall [x], f <: Norm(res=x+1)
-    original: req emp; ens b=2; f(, 1); req emp; Norm(res=1)
+    original: ex v10; req emp; ens b=2/\v10=2; f(, 1); req emp; Norm(res=1)
     result: Some Norm(res=2/\b=2); Norm(T/\1=x+1); Norm(res=x+1)
-    norm: Some Norm(b=2/\1=x+1/\res=x+1)
+    norm: Some ex v6; Norm(b=2/\v6=2/\1=x+1/\res=x+1)
     ---
     extra precondition to be matched
     lemma: forall [x], f <: Norm(res=x+1)
-    original: req b=2; f(, 1); req emp; Norm(res=1)
+    original: ex v11; req b=2; ens v11=2; f(, 1); req emp; Norm(res=1)
     result: Some req b=2; Norm(res=2/\T); Norm(T/\1=x+1); Norm(res=x+1)
-    norm: Some req b=2; Norm(1=x+1/\res=x+1)
+    norm: Some ex v6; req b=2; Norm(v6=2/\1=x+1/\res=x+1)
     ---
     difficult unification
     lemma: forall [x], f <: Norm(res=x+2/\T)
-    original: req emp; f(, 1); req emp; Norm(res=1)
+    original: req emp; f(1); req emp; Norm(res=1)
     result: Some Norm(T/\1=x+2); Norm(res=x+2)
     norm: Some Norm(1=x+2/\res=x+2)
     ---
     normal stage at the end is actually not matched
     lemma: forall [x], f <: Norm(res=x+1/\T)
-    original: req emp; f(, 1); req emp; Norm(res=1)
+    original: req emp; f(1); req emp; Norm(res=1)
     result: Some Norm(T/\1=x+1); Norm(res=x+1)
     norm: Some Norm(1=x+1/\res=x+1)
     ---
     map
     lemma: forall [x], f <: Norm(res=x/\T)
-    original: ex a; req emp; ens a=b/\b=2; f(, 1); ex r; req emp; Norm(res=r/\r=a+4)
+    original: ex v11; req emp; ens v11=3; f(, 1); ex r v12; req emp; Norm(v12=1/\res=r/\r=a+4)
     result: Some ex a; Norm(res=3/\a=b/\b=2); Norm(T/\1=x); Norm(res=x); ex r; Norm(res=r/\r=a+4)
-    norm: Some ex a r; Norm(a=b/\b=2/\1=x/\res=r/\r=a+4)
+    norm: Some ex r v6; Norm(v6=3/\res=r/\r=a+4)
     --- |}]
 
 let%expect_test "normalise spec" =
@@ -297,20 +297,20 @@ let%expect_test "normalise spec" =
 
   ex a; Norm(y->a /\ a=3); req x->b /\ b=a; Norm(x->b+1)
   ==>
-  ex a; req x->b /\ b=a; Norm(y->a*x->b+1 /\ a=3)
+  req x->b; Norm(y->a*x->b+1)
 
   --- existential locations
 
   ex x; Norm(x->1 /\ x=y); ex y; req y->1
   ==>
-  ex x; req emp; Norm(x=x)
+  req emp; Norm(emp)
 
   ex x; Norm(x->2 /\ x=y); ex y; req y->1
   =/=>
 
   ex x; Norm(x->1); ex y; req y->1; Norm(x=y)
   ==>
-  ex x; req emp; Norm(x=x)
+  req emp; Norm(emp)
 
   --- eff
 
@@ -319,7 +319,7 @@ let%expect_test "normalise spec" =
 
   Norm(x->1); f(3, ()); Norm(y->2)
   ==>
-  req emp; ens x->1; f(3, ()); req emp; Norm(y->2)
+  req emp; ens x->1; f(3, ()); ex v51; req emp; Norm(y->2 /\ v51=())
 |}]
 
 let entails_pure env_a s1 vars s2 =

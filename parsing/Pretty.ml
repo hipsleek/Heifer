@@ -198,7 +198,7 @@ and string_of_staged_spec (st:stagedSpec) : string =
   | HigherOrder (pi, h, (f, args), ret) ->
     begin match pi, h with
     | True, EmptyHeap ->
-      Format.asprintf "%s(%s, %s)" f (String.concat ", " (List.map string_of_term args)) (string_of_term ret)
+      Format.asprintf "%s(%s)" f (String.concat ", " (List.map string_of_term args @ ([string_of_term ret]))) 
     | _ ->
       Format.asprintf "ens %s; %s(%s, %s)" (string_of_state (pi, h)) f (String.concat ", " (List.map string_of_term args)) (string_of_term ret)
     end

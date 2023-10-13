@@ -7,7 +7,7 @@ open Subst
 
 type fvenv = Forward_rules.fvenv
 
-let string_of_pi p = string_of_pi (ProversEx.normalize_pure p)
+let string_of_pi p = string_of_pi (simplify_pure p)
 let with_pure pi ((p, h) : state) : state = (conj [p; pi], h)
 let rename_exists_spec sp = List.hd (Forward_rules.renamingexistientalVar [sp])
 
@@ -84,8 +84,8 @@ let apply_one_lemma : lemma list -> spec -> spec * lemma option =
 module Heap = struct
   let normalize : state -> state =
    fun (p, h) ->
-    let h = normaliseHeap h in
-    (ProversEx.normalize_pure p, h)
+    let h = simplify_heap h in
+    (simplify_pure p, h)
 
   (** given a nonempty heap formula, splits it into a points-to expression and another heap formula *)
   let rec split_one : kappa -> ((string * term) * kappa) option =

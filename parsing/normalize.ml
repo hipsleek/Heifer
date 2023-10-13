@@ -10,23 +10,60 @@ let rec existStr str li =
   | [] -> false
   | x :: xs -> if String.compare x str == 0 then true else existStr str xs
 
-let rec normaliseHeap h : kappa =
-  match h with
-  (*
+let rec to_fixed_point f spec =
+  let spec, changed = f spec in
+  if not changed then spec else to_fixed_point f spec
+
+let rec to_fixed_point_ptr_eq f spec =
+  let spec1 = f spec in
+  if spec == spec1 then spec else to_fixed_point_ptr_eq f spec
+
+let rec simplify_heap h : kappa =
+  let once h =
+    match h with
+    (*
   | SepConj (PointsTo (s1, t1), PointsTo (s2, t2)) -> 
     if String.compare s1 s2 == 0 then (PointsTo (s1, t1), Atomic(EQ, t1, t2))
     else (h, True)
   *)
-  | SepConj (EmptyHeap, h1) -> normaliseHeap h1
-  | SepConj (h1, EmptyHeap) -> normaliseHeap h1
-  | _ -> h
+    | SepConj (EmptyHeap, h1) -> (simplify_heap h1, true)
+    | SepConj (h1, EmptyHeap) -> (simplify_heap h1, true)
+    | _ -> (h, false)
+  in
+  to_fixed_point once h
+
+let simplify_pure (p : pi) : pi =
+  let rec once p =
+    match p with
+    | True | False | Atomic _ | Predicate _ -> (p, false)
+    | And (True, a) | And (a, True) -> (a, true)
+    | And (a, b) ->
+      let a1, c1 = once a in
+      let b1, c2 = once b in
+      if c1 || c2 then (And (a1, b1), true) else (p, false)
+    | Or (False, a) | Or (a, False) -> (a, true)
+    | Or (a, b) ->
+      let a1, c1 = once a in
+      let b1, c2 = once b in
+      if c1 || c2 then (Or (a1, b1), true) else (p, false)
+    | Imply (a, b) ->
+      let a1, c1 = once a in
+      let b1, c2 = once b in
+      if c1 || c2 then (Imply (a1, b1), true) else (p, false)
+    | Not a ->
+      let a1, c1 = once a in
+      if c1 then (Not a1, true) else (p, false)
+  in
+  to_fixed_point once p
+
+let simplify_state (p, h) = (simplify_pure p, simplify_heap h)
 
 let mergeState (pi1, h1) (pi2, h2) =
-  let heap = normaliseHeap (SepConj (h1, h2)) in
+  let heap = simplify_heap (SepConj (h1, h2)) in
   (*print_endline (string_of_kappa (SepConj (h1, h2)) ^ " =====> ");
     print_endline (string_of_kappa heap ^ "   and    " ^ string_of_pi unification);
   *)
-  (ProversEx.normalize_pure (And (pi1, pi2)), heap)
+  (simplify_pure (And (pi1, pi2)), heap)
 
 let rec list_of_heap h =
   match h with
@@ -191,7 +228,7 @@ let normaliseMagicWand h1 h2 existential flag assumptions : kappa * pi =
       helper (heapLi', And (unification, unification')) xs
   in
   let temp, unification = helper (listOfHeap2, True) listOfHeap1 in
-  (normaliseHeap (kappa_of_list temp), unification)
+  (simplify_heap (kappa_of_list temp), unification)
 
 let normalise_stagedSpec (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
     : normalisedStagedSpec =
@@ -221,20 +258,17 @@ let normalise_stagedSpec (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
 
       let normalStage' =
         let pre = mergeState req (And (p3, unification), magicWandHeap) in
-        let post = (ProversEx.normalize_pure (And (p2, unification1)), h2') in
+        let post = (simplify_pure (And (p2, unification1)), h2') in
         (existential, pre, post)
       in
       (effectStages, normalStage')
     | NormalReturn (pi, heap) ->
-       (* pi may contain a res, so split the res out of the previous post *)
-       let ens1, nr = remove_res_constraints_state ens in
-      ( effectStages,
-        ( nr :: existential,
-          req,
-          mergeState ens1 (pi, heap) ) )
+      (* pi may contain a res, so split the res out of the previous post *)
+      let ens1, nr = remove_res_constraints_state ens in
+      (effectStages, (nr :: existential, req, mergeState ens1 (pi, heap)))
     (* effects *)
     | RaisingEff (pi, heap, ins, ret') ->
-       let ens1, nr = remove_res_constraints_state ens in
+      let ens1, nr = remove_res_constraints_state ens in
       (* move current norm state "behind" this effect boundary. the return value is implicitly that of the current stage *)
       ( effectStages
         @ [
@@ -250,7 +284,7 @@ let normalise_stagedSpec (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
         freshNormStageRet ret' )
     (* higher-order functions *)
     | HigherOrder (pi, heap, ins, ret') ->
-       let ens1, nr = remove_res_constraints_state ens in
+      let ens1, nr = remove_res_constraints_state ens in
       ( effectStages
         @ [
             {
@@ -386,7 +420,7 @@ let collect_lambdas (sp : normalisedStagedSpec) =
   let effs, norm = sp in
   SSet.concat (collect_lambdas_norm norm :: List.map collect_lambdas_eff effs)
 
-(* this moves existentials inward and removes unused ones *)
+(** this moves existentials inward and removes unused ones *)
 let optimize_existentials : normalisedStagedSpec -> normalisedStagedSpec =
  fun (ess, norm) ->
   let rec loop already_used unused acc es =
@@ -418,6 +452,124 @@ let optimize_existentials : normalisedStagedSpec -> normalisedStagedSpec =
     (SSet.elements used_ex, h, p)
   in
   (es1, norm1)
+
+(** remove existentials which don't contribute to the result, e.g.
+  ex v1 v2. ens v1=v2; ens res=2
+  ==>
+  ens res=2
+*)
+let optimize_existentials1 : normalisedStagedSpec -> normalisedStagedSpec =
+  (* merge equivalence classes of variables.
+     probably better done using union find repr *)
+  let merge_classes a1 b1 =
+    let merged =
+      List.fold_right
+        (fun a t ->
+          let added = ref false in
+          let b2 =
+            List.map
+              (fun b ->
+                if SSet.disjoint a b then b
+                else (
+                  added := true;
+                  SSet.union a b))
+              t
+          in
+          if !added then b2 else a :: b2)
+        a1 b1
+    in
+    merged
+  in
+  (*
+    collect(a=b) = [{a, b}]
+    collect(a=b /\ c<b) = [{a, b,}, {c, b}] = [{a, b, c}]
+    collect(a=b /\ c=d) = [{a, b}, {c, d}]
+  *)
+  let rec collect_related_vars_pi p =
+    match p with
+    | True | False -> []
+    | Atomic (_, Var a, Var b) -> [SSet.of_list [a; b]]
+    | Atomic (_, _, _) -> []
+    | And (a, b) | Or (a, b) | Imply (a, b) ->
+      let a1 = collect_related_vars_pi a in
+      let b1 = collect_related_vars_pi b in
+      merge_classes a1 b1
+    | Not a -> collect_related_vars_pi a
+    | Predicate (_, _) -> []
+  in
+  let rec collect_related_vars_heap h =
+    match h with
+    | EmptyHeap -> []
+    | PointsTo (a, Var b) -> [SSet.of_list [a; b]]
+    | PointsTo (_, _) -> []
+    | SepConj (a, b) ->
+      let a1 = collect_related_vars_heap a in
+      let b1 = collect_related_vars_heap b in
+      merge_classes a1 b1
+  in
+  let collect_related_vars_state (p, h) =
+    let h1 = collect_related_vars_heap h in
+    let p1 = collect_related_vars_pi p in
+    merge_classes h1 p1
+  in
+  let rec remove_subexpr_pi included p =
+    match p with
+    | True | False -> p
+    | Atomic (_, Var a, _) when SSet.mem a included -> True
+    | Atomic (_, _, Var a) when SSet.mem a included -> True
+    | Atomic (_, _, _) -> p
+    | And (a, b) ->
+      And (remove_subexpr_pi included a, remove_subexpr_pi included b)
+    | Or (a, b) ->
+      Or (remove_subexpr_pi included a, remove_subexpr_pi included b)
+    | Imply (a, b) ->
+      Imply (remove_subexpr_pi included a, remove_subexpr_pi included b)
+    | Not a -> Not (remove_subexpr_pi included a)
+    | Predicate (_, _) -> failwith (Format.asprintf "NYI: predicate")
+  in
+  let remove_subexpr_state included (p, h) =
+    (remove_subexpr_pi included p, h)
+  in
+  fun (ess, norm) ->
+    let ess1 =
+      List.map
+        (fun efs ->
+          let classes =
+            merge_classes
+              (collect_related_vars_state efs.e_pre)
+              (collect_related_vars_state efs.e_post)
+          in
+          let do_not_contribute =
+            (* TODO can the e_ret variables ever make it here? *)
+            List.filter (fun c -> not (SSet.mem "res" c)) classes |> SSet.concat
+          in
+          let ex =
+            List.filter
+              (fun e -> not (SSet.mem e do_not_contribute))
+              efs.e_evars
+          in
+          let p1 = remove_subexpr_state do_not_contribute efs.e_pre in
+          let p2 = remove_subexpr_state do_not_contribute efs.e_post in
+          { efs with e_evars = ex; e_pre = p1; e_post = p2 })
+        ess
+    in
+    let norm1 =
+      let ex, (p1, h1), (p2, h2) = norm in
+      let classes =
+        merge_classes
+          (collect_related_vars_state (p1, h1))
+          (collect_related_vars_state (p2, h2))
+      in
+      (* TODO be careful removing existentials needed by fn/eff stages *)
+      let do_not_contribute =
+        List.filter (fun c -> not (SSet.mem "res" c)) classes |> SSet.concat
+      in
+      let ex1 = List.filter (fun e -> not (SSet.mem e do_not_contribute)) ex in
+      let p11 = remove_subexpr_pi do_not_contribute p1 in
+      let p21 = remove_subexpr_pi do_not_contribute p2 in
+      (ex1, (p11, h1), (p21, h2))
+    in
+    (ess1, norm1)
 
 (* if we see [ex x; Norm(x->..., ...); ex y; Norm(y->..., ...)] and [x=y] appears somewhere, remove y (the lexicographically larger of the two) *)
 (* this does just one iteration. could do to a fixed point *)
@@ -461,19 +613,50 @@ let simplify_existential_locations sp =
       else sp)
     eqs sp
 
+let final_simplification (effs, norm) =
+  let effs1 =
+    List.map
+      (fun efs ->
+        {
+          efs with
+          e_pre = simplify_state efs.e_pre;
+          e_post = simplify_state efs.e_post;
+        })
+      effs
+  in
+  let ex, pre, post = norm in
+  (effs1, (ex, simplify_state pre, simplify_state post))
+
+(* the main entry point *)
 let normalise_spec sp =
   let r =
-    let sp = simplify_existential_locations sp in
-    let sp =
+    let sp1 = sp |> simplify_existential_locations in
+    debug ~at:3 ~title:"remove some existential eqs" "%s\n==>\n%s"
+      (string_of_spec sp) (string_of_spec sp1);
+    let sp2 =
       let v = verifier_getAfreeVar "n" in
       let acc = ([], freshNormStageVar v) in
-      normalise_spec_ acc sp
+      sp1 |> normalise_spec_ acc
     in
-    sp
-    (* redundant vars may appear due to fresh stages *)
-    |> optimize_existentials
+    debug ~at:3 ~title:"actually normalise" "%s\n==>\n%s" (string_of_spec sp1)
+      (string_of_normalisedStagedSpec sp2);
+    let sp3 = sp2 |> optimize_existentials1 in
+    debug ~at:3 ~title:"remove existentials that don't contribute" "%s\n==>\n%s"
+      (string_of_normalisedStagedSpec sp2)
+      (string_of_normalisedStagedSpec sp3);
+    (* redundant vars may appear due to fresh stages and removal of res via intermediate variables *)
+    let sp4 = sp3 |> optimize_existentials in
+    debug ~at:3 ~title:"move existentials inward and remove unused"
+      "%s\n==>\n%s"
+      (string_of_normalisedStagedSpec sp3)
+      (string_of_normalisedStagedSpec sp4);
+    let sp5 = sp4 |> final_simplification in
+    debug ~at:3 ~title:"final simplication pass" "%s\n==>\n%s"
+      (string_of_normalisedStagedSpec sp4)
+      (string_of_normalisedStagedSpec sp5);
+    sp5
   in
-  debug ~at:2 ~title:"normalise" "%s\n==>\n%s" (string_of_spec sp)
+  debug ~at:2 ~title:"normalise_spec" "%s\n==>\n%s" (string_of_spec sp)
     (string_of_normalisedStagedSpec r);
   r
 
@@ -506,7 +689,7 @@ let rec detectfailedAssertions (spec : spec) : spec =
   match spec with
   | [] -> []
   | Require (pi, heap) :: xs ->
-    let pi' = ProversEx.normalize_pure pi in
+    let pi' = simplify_pure pi in
     (match ProversEx.entailConstrains pi' False with
     | true -> [Require (False, heap)]
     | _ -> Require (pi', heap) :: detectfailedAssertions xs)
