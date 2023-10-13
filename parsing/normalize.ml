@@ -691,25 +691,33 @@ let remove_noncontributing_existentials :
     in
     (ess1, norm1)
 
-(* if we see [ex x; Norm(x->..., ...); ex y; Norm(y->..., ...)] and [x=y] appears somewhere, remove y (the lexicographically larger of the two) *)
+(* if we see [ex x; Norm(x->..., ...); ex y; Norm(y->..., ...)] and [x=y] appears somewhere, substitute y away (as y is in x's scope but not the other way around) *)
 (* this does just one iteration. could do to a fixed point *)
 let simplify_existential_locations sp =
-  let _, ex_loc =
+  let _, quantified_vars, _ =
     List.fold_left
-      (fun (ex, locs) c ->
+      (fun (ex, locs, i) c ->
         match c with
-        | Exists vs -> (SSet.add_seq (List.to_seq vs) ex, locs)
+        | Exists vs -> (SSet.add_seq (List.to_seq vs) ex, locs, i + 1)
         | Require (p, h)
         | NormalReturn (p, h)
         | HigherOrder (p, h, _, _)
         | RaisingEff (p, h, _, _) ->
-          ( ex,
-            (* used_locs_heap h *)
+          let l =
             used_vars_state (p, h)
-            |> SSet.filter (fun l -> SSet.mem l ex)
-            |> SSet.union locs ))
-      (SSet.empty, SSet.empty) sp
+            |> SSet.to_seq |> List.of_seq
+            |> List.map (fun a -> (a, i))
+          in
+          ( ex,
+            (* TODO actually this is generalized to vars, not just locations *)
+            (* used_locs_heap h *)
+            l :: locs
+            (* |> SSet.filter (fun l -> SSet.mem l ex) *)
+            (* |> SSet.union locs *),
+            i + 1 ))
+      (SSet.empty, [[]], 0) sp
   in
+  let quantified_vars = List.concat quantified_vars in
   let eqs =
     List.concat_map
       (fun s ->
@@ -725,12 +733,15 @@ let simplify_existential_locations sp =
   (* if there is an eq between two existential locations, keep only one *)
   List.fold_right
     (fun (a, b) sp ->
-      if a <> b && SSet.mem a ex_loc && SSet.mem b ex_loc then
-        let smaller = if a < b then a else b in
-        let larger = if a < b then b else a in
+      let a1 = List.assoc_opt a quantified_vars in
+      let b1 = List.assoc_opt b quantified_vars in
+      match (a1, b1) with
+      | Some ai, Some bi when a <> b ->
+        let smaller = if ai <= bi then a else b in
+        let larger = if ai <= bi then b else a in
         let bs = [(larger, Var smaller)] in
         instantiateSpec bs sp
-      else sp)
+      | _ -> sp)
     eqs sp
 
 let final_simplification (effs, norm) =
