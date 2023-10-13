@@ -480,6 +480,11 @@ let collect_locations (sp : normalisedStagedSpec) =
 let optimize_existentials : normalisedStagedSpec -> normalisedStagedSpec =
  fun (ess, norm) ->
   let rec loop already_used unused acc es =
+    (* Format.printf "inward %s %s %s %s@."
+       (string_of_sset already_used)
+       (string_of_sset unused)
+       (string_of_list string_of_effect_stage acc)
+       (string_of_list string_of_effect_stage es); *)
     match es with
     | [] -> (unused, List.rev acc)
     | e :: rest ->

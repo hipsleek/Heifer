@@ -232,14 +232,14 @@ let rec handling_spec env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj
       let (_, _, _) = scr_normal in
 
       let new_res = verifier_getAfreeVar "rez" in
-      Format.printf "new_res: %s@."  new_res;
+      (* Format.printf "new_res: %s@."  new_res; *)
       let h_spec = instantiateSpecList [h_val_param, Var new_res] h_val_spec in
-      Format.printf "h_spec: %s@." (string_of_disj_spec h_spec);
+      (* Format.printf "h_spec: %s@." (string_of_disj_spec h_spec); *)
 
       (* the heap state present in the scrutinee also carries forward *)
       let (ex, (p1, h1), (p2, h2)) = scr_normal in
       let p2 = instantiatePure ["res", Var new_res] p2 in
-      Format.printf "p2: %s@." (string_of_pi p2);
+      (* Format.printf "p2: %s@." (string_of_pi p2); *)
       let hist = [[Exists (new_res::ex); Require (p1, h1); NormalReturn (p2, h2)]] in
       concatenateSpecsWithSpec hist h_spec
     in
@@ -331,6 +331,7 @@ let rec handling_spec env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj
                 concatenateEventWithSpecs existing handled_rest 
               in
 
+              (* TODO this is not needed? *)
               (* rename res *)
               let nv= verifier_getAfreeVar "rez" in
               let handled_rest = instantiateSpecList ["res", Var nv] handled_rest in
@@ -340,6 +341,7 @@ let rec handling_spec env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj
               (* not a continue stage, so just append without doing anything *)
               let current = [normalisedStagedSpec2Spec ([h_eff_stage], freshNormalStage)] in
 
+              (* TODO this is not needed? *)
               let nv= verifier_getAfreeVar "rez" in
               let current = instantiateSpecList ["res", Var nv] current in
 
@@ -391,7 +393,7 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
     | CLet (str, expr1, expr2) ->
       let phi1, env = infer_of_expression env history expr1 in 
 
-            let phi2, env = infer_of_expression env [freshNormalReturnSpec] expr2 in
+      let phi2, env = infer_of_expression env [freshNormalReturnSpec] expr2 in
 
           (* let phi2, env, _lambdas_in_expr2 =
             let ll =
