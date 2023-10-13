@@ -200,7 +200,7 @@ and string_of_staged_spec (st:stagedSpec) : string =
     | True, EmptyHeap ->
       Format.asprintf "%s(%s)" f (String.concat ", " (List.map string_of_term args @ ([string_of_term ret]))) 
     | _ ->
-      Format.asprintf "ens %s; %s(%s, %s)" (string_of_state (pi, h)) f (String.concat ", " (List.map string_of_term args)) (string_of_term ret)
+      Format.asprintf "ens %s; %s(%s)" (string_of_state (pi, h)) f (String.concat ", " (List.map string_of_term args @ ([string_of_term ret]))) 
     end
   | NormalReturn (pi, heap) ->
     Format.asprintf "Norm(%s)" (string_of_state (pi, heap))
@@ -497,7 +497,7 @@ let string_of_type t =
   | TVar v -> Format.asprintf "'%s" v
 
 let string_of_abs_env t =
-  Format.asprintf "%s, %s" (string_of_smap string_of_type t.vartypes) (string_of_list (string_of_pair string_of_type string_of_type) t.eqs)
+  Format.asprintf "%s" (string_of_smap string_of_type t.vartypes)
 
 let string_of_quantified to_s (vs, e) =
   match vs with

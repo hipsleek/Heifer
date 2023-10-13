@@ -102,21 +102,67 @@ type typ =
   | List_int
   | Int
   | Bool
-  | TVar of string
   | Lamb
+  | TVar of string (* this is last, so > concrete types *)
+  [@@deriving show { with_path = false }, ord]
 
 let term_cons c t = TApp ("cons", [c; t])
 
+module Typ = UF.Make (struct
+  type t = typ
+
+  let choose a b = if compare_typ a b <= 0 then a else b
+  let eq = ( = )
+  let pp = pp_typ
+end)
+
+module TEnv = struct
+  module M = Map.Make (struct
+    type t = typ
+
+    let compare = compare_typ
+  end)
+
+  (* let equalities : Typ.t M.t ref = ref M.empty *)
+
+  let get_or_create m k =
+    match M.find_opt k !m with
+    | None ->
+      let r = Typ.elt k in
+      m := M.add k r !m;
+      r
+    | Some v -> v
+
+  let equate m t1 t2 =
+    let t1r = get_or_create m t1 in
+    let t2r = get_or_create m t2 in
+    Typ.union t1r t2r
+
+  let concretize m t = M.find t !m |> Typ.value
+  let is_concrete = function TVar _ -> false | _ -> true
+
+  let has_concrete_type m t =
+    match M.find_opt t !m with
+    | None -> false
+    | Some r -> is_concrete (Typ.value r)
+end
+
 type abs_typ_env = {
+  (* variable -> type, which may be abstract *)
   vartypes: typ SMap.t;
-  eqs: (typ * typ) list
+  equalities : Typ.t TEnv.M.t ref;
+  (* equalities : int ref ; *)
+  (* eqs: (typ * typ) list *)
 }
 
 let create_abs_env () =
   {
-    vartypes = SMap.empty; eqs = []
+    vartypes = SMap.empty;
+    equalities= ref TEnv.M.empty;
+    (* eqs = [] *)
   }
 
+  (* concrete type environment, where every variable has a concrete type *)
 type typ_env = typ SMap.t
 
 

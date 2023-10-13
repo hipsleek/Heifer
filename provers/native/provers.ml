@@ -192,9 +192,10 @@ let _test () =
   Format.printf "z3 solver: %s@." (Solver.to_string solver);
   let sat = Solver.check solver [] == Solver.SATISFIABLE in
   Format.printf "sat: %b@." sat;
-  match Solver.get_model solver with
+  (match Solver.get_model solver with
   | None -> Format.printf "no model@."
-  | Some m -> Format.printf "model: %s@." (Model.to_string m)
+  | Some m -> Format.printf "model: %s@." (Model.to_string m));
+  Format.printf "@."
 
 let debug = try int_of_string (Sys.getenv "DEBUG") >= 4 with _ -> false
 

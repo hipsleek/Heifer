@@ -58,7 +58,7 @@ let test5 ()  (*@ ex i; Norm(i->0, 1) @*) =
   !i + 1
 (* heap read *)
 
-let test6 ()  (*@ ex i; Norm(i->1, 1) @*) =
+let test61 ()  (*@ ex i; Norm(i->1, 1) @*) =
   let i = ref 0 in 
   i := !i + 1;
   !i

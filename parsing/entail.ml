@@ -207,6 +207,7 @@ let rec check_qf :
     "%s |- %s" (string_of_state ante) (string_of_state conseq);
   match (a, c) with
   | (p1, h1), (p2, EmptyHeap) ->
+    debug ~at:4 ~title:(Format.asprintf "right empty") "";
     let left = And (Heap.xpure h1, p1) in
     (* TODO add more logging to surface what happens in these entailments *)
     k (left, p2, h1)
@@ -214,6 +215,7 @@ let rec check_qf :
     (* we know h2 is non-empty *)
     match Heap.split_one h2 with
     | Some ((x, v), h2') when List.mem x vs ->
+      debug ~at:4 ~title:(Format.asprintf "existential location %s" x) "";
       let left_heap = list_of_heap h1 in
       (match left_heap with
       | [] -> None
@@ -234,10 +236,11 @@ let rec check_qf :
         in
         r1)
     | Some ((x, v), h2') -> begin
+      debug ~at:4 ~title:(Format.asprintf "free location %s" x) "";
       (* x is free. match against h1 exactly *)
       match Heap.split_find x h1 with
       | Some (v1, h1') -> begin
-        check_qf (*  *) id vs
+        check_qf id vs
           (conj [p1], h1')
           (conj [p2; And (p1, Atomic (EQ, v, v1))], h2')
           k
@@ -547,14 +550,17 @@ and stage_subsumes :
       let env = infer_types_pi env right in
       env
     in
+    let left = Normalize.simplify_pure left in
+    let right = Normalize.simplify_pure right in
+    info
+      ~title:(Format.asprintf "VC for precondition of %s" what)
+      "%s => %s%s" (string_of_pi left)
+      (string_of_existentials vs1)
+      (string_of_pi right);
     let pre_res =
       Provers.entails_exists (concrete_type_env tenv) left vs1 right
     in
-    info
-      ~title:(Format.asprintf "VC for precondition of %s" what)
-      "%s => %s%s\n%s" (string_of_pi left)
-      (string_of_existentials vs1)
-      (string_of_pi right) (string_of_res pre_res);
+    info ~title:(Format.asprintf "valid?") "%s" (string_of_res pre_res);
     (* TODO why do we need pre_r here? as pre_l has just been proven to subsume pre_r *)
     if pre_res then Some ((conj [pre_l; pre_r; assump], pre_resi_l), tenv)
     else None
@@ -579,25 +585,34 @@ and stage_subsumes :
       let env = infer_types_pi env right in
       env
     in
+    (* Format.printf "1@."; *)
     (* Format.printf "left %s@." (string_of_pi left); *)
     let tenv1 = concrete_type_env tenv in
+    (* Format.printf "2@."; *)
     (* Format.printf "tenv %s@." (string_of_smap string_of_type tenv1); *)
-    let false_not_derived = Provers.askZ3 tenv1 left in
-    if not false_not_derived then
-      (* since the program is usually on the left, false on the left side of the postcondition means this *)
+    let _check_false_derived _ =
       info
-        ~title:(Format.asprintf "warning: false derived in program")
-        "%s => %s%s\n%s" (string_of_pi True) "" (string_of_pi left)
-        (string_of_res false_not_derived);
+        ~title:(Format.asprintf "check: false derived?")
+        "%s" (string_of_pi left);
+      let false_not_derived = Provers.askZ3 tenv1 left in
+      info ~title:(Format.asprintf "false") "%s" (string_of_pi left);
+      if not false_not_derived then
+        (* since the program is usually on the left, false on the left side of the postcondition means this *)
+        info
+          ~title:(Format.asprintf "warning: false derived in program")
+          "%s => %s%s\n%s" (string_of_pi True) "" (string_of_pi left)
+          (string_of_res false_not_derived)
+    in
+    (* Format.printf "hello@."; *)
+    info
+      ~title:(Format.asprintf "VC for postcondition of %s" what)
+      "%s => %s%s" (string_of_pi left)
+      (string_of_existentials vs22)
+      (string_of_pi right);
     let post_result =
       Provers.entails_exists (concrete_type_env tenv) left vs22 right
     in
-    info
-      ~title:(Format.asprintf "VC for postcondition of %s" what)
-      "%s => %s%s\n%s" (string_of_pi left)
-      (string_of_existentials vs22)
-      (string_of_pi right)
-      (string_of_res post_result);
+    info ~title:(Format.asprintf "valid?") "%s" (string_of_res post_result);
     let f = verifier_getAfreeVar "" in
     let left = instantiatePure [("res", Var f)] left in
     let right = instantiatePure [("res", Var f)] right in

@@ -35,6 +35,7 @@ let rec simplify_heap h : kappa =
 let simplify_pure (p : pi) : pi =
   let rec once p =
     match p with
+    | Atomic (EQ, Var a, Var b) when String.equal a b -> (True, true)
     | True | False | Atomic _ | Predicate _ -> (p, false)
     | And (True, a) | And (a, True) -> (a, true)
     | And (a, b) ->
@@ -54,7 +55,10 @@ let simplify_pure (p : pi) : pi =
       let a1, c1 = once a in
       if c1 then (Not a1, true) else (p, false)
   in
-  to_fixed_point once p
+  let r = to_fixed_point once p in
+  debug ~at:4 ~title:"simplify_pure" "%s\n==>\n%s" (string_of_pi p)
+    (string_of_pi r);
+  r
 
 let simplify_state (p, h) = (simplify_pure p, simplify_heap h)
 
@@ -373,6 +377,26 @@ let used_vars (sp : normalisedStagedSpec) =
   let effs, norm = sp in
   SSet.concat (used_vars_norm norm :: List.map used_vars_eff effs)
 
+let used_vars_stage (s : stagedSpec) =
+  match s with
+  | Require (p, h) | NormalReturn (p, h) ->
+    SSet.union (used_vars_pi p) (used_vars_heap h)
+  | Exists vs -> SSet.of_list vs
+  | HigherOrder (p, h, (f, a), t) | RaisingEff (p, h, (f, a), t) ->
+    SSet.concat
+      [
+        used_vars_pi p;
+        used_vars_heap h;
+        SSet.concat (List.map used_vars_term a);
+        SSet.of_list [f];
+        used_vars_term t;
+      ]
+
+let used_vars_spec (sp : spec) = SSet.concat (List.map used_vars_stage sp)
+
+let used_vars_disj_spec (d : disj_spec) =
+  SSet.concat (List.map used_vars_spec d)
+
 let rec collect_lambdas_term (t : term) =
   match t with
   | Nil | TTrue | TFalse | UNIT | Num _ -> SSet.empty
@@ -420,6 +444,35 @@ let collect_lambdas (sp : normalisedStagedSpec) =
   let effs, norm = sp in
   SSet.concat (collect_lambdas_norm norm :: List.map collect_lambdas_eff effs)
 
+let rec collect_locations_heap (h : kappa) =
+  match h with
+  | EmptyHeap -> SSet.empty
+  | PointsTo (v, Var x) -> SSet.of_list [v; x]
+  | PointsTo (v, _) -> SSet.singleton v
+  | SepConj (a, b) ->
+    SSet.union (collect_locations_heap a) (collect_locations_heap b)
+
+let collect_location_involved_vars_state (_, h) = collect_locations_heap h
+
+let collect_locations_eff eff =
+  SSet.concat
+    [
+      collect_location_involved_vars_state eff.e_pre;
+      collect_location_involved_vars_state eff.e_post;
+    ]
+
+let collect_locations_norm (_vs, pre, post) =
+  SSet.concat
+    [
+      collect_location_involved_vars_state pre;
+      collect_location_involved_vars_state post;
+    ]
+
+let collect_locations (sp : normalisedStagedSpec) =
+  let effs, norm = sp in
+  SSet.concat
+    (collect_locations_norm norm :: List.map collect_locations_eff effs)
+
 (** this moves existentials inward and removes unused ones *)
 let optimize_existentials : normalisedStagedSpec -> normalisedStagedSpec =
  fun (ess, norm) ->
@@ -458,7 +511,8 @@ let optimize_existentials : normalisedStagedSpec -> normalisedStagedSpec =
   ==>
   ens res=2
 *)
-let optimize_existentials1 : normalisedStagedSpec -> normalisedStagedSpec =
+let remove_noncontributing_existentials :
+    normalisedStagedSpec -> normalisedStagedSpec =
   (* merge equivalence classes of variables.
      probably better done using union find repr *)
   let merge_classes a1 b1 =
@@ -480,6 +534,19 @@ let optimize_existentials1 : normalisedStagedSpec -> normalisedStagedSpec =
     in
     merged
   in
+  let rec collect_related_vars_term t =
+    match t with
+    | Var v -> SSet.singleton v
+    | UNIT | TTrue | TFalse | Nil | Num _ -> SSet.empty
+    | Plus (a, b) | Minus (a, b) | TAnd (a, b) | TOr (a, b) ->
+      SSet.union (collect_related_vars_term a) (collect_related_vars_term b)
+    | TNot t -> collect_related_vars_term t
+    | Rel (_, _, _) -> failwith (Format.asprintf "NYI rel")
+    | TApp (_, _) -> failwith (Format.asprintf "NYI app")
+    | TLambda (_, _, _) -> failwith (Format.asprintf "NYI lambda")
+    | TList _ -> failwith (Format.asprintf "NYI list")
+    | TTupple _ -> failwith (Format.asprintf "NYI tuple")
+  in
   (*
     collect(a=b) = [{a, b}]
     collect(a=b /\ c<b) = [{a, b,}, {c, b}] = [{a, b, c}]
@@ -488,8 +555,15 @@ let optimize_existentials1 : normalisedStagedSpec -> normalisedStagedSpec =
   let rec collect_related_vars_pi p =
     match p with
     | True | False -> []
-    | Atomic (_, Var a, Var b) -> [SSet.of_list [a; b]]
-    | Atomic (_, _, _) -> []
+    | Atomic (_, a, b) ->
+      let a1 = collect_related_vars_term a in
+      let b1 = collect_related_vars_term b in
+      (* Format.printf "a1: %s@." (string_of_sset a1); *)
+      (* Format.printf "b1: %s@." (string_of_sset b1); *)
+      (* let r = merge_classes a1 b1 in *)
+      let r = [SSet.union a1 b1] in
+      (* Format.printf "r: %s@." (string_of_list string_of_sset r); *)
+      r
     | And (a, b) | Or (a, b) | Imply (a, b) ->
       let a1 = collect_related_vars_pi a in
       let b1 = collect_related_vars_pi b in
@@ -500,7 +574,6 @@ let optimize_existentials1 : normalisedStagedSpec -> normalisedStagedSpec =
   let rec collect_related_vars_heap h =
     match h with
     | EmptyHeap -> []
-    | PointsTo (a, Var b) -> [SSet.of_list [a; b]]
     | PointsTo (_, _) -> []
     | SepConj (a, b) ->
       let a1 = collect_related_vars_heap a in
@@ -530,43 +603,87 @@ let optimize_existentials1 : normalisedStagedSpec -> normalisedStagedSpec =
   let remove_subexpr_state included (p, h) =
     (remove_subexpr_pi included p, h)
   in
+  let handle ex pre post =
+    let classes =
+      merge_classes
+        (collect_related_vars_state pre)
+        (collect_related_vars_state post)
+    in
+    debug ~at:5 ~title:"classes" "%s" (string_of_list string_of_sset classes);
+    (* this strategy doesn't work because we can't always tell what variables are needed, e.g. in the precondition *)
+    (* let needed =
+         SSet.union (SSet.singleton "res")
+           (SSet.union
+              (collect_location_involved_vars_state pre)
+              (collect_location_involved_vars_state post))
+       in *)
+    (* heuristic: remove those which don't depend on any universally quantified variables (i.e. function parameters) *)
+    let needed =
+      SSet.concat
+        [
+          SSet.singleton "res";
+          SSet.union
+            (collect_location_involved_vars_state pre)
+            (collect_location_involved_vars_state post);
+          SSet.diff
+            (SSet.union (used_vars_state pre) (used_vars_state post))
+            (SSet.of_list ex);
+        ]
+    in
+    debug ~at:5 ~title:"needed" "%s" (string_of_sset needed);
+    let do_not_contribute =
+      List.filter
+        (fun c -> not (SSet.exists (fun c -> SSet.mem c needed) c))
+        classes
+      |> SSet.concat
+    in
+    (* Format.printf "do_not_contribute: %s@." (string_of_sset do_not_contribute); *)
+    let ex1 = List.filter (fun e -> not (SSet.mem e do_not_contribute)) ex in
+    let pre1 = remove_subexpr_state do_not_contribute pre in
+    let post1 = remove_subexpr_state do_not_contribute post in
+    (ex1, pre1, post1)
+  in
   fun (ess, norm) ->
     let ess1 =
       List.map
         (fun efs ->
-          let classes =
-            merge_classes
-              (collect_related_vars_state efs.e_pre)
-              (collect_related_vars_state efs.e_post)
-          in
-          let do_not_contribute =
-            (* TODO can the e_ret variables ever make it here? *)
-            List.filter (fun c -> not (SSet.mem "res" c)) classes |> SSet.concat
-          in
-          let ex =
-            List.filter
-              (fun e -> not (SSet.mem e do_not_contribute))
-              efs.e_evars
-          in
-          let p1 = remove_subexpr_state do_not_contribute efs.e_pre in
-          let p2 = remove_subexpr_state do_not_contribute efs.e_post in
-          { efs with e_evars = ex; e_pre = p1; e_post = p2 })
+          (* let classes =
+               merge_classes
+                 (collect_related_vars_state efs.e_pre)
+                 (collect_related_vars_state efs.e_post)
+             in
+             let do_not_contribute =
+               (* TODO can the e_ret variables ever make it here? *)
+               List.filter (fun c -> not (SSet.mem "res" c)) classes |> SSet.concat
+             in
+             let ex =
+               List.filter
+                 (fun e -> not (SSet.mem e do_not_contribute))
+                 efs.e_evars
+             in
+             let p1 = remove_subexpr_state do_not_contribute efs.e_pre in
+             let p2 = remove_subexpr_state do_not_contribute efs.e_post in *)
+          let ex, pre, post = handle efs.e_evars efs.e_pre efs.e_post in
+          { efs with e_evars = ex; e_pre = pre; e_post = post })
         ess
     in
     let norm1 =
-      let ex, (p1, h1), (p2, h2) = norm in
-      let classes =
-        merge_classes
-          (collect_related_vars_state (p1, h1))
-          (collect_related_vars_state (p2, h2))
-      in
-      (* TODO be careful removing existentials needed by fn/eff stages *)
-      let do_not_contribute =
-        List.filter (fun c -> not (SSet.mem "res" c)) classes |> SSet.concat
-      in
-      let ex1 = List.filter (fun e -> not (SSet.mem e do_not_contribute)) ex in
-      let p11 = remove_subexpr_pi do_not_contribute p1 in
-      let p21 = remove_subexpr_pi do_not_contribute p2 in
+      let ex, pre, post = norm in
+      let ex1, (p11, h1), (p21, h2) = handle ex pre post in
+      (* Format.printf "pre: %s@." (string_of_state pre); *)
+      (* Format.printf "p11: %s@." (string_of_pi p11); *)
+      (* let classes =
+           merge_classes
+             (collect_related_vars_state (p1, h1))
+             (collect_related_vars_state (p2, h2))
+         in
+         (* TODO be careful removing existentials needed by fn/eff stages *)
+         let do_not_contribute =
+           List.filter (fun c -> not (SSet.mem "res" c)) classes |> SSet.concat
+         in
+         let ex1 = List.filter (fun e -> not (SSet.mem e do_not_contribute)) ex in
+         let p11 = remove_subexpr_pi do_not_contribute p1 in
+         let p21 = remove_subexpr_pi do_not_contribute p2 in *)
       (ex1, (p11, h1), (p21, h2))
     in
     (ess1, norm1)
@@ -640,7 +757,7 @@ let normalise_spec sp =
     in
     debug ~at:3 ~title:"actually normalise" "%s\n==>\n%s" (string_of_spec sp1)
       (string_of_normalisedStagedSpec sp2);
-    let sp3 = sp2 |> optimize_existentials1 in
+    let sp3 = sp2 |> remove_noncontributing_existentials in
     debug ~at:3 ~title:"remove existentials that don't contribute" "%s\n==>\n%s"
       (string_of_normalisedStagedSpec sp2)
       (string_of_normalisedStagedSpec sp3);

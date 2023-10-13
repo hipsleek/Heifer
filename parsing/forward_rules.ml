@@ -357,20 +357,35 @@ let rec handling_spec env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj
 
  
 (** may update the environment because of higher order functions *)
-let rec infer_of_expression (env:fvenv) (current:disj_spec) (expr:core_lang): disj_spec * fvenv =
+let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): disj_spec * fvenv =
+  if SSet.mem "res" (used_vars_disj_spec history) then
+    failwith (Format.asprintf "invariant violated: { %s } %s is not res-free" (string_of_disj_spec history) (string_of_core_lang expr));
   (* TODO infer_of_expression is likely O(n^2) due to appending at the end *)
   let res, env =
     match expr with
     | CValue v -> 
       let event = NormalReturn (res_eq v, EmptyHeap) in 
-      concatenateSpecsWithEvent current [event], env
+      concatenateSpecsWithEvent history [event], env
 
     | CLet (str, expr1, expr2) ->
-      let phi1, env = infer_of_expression env current expr1 in 
+      let phi1, env = infer_of_expression env history expr1 in 
+
+            let phi2, env = infer_of_expression env [freshNormalReturnSpec] expr2 in
+
+          (* let phi2, env, _lambdas_in_expr2 =
+            let ll =
+              let prev = SMap.bindings env.fv_lambda |> List.map fst |> SSet.of_list in
+              let curr = SMap.bindings env1.fv_lambda |> List.map fst |> SSet.of_list in
+              SSet.diff curr prev
+            in
+            phi2, env1, ll
+          in *)
+
+      (* preserve invariant that left side is res-free *)
       phi1 |> concat_map_state env (fun spec env -> 
         (* Format.printf "lang %s@." (string_of_core_lang expr1); *)
         (* Format.printf "spec %s@." (string_of_spec spec); *)
-        let retN = retrieve_return_value spec in 
+        (* let retN = retrieve_return_value spec in 
         match retN with 
         | UNIT ->
           infer_of_expression env [spec] expr2
@@ -399,13 +414,25 @@ let rec infer_of_expression (env:fvenv) (current:disj_spec) (expr:core_lang): di
             *)
         | _ when String.equal str "_" ->
           infer_of_expression env [spec] expr2
-        | _ ->
+        | _ -> *)
+
 
           (* rather than create an existential, we substitute the new variable away *)
-          let bindings = bindFormalNActual [str] [retN] in 
+          (* let bindings = bindFormalNActual [str] [retN] in  *)
+          (* can't do this because we can't reliably get a res *)
 
+          (* create an existential by creating a fresh variable, and preserve the invariant by removing res from the post of the first expr, as it will now appear on the left of the second premise *)
+          let nv = verifier_getAfreeVar "let" in
+          let spec = instantiateSpec ["res", Var nv] spec in
+          (* let spec = spec @ [NormalReturn (Atomic (EQ, Var nv, Var str), EmptyHeap)] in *)
+          let spec = (Exists [nv]) :: spec in
+
+          (* let var = verifier_getAfreeVar "let" in *)
+          let phi2 = instantiateSpecList [str, Var nv] phi2 in
+
+          concatenateSpecsWithSpec [spec] phi2, env
           (* if expr1 is a lambda, copy its binding to the method env before processing expr2 *)
-          let env =
+          (* let env =
             match phi1 with
             | [p] ->
               (match retrieve_return_value p with
@@ -417,23 +444,14 @@ let rec infer_of_expression (env:fvenv) (current:disj_spec) (expr:core_lang): di
                   fv_lambda_names = (n, str) :: env.fv_lambda_names }
               | _ -> env)
             | _ -> env
-          in
-
-          let phi2, env, lambdas_in_expr2 =
-            let phi2, env1 = infer_of_expression env [freshNormalReturnSpec] expr2 in
-            let ll =
-              let prev = SMap.bindings env.fv_lambda |> List.map fst |> SSet.of_list in
-              let curr = SMap.bindings env1.fv_lambda |> List.map fst |> SSet.of_list in
-              SSet.diff curr prev
-            in
-            phi2, env1, ll
-          in
+          in *)
 
           (* Here, we only instantiate the expr2 and *)
-          let phi2' = instantiateSpecList bindings phi2 in
+          (* let phi2' = instantiateSpecList bindings phi2 in *)
+          (* let phi2' = phi2 in *)
 
           (* also substitute inside the specs of lambdas defined in expr2. this has to be done after expr2 is inferred (as then we will know which lambda specs to change), so we need to fix all methods which lambdas have been bound to as well *)
-          let env =
+          (* let env =
             let fv_lambda =
               env.fv_lambda |> SMap.mapi (fun k v -> if SSet.mem k lambdas_in_expr2 then { v with m_spec = Option.map (fun s -> instantiateSpecList bindings s) v.m_spec } else v)
             in
@@ -444,26 +462,27 @@ let rec infer_of_expression (env:fvenv) (current:disj_spec) (expr:core_lang): di
               SMap.mapi (fun k v -> if SSet.mem k methods_to_change then { v with m_spec = Option.map (fun s -> instantiateSpecList bindings s) v.m_spec } else v) env.fv_methods
             in
             { env with fv_lambda; fv_methods }
-          in
+          in *)
 
           (* concat spec -- the spec for expr 1 -- in front *)
-          concatenateSpecsWithSpec [spec] phi2', env
+          (* concatenateSpecsWithSpec [spec] phi2', env *)
+
         )
     | CRef v -> 
       let freshVar = verifier_getAfreeVar "ref" in 
       let event = NormalReturn (res_eq (Var freshVar), PointsTo(freshVar, v)) in 
-      concatenateSpecsWithEvent current [Exists [freshVar];event], env
+      concatenateSpecsWithEvent history [Exists [freshVar];event], env
 
 
     | CRead str -> 
       let freshVar = verifier_getAfreeVar str in 
       let event = [Exists [freshVar];Require(True, PointsTo(str, Var freshVar)); 
         NormalReturn (res_eq (Var freshVar), PointsTo(str, Var freshVar))] in 
-      concatenateSpecsWithEvent current event, env
+      concatenateSpecsWithEvent history event, env
 
 
     | CAssert (p, h) -> 
-      let temp = concatenateSpecsWithEvent current [Require(p, h)] in 
+      let temp = concatenateSpecsWithEvent history [Require(p, h)] in 
       concatenateSpecsWithEvent temp [(NormalReturn(And (res_eq UNIT, p), h))], env
 
     | CPerform (label, arg) -> 
@@ -475,7 +494,7 @@ let rec infer_of_expression (env:fvenv) (current:disj_spec) (expr:core_lang): di
       in 
       let freshVar = verifier_getAfreeVar "per" in 
       (* after adding the perfome stage, we need to add a normal return. *)
-      concatenateSpecsWithEvent current 
+      concatenateSpecsWithEvent history 
       [Exists [freshVar];RaisingEff(True, EmptyHeap, (label,arg), Var freshVar);
       NormalReturn (res_eq (Var freshVar), EmptyHeap)], env
 
@@ -483,7 +502,7 @@ let rec infer_of_expression (env:fvenv) (current:disj_spec) (expr:core_lang): di
     | CResume v ->  
       let f = verifier_getAfreeVar "re" in
       let res =
-        concatenateSpecsWithEvent current [Exists [f]; RaisingEff (True, EmptyHeap, ("continue", [v]), Var f)]
+        concatenateSpecsWithEvent history [Exists [f]; RaisingEff (True, EmptyHeap, ("continue", [v]), Var f)]
       in
       res, env
     | CFunCall (fname, actualArgs) -> 
@@ -492,38 +511,38 @@ let rec infer_of_expression (env:fvenv) (current:disj_spec) (expr:core_lang): di
         (match fname, actualArgs with
         | "+", [x1; x2] ->
           let event = NormalReturn (res_eq (Plus(x1, x2)), EmptyHeap) in
-          concatenateSpecsWithEvent current [event], env
+          concatenateSpecsWithEvent history [event], env
         | "-", [x1; x2] ->
           let event = NormalReturn (res_eq (Minus(x1, x2)), EmptyHeap) in
-          concatenateSpecsWithEvent current [event], env
+          concatenateSpecsWithEvent history [event], env
         | "=", [x1; x2] ->
           (* let event = NormalReturn (Atomic (EQ, x1, x2), EmptyHeap, Eq (x1, x2)) in *)
           let event = NormalReturn (res_eq (Rel (EQ, x1, x2)), EmptyHeap) in
-          concatenateSpecsWithEvent current [event], env
+          concatenateSpecsWithEvent history [event], env
         | "not", [x1] ->
           let event = NormalReturn (res_eq (TNot (x1)), EmptyHeap) in
-          concatenateSpecsWithEvent current [event], env
+          concatenateSpecsWithEvent history [event], env
         | "&&", [x1; x2] ->
           let event = NormalReturn (res_eq (TAnd (x1, x2)), EmptyHeap) in
-          concatenateSpecsWithEvent current [event], env
+          concatenateSpecsWithEvent history [event], env
         | "||", [x1; x2] ->
           let event = NormalReturn (res_eq (TOr (x1, x2)), EmptyHeap) in
-          concatenateSpecsWithEvent current [event], env
+          concatenateSpecsWithEvent history [event], env
         | ">", [x1; x2] ->
           let event = NormalReturn (res_eq (Rel (GT, x1, x2)), EmptyHeap) in
-          concatenateSpecsWithEvent current [event], env
+          concatenateSpecsWithEvent history [event], env
         | "<", [x1; x2] ->
           let event = NormalReturn (res_eq (Rel (LT, x1, x2)), EmptyHeap) in
-          concatenateSpecsWithEvent current [event], env
+          concatenateSpecsWithEvent history [event], env
         | ">=", [x1; x2] ->
           let event = NormalReturn (res_eq (Rel (GTEQ, x1, x2)), EmptyHeap) in
-          concatenateSpecsWithEvent current [event], env
+          concatenateSpecsWithEvent history [event], env
         | "<=", [x1; x2] ->
           let event = NormalReturn (res_eq (Rel (LTEQ, x1, x2)), EmptyHeap) in
-          concatenateSpecsWithEvent current [event], env
+          concatenateSpecsWithEvent history [event], env
         | "::", [x1; x2] ->
           let event = NormalReturn (res_eq (TApp ("cons", [x1; x2])), EmptyHeap) in
-          concatenateSpecsWithEvent current [event], env
+          concatenateSpecsWithEvent history [event], env
         | _ -> failwith (Format.asprintf "unknown primitive: %s, args: %s" fname (string_of_list string_of_term actualArgs)))
       | false ->
         let spec_of_fname =
@@ -567,19 +586,19 @@ let rec infer_of_expression (env:fvenv) (current:disj_spec) (expr:core_lang): di
           let ret = verifier_getAfreeVar "ret" in
           [[Exists [ret]; HigherOrder (True, EmptyHeap, (fname, actualArgs), Var ret); NormalReturn (res_eq (Var ret), EmptyHeap)]]
         in
-        concatenateSpecsWithSpec current spec_of_fname, env)
+        concatenateSpecsWithSpec history spec_of_fname, env)
     | CWrite  (str, v) -> 
       let freshVar = verifier_getAfreeVar "wr" in 
       let event = [Exists [freshVar];Require(True, PointsTo(str, Var freshVar)); 
                     NormalReturn (res_eq UNIT, PointsTo(str, v))] in 
-      concatenateSpecsWithEvent current event, env
+      concatenateSpecsWithEvent history event, env
 
 
     | CIfELse (v, expr2, expr3) -> 
       let eventThen = NormalReturn (Atomic (EQ, v, TTrue), EmptyHeap) in 
       let eventElse = NormalReturn (Not (Atomic (EQ, v, TTrue)), EmptyHeap) in 
-      let currentThen = concatenateSpecsWithEvent current [eventThen] in 
-      let currentElse = concatenateSpecsWithEvent current [eventElse] in 
+      let currentThen = concatenateSpecsWithEvent history [eventThen] in 
+      let currentElse = concatenateSpecsWithEvent history [eventElse] in 
       let r1, env = infer_of_expression env currentThen expr2 in
       let r2, env = infer_of_expression env currentElse expr3 in
       r1 @ r2, env
@@ -605,7 +624,7 @@ let rec infer_of_expression (env:fvenv) (current:disj_spec) (expr:core_lang): di
       in
       (* TODO given *)
       let event = NormalReturn (res_eq (TLambda (lid, params, inferred)), EmptyHeap) in 
-      concatenateSpecsWithEvent current [event], env
+      concatenateSpecsWithEvent history [event], env
 
     | CMatch (scr, Some val_case, eff_cases, []) -> (* effects *)
       (* infer specs for branches of the form (Constr param -> spec), which also updates the env with obligations *)
@@ -632,11 +651,11 @@ let rec infer_of_expression (env:fvenv) (current:disj_spec) (expr:core_lang): di
           handling_spec env (normalise_spec spec) inferred_val_case inferred_branch_specs
         ) phi1
       in 
-      let res, env = concatenateSpecsWithSpec current afterHandling, env in
+      let res, env = concatenateSpecsWithSpec history afterHandling, env in
       res, env
     | CMatch (discr, None, _, cases) -> (* pattern matching *)
       (* this is quite similar to if-else. generate a disjunct for each branch with variables bound to the result of destructuring *)
-      let dsp, env = infer_of_expression env current discr in
+      let dsp, env = infer_of_expression env history discr in
       let dsp, env = dsp |> concat_map_state env (fun sp env ->
         let ret = retrieve_return_value sp in
         cases |> concat_map_state env (fun (constr, vars, body) env -> 
@@ -647,7 +666,7 @@ let rec infer_of_expression (env:fvenv) (current:disj_spec) (expr:core_lang): di
               let c = conj [Atomic (EQ, TApp ("is_nil", [ret]), TTrue)] in
               [NormalReturn (c, EmptyHeap)]
             in 
-            infer_of_expression env (concatenateSpecsWithEvent current nil_case) body
+            infer_of_expression env (concatenateSpecsWithEvent history nil_case) body
           | "::", [v1; v2] ->
             let cons_case =
               let c = conj [
@@ -657,7 +676,7 @@ let rec infer_of_expression (env:fvenv) (current:disj_spec) (expr:core_lang): di
               ] in
               [Exists [v1; v2]; NormalReturn (c, EmptyHeap)]
             in
-            infer_of_expression env (concatenateSpecsWithEvent current cons_case) body
+            infer_of_expression env (concatenateSpecsWithEvent history cons_case) body
           | _ -> failwith (Format.asprintf "unknown constructor: %s" constr)))
       in
       dsp, env
@@ -665,5 +684,5 @@ let rec infer_of_expression (env:fvenv) (current:disj_spec) (expr:core_lang): di
       (* TODO *)
       failwith "combining effect handlers and pattern matching not yet unimplemented"
   in
-  debug ~at:3 ~title:"forward rules" "{%s}\n%s\n{%s}" (string_of_disj_spec current) (string_of_core_lang expr) (string_of_disj_spec res);
+  debug ~at:3 ~title:"forward rules" "{%s}\n%s\n{%s}" (string_of_disj_spec history) (string_of_core_lang expr) (string_of_disj_spec res);
   res, env

@@ -63,14 +63,15 @@
 (library
  (name hipcore)
  (libraries str)
- (modules subst Pretty common hiptypes))
+ (modules subst UF Pretty common hiptypes)
+ (preprocess (pps ppx_expect ppx_deriving.std)))
 
 (library
  (name hipprover)
  (modules ProversEx Rewriting entail res forward_rules infer_types normalize)
  (libraries hipcore provers)
  (inline_tests)
- (preprocess (pps ppx_expect ppx_deriving.std)))
+ (preprocess (pps ppx_expect)))
 
 (library
  (name ocamlfrontend)

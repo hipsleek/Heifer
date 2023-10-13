@@ -2,17 +2,57 @@ open Hipcore
 open Hiptypes
 open Pretty
 
+(* let main () =
+   TEnv.equate (TVar "a") Int;
+   TEnv.equate (TVar "c") (TVar "a");
+   let t3 = TEnv.concretize (TVar "c") in
+
+   (* let b = Int.elt 1 in *)
+   (* let a = Int.elt 2 in *)
+   (* Format.printf "%d %d@." (Int.value a) (Int.value b); *)
+   (* Int.union b a; *)
+   Format.printf "%a@." pp_typ t3 *)
+
 (* record the type (or constraints on) of a program variable in the environment *)
 let assert_var_has_type v t env =
   match SMap.find_opt v env.vartypes with
   | None -> { env with vartypes = SMap.add v t env.vartypes }
-  | Some t1 -> { env with eqs = (t, t1) :: env.eqs }
+  | Some t1 ->
+    if
+      TEnv.has_concrete_type env.equalities t
+      && TEnv.has_concrete_type env.equalities t1
+    then (
+      let t' = TEnv.concretize env.equalities t in
+      let t1' = TEnv.concretize env.equalities t1 in
+      if compare_typ t' t1' <> 0 then
+        failwith
+          (Format.asprintf "%s already has type %s but was used as type %s" v
+             (string_of_type t1) (string_of_type t)))
+    else TEnv.equate env.equalities t1 t;
+    (* { env with eqs = (t, t1) :: env.eqs } *)
+    env
 
 (* record a (nontrivial) equality in the environment *)
 let unify_types t1 t2 env =
-  (* Format.printf "unify %s ~ %s@." (string_of_type t1) (string_of_type t2); *)
-  if t1 = t2 then env else { env with eqs = (t1, t2) :: env.eqs }
+  debug ~at:5 ~title:"unify" "%s ~ %s" (string_of_type t1) (string_of_type t2);
+  if compare_typ t1 t2 = 0 then env
+  else (
+    if
+      TEnv.has_concrete_type env.equalities t1
+      && TEnv.has_concrete_type env.equalities t2
+    then (
+      let t1 = TEnv.concretize env.equalities t1 in
+      let t2 = TEnv.concretize env.equalities t1 in
+      if compare_typ t1 t2 <> 0 then
+        failwith
+          (Format.asprintf "%s ~ %s"
+             (string_of_type (TEnv.concretize env.equalities t1))
+             (string_of_type (TEnv.concretize env.equalities t2))))
+    else TEnv.equate env.equalities t1 t2;
+    (* { env with eqs = (t1, t2) :: env.eqs } *)
+    env)
 
+(*
 (* given a type variable and a substitution (a list of type equalities), finds the concrete type that the type variable is. not efficient. crashes (the entire program) on error *)
 let find_concrete_type t bs =
   (* find all type variables in the same equivalence class *)
@@ -49,13 +89,19 @@ let find_concrete_type t bs =
     failwith
       (Format.asprintf "type error: %s is used as all of: %s" (string_of_type t)
          (string_of_list string_of_type conc))
+*)
+
+let find_concrete_type = TEnv.concretize
 
 let concrete_type_env abs : typ_env =
-  let all_bindings = abs.eqs in
+  (* abs.vartypes *)
+  (* let all_bindings = abs.vartypes in *)
+  (* Format.printf "all bindings %d %s@." (List.length all_bindings)
+     (string_of_list (string_of_pair string_of_type string_of_type) all_bindings); *)
   (* figure out the concrete type for each program variable whose type is a type var *)
   SMap.map
     (fun v ->
-      match v with TVar _ -> find_concrete_type v all_bindings | _ -> v)
+      match v with TVar _ -> find_concrete_type abs.equalities v | _ -> v)
     abs.vartypes
 
 let get_primitive_type f =
@@ -95,7 +141,6 @@ let rec infer_types_term ?hint (env : abs_typ_env) term : typ * abs_typ_env =
       try
         let at, env1 = infer_types_term ~hint:Int env a in
         let bt, env2 = infer_types_term ~hint:Int env1 b in
-        (* Format.printf "Eq %s = %s@." (string_of_term a) (string_of_term b); *)
         let env3 = unify_types at bt env2 in
         (Bool, env3)
       with _ ->
@@ -125,9 +170,9 @@ let rec infer_types_term ?hint (env : abs_typ_env) term : typ * abs_typ_env =
       (ret, env)
     | TList _, _ | TTupple _, _ -> failwith "list/tuple unimplemented"
   in
-  (* Format.printf "%s : %s -| %s@." (string_of_term term)
-     (string_of_type (fst res))
-     (string_of_abs_env (snd res)); *)
+  debug ~at:5 ~title:"infer_types" "%s : %s -| %s" (string_of_term term)
+    (string_of_type (fst res))
+    (string_of_abs_env (snd res));
   res
 
 let rec infer_types_pi env pi =
