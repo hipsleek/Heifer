@@ -431,7 +431,10 @@ and string_of_core_handler_ops hs =
     Format.asprintf "| effect %s k%s -> %s"
       (match v with None -> name | Some v -> Format.asprintf "(%s %s)" name v) spec (string_of_core_lang body)) hs |> String.concat "\n"
 
-let string_of_effect_stage (vs, pre, post, eff, ret) =
+let string_of_effect_stage1 (vs, pre, post, eff, ret) =
+  Format.asprintf "ex %s. req %s; ens %s /\\ %s /\\ res=%s" (String.concat " " vs) (string_of_state pre) (string_of_state post) (string_of_instant eff) (string_of_term ret)
+
+let string_of_effect_stage {e_evars = vs; e_pre = pre; e_post = post; e_constr = eff; e_ret = ret; _} =
   Format.asprintf "ex %s. req %s; ens %s /\\ %s /\\ res=%s" (String.concat " " vs) (string_of_state pre) (string_of_state post) (string_of_instant eff) (string_of_term ret)
 
 let string_of_normal_stage (vs, pre, post, ret) =
