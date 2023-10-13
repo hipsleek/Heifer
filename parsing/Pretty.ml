@@ -565,7 +565,9 @@ let get_res_value p =
     failwith (Format.asprintf "many possible res values: %s" (string_of_pi p))
 
 let is_just_res_of pi t =
-  (get_res_value pi) = t
+  try
+    (get_res_value pi) = t
+  with _ -> false
 
 let remove_res_constraints p =
   let r, rez = split_res_fml p in
