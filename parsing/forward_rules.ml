@@ -442,9 +442,18 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
           (* let bindings = bindFormalNActual [str] [retN] in  *)
           (* can't do this because we can't reliably get a res *)
 
+          (* the return value is context-sensitive and depends on what in the history came before *)
+          let ret =
+            match split_last spec with
+            | _, RaisingEff (_pre, _post, _constr, Var ret) -> ret
+            | _, HigherOrder (_pre, _post, _constr, Var ret) -> ret
+            | _, RaisingEff (_, _, _, ret) | _, HigherOrder (_, _, _, ret) -> failwith (Format.asprintf "ret not a variable: %s" (string_of_term ret))
+            | _ -> "res"
+          in
+
           (* create an existential by creating a fresh variable, and preserve the invariant by removing res from the post of the first expr, as it will now appear on the left of the second premise *)
           let nv = verifier_getAfreeVar "let" in
-          let spec = instantiateSpec ["res", Var nv] spec in
+          let spec = instantiateSpec [ret, Var nv] spec in
           (* let spec = spec @ [NormalReturn (Atomic (EQ, Var nv, Var str), EmptyHeap)] in *)
           let spec = (Exists [nv]) :: spec in
 
