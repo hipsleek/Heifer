@@ -333,8 +333,8 @@ let rec handling_spec env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj
 
               (* TODO this is not needed? *)
               (* rename res *)
-              let nv= verifier_getAfreeVar "rez" in
-              let handled_rest = instantiateSpecList ["res", Var nv] handled_rest in
+              (* let nv= verifier_getAfreeVar "rez" in *)
+              (* let handled_rest = instantiateSpecList ["res", Var nv] handled_rest in *)
 
               handled_rest, env
             | _ ->
@@ -342,8 +342,8 @@ let rec handling_spec env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj
               let current = [normalisedStagedSpec2Spec ([h_eff_stage], freshNormalStage)] in
 
               (* TODO this is not needed? *)
-              let nv= verifier_getAfreeVar "rez" in
-              let current = instantiateSpecList ["res", Var nv] current in
+              (* let nv= verifier_getAfreeVar "rez" in *)
+              (* let current = instantiateSpecList ["res", Var nv] current in *)
 
               current, env)
           in
