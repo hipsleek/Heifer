@@ -123,6 +123,76 @@ and instantiateSpecList (bindings : (string * core_value) list)
     (sepcs : disj_spec) : disj_spec =
   List.map (fun a -> instantiateSpec bindings a) sepcs
 
+let rec used_vars_term (t : term) =
+  match t with
+  | Nil | TTrue | TFalse | UNIT | Num _ -> SSet.empty
+  | TList ts | TTupple ts -> SSet.concat (List.map used_vars_term ts)
+  | Var s -> SSet.singleton s
+  | Rel (_, a, b) | Plus (a, b) | Minus (a, b) | TAnd (a, b) | TOr (a, b) ->
+    SSet.union (used_vars_term a) (used_vars_term b)
+  | TNot a -> used_vars_term a
+  | TApp (_, args) -> SSet.concat (List.map used_vars_term args)
+  | TLambda _ -> SSet.empty
+
+let rec used_vars_pi (p : pi) =
+  match p with
+  | True | False -> SSet.empty
+  | Atomic (_, a, b) -> SSet.union (used_vars_term a) (used_vars_term b)
+  | And (a, b) | Or (a, b) | Imply (a, b) ->
+    SSet.union (used_vars_pi a) (used_vars_pi b)
+  | Not a -> used_vars_pi a
+  | Predicate (_, t) -> used_vars_term t
+
+let rec used_vars_heap (h : kappa) =
+  match h with
+  | EmptyHeap -> SSet.empty
+  | PointsTo (a, t) -> SSet.add a (used_vars_term t)
+  | SepConj (a, b) -> SSet.union (used_vars_heap a) (used_vars_heap b)
+
+let rec used_locs_heap (h : kappa) =
+  match h with
+  | EmptyHeap -> SSet.empty
+  | PointsTo (a, _) -> SSet.singleton a
+  | SepConj (a, b) -> SSet.union (used_locs_heap a) (used_locs_heap b)
+
+let used_vars_state (p, h) = SSet.union (used_vars_pi p) (used_vars_heap h)
+
+let used_vars_eff eff =
+  SSet.concat
+    [
+      used_vars_state eff.e_pre;
+      used_vars_state eff.e_post;
+      SSet.concat (List.map used_vars_term (snd eff.e_constr));
+      used_vars_term eff.e_ret;
+    ]
+
+let used_vars_norm (_vs, pre, post) =
+  SSet.concat [used_vars_state pre; used_vars_state post]
+
+let used_vars (sp : normalisedStagedSpec) =
+  let effs, norm = sp in
+  SSet.concat (used_vars_norm norm :: List.map used_vars_eff effs)
+
+let used_vars_stage (s : stagedSpec) =
+  match s with
+  | Require (p, h) | NormalReturn (p, h) ->
+    SSet.union (used_vars_pi p) (used_vars_heap h)
+  | Exists vs -> SSet.of_list vs
+  | HigherOrder (p, h, (f, a), t) | RaisingEff (p, h, (f, a), t) ->
+    SSet.concat
+      [
+        used_vars_pi p;
+        used_vars_heap h;
+        SSet.concat (List.map used_vars_term a);
+        SSet.of_list [f];
+        used_vars_term t;
+      ]
+
+let used_vars_spec (sp : spec) = SSet.concat (List.map used_vars_stage sp)
+
+let used_vars_disj_spec (d : disj_spec) =
+  SSet.concat (List.map used_vars_spec d)
+
 (* if alpha_equiv(t1, t2), then hash t1 = hash t2 *)
 let hash_lambda t =
   match t with
