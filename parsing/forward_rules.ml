@@ -716,5 +716,5 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
       (* TODO *)
       failwith "combining effect handlers and pattern matching not yet unimplemented"
   in
-  debug ~at:3 ~title:"forward rules" "{%s}\n%s\n{%s}" (string_of_disj_spec history) (string_of_core_lang expr) (string_of_disj_spec res);
+  debug ~at:2 ~title:"forward rules" "{%s}\n%s\n{%s}" (string_of_disj_spec history) (string_of_core_lang expr) (string_of_disj_spec res);
   res, env

@@ -59,7 +59,7 @@ let simplify_pure (p : pi) : pi =
   (match (p, r) with
   | True, True -> ()
   | _ ->
-    debug ~at:4 ~title:"simplify_pure" "%s\n==>\n%s" (string_of_pi p)
+    debug ~at:5 ~title:"simplify_pure" "%s\n==>\n%s" (string_of_pi p)
       (string_of_pi r));
   r
 
@@ -125,7 +125,7 @@ let may_be_equal ex assumptions x y =
   in
   let right = Atomic (EQ, x, y) in
   let eq = Provers.entails_exists tenv assumptions ex right in
-  debug ~at:3 ~title:"may be equal" "%s => ex %s. %s = %s\n%b"
+  debug ~at:4 ~title:"may be equal" "%s => ex %s. %s = %s\n%b"
     (string_of_pi assumptions) (string_of_list Fun.id ex) (string_of_term x)
     (string_of_term y) eq;
   eq
@@ -207,7 +207,7 @@ let rec deleteFromHeapListIfHas li (x, t1) existential flag assumptions :
   in
   let () =
     let sof = string_of_list (string_of_pair Fun.id string_of_term) in
-    debug ~at:3 ~title:"delete from heap list" "%s -* %s = %s\nex %s"
+    debug ~at:5 ~title:"delete from heap list" "%s -* %s = %s\nex %s"
       (string_of_pair Fun.id string_of_term (x, t1))
       (sof li)
       (string_of_pair sof string_of_pi res)
@@ -257,7 +257,7 @@ let normalise_stagedSpec (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
         (* (pure_to_equalities p2) *)
       in
 
-      debug ~at:3 ~title:"biabduction" "%s * %s |- %s * %s"
+      debug ~at:4 ~title:"biabduction" "%s * %s |- %s * %s"
         (string_of_state (unification, magicWandHeap))
         (string_of_state ens)
         (string_of_state (p3, h3))
@@ -305,7 +305,7 @@ let normalise_stagedSpec (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
           ],
         freshNormStageRet ret' )
   in
-  debug ~at:3 ~title:"normalize step" "%s\n+\n%s\n==>\n%s"
+  debug ~at:4 ~title:"normalize step" "%s\n+\n%s\n==>\n%s"
     (string_of_normalisedStagedSpec acc)
     (string_of_staged_spec stagedSpec)
     (string_of_normalisedStagedSpec res);
@@ -697,32 +697,32 @@ let final_simplification (effs, norm) =
 let normalise_spec sp =
   let r =
     let sp1 = sp |> simplify_existential_locations in
-    debug ~at:3 ~title:"remove some existential eqs" "%s\n==>\n%s"
+    debug ~at:4 ~title:"remove some existential eqs" "%s\n==>\n%s"
       (string_of_spec sp) (string_of_spec sp1);
     let sp2 =
       let v = verifier_getAfreeVar "n" in
       let acc = ([], freshNormStageVar v) in
       sp1 |> normalise_spec_ acc
     in
-    debug ~at:3 ~title:"actually normalise" "%s\n==>\n%s" (string_of_spec sp1)
+    debug ~at:4 ~title:"actually normalise" "%s\n==>\n%s" (string_of_spec sp1)
       (string_of_normalisedStagedSpec sp2);
     let sp3 = sp2 |> remove_noncontributing_existentials in
-    debug ~at:3 ~title:"remove existentials that don't contribute" "%s\n==>\n%s"
+    debug ~at:4 ~title:"remove existentials that don't contribute" "%s\n==>\n%s"
       (string_of_normalisedStagedSpec sp2)
       (string_of_normalisedStagedSpec sp3);
     (* redundant vars may appear due to fresh stages and removal of res via intermediate variables *)
     let sp4 = sp3 |> optimize_existentials in
-    debug ~at:3 ~title:"move existentials inward and remove unused"
+    debug ~at:4 ~title:"move existentials inward and remove unused"
       "%s\n==>\n%s"
       (string_of_normalisedStagedSpec sp3)
       (string_of_normalisedStagedSpec sp4);
     let sp5 = sp4 |> final_simplification in
-    debug ~at:3 ~title:"final simplication pass" "%s\n==>\n%s"
+    debug ~at:4 ~title:"final simplication pass" "%s\n==>\n%s"
       (string_of_normalisedStagedSpec sp4)
       (string_of_normalisedStagedSpec sp5);
     sp5
   in
-  debug ~at:2 ~title:"normalise_spec" "%s\n==>\n%s" (string_of_spec sp)
+  debug ~at:3 ~title:"normalise_spec" "%s\n==>\n%s" (string_of_spec sp)
     (string_of_normalisedStagedSpec r);
   r
 
