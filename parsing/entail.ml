@@ -53,8 +53,11 @@ let apply_lemma : lemma -> spec -> spec option =
         | Some bs ->
           let inst_lem_rhs = List.map (instantiateStages bs) lem.l_right in
           let extra_ret_equality =
-            let rhs_ret = Forward_rules.retrieve_return_value inst_lem_rhs in
-            Atomic (EQ, r, rhs_ret)
+            (* TODO *)
+            try
+              let rhs_ret = Forward_rules.retrieve_return_value inst_lem_rhs in
+              Atomic (EQ, r, rhs_ret)
+            with _ -> True
           in
           loop true
             (Acc.add_all

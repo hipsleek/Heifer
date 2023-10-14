@@ -127,16 +127,25 @@ let () = assert (isFreshVar "s10" ==false )
 
 (** substitutes existentials with fresh variables *)
 let renamingexistientalVar (specs:disj_spec): disj_spec = 
+  (* Format.printf "specs: %s@." (string_of_disj_spec specs); *)
   List.map (
     fun spec -> 
+      (* Format.printf "spec: %s@." (string_of_spec spec); *)
       let normalSpec = normalise_spec spec in 
+        (* Format.printf "normalSpec: %s@." (string_of_normalisedStagedSpec normalSpec); *)
       let existientalVar = getExistientalVar normalSpec in 
+      (* Format.printf "existientalVar: %s@." ( string_of_list Fun.id existientalVar); *)
       let newNames = List.map (fun n -> (verifier_getAfreeVar n)) existientalVar in 
       let newNameTerms = List.map (fun a -> Var a) newNames in 
       let bindings = bindNewNames existientalVar newNames in 
       let temp = instantiateExistientalVar normalSpec bindings in 
+        (* Format.printf "temp: %s@." (string_of_normalisedStagedSpec temp); *)
       let bindings = bindFormalNActual existientalVar newNameTerms in 
+      let r = 
       instantiateSpec bindings (normalisedStagedSpec2Spec temp)
+      in
+        (* Format.printf "r: %s@." (string_of_spec r); *)
+      r
   ) specs
 
 (** substitutes existentials with fresh variables, and the resulting formula has no quantifiers *)
@@ -244,7 +253,7 @@ let rec handling_spec env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj
       concatenateSpecsWithSpec hist h_spec
     in
 
-    debug ~at:4 ~title:"handling_spec: completely handled" "%s\n==>\n%s" (string_of_spec (normalisedStagedSpec2Spec scr_spec)) (string_of_disj_spec current);
+    debug ~at:3 ~title:"handling_spec: completely handled" "match\n  (*@@ %s @@*)\nwith\n| %s -> (*@@ %s *@@)\n| ...\n==>\n%s" (string_of_spec (normalisedStagedSpec2Spec scr_spec)) h_val_param (string_of_disj_spec h_val_spec) (string_of_disj_spec current);
 
     current, env
     
@@ -262,7 +271,7 @@ let rec handling_spec env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj
       let r, env = handling_spec env (xs, scr_normal) h_norm h_ops in
       let current = concatenateEventWithSpecs (effectStage2Spec [x]) (r) in
 
-      debug ~at:4 ~title:"handling_spec: unhandled" "%s\n==>\n%s" (string_of_spec (normalisedStagedSpec2Spec scr_spec)) (string_of_disj_spec current);
+      debug ~at:3 ~title:"handling_spec: unhandled" "%s\n==>\n%s" (string_of_spec (normalisedStagedSpec2Spec scr_spec)) (string_of_disj_spec current);
 
       current, env
 
@@ -290,6 +299,8 @@ let rec handling_spec env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj
             | ("continue", [cont_arg]) ->
               (* freshen, as each resumption of the continue spec results in new existentials *)
               let continue_specs = renamingexistientalVar [continuation_spec] in 
+
+              debug ~at:5 ~title:"continue spec" "%s" (string_of_disj_spec continue_specs);
         
               (* Given the following running example:
 
@@ -306,7 +317,7 @@ let rec handling_spec env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj
                 instantiateSpecList bindings continue_specs
               in
 
-              debug ~at:5 ~title:"continue spec" "%s" (string_of_disj_spec instantiatedSpecs);
+              debug ~at:5 ~title:"continue spec 1" "%s" (string_of_disj_spec instantiatedSpecs);
 
               (* deeply (recursively) handle the rest of each continuation, to figure out the full effects of this continue. note that this is the place where we indirectly recurse on xs, by making it the spec of continue and recursing on each continue stage. this gives rise to tree recursion in a multishot setting. *)
               let handled_rest, env = 
@@ -360,7 +371,7 @@ let rec handling_spec env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj
 
           let current = concatenateSpecsWithEvent handled norm in
 
-          debug ~at:4 ~title:"handling_spec: handled" "%s\n==>\n%s" (string_of_spec (normalisedStagedSpec2Spec scr_spec)) (string_of_disj_spec current);
+          debug ~at:3 ~title:"handling_spec: handled" "match\n  (*@@ %s @@*)\nwith\n| %s k -> (*@@ %s @@*)\n| ...\n\nwhere\n  continue :: %s\n\n==>\n%s" (string_of_spec (normalisedStagedSpec2Spec scr_spec)) (fst x.e_constr) (string_of_disj_spec handler_body_spec) (string_of_spec continuation_spec) (string_of_disj_spec current);
           current, env)
       in
       let res =

@@ -270,7 +270,7 @@ let normalise_stagedSpec (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
         (* (pure_to_equalities p2) *)
       in
 
-      debug ~at:4 ~title:"biabduction" "%s * %s |- %s * %s"
+      debug ~at:5 ~title:"biabduction" "%s * %s |- %s * %s"
         (string_of_state (unification, magicWandHeap))
         (string_of_state ens)
         (string_of_state (p3, h3))
@@ -525,7 +525,7 @@ let remove_noncontributing_existentials :
   let rec collect_related_vars_heap h =
     match h with
     | EmptyHeap -> []
-    | PointsTo (_, _) -> []
+    | PointsTo (x, y) -> [SSet.add x (collect_related_vars_term y)]
     | SepConj (a, b) ->
       let a1 = collect_related_vars_heap a in
       let b1 = collect_related_vars_heap b in
@@ -653,6 +653,7 @@ let simplify_existential_locations sp =
         | RaisingEff (p, h, _, _) ->
           let l =
             used_vars_state (p, h)
+            |> SSet.filter (fun l -> SSet.mem l ex)
             |> SSet.to_seq |> List.of_seq
             |> List.map (fun a -> (a, i))
           in
@@ -712,11 +713,7 @@ let normalise_spec sp =
     let sp1 = sp |> simplify_existential_locations in
     debug ~at:4 ~title:"remove some existential eqs" "%s\n==>\n%s"
       (string_of_spec sp) (string_of_spec sp1);
-    let sp2 =
-      let v = verifier_getAfreeVar "n" in
-      let acc = ([], freshNormStageVar v) in
-      sp1 |> normalise_spec_ acc
-    in
+    let sp2 = sp1 |> normalise_spec_ ([], freshNormalStage) in
     debug ~at:4 ~title:"actually normalise" "%s\n==>\n%s" (string_of_spec sp1)
       (string_of_normalisedStagedSpec sp2);
     let sp3 = sp2 |> remove_noncontributing_existentials in

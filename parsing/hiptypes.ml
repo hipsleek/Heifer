@@ -184,8 +184,6 @@ type normalisedStagedSpec = effectStage list * normalStage
 let freshNormalReturnSpec = [NormalReturn (True, EmptyHeap)]
 let freshNormalStage : normalStage = ([], (True, EmptyHeap), (True, EmptyHeap)) 
 
-let freshNormStageVar v : normalStage = ([v], (True, EmptyHeap), (res_eq (Var v), EmptyHeap))
-
 let freshNormStageRet r : normalStage = ([], (True, EmptyHeap), (res_eq r, EmptyHeap)) 
 
 
