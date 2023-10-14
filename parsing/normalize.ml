@@ -135,6 +135,19 @@ let rec kappa_of_list li =
   | [] -> EmptyHeap
   | (x, v) :: xs -> SepConj (PointsTo (x, v), kappa_of_list xs)
 
+(** when doing a normalize step, it's possible the new state doesn't contain a res, e.g.
+    ens res=1 + ens a=1 ==> ens res=1/\a=1
+  in which case we shouldn't remove freshen the res *)
+let maybe_quantify_res old new_ =
+  let used = used_vars_stage new_ in
+  (* Format.printf "used: %s@." (string_of_sset used); *)
+  (* Format.printf "old: %s@." (string_of_state old); *)
+  (* Format.printf "new_: %s@." (string_of_staged_spec new_); *)
+  if SSet.mem "res" used then
+    let st, nr = quantify_res_state old in
+    (st, [nr])
+  else (old, [])
+
 (* (x, t1) -* (y, t2), where li is a heap containing y *)
 (* flag true => add to precondition *)
 (* flag false => add to postcondition *)
@@ -271,16 +284,16 @@ let normalise_stagedSpec (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
       (effectStages, normalStage')
     | NormalReturn (pi, heap) ->
       (* pi may contain a res, so split the res out of the previous post *)
-      let ens1, nr = remove_res_constraints_state ens in
-      (effectStages, (nr :: existential, req, mergeState ens1 (pi, heap)))
+      let ens1, nr = maybe_quantify_res ens stagedSpec in
+      (effectStages, (nr @ existential, req, mergeState ens1 (pi, heap)))
     (* effects *)
     | RaisingEff (pi, heap, ins, ret') ->
-      let ens1, nr = remove_res_constraints_state ens in
+      let ens1, nr = maybe_quantify_res ens stagedSpec in
       (* move current norm state "behind" this effect boundary. the return value is implicitly that of the current stage *)
       ( effectStages
         @ [
             {
-              e_evars = nr :: existential;
+              e_evars = nr @ existential;
               e_pre = req;
               e_post = mergeState ens1 (pi, heap);
               e_constr = ins;
@@ -291,11 +304,11 @@ let normalise_stagedSpec (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
         freshNormStageRet ret' )
     (* higher-order functions *)
     | HigherOrder (pi, heap, ins, ret') ->
-      let ens1, nr = remove_res_constraints_state ens in
+      let ens1, nr = maybe_quantify_res ens stagedSpec in
       ( effectStages
         @ [
             {
-              e_evars = nr :: existential;
+              e_evars = nr @ existential;
               e_pre = req;
               e_post = mergeState ens1 (pi, heap);
               e_constr = ins;
