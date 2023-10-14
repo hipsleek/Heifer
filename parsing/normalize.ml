@@ -642,31 +642,34 @@ let remove_noncontributing_existentials :
 (* if we see [ex x; Norm(x->..., ...); ex y; Norm(y->..., ...)] and [x=y] appears somewhere, substitute y away (as y is in x's scope but not the other way around) *)
 (* this does just one iteration. could do to a fixed point *)
 let simplify_existential_locations sp =
-  let _, quantified_vars, _ =
+  let quantifiers, _, _ =
     List.fold_left
       (fun (ex, locs, i) c ->
         match c with
-        | Exists vs -> (SSet.add_seq (List.to_seq vs) ex, locs, i + 1)
-        | Require (p, h)
-        | NormalReturn (p, h)
-        | HigherOrder (p, h, _, _)
-        | RaisingEff (p, h, _, _) ->
-          let l =
-            used_vars_state (p, h)
-            |> SSet.filter (fun l -> SSet.mem l ex)
-            |> SSet.to_seq |> List.of_seq
-            |> List.map (fun a -> (a, i))
-          in
-          ( ex,
-            (* TODO actually this is generalized to vars, not just locations *)
-            (* used_locs_heap h *)
-            l :: locs
-            (* |> SSet.filter (fun l -> SSet.mem l ex) *)
-            (* |> SSet.union locs *),
-            i + 1 ))
-      (SSet.empty, [[]], 0) sp
+        | Exists vs ->
+          (* Format.printf "vs: %s %d@." (string_of_list Fun.id vs) i; *)
+          (List.map (fun v -> (v, i)) vs :: ex, locs, i + 1)
+        | _ -> (ex, locs, i)
+        (* | Require (p, h)
+           | NormalReturn (p, h)
+           | HigherOrder (p, h, _, _)
+           | RaisingEff (p, h, _, _) ->
+             let l =
+               (* used_vars_state (p, h)
+                  |> SSet.filter (fun l ->
+                         List.mem l (List.concat_map (List.map fst) ex)) *)
+               SSet.empty
+             in
+             ( ex,
+               (* TODO actually this is generalized to vars, not just locations *)
+               (* used_locs_heap h *)
+               SSet.union l locs
+               (* |> SSet.filter (fun l -> SSet.mem l ex) *)
+               (* |> SSet.union locs *),
+               i ) *))
+      ([], SSet.empty, 0) sp
   in
-  let quantified_vars = List.concat quantified_vars in
+  let quantifiers = List.concat quantifiers in
   let eqs =
     List.concat_map
       (fun s ->
@@ -682,12 +685,13 @@ let simplify_existential_locations sp =
   (* if there is an eq between two existential locations, keep only one *)
   List.fold_right
     (fun (a, b) sp ->
-      let a1 = List.assoc_opt a quantified_vars in
-      let b1 = List.assoc_opt b quantified_vars in
+      let a1 = List.assoc_opt a quantifiers in
+      let b1 = List.assoc_opt b quantifiers in
       match (a1, b1) with
       | Some ai, Some bi when a <> b ->
         let smaller = if ai <= bi then a else b in
         let larger = if ai <= bi then b else a in
+        (* Format.printf "substituting %s (%d) := %s (%d)@." larger (max ai bi) smaller min ai bi; *)
         let bs = [(larger, Var smaller)] in
         instantiateSpec bs sp
       | _ -> sp)
