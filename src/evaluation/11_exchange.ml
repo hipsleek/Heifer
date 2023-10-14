@@ -13,7 +13,7 @@ let exc_hanlder (y: int ref) (new_v:int): int
 (*@  
    ex old_v; 
    req y -> old_v; 
-   Norm(y -> new_v, old_v)
+   Norm(y -> new_v /\ res=old_v)
 @*)
 = match exchange new_v with 
   | v -> v 
