@@ -405,21 +405,18 @@ let rec collect_locations_heap (h : kappa) =
   | SepConj (a, b) ->
     SSet.union (collect_locations_heap a) (collect_locations_heap b)
 
-let collect_location_involved_vars_state (_, h) = collect_locations_heap h
+let collect_locations_vars_state (_, h) = collect_locations_heap h
 
 let collect_locations_eff eff =
   SSet.concat
     [
-      collect_location_involved_vars_state eff.e_pre;
-      collect_location_involved_vars_state eff.e_post;
+      collect_locations_vars_state eff.e_pre;
+      collect_locations_vars_state eff.e_post;
     ]
 
 let collect_locations_norm (_vs, pre, post) =
   SSet.concat
-    [
-      collect_location_involved_vars_state pre;
-      collect_location_involved_vars_state post;
-    ]
+    [collect_locations_vars_state pre; collect_locations_vars_state post]
 
 let collect_locations (sp : normalisedStagedSpec) =
   let effs, norm = sp in
@@ -542,7 +539,9 @@ let remove_noncontributing_existentials :
   and collect_related_vars_stage st =
     match st with
     | Require (p, h) | NormalReturn (p, h) -> collect_related_vars_state (p, h)
-    | Exists _ | HigherOrder _ | RaisingEff _ -> []
+    | Exists _ -> []
+    | HigherOrder (p, h, _constr, _ret) | RaisingEff (p, h, _constr, _ret) ->
+      collect_related_vars_state (p, h)
   and collect_related_vars_spec s =
     SSet.concat (List.concat_map collect_related_vars_stage s)
   and collect_related_vars_disj_spec ss =
@@ -566,28 +565,25 @@ let remove_noncontributing_existentials :
   let remove_subexpr_state included (p, h) =
     (remove_subexpr_pi included p, h)
   in
-  let handle ex pre post =
+  let handle fns ex pre post =
     let classes =
       merge_classes
         (collect_related_vars_state pre)
         (collect_related_vars_state post)
     in
     debug ~at:5 ~title:"classes" "%s" (string_of_list string_of_sset classes);
-    (* this strategy doesn't work because we can't always tell what variables are needed, e.g. in the precondition *)
-    (* let needed =
-         SSet.union (SSet.singleton "res")
-           (SSet.union
-              (collect_location_involved_vars_state pre)
-              (collect_location_involved_vars_state post))
-       in *)
-    (* heuristic: remove those which don't depend on any universally quantified variables (i.e. function parameters) *)
+    (* heuristic: important variables (overapproximate) are:
+        1. those related to universally quantified variables
+        2. those which may be outputs (related to res or locations)
+        3. those related to function stages *)
     let needed =
       SSet.concat
         [
           SSet.singleton "res";
+          fns;
           SSet.union
-            (collect_location_involved_vars_state pre)
-            (collect_location_involved_vars_state post);
+            (collect_locations_vars_state pre)
+            (collect_locations_vars_state post);
           SSet.diff
             (SSet.union (used_vars_state pre) (used_vars_state post))
             (SSet.of_list ex);
@@ -607,46 +603,21 @@ let remove_noncontributing_existentials :
     (ex1, pre1, post1)
   in
   fun (ess, norm) ->
+    let fn_stages =
+      List.map (fun efs -> fst efs.e_constr) ess |> SSet.of_list
+    in
     let ess1 =
       List.map
         (fun efs ->
-          (* let classes =
-               merge_classes
-                 (collect_related_vars_state efs.e_pre)
-                 (collect_related_vars_state efs.e_post)
-             in
-             let do_not_contribute =
-               (* TODO can the e_ret variables ever make it here? *)
-               List.filter (fun c -> not (SSet.mem "res" c)) classes |> SSet.concat
-             in
-             let ex =
-               List.filter
-                 (fun e -> not (SSet.mem e do_not_contribute))
-                 efs.e_evars
-             in
-             let p1 = remove_subexpr_state do_not_contribute efs.e_pre in
-             let p2 = remove_subexpr_state do_not_contribute efs.e_post in *)
-          let ex, pre, post = handle efs.e_evars efs.e_pre efs.e_post in
+          let ex, pre, post =
+            handle fn_stages efs.e_evars efs.e_pre efs.e_post
+          in
           { efs with e_evars = ex; e_pre = pre; e_post = post })
         ess
     in
     let norm1 =
       let ex, pre, post = norm in
-      let ex1, (p11, h1), (p21, h2) = handle ex pre post in
-      (* Format.printf "pre: %s@." (string_of_state pre); *)
-      (* Format.printf "p11: %s@." (string_of_pi p11); *)
-      (* let classes =
-           merge_classes
-             (collect_related_vars_state (p1, h1))
-             (collect_related_vars_state (p2, h2))
-         in
-         (* TODO be careful removing existentials needed by fn/eff stages *)
-         let do_not_contribute =
-           List.filter (fun c -> not (SSet.mem "res" c)) classes |> SSet.concat
-         in
-         let ex1 = List.filter (fun e -> not (SSet.mem e do_not_contribute)) ex in
-         let p11 = remove_subexpr_pi do_not_contribute p1 in
-         let p21 = remove_subexpr_pi do_not_contribute p2 in *)
+      let ex1, (p11, h1), (p21, h2) = handle fn_stages ex pre post in
       (ex1, (p11, h1), (p21, h2))
     in
     (ess1, norm1)
