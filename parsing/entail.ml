@@ -275,7 +275,7 @@ let instantiate_pred : pred_def -> term list -> term -> pred_def =
   in
   { pred with p_body }
 
-let rec unfold_predicate_aux fvenv pred prefix (s : spec) : disj_spec =
+let rec unfold_predicate_aux pred prefix (s : spec) : disj_spec =
   match s with
   | [] ->
     let r = List.map Acc.to_list prefix in
@@ -294,10 +294,10 @@ let rec unfold_predicate_aux fvenv pred prefix (s : spec) : disj_spec =
                  p1 |> Acc.add (NormalReturn (p, h)) |> Acc.add_all disj)
                pred1.p_body)
     in
-    unfold_predicate_aux fvenv pred prefix s1
+    unfold_predicate_aux pred prefix s1
   | c :: s1 ->
     let pref = List.map (fun p -> Acc.add c p) prefix in
-    unfold_predicate_aux fvenv pred pref s1
+    unfold_predicate_aux pred pref s1
 
 (* let unfold_predicate : pred_def -> disj_spec -> disj_spec =
    fun pred ds ->
@@ -306,14 +306,14 @@ let rec unfold_predicate_aux fvenv pred prefix (s : spec) : disj_spec =
 (** f;a;e \/ b and a == c \/ d
   => f;(c \/ d);e \/ b
   => f;c;e \/ f;d;e \/ b *)
-let unfold_predicate_spec : fvenv -> pred_def -> spec -> disj_spec =
- fun fvenv pred sp -> unfold_predicate_aux fvenv pred [Acc.empty] sp
+let unfold_predicate_spec : pred_def -> spec -> disj_spec =
+ fun pred sp -> unfold_predicate_aux pred [Acc.empty] sp
 
 let unfold_predicate_norm :
-    fvenv -> pred_def -> normalisedStagedSpec -> normalisedStagedSpec list =
- fun fvenv pred sp ->
+    pred_def -> normalisedStagedSpec -> normalisedStagedSpec list =
+ fun pred sp ->
   List.map normalise_spec
-    (unfold_predicate_spec fvenv pred (normalisedStagedSpec2Spec sp))
+    (unfold_predicate_spec pred (normalisedStagedSpec2Spec sp))
 
 (** proof context *)
 type pctx = {
@@ -329,9 +329,7 @@ type pctx = {
   unfolded : (string * [ `Left | `Right ]) list;
   (* lemmas applied *)
   applied : string list;
-  (* the environment from forward verification, containing lambda definitions *)
-  (* TODO get rid of this *)
-  fvenv : fvenv;
+      (* the environment from forward verification, containing lambda definitions *)
 }
 
 let string_of_pctx ctx =
@@ -355,7 +353,7 @@ let string_of_pctx ctx =
     (string_of_list Fun.id ctx.applied)
     "<...>"
 
-let create_pctx lems preds q_vars fvenv =
+let create_pctx lems preds q_vars =
   {
     lems;
     preds;
@@ -364,7 +362,6 @@ let create_pctx lems preds q_vars fvenv =
     q_vars;
     unfolded = [];
     applied = [];
-    fvenv;
   }
 
 (* it's possible we may merge the same lambda into the map multiple times because we recurse after unfolding, which may have the lambda there again *)
@@ -498,7 +495,7 @@ and try_other_measures :
     (c1, res)
   with
   | Some (c1, def) when not (List.mem (c1, `Left) ctx.unfolded) ->
-    let unf = unfold_predicate_norm ctx.fvenv def s1 in
+    let unf = unfold_predicate_norm def s1 in
     let@ s1_1 = all ~to_s:string_of_normalisedStagedSpec unf in
     check_staged_subsumption_stagewise
       { ctx with unfolded = (c1, `Left) :: ctx.unfolded }
@@ -514,7 +511,7 @@ and try_other_measures :
        (c2, res)
      with
     | Some (c2, pred_def) when not (List.mem (c2, `Right) ctx.unfolded) ->
-      let unf = unfold_predicate_norm ctx.fvenv pred_def s2 in
+      let unf = unfold_predicate_norm pred_def s2 in
       let@ s2_1 = any ~name:"?" ~to_s:string_of_normalisedStagedSpec unf in
       check_staged_subsumption_stagewise
         { ctx with unfolded = (c2, `Right) :: ctx.unfolded }
@@ -700,15 +697,15 @@ let rec apply_tactics ts lems preds (ds1 : disj_spec) (ds2 : disj_spec) =
     (ds1, ds2) ts
 
 let check_staged_subsumption :
-    fvenv -> lemma SMap.t -> pred_def SMap.t -> spec -> spec -> unit option =
- fun fvenv lems preds n1 n2 ->
+    lemma SMap.t -> pred_def SMap.t -> spec -> spec -> unit option =
+ fun lems preds n1 n2 ->
   let es1, ns1 = normalise_spec n1 in
   let es2, ns2 = normalise_spec n2 in
   let q_vars =
     Forward_rules.getExistientalVar (es1, ns1)
     @ Forward_rules.getExistientalVar (es2, ns2)
   in
-  let ctx = create_pctx lems preds q_vars fvenv in
+  let ctx = create_pctx lems preds q_vars in
   check_staged_subsumption_stagewise ctx 0 True (es1, ns1) (es2, ns2)
 
 let create_induction_hypothesis params ds1 ds2 =
@@ -750,7 +747,6 @@ let create_induction_hypothesis params ds1 ds2 =
   S1 \/ S2 |= S3 \/ S4
 *)
 let check_staged_subsumption_disj :
-    fvenv ->
     string ->
     string list ->
     tactic list ->
@@ -759,7 +755,7 @@ let check_staged_subsumption_disj :
     disj_spec ->
     disj_spec ->
     bool =
- fun fvenv mname params _ts lems preds ds1 ds2 ->
+ fun mname params _ts lems preds ds1 ds2 ->
   info
     ~title:(Format.asprintf "disj subsumption: %s" mname)
     "%s\n<:\n%s" (string_of_disj_spec ds1) (string_of_disj_spec ds2);
@@ -770,7 +766,7 @@ let check_staged_subsumption_disj :
   (* let ds1, ds2 = apply_tactics ts lems preds ds1 ds2 in *)
   (let@ s1 = all ~to_s:string_of_spec ds1 in
    let@ s2 = any ~name:"subsumes-disj-rhs-any" ~to_s:string_of_spec ds2 in
-   check_staged_subsumption fvenv lems preds s1 s2)
+   check_staged_subsumption lems preds s1 s2)
   |> succeeded
 
 let derive_predicate m_name m_params disj =

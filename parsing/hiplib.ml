@@ -1167,8 +1167,8 @@ let report_result ?kind ?given_spec ?given_spec_n ?inferred_spec ?inferred_spec_
   in
   f ?kind ?given_spec ?given_spec_n ?inferred_spec ?inferred_spec_n ?forward_time_ms ?entail_time_ms ?result name
 
-let check_obligation fvenv meth prog predicates (l, r) =
-  let res = Entail.check_staged_subsumption_disj fvenv meth.m_name meth.m_params meth.m_tactics prog.cp_lemmas predicates l r in
+let check_obligation meth prog predicates (l, r) =
+  let res = Entail.check_staged_subsumption_disj meth.m_name meth.m_params meth.m_tactics prog.cp_lemmas predicates l r in
   report_result ~kind:"Obligation" ~given_spec:r ~inferred_spec:l ~result:res meth.m_name
 
 exception Method_failure
@@ -1202,8 +1202,8 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) =
     inf, preds_with_lambdas, env
   in
   (* check misc obligations. don't stop on failure for now *)
-  fvenv.fv_lambda_obl |> List.iter (check_obligation fvenv meth prog predicates);
-  fvenv.fv_match_obl |> List.iter (check_obligation fvenv meth prog predicates);
+  fvenv.fv_lambda_obl |> List.iter (check_obligation meth prog predicates);
+  fvenv.fv_match_obl |> List.iter (check_obligation meth prog predicates);
 
   (* check the main spec *)
   let time_stamp_afterForward = Sys.time () in
@@ -1228,7 +1228,7 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) =
           | true -> entailmentchecking inferred_spec_n given_spec_n
           | false ->
             (* normalization occurs after unfolding in entailment *)
-            Entail.check_staged_subsumption_disj fvenv meth.m_name meth.m_params meth.m_tactics prog.cp_lemmas predicates inferred_spec given_spec
+            Entail.check_staged_subsumption_disj meth.m_name meth.m_params meth.m_tactics prog.cp_lemmas predicates inferred_spec given_spec
         with Norm_failure ->
           (* norm failing all the way to the top level may prevent some branches from being explored during proof search. this does not happen in any tests yet, however, so keep error-handling simple. if it ever happens, return an option from norm entry points *)
           false
