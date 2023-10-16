@@ -17,6 +17,8 @@
 ;; want to regenerate the parser while building with dune, but it doesn't seem
 ;; essential right now.
 
+(copy_files# ../utils/*.ml{,i})
+
 (rule
  (targets camlinternalMenhirLib.ml)
  (mode    fallback)
@@ -46,3 +48,10 @@
 (ocamllex
  (modules lexer)
  (mode fallback))
+
+
+(executables
+ (names hip)
+ (modules parser lexer Syntaxerr hip Pprintast Asttypes Ast_helper Longident Parsetree Location Warnings Misc Terminfo Docstrings Build_path_prefix_map Clflags Config Profile Numbers Identifiable Arg_helper CamlinternalMenhirLib)
+ (modules_without_implementation asttypes parsetree)
+)
