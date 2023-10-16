@@ -4,6 +4,7 @@ open Hiptypes
 open Pretty
 open Normalize
 include Subst
+open Debug
 
 
 let concatenateSpecsWithEvent (current:disj_spec) (event:spec) : disj_spec = 
@@ -260,6 +261,10 @@ let primitives = ["+"; "-"; "="; "not"; "::"; "&&"; "||"; ">"; "<"; ">="; "<="]
 
 *)
 let rec handling_spec env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj_spec)) (h_ops:(string * string option * disj_spec) list) : spec list * fvenv = 
+  let@ _ = Debug.span (fun r ->
+    (* Format.asprintf "handling" *)
+    debug ~at:3 ~title:"handling_spec" "match\n  (*@@ %s @@*)\nwith\n| ...\n| ...\n==>\n%s" (string_of_spec (normalisedStagedSpec2Spec scr_spec)) (string_of_result string_of_disj_spec (Option.map fst r))
+    ) in
   let (scr_eff_stages, scr_normal) = scr_spec in 
   match scr_eff_stages with 
   | [] ->
@@ -280,10 +285,13 @@ let rec handling_spec env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj
       let p2 = instantiatePure ["res", Var new_res] p2 in
       (* Format.printf "p2: %s@." (string_of_pi p2); *)
       let hist = [[Exists (new_res::ex); Require (p1, h1); NormalReturn (p2, h2)]] in
+
+      let@ _ = Debug.span (fun r ->
+        debug ~at:3 ~title:"handling_spec: completely handled" "match\n  (*@@ %s @@*)\nwith\n| %s -> (*@@ %s *@@)\n| ...\n==>\n%s" (string_of_spec (normalisedStagedSpec2Spec scr_spec)) h_val_param (string_of_disj_spec h_val_spec) (string_of_result string_of_disj_spec r);
+      ) in
+
       concatenateSpecsWithSpec hist h_spec
     in
-
-    debug ~at:3 ~title:"handling_spec: completely handled" "match\n  (*@@ %s @@*)\nwith\n| %s -> (*@@ %s *@@)\n| ...\n==>\n%s" (string_of_spec (normalisedStagedSpec2Spec scr_spec)) h_val_param (string_of_disj_spec h_val_spec) (string_of_disj_spec current);
 
     current, env
     
@@ -297,11 +305,15 @@ let rec handling_spec env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj
     let (label, _) = x.e_constr in
     match lookforHandlingCases h_ops label with 
     | None ->
+
+      let@ _ = Debug.span (fun r ->
+        debug ~at:3 ~title:(Format.asprintf "handling_spec: unhandled effect %s" label)"%s\n==>\n%s" (string_of_spec (normalisedStagedSpec2Spec scr_spec)) (string_of_result string_of_disj_spec (Option.map fst r));
+      ) in
+
       (* effect x is unhandled. handle the rest of the trace and append it after the unhandled effect. this assumption is sound for deep handlers, as if x is resumed, xs will be handled under this handler. *)
       let r, env = handling_spec env (xs, scr_normal) h_norm h_ops in
       let current = concatenateEventWithSpecs (effectStage2Spec [x]) (r) in
 
-      debug ~at:3 ~title:"handling_spec: unhandled" "%s\n==>\n%s" (string_of_spec (normalisedStagedSpec2Spec scr_spec)) (string_of_disj_spec current);
 
       current, env
 
@@ -309,15 +321,19 @@ let rec handling_spec env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj
       (* effect x is handled by a branch of the form (| (Eff effFormalArg) k -> spec) *)
       (* TODO we might have to constrain this *)
 
-      debug ~at:5 ~title:"before freshen" "%s" (string_of_disj_spec handler_body_spec);
+      (* debug ~at:5 ~title:"before freshen" "%s" (string_of_disj_spec handler_body_spec); *)
 
       (* freshen, as each instance of the handler body should not interfere with previous ones *)
       let handler_body_spec = renamingexistientalVar handler_body_spec in
 
-      debug ~at:5 ~title:(Format.asprintf "handler_body_spec for effect stage %s" (fst x.e_constr)) "%s" (string_of_disj_spec handler_body_spec);
+      (* debug ~at:5 ~title:(Format.asprintf "handler_body_spec for effect stage %s" (fst x.e_constr)) "%s" (string_of_disj_spec handler_body_spec); *)
 
       (* the rest of the trace is now the spec of the continuation *)
       let continuation_spec = normalisedStagedSpec2Spec (xs, scr_normal) in 
+
+      let@ _ = Debug.span (fun r ->
+        debug ~at:3 ~title:"handling_spec: handled" "match\n  (*@@ %s @@*)\nwith\n| %s k -> (*@@ %s @@*)\n| ...\n\ncontinue's spec is the scrutinee's continuation:\n  %s\n\n==>\n%s" (string_of_spec (normalisedStagedSpec2Spec scr_spec)) (fst x.e_constr) (string_of_disj_spec handler_body_spec) (string_of_spec continuation_spec) (string_of_result string_of_disj_spec (Option.map fst r));
+      ) in
 
       let handled_spec, env =
         (* make use of the handler body spec instead of reanalyzing. for each of its disjuncts, ... *)
@@ -401,7 +417,6 @@ let rec handling_spec env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj
 
           let current = concatenateSpecsWithEvent handled norm in
 
-          debug ~at:3 ~title:"handling_spec: handled" "match\n  (*@@ %s @@*)\nwith\n| %s k -> (*@@ %s @@*)\n| ...\n\ncontinue's spec is the scrutinee's continuation:\n  %s\n\n==>\n%s" (string_of_spec (normalisedStagedSpec2Spec scr_spec)) (fst x.e_constr) (string_of_disj_spec handler_body_spec) (string_of_spec continuation_spec) (string_of_disj_spec current);
           current, env)
       in
       let res =

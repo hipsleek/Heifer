@@ -1,6 +1,7 @@
 open Hipcore
 open Hiptypes
 open Pretty
+open Debug
 
 (* let main () =
    TEnv.equate (TVar "a") Int;

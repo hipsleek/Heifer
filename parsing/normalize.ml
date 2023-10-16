@@ -2,6 +2,7 @@ open Hipcore
 open Hiptypes
 open Pretty
 open Subst
+open Debug
 
 exception Norm_failure
 

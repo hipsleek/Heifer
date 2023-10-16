@@ -1,3 +1,5 @@
+let ( let@ ) f x = f x
+
 let rec split_last xs =
   match xs with
   | [] -> failwith "split_last"

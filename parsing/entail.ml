@@ -4,6 +4,7 @@ open Pretty
 open Infer_types
 open Normalize
 open Subst
+open Debug
 
 type fvenv = Forward_rules.fvenv
 
@@ -181,8 +182,6 @@ let instantiate_existentials :
 let freshen_existentials vs state =
   let vars_fresh = List.map (fun v -> (v, Var (verifier_getAfreeVar v))) vs in
   (vars_fresh, instantiate_state vars_fresh state)
-
-let ( let@ ) f x = f x
 
 open Res.Option
 

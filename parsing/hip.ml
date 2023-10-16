@@ -10,7 +10,7 @@ let redirect_stdout f =
   close_out newstdout
 
 let () =
-  Hiplib.Pretty.(debug_level :=
+  Hiplib.Debug.(debug_level :=
     Option.bind (Sys.getenv_opt "DEBUG") int_of_string_opt
     |> Option.value ~default:0);
   Hiplib.(test_mode :=

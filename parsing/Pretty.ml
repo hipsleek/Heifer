@@ -462,31 +462,6 @@ let string_of_sset s =
 let string_of_smap pp s =
   Format.asprintf "{%s}" (String.concat ", " (List.map (fun (k, v) -> Format.asprintf "%s -> %s" k (pp v)) (SMap.bindings s)))
 
-(* 0: no output
-   1: high-level output to explain to a user what is going on
-   2 and above: for developers, higher levels give more detail *)
-let debug_level = ref 0
-let debug_event_n = ref 0
-
-let debug_print title s =
-  let title = Format.asprintf "%s | %d" title !debug_event_n in
-  if String.length title < 6 then
-    print_string (yellow title ^ " ")
-  else
-    print_endline (yellow title);
-  print_endline s;
-  if not (String.equal "" s) then print_endline ""
-
-let debug ~at ~title fmt =
-  Format.kasprintf
-    (fun s ->
-      if !debug_level >= at then (
-        debug_print title s);
-      incr debug_event_n)
-    fmt
-
-(** info output is shown to the user *)
-let info ~title fmt = debug ~at:1 ~title fmt
 
 let conj xs =
   match xs with

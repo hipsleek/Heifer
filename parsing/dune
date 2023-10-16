@@ -63,7 +63,7 @@
 (library
  (name hipcore)
  (libraries str)
- (modules subst UF Pretty common hiptypes)
+ (modules debug subst UF Pretty common hiptypes)
  (preprocess (pps ppx_expect ppx_deriving.std)))
 
 (library
@@ -76,7 +76,7 @@
 (library
  (name ocamlfrontend)
  (modules
- parser lexer Syntaxerr Pprintast Printast Asttypes Ast_helper Longident Parsetree Location Warnings Misc Terminfo Docstrings Build_path_prefix_map Clflags Profile Numbers Identifiable Arg_helper CamlinternalMenhirLib Debug)
+ parser lexer Syntaxerr Pprintast Printast Asttypes Ast_helper Longident Parsetree Location Warnings Misc Terminfo Docstrings Build_path_prefix_map Clflags Profile Numbers Identifiable Arg_helper CamlinternalMenhirLib)
  (libraries hipprover)
  (flags :standard -w -A))
 

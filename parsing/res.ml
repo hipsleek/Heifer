@@ -1,5 +1,6 @@
 open Hipcore
 open Pretty
+open Debug
 
 module Res = struct
   let ( let* ) = Result.bind

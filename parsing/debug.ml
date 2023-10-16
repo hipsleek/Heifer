@@ -1,139 +1,84 @@
+(* 0: no output except results
+   1: high-level output to explain to a user what is going on
+   2 and above: for developers, higher levels give more detail *)
+let debug_level = ref 0
+let debug_event_n = ref 0
+let stack = ref []
+let advanced = ref true
+let pp_event ppf r = Format.fprintf ppf "_%d" r
+let is_closing = ref false
 
-let string_of_token =
-  let open Parser in
-  function
-| AMPERAMPER -> "AMPERAMPER"
-| AMPERSAND -> "AMPERSAND"
-| AND -> "AND"
-| AS -> "AS"
-| ASSERT -> "ASSERT"
-| BACKQUOTE -> "BACKQUOTE"
-| BANG -> "BANG"
-| BAR -> "BAR"
-| BARBAR -> "BARBAR"
-| BARRBRACKET -> "BARRBRACKET"
-| BEGIN -> "BEGIN"
-| CHAR _ -> "CHAR"
-| CLASS -> "CLASS"
-| COLON -> "COLON"
-| COLONCOLON -> "COLONCOLON"
-| COLONEQUAL -> "COLONEQUAL"
-| COLONGREATER -> "COLONGREATER"
-| COMMA -> "COMMA"
-| CONSTRAINT -> "CONSTRAINT"
-| DO -> "DO"
-| DONE -> "DONE"
-| DOT -> "DOT"
-| DOTDOT -> "DOTDOT"
-| DOWNTO -> "DOWNTO"
-| EFFECT -> "EFFECT"
-| EXISTS -> "EXISTS"
-| ELSE -> "ELSE"
-| END -> "END"
-| EOF -> "EOF"
-| EQUAL -> "EQUAL"
-| EXCEPTION -> "EXCEPTION"
-| EXTERNAL -> "EXTERNAL"
-| FALSE -> "FALSE"
-| FLOAT _ -> "FLOAT"
-| FOR -> "FOR"
-| FUN -> "FUN"
-| FUNCTION -> "FUNCTION"
-| FUNCTOR -> "FUNCTOR"
-| REQUIRES -> "REQUIRES"
-| ENSURES -> "ENSURES"
-| EMP -> "EMP"
-| GREATER -> "GREATER"
-| GREATERRBRACE -> "GREATERRBRACE"
-| GREATERRBRACKET -> "GREATERRBRACKET"
-| IF -> "IF"
-| IN -> "IN"
-| INCLUDE -> "INCLUDE"
-| INFIXOP0 _ -> "INFIXOP0"
-| INFIXOP1 _ -> "INFIXOP1"
-| INFIXOP2 _ -> "INFIXOP2"
-| INFIXOP3 _ -> "INFIXOP3"
-| INFIXOP4 _ -> "INFIXOP4"
-| DOTOP _ -> "DOTOP"
-| LETOP _ -> "LETOP"
-| ANDOP _ -> "ANDOP"
-| INHERIT -> "INHERIT"
-| INITIALIZER -> "INITIALIZER"
-| INT _ -> "INT"
-| LABEL _ -> "LABEL"
-| LAZY -> "LAZY"
-| LBRACE -> "LBRACE"
-| LBRACELESS -> "LBRACELESS"
-| LBRACKET -> "LBRACKET"
-| LBRACKETBAR -> "LBRACKETBAR"
-| LBRACKETLESS -> "LBRACKETLESS"
-| LBRACKETGREATER -> "LBRACKETGREATER"
-| LBRACKETPERCENT -> "LBRACKETPERCENT"
-| LBRACKETPERCENTPERCENT -> "LBRACKETPERCENTPERCENT"
-| LESS -> "LESS"
-| LESSMINUS -> "LESSMINUS"
-| LET -> "LET"
-| LIDENT _ -> "LIDENT"
-| LPAREN -> "LPAREN"
-| LBRACKETAT -> "LBRACKETAT"
-| LBRACKETATAT -> "LBRACKETATAT"
-| LBRACKETATATAT -> "LBRACKETATATAT"
-| MATCH -> "MATCH"
-| METHOD -> "METHOD"
-| MINUS -> "MINUS"
-| MINUSDOT -> "MINUSDOT"
-| MINUSGREATER -> "MINUSGREATER"
-| MODULE -> "MODULE"
-| MUTABLE -> "MUTABLE"
-| NEW -> "NEW"
-| NONREC -> "NONREC"
-| OBJECT -> "OBJECT"
-| OF -> "OF"
-| OPEN -> "OPEN"
-| OPTLABEL _ -> "OPTLABEL"
-| OR -> "OR"
-| PERCENT -> "PERCENT"
-| PLUS -> "PLUS"
-| PLUSDOT -> "PLUSDOT"
-| PLUSEQ -> "PLUSEQ"
-| PREFIXOP _ -> "PREFIXOP"
-| PRIVATE -> "PRIVATE"
-| QUESTION -> "QUESTION"
-| QUOTE -> "QUOTE"
-| RBRACE -> "RBRACE"
-| RBRACKET -> "RBRACKET"
-| REC -> "REC"
-| RPAREN -> "RPAREN"
-| SEMI -> "SEMI"
-| SEMISEMI -> "SEMISEMI"
-| HASH -> "HASH"
-| HASHOP _ -> "HASHOP"
-| SIG -> "SIG"
-| STAR -> "STAR"
-| STRING _ -> "STRING"
-| STRUCT -> "STRUCT"
-| THEN -> "THEN"
-| TILDE -> "TILDE"
-| TO -> "TO"
-| TRUE -> "TRUE"
-| TRY -> "TRY"
-| TYPE -> "TYPE"
-| UIDENT _ -> "UIDENT"
-| UNDERSCORE -> "UNDERSCORE"
-| VAL -> "VAL"
-| VIRTUAL -> "VIRTUAL"
-| WHEN -> "WHEN"
-| WHILE -> "WHILE"
-| WITH -> "WITH"
-| COMMENT _ -> "COMMENT"
-| LSPECCOMMENT -> "LSPECCOMMENT"
-| RSPECCOMMENT -> "RSPECCOMMENT"
-| PREDICATE -> "PREDICATE"
-| LEMMA -> "LEMMA"
-| DOCSTRING _ -> "DOCSTRING"
-| EOL -> "EOL"
-| QUOTED_STRING_EXPR _ -> "QUOTED_STRING_EXPR"
-| QUOTED_STRING_ITEM _ -> "QUOTED_STRING_ITEM"
-| CONJUNCTION -> "CONJUNCTION"
-| DISJUNCTION -> "DISJUNCTION"
-| IMPLICATION -> "IMPLICATION"
+let summarize_stack () =
+  (* String.concat "@"
+     (!stack |> List.rev |> List.map (fun i -> Format.asprintf "%a" pp_event i)) *)
+  match !stack with [] -> "" | e :: _ -> Format.asprintf "%a" pp_event e
+
+let debug_print title s =
+  let title =
+    let stack =
+      if not !is_closing then ""
+      else Format.asprintf " <-%s" (summarize_stack ())
+    in
+    Format.asprintf "%s | %a%s" title pp_event !debug_event_n stack
+  in
+  if String.length title < 6 then print_string (Pretty.yellow title ^ " ")
+  else print_endline (Pretty.yellow title);
+  print_endline s;
+  if not (String.equal "" s) then print_endline ""
+
+(* someday https://github.com/ocaml/ocaml/pull/126 *)
+let debug ~at ~title fmt =
+  Format.kasprintf
+    (fun s ->
+      if !debug_level >= at then debug_print title s;
+      incr debug_event_n)
+    fmt
+
+(** info output is shown to the user *)
+let info ~title fmt = debug ~at:1 ~title fmt
+
+type ctx = {
+  event : int;
+  stack : string;
+}
+
+(* let get_event () =
+   let r = !debug_event_n in
+   incr debug_event_n;
+   r *)
+
+let pp_opening ppf r =
+  match r with None -> () | Some r -> Format.fprintf ppf "%a" pp_event r
+
+let span show k =
+  let start = !debug_event_n in
+
+  (* let sum1 = summarize_stack () in *)
+  (* let args = *)
+  (* { stack = sum1; event = start } *)
+  show None;
+  (* in *)
+  stack := start :: !stack;
+  (* Format.printf "%s@." args; *)
+  let r = k () in
+
+  (* let stop = !debug_event_n in *)
+  (* let sum2 = summarize_stack () in *)
+  (* { stack = sum2; event = stop } *)
+
+  (* this is safe because the user is only supposed to call debug inside here, not do further recursion, so this is just a way of communicating non-locally across functions in this module *)
+  is_closing := true;
+  show (Some r);
+  is_closing := false;
+
+  stack := List.tl !stack;
+  (* Format.printf "%s@." ; *)
+  r
+
+let pp_result f ppf r =
+  match r with
+  | None -> Format.fprintf ppf "..."
+  | Some r -> Format.fprintf ppf "%a" f r
+
+let string_of_result f r =
+  match r with None -> "..." | Some r -> Format.asprintf "%s" (f r)
