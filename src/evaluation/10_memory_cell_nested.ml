@@ -29,17 +29,15 @@ let test ()
 @*)
 = 
   let x = read () in 
-  let y = x +1 in 
+  let y = x + 1 in 
   write y;
   read () 
 
 let write_handler i  
 (*@ 
-  ex x1 ret z;
-  Read(emp, x1); 
-  req i->z; 
-  Read(i->x1+1,  ret);
-  Norm(emp, ret)
+  ex x1; Read(emp, x1); 
+  ex z; req i->z; 
+  ex ret; Read(i->x1+1, ret); Norm(emp, ret)
 @*)
 = 
   match test () with
