@@ -556,3 +556,6 @@ let quantify_res p =
 let quantify_res_state (p, h) =
   let p1, nv = quantify_res p in
   (p1, h), nv
+
+  let contains_res_state (p, h) =
+    SSet.mem "res" (Subst.used_vars_state (p, h))

@@ -136,19 +136,6 @@ let rec kappa_of_list li =
   | [] -> EmptyHeap
   | (x, v) :: xs -> SepConj (PointsTo (x, v), kappa_of_list xs)
 
-(** when doing a normalize step, it's possible the new state doesn't contain a res, e.g.
-    ens res=1 + ens a=1 ==> ens res=1/\a=1
-  in which case we shouldn't remove freshen the res *)
-let maybe_quantify_res old new_ =
-  let used = used_vars_stage new_ in
-  (* Format.printf "used: %s@." (string_of_sset used); *)
-  (* Format.printf "old: %s@." (string_of_state old); *)
-  (* Format.printf "new_: %s@." (string_of_staged_spec new_); *)
-  if SSet.mem "res" used then
-    let st, nr = quantify_res_state old in
-    (st, [nr])
-  else (old, [])
-
 (* (x, t1) -* (y, t2), where li is a heap containing y *)
 (* flag true => add to precondition *)
 (* flag false => add to postcondition *)
@@ -254,8 +241,7 @@ let normaliseMagicWand h1 h2 existential flag assumptions : kappa * pi =
 let normalise_stagedSpec (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
     : normalisedStagedSpec =
   let res =
-    let effectStages, normalStage = acc in
-    let existential, req, ens = normalStage in
+    let effectStages, (existential, req, ens) = acc in
     match stagedSpec with
     | Exists li -> (effectStages, (existential @ li, req, ens))
     | Require (p3, h3) ->
@@ -285,16 +271,30 @@ let normalise_stagedSpec (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
       (effectStages, normalStage')
     | NormalReturn (pi, heap) ->
       (* pi may contain a res, so split the res out of the previous post *)
-      let ens1, nr = maybe_quantify_res ens stagedSpec in
-      (effectStages, (nr @ existential, req, mergeState ens1 (pi, heap)))
+      (* if both sides contain res, remove from the left side *)
+      let ens1, nex =
+        if contains_res_state ens && contains_res_state (pi, heap) then
+          let e, n = quantify_res_state ens in
+          (e, [n])
+        else (ens, [])
+      in
+      (* let ens1, nex = merge_state_containing_res ens (pi, heap) in *)
+      (effectStages, (nex @ existential, req, mergeState ens1 (pi, heap)))
     (* effects *)
     | RaisingEff (pi, heap, ins, ret') ->
-      let ens1, nr = maybe_quantify_res ens stagedSpec in
+      (* the right side always contains a res. remove from the left side if present *)
+      let ens1, nex =
+        if contains_res_state ens then
+          let e, n = quantify_res_state ens in
+          (e, [n])
+        else (ens, [])
+      in
+      (* merge_state_containing_res ens (pi, heap) in *)
       (* move current norm state "behind" this effect boundary. the return value is implicitly that of the current stage *)
       ( effectStages
         @ [
             {
-              e_evars = nr @ existential;
+              e_evars = nex @ existential;
               e_pre = req;
               e_post = mergeState ens1 (pi, heap);
               e_constr = ins;
@@ -305,11 +305,17 @@ let normalise_stagedSpec (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
         freshNormStageRet ret' )
     (* higher-order functions *)
     | HigherOrder (pi, heap, ins, ret') ->
-      let ens1, nr = maybe_quantify_res ens stagedSpec in
+      (* let ens1, nex = merge_state_containing_res ens (pi, heap) in *)
+      let ens1, nex =
+        if contains_res_state ens then
+          let e, n = quantify_res_state ens in
+          (e, [n])
+        else (ens, [])
+      in
       ( effectStages
         @ [
             {
-              e_evars = nr @ existential;
+              e_evars = nex @ existential;
               e_pre = req;
               e_post = mergeState ens1 (pi, heap);
               e_constr = ins;
@@ -714,6 +720,11 @@ let final_simplification (effs, norm) =
 
 (* the main entry point *)
 let normalise_spec sp =
+  let@ _ =
+    Debug.span (fun r ->
+        debug ~at:3 ~title:"normalise_spec" "%s\n==>\n%s" (string_of_spec sp)
+          (string_of_result string_of_normalisedStagedSpec r))
+  in
   let r =
     let sp1 = sp |> simplify_existential_locations in
     debug ~at:4 ~title:"remove some existential eqs" "%s\n==>\n%s"
@@ -737,8 +748,6 @@ let normalise_spec sp =
       (string_of_normalisedStagedSpec sp5);
     sp5
   in
-  debug ~at:3 ~title:"normalise_spec" "%s\n==>\n%s" (string_of_spec sp)
-    (string_of_normalisedStagedSpec r);
   r
 
 let rec effectStage2Spec (effectStages : effectStage list) : spec =

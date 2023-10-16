@@ -35,8 +35,8 @@ let%expect_test "instantiation/renaming of existentials" =
   [a] |> show;
   [%expect
     {|
-    ex v1; Norm(res=v1+1/\b=1)
-    Norm(res=v1+1/\b=1)
+    ex v0; Norm(res=v0+1/\b=1)
+    Norm(res=v0+1/\b=1)
     ex b; Norm(res=a+1/\b=1) |}]
 
 let%expect_test "apply lemma" =
@@ -119,26 +119,26 @@ let%expect_test "apply lemma" =
     parameter of lemma does not appear on the right
     lemma: forall [x], f <: ex b; Norm(res=b/\T)
     original: req emp; f(1); req emp; Norm(res=1)
-    result: Some Norm(T/\1=v1); ex v1; Norm(res=v1)
-    norm: Some ex v1; Norm(1=v1/\res=v1)
+    result: Some Norm(T/\1=v0); ex v0; Norm(res=v0)
+    norm: Some ex v0; Norm(1=v0/\res=v0)
     ---
     prefix
     lemma: forall [x], f <: Norm(res=x+1)
-    original: req emp; g(2); req emp; ens res=2; f(1); req emp; Norm(res=1)
+    original: req emp; g(2); req emp; f(1); req emp; Norm(res=1)
     result: Some g(2); Norm(T/\1=x+1); Norm(res=x+1)
     norm: Some g(2); Norm(1=x+1/\res=x+1)
     ---
     suffix
     lemma: forall [x], f <: Norm(res=x+1)
-    original: req emp; f(1); req emp; ens res=1; g(2); req emp; Norm(res=2)
+    original: req emp; f(1); req emp; g(2); req emp; Norm(res=2)
     result: Some Norm(T/\1=x+1); Norm(res=x+1); g(2)
-    norm: Some ens 1=x+1/\res=x+1; g(2); Norm(res=2)
+    norm: Some ex v0; ens 1=x+1/\v0=x+1; g(2); Norm(res=2)
     ---
     related suffix
     lemma: forall [x], f <: Norm(res=x+1)
-    original: req emp; f(y); req emp; ens res=y; g(y); req emp; Norm(res=y)
+    original: req emp; f(y); ex v1; req emp; ens v1=y; g(y); req emp; Norm(res=y)
     result: Some Norm(T/\y=x+1); Norm(res=x+1); g(y)
-    norm: Some ens y=x+1/\res=x+1; g(y); Norm(res=y)
+    norm: Some ex v0; ens y=x+1/\v0=x+1; g(y); Norm(res=y)
     ---
     precondition in lemma (currently ignored)
     lemma: forall [x], f <: Norm(res=x/\T)
@@ -166,13 +166,13 @@ let%expect_test "apply lemma" =
     ---
     extra state to be matched
     lemma: forall [x], f <: Norm(res=x+1)
-    original: req emp; ens res=2/\b=2; f(1); req emp; Norm(res=1)
+    original: req emp; ens b=2; f(1); req emp; Norm(res=1)
     result: Some Norm(res=2/\b=2); Norm(T/\1=x+1); Norm(res=x+1)
     norm: Some Norm(b=2/\1=x+1/\res=x+1)
     ---
     extra precondition to be matched
     lemma: forall [x], f <: Norm(res=x+1)
-    original: req b=2; ens res=2; f(1); req emp; Norm(res=1)
+    original: req b=2; f(1); req emp; Norm(res=1)
     result: Some req b=2; Norm(res=2/\T); Norm(T/\1=x+1); Norm(res=x+1)
     norm: Some req b=2; Norm(1=x+1/\res=x+1)
     ---
@@ -190,9 +190,9 @@ let%expect_test "apply lemma" =
     ---
     map
     lemma: forall [x], f <: Norm(res=x/\T)
-    original: ex a; req emp; ens res=3/\a=b/\b=2; f(1); ex r; req emp; Norm(res=r/\r=a+4)
+    original: ex a; req emp; ens a=b/\b=2; f(1); ex r; req emp; Norm(res=r/\r=a+4)
     result: Some ex a; Norm(res=3/\a=b/\b=2); Norm(T/\1=x); Norm(res=x); ex r; Norm(res=r/\r=a+4)
-    norm: Some ex a r v3; Norm(a=b/\b=2/\1=x/\v3=x/\res=r/\r=a+4)
+    norm: Some ex a r v1; Norm(a=b/\b=2/\1=x/\v1=x/\res=r/\r=a+4)
     --- |}]
 
 let%expect_test "normalise spec" =
@@ -205,6 +205,7 @@ let%expect_test "normalise spec" =
         (string_of_normalisedStagedSpec n)
     with Norm_failure -> Format.printf "%s\n=/=>\n@." (string_of_spec s)
   in
+  let test1 s = test (parse_spec s) in
   print_endline "--- norm\n";
   test [NormalReturn (True, EmptyHeap)];
   test
@@ -271,13 +272,16 @@ let%expect_test "normalise spec" =
       RaisingEff (True, PointsTo ("x", Num 1), ("E", [Num 3]), UNIT);
       NormalReturn (True, PointsTo ("y", Num 2));
     ];
-  print_endline "--- eff\n";
   test
     [
       NormalReturn (True, PointsTo ("x", Num 1));
       HigherOrder (True, EmptyHeap, ("f", [Num 3]), UNIT);
       NormalReturn (True, PointsTo ("y", Num 2));
     ];
+  print_endline "--- regression\n";
+  test1
+    "ex x1; Read(emp, (), x1); ex x2; Write(emp, (x1+1), x2); ex x3; Read(emp, \
+     (), x3); Norm(res=x3)";
   [%expect
     {|
   --- norm
@@ -323,11 +327,15 @@ let%expect_test "normalise spec" =
   Norm(x->1); req x->1; E(x->1, (3), ()); Norm(y->2)
   =/=>
 
-  --- eff
-
   Norm(x->1); f(3, ()); Norm(y->2)
   ==>
   req emp; ens x->1; f(3, ()); req emp; Norm(y->2 /\ res=())
+
+  --- regression
+
+  ex x1; Read(emp, (()), x1); ex x2; Write(emp, (x1+1), x2); ex x3; Read(emp, (()), x3); Norm(res=x3)
+  ==>
+  ex x1; req emp; Read(emp, (()), x1); ex v15 x2; req emp; Write(v15=x1, (x1+1), x2); ex v16 x3; req emp; Read(v16=x2, (()), x3); ex v17; req emp; Norm(v17=x3/\res=x3)
 |}]
 
 let entails_pure env_a s1 vars s2 =
