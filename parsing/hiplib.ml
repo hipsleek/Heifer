@@ -709,6 +709,8 @@ let rec transformation (env:string list) (expr:expression) : core_lang =
   | Pexp_let (_rec, vb::_vbs, e) ->
     let var_name = string_of_pattern (vb.pvb_pat) in 
     let exprIn = vb.pvb_expr in 
+    if String.equal var_name "res" then
+      failwith (Format.asprintf "cannot name variable res");
     CLet (var_name, transformation env exprIn, transformation env e)
   | Pexp_ifthenelse (if_, then_, Some else_) ->
     transformation env if_
