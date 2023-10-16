@@ -15,8 +15,8 @@
   $ check test_match.ml
   ALL OK!
 
-$ check test_lambda.ml
-ALL OK!
+  $ check test_lambda.ml
+  ALL OK!
 
 $ check test_closures.ml
 ALL OK!

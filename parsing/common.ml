@@ -42,3 +42,29 @@ let string_of_list p xs =
     Format.asprintf "[%s]" a
 
 let quote = Format.asprintf "\"%s\""
+
+module SSet = struct
+  include Set.Make (String)
+
+  let concat sets = List.fold_right union sets empty
+end
+
+module SMap = struct
+  include Map.Make (String)
+
+  let keys m = bindings m |> List.map fst
+
+  let merge_disjoint a b =
+    merge
+      (fun _k x y ->
+        match (x, y) with
+        | Some v, None | None, Some v -> Some v
+        | None, None -> None
+        | Some v1, Some v2 when v1 = v2 -> Some v1
+        | Some _, Some _ ->
+          failwith
+            (Format.asprintf "maps with keys %s and %s should be disjoint"
+               (string_of_list Fun.id (keys a))
+               (string_of_list Fun.id (keys b))))
+      a b
+end

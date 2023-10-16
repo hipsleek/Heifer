@@ -317,8 +317,12 @@ let unfold_predicate_norm :
 
 (** proof context *)
 type pctx = {
+  (* lemmas and predicats defined globally, i.e. before the current function being verified *)
   lems : lemma SMap.t;
   preds : pred_def SMap.t;
+  (* additional predicates due to local lambda definitions *)
+  preds_left : pred_def SMap.t;
+  preds_right : pred_def SMap.t;
   (* all quantified variables in this formula *)
   q_vars : string list;
   (* predicates which have been unfolded, used as an approximation of progress (in the cyclic proof sense) *)
@@ -326,6 +330,7 @@ type pctx = {
   (* lemmas applied *)
   applied : string list;
   (* the environment from forward verification, containing lambda definitions *)
+  (* TODO get rid of this *)
   fvenv : fvenv;
 }
 
@@ -333,12 +338,16 @@ let string_of_pctx ctx =
   Format.asprintf
     "lemmas: %s\n\
      predicates: %s\n\
+     predicates left: %s\n\
+     predicates right: %s\n\
      q_vars: %s\n\
      unfolded: %s\n\
      applied: %s\n\
      fvenv: %s@."
     (string_of_smap string_of_lemma ctx.lems)
     (string_of_smap string_of_pred ctx.preds)
+    (string_of_smap string_of_pred ctx.preds_left)
+    (string_of_smap string_of_pred ctx.preds_right)
     (string_of_list Fun.id ctx.q_vars)
     (string_of_list
        (string_of_pair Fun.id (function `Left -> "L" | `Right -> "R"))
@@ -347,24 +356,43 @@ let string_of_pctx ctx =
     "<...>"
 
 let create_pctx lems preds q_vars fvenv =
-  { lems; preds; q_vars; unfolded = []; applied = []; fvenv }
+  {
+    lems;
+    preds;
+    preds_left = SMap.empty;
+    preds_right = SMap.empty;
+    q_vars;
+    unfolded = [];
+    applied = [];
+    fvenv;
+  }
 
-(* let spec_function_names (spec : spec) =
-   List.concat_map
-     (function HigherOrder (_, _, (f, _), _) -> [f] | _ -> [])
-     spec
-   |> SSet.of_list *)
+(* it's possible we may merge the same lambda into the map multiple times because we recurse after unfolding, which may have the lambda there again *)
+let collect_local_lambda_definitions ctx left right =
+  let res =
+    {
+      ctx with
+      preds_left =
+        (match left with
+        | None -> ctx.preds_left
+        | Some r ->
+          SMap.merge_disjoint (local_lambda_defs_state r) ctx.preds_left);
+      preds_right =
+        (match right with
+        | None -> ctx.preds_right
+        | Some r ->
+          SMap.merge_disjoint (local_lambda_defs_state r) ctx.preds_right);
+    }
+  in
+  res
 
-(** Recurses down a normalised staged spec, matching stages,
-   translating away heap predicates to build a pure formula,
-   and proving subsumption of each pair of stages.
-   Residue from previous stages is assumed.
+(** Given two normalized flows, checks their head stages for subsumption,
+    then recurses down, propagating residue and updating the proof context
+    with things like local predicate definitions.
 
-   Matching of quantified locations may cause backtracking.
-   Other quantifiers are left to z3 to instantiate.
-   
-   i: index of stage
-   all_vars: all quantified variables
+    Matching of existentially-quantified locations (in SL entailments)
+    may cause backtracking.
+    Other existentials are handled by the SMT back end.
 *)
 let rec check_staged_subsumption_stagewise :
     pctx ->
@@ -379,6 +407,9 @@ let rec check_staged_subsumption_stagewise :
     (string_of_normalisedStagedSpec s2);
   match (s1, s2) with
   | (es1 :: es1r, ns1), (es2 :: es2r, ns2) ->
+    let ctx =
+      collect_local_lambda_definitions ctx (Some es1.e_post) (Some es2.e_post)
+    in
     (* fail fast by doing easy checks first *)
     let c1, a1 = es1.e_constr in
     let c2, a2 = es2.e_constr in
@@ -403,6 +434,7 @@ let rec check_staged_subsumption_stagewise :
           fail)
         else ok
       in
+      (* done with easy checks, start proving *)
       (* pure information propagates forward across stages, not heap info *)
       let* residue =
         let arg_eqs = conj (List.map2 (fun x y -> Atomic (EQ, x, y)) a1 a2) in
@@ -420,6 +452,9 @@ let rec check_staged_subsumption_stagewise :
   | ([], ns1), ([], ns2) ->
     (* base case: check the normal stage at the end *)
     let (vs1, (p1, h1), (qp1, qh1)), (vs2, (p2, h2), (qp2, qh2)) = (ns1, ns2) in
+    let ctx =
+      collect_local_lambda_definitions ctx (Some (qp1, qh1)) (Some (qp2, qh2))
+    in
     let* _residue =
       stage_subsumes ctx "normal stage" assump
         (vs1, ((p1, h1), (qp1, qh1)))
@@ -427,6 +462,7 @@ let rec check_staged_subsumption_stagewise :
     in
     ok
   | ([], _), (es2 :: _, _) ->
+    let ctx = collect_local_lambda_definitions ctx None (Some es2.e_post) in
     let c2, _ = es2.e_constr in
     let@ _ = try_other_measures ctx s1 s2 None (Some c2) i assump |> or_else in
     info ~title:"FAIL" "ante is shorter\n%s\n<:\n%s"
@@ -434,6 +470,7 @@ let rec check_staged_subsumption_stagewise :
       (string_of_normalisedStagedSpec s2);
     fail
   | (es1 :: _, _), ([], _) ->
+    let ctx = collect_local_lambda_definitions ctx (Some es1.e_post) None in
     let c1, _ = es1.e_constr in
     let@ _ = try_other_measures ctx s1 s2 (Some c1) None i assump |> or_else in
     info ~title:"FAIL" "conseq is shorter\n%s\n<:\n%s"
@@ -451,10 +488,13 @@ and try_other_measures :
     pi ->
     unit option =
  fun ctx s1 s2 c1 c2 i assump ->
-  (* first try to unfold on the left. it works if there is something to unfold (a constructor, and a corresponding definition in the predicate environmet) *)
+  (* first try to unfold on the left. it works if there is something to unfold (the current stage must be a function/effect, and there is a corresponding definition in the predicate environment) *)
   match
     let* c1 = c1 in
-    let+ res = SMap.find_opt c1 ctx.preds in
+    let+ res =
+      let@ _ = SMap.find_opt c1 ctx.preds |> or_else in
+      SMap.find_opt c1 ctx.preds_left
+    in
     (c1, res)
   with
   | Some (c1, def) when not (List.mem (c1, `Left) ctx.unfolded) ->
@@ -467,7 +507,10 @@ and try_other_measures :
     (* if that fails, try to unfold on the right *)
     (match
        let* c2 = c2 in
-       let+ res = SMap.find_opt c2 ctx.preds in
+       let+ res =
+         let@ _ = SMap.find_opt c2 ctx.preds |> or_else in
+         SMap.find_opt c2 ctx.preds_right
+       in
        (c2, res)
      with
     | Some (c2, pred_def) when not (List.mem (c2, `Right) ctx.unfolded) ->
@@ -595,7 +638,6 @@ and stage_subsumes :
           "%s => %s%s\n%s" (string_of_pi True) "" (string_of_pi left)
           (string_of_res false_not_derived)
     in
-    (* Format.printf "hello@."; *)
     info
       ~title:(Format.asprintf "VC for postcondition of %s" what)
       "%s => %s%s" (string_of_pi left)

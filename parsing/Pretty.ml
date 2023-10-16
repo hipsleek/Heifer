@@ -541,3 +541,29 @@ let quantify_res_state (p, h) =
 
   let contains_res_state (p, h) =
     SSet.mem "res" (Subst.used_vars_state (p, h))
+
+let lambda_to_pred_def name t =
+  match t with
+  | TLambda (_lid, params, body) ->
+    {
+      p_name = name;
+      p_params = params;
+      p_body = body;
+    }
+  | _ ->
+    failwith
+      (Format.asprintf "cannot convert term to predicate: %s" (string_of_term t))
+
+let rec local_lambda_defs pi =
+  match pi with
+  | Atomic (EQ, (TLambda _ as l), Var v) | Atomic (EQ, Var v, (TLambda _ as l))
+    ->
+    [(v, lambda_to_pred_def v l)]
+  | Atomic (_, _, _) | True | False -> []
+  | And (a, b) | Or (a, b) | Imply (a, b) ->
+    local_lambda_defs a @ local_lambda_defs b
+  | Not a -> local_lambda_defs a
+  | Predicate (_, _) -> failwith "NYI: predicate"
+
+let local_lambda_defs_state (p, _h) =
+  local_lambda_defs p |> List.to_seq |> SMap.of_seq

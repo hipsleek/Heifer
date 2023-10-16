@@ -1,12 +1,5 @@
 
-module SSet = struct
-  include Set.Make (String)
-  let concat sets = List.fold_right union sets empty
-end
-
-module SMap = struct
-  include Map.Make (String)
-end
+open Common
 
 type bin_op = GT | LT | EQ | GTEQ | LTEQ
 
