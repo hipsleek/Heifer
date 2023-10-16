@@ -13,9 +13,10 @@
 (*                                                                        *)
 (**************************************************************************)
 
-(** {!iterator} enables AST inspection using open recursion.  A
-    typical mapper would be based on {!default_iterator}, a trivial iterator,
-    and will fall back on it for handling the syntax it does not modify.
+(** {!Ast_iterator.iterator} enables AST inspection using open recursion.  A
+    typical mapper would be based on {!Ast_iterator.default_iterator}, a
+    trivial iterator, and will fall back on it for handling the syntax it does
+    not modify.
 
   {b Warning:} this module is unstable and part of
   {{!Compiler_libs}compiler-libs}.
@@ -45,7 +46,6 @@ type iterator = {
   expr: iterator -> expression -> unit;
   extension: iterator -> extension -> unit;
   extension_constructor: iterator -> extension_constructor -> unit;
-  effect_constructor: iterator -> effect_constructor -> unit;
   include_declaration: iterator -> include_declaration -> unit;
   include_description: iterator -> include_description -> unit;
   label_declaration: iterator -> label_declaration -> unit;

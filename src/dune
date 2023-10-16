@@ -1,4 +1,0 @@
-(cram
- (deps %{bin:hip}
- (source_tree examples)
- (source_tree evaluation)))

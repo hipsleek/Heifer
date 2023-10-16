@@ -1,4 +1,2 @@
-(lang dune 3.6)
+(lang dune 1.10)
 (using experimental_building_ocaml_compiler_with_dune 0.1)
-(using coq 0.2)
-(using directory-targets 0.1)

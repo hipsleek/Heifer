@@ -27,12 +27,12 @@ type error =
   | Unterminated_comment of Location.t
   | Unterminated_string
   | Unterminated_string_in_comment of Location.t * Location.t
+  | Empty_character_literal
   | Keyword_as_label of string
   | Invalid_literal of string
   | Invalid_directive of string * string option
-;;
 
-exception Error of error * Location.t;;
+exception Error of error * Location.t
 
 (* The table of keywords *)
 
@@ -47,8 +47,6 @@ let keyword_table =
     "do", DO;
     "done", DONE;
     "downto", DOWNTO;
-    "effect", EFFECT;
-    "ex", EXISTS;
     "else", ELSE;
     "end", END;
     "exception", EXCEPTION;
@@ -58,10 +56,6 @@ let keyword_table =
     "fun", FUN;
     "function", FUNCTION;
     "functor", FUNCTOR;
-    "req", REQUIRES;
-    "ens", ENSURES;
-
-    "emp", EMP;
     "if", IF;
     "in", IN;
     "include", INCLUDE;
@@ -116,9 +110,9 @@ let store_string s = Buffer.add_string string_buffer s
 let store_lexeme lexbuf = store_string (Lexing.lexeme lexbuf)
 
 (* To store the position of the beginning of a string and comment *)
-let string_start_loc = ref Location.none;;
-let comment_start_loc = ref [];;
-let in_comment () = !comment_start_loc <> [];;
+let string_start_loc = ref Location.none
+let comment_start_loc = ref []
+let in_comment () = !comment_start_loc <> []
 let is_in_string = ref false
 let in_string () = !is_in_string
 let print_warnings = ref true
@@ -252,7 +246,6 @@ let update_loc lexbuf file line absolute chars =
     pos_lnum = if absolute then line else pos.pos_lnum + line;
     pos_bol = pos.pos_cnum - chars;
   }
-;;
 
 let preprocessor = ref None
 
@@ -306,6 +299,12 @@ let prepare_error loc = function
       Location.errorf ~loc
         "This comment contains an unterminated string literal"
         ~sub:[Location.msg ~loc:literal_loc "String literal begins here"]
+  | Empty_character_literal ->
+      let msg = "Illegal empty character literal ''" in
+      let sub =
+        [Location.msg
+           "@{<hint>Hint@}: Did you mean ' ' or a type variable 'a?"] in
+      Location.error ~loc ~sub msg
   | Keyword_as_label kwd ->
       Location.errorf ~loc
         "`%s' is a keyword, it cannot be used as label name" kwd
@@ -391,10 +390,6 @@ rule token = parse
   | ".~"
       { error lexbuf
           (Reserved_sequence (".~", Some "is reserved for use in MetaOCaml")) }
-  | "predicate"
-      { PREDICATE }
-  | "lemma"
-      { LEMMA }
   | "~" (lowercase identchar * as name) ':'
       { check_label_name lexbuf name;
         LABEL name }
@@ -469,16 +464,8 @@ rule token = parse
       { CHAR(char_for_hexadecimal_code lexbuf 3) }
   | "\'" ("\\" _ as esc)
       { error lexbuf (Illegal_escape (esc, None)) }
-  | "(*@"
-      { LSPECCOMMENT }
-  | "@*)"
-      { RSPECCOMMENT }
-  | "/\\"
-      { CONJUNCTION }
-  | "\\/"
-      { DISJUNCTION }
-  | "=>"
-      { IMPLICATION }
+  | "\'\'"
+      { error lexbuf Empty_character_literal }
   | "(*"
       { let s, loc = wrap_comment_lexer comment lexbuf in
         COMMENT (s, loc) }
@@ -570,7 +557,6 @@ rule token = parse
   | "+=" { PLUSEQ }
   | "-"  { MINUS }
   | "-." { MINUSDOT }
-
 
   | "!" symbolchar_or_hash + as op
             { PREFIXOP op }

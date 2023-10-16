@@ -17,19 +17,6 @@
 ;; want to regenerate the parser while building with dune, but it doesn't seem
 ;; essential right now.
 
-(env
- ; (dev     (flags (:standard -w +a-4-9-40-41-42-44-45-48-67)))
-
- ; ignore warnings
- (dev (flags (:standard -warn-error -A))
-  (js_of_ocaml
-    (flags (:standard --enable=effects))
-    (build_runtime_flags (:standard --enable=effects))))
- (release (flags (:standard -w +a-4-9-40-41-42-44-45-48-67))
-  (js_of_ocaml
-   (flags (:standard --enable=effects))
-   (build_runtime_flags (:standard --enable=effects)))))
-
 (rule
  (targets camlinternalMenhirLib.ml)
  (mode    fallback)
@@ -59,43 +46,3 @@
 (ocamllex
  (modules lexer)
  (mode fallback))
-
-(library
- (name hipcore)
- (modules subst Pretty common hiptypes))
-
-(library
- (name hipprover)
- (modules ProversEx Rewriting entail res forward_rules infer_types normalize)
- (libraries str hipcore provers)
- (inline_tests)
- (preprocess (pps ppx_expect ppx_deriving.std)))
-
-(library
- (name ocamlfrontend)
- (modules
- parser lexer Syntaxerr Pprintast Printast Asttypes Ast_helper Longident Parsetree Location Warnings Misc Terminfo Docstrings Build_path_prefix_map Clflags Profile Numbers Identifiable Arg_helper CamlinternalMenhirLib Debug)
- (libraries hipprover)
- (flags :standard -w -A))
-
-(library
- (name hiplib)
- (modules hiplib tests)
- (libraries hipprover ocamlfrontend)
- (inline_tests)
- (preprocess (pps ppx_expect)))
-
-(executable
- (name hip)
- (modules hip)
- (libraries unix hiplib provers_native))
-
-(executable
- (name hipjs)
- (modules hipjs)
- (libraries brr hiplib provers_js)
- (modes js))
-
-(install
- (section bin)
- (files (hip.exe as hip)))

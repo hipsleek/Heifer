@@ -1,5 +1,0 @@
-
-(library
- (name provers_js)
- (libraries brr)
- (implements provers))

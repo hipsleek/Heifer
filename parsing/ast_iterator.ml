@@ -43,7 +43,6 @@ type iterator = {
   expr: iterator -> expression -> unit;
   extension: iterator -> extension -> unit;
   extension_constructor: iterator -> extension_constructor -> unit;
-  effect_constructor: iterator -> effect_constructor -> unit;
   include_declaration: iterator -> include_declaration -> unit;
   include_description: iterator -> include_description -> unit;
   label_declaration: iterator -> label_declaration -> unit;
@@ -183,8 +182,10 @@ module T = struct
     sub.attributes sub ptyexn_attributes
 
   let iter_extension_constructor_kind sub = function
-      Pext_decl(ctl, cto) ->
-        iter_constructor_arguments sub ctl; iter_opt (sub.typ sub) cto
+      Pext_decl(vars, ctl, cto) ->
+        List.iter (iter_loc sub) vars;
+        iter_constructor_arguments sub ctl;
+        iter_opt (sub.typ sub) cto
     | Pext_rebind li ->
         iter_loc sub li
 
@@ -198,21 +199,6 @@ module T = struct
     sub.location sub pext_loc;
     sub.attributes sub pext_attributes
 
-  let iter_effect_constructor_kind sub = function
-      Peff_decl(ctl, cto) ->
-        List.iter (sub.typ sub) ctl; sub.typ sub cto
-    | Peff_rebind li ->
-        iter_loc sub li
-
-  let iter_effect_constructor sub
-      {peff_name;
-       peff_kind;
-       peff_loc;
-       peff_attributes} =
-    iter_loc sub peff_name;
-    iter_effect_constructor_kind sub peff_kind;
-    sub.location sub peff_loc;
-    sub.attributes sub peff_attributes
 end
 
 module CT = struct
@@ -279,10 +265,14 @@ module MT = struct
         iter_loc sub lid; sub.type_declaration sub d
     | Pwith_module (lid, lid2) ->
         iter_loc sub lid; iter_loc sub lid2
+    | Pwith_modtype (lid, mty) ->
+        iter_loc sub lid; sub.module_type sub mty
     | Pwith_typesubst (lid, d) ->
         iter_loc sub lid; sub.type_declaration sub d
     | Pwith_modsubst (s, lid) ->
         iter_loc sub s; iter_loc sub lid
+    | Pwith_modtypesubst (lid, mty) ->
+        iter_loc sub lid; sub.module_type sub mty
 
   let iter_signature_item sub {psig_desc = desc; psig_loc = loc} =
     sub.location sub loc;
@@ -292,13 +282,12 @@ module MT = struct
     | Psig_typesubst l ->
       List.iter (sub.type_declaration sub) l
     | Psig_typext te -> sub.type_extension sub te
-    | Psig_effect ed -> sub.effect_constructor sub ed
     | Psig_exception ed -> sub.type_exception sub ed
     | Psig_module x -> sub.module_declaration sub x
     | Psig_modsubst x -> sub.module_substitution sub x
     | Psig_recmodule l ->
         List.iter (sub.module_declaration sub) l
-    | Psig_modtype x -> sub.module_type_declaration sub x
+    | Psig_modtype x | Psig_modtypesubst x -> sub.module_type_declaration sub x
     | Psig_open x -> sub.open_description sub x
     | Psig_include x -> sub.include_description sub x
     | Psig_class l -> List.iter (sub.class_description sub) l
@@ -324,7 +313,10 @@ module M = struct
         iter_functor_param sub param;
         sub.module_expr sub body
     | Pmod_apply (m1, m2) ->
-        sub.module_expr sub m1; sub.module_expr sub m2
+        sub.module_expr sub m1;
+        sub.module_expr sub m2
+    | Pmod_apply_unit m1 ->
+        sub.module_expr sub m1
     | Pmod_constraint (m, mty) ->
         sub.module_expr sub m; sub.module_type sub mty
     | Pmod_unpack e -> sub.expr sub e
@@ -339,7 +331,6 @@ module M = struct
     | Pstr_primitive vd -> sub.value_description sub vd
     | Pstr_type (_rf, l) -> List.iter (sub.type_declaration sub) l
     | Pstr_typext te -> sub.type_extension sub te
-    | Pstr_effect ed -> sub.effect_constructor sub ed
     | Pstr_exception ed -> sub.type_exception sub ed
     | Pstr_module x -> sub.module_binding sub x
     | Pstr_recmodule l -> List.iter (sub.module_binding sub) l
@@ -455,7 +446,12 @@ module P = struct
     | Ppat_interval _ -> ()
     | Ppat_tuple pl -> List.iter (sub.pat sub) pl
     | Ppat_construct (l, p) ->
-        iter_loc sub l; iter_opt (sub.pat sub) p
+        iter_loc sub l;
+        iter_opt
+          (fun (vl,p) ->
+            List.iter (iter_loc sub) vl;
+            sub.pat sub p)
+          p
     | Ppat_variant (_l, p) -> iter_opt (sub.pat sub) p
     | Ppat_record (lpl, _cf) ->
         List.iter (iter_tuple (iter_loc sub) (sub.pat sub)) lpl
@@ -467,7 +463,6 @@ module P = struct
     | Ppat_lazy p -> sub.pat sub p
     | Ppat_unpack s -> iter_loc sub s
     | Ppat_exception p -> sub.pat sub p
-    | Ppat_effect (p1,p2) -> sub.pat sub p1; sub.pat sub p2
     | Ppat_extension x -> sub.extension sub x
     | Ppat_open (lid, p) ->
         iter_loc sub lid; sub.pat sub p
@@ -565,7 +560,6 @@ let default_iterator =
     type_extension = T.iter_type_extension;
     type_exception = T.iter_type_exception;
     extension_constructor = T.iter_extension_constructor;
-    effect_constructor = T.iter_effect_constructor;
     value_description =
       (fun this {pval_name; pval_type; pval_prim = _; pval_loc;
                  pval_attributes} ->
@@ -641,17 +635,27 @@ let default_iterator =
 
 
     value_binding =
-      (fun this {pvb_pat; pvb_expr; pvb_attributes; pvb_loc} ->
+      (fun this {pvb_pat; pvb_expr; pvb_attributes; pvb_loc; pvb_constraint} ->
          this.pat this pvb_pat;
          this.expr this pvb_expr;
+         Option.iter (function
+             | Parsetree.Pvc_constraint {locally_abstract_univars=vars; typ} ->
+                 List.iter (iter_loc this) vars;
+                 this.typ this typ
+             | Pvc_coercion { ground; coercion } ->
+                 Option.iter (this.typ this) ground;
+                 this.typ this coercion;
+           ) pvb_constraint;
          this.location this pvb_loc;
          this.attributes this pvb_attributes
       );
 
 
     constructor_declaration =
-      (fun this {pcd_name; pcd_args; pcd_res; pcd_loc; pcd_attributes} ->
+      (fun this {pcd_name; pcd_vars; pcd_args;
+                 pcd_res; pcd_loc; pcd_attributes} ->
          iter_loc this pcd_name;
+         List.iter (iter_loc this) pcd_vars;
          T.iter_constructor_arguments this pcd_args;
          iter_opt (this.typ this) pcd_res;
          this.location this pcd_loc;

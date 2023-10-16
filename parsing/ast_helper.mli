@@ -109,7 +109,8 @@ module Pat:
     val constant: ?loc:loc -> ?attrs:attrs -> constant -> pattern
     val interval: ?loc:loc -> ?attrs:attrs -> constant -> constant -> pattern
     val tuple: ?loc:loc -> ?attrs:attrs -> pattern list -> pattern
-    val construct: ?loc:loc -> ?attrs:attrs -> lid -> pattern option -> pattern
+    val construct: ?loc:loc -> ?attrs:attrs ->
+      lid -> (str list * pattern) option -> pattern
     val variant: ?loc:loc -> ?attrs:attrs -> label -> pattern option -> pattern
     val record: ?loc:loc -> ?attrs:attrs -> (lid * pattern) list -> closed_flag
                 -> pattern
@@ -121,7 +122,6 @@ module Pat:
     val unpack: ?loc:loc -> ?attrs:attrs -> str_opt -> pattern
     val open_: ?loc:loc -> ?attrs:attrs  -> lid -> pattern -> pattern
     val exception_: ?loc:loc -> ?attrs:attrs -> pattern -> pattern
-    val effect_: ?loc:loc -> ?attrs:attrs -> pattern -> pattern -> pattern
     val extension: ?loc:loc -> ?attrs:attrs -> extension -> pattern
   end
 
@@ -190,7 +190,7 @@ module Exp:
     val extension: ?loc:loc -> ?attrs:attrs -> extension -> expression
     val unreachable: ?loc:loc -> ?attrs:attrs -> unit -> expression
 
-    val case: pattern -> ?guard:expression -> ?spec:Hipcore.Hiptypes.disj_spec -> expression -> case
+    val case: pattern -> ?guard:expression -> expression -> case
     val binding_op: str -> pattern -> expression -> loc -> binding_op
   end
 
@@ -211,7 +211,8 @@ module Type:
       type_declaration
 
     val constructor: ?loc:loc -> ?attrs:attrs -> ?info:info ->
-      ?args:constructor_arguments -> ?res:core_type -> str ->
+      ?vars:str list -> ?args:constructor_arguments -> ?res:core_type ->
+      str ->
       constructor_declaration
     val field: ?loc:loc -> ?attrs:attrs -> ?info:info ->
       ?mut:mutable_flag -> str -> core_type -> label_declaration
@@ -231,14 +232,11 @@ module Te:
       str -> extension_constructor_kind -> extension_constructor
 
     val decl: ?loc:loc -> ?attrs:attrs -> ?docs:docs -> ?info:info ->
-      ?args:constructor_arguments -> ?res:core_type -> str ->
+      ?vars:str list -> ?args:constructor_arguments -> ?res:core_type ->
+      str ->
       extension_constructor
     val rebind: ?loc:loc -> ?attrs:attrs -> ?docs:docs -> ?info:info ->
       str -> lid -> extension_constructor
-
-    val effect_constructor: ?loc:loc -> ?attrs:attrs -> str -> effect_constructor_kind -> effect_constructor
-    val effect_decl: ?loc:loc -> ?attrs:attrs -> ?args:core_type list -> str -> core_type -> effect_constructor
-    val effect_rebind: ?loc:loc -> ?attrs:attrs -> str -> lid -> effect_constructor
   end
 
 (** {1 Module language} *)
@@ -272,6 +270,7 @@ module Mod:
       functor_parameter -> module_expr -> module_expr
     val apply: ?loc:loc -> ?attrs:attrs -> module_expr -> module_expr ->
       module_expr
+    val apply_unit: ?loc:loc -> ?attrs:attrs -> module_expr -> module_expr
     val constraint_: ?loc:loc -> ?attrs:attrs -> module_expr -> module_type ->
       module_expr
     val unpack: ?loc:loc -> ?attrs:attrs -> expression -> module_expr
@@ -287,12 +286,12 @@ module Sig:
     val type_: ?loc:loc -> rec_flag -> type_declaration list -> signature_item
     val type_subst: ?loc:loc -> type_declaration list -> signature_item
     val type_extension: ?loc:loc -> type_extension -> signature_item
-    val effect_: ?loc:loc -> effect_constructor -> signature_item
     val exception_: ?loc:loc -> type_exception -> signature_item
     val module_: ?loc:loc -> module_declaration -> signature_item
     val mod_subst: ?loc:loc -> module_substitution -> signature_item
     val rec_module: ?loc:loc -> module_declaration list -> signature_item
     val modtype: ?loc:loc -> module_type_declaration -> signature_item
+    val modtype_subst: ?loc:loc -> module_type_declaration -> signature_item
     val open_: ?loc:loc -> open_description -> signature_item
     val include_: ?loc:loc -> include_description -> signature_item
     val class_: ?loc:loc -> class_description list -> signature_item
@@ -312,7 +311,6 @@ module Str:
     val primitive: ?loc:loc -> value_description -> structure_item
     val type_: ?loc:loc -> rec_flag -> type_declaration list -> structure_item
     val type_extension: ?loc:loc -> type_extension -> structure_item
-    val effect_: ?loc:loc -> effect_constructor -> structure_item
     val exception_: ?loc:loc -> type_exception -> structure_item
     val module_: ?loc:loc -> module_binding -> structure_item
     val rec_module: ?loc:loc -> module_binding list -> structure_item
@@ -371,7 +369,8 @@ module Incl:
 module Vb:
   sig
     val mk: ?loc: loc -> ?attrs:attrs -> ?docs:docs -> ?text:text ->
-      pattern -> expression -> value_binding
+      ?value_constraint:value_constraint -> pattern -> expression ->
+      value_binding
   end
 
 

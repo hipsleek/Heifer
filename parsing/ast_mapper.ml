@@ -45,8 +45,6 @@ type mapper = {
   constant: mapper -> constant -> constant;
   constructor_declaration: mapper -> constructor_declaration
                            -> constructor_declaration;
-  effect_constructor: mapper -> effect_constructor
-                         -> effect_constructor;
   expr: mapper -> expression -> expression;
   extension: mapper -> extension -> extension;
   extension_constructor: mapper -> extension_constructor
@@ -208,8 +206,10 @@ module T = struct
       (sub.extension_constructor sub ptyexn_constructor)
 
   let map_extension_constructor_kind sub = function
-      Pext_decl(ctl, cto) ->
-        Pext_decl(map_constructor_arguments sub ctl, map_opt (sub.typ sub) cto)
+      Pext_decl(vars, ctl, cto) ->
+        Pext_decl(List.map (map_loc sub) vars,
+                  map_constructor_arguments sub ctl,
+                  map_opt (sub.typ sub) cto)
     | Pext_rebind li ->
         Pext_rebind (map_loc sub li)
 
@@ -223,23 +223,6 @@ module T = struct
     Te.constructor ~loc ~attrs
       (map_loc sub pext_name)
       (map_extension_constructor_kind sub pext_kind)
-
-  let map_effect_constructor_kind sub = function
-      Peff_decl(ctl, cto) ->
-        Peff_decl(List.map (sub.typ sub) ctl, sub.typ sub cto)
-    | Peff_rebind li ->
-        Peff_rebind (map_loc sub li)
-
-  let map_effect_constructor sub
-      {peff_name;
-       peff_kind;
-       peff_loc;
-       peff_attributes} =
-    Te.effect_constructor
-      (map_loc sub peff_name)
-      (map_effect_constructor_kind sub peff_kind)
-      ~loc:(sub.location sub peff_loc)
-      ~attrs:(sub.attributes sub peff_attributes)
 
 end
 
@@ -312,10 +295,14 @@ module MT = struct
         Pwith_type (map_loc sub lid, sub.type_declaration sub d)
     | Pwith_module (lid, lid2) ->
         Pwith_module (map_loc sub lid, map_loc sub lid2)
+    | Pwith_modtype (lid, mty) ->
+        Pwith_modtype (map_loc sub lid, sub.module_type sub mty)
     | Pwith_typesubst (lid, d) ->
         Pwith_typesubst (map_loc sub lid, sub.type_declaration sub d)
     | Pwith_modsubst (s, lid) ->
         Pwith_modsubst (map_loc sub s, map_loc sub lid)
+    | Pwith_modtypesubst (lid, mty) ->
+        Pwith_modtypesubst (map_loc sub lid, sub.module_type sub mty)
 
   let map_signature_item sub {psig_desc = desc; psig_loc = loc} =
     let open Sig in
@@ -327,13 +314,14 @@ module MT = struct
     | Psig_typesubst l ->
         type_subst ~loc (List.map (sub.type_declaration sub) l)
     | Psig_typext te -> type_extension ~loc (sub.type_extension sub te)
-    | Psig_effect ed -> effect_ ~loc (sub.effect_constructor sub ed)
     | Psig_exception ed -> exception_ ~loc (sub.type_exception sub ed)
     | Psig_module x -> module_ ~loc (sub.module_declaration sub x)
     | Psig_modsubst x -> mod_subst ~loc (sub.module_substitution sub x)
     | Psig_recmodule l ->
         rec_module ~loc (List.map (sub.module_declaration sub) l)
     | Psig_modtype x -> modtype ~loc (sub.module_type_declaration sub x)
+    | Psig_modtypesubst x ->
+        modtype_subst ~loc (sub.module_type_declaration sub x)
     | Psig_open x -> open_ ~loc (sub.open_description sub x)
     | Psig_include x -> include_ ~loc (sub.include_description sub x)
     | Psig_class l -> class_ ~loc (List.map (sub.class_description sub) l)
@@ -362,6 +350,8 @@ module M = struct
           (sub.module_expr sub body)
     | Pmod_apply (m1, m2) ->
         apply ~loc ~attrs (sub.module_expr sub m1) (sub.module_expr sub m2)
+    | Pmod_apply_unit m1 ->
+        apply_unit ~loc ~attrs (sub.module_expr sub m1)
     | Pmod_constraint (m, mty) ->
         constraint_ ~loc ~attrs (sub.module_expr sub m)
                     (sub.module_type sub mty)
@@ -379,7 +369,6 @@ module M = struct
     | Pstr_primitive vd -> primitive ~loc (sub.value_description sub vd)
     | Pstr_type (rf, l) -> type_ ~loc rf (List.map (sub.type_declaration sub) l)
     | Pstr_typext te -> type_extension ~loc (sub.type_extension sub te)
-    | Pstr_effect ed -> effect_ ~loc (sub.effect_constructor sub ed)
     | Pstr_exception ed -> exception_ ~loc (sub.type_exception sub ed)
     | Pstr_module x -> module_ ~loc (sub.module_binding sub x)
     | Pstr_recmodule l -> rec_module ~loc (List.map (sub.module_binding sub) l)
@@ -499,10 +488,14 @@ module P = struct
     | Ppat_var s -> var ~loc ~attrs (map_loc sub s)
     | Ppat_alias (p, s) -> alias ~loc ~attrs (sub.pat sub p) (map_loc sub s)
     | Ppat_constant c -> constant ~loc ~attrs (sub.constant sub c)
-    | Ppat_interval (c1, c2) -> interval ~loc ~attrs c1 c2
+    | Ppat_interval (c1, c2) ->
+        interval ~loc ~attrs (sub.constant sub c1) (sub.constant sub c2)
     | Ppat_tuple pl -> tuple ~loc ~attrs (List.map (sub.pat sub) pl)
     | Ppat_construct (l, p) ->
-        construct ~loc ~attrs (map_loc sub l) (map_opt (sub.pat sub) p)
+        construct ~loc ~attrs (map_loc sub l)
+          (map_opt
+             (fun (vl, p) -> List.map (map_loc sub) vl, sub.pat sub p)
+             p)
     | Ppat_variant (l, p) -> variant ~loc ~attrs l (map_opt (sub.pat sub) p)
     | Ppat_record (lpl, cf) ->
         record ~loc ~attrs
@@ -516,7 +509,6 @@ module P = struct
     | Ppat_unpack s -> unpack ~loc ~attrs (map_loc sub s)
     | Ppat_open (lid,p) -> open_ ~loc ~attrs (map_loc sub lid) (sub.pat sub p)
     | Ppat_exception p -> exception_ ~loc ~attrs (sub.pat sub p)
-    | Ppat_effect(p1, p2) -> effect_ ~loc ~attrs (sub.pat sub p1) (sub.pat sub p2)
     | Ppat_extension x -> extension ~loc ~attrs (sub.extension sub x)
 end
 
@@ -619,7 +611,6 @@ let default_mapper =
     type_extension = T.map_type_extension;
     type_exception = T.map_type_exception;
     extension_constructor = T.map_extension_constructor;
-    effect_constructor = T.map_effect_constructor;
     value_description =
       (fun this {pval_name; pval_type; pval_prim; pval_loc;
                  pval_attributes} ->
@@ -702,19 +693,34 @@ let default_mapper =
 
 
     value_binding =
-      (fun this {pvb_pat; pvb_expr; pvb_attributes; pvb_loc} ->
+      (fun this {pvb_pat; pvb_expr; pvb_constraint; pvb_attributes; pvb_loc} ->
+         let map_ct (ct:Parsetree.value_constraint) = match ct with
+           | Pvc_constraint {locally_abstract_univars=vars; typ} ->
+               Pvc_constraint
+                 { locally_abstract_univars = List.map (map_loc this) vars;
+                   typ = this.typ this typ
+                 }
+           | Pvc_coercion { ground; coercion } ->
+               Pvc_coercion {
+                 ground = Option.map (this.typ this) ground;
+                 coercion = this.typ this coercion
+               }
+         in
          Vb.mk
            (this.pat this pvb_pat)
            (this.expr this pvb_expr)
+           ?value_constraint:(Option.map map_ct pvb_constraint)
            ~loc:(this.location this pvb_loc)
            ~attrs:(this.attributes this pvb_attributes)
       );
 
 
     constructor_declaration =
-      (fun this {pcd_name; pcd_args; pcd_res; pcd_loc; pcd_attributes} ->
+      (fun this {pcd_name; pcd_vars; pcd_args;
+                 pcd_res; pcd_loc; pcd_attributes} ->
         Type.constructor
           (map_loc this pcd_name)
+          ~vars:(List.map (map_loc this) pcd_vars)
           ~args:(T.map_constructor_arguments this pcd_args)
           ?res:(map_opt (this.typ this) pcd_res)
           ~loc:(this.location this pcd_loc)
@@ -852,7 +858,7 @@ module PpxContext = struct
         lid "principal", make_bool !Clflags.principal;
         lid "transparent_modules", make_bool !Clflags.transparent_modules;
         lid "unboxed_types", make_bool !Clflags.unboxed_types;
-        lid "unsafe_string", make_bool !Clflags.unsafe_string;
+        lid "unsafe_string", make_bool false; (* kept for compatibility *)
         get_cookies ()
       ]
     in
@@ -912,7 +918,16 @@ module PpxContext = struct
       | "include_dirs" ->
           Clflags.include_dirs := get_list get_string payload
       | "load_path" ->
-          Load_path.init (get_list get_string payload)
+          (* Duplicates Compmisc.auto_include, since we can't reference Compmisc
+             from this module. *)
+          let auto_include find_in_dir fn =
+            if !Clflags.no_std_include then
+              raise Not_found
+            else
+              let alert = Location.auto_include_alert in
+              Load_path.auto_include_otherlibs alert find_in_dir fn
+          in
+          Load_path.init ~auto_include (get_list get_string payload)
       | "open_modules" ->
           Clflags.open_modules := get_list get_string payload
       | "for_package" ->
@@ -932,8 +947,6 @@ module PpxContext = struct
           Clflags.transparent_modules := get_bool payload
       | "unboxed_types" ->
           Clflags.unboxed_types := get_bool payload
-      | "unsafe_string" ->
-          Clflags.unsafe_string := get_bool payload
       | "cookies" ->
           let l = get_list (get_pair get_string (fun x -> x)) payload in
           cookies :=

@@ -151,16 +151,10 @@ let add_type_declaration bv td =
 
 let add_extension_constructor bv ext =
   match ext.pext_kind with
-    Pext_decl(args, rty) ->
+    Pext_decl(_, args, rty) ->
       add_constructor_arguments bv args;
       Option.iter (add_type bv) rty
   | Pext_rebind lid -> add bv lid
-
-let add_effect_constructor bv eff =
-  match eff.peff_kind with
-      Peff_decl(args, rty) ->
-        List.iter (add_type bv) args; add_type bv rty
-    | Peff_rebind lid -> add bv lid
 
 let add_type_extension bv te =
   add bv te.ptyext_path;
@@ -179,7 +173,11 @@ let rec add_pattern bv pat =
   | Ppat_interval _
   | Ppat_constant _ -> ()
   | Ppat_tuple pl -> List.iter (add_pattern bv) pl
-  | Ppat_construct(c, op) -> add bv c; add_opt add_pattern bv op
+  | Ppat_construct(c, opt) ->
+      add bv c;
+      add_opt
+        (fun bv (_,p) -> add_pattern bv p)
+        bv opt
   | Ppat_record(pl, _) ->
       List.iter (fun (lbl, p) -> add bv lbl; add_pattern bv p) pl
   | Ppat_array pl -> List.iter (add_pattern bv) pl
@@ -193,7 +191,6 @@ let rec add_pattern bv pat =
         (fun name -> pattern_bv := String.Map.add name bound !pattern_bv) id.txt
   | Ppat_open ( m, p) -> let bv = open_module bv m.txt in add_pattern bv p
   | Ppat_exception p -> add_pattern bv p
-  | Ppat_effect(p1, p2) -> add_pattern bv p1; add_pattern bv p2
   | Ppat_extension e -> handle_extension e
 
 let add_pattern bv pat =
@@ -285,7 +282,18 @@ and add_case bv {pc_lhs; pc_guard; pc_rhs} =
 and add_bindings recf bv pel =
   let bv' = List.fold_left (fun bv x -> add_pattern bv x.pvb_pat) bv pel in
   let bv = if recf = Recursive then bv' else bv in
-  List.iter (fun x -> add_expr bv x.pvb_expr) pel;
+  let add_constraint = function
+    | Pvc_constraint {locally_abstract_univars=_; typ} ->
+        add_type bv typ
+    | Pvc_coercion { ground; coercion } ->
+        Option.iter (add_type bv) ground;
+        add_type bv coercion
+  in
+  let add_one_binding { pvb_pat= _ ; pvb_loc= _ ; pvb_constraint; pvb_expr } =
+    add_expr bv pvb_expr;
+    Option.iter add_constraint pvb_constraint
+  in
+  List.iter add_one_binding pel;
   bv'
 
 and add_binding_op bv bv' pbop =
@@ -314,8 +322,10 @@ and add_modtype bv mty =
         (function
           | Pwith_type (_, td) -> add_type_declaration bv td
           | Pwith_module (_, lid) -> add_module_path bv lid
+          | Pwith_modtype (_, mty) -> add_modtype bv mty
           | Pwith_typesubst (_, td) -> add_type_declaration bv td
           | Pwith_modsubst (_, lid) -> add_module_path bv lid
+          | Pwith_modtypesubst (_, mty) -> add_modtype bv mty
         )
         cstrl
   | Pmty_typeof m -> add_module_expr bv m
@@ -358,8 +368,6 @@ and add_sig_item (bv, m) item =
       List.iter (add_type_declaration bv) dcls; (bv, m)
   | Psig_typext te ->
       add_type_extension bv te; (bv, m)
-  | Psig_effect peff ->
-      add_effect_constructor bv peff; (bv, m)
   | Psig_exception te ->
       add_type_exception bv te; (bv, m)
   | Psig_module pmd ->
@@ -385,7 +393,7 @@ and add_sig_item (bv, m) item =
       let bv' = add bv and m' = add m in
       List.iter (fun pmd -> add_modtype bv' pmd.pmd_type) decls;
       (bv', m')
-  | Psig_modtype x ->
+  | Psig_modtype x | Psig_modtypesubst x->
       begin match x.pmtd_type with
         None -> ()
       | Some mty -> add_modtype bv mty
@@ -439,8 +447,11 @@ and add_module_expr bv modl =
           | Some name -> String.Map.add name bound bv
       in
       add_module_expr bv modl
-  | Pmod_apply(mod1, mod2) ->
-      add_module_expr bv mod1; add_module_expr bv mod2
+  | Pmod_apply (mod1, mod2) ->
+      add_module_expr bv mod1;
+      add_module_expr bv mod2
+  | Pmod_apply_unit mod1 ->
+      add_module_expr bv mod1
   | Pmod_constraint(modl, mty) ->
       add_module_expr bv modl; add_modtype bv mty
   | Pmod_unpack(e) ->
@@ -496,9 +507,6 @@ and add_struct_item (bv, m) item : _ String.Map.t * _ String.Map.t =
       List.iter (add_type_declaration bv) dcls; (bv, m)
   | Pstr_typext te ->
       add_type_extension bv te;
-      (bv, m)
-  | Pstr_effect peff ->
-      add_effect_constructor bv peff;
       (bv, m)
   | Pstr_exception te ->
       add_type_exception bv te;
