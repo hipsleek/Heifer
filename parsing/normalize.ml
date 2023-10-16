@@ -499,8 +499,8 @@ let remove_noncontributing_existentials :
     | Plus (a, b) | Minus (a, b) | TAnd (a, b) | TOr (a, b) ->
       SSet.union (collect_related_vars_term a) (collect_related_vars_term b)
     | TNot t -> collect_related_vars_term t
+    | TApp (_, ts) -> SSet.concat (List.map collect_related_vars_term ts)
     | Rel (_, _, _) -> failwith (Format.asprintf "NYI rel")
-    | TApp (_, _) -> failwith (Format.asprintf "NYI app")
     | TLambda (_, _, _) -> failwith (Format.asprintf "NYI lambda")
     | TList _ -> failwith (Format.asprintf "NYI list")
     | TTupple _ -> failwith (Format.asprintf "NYI tuple")

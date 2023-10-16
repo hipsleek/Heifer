@@ -6,19 +6,19 @@
   $ check test_new_entail.ml
   ALL OK!
 
-$ check test_ho.ml
-ALL OK!
+  $ check test_ho.ml
+  ALL OK!
 
-$ check test_lists.ml
-ALL OK!
-
-$ check test_closures.ml
-ALL OK!
+  $ check test_lists.ml
+  ALL OK!
 
   $ check test_match.ml
   ALL OK!
 
 $ check test_lambda.ml
+ALL OK!
+
+$ check test_closures.ml
 ALL OK!
 
   $ check ../evaluation/0_heap_zero_once_twice.ml
@@ -42,9 +42,8 @@ ALL OK!
   $ check ../evaluation/6_memory_cell_mix_handler.ml
   ALL OK!
 
-very slow for some reason
-$ check ../evaluation/7_memory_cell_mix_handler.ml
-ALL OK!
+  $ check ../evaluation/7_memory_cell_mix_handler.ml
+  ALL OK!
 
   $ check ../evaluation/8_memory_cell_nested.ml
   ALL OK!

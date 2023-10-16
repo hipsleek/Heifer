@@ -3,6 +3,10 @@ let test1_true f
   (*@ ex r; f(1, r); Norm(emp, r) @*) =
   f 1
 
+let test1_false f
+  (*@ ex r; g(1, r); Norm(emp, r) @*) =
+  f 1
+
 let test2_true f g
   (*@ ex r; ex s; f(1, r); g(1, s); Norm(emp, s) @*) =
   f 1;

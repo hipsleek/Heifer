@@ -1,5 +1,5 @@
 
-(* let f1 ()
+let f1 ()
 (*@ ex i; Norm(i->[], []) @*)
 = let l = ref [] in
   !l
@@ -48,7 +48,7 @@ let f7 ()
   let f i = l := i :: !l in
   let g h x = h x; l := (x+1) :: !l in
   g f 7;
-  !l *)
+  !l
 
 let apply f x = f x
 
