@@ -24,7 +24,8 @@ type term =
     | TNot of term
     | TApp of string * term list
     | Nil
-    (* the string is just an identifier for uniqueness *)
+    (* the string is just an identifier for uniqueness.
+       the last param is the name of the result *)
     | TLambda of string * string list * disj_spec
     (* unused *)
     | TList of term list

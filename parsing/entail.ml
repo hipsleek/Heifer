@@ -207,6 +207,7 @@ let rec check_qf :
   info
     ~title:(Format.asprintf "SL entailment (%s)" id)
     "%s |- %s" (string_of_state ante) (string_of_state conseq);
+  (* TODO frame and spans *)
   match (a, c) with
   | (p1, h1), (p2, EmptyHeap) ->
     debug ~at:4 ~title:(Format.asprintf "right empty") "";
@@ -252,25 +253,14 @@ let rec check_qf :
     | None -> failwith (Format.asprintf "could not split LHS, bug?")
   end
 
-let instantiate_pred : fvenv -> pred_def -> term list -> term -> pred_def =
- fun fvenv pred args ret ->
+let instantiate_pred : pred_def -> term list -> term -> pred_def =
+ fun pred args ret ->
   (* the predicate should have one more arg than arguments given for the return value, which we'll substitute with the return term from the caller *)
   let pred = rename_exists_pred pred in
   let params, ret_param = split_last pred.p_params in
   let bs = (ret_param, ret) :: List.map2 (fun a b -> (a, b)) params args in
   (* handle lambda arguments, as instantiating stages can only rename the constructor of a function stage, not replace it with the spec of a lambda literal *)
-  let lambdas =
-    List.map2
-      (fun p a ->
-        match a with
-        | TLambda (v, _params, _sp) ->
-          let l = SMap.find v fvenv.fv_lambda in
-          [(p, l.m_spec |> Option.map (fun s -> (l.m_params, s)))]
-          (* TODO fix the type of this, just leave it out insead of having a list of option *)
-        | _ -> [])
-      params args
-    |> List.concat
-  in
+  let lambdas = [] in
   let p_body =
     let bbody =
       pred.p_body |> List.map (fun b -> List.map (instantiateStages bs) b)
@@ -295,7 +285,7 @@ let rec unfold_predicate_aux fvenv pred prefix (s : spec) : disj_spec =
     info
       ~title:(Format.asprintf "unfolding: %s" name)
       "%s" (string_of_pred pred);
-    let pred1 = instantiate_pred fvenv pred args ret in
+    let pred1 = instantiate_pred pred args ret in
     let prefix =
       prefix
       |> List.concat_map (fun p1 ->
@@ -679,7 +669,7 @@ let check_staged_subsumption :
   let ctx = create_pctx lems preds q_vars fvenv in
   check_staged_subsumption_stagewise ctx 0 True (es1, ns1) (es2, ns2)
 
-let create_induction_hypothesis fvenv params ds1 ds2 =
+let create_induction_hypothesis params ds1 ds2 =
   let fail fmt =
     Format.kasprintf
       (fun s ->
@@ -690,19 +680,7 @@ let create_induction_hypothesis fvenv params ds1 ds2 =
   match (ds1, ds2) with
   | [s1], [s2] ->
     let ns1 = s1 |> normalise_spec in
-    let used_l =
-      let used = used_vars ns1 in
-      let lambda_vars =
-        (* TODO can be simplified if specs were allowed inside terms *)
-        collect_lambdas ns1 |> SSet.to_seq |> List.of_seq
-        |> List.map (fun l ->
-               let m = SMap.find l fvenv.Forward_rules.fv_lambda in
-               m.m_spec |> Option.to_list |> List.concat
-               |> List.map normalise_spec |> List.map used_vars |> SSet.concat)
-        |> SSet.concat
-      in
-      SSet.union lambda_vars used
-    in
+    let used_l = used_vars ns1 in
     (* heuristic. all parameters must be used meaningfully, otherwise there's nothing to do induction on *)
     (match List.for_all (fun p -> SSet.mem p used_l) params with
     | true ->
@@ -743,7 +721,7 @@ let check_staged_subsumption_disj :
   info
     ~title:(Format.asprintf "disj subsumption: %s" mname)
     "%s\n<:\n%s" (string_of_disj_spec ds1) (string_of_disj_spec ds2);
-  let ih = create_induction_hypothesis fvenv params ds1 ds2 in
+  let ih = create_induction_hypothesis params ds1 ds2 in
   let lems =
     match ih with None -> lems | Some ih -> SMap.add ih.l_name ih lems
   in

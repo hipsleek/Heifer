@@ -501,16 +501,15 @@ let remove_noncontributing_existentials :
     | TNot t -> collect_related_vars_term t
     | TApp (_, ts) -> SSet.concat (List.map collect_related_vars_term ts)
     | Rel (_, _, _) -> failwith (Format.asprintf "NYI rel")
-    | TLambda (_, _, _) -> failwith (Format.asprintf "NYI lambda")
+    | TLambda (_, _, body) -> collect_related_vars_disj_spec body
     | TList _ -> failwith (Format.asprintf "NYI list")
     | TTupple _ -> failwith (Format.asprintf "NYI tuple")
-  in
   (*
     collect(a=b) = [{a, b}]
     collect(a=b /\ c<b) = [{a, b,}, {c, b}] = [{a, b, c}]
     collect(a=b /\ c=d) = [{a, b}, {c, d}]
   *)
-  let rec collect_related_vars_pi p =
+  and collect_related_vars_pi p =
     match p with
     | True | False -> []
     | Atomic (_, a, b) ->
@@ -528,8 +527,7 @@ let remove_noncontributing_existentials :
       merge_classes a1 b1
     | Not a -> collect_related_vars_pi a
     | Predicate (_, _) -> []
-  in
-  let rec collect_related_vars_heap h =
+  and collect_related_vars_heap h =
     match h with
     | EmptyHeap -> []
     | PointsTo (x, y) -> [SSet.add x (collect_related_vars_term y)]
@@ -537,11 +535,18 @@ let remove_noncontributing_existentials :
       let a1 = collect_related_vars_heap a in
       let b1 = collect_related_vars_heap b in
       merge_classes a1 b1
-  in
-  let collect_related_vars_state (p, h) =
+  and collect_related_vars_state (p, h) =
     let h1 = collect_related_vars_heap h in
     let p1 = collect_related_vars_pi p in
     merge_classes h1 p1
+  and collect_related_vars_stage st =
+    match st with
+    | Require (p, h) | NormalReturn (p, h) -> collect_related_vars_state (p, h)
+    | Exists _ | HigherOrder _ | RaisingEff _ -> []
+  and collect_related_vars_spec s =
+    SSet.concat (List.concat_map collect_related_vars_stage s)
+  and collect_related_vars_disj_spec ss =
+    SSet.concat (List.map collect_related_vars_spec ss)
   in
   let rec remove_subexpr_pi included p =
     match p with
