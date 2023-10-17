@@ -7,8 +7,11 @@ let stack = ref []
 let advanced = ref true
 let pp_event ppf r = Format.fprintf ppf "_%d" r
 let is_closing = ref false
+let is_opening = ref false
 let blacklist = Sys.getenv_opt "BLACKLIST" |> Option.map Str.regexp_case_fold
 let whitelist = Sys.getenv_opt "WHITELIST" |> Option.map Str.regexp_case_fold
+let collapse = Sys.getenv_opt "COLLAPSE" |> Option.map Str.regexp_case_fold
+let collapsed = ref []
 
 let summarize_stack () =
   (* String.concat "@"
@@ -29,6 +32,22 @@ let debug_print title s =
     | Some _, Some _ -> failwith "cannot specify both whitelist and blacklist"
     | None, Some b -> not (Str.string_match b title 0)
     | Some b, None -> Str.string_match b title 0
+  in
+  let show =
+    show
+    &&
+    match collapse with
+    | None -> true
+    | Some r ->
+      if Str.string_match r title 0 then
+        if !is_opening then (
+          collapsed := !debug_event_n :: !collapsed;
+          false)
+        else if !is_closing then (
+          collapsed := List.tl !collapsed;
+          true)
+        else !collapsed = []
+      else !collapsed = []
   in
   if show then (
     if String.length title < 6 then print_string (Pretty.yellow title ^ " ")
@@ -66,7 +85,9 @@ let span show k =
   (* let sum1 = summarize_stack () in *)
   (* let args = *)
   (* { stack = sum1; event = start } *)
+  is_opening := true;
   show None;
+  is_opening := false;
   (* in *)
   stack := start :: !stack;
   (* Format.printf "%s@." args; *)
