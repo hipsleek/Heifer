@@ -68,3 +68,18 @@ module SMap = struct
                (string_of_list Fun.id (keys b))))
       a b
 end
+
+let rec unsnoc xs =
+  match xs with
+  | [] -> failwith "unsnoc"
+  | [x] -> ([], x)
+  | x :: xs ->
+    let xs1, last = unsnoc xs in
+    (x :: xs1, last)
+
+let foldr1 f xs =
+  match xs with
+  | [] -> failwith "foldr1"
+  | _ ->
+    let xs, last = unsnoc xs in
+    List.fold_right f xs last

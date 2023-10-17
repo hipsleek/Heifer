@@ -200,3 +200,11 @@ let hash_lambda t =
     (* Format.printf "renamed %s@." (string_of_term n); *)
     Hashtbl.hash n
   | _ -> failwith (Format.asprintf "not a lambda: %s" "(cannot print)")
+
+let rec getExistentialVar (spec : normalisedStagedSpec) : string list =
+  let effS, normalS = spec in
+  match effS with
+  | [] ->
+    let ex, _, _ = normalS in
+    ex
+  | eff :: xs -> eff.e_evars @ getExistentialVar (xs, normalS)

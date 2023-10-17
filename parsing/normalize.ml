@@ -466,6 +466,22 @@ let optimize_existentials : normalisedStagedSpec -> normalisedStagedSpec =
   in
   (es1, norm1)
 
+let rec remove_subexpr_pi included p =
+  match p with
+  | True | False -> p
+  | Atomic (_, Var a, _) when SSet.mem a included -> True
+  | Atomic (_, _, Var a) when SSet.mem a included -> True
+  | Atomic (_, _, _) -> p
+  | And (a, b) ->
+    And (remove_subexpr_pi included a, remove_subexpr_pi included b)
+  | Or (a, b) -> Or (remove_subexpr_pi included a, remove_subexpr_pi included b)
+  | Imply (a, b) ->
+    Imply (remove_subexpr_pi included a, remove_subexpr_pi included b)
+  | Not a -> Not (remove_subexpr_pi included a)
+  | Predicate (_, _) -> failwith (Format.asprintf "NYI: predicate")
+
+let remove_subexpr_state included (p, h) = (remove_subexpr_pi included p, h)
+
 (** remove existentials which don't contribute to the result, e.g.
   ex v1 v2. ens v1=v2; ens res=2
   ==>
@@ -551,24 +567,6 @@ let remove_noncontributing_existentials :
     SSet.concat (List.concat_map collect_related_vars_stage s)
   and collect_related_vars_disj_spec ss =
     SSet.concat (List.map collect_related_vars_spec ss)
-  in
-  let rec remove_subexpr_pi included p =
-    match p with
-    | True | False -> p
-    | Atomic (_, Var a, _) when SSet.mem a included -> True
-    | Atomic (_, _, Var a) when SSet.mem a included -> True
-    | Atomic (_, _, _) -> p
-    | And (a, b) ->
-      And (remove_subexpr_pi included a, remove_subexpr_pi included b)
-    | Or (a, b) ->
-      Or (remove_subexpr_pi included a, remove_subexpr_pi included b)
-    | Imply (a, b) ->
-      Imply (remove_subexpr_pi included a, remove_subexpr_pi included b)
-    | Not a -> Not (remove_subexpr_pi included a)
-    | Predicate (_, _) -> failwith (Format.asprintf "NYI: predicate")
-  in
-  let remove_subexpr_state included (p, h) =
-    (remove_subexpr_pi included p, h)
   in
   let handle fns ex pre post =
     let classes =
@@ -699,6 +697,160 @@ let final_simplification (effs, norm) =
   let ex, pre, post = norm in
   (effs1, (ex, simplify_state pre, simplify_state post))
 
+(* if there is only one use, remove it. if there are two uses, substitute one into the other *)
+let remove_temp_vars =
+  let add _k a b =
+    match (a, b) with
+    | None, None -> None
+    | Some a, None | None, Some a -> Some a
+    | Some (a1, a2), Some (b1, b2) -> Some (a1 + b1, a2 @ b2)
+  in
+  let merge a b = SMap.merge add a b in
+  (*
+     let add _k a b =
+       match (a, b) with
+       | None, None -> None
+       | Some a, None | None, Some a -> Some a
+       | Some a, Some b -> Some (a+b)
+     in
+     let merge (sa,an) (sb,bn) = SMap.merge add sa sb, an@bn in *)
+  let rec analyze_pi pi =
+    match pi with
+    | True | False -> SMap.empty
+    | Atomic (EQ, Var a, Var b) ->
+      SMap.of_seq (List.to_seq [(a, (1, [Var b])); (b, (1, [Var a]))])
+    | Atomic (EQ, Var a, b) | Atomic (EQ, b, Var a) -> SMap.singleton a (1, [b])
+    | Atomic (EQ, a, b) -> merge (analyze_term a) (analyze_term b)
+    | Atomic (_, _, _) -> SMap.empty
+    | And (a, b) | Or (a, b) | Imply (a, b) ->
+      merge (analyze_pi a) (analyze_pi b)
+    | Not a -> analyze_pi a
+    | Predicate (_, _) -> failwith (Format.asprintf "NYI: predicate")
+  and analyze_term t =
+    match t with
+    | Num _ | UNIT | TTrue | TFalse | Nil -> SMap.empty
+    | Var v -> SMap.singleton v (1, [])
+    | Plus (a, b) | Minus (a, b) | Rel (_, a, b) | TAnd (a, b) | TOr (a, b) ->
+      merge (analyze_term a) (analyze_term b)
+    | TNot a -> analyze_term a
+    | TApp (_, ts) -> foldr1 merge (List.map analyze_term ts)
+    | TLambda (_, _, _) ->
+      (* TODO *)
+      SMap.empty
+    | TList _ | TTupple _ -> failwith (Format.asprintf "NYI list/tuple")
+  and analyze_heap h =
+    match h with
+    | EmptyHeap -> SMap.empty
+    | PointsTo (v, x) -> merge (SMap.singleton v (1, [])) (analyze_term x)
+    | SepConj (a, b) -> merge (analyze_heap a) (analyze_heap b)
+  and analyze_state (p, h) = merge (analyze_pi p) (analyze_heap h) in
+  fun (eff, norm) ->
+    let ex, pre, post = norm in
+    let histo =
+      foldr1 merge
+        ([analyze_state pre; analyze_state post]
+        @ List.concat_map
+            (fun e ->
+              [
+                analyze_state e.e_pre;
+                analyze_state e.e_post;
+                SMap.singleton (fst e.e_constr) (1, []);
+                List.fold_right merge
+                  (List.map analyze_term (snd e.e_constr))
+                  SMap.empty;
+                analyze_term e.e_ret;
+              ])
+            eff)
+    in
+    let quantified = Subst.getExistentialVar (eff, norm) |> SSet.of_list in
+    let locations =
+      SSet.concat
+        (collect_locations_norm norm :: List.map collect_locations_eff eff)
+    in
+    let occurs_once =
+      SMap.filter
+        (fun k (cnt, _) ->
+          ((not (String.equal k "res")) && not (SSet.mem k locations))
+          && Int.equal cnt 1 && SSet.mem k quantified)
+        histo
+      |> SMap.keys |> SSet.of_list
+    in
+    (* TODO removing from existentials does not handle shadowing *)
+    let eff1 =
+      List.map
+        (fun e ->
+          {
+            e with
+            e_evars =
+              List.filter (fun v -> not (SSet.mem v occurs_once)) e.e_evars;
+            e_pre = remove_subexpr_state occurs_once e.e_pre;
+            e_post = remove_subexpr_state occurs_once e.e_post;
+          })
+        eff
+    in
+    let norm1 =
+      ( List.filter (fun v -> not (SSet.mem v occurs_once)) ex,
+        remove_subexpr_state occurs_once pre,
+        remove_subexpr_state occurs_once post )
+    in
+    let occurs_twice =
+      SMap.filter_map
+        (fun k (cnt, eqs) ->
+          if
+            (not (String.equal k "res"))
+            && (not (SSet.mem k locations))
+            && Int.equal cnt 2
+            && List.length eqs > 0
+            && SSet.mem k quantified
+          then Some (List.hd eqs)
+          else None)
+        histo
+      |> SMap.bindings
+    in
+    let eff2 =
+      List.map
+        (fun e ->
+          {
+            e with
+            e_pre = instantiate_state occurs_twice e.e_pre;
+            e_post = instantiate_state occurs_twice e.e_post;
+          })
+        eff1
+    in
+    (* Format.printf "occurs_twice: %s@."
+       (string_of_list (string_of_pair Fun.id string_of_term) occurs_twice); *)
+    let norm2 =
+      let ex, pre, post = norm1 in
+      ( ex,
+        instantiate_state occurs_twice pre,
+        instantiate_state occurs_twice post )
+    in
+    (eff2, norm2)
+
+let rec simplify_spec n sp2 =
+  let sp3 = sp2 in
+  (* we may get a formula that is not equisatisfiable *)
+  (* let sp3 = sp2 |> remove_noncontributing_existentials in
+     debug ~at:4 ~title:"remove existentials that don't contribute" "%s\n==>\n%s"
+       (string_of_normalisedStagedSpec sp2)
+       (string_of_normalisedStagedSpec sp3); *)
+  (* redundant vars may appear due to fresh stages and removal of res via intermediate variables *)
+  let sp4 = sp3 |> optimize_existentials in
+  debug ~at:4
+    ~title:"normalize_spec: move existentials inward and remove unused"
+    "%s\n==>\n%s"
+    (string_of_normalisedStagedSpec sp3)
+    (string_of_normalisedStagedSpec sp4);
+  let sp5 = remove_temp_vars sp4 in
+  debug ~at:4 ~title:"normalize_spec: remove temp vars" "%s\n==>\n%s"
+    (string_of_normalisedStagedSpec sp4)
+    (string_of_normalisedStagedSpec sp5);
+  let sp6 = final_simplification sp5 in
+  debug ~at:4 ~title:"normalize_spec: final simplication pass" "%s\n==>\n%s"
+    (string_of_normalisedStagedSpec sp5)
+    (string_of_normalisedStagedSpec sp6);
+  if sp6 = sp2 || n < 0 then sp6 else simplify_spec (n - 1) sp2
+
 (* the main entry point *)
 let normalize_spec sp =
   let@ _ =
@@ -714,26 +866,9 @@ let normalize_spec sp =
     debug ~at:4 ~title:"normalize_spec: actually normalize" "%s\n==>\n%s"
       (string_of_spec sp1)
       (string_of_normalisedStagedSpec sp2);
-    let sp3 = sp2 in
-    (* we may get a formula that is not equisatisfiable *)
-    (* let sp3 = sp2 |> remove_noncontributing_existentials in
-       debug ~at:4 ~title:"remove existentials that don't contribute" "%s\n==>\n%s"
-         (string_of_normalisedStagedSpec sp2)
-         (string_of_normalisedStagedSpec sp3); *)
-    (* redundant vars may appear due to fresh stages and removal of res via intermediate variables *)
-    let sp4 = sp3 |> optimize_existentials in
-    debug ~at:4
-      ~title:"normalize_spec: move existentials inward and remove unused"
-      "%s\n==>\n%s"
-      (string_of_normalisedStagedSpec sp3)
-      (string_of_normalisedStagedSpec sp4);
-    let sp5 = sp4 |> final_simplification in
-    debug ~at:4 ~title:"normalize_spec: final simplication pass" "%s\n==>\n%s"
-      (string_of_normalisedStagedSpec sp4)
-      (string_of_normalisedStagedSpec sp5);
-    sp5
+    sp2
   in
-  r
+  simplify_spec 3 r
 
 let rec effectStage2Spec (effectStages : effectStage list) : spec =
   match effectStages with

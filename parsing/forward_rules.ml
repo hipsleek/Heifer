@@ -89,13 +89,6 @@ let bindNewNames (formal: string list) (actual: string list) : ((string * string
 
 
 
-let rec getExistientalVar (spec:normalisedStagedSpec) : string list = 
-  let (effS, normalS) = spec in 
-  match effS with 
-  | [] -> 
-    let (ex, _, _) = normalS in ex 
-  | eff :: xs -> 
-    eff.e_evars @ getExistientalVar (xs, normalS)
 
 
 
@@ -125,7 +118,7 @@ let renamingexistientalVar (specs:disj_spec): disj_spec =
       (* Format.printf "spec: %s@." (string_of_spec spec); *)
       let normalSpec = normalize_spec spec in 
         (* Format.printf "normalSpec: %s@." (string_of_normalisedStagedSpec normalSpec); *)
-      let existientalVar = getExistientalVar normalSpec in 
+      let existientalVar = getExistentialVar normalSpec in 
       (* Format.printf "existientalVar: %s@." ( string_of_list Fun.id existientalVar); *)
       let newNames = List.map (fun n -> (verifier_getAfreeVar n)) existientalVar in 
       let newNameTerms = List.map (fun a -> Var a) newNames in 

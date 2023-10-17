@@ -713,10 +713,7 @@ let check_staged_subsumption :
  fun lems preds n1 n2 ->
   let es1, ns1 = normalize_spec n1 in
   let es2, ns2 = normalize_spec n2 in
-  let q_vars =
-    Forward_rules.getExistientalVar (es1, ns1)
-    @ Forward_rules.getExistientalVar (es2, ns2)
-  in
+  let q_vars = getExistentialVar (es1, ns1) @ getExistentialVar (es2, ns2) in
   let ctx = create_pctx lems preds q_vars in
   check_staged_subsumption_stagewise ctx 0 True (es1, ns1) (es2, ns2)
 
