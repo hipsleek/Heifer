@@ -1,3 +1,15 @@
+
+# Multicont Examples:
+
+```
+cd benchmark/ocaml-multicont
+dune exec ./generic_count.exe
+```
+
+```
+dune exec ./hip.exe ../benchmark/ocaml-multicont/generic_count.ml
+```
+
 # Separation Logic for Unrestricted Effect Handlers
 
 This work proposes a novel calculus based on Staged Separation Logic 

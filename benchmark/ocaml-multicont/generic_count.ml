@@ -5,31 +5,52 @@ open Effect.Deep
 type _ Effect.t += Branch : bool Effect.t
 
 type point = int -> bool
-type predicate = point -> bool
 
 let xor : bool -> bool -> bool
-  = fun p q -> (p || q) && not (p && q)
+(*@ xor(p, q): ex p, q; req true; ens res = p&&q @*)
+  = fun p q -> (p && q)
 
-let xor_predicate : int -> predicate
+
+let init : int -> (int -> bool) -> bool list 
+(*@ init$(n, p, res): 
+  req n=0 ens p$(0, res1); res=[res1]
+  req n>0 ens p$(n-1, res1); p$(n-1, res2); res= res1@res2
+    [p (n-1)] @ [p n]
+@*)
+  = fun n p -> 
+  match n with 
+  | 0 -> [p 0]
+  | n -> [p (n-1)] @ [p n]
+
+let xor_predicate : int -> point -> bool
   = fun n p ->
-  match List.init n p with 
+  match init n p with 
   | [] -> false
   | v :: vs -> List.fold_left xor v vs
 
-let generic_count : (bool, int) handler =
-  { retc = (fun x -> if x then 1 else 0)
-  ; exnc = (fun e -> raise e)
-  ; effc = (fun (type a) (eff : a Effect.t) ->
-    match eff with
-    | Branch ->
-       Some (fun (k : (a, _) continuation) ->
-           let open Multicont.Deep in
-           let r = promote k in
-           let tt = resume r true in
-           let ff = resume r false in
-           tt + ff)
-    | _ -> None) }
+let toss_twice () = 
+  (*@ toss_twice(res): Branch(res1); Branch(res2); (res=res1@res2, Norm(res))  @*)
+  (xor_predicate 2) (fun _ -> Effect.perform Branch) 
 
 let _ =
-  let solutions = match_with (xor_predicate 3) (fun _ -> Effect.perform Branch) generic_count in
-  Printf.printf "%d\n" solutions
+  (*@ (counter -> 6 /\ solutions=1, Norm (())) @*)
+  let counter = ref 0 in 
+  let solutions = 
+    match_with toss_twice ()
+    { retc = (fun x -> if x then 1 else 0)
+    ; exnc = (fun e -> raise e)
+    ; effc = (fun (type a) (eff : a Effect.t) ->
+      match eff with
+      | Branch ->
+        Some (fun (k : (a, _) continuation) ->
+           let open Multicont.Deep in
+           let r = promote k in
+           counter := !counter + 1;            (* increase the counter *)
+           let tt = resume r true in
+           counter := !counter + 1;            (* increase the counter *)
+           let ff = resume r false in
+           tt + ff)
+      | _ -> None) } in
+  Printf.printf "Res:%d\n" solutions;
+  Printf.printf "Counter:%d\n" !counter
+
