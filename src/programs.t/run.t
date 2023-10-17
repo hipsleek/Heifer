@@ -60,6 +60,8 @@
   $ check ../evaluation/12_two_pointers.ml
   ALL OK!
 
+We can't handle these cases yet
+
 $ check ../examples/calls.ml
 ALL OK!
 

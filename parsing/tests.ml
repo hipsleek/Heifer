@@ -124,13 +124,13 @@ let%expect_test "apply lemma" =
     ---
     prefix
     lemma: forall [x], f <: Norm(res=x+1)
-    original: req emp; g(2); req emp; f(1); req emp; Norm(res=1)
+    original: req emp; g(2); ex v1; req emp; ens v1=2; f(1); req emp; Norm(res=1)
     result: Some g(2); Norm(T/\1=x+1); Norm(res=x+1)
-    norm: Some g(2); Norm(1=x+1/\res=x+1)
+    norm: Some g(2); ex v0; Norm(1=x+1/\v0=2/\res=x+1)
     ---
     suffix
     lemma: forall [x], f <: Norm(res=x+1)
-    original: req emp; f(1); req emp; g(2); req emp; Norm(res=2)
+    original: req emp; f(1); ex v1; req emp; ens v1=1; g(2); req emp; Norm(res=2)
     result: Some Norm(T/\1=x+1); Norm(res=x+1); g(2)
     norm: Some ex v0; ens 1=x+1/\v0=x+1; g(2); Norm(res=2)
     ---
@@ -166,15 +166,15 @@ let%expect_test "apply lemma" =
     ---
     extra state to be matched
     lemma: forall [x], f <: Norm(res=x+1)
-    original: req emp; ens b=2; f(1); req emp; Norm(res=1)
+    original: ex v1; req emp; ens b=2/\v1=2; f(1); req emp; Norm(res=1)
     result: Some Norm(res=2/\b=2); Norm(T/\1=x+1); Norm(res=x+1)
-    norm: Some Norm(b=2/\1=x+1/\res=x+1)
+    norm: Some ex v0; Norm(b=2/\1=x+1/\v0=2/\res=x+1)
     ---
     extra precondition to be matched
     lemma: forall [x], f <: Norm(res=x+1)
-    original: req b=2; f(1); req emp; Norm(res=1)
+    original: ex v2; req b=2; ens v2=2; f(1); req emp; Norm(res=1)
     result: Some req b=2; Norm(res=2/\T); Norm(T/\1=x+1); Norm(res=x+1)
-    norm: Some req b=2; Norm(1=x+1/\res=x+1)
+    norm: Some ex v0; req b=2; Norm(1=x+1/\v0=2/\res=x+1)
     ---
     difficult unification
     lemma: forall [x], f <: Norm(res=x+2/\T)
@@ -190,9 +190,9 @@ let%expect_test "apply lemma" =
     ---
     map
     lemma: forall [x], f <: Norm(res=x/\T)
-    original: ex a; req emp; ens a=b/\b=2; f(1); ex r; req emp; Norm(res=r/\r=a+4)
+    original: ex a v2; req emp; ens a=b/\b=2/\v2=3; f(1); ex r v3; req emp; Norm(v3=1/\res=r/\r=a+4)
     result: Some ex a; Norm(res=3/\a=b/\b=2); Norm(T/\1=x); Norm(res=x); ex r; Norm(res=r/\r=a+4)
-    norm: Some ex a r v1; Norm(a=b/\b=2/\1=x/\v1=x/\res=r/\r=a+4)
+    norm: Some ex a r v0 v1; Norm(a=b/\b=2/\1=x/\v0=3/\v1=x/\res=r/\r=a+4)
     --- |}]
 
 let%expect_test "normalise spec" =
@@ -325,7 +325,8 @@ let%expect_test "normalise spec" =
   --- eff
 
   Norm(x->1); req x->1; E(x->1, (3), ()); Norm(y->2)
-  =/=>
+  ==>
+  req 1=1; E(x->1 /\ 1=1, (3), ()); req emp; Norm(y->2 /\ res=())
 
   Norm(x->1); f(3, ()); Norm(y->2)
   ==>
@@ -335,7 +336,7 @@ let%expect_test "normalise spec" =
 
   ex x1; Read(emp, (()), x1); ex x2; Write(emp, (x1+1), x2); ex x3; Read(emp, (()), x3); Norm(res=x3)
   ==>
-  ex x1; req emp; Read(emp, (()), x1); ex v15 x2; req emp; Write(v15=x1, (x1+1), x2); ex v16 x3; req emp; Read(v16=x2, (()), x3); ex v17; req emp; Norm(v17=x3/\res=x3)
+  ex x1; req emp; Read(emp, (()), x1); ex v0 x2; req emp; Write(v0=x1, (x1+1), x2); ex v1 x3; req emp; Read(v1=x2, (()), x3); ex v2; req emp; Norm(v2=x3/\res=x3)
 |}]
 
 let entails_pure env_a s1 vars s2 =

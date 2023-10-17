@@ -118,22 +118,24 @@ let rec pure_to_equalities pi =
 let pure_to_eq_state (p, _) = pure_to_equalities p
 
 (** check if x=y is not invalid (i.e. sat) under the given assumptions *)
-let may_be_equal assumptions x y =
-  let@ _ =
-    Debug.span (fun r ->
-        debug ~at:4 ~title:"may be equal" "%s => %s = %s\n%s"
-          (string_of_pi assumptions) (string_of_term x) (string_of_term y)
-          (string_of_result string_of_bool r))
-  in
-  let tenv =
-    Infer_types.infer_types_pi (create_abs_env ())
-      (And (assumptions, Atomic (EQ, x, y)))
-    |> Infer_types.concrete_type_env
-  in
-  let right = Atomic (EQ, x, y) in
-  (* let eq = Provers.entails_exists tenv assumptions [] right in *)
-  let eq = Provers.askZ3 tenv (Imply (assumptions, right)) in
-  eq
+let may_be_equal _assumptions _x _y =
+  (* let@ _ =
+       Debug.span (fun r ->
+           debug ~at:4 ~title:"may be equal" "%s => %s = %s\n%s"
+             (string_of_pi assumptions) (string_of_term x) (string_of_term y)
+             (string_of_result string_of_bool r))
+     in
+     let tenv =
+       Infer_types.infer_types_pi (create_abs_env ())
+         (And (assumptions, Atomic (EQ, x, y)))
+       |> Infer_types.concrete_type_env
+     in
+     let right = Atomic (EQ, x, y) in
+     (* let eq = Provers.entails_exists tenv assumptions [] right in *)
+     let eq = Provers.askZ3 tenv (Imply (assumptions, right)) in
+     eq *)
+  (* proving at this point is not effective as we may not be able to prove unsat, but later the constraints may be violated, resulting in false anyway. returning true here is just the worst case version of that *)
+  true
 
 let rec kappa_of_list li =
   match li with
@@ -711,10 +713,12 @@ let normalise_spec sp =
     let sp2 = sp1 |> normalise_spec_ ([], freshNormalStage) in
     debug ~at:4 ~title:"actually normalise" "%s\n==>\n%s" (string_of_spec sp1)
       (string_of_normalisedStagedSpec sp2);
-    let sp3 = sp2 |> remove_noncontributing_existentials in
-    debug ~at:4 ~title:"remove existentials that don't contribute" "%s\n==>\n%s"
-      (string_of_normalisedStagedSpec sp2)
-      (string_of_normalisedStagedSpec sp3);
+    let sp3 = sp2 in
+    (* we may get a formula that is not equisatisfiable *)
+    (* let sp3 = sp2 |> remove_noncontributing_existentials in
+       debug ~at:4 ~title:"remove existentials that don't contribute" "%s\n==>\n%s"
+         (string_of_normalisedStagedSpec sp2)
+         (string_of_normalisedStagedSpec sp3); *)
     (* redundant vars may appear due to fresh stages and removal of res via intermediate variables *)
     let sp4 = sp3 |> optimize_existentials in
     debug ~at:4 ~title:"move existentials inward and remove unused"
