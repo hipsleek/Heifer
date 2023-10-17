@@ -623,8 +623,10 @@ and stage_subsumes :
     let left = conj [fst pre_residue; post_l] in
     let right = conj [post_r] in
     let tenv =
-      let env = infer_types_pi tenv left in
-      let env = infer_types_pi env right in
+      (* let env = infer_types_pi tenv left in *)
+      (* let env = infer_types_pi env right in *)
+      (* share things like res *)
+      let env = infer_types_pi tenv (And (left, right)) in
       env
     in
     (* Format.printf "1@."; *)
