@@ -6,6 +6,8 @@ open Normalize
 open Subst
 open Debug
 
+let unfolding_bound = 3
+
 type fvenv = Forward_rules.fvenv
 
 let string_of_pi p = string_of_pi (simplify_pure p)
@@ -494,7 +496,9 @@ and try_other_measures :
     in
     (c1, res)
   with
-  | Some (c1, def) when not (List.mem (c1, `Left) ctx.unfolded) ->
+  | Some (c1, def)
+    when List.length (List.filter (fun s -> s = (c1, `Left)) ctx.unfolded)
+         <= unfolding_bound ->
     let unf = unfold_predicate_norm def s1 in
     let@ s1_1 = all ~to_s:string_of_normalisedStagedSpec unf in
     check_staged_subsumption_stagewise
@@ -510,7 +514,9 @@ and try_other_measures :
        in
        (c2, res)
      with
-    | Some (c2, pred_def) when not (List.mem (c2, `Right) ctx.unfolded) ->
+    | Some (c2, pred_def)
+      when List.length (List.filter (fun s -> s = (c2, `Right)) ctx.unfolded)
+           <= unfolding_bound ->
       let unf = unfold_predicate_norm pred_def s2 in
       let@ s2_1 = any ~name:"?" ~to_s:string_of_normalisedStagedSpec unf in
       check_staged_subsumption_stagewise
