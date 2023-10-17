@@ -7,6 +7,8 @@ let stack = ref []
 let advanced = ref true
 let pp_event ppf r = Format.fprintf ppf "_%d" r
 let is_closing = ref false
+let blacklist = Sys.getenv_opt "BLACKLIST" |> Option.map Str.regexp_case_fold
+let whitelist = Sys.getenv_opt "WHITELIST" |> Option.map Str.regexp_case_fold
 
 let summarize_stack () =
   (* String.concat "@"
@@ -21,10 +23,18 @@ let debug_print title s =
     in
     Format.asprintf "%s | %a%s" title pp_event !debug_event_n stack
   in
-  if String.length title < 6 then print_string (Pretty.yellow title ^ " ")
-  else print_endline (Pretty.yellow title);
-  print_endline s;
-  if not (String.equal "" s) then print_endline ""
+  let show =
+    match (whitelist, blacklist) with
+    | None, None -> true
+    | Some _, Some _ -> failwith "cannot specify both whitelist and blacklist"
+    | None, Some b -> not (Str.string_match b title 0)
+    | Some b, None -> Str.string_match b title 0
+  in
+  if show then (
+    if String.length title < 6 then print_string (Pretty.yellow title ^ " ")
+    else print_endline (Pretty.yellow title);
+    print_endline s;
+    if not (String.equal "" s) then print_endline "")
 
 (* someday https://github.com/ocaml/ocaml/pull/126 *)
 let debug ~at ~title fmt =
