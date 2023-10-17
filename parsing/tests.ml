@@ -13,7 +13,7 @@ let parse_disj_spec s =
 
 let parse_fn_stage s =
   let sp = parse_spec s in
-  match normalise_spec sp with
+  match normalize_spec sp with
   | e :: _, _ -> e.e_constr
   | _ -> failwith "failed to parse"
 
@@ -28,7 +28,7 @@ let%expect_test "instantiation/renaming of existentials" =
   Forward_rules.freshen [parse_spec {|ex a; Norm(b=1/\emp, a+1)|}] |> show;
   Pretty.verifier_counter_reset ();
   Forward_rules.instantiateExistientalVar
-    (normalise_spec (parse_spec {|ex a; Norm(b=1/\emp, a+1)|}))
+    (normalize_spec (parse_spec {|ex a; Norm(b=1/\emp, a+1)|}))
     [("a", "b")]
   |> normalisedStagedSpec2Spec
   |> fun a ->
@@ -54,10 +54,10 @@ let%expect_test "apply lemma" =
     let spec = Entail.apply_lemma lem original in
     Format.printf "%s\n%s\noriginal: %s\nresult: %s\nnorm: %s\n---@." what
       (string_of_lemma lem)
-      (string_of_normalisedStagedSpec (normalise_spec original))
+      (string_of_normalisedStagedSpec (normalize_spec original))
       (string_of_option string_of_spec spec)
       (string_of_option string_of_spec
-         (spec |> Option.map normalise_spec
+         (spec |> Option.map normalize_spec
          |> Option.map normalisedStagedSpec2Spec))
   in
   let l_succ = (["x"], {|f(x)|}, {|ens res=x+1|}) in
@@ -200,7 +200,7 @@ let%expect_test "normalise spec" =
   verifier_counter_reset ();
   let test s =
     try
-      let n = normalise_spec s in
+      let n = normalize_spec s in
       Format.printf "%s\n==>\n%s\n@." (string_of_spec s)
         (string_of_normalisedStagedSpec n)
     with Norm_failure -> Format.printf "%s\n=/=>\n@." (string_of_spec s)
@@ -368,7 +368,8 @@ let%expect_test "union find" =
   Format.printf "a: %s@." (string_of_type (U.get a));
   Format.printf "b: %s@." (string_of_type (U.get b));
   Format.printf "c: %s@." (string_of_type (U.get c));
-  [%expect {|
+  [%expect
+    {|
         a: 'a
         b: int
         c: 'c

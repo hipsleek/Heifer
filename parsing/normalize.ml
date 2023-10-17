@@ -700,18 +700,19 @@ let final_simplification (effs, norm) =
   (effs1, (ex, simplify_state pre, simplify_state post))
 
 (* the main entry point *)
-let normalise_spec sp =
+let normalize_spec sp =
   let@ _ =
     Debug.span (fun r ->
-        debug ~at:3 ~title:"normalise_spec" "%s\n==>\n%s" (string_of_spec sp)
+        debug ~at:3 ~title:"normalize_spec" "%s\n==>\n%s" (string_of_spec sp)
           (string_of_result string_of_normalisedStagedSpec r))
   in
   let r =
     let sp1 = sp |> simplify_existential_locations in
-    debug ~at:4 ~title:"remove some existential eqs" "%s\n==>\n%s"
-      (string_of_spec sp) (string_of_spec sp1);
+    debug ~at:4 ~title:"normalize_spec: remove some existential eqs"
+      "%s\n==>\n%s" (string_of_spec sp) (string_of_spec sp1);
     let sp2 = sp1 |> normalise_spec_ ([], freshNormalStage) in
-    debug ~at:4 ~title:"actually normalise" "%s\n==>\n%s" (string_of_spec sp1)
+    debug ~at:4 ~title:"normalize_spec: actually normalize" "%s\n==>\n%s"
+      (string_of_spec sp1)
       (string_of_normalisedStagedSpec sp2);
     let sp3 = sp2 in
     (* we may get a formula that is not equisatisfiable *)
@@ -721,12 +722,13 @@ let normalise_spec sp =
          (string_of_normalisedStagedSpec sp3); *)
     (* redundant vars may appear due to fresh stages and removal of res via intermediate variables *)
     let sp4 = sp3 |> optimize_existentials in
-    debug ~at:4 ~title:"move existentials inward and remove unused"
+    debug ~at:4
+      ~title:"normalize_spec: move existentials inward and remove unused"
       "%s\n==>\n%s"
       (string_of_normalisedStagedSpec sp3)
       (string_of_normalisedStagedSpec sp4);
     let sp5 = sp4 |> final_simplification in
-    debug ~at:4 ~title:"final simplication pass" "%s\n==>\n%s"
+    debug ~at:4 ~title:"normalize_spec: final simplication pass" "%s\n==>\n%s"
       (string_of_normalisedStagedSpec sp4)
       (string_of_normalisedStagedSpec sp5);
     sp5
@@ -776,7 +778,7 @@ let normalisedStagedSpec2Spec (normalisedStagedSpec : normalisedStagedSpec) :
 
 (* spec list -> normalisedStagedSpec list *)
 let normalise_spec_list_aux1 (specLi : spec list) : normalisedStagedSpec list =
-  List.map (fun a -> normalise_spec a) specLi
+  List.map (fun a -> normalize_spec a) specLi
 
 let normalise_spec_list_aux2 (specLi : normalisedStagedSpec list) : spec list =
   List.map (fun a -> normalisedStagedSpec2Spec a) specLi
@@ -784,7 +786,7 @@ let normalise_spec_list_aux2 (specLi : normalisedStagedSpec list) : spec list =
 let normalise_spec_list (specLi : spec list) : spec list =
   List.map
     (fun a ->
-      let normalisedStagedSpec = normalise_spec a in
+      let normalisedStagedSpec = normalize_spec a in
       normalisedStagedSpec2Spec normalisedStagedSpec)
     specLi
 

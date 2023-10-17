@@ -58,68 +58,73 @@ let get_primitive_type f =
   | _ -> failwith (Format.asprintf "unknown function: %s" f)
 
 let rec infer_types_term ?hint (env : abs_typ_env) term : typ * abs_typ_env =
-  let res =
-    match (term, hint) with
-    | UNIT, _ -> (Unit, env)
-    | TTrue, _ | TFalse, _ -> (Bool, env)
-    | TNot a, _ ->
-      let _at, env1 = infer_types_term ~hint:Bool env a in
-      (Bool, env1)
-    | TAnd (a, b), _ ->
-      let _at, env = infer_types_term ~hint:Bool env a in
-      let _bt, env = infer_types_term ~hint:Bool env b in
-      (Bool, env)
-    | TOr (a, b), _ ->
-      let _at, env = infer_types_term ~hint:Bool env a in
-      let _bt, env = infer_types_term ~hint:Bool env b in
-      (Bool, env)
-    | Nil, _ -> (List_int, env)
-    | Num _, _ -> (Int, env)
-    (* possibly add syntactic heuristics for types, such as names *)
-    | Var v, Some t -> (t, assert_var_has_type v t env)
-    | Var v, None ->
-      let t = TVar (verifier_getAfreeVar v) in
-      (t, assert_var_has_type v t env)
-    | TLambda _, _ -> (Lamb, env)
-    | Rel (EQ, a, b), _ -> begin
-      try
-        let at, env1 = infer_types_term ~hint:Int env a in
-        let bt, env2 = infer_types_term ~hint:Int env1 b in
-        let env3 = unify_types at bt env2 in
-        (Bool, env3)
-      with _ ->
-        let _bt, env1 = infer_types_term ~hint:Int env b in
-        let _at, env2 = infer_types_term ~hint:Int env1 a in
-        (Bool, env2)
-    end
-    | Rel ((GT | LT | GTEQ | LTEQ), a, b), _ ->
-      let _at, env1 = infer_types_term ~hint:Int env a in
-      let _bt, env2 = infer_types_term ~hint:Int env1 b in
-      (Bool, env2)
-    | Plus (a, b), _ | Minus (a, b), _ ->
-      let _at, env1 = infer_types_term ~hint:Int env a in
-      let _bt, env2 = infer_types_term ~hint:Int env1 b in
-      (Int, env2)
-    | TApp (f, args), _ ->
-      let argtypes, ret = get_primitive_type f in
-      let env =
-        (* infer from right to left *)
-        List.fold_left
-          (fun env (a, at) ->
-            let _, env = infer_types_term ~hint:at env a in
-            env)
-          env
-          (List.map2 (fun a b -> (a, b)) args argtypes)
-      in
-      (ret, env)
-    | TList _, _ | TTupple _, _ -> failwith "list/tuple unimplemented"
+  let@ _ =
+    Debug.span (fun r ->
+        debug ~at:5 ~title:"infer_types" "%s : %s -| %s" (string_of_term term)
+          (string_of_result string_of_type (Option.map fst r))
+          (string_of_result string_of_abs_env (Option.map snd r)))
   in
-  debug ~at:5 ~title:"infer_types" "%s : %s -| %s" (string_of_term term)
-    (string_of_type (fst res))
-    (string_of_abs_env (snd res));
-  res
+  match (term, hint) with
+  | UNIT, _ -> (Unit, env)
+  | TTrue, _ | TFalse, _ -> (Bool, env)
+  | TNot a, _ ->
+    let _at, env1 = infer_types_term ~hint:Bool env a in
+    (Bool, env1)
+  | TAnd (a, b), _ ->
+    let _at, env = infer_types_term ~hint:Bool env a in
+    let _bt, env = infer_types_term ~hint:Bool env b in
+    (Bool, env)
+  | TOr (a, b), _ ->
+    let _at, env = infer_types_term ~hint:Bool env a in
+    let _bt, env = infer_types_term ~hint:Bool env b in
+    (Bool, env)
+  | Nil, _ -> (List_int, env)
+  | Num _, _ -> (Int, env)
+  (* possibly add syntactic heuristics for types, such as names *)
+  | Var v, Some t -> (t, assert_var_has_type v t env)
+  | Var v, None ->
+    let t = TVar (verifier_getAfreeVar v) in
+    (t, assert_var_has_type v t env)
+  | TLambda _, _ -> (Lamb, env)
+  | Rel (EQ, a, b), _ -> begin
+    try
+      let at, env1 = infer_types_term ~hint:Int env a in
+      let bt, env2 = infer_types_term ~hint:Int env1 b in
+      let env3 = unify_types at bt env2 in
+      (Bool, env3)
+    with _ ->
+      let _bt, env1 = infer_types_term ~hint:Int env b in
+      let _at, env2 = infer_types_term ~hint:Int env1 a in
+      (Bool, env2)
+  end
+  | Rel ((GT | LT | GTEQ | LTEQ), a, b), _ ->
+    let _at, env1 = infer_types_term ~hint:Int env a in
+    let _bt, env2 = infer_types_term ~hint:Int env1 b in
+    (Bool, env2)
+  | Plus (a, b), _ | Minus (a, b), _ ->
+    let _at, env1 = infer_types_term ~hint:Int env a in
+    let _bt, env2 = infer_types_term ~hint:Int env1 b in
+    (Int, env2)
+  | TApp (f, args), _ ->
+    let argtypes, ret = get_primitive_type f in
+    let env =
+      (* infer from right to left *)
+      List.fold_left
+        (fun env (a, at) ->
+          let _, env = infer_types_term ~hint:at env a in
+          env)
+        env
+        (List.map2 (fun a b -> (a, b)) args argtypes)
+    in
+    (ret, env)
+  | TList _, _ | TTupple _, _ -> failwith "list/tuple unimplemented"
 
 let rec infer_types_pi env pi =
+  (* let@ _ =
+       Debug.span (fun r ->
+           debug ~at:5 ~title:"infer_types_pi" "%s -| %s" (string_of_pi pi)
+             (string_of_result string_of_abs_env r))
+     in *)
   match pi with
   | True | False -> env
   | Atomic (EQ, a, b) ->

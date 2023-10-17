@@ -147,7 +147,7 @@ end
 
 let check_staged_entail : spec -> spec -> spec option =
  fun n1 n2 ->
-  let norm = normalise_spec (n1 @ n2) in
+  let norm = normalize_spec (n1 @ n2) in
   Some (normalisedStagedSpec2Spec norm)
 
 let instantiate_state bindings (p, h) =
@@ -258,7 +258,9 @@ let rec check_qf :
 let instantiate_pred : pred_def -> term list -> term -> pred_def =
  fun pred args ret ->
   (* the predicate should have one more arg than arguments given for the return value, which we'll substitute with the return term from the caller *)
+  (* Format.printf "right before instantiate %s@." (string_of_pred pred); *)
   let pred = rename_exists_pred pred in
+  (* Format.printf "rename exists %s@." (string_of_pred pred); *)
   let params, ret_param = split_last pred.p_params in
   let bs = (ret_param, ret) :: List.map2 (fun a b -> (a, b)) params args in
   (* handle lambda arguments, as instantiating stages can only rename the constructor of a function stage, not replace it with the spec of a lambda literal *)
@@ -288,6 +290,9 @@ let rec unfold_predicate_aux pred prefix (s : spec) : disj_spec =
       ~title:(Format.asprintf "unfolding: %s" name)
       "%s" (string_of_pred pred);
     let pred1 = instantiate_pred pred args ret in
+    (* info
+       ~title:(Format.asprintf "instantiated: %s" name)
+       "%s" (string_of_pred pred1); *)
     let prefix =
       prefix
       |> List.concat_map (fun p1 ->
@@ -314,7 +319,7 @@ let unfold_predicate_spec : pred_def -> spec -> disj_spec =
 let unfold_predicate_norm :
     pred_def -> normalisedStagedSpec -> normalisedStagedSpec list =
  fun pred sp ->
-  List.map normalise_spec
+  List.map normalize_spec
     (unfold_predicate_spec pred (normalisedStagedSpec2Spec sp))
 
 (** proof context *)
@@ -544,7 +549,7 @@ and try_other_measures :
       | Some app ->
         check_staged_subsumption_stagewise
           { ctx with applied = app.l_name :: ctx.applied }
-          i assump (normalise_spec s1_1) s2
+          i assump (normalize_spec s1_1) s2
       | None ->
         (* no predicates to try unfolding *)
         let pp c =
@@ -705,8 +710,8 @@ let rec apply_tactics ts lems preds (ds1 : disj_spec) (ds2 : disj_spec) =
 let check_staged_subsumption :
     lemma SMap.t -> pred_def SMap.t -> spec -> spec -> unit option =
  fun lems preds n1 n2 ->
-  let es1, ns1 = normalise_spec n1 in
-  let es2, ns2 = normalise_spec n2 in
+  let es1, ns1 = normalize_spec n1 in
+  let es2, ns2 = normalize_spec n2 in
   let q_vars =
     Forward_rules.getExistientalVar (es1, ns1)
     @ Forward_rules.getExistientalVar (es2, ns2)
@@ -724,7 +729,7 @@ let create_induction_hypothesis params ds1 ds2 =
   in
   match (ds1, ds2) with
   | [s1], [s2] ->
-    let ns1 = s1 |> normalise_spec in
+    let ns1 = s1 |> normalize_spec in
     let used_l = used_vars ns1 in
     (* heuristic. all parameters must be used meaningfully, otherwise there's nothing to do induction on *)
     (match List.for_all (fun p -> SSet.mem p used_l) params with
@@ -776,7 +781,7 @@ let check_staged_subsumption_disj :
   |> succeeded
 
 let derive_predicate m_name m_params disj =
-  let norm = List.map normalise_spec disj in
+  let norm = List.map normalize_spec disj in
   (* change the last norm stage so it uses res and has an equality constraint *)
   let new_spec =
     List.map (fun (effs, (vs, pre, (p, h))) -> (effs, (vs, pre, (p, h)))) norm

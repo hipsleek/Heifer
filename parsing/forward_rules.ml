@@ -102,7 +102,7 @@ let rec getExistientalVar (spec:normalisedStagedSpec) : string list =
 
 let instantiateExistientalVarSpec   (spec:spec) 
 (bindings:((string * string) list)): spec = 
-  let normalSpec = normalise_spec spec in 
+  let normalSpec = normalize_spec spec in 
   normalisedStagedSpec2Spec (instantiateExistientalVar normalSpec bindings)
 
 
@@ -123,7 +123,7 @@ let renamingexistientalVar (specs:disj_spec): disj_spec =
   List.map (
     fun spec -> 
       (* Format.printf "spec: %s@." (string_of_spec spec); *)
-      let normalSpec = normalise_spec spec in 
+      let normalSpec = normalize_spec spec in 
         (* Format.printf "normalSpec: %s@." (string_of_normalisedStagedSpec normalSpec); *)
       let existientalVar = getExistientalVar normalSpec in 
       (* Format.printf "existientalVar: %s@." ( string_of_list Fun.id existientalVar); *)
@@ -329,7 +329,7 @@ let rec handling_spec env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj
       let handled_spec, env =
         (* make use of the handler body spec instead of reanalyzing. for each of its disjuncts, ... *)
         handler_body_spec |> concat_map_state env (fun handler_body env ->
-          let (eff_stages, norm_stage) = normalise_spec handler_body in
+          let (eff_stages, norm_stage) = normalize_spec handler_body in
 
           (* ... each continue stage in this disjunct of the handler spec should be substituted with the spec for continue *)
           let handled, env = eff_stages |> map_state env (fun h_eff_stage env ->
@@ -361,7 +361,7 @@ let rec handling_spec env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj
               (* deeply (recursively) handle the rest of each continuation, to figure out the full effects of this continue. note that this is the place where we indirectly recurse on xs, by making it the spec of continue and recursing on each continue stage. this gives rise to tree recursion in a multishot setting. *)
               let handled_rest, env = 
                 cont_spec2 |> concat_map_state env (fun c env ->
-                  let r, env = handling_spec env (normalise_spec c) h_norm h_ops in
+                  let r, env = handling_spec env (normalize_spec c) h_norm h_ops in
                   r, env)
               in
 
@@ -646,7 +646,7 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
       let phi1, env = infer_of_expression env [freshNormalReturnSpec] scr in 
       let afterHandling, env =
         concat_map_state env (fun spec env -> 
-          handling_spec env (normalise_spec spec) inferred_val_case inferred_branch_specs
+          handling_spec env (normalize_spec spec) inferred_val_case inferred_branch_specs
         ) phi1
       in 
       let res, env = concatenateSpecsWithSpec history afterHandling, env in
