@@ -132,9 +132,10 @@ let rec used_vars_term (t : term) =
     SSet.union (used_vars_term a) (used_vars_term b)
   | TNot a -> used_vars_term a
   | TApp (_, args) -> SSet.concat (List.map used_vars_term args)
-  | TLambda _ -> SSet.empty
+  | TLambda (_lid, params, spec) -> SSet.empty
+(* SSet.diff (used_vars_disj_spec spec) (SSet.of_list params) *)
 
-let rec used_vars_pi (p : pi) =
+and used_vars_pi (p : pi) =
   match p with
   | True | False -> SSet.empty
   | Atomic (_, a, b) -> SSet.union (used_vars_term a) (used_vars_term b)
@@ -143,21 +144,15 @@ let rec used_vars_pi (p : pi) =
   | Not a -> used_vars_pi a
   | Predicate (_, t) -> used_vars_term t
 
-let rec used_vars_heap (h : kappa) =
+and used_vars_heap (h : kappa) =
   match h with
   | EmptyHeap -> SSet.empty
   | PointsTo (a, t) -> SSet.add a (used_vars_term t)
   | SepConj (a, b) -> SSet.union (used_vars_heap a) (used_vars_heap b)
 
-let rec used_locs_heap (h : kappa) =
-  match h with
-  | EmptyHeap -> SSet.empty
-  | PointsTo (a, _) -> SSet.singleton a
-  | SepConj (a, b) -> SSet.union (used_locs_heap a) (used_locs_heap b)
+and used_vars_state (p, h) = SSet.union (used_vars_pi p) (used_vars_heap h)
 
-let used_vars_state (p, h) = SSet.union (used_vars_pi p) (used_vars_heap h)
-
-let used_vars_eff eff =
+and used_vars_eff eff =
   SSet.concat
     [
       used_vars_state eff.e_pre;
@@ -166,14 +161,14 @@ let used_vars_eff eff =
       used_vars_term eff.e_ret;
     ]
 
-let used_vars_norm (_vs, pre, post) =
+and used_vars_norm (_vs, pre, post) =
   SSet.concat [used_vars_state pre; used_vars_state post]
 
-let used_vars (sp : normalisedStagedSpec) =
+and used_vars (sp : normalisedStagedSpec) =
   let effs, norm = sp in
   SSet.concat (used_vars_norm norm :: List.map used_vars_eff effs)
 
-let used_vars_stage (s : stagedSpec) =
+and used_vars_stage (s : stagedSpec) =
   match s with
   | Require (p, h) | NormalReturn (p, h) ->
     SSet.union (used_vars_pi p) (used_vars_heap h)
@@ -188,9 +183,9 @@ let used_vars_stage (s : stagedSpec) =
         used_vars_term t;
       ]
 
-let used_vars_spec (sp : spec) = SSet.concat (List.map used_vars_stage sp)
+and used_vars_spec (sp : spec) = SSet.concat (List.map used_vars_stage sp)
 
-let used_vars_disj_spec (d : disj_spec) =
+and used_vars_disj_spec (d : disj_spec) =
   SSet.concat (List.map used_vars_spec d)
 
 (* if alpha_equiv(t1, t2), then hash t1 = hash t2 *)

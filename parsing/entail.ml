@@ -6,7 +6,7 @@ open Normalize
 open Subst
 open Debug
 
-let unfolding_bound = 3
+let unfolding_bound = 1
 
 type fvenv = Forward_rules.fvenv
 
@@ -502,7 +502,7 @@ and try_other_measures :
   with
   | Some (c1, def)
     when List.length (List.filter (fun s -> s = (c1, `Left)) ctx.unfolded)
-         <= unfolding_bound ->
+         < unfolding_bound ->
     let unf = unfold_predicate_norm def s1 in
     let@ s1_1 = all ~to_s:string_of_normalisedStagedSpec unf in
     check_staged_subsumption_stagewise
@@ -750,8 +750,8 @@ let create_induction_hypothesis params ds1 ds2 =
       | _ -> fail "not just a single stage")
     | false ->
       fail "not all params used by lhs of entailment: params %s, %s used"
-        (string_of_sset used_l)
-        (string_of_list Fun.id params))
+        (string_of_list Fun.id params)
+        (string_of_sset used_l))
   | _ -> fail "left side disjunctive"
 
 (**
