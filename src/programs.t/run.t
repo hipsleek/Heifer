@@ -65,11 +65,11 @@ We can't handle these cases yet
 $ check ../examples/calls.ml
 ALL OK!
 
-$ check ../examples/compose.ml
-ALL OK!
+  $ check ../examples/compose.ml
+  ALL OK!
 
-$ check ../examples/applyN.ml
-ALL OK!
+  $ check ../examples/applyN.ml
+  ALL OK!
 
 $ check ../examples/map.ml
 ALL OK!
