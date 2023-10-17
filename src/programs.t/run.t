@@ -74,8 +74,8 @@ ALL OK!
 $ check ../examples/map.ml
 ALL OK!
 
-$ check ../examples/closure.ml
-ALL OK!
+  $ check ../examples/closure.ml
+  ALL OK!
 
 $ check ../examples/fold.ml
 ALL OK!
@@ -83,10 +83,10 @@ ALL OK!
 $ check ../examples/iter.ml
 ALL OK!
 
-This example is very slow
+This example is very slow but works
 
 $ check ../examples/all.ml
 ALL OK!
 
-$ check ../evaluation/abort.ml
-ALL OK!
+  $ check ../evaluation/abort.ml
+  ALL OK!
