@@ -128,7 +128,8 @@ module TEnv = struct
   type t = typ U.elem TMap.t ref
 
   let create () =
-    TMap.empty
+    (* TMap.empty *)
+    TMap.of_seq (List.to_seq (List.map (fun t -> t, U.make t) concrete_types))
 
   let get_or_create m k =
     match TMap.find_opt k !m with

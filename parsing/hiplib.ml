@@ -1281,16 +1281,11 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) =
 let run_string_ line =
   let progs = Parser.implementation Lexer.token (Lexing.from_string line) in
   let prog = transform_strs progs in
-  let vcr = !Pretty.verifier_counter in
   debug ~at:2 ~title:"parsed" "%s" (string_of_program prog);
   debug ~at:2 ~title:"user-specified predicates" "%s" (string_of_smap string_of_pred prog.cp_predicates);
   (* as we handle methods, predicates are inferred and are used in place of absent specifications, so we have to keep updating the program as we go *)
   List.fold_left (fun prog meth ->
     info ~title:(Format.asprintf "verifying: %s" meth.m_name) "";
-    (* reset fresh variable counter so tests are independent.
-       each function is analyzed in isolation so this is safe.
-       we must, however, reset to the current checkpoint, as parsing uses fresh variables. *)
-    Pretty.verifier_counter_reset_to vcr;
     try
       analyze_method prog meth
     with Method_failure -> prog) prog prog.cp_methods |> ignore
