@@ -18,8 +18,7 @@ let rename_exists_lemma (lem : lemma) : lemma =
   { lem with l_right = rename_exists_spec lem.l_right }
 
 let rename_exists_pred (pred : pred_def) : pred_def =
-  (* TODO this probably isn't right *)
-  { pred with p_body = List.map rename_exists_spec pred.p_body }
+  { pred with p_body = Forward_rules.renamingexistientalVar pred.p_body }
 
 (** Matches lemma args (which may be params) and concrete args in the expr to be rewritten. If an arg is a param, adds to the returned substitution, otherwise checks if they are equal. Returns None if unification fails and the lemma shouldn't be applied, otherwise returns bindings. *)
 let unify_lem_lhs_args params la a =
