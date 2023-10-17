@@ -719,7 +719,8 @@ let remove_temp_vars =
     | True | False -> SMap.empty
     | Atomic (EQ, Var a, Var b) ->
       SMap.of_seq (List.to_seq [(a, (1, [Var b])); (b, (1, [Var a]))])
-    | Atomic (EQ, Var a, b) | Atomic (EQ, b, Var a) -> SMap.singleton a (1, [b])
+    | Atomic (EQ, Var a, b) | Atomic (EQ, b, Var a) ->
+      merge (SMap.singleton a (1, [b])) (analyze_term b)
     | Atomic (EQ, a, b) -> merge (analyze_term a) (analyze_term b)
     | Atomic (_, _, _) -> SMap.empty
     | And (a, b) | Or (a, b) | Imply (a, b) ->

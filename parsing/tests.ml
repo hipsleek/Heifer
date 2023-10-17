@@ -35,9 +35,9 @@ let%expect_test "instantiation/renaming of existentials" =
   [a] |> show;
   [%expect
     {|
-    ex v0; Norm(res=v0+1/\b=1)
-    Norm(res=v0+1/\b=1)
-    ex b; Norm(res=a+1/\b=1) |}]
+    Norm(res=a+1/\b=1)
+    Norm(res=a+1/\b=1)
+    Norm(res=a+1/\b=1) |}]
 
 let%expect_test "apply lemma" =
   let test ~what ~lem:(params, left, right) applied_to =
@@ -190,9 +190,9 @@ let%expect_test "apply lemma" =
     ---
     map
     lemma: forall [x], f <: Norm(res=x/\T)
-    original: req emp; ens b=2; f(1); ex r; req emp; Norm(res=a+4)
+    original: ex a; req emp; ens a=b/\b=2; f(1); ex r; req emp; Norm(res=a+4)
     result: Some ex a; Norm(res=3/\a=b/\b=2); Norm(T/\1=x); Norm(res=x); ex r; Norm(res=r/\r=a+4)
-    norm: Some ex r; Norm(b=2/\1=x/\res=a+4)
+    norm: Some ex a r; Norm(a=b/\b=2/\1=x/\res=a+4)
     --- |}]
 
 let%expect_test "normalise spec" =
@@ -349,7 +349,7 @@ let%expect_test "normalise spec" =
 
   ex v1 v2 v3 r; f(v1, r); Norm(res=v1+1/\v2=r/\v3=v2)
   ==>
-  ex v2; req emp; f(v1, v2); ex v3; req emp; Norm(res=v1+1)
+  ex v1 v2; req emp; f(v1, v2); ex v3; req emp; Norm(res=v1+1)
 |}]
 
 let entails_pure env_a s1 vars s2 =
