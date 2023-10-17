@@ -62,8 +62,8 @@
 
 (library
  (name hipcore)
- (libraries str)
- (modules debug subst UF Pretty common hiptypes)
+ (libraries unionFind str)
+ (modules debug subst Pretty common hiptypes)
  (preprocess (pps ppx_expect ppx_deriving.std)))
 
 (library

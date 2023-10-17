@@ -1,4 +1,5 @@
 
+
 let f1 ()
 (*@ ex i; Norm(i->[], []) @*)
 = let l = ref [] in

@@ -100,65 +100,74 @@ type typ =
   | TVar of string (* this is last, so > concrete types *)
   [@@deriving show { with_path = false }, ord]
 
+
+let min_typ a b = if compare_typ a b <= 0 then a else b
+
+let is_concrete_type = function TVar _ -> false | _ -> true
+
+let concrete_types = [Unit; List_int; Int; Bool; Lamb]
+
 let term_cons c t = TApp ("cons", [c; t])
 
-module Typ = UF.Make (struct
+module U = struct
+  include UnionFind
+
+  let merge f a b = ignore (merge f a b)
+end
+
+module TMap = Map.Make (struct
   type t = typ
 
-  let choose a b = if compare_typ a b <= 0 then a else b
-  let eq = ( = )
-  let pp = pp_typ
+  let compare = compare_typ
+
 end)
 
+(* A map giving type variables possibly-concrete types *)
 module TEnv = struct
-  module M = Map.Make (struct
-    type t = typ
 
-    let compare = compare_typ
-  end)
+  type t = typ U.elem TMap.t ref
 
-  (* let equalities : Typ.t M.t ref = ref M.empty *)
+  let create () =
+    TMap.empty
 
   let get_or_create m k =
-    match M.find_opt k !m with
+    match TMap.find_opt k !m with
     | None ->
-      let r = Typ.elt k in
-      m := M.add k r !m;
+      let r = U.make k in
+      m := TMap.add k r !m;
       r
-    | Some v -> v
+    | Some v ->
+      v
 
   let equate m t1 t2 =
     let t1r = get_or_create m t1 in
     let t2r = get_or_create m t2 in
-    Typ.union t1r t2r
+    U.merge min_typ t1r t2r
 
-  let concretize m t = M.find t !m |> Typ.value
-  let is_concrete = function TVar _ -> false | _ -> true
+  let concretize m t = TMap.find t !m |> U.get
 
   let has_concrete_type m t =
-    match M.find_opt t !m with
+    match TMap.find_opt t !m with
     | None -> false
-    | Some r -> is_concrete (Typ.value r)
+    | Some r -> is_concrete_type (U.get r)
+
 end
 
 type abs_typ_env = {
-  (* variable -> type, which may be abstract *)
+  (* formula variable -> type, which may be a variable *)
   vartypes: typ SMap.t;
-  equalities : Typ.t TEnv.M.t ref;
-  (* equalities : int ref ; *)
-  (* eqs: (typ * typ) list *)
+  (* types of type variables so far *)
+  equalities : TEnv.t;
 }
 
 let create_abs_env () =
   {
     vartypes = SMap.empty;
-    equalities= ref TEnv.M.empty;
-    (* eqs = [] *)
+    equalities = ref (TEnv.create ()) ;
   }
 
-  (* concrete type environment, where every variable has a concrete type *)
+(* concrete type environment, where every variable has a concrete type *)
 type typ_env = typ SMap.t
-
 
 (* type effectStage =  (string list* (pi * kappa ) * (pi * kappa) * instant * term) *)
 type effectStage = {

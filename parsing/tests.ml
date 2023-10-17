@@ -354,3 +354,24 @@ let%expect_test _ =
        {|head(xs)=x16/\tail(xs)=xs17/\is_cons(xs)=true/\_f18=1+x16+r|} ["xs37"]
        {|r=_f35/\xs17=xs37/\head(xs)=x36/\tail(xs)=xs37/\is_cons(xs)=true|});
   [%expect {| false |}]
+
+let%expect_test "union find" =
+  let a = U.make (TVar "a") in
+  let b = U.make Int in
+  let c = U.make (TVar "c") in
+  Format.printf "a: %s@." (string_of_type (U.get a));
+  Format.printf "b: %s@." (string_of_type (U.get b));
+  Format.printf "c: %s@." (string_of_type (U.get c));
+  U.merge min_typ a b;
+  U.merge min_typ a c;
+  Format.printf "a: %s@." (string_of_type (U.get a));
+  Format.printf "b: %s@." (string_of_type (U.get b));
+  Format.printf "c: %s@." (string_of_type (U.get c));
+  [%expect {|
+        a: 'a
+        b: int
+        c: 'c
+        a: int
+        b: int
+        c: int
+    |}]

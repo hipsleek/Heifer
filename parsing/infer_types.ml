@@ -3,17 +3,6 @@ open Hiptypes
 open Pretty
 open Debug
 
-(* let main () =
-   TEnv.equate (TVar "a") Int;
-   TEnv.equate (TVar "c") (TVar "a");
-   let t3 = TEnv.concretize (TVar "c") in
-
-   (* let b = Int.elt 1 in *)
-   (* let a = Int.elt 2 in *)
-   (* Format.printf "%d %d@." (Int.value a) (Int.value b); *)
-   (* Int.union b a; *)
-   Format.printf "%a@." pp_typ t3 *)
-
 (* record the type (or constraints on) of a program variable in the environment *)
 let assert_var_has_type v t env =
   match SMap.find_opt v env.vartypes with
@@ -30,7 +19,6 @@ let assert_var_has_type v t env =
           (Format.asprintf "%s already has type %s but was used as type %s" v
              (string_of_type t1) (string_of_type t)))
     else TEnv.equate env.equalities t1 t;
-    (* { env with eqs = (t, t1) :: env.eqs } *)
     env
 
 (* record a (nontrivial) equality in the environment *)
@@ -46,60 +34,15 @@ let unify_types t1 t2 env =
       let t2 = TEnv.concretize env.equalities t1 in
       if compare_typ t1 t2 <> 0 then
         failwith
-          (Format.asprintf "%s ~ %s"
+          (Format.asprintf "%s ~/~ %s"
              (string_of_type (TEnv.concretize env.equalities t1))
              (string_of_type (TEnv.concretize env.equalities t2))))
     else TEnv.equate env.equalities t1 t2;
-    (* { env with eqs = (t1, t2) :: env.eqs } *)
     env)
-
-(*
-(* given a type variable and a substitution (a list of type equalities), finds the concrete type that the type variable is. not efficient. crashes (the entire program) on error *)
-let find_concrete_type t bs =
-  (* find all type variables in the same equivalence class *)
-  let rec same_equiv_class ts ok =
-    match ts with
-    | [] -> ok
-    | t :: ts1 ->
-      let equiv =
-        List.filter_map
-          (fun (a, b) ->
-            if a = t then Some b else if b = t then Some a else None)
-          bs
-        |> List.filter (fun a -> not (List.mem a ok))
-      in
-      same_equiv_class (ts1 @ equiv) (t :: ok)
-  in
-  (* check to ensure there is exactly one concrete type *)
-  let conc =
-    same_equiv_class [t] []
-    |> List.filter (function TVar _ -> false | _ -> true)
-    |> List.sort_uniq compare
-  in
-  match conc with
-  | [t1] -> t1
-  | [] when false ->
-    failwith
-      (Format.asprintf "failed to infer type for %s; bindings %s"
-         (string_of_type t)
-         (string_of_list (string_of_pair string_of_type string_of_type) bs))
-  | [] ->
-    (* default to int if there is insufficient information to infer. this is okay because it usually means there aren't any constraints on the variable, so one type is as good as any *)
-    Int
-  | _ :: _ ->
-    failwith
-      (Format.asprintf "type error: %s is used as all of: %s" (string_of_type t)
-         (string_of_list string_of_type conc))
-*)
 
 let find_concrete_type = TEnv.concretize
 
 let concrete_type_env abs : typ_env =
-  (* abs.vartypes *)
-  (* let all_bindings = abs.vartypes in *)
-  (* Format.printf "all bindings %d %s@." (List.length all_bindings)
-     (string_of_list (string_of_pair string_of_type string_of_type) all_bindings); *)
-  (* figure out the concrete type for each program variable whose type is a type var *)
   SMap.map
     (fun v ->
       match v with TVar _ -> find_concrete_type abs.equalities v | _ -> v)

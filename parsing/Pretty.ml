@@ -444,7 +444,6 @@ let string_of_sset s =
 let string_of_smap pp s =
   Format.asprintf "{%s}" (String.concat ", " (List.map (fun (k, v) -> Format.asprintf "%s -> %s" k (pp v)) (SMap.bindings s)))
 
-
 let conj xs =
   match xs with
   | [] -> True
@@ -459,8 +458,17 @@ let string_of_type t =
   | Lamb -> "lambda"
   | TVar v -> Format.asprintf "'%s" v
 
+let string_of_tmap pp s =
+  Format.asprintf "{%s}" (String.concat ", " (List.map (fun (k, v) -> Format.asprintf "%s -> %s" (string_of_type k) (pp v)) (TMap.bindings s)))
+
 let string_of_abs_env t =
-  Format.asprintf "%s" (string_of_smap string_of_type t.vartypes)
+  Format.asprintf "%s, %s" (string_of_smap string_of_type t.vartypes) 
+  "<opaque>"
+(* (string_of_tmap string_of_type (TMap.map (fun t -> U.get t) !(t.equalities))) *)
+
+let string_of_typ_env t =
+  Format.asprintf "%s" (string_of_smap string_of_type t)
+
 
 let string_of_quantified to_s (vs, e) =
   match vs with
