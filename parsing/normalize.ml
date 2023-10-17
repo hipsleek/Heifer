@@ -762,6 +762,10 @@ let remove_temp_vars =
               ])
             eff)
     in
+    debug ~at:5 ~title:"histo" "%s"
+      (string_of_smap
+         (string_of_pair string_of_int (string_of_list string_of_term))
+         histo);
     let quantified = Subst.getExistentialVar (eff, norm) |> SSet.of_list in
     let locations =
       SSet.concat
@@ -775,6 +779,7 @@ let remove_temp_vars =
         histo
       |> SMap.keys |> SSet.of_list
     in
+    debug ~at:5 ~title:"occurs once" "%s" (string_of_sset occurs_once);
     (* TODO removing from existentials does not handle shadowing *)
     let eff1 =
       List.map
@@ -800,13 +805,16 @@ let remove_temp_vars =
             (not (String.equal k "res"))
             && (not (SSet.mem k locations))
             && Int.equal cnt 2
-            && List.length eqs > 0
+            && List.length eqs >= 2
+               (* f(1, v0); ens res=v0 would only have one equality, in that case we don't want to remove v0 *)
             && SSet.mem k quantified
           then Some (List.hd eqs)
           else None)
         histo
       |> SMap.bindings
     in
+    debug ~at:5 ~title:"occurs twice" "%s"
+      (string_of_list (string_of_pair Fun.id string_of_term) occurs_twice);
     let eff2 =
       List.map
         (fun e ->
