@@ -118,17 +118,21 @@ let rec pure_to_equalities pi =
 let pure_to_eq_state (p, _) = pure_to_equalities p
 
 (** check if x=y is not invalid (i.e. sat) under the given assumptions *)
-let may_be_equal ex assumptions x y =
+let may_be_equal assumptions x y =
+  let@ _ =
+    Debug.span (fun r ->
+        debug ~at:4 ~title:"may be equal" "%s => %s = %s\n%s"
+          (string_of_pi assumptions) (string_of_term x) (string_of_term y)
+          (string_of_result string_of_bool r))
+  in
   let tenv =
     Infer_types.infer_types_pi (create_abs_env ())
       (And (assumptions, Atomic (EQ, x, y)))
     |> Infer_types.concrete_type_env
   in
   let right = Atomic (EQ, x, y) in
-  let eq = Provers.entails_exists tenv assumptions ex right in
-  debug ~at:4 ~title:"may be equal" "%s => ex %s. %s = %s\n%b"
-    (string_of_pi assumptions) (string_of_list Fun.id ex) (string_of_term x)
-    (string_of_term y) eq;
+  (* let eq = Provers.entails_exists tenv assumptions [] right in *)
+  let eq = Provers.askZ3 tenv (Imply (assumptions, right)) in
   eq
 
 let rec kappa_of_list li =
@@ -148,7 +152,7 @@ let rec deleteFromHeapListIfHas li (x, t1) existential flag assumptions :
       let same_loc =
         let exists_eq =
           List.mem x existential && List.mem y existential
-          && may_be_equal existential True (Var x) (Var y)
+          && may_be_equal True (Var x) (Var y)
         in
         String.equal x y || exists_eq
       in
@@ -196,8 +200,7 @@ let rec deleteFromHeapListIfHas li (x, t1) existential flag assumptions :
             | UNIT, UNIT | TTrue, TTrue | TFalse, TFalse | Nil, Nil -> (ys, True)
             | _, _ ->
               ( ys,
-                if may_be_equal existential assumptions t1 t2 then
-                  Atomic (EQ, t1, t2)
+                if may_be_equal assumptions t1 t2 then Atomic (EQ, t1, t2)
                 else raise Norm_failure ))
         end
       else
