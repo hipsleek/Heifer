@@ -10,25 +10,21 @@ let xor : bool -> bool -> bool
 (*@ xor(p, q): ex p, q; req true; ens res = p&&q @*)
   = fun p q -> (p && q)
 
-
-let init : int -> (int -> bool) -> bool list 
-(*@ init$(n, p, res): 
-  req n=0; p$(0, r); ens res=[r]
-  req n>0; init$(n-1, p, r1); p$(n, r2); ens  res= r1@r2
-@*)
-  = fun n p -> 
-  match n with 
-  | 0 -> [p 0]
-  | n -> (init (n-1) p) @ [p n]
-
-let xor_predicate : int -> point -> bool
+let rec xor_predicate : int -> point -> bool
+(*@ xor_predicate$(n, p, res): 
+  req n=0; res=false
+  req n=1; p$(1, r); ens res=r
+  req n>1; xor_predicate$(n-1, p, r1); p$(n, r2); ens res= r1 && r2 @*)
   = fun n p ->
-  match init n p with 
-  | [] -> false
-  | v :: vs -> List.fold_left xor v vs
+  match n with 
+  | 0 -> false
+  | 1 -> p 1 
+  | n -> xor (xor_predicate (n-1) p) (p n)
 
 let toss_twice () = 
-  (*@ toss_twice(res): Branch(res1); Branch(res2); (res=res1@res2, Norm(res))  @*)
+  (*@ toss_twice(res): xor_predicate$(1, p, r1); p$(2, r2); (res=r1&&r2, Norm(res))  @*)
+  (*@ toss_twice(res): p$(1, r1); p$(2, r2); (res=r1&&r2, Norm(res))  @*)
+  (*@ toss_twice(res): Branch(r1); Branch(r2); (res=r1&&r2, Norm(res))  @*)
   (xor_predicate 2) (fun _ -> Effect.perform Branch) 
 
 let _ =
