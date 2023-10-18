@@ -13,14 +13,13 @@ let xor : bool -> bool -> bool
 
 let init : int -> (int -> bool) -> bool list 
 (*@ init$(n, p, res): 
-  req n=0 ens p$(0, res1); res=[res1]
-  req n>0 ens p$(n-1, res1); p$(n-1, res2); res= res1@res2
-    [p (n-1)] @ [p n]
+  req n=0; p$(0, r); ens res=[r]
+  req n>0; init$(n-1, p, r1); p$(n, r2); ens  res= r1@r2
 @*)
   = fun n p -> 
   match n with 
   | 0 -> [p 0]
-  | n -> [p (n-1)] @ [p n]
+  | n -> (init (n-1) p) @ [p n]
 
 let xor_predicate : int -> point -> bool
   = fun n p ->

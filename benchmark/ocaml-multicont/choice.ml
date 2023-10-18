@@ -18,8 +18,10 @@ let first_success (type b) : ('a -> b) -> (unit -> 'a) list -> b
         try
           let x = g () in
           raise (Success (f x))
-        with (Success _) as e -> raise e
-           | _ -> ())
+          (* 这里之后Success 的情况才能到达 *)
+        with 
+        | (Success _) as e -> raise e
+        | _ -> ())
       gs; raise (Failure "no success")
   with Success r -> r
 
@@ -45,14 +47,6 @@ let handle : (unit -> 'a) -> 'a
 (* The following examples are adapted from Oleg Kiselyov
    "Non-deterministic choice amb"
    (c.f. https://okmij.org/ftp/ML/ML.html#amb) *)
-
-(* An angelic choice *always* picks the successful branch. *)
-let _branch_example : unit -> int
-  = fun () ->
-  handle (fun () ->
-      if amb [(fun () -> true); (fun () -> false)]
-      then failwith "Fail"
-      else 42)
 
 (* More involved example, requiring `amb` to make three correct
    choices. *)

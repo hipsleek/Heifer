@@ -2,7 +2,7 @@
 
    Adapted from
      https://github.com/effect-handlers/effect-handlers-bench/blob/ca4ed12fc2265c16c562016ec09f0466d81d1ddd/benchmarks/ocaml/001_nqueens/001_nqueens_ocaml.ml
-   *)
+*)
 
 open Effect.Deep
 
