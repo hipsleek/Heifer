@@ -9,25 +9,6 @@ type _ Effect.t += Choose : (unit -> bool) list -> bool Effect.t
 let amb : (unit -> bool) list -> bool
   = fun xs -> Effect.perform (Choose xs)
 
-let first_success : (bool -> int) -> (unit -> bool) list -> int
-  = fun f gs ->
-  let exception Success of int in
-  try
-    List.iter
-      (fun g ->
-        try
-          let (x:bool) = g () in
-          print_endline ("first_success: " ^ string_of_bool x);
-          let temp = f x in 
-          print_endline ("Success: " ^ string_of_int temp);
-          raise (Success (temp))
-        with 
-        | (Success _) as e -> raise e
-        | _ -> print_endline ("_"); ())
-      gs; 
-      raise (Failure "no success")
-  with Success r -> r
-
 let handle : (unit -> int) -> int
   = fun m ->
   (* McCarthy's locally angelic choice operator (angelic modulo
@@ -46,7 +27,28 @@ let handle : (unit -> int) -> int
            (fun (k : (b, _) continuation) ->
              let open Multicont.Deep in
              let r = promote k in
-             first_success (resume r) xs)
+
+(* first_success: Iteration to find the fist success case *)
+  let exception Success of int in
+  try
+    List.iter
+      (fun g ->
+        try
+          let (x:bool) = g () in
+          print_endline ("first_success: " ^ string_of_bool x);
+          let temp = (resume r) x in 
+          print_endline ("Success: " ^ string_of_int temp);
+          raise (Success (temp))
+        with 
+        | (Success _) as e -> raise e
+        | _ -> print_endline ("_"); ())
+      xs; 
+      raise (Failure "no success")
+  with Success r -> r
+(* end  to find the fist success case *)
+(* first_success (resume r) xs*)
+            
+            )
       | _ -> None) }
   in
   match_with m () hamb

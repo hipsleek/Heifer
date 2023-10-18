@@ -1,0 +1,41 @@
+(executable
+ (name C_nqueens)
+ (modules C_nqueens)
+ (modes byte_complete native)
+ (libraries multicont))
+
+(executable
+ (name A_generic_count)
+ (modules A_generic_count)
+ (modes byte_complete native)
+ (libraries multicont))
+
+(executable
+ (name B_choice)
+ (modules B_choice)
+ (modes byte_complete native)
+ (libraries multicont))
+
+(executable
+ (name B_choice_branch_example)
+ (modules B_choice_branch_example)
+ (modes byte_complete native)
+ (libraries multicont))
+
+(executable
+ (name rollback)
+ (modules rollback)
+ (modes byte_complete native)
+ (libraries multicont unix))
+
+(executable
+ (name supervised)
+ (modules supervised)
+ (modes byte_complete native)
+ (libraries multicont))
+
+(executable
+ (name D_async)
+ (modules D_async)
+ (modes byte_complete native)
+ (libraries multicont))

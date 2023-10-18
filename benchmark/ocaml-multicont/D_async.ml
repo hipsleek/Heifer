@@ -93,16 +93,21 @@ end = struct
       ; effc = (fun (type a) (eff : a Effect.t) ->
         match eff with
         | Await pr -> Some (fun (k : (a, unit) continuation) ->
+          print_endline ("Await\n");
           (if Promise.is_done pr
            then continue k (Promise.value pr)
            else Promise.wait pr (fun v -> continue k v));
           run_next state)
         | Fork -> Some (fun (k : (bool, unit) continuation) ->
+
+          print_endline ("Fork\n");
           let open Multicont.Deep in
           let r = promote k in
           enqueue state (fun () -> resume r false);
           resume r true)
+          
         | Yield -> Some (fun (k : (unit, unit) continuation) ->
+          print_endline ("Yield\n");
           enqueue state (fun () -> continue k ());
           run_next state)
         | _ -> None) }
