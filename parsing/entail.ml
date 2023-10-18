@@ -520,8 +520,8 @@ and try_other_measures :
      with
     | Some (c2, pred_def)
       when List.length (List.filter (fun s -> s = (c2, `Right)) ctx.unfolded)
-           <= unfolding_bound ->
       let unf = unfold_predicate_norm pred_def s2 in
+           < unfolding_bound ->
       let@ s2_1 = any ~name:"?" ~to_s:string_of_normalisedStagedSpec unf in
       check_staged_subsumption_stagewise
         { ctx with unfolded = (c2, `Right) :: ctx.unfolded }
