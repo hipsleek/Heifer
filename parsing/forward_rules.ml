@@ -138,46 +138,6 @@ let freshen (specs:disj_spec): disj_spec =
   renamingexistientalVar specs
   |> List.map (List.filter (function Exists _ -> false | _ -> true))
 
-
-let instantiate_higher_order_functions fname fn_args (spec:disj_spec) : disj_spec =
-  let rec loop (acc:stagedSpec Acc.t list) (ss:spec) =
-    match ss with
-    | [] -> List.map Acc.to_list acc
-    | s :: ss1 ->
-      (match s with
-      | Exists _ | Require (_, _) | NormalReturn _ | RaisingEff _ ->
-        loop (List.map (fun tt -> Acc.add s tt) acc) ss1
-      | HigherOrder (p, h, (name, args), ret) ->
-        let matching = List.find_map (fun (mname, mspec) ->
-          match mspec with
-          | Some (mparams, msp) when String.equal mname name && List.length mparams = List.length args ->
-          Some (mparams, msp)
-          | _ -> None) fn_args
-        in
-        (match matching with
-        | None ->
-          loop (List.map (fun tt -> Acc.add s tt) acc) ss1
-        | Some (mparams, mspec) ->
-          let bs = bindFormalNActual mparams args in
-          let instantiated = instantiateSpecList bs (renamingexistientalVar mspec)
-            (* replace return value with whatever x was replaced with *)
-          in
-          let res = acc |> List.concat_map (fun tt ->
-            List.map (fun dis -> tt |> Acc.add (NormalReturn (p, h)) |> Acc.add_all dis) instantiated)
-          in
-          let ret1 = match ret with Var s -> s | _ -> failwith (Format.asprintf "return value of ho %s was not a var" (string_of_term ret)) in
-          (* instantiate the return value in the remainder of the input before using it *)
-          let ss2 =
-            let bs = List.map (fun s -> (ret1, retrieve_return_value s)) instantiated in
-            instantiateSpec bs ss1
-          in
-          loop res ss2))
-  in
-  (* in acc, order of disjuncts doesn't matter *)
-  let res = List.concat_map (fun ss -> loop [Acc.empty] ss) spec in
-info ~title:(Format.asprintf "instantiate higher order function: %s" fname) "args: %s\n\n%s\n==>\n%s" (string_of_list (string_of_pair Fun.id (string_of_option (string_of_pair (string_of_list Fun.id) (string_of_list string_of_spec)))) fn_args) (string_of_disj_spec spec) (string_of_disj_spec res);
-  res
-
 (** Find the case that handles the effect [label] *)
 let lookforHandlingCases ops (label:string) = 
   List.find_map (fun (s, arg, spec) ->
@@ -546,25 +506,6 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
             (* Format.printf "after freshen: %s@." (string_of_disj_spec spec); *)
             if List.compare_lengths formalArgs actualArgs <> 0 then
               failwith (Format.asprintf "too few args. formals: %s, actual: %s@." (string_of_list Fun.id formalArgs) (string_of_list string_of_term actualArgs));
-            let spec =
-              (* we've encountered a function call, e.g. f x y.
-                we look up the spec for f. say it looks like:
-                  let f g h (*@ g$(...); ... @*) = ...
-                we now want to instantiate g with the spec for x. *)
-              let fnArgs = List.map2 (fun p x ->
-                match x with
-                | Var a ->
-                  (p, retrieveSpecFromEnv a env)
-                | TLambda _ ->
-                  (* if a is a lambda, get its spec here *)
-                  failwith "lambda case not implemented"
-                | _ -> (p, None)
-                ) formalArgs actualArgs
-              in
-              (* fnArgs is a map of g -> spec, h -> none, assuming h is not a functino *)
-              instantiate_higher_order_functions fname fnArgs spec
-            in
-            (* Format.printf "after ho fns: %s@." (string_of_disj_spec spec); *)
             let bindings = bindFormalNActual (formalArgs) (actualArgs) in 
             let instantiatedSpec = instantiateSpecList bindings spec in 
             instantiatedSpec)

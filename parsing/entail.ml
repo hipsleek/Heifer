@@ -262,8 +262,6 @@ let instantiate_pred : pred_def -> term list -> term -> pred_def =
   (* Format.printf "rename exists %s@." (string_of_pred pred); *)
   let params, ret_param = split_last pred.p_params in
   let bs = (ret_param, ret) :: List.map2 (fun a b -> (a, b)) params args in
-  (* handle lambda arguments, as instantiating stages can only rename the constructor of a function stage, not replace it with the spec of a lambda literal *)
-  let lambdas = [] in
   let p_body =
     let bbody =
       pred.p_body |> List.map (fun b -> List.map (instantiateStages bs) b)
@@ -274,7 +272,6 @@ let instantiate_pred : pred_def -> term list -> term -> pred_def =
        Format.printf "bbody %s@."
          (string_of_list (string_of_list string_of_staged_spec) bbody); *)
     bbody
-    |> Forward_rules.instantiate_higher_order_functions pred.p_name lambdas
   in
   { pred with p_body }
 
