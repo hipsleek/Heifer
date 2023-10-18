@@ -285,9 +285,9 @@ let rec unfold_predicate_aux pred prefix (s : spec) : disj_spec =
     r
   | HigherOrder (p, h, (name, args), ret) :: s1
     when String.equal name pred.p_name ->
-    info
-      ~title:(Format.asprintf "unfolding: %s" name)
-      "%s" (string_of_pred pred);
+    (* info
+       ~title:(Format.asprintf "unfolding: %s" name)
+       "%s" (string_of_pred pred); *)
     let pred1 = instantiate_pred pred args ret in
     (* info
        ~title:(Format.asprintf "instantiated: %s" name)
@@ -312,14 +312,22 @@ let rec unfold_predicate_aux pred prefix (s : spec) : disj_spec =
 (** f;a;e \/ b and a == c \/ d
   => f;(c \/ d);e \/ b
   => f;c;e \/ f;d;e \/ b *)
-let unfold_predicate_spec : pred_def -> spec -> disj_spec =
- fun pred sp -> unfold_predicate_aux pred [Acc.empty] sp
+let unfold_predicate_spec : string -> pred_def -> spec -> disj_spec =
+ fun which pred sp ->
+  let@ _ =
+    Debug.span (fun r ->
+        info
+          ~title:(Format.asprintf "unfolding (%s): %s" which pred.p_name)
+          "%s\nin\n%s\n==>\n%s" (string_of_pred pred) (string_of_spec sp)
+          (string_of_result string_of_disj_spec r))
+  in
+  unfold_predicate_aux pred [Acc.empty] sp
 
 let unfold_predicate_norm :
-    pred_def -> normalisedStagedSpec -> normalisedStagedSpec list =
- fun pred sp ->
+    string -> pred_def -> normalisedStagedSpec -> normalisedStagedSpec list =
+ fun which pred sp ->
   List.map normalize_spec
-    (unfold_predicate_spec pred (normalisedStagedSpec2Spec sp))
+    (unfold_predicate_spec which pred (normalisedStagedSpec2Spec sp))
 
 (** proof context *)
 type pctx = {
@@ -503,7 +511,7 @@ and try_other_measures :
   | Some (c1, def)
     when List.length (List.filter (fun s -> s = (c1, `Left)) ctx.unfolded)
          < unfolding_bound ->
-    let unf = unfold_predicate_norm def s1 in
+    let unf = unfold_predicate_norm "left" def s1 in
     let@ s1_1 = all ~to_s:string_of_normalisedStagedSpec unf in
     check_staged_subsumption_stagewise
       { ctx with unfolded = (c1, `Left) :: ctx.unfolded }
@@ -520,8 +528,8 @@ and try_other_measures :
      with
     | Some (c2, pred_def)
       when List.length (List.filter (fun s -> s = (c2, `Right)) ctx.unfolded)
-      let unf = unfold_predicate_norm pred_def s2 in
            < unfolding_bound ->
+      let unf = unfold_predicate_norm "right" pred_def s2 in
       let@ s2_1 = any ~name:"?" ~to_s:string_of_normalisedStagedSpec unf in
       check_staged_subsumption_stagewise
         { ctx with unfolded = (c2, `Right) :: ctx.unfolded }
