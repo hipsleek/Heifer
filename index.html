@@ -221,54 +221,51 @@ let main h
     incr r
   in
   ignore (awkward (fun () -> ignore (awkward (fun () -> ()))))">src/examples/awkward.ml</option><option value=src/examples/calls.ml data-text="
-let roll_dice () = 100
-
 let call_ret f = 
-  let x = roll_dice () in 
-  f x
+  f 100
 
 let main_false ()
 (*@ Norm(emp, 2) @*)
 = let x = ref 0 in
-  let cl i = 
+  let swap i = 
     let r = !x in 
     x := i; 
     r
   in
   (* L1 *)
-  (* cl 2; *)
+  (* swap 2; *)
 
   assert (!x = 2);
   (* L2: the call here is only valid after L1*)
-  call_ret cl
+  call_ret swap
 
 let main ()
 (*@ Norm(emp, 2) @*)
 = let x = ref 0 in
-  let cl i = 
+  let swap i = 
     let r = !x in 
     x := i; 
     r
   in
   (* L1 *)
-  cl 2;
+  swap 2;
 
   assert (!x = 2);
   (* L2: the call here is only valid after L1*)
-  call_ret cl
+  call_ret swap
 
 let main1_false ()
 (*@ Norm(emp, 1) @*)
 = let x = ref 2 in
 
-  let cl i =
+  let swap i =
     let r = !x in
     x := r - i;
     r
   in
 
   assert (!x=2);
-  call_ret cl;
+  call_ret swap;
   assert (!x=3);
   (* the function call is only valid at the first time *)
   1
@@ -525,7 +522,7 @@ let rec incr_list init li =
   | x :: xs -> 
     init :: incr_list (init + 1) xs
 
-let cl_map_incr_l xs x
+(* let cl_map_incr_l xs x
 (*@ ex i; req x->i; ex r; length(xs, r); ex r1; Norm(x->i+r, r1) @*)
 = let f a = x := !x+1; !x in
   map f xs
@@ -533,7 +530,7 @@ let cl_map_incr_l xs x
 let cl_map_incr_c xs x
 (*@ ex i; req x->i; ex r; incr_list(i+1, xs, r); Norm(emp, r) @*)
 = let f a = x := !x+1; !x in
-  map f xs">src/examples/map.ml</option><option value=src/examples/take_skip.ml data-text="
+  map f xs *)">src/examples/map.ml</option><option value=src/examples/take_skip.ml data-text="
 (* let (mutlist:(((int ref) list) ref)) = ref [ref 1; ref 2; ref 3; ref 4] *)
 
 (* let rec take n li =
@@ -640,17 +637,15 @@ let test ()
 @*)
 = 
   let x = read () in 
-  let y = x +1 in 
+  let y = x + 1 in 
   write y;
   read () 
 
 let write_handler i  
 (*@ 
-  ex x1 ret z;
-  Read(emp, x1); 
-  req i->z; 
-  Read(i->x1+1,  ret);
-  Norm(emp, ret)
+  ex x1; Read(emp, x1); 
+  ex z; req i->z; 
+  ex ret; Read(i->x1+1, ret); Norm(emp, ret)
 @*)
 = 
   match test () with
@@ -684,7 +679,7 @@ let exc_hanlder (y: int ref) (new_v:int): int
 (*@  
    ex old_v; 
    req y -> old_v; 
-   Norm(y -> new_v, old_v)
+   Norm(y -> new_v /\ res=old_v)
 @*)
 = match exchange new_v with 
   | v -> v 
@@ -701,9 +696,9 @@ let main ()
 @*)
 = 
   let x = ref 11 in 
-  let res = exc_hanlder x 5 in 
-  (* print_endline (string_of_int res); *)
-  res">src/evaluation/11_exchange.ml</option><option value=src/evaluation/12_two_pointers.ml data-text="effect E: unit 
+  let r = exc_hanlder x 5 in 
+  (* print_endline (string_of_int r); *)
+  r">src/evaluation/11_exchange.ml</option><option value=src/evaluation/12_two_pointers.ml data-text="effect E: unit 
 
 let two_locations () 
 (*@ ex i j z1 z2 ret;
@@ -1184,7 +1179,7 @@ let invalid_false ()
     <script>
       // this is substituted at build time and is used in page.js
       function postExampleLoad() {
-        console.log("Built Mon Oct 16 09:48:00 UTC 2023");
+        console.log("Built Wed Oct 18 16:14:47 UTC 2023");
         console.log("loading z3...");
       }
     </script>
