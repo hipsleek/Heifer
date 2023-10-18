@@ -51,7 +51,7 @@ let apply_lemma : lemma -> spec -> spec option =
       (match st with
       | HigherOrder (p, h, (f, args), r)
         when (not ok) (* only apply once *) && f = lf ->
-        (match unify_lem_lhs_args lem.l_params largs args with
+        (match unify_lem_lhs_args lem.l_params largs (args @ [r]) with
         | Some bs ->
           let inst_lem_rhs = List.map (instantiateStages bs) lem.l_right in
           let extra_ret_equality =
@@ -538,7 +538,6 @@ and try_other_measures :
       (* if that fails, try to apply a lemma *)
       let eligible =
         ctx.lems |> SMap.bindings
-        (* |> List.filter (fun (ln, _l) -> List.mem ln ctx.unfolded) *)
         |> List.filter (fun (ln, _l) -> not (List.mem ln ctx.applied))
         |> List.map snd
       in
@@ -747,7 +746,12 @@ let create_induction_hypothesis params ds1 ds2 =
         (* TODO existentials are ignored...? *)
         let f, a = eff.e_constr in
         let ih =
-          { l_name = "IH"; l_params = params; l_left = (f, a); l_right = s2 }
+          {
+            l_name = "IH";
+            l_params = params @ ["res"];
+            l_left = (f, a @ [Var "res"]);
+            l_right = s2;
+          }
         in
         info ~title:"induction hypothesis" "%s" (string_of_lemma ih);
         Some ih

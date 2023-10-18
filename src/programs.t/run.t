@@ -77,8 +77,8 @@ ALL OK!
   $ check ../examples/closure.ml
   ALL OK!
 
-$ check ../examples/fold.ml
-ALL OK!
+  $ check ../examples/fold.ml
+  ALL OK!
 
   $ check ../examples/iter.ml
   ALL OK!
