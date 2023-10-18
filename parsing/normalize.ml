@@ -36,7 +36,7 @@ let rec simplify_heap h : kappa =
 let simplify_pure (p : pi) : pi =
   let rec once p =
     match p with
-    | Atomic (EQ, Var a, Var b) when String.equal a b -> (True, true)
+    | Atomic (EQ, a, b) when a = b -> (True, true)
     | True | False | Atomic _ | Predicate _ -> (p, false)
     | And (True, a) | And (a, True) -> (a, true)
     | And (a, b) ->
