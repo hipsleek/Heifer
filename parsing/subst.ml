@@ -132,8 +132,8 @@ let rec used_vars_term (t : term) =
     SSet.union (used_vars_term a) (used_vars_term b)
   | TNot a -> used_vars_term a
   | TApp (_, args) -> SSet.concat (List.map used_vars_term args)
-  | TLambda (_lid, params, spec) -> SSet.empty
-(* SSet.diff (used_vars_disj_spec spec) (SSet.of_list params) *)
+  | TLambda (_lid, params, spec) ->
+    SSet.diff (used_vars_disj_spec spec) (SSet.of_list params)
 
 and used_vars_pi (p : pi) =
   match p with
