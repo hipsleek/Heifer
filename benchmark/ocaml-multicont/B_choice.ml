@@ -50,19 +50,30 @@ let handle : (unit -> 'a) -> 'a
 
 (* More involved example, requiring `amb` to make three correct
    choices. *)
-let pyth : int list -> (int * int * int)
-  = fun numbers ->
+
+
+(*@  existsPyth(xs, res): 
+  ex i, j, k;     req isContain xs i /\ isContain xs j /\ isContain xs k /\ i*i + j*j = k*k; ens res=true 
+  forall i, j, k; req isContain xs i /\ isContain xs j /\ isContain xs k /\ i*i + j*j!= k*k; ens res=false 
+@*)
+
+
+let pyth : int list -> bool (*int * int * int*)
+(*@ pyth(xs, res): 
+    req existsPyth(xs, true); ens res = true
+    req existsPyth(xs, false); ens Failure("no success") @*)
+  = fun numbers -> 
   let numbers' = List.map (fun n -> (fun () -> n)) numbers in
   handle (fun () ->
       let i = amb numbers' in
       let j = amb numbers' in
       let k = amb numbers' in
       if i*i + j*j = k*k
-      then (i, j, k)
+      then true
       else failwith "no solution")
 
 let pyth_example () = pyth [1;2;3;4;5]
 
 let _ =
-  let (x, y, z) = pyth_example () in
-  Printf.printf "(%d, %d, %d)\n%!" x y z
+  let b = pyth_example () in
+  Printf.printf "(%b)\n%!" b

@@ -7,6 +7,10 @@
 *)
 
 open Effect.Deep
+open Multicont.Deep 
+
+type _ Effect.t += Pick : int -> int Effect.t
+exception Fail
 
 let n = try int_of_string Sys.argv.(1) with _ -> 8
 
@@ -17,14 +21,31 @@ let rec safe queen diag xs =
   | q :: qs -> queen <> q && queen <> q + diag && queen <> q - diag &&
                safe queen (diag + 1) qs
 
-type _ Effect.t += Pick : int -> int Effect.t
-exception Fail
-
 let rec find_solution n col : int list =
   if col = 0 then []
   else let sol = find_solution n (col - 1) in
        let queen = Effect.perform (Pick n) in
        if safe queen 1 sol then queen::sol else raise Fail
+
+let find_solution_1 (): int list =
+  let sol = [] in
+  let queen = Effect.perform (Pick 4) in
+  if safe queen 1 sol then queen::sol else raise Fail
+
+let find_solution_2 () : int list =
+  let sol = find_solution_1 ()  in
+  let queen = Effect.perform (Pick 4) in
+  if safe queen 1 sol then queen::sol else raise Fail
+
+let find_solution_3 () : int list =
+  let sol = find_solution_2 () in
+  let queen = Effect.perform (Pick 4) in
+  if safe queen 1 sol then queen::sol else raise Fail
+
+let find_solution_4 (): int list =
+  let sol = find_solution_3 () in
+  let queen = Effect.perform (Pick 4) in
+  if safe queen 1 sol then queen::sol else raise Fail
 
 (* Deep effect handler that counts the number of solutions to an
    n-Queens problem. *)
@@ -39,7 +60,6 @@ let count_queens_solutions =
                    returns the number of solutions in the
                    subcomputation. *)
        Some (fun (k : (a, _) continuation) ->
-           let open Multicont.Deep in
            (* Convert [k] into a multi-shot resumption *)
            let r = promote k in
            let rec loop i acc =
@@ -55,5 +75,11 @@ let count_queens_solutions =
 let queens_count n =
   match_with (fun () -> find_solution n n) () count_queens_solutions
 
+let queens_count_4 () = 
+  match_with (fun () -> find_solution_4 ()) () count_queens_solutions
+  
 let _ =
-  Printf.printf "%d\n" (queens_count n)
+  Printf.printf "queens_count_n: %d\n" (queens_count n);
+  Printf.printf "queens_count_4: %d\n" (queens_count_4 ())
+
+  

@@ -4,21 +4,18 @@
 module Async: sig
   module Promise: sig
     type 'a t
-    exception Circular_await
   end
 
   val await : 'a Promise.t -> 'a
   val async : (unit -> 'a) -> 'a Promise.t
   val yield : unit -> unit
-  val run : (unit -> 'a) -> 'a
+  val run : (unit -> unit) -> unit
 end = struct
 
   module Promise = struct
     type 'a promise = Done of 'a
                     | Pending of ('a -> unit) list
     type 'a t = 'a promise ref
-
-    exception Circular_await
 
     let is_done : 'a t -> bool
       = fun pr -> match !pr with
@@ -93,57 +90,24 @@ end = struct
       ; effc = (fun (type a) (eff : a Effect.t) ->
         match eff with
         | Await pr -> Some (fun (k : (a, unit) continuation) ->
-          print_endline ("Await\n");
           (if Promise.is_done pr
            then continue k (Promise.value pr)
            else Promise.wait pr (fun v -> continue k v));
           run_next state)
         | Fork -> Some (fun (k : (bool, unit) continuation) ->
-
-          print_endline ("Fork\n");
           let open Multicont.Deep in
           let r = promote k in
           enqueue state (fun () -> resume r false);
           resume r true)
           
         | Yield -> Some (fun (k : (unit, unit) continuation) ->
-          print_endline ("Yield\n");
           enqueue state (fun () -> continue k ());
           run_next state)
         | _ -> None) }
   end
 
-  let run : (unit -> 'a) -> 'a
-    = fun f ->
-    let result = ref (fun () -> raise Promise.Circular_await) in
-    let f' () =
-      let v = f () in
-      result := (fun () -> v)
-    in
-    let () = Effect.Deep.match_with f' () (Scheduler.hsched ()) in
-    !result ()
-end
-
-(* Another effect: dynamic binding *)
-module Env = struct
-  type _ Effect.t += Ask : int Effect.t
-
-  let ask : unit -> int
-    = fun () -> Effect.perform Ask
-
-  let bind : int -> (unit -> 'b) -> 'b
-    = fun v f ->
-    let open Effect.Deep in
-    let hdynbind : ('b, 'b) Effect.Deep.handler =
-      { retc = (fun x -> x)
-      ; exnc = (fun e -> raise e)
-      ; effc = (fun (type a) (eff : a Effect.t) ->
-        match eff with
-        | Ask -> Some (fun (k : (a, _) continuation) ->
-          continue k v)
-        | _ -> None) }
-    in
-    match_with f () hdynbind
+  let run : (unit -> unit) -> unit
+  = fun f -> Effect.Deep.match_with f () (Scheduler.hsched ())
 end
 
 (* The `well-behaveness' of this implementation can be illustrated by
@@ -153,40 +117,34 @@ end
 let main () =
   let task name () =
     Printf.printf "starting %s\n%!" name;
-    let v = Env.ask () in
     Printf.printf "yielding %s\n%!" name;
     Async.yield ();
-    Printf.printf "ending %s with %d\n%!" name v;
-    v
+    Printf.printf "ending %s\n%!" name;
+    ()
   in
-  let pa =
-    Env.bind 40
-      (fun () -> Async.async (task "a"))
+  let pa = Async.async (task "a") in
+  let pb = Async.async (task "b") in
+  let pc = Async.async (fun () -> Async.await pa; Async.await pb)
   in
-  let pb =
-    Env.bind 2
-      (fun () -> Async.async (task "b"))
-  in
-  let pc =
-    Async.async
-      (fun () -> Async.await pa + Async.await pb)
-  in
-  Printf.printf "Sum is %d\n" (Async.await pc);
-  assert Async.(await pa + await pb = await pc)
+  (*Printf.printf "Sum is %d\n" (Async.await pc);
+  assert Async.(await pa + await pb = await pc)*)
+  (Async.await pc);
+  ()
 
 let _ = Async.run main
 
 (* The following program would deadlock if cyclic
    promise resolution was allowed *)
-(* let try_deadlock () =
- *   let pr = ref (fun () -> assert false) in
- *   let task () =
- *     Async.await (!pr ())
- *   in
- *   print_endline "Fork task";
- *   let pr' = Async.async task in
- *   pr := (fun () -> pr');
- *   print_endline "Await";
- *   Async.await (!pr ())
- *
- * let _ = Async.run try_deadlock *)
+(*let try_deadlock () =
+   let pr = ref (fun () -> assert false) in
+   let task () =
+     Async.await (!pr ())
+   in
+   print_endline "Fork task";
+   let pr' = Async.async task in
+   pr := (fun () -> pr');
+   print_endline "Await";
+   Async.await (!pr ())
+
+let _ = Async.run try_deadlock 
+*)

@@ -1,6 +1,7 @@
 (* Generic counting example based on Hillerström et al. (2020) https://arxiv.org/abs/2007.00605 *)
 
 open Effect.Deep
+open Multicont.Deep
 
 type _ Effect.t += Branch : bool Effect.t
 
@@ -25,20 +26,19 @@ let toss_twice () =
   (*@ toss_twice(res): xor_predicate$(1, p, r1); p$(2, r2); (res=r1&&r2, Norm(res))  @*)
   (*@ toss_twice(res): p$(1, r1); p$(2, r2); (res=r1&&r2, Norm(res))  @*)
   (*@ toss_twice(res): Branch(r1); Branch(r2); (res=r1&&r2, Norm(res))  @*)
-  (xor_predicate 2) (fun _ -> Effect.perform Branch) 
+  (xor_predicate 1) (fun _ -> Effect.perform Branch) 
 
 let _ =
-  (*@ (counter -> 6 /\ solutions=1, Norm (())) @*)
+  (*@ (counter -> 2^(n+1)-2 /\ solutions=1, Norm (())) @*)
   let counter = ref 0 in 
   let solutions = 
-    match_with toss_twice ()
+    match_with toss_twice () (* n *)
     { retc = (fun x -> if x then 1 else 0)
     ; exnc = (fun e -> raise e)
     ; effc = (fun (type a) (eff : a Effect.t) ->
       match eff with
       | Branch ->
         Some (fun (k : (a, _) continuation) ->
-           let open Multicont.Deep in
            let r = promote k in
            counter := !counter + 1;            (* increase the counter *)
            let tt = resume r true in
