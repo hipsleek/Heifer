@@ -5,6 +5,25 @@
  (libraries multicont))
 
 (executable
+ (name E_state_monad)
+ (modules E_state_monad)
+ (modes byte_complete native)
+ (libraries multicont))
+
+(executable
+ (name F_Exchange_State)
+ (modules F_Exchange_State)
+ (modes byte_complete native)
+ (libraries multicont))
+
+(executable
+ (name G_Inductive_Predicate)
+ (modules G_Inductive_Predicate)
+ (modes byte_complete native)
+ (libraries multicont))
+ 
+
+(executable
  (name A_generic_count)
  (modules A_generic_count)
  (modes byte_complete native)
