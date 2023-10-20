@@ -249,7 +249,10 @@ let rec check_qf :
           (conj [p2; And (p1, Atomic (EQ, v, v1))], h2')
           k
       end
-      | None -> None
+      | None ->
+        (* TODO *)
+        debug ~at:4 ~title:(Format.asprintf "failed") "";
+        None
     end
     | None -> failwith (Format.asprintf "could not split LHS, bug?")
   end
