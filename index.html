@@ -332,7 +332,24 @@ let caller2 ()
 (*@ ex w; Norm(w->4, 4) @*)
 = let y = ref 1 in 
   let y1 = compose g f y in
-  !y1">src/examples/compose.ml</option><option value=src/examples/fold.ml data-text="
+  !y1">src/examples/compose.ml</option><option value=src/examples/exception.ml data-text="
+let failing x
+(*@ ex i; req x->i; ex r; E(x->i+1 /\ x=3, r)
+  \/
+   ex i; req x->i; ens x->i+1 /\ res=i+1 /\ ~x=3 @*)
+=
+  x := !x + 1;
+  if x = 3 then perform E else !x
+
+(* TODO there is a bug in handler reasoning, result should be 1 *)
+
+let main ()
+(*@ ex y; ens y->3 /\ res=3 @*)
+=
+  let y = ref 2 in
+  match failing y with
+  | effect E k -> 1
+  | v -> v">src/examples/exception.ml</option><option value=src/examples/fold.ml data-text="
 let rec length li = 
   match li with 
   | [] -> 0
@@ -530,7 +547,23 @@ let rec incr_list init li =
 let cl_map_incr_c xs x
 (*@ ex i; req x->i; ex r; incr_list(i+1, xs, r); Norm(emp, r) @*)
 = let f a = x := !x+1; !x in
-  map f xs *)">src/examples/map.ml</option><option value=src/examples/take_skip.ml data-text="
+  map f xs *)">src/examples/map.ml</option><option value=src/examples/sumpos.ml data-text="let rec nonzero xs =
+  match xs with
+  | [] -> true
+  | x :: xs1 -> if x = 0 then false else nonzero xs1
+
+let rec sumpos xs =
+  match xs with
+  | [] -> true
+  | x :: xs1 -> if x > 0 then x + sumpos xs1 else sumpos xs1
+
+(* foldr_with_f1$(a,l,res) =
+         req nozero(l); ens sumpos(l,a,res)
+         \/ req ~nozero(l); Exception(_) *)
+let foldr_with_f1 init xs
+(*@ ex r; nonzero(xs,r); ens r=true; sumpos(xs,res) \/ ex r; nonzero(xs, r); ens r=false; E @*)
+= let f1 c t = if c = 0 then perform E else if c > 0 then c + t else t in
+  foldr f1 xs init">src/examples/sumpos.ml</option><option value=src/examples/take_skip.ml data-text="
 (* let (mutlist:(((int ref) list) ref)) = ref [ref 1; ref 2; ref 3; ref 4] *)
 
 (* let rec take n li =
@@ -1179,7 +1212,7 @@ let invalid_false ()
     <script>
       // this is substituted at build time and is used in page.js
       function postExampleLoad() {
-        console.log("Built Wed Oct 18 16:14:47 UTC 2023");
+        console.log("Built Fri Oct 20 23:48:10 UTC 2023");
         console.log("loading z3...");
       }
     </script>
