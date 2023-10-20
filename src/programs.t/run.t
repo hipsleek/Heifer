@@ -83,6 +83,9 @@ ALL OK!
   $ check ../examples/iter.ml
   ALL OK!
 
+  $ check ../examples/exception.ml
+  ALL OK!
+
 This example is very slow but works
 
 $ check ../examples/all.ml
