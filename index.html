@@ -128,23 +128,7 @@ let test ()
           >
             Hello world
           </option>
-          <option value=src/examples/3_all_zero.ml data-text="
-let main ()
-(*@ Norm(emp, 0) @*)
-=
-(* let (mutlist:(((int ref) list) ref)) = ref [ref 2] *)
-  let mutlist = ref [ref 2] in
-
-  (* let set_all_zero li = List.map (fun a -> a := 0) (!li)  ;; *)
-  let rec set_all_zero li =
-    match !li with
-    | [] -> ()
-    | x :: xs -> x := 0; set_all_zero (ref xs)
-    (* List.map (fun a -> a := 0) (!li)  ;; *)
-  in
-  set_all_zero mutlist;
-  assert (!mutlist = [ref 0]);
-  0">src/examples/3_all_zero.ml</option><option value=src/examples/all.ml data-text="
+          <option value=src/examples/all.ml data-text="
 let rec integers n =
   if n = 0 then []
   else n :: integers (n - 1)
@@ -207,84 +191,7 @@ let summary1_false x n
 
 let summary2_false x n
 (*@ ex r4; Norm(r4=x+n+1/\emp, r4) @*)
-= applyN incr x n">src/examples/applyN.ml</option><option value=src/examples/awkward.ml data-text="
-let incr x = x := !x + 1
-
-let ignore _ = ()
-
-let main h
-= let r = ref 0 in
-  let awkward = fun f (*@ ex r r1; ens r->0; incr(r, r1); ex r2; h((), r2); ex r3; incr(r, r3) @*) ->
-    assert (!r = 0);
-    incr r;
-    f();
-    incr r
-  in
-  ignore (awkward (fun () -> ignore (awkward (fun () -> ()))))">src/examples/awkward.ml</option><option value=src/examples/calls.ml data-text="
-let call_ret f = 
-  f 100
-
-let main_false ()
-(*@ Norm(emp, 2) @*)
-= let x = ref 0 in
-  let swap i = 
-    let r = !x in 
-    x := i; 
-    r
-  in
-  (* L1 *)
-  (* swap 2; *)
-
-  assert (!x = 2);
-  (* L2: the call here is only valid after L1*)
-  call_ret swap
-
-let main ()
-(*@ Norm(emp, 2) @*)
-= let x = ref 0 in
-  let swap i = 
-    let r = !x in 
-    x := i; 
-    r
-  in
-  (* L1 *)
-  swap 2;
-
-  assert (!x = 2);
-  (* L2: the call here is only valid after L1*)
-  call_ret swap
-
-let main1_false ()
-(*@ Norm(emp, 1) @*)
-= let x = ref 2 in
-
-  let swap i =
-    let r = !x in
-    x := r - i;
-    r
-  in
-
-  assert (!x=2);
-  call_ret swap;
-  assert (!x=3);
-  (* the function call is only valid at the first time *)
-  1
-
-let main3_false ()
-(*@ Norm(emp, 1) @*)
-= let x = ref 2 in
-  assert (!x=2);
-  x := !x + 1;
-  assert (!x=4);
-  1
-
-let main4_false ()
-(*@ Norm(emp, 1) @*)
-= let x = ref 2 in
-  assert (!x=2);
-  x := 3;
-  assert (!x=4);
-  1">src/examples/calls.ml</option><option value=src/examples/closure.ml data-text="
+= applyN incr x n">src/examples/applyN.ml</option><option value=src/examples/closure.ml data-text="
 let closures ()
 (*@ ex i; Norm(i->[8;7;42], [8;7;42]) @*)
 = let l = ref [] in
@@ -334,12 +241,12 @@ let caller2 ()
   let y1 = compose g f y in
   !y1">src/examples/compose.ml</option><option value=src/examples/exception.ml data-text="
 let failing x
-(*@ ex i; req x->i; ex r; E(x->i+1 /\ x=3, r)
+(*@ ex i; req x->i; ex r; E(x->i+1 /\ i+1=3, r)
   \/
-   ex i; req x->i; ens x->i+1 /\ res=i+1 /\ ~x=3 @*)
+   ex i; req x->i; ens x->i+1 /\ res=i+1 /\ ~i+1=3 @*)
 =
   x := !x + 1;
-  if x = 3 then perform E else !x
+  if !x = 3 then perform E else !x
 
 (* TODO there is a bug in handler reasoning, result should be 1 *)
 
@@ -417,33 +324,7 @@ let build_fill x n
       x := !x + 1;
       r
   in
-  fill_list counter n">src/examples/iter.ml</option><option value=src/examples/iter_map.ml data-text="let rec integers x n =
-  if n = 0 then []
-  else x :: integers (x + 1) (n - 1)
-
-let rec fill_list f n =
-  if n = 0 then []
-  else f () :: fill_list f (n - 1)
-
-let succ x = x + 1
-
-(* this should work as well but currently doesn't. check forward rule for iter_map succ counter *)
-let iter_map_succ x n
-(*@ ex i; req x->i; ex r; integers(i+1, n, r) @*)
-= let counter =
-    fun () ->
-      (* the debug is x is not picked up as a used var. because this lambda is collapsed by normalization. because it's not substituted properly but the forward rules apparently *)
-      let r = !x in
-      x := !x + 1;
-      r
-  in
-  let iter_map f it =
-    (* we don't support partial application *)
-    let l () = f (it ()) in
-    l
-  in
-  fill_list (iter_map succ counter) n
-  ">src/examples/iter_map.ml</option><option value=src/examples/map.ml data-text="
+  fill_list counter n">src/examples/iter.ml</option><option value=src/examples/map.ml data-text="
 let rec map f xs =
   match xs with
   | [] -> []
@@ -547,71 +428,7 @@ let rec incr_list init li =
 let cl_map_incr_c xs x
 (*@ ex i; req x->i; ex r; incr_list(i+1, xs, r); Norm(emp, r) @*)
 = let f a = x := !x+1; !x in
-  map f xs *)">src/examples/map.ml</option><option value=src/examples/sumpos.ml data-text="let rec nonzero xs =
-  match xs with
-  | [] -> true
-  | x :: xs1 -> if x = 0 then false else nonzero xs1
-
-let rec sumpos xs =
-  match xs with
-  | [] -> true
-  | x :: xs1 -> if x > 0 then x + sumpos xs1 else sumpos xs1
-
-(* foldr_with_f1$(a,l,res) =
-         req nozero(l); ens sumpos(l,a,res)
-         \/ req ~nozero(l); Exception(_) *)
-let foldr_with_f1 init xs
-(*@ ex r; nonzero(xs,r); ens r=true; sumpos(xs,res) \/ ex r; nonzero(xs, r); ens r=false; E @*)
-= let f1 c t = if c = 0 then perform E else if c > 0 then c + t else t in
-  foldr f1 xs init">src/examples/sumpos.ml</option><option value=src/examples/take_skip.ml data-text="
-(* let (mutlist:(((int ref) list) ref)) = ref [ref 1; ref 2; ref 3; ref 4] *)
-
-(* let rec take n li =
-  (* (li:(int ref) list) : (int ref) list  =  *)
-  if n = 0 then []
-  else 
-    (match li with 
-    | [] -> []
-    | x :: xs -> 
-      x :: take (n-1) xs)
-
-let rec skip n li =
-  (* (li:(int ref) list) : (int ref) list  =  *)
-  if n = 0 then li 
-  else 
-    (match li with 
-    | [] -> []
-    | _ :: xs -> 
-      skip (n-1) xs) *)
-
-      (* ;; *)
-
-(* mutlist := take_n  3 (!mutlist);;
-mutlist := skip_n  2 (!mutlist);;
-
-assert (!mutlist = [ref 3]);; *)
-  (* (n:nat) (xs:list nat) := *)
-  (* (n:nat) (xs:list nat) := *)
-
-let rec take n xs =
-  if n = 0 then []
-  else
-    (match xs with
-    | [] -> []
-    | x :: xs1 -> x :: take (n-1) xs1)
-
-let rec skip n xs =
-  if n = 0 then xs
-  else
-    (match xs with
-    | [] -> []
-    | x :: xs1 -> skip (n-1) xs1)
-
-(* the induction hypothesis should be: forall xs. skip n (take n xs) = [] *)
-
-let take_skip n xs
-(*@ Norm(emp, []) @*)
-= skip n (take n xs)">src/examples/take_skip.ml</option><option value=src/evaluation/0_heap_zero_once_twice.ml data-text="effect Zero : int 
+  map f xs *)">src/examples/map.ml</option><option value=src/evaluation/0_heap_zero_once_twice.ml data-text="effect Zero : int 
 effect Once : int 
 effect Twice : int 
 
@@ -1212,7 +1029,7 @@ let invalid_false ()
     <script>
       // this is substituted at build time and is used in page.js
       function postExampleLoad() {
-        console.log("Built Fri Oct 20 23:48:10 UTC 2023");
+        console.log("Built Sat Oct 21 10:51:05 UTC 2023");
         console.log("loading z3...");
       }
     </script>
