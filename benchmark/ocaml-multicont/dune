@@ -64,3 +64,9 @@
  (modules D_async)
  (modes byte_complete native)
  (libraries multicont))
+
+(executable
+ (name D_async_simple)
+ (modules D_async_simple)
+ (modes byte_complete native)
+ (libraries multicont))

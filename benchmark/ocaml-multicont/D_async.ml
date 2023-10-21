@@ -1,5 +1,8 @@
 (* An algebraically well-behaved implementation of async/await with
-   multi-shot continuations. *)
+   multi-shot continuations. 
+   
+https://github.com/ocaml-multicore/effects-examples/blob/master/sched.ml   
+*)
 
 module Async: sig
   module Promise: sig
