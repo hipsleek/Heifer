@@ -19,7 +19,7 @@ $ DEBUG=0 time dune exec parsing/hip.exe src/examples/calls.ml > /dev/null
 Project size:
 
 ```sh
-$ loc parsing/{hiptypes.ml,common.ml,hiplib.ml,tests.ml,ProversEx.ml,Rewriting.ml,Pretty.ml,entail.ml,res.ml,forward_rules.ml,infer_types.ml,normalize.ml,hip.ml,hipjs.ml}
+$ loc parsing/{hipcore.ml,debug.ml,subst.ml,hiptypes.ml,common.ml,hiplib.ml,tests.ml,ProversEx.ml,Rewriting.ml,Pretty.ml,entail.ml,res.ml,forward_rules.ml,infer_types.ml,normalize.ml,hip.ml,hipjs.ml} provers/{native/provers.ml,js/provers.ml}
 ```
 
 Stats:
