@@ -3,6 +3,7 @@
    
 https://github.com/ocaml-multicore/effects-examples/blob/master/sched.ml   
 *)
+open Multicont.Deep
 
 module Async: sig
   module Promise: sig
@@ -97,8 +98,8 @@ end = struct
            then continue k (Promise.value pr)
            else Promise.wait pr (fun v -> continue k v));
           run_next state)
+          
         | Fork -> Some (fun (k : (bool, unit) continuation) ->
-          let open Multicont.Deep in
           let r = promote k in
           enqueue state (fun () -> resume r false);
           resume r true)

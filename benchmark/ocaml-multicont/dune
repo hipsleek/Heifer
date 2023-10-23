@@ -70,3 +70,11 @@
  (modules D_async_simple)
  (modes byte_complete native)
  (libraries multicont))
+
+(executable
+ (name test_multi_cont)
+ (modules test_multi_cont)
+ (modes byte_complete native)
+ (libraries multicont))
+
+ 

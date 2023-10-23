@@ -16,7 +16,7 @@ let rec sumEff n
     r + tl
 
 let main i n 
-(*@ main(i, n, res): ex z; req (i->z/\n>0); (i->z+(n*(n+1)/2) /\ res=n,Norm(res))  @*)
+(*@ main(i, n, res): ex z; req (i->z/\n>=0); (i->z+(n*(n+1)/2) /\ res=n,Norm(res))  @*)
 = match_with sumEff n 
   (*@ match_with (sumEff n, res): (i->z+(n*(n+1)/2) /\ res=n,Norm(res))  @*)
   { retc = (fun x -> x) 
