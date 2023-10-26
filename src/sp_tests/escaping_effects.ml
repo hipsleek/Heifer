@@ -27,16 +27,16 @@ let run_b f =
   | v -> v
 
 let unhandled () =
-  run_a @@ fun _ ->
-    run_b @@ fun _ ->
+  run_a (fun () ->
+    run_b (fun () ->
       async (fun () ->
-        print_endline (read ()))
+        print_endline (read ()))))
 
 let ok () =
-  run_b @@ fun _ -> (* only change how handlers are nested *)
-    run_a @@ fun _ ->
+  run_b (fun () -> (* only change how handlers are nested *)
+    run_a (fun () ->
       async (fun () ->
-        print_endline (read ()))
+        print_endline (read ()))))
 
 let () =
   ok ();
