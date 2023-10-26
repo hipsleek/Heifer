@@ -66,20 +66,20 @@ let run main
   let rec spawn f =
     (*@ req NoEff(f, queue, 0); (true, Norm()) @*)
     (*@ req NoEff(f, queue, n); (NoEff(f', queue', n') /\ n'<n,  Norm()) @*)
+
     (* the total effects in f and queue is decreasing... 
        NoEff(f, queue, 0), here the f become the hd of the queue from time to time. 
     *)
 
     match_with f ()
-    (*@ match_with(f, (), res) : 
-       req isEmpty(queue), (NoEff(queue, decreace), Norm(()))
-    \/ req NoEff(f, queue, n), ens NoEff(queue', n') /\ n'<n, Norm(())
+    (*@ match_with (f, queue, res): 
+        req NoEff(f, queue, 0); (true, Norm())
+        req NoEff(f, queue, n); (NoEff(f', queue', n') /\ n'<n,  Norm())
     @*)
       {
         retc 
-        (*@ req NoEff(f)=0 /\ NoEff(queue, n); ens NoEff(queue, n') /\ n'<n, queue decreacing @*)
         = (fun () -> 
-          print_endline ("queue length " ^ string_of_int (_queue_length run_q));
+          (*print_endline ("queue length " ^ string_of_int (_queue_length run_q));*)
           if queue_is_empty run_q then ()
           else resume (queue_pop run_q) ()
           );
