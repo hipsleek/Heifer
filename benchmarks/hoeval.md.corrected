@@ -1,4 +1,5 @@
 
+If updating the examples, `./generate.sh` and update the lowest part of this file.
 Run these using `ocaml-mdx test benchmarks/hoeval.md -v`.
 It should take around 5 minutes.
 
@@ -29,7 +30,7 @@ Called from Stdlib.open_in in file "stdlib.ml" (inlined), line 408, characters 2
 Called from Hiplib.run_file in file "parsing/hiplib.ml", line 1299, characters 11-28
 Called from Hiplib.main in file "parsing/hiplib.ml", line 1341, characters 2-20
 Called from Dune__exe__Hip in file "parsing/hip.ml", line 27, characters 4-18
-        0.21 real         0.12 user         0.06 sys
+        0.19 real         0.11 user         0.06 sys
 [2]
 ```
 
@@ -51,33 +52,10 @@ Stats:
 (The following is generated using generate.sh)
 
 ```sh
-$ DEBUG=0 hyperfine --warmup 2 'dune exec parsing/hip.exe src/examples/calls.ml'
-Benchmark #1: dune exec parsing/hip.exe src/examples/calls.ml
-Error: Command terminated with non-zero exit code. Use the '-i'/'--ignore-failure' option if you want to ignore this. Alternatively, use the '--show-output' option to debug what went wrong.
-[1]
-$ loc src/examples/calls.ml
---------------------------------------------------------------------------------
- Language             Files        Lines        Blank      Comment         Code
---------------------------------------------------------------------------------
---------------------------------------------------------------------------------
- Total                    0            0            0            0            0
---------------------------------------------------------------------------------
-$ rg --multiline --multiline-dotall '(\*@.*?@\*)' src/examples/calls.ml
-src/examples/calls.ml: No such file or directory (os error 2)
-[2]
-$ rg --multiline --multiline-dotall -c '(\*@.*?@\*)' src/examples/calls.ml
-src/examples/calls.ml: No such file or directory (os error 2)
-[2]
-$ rg --multiline --multiline-dotall '(\*@.*?@\*)' src/examples/calls.ml | wc -l
-src/examples/calls.ml: No such file or directory (os error 2)
-       0
-```
-
-```sh
 $ DEBUG=0 hyperfine --warmup 2 'dune exec parsing/hip.exe src/examples/iter.ml'
 Benchmark #1: dune exec parsing/hip.exe src/examples/iter.ml
-  Time (mean ± σ):     366.1 ms ±  35.4 ms    [User: 214.0 ms, System: 123.4 ms]
-  Range (min … max):   324.6 ms … 452.8 ms    10 runs
+  Time (mean ± σ):     347.3 ms ±   6.4 ms    [User: 207.4 ms, System: 119.1 ms]
+  Range (min … max):   335.0 ms … 357.8 ms    10 runs
 
 $ loc src/examples/iter.ml
 --------------------------------------------------------------------------------
@@ -99,8 +77,8 @@ $ rg --multiline --multiline-dotall '(\*@.*?@\*)' src/examples/iter.ml | wc -l
 ```sh
 $ DEBUG=0 hyperfine --warmup 2 'dune exec parsing/hip.exe src/examples/closure.ml'
 Benchmark #1: dune exec parsing/hip.exe src/examples/closure.ml
-  Time (mean ± σ):     299.8 ms ±  13.9 ms    [User: 180.5 ms, System: 96.4 ms]
-  Range (min … max):   285.8 ms … 333.5 ms    10 runs
+  Time (mean ± σ):     307.3 ms ±   8.0 ms    [User: 186.3 ms, System: 98.5 ms]
+  Range (min … max):   293.3 ms … 317.1 ms    10 runs
 
 $ loc src/examples/closure.ml
 --------------------------------------------------------------------------------
@@ -123,8 +101,8 @@ $ rg --multiline --multiline-dotall '(\*@.*?@\*)' src/examples/closure.ml | wc -
 ```sh
 $ DEBUG=0 hyperfine --warmup 2 'dune exec parsing/hip.exe src/examples/map.ml'
 Benchmark #1: dune exec parsing/hip.exe src/examples/map.ml
-  Time (mean ± σ):     431.1 ms ±   3.2 ms    [User: 257.6 ms, System: 151.6 ms]
-  Range (min … max):   426.4 ms … 435.8 ms    10 runs
+  Time (mean ± σ):     455.2 ms ±   9.1 ms    [User: 274.2 ms, System: 160.0 ms]
+  Range (min … max):   441.3 ms … 467.9 ms    10 runs
 
 $ loc src/examples/map.ml
 --------------------------------------------------------------------------------
@@ -152,8 +130,8 @@ $ rg --multiline --multiline-dotall '(\*@.*?@\*)' src/examples/map.ml | wc -l
 ```sh
 $ DEBUG=0 hyperfine --warmup 2 'dune exec parsing/hip.exe src/examples/fold.ml'
 Benchmark #1: dune exec parsing/hip.exe src/examples/fold.ml
-  Time (mean ± σ):     603.3 ms ±  25.6 ms    [User: 428.0 ms, System: 151.6 ms]
-  Range (min … max):   566.9 ms … 637.8 ms    10 runs
+  Time (mean ± σ):     612.0 ms ±  12.5 ms    [User: 436.2 ms, System: 153.3 ms]
+  Range (min … max):   594.5 ms … 629.4 ms    10 runs
 
 $ loc src/examples/fold.ml
 --------------------------------------------------------------------------------
@@ -177,8 +155,8 @@ $ rg --multiline --multiline-dotall '(\*@.*?@\*)' src/examples/fold.ml | wc -l
 ```sh
 $ DEBUG=0 hyperfine --warmup 2 'dune exec parsing/hip.exe src/examples/compose.ml'
 Benchmark #1: dune exec parsing/hip.exe src/examples/compose.ml
-  Time (mean ± σ):     270.9 ms ±   8.7 ms    [User: 154.7 ms, System: 93.3 ms]
-  Range (min … max):   260.0 ms … 287.7 ms    11 runs
+  Time (mean ± σ):     278.7 ms ±   6.8 ms    [User: 160.1 ms, System: 97.1 ms]
+  Range (min … max):   268.0 ms … 287.3 ms    10 runs
 
 $ loc src/examples/compose.ml
 --------------------------------------------------------------------------------
@@ -200,8 +178,8 @@ $ rg --multiline --multiline-dotall '(\*@.*?@\*)' src/examples/compose.ml | wc -
 ```sh
 $ DEBUG=0 hyperfine --warmup 2 'dune exec parsing/hip.exe src/examples/applyN.ml'
 Benchmark #1: dune exec parsing/hip.exe src/examples/applyN.ml
-  Time (mean ± σ):     327.2 ms ±   6.3 ms    [User: 187.0 ms, System: 118.2 ms]
-  Range (min … max):   319.9 ms … 339.1 ms    10 runs
+  Time (mean ± σ):     344.2 ms ±   7.7 ms    [User: 198.0 ms, System: 125.7 ms]
+  Range (min … max):   327.7 ms … 349.5 ms    10 runs
 
 $ loc src/examples/applyN.ml
 --------------------------------------------------------------------------------
@@ -227,8 +205,8 @@ $ rg --multiline --multiline-dotall '(\*@.*?@\*)' src/examples/applyN.ml | wc -l
 ```sh
 $ DEBUG=0 hyperfine --warmup 2 'dune exec parsing/hip.exe src/examples/all.ml'
 Benchmark #1: dune exec parsing/hip.exe src/examples/all.ml
-  Time (mean ± σ):     19.551 s ±  0.441 s    [User: 19.372 s, System: 0.124 s]
-  Range (min … max):   18.835 s … 20.107 s    10 runs
+  Time (mean ± σ):     20.759 s ±  0.140 s    [User: 20.550 s, System: 0.141 s]
+  Range (min … max):   20.590 s … 21.015 s    10 runs
 
 $ loc src/examples/all.ml
 --------------------------------------------------------------------------------
@@ -246,4 +224,29 @@ $ rg --multiline --multiline-dotall -c '(\*@.*?@\*)' src/examples/all.ml
 3
 $ rg --multiline --multiline-dotall '(\*@.*?@\*)' src/examples/all.ml | wc -l
        3
+```
+
+```sh
+$ DEBUG=0 hyperfine --warmup 2 'dune exec parsing/hip.exe src/examples/exception.ml'
+Benchmark #1: dune exec parsing/hip.exe src/examples/exception.ml
+  Time (mean ± σ):     315.9 ms ±   4.8 ms    [User: 176.7 ms, System: 117.8 ms]
+  Range (min … max):   309.4 ms … 324.2 ms    10 runs
+
+$ loc src/examples/exception.ml
+--------------------------------------------------------------------------------
+ Language             Files        Lines        Blank      Comment         Code
+--------------------------------------------------------------------------------
+ OCaml                    1           18            3            5           10
+--------------------------------------------------------------------------------
+ Total                    1           18            3            5           10
+--------------------------------------------------------------------------------
+$ rg --multiline --multiline-dotall '(\*@.*?@\*)' src/examples/exception.ml
+(*@ ex i; req x->i; ex r; E(x->i+1 /\ i+1=3, r)
+  \/
+   ex i; req x->i; ens x->i+1 /\ res=i+1 /\ ~i+1=3 @*)
+(*@ ex y; ens y->3 /\ res=3 @*)
+$ rg --multiline --multiline-dotall -c '(\*@.*?@\*)' src/examples/exception.ml
+2
+$ rg --multiline --multiline-dotall '(\*@.*?@\*)' src/examples/exception.ml | wc -l
+       4
 ```

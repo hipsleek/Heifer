@@ -1,19 +1,20 @@
 
+If updating the examples, `./generate.sh` and update the lowest part of this file.
 Run these using `ocaml-mdx test benchmarks/hoeval.md -v`.
 It should take around 5 minutes.
 
 Some sanity checks first:
 
 ```sh
-$ dune exec parsing/hip.exe src/examples/calls.ml | grep Time | choose 2 | paste -s -d+ - | bc
+$ dune exec parsing/hip.exe src/examples/applyN.ml | grep Time | choose 2 | paste -s -d+ - | bc
 ```
 
 ```sh
-$ DEBUG=0 hyperfine --warmup 2 'dune exec parsing/hip.exe src/examples/calls.ml'
+$ DEBUG=0 hyperfine --warmup 2 'dune exec parsing/hip.exe src/examples/applyN.ml'
 ```
 
 ```sh
-$ DEBUG=0 time dune exec parsing/hip.exe src/examples/calls.ml > /dev/null
+$ DEBUG=0 time dune exec parsing/hip.exe src/examples/applyN.ml > /dev/null
 ```
 
 Project size:
@@ -25,17 +26,6 @@ $ loc parsing/{hipcore.ml,debug.ml,subst.ml,hiptypes.ml,common.ml,hiplib.ml,test
 Stats:
 
 (The following is generated using generate.sh)
-
-```sh
-$ DEBUG=0 hyperfine --warmup 2 'dune exec parsing/hip.exe src/examples/calls.ml'
-$ loc src/examples/calls.ml
-
-$ rg --multiline --multiline-dotall '(\*@.*?@\*)' src/examples/calls.ml
-
-$ rg --multiline --multiline-dotall -c '(\*@.*?@\*)' src/examples/calls.ml
-
-$ rg --multiline --multiline-dotall '(\*@.*?@\*)' src/examples/calls.ml | wc -l
-```
 
 ```sh
 $ DEBUG=0 hyperfine --warmup 2 'dune exec parsing/hip.exe src/examples/iter.ml'
@@ -112,4 +102,15 @@ $ rg --multiline --multiline-dotall '(\*@.*?@\*)' src/examples/all.ml
 $ rg --multiline --multiline-dotall -c '(\*@.*?@\*)' src/examples/all.ml
 
 $ rg --multiline --multiline-dotall '(\*@.*?@\*)' src/examples/all.ml | wc -l
+```
+
+```sh
+$ DEBUG=0 hyperfine --warmup 2 'dune exec parsing/hip.exe src/examples/exception.ml'
+$ loc src/examples/exception.ml
+
+$ rg --multiline --multiline-dotall '(\*@.*?@\*)' src/examples/exception.ml
+
+$ rg --multiline --multiline-dotall -c '(\*@.*?@\*)' src/examples/exception.ml
+
+$ rg --multiline --multiline-dotall '(\*@.*?@\*)' src/examples/exception.ml | wc -l
 ```
