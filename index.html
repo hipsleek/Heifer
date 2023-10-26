@@ -244,16 +244,14 @@ let failing x
 (*@ ex i; req x->i; ex r; E(x->i+1 /\ i+1=3, r)
   \/
    ex i; req x->i; ens x->i+1 /\ res=i+1 /\ ~i+1=3 @*)
-=
-  x := !x + 1;
+= x := !x + 1;
   if !x = 3 then perform E else !x
 
 (* TODO there is a bug in handler reasoning, result should be 1 *)
 
 let main ()
 (*@ ex y; ens y->3 /\ res=3 @*)
-=
-  let y = ref 2 in
+= let y = ref 2 in
   match failing y with
   | effect E k -> 1
   | v -> v">src/examples/exception.ml</option><option value=src/examples/fold.ml data-text="
@@ -1029,7 +1027,7 @@ let invalid_false ()
     <script>
       // this is substituted at build time and is used in page.js
       function postExampleLoad() {
-        console.log("Built Mon Oct 23 09:45:58 UTC 2023");
+        console.log("Built Thu Oct 26 10:57:12 UTC 2023");
         console.log("loading z3...");
       }
     </script>
