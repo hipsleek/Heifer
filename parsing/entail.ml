@@ -547,7 +547,9 @@ and try_other_measures :
     when List.length (List.filter (fun s -> s = (c1, `Left)) ctx.unfolded)
          < unfolding_bound ->
     let unf = unfold_predicate_norm "left" def s1 in
-    let@ s1_1 = all ~to_s:string_of_normalisedStagedSpec unf in
+    let@ s1_1 =
+      all ~name:"unfold lhs" ~to_s:string_of_normalisedStagedSpec unf
+    in
     check_staged_subsumption_stagewise
       { ctx with unfolded = (c1, `Left) :: ctx.unfolded }
       i assump s1_1 s2
@@ -565,7 +567,9 @@ and try_other_measures :
       when List.length (List.filter (fun s -> s = (c2, `Right)) ctx.unfolded)
            < unfolding_bound ->
       let unf = unfold_predicate_norm "right" pred_def s2 in
-      let@ s2_1 = any ~name:"?" ~to_s:string_of_normalisedStagedSpec unf in
+      let@ s2_1 =
+        any ~name:"unfold rhs" ~to_s:string_of_normalisedStagedSpec unf
+      in
       check_staged_subsumption_stagewise
         { ctx with unfolded = (c2, `Right) :: ctx.unfolded }
         i assump s1 s2_1
@@ -835,8 +839,8 @@ let check_staged_subsumption_disj :
     match ih with None -> lems | Some ih -> SMap.add ih.l_name ih lems
   in
   (* let ds1, ds2 = apply_tactics ts lems preds ds1 ds2 in *)
-  (let@ s1 = all ~to_s:string_of_spec ds1 in
-   let@ s2 = any ~name:"subsumes-disj-rhs-any" ~to_s:string_of_spec ds2 in
+  (let@ s1 = all ~name:"disj lhs" ~to_s:string_of_spec ds1 in
+   let@ s2 = any ~name:"disj rhs" ~to_s:string_of_spec ds2 in
    check_staged_subsumption lems preds s1 s2
    )
   |> succeeded

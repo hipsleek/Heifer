@@ -91,14 +91,17 @@ let current_failed () =
   let (Node n) = !current in
   n.state <- `Failed
 
-let all_ : to_s:('a -> string) -> 'a list -> ('a -> 'b t) -> 'b list t =
- fun ~to_s vs f ->
+let all_ :
+    name:string -> to_s:('a -> string) -> 'a list -> ('a -> 'b t) -> 'b list t =
+ fun ~name ~to_s vs f ->
   let rec loop rs vs undone =
     match (vs, undone) with
     | [], _ -> Some (List.rev rs)
     | x :: xs, u :: us ->
       update_current u;
-      info ~title:"all" "%s\n%s" (to_s x) (show_search_tree true);
+      info
+        ~title:(Format.asprintf "all (%s / %s)" name (to_s x))
+        "%s" (show_search_tree true);
       let r = f x in
       (match r with
       | None ->
@@ -109,11 +112,16 @@ let all_ : to_s:('a -> string) -> 'a list -> ('a -> 'b t) -> 'b list t =
         loop (r1 :: rs) xs us)
     | _ :: _, [] -> failwith "won't happen because same length"
   in
-  let@ undone = init_undone "all" vs to_s in
+  let@ undone = init_undone (Format.asprintf "all; %s" name) vs to_s in
   loop [] vs undone
 
-let all : to_s:('a -> string) -> 'a list -> ('a -> 'b option) -> unit option =
- fun ~to_s vs f -> all_ ~to_s vs f |> Option.map (fun _ -> ())
+let all :
+    name:string ->
+    to_s:('a -> string) ->
+    'a list ->
+    ('a -> 'b option) ->
+    unit option =
+ fun ~name ~to_s vs f -> all_ ~name ~to_s vs f |> Option.map (fun _ -> ())
 
 let any : name:string -> to_s:('a -> string) -> 'a list -> ('a -> 'b t) -> 'b t
     =
@@ -129,8 +137,8 @@ let any : name:string -> to_s:('a -> string) -> 'a list -> ('a -> 'b t) -> 'b t
       | v :: vs1, u :: us ->
         update_current u;
         info
-          ~title:(Format.asprintf "any (%s)" name)
-          "%s\n%s" (to_s v) (show_search_tree true);
+          ~title:(Format.asprintf "any (%s / %s)" name (to_s v))
+          "%s" (show_search_tree true);
         let res = f v in
         begin
           match res with
@@ -143,7 +151,7 @@ let any : name:string -> to_s:('a -> string) -> 'a list -> ('a -> 'b t) -> 'b t
         end
       | _ :: _, [] -> failwith "won't happen because same length"
     in
-    let@ undone = init_undone "any" vs to_s in
+    let@ undone = init_undone (Format.asprintf "any; %s" name) vs to_s in
     loop vs undone
 
 let either :
