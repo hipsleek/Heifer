@@ -192,7 +192,7 @@ let freshen_existentials vs state =
   let vars_fresh = List.map (fun v -> (v, Var (verifier_getAfreeVar v))) vs in
   (vars_fresh, instantiate_state vars_fresh state)
 
-open Res.Option
+open Search
 
 (** Given two heap formulae, matches points-to predicates.
   may backtrack if the locations are quantified.
