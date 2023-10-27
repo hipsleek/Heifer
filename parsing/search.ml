@@ -1,4 +1,7 @@
+open Hipcore.Common
 open Hipcore.Debug
+
+type 'a t = 'a option
 
 let ( let* ) = Option.bind
 let ( let+ ) a f = Option.map f a
@@ -7,52 +10,141 @@ let ok = Some ()
 let fail = None
 let check b = if b then ok else fail
 let or_else o k = match o with None -> k () | Some _ -> o
+let of_bool default b = if b then Some default else None
 let pure a = Some a
+let ensure cond = if cond then ok else fail
 
-let all_ : to_s:('a -> string) -> 'a list -> ('a -> 'b option) -> 'b list option
-    =
+type mut_tree =
+  | Node of {
+      name : string;
+      mutable state : [ `Done | `NotStarted | `Here | `Failed | `Started ];
+      mutable children : mut_tree ref list;
+    }
+
+let rule ?(children = []) ?(success = true) ~name fmt =
+  Format.kasprintf
+    (fun s ->
+      Node
+        {
+          name =
+            Format.asprintf "[%s]%s %s" name (if success then "" else " FAIL") s;
+          state = `NotStarted;
+          children;
+        })
+    fmt
+
+let tree_root = Node { name = "root"; children = []; state = `NotStarted }
+let current = ref tree_root
+
+let string_of_search_state s =
+  match s with
+  | `Done -> "✔"
+  (* ✓o$ *)
+  | `NotStarted -> "?"
+  | `Here -> "<-" (* ← *)
+  | `Started -> "…" (* "..." *)
+  | `Failed -> "✘" (* x✗ *)
+
+let rec tree_of_mut_tree ?(compact = false) t =
+  match t with
+  | Node { name; children; state } ->
+    Hipcore.Pretty.Node
+      ( Format.asprintf "%s %s" name (string_of_search_state state),
+        match (compact, state) with
+        | true, `Done -> []
+        | _ -> List.map (fun t -> tree_of_mut_tree ~compact !t) children )
+
+let search_tree () = tree_root
+
+let show_search_tree compact =
+  Hipcore.Pretty.string_of_proof (tree_of_mut_tree ~compact (search_tree ()))
+
+(** creates subproblems, mutates them into current root, returns them via k, and after completion, restores root before returning.
+
+  this is in cps form because it has some finalization, not because it backtracks; any and all are responsible for that *)
+let init_undone name vs to_s k =
+  let undone = List.map (fun v -> ref (rule ~name "%s" (to_s v))) vs in
+  let old_current = current in
+  let (Node n) = !current in
+  n.state <- `Started;
+  n.children <- undone;
+  let r = k undone in
+  (* exceptions are not handled *)
+  (match r with None -> n.state <- `Failed | Some _ -> n.state <- `Done);
+  (* restore current, though sometimes not needed *)
+  current := !old_current;
+  r
+
+(** makes a given node the current node *)
+let update_current u =
+  current := !u;
+  let (Node n) = !current in
+  n.state <- `Here
+
+(** finalize current node as done *)
+let current_done () =
+  let (Node n) = !current in
+  n.state <- `Done
+
+(** finalize current node as failed *)
+let current_failed () =
+  let (Node n) = !current in
+  n.state <- `Failed
+
+let all_ : to_s:('a -> string) -> 'a list -> ('a -> 'b t) -> 'b list t =
  fun ~to_s vs f ->
-  let rec loop rs vs =
-    match vs with
-    | [] -> Some []
-    | x :: xs ->
-      info ~title:"(all)" "%s" (to_s x);
-      let res = f x in
-      (match res with None -> None | Some r -> loop (r :: rs) xs)
+  let rec loop rs vs undone =
+    match (vs, undone) with
+    | [], _ -> Some (List.rev rs)
+    | x :: xs, u :: us ->
+      update_current u;
+      info ~title:"all" "%s\n%s" (to_s x) (show_search_tree true);
+      let r = f x in
+      (match r with
+      | None ->
+        current_failed ();
+        None
+      | Some r1 ->
+        current_done ();
+        loop (r1 :: rs) xs us)
+    | _ :: _, [] -> failwith "won't happen because same length"
   in
-  match vs with
-  (* special case *)
-  | [x] -> f x |> Option.map (fun y -> [y])
-  | _ -> loop [] vs
+  let@ undone = init_undone "all" vs to_s in
+  loop [] vs undone
 
 let all : to_s:('a -> string) -> 'a list -> ('a -> 'b option) -> unit option =
  fun ~to_s vs f -> all_ ~to_s vs f |> Option.map (fun _ -> ())
 
-let any :
-    name:string ->
-    to_s:('a -> string) ->
-    'a list ->
-    ('a -> 'b option) ->
-    'b option =
+let any : name:string -> to_s:('a -> string) -> 'a list -> ('a -> 'b t) -> 'b t
+    =
  fun ~name ~to_s vs f ->
   match vs with
   | [] ->
     (* Error (rule ~name "choice empty") *)
     failwith (Format.asprintf "choice empty: %s" name)
-    (* special case *)
-  | [x] -> f x
-  | v :: vs ->
-    let rec loop v vs =
-      info ~title:"(any)" "%s" (to_s v);
-      let res = f v in
-      match (res, vs) with
-      | Some r, _ -> Some r
-      | None, [] -> None
-      | None, v1 :: vs1 -> loop v1 vs1
+  | _ :: _ ->
+    let rec loop vs undone =
+      match (vs, undone) with
+      | [], _ -> fail
+      | v :: vs1, u :: us ->
+        update_current u;
+        info
+          ~title:(Format.asprintf "any (%s)" name)
+          "%s\n%s" (to_s v) (show_search_tree true);
+        let res = f v in
+        begin
+          match res with
+          | None ->
+            current_failed ();
+            loop vs1 us
+          | Some r ->
+            current_done ();
+            Some r
+        end
+      | _ :: _, [] -> failwith "won't happen because same length"
     in
-    loop v vs
-
-let ensure cond = if cond then ok else fail
+    let@ undone = init_undone "any" vs to_s in
+    loop vs undone
 
 let either :
     name:string ->
