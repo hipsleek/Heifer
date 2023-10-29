@@ -192,8 +192,6 @@ let freshen_existentials vs state =
   let vars_fresh = List.map (fun v -> (v, Var (verifier_getAfreeVar v))) vs in
   (vars_fresh, instantiate_state vars_fresh state)
 
-open Search
-
 (** Given two heap formulae, matches points-to predicates.
   may backtrack if the locations are quantified.
   returns (by invoking the continuation) when matching is complete (when right is empty).
@@ -207,9 +205,10 @@ let rec check_qf :
     string list ->
     state ->
     state ->
-    (pi * pi * kappa -> 'a option) ->
-    'a option =
+    (pi * pi * kappa -> 'a Search.t) ->
+    'a Search.t =
  fun id vs ante conseq k ->
+  let open Search in
   (* TODO ptr equalities? *)
   let a = Heap.normalize ante in
   let c = Heap.normalize conseq in
@@ -419,13 +418,14 @@ let rec check_staged_subsumption_stagewise :
     pi ->
     normalisedStagedSpec ->
     normalisedStagedSpec ->
-    unit option =
+    unit Search.t =
  fun ctx i assump s1 s2 ->
  (*print_endline ("check_staged_subsumption_stagewise");*)
 
   info ~title:"flow subsumption" "%s\n<:\n%s"
     (string_of_normalisedStagedSpec s1)
     (string_of_normalisedStagedSpec s2);
+  let open Search in
   match (s1, s2) with
   | (EffHOStage es1 :: es1r, ns1), (EffHOStage es2 :: es2r, ns2) ->
     (*print_endline ("check_staged_subsumption_stagewise case one ");*)
@@ -532,82 +532,83 @@ and try_other_measures :
     string option ->
     int ->
     pi ->
-    unit option =
- fun ctx s1 s2 c1 c2 i assump ->
-  (* first try to unfold on the left. it works if there is something to unfold (the current stage must be a function/effect, and there is a corresponding definition in the predicate environment) *)
-  match
-    let* c1 = c1 in
-    let+ res =
-      let@ _ = SMap.find_opt c1 ctx.preds |> or_else in
-      SMap.find_opt c1 ctx.preds_left
-    in
-    (c1, res)
-  with
-  | Some (c1, def)
-    when List.length (List.filter (fun s -> s = (c1, `Left)) ctx.unfolded)
-         < unfolding_bound ->
-    let unf = unfold_predicate_norm "left" def s1 in
-    let@ s1_1 =
-      all ~name:"unfold lhs" ~to_s:string_of_normalisedStagedSpec unf
-    in
-    check_staged_subsumption_stagewise
-      { ctx with unfolded = (c1, `Left) :: ctx.unfolded }
-      i assump s1_1 s2
-  | _ ->
-    (* if that fails, try to unfold on the right *)
-    (match
-       let* c2 = c2 in
-       let+ res =
-         let@ _ = SMap.find_opt c2 ctx.preds |> or_else in
-         SMap.find_opt c2 ctx.preds_right
-       in
-       (c2, res)
-     with
-    | Some (c2, pred_def)
-      when List.length (List.filter (fun s -> s = (c2, `Right)) ctx.unfolded)
+    unit Search.t =
+  let open Search in
+  fun ctx s1 s2 c1 c2 i assump ->
+    (* first try to unfold on the left. it works if there is something to unfold (the current stage must be a function/effect, and there is a corresponding definition in the predicate environment) *)
+    match
+      let* c1 = c1 in
+      let+ res =
+        let@ _ = SMap.find_opt c1 ctx.preds |> or_else in
+        SMap.find_opt c1 ctx.preds_left
+      in
+      (c1, res)
+    with
+    | Some (c1, def)
+      when List.length (List.filter (fun s -> s = (c1, `Left)) ctx.unfolded)
            < unfolding_bound ->
-      let unf = unfold_predicate_norm "right" pred_def s2 in
-      let@ s2_1 =
-        any ~name:"unfold rhs" ~to_s:string_of_normalisedStagedSpec unf
+      let unf = unfold_predicate_norm "left" def s1 in
+      let@ s1_1 =
+        all ~name:"unfold lhs" ~to_s:string_of_normalisedStagedSpec unf
       in
       check_staged_subsumption_stagewise
-        { ctx with unfolded = (c2, `Right) :: ctx.unfolded }
-        i assump s1 s2_1
+        { ctx with unfolded = (c1, `Left) :: ctx.unfolded }
+        i assump s1_1 s2
     | _ ->
-      (* if that fails, try to apply a lemma *)
-      let eligible =
-        ctx.lems |> SMap.bindings
-        |> List.filter (fun (ln, _l) -> not (List.mem ln ctx.applied))
-        |> List.map snd
-      in
-      let s1_1, applied =
-        apply_one_lemma eligible (normalisedStagedSpec2Spec s1)
-      in
-      applied
-      |> Option.iter (fun l ->
-             info
-               ~title:(Format.asprintf "applied: %s" l.l_name)
-               "%s\n\nafter:\n%s\n<:\n%s" (string_of_lemma l)
-               (string_of_spec s1_1)
-               (string_of_normalisedStagedSpec s2));
-      (match applied with
-      | Some app ->
-        check_staged_subsumption_stagewise
-          { ctx with applied = app.l_name :: ctx.applied }
-          i assump (normalize_spec s1_1) s2
-      | None ->
-        (* no predicates to try unfolding *)
-        let pp c =
-          match c with
-          | Some f -> Format.asprintf "effect stage %s" f
-          | None -> Format.asprintf "normal stage"
+      (* if that fails, try to unfold on the right *)
+      (match
+         let* c2 = c2 in
+         let+ res =
+           let@ _ = SMap.find_opt c2 ctx.preds |> or_else in
+           SMap.find_opt c2 ctx.preds_right
+         in
+         (c2, res)
+       with
+      | Some (c2, pred_def)
+        when List.length (List.filter (fun s -> s = (c2, `Right)) ctx.unfolded)
+             < unfolding_bound ->
+        let unf = unfold_predicate_norm "right" pred_def s2 in
+        let@ s2_1 =
+          any ~name:"unfold rhs" ~to_s:string_of_normalisedStagedSpec unf
         in
-        info
-          ~title:
-            (Format.asprintf "ran out of tricks to make %s and %s match" (pp c1)
-               (pp c2))
-          "%s" (string_of_pctx ctx);
-        fail))
+        check_staged_subsumption_stagewise
+          { ctx with unfolded = (c2, `Right) :: ctx.unfolded }
+          i assump s1 s2_1
+      | _ ->
+        (* if that fails, try to apply a lemma. note that this is the reason we can't use Search.any action, as we only apply lemmas once unfolding is no longer possible, presumably because it has been done already. this approximates an inductive decreasing-arguments check *)
+        let eligible =
+          ctx.lems |> SMap.bindings
+          |> List.filter (fun (ln, _l) -> not (List.mem ln ctx.applied))
+          |> List.map snd
+        in
+        let s1_1, applied =
+          apply_one_lemma eligible (normalisedStagedSpec2Spec s1)
+        in
+        applied
+        |> Option.iter (fun l ->
+               info
+                 ~title:(Format.asprintf "applied: %s" l.l_name)
+                 "%s\n\nafter:\n%s\n<:\n%s" (string_of_lemma l)
+                 (string_of_spec s1_1)
+                 (string_of_normalisedStagedSpec s2));
+        (match applied with
+        | Some app ->
+          check_staged_subsumption_stagewise
+            { ctx with applied = app.l_name :: ctx.applied }
+            i assump (normalize_spec s1_1) s2
+        | None ->
+          (* no predicates to try unfolding *)
+          let pp c =
+            match c with
+            | Some f -> Format.asprintf "effect stage %s" f
+            | None -> Format.asprintf "normal stage"
+          in
+          info
+            ~title:
+              (Format.asprintf "ran out of tricks to make %s and %s match"
+                 (pp c1) (pp c2))
+            "%s" (string_of_pctx ctx);
+          fail))
 
 and stage_subsumes :
     pctx ->
@@ -615,8 +616,9 @@ and stage_subsumes :
     pi ->
     (state * state) quantified ->
     (state * state) quantified ->
-    pi option =
+    pi Search.t =
  fun ctx what assump s1 s2 ->
+  let open Search in
   let vs1, (pre1, post1) = s1 in
   let vs2, (pre2, post2) = s2 in
   (* TODO replace uses of all_vars. this is for us to know if locations on the rhs are quantified. a smaller set of vars is possible *)
@@ -770,7 +772,7 @@ let rec apply_tactics ts lems preds (ds1 : disj_spec) (ds2 : disj_spec) =
     (ds1, ds2) ts
 
 let check_staged_subsumption :
-    lemma SMap.t -> pred_def SMap.t -> spec -> spec -> unit option =
+    lemma SMap.t -> pred_def SMap.t -> spec -> spec -> unit Search.t =
  fun lems preds n1 n2 ->
   let es1, ns1 = normalize_spec n1 in
   let es2, ns2 = normalize_spec n2 in
@@ -831,6 +833,7 @@ let check_staged_subsumption_disj :
     disj_spec ->
     bool =
  fun mname params _ts lems preds ds1 ds2 ->
+  Search.reset ();
   info
     ~title:(Format.asprintf "disj subsumption: %s" mname)
     "%s\n<:\n%s" (string_of_disj_spec ds1) (string_of_disj_spec ds2);
@@ -839,11 +842,11 @@ let check_staged_subsumption_disj :
     match ih with None -> lems | Some ih -> SMap.add ih.l_name ih lems
   in
   (* let ds1, ds2 = apply_tactics ts lems preds ds1 ds2 in *)
-  (let@ s1 = all ~name:"disj lhs" ~to_s:string_of_spec ds1 in
-   let@ s2 = any ~name:"disj rhs" ~to_s:string_of_spec ds2 in
+  (let@ s1 = Search.all ~name:"disj lhs" ~to_s:string_of_spec ds1 in
+   let@ s2 = Search.any ~name:"disj rhs" ~to_s:string_of_spec ds2 in
    check_staged_subsumption lems preds s1 s2
    )
-  |> succeeded
+  |> Search.succeeded
 
 let derive_predicate m_name m_params disj =
   let norm = List.map normalize_spec disj in

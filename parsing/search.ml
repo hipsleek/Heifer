@@ -33,8 +33,17 @@ let rule ?(children = []) ?(success = true) ~name fmt =
         })
     fmt
 
-let tree_root = Node { name = "root"; children = []; state = `NotStarted }
+let empty_tree () = Node { name = "root"; children = []; state = `NotStarted }
+let tree_root = empty_tree ()
+
+(* this is a pointer to the node we are at (`Here) *)
 let current = ref tree_root
+
+let reset () =
+  let (Node n) = tree_root in
+  n.children <- [];
+  n.state <- `NotStarted;
+  current := tree_root
 
 let string_of_search_state s =
   match s with
@@ -54,10 +63,8 @@ let rec tree_of_mut_tree ?(compact = false) t =
         | true, `Done -> []
         | _ -> List.map (fun t -> tree_of_mut_tree ~compact !t) children )
 
-let search_tree () = tree_root
-
 let show_search_tree compact =
-  Hipcore.Pretty.string_of_proof (tree_of_mut_tree ~compact (search_tree ()))
+  Hipcore.Pretty.string_of_proof (tree_of_mut_tree ~compact tree_root)
 
 (** creates subproblems, mutates them into current root, returns them via k, and after completion, restores root before returning.
 
