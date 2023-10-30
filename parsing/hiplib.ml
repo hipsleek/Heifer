@@ -815,27 +815,33 @@ let transform_str env (s : structure_item) =
       let spec = function_spec tlbody in
       let formals, body = collect_param_names fn in
       let e = transformation (fn_name :: formals @ env) body in
-      `Meth (fn_name, formals, spec, e, tactics)
-    | _ ->
+      Some (`Meth (fn_name, formals, spec, e, tactics))
+    | Pexp_apply _ -> None 
+    | whatever -> 
+      print_endline (string_of_expression_kind whatever); 
       failwith (Format.asprintf "not a function binding: %a" Pprintast.expression fn)
     end
     
   | Pstr_lemma (_l_name, _l_left, _l_right) ->
     failwith "parsing user-defined lemma, TODO"
-  | Pstr_predicate (p_name, p_params, p_body) -> `Pred {p_name; p_params; p_body}
+  | Pstr_predicate (p_name, p_params, p_body) -> Some (`Pred {p_name; p_params; p_body})
   | Pstr_effect { peff_name; peff_kind=_; _ } ->
       let name = peff_name.txt in
-      `Eff name
+      Some (`Eff name)
+  | Pstr_type _ 
+  | Pstr_typext _ -> None 
   | _ -> failwith (Format.asprintf "unknown program element: %a" Pprintast.structure [s])
 
 let transform_strs (strs: structure_item list) : core_program =
   let _env, effs, mths, preds, lems =
     List.fold_left (fun (env, es, ms, ps, ls) c ->
       match transform_str env c with
-      | `Lem l -> env, es, ms, ps, SMap.add l.p_name l ls
-      | `Pred p -> env, es, ms, SMap.add p.p_name p ps, ls
-      | `Eff a -> env, a :: es, ms, ps, ls
-      | `Meth (m_name, m_params, m_spec, m_body, m_tactics) -> m_name :: env, es, { m_name; m_params; m_spec; m_body; m_tactics } :: ms, ps, ls) ([], [], [], SMap.empty, SMap.empty) strs
+      | Some (`Lem l) -> env, es, ms, ps, SMap.add l.p_name l ls
+      | Some (`Pred p) -> env, es, ms, SMap.add p.p_name p ps, ls
+      | Some (`Eff a) -> env, a :: es, ms, ps, ls
+      | Some (`Meth (m_name, m_params, m_spec, m_body, m_tactics)) -> m_name :: env, es, { m_name; m_params; m_spec; m_body; m_tactics } :: ms, ps, ls
+      | _ -> env, es, ms, ps, ls
+    ) ([], [], [], SMap.empty, SMap.empty) strs
   in { cp_effs = List.rev effs; cp_methods = List.rev mths; cp_predicates = preds; cp_lemmas = lems }
 
 let string_of_token =

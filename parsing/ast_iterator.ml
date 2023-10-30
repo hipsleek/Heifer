@@ -352,8 +352,7 @@ module M = struct
     | Pstr_extension (x, attrs) ->
         sub.attributes sub attrs; sub.extension sub x
     | Pstr_attribute x -> sub.attribute sub x
-end
-
+end 
 module E = struct
   (* Value expressions for the core language *)
 
