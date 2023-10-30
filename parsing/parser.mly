@@ -2574,6 +2574,10 @@ pure_formula_term:
   | FALSE { TFalse }
   | pure_formula_term PLUS pure_formula_term { Plus ($1, $3) }
   | pure_formula_term MINUS pure_formula_term { Minus ($1, $3) }
+  | pure_formula_term AMPERAMPER pure_formula_term { TAnd ($1, $3) }
+  | pure_formula_term INFIXOP1 LPAREN pure_formula_term RPAREN { TPower ($1, $4) }
+
+
   | LPAREN pure_formula_term RPAREN { $2 }
   | LPAREN FUN params=nonempty_list(LIDENT) MINUSGREATER ef=disj_effect_spec RPAREN { TLambda (Pretty.verifier_getAfreeVar "plambda", params, ef) }
 ;

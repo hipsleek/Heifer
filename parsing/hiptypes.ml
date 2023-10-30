@@ -13,6 +13,7 @@ type term =
     | TTrue
     | TFalse
     | TAnd of term * term
+    | TPower of term * term
     | TOr of term * term
     | TNot of term
     | TApp of string * term list

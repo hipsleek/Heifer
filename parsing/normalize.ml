@@ -360,7 +360,7 @@ let rec collect_lambdas_term (t : term) =
   | Nil | TTrue | TFalse | UNIT | Num _ -> SSet.empty
   | TList ts | TTupple ts -> SSet.concat (List.map collect_lambdas_term ts)
   | Var _ -> SSet.empty
-  | Rel (_, a, b) | Plus (a, b) | Minus (a, b) | TAnd (a, b) | TOr (a, b) ->
+  | Rel (_, a, b) | Plus (a, b) | Minus (a, b) | TAnd (a, b) | TOr (a, b) | TPower(a, b) ->
     SSet.union (collect_lambdas_term a) (collect_lambdas_term b)
   | TNot a -> collect_lambdas_term a
   | TApp (_, args) -> SSet.concat (List.map collect_lambdas_term args)
@@ -514,7 +514,7 @@ let remove_noncontributing_existentials :
     match t with
     | Var v -> SSet.singleton v
     | UNIT | TTrue | TFalse | Nil | Num _ -> SSet.empty
-    | Plus (a, b) | Minus (a, b) | TAnd (a, b) | TOr (a, b) ->
+    | Plus (a, b) | Minus (a, b) | TAnd (a, b) | TOr (a, b) | TPower(a, b) ->
       SSet.union (collect_related_vars_term a) (collect_related_vars_term b)
     | TNot t -> collect_related_vars_term t
     | TApp (_, ts) -> SSet.concat (List.map collect_related_vars_term ts)
@@ -738,7 +738,8 @@ let remove_temp_vars =
     | TLambda (_, _, _) ->
       (* TODO *)
       SMap.empty
-    | TList _ | TTupple _ -> failwith (Format.asprintf "NYI list/tuple")
+    | TPower _ -> SMap.empty
+    | TList _ | TTupple _ -> failwith (Format.asprintf "NYI list/tuple/power")
   and analyze_heap h =
     match h with
     | EmptyHeap -> SMap.empty

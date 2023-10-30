@@ -64,6 +64,7 @@ let rec term_to_expr env ctx t : Z3.Expr.expr =
     Z3.Arithmetic.mk_add ctx [term_to_expr env ctx t1; term_to_expr env ctx t2]
   | Minus (t1, t2) ->
     Z3.Arithmetic.mk_sub ctx [term_to_expr env ctx t1; term_to_expr env ctx t2]
+
   | Rel (bop, t1, t2) ->
     (match bop with
     | EQ ->
@@ -89,6 +90,7 @@ let rec term_to_expr env ctx t : Z3.Expr.expr =
     Z3.Boolean.mk_or ctx [term_to_expr env ctx a; term_to_expr env ctx b]
   | TApp (f, a) ->
     Z3.Expr.mk_app ctx (get_fun_decl ctx f) (List.map (term_to_expr env ctx) a)
+  | TPower (t1, _) -> (*SYH TODO*) Z3.Arithmetic.mk_add ctx [term_to_expr env ctx t1] (* failwith "term_to_expr TPower" *)
   | TList _ | TTupple _ -> failwith "term_to_expr"
 
 let rec pi_to_expr env ctx : pi -> Expr.expr = function

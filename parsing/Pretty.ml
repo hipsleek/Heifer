@@ -173,6 +173,7 @@ let rec string_of_term t : string =
     string_of_term t1 ^ (match bop with | EQ -> "==" | _ -> string_of_bin_op bop) ^ string_of_term t2
   | Plus (t1, t2) -> string_of_term t1 ^ "+" ^ string_of_term t2
   | Minus (t1, t2) -> string_of_term t1 ^ "-" ^ string_of_term t2
+  | TPower (t1, t2) -> string_of_term t1 ^ "^(" ^ string_of_term t2 ^ ")"
   | TApp (op, args) -> Format.asprintf "%s%s" op (string_of_args string_of_term args)
   | TLambda (_name, params, sp) -> Format.asprintf "lambda(\\%s -> %s)" (String.concat " " params) (string_of_disj_spec sp)
   | TTupple nLi ->
