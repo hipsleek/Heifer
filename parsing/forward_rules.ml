@@ -558,8 +558,11 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
       let event = NormalReturn (res_eq (TLambda (lid, params @ [ret], spec_to_use)), EmptyHeap) in 
       concatenateSpecsWithEvent history [event], env
 
-    | CMatch (scr, Some val_case, eff_cases, []) -> (* effects *)
+    | CMatch (spec, scr, Some val_case, eff_cases, []) -> (* effects *)
       (* infer specs for branches of the form (Constr param -> spec), which also updates the env with obligations *)
+
+      print_endline ("CMatch!!! " ^ (match spec with | None -> "none" | Some spec -> string_of_disj_spec spec) );
+
       let inferred_branch_specs, env =
         List.fold_right (fun (effname, param, spec, body) (t, env) ->
           let r, env = infer_of_expression env [[]] body in
@@ -585,7 +588,9 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
       in 
       let res, env = concatenateSpecsWithSpec history afterHandling, env in
       res, env
-    | CMatch (discr, None, _, cases) -> (* pattern matching *)
+    | CMatch (spec, discr, None, _, cases) -> (* pattern matching *)
+
+      print_endline ("CMatch!!! " ^ (match spec with | None -> "none" | Some spec -> string_of_disj_spec spec) );
       (* this is quite similar to if-else. generate a disjunct for each branch with variables bound to the result of destructuring *)
       let dsp, env = infer_of_expression env history discr in
       let dsp, env = dsp |> concat_map_state env (fun sp env ->
@@ -612,7 +617,7 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
           | _ -> failwith (Format.asprintf "unknown constructor: %s" constr)))
       in
       dsp, env
-    | CMatch (_, Some _, _, _ :: _) ->
+    | CMatch (_, _, Some _, _, _ :: _) ->
       (* TODO *)
       failwith "combining effect handlers and pattern matching not yet unimplemented"
   in

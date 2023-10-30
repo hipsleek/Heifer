@@ -715,7 +715,7 @@ let rec transformation (env:string list) (expr:expression) : core_lang =
   | Pexp_ifthenelse (if_, then_, Some else_) ->
     transformation env if_
       |> maybe_var (fun v -> CIfELse (v, transformation env then_, transformation env else_))
-  | Pexp_match (e, cases) ->
+  | Pexp_match (spec, e, cases) ->
     let norm =
       (* may be none for non-effect pattern matches *)
       cases |> List.find_map (fun c ->
@@ -755,7 +755,7 @@ let rec transformation (env:string list) (expr:expression) : core_lang =
           Some (Longident.last constr, args, transformation env c.pc_rhs)
         | _ -> None)
     in
-    CMatch (transformation env e, norm, effs, pattern_cases)
+    CMatch (spec (*SYHTODO*), transformation env e, norm, effs, pattern_cases)
   | _ ->
     failwith (Format.asprintf "expression not in core language: %a" Pprintast.expression expr)
     (* (Printast.expression 0) expr *)

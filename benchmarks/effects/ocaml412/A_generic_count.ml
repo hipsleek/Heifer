@@ -24,7 +24,7 @@ let rec xor_predicate (n:int): bool
 let main counter n 
   (*@ ex z; req counter->z /\ n>0; Norm(counter -> z+ 2^(n+1) -2, 1) @*)
 = match (xor_predicate n) with
-  (* match_with (xor_predicate n, res) : (counter -> z + 2^(n+1)-2 /\ res=1, Norm (1)) *)
+  (*@ ex z; req counter->z /\ n>0; Norm(counter -> z+ 2^(n+1) -2, 1) @*)
   | x -> if x then 1 else 0
   | exception e -> raise e
   | effect Branch k ->

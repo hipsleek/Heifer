@@ -301,7 +301,7 @@ and expression_desc =
 
            Invariant: n > 0
          *)
-  | Pexp_match of expression * case list
+  | Pexp_match of disj_spec option * expression * case list
         (* match E0 with P1 -> E1 | ... | Pn -> En *)
   | Pexp_try of expression * case list
         (* try E0 with P1 -> E1 | ... | Pn -> En *)

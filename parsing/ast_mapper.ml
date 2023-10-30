@@ -414,7 +414,7 @@ module E = struct
     | Pexp_function pel -> function_ ~loc ~attrs (sub.cases sub pel)
     | Pexp_apply (e, l) ->
         apply ~loc ~attrs (sub.expr sub e) (List.map (map_snd (sub.expr sub)) l)
-    | Pexp_match (e, pel) ->
+    | Pexp_match (_, e, pel) ->
         match_ ~loc ~attrs (sub.expr sub e) (sub.cases sub pel)
     | Pexp_try (e, pel) -> try_ ~loc ~attrs (sub.expr sub e) (sub.cases sub pel)
     | Pexp_tuple el -> tuple ~loc ~attrs (List.map (sub.expr sub) el)

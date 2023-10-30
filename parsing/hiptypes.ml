@@ -42,7 +42,7 @@ and core_lang =
       | CAssert of pi * kappa 
       | CPerform of string * core_value option
       (* match e with | v -> e1 | eff case... | constr case... *)
-      | CMatch of core_lang * (string * core_lang) option * core_handler_ops * constr_cases
+      | CMatch of disj_spec option * core_lang * (string * core_lang) option * core_handler_ops * constr_cases
       | CResume of core_value 
       | CLambda of string list * disj_spec option * core_lang
 

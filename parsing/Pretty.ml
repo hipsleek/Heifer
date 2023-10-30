@@ -401,7 +401,8 @@ let rec string_of_core_lang (e:core_lang) :string =
   | CAssert (p, h) -> Format.sprintf "assert (%s && %s)" (string_of_pi p) (string_of_kappa h)
   | CPerform (eff, Some arg) -> Format.sprintf "perform %s %s" eff (string_of_term arg)
   | CPerform (eff, None) -> Format.sprintf "perform %s" eff
-  | CMatch (e, vs, hs, cs) -> Format.sprintf "match %s with\n%s%s\n%s" (string_of_core_lang e) (match vs with | Some (v, norm) -> Format.asprintf "| %s -> %s\n" v (string_of_core_lang norm) | _ -> "") (string_of_core_handler_ops hs) (string_of_constr_cases cs)
+  | CMatch (None, e, vs, hs, cs) -> Format.sprintf "match %s with\n%s%s\n%s" (string_of_core_lang e) (match vs with | Some (v, norm) -> Format.asprintf "| %s -> %s\n" v (string_of_core_lang norm) | _ -> "") (string_of_core_handler_ops hs) (string_of_constr_cases cs)
+  | CMatch (Some spec, e, vs, hs, cs) -> Format.sprintf "match %s%s with\n%s%s\n%s" (string_of_disj_spec spec) (string_of_core_lang e) (match vs with | Some (v, norm) -> Format.asprintf "| %s -> %s\n" v (string_of_core_lang norm) | _ -> "") (string_of_core_handler_ops hs) (string_of_constr_cases cs)
   | CResume v -> Format.sprintf "continue k %s" (string_of_term v)
   | CLambda (xs, spec, e) -> Format.sprintf "fun %s%s -> %s" (String.concat " " xs) (match spec with None -> "" | Some ds -> Format.asprintf " (*@@ %s @@*)" (string_of_disj_spec ds)) (string_of_core_lang e)
 

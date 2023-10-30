@@ -213,7 +213,7 @@ let rec add_expr bv exp =
       add_cases bv pel
   | Pexp_apply(e, el) ->
       add_expr bv e; List.iter (fun (_,e) -> add_expr bv e) el
-  | Pexp_match(e, pel) -> add_expr bv e; add_cases bv pel
+  | Pexp_match(_, e, pel) -> add_expr bv e; add_cases bv pel
   | Pexp_try(e, pel) -> add_expr bv e; add_cases bv pel
   | Pexp_tuple el -> List.iter (add_expr bv) el
   | Pexp_construct(c, opte) -> add bv c; add_opt add_expr bv opte

@@ -372,7 +372,7 @@ module E = struct
     | Pexp_function pel -> sub.cases sub pel
     | Pexp_apply (e, l) ->
         sub.expr sub e; List.iter (iter_snd (sub.expr sub)) l
-    | Pexp_match (e, pel) ->
+    | Pexp_match (_, e, pel) ->
         sub.expr sub e; sub.cases sub pel
     | Pexp_try (e, pel) -> sub.expr sub e; sub.cases sub pel
     | Pexp_tuple el -> List.iter (sub.expr sub) el

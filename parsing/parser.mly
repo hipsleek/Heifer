@@ -2234,7 +2234,11 @@ expr:
   | FUN ext_attributes LPAREN TYPE lident_list RPAREN fun_def
       { (mk_newtypes ~loc:$sloc $5 $7).pexp_desc, $2 }
   | MATCH ext_attributes seq_expr WITH match_cases
-      { Pexp_match($3, $5), $2 }
+      { Pexp_match(None, $3, $5), $2 }
+  | MATCH ext_attributes seq_expr WITH c=fn_contract match_cases
+      { Pexp_match(c, $3, $6), $2 }
+
+      
   | TRY ext_attributes seq_expr WITH match_cases
       { Pexp_try($3, $5), $2 }
   | TRY ext_attributes seq_expr WITH error
