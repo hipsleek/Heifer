@@ -34,7 +34,7 @@ and constr_cases = (string * string list * core_lang) list
 and core_lang = 
       | CValue of core_value 
       | CLet of string * core_lang * core_lang
-      | CIfELse of core_value * core_lang * core_lang
+      | CIfELse of (*core_value*) pi * core_lang * core_lang
       | CFunCall of string * (core_value) list
       | CWrite of string * core_value  
       | CRef of core_value

@@ -525,8 +525,8 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
 
 
     | CIfELse (v, expr2, expr3) -> 
-      let eventThen = NormalReturn (Atomic (EQ, v, TTrue), EmptyHeap) in 
-      let eventElse = NormalReturn (Not (Atomic (EQ, v, TTrue)), EmptyHeap) in 
+      let eventThen = NormalReturn (v (*EQ, v, TTrue*), EmptyHeap) in 
+      let eventElse = NormalReturn (Not v (*EQ, v, TTrue*), EmptyHeap) in 
       let currentThen = concatenateSpecsWithEvent history [eventThen] in 
       let currentElse = concatenateSpecsWithEvent history [eventElse] in 
       let r1, env = infer_of_expression env currentThen expr2 in
@@ -562,6 +562,9 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
       (* infer specs for branches of the form (Constr param -> spec), which also updates the env with obligations *)
 
       print_endline ("CMatch!!! " ^ (match spec with | None -> "none" | Some spec -> string_of_disj_spec spec) );
+      print_endline ("num eff_cases " ^ string_of_int (List.length eff_cases));
+      let (str, _) = val_case in 
+      print_endline ("val_case " ^ str);
 
       let inferred_branch_specs, env =
         List.fold_right (fun (effname, param, spec, body) (t, env) ->
@@ -617,7 +620,7 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
           | _ -> failwith (Format.asprintf "unknown constructor: %s" constr)))
       in
       dsp, env
-    | CMatch (_, _, Some _, _, _ :: _) ->
+    | CMatch (_, _, Some _, _, _ :: _) -> 
       (* TODO *)
       failwith "combining effect handlers and pattern matching not yet unimplemented"
   in

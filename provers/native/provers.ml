@@ -93,7 +93,8 @@ let rec term_to_expr env ctx t : Z3.Expr.expr =
   | TPower (t1, _) -> (*SYH TODO*) Z3.Arithmetic.mk_add ctx [term_to_expr env ctx t1] (* failwith "term_to_expr TPower" *)
   | TList _ | TTupple _ -> failwith "term_to_expr"
 
-let rec pi_to_expr env ctx : pi -> Expr.expr = function
+let rec pi_to_expr env ctx pi: Expr.expr = 
+  match pi with 
   | True -> Z3.Boolean.mk_true ctx
   | False -> Z3.Boolean.mk_false ctx
   | Atomic (GT, t1, t2) ->
@@ -221,6 +222,7 @@ let check_sat f =
   if debug then Format.printf "z3 sat, solver: %s@." (Solver.to_string solver);
   (* z3_query (Z3.Solver.to_string solver); *)
   (* expr *)
+  if debug then Format.printf "waiting for a result ... \n";
   let sat = Solver.check solver [] == Solver.SATISFIABLE in
   if debug then Format.printf "sat: %b@." sat;
   if debug then begin

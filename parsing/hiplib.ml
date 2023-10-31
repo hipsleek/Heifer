@@ -713,8 +713,27 @@ let rec transformation (env:string list) (expr:expression) : core_lang =
       failwith (Format.asprintf "cannot name variable res");
     CLet (var_name, transformation env exprIn, transformation env e)
   | Pexp_ifthenelse (if_, then_, Some else_) ->
-    transformation env if_
-      |> maybe_var (fun v -> CIfELse (v, transformation env then_, transformation env else_))
+    let expr = transformation env if_ in 
+    
+
+    (match expr with 
+    | CValue v -> CIfELse ((Atomic (EQ, v, TTrue)), transformation env then_, transformation env else_)
+    | CFunCall (name, [a;b]) -> 
+      if String.compare name "==" ==0 then 
+        CIfELse ((Atomic (EQ, a, b)), transformation env then_, transformation env else_)
+        
+      else 
+        let v = verifier_getAfreeVar "let" in
+        let rest_Expr =  CIfELse ((Atomic (EQ, Var v, TTrue)), transformation env then_, transformation env else_) in 
+        CLet (v, expr, rest_Expr)
+
+        
+    | _ -> 
+      let v = verifier_getAfreeVar "let" in
+      let rest_Expr =  CIfELse ((Atomic (EQ,Var v, TTrue)), transformation env then_, transformation env else_) in 
+      CLet (v, expr, rest_Expr)
+    )
+      
   | Pexp_match (spec, e, cases) ->
     let norm =
       (* may be none for non-effect pattern matches *)
@@ -767,8 +786,6 @@ and maybe_var f e =
   | _ ->
     let v = verifier_getAfreeVar "let" in
     CLet (v, e, f (Var v))
-      
-
 
 type experiemntal_data = (float list * float list) 
 

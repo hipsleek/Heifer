@@ -392,7 +392,7 @@ let rec string_of_core_lang (e:core_lang) :string =
   match e with
   | CValue v -> string_of_term v
   | CLet (v, e, e1) -> Format.sprintf "let %s = %s in\n%s" v (string_of_core_lang e) (string_of_core_lang e1)
-  | CIfELse (i, t, e) -> Format.sprintf "if %s then %s else %s" (string_of_term i)  (string_of_core_lang t) (string_of_core_lang e)
+  | CIfELse (pi, t, e) -> Format.sprintf "if %s then %s else %s" (string_of_pi pi)  (string_of_core_lang t) (string_of_core_lang e)
   | CFunCall (f, [a; b]) when not (is_alpha (String.get f 0)) -> Format.sprintf "%s %s %s" (string_of_term a) f (string_of_term b)
   | CFunCall (f, xs) -> Format.sprintf "%s %s" f (List.map string_of_term xs |> String.concat " ")
   | CWrite (v, e) -> Format.sprintf "%s := %s" v (string_of_term e)
