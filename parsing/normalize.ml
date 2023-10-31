@@ -945,11 +945,13 @@ let normalise_spec_list_aux2 (specLi : normalisedStagedSpec list) : spec list =
   List.filter (fun a-> not (existControdictionSpec a)) raw
 
 let normalise_spec_list (specLi : spec list) : spec list =
-  List.map
+  let raw = List.map
     (fun a ->
       let normalisedStagedSpec = normalize_spec a in
       normalisedStagedSpec2Spec normalisedStagedSpec)
-    specLi
+    specLi in 
+  List.filter (fun a-> not (existControdictionSpec a)) raw
+
 
 let rec deleteFromStringList str (li : string list) =
   match li with

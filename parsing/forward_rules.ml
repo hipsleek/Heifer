@@ -204,6 +204,14 @@ let primitives = ["+"; "-"; "="; "not"; "::"; "&&"; "||"; ">"; "<"; ">="; "<="]
     the actual code below handles extra complexity such as the scrutinee having disjunction, multiple continue stages, res not being an equality (in which case "bridging" fresh variables are needed), freshening existentials
 
 *)
+
+let retriveLastRes (a:spec) : term = 
+  print_endline ("current " ^ string_of_spec a); 
+  let src = List.rev a in 
+  match src with 
+  | NormalReturn (Atomic(EQ, Var "res", t), _) :: _ -> t 
+  | _ -> failwith ("SYH TODO retriveLastRes")
+
 let rec handling_spec_inner env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj_spec)) (h_ops:(string * string option * disj_spec) list) (conti:spec) (formal_ret:string) : spec list * fvenv = 
 
   let (scr_eff_stages, scr_normal) = scr_spec in 
@@ -232,12 +240,20 @@ let rec handling_spec_inner env (scr_spec:normalisedStagedSpec) (h_norm:(string 
       let conti' = instantiateSpec [(formal_ret, effActualArg)] conti in 
       print_endline ("continuation'_spec: " ^ string_of_spec conti'); 
       let current, env =  handling_spec env (normalize_spec conti') h_norm h_ops in 
-
-      print_endline ("perform_ret = " ^ perform_ret);
+      let current = (normalise_spec_list current) in 
       
 
       let rest, env = handling_spec_inner env (xs, scr_normal) h_norm h_ops conti formal_ret in 
-      concatenateSpecsWithSpec current rest, env
+
+      let res = List.map (fun a -> 
+        let returnTerm = retriveLastRes a  in 
+        let rest' = instantiateSpecList [(perform_ret, returnTerm)] rest in 
+        concatenateSpecsWithSpec [a] rest'
+      ) current in 
+        
+
+
+      List.flatten res, env
 
   
 
