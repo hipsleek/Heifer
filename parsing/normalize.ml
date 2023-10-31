@@ -36,6 +36,7 @@ let rec simplify_heap h : kappa =
 let simplify_pure (p : pi) : pi =
   let rec once p =
     match p with
+    | Not (Atomic (EQ, a, TTrue)) -> (Atomic (EQ, a, TFalse), true)
     | Atomic (EQ, a, b) when a = b -> (True, true)
     | True | False | Atomic _ | Predicate _ -> (p, false)
     | And (True, a) | And (a, True) -> (a, true)
@@ -925,8 +926,23 @@ let normalisedStagedSpec2Spec (normalisedStagedSpec : normalisedStagedSpec) :
 let normalise_spec_list_aux1 (specLi : spec list) : normalisedStagedSpec list =
   List.map (fun a -> normalize_spec a) specLi
 
+
+(* this is to delete the controdictory cases, such as Norm(true=false, _) *)
+let rec existControdictionSpec (spec : spec) : bool =
+  match spec with
+  | [] -> false
+  | NormalReturn (pi, _)::xs -> 
+    let pi' = simplify_pure pi in
+    (match ProversEx.entailConstrains pi' False with
+    | true -> true
+    | _ -> existControdictionSpec xs)
+  | _ :: xs -> existControdictionSpec xs
+
+    
+
 let normalise_spec_list_aux2 (specLi : normalisedStagedSpec list) : spec list =
-  List.map (fun a -> normalisedStagedSpec2Spec a) specLi
+  let raw = List.map (fun a -> normalisedStagedSpec2Spec a) specLi in 
+  List.filter (fun a-> not (existControdictionSpec a)) raw
 
 let normalise_spec_list (specLi : spec list) : spec list =
   List.map

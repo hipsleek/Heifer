@@ -10,9 +10,13 @@ let xor (p:bool) (q:bool): bool
 = (p && q)
 
 let rec xor_predicate (n:int): bool
-(*@  req n=0; Norm(res=true) 
-  \/ ex r; req n=1; Branch(emp, r); Norm(res=r) 
-  \/ ex r1; req n>1; Branch(emp, r1); ex r2; xor_predicate(n-1, r2); Norm(res = r1 && r2)  @*) 
+(*@  ex r; req n>=0; Norm(n=1); Branch(emp, r); Norm(res=r)    
+@*)
+
+ (* 
+ req n>=0 ; Norm(n=0 /\ res=true) 
+  \/
+  \/ ex r1; req n>1; Branch(emp, r1); ex r2; xor_predicate(n-1, r2); Norm(res = r1 && r2)  *) 
 = if n==0 then true 
   else if n==1 then perform Branch
   else 
@@ -21,11 +25,10 @@ let rec xor_predicate (n:int): bool
     xor r1 r2
 
 
-(*
 let main counter n 
-  (*@ ex z; req counter->z /\ n>0; Norm(counter -> z+ 2^(n+1) -2, 1) @*)
+  (*@ ex z; req counter->z /\ n>=0; Norm(counter -> z+ 2^(n+1) -2, 1) @*)
 = match (xor_predicate n) with
-  (*@ ex z; req counter->z /\ n>0; Norm(counter -> z+ 2^(n+1) -2, 1) @*)
+  (*@ ex z; req counter->z /\ n>=0; Norm(counter -> z+ 2^(n+1) -2, 1) @*)
   | x -> if x then 1 else 0
   | exception e -> raise e
   | effect Branch k ->
@@ -35,7 +38,7 @@ let main counter n
     let ff = continue k false in
     tt + ff
 
-
+(*
 let test () 
 (*@ ex counter; Norm(counter->6, 1) @*) 
 = let counter = ref 0 in 
