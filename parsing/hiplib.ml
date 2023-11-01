@@ -1156,7 +1156,7 @@ let normal_report ?(kind="Function") ?given_spec ?given_spec_n ?inferred_spec ?i
     | Some s -> "[Raw Post Spec] " ^ string_of_spec_list s ^ "\n"
     | None -> "") ^
     (match inferred_spec_n with
-    | Some s -> "[Normed   Post] " ^ string_of_spec_list (normalise_spec_list_aux2 s) ^ "\n"
+    | Some s -> "[Normed   Post] " ^ string_of_spec_list (normalise_spec_list (normalise_spec_list_aux2 s)) ^ "\n"
     | None -> "") ^
     (match forward_time_ms with
     | Some t -> "[Forward  Time] " ^ string_of_time t ^ " ms\n"

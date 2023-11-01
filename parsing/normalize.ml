@@ -732,14 +732,13 @@ let remove_temp_vars =
     match t with
     | Num _ | UNIT | TTrue | TFalse | Nil -> SMap.empty
     | Var v -> SMap.singleton v (1, [])
-    | Plus (a, b) | Minus (a, b) | Rel (_, a, b) | TAnd (a, b) | TOr (a, b) ->
+    | Plus (a, b) | Minus (a, b) | TPower (a, b) | Rel (_, a, b) | TAnd (a, b) | TOr (a, b) ->
       merge (analyze_term a) (analyze_term b)
     | TNot a -> analyze_term a
     | TApp (_, ts) -> foldr1 merge (List.map analyze_term ts)
     | TLambda (_, _, _) ->
       (* TODO *)
       SMap.empty
-    | TPower _ -> SMap.empty
     | TList _ | TTupple _ -> failwith (Format.asprintf "NYI list/tuple/power")
   and analyze_heap h =
     match h with
