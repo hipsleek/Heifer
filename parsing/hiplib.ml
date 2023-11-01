@@ -1156,7 +1156,15 @@ let normal_report ?(kind="Function") ?given_spec ?given_spec_n ?inferred_spec ?i
     | Some s -> "[Raw Post Spec] " ^ string_of_spec_list s ^ "\n"
     | None -> "") ^
     (match inferred_spec_n with
-    | Some s -> "[Normed   Post] " ^ string_of_spec_list (normalise_spec_list (normalise_spec_list_aux2 s)) ^ "\n"
+    | Some s -> 
+    
+        (*print_endline ("\ninferred_spec_n:");
+        let _ = List.iter (fun spec -> print_endline (string_of_normalisedStagedSpec spec) ) s in 
+        print_endline("\n----------------");
+
+        print_endline (string_of_spec_list (normalise_spec_list_aux2 s)); 
+*)
+      "[Normed   Post] " ^ string_of_spec_list (normalise_spec_list (normalise_spec_list_aux2 s)) ^ "\n"
     | None -> "") ^
     (match forward_time_ms with
     | Some t -> "[Forward  Time] " ^ string_of_time t ^ " ms\n"
@@ -1230,11 +1238,19 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) =
 
   (* check the main spec *)
   let time_stamp_afterForward = Sys.time () in
-  let inferred_spec_n =
-    try
+
+  (*print_endline ("\n----------------\ninferred_spec: \n" ^ string_of_spec_list inferred_spec);*)
+
+  let inferred_spec_n = 
+  try
+      
       normalise_spec_list_aux1 inferred_spec
     with Norm_failure -> report_result ~inferred_spec ~result:false meth.m_name; raise Method_failure
+  
   in
+
+
+
   let res =
     match given_spec with
     | Some given_spec ->

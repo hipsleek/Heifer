@@ -10,7 +10,7 @@ let xor (p:bool) (q:bool): bool
 = (p && q)
 
 let rec xor_predicate (n:int): bool
-(*@ ex r1; req n>1; Branch(emp, r1); ex r2; xor_predicate(n-1, r2); Norm(res = r1 && r2)
+(*@ ex r1; req n>=0; Branch(n>1, r1); ex r2; xor_predicate(n-1, r2); Norm(res = r1 && r2)
 @*)
 (* req n>=0 ; Norm(n=0 /\ res=true) 
   \/ex r; req n>=0; Norm(n=1); Branch(emp, r); Norm(res=r)  
@@ -26,7 +26,7 @@ let rec xor_predicate (n:int): bool
 let main counter n 
   (*@ ex z; req counter->z /\ n>=0; Norm(counter -> z+ (2^(n+1)) -2, 1) @*)
 = match (xor_predicate n) with
-  (*@ ex z; req counter->z /\ n>=0; Norm(counter -> z+ (2^(n+1)) -2, true) @*)
+  (*@ ex z; req counter->z; Norm(counter -> z+ (2^(n+1)) -2, true) @*)
   | x -> if x then 1 else 0
   | exception e -> raise e
   | effect Branch k ->

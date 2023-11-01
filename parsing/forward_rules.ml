@@ -247,7 +247,7 @@ let retriveLastRes (a:spec) : term =
 let rec handling_spec_inner env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj_spec)) (h_ops:(string * string option * disj_spec) list) (conti:spec) (formal_ret:string) : spec list * fvenv = 
 
   let (scr_eff_stages, scr_normal) = scr_spec in 
-  print_endline ("continuation_spec: " ^ string_of_spec conti); 
+  (*print_endline ("continuation_spec: " ^ string_of_spec conti); *)
   (*print_endline ("formal_ret: " ^ formal_ret); 
   *)
 
@@ -303,6 +303,9 @@ let rec handling_spec_inner env (scr_spec:normalisedStagedSpec) (h_norm:(string 
 
 
 and handling_spec env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj_spec)) (h_ops:(string * string option * disj_spec) list) : spec list * fvenv = 
+      
+  (*print_endline ("\nhandling_spec " ^ (string_of_spec (normalisedStagedSpec2Spec scr_spec)));
+*)
   let@ _ = Debug.span (fun r ->
     (* Format.asprintf "handling" *)
     debug ~at:3 ~title:"handling_spec" "match\n  (*@@ %s @@*)\nwith\n| ...\n| ...\n==>\n%s" (string_of_spec (normalisedStagedSpec2Spec scr_spec)) (string_of_result string_of_disj_spec (Option.map fst r))
@@ -351,7 +354,7 @@ and handling_spec env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj_spe
     let norm = (performEx, performPre, performPost) in 
 
 
-
+(* reflected to be the correct results. *)
     let (label, effActualArg) = x.e_constr in
     match lookforHandlingCases h_ops label with 
     | None ->
@@ -367,17 +370,18 @@ and handling_spec env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj_spe
         (*print_endline ("formal " ^ List.fold_left (fun acc a -> acc ^ a ^ ",") "" effFormalArg) ; 
         print_endline ("actual " ^ List.fold_left (fun acc a -> acc ^ string_of_term a ^ ",") "" effActualArg ^ "\n res=" ^ perform_ret) ; 
         *)
-        print_endline ("\nsummary:" ^ string_of_disj_spec summary) ; 
+        (*print_endline ("\nsummary:" ^ string_of_disj_spec summary) ; 
         print_endline ("summary':" ^ string_of_disj_spec summary') ; 
+        *)
 
         let rest, env = handling_spec env (xs, scr_normal) h_norm h_ops in
 
         let res = List.flatten (List.map (fun a -> 
           let returnTerm = retriveLastRes a  in 
-          print_endline ("rest = " ^ string_of_disj_spec rest);
 
-          let rest' = instantiateSpecList [(perform_ret, returnTerm)] rest in 
-          print_endline ("rest' = " ^ string_of_disj_spec rest');
+          let rest' = instantiateSpecList [(perform_ret, returnTerm)] rest in
+          (*print_endline ("rest = " ^ string_of_disj_spec rest); 
+          print_endline ("rest' = " ^ string_of_disj_spec rest');*)
 
           concatenateSpecsWithSpec [a] rest'
         ) summary') in 
@@ -720,8 +724,8 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
     | CMatch (match_summary, scr, Some val_case, eff_cases, []) -> (* effects *)
       (* infer specs for branches of the form (Constr param -> spec), which also updates the env with obligations *)
 
-      print_endline ("CMatch(" ^string_of_core_lang scr ^ "). match_summary = " ^ (match match_summary with | None -> "none" | Some match_summary -> string_of_disj_spec match_summary) );
-
+      (*print_endline ("CMatch(" ^string_of_core_lang scr ^ "). match_summary = " ^ (match match_summary with | None -> "none" | Some match_summary -> string_of_disj_spec match_summary) );
+         *)
       let env = 
         match match_summary with 
         | Some (summary) -> 
@@ -744,8 +748,9 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
           in
           (*let sp = normalize_spec sp in *)
           let sp = (normalise_spec_list sp) in 
-          print_endline ("Inferred_branch_specs: \n" ^ effname ^  (match param with | None -> "" | Some p -> p ^ ", ")^ ": " ^ 
-          string_of_disj_spec sp);
+          (*print_endline ("Inferred_branch_specs: \n" ^ effname ^  (match param with | None -> "" | Some p -> p ^ ", ")^ ": " ^ 
+        
+          string_of_disj_spec sp);  *)
 
           (effname, param, sp) :: t, env
         ) eff_cases ([], env)
@@ -754,8 +759,8 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
         let (param, body)  = val_case in
         let inf_val_spec, env = infer_of_expression env [[]] body in
         (*let inf_val_spec = normalize_spec inf_val_spec in*)
-        print_endline ("Inferred_nromal_spec: \n" ^  (match param with | p -> p ^ "")^ ": " ^ 
-        string_of_disj_spec (normalise_spec_list inf_val_spec));
+        (*print_endline ("Inferred_nromal_spec: \n" ^  (match param with | p -> p ^ "")^ ": " ^ 
+        string_of_disj_spec (normalise_spec_list inf_val_spec));*)
         (param, inf_val_spec), env
       in
       (* for each disjunct of the scrutinee's behaviour, reason using the handler *)

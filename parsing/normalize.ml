@@ -19,6 +19,19 @@ let rec to_fixed_point_ptr_eq f spec =
   let spec1 = f spec in
   if spec == spec1 then spec else to_fixed_point_ptr_eq f spec
 
+let rec simplify_term t : term  = 
+  match t with 
+  | Nil | TTrue | TFalse | UNIT | Num _ | TList _ | TTupple _ | Var _ | TApp _ | TLambda _  -> t
+  | TNot a -> TNot (simplify_term a)
+  | Rel (op, a, b) -> Rel (op, simplify_term a, simplify_term b)
+  | Plus (Minus(t, Num n1), Num n2) -> 
+    if n1 == n2 then t else if n1>= n2 then Minus(t, Num (n1-n2)) else Plus(t, Num (n1-n2))
+  | Plus (a, b)  -> Plus (simplify_term a, simplify_term b)
+  | Minus (a, b) -> Minus (simplify_term a, simplify_term b)
+  | TAnd (a, b) -> TAnd (simplify_term a, simplify_term b)
+  | TOr (a, b) -> TOr (simplify_term a, simplify_term b)
+  | TPower(a, b) -> TPower (simplify_term a, simplify_term b)
+
 let rec simplify_heap h : kappa =
   let once h =
     match h with
@@ -29,6 +42,7 @@ let rec simplify_heap h : kappa =
   *)
     | SepConj (EmptyHeap, h1) -> (simplify_heap h1, true)
     | SepConj (h1, EmptyHeap) -> (simplify_heap h1, true)
+    | PointsTo (str, t) -> (PointsTo (str, simplify_term t), false)
     | _ -> (h, false)
   in
   to_fixed_point once h
@@ -37,6 +51,10 @@ let simplify_pure (p : pi) : pi =
   let rec once p =
     match p with
     | Not (Atomic (EQ, a, TTrue)) -> (Atomic (EQ, a, TFalse), true)
+    | (Atomic (EQ, TAnd(TTrue, TTrue), TTrue)) -> (True, true)
+    | (Atomic (EQ, TAnd(TFalse, TTrue), TFalse)) -> (True, true)
+    | (Atomic (EQ, t1, Plus(Num n1, Num n2))) -> (Atomic (EQ, t1, Num (n1+n2)), true)
+
     | Atomic (EQ, a, b) when a = b -> (True, true)
     | True | False | Atomic _ | Predicate _ -> (p, false)
     | And (True, a) | And (a, True) -> (a, true)
@@ -246,6 +264,8 @@ let normaliseMagicWand h1 h2 existential flag assumptions : kappa * pi =
 
 let normalise_stagedSpec (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
     : normalisedStagedSpec =
+
+  (*print_endline ("\nacc = " ^ string_of_normalisedStagedSpec acc);*)
   let res =
     let effectStages, (existential, req, ens) = acc in
     match stagedSpec with
@@ -302,7 +322,7 @@ let normalise_stagedSpec (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
             {
               e_evars = nex @ existential;
               e_pre = req;
-              e_post = mergeState ens1 (pi, heap);
+              e_post = simplify_state (mergeState ens1 (pi, heap));
               e_constr = ins;
               e_ret = ret';
               e_typ = `Eff;
@@ -863,6 +883,8 @@ let rec simplify_spec n sp2 =
 
 (* the main entry point *)
 let normalize_spec sp =
+  (*print_endline("\nnormalize_spec:\n "^ (string_of_spec sp));*)
+
   let@ _ =
     Debug.span (fun r ->
         debug ~at:3 ~title:"normalize_spec" "%s\n==>\n%s" (string_of_spec sp)
@@ -872,10 +894,13 @@ let normalize_spec sp =
     let sp1 = sp |> simplify_existential_locations in
     debug ~at:4 ~title:"normalize_spec: remove some existential eqs"
       "%s\n==>\n%s" (string_of_spec sp) (string_of_spec sp1);
+    (*print_endline ("sp1 = " ^ string_of_spec sp1);*)
     let sp2 = sp1 |> normalise_spec_ ([], freshNormalStage) in
     debug ~at:4 ~title:"normalize_spec: actually normalize" "%s\n==>\n%s"
       (string_of_spec sp1)
       (string_of_normalisedStagedSpec sp2);
+    (*print_endline("===>\n"^ (string_of_normalisedStagedSpec sp2));*)
+
     sp2
   in
   simplify_spec 3 r
@@ -905,24 +930,40 @@ let normalStage2Spec (normalStage : normalStage) : spec =
   (*| (True, EmptyHeap, UNIT) -> [] *)
   | _ -> [NormalReturn (p2, h2)]
 
+
+let checkTheSourceOfFalse _ = ()
+  (*
+  match pi' with 
+  | And (pi1, pi2) -> 
+    (match ProversEx.entailConstrains pi False with
+    | true -> 
+      checkTheSourceOfFalse pi1;
+      checkTheSourceOfFalse pi2;
+    | _ -> ())
+  | 
+  *)
+
 let rec detectfailedAssertions (spec : spec) : spec =
   match spec with
   | [] -> []
   | Require (pi, heap) :: xs ->
     let pi' = simplify_pure pi in
     (match ProversEx.entailConstrains pi' False with
-    | true -> [Require (False, heap)]
+    | true -> 
+      checkTheSourceOfFalse pi';
+      print_endline ("\nentail False " ^ string_of_pi pi');
+      [Require (False, heap)]
     | _ -> Require (pi', heap) :: detectfailedAssertions xs)
   (* higher-order functions *)
   | x :: xs -> x :: detectfailedAssertions xs
 
-let normalisedStagedSpec2Spec (normalisedStagedSpec : normalisedStagedSpec) :
-    spec =
+let normalisedStagedSpec2Spec (normalisedStagedSpec : normalisedStagedSpec) : spec =
   let effS, normalS = normalisedStagedSpec in
   detectfailedAssertions (effectStage2Spec effS @ normalStage2Spec normalS)
 
 (* spec list -> normalisedStagedSpec list *)
 let normalise_spec_list_aux1 (specLi : spec list) : normalisedStagedSpec list =
+  (*print_endline ("normalise_spec_list_aux1");*)
   List.map (fun a -> normalize_spec a) specLi
 
 
@@ -947,7 +988,7 @@ let normalise_spec_list (specLi : spec list) : spec list =
   let raw = List.map
     (fun a ->
       let normalisedStagedSpec = normalize_spec a in
-      normalisedStagedSpec2Spec normalisedStagedSpec)
+      (normalisedStagedSpec2Spec normalisedStagedSpec))
     specLi in 
   List.filter (fun a-> not (existControdictionSpec a)) raw
 

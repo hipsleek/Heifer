@@ -41,10 +41,16 @@ let rec term_to_expr env ctx t : Z3.Expr.expr =
       | TVar _ ->
         (* failwith (Format.asprintf "could not infer type for variable: %s" v) *)
         (* default to int *)
+
         Z3.Arithmetic.Integer.mk_const_s ctx v
       | Int | Unit | Lamb ->
         (* Format.printf "%s is int@." v; *)
-        Z3.Arithmetic.Integer.mk_const_s ctx v
+
+
+        let res = Z3.Arithmetic.Integer.mk_const_s ctx v in 
+
+        res
+    
       | List_int ->
         (* Format.printf "%s is list@." v; *)
         let list_int = list_int_sort ctx in
@@ -61,7 +67,24 @@ let rec term_to_expr env ctx t : Z3.Expr.expr =
   | Gen i          -> Z3.Arithmetic.Real.mk_const_s ctx ("t" ^ string_of_int i ^ "'")
   *)
   | Plus (t1, t2) ->
-    Z3.Arithmetic.mk_add ctx [term_to_expr env ctx t1; term_to_expr env ctx t2]
+    (*print_endline ("\n-------\nPlus " ^ string_of_term t);*)
+    let t1' = term_to_expr env ctx t1 in 
+    let t2' = term_to_expr env ctx t2 in 
+    let res = Z3.Arithmetic.mk_add ctx [t1'; t2'] in 
+
+
+    (*Here!!!! 
+    mk_add
+    Plus v85, (^ 2 n) ===> Plus (+ (to_real v85) (^ 2 n))
+*)
+
+    let res = Z3.Arithmetic.Real.mk_real2int ctx res in 
+    
+    (*print_endline ("Plus " ^ Expr.to_string t1' ^ ", " ^ Expr.to_string t2');
+    print_endline ("Plus " ^ Expr.to_string res );
+    *)
+
+    res
   | Minus (t1, t2) ->
     Z3.Arithmetic.mk_sub ctx [term_to_expr env ctx t1; term_to_expr env ctx t2]
 
@@ -92,7 +115,10 @@ let rec term_to_expr env ctx t : Z3.Expr.expr =
     Z3.Expr.mk_app ctx (get_fun_decl ctx f) (List.map (term_to_expr env ctx) a)
   | TPower (t1, t2) -> 
     (*print_endline ("TPower "^ string_of_term t);*)
-    Z3.Arithmetic.mk_power ctx (term_to_expr env ctx t1) (term_to_expr env ctx t2)
+    
+    let res = Z3.Arithmetic.mk_power ctx (term_to_expr env ctx t1) (term_to_expr env ctx t2) in 
+    (*print_endline ("TPower " ^ Expr.to_string res);*)
+    res
   
   (*SYH TODO Z3.Arithmetic.mk_add ctx [term_to_expr env ctx t1] *)  (* failwith "term_to_expr TPower" *)
   | TList _ | TTupple _ -> failwith "term_to_expr"
@@ -118,10 +144,13 @@ let rec pi_to_expr env ctx pi: Expr.expr =
     let t2 = term_to_expr env ctx t2 in
     Z3.Arithmetic.mk_le ctx t1 t2
   | Atomic (EQ, t1, t2) ->
-    (*print_endline ("Atomic EQ " ^ string_of_pi pi);*)
     let t1 = term_to_expr env ctx t1 in
     let t2 = term_to_expr env ctx t2 in
-    Z3.Boolean.mk_eq ctx t1 t2
+    let res = Z3.Boolean.mk_eq ctx t1 t2 in 
+    (*print_endline ("\n======\nAtomic EQ " ^ string_of_pi pi);
+    print_endline ("Atomic EQ " ^ Expr.to_string res);*)
+    res
+
   | Imply (p1, p2) ->
     Z3.Boolean.mk_implies ctx (pi_to_expr env ctx p1) (pi_to_expr env ctx p2)
   | Predicate (_, _) -> failwith "pi_to_expr"
@@ -223,8 +252,9 @@ let check_sat f =
   let solver = Solver.mk_simple_solver ctx in
   Solver.add solver [expr];
   (* print both because the solver does some simplification *)
+  (*Format.printf "\nz3 sat, expr: %s@.\n\n" (Expr.to_string expr);*)
   if debug then Format.printf "z3 sat, expr: %s@." (Expr.to_string expr);
-  if debug then Format.printf "z3 sat, solver: %s@." (Solver.to_string solver);
+  if debug then Format.printf "z3 sat, solver: %s@." (Solver.to_string solver);  
   (* z3_query (Z3.Solver.to_string solver); *)
   (* expr *)
   if debug then Format.printf "waiting for a result ... \n";
@@ -235,7 +265,12 @@ let check_sat f =
     | None -> Format.printf "no model@."
     | Some m -> Format.printf "model: %s@." (Model.to_string m)
   end;
-  sat
+  (*print_endline (Z3.Version.to_string);*)
+
+  match Solver.get_model solver with
+  | None -> false 
+  | Some _ -> true 
+  (*sat*)
 
 let check env pi =
   if debug then Format.printf "z3 sat, pi: %s@." (string_of_pi pi);
