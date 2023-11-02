@@ -120,8 +120,17 @@ let rec term_to_expr env ctx t : Z3.Expr.expr =
   | TPower (Num 2, Plus(Var "n", Num 1)) -> 
       Z3.Arithmetic.Integer.mk_const_s ctx "v2Nplus1"
 
+  | TPower (Num n, Plus (Num n1, Num n2)) -> 
+      let rec power base exp = 
+        match exp with 
+        | 0 -> 1 
+        | n -> base * (power base (n-1))
+      in 
+      Z3.Arithmetic.Integer.mk_numeral_i ctx (power n (n1+ n2))
+
+
   | TPower (t1, t2) -> 
-    (*print_endline ("TPower "^ string_of_term t);*)
+    print_endline ("TPower "^ string_of_term t);
     
     let res = Z3.Arithmetic.mk_power ctx (term_to_expr env ctx t1) (term_to_expr env ctx t2) in 
     (*print_endline ("TPower " ^ Expr.to_string res);*)

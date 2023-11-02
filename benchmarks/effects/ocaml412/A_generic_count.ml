@@ -35,11 +35,10 @@ let main counter n
     let ff = continue k false in
     tt + ff
 
-(*
+
 let test () 
 (*@ ex counter; Norm(counter->6, 1) @*) 
 = let counter = ref 0 in 
-  main counter 3
+  main counter 2
   (*Printf.printf "Res:%d\n" solutions;
   Printf.printf "Counter:%d\n" !counter*) 
-*)
