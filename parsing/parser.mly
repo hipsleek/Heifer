@@ -2577,9 +2577,13 @@ pure_formula_term:
   | TRUE { TTrue }
   | FALSE { TFalse }
   | pure_formula_term PLUS pure_formula_term { Plus ($1, $3) }
+
   | pure_formula_term MINUS pure_formula_term { Minus ($1, $3) }
   | pure_formula_term AMPERAMPER pure_formula_term { TAnd ($1, $3) }
   | LPAREN pure_formula_term INFIXOP1 LPAREN pure_formula_term RPAREN RPAREN { TPower ($2, $5) }
+  | pure_formula_term STAR pure_formula_term { TTimes ($1, $3)}
+  
+  | pure_formula_term INFIXOP3 pure_formula_term {TDiv($1, $3) }
 
 
   | LPAREN pure_formula_term RPAREN { $2 }

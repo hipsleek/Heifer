@@ -14,6 +14,8 @@ type term =
     | TFalse
     | TAnd of term * term
     | TPower of term * term
+    | TTimes of term * term
+    | TDiv of term * term
     | TOr of term * term
     | TNot of term
     | TApp of string * term list

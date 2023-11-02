@@ -136,7 +136,10 @@ let rec term_to_expr env ctx t : Z3.Expr.expr =
     (*print_endline ("TPower " ^ Expr.to_string res);*)
     res
   
-  (*SYH TODO Z3.Arithmetic.mk_add ctx [term_to_expr env ctx t1] *)  (* failwith "term_to_expr TPower" *)
+  
+  | TTimes (t1, t2) -> Z3.Arithmetic.mk_mul ctx [term_to_expr env ctx t1; term_to_expr env ctx t2]
+  | TDiv (t1, t2) -> Z3.Arithmetic.mk_div ctx (term_to_expr env ctx t1) (term_to_expr env ctx t2)
+
   | TList _ | TTupple _ -> failwith "term_to_expr"
 
 let rec pi_to_expr env ctx pi: Expr.expr = 

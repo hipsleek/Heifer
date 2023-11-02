@@ -54,6 +54,9 @@ let rec instantiateTerms (bindings : (string * core_value) list) (t : term) :
     Plus (instantiateTerms bindings t1, instantiateTerms bindings t2)
   | Rel (bop, t1, t2) ->
     Rel (bop, instantiateTerms bindings t1, instantiateTerms bindings t2)
+
+  | TTimes (t1, t2) -> TTimes (instantiateTerms bindings t1, instantiateTerms bindings t2)
+  | TDiv (t1, t2) -> TDiv (instantiateTerms bindings t1, instantiateTerms bindings t2)
   | Minus (t1, t2) ->
     Minus (instantiateTerms bindings t1, instantiateTerms bindings t2)
   | TPower (t1, t2) ->
@@ -130,7 +133,7 @@ let rec used_vars_term (t : term) =
   | Nil | TTrue | TFalse | UNIT | Num _ -> SSet.empty
   | TList ts | TTupple ts -> SSet.concat (List.map used_vars_term ts)
   | Var s -> SSet.singleton s
-  | Rel (_, a, b) | Plus (a, b) | Minus (a, b) | TAnd (a, b) | TOr (a, b) | TPower (a, b) ->
+  | Rel (_, a, b) | Plus (a, b) | Minus (a, b) | TAnd (a, b) | TOr (a, b) | TPower (a, b) |  TTimes (a, b) | TDiv (a, b)  ->
     SSet.union (used_vars_term a) (used_vars_term b)
   | TNot a -> used_vars_term a
   | TApp (_, args) -> SSet.concat (List.map used_vars_term args)

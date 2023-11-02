@@ -27,6 +27,8 @@ let rec simplify_term t : term  =
   | Plus (Minus(t, Num n1), Num n2) -> 
     if n1 == n2 then t else if n1>= n2 then Minus(t, Num (n1-n2)) else Plus(t, Num (n1-n2))
   | Plus (a, b)  -> Plus (simplify_term a, simplify_term b)
+  | TTimes (a, b)  -> TTimes (simplify_term a, simplify_term b)
+  | TDiv (a, b)  -> TDiv (simplify_term a, simplify_term b)
   | Minus (a, b) -> Minus (simplify_term a, simplify_term b)
   | TAnd (a, b) -> TAnd (simplify_term a, simplify_term b)
   | TOr (a, b) -> TOr (simplify_term a, simplify_term b)
@@ -381,7 +383,8 @@ let rec collect_lambdas_term (t : term) =
   | Nil | TTrue | TFalse | UNIT | Num _ -> SSet.empty
   | TList ts | TTupple ts -> SSet.concat (List.map collect_lambdas_term ts)
   | Var _ -> SSet.empty
-  | Rel (_, a, b) | Plus (a, b) | Minus (a, b) | TAnd (a, b) | TOr (a, b) | TPower(a, b) ->
+  | Rel (_, a, b) | Plus (a, b) | Minus (a, b) | TAnd (a, b) | TOr (a, b) | TPower(a, b) | TTimes (a, b) | TDiv (a, b)  
+    ->
     SSet.union (collect_lambdas_term a) (collect_lambdas_term b)
   | TNot a -> collect_lambdas_term a
   | TApp (_, args) -> SSet.concat (List.map collect_lambdas_term args)
@@ -535,7 +538,7 @@ let remove_noncontributing_existentials :
     match t with
     | Var v -> SSet.singleton v
     | UNIT | TTrue | TFalse | Nil | Num _ -> SSet.empty
-    | Plus (a, b) | Minus (a, b) | TAnd (a, b) | TOr (a, b) | TPower(a, b) ->
+    | Plus (a, b) | Minus (a, b) | TAnd (a, b) | TOr (a, b) | TPower(a, b) | TTimes(a, b) | TDiv(a, b)  ->
       SSet.union (collect_related_vars_term a) (collect_related_vars_term b)
     | TNot t -> collect_related_vars_term t
     | TApp (_, ts) -> SSet.concat (List.map collect_related_vars_term ts)
@@ -752,14 +755,14 @@ let remove_temp_vars =
     match t with
     | Num _ | UNIT | TTrue | TFalse | Nil -> SMap.empty
     | Var v -> SMap.singleton v (1, [])
-    | Plus (a, b) | Minus (a, b) | TPower (a, b) | Rel (_, a, b) | TAnd (a, b) | TOr (a, b) ->
+    | Plus (a, b) | Minus (a, b) | TPower (a, b) |  TTimes (a, b) | TDiv (a, b) | Rel (_, a, b) | TAnd (a, b) | TOr (a, b) ->
       merge (analyze_term a) (analyze_term b)
     | TNot a -> analyze_term a
     | TApp (_, ts) -> foldr1 merge (List.map analyze_term ts)
     | TLambda (_, _, _) ->
       (* TODO *)
       SMap.empty
-    | TList _ | TTupple _ -> failwith (Format.asprintf "NYI list/tuple/power")
+    | TList _ | TTupple _ -> failwith (Format.asprintf "NYI list/tuple")
   and analyze_heap h =
     match h with
     | EmptyHeap -> SMap.empty
