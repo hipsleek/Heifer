@@ -1177,6 +1177,9 @@ let normal_report ?(kind="Function") ?given_spec ?given_spec_n ?inferred_spec ?i
     (match entail_time_ms with
     | Some t -> "[Entail   Time] " ^ string_of_time t ^ " ms\n"
     | None -> "") ^
+    ("[Z3       Time] " ^ string_of_time !z3_consumption^ " ms\n")
+    
+    ^
     (String.init (String.length name + 32) (fun _ -> '=')) ^ "\n"
   in
   Format.printf "%s@." header
@@ -1205,6 +1208,7 @@ let check_obligation meth prog predicates (l, r) =
 exception Method_failure
 
 let analyze_method prog ({m_spec = given_spec; _} as meth) =
+  let () =  z3_consumption := 0.0 in 
   let time_stamp_beforeForward = Sys.time () in
   let inferred_spec, predicates, fvenv =
     (* the env is looked up from the program every time, as it's updated as we go *)
@@ -1267,7 +1271,17 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) =
           | true -> entailmentchecking inferred_spec_n given_spec_n
           | false ->
             (* normalization occurs after unfolding in entailment *)
-            Entail.check_staged_subsumption_disj meth.m_name meth.m_params meth.m_tactics prog.cp_lemmas predicates inferred_spec given_spec
+
+            (*print_endline ("proving!!!==================================") ;
+            print_endline ("inferred_spec_n " ^ string_of_normalisedStagedSpecList inferred_spec_n);
+            print_endline (" |= ") ;
+            print_endline ("given_spec_n " ^ string_of_normalisedStagedSpecList given_spec_n);
+*)
+            let res = Entail.check_staged_subsumption_disj meth.m_name meth.m_params meth.m_tactics prog.cp_lemmas predicates inferred_spec given_spec in 
+            (*print_endline ("proving end!!!==================================") ;
+            *)
+            res
+
         with Norm_failure ->
           (* norm failing all the way to the top level may prevent some branches from being explored during proof search. this does not happen in any tests yet, however, so keep error-handling simple. if it ever happens, return an option from norm entry points *)
           false

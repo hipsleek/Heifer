@@ -10,11 +10,10 @@ let xor (p:bool) (q:bool): bool
 = (p && q)
 
 let rec xor_predicate (n:int): bool
-(*@ ex r1; req n>=0; Branch(n>1, r1); ex r2; xor_predicate(n-1, r2); Norm(res = r1 && r2)
-@*)
-(* req n>=0 ; Norm(n=0 /\ res=true) 
+(*@ req n>=0 ; Norm(n=0 /\ res=true) 
   \/ex r; req n>=0; Norm(n=1); Branch(emp, r); Norm(res=r)  
-  \/  *)
+  \/ex r1; req n>=0; Branch(n>1, r1); ex r2; xor_predicate(n-1, r2); Norm(res = r1 && r2)
+@*)
 = if n==0 then true 
   else if n==1 then perform Branch
   else 

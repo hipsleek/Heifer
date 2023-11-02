@@ -382,6 +382,13 @@ let rec string_of_normalisedStagedSpec (spec:normalisedStagedSpec) : string =
     string_of_spec current )
     ^ "; " ^ string_of_normalisedStagedSpec (xs, normalS)
 
+let string_of_normalisedStagedSpecList (specs:normalisedStagedSpec list) : string =
+  match specs with
+  | [] -> "<empty disj>"
+  | _ :: _ -> List.map string_of_normalisedStagedSpec specs |> String.concat " \\/ "
+
+
+
 let string_of_constr_call n args =
   match n, args with
   | "[]", _ -> "[]"

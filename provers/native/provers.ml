@@ -78,7 +78,8 @@ let rec term_to_expr env ctx t : Z3.Expr.expr =
     Plus v85, (^ 2 n) ===> Plus (+ (to_real v85) (^ 2 n))
 *)
 
-    let res = Z3.Arithmetic.Real.mk_real2int ctx res in 
+    (*let res = Z3.Arithmetic.Real.mk_real2int ctx res in 
+    *)
     
     (*print_endline ("Plus " ^ Expr.to_string t1' ^ ", " ^ Expr.to_string t2');
     print_endline ("Plus " ^ Expr.to_string res );
@@ -113,6 +114,12 @@ let rec term_to_expr env ctx t : Z3.Expr.expr =
     Z3.Boolean.mk_or ctx [term_to_expr env ctx a; term_to_expr env ctx b]
   | TApp (f, a) ->
     Z3.Expr.mk_app ctx (get_fun_decl ctx f) (List.map (term_to_expr env ctx) a)
+  
+  | TPower (Num 2, Var "n") -> 
+      Z3.Arithmetic.Integer.mk_const_s ctx "v2N"
+  | TPower (Num 2, Plus(Var "n", Num 1)) -> 
+      Z3.Arithmetic.Integer.mk_const_s ctx "v2Nplus1"
+
   | TPower (t1, t2) -> 
     (*print_endline ("TPower "^ string_of_term t);*)
     
@@ -237,7 +244,8 @@ let _test () =
 let debug = try int_of_string (Sys.getenv "DEBUG") >= 4 with _ -> false
 
 let check_sat f =
-  (* let debug = true in *)
+  let start = Unix.gettimeofday () in 
+  (*let debug = true in *)
   let cfg =
     (if debug then [("model", "false")] else []) @ [("proof", "false")]
   in
@@ -258,19 +266,23 @@ let check_sat f =
   (* z3_query (Z3.Solver.to_string solver); *)
   (* expr *)
   if debug then Format.printf "waiting for a result ... \n";
-  let sat = Solver.check solver [] == Solver.SATISFIABLE in
-  if debug then Format.printf "sat: %b@." sat;
+  let status = Solver.check solver [] in 
+  let _sat = 
+    match status with 
+    | UNSATISFIABLE ->  if debug then Format.printf ("sat: UNSATISFIABLE"); false 
+    |	UNKNOWN ->  if debug then Format.printf ("sat: UNKNOWN"); false 
+    |	SATISFIABLE ->  if debug then Format.printf ("sat: SATISFIABLE");  true 
+  in 
   if debug then begin
     match Solver.get_model solver with
     | None -> Format.printf "no model@."
     | Some m -> Format.printf "model: %s@." (Model.to_string m)
   end;
-  (*print_endline (Z3.Version.to_string);*)
+  let z3_time = (Unix.gettimeofday () -. start) *. 1000.0 in 
+  z3_consumption := !z3_consumption +. z3_time; 
+  _sat
+  
 
-  match Solver.get_model solver with
-  | None -> false 
-  | Some _ -> true 
-  (*sat*)
 
 let check env pi =
   if debug then Format.printf "z3 sat, pi: %s@." (string_of_pi pi);
@@ -287,8 +299,9 @@ let ex_quantify_expr env vars ctx e =
            (List.map (fun v -> term_to_expr env ctx (Var v)) vars)
            e None [] [] None None))
 
+
 (** check if [p1 => ex vs. p2] is valid. this is a separate function which doesn't cache results because exists isn't in pi *)
-let entails_exists env p1 vs p2 =
+let entails_exists_inner env p1 vs p2 =
   if debug then
     Format.printf "z3 valid: %s => ex %s. %s\n%s@." (string_of_pi p1)
       (String.concat " " vs) (string_of_pi p2) (string_of_typ_env env);
@@ -302,6 +315,34 @@ let entails_exists env p1 vs p2 =
     r
   in
   not (check_sat f)
+
+let entails_exists env p1 vs p2 =
+  (*
+  print_endline (string_of_bool ( allDisjunctions p2)); 
+  print_endline (string_of_bool ( existPurePattern p2 p1)); 
+
+  (* this is a trick because z3 can not handle when there are power operators exist, 
+     for cases that n>=0 => n>=0 /\ ... , it will right away return true *)
+  if allDisjunctions p2 && existPurePattern p2 p1 then true 
+  else 
+  *)
+  let p1 = 
+    if entails_exists_inner env p1 vs (Atomic(EQ, Var "n", Num 0)) then 
+      let retation_v2Nplus1_is_2 = (Atomic(EQ, Var "v2Nplus1", Num 2)) in 
+      And (retation_v2Nplus1_is_2, p1) 
+    else if entails_exists_inner  env p1 vs (Atomic(EQ, Var "n", Num 1)) then 
+      let retation_v2Nplus1_is_4 = (Atomic(EQ, Var "v2Nplus1", Num 4)) in 
+      And (retation_v2Nplus1_is_4, p1) 
+    else
+      let retation_v2N_v2Nplus1 = Atomic (EQ, (Var "v2Nplus1"), Plus (Var "v2N", Var "v2N"))in 
+      And (retation_v2N_v2Nplus1, p1) 
+  in 
+
+  (*
+  Format.printf "entails_exists_inner, pi: %s => %s@." (string_of_pi p1) (string_of_pi p2);
+  *)
+  entails_exists_inner env p1 vs p2
+
 
 let valid p =
   let f ctx = Z3.Boolean.mk_not ctx (pi_to_expr SMap.empty ctx p) in
