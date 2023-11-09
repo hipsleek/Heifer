@@ -1,8 +1,7 @@
 (* An algebraically well-behaved implementation of async/await with
    multi-shot continuations.
 
-https://github.com/ocaml-multicore/effects-examples/blob/master/sched.ml
-*)
+https://github.com/ocaml-multicore/effects-examples/blob/master/sched.ml *)
 
 
 effect Fork : (unit -> unit) -> unit
@@ -15,26 +14,27 @@ let yield ()
 (*@ ex r; Yield(emp, r); Norm(res=r) @*)
 = perform Yield 
 
+(*@ predicate any_queue(queue, effNo) 
+= ex q. queue->q /\ EffNo(q) = effNo /\ effNo>=0 @*)
 
-(*@ predicate any_queue(queue, len, effNo) 
-= ex q; queue->q /\ len(q)=len /\ EffNo(q) = effNo /\ len>=0 /\ effNo>=0 @*)
 
-(*@ predicate non_empty_queue(queue, len, effNo) 
-= any_queue(queue, len, effNo) /\ len>0 /\ effNo>0 @*)
+(*
+(*@ predicate non_empty_queue(queue, effNo) 
+= any_queue(queue, effNo) /\ effNo>0 @*)
 
-(*@ predicate empty_queue(queue) = any_queue(queue, 0, 0) @*)
+(*@ predicate empty_queue(queue) = any_queue(queue, 0) @*)
 
 (*@ predicate queue_push(ele, queue, res) 
-= ex n m n' m' w; req any_queue(queue, n, m) /\ EffNo(ele)=w; 
-  Norm(non_empty_queue(queue, n', m') /\ n'=n+1 /\ m'=m+w /\ res=()) @*)
+= ex m m' w; req any_queue(queue, m) /\ EffNo(ele)=w; 
+  Norm(non_empty_queue(queue, m') /\ m'=m+w /\ res=()) @*)
 
 (*@ predicate queue_is_empty(queue, res) 
 =  req empty_queue(queue); Norm(empty_queue(queue) /\ res=true)
-\/ ex n m; req non_empty_queue(queue, n, m);  Norm(non_empty_queue(queue, n, m) /\ res=false) @*)
+\/ ex m; req non_empty_queue(queue, m);  Norm(non_empty_queue(queue, m) /\ res=false) @*)
 
 (*@ predicate queue_pop (queue, f') 
-= ex n m n' m'; req non_empty_queue(queue, n, m);  
-  Norm(any_queue(queue, n', m') /\ n'=n-1 /\ EffNo(f') =w /\ m'=m-w /\ res=f' @*)
+= ex m m'; req non_empty_queue(queue, m);  
+  Norm(any_queue(queue, m') /\ EffNo(f') =w /\ m'=m-w /\ res=f' @*)
 
 let queue_create () = ref ([], [])
 
@@ -89,10 +89,10 @@ let dequeue queue
 
 (*@ predicate 
 spawn (f, queue, f', res) = 
-  req queue_is_empty(queue, true) /\ EffNo(f)=0; ens res = () 
+  req empty_queue(queue) /\ EffNo(f)=0; ens res = () 
   \/
-  ex n m w; req non_empty_queue(queue, n, m) /\ EffNo(f)=w; 
-  Norm (any_queue(queue, n', m') /\ EffNo(f')=w' /\ n'+m'+w' < n+m+w  /\ res=())
+  ex m w; req any_queue(queue, m) /\ EffNo(f)=w; 
+  Norm (any_queue(queue, m') /\ EffNo(f')=w' /\ m'+w' < m+w  /\ res=())
 @*)
 
 (*@ predicate 
@@ -136,3 +136,6 @@ let main () =
 
 let _ = run main
 
+
+
+*)
