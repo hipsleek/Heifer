@@ -16,37 +16,25 @@ let yield ()
 = perform Yield 
 
 
-(*@ predicate 
-non_empty_queue(queue, len, effNo) 
-= ex q; queue->q /\ len(q)=len /\ EffNo(q) = effNo /\ len>0 /\ effNo>0 @*)
-
-(*@ predicate 
-any_queue(queue, len, effNo) 
+(*@ predicate any_queue(queue, len, effNo) 
 = ex q; queue->q /\ len(q)=len /\ EffNo(q) = effNo /\ len>=0 /\ effNo>=0 @*)
 
+(*@ predicate non_empty_queue(queue, len, effNo) 
+= any_queue(queue, len, effNo) /\ len>0 /\ effNo>0 @*)
 
-(*@ predicate 
-empty_queue(queue) 
-= ex q; queue->q /\ len(q)=0 /\ EffNo(q) = 0 @*)
+(*@ predicate empty_queue(queue) = any_queue(queue, 0, 0) @*)
 
-
-
-(*@ predicate 
-queue_push(ele, queue, res) 
-= ex n m n' m' w; req non_empty_queue(queue, n, m) /\ EffNo(ele)=w; 
+(*@ predicate queue_push(ele, queue, res) 
+= ex n m n' m' w; req any_queue(queue, n, m) /\ EffNo(ele)=w; 
   Norm(non_empty_queue(queue, n', m') /\ n'=n+1 /\ m'=m+w /\ res=()) @*)
 
-(*@ predicate 
-queue_is_empty(queue, res) 
-=  req empty_queue(queue);      Norm(empty_queue(queue) /\ res=true)
-\/ ex n m; req non_empty_queue(queue, n, m );  Norm(non_empty_queue(queue, n, m) /\ res=false) @*)
+(*@ predicate queue_is_empty(queue, res) 
+=  req empty_queue(queue); Norm(empty_queue(queue) /\ res=true)
+\/ ex n m; req non_empty_queue(queue, n, m);  Norm(non_empty_queue(queue, n, m) /\ res=false) @*)
 
-(*@
-predicate 
-queue_pop (queue, f') 
-= ex n m q'; req non_empty_queue(queue, n, m);  
-  Norm(queue-> q' /\ len(q')=n-1 /\ EffNo(f') =w /\ EffNo(q')=m-w /\ res=f')
-@*)
+(*@ predicate queue_pop (queue, f') 
+= ex n m n' m'; req non_empty_queue(queue, n, m);  
+  Norm(any_queue(queue, n', m') /\ n'=n-1 /\ EffNo(f') =w /\ m'=m-w /\ res=f' @*)
 
 let queue_create () = ref ([], [])
 
@@ -85,8 +73,8 @@ let enqueue ele queue
 let dequeue queue
 (*@ req queue_is_empty(queue, true); Norm(res=())
 \/  req queue_is_empty(queue, false); 
-    ex f'; queue_pop (queue, f');
-    consume (f', v, res)
+    queue_pop (queue, f');
+    (continue f') ((), res)
 @*)
 = if queue_is_empty queue then ()
   else continue (queue_pop queue) ()
