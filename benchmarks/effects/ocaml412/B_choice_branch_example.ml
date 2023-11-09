@@ -3,7 +3,7 @@ effect Choose : (unit -> bool) list -> bool
 effect Success : int -> unit 
 effect Failure : string -> int 
 
-let amb xs : bool
+let amb (xs : (unit -> bool) list) : bool
 = perform (Choose xs)
 
 
@@ -16,13 +16,11 @@ let rec iter (f:(bool -> 'a -> unit))  (xs:'a list):  unit
   | [h] -> f true h
   | h::t -> f false h; iter f t
 
-let handle : (unit -> int) -> int
-  = fun m ->
+let handle (m:(unit -> int)) : int =
   (* McCarthy's locally angelic choice operator (angelic modulo
      nontermination). *)
   match m () with
   | x -> x
-  | exception e -> raise e
   | effect (Choose xs) k ->
 
 (* first_success: Iteration to find the fist success case *)
@@ -30,14 +28,12 @@ let handle : (unit -> int) -> int
     iter
       (fun last g ->
         match
-          let (x:bool) = g () in
           let k = if last then k else Obj.clone_continuation k in
-          let temp = continue k x in
+          let temp = continue k (g ()) in
           perform (Success (temp))
         with
         | effect (Success x) k -> perform (Success (x))
         | effect (Failure x) k -> ()
-        | exception e -> ()
         | _ -> ()
       ) xs;
     perform (Failure "no success")

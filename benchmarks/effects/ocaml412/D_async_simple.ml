@@ -8,22 +8,55 @@ https://github.com/ocaml-multicore/effects-examples/blob/master/sched.ml
 effect Fork : (unit -> unit) -> unit
 effect Yield : unit
 
-let fork f = perform (Fork f)
-let yield () = perform Yield
+let fork f 
+(*@ ex r; Fork(emp, f, r); Norm(res=r) @*)
+= perform (Fork f)
+let yield () 
+(*@ ex r; Yield(emp, r); Norm(res=r) @*)
+= perform Yield 
+
+
+(*@ predicate 
+non_empty_queue(queue, len, effNo) 
+= ex q; queue->q /\ len(q)=len /\ EffNo(q) = effNo /\ len>0 /\ effNo>0 @*)
+
+(*@ predicate 
+any_queue(queue, len, effNo) 
+= ex q; queue->q /\ len(q)=len /\ EffNo(q) = effNo /\ len>=0 /\ effNo>=0 @*)
+
+
+(*@ predicate 
+empty_queue(queue) 
+= ex q; queue->q /\ len(q)=0 /\ EffNo(q) = 0 @*)
+
+
+
+(*@ predicate 
+queue_push(ele, queue, res) 
+= ex n m n' m' w; req non_empty_queue(queue, n, m) /\ EffNo(ele)=w; 
+  Norm(non_empty_queue(queue, n', m') /\ n'=n+1 /\ m'=m+w /\ res=()) @*)
+
+(*@ predicate 
+queue_is_empty(queue, res) 
+=  req empty_queue(queue);      Norm(empty_queue(queue) /\ res=true)
+\/ ex n m; req non_empty_queue(queue, n, m );  Norm(non_empty_queue(queue, n, m) /\ res=false) @*)
+
+(*@
+predicate 
+queue_pop (queue, f') 
+= ex n m q'; req non_empty_queue(queue, n, m);  
+  Norm(queue-> q' /\ len(q')=n-1 /\ EffNo(f') =w /\ EffNo(q')=m-w /\ res=f')
+@*)
 
 let queue_create () = ref ([], [])
 
-let queue_push ele queue =
-  let (front, back) = !queue in
+let queue_push ele queue 
+= let (front, back) = !queue in
   queue := (front, ele::back)
 
 let queue_is_empty queue =
   let (front, back) = !queue in
   List.length front = 0 && List.length back = 0
-
-let _queue_length queue =
-  let (front, back) = !queue in
-  List.length front + List.length back
 
 let rev_list l =
   let rec rev_acc acc = function
@@ -45,49 +78,51 @@ let queue_pop queue =
         queue := (newfront, []);
         h)
 
+let enqueue ele queue
+(*@ queue_push(ele, queue, res) @*)
+= queue_push ele queue
+
+let dequeue queue
+(*@ req queue_is_empty(queue, true); Norm(res=())
+\/  req queue_is_empty(queue, false); 
+    ex f'; queue_pop (queue, f');
+    consume (f', v, res)
+@*)
+= if queue_is_empty queue then ()
+  else continue (queue_pop queue) ()
+
+(*@ f(r) = 
+       ens EffNo(f) = 0 /\ r = () /\ res=r
+    \/ ex r1 r2 r3; Fork(f1, r2); f2(r3); 
+       ens EffNo(f)=n /\ n>0 /\ EffNo(f1)+EffNo(f2)=n-1 /\ res = ()  
+    \/ ex r1 r2; Yield(r1); f1(r2); 
+       ens EffNo(f)=n /\ n>0 /\ EffNo(f1)=n-1 /\ res = ()   @*)
+
+
+(*@ predicate 
+spawn (f, queue, f', res) = 
+  req queue_is_empty(queue, true) /\ EffNo(f)=0; ens res = () 
+  \/
+  ex n m w; req non_empty_queue(queue, n, m) /\ EffNo(f)=w; 
+  Norm (any_queue(queue, n', m') /\ EffNo(f')=w' /\ n'+m'+w' < n+m+w  /\ res=())
+@*)
+
+(*@ predicate 
+match (f, queue, f', res) = spawn (f, queue, f', res)
+@*)
+
 (* A concurrent round-robin scheduler *)
 let run main
-(*@ run(main, ()): ex queue; req ture;  (isEmpty(queue), Norm(())) @*)
-=
-  let run_q = queue_create () in
-  let enqueue k = queue_push k run_q in
-  let dequeue ()
-  (*@ req NoEff(hd, tl(run_q), n); ens(run_q', n') /\ n'<n @*)
-  = if queue_is_empty run_q then
-      (print_endline ("empty equeue");
-      () )
-    else continue (queue_pop run_q) ()
-  in
-
-  let rec spawn f =
-    (*@ req NoEff(f, queue, 0); (true, Norm()) @*)
-    (*@ req NoEff(f, queue, n); (NoEff(f', queue', n') /\ n'<n,  Norm()) @*)
-    (* the total effects in f and queue is decreasing...
-       NoEff(f, queue, 0), here the f become the hd of the queue from time to time.
-    *)
-
+= let run_q = queue_create () in
+  let rec spawn f = 
     match f () with
-    (*@ match_with (f, queue, res):
-        ex q, q', n, m, n', m'; req queue -> q /\ length(q)=n /\ NoEff(f)+NoEff(q)=m
-        ens queue -> q' /\ length(q')=n' /\ NoEff(f')=m' /\ n'+m' < n+m 
-        \/ 
-        req queue -> q /\ length(q)=0 /\ NoEff(f)=0 
-        ens res = ()
-    @*)
     | () ->
-       print_endline ("queue -1");
-       dequeue ();
-    | exception e ->
-       print_endline ("queue -1");
-       print_string (Printexc.to_string e);
-       dequeue ();
+       dequeue run_q;
     | effect Yield k ->
-       print_endline ("Yield -1");
-       enqueue k;
-       dequeue ()
+       enqueue k run_q;
+       dequeue run_q
     | effect (Fork f') k ->
-       print_endline ("Fork -1");
-       enqueue k;
+       enqueue k run_q;
        spawn f'
   in
   spawn main;
@@ -108,7 +143,8 @@ let main () =
   let _pd = fork (task "c") in
   *)
 
-  let p_total = (fork (fun () -> fork (task "a"); fork (task "b") )) in
+  let p_total = (yield ();fork (fun () -> fork (task "a"); fork (task "b") )) in
   p_total
 
 let _ = run main
+
