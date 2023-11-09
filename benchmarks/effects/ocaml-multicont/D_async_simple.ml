@@ -6,7 +6,6 @@ https://github.com/ocaml-multicore/effects-examples/blob/master/sched.ml
 
 open Effect
 open Effect.Deep
-open Multicont.Deep
 
 
 type _ Effect.t += Fork : (unit -> unit) -> unit Effect.t
@@ -60,7 +59,7 @@ let run main
   = if queue_is_empty run_q then 
       (print_endline ("empty equeue");
       () )
-    else resume (queue_pop run_q) ()
+    else continue (queue_pop run_q) ()
   in
 
   let rec spawn f =
@@ -79,12 +78,16 @@ let run main
       {
         retc 
         = (fun () -> 
+        print_endline ("queue -1");
+
           (*print_endline ("queue length " ^ string_of_int (_queue_length run_q));*)
           if queue_is_empty run_q then ()
-          else resume (queue_pop run_q) ()
+          else continue (queue_pop run_q) ()
           );
         exnc =
           (fun e ->
+          print_endline ("queue -1");
+
             print_string (Printexc.to_string e);
             dequeue ());
         effc =
@@ -93,13 +96,17 @@ let run main
             | Yield ->
                 Some
                   (fun (k : (a, unit) continuation) ->
-                    let r = promote k in
+                              print_endline ("Yield -1");
+
+                    let r = k in
                     enqueue r;
                     dequeue ())
             | Fork f' ->
                 Some
                   (fun (k : (a, unit) continuation) ->
-                    let r = promote k in
+                  print_endline ("Fork -1");
+
+                    let r = k in
                     enqueue r;
                     spawn f')
             | _ -> None);

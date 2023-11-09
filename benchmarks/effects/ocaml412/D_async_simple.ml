@@ -47,7 +47,7 @@ let queue_pop queue =
 
 (* A concurrent round-robin scheduler *)
 let run main
-(*@ run(main, ()): req ture; ex queue; (isEmpty(queue), Norm(())) @*)
+(*@ run(main, ()): ex queue; req ture;  (isEmpty(queue), Norm(())) @*)
 =
   let run_q = queue_create () in
   let enqueue k = queue_push k run_q in
@@ -62,27 +62,31 @@ let run main
   let rec spawn f =
     (*@ req NoEff(f, queue, 0); (true, Norm()) @*)
     (*@ req NoEff(f, queue, n); (NoEff(f', queue', n') /\ n'<n,  Norm()) @*)
-
     (* the total effects in f and queue is decreasing...
        NoEff(f, queue, 0), here the f become the hd of the queue from time to time.
     *)
 
     match f () with
     (*@ match_with (f, queue, res):
-        req NoEff(f, queue, 0); (true, Norm())
-        req NoEff(f, queue, n); (NoEff(f', queue', n') /\ n'<n,  Norm())
+        ex q, q', n, m, n', m'; req queue -> q /\ length(q)=n /\ NoEff(f)+NoEff(q)=m
+        ens queue -> q' /\ length(q')=n' /\ NoEff(f')=m' /\ n'+m' < n+m 
+        \/ 
+        req queue -> q /\ length(q)=0 /\ NoEff(f)=0 
+        ens res = ()
     @*)
     | () ->
-          (*print_endline ("queue length " ^ string_of_int (_queue_length run_q));*)
-          if queue_is_empty run_q then ()
-          else continue (queue_pop run_q) ()
+       print_endline ("queue -1");
+       dequeue ();
     | exception e ->
-            print_string (Printexc.to_string e);
-            dequeue ();
+       print_endline ("queue -1");
+       print_string (Printexc.to_string e);
+       dequeue ();
     | effect Yield k ->
+       print_endline ("Yield -1");
        enqueue k;
        dequeue ()
     | effect (Fork f') k ->
+       print_endline ("Fork -1");
        enqueue k;
        spawn f'
   in

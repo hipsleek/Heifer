@@ -8,9 +8,9 @@ open Multicont.Deep
 type _ Effect.t += Choose : (unit -> bool) list -> bool Effect.t
 exception Success of int
 
-let amb : (unit -> bool) list -> bool
+let amb (xs: (unit -> bool) list) : bool
 (* amb(xs, res) : Choose(xs, res) *)
-  = fun xs -> Effect.perform (Choose xs)
+= Effect.perform (Choose xs)
 
 let rec iter (f:('a -> unit))  (xs:'a list):  unit 
 (* iter(f, xs, unit):  
@@ -20,10 +20,8 @@ let rec iter (f:('a -> unit))  (xs:'a list):  unit
   | [] -> () 
   | h::t -> f h; iter f t 
 
-let handle : (unit -> int) -> int
-  = fun m ->
-  (* McCarthy's locally angelic choice operator (angelic modulo
-     nontermination). *)
+let handle (m: (unit -> int)) : int
+  = 
   let hamb =
     { retc = (fun x -> x)
     ; exnc = (fun e -> raise e)  (* print_endline ("exnc: " ^  Printexc.to_string e); *)
@@ -61,9 +59,9 @@ let handle : (unit -> int) -> int
    (c.f. https://okmij.org/ftp/ML/ML.html#amb) *)
 
 (* An angelic choice *always* picks the successful branch. *)
-let branch_example : unit -> int
+let branch_example () : int
 (*@ branch_example(res): req true; ens res=42 @*)
-  = fun () ->
+  = 
   handle (fun () ->
       if amb [(fun () -> true); (fun () -> true); (fun () -> false); (fun () -> false)]
       then raise (Failure "Fail")
@@ -75,12 +73,12 @@ let branch_example : unit -> int
                       \/ req r=true; isContainFalse(t, res)
 *)
 
-let branch_example_generic : (unit -> bool) list -> int
+let branch_example_generic (xs :(unit -> bool) list) : int
 (*@ branch_example_generic(xs, res): 
     req isContainFalse xs; ens res = 7 
     req !isContainFalse xs; ens Failure("no success")
 @*)
-  = fun xs ->
+  = 
   handle (fun () ->
       if amb xs
       then raise (Failure "Fail")

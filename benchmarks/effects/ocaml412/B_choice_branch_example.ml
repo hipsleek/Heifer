@@ -1,13 +1,11 @@
-(**
-  * McCarthy's locally angelic choice
-  *)
 
 effect Choose : (unit -> bool) list -> bool
-exception Success of int
+effect Success : int -> unit 
+effect Failure : string -> int 
 
-let amb : (unit -> bool) list -> bool
-(* amb(xs, res) : Choose(xs, res) *)
-  = fun xs -> perform (Choose xs)
+let amb xs : bool
+= perform (Choose xs)
+
 
 let rec iter (f:(bool -> 'a -> unit))  (xs:'a list):  unit
 (* iter(f, xs, unit):
@@ -28,20 +26,25 @@ let handle : (unit -> int) -> int
   | effect (Choose xs) k ->
 
 (* first_success: Iteration to find the fist success case *)
-  try
+  match 
     iter
       (fun last g ->
-        try
+        match
           let (x:bool) = g () in
           let k = if last then k else Obj.clone_continuation k in
           let temp = continue k x in
-          raise (Success (temp))
+          perform (Success (temp))
         with
-        | (Success _) as e -> raise e
+        | effect (Success x) k -> perform (Success (x))
+        | effect (Failure x) k -> ()
+        | exception e -> ()
         | _ -> ()
       ) xs;
-    raise (Failure "no success")
-  with Success r -> r
+    perform (Failure "no success")
+  with 
+  | effect (Success r) k -> r
+  | x -> x  
+
 (* end  to find the fist success case *)
 (* first_success (resume r) xs*)
 
@@ -55,8 +58,8 @@ let branch_example : unit -> int
 (*@ branch_example(res): req true; ens res=42 @*)
   = fun () ->
   handle (fun () ->
-      if amb [(fun () -> true); (fun () -> true); (fun () -> false); (fun () -> false)]
-      then raise (Failure "Fail")
+      if amb [(fun () -> true); (fun () -> true); (fun () -> true); (fun () -> false)]
+      then perform (Failure "Fail")
       else 42)
 
 (* isContainFalse(xs, res) = 
@@ -73,12 +76,11 @@ let branch_example_generic : (unit -> bool) list -> int
   = fun xs ->
   handle (fun () ->
       if amb xs
-      then raise (Failure "Fail")
+      then perform (Failure "Fail")
       else 7)
 
 let _ =
   let v = branch_example () in
   Printf.printf "(%d)\n%!" v;
-  let v = branch_example_generic [(fun () -> true); (fun () -> true); (fun () -> false); (fun () -> false)] in
+  let v = branch_example_generic [(fun () -> true); (fun () -> true); (fun () -> true); (fun () -> false)] in
   Printf.printf "(%d)\n%!" v;
-
