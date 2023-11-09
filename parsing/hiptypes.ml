@@ -62,7 +62,7 @@ and pi =
   | Or     of pi * pi
   | Imply  of pi * pi
   | Not    of pi 
-  | Predicate of string * term
+  | Predicate of string * term list 
 
 and kappa = 
   | EmptyHeap

@@ -2622,7 +2622,7 @@ pure_formula:
   // | pure_formula DISJUNCTION pure_formula { Or ($1, $3) }
   // | pure_formula IMPLICATION pure_formula { Imply ($1, $3) }
   | TILDE pure_formula { Not ($2) } 
-  //| v = LIDENT LPAREN a = pure_formula_term RPAREN { Predicate (v, a) }
+  | v = LIDENT args=delimited(LPAREN, separated_nonempty_list(COMMA, pure_formula_term), RPAREN) { Predicate (v, args) }
 ;
 
 only_pure_formula:

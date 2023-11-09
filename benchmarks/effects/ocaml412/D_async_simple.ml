@@ -14,30 +14,31 @@ let yield ()
 (*@ ex r; Yield(emp, r); Norm(res=r) @*)
 = perform Yield 
 
+
 (*@ ~predicate any_queue(queue, effNo) 
-= x->1 /\ res=1 @*)
+= ex q; queue->q /\ effNo(q) = effNo /\ effNo>=0 @*)
 
+(*@ ~predicate non_empty_queue(queue, effNo) 
+= ex q; queue->q /\ effNo(q) = effNo /\ effNo>0 @*)
 
-(*
-(*@ predicate any_queue(queue, effNo) 
-= ex q. queue->q /\ EffNo(q) = effNo /\ effNo>=0 @*)
-
-(*@ predicate non_empty_queue(queue, effNo) 
-= any_queue(queue, effNo) /\ effNo>0 @*)
-
-(*@ predicate empty_queue(queue) = any_queue(queue, 0) @*)
+(*@ ~predicate empty_queue(queue) 
+= ex q; queue->q /\ effNo(q) = effNo /\ effNo=0  @*)
 
 (*@ predicate queue_push(ele, queue, res) 
-= ex m m' w; req any_queue(queue, m) /\ EffNo(ele)=w; 
+= ex m m' w; req any_queue(queue, m) /\ effNo(ele)=w; 
   Norm(non_empty_queue(queue, m') /\ m'=m+w /\ res=()) @*)
 
 (*@ predicate queue_is_empty(queue, res) 
 =  req empty_queue(queue); Norm(empty_queue(queue) /\ res=true)
 \/ ex m; req non_empty_queue(queue, m);  Norm(non_empty_queue(queue, m) /\ res=false) @*)
 
+
 (*@ predicate queue_pop (queue, f') 
 = ex m m'; req non_empty_queue(queue, m);  
-  Norm(any_queue(queue, m') /\ EffNo(f') =w /\ m'=m-w /\ res=f' @*)
+  Norm(any_queue(queue, m') /\ effNo(f') =w /\ m'=m-w /\ res=f') @*)
+
+
+(*
 
 let queue_create () = ref ([], [])
 
@@ -83,19 +84,19 @@ let dequeue queue
   else continue (queue_pop queue) ()
 
 (*@ f(r) = 
-       ens EffNo(f) = 0 /\ r = () /\ res=r
+       ens effNo(f) = 0 /\ r = () /\ res=r
     \/ ex r1 r2 r3; Fork(f1, r2); f2(r3); 
-       ens EffNo(f)=n /\ n>0 /\ EffNo(f1)+EffNo(f2)=n-1 /\ res = ()  
+       ens effNo(f)=n /\ n>0 /\ effNo(f1)+effNo(f2)=n-1 /\ res = ()  
     \/ ex r1 r2; Yield(r1); f1(r2); 
-       ens EffNo(f)=n /\ n>0 /\ EffNo(f1)=n-1 /\ res = ()   @*)
+       ens effNo(f)=n /\ n>0 /\ effNo(f1)=n-1 /\ res = ()   @*)
 
 
 (*@ predicate 
 spawn (f, queue, f', res) = 
-  req empty_queue(queue) /\ EffNo(f)=0; ens res = () 
+  req empty_queue(queue) /\ effNo(f)=0; ens res = () 
   \/
-  ex m w; req any_queue(queue, m) /\ EffNo(f)=w; 
-  Norm (any_queue(queue, m') /\ EffNo(f')=w' /\ m'+w' < m+w  /\ res=())
+  ex m w; req any_queue(queue, m) /\ effNo(f)=w; 
+  Norm (any_queue(queue, m') /\ effNo(f')=w' /\ m'+w' < m+w  /\ res=())
 @*)
 
 (*@ predicate 

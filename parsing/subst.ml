@@ -76,7 +76,7 @@ and instantiatePure (bindings : (string * core_value) list) (pi : pi) : pi =
   | Imply (p1, p2) ->
     Imply (instantiatePure bindings p1, instantiatePure bindings p2)
   | Not p1 -> Not (instantiatePure bindings p1)
-  | Predicate (str, t1) -> Predicate (str, instantiateTerms bindings t1)
+  | Predicate (str, t1) -> Predicate (str, List.map (fun t' -> instantiateTerms bindings t') t1)
 
 and instantiateHeap (bindings : (string * core_value) list) (kappa : kappa) :
     kappa =
@@ -147,7 +147,8 @@ and used_vars_pi (p : pi) =
   | And (a, b) | Or (a, b) | Imply (a, b) ->
     SSet.union (used_vars_pi a) (used_vars_pi b)
   | Not a -> used_vars_pi a
-  | Predicate (_, t) -> used_vars_term t
+  | Predicate (_, t) -> 
+    List.fold_left (fun acc a -> SSet.union acc (used_vars_term a)) SSet.empty t
 
 and used_vars_heap (h : kappa) =
   match h with

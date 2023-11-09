@@ -398,7 +398,10 @@ let rec collect_lambdas_pi (p : pi) =
   | And (a, b) | Or (a, b) | Imply (a, b) ->
     SSet.union (collect_lambdas_pi a) (collect_lambdas_pi b)
   | Not a -> collect_lambdas_pi a
-  | Predicate (_, t) -> collect_lambdas_term t
+  | Predicate (_, t) -> 
+    List.fold_left (fun acc a -> SSet.union acc (collect_lambdas_term a)) SSet.empty t
+
+
 
 let rec collect_lambdas_heap (h : kappa) =
   match h with

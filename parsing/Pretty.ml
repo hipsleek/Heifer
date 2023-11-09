@@ -266,7 +266,7 @@ and string_of_pi pi : string =
   | Or     (p1, p2) -> string_of_pi p1 ^ "\\/" ^ string_of_pi p2
   | Imply  (p1, p2) -> string_of_pi p1 ^ "=>" ^ string_of_pi p2
   | Not    p -> "not(" ^ string_of_pi p ^ ")"
-  | Predicate (str, t) -> str ^ "(" ^ string_of_term t ^ ")"
+  | Predicate (str, t) -> str ^ "(" ^ (string_of_args string_of_term t) ^ ")"
 
 
 
