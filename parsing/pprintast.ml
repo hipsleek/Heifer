@@ -1463,6 +1463,8 @@ and structure_item ctxt f x =
       item_attributes ctxt f a
   | Pstr_lemma _ -> pp f "lemma"
   | Pstr_predicate _ -> pp f "predicate"
+  | Pstr_SL_predicate _ -> pp f "sl predicate"
+
 
 and type_param ctxt f (ct, (a,b)) =
   pp f "%s%s%a" (type_variance a) (type_injectivity b) (core_type ctxt) ct

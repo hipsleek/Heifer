@@ -1342,6 +1342,11 @@ structure:
       { $1 }
 ;
 
+
+optionExistDeclear:
+| {[]}
+| EXISTS vs=nonempty_list(LIDENT) SEMI {vs}
+
 (* A structure item. *)
 structure_item:
     let_bindings(ext)
@@ -1350,6 +1355,11 @@ structure_item:
       { mkstr ~loc:$sloc (Pstr_effect $2) }
   | LSPECCOMMENT PREDICATE name=LIDENT args=delimited(LPAREN, separated_nonempty_list(COMMA, LIDENT), RPAREN) EQUAL body=disj_effect_spec RSPECCOMMENT
     { mkstr ~loc:$sloc (Pstr_predicate (name, args, body)) }
+
+  | LSPECCOMMENT TILDE PREDICATE name=LIDENT args=delimited(LPAREN, separated_nonempty_list(COMMA, LIDENT), RPAREN) 
+    EQUAL vs=optionExistDeclear body=statefml RSPECCOMMENT
+    { mkstr ~loc:$sloc (Pstr_SL_predicate (vs, name, args, body)) }
+
   | LSPECCOMMENT LEMMA name=LIDENT EQUAL left=stagedSpec1 IMPLICATION right=effect_spec RSPECCOMMENT
     { mkstr ~loc:$sloc (Pstr_lemma (name, left, right)) }
   | mkstr(

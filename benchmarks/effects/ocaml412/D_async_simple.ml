@@ -14,11 +14,14 @@ let yield ()
 (*@ ex r; Yield(emp, r); Norm(res=r) @*)
 = perform Yield 
 
-(*@ predicate any_queue(queue, effNo) 
-= ex q. queue->q /\ EffNo(q) = effNo /\ effNo>=0 @*)
+(*@ ~predicate any_queue(queue, effNo) 
+= x->1 /\ res=1 @*)
 
 
 (*
+(*@ predicate any_queue(queue, effNo) 
+= ex q. queue->q /\ EffNo(q) = effNo /\ effNo>=0 @*)
+
 (*@ predicate non_empty_queue(queue, effNo) 
 = any_queue(queue, effNo) /\ effNo>0 @*)
 

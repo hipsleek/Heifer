@@ -957,6 +957,8 @@ and structure_item_desc =
         (* [%%id] *)
   | Pstr_lemma of string * stagedSpec * spec
   | Pstr_predicate of string * string list * disj_spec
+  | Pstr_SL_predicate of string list * string * string list * (pi*kappa)
+
 
 and value_binding =
   {

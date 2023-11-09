@@ -222,6 +222,13 @@ type pred_def = {
   p_body: disj_spec;
 }
 
+type sl_pred_def = {
+  p_sl_ex: string list;
+  p_sl_name: string;
+  p_sl_params: string list; (* list to ensure ordering. last param is typically a return value *)
+  p_sl_body: pi * kappa;
+}
+
 (** A lemma is an entailment [f(x, ...) <: spec]. The left side is restricted to be a function stage (without loss of generality). Some of x, ... may be parameters, but some may not be. *)
 type lemma = {
   l_name: string;
@@ -233,6 +240,7 @@ type lemma = {
 type core_program = {
   cp_effs: string list;
   cp_predicates: pred_def SMap.t;
+  cp_sl_predicates: sl_pred_def SMap.t;
   cp_lemmas: lemma SMap.t;
   cp_methods: meth_def list;
 }
