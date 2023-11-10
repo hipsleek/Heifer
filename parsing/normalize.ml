@@ -971,9 +971,7 @@ let normalisedStagedSpec2Spec (normalisedStagedSpec : normalisedStagedSpec) : sp
   detectfailedAssertions (effectStage2Spec effS @ normalStage2Spec normalS)
 
 (* spec list -> normalisedStagedSpec list *)
-let normalise_spec_list_aux1 (specLi : spec list) : normalisedStagedSpec list =
-  (*print_endline ("normalise_spec_list_aux1");*)
-  List.map (fun a -> normalize_spec a) specLi
+
 
 
 (* this is to delete the controdictory cases, such as Norm(true=false, _) *)
@@ -981,6 +979,7 @@ let rec existControdictionSpec (spec : spec) : bool =
   match spec with
   | [] -> false
   | NormalReturn (pi, _)::xs 
+  | RaisingEff (pi, _, _, _) :: xs
   | HigherOrder (pi, _, _, _) ::xs -> 
     let pi' = simplify_pure pi in
     (match ProversEx.entailConstrains pi' False with
@@ -1008,6 +1007,10 @@ let normalise_spec_list (specLi : spec list) : spec list =
     not (temp)) raw in 
   temp 
 
+
+let normalise_spec_list_aux1 (specLi : spec list) : normalisedStagedSpec list =
+  (*print_endline ("normalise_spec_list_aux1");*)
+  List.map (fun a -> normalize_spec a) (normalise_spec_list specLi)
 
 let rec deleteFromStringList str (li : string list) =
   match li with

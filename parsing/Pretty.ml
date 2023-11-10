@@ -209,7 +209,8 @@ and string_of_staged_spec (st:stagedSpec) : string =
   | NormalReturn (pi, heap) ->
     Format.asprintf "Norm(%s)" (string_of_state (pi, heap))
   | RaisingEff (pi, heap, (name, args), ret) ->
-    Format.asprintf "%s(%s, %s, %s)" name (string_of_state (pi, heap)) (string_of_args string_of_term args) (string_of_term ret)
+
+    Format.asprintf "eff %s(%s, %s, %s)" name (string_of_state (pi, heap)) (string_of_args string_of_term args) (string_of_term ret)
   | Exists vs ->
     Format.asprintf "ex %s" (String.concat " " vs)
   (* | IndPred {name; args} -> *)
@@ -413,7 +414,7 @@ let rec string_of_core_lang (e:core_lang) :string =
   | CPerform (eff, None) -> Format.sprintf "perform %s" eff
   | CMatch (None, e, vs, hs, cs) -> Format.sprintf "match %s with\n%s%s\n%s" (string_of_core_lang e) (match vs with | Some (v, norm) -> Format.asprintf "| %s -> %s\n" v (string_of_core_lang norm) | _ -> "") (string_of_core_handler_ops hs) (string_of_constr_cases cs)
   | CMatch (Some spec, e, vs, hs, cs) -> Format.sprintf "match %s%s with\n%s%s\n%s" (string_of_disj_spec spec) (string_of_core_lang e) (match vs with | Some (v, norm) -> Format.asprintf "| %s -> %s\n" v (string_of_core_lang norm) | _ -> "") (string_of_core_handler_ops hs) (string_of_constr_cases cs)
-  | CResume v -> Format.sprintf "continue k %s" (string_of_term v)
+  | CResume tList -> Format.sprintf "continue %s" (List.map string_of_term tList |> String.concat " ")
   | CLambda (xs, spec, e) -> Format.sprintf "fun %s%s -> %s" (String.concat " " xs) (match spec with None -> "" | Some ds -> Format.asprintf " (*@@ %s @@*)" (string_of_disj_spec ds)) (string_of_core_lang e)
 
 and string_of_constr_cases cs =

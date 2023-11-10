@@ -653,8 +653,20 @@ let rec transformation (env:string list) (expr:expression) : core_lang =
     | None -> CPerform (eff, None)
     end
   (* continue *)
-  | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, [_, _k; _, e]) when name = "continue" ->
+  (*| Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, [_, _k; _, e]) when name = "continue" ->
     transformation env e |> maybe_var (fun v -> CResume v)
+  *)
+  | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, args) when name = "continue" ->
+    let rec loop vars args =
+      match args with
+      | [] -> CResume (List.rev vars)
+      | (_, a) :: args1 ->
+        transformation env a |> maybe_var (fun v -> loop (v :: vars) args1)
+    in
+    loop [] args
+    
+
+  
   (* dereference *)
   | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, [_, {pexp_desc=Pexp_ident {txt=Lident v;_}; _}]) when name = "!" ->
     CRead v
@@ -1411,12 +1423,13 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) =
   (*print_endline ("\n----------------\ninferred_spec: \n" ^ string_of_spec_list inferred_spec);*)
 
   let inferred_spec_n = 
-  try
-      
-      normalise_spec_list_aux1 inferred_spec
-    with Norm_failure -> report_result ~inferred_spec ~result:false meth.m_name; raise Method_failure
-  
+    try
+        
+        normalise_spec_list_aux1 inferred_spec
+      with Norm_failure -> report_result ~inferred_spec ~result:false meth.m_name; raise Method_failure
+    
   in
+
 
 
 
@@ -1435,16 +1448,19 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) =
           match syh_old_entailment with
           | true -> entailmentchecking inferred_spec_n given_spec_n
           | false ->
-            (* normalization occurs after unfolding in entailment *)
+             (*normalization occurs after unfolding in entailment *)
 
-            (*print_endline ("proving!!!==================================") ;
-            print_endline ("inferred_spec_n " ^ string_of_normalisedStagedSpecList inferred_spec_n);
+            let inferred_spec = normalise_spec_list inferred_spec in 
+            let given_spec = normalise_spec_list given_spec in 
+
+            print_endline ("proving!!!==================================") ;
+            print_endline ("inferred_spec " ^ string_of_disj_spec inferred_spec);
             print_endline (" |= ") ;
-            print_endline ("given_spec_n " ^ string_of_normalisedStagedSpecList given_spec_n);
-*)
+            print_endline ("given_spec " ^ string_of_disj_spec given_spec);
+
             let res = Entail.check_staged_subsumption_disj meth.m_name meth.m_params meth.m_tactics prog.cp_lemmas predicates inferred_spec given_spec in 
-            (*print_endline ("proving end!!!==================================") ;
-            *)
+            print_endline ("proving end!!!==================================") ;
+            print_endline (string_of_bool res);
             res
 
         with Norm_failure ->

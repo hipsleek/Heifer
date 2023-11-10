@@ -631,10 +631,10 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
       NormalReturn (res_eq (Var freshVar), EmptyHeap)], env
 
 
-    | CResume v ->  
+    | CResume tList ->  
       let f = verifier_getAfreeVar "re" in
       let res =
-        concatenateSpecsWithEvent history [Exists [f]; RaisingEff (True, EmptyHeap, ("continue", [v]), Var f)]
+        concatenateSpecsWithEvent history [Exists [f]; HigherOrder (True, EmptyHeap, ("continue", tList), Var f)]
       in
       res, env
     | CFunCall (fname, actualArgs) -> 

@@ -34,8 +34,8 @@ let yield ()
 
 
 (*@ predicate queue_pop (queue, f') 
-= ex m m'; req non_empty_queue(queue, m);  
-  Norm(any_queue(queue, m') /\ effNo(f') =w /\ m'+w=m /\ res=f') @*)
+= ex m m'; req non_empty_queue(queue, m) /\ effNo(f') =w;  
+  Norm(any_queue(queue, m')  /\ m'+w=m /\ res=f') @*)
 
 
 (*
@@ -77,11 +77,14 @@ let enqueue ele queue
 let dequeue queue
 (*@ queue_is_empty(queue, true); Norm(res=())
 \/  queue_is_empty(queue, false);
-    queue_pop (queue, f1);
-    continue (f2, ())
+    ex ele; queue_pop (queue, ele);
+    ex r; continue (ele, (), r) ;
+    Norm (res=r)
 @*)
 = if queue_is_empty queue then ()
-  else continue (queue_pop queue) ()
+  else 
+    let ele = queue_pop queue in 
+    continue (ele) ()
 
 (*
 

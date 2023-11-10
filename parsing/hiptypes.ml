@@ -45,7 +45,7 @@ and core_lang =
       | CPerform of string * core_value option
       (* match e with | v -> e1 | eff case... | constr case... *)
       | CMatch of disj_spec option * core_lang * (string * core_lang) option * core_handler_ops * constr_cases
-      | CResume of core_value 
+      | CResume of core_value list
       | CLambda of string list * disj_spec option * core_lang
 
 and core_value = term
