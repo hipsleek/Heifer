@@ -15,11 +15,11 @@ let yield ()
 = perform Yield 
 
 
-(*@ ~predicate any_queue(queue, effNo) 
-= ex q; queue->q /\ effNo(q) = effNo /\ effNo>=0 @*)
+(*@ ~predicate any_queue(queue, m) 
+= ex q; queue->q /\ effNo(q) = m /\ m>=0 @*)
 
-(*@ ~predicate non_empty_queue(queue, effNo) 
-= ex q; queue->q /\ effNo(q) = effNo /\ effNo>0 @*)
+(*@ ~predicate non_empty_queue(queue, m) 
+= ex q; queue->q /\ effNo(q) = m /\ m>0 @*)
 
 (*@ ~predicate empty_queue(queue) 
 = ex q; queue->q /\ effNo(q) = 0   @*)
@@ -35,7 +35,7 @@ let yield ()
 
 (*@ predicate queue_pop (queue, f') 
 = ex m m'; req non_empty_queue(queue, m);  
-  Norm(any_queue(queue, m') /\ effNo(f') =w /\ m'=m-w /\ res=f') @*)
+  Norm(any_queue(queue, m') /\ effNo(f') =w /\ m'+w=m /\ res=f') @*)
 
 
 (*
@@ -75,10 +75,10 @@ let enqueue ele queue
 = queue_push ele queue
 
 let dequeue queue
-(*@ req empty_queue(queue); Norm(res=())
-\/  ex m; req non_empty_queue(queue, m); 
-    queue_pop (queue, f');
-    continue (f', ())
+(*@ queue_is_empty(queue, true); Norm(res=())
+\/  queue_is_empty(queue, false);
+    queue_pop (queue, f1);
+    continue (f2, ())
 @*)
 = if queue_is_empty queue then ()
   else continue (queue_pop queue) ()

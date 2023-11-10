@@ -855,7 +855,9 @@ let transform_str env (s : structure_item) =
 
 
 let replaceSLPredicatesWithDefInState ((pure, heap):state) (slps:sl_pred_def SMap.t): (string list * state) = 
-  
+  (*
+  print_endline ("replaceSLPredicatesWithDefInState:   " ^ string_of_state  (pure, heap));
+*)
   let rec decomposePredicate p =
     match p with 
     | Predicate (str, actualArg) -> 
@@ -879,6 +881,7 @@ let replaceSLPredicatesWithDefInState ((pure, heap):state) (slps:sl_pred_def SMa
       
 
     | And   (p1, p2) -> 
+      (*print_endline ("AND!   " ^ string_of_pi p1 ^ ",   " ^ string_of_pi p2);*)
       let (ex1, (morePure1, moreHeap1)) = decomposePredicate p1 in 
       let (ex2, (morePure2, moreHeap2)) = decomposePredicate p2 in 
       let unionHeap = 
@@ -915,6 +918,10 @@ let replaceSLPredicatesWithDef (specs:disj_spec) (slps:sl_pred_def SMap.t) =
     match effS with
     | [] ->
       let (existiental, (p1, h1), (p2, h2)) = normalS in
+
+      (*print_endline ("(p1, h1):   " ^ string_of_state  (p1, h1));
+      print_endline ("(p2, h2):   " ^ string_of_state  (p2, h2));*)
+
       let (ex1, (p1', h1')) = replaceSLPredicatesWithDefInState (p1, h1) slps in 
       let (ex2, (p2', h2')) = replaceSLPredicatesWithDefInState (p2, h2) slps in 
       ([], (existiental@ex1@ex2, (p1', h1'), (p2', h2')))
@@ -934,6 +941,9 @@ let replaceSLPredicatesWithDef (specs:disj_spec) (slps:sl_pred_def SMap.t) =
 
   in List.map (fun spec -> 
     let (spec:normalisedStagedSpec) = normalize_spec spec in 
+    (*print_endline (string_of_normalisedStagedSpec spec);*)
+
+    
     let spec' = helper spec in 
     normalisedStagedSpec2Spec spec'
   ) specs
@@ -982,7 +992,7 @@ let transform_strs (strs: structure_item list) : core_program =
       match transform_str env c with
       | Some (`Lem l) -> env, es, ms, ps, slps, SMap.add l.p_name l ls
       | Some (`Pred p) -> 
-        print_endline ("\n"^ p.p_name ^ ":");
+        print_endline ("\n"^ p.p_name ^  Format.asprintf "(%s)" (String.concat ", " p.p_params) ^ ": ");
         print_endline (string_of_disj_spec p.p_body);
 
         let body' = replaceSLPredicatesWithDef p.p_body slps in 
@@ -991,18 +1001,21 @@ let transform_strs (strs: structure_item list) : core_program =
         let (p': pred_def) = {p_name =p.p_name; p_params = p.p_params; p_body = body'} in 
         env, es, ms, SMap.add p'.p_name p' ps, slps, ls
 
-      | Some (`SLPred p) -> env, es, ms, ps, SMap.add p.p_sl_name p slps,ls
+      | Some (`SLPred p) -> 
+        print_endline ("\n"^ p.p_sl_name^  Format.asprintf "(%s)" (String.concat ", " p.p_sl_params) ^ ": " ^ Format.asprintf "ex %s; " (String.concat " " p.p_sl_ex) ^ string_of_state p.p_sl_body);
+
+        env, es, ms, ps, SMap.add p.p_sl_name p slps,ls
       | Some (`Eff a) -> env, a :: es, ms, ps, slps, ls
       | Some (`Meth (m_name, m_params, m_spec, m_body, m_tactics)) -> 
         let m_spec' = 
           (match m_spec with 
           | None -> None 
           | Some spec -> 
-          print_endline ("\n"^ m_name ^ ":");
+          print_endline ("\n"^ m_name ^  Format.asprintf "(%s)" (String.concat ", " m_params) ^ ": ");
           print_endline (string_of_disj_spec spec);
           let spec' = replacePredicatesWithDef spec ps in 
           print_endline ("~~~> " ^ string_of_disj_spec spec');
-          let spec'' = replaceSLPredicatesWithDef spec' slps in 
+          let spec'' = normalise_spec_list (replaceSLPredicatesWithDef spec' slps) in 
           print_endline ("~~~> " ^ string_of_disj_spec spec'');
           Some spec''
           ) 
@@ -1372,7 +1385,8 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) =
       |> List.to_seq
       |> SMap.of_seq
     in
-    let env = create_fv_env method_env in
+    let pred_env = prog.cp_predicates in 
+    let env = create_fv_env method_env pred_env in
     let inf, env = infer_of_expression env [freshNormalReturnSpec] meth.m_body in
 
     (* make the new specs inferred for lambdas available to the entailment procedure as predicates *)

@@ -571,7 +571,8 @@ let remove_noncontributing_existentials :
       let b1 = collect_related_vars_pi b in
       merge_classes a1 b1
     | Not a -> collect_related_vars_pi a
-    | Predicate (_, _) -> []
+    | Predicate (_, tLi) -> 
+      [List.fold_left (fun acc t -> SSet.union acc (collect_related_vars_term t)) SSet.empty tLi]
   and collect_related_vars_heap h =
     match h with
     | EmptyHeap -> []
@@ -753,7 +754,9 @@ let remove_temp_vars =
     | And (a, b) | Or (a, b) | Imply (a, b) ->
       merge (analyze_pi a) (analyze_pi b)
     | Not a -> analyze_pi a
-    | Predicate (_, _) -> SMap.empty (*failwith (Format.asprintf "NYI: predicate analyze_pi") *)
+    | Predicate (_, tLi) -> 
+      List.fold_left (fun acc t -> merge acc (analyze_term t)) SMap.empty tLi
+      (*failwith (Format.asprintf "NYI: predicate analyze_pi") *)
   and analyze_term t =
     match t with
     | Num _ | UNIT | TTrue | TFalse | Nil -> SMap.empty
@@ -977,11 +980,14 @@ let normalise_spec_list_aux1 (specLi : spec list) : normalisedStagedSpec list =
 let rec existControdictionSpec (spec : spec) : bool =
   match spec with
   | [] -> false
-  | NormalReturn (pi, _)::xs -> 
+  | NormalReturn (pi, _)::xs 
+  | HigherOrder (pi, _, _, _) ::xs -> 
     let pi' = simplify_pure pi in
     (match ProversEx.entailConstrains pi' False with
-    | true -> true
-    | _ -> existControdictionSpec xs)
+    | true ->  true
+    | _ -> 
+      existControdictionSpec xs)
+
   | _ :: xs -> existControdictionSpec xs
 
     
@@ -996,7 +1002,11 @@ let normalise_spec_list (specLi : spec list) : spec list =
       let normalisedStagedSpec = normalize_spec a in
       (normalisedStagedSpec2Spec normalisedStagedSpec))
     specLi in 
-  List.filter (fun a-> not (existControdictionSpec a)) raw
+
+  let temp = List.filter (fun a-> 
+    let temp = existControdictionSpec a in 
+    not (temp)) raw in 
+  temp 
 
 
 let rec deleteFromStringList str (li : string list) =
