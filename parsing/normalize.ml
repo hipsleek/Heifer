@@ -875,12 +875,17 @@ let rec simplify_spec n sp2 =
        (string_of_normalisedStagedSpec sp3); *)
   (* redundant vars may appear due to fresh stages and removal of res via intermediate variables *)
   let sp4 = sp3 |> optimize_existentials in
+
   debug ~at:4
     ~title:"normalize_spec: move existentials inward and remove unused"
     "%s\n==>\n%s"
     (string_of_normalisedStagedSpec sp3)
     (string_of_normalisedStagedSpec sp4);
   let sp5 = remove_temp_vars sp4 in
+  (*print_endline((string_of_normalisedStagedSpec sp4) ^"===> "^
+  (string_of_normalisedStagedSpec sp5));
+  *)
+
   debug ~at:4 ~title:"normalize_spec: remove temp vars" "%s\n==>\n%s"
     (string_of_normalisedStagedSpec sp4)
     (string_of_normalisedStagedSpec sp5);
@@ -908,11 +913,12 @@ let normalize_spec sp =
     debug ~at:4 ~title:"normalize_spec: actually normalize" "%s\n==>\n%s"
       (string_of_spec sp1)
       (string_of_normalisedStagedSpec sp2);
-    (*print_endline("===>\n"^ (string_of_normalisedStagedSpec sp2));*)
+    (*print_endline ((string_of_spec sp1));
+    print_endline("===>\n"^ (string_of_normalisedStagedSpec sp2));*)
 
     sp2
   in
-  simplify_spec 3 r
+  (*simplify_spec 3*) r
 
 let rec effectStage2Spec (effectStages : effectStage list) : spec =
   match effectStages with

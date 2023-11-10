@@ -954,7 +954,6 @@ let replaceSLPredicatesWithDef (specs:disj_spec) (slps:sl_pred_def SMap.t) =
   in List.map (fun spec -> 
     let (spec:normalisedStagedSpec) = normalize_spec spec in 
     (*print_endline (string_of_normalisedStagedSpec spec);*)
-
     
     let spec' = helper spec in 
     normalisedStagedSpec2Spec spec'
@@ -967,13 +966,44 @@ let replacePredicatesWithDef (specs:disj_spec) (ps:pred_def SMap.t) : disj_spec 
     match spec with 
     | [] -> [[]]
     | HigherOrder (pi, h, (f, actualArg), ret) :: xs  -> 
+      
+
       (try 
       (let ({p_name; p_params; p_body}:pred_def)  = SMap.find f ps in 
       assert (String.compare p_name f == 0);
-      let bindings = bindFormalNActual (p_params) (actualArg@[ret]) in 
+      print_endline ("\n replacePredicates for " ^ p_name);
+      print_endline ("p_params: " ^ (List.map (fun a-> a) p_params |> String.concat ", "));
+      print_endline ("actualArg: " ^ (List.map (fun a-> string_of_term a) actualArg |> String.concat ", "));
 
+
+      print_endline ("ret = " ^ string_of_term ret);
+
+      let bindings = bindFormalNActual (p_params) (actualArg) in 
+
+      print_endline (string_of_disj_spec p_body);
       let p_body = renamingexistientalVar p_body in 
+      print_endline (" ===> " ^ string_of_disj_spec p_body);
+
       let p_body' =  (instantiateSpecList bindings p_body)  in 
+
+
+
+
+      let p_body' = normalise_spec_list (List.map (fun a ->
+              let returnTerm = 
+                match retriveLastRes a with 
+                | Var t -> t 
+                | t -> 
+                  print_endline (string_of_term t);
+                  failwith "there is no res value "
+              in 
+              instantiateSpec [(returnTerm, ret)] a
+            )
+            p_body' )
+      in 
+
+      print_endline (" ===> " ^ string_of_disj_spec p_body');
+
 
       let temp = helper xs in 
       List.flatten (List.map (fun li -> 
@@ -1027,7 +1057,7 @@ let transform_strs (strs: structure_item list) : core_program =
           print_endline (string_of_disj_spec spec);
           let spec' = replacePredicatesWithDef spec ps in 
           print_endline ("~~~> " ^ string_of_disj_spec spec');
-          let spec'' = normalise_spec_list (replaceSLPredicatesWithDef spec' slps) in 
+          let spec'' = (replaceSLPredicatesWithDef spec' slps) in 
           print_endline ("~~~> " ^ string_of_disj_spec spec'');
           Some spec''
           ) 
@@ -1384,6 +1414,7 @@ let check_obligation meth prog predicates (l, r) =
 exception Method_failure
 
 let analyze_method prog ({m_spec = given_spec; _} as meth) =
+
   let () =  z3_consumption := 0.0 in 
   let time_stamp_beforeForward = Sys.time () in
   let inferred_spec, predicates, fvenv =

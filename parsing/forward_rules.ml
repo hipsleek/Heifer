@@ -95,13 +95,16 @@ let retrieveMatchSummaryFromEnv (fname: string) (env:fvenv) : (string list * spe
   
 
 
-let rec bindFormalNActual (formal: string list) (actual: core_value list) : ((string * core_value) list)= 
+let bindFormalNActual (formal: string list) (actual: core_value list) : ((string * core_value) list)= 
+  List.map2 (fun a b -> (a, b)) formal actual
+  
+
+  (*
   match (formal, actual) with 
   | (x::xs, y::ys) -> (x, y)::bindFormalNActual xs ys 
   | ([], []) -> [] 
-  | _ -> []
-  
-  (*List.map2 (fun a b -> (a, b)) formal actual*)
+  | _ -> []   
+  *)
 
 let bindNewNames (formal: string list) (actual: string list) : ((string * string) list)= 
   List.map2 (fun a b -> (a, b)) formal actual

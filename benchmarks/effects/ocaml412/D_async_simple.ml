@@ -24,18 +24,18 @@ let yield ()
 (*@ ~predicate empty_queue(queue) 
 = ex q; queue->q /\ effNo(q) = 0   @*)
 
-(*@ predicate queue_push(ele, queue, res) 
-= ex m m' w; req any_queue(queue, m) /\ effNo(ele)=w; 
-  Norm(non_empty_queue(queue, m') /\ m'=m+w /\ res=()) @*)
+(*@ predicate queue_push(ele, queue) 
+= ex mm mm' w inter; req any_queue(queue, mm) /\ effNo(ele)=w; 
+  Norm(non_empty_queue(queue, mm') /\ mm'=mm+w /\ res=inter /\ inter=()) @*)
 
-(*@ predicate queue_is_empty(queue, res) 
-=  req empty_queue(queue); Norm(empty_queue(queue) /\ res=true)
-\/ ex m; req non_empty_queue(queue, m);  Norm(non_empty_queue(queue, m) /\ res=false) @*)
+(*@ predicate queue_is_empty(queue) 
+=  ex inter; req empty_queue(queue); Norm(empty_queue(queue) /\ res=inter /\ inter=true)
+\/ ex m inter; req non_empty_queue(queue, m);  Norm(non_empty_queue(queue, m) /\ res=inter /\ inter=false) @*)
 
 
-(*@ predicate queue_pop (queue, f') 
-= ex m m'; req non_empty_queue(queue, m) /\ effNo(f') =w;  
-  Norm(any_queue(queue, m')  /\ m'+w=m /\ res=f') @*)
+(*@ predicate queue_pop (queue) 
+= ex m m' w f; req non_empty_queue(queue, m);  
+  Norm(any_queue(queue, m') /\ effNo(f) =w /\ m'+w=m /\ res=f) @*)
 
 
 (*
@@ -70,21 +70,23 @@ let queue_pop queue =
         h)
 *)
 
-let enqueue ele queue
-(*@ ex r; queue_push(ele, queue, r) @*)
-= queue_push ele queue
+let enqueue f run_q
+(*@ ex r; queue_push(f, run_q, r); Norm(res=r) @*)
+= queue_push f run_q
 
-let dequeue queue
-(*@ queue_is_empty(queue, true); Norm(res=())
-\/  queue_is_empty(queue, false);
-    ex ele; queue_pop (queue, ele);
-    ex r; continue (ele, (), r) ;
-    Norm (res=r)
+let wrapPop run_q 
+(*@ ex f; queue_pop (run_q, f); Norm (res=f)@*)
+=  queue_pop run_q
+
+let dequeue run_q
+(*@ queue_is_empty(run_q, true); Norm(res=())
+\/  ex m inter; req non_empty_queue(run_q, m);  Norm(non_empty_queue(run_q, m));
+    ex m' w f; req non_empty_queue(run_q, m);  
+    Norm(any_queue(run_q, m') /\ effNo(f) =w /\ m'+w=m /\ res=f)
 @*)
-= if queue_is_empty queue then ()
+= if queue_is_empty run_q then ()
   else 
-    let ele = queue_pop queue in 
-    continue (ele) ()
+  queue_pop run_q
 
 (*
 
