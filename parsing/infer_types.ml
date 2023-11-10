@@ -148,4 +148,4 @@ let rec infer_types_pi env pi =
     let env = infer_types_pi env b in
     env
   | Not a -> infer_types_pi env a
-  | Predicate (_, _) -> failwith "not implemented"
+  | Predicate (_, _) -> env (*failwith "not implemented" *)

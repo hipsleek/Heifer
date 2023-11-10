@@ -125,6 +125,13 @@ let isFreshVar str : bool =
 let () = assert (isFreshVar "f10" ==true )
 let () = assert (isFreshVar "s10" ==false )
 
+let renamingexistientalVarState (existientalVar:string list) ((pi, kappa):state): (string list * state) = 
+  let newNames = List.map (fun n -> (verifier_getAfreeVar n)) existientalVar in 
+  let newNameTerms = List.map (fun a -> Var a) newNames in 
+  let bindings = bindFormalNActual existientalVar newNameTerms in 
+  (newNames, (instantiatePure bindings pi, instantiateHeap bindings kappa))
+
+
 (** substitutes existentials with fresh variables *)
 let renamingexistientalVar (specs:disj_spec): disj_spec = 
   (* Format.printf "specs: %s@." (string_of_disj_spec specs); *)

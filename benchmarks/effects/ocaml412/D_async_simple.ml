@@ -22,7 +22,7 @@ let yield ()
 = ex q; queue->q /\ effNo(q) = effNo /\ effNo>0 @*)
 
 (*@ ~predicate empty_queue(queue) 
-= ex q; queue->q /\ effNo(q) = effNo /\ effNo=0  @*)
+= ex q; queue->q /\ effNo(q) = 0   @*)
 
 (*@ predicate queue_push(ele, queue, res) 
 = ex m m' w; req any_queue(queue, m) /\ effNo(ele)=w; 
@@ -75,8 +75,8 @@ let enqueue ele queue
 = queue_push ele queue
 
 let dequeue queue
-(*@ req queue_is_empty(queue, true); Norm(res=())
-\/  req queue_is_empty(queue, false); 
+(*@ req empty_queue(queue); Norm(res=())
+\/  ex m; req non_empty_queue(queue, m); 
     queue_pop (queue, f');
     continue (f', ())
 @*)
