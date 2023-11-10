@@ -10,15 +10,18 @@ let list_int_sort ctx =
   (* Z3.Z3List.mk_sort ctx (Z3.Symbol.mk_string ctx "List") int *)
   Z3.Z3List.mk_list_s ctx "List" int
 
+
 let get_fun_decl ctx s =
   let list_int = list_int_sort ctx in
   match s with
-  | "cons" -> Z3.Z3List.get_cons_decl list_int
-  | "head" -> Z3.Z3List.get_head_decl list_int
-  | "tail" -> Z3.Z3List.get_tail_decl list_int
-  | "is_cons" -> Z3.Z3List.get_is_cons_decl list_int
-  | "is_nil" -> Z3.Z3List.get_is_nil_decl list_int
-  | _ -> failwith (Format.asprintf "unknown function: %s" s)
+  | "cons" -> (Z3.Z3List.get_cons_decl list_int)
+  | "head" -> (Z3.Z3List.get_head_decl list_int)
+  | "tail" -> (Z3.Z3List.get_tail_decl list_int)
+  | "is_cons" -> (Z3.Z3List.get_is_cons_decl list_int)
+  | "is_nil" -> (Z3.Z3List.get_is_nil_decl list_int)
+  | _ -> 
+    if String.compare s "effNo" == 0 then Z3.FuncDecl.mk_func_decl_s ctx "effNo" [list_int] (Z3.Arithmetic.Integer.mk_sort ctx)
+    else failwith (Format.asprintf "unknown function 1: %s" s)
 
 let rec term_to_expr env ctx t : Z3.Expr.expr =
   match t with
@@ -165,9 +168,10 @@ let rec pi_to_expr env ctx pi: Expr.expr =
   | Atomic (EQ, t1, t2) ->
     let t1 = term_to_expr env ctx t1 in
     let t2 = term_to_expr env ctx t2 in
+    (*print_endline ("\n======\nAtomic EQ " ^ Expr.to_string t1);
+    print_endline ("Atomic EQ " ^ Expr.to_string t2);
+    *)
     let res = Z3.Boolean.mk_eq ctx t1 t2 in 
-    (*print_endline ("\n======\nAtomic EQ " ^ string_of_pi pi);
-    print_endline ("Atomic EQ " ^ Expr.to_string res);*)
     res
 
   | Imply (p1, p2) ->

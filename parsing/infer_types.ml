@@ -55,7 +55,9 @@ let get_primitive_type f =
   | "tail" -> ([List_int], List_int)
   | "is_nil" | "is_cons" -> ([List_int], Bool)
   | "+" | "-" -> ([Int; Int], Int)
-  | _ -> failwith (Format.asprintf "unknown function: %s" f)
+  | _ -> 
+    if String.compare f "effNo" == 0 then ([List_int] , Int)
+    else failwith (Format.asprintf "unknown function 2: %s" f)
 
 let rec infer_types_term ?hint (env : abs_typ_env) term : typ * abs_typ_env =
   let@ _ =

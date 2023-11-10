@@ -525,7 +525,7 @@ let rec split_res p =
   | Not a ->
     let l, r = split_res a in
     Not l, r
-  | Predicate (_, _) -> failwith (Format.asprintf "NYI: predicate")
+  | Predicate (_, _) -> failwith (Format.asprintf "NYI: predicate split_res")
 
 let split_res_fml p =
   let rest, constrs = split_res p in

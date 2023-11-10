@@ -505,7 +505,7 @@ let rec remove_subexpr_pi included p =
   | Imply (a, b) ->
     Imply (remove_subexpr_pi included a, remove_subexpr_pi included b)
   | Not a -> Not (remove_subexpr_pi included a)
-  | Predicate (_, _) -> failwith (Format.asprintf "NYI: predicate")
+  | Predicate (_, _) -> p (*failwith (Format.asprintf "NYI: predicate remove_subexpr_pi") *)
 
 let remove_subexpr_state included (p, h) = (remove_subexpr_pi included p, h)
 
@@ -753,7 +753,7 @@ let remove_temp_vars =
     | And (a, b) | Or (a, b) | Imply (a, b) ->
       merge (analyze_pi a) (analyze_pi b)
     | Not a -> analyze_pi a
-    | Predicate (_, _) -> failwith (Format.asprintf "NYI: predicate")
+    | Predicate (_, _) -> SMap.empty (*failwith (Format.asprintf "NYI: predicate analyze_pi") *)
   and analyze_term t =
     match t with
     | Num _ | UNIT | TTrue | TFalse | Nil -> SMap.empty

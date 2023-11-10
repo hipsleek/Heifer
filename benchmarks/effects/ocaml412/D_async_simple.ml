@@ -39,7 +39,6 @@ let yield ()
 
 
 (*
-
 let queue_create () = ref ([], [])
 
 let queue_push ele queue 
@@ -69,19 +68,23 @@ let queue_pop queue =
     | h::newfront ->
         queue := (newfront, []);
         h)
+*)
 
 let enqueue ele queue
-(*@ queue_push(ele, queue, res) @*)
+(*@ ex r; queue_push(ele, queue, r) @*)
 = queue_push ele queue
 
 let dequeue queue
 (*@ req queue_is_empty(queue, true); Norm(res=())
 \/  req queue_is_empty(queue, false); 
     queue_pop (queue, f');
-    (continue f') ((), res)
+    continue (f', ())
 @*)
 = if queue_is_empty queue then ()
   else continue (queue_pop queue) ()
+
+(*
+
 
 (*@ f(r) = 
        ens effNo(f) = 0 /\ r = () /\ res=r

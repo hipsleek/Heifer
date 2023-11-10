@@ -851,16 +851,111 @@ let transform_str env (s : structure_item) =
   | Pstr_typext _ -> None 
   | _ -> failwith (Format.asprintf "unknown program element: %a" Pprintast.structure [s])
 
+
+
+
+let replaceSLPredicatesWithDefInState ((pure, heap):state) (ms:meth_def list) (ps:pred_def SMap.t) (slps:sl_pred_def SMap.t): (string list * state) = 
+  
+  let rec decomposePredicate p =
+    match p with 
+    | Predicate (str, actualArg) -> 
+      let ({p_sl_ex; p_sl_name; p_sl_params; p_sl_body}:sl_pred_def)  = SMap.find str slps in 
+      assert (String.compare p_sl_name str == 0);
+      let bindings = bindFormalNActual (p_sl_params) (actualArg) in 
+      let (pi, kappa) = p_sl_body in 
+      let p_sl_body' = (instantiatePure bindings pi, instantiateHeap bindings kappa) in 
+      let (pNew, heapNew) = p_sl_body' in 
+      (p_sl_ex, (pNew, Some heapNew))
+
+      
+      
+
+    | And   (p1, p2) -> 
+      let (ex1, (morePure1, moreHeap1)) = decomposePredicate p1 in 
+      let (ex2, (morePure2, moreHeap2)) = decomposePredicate p2 in 
+      let unionHeap = 
+        match (moreHeap1, moreHeap2) with 
+        | (None, None) -> None 
+        | (Some h1, None) -> Some h1
+        | (None, Some h2) -> Some h2
+        | (Some h1, Some h2) -> Some (SepConj(h1, h2))
+      in  
+      (ex1@ex2, (And (morePure1, morePure2), unionHeap))
+
+
+    | Atomic _
+    | True 
+    | False -> [], (p, None)  
+    | Not _  
+    | Or    _
+    | Imply  _ -> failwith "decomposePredicate nor and or and imply"
+  in 
+
+
+  
+  let (ex, (morePure, moreHeap)) = decomposePredicate pure in 
+  let heap' = match moreHeap with None -> heap | Some moreH -> SepConj (heap, moreH) in 
+  (ex, (morePure, heap'))
+
+
+
+
+
+let replaceSLPredicatesWithDef (specs:disj_spec) (ms:meth_def list) (ps:pred_def SMap.t) (slps:sl_pred_def SMap.t) = 
+  let rec helper (stage:normalisedStagedSpec): normalisedStagedSpec = 
+    let (effS, normalS) = stage in
+    match effS with
+    | [] ->
+      let (existiental, (p1, h1), (p2, h2)) = normalS in
+      let (ex1, (p1', h1')) = replaceSLPredicatesWithDefInState (p1, h1) ms ps slps in 
+      let (ex2, (p2', h2')) = replaceSLPredicatesWithDefInState (p2, h2) ms ps slps in 
+      ([], (existiental@ex1@ex2, (p1', h1'), (p2', h2')))
+
+    | x :: xs  ->
+      let {e_evars; e_pre ; e_post; e_constr; e_ret; e_typ} = x in
+      let (p1, h1) = e_pre in 
+      let (p2, h2) = e_post in 
+      let (ex1, (p1', h1')) = replaceSLPredicatesWithDefInState (p1, h1) ms ps slps in 
+      let (ex2, (p2', h2')) = replaceSLPredicatesWithDefInState (p2, h2) ms ps slps in 
+      let x' = {e_evars=e_evars@ex1@ex2; e_pre=(p1', h1'); e_post=(p2', h2'); e_constr=e_constr; e_ret=e_ret; e_typ=e_typ} in 
+
+      let (xs', normal') = helper (xs, normalS) in 
+      (x'::xs', normal')
+
+
+
+  in List.map (fun spec -> 
+    let (spec:normalisedStagedSpec) = normalize_spec spec in 
+    let spec' = helper spec in 
+    normalisedStagedSpec2Spec spec'
+  ) specs
+  
+
+
 let transform_strs (strs: structure_item list) : core_program =
   let _env, effs, mths, preds, sl_preds, lems =
     List.fold_left (fun (env, es, ms, ps, slps, ls) c ->
       match transform_str env c with
       | Some (`Lem l) -> env, es, ms, ps, slps, SMap.add l.p_name l ls
-      | Some (`Pred p) -> env, es, ms, SMap.add p.p_name p ps, slps, ls
-      | Some (`SLPred p) -> env, es, ms, ps, SMap.add p.p_sl_name p slps,ls
+      | Some (`Pred p) -> 
+        print_endline (p.p_name ^ ":");
+        print_endline (string_of_disj_spec p.p_body);
 
+        let body' = replaceSLPredicatesWithDef p.p_body ms ps slps in 
+        print_endline ("~~~> " ^ string_of_disj_spec body');
+
+        let (p': pred_def) = {p_name =p.p_name; p_params = p.p_params; p_body = body'} in 
+        env, es, ms, SMap.add p'.p_name p' ps, slps, ls
+
+      | Some (`SLPred p) -> env, es, ms, ps, SMap.add p.p_sl_name p slps,ls
       | Some (`Eff a) -> env, a :: es, ms, ps, slps, ls
-      | Some (`Meth (m_name, m_params, m_spec, m_body, m_tactics)) -> m_name :: env, es, { m_name; m_params; m_spec; m_body; m_tactics } :: ms, ps, slps, ls
+      | Some (`Meth (m_name, m_params, m_spec, m_body, m_tactics)) -> 
+        (match m_spec with 
+        | None -> ()
+        | Some spec -> 
+        print_endline (m_name ^ ":");
+        print_endline (string_of_disj_spec spec));
+        m_name :: env, es, { m_name; m_params; m_spec; m_body; m_tactics } :: ms, ps, slps, ls
       | _ -> env, es, ms, ps, slps, ls
     ) ([], [], [], SMap.empty, SMap.empty, SMap.empty) strs
   in { cp_effs = List.rev effs; cp_methods = List.rev mths; cp_predicates = preds; cp_sl_predicates = sl_preds; cp_lemmas = lems }
