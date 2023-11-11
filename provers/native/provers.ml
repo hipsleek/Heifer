@@ -19,8 +19,9 @@ let get_fun_decl ctx s =
   | "tail" -> (Z3.Z3List.get_tail_decl list_int)
   | "is_cons" -> (Z3.Z3List.get_is_cons_decl list_int)
   | "is_nil" -> (Z3.Z3List.get_is_nil_decl list_int)
-  | _ -> 
-    if String.compare s "effNo" == 0 then Z3.FuncDecl.mk_func_decl_s ctx "effNo" [list_int] (Z3.Arithmetic.Integer.mk_sort ctx)
+  | _ ->  (* ASK Darius *)
+    let intSort = (Z3.Arithmetic.Integer.mk_sort ctx) in 
+    if String.compare s "effNo" == 0 then Z3.FuncDecl.mk_func_decl_s ctx "effNo" [intSort] intSort
     else failwith (Format.asprintf "unknown function 1: %s" s)
 
 let rec term_to_expr env ctx t : Z3.Expr.expr =

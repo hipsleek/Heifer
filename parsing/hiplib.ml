@@ -656,6 +656,9 @@ let rec transformation (env:string list) (expr:expression) : core_lang =
   (*| Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, [_, _k; _, e]) when name = "continue" ->
     transformation env e |> maybe_var (fun v -> CResume v)
   *)
+  
+
+
   | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, args) when name = "continue" ->
     let rec loop vars args =
       match args with
@@ -787,8 +790,12 @@ let rec transformation (env:string list) (expr:expression) : core_lang =
         | _ -> None)
     in
     CMatch (spec (*SYHTODO*), transformation env e, norm, effs, pattern_cases)
-  | _ ->
-    failwith (Format.asprintf "expression not in core language: %a" Pprintast.expression expr)
+  | _ -> 
+    if String.compare (Pprintast.string_of_expression expr) "Obj.clone_continuation k" == 0 then (* ASK Darius*)
+    CValue (Var "k")
+    else 
+    CValue (UNIT)
+    (*failwith (Format.asprintf "expression not in core language: %a" Pprintast.expression expr)  *)
     (* (Printast.expression 0) expr *)
 
 and maybe_var f e =
@@ -800,7 +807,6 @@ and maybe_var f e =
     CLet (v, e, f (Var v))
 
 type experiemntal_data = (float list * float list) 
-
 
 
 (* let enatilmentHeapAssertion k1 pi : bool = 
@@ -936,17 +942,33 @@ let replaceSLPredicatesWithDef (specs:disj_spec) (slps:sl_pred_def SMap.t) =
   ) specs)
   
 
+let retrieveSpecFromMs_Ps (fname: string) (ms:meth_def list) (ps:pred_def SMap.t) : (string list * spec list) option = 
+  match 
+  SMap.find_opt fname ps
+  |> Option.map (fun p -> (p.p_params, p.p_body))
 
-let replacePredicatesWithDef (specs:disj_spec) (ps:pred_def SMap.t) : disj_spec = 
+  with 
+  | Some res -> Some res
+  | None -> 
+
+  SMap.find_opt fname 
+    (ms |> List.map (fun m -> m.m_name, m)
+    |> List.to_seq
+    |> SMap.of_seq)
+  |> Option.map (fun m -> (m.m_params, Option.get m.m_spec))
+
+
+
+let replacePredicatesWithDef (specs:disj_spec) (ms:meth_def list) (ps:pred_def SMap.t) : disj_spec = 
   let rec helper (spec:spec) : disj_spec = 
     match spec with 
     | [] -> [[]]
     | HigherOrder (pi, h, (f, actualArg), ret) :: xs  -> 
-      
+      (match retrieveSpecFromMs_Ps f ms ps with 
+      | None -> let temp = helper xs in 
+                List.map (fun li -> HigherOrder (pi, h, (f, actualArg), ret) :: li) temp
 
-      (try 
-      (let ({p_name; p_params; p_body}:pred_def)  = SMap.find f ps in 
-      assert (String.compare p_name f == 0);
+      | Some (p_params, p_body) -> 
       (*print_endline ("\n replacePredicates for " ^ p_name);
       print_endline ("p_params: " ^ (List.map (fun a-> a) p_params |> String.concat ", "));
       print_endline ("actualArg: " ^ (List.map (fun a-> string_of_term a) actualArg |> String.concat ", "));
@@ -978,22 +1000,20 @@ let replacePredicatesWithDef (specs:disj_spec) (ps:pred_def SMap.t) : disj_spec 
             )
             p_body' )
       in 
-
-      (*print_endline (" ===> " ^ string_of_disj_spec p_body');*)
-
-
       let temp = helper xs in 
       List.flatten (List.map (fun li -> 
         List.map (
           fun p_b -> 
             NormalReturn(pi, h) ::p_b  @ li
         ) p_body'
-      ) temp))
-      with 
-      | Not_found -> 
-        let temp = helper xs in 
-        List.map (fun li -> HigherOrder (pi, h, (f, actualArg), ret) :: li) temp
+      ) temp)
+
       )
+
+
+      
+
+
 
     | x :: xs  -> 
       let temp = helper xs in 
@@ -1032,10 +1052,10 @@ let transform_strs (strs: structure_item list) : core_program =
           | Some spec -> 
           print_endline ("\n"^ m_name ^  Format.asprintf "(%s)" (String.concat ", " m_params) ^ ": ");
           print_endline (string_of_disj_spec spec);
-          let spec' = replacePredicatesWithDef spec ps in 
+          let spec' = replacePredicatesWithDef spec ms ps in 
           print_endline ("~~~> " ^ string_of_disj_spec spec');
           let spec'' = (replaceSLPredicatesWithDef spec' slps) in 
-          print_endline ("~~~> " ^ string_of_disj_spec spec'');
+          print_endline ("~~~> " ^ string_of_disj_spec spec'' ^"\n");
           Some spec''
           ) 
         in 
@@ -1485,7 +1505,8 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) =
       true
   in
   (* only save these specs for use by later functions if verification succeeds *)
-  if not res then prog else (
+  if not res then prog 
+  else (
     let prog, pred =
       (* if the user has not provided a predicate for the given function,
         produce one from the inferred spec *)
@@ -1493,6 +1514,7 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) =
       let cp_predicates = SMap.update meth.m_name
         (function
         | None ->
+          (*print_endline ("remembering predicate for " ^ meth.m_name ^ " " ^  (string_of_pred p)); *)
           info ~title:(Format.asprintf "remembering predicate for %s" meth.m_name) "%s" (string_of_pred p);
           Some p
         | Some _ -> None) prog.cp_predicates
@@ -1512,6 +1534,8 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) =
           in
           [sp]
         in
+        (*print_endline ("inferred spec for " ^ meth.m_name ^ " " ^  (string_of_disj_spec mspec)); *)
+
         info ~title:(Format.asprintf "inferred spec for %s" meth.m_name) "%s" (string_of_disj_spec mspec);
         let cp_methods = List.map (fun m -> if String.equal m.m_name meth.m_name then { m with m_spec = Some mspec } else m ) prog.cp_methods
         in

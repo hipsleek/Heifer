@@ -14,6 +14,9 @@ let assert_var_has_type v t env =
     then (
       let t' = TEnv.concretize env.equalities t in
       let t1' = TEnv.concretize env.equalities t1 in
+      match t1 with       (* ASK Darius *)
+      | TVar _ -> ()      (* ASK Darius *)
+      | _ ->              (* ASK Darius *)
       if compare_typ t' t1' <> 0 then
         failwith
           (Format.asprintf "%s already has type %s but was used as type %s" v
@@ -56,7 +59,7 @@ let get_primitive_type f =
   | "is_nil" | "is_cons" -> ([List_int], Bool)
   | "+" | "-" -> ([Int; Int], Int)
   | _ -> 
-    if String.compare f "effNo" == 0 then ([List_int] , Int)
+    if String.compare f "effNo" == 0 then ([Int] , Int)
     else failwith (Format.asprintf "unknown function 2: %s" f)
 
 let rec infer_types_term ?hint (env : abs_typ_env) term : typ * abs_typ_env =

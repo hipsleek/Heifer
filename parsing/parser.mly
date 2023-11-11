@@ -1353,7 +1353,7 @@ structure_item:
       { val_of_let_bindings ~loc:$sloc $1 }
   | EFFECT effect_declaration
       { mkstr ~loc:$sloc (Pstr_effect $2) }
-  | LSPECCOMMENT PREDICATE name=LIDENT args=delimited(LPAREN, separated_nonempty_list(COMMA, LIDENT), RPAREN) EQUAL body=disj_effect_spec RSPECCOMMENT
+  | LSPECCOMMENT PREDICATE name=LIDENT args=delimited(LPAREN, separated_list(COMMA, LIDENT), RPAREN) EQUAL body=disj_effect_spec RSPECCOMMENT
     { mkstr ~loc:$sloc (Pstr_predicate (name, args, body)) }
 
   | LSPECCOMMENT TILDE PREDICATE name=LIDENT args=delimited(LPAREN, separated_nonempty_list(COMMA, LIDENT), RPAREN) 

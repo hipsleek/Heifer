@@ -798,7 +798,7 @@ let derive_predicate m_name m_params disj =
     |> List.map normalisedStagedSpec2Spec
   in
   let res =
-    { p_name = m_name; p_params = m_params @ ["res"]; p_body = new_spec }
+    { p_name = m_name; p_params = m_params (*@ ["res"] *); p_body = new_spec } (* ASK Darius *)
   in
   debug ~at:2
     ~title:(Format.asprintf "derive predicate %s" m_name)

@@ -74,13 +74,16 @@ let create_fv_env fv_methods fv_predicates = {
 
 let retrieveSpecFromEnv (fname: string) (env:fvenv) : (string list * spec list) option = 
   match 
-  SMap.find_opt fname env.fv_methods
-  |> Option.map (fun m -> (m.m_params, Option.get m.m_spec))
+  SMap.find_opt fname env.fv_predicates
+  |> Option.map (fun p -> (p.p_params, p.p_body))
+
   with 
   | Some res -> Some res
   | None -> 
-  SMap.find_opt fname env.fv_predicates
-  |> Option.map (fun p -> (p.p_params, p.p_body))
+
+  SMap.find_opt fname env.fv_methods
+  |> Option.map (fun m -> (m.m_params, Option.get m.m_spec))
+
 
 let retrieveMatchSummaryFromEnv (fname: string) (env:fvenv) : (string list * spec list) option = 
   let records = env.fv_match_summary in 
@@ -96,7 +99,12 @@ let retrieveMatchSummaryFromEnv (fname: string) (env:fvenv) : (string list * spe
 
 
 let bindFormalNActual (formal: string list) (actual: core_value list) : ((string * core_value) list)= 
-  List.map2 (fun a b -> (a, b)) formal actual
+  try List.map2 (fun a b -> (a, b)) formal actual
+  with 
+  | Invalid_argument _ -> 
+    print_endline ("formal: " ^ (List.map (fun a-> a) formal |> String.concat ", "));
+    print_endline ("actual: " ^ (List.map (fun a-> string_of_term a) actual |> String.concat ", "));
+    failwith ("bindFormalNActual length not equle")
   
 
   (*
@@ -289,38 +297,45 @@ let rec handling_spec_inner env (scr_spec:normalisedStagedSpec) (h_norm:(string 
 
     let norm = (performEx, performPre, performPost) in 
 
-    let (label, effActualArg) = 
-      match x.e_constr with 
-      | (l, [v]) -> l, v 
-      | _ -> failwith "continue return more or less"
+    let (label, effActualArgs) = x.e_constr
+      (*match  with 
+      | (l, args) -> l, v 
+      | (l, [Var "k" ; v]) -> l, v 
+      | (l, li) -> 
+        print_endline (l^":");
+        print_endline ((List.map string_of_term li |> String.concat " "));
+        failwith "continue return more or less"
+        *)
     in
 
     if String.compare label "continue" !=0 then 
       let rest, env = handling_spec_inner env (xs, scr_normal) h_norm h_ops conti formal_ret in 
       concatenateEventWithSpecs (effectStage2Spec [x]) (rest), env
 
-
     else 
+      match effActualArgs with 
+      | [] | [_] -> failwith "continue statement does not have any arguments"
+      | [Var "k"; effActualArg] -> 
 
-
-      let conti' = instantiateSpec [(formal_ret, effActualArg)] conti in 
-      (*print_endline ("continuation'_spec: " ^ string_of_spec conti'); *)
-      let current, env =  handling_spec env (normalize_spec conti') h_norm h_ops in 
-      let current = (normalise_spec_list current) in 
-      
-
-      let rest, env = handling_spec_inner env (xs, scr_normal) h_norm h_ops conti formal_ret in 
-
-      let res = List.map (fun a -> 
-        let returnTerm = retriveLastRes a  in 
-        let rest' = instantiateSpecList [(perform_ret, returnTerm)] rest in 
-        concatenateSpecsWithSpec [a] rest'
-      ) current in 
+        let conti' = instantiateSpec [(formal_ret, effActualArg)] conti in 
+        (*print_endline ("continuation'_spec: " ^ string_of_spec conti'); *)
+        let current, env =  handling_spec env (normalize_spec conti') h_norm h_ops in 
+        let current = (normalise_spec_list current) in 
         
-      let res = concatenateEventWithSpecs (normalStage2Spec norm) (List.flatten res) in 
 
+        let rest, env = handling_spec_inner env (xs, scr_normal) h_norm h_ops conti formal_ret in 
 
-      res, env
+        let res = List.map (fun a -> 
+          let returnTerm = retriveLastRes a  in 
+          let rest' = instantiateSpecList [(perform_ret, returnTerm)] rest in 
+          concatenateSpecsWithSpec [a] rest'
+        ) current in 
+          
+        let res = concatenateEventWithSpecs (normalStage2Spec norm) (List.flatten res) in 
+
+        res, env
+        
+      | hd::tail -> failwith("TODO: inductive hyposisis application") 
 
   
 
