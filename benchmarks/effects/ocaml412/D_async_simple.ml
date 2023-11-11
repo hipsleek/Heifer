@@ -84,8 +84,7 @@ let wrapPop run_q
 
 let dequeue run_q
 (*@ queue_is_empty(run_q, true); Norm(res=())
-\/  ex m inter; req non_empty_queue(run_q, m);  Norm(non_empty_queue(run_q, m));
-    ex m' w f cr; req non_empty_queue(run_q, m);  
+\/  ex m m' w f cr; req non_empty_queue(run_q, m);  
     Norm(any_queue(run_q, m') /\ effNo(f) =w /\ m'+w=m );
     continue (f, (), cr); Norm(res=cr)
 @*)
@@ -96,57 +95,34 @@ let dequeue run_q
 
 
 (*@ predicate f(arg) = 
-   ex r; Norm( effNo(f) = 0 /\ r = () /\ res=r)
-\/ ex r f1 r1 r2 n; Fork(emp, f1, r1); f2(r2); 
-   Norm(effNo(f)=n /\ n>0 /\ effNo(f1)+effNo(f2)=n-1 /\ res =r /\ r= ())
-\/ ex r r1 r2; Yield(emp, r1); f2(r2); 
-   Norm(effNo(f)=n /\ n>0 /\ effNo(f2)=n-1 /\ res = r /\ r= ())
+   ex r; Norm(effNo(f) = 0 /\ r = () /\ res=r)
 @*)
 
-(*@ predicate spawn (f, queue) = 
-   ex r; req empty_queue(queue) /\ effNo(f)=0; ens res =r /\ r= () 
-\/ ex m w f' r; req any_queue(queue, m); 
-   Norm (any_queue(queue, m') /\ effNo(f)=w /\ effNo(f')=w' /\ (m'+w') < (m+w) /\ res= f')
-@*)
 
+
+let rec spawn f run_q 
+(*@ ex r; queue_is_empty(run_q, true) ; ens effNo(f)=0 /\ res =r /\ r= () 
+\/ ex m m' w ele cr; req non_empty_queue(run_q, m);  
+   Norm(any_queue(run_q, m') /\ effNo(ele) =w /\ m'+w=m );
+   spawn (ele, run_q, cr); Norm(res=cr)
+@*)
+= match f () with
+  (*@ spawn (f, run_q, res) @*)
+  | x -> dequeue run_q;
+  | effect Yield k ->
+     enqueue k run_q;
+     dequeue run_q
+  | effect (Fork f') k -> 
+     enqueue k run_q; 
+     spawn f' run_q
 
 (*
-(*@ predicate 
-spawn (f, queue, f', res) = 
-  req empty_queue(queue) /\ effNo(f)=0; ens res = () 
-  \/
-  ex m w; req any_queue(queue, m) /\ effNo(f)=w; 
-  Norm (any_queue(queue, m') /\ effNo(f')=w' /\ m'+w' < m+w  /\ res=())
-@*)
-
-
-(*@ predicate 
-match (f, queue, f', res) = spawn (f, queue, f', res)
-@*)
-
-;
-  assert (queue_is_empty run_q)
-*)
-
-let run_q = queue_create ()
-
 (* A concurrent round-robin scheduler *)
 let run main
-=  let rec spawn f run_q = 
-    match f () with
-    (* match (f, queue) = spawn (f, queue) @*)
-    | x -> dequeue run_q;
-    | effect Yield k ->
-       enqueue k run_q;
-       dequeue run_q
-    | effect (Fork f') k ->
-       enqueue k run_q;
-       spawn f' run_q
-  in
-  spawn main run_q
+(*@ ex queue q r; Norm (queue->q /\ effNo(q)=0 /\ res = r /\ r = ()) @*)
+= let run_q = queue_create () 
+  in spawn main run_q
 
-
-(*
 let task name () =
   Printf.printf "starting %s\n%!" name;
   Printf.printf "yielding %s\n%!" name;
@@ -166,7 +142,6 @@ let main () =
   p_total
 
 let _ = run main
-
-
-
 *)
+
+

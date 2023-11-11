@@ -413,11 +413,15 @@ let rec check_staged_subsumption_stagewise :
     normalisedStagedSpec ->
     unit option =
  fun ctx i assump s1 s2 ->
+ (*print_endline ("check_staged_subsumption_stagewise");*)
+
   info ~title:"flow subsumption" "%s\n<:\n%s"
     (string_of_normalisedStagedSpec s1)
     (string_of_normalisedStagedSpec s2);
   match (s1, s2) with
   | (es1 :: es1r, ns1), (es2 :: es2r, ns2) ->
+    (*print_endline ("check_staged_subsumption_stagewise case one ");*)
+
     let ctx =
       collect_local_lambda_definitions ctx (Some es1.e_post) (Some es2.e_post)
     in
@@ -442,6 +446,7 @@ let rec check_staged_subsumption_stagewise :
             l1
             (string_of_list string_of_term a2)
             l2;
+            print_endline ("fail 448");
           fail)
         else ok
       in
@@ -449,17 +454,23 @@ let rec check_staged_subsumption_stagewise :
       (* pure information propagates forward across stages, not heap info *)
       let* residue =
         let arg_eqs = conj (List.map2 (fun x y -> Atomic (EQ, x, y)) a1 a2) in
-        stage_subsumes ctx
+        (*print_endline ("stage_subsumes recursive");*)
+
+        let temp = stage_subsumes ctx
           (Format.asprintf "effect stage %d" i)
           assump
           (es1.e_evars, (es1.e_pre, with_pure (res_eq es1.e_ret) es1.e_post))
           ( es2.e_evars,
             (es2.e_pre, with_pure (And (arg_eqs, res_eq es2.e_ret)) es2.e_post)
           )
+        in 
+        temp 
       in
+      (*print_endline ("check_staged_subsumption_stagewise recursive");*)
       check_staged_subsumption_stagewise ctx (i + 1)
         (conj [assump; residue])
         (es1r, ns1) (es2r, ns2))
+      
   | ([], ns1), ([], ns2) ->
     (* base case: check the normal stage at the end *)
     let (vs1, (p1, h1), (qp1, qh1)), (vs2, (p2, h2), (qp2, qh2)) = (ns1, ns2) in
@@ -479,6 +490,7 @@ let rec check_staged_subsumption_stagewise :
     info ~title:"FAIL" "ante is shorter\n%s\n<:\n%s"
       (string_of_normalisedStagedSpec s1)
       (string_of_normalisedStagedSpec s2);
+      (*print_endline("fail 486");*)
     fail
   | (es1 :: _, _), ([], _) ->
     let ctx = collect_local_lambda_definitions ctx (Some es1.e_post) None in
@@ -487,6 +499,7 @@ let rec check_staged_subsumption_stagewise :
     info ~title:"FAIL" "conseq is shorter\n%s\n<:\n%s"
       (string_of_normalisedStagedSpec s1)
       (string_of_normalisedStagedSpec s2);
+      (*print_endline("fail 495");*)
     fail
 
 and try_other_measures :
@@ -589,6 +602,9 @@ and stage_subsumes :
     (string_of_existentials vs2)
     (string_of_state pre2) (string_of_state post2);
   (* contravariance *)
+  (*print_endline ("srating contravariance ");
+  print_endline ((string_of_state pre2) ^ " |- " ^ (string_of_state pre1));
+  *)
   let@ pre_l, pre_r, pre_resi_l = check_qf "pre" ctx.q_vars pre2 pre1 in
   let* pre_residue, tenv =
     let left = conj [assump; pre_l] in
@@ -614,7 +630,11 @@ and stage_subsumes :
     if pre_res then Some ((conj [pre_l; pre_r; assump], pre_resi_l), tenv)
     else None
   in
+  (*print_endline ("contravariance is done ");
   (* covariance *)
+  print_endline ("srating covariance ");
+  print_endline ((string_of_state post1) ^ " |- " ^ (string_of_state post2));
+  *)
   let new_univ = SSet.union (used_vars_pi pre_l) (used_vars_pi pre_r) in
   let vs22 = List.filter (fun v -> not (SSet.mem v new_univ)) vs2 in
   let conj_state (p1, h1) (p2, h2) = (And (p1, p2), SepConj (h1, h2)) in
@@ -622,6 +642,8 @@ and stage_subsumes :
   let@ post_l, post_r, _post_resi =
     check_qf "post" ctx.q_vars (conj_state pre_residue post1) post2
   in
+  (*print_endline ("pure_pre_residue " ^ string_of_pi pure_pre_residue); 
+  print_endline ("intermidiate post"); *)
   let* post_residue =
     (* don't use fresh variable for the ret value so it carries forward in the residue *)
     (* let _a, r = split_res_fml post_l in *)
@@ -662,6 +684,11 @@ and stage_subsumes :
     let post_result =
       Provers.entails_exists (concrete_type_env tenv) left vs22 right
     in
+    (*print_endline ((string_of_pi left) ^ " |- " ^ (string_of_pi right));
+    print_endline ("post_result is done ");
+    print_endline (string_of_bool post_result);
+    *)
+
     info ~title:(Format.asprintf "valid?") "%s" (string_of_res post_result);
     let f = verifier_getAfreeVar "" in
     let left = instantiatePure [("res", Var f)] left in
@@ -670,6 +697,7 @@ and stage_subsumes :
     (* let right = fst (split_res left) in *)
     if post_result then Some (conj [left; right; pure_pre_residue]) else None
   in
+
   pure (conj [pure_pre_residue; post_residue])
 
 let extract_binders spec =
@@ -787,7 +815,8 @@ let check_staged_subsumption_disj :
   (* let ds1, ds2 = apply_tactics ts lems preds ds1 ds2 in *)
   (let@ s1 = all ~to_s:string_of_spec ds1 in
    let@ s2 = any ~name:"subsumes-disj-rhs-any" ~to_s:string_of_spec ds2 in
-   check_staged_subsumption lems preds s1 s2)
+   check_staged_subsumption lems preds s1 s2
+   )
   |> succeeded
 
 let derive_predicate m_name m_params disj =
