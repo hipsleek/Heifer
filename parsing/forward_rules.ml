@@ -74,15 +74,25 @@ let create_fv_env fv_methods fv_predicates = {
 
 let retrieveSpecFromEnv (fname: string) (env:fvenv) : (string list * spec list) option = 
   match 
+  SMap.find_opt fname env.fv_methods
+  |> Option.map (fun m -> 
+  (match m.m_spec with 
+  | None -> ()
+  | Some _ -> () (*print_endline ("retrieveSpecFromEnv: " ^ string_of_disj_spec spec)*)
+  );
+  (m.m_params, Option.get m.m_spec))
+
+  with 
+  | Some res -> 
+    (*let (_, specs) = res in 
+    print_endline ("retrieveSpecFromEnv1: " ^ string_of_disj_spec specs);*)
+    Some res
+  | None -> 
+
   SMap.find_opt fname env.fv_predicates
   |> Option.map (fun p -> (p.p_params, p.p_body))
 
-  with 
-  | Some res -> Some res
-  | None -> 
 
-  SMap.find_opt fname env.fv_methods
-  |> Option.map (fun m -> (m.m_params, Option.get m.m_spec))
 
 
 let retrieveMatchSummaryFromEnv (fname: string) (env:fvenv) : (string list * spec list) option = 
@@ -317,8 +327,11 @@ let rec handling_spec_inner env (scr_spec:normalisedStagedSpec) (h_norm:(string 
       | [] | [_] -> failwith "continue statement does not have any arguments"
       | [Var "k"; effActualArg] -> 
 
+        (*print_endline ("continuation _spec: " ^ string_of_spec conti); *)
+
         let conti' = instantiateSpec [(formal_ret, effActualArg)] conti in 
         (*print_endline ("continuation'_spec: " ^ string_of_spec conti'); *)
+
         let current, env =  handling_spec env (normalize_spec conti') h_norm h_ops in 
         let current = (normalise_spec_list current) in 
         
@@ -334,8 +347,8 @@ let rec handling_spec_inner env (scr_spec:normalisedStagedSpec) (h_norm:(string 
         let res = concatenateEventWithSpecs (normalStage2Spec norm) (List.flatten res) in 
 
         res, env
-        
-      | hd::tail -> failwith("TODO: inductive hyposisis application") 
+
+      | _ -> failwith("TODO: inductive hyposisis application") 
 
   
 
@@ -343,7 +356,7 @@ let rec handling_spec_inner env (scr_spec:normalisedStagedSpec) (h_norm:(string 
 and handling_spec env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj_spec)) (h_ops:(string * string option * disj_spec) list) : spec list * fvenv = 
       
   (*print_endline ("\nhandling_spec " ^ (string_of_spec (normalisedStagedSpec2Spec scr_spec)));
-*)
+  *)
   let@ _ = Debug.span (fun r ->
     (* Format.asprintf "handling" *)
     debug ~at:3 ~title:"handling_spec" "match\n  (*@@ %s @@*)\nwith\n| ...\n| ...\n==>\n%s" (string_of_spec (normalisedStagedSpec2Spec scr_spec)) (string_of_result string_of_disj_spec (Option.map fst r))
@@ -464,6 +477,8 @@ and handling_spec env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj_spe
       print_endline ("handler_body_spec: " ^ string_of_disj_spec handler_body_spec); *)
       (* the rest of the trace is now the spec of the continuation *)
       let continuation_spec = normalisedStagedSpec2Spec (xs, scr_normal) in 
+
+      (*print_endline ("continuation_spec: " ^ string_of_spec continuation_spec);*)
 
       let raw = List.flatten (List.map (fun a -> 
         let res, _ = handling_spec_inner env (normalize_spec a) h_norm h_ops continuation_spec perform_ret in 
@@ -702,6 +717,7 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
             [[Exists [ret]; HigherOrder (True, EmptyHeap, (fname, actualArgs), Var ret)]]
           | Some (formalArgs, spec_of_fname) -> 
             (* TODO should we keep existentials? *)
+            (*print_endline ("Function call: " ^ string_of_disj_spec spec_of_fname);*)
             let spec = renamingexistientalVar spec_of_fname in
             (* let spec = freshen spec_of_fname in *)
             (* Format.printf "after freshen: %s@." (string_of_disj_spec spec); *)
@@ -804,6 +820,8 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
       in
       (* for each disjunct of the scrutinee's behaviour, reason using the handler *)
       let phi1, env = infer_of_expression env [freshNormalReturnSpec] scr in 
+      (*print_endline ("match handler: " ^ string_of_disj_spec phi1);*)
+
       let afterHandling, env =
         concat_map_state env (fun spec env -> 
           handling_spec env (normalize_spec spec) inferred_val_case inferred_branch_specs
