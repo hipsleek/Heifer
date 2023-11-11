@@ -81,12 +81,14 @@ let wrapPop run_q
 let dequeue run_q
 (*@ queue_is_empty(run_q, true); Norm(res=())
 \/  ex m inter; req non_empty_queue(run_q, m);  Norm(non_empty_queue(run_q, m));
-    ex m' w f; req non_empty_queue(run_q, m);  
-    Norm(any_queue(run_q, m') /\ effNo(f) =w /\ m'+w=m /\ res=f)
+    ex m' w f cr; req non_empty_queue(run_q, m);  
+    Norm(any_queue(run_q, m') /\ effNo(f) =w /\ m'+w=m );
+    continue (f, (), cr); Norm(res=cr)
 @*)
 = if queue_is_empty run_q then ()
   else 
-  queue_pop run_q
+    let f = queue_pop run_q in 
+    continue f ()
 
 (*
 

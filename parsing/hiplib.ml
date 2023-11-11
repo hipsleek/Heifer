@@ -866,98 +866,74 @@ let transform_str env (s : structure_item) =
 
 
 
-let replaceSLPredicatesWithDefInState ((pure, heap):state) (slps:sl_pred_def SMap.t): (string list * state) = 
-  (*
-  print_endline ("replaceSLPredicatesWithDefInState:   " ^ string_of_state  (pure, heap));
-*)
-  let rec decomposePredicate p =
-    match p with 
-    | Predicate (str, actualArg) -> 
-      (try 
+let mergePredicates (preds:((string * term list ) list)) (slps:sl_pred_def SMap.t) : (string list * pi * kappa) = 
+  
+  List.fold_left (fun (accEx, accPi, accHeap) (str, actualArg) -> 
+    try 
       let ({p_sl_ex; p_sl_name; p_sl_params; p_sl_body}:sl_pred_def)  = SMap.find str slps in 
       assert (String.compare p_sl_name str == 0);
-
       let (p_sl_ex, p_sl_body) = renamingexistientalVarState p_sl_ex p_sl_body in 
       let bindings = bindFormalNActual (p_sl_params) (actualArg) in 
       let (pi, kappa) = p_sl_body in 
       let p_sl_body' = (instantiatePure bindings pi, instantiateHeap bindings kappa) in 
       let (pNew, heapNew) = p_sl_body' in 
-      (p_sl_ex, (pNew, Some heapNew))
-      with 
+      (p_sl_ex@accEx, And(accPi, pNew), SepConj(accHeap, heapNew))
+
+    with 
       | Not_found -> 
         raise (Failure (str ^ " not found"))
+  ) ([], True, EmptyHeap) preds
 
-      )
 
-      
-      
-
+let rec decomposeStateForPredicate p : (((string * term list ) list) * pi) =
+    match p with 
+    | Predicate (str, actualArg) -> ([(str, actualArg)], True)
     | And   (p1, p2) -> 
       (*print_endline ("AND!   " ^ string_of_pi p1 ^ ",   " ^ string_of_pi p2);*)
-      let (ex1, (morePure1, moreHeap1)) = decomposePredicate p1 in 
-      let (ex2, (morePure2, moreHeap2)) = decomposePredicate p2 in 
-      let unionHeap = 
-        match (moreHeap1, moreHeap2) with 
-        | (None, None) -> None 
-        | (Some h1, None) -> Some h1
-        | (None, Some h2) -> Some h2
-        | (Some h1, Some h2) -> Some (SepConj(h1, h2))
-      in  
-      (ex1@ex2, (And (morePure1, morePure2), unionHeap))
-
+      let (pred1, pi1) = decomposeStateForPredicate p1 in 
+      let (pred2, pi2) = decomposeStateForPredicate p2 in 
+      (pred1@pred2, (And (pi1, pi2)))
 
     | Atomic _
     | True 
-    | False -> [], (p, None)  
+    | False -> ([], p)
     | Not _  
     | Or    _
     | Imply  _ -> failwith "decomposePredicate nor and or and imply"
-  in 
-
-
-  
-  let (ex, (morePure, moreHeap)) = decomposePredicate pure in 
-  let heap' = match moreHeap with None -> heap | Some moreH -> SepConj (heap, moreH) in 
-  (ex, (morePure, heap'))
 
 
 
 
 
 let replaceSLPredicatesWithDef (specs:disj_spec) (slps:sl_pred_def SMap.t) = 
-  let rec helper (stage:normalisedStagedSpec): normalisedStagedSpec = 
-    let (effS, normalS) = stage in
-    match effS with
-    | [] ->
-      let (existiental, (p1, h1), (p2, h2)) = normalS in
+  let helper (stage:stagedSpec): spec = 
+    match stage with 
+    | Require (p, h) ->
+      let (preds, p') = decomposeStateForPredicate p in 
+      let (ex, p_pred, h_pred) = mergePredicates preds slps in 
+      [Exists ex; Require (p_pred, h_pred); Require (p', h)]
 
-      (*print_endline ("(p1, h1):   " ^ string_of_state  (p1, h1));
-      print_endline ("(p2, h2):   " ^ string_of_state  (p2, h2));*)
+    | HigherOrder (p, h, (f, args), ret) ->
+      let (preds, p') = decomposeStateForPredicate p in 
+      let (ex, p_pred, h_pred) = mergePredicates preds slps in 
+      [Exists ex; NormalReturn (p_pred, h_pred);  HigherOrder (p', h, (f, args), ret)]
 
-      let (ex1, (p1', h1')) = replaceSLPredicatesWithDefInState (p1, h1) slps in 
-      let (ex2, (p2', h2')) = replaceSLPredicatesWithDefInState (p2, h2) slps in 
-      ([], (existiental@ex1@ex2, (p1', h1'), (p2', h2')))
+    | NormalReturn (p, heap) ->
+      let (preds, p') = decomposeStateForPredicate p in 
+      let (ex, p_pred, h_pred) = mergePredicates preds slps in 
+      [Exists ex; NormalReturn (p_pred, h_pred);  NormalReturn (p', heap)]
 
-    | x :: xs  ->
-      let {e_evars; e_pre ; e_post; e_constr; e_ret; e_typ} = x in
-      let (p1, h1) = e_pre in 
-      let (p2, h2) = e_post in 
-      let (ex1, (p1', h1')) = replaceSLPredicatesWithDefInState (p1, h1) slps in 
-      let (ex2, (p2', h2')) = replaceSLPredicatesWithDefInState (p2, h2) slps in 
-      let x' = {e_evars=e_evars@ex1@ex2; e_pre=(p1', h1'); e_post=(p2', h2'); e_constr=e_constr; e_ret=e_ret; e_typ=e_typ} in 
+    | RaisingEff (p, h, (f, args), ret) ->
+      let (preds, p') = decomposeStateForPredicate p in 
+      let (ex, p_pred, h_pred) = mergePredicates preds slps in 
+      [Exists ex; NormalReturn (p_pred, h_pred);  RaisingEff (p', h, (f, args), ret)]
 
-      let (xs', normal') = helper (xs, normalS) in 
-      (x'::xs', normal')
-
-
-
-  in List.map (fun spec -> 
-    let (spec:normalisedStagedSpec) = normalize_spec spec in 
-    (*print_endline (string_of_normalisedStagedSpec spec);*)
-    
-    let spec' = helper spec in 
-    normalisedStagedSpec2Spec spec'
-  ) specs
+    | Exists _ -> [stage]
+  in 
+  normalise_spec_list
+  (List.map (fun spec ->     
+    List.flatten(List.map (fun stage -> helper stage) spec )
+  ) specs)
   
 
 
@@ -971,18 +947,19 @@ let replacePredicatesWithDef (specs:disj_spec) (ps:pred_def SMap.t) : disj_spec 
       (try 
       (let ({p_name; p_params; p_body}:pred_def)  = SMap.find f ps in 
       assert (String.compare p_name f == 0);
-      print_endline ("\n replacePredicates for " ^ p_name);
+      (*print_endline ("\n replacePredicates for " ^ p_name);
       print_endline ("p_params: " ^ (List.map (fun a-> a) p_params |> String.concat ", "));
       print_endline ("actualArg: " ^ (List.map (fun a-> string_of_term a) actualArg |> String.concat ", "));
 
 
       print_endline ("ret = " ^ string_of_term ret);
+      *)
 
       let bindings = bindFormalNActual (p_params) (actualArg) in 
 
-      print_endline (string_of_disj_spec p_body);
+      (*print_endline (string_of_disj_spec p_body);*)
       let p_body = renamingexistientalVar p_body in 
-      print_endline (" ===> " ^ string_of_disj_spec p_body);
+      (*print_endline (" ===> " ^ string_of_disj_spec p_body);*)
 
       let p_body' =  (instantiateSpecList bindings p_body)  in 
 
@@ -1002,7 +979,7 @@ let replacePredicatesWithDef (specs:disj_spec) (ps:pred_def SMap.t) : disj_spec 
             p_body' )
       in 
 
-      print_endline (" ===> " ^ string_of_disj_spec p_body');
+      (*print_endline (" ===> " ^ string_of_disj_spec p_body');*)
 
 
       let temp = helper xs in 
