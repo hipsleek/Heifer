@@ -85,7 +85,7 @@ let wrapPop run_q
 let dequeue run_q
 (*@ queue_is_empty(run_q, true); Norm(res=())
 \/  ex m m' w f cr; req non_empty_queue(run_q, m);  
-    Norm(any_queue(run_q, m') /\ effNo(f) =w /\ m'+w=m );
+    Norm(any_queue(run_q, m') /\ effNo(f) =w /\ w >0 /\ m'+w=m );
     continue (f, (), cr); Norm(res=cr)
 @*)
 = if queue_is_empty run_q then ()
@@ -102,8 +102,8 @@ let dequeue run_q
 
 let rec spawn f run_q 
 (*@ ex r; queue_is_empty(run_q, true) ; ens effNo(f)=0 /\ res =r /\ r= () 
-\/ ex m m' w ele cr; req non_empty_queue(run_q, m);  
-   Norm(any_queue(run_q, m') /\ effNo(ele) =w /\ m'+w=m );
+\/ ex m m' w w' ele cr; req non_empty_queue(run_q, m);  
+   Norm(any_queue(run_q, m') /\ effNo(f)=0 /\ effNo(ele) =w' /\ m'<m );
    spawn (ele, run_q, cr); Norm(res=cr)
 @*)
 = match f () with
