@@ -984,6 +984,12 @@ let normalisedStagedSpec2Spec (normalisedStagedSpec : normalisedStagedSpec) : sp
 let rec existControdictionSpec (spec : spec) : bool =
   match spec with
   | [] -> false
+  | Require (pi1, _)::NormalReturn (pi, _)::xs ->
+    let pi' = simplify_pure (And(pi1, pi)) in
+    (match ProversEx.entailConstrains pi' False with
+    | true ->  true
+    | _ -> 
+      existControdictionSpec xs)
   | NormalReturn (pi, _)::xs 
   | RaisingEff (pi, _, _, _) :: xs
   | HigherOrder (pi, _, _, _) ::xs -> 

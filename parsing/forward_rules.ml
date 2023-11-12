@@ -378,8 +378,10 @@ let rec handling_spec_inner env (scr_spec:normalisedStagedSpec) (h_norm:(string 
         res, env
 
       | _ -> 
+        print_endline ("continuation _spec: " ^ string_of_spec conti); 
+
         print_endline ((List.map string_of_term effActualArgs |> String.concat " "));
-        failwith("TODO: inductive hyposisis application") 
+        [conti], env (*failwith("TODO: inductive hyposisis application") *)
 
   
 
@@ -623,6 +625,11 @@ and handling_spec env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj_spe
 
       *)
 
+let ifAsyncYiled env  = 
+  match retrieveSpecFromEnv "dequeue" env with
+  | None  -> false 
+  | Some _ -> true  
+
  
 (** may update the environment because of higher order functions *)
 let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): disj_spec * fvenv =
@@ -836,9 +843,15 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
           in
           (*let sp = normalize_spec sp in *)
           let sp = (normalise_spec_list sp) in 
-          (*print_endline ("Inferred_branch_specs: \n" ^ effname ^  (match param with | None -> "" | Some p -> p ^ ", ")^ ": " ^ 
-        
-          string_of_disj_spec sp);  *)
+
+          let sp = if ifAsyncYiled env then 
+            let temp = instantiateSpecList [("k", Var ("f2"));("f'", Var("f1"))] sp in 
+            replaceContinueWithHypo temp match_summary
+          else sp in 
+    
+
+          print_endline ("Inferred_branch_specs: \n" ^ effname  ^  (match param with | None -> " " | Some p -> p ^ ", ")^ ": " ^ 
+          string_of_disj_spec sp);  
 
           (effname, param, sp) :: t, env
         ) eff_cases ([], env)
@@ -853,16 +866,16 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
       in
       (* for each disjunct of the scrutinee's behaviour, reason using the handler *)
       let phi1, env = infer_of_expression env [freshNormalReturnSpec] scr in 
+      print_endline ("string at handler: " ^ string_of_disj_spec phi1 ^ "\n");
 
       let afterHandling, env =
         concat_map_state env (fun spec env -> 
           handling_spec env (normalize_spec spec) inferred_val_case inferred_branch_specs
         ) phi1
       in 
-      print_endline ("match handler: " ^ string_of_disj_spec afterHandling);
+      print_endline ("match handler: " ^ string_of_disj_spec afterHandling ^ "\n");
 
       
-      let afterHandling = replaceContinueWithHypo afterHandling match_summary in 
 
       let res, env = concatenateSpecsWithSpec history afterHandling, env in
       res, env
