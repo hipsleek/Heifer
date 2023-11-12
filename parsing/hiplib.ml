@@ -1031,18 +1031,20 @@ let transform_strs (strs: structure_item list) : core_program =
       match transform_str env c with
       | Some (`Lem l) -> env, es, ms, ps, slps, SMap.add l.p_name l ls
       | Some (`Pred p) -> 
-        print_endline ("\n"^ p.p_name ^  Format.asprintf "(%s)" (String.concat ", " p.p_params) ^ ": ");
+        (*print_endline ("\n"^ p.p_name ^  Format.asprintf "(%s)" (String.concat ", " p.p_params) ^ ": ");
         print_endline (string_of_disj_spec p.p_body);
+        *)
 
         let body' = replaceSLPredicatesWithDef p.p_body slps in 
-        print_endline ("~~~> " ^ string_of_disj_spec body');
-
+        (*print_endline ("~~~> " ^ string_of_disj_spec body');
+        *)
         let (p': pred_def) = {p_name =p.p_name; p_params = p.p_params; p_body = body'} in 
         env, es, ms, SMap.add p'.p_name p' ps, slps, ls
 
       | Some (`SLPred p) -> 
+        (*
         print_endline ("\n"^ p.p_sl_name^  Format.asprintf "(%s)" (String.concat ", " p.p_sl_params) ^ ": " ^ Format.asprintf "ex %s; " (String.concat " " p.p_sl_ex) ^ string_of_state p.p_sl_body);
-
+        *)
         env, es, ms, ps, SMap.add p.p_sl_name p slps,ls
       | Some (`Eff a) -> env, a :: es, ms, ps, slps, ls
       | Some (`Meth (m_name, m_params, m_spec, m_body, m_tactics)) -> 
@@ -1050,12 +1052,12 @@ let transform_strs (strs: structure_item list) : core_program =
           (match m_spec with 
           | None -> None 
           | Some spec -> 
-          print_endline ("\n"^ m_name ^  Format.asprintf "(%s)" (String.concat ", " m_params) ^ ": ");
-          print_endline (string_of_disj_spec spec);
+          (*print_endline ("\n"^ m_name ^  Format.asprintf "(%s)" (String.concat ", " m_params) ^ ": ");
+          print_endline (string_of_disj_spec spec);*)
           let spec' = replacePredicatesWithDef spec ms ps in 
-          print_endline ("~~~> " ^ string_of_disj_spec spec');
+          (*print_endline ("~~~> " ^ string_of_disj_spec spec');*)
           let spec'' = (replaceSLPredicatesWithDef spec' slps) in 
-          print_endline ("~~~> " ^ string_of_disj_spec spec'' ^"\n");
+          (*print_endline ("~~~> " ^ string_of_disj_spec spec'' ^"\n");*)
           Some spec''
           ) 
         in 
@@ -1481,14 +1483,16 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) =
             let inferred_spec = normalise_spec_list inferred_spec in 
             let given_spec = normalise_spec_list given_spec in 
 
-            print_endline ("proving!!!==================================") ;
+            (*print_endline ("proving!!!==================================") ;
             print_endline ("inferred_spec " ^ string_of_disj_spec inferred_spec);
             print_endline (" |= ") ;
             print_endline ("given_spec " ^ string_of_disj_spec given_spec);
+            *)
 
             let res = Entail.check_staged_subsumption_disj meth.m_name meth.m_params meth.m_tactics prog.cp_lemmas predicates inferred_spec given_spec in 
-            print_endline ("proving end!!!==================================") ;
+            (*print_endline ("proving end!!!==================================") ;
             print_endline (string_of_bool res);
+            *)
             res
 
         with Norm_failure ->

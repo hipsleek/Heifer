@@ -264,8 +264,9 @@ let primitives = ["+"; "-"; "="; "not"; "::"; "&&"; "||"; ">"; "<"; ">="; "<="]
 let replaceContinueWithHypo (afterHandling:disj_spec) (match_summary:disj_spec option):disj_spec =  
   match match_summary with 
   | None -> afterHandling 
-  | Some ([[HigherOrder (p, h, (f, hd::formal), r)]]) -> 
-    print_endline ("replaceContinueWithHypo: " ^ string_of_staged_spec (HigherOrder (p, h, (f, hd::formal), r))); 
+  | Some ([[HigherOrder (_, _, (f, _::formal), _)]]) -> 
+    (*print_endline ("replaceContinueWithHypo: " ^ string_of_staged_spec (HigherOrder (p, h, (f, hd::formal), r))); 
+    *)
     List.map (
       fun spec -> 
 
@@ -318,8 +319,9 @@ let retriveLastRes (a:spec) : term =
 let rec handling_spec_inner env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj_spec)) (h_ops:(string * string option * disj_spec) list) (conti:spec) (formal_ret:string) : spec list * fvenv = 
 
   let (scr_eff_stages, scr_normal) = scr_spec in 
-  print_endline ("continuation_spec: " ^ string_of_spec conti); 
+  (*print_endline ("continuation_spec: " ^ string_of_spec conti); 
   print_endline ("formal_ret: " ^ formal_ret); 
+  *)
   
 
   match scr_eff_stages with 
@@ -515,6 +517,8 @@ and handling_spec env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj_spe
         let res, _ = handling_spec_inner env (normalize_spec a) h_norm h_ops continuation_spec perform_ret in 
         res
       ) handler_body_spec) in 
+      (*print_endline ("handling : " ^ label ^ " with norm = " ^ string_of_normalisedStagedSpec([], norm)); 
+      *)
       let raw = concatenateEventWithSpecs (normalStage2Spec norm) raw in 
       
       raw, env
@@ -815,8 +819,9 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
     | CMatch (match_summary, scr, Some val_case, eff_cases, []) -> (* effects *)
       (* infer specs for branches of the form (Constr param -> spec), which also updates the env with obligations *)
 
+      (*
       print_endline ("CMatch(" ^string_of_core_lang scr ^ "). match_summary = " ^ (match match_summary with | None -> "none" | Some match_summary -> string_of_disj_spec match_summary) );
-         
+      *)   
       let env = 
         match match_summary with 
         | Some (summary) -> 
@@ -850,8 +855,9 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
           else sp in 
     
 
-          print_endline ("Inferred_branch_specs: \n" ^ effname  ^  (match param with | None -> " " | Some p -> p ^ ", ")^ ": " ^ 
+          (*print_endline ("Inferred_branch_specs: \n" ^ effname  ^  (match param with | None -> " " | Some p -> p ^ ", ")^ ": " ^ 
           string_of_disj_spec sp);  
+          *)
 
           (effname, param, sp) :: t, env
         ) eff_cases ([], env)
@@ -862,18 +868,20 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
         (*let inf_val_spec = normalize_spec inf_val_spec in*)
         (*print_endline ("Inferred_nromal_spec: \n" ^  (match param with | p -> p ^ "")^ ": " ^ 
         string_of_disj_spec (normalise_spec_list inf_val_spec));*)
+        let inf_val_spec = if ifAsyncYiled env then replaceContinueWithHypo inf_val_spec match_summary
+        else inf_val_spec in 
+
         (param, inf_val_spec), env
       in
       (* for each disjunct of the scrutinee's behaviour, reason using the handler *)
       let phi1, env = infer_of_expression env [freshNormalReturnSpec] scr in 
-      print_endline ("string at handler: " ^ string_of_disj_spec phi1 ^ "\n");
+      (*print_endline ("string at handler: " ^ string_of_disj_spec phi1 ^ "\n");*)
 
       let afterHandling, env =
         concat_map_state env (fun spec env -> 
           handling_spec env (normalize_spec spec) inferred_val_case inferred_branch_specs
         ) phi1
       in 
-      print_endline ("match handler: " ^ string_of_disj_spec afterHandling ^ "\n");
 
       
 

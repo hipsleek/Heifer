@@ -95,16 +95,24 @@ let dequeue run_q
 
 
 (*@ predicate f(arg) = 
-      ex r r1 r2; Yield(emp, r1); f2(r2);
-      Norm(effNo(f)=n /\ n>0 /\ effNo(f2)=n-1 /\ res = r /\ r= ()) 
+     ex r; Norm(effNo(f) = 0 /\ r = () /\ res=r)
+   \/
+ ex r r1 r2 n; Yield(effNo(f)=n/\n>0/\effNo(f2)=n-1, r1); f2(r2);
+      Norm(res = r /\ r= ()) 
+\/ ex r r1 r2 n m1 m2; Fork(effNo(f)=n /\ n>0 /\ effNo(f1)= m1 /\ effNo(f2)=m2 /\ m1>0 /\ m2>0 /\ (m1+m2)=(n-1), f1, r1); f2(r2); 
+      Norm(res =r /\ r= ())
 @*)
 
 
 
 let rec spawn f run_q 
-(*@ ex m m' w w' ele cr; req any_queue(run_q, m);  
-   Norm(any_queue(run_q, m') /\ effNo(f)=w /\ effNo(ele) =w' /\ w>0 /\ w'>0 /\ (w'+m')<(m+w) );
+(*@ ex r; queue_is_empty(run_q, true) ; ens effNo(f)=0 /\ res =r /\ r= () 
+\/ ex m m' w w' ele cr; req non_empty_queue(run_q, m);  
+   Norm(any_queue(run_q, m') /\ effNo(f)=0 /\ effNo(ele) =w' /\ m'<m );
    spawn (ele, run_q, cr); Norm(res=cr)
+\/ ex m m' w w' ele cr qq mm; req any_queue(run_q, m) /\ effNo(qq)=mm /\ mm>0 ;  
+    Norm(any_queue(run_q, m') /\ effNo(f)=w /\ effNo(ele) =w' /\ w>0 /\ w'>0 /\ (w'+m')<(m+w) );
+    spawn (ele, run_q, cr); Norm(res=cr)
 @*)
 = match f () with
   (*@ spawn (f, run_q, res) @*)
@@ -142,16 +150,5 @@ let main () =
   p_total
 
 let _ = run main
-
-
-req run_q->v1201/\effNo(v1201)=v1197/\v1197>=0; 
-Norm(run_q->v1202/\effNo(v1202)=v1198/\v1198>0/\effNo(f2)=v1199/\v1199>0/\v1198=v1197+v1199/\v1195=()/\v1221=v1195); 
-Norm(emp); ex v1205 v1206 v1207 v1208; 
-req run_q->v1207/\effNo(v1207)=0; 
-Norm(run_q->v1208/\effNo(v1208)=0/\v1205=true/\res=()) 
-
-
-req run_q->v1201/\effNo(v1201)=v1197/\v1197>=0/\effNo(v1207)=0/\v1202=v1207; 
-Norm(run_q->v1208/\effNo(v1202)=v1198/\v1198>0/\effNo(f2)=v1199/\v1199>0/\v1198=v1197+v1199/\v1221=()/\v1207=v1202/\effNo(v1208)=0/\v1205=true/\res=())
 *)
 
