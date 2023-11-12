@@ -902,8 +902,8 @@ let rec decomposeStateForPredicate p : (((string * term list ) list) * pi) =
 
     | Atomic _
     | True 
-    | False -> ([], p)
     | Not _  
+    | False -> ([], p)
     | Or    _
     | Imply  _ -> failwith "decomposePredicate nor and or and imply"
 
@@ -1372,7 +1372,10 @@ let normal_report ?(kind="Function") ?given_spec ?given_spec_n ?inferred_spec ?i
       "[Normed   Post] " ^ string_of_spec_list (normalise_spec_list (normalise_spec_list_aux2 s)) ^ "\n"
     | None -> "") ^
     (match forward_time_ms with
-    | Some t -> "[Forward  Time] " ^ string_of_time t ^ " ms\n"
+    | Some t -> 
+      (
+      let () = summary_forward := !summary_forward  +. t in   
+      "[Forward  Time] " ^ string_of_time t ^ " ms\n")
     | None -> "") ^
     (match result with
     | Some r ->
@@ -1380,9 +1383,14 @@ let normal_report ?(kind="Function") ?given_spec ?given_spec_n ?inferred_spec ?i
       "[Entail  Check] " ^ (string_of_res r) ^ don't_worry ^ "\n"
     | None -> "") ^
     (match entail_time_ms with
-    | Some t -> "[Entail   Time] " ^ string_of_time t ^ " ms\n"
+    | Some t -> 
+      (
+      let () = summary_entail := !summary_entail  +. t in     
+      "[Entail   Time] " ^ string_of_time t ^ " ms\n")
     | None -> "") ^
-    ("[Z3       Time] " ^ string_of_time !z3_consumption^ " ms\n")
+
+    (let () = summary_askZ3 := !summary_askZ3  +. !z3_consumption in 
+    ("[Z3       Time] " ^ string_of_time !z3_consumption^ " ms\n"))
     
     ^
     (String.init (String.length name + 32) (fun _ -> '=')) ^ "\n"
@@ -1563,9 +1571,29 @@ let run_string_ line =
 let run_string s =
   Provers.handle (fun () -> run_string_ s)
 
+let retriveComments (source:string) : (string list) = 
+  let partitions = Str.split (Str.regexp "(\*@") source in 
+  match partitions with 
+  | [] -> assert false 
+  | _ :: rest -> (*  SYH: Note that specification can't start from line 1 *)
+  let partitionEnd = List.map (fun a -> Str.split (Str.regexp "@\*)")  a) rest in 
+  let rec helper (li: string list list): string list = 
+    match li with 
+    | [] -> []
+    | x :: xs  -> 
+      (match List.hd x with
+      |  head -> 
+        if String.compare head "" ==0 then helper xs 
+        else 
+          let ele = ("/*@" ^ head ^ "@*/") in 
+          (ele :: helper xs)  ) 
+  in 
+  let temp = helper partitionEnd in 
+  temp
+
 let run_file inputfile =
-(*    let outputfile = (Sys.getcwd ()^ "/" ^ Sys.argv.(2)) in
-print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
+(* let outputfile = (Sys.getcwd ()^ "/" ^ Sys.argv.(2)) in
+   print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
   let ic = open_in inputfile in
   try
       let lines =  (input_lines ic ) in
@@ -1575,23 +1603,23 @@ print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
 
       run_string line;
 
+      let partitions = retriveComments line in
 
-      (* let results, _ =
-        List.fold_left (fun (s, env) a ->
-          let spec, env1 = infer_of_program env a in
-          spec :: s, env1
-        ) ([], Env.empty) progs
-      in *)
- 
-      (* print_endline (results |> List.rev |> String.concat ""); *)
+      let line_of_spec = List.fold_left (fun acc a -> acc + (List.length (Str.split (Str.regexp "\n") a))) 0 partitions in 
+
+      let finalSummary = 
+        "\n========== FINAL SUMMARY ==========\n" 
+        ^"[  LOC  ] " ^   string_of_int (List.length lines) ^ "\n"
+        ^"[  LOS  ] " ^   string_of_int (line_of_spec)  ^ "\n"
+        ^"[Forward] " ^   string_of_float (!summary_forward)  ^ "\n"
+        ^"[ Enatil] " ^   string_of_float (!summary_entail)  ^ "\n"
+        ^"[ AskZ3 ] " ^   string_of_float (!summary_askZ3)  ^ "\n"
+
+      
+      in 
+      print_endline finalSummary; 
 
 
-
-      (* 
-      print_endline (testSleek ());
-
-      *)
-      (*print_endline (Pprintast.string_of_structure progs ) ; *)
       
       flush stdout;                (* 现在写入默认设备 *)
       close_in ic                  (* 关闭输入通道 *)
