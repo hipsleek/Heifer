@@ -210,7 +210,7 @@ and string_of_staged_spec (st:stagedSpec) : string =
     Format.asprintf "Norm(%s)" (string_of_state (pi, heap))
   | RaisingEff (pi, heap, (name, args), ret) ->
 
-    Format.asprintf "eff %s(%s, %s, %s)" name (string_of_state (pi, heap)) (string_of_args string_of_term args) (string_of_term ret)
+    Format.asprintf "%s(%s, %s, %s)" name (string_of_state (pi, heap)) (string_of_args string_of_term args) (string_of_term ret)
   | Exists vs ->
     Format.asprintf "ex %s" (String.concat " " vs)
   (* | IndPred {name; args} -> *)
