@@ -24,19 +24,6 @@ let yield ()
 (*@ ~predicate empty_queue(queue) 
 = ex q; queue->q /\ effNo(q) = 0   @*)
 
-(* predicate queue_push(ele, queue) 
-= ex mm mm' w inter; req any_queue(queue, mm) /\ effNo(ele)=w; 
-  Norm(non_empty_queue(queue, mm') /\ mm'=mm+w /\ res=inter /\ inter=()) @*)
-
-(* predicate queue_is_empty(queue) 
-=  ex inter; req empty_queue(queue); Norm(empty_queue(queue) /\ res=inter /\ inter=true)
-\/ ex m inter; req non_empty_queue(queue, m);  Norm(non_empty_queue(queue, m) /\ res=inter /\ inter=false) @*)
-
-
-(* predicate queue_pop (queue) 
-= ex m m' w f; req non_empty_queue(queue, m);  
-  Norm(any_queue(queue, m') /\ effNo(f) =w /\ m'+w=m /\ res=f) @*)
-
 let queue_create () = ref ([], [])
 
 let queue_push ele queue 
