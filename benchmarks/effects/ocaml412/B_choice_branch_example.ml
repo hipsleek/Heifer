@@ -1,12 +1,16 @@
 (* McCarthy's locally angelic choice operator (angelic modulo nontermination). *)
+(* The following examples are adapted from Oleg Kiselyov
+   "Non-deterministic choice amb"
+   (c.f. https://okmij.org/ftp/ML/ML.html#amb) *)
+
 
 effect Choose : (unit -> bool) list -> bool
 effect Success : int -> unit 
 effect Failure : int -> int 
 
-let amb (xs : (unit -> bool) list) : bool
+let amb (xs : (unit -> bool) list) counter : bool
 (*@ ex r; Choose(emp, (xs), r) @*)
-= perform (Choose xs)
+= let b = perform (Choose xs) in counter := !counter +1; b
 
 let rec iter (f:((unit -> bool) -> unit))  (xs:(unit -> bool) list) :  unit
 (*@ Norm(is_nil(xs)=true/\res=()) 
@@ -16,12 +20,10 @@ let rec iter (f:((unit -> bool) -> unit))  (xs:(unit -> bool) list) :  unit
   | [] -> ()
   | h::t -> f h; iter f t
 
-
-let m xs 
+let m xs counter
 (*@ ex r1 ; Choose(emp, (xs), r1); Norm(r1= true /\ res =7 ) 
 \/ ex r1 ; Choose(emp, (xs), r1); ex r2; Failure(r1=false, 500, r2); Norm(res =r2 ) @*)
-= if amb xs then 7 else perform (Failure 500)
-
+= if amb xs counter then 7 else perform (Failure 500)
 
 (*@ predicate containRetTrue (xs) = 
    Norm(is_nil(xs)=true/\res=false ) 
@@ -30,27 +32,8 @@ let m xs
 @*)
 
 
-(*
-let handle (xs:(unit -> bool) list) : int 
-(*@ 
-  try m() with 
-  {x -> Norm(res=x); 
-  (Choose xs) k -> 
-    try 
-        req xs=[]; Failure(emp, -1, r)
-        \/
-        ex temp; req xs=h::t; 
-        try (h(emp, (), r1); continue(emp, r1, temp)); Success(emp, temp, r2)
-        with 
-          {x -> Norm(res=()); 
-           (Success x) k -> Success (emp, x, res); 
-           (Failure x) k -> Norm(res=())}
-    with 
-    {x -> Norm(res=x)
-    (Success x) k -> Norm(res=x)}
-  }
-@*)
-= match (m xs) with
+let handle (xs:(unit -> bool) list) counter : int 
+= match (m xs counter) with
   | x -> x
   | effect (Choose xs) k ->
   match 
@@ -71,42 +54,14 @@ let handle (xs:(unit -> bool) list) : int
   | x -> x  
 
 
-
-
-
-let branch_example_generic (xs: (unit -> bool) list) : int
+let branch_example_generic (xs: (unit -> bool) list) counter : int
 (*@ ex r; req containRetTrue (xs, true); ens res = r /\ r=7 
     ex r; req containRetTrue (xs, false); ens Failure(-1, r); Norm (res=r)
 @*)
-= handle xs
-
-
-
-(* The following examples are adapted from Oleg Kiselyov
-   "Non-deterministic choice amb"
-   (c.f. https://okmij.org/ftp/ML/ML.html#amb) *)
-
-(*
-
-
-let m1 xs 
-(*@ ex r ; Choose(emp, (xs), true); ens res = r /\ r=7 
- \/ ex r ; Choose(emp, (xs), false); Failure(emp, 500, r); Norm(res=r)
-@*)
-= if amb xs then perform (Failure 500) else 42 
-
-
-let branch_example (): int
-(*@ branch_example(res): req true; ens res=42 @*)
-= handle m1 [(fun () -> true); (fun () -> true); (fun () -> true); (fun () -> false)]
-*)
+= handle xs counter
 
 let _ =
-  (*let v = branch_example () in
-  Printf.printf "(%d)\n%!" v;*)
-  let v = branch_example_generic [(fun () -> false); (fun () -> false); (fun () -> false); (fun () -> true)] in
+  let counter  = ref 0 in
+  let v = branch_example_generic [(fun () -> false); (fun () -> false); (fun () -> true); (fun () -> false)] counter in
   Printf.printf "(%d)\n%!" v;
-   
-   
-   
-*)
+  Printf.printf "(counter = %d)\n%!" !counter

@@ -59,10 +59,12 @@ let pyth : int list -> bool (*int * int * int*)
       let j = amb numbers' in
       let k = amb numbers' in
       if i*i + j*j = k*k
-      then true
+      then 
+        (print_endline (string_of_int i ^ " " ^ string_of_int j ^ " "^ string_of_int k);
+        true)
       else failwith "no solution")
 
-let pyth_example () = pyth [1;2;3;4;5]
+let pyth_example () = pyth [20;21;29;1;2;3;4;5;]
 
 let _ =
   let b = pyth_example () in
