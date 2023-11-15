@@ -92,7 +92,16 @@ let retrieveSpecFromEnv (fname: string) (env:fvenv) : (string list * spec list) 
   SMap.find_opt fname env.fv_predicates
   |> Option.map (fun p -> (p.p_params, p.p_body))
 
-
+let rec specContainUndefinedHO (spec:spec) (env:fvenv) : bool = 
+  match spec with 
+  | [] -> false 
+  | HigherOrder (p, k, (c, va), r):: xs -> 
+    (match retrieveSpecFromEnv c env with 
+    | None -> true 
+    | _ -> specContainUndefinedHO xs env  
+    )
+  | TryCatch _  :: _ -> true 
+  | _ :: xs -> specContainUndefinedHO xs env   
 
 
 let retrieveMatchSummaryFromEnv (fname: string) (env:fvenv) : (string list * spec list) option = 
@@ -105,39 +114,6 @@ let retrieveMatchSummaryFromEnv (fname: string) (env:fvenv) : (string list * spe
       if String.compare fname label == 0 then Some (args, summary) 
       else helper xs  
   in helper records
-  
-
-
-let bindFormalNActual (formal: string list) (actual: core_value list) : ((string * core_value) list)= 
-  try List.map2 (fun a b -> (a, b)) formal actual
-  with 
-  | Invalid_argument _ -> 
-    print_endline ("formal: " ^ (List.map (fun a-> a) formal |> String.concat ", "));
-    print_endline ("actual: " ^ (List.map (fun a-> string_of_term a) actual |> String.concat ", "));
-    failwith ("bindFormalNActual length not equle")
-  
-
-  (*
-  match (formal, actual) with 
-  | (x::xs, y::ys) -> (x, y)::bindFormalNActual xs ys 
-  | ([], []) -> [] 
-  | _ -> []   
-  *)
-
-let bindNewNames (formal: string list) (actual: string list) : ((string * string) list)= 
-  List.map2 (fun a b -> (a, b)) formal actual
-
-
-
-
-  
-
-
-
-
-
-
-
 
 
 
@@ -319,19 +295,22 @@ let retriveLastRes (a:spec) : term =
 let rec handling_spec_inner env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj_spec)) (h_ops:(string * string option * disj_spec) list) (conti:spec) (formal_ret:string) : spec list * fvenv = 
 
   let (scr_eff_stages, scr_normal) = scr_spec in 
-  (*print_endline ("continuation_spec: " ^ string_of_spec conti); 
+  (*print_endline ("scr_spec: " ^ string_of_normalisedStagedSpec scr_spec); 
+  print_endline ("continuation_spec: " ^ string_of_spec conti); 
   print_endline ("formal_ret: " ^ formal_ret); 
   *)
   
 
   match scr_eff_stages with 
   | [] -> [normalStage2Spec scr_normal] , env
-  | x :: xs ->
+  | (EffHOStage x) :: xs ->
     (* there is an effect stage x in the scrutinee which may or may not be handled *)
     let perform_ret =
       match x.e_ret with 
       | Var ret -> ret
-      | _ -> failwith "effect return is not var"
+      | _ -> 
+        print_endline (string_of_term x.e_ret);
+        failwith "effect return is not var 1"
     in
     let performEx = x.e_evars in 
     let performPre = x.e_pre in 
@@ -351,7 +330,7 @@ let rec handling_spec_inner env (scr_spec:normalisedStagedSpec) (h_norm:(string 
 
     if String.compare label "continue" !=0 then 
       let rest, env = handling_spec_inner env (xs, scr_normal) h_norm h_ops conti formal_ret in 
-      concatenateEventWithSpecs (effectStage2Spec [x]) (rest), env
+      concatenateEventWithSpecs (effectStage2Spec [EffHOStage x]) (rest), env
 
     else 
       match effActualArgs with 
@@ -426,12 +405,12 @@ and handling_spec env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj_spe
 
     current, env
     
-  | x :: xs ->
+  | (EffHOStage x) :: xs ->
     (* there is an effect stage x in the scrutinee which may or may not be handled *)
     let perform_ret =
       match x.e_ret with 
       | Var ret -> ret
-      | _ -> failwith "effect return is not var"
+      | _ -> failwith "effect return is not var 2"
     in
     let performEx = x.e_evars in 
     let performPre = x.e_pre in 
@@ -487,7 +466,7 @@ and handling_spec env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj_spe
 
       (* effect x is unhandled. handle the rest of the trace and append it after the unhandled effect. this assumption is sound for deep handlers, as if x is resumed, xs will be handled under this handler. *)
         let r, env = handling_spec env (xs, scr_normal) h_norm h_ops in
-        let current = concatenateEventWithSpecs (effectStage2Spec [x]) (r) in
+        let current = concatenateEventWithSpecs (effectStage2Spec [EffHOStage x]) (r) in
 
 
         current, env)
@@ -829,6 +808,9 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
             match scr with 
             | CFunCall (str, [Var n]) ->  (str, [n]) 
             | CFunCall (str, [UNIT]) ->  (str, []) 
+            | CLet(_, CFunCall (str, [Var n]), _) ->  (str, [n]) 
+            | CLet(_, CFunCall (str, [Var n; Var n2]), _) ->  (str, [n;n2]) 
+            | CLet(_, CFunCall (str, [UNIT]), _) ->  (str, []) 
 
             | _ -> 
               print_endline (string_of_core_lang scr);
@@ -855,9 +837,9 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
           else sp in 
     
 
-          (*print_endline ("Inferred_branch_specs: \n" ^ effname  ^  (match param with | None -> " " | Some p -> p ^ ", ")^ ": " ^ 
+          print_endline ("Inferred_branch_specs: --------- \n" ^ effname  ^  (match param with | None -> " " | Some p -> "("^ p ^ ") ")^ ": " ^ 
           string_of_disj_spec sp);  
-          *)
+          
 
           (effname, param, sp) :: t, env
         ) eff_cases ([], env)
@@ -866,22 +848,27 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
         let (param, body)  = val_case in
         let inf_val_spec, env = infer_of_expression env [[]] body in
         (*let inf_val_spec = normalize_spec inf_val_spec in*)
-        (*print_endline ("Inferred_nromal_spec: \n" ^  (match param with | p -> p ^ "")^ ": " ^ 
-        string_of_disj_spec (normalise_spec_list inf_val_spec));*)
         let inf_val_spec = if ifAsyncYiled env then replaceContinueWithHypo inf_val_spec match_summary
         else inf_val_spec in 
+        print_endline ("Inferred_nromal_spec: --------- \n" ^  (match param with | p -> p ^ "")^ ": " ^ 
+        string_of_disj_spec (normalise_spec_list inf_val_spec));
 
         (param, inf_val_spec), env
       in
       (* for each disjunct of the scrutinee's behaviour, reason using the handler *)
       let phi1, env = infer_of_expression env [freshNormalReturnSpec] scr in 
-      (*print_endline ("string at handler: " ^ string_of_disj_spec phi1 ^ "\n");*)
+      print_endline ("\nstring at handler: " ^ string_of_disj_spec phi1 ^ "\n\n"); 
 
       let afterHandling, env =
         concat_map_state env (fun spec env -> 
-          handling_spec env (normalize_spec spec) inferred_val_case inferred_branch_specs
+          if specContainUndefinedHO spec env then 
+            let (trycatch:spec list) = [[TryCatch(spec, (inferred_val_case, inferred_branch_specs), Var "TryCatch r")]] in 
+            trycatch, env
+          else handling_spec env (normalize_spec spec) inferred_val_case inferred_branch_specs
         ) phi1
       in 
+
+      print_endline ("\nafter afterHandling at handler: " ^ string_of_disj_spec afterHandling ^ "\n\n"); 
 
       
 

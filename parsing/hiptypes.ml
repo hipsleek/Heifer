@@ -74,6 +74,10 @@ and kappa =
 (* a formula which describes a program state *)
 and state = pi * kappa
 
+and handlingcases = (string * spec list) * ((string * string option * spec list) list)
+and trycatch = (spec * handlingcases * term)
+
+
 and stagedSpec = 
       | Exists of string list
       | Require of pi * kappa 
@@ -86,6 +90,7 @@ and stagedSpec =
       (* effects: H /\ P /\ E(...args, v), term is always a placeholder variable *)
       | RaisingEff of (pi * kappa * instant * term)
       (* | IndPred of { name : string; args: term list } *)
+      | TryCatch of trycatch
 
 and spec = stagedSpec list
 
@@ -192,10 +197,13 @@ type effectStage = {
   e_typ : [`Eff | `Fn];
 }
 
+
+type effHOTryCatchStages = EffHOStage of effectStage | TryCatchStage of trycatch
+
 (** existentials, pre, post (which may contain constraints on res) *)
 type normalStage =  (string list* (pi * kappa ) * (pi * kappa))
 
-type normalisedStagedSpec = effectStage list * normalStage
+type normalisedStagedSpec = effHOTryCatchStages list * normalStage
 
 let freshNormalReturnSpec = [NormalReturn (True, EmptyHeap)]
 let freshNormalStage : normalStage = ([], (True, EmptyHeap), (True, EmptyHeap)) 

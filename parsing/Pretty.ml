@@ -9,6 +9,7 @@ let is_alpha = function 'a' .. 'z' | 'A' .. 'Z' -> true | _ -> false
 
 exception Foo of string
 
+
 let colours : [`Html|`Ansi|`None] ref = ref `None
 
 let col ~ansi ~html ~title text =
@@ -215,6 +216,13 @@ and string_of_staged_spec (st:stagedSpec) : string =
     Format.asprintf "ex %s" (String.concat " " vs)
   (* | IndPred {name; args} -> *)
     (* Format.asprintf "%s(%s)" name (String.concat " " (List.map string_of_term args)) *)
+  | TryCatch (src, ((normP, normSpec), ops), ret) -> 
+    let string_of_normal_case = normP ^ ": " ^ string_of_disj_spec (normSpec) in 
+    let string_of_eff_case (eName, param, eSpec)=  eName  ^  
+      (match param with | None -> " " | Some p -> "("^ p ^ ") ")^ ": " ^ string_of_disj_spec eSpec in 
+    let string_of_eff_cases ops =  List.fold_left (fun acc a -> acc ^ string_of_eff_case a) "" ops in 
+    Format.asprintf "\nTRY \n(%s)\n CATCH \n {%s; %s}[%s]" (string_of_spec src) (string_of_normal_case) (string_of_eff_cases ops) (string_of_term ret)
+
 
 and string_of_spec (spec:spec) :string =
   match spec with
@@ -376,7 +384,7 @@ let rec string_of_normalisedStagedSpec (spec:normalisedStagedSpec) : string =
     let ex = match existiental with [] -> [] | _ -> [Exists existiental] in
     let current = ex @ [Require(p1, h1); NormalReturn(p2, h2)] in
     string_of_spec current
-  | x :: xs  ->
+  | (EffHOStage x) :: xs  ->
     (let {e_pre = (p1, h1); e_post = (p2, h2); _} = x in
     let ex = match x.e_evars with [] -> [] | _ -> [Exists x.e_evars] in
     let current = ex @ [Require(p1, h1);
@@ -385,6 +393,12 @@ let rec string_of_normalisedStagedSpec (spec:normalisedStagedSpec) : string =
     | `Fn -> HigherOrder(p2, h2, x.e_constr, x.e_ret))] in
     string_of_spec current )
     ^ "; " ^ string_of_normalisedStagedSpec (xs, normalS)
+
+  | (TryCatchStage x) :: xs  -> 
+    string_of_staged_spec (TryCatch x) 
+    ^ "; " ^ string_of_normalisedStagedSpec (xs, normalS)
+    
+
 
 let string_of_normalisedStagedSpecList (specs:normalisedStagedSpec list) : string =
   match specs with
@@ -588,3 +602,30 @@ let rec local_lambda_defs pi =
 
 let local_lambda_defs_state (p, _h) =
   local_lambda_defs p |> List.to_seq |> SMap.of_seq
+
+
+
+let bindFormalNActual (formal: string list) (actual: core_value list) : ((string * core_value) list)= 
+  try List.map2 (fun a b -> (a, b)) formal actual
+  with 
+  | Invalid_argument _ -> 
+    print_endline ("formal: " ^ (List.map (fun a-> a) formal |> String.concat ", "));
+    print_endline ("actual: " ^ (List.map (fun a-> string_of_term a) actual |> String.concat ", "));
+    failwith ("bindFormalNActual length not equle")
+  
+
+  (*
+  match (formal, actual) with 
+  | (x::xs, y::ys) -> (x, y)::bindFormalNActual xs ys 
+  | ([], []) -> [] 
+  | _ -> []   
+  *)
+
+let bindNewNames (formal: string list) (actual: string list) : ((string * string) list)= 
+  try List.map2 (fun a b -> (a, b)) formal actual
+  with 
+  | Invalid_argument _ -> 
+    print_endline ("formal: " ^ (List.map (fun a-> a) formal |> String.concat ", "));
+    print_endline ("actual: " ^ (List.map (fun a-> a) actual |> String.concat ", "));
+    failwith ("bindNewNames length not equle")
+  

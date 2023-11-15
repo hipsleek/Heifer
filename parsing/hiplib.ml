@@ -1319,7 +1319,7 @@ let rec entailmentchecking_aux (lhs:normalisedStagedSpec) (rhs:normalisedStagedS
   let (effSRHS, normalSRHS)  =  rhs  in 
   match (effSLHS, effSRHS) with 
   | ([], []) -> checkEntailmentForNormalFlow normalSLHS normalSRHS 
-  | (x::xs, y::ys) -> 
+  | (EffHOStage x::xs, EffHOStage y::ys) -> 
     let (r1) = checkEntailMentForEffFlow x y in 
     let r2 = entailmentchecking_aux (xs, normalSLHS) (ys, normalSRHS) in 
     r1 && r2

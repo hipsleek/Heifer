@@ -46,7 +46,7 @@ let apply_lemma : lemma -> spec -> spec option =
   let rec loop ok acc sp =
     match sp with
     | [] -> (Acc.to_list acc, ok)
-    | st :: sp1 ->
+    | (st) :: sp1 ->
       let lf, largs = lem.l_left in
       (match st with
       | HigherOrder (p, h, (f, args), r)
@@ -171,6 +171,14 @@ let instantiate_existentials :
     (string * term) list -> normalisedStagedSpec -> normalisedStagedSpec =
  fun bindings (efs, ns) ->
   let names = List.map fst bindings in
+  let (efs:effectStage list) = 
+    List.fold_left (fun acc a -> 
+    let temp = match a with 
+    | EffHOStage ele -> [ele]
+    | _ -> []
+    in 
+    acc @ temp) [] efs 
+  in 
   let efs1 = List.map (instantiate_existentials_effect_stage bindings) efs in
   let ns1 =
     let vs, pre, post = ns in
@@ -178,7 +186,7 @@ let instantiate_existentials :
       instantiate_state bindings pre,
       instantiate_state bindings post )
   in
-  (efs1, ns1)
+  (List.map (fun a -> EffHOStage a) efs1, ns1)
 
 let freshen_existentials vs state =
   let vars_fresh = List.map (fun v -> (v, Var (verifier_getAfreeVar v))) vs in
@@ -264,7 +272,7 @@ let instantiate_pred : pred_def -> term list -> term -> pred_def =
   let pred = rename_exists_pred pred in
   (* Format.printf "rename exists %s@." (string_of_pred pred); *)
   let params, ret_param = split_last pred.p_params in
-  let bs = (ret_param, ret) :: List.map2 (fun a b -> (a, b)) params args in
+  let bs = (ret_param, ret) :: bindFormalNActual (*List.map2 (fun a b -> (a, b)) *) params args in
   let p_body =
     let bbody =
       pred.p_body |> List.map (fun b -> List.map (instantiateStages bs) b)
@@ -419,7 +427,7 @@ let rec check_staged_subsumption_stagewise :
     (string_of_normalisedStagedSpec s1)
     (string_of_normalisedStagedSpec s2);
   match (s1, s2) with
-  | (es1 :: es1r, ns1), (es2 :: es2r, ns2) ->
+  | (EffHOStage es1 :: es1r, ns1), (EffHOStage es2 :: es2r, ns2) ->
     (*print_endline ("check_staged_subsumption_stagewise case one ");*)
 
     let ctx =
@@ -483,7 +491,7 @@ let rec check_staged_subsumption_stagewise :
         (vs2, ((p2, h2), (qp2, qh2)))
     in
     ok
-  | ([], _), (es2 :: _, _) ->
+  | ([], _), (EffHOStage es2 :: _, _) ->
     let ctx = collect_local_lambda_definitions ctx None (Some es2.e_post) in
     let c2, _ = es2.e_constr in
     let@ _ = try_other_measures ctx s1 s2 None (Some c2) i assump |> or_else in
@@ -492,7 +500,7 @@ let rec check_staged_subsumption_stagewise :
       (string_of_normalisedStagedSpec s2);
       (*print_endline("fail 486");*)
     fail
-  | (es1 :: _, _), ([], _) ->
+  | (EffHOStage es1 :: _, _), ([], _) ->
     let ctx = collect_local_lambda_definitions ctx (Some es1.e_post) None in
     let c1, _ = es1.e_constr in
     let@ _ = try_other_measures ctx s1 s2 (Some c1) None i assump |> or_else in
@@ -768,7 +776,7 @@ let create_induction_hypothesis params ds1 ds2 =
     (match List.for_all (fun p -> SSet.mem p used_l) params with
     | true ->
       (match ns1 with
-      | [eff], (_, (True, EmptyHeap), (post, EmptyHeap))
+      | [EffHOStage eff], (_, (True, EmptyHeap), (post, EmptyHeap))
         when is_just_res_of post eff.e_ret ->
         (* when r = eff.e_ret *)
         (* TODO existentials are ignored...? *)

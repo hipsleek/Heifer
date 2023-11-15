@@ -321,7 +321,7 @@ let normalise_stagedSpec (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
       (* move current norm state "behind" this effect boundary. the return value is implicitly that of the current stage *)
       ( effectStages
         @ [
-            {
+          EffHOStage {
               e_evars = nex @ existential;
               e_pre = req;
               e_post = simplify_state (mergeState ens1 (pi, heap));
@@ -342,7 +342,7 @@ let normalise_stagedSpec (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
       in
       ( effectStages
         @ [
-            {
+          EffHOStage {
               e_evars = nex @ existential;
               e_pre = req;
               e_post = mergeState ens1 (pi, heap);
@@ -350,6 +350,13 @@ let normalise_stagedSpec (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
               e_ret = ret';
               e_typ = `Fn;
             };
+          ],
+        freshNormStageRet ret' )
+    | TryCatch (a, b, ret') -> 
+    
+      ( effectStages
+        @ [
+          TryCatchStage (a, b, ret');
           ],
         freshNormStageRet ret' )
   in
@@ -414,13 +421,16 @@ let collect_lambdas_state (p, h) =
   SSet.union (collect_lambdas_pi p) (collect_lambdas_heap h)
 
 let collect_lambdas_eff eff =
+  match eff with 
+  | EffHOStage eff -> 
   SSet.concat
     [
       collect_lambdas_state eff.e_pre;
       collect_lambdas_state eff.e_post;
       SSet.concat (List.map collect_lambdas_term (snd eff.e_constr));
       collect_lambdas_term eff.e_ret;
-    ]
+    ] 
+  | _ -> SSet.empty
 
 let collect_lambdas_norm (_vs, pre, post) =
   SSet.concat [collect_lambdas_state pre; collect_lambdas_state post]
@@ -439,12 +449,15 @@ let rec collect_locations_heap (h : kappa) =
 
 let collect_locations_vars_state (_, h) = collect_locations_heap h
 
-let collect_locations_eff eff =
+let collect_locations_eff (eff:effHOTryCatchStages) =
+  match eff with 
+  | EffHOStage eff  -> 
   SSet.concat
     [
       collect_locations_vars_state eff.e_pre;
       collect_locations_vars_state eff.e_post;
     ]
+  | _ -> SSet.empty
 
 let collect_locations_norm (_vs, pre, post) =
   SSet.concat
@@ -466,18 +479,18 @@ let optimize_existentials : normalisedStagedSpec -> normalisedStagedSpec =
        (string_of_list string_of_effect_stage es); *)
     match es with
     | [] -> (unused, List.rev acc)
-    | e :: rest ->
+    | (EffHOStage e) :: rest ->
       let available =
         SSet.diff (SSet.union (SSet.of_list e.e_evars) unused) already_used
       in
-      let needed = SSet.diff (used_vars_eff e) already_used in
+      let needed = SSet.diff (used_vars_eff ((EffHOStage e))) already_used in
       let used_ex, unused_ex =
         SSet.partition (fun v -> SSet.mem v needed) available
       in
       loop
         (SSet.union already_used used_ex)
         unused_ex
-        ({ e with e_evars = SSet.elements used_ex } :: acc)
+        (EffHOStage { e with e_evars = SSet.elements used_ex } :: acc)
         rest
   in
   let unused, es1 = loop SSet.empty SSet.empty [] ess in
@@ -633,7 +646,15 @@ let remove_noncontributing_existentials :
     let post1 = remove_subexpr_state do_not_contribute post in
     (ex1, pre1, post1)
   in
-  fun (ess, norm) ->
+  fun (ess, norm) ->(ess, norm) (* ASK Darius*)
+    (*let (ess:effectStage list) = 
+      List.fold_left (fun acc a -> 
+      let temp = match a with 
+      | EffHOStage ele -> [ele]
+      | _ -> []
+      in 
+      acc @ temp) [] ess 
+    in 
     let fn_stages =
       List.map (fun efs -> fst efs.e_constr) ess |> SSet.of_list
     in
@@ -652,6 +673,7 @@ let remove_noncontributing_existentials :
       (ex1, (p11, h1), (p21, h2))
     in
     (ess1, norm1)
+    *)
 
 (* if we see [ex x; Norm(x->..., ...); ex y; Norm(y->..., ...)] and [x=y] appears somewhere, substitute y away (as y is in x's scope but not the other way around) *)
 (* this does just one iteration. could do to a fixed point *)
@@ -684,16 +706,20 @@ let simplify_existential_locations sp =
       ([], SSet.empty, 0) sp
   in
   let quantifiers = List.concat quantifiers in
-  let eqs =
+  let rec eqs =
     List.concat_map
       (fun s ->
         match s with
-        | Exists _ -> []
+        | Exists _ | TryCatch _ -> []
         | Require (p, _)
         | NormalReturn (p, _)
         | HigherOrder (p, _, _, _)
         | RaisingEff (p, _, _, _) ->
-          pure_to_equalities p)
+          pure_to_equalities p
+        
+          
+      )
+
       sp
   in
   (* if there is an eq between two existential locations, keep only one *)
@@ -797,10 +823,10 @@ let remove_temp_vars =
       (string_of_smap
          (string_of_pair string_of_int (string_of_list string_of_term))
          histo);
-    let quantified = Subst.getExistentialVar (eff, norm) |> SSet.of_list in
+    let quantified = Subst.getExistentialVar (List.map (fun a -> EffHOStage a) eff, norm) |> SSet.of_list in
     let locations =
       SSet.concat
-        (collect_locations_norm norm :: List.map collect_locations_eff eff)
+        (collect_locations_norm norm :: List.map collect_locations_eff (List.map (fun a -> EffHOStage a) eff))
     in
     let occurs_once =
       SMap.filter
@@ -866,7 +892,7 @@ let remove_temp_vars =
     in
     (eff2, norm2)
 
-let rec simplify_spec n sp2 =
+(*let rec simplify_spec n sp2 =
   let sp3 = sp2 in
   (* we may get a formula that is not equisatisfiable *)
   (* let sp3 = sp2 |> remove_noncontributing_existentials in
@@ -894,6 +920,7 @@ let rec simplify_spec n sp2 =
     (string_of_normalisedStagedSpec sp5)
     (string_of_normalisedStagedSpec sp6);
   if sp6 = sp2 || n < 0 then sp6 else simplify_spec (n - 1) sp2
+*)
 
 (* the main entry point *)
 let normalize_spec sp =
@@ -920,10 +947,10 @@ let normalize_spec sp =
   in
   (*simplify_spec 3*) r
 
-let rec effectStage2Spec (effectStages : effectStage list) : spec =
+let rec effectStage2Spec (effectStages : effHOTryCatchStages list) : spec =
   match effectStages with
   | [] -> []
-  | eff :: xs ->
+  | (EffHOStage eff) :: xs ->
     let p2, h2 = eff.e_post in
     (match eff.e_evars with [] -> [] | _ -> [Exists eff.e_evars])
     @ (match eff.e_pre with
@@ -935,6 +962,7 @@ let rec effectStage2Spec (effectStages : effectStage list) : spec =
         | `Fn -> HigherOrder (p2, h2, eff.e_constr, eff.e_ret));
       ]
     @ effectStage2Spec xs
+  | (TryCatchStage a):: xs -> [TryCatch a] @ effectStage2Spec xs
 
 let normalStage2Spec (normalStage : normalStage) : spec =
   let existiental, (p1, h1), (p2, h2) = normalStage in

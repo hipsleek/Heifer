@@ -22,10 +22,10 @@ let rec instantiateExistientalVar (spec : normalisedStagedSpec)
     (* print_endline ("nROMRAL STATGE"); *)
     let ex, req, ens = normalS in
     ([], (instantiateExistientalVar_aux ex bindings, req, ens))
-  | eff :: xs ->
+  | (EffHOStage eff) :: xs ->
     (* print_endline ("EFF STATGE"); *)
     let rest, norm' = instantiateExistientalVar (xs, normalS) bindings in
-    ( { eff with e_evars = instantiateExistientalVar_aux eff.e_evars bindings }
+    ( EffHOStage { eff with e_evars = instantiateExistientalVar_aux eff.e_evars bindings }
       :: rest,
       norm' )
 
@@ -117,6 +117,7 @@ and instantiateStages (bindings : (string * core_value) list)
         instantiateHeap bindings kappa,
         (label, List.map (fun bt -> instantiateTerms bindings bt) basic_t_list),
         instantiateTerms bindings ret )
+  | TryCatch (a, b, c) -> TryCatch (instantiateSpec bindings a, b, c) 
 (* | Pred {name; args}  ->  *)
 (* Pred {name; args = List.map (instantiateTerms bindings) args} *)
 
@@ -158,7 +159,9 @@ and used_vars_heap (h : kappa) =
 
 and used_vars_state (p, h) = SSet.union (used_vars_pi p) (used_vars_heap h)
 
-and used_vars_eff eff =
+and used_vars_eff (eff:effHOTryCatchStages) =
+match eff with
+| EffHOStage eff -> 
   SSet.concat
     [
       used_vars_state eff.e_pre;
@@ -166,6 +169,7 @@ and used_vars_eff eff =
       SSet.concat (List.map used_vars_term (snd eff.e_constr));
       used_vars_term eff.e_ret;
     ]
+| _ -> SSet.empty
 
 and used_vars_norm (_vs, pre, post) =
   SSet.concat [used_vars_state pre; used_vars_state post]
@@ -213,4 +217,5 @@ let rec getExistentialVar (spec : normalisedStagedSpec) : string list =
   | [] ->
     let ex, _, _ = normalS in
     ex
-  | eff :: xs -> eff.e_evars @ getExistentialVar (xs, normalS)
+  | (EffHOStage eff) :: xs -> eff.e_evars @ getExistentialVar (xs, normalS)
+  | _ :: xs -> getExistentialVar (xs, normalS)

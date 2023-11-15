@@ -39,7 +39,7 @@ let%expect_test "apply lemma" =
     let parse_fn_stage_as_lem_lhs s =
       let sp = parse_spec s in
       match normalize_spec sp with
-      | e :: _, _ ->
+      | EffHOStage e :: _, _ ->
         let f, a = e.e_constr in
         (f, a @ [e.e_ret])
       | _ -> failwith "failed to parse"
