@@ -478,6 +478,13 @@ let rec check_staged_subsumption_stagewise :
       check_staged_subsumption_stagewise ctx (i + 1)
         (conj [assump; residue])
         (es1r, ns1) (es2r, ns2))
+
+  | (TryCatchStage (src1, _, _) :: es1r, ns1), (TryCatchStage (src2, _, _) :: es2r, ns2) ->
+    let es1, ns1 = normalize_spec src1 in
+    let es2, ns2 = normalize_spec src2 in
+    check_staged_subsumption_stagewise ctx 0 True (es1, ns1) (es2, ns2) 
+    (* Ask Darius *)
+    
       
   | ([], ns1), ([], ns2) ->
     (* base case: check the normal stage at the end *)
@@ -509,7 +516,9 @@ let rec check_staged_subsumption_stagewise :
       (string_of_normalisedStagedSpec s2);
       (*print_endline("fail 495");*)
     fail
-  | _ ->  ok
+
+  | _  -> fail
+  
 
 and try_other_measures :
     pctx ->

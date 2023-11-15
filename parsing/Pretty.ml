@@ -221,7 +221,7 @@ and string_of_staged_spec (st:stagedSpec) : string =
     let string_of_eff_case (eName, param, eSpec)=  eName  ^  
       (match param with | None -> " " | Some p -> "("^ p ^ ") ")^ ": " ^ string_of_disj_spec eSpec   in 
     let string_of_eff_cases ops =  List.fold_left (fun acc a -> acc ^ ";\n" ^string_of_eff_case a) "" ops in 
-    Format.asprintf "\n---\nTRY \n(%s)\nCATCH \n{%s%s}[%s]\n" (string_of_spec src) (string_of_normal_case) (string_of_eff_cases ops) (string_of_term ret)
+    Format.asprintf "\n(TRY \n(%s)\nCATCH \n{%s%s}[%s])\n" (string_of_spec src) (string_of_normal_case) (string_of_eff_cases ops) (string_of_term ret)
 
 
 and string_of_spec (spec:spec) :string =

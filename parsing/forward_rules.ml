@@ -868,7 +868,7 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
       let afterHandling, env =
         concat_map_state env (fun spec env -> 
           if specContainUndefinedHO spec env then 
-            let (trycatch:spec list) = [[TryCatch(spec, (inferred_val_case, inferred_branch_specs), Var "TryCatch r")]] in 
+            let (trycatch:spec list) = [[TryCatch(spec, (inferred_val_case, inferred_branch_specs), Var "res")]] in 
             trycatch, env
           else handling_spec env (normalize_spec spec) inferred_val_case inferred_branch_specs
         ) phi1

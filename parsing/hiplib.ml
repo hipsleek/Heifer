@@ -1352,13 +1352,13 @@ let normal_report ?(kind="Function") ?given_spec ?given_spec_n ?inferred_spec ?i
   let header =
     "\n========== " ^ kind ^ ": "^ name ^" ==========\n" ^
     (match given_spec with
-    | Some s -> "[Specification] " ^ string_of_spec_list s ^ "\n"
+    | Some s -> "[Specification] " ^ string_of_spec_list s ^ "\n\n"
     | None -> "") ^
     (match given_spec_n with
-    | Some s -> "[Normed   Spec] " ^ string_of_spec_list (normalise_spec_list_aux2 s) ^ "\n"
+    | Some s -> "[Normed   Spec] " ^ string_of_spec_list (normalise_spec_list_aux2 s) ^ "\n\n"
     | None -> "") ^
     (match inferred_spec with
-    | Some s -> "[Raw Post Spec] " ^ string_of_spec_list s ^ "\n"
+    | Some s -> "[Raw Post Spec] " ^ string_of_spec_list s ^ "\n\n"
     | None -> "") ^
     (match inferred_spec_n with
     | Some s -> 
@@ -1369,7 +1369,7 @@ let normal_report ?(kind="Function") ?given_spec ?given_spec_n ?inferred_spec ?i
 
         print_endline (string_of_spec_list (normalise_spec_list_aux2 s)); 
 *)
-      "[Normed   Post] " ^ string_of_spec_list (normalise_spec_list (normalise_spec_list_aux2 s)) ^ "\n"
+      "[Normed   Post] " ^ string_of_spec_list (normalise_spec_list (normalise_spec_list_aux2 s)) ^ "\n\n"
     | None -> "") ^
     (match forward_time_ms with
     | Some t -> 
@@ -1491,16 +1491,16 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) =
             let inferred_spec = normalise_spec_list inferred_spec in 
             let given_spec = normalise_spec_list given_spec in 
 
-            (*print_endline ("proving!!!==================================") ;
+            print_endline ("proving!!!==================================") ;
             print_endline ("inferred_spec " ^ string_of_disj_spec inferred_spec);
             print_endline (" |= ") ;
             print_endline ("given_spec " ^ string_of_disj_spec given_spec);
-            *)
+            
 
             let res = Entail.check_staged_subsumption_disj meth.m_name meth.m_params meth.m_tactics prog.cp_lemmas predicates inferred_spec given_spec in 
-            (*print_endline ("proving end!!!==================================") ;
+            print_endline ("proving end!!!==================================") ;
             print_endline (string_of_bool res);
-            *)
+            
             res
 
         with Norm_failure ->

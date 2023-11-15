@@ -13,8 +13,9 @@ let amb (xs : (unit -> bool) list) counter : bool
 = let b = perform (Choose xs) in counter := !counter +1; b
 
 let rec iter (f:((unit -> bool) -> unit))  (xs:(unit -> bool) list) :  unit
-(*@ ex r; Norm(is_nil(xs)=true/\res=r /\ r=()) 
-\/ ex r1 h t; ens head(xs)=h/\tail(xs)=t/\is_cons(xs)=true; f(h, r1); ex r2; iter(f, t, r2); Norm(res=r2) @*)
+(*@ 
+ ex r1 h t; ens head(xs)=h/\tail(xs)=t/\is_cons(xs)=true; f(h, r1); ex r2; iter(f, t, r2); Norm(res=r2) 
+@*)
 = match xs with
   | [] -> ()
   | h::t -> f h; iter f t
@@ -32,11 +33,19 @@ let m xs counter
 = if amb xs counter then 7 else perform (Failure 500)
 
 
-
+let helper1 h 
+(*@ ex r1; h((), r1); ex r2; continue(k, r1, r2); ex r3; Success(emp, r2, r3);Norm (res=r3) @*)
+= let temp = continue k (h ()) in
+  perform (Success (temp))
 
 let helper h 
-(*@ 
-try ex r1 r2 r3; h((), r1); continue(k, r1, r2); Success(emp, r2, r3);Norm (res=r3) 
+(*@ try  ex r1; h((), r1); ens r1=true; ex r2; continue(k, r1, r2); ex r3; Success(emp, r2, r3);Norm (res=r3)
+   catch {
+      x -> ex r; Norm(tcres=r/\ r=()) 
+    | (Failure x) -> ex r; Norm(tcres=r/\ r=())  
+    | (Success x) -> ex r; Success(emp, x, r); Norm (tcres=r) }[tcres]
+\/ 
+try  ex r1; h((), r1); ens r1=false; ex r2; continue(k, r1, r2); ex r3; Success(emp, r2, r3);Norm (res=r3)
    catch {
       x -> ex r; Norm(tcres=r/\ r=()) 
     | (Failure x) -> ex r; Norm(tcres=r/\ r=())  
@@ -44,16 +53,21 @@ try ex r1 r2 r3; h((), r1); continue(k, r1, r2); Success(emp, r2, r3);Norm (res=
 @*)
 = match
   (*let k = Obj.clone_continuation k in*)
-  let (temp:int) = continue k (h ()) in
+  let r2 = h () in 
+  let temp = 
+    if r2 then continue k (true) 
+    else  continue k (false) 
+  in 
   perform (Success (temp))
   with
   | effect (Success x) k -> perform (Success (x))
   | effect (Failure x) k -> ()
   | x -> () 
 
+
+   
 let handle (xs:(unit -> bool) list) counter : int 
 (*@ ex r c a r1; req counter -> a; containRetTrue (xs, c, r1); ens counter->a+c /\ r1 = true /\ res = r /\ r=7 
-\/  ex r c a r1; req counter -> a; containRetTrue (xs, c, r1); Failure(counter->a+c /\ r1= false, 404, r); Norm (res=r)
 @*)
 = match (m xs counter) with
   | x -> x
@@ -62,7 +76,6 @@ let handle (xs:(unit -> bool) list) counter : int
 
     match iter helper xs; perform (Failure 404) with 
     (*@ ex r c a r1; req counter -> a; containRetTrue (xs, c, r1); ens counter->a+c /\ r1 = true /\ res = r /\ r=7 
-     \/ ex r c a r1; req counter -> a; containRetTrue (xs, c, r1); Failure(counter->a+c /\ r1= false, 404, r); Norm (res=r)
     @*)
     | effect (Success r) k -> r
     | x -> x  
