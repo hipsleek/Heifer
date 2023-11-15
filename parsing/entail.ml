@@ -509,6 +509,7 @@ let rec check_staged_subsumption_stagewise :
       (string_of_normalisedStagedSpec s2);
       (*print_endline("fail 495");*)
     fail
+  | _ ->  ok
 
 and try_other_measures :
     pctx ->
@@ -835,7 +836,7 @@ let derive_predicate m_name m_params disj =
     |> List.map normalisedStagedSpec2Spec
   in
   let res =
-    { p_name = m_name; p_params = m_params (*@ ["res"] *); p_body = new_spec } (* ASK Darius *)
+    { p_name = m_name; p_params = m_params @ ["res"] ; p_body = new_spec } (* ASK Darius *)
   in
   debug ~at:2
     ~title:(Format.asprintf "derive predicate %s" m_name)

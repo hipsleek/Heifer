@@ -626,7 +626,7 @@ let mk_directive ~loc name arg =
 %token CONJUNCTION
 %token DISJUNCTION
 %token IMPLICATION
-%token REQUIRES
+%token REQUIRES  EFFTRY EFFCATCH
 %token ENSURES
 %token EMP
 %token GREATER
@@ -1341,7 +1341,6 @@ structure:
   | text_str(structure_item)
       { $1 }
 ;
-
 
 optionExistDeclear:
 | {[]}
@@ -2647,12 +2646,21 @@ stagedSpecArgs :
   | s=statefml { (fst s, snd s, []) }
 
 
+handlingcase : 
+| LPAREN label = UIDENT arg=LIDENT RPAREN MINUSGREATER effcase = disj_effect_spec {(label, Some arg, effcase)}
+
 stagedSpec1 : 
   | EXISTS vs=nonempty_list(LIDENT) { Exists vs }
   | REQUIRES f=statefml {
       let (p, h) = f in
       Require (p, h)
     }
+  | TRY src = effect_spec  EFFCATCH 
+    LBRACE 
+    id=LIDENT MINUSGREATER normCase = disj_effect_spec
+    BAR
+     handlingcases = separated_nonempty_list(BAR, handlingcase)
+    RBRACE LBRACKET ret=pure_formula_term RBRACKET {TryCatch(src, ((id, normCase), handlingcases), ret)}
   | ENSURES f=statefml {
       let (p, h) = f in
       (*
@@ -3961,6 +3969,7 @@ single_attr_id:
   | FUNCTION { "function" }
   | FUNCTOR { "functor" }
   | REQUIRES { "requires" }
+  | EFFCATCH { "catch" }
   | ENSURES { "ensures" }
   | IF { "if" }
   | IN { "in" }

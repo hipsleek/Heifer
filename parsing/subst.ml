@@ -29,6 +29,12 @@ let rec instantiateExistientalVar (spec : normalisedStagedSpec)
       :: rest,
       norm' )
 
+  | (TryCatchStage (src,handler, ret)) :: xs -> 
+    let rest, norm' = instantiateExistientalVar (xs, normalS) bindings in
+    ( TryCatchStage (src, handler, ret)
+      :: rest,
+      norm' )
+
 let rec findbinding str vb_li =
   match vb_li with
   | [] -> Var str
@@ -192,6 +198,7 @@ and used_vars_stage (s : stagedSpec) =
         SSet.of_list [f];
         used_vars_term t;
       ]
+  | TryCatch (a, _, _) ->used_vars_spec a
 
 and used_vars_spec (sp : spec) = SSet.concat (List.map used_vars_stage sp)
 

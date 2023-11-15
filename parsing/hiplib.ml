@@ -934,7 +934,7 @@ let replaceSLPredicatesWithDef (specs:disj_spec) (slps:sl_pred_def SMap.t) =
       let (ex, p_pred, h_pred) = mergePredicates preds slps in 
       [Exists ex; NormalReturn (p_pred, h_pred);  RaisingEff (p', h, (f, args), ret)]
 
-    | Exists _ -> [stage]
+    | Exists _ | TryCatch _ -> [stage]
   in 
   normalise_spec_list
   (List.map (fun spec ->     

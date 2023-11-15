@@ -303,6 +303,11 @@ let rec handling_spec_inner env (scr_spec:normalisedStagedSpec) (h_norm:(string 
 
   match scr_eff_stages with 
   | [] -> [normalStage2Spec scr_normal] , env
+  | (TryCatchStage x) :: xs -> 
+    let rest, env = handling_spec_inner env (xs, scr_normal) h_norm h_ops conti formal_ret in 
+    List.map (fun a -> TryCatch x :: a) rest, env
+
+
   | (EffHOStage x) :: xs ->
     (* there is an effect stage x in the scrutinee which may or may not be handled *)
     let perform_ret =
@@ -857,6 +862,7 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
       in
       (* for each disjunct of the scrutinee's behaviour, reason using the handler *)
       let phi1, env = infer_of_expression env [freshNormalReturnSpec] scr in 
+      let phi1 = normalise_spec_list phi1 in 
       print_endline ("\nstring at handler: " ^ string_of_disj_spec phi1 ^ "\n\n"); 
 
       let afterHandling, env =
