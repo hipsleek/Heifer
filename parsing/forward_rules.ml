@@ -303,9 +303,10 @@ let rec handling_spec_inner env (scr_spec:normalisedStagedSpec) (h_norm:(string 
 
   match scr_eff_stages with 
   | [] -> [normalStage2Spec scr_normal] , env
-  | (TryCatchStage x) :: xs -> 
-    let rest, env = handling_spec_inner env (xs, scr_normal) h_norm h_ops conti formal_ret in 
+  | (TryCatchStage x) :: xs -> failwith ("TryCatchStage")
+    (*let rest, env = handling_spec_inner env (xs, scr_normal) h_norm h_ops conti formal_ret in 
     List.map (fun a -> TryCatch x :: a) rest, env
+    *)
 
 
   | (EffHOStage x) :: xs ->
@@ -618,6 +619,35 @@ let ifAsyncYiled env  =
   | None  -> false 
   | Some _ -> true  
 
+let recursivelyInstantiateFunctionCalls instantiatedSpec env = 
+
+  let rec helper acc li : spec list = 
+    match li with 
+    | [] -> [acc] 
+    | x :: xs  -> 
+      (match x with 
+      | Require _ | Exists _  | NormalReturn _ | RaisingEff _ | TryCatch _ -> helper (acc@[x]) xs 
+      | HigherOrder (pi, kappa, (fname, actualArgs), ret)  -> 
+        if String.compare fname "helper" == 0 then  (* check if it is recursive *)
+        (match retrieveSpecFromEnv fname env with 
+        | None -> helper (acc@[x]) xs 
+        | Some (formalArgs, spec_of_fname) -> 
+          let bindings = bindFormalNActual ((*"res"::*)formalArgs) ((*ret::*)actualArgs) in 
+          let instantiatedSpec = instantiateSpecList bindings spec_of_fname in 
+          List.flatten (List.map (fun spec -> 
+            helper (acc@[NormalReturn (pi, kappa)]@spec) xs 
+          ) instantiatedSpec)
+        )
+        else helper (acc@[x]) xs 
+      )
+    
+    
+
+  in 
+  List.flatten (List.map (fun spec -> helper [] spec) instantiatedSpec)
+
+
+
  
 (** may update the environment because of higher order functions *)
 let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): disj_spec * fvenv =
@@ -750,8 +780,15 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
             *)
               let bindings = bindFormalNActual (formalArgs) (actualArgs) in 
             let instantiatedSpec = instantiateSpecList bindings spec in 
+
+            print_endline ("FunCallinstantiatedSpec:\n"^ string_of_spec_list instantiatedSpec);
+
+            let instantiatedSpec = recursivelyInstantiateFunctionCalls instantiatedSpec env in 
+
+            print_endline ("FunCallinstantiatedSpecFinal:\n"^ string_of_spec_list instantiatedSpec);
+
             instantiatedSpec)
-            (*print_endline ("====\n"^ string_of_spec_list spec_of_fname);*)
+
         in
         let _spec_of_fname =
           (* this is an alternative implementation for this whole case, which simply generates an uninterpreted function and lets the entailment procedure take care of unfolding (since the implementation above can be seen as unfolding once). unfortunately the handler reasoning in the effects work relies on unfolding in the forward reasoning, so we can't switch to it yet, but this implementation should work for higher-order *)
@@ -863,12 +900,13 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
       (* for each disjunct of the scrutinee's behaviour, reason using the handler *)
       let phi1, env = infer_of_expression env [freshNormalReturnSpec] scr in 
       let phi1 = normalise_spec_list phi1 in 
-      print_endline ("\nstring at handler: " ^ string_of_disj_spec phi1 ^ "\n\n"); 
+
+      print_endline ("\nstring at handler: " ^ string_of_disj_spec phi1 ^ "\n\n");
 
       let afterHandling, env =
         concat_map_state env (fun spec env -> 
           if specContainUndefinedHO spec env then 
-            let (trycatch:spec list) = [[TryCatch(spec, (inferred_val_case, inferred_branch_specs), Var "res")]] in 
+            let (trycatch:spec list) = [[TryCatch(True, EmptyHeap, (spec, (inferred_val_case, inferred_branch_specs)), Var "res")]] in 
             trycatch, env
           else handling_spec env (normalize_spec spec) inferred_val_case inferred_branch_specs
         ) phi1

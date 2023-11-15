@@ -479,7 +479,11 @@ let rec check_staged_subsumption_stagewise :
         (conj [assump; residue])
         (es1r, ns1) (es2r, ns2))
 
-  | (TryCatchStage (src1, _, _) :: es1r, ns1), (TryCatchStage (src2, _, _) :: es2r, ns2) ->
+  | (TryCatchStage tc1 :: es1r, ns1), (TryCatchStage tc2 :: es2r, ns2) ->
+
+    let src1, _ = tc1.tc_constr in
+    let src2, _ = tc2.tc_constr in
+
     let es1, ns1 = normalize_spec src1 in
     let es2, ns2 = normalize_spec src2 in
     check_staged_subsumption_stagewise ctx 0 True (es1, ns1) (es2, ns2) 
@@ -517,7 +521,7 @@ let rec check_staged_subsumption_stagewise :
       (*print_endline("fail 495");*)
     fail
 
-  | _  -> fail
+  | _  ->fail
   
 
 and try_other_measures :

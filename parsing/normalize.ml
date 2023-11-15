@@ -352,13 +352,25 @@ let normalise_stagedSpec (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
             };
           ],
         freshNormStageRet ret' )
-    | TryCatch (a, b, ret') -> 
-    
+    | TryCatch (pi, heap, (a, b), ret') -> 
+      let ens1, nex =
+        if contains_res_state ens then
+          let e, n = quantify_res_state ens in
+          (e, [n])
+        else (ens, [])
+      in
       ( effectStages
         @ [
-          TryCatchStage (a, b, ret');
+          TryCatchStage {
+              tc_evars = nex @ existential;
+              tc_pre = req;
+              tc_post = mergeState ens1 (pi, heap);
+              tc_constr = (a, b);
+              tc_ret = ret';
+            };
           ],
         freshNormStageRet ret' )
+
   in
   debug ~at:4 ~title:"normalize step" "%s\n+\n%s\n==>\n%s"
     (string_of_normalisedStagedSpec acc)
@@ -962,7 +974,17 @@ let rec effectStage2Spec (effectStages : effHOTryCatchStages list) : spec =
         | `Fn -> HigherOrder (p2, h2, eff.e_constr, eff.e_ret));
       ]
     @ effectStage2Spec xs
-  | (TryCatchStage a):: xs -> [TryCatch a] @ effectStage2Spec xs
+  | (TryCatchStage tc):: xs -> 
+    let p2, h2 = tc.tc_post in
+    (match tc.tc_evars with [] -> [] | _ -> [Exists tc.tc_evars])
+    @ (match tc.tc_pre with
+      | True, EmptyHeap -> []
+      | p1, h1 -> [Require (p1, h1)])
+    @ [TryCatch (p2, h2, tc.tc_constr, tc.tc_ret)
+      ]
+    @ effectStage2Spec xs
+
+
 
 let normalStage2Spec (normalStage : normalStage) : spec =
   let existiental, (p1, h1), (p2, h2) = normalStage in

@@ -216,12 +216,14 @@ and string_of_staged_spec (st:stagedSpec) : string =
     Format.asprintf "ex %s" (String.concat " " vs)
   (* | IndPred {name; args} -> *)
     (* Format.asprintf "%s(%s)" name (String.concat " " (List.map string_of_term args)) *)
-  | TryCatch (src, ((normP, normSpec), ops), ret) -> 
+  | TryCatch (pi, h, ( src, ((normP, normSpec), ops)), ret) -> 
+
+
     let string_of_normal_case = normP ^ ": " ^ string_of_disj_spec (normSpec) in 
     let string_of_eff_case (eName, param, eSpec)=  eName  ^  
       (match param with | None -> " " | Some p -> "("^ p ^ ") ")^ ": " ^ string_of_disj_spec eSpec   in 
     let string_of_eff_cases ops =  List.fold_left (fun acc a -> acc ^ ";\n" ^string_of_eff_case a) "" ops in 
-    Format.asprintf "\n(TRY \n(%s)\nCATCH \n{%s%s}[%s])\n" (string_of_spec src) (string_of_normal_case) (string_of_eff_cases ops) (string_of_term ret)
+    Format.asprintf "ens %s; \n(TRY \n(%s)\nCATCH \n{%s%s}[%s])\n" (string_of_state (pi, h)) (string_of_spec src) (string_of_normal_case) (string_of_eff_cases ops) (string_of_term ret)
 
 
 and string_of_spec (spec:spec) :string =
@@ -394,9 +396,17 @@ let rec string_of_normalisedStagedSpec (spec:normalisedStagedSpec) : string =
     string_of_spec current )
     ^ "; " ^ string_of_normalisedStagedSpec (xs, normalS)
 
-  | (TryCatchStage x) :: xs  -> 
-    string_of_staged_spec (TryCatch x) 
+  | (TryCatchStage ct) :: xs  -> 
+    (let {tc_pre = (p1, h1); tc_post = (p2, h2); _} = ct in
+    let ex = match ct.tc_evars with [] -> [] | _ -> [Exists ct.tc_evars] in
+    let current = ex @ 
+    [Require(p1, h1);
+    (TryCatch(p2, h2, ct.tc_constr ,ct.tc_ret)
+    )
+    ] in
+    string_of_spec current )
     ^ "; " ^ string_of_normalisedStagedSpec (xs, normalS)
+
     
 
 

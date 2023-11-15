@@ -29,11 +29,12 @@ let rec instantiateExistientalVar (spec : normalisedStagedSpec)
       :: rest,
       norm' )
 
-  | (TryCatchStage (src,handler, ret)) :: xs -> 
+  | (TryCatchStage tc) :: xs -> 
     let rest, norm' = instantiateExistientalVar (xs, normalS) bindings in
-    ( TryCatchStage (src, handler, ret)
+    ( TryCatchStage { tc with tc_evars = instantiateExistientalVar_aux tc.tc_evars bindings }
       :: rest,
       norm' )
+
 
 let rec findbinding str vb_li =
   match vb_li with
@@ -123,7 +124,14 @@ and instantiateStages (bindings : (string * core_value) list)
         instantiateHeap bindings kappa,
         (label, List.map (fun bt -> instantiateTerms bindings bt) basic_t_list),
         instantiateTerms bindings ret )
-  | TryCatch (a, b, c) -> TryCatch (instantiateSpec bindings a, b, c) 
+  | TryCatch (pi, kappa, handlerspec, ret) -> 
+    let (a, b) = handlerspec in 
+    TryCatch ( instantiatePure bindings pi,
+    instantiateHeap bindings kappa,
+    (instantiateSpec bindings a, b),
+    instantiateTerms bindings ret )
+    
+  
 (* | Pred {name; args}  ->  *)
 (* Pred {name; args = List.map (instantiateTerms bindings) args} *)
 
@@ -198,7 +206,21 @@ and used_vars_stage (s : stagedSpec) =
         SSet.of_list [f];
         used_vars_term t;
       ]
-  | TryCatch (a, _, _) ->used_vars_spec a
+  | TryCatch (p, h, (src, _), t) ->
+    (*  let ((normParam, normSpec), _) = handlingspec in 
+     (string * spec list) * ((string * string option * spec list) list) *)
+    SSet.concat
+      [
+        used_vars_pi p;
+        used_vars_heap h;
+        used_vars_spec src;
+        used_vars_term t;
+        (*SSet.of_list [normParam];
+        used_vars_disj_spec normSpec; *)
+
+      ]
+  
+    
 
 and used_vars_spec (sp : spec) = SSet.concat (List.map used_vars_stage sp)
 

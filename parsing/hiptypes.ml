@@ -75,7 +75,7 @@ and kappa =
 and state = pi * kappa
 
 and handlingcases = (string * spec list) * ((string * string option * spec list) list)
-and trycatch = (spec * handlingcases * term)
+and trycatch = (spec * handlingcases)
 
 
 and stagedSpec = 
@@ -90,7 +90,7 @@ and stagedSpec =
       (* effects: H /\ P /\ E(...args, v), term is always a placeholder variable *)
       | RaisingEff of (pi * kappa * instant * term)
       (* | IndPred of { name : string; args: term list } *)
-      | TryCatch of trycatch
+      | TryCatch of (pi * kappa * trycatch * term)
 
 and spec = stagedSpec list
 
@@ -197,8 +197,16 @@ type effectStage = {
   e_typ : [`Eff | `Fn];
 }
 
+type tryCatchStage = {
+  tc_evars : string list;
+  tc_pre : pi * kappa;
+  tc_post : pi * kappa;
+  tc_constr : trycatch;
+  tc_ret : term;
+}
 
-type effHOTryCatchStages = EffHOStage of effectStage | TryCatchStage of trycatch
+
+type effHOTryCatchStages = EffHOStage of effectStage | TryCatchStage of tryCatchStage
 
 (** existentials, pre, post (which may contain constraints on res) *)
 type normalStage =  (string list* (pi * kappa ) * (pi * kappa))

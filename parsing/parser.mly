@@ -2660,7 +2660,7 @@ stagedSpec1 :
     id=LIDENT MINUSGREATER normCase = disj_effect_spec
     BAR
      handlingcases = separated_nonempty_list(BAR, handlingcase)
-    RBRACE LBRACKET ret=pure_formula_term RBRACKET {TryCatch(src, ((id, normCase), handlingcases), ret)}
+    RBRACE LBRACKET ret=pure_formula_term RBRACKET {TryCatch(True, EmptyHeap,  (src, ((id, normCase), handlingcases)), ret)}
   | ENSURES f=statefml {
       let (p, h) = f in
       (*
