@@ -33,7 +33,30 @@ let main counter n
     let ff = continue k false in
     tt + ff
 
+let shoud_be_wrong_main counter n 
+  (*@ ex z; req counter->z /\ n>=0; Norm(counter -> z+ (2^(n+1)), 1) @*)
+= match (xor_predicate n) with
+  (*@ ex z; req counter->z; Norm(counter -> z+ (2^(n+1)) -2, true) @*)
+  | x -> if x then 1 else 0
+  | exception e -> raise e
+  | effect Branch k ->
+    counter := !counter + 1;            (* increase the counter *)
+    let tt = continue (Obj.clone_continuation k) true in
+    counter := !counter + 1;            (* increase the counter *)
+    let ff = continue k false in
+    tt + ff
+
 let test () 
 (*@ ex counter; Norm(counter->6, 1) @*) 
 = let counter = ref 0 in 
   main counter 2
+
+let test1 () 
+(*@ ex counter; Norm(counter->62, 1) @*) 
+= let counter = ref 0 in 
+  main counter 5
+
+let shoud_be_wrong_test1 () 
+(*@ ex counter; Norm(counter->64, 1) @*) 
+= let counter = ref 0 in 
+  main counter 5

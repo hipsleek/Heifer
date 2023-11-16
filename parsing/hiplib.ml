@@ -1611,9 +1611,8 @@ let run_file inputfile =
         "\n========== FINAL SUMMARY ==========\n" 
         ^"[  LOC  ] " ^   string_of_int (List.length lines) ^ "\n"
         ^"[  LOS  ] " ^   string_of_int (line_of_spec)  ^ "\n"
-        ^"[Forward] " ^   string_of_float (!summary_forward)  ^ "\n"
-        ^"[ Enatil] " ^   string_of_float (!summary_entail)  ^ "\n"
-        ^"[ AskZ3 ] " ^   string_of_float (!summary_askZ3)  ^ "\n"
+        ^"[Forward+Enatil] " ^   string_of_float ((!summary_forward +. !summary_entail)/.1000.0)  ^ " s\n"
+        ^"[ AskZ3 ] " ^   string_of_float ((!summary_askZ3)/.1000.0)  ^ " s\n"
 
       
       in 

@@ -23,3 +23,21 @@ let test ()
 = let i = ref 0 in 
   let v = main i 10 in
   v
+
+let test1 () 
+  (*@ ex i; Norm(i->155, 10) @*) 
+= let i = ref 100 in 
+  let v = main i 10 in
+  v
+
+let should_be_wrong_test () 
+  (*@ ex i; Norm(i->5, 10) @*) 
+= let i = ref 0 in 
+  let v = main i 10 in
+  v
+
+let should_be_wrong_test1 () 
+  (*@ ex i; Norm(i->155, 110) @*) 
+= let i = ref 100 in 
+  let v = main i 10 in
+  v

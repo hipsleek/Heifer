@@ -303,10 +303,30 @@ let rec handling_spec_inner env (scr_spec:normalisedStagedSpec) (h_norm:(string 
 
   match scr_eff_stages with 
   | [] -> [normalStage2Spec scr_normal] , env
-  | (TryCatchStage x) :: xs -> failwith ("TryCatchStage")
-    (*let rest, env = handling_spec_inner env (xs, scr_normal) h_norm h_ops conti formal_ret in 
-    List.map (fun a -> TryCatch x :: a) rest, env
-    *)
+  | (TryCatchStage x) :: xs -> 
+    let trycatch_ret =
+      match x.tc_ret with 
+      | Var ret -> ret
+      | _ -> 
+        print_endline (string_of_term x.tc_ret);
+        failwith "TryCatchStage return is not var"
+    in
+
+    let trycatch_Ex = x.tc_evars in 
+    let trycatch_Pre = x.tc_pre in 
+    let trycatch_Post = x.tc_post in 
+
+    let norm = (trycatch_Ex, trycatch_Pre, trycatch_Post) in 
+    let (src, (normlCase, effCases)) = x.tc_constr in 
+    print_endline ("\n...........\nbefore try catch \n" ^ string_of_spec src ^ "\n");
+    print_endline ("continuation_spec: " ^ string_of_spec conti); 
+
+
+    let rest, env = handling_spec_inner env (normalize_spec src) normlCase effCases conti trycatch_ret in 
+    print_endline ("after try catch \n" ^ string_of_spec_list rest ^ "\n");
+    rest, env 
+
+  
 
 
   | (EffHOStage x) :: xs ->

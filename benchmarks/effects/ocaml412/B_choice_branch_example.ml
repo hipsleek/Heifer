@@ -39,13 +39,13 @@ let helper1 h
   perform (Success (temp))
 
 let helper h 
-(*@ try h((), r1);  ex r2; continue(k, true, r2); ex r3; Success(emp, r2, r3)
+(*@ try  ex r1; h((), r1); ens r1=true; ex r2; continue(k, true, r2); ex r3; Success(emp, r2, r3)
    catch {
       x -> ex r; Norm(res=r/\ r=()) 
     | (Failure x) -> ex r; Norm(res=r/\ r=())  
     | (Success x) -> ex r; Success(emp, x, r); Norm (res=r) }[res]
 \/ 
-try   h((), r1); ex r2; continue(k, false, r2); ex r3; Success(emp, r2, r3)
+try  ex r1; h((), r1); ens r1=false; ex r2; continue(k, false, r2); ex r3; Success(emp, r2, r3)
    catch {
       x -> ex r; Norm(res=r/\ r=()) 
     | (Failure x) -> ex r; Norm(res=r/\ r=())  
