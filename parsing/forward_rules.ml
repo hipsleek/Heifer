@@ -431,6 +431,7 @@ and handling_spec env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj_spe
 
     current, env
     
+  | (TryCatchStage _) :: _ -> failwith "unhandled"
   | (EffHOStage x) :: xs ->
     (* there is an effect stage x in the scrutinee which may or may not be handled *)
     let perform_ret =
