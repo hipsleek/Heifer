@@ -60,6 +60,9 @@
   $ check ../evaluation/12_two_pointers.ml
   ALL OK!
 
+  $ check ../../benchmarks/effects/ocaml412/A_generic_count.ml
+  ALL OK!
+
 We can't handle these cases yet
 
 $ check ../examples/calls.ml
