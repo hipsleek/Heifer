@@ -1016,7 +1016,7 @@ let rec detectfailedAssertions (spec : spec) : spec =
     (match ProversEx.entailConstrains pi' False with
     | true -> 
       checkTheSourceOfFalse pi';
-      print_endline ("\nentail False " ^ string_of_pi pi');
+      (* print_endline ("\nentail False " ^ string_of_pi pi'); *)
       [Require (False, heap)]
     | _ -> Require (pi', heap) :: detectfailedAssertions xs)
   (* higher-order functions *)

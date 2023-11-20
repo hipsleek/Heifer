@@ -1491,15 +1491,15 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) =
             let inferred_spec = normalise_spec_list inferred_spec in 
             let given_spec = normalise_spec_list given_spec in 
 
-            print_endline ("proving!!!==================================") ;
+            (* print_endline ("proving!!!==================================") ;
             print_endline ("inferred_spec " ^ string_of_disj_spec inferred_spec);
             print_endline (" |= ") ;
-            print_endline ("given_spec " ^ string_of_disj_spec given_spec);
+            print_endline ("given_spec " ^ string_of_disj_spec given_spec); *)
             
 
             let res = Entail.check_staged_subsumption_disj meth.m_name meth.m_params meth.m_tactics prog.cp_lemmas predicates inferred_spec given_spec in 
-            print_endline ("proving end!!!==================================") ;
-            print_endline (string_of_bool res);
+            (* print_endline ("proving end!!!==================================") ;
+            print_endline (string_of_bool res); *)
             
             res
 

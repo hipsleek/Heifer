@@ -801,11 +801,11 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
               let bindings = bindFormalNActual (formalArgs) (actualArgs) in 
             let instantiatedSpec = instantiateSpecList bindings spec in 
 
-            print_endline ("FunCallinstantiatedSpec:\n"^ string_of_spec_list instantiatedSpec);
+            (* print_endline ("FunCallinstantiatedSpec:\n"^ string_of_spec_list instantiatedSpec); *)
 
             let instantiatedSpec = recursivelyInstantiateFunctionCalls instantiatedSpec env in 
 
-            print_endline ("FunCallinstantiatedSpecFinal:\n"^ string_of_spec_list instantiatedSpec);
+            (* print_endline ("FunCallinstantiatedSpecFinal:\n"^ string_of_spec_list instantiatedSpec); *)
 
             instantiatedSpec)
 
@@ -899,8 +899,9 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
           else sp in 
     
 
-          print_endline ("Inferred_branch_specs: --------- \n" ^ effname  ^  (match param with | None -> " " | Some p -> "("^ p ^ ") ")^ ": " ^ 
-          string_of_disj_spec sp);  
+          (* print_endline ("Inferred_branch_specs: --------- \n" ^ effname  ^  (match param with | None -> " " | Some p -> "("^ p ^ ") ")^ ": " ^ 
+          string_of_disj_spec sp
+          );   *)
           
 
           (effname, param, sp) :: t, env
@@ -912,8 +913,8 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
         (*let inf_val_spec = normalize_spec inf_val_spec in*)
         let inf_val_spec = if ifAsyncYiled env then replaceContinueWithHypo inf_val_spec match_summary
         else inf_val_spec in 
-        print_endline ("Inferred_nromal_spec: --------- \n" ^  (match param with | p -> p ^ "")^ ": " ^ 
-        string_of_disj_spec (normalise_spec_list inf_val_spec));
+        (* print_endline ("Inferred_nromal_spec: --------- \n" ^  (match param with | p -> p ^ "")^ ": " ^ 
+        string_of_disj_spec (normalise_spec_list inf_val_spec)); *)
 
         (param, inf_val_spec), env
       in
@@ -921,7 +922,7 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
       let phi1, env = infer_of_expression env [freshNormalReturnSpec] scr in 
       let phi1 = normalise_spec_list phi1 in 
 
-      print_endline ("\nstring at handler: " ^ string_of_disj_spec phi1 ^ "\n\n");
+      (* print_endline ("\nstring at handler: " ^ string_of_disj_spec phi1 ^ "\n\n"); *)
 
       let afterHandling, env =
         concat_map_state env (fun spec env -> 
@@ -932,7 +933,7 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
         ) phi1
       in 
 
-      print_endline ("\nafter afterHandling at handler: " ^ string_of_disj_spec afterHandling ^ "\n\n"); 
+      (* print_endline ("\nafter afterHandling at handler: " ^ string_of_disj_spec afterHandling ^ "\n\n");  *)
 
       
 
