@@ -2590,9 +2590,13 @@ pure_formula_term:
   | pure_formula_term MINUS pure_formula_term { Minus ($1, $3) }
   | pure_formula_term AMPERAMPER pure_formula_term { TAnd ($1, $3) }
   | LPAREN pure_formula_term INFIXOP1 LPAREN pure_formula_term RPAREN RPAREN { TPower ($2, $5) }
-  | pure_formula_term STAR pure_formula_term { TTimes ($1, $3)}
   
-  | pure_formula_term INFIXOP3 pure_formula_term {TDiv($1, $3) }
+  | pure_formula_term op=INFIXOP3 pure_formula_term {
+      match op with
+      | "*." -> TTimes ($1, $3) (* STAR is used for separating conjunction *)
+      | "/" -> TDiv ($1, $3) 
+      | _ -> failwith ("unknown operator " ^ op)
+    }
 
 
   | LPAREN pure_formula_term RPAREN { $2 }
