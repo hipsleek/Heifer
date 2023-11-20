@@ -105,7 +105,7 @@ let%expect_test "apply lemma" =
     lemma: forall [x; res], f(x,res) <: Norm(res=x+1)
     original: req emp; f(1, 2); req emp; Norm(res=2)
     result: Some Norm(T/\T); Norm(2=1+1)
-    norm: Some Norm(2=1+1)
+    norm: Some Norm(emp)
     ---
     constructor different, no match
     lemma: forall [x; res], f(x,res) <: Norm(res=x+1)
@@ -122,20 +122,20 @@ let%expect_test "apply lemma" =
     parameter of lemma does not appear on the right
     lemma: forall [x; res], f(x,res) <: ex b; Norm(res=b/\T)
     original: req emp; f(1, 2); req emp; Norm(res=2)
-    result: Some Norm(T/\T); Norm(emp)
+    result: Some Norm(T/\T); ex v0; Norm(2=v0)
     norm: Some Norm(emp)
     ---
     prefix
     lemma: forall [x; res], f(x,res) <: Norm(res=x+1)
     original: req emp; g(2); req emp; f(1, 3); req emp; Norm(res=3)
     result: Some g(2); Norm(T/\T); Norm(3=1+1)
-    norm: Some g(2); Norm(res=2/\3=1+1)
+    norm: Some g(2); Norm(res=2/\3=2)
     ---
     suffix
     lemma: forall [x; res], f(x,res) <: Norm(res=x+1)
     original: req emp; f(1, 3); req emp; g(2); req emp; Norm(res=2)
     result: Some Norm(T/\T); Norm(3=1+1); g(2)
-    norm: Some ens 3=1+1; g(2); Norm(res=2)
+    norm: Some ens 3=2; g(2); Norm(res=2)
     ---
     related suffix
     lemma: forall [x; res], f(x,res) <: Norm(res=x+1)
@@ -171,13 +171,13 @@ let%expect_test "apply lemma" =
     lemma: forall [x; res], f(x,res) <: Norm(res=x+1)
     original: req emp; ens b=2; f(1, 2); req emp; Norm(res=2)
     result: Some Norm(res=2/\b=2); Norm(T/\T); Norm(2=1+1)
-    norm: Some Norm(res=2/\b=2/\2=1+1)
+    norm: Some Norm(res=2/\b=2)
     ---
     extra precondition to be matched
     lemma: forall [x; res], f(x,res) <: Norm(res=x+1)
     original: req b=2; f(1, 2); req emp; Norm(res=2)
     result: Some req b=2; Norm(res=2/\T); Norm(T/\T); Norm(2=1+1)
-    norm: Some req b=2; Norm(res=2/\2=1+1)
+    norm: Some req b=2; Norm(res=2)
     ---
     difficult unification
     lemma: forall [x; res], f(x+1,res) <: Norm(res=x+2/\T)
@@ -189,7 +189,7 @@ let%expect_test "apply lemma" =
     lemma: forall [x; res], f(x,res) <: Norm(res=x+1/\T)
     original: req emp; f(1, 2); req emp; Norm(res=2)
     result: Some Norm(T/\T); Norm(2=1+1)
-    norm: Some Norm(2=1+1)
+    norm: Some Norm(emp)
     ---
     map
     lemma: forall [x; res], f(x,res) <: Norm(res=x/\T)
@@ -305,23 +305,23 @@ let%expect_test "normalise spec" =
 
   ex a; Norm(x->1); req x->a; Norm(x->a+1)
   ==>
-  ex a; req 1=a; Norm(x->a+1 /\ a=1)
+  ex a; req emp; Norm(x->1+1)
 
   ex a; Norm(x->1*y->2); req x->a; Norm(x->a+1)
   ==>
-  ex a; req 1=a; Norm(y->2*x->a+1 /\ a=1)
+  ex a; req emp; Norm(y->2*x->1+1)
 
-  ex a; Norm(y->a /\ a=3); req x->b /\ b=a; Norm(x->b+1)
+  ex a; Norm(y->a/\a=3); req x->b/\b=a; Norm(x->b+1)
   ==>
-  ex a; req x->b /\ b=a; Norm(y->a*x->b+1 /\ a=3)
+  ex a; req x->b/\b=a; Norm(y->a*x->b+1/\a=3)
 
   --- existential locations
 
-  ex x; Norm(x->1 /\ x=y); ex y; req y->1
+  ex x; Norm(x->1/\x=y); ex y; req y->1
   ==>
   req emp; Norm(emp)
 
-  ex x; Norm(x->2 /\ x=y); ex y; req y->1
+  ex x; Norm(x->2/\x=y); ex y; req y->1
   =/=>
 
   ex x; Norm(x->1); ex y; req y->1; Norm(x=y)
@@ -332,11 +332,11 @@ let%expect_test "normalise spec" =
 
   Norm(x->1); req x->1; E(x->1, (3), ()); Norm(y->2)
   ==>
-  req 1=1; E(x->1 /\ 1=1, (3), ()); req emp; Norm(y->2 /\ res=())
+  req 1=1; E(x->1/\1=1, (3), ()); req emp; Norm(y->2/\res=())
 
   Norm(x->1); f(3, ()); Norm(y->2)
   ==>
-  req emp; ens x->1; f(3, ()); req emp; Norm(y->2 /\ res=())
+  req emp; ens x->1; f(3, ()); req emp; Norm(y->2/\res=())
 
   --- regression
 
