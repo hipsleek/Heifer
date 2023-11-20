@@ -761,11 +761,19 @@ let final_simplification (effs, norm) =
   let effs1 =
     List.map
       (fun efs ->
-        {
-          efs with
-          e_pre = simplify_state efs.e_pre;
-          e_post = simplify_state efs.e_post;
-        })
+        match efs with
+        | TryCatchStage tc ->
+          TryCatchStage {
+            tc with
+            tc_pre = simplify_state tc.tc_pre;
+            tc_post = simplify_state tc.tc_post;
+          }
+        | EffHOStage efs ->
+          EffHOStage {
+            efs with
+            e_pre = simplify_state efs.e_pre;
+            e_post = simplify_state efs.e_post;
+          })
       effs
   in
   let ex, pre, post = norm in
@@ -918,7 +926,7 @@ let rec simplify_spec n sp2 =
     (string_of_normalisedStagedSpec sp4);
   let sp5 = remove_temp_vars sp4 in
   (*print_endline((string_of_normalisedStagedSpec sp4) ^"===> "^
-  (string_of_normalisedStagedSpec sp5));
+  (string_of_normalisedStagedSpec sp5));*)
  
 
   debug ~at:4 ~title:"normalize_spec: remove temp vars" "%s\n==>\n%s"
@@ -927,9 +935,8 @@ let rec simplify_spec n sp2 =
   let sp6 = final_simplification sp5 in
   debug ~at:4 ~title:"normalize_spec: final simplication pass" "%s\n==>\n%s"
     (string_of_normalisedStagedSpec sp5)
-    (string_of_normalisedStagedSpec sp6); *)
-  (* if sp6 = sp2 || n < 0 then sp6 else simplify_spec (n - 1) sp2 *)
-  if sp5 = sp2 || n < 0 then sp4 else simplify_spec (n - 1) sp2
+    (string_of_normalisedStagedSpec sp6);
+  if sp6 = sp2 || n < 0 then sp6 else simplify_spec (n - 1) sp2
 
 
 (* the main entry point *)
