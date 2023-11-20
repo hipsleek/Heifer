@@ -780,6 +780,7 @@ let final_simplification (effs, norm) =
   (effs1, (ex, simplify_state pre, simplify_state post))
 
 (* for each variable, find how many times it is used and what other variables it is equal to *)
+(* TODO generalise to related to *)
 let count_uses_and_equalities =
   let add _k a b =
     match (a, b) with
@@ -818,21 +819,24 @@ let remove_temp_vars : normalisedStagedSpec -> normalisedStagedSpec =
     let histo =
       count_uses_and_equalities#visit_normalisedStagedSpec () (eff, norm)
     in
-    debug ~at:5 ~title:"histo" "%s"
+    debug ~at:5 ~title:"histo" "%s\n%s"
       (string_of_smap
          (string_of_pair string_of_int (string_of_list string_of_term))
-         histo);
+         histo) (string_of_normalisedStagedSpec (eff, norm));
     let quantified = Subst.getExistentialVar (eff, norm) |> SSet.of_list in
     let locations =
       SSet.concat
         (collect_locations_norm norm :: List.map collect_locations_eff eff)
     in
     let occurs_once =
-      SMap.filter
-        (fun k (cnt, _) ->
+      histo
+      |> SMap.filter
+        (fun k (cnt, eq) ->
           ((not (String.equal k "res")) && not (SSet.mem k locations))
-          && Int.equal cnt 1 && SSet.mem k quantified)
-        histo
+          && Int.equal cnt 1 && SSet.mem k quantified &&
+          (* edge case: given [ex r. res=r], we only remove r if it's not the only thing constraining res *)
+          (* TODO non-equality [ex r. res > r] is not handled *)
+          (if List.mem (res_v) eq then (fst (SMap.find "res" histo) > 1) else true))
       |> SMap.keys |> SSet.of_list
     in
     debug ~at:5 ~title:"occurs once" "%s" (string_of_sset occurs_once);
