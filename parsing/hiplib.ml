@@ -1204,6 +1204,8 @@ let string_of_token =
 | CONJUNCTION -> "CONJUNCTION"
 | DISJUNCTION -> "DISJUNCTION"
 | IMPLICATION -> "IMPLICATION"
+| EFFTRY -> "EFFTRY"
+| EFFCATCH -> "EFFCATCH"
 
 
 let debug_tokens str =
