@@ -485,7 +485,7 @@ let optimize_existentials : normalisedStagedSpec -> normalisedStagedSpec =
  fun (ess, norm) ->
   let@ _ =
     Debug.span (fun r ->
-        debug ~at:3
+        debug ~at:4
           ~title:"optimize_existentials result"
           "%s\n==>\n%s" (string_of_normalisedStagedSpec (ess, norm))
           (string_of_result string_of_normalisedStagedSpec r))
@@ -808,6 +808,16 @@ let count_uses_and_equalities =
       method! visit_Var _ v = SMap.singleton v (1, [])
 
       method! visit_PointsTo _ (v, _) = SMap.singleton v (1, [])
+
+      (* this is a problem with visitors, it's unclear which methods are actually called *)
+      method! visit_HigherOrder _ _fn = failwith ""
+
+      method! visit_EffHOStage _ eh =
+        match eh.e_typ with
+        | `Eff -> super#visit_EffHOStage () eh
+        | `Fn ->
+          plus (SMap.singleton (fst eh.e_constr) (1, []))
+            (super#visit_EffHOStage () eh)
     end
   in
   vis
@@ -923,7 +933,7 @@ let rec simplify_spec n sp2 =
   (* redundant vars may appear due to fresh stages and removal of res via intermediate variables *)
   let sp4 = sp3 |> optimize_existentials in
 
-  debug ~at:4
+  debug ~at:3
     ~title:"normalize_spec: move existentials inward and remove unused"
     "%s\n==>\n%s"
     (string_of_normalisedStagedSpec sp3)
@@ -933,11 +943,11 @@ let rec simplify_spec n sp2 =
   (string_of_normalisedStagedSpec sp5));*)
  
 
-  debug ~at:4 ~title:"normalize_spec: remove temp vars" "%s\n==>\n%s"
+  debug ~at:3 ~title:"normalize_spec: remove temp vars" "%s\n==>\n%s"
     (string_of_normalisedStagedSpec sp4)
     (string_of_normalisedStagedSpec sp5);
   let sp6 = final_simplification sp5 in
-  debug ~at:4 ~title:"normalize_spec: final simplication pass" "%s\n==>\n%s"
+  debug ~at:3 ~title:"normalize_spec: final simplication pass" "%s\n==>\n%s"
     (string_of_normalisedStagedSpec sp5)
     (string_of_normalisedStagedSpec sp6);
   if sp6 = sp2 || n < 0 then sp6 else simplify_spec (n - 1) sp2
