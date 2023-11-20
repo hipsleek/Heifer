@@ -951,11 +951,12 @@ let retrieveSpecFromMs_Ps (fname: string) (ms:meth_def list) (ps:pred_def SMap.t
   | Some res -> Some res
   | None -> 
 
+  let (>>=) = Option.bind in
   SMap.find_opt fname 
     (ms |> List.map (fun m -> m.m_name, m)
     |> List.to_seq
     |> SMap.of_seq)
-  |> Option.map (fun m -> (m.m_params, Option.get m.m_spec))
+  >>= (fun m -> Option.map (fun sp -> (m.m_params, sp)) m.m_spec)
 
 
 
