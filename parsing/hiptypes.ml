@@ -110,6 +110,12 @@ class virtual ['self] reduce_spec =
     method visit_bin_op _env _ = self#zero
   end
 
+class virtual ['self] map_spec =
+  object (_self : 'self)
+    inherit [_] map_spec_
+    method visit_bin_op _env o = o
+  end
+
 let res_v = Var "res"
 
 let z3_consumption = ref 0.0
@@ -213,6 +219,7 @@ type effectStage = {
   e_typ : [`Eff | `Fn] [@opaque];
 }
 [@@deriving
+  visitors { variety = "map"; name = "map_effect_stage_" },
   visitors { variety = "reduce"; name = "reduce_effect_stage_" }]
 
 type tryCatchStage = {
@@ -223,20 +230,24 @@ type tryCatchStage = {
   tc_ret : term;
 }
 [@@deriving
+  visitors { variety = "map"; name = "map_try_catch_stage_" },
   visitors { variety = "reduce"; name = "reduce_try_catch_stage_" }]
 
 
 type effHOTryCatchStages = EffHOStage of effectStage | TryCatchStage of tryCatchStage
 [@@deriving
+  visitors { variety = "map"; name = "map_eff_stages_" },
   visitors { variety = "reduce"; name = "reduce_eff_stages_" }]
 
 (** existentials, pre, post (which may contain constraints on res) *)
 type normalStage =  (string list* (pi * kappa ) * (pi * kappa))
 [@@deriving
+  visitors { variety = "map"; name = "map_normal_stages_" },
   visitors { variety = "reduce"; name = "reduce_normal_stages_" }]
 
 type normalisedStagedSpec = effHOTryCatchStages list * normalStage
 [@@deriving
+  visitors { variety = "map"; name = "map_normalised_" },
   visitors { variety = "reduce"; name = "reduce_normalised_" }]
 
 [@@@warning "+17"]
@@ -249,6 +260,16 @@ class virtual ['self] reduce_normalised =
     inherit! [_] reduce_eff_stages_
     inherit! [_] reduce_normal_stages_
     inherit! [_] reduce_normalised_
+  end
+
+class virtual ['self] map_normalised =
+  object (_ : 'self)
+    inherit [_] map_spec
+    inherit! [_] map_effect_stage_
+    inherit! [_] map_try_catch_stage_
+    inherit! [_] map_eff_stages_
+    inherit! [_] map_normal_stages_
+    inherit! [_] map_normalised_
   end
 
 let freshNormalReturnSpec = [NormalReturn (True, EmptyHeap)]
