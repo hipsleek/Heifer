@@ -771,8 +771,8 @@ let final_simplification (effs, norm) =
   let ex, pre, post = norm in
   (effs1, (ex, simplify_state pre, simplify_state post))
 
-(* if there is only one use, remove it. if there are two uses, substitute one into the other *)
-let remove_temp_vars =
+(* for each existential variable, if there is only one use, remove it; if there are two uses, substitute one into the other *)
+let remove_temp_vars : normalisedStagedSpec -> normalisedStagedSpec =
   let add _k a b =
     match (a, b) with
     | None, None -> None
@@ -780,14 +780,6 @@ let remove_temp_vars =
     | Some (a1, a2), Some (b1, b2) -> Some (a1 + b1, a2 @ b2)
   in
   let merge a b = SMap.merge add a b in
-  (*
-     let add _k a b =
-       match (a, b) with
-       | None, None -> None
-       | Some a, None | None, Some a -> Some a
-       | Some a, Some b -> Some (a+b)
-     in
-     let merge (sa,an) (sb,bn) = SMap.merge add sa sb, an@bn in *)
   let rec analyze_pi pi =
     match pi with
     | True | False -> SMap.empty
@@ -802,7 +794,6 @@ let remove_temp_vars =
     | Not a -> analyze_pi a
     | Predicate (_, tLi) -> 
       List.fold_left (fun acc t -> merge acc (analyze_term t)) SMap.empty tLi
-      (*failwith (Format.asprintf "NYI: predicate analyze_pi") *)
   and analyze_term t =
     match t with
     | Num _ | UNIT | TTrue | TFalse | Nil -> SMap.empty
@@ -828,25 +819,38 @@ let remove_temp_vars =
         ([analyze_state pre; analyze_state post]
         @ List.concat_map
             (fun e ->
-              [
-                analyze_state e.e_pre;
-                analyze_state e.e_post;
-                SMap.singleton (fst e.e_constr) (1, []);
-                List.fold_right merge
-                  (List.map analyze_term (snd e.e_constr))
-                  SMap.empty;
-                analyze_term e.e_ret;
-              ])
+              match e with
+              | TryCatchStage tc ->
+                [
+                  analyze_state tc.tc_pre;
+                  analyze_state tc.tc_post;
+                  (* TODO trycatch *)
+                  (* SMap.singleton (fst tc.tc_constr) (1, []); *)
+                  (* List.fold_right merge
+                    (List.map analyze_term (snd tc.tc_constr))
+                    SMap.empty; *)
+                  analyze_term tc.tc_ret;
+                ]
+              | EffHOStage e ->
+                [
+                  analyze_state e.e_pre;
+                  analyze_state e.e_post;
+                  SMap.singleton (fst e.e_constr) (1, []);
+                  List.fold_right merge
+                    (List.map analyze_term (snd e.e_constr))
+                    SMap.empty;
+                  analyze_term e.e_ret;
+                ])
             eff)
     in
     debug ~at:5 ~title:"histo" "%s"
       (string_of_smap
          (string_of_pair string_of_int (string_of_list string_of_term))
          histo);
-    let quantified = Subst.getExistentialVar (List.map (fun a -> EffHOStage a) eff, norm) |> SSet.of_list in
+    let quantified = Subst.getExistentialVar (eff, norm) |> SSet.of_list in
     let locations =
       SSet.concat
-        (collect_locations_norm norm :: List.map collect_locations_eff (List.map (fun a -> EffHOStage a) eff))
+        (collect_locations_norm norm :: List.map collect_locations_eff eff)
     in
     let occurs_once =
       SMap.filter
@@ -861,13 +865,16 @@ let remove_temp_vars =
     let eff1 =
       List.map
         (fun e ->
-          {
-            e with
-            e_evars =
-              List.filter (fun v -> not (SSet.mem v occurs_once)) e.e_evars;
-            e_pre = remove_subexpr_state occurs_once e.e_pre;
-            e_post = remove_subexpr_state occurs_once e.e_post;
-          })
+          match e with
+          | TryCatchStage tc -> failwith "nyi"
+          | EffHOStage e ->
+            EffHOStage {
+              e with
+              e_evars =
+                List.filter (fun v -> not (SSet.mem v occurs_once)) e.e_evars;
+              e_pre = remove_subexpr_state occurs_once e.e_pre;
+              e_post = remove_subexpr_state occurs_once e.e_post;
+            })
         eff
     in
     let norm1 =
@@ -895,11 +902,14 @@ let remove_temp_vars =
     let eff2 =
       List.map
         (fun e ->
-          {
-            e with
-            e_pre = instantiate_state occurs_twice e.e_pre;
-            e_post = instantiate_state occurs_twice e.e_post;
-          })
+          match e with
+          | TryCatchStage tc -> failwith "nyi"
+          | EffHOStage e ->
+            EffHOStage {
+              e with
+              e_pre = instantiate_state occurs_twice e.e_pre;
+              e_post = instantiate_state occurs_twice e.e_post;
+            })
         eff1
     in
     (* Format.printf "occurs_twice: %s@."
@@ -922,7 +932,7 @@ let rec simplify_spec n sp2 =
   (* redundant vars may appear due to fresh stages and removal of res via intermediate variables *)
   let sp4 = sp3 |> optimize_existentials in
 
-  (* debug ~at:4
+  debug ~at:4
     ~title:"normalize_spec: move existentials inward and remove unused"
     "%s\n==>\n%s"
     (string_of_normalisedStagedSpec sp3)
@@ -930,7 +940,7 @@ let rec simplify_spec n sp2 =
   let sp5 = remove_temp_vars sp4 in
   (*print_endline((string_of_normalisedStagedSpec sp4) ^"===> "^
   (string_of_normalisedStagedSpec sp5));
-  *)
+ 
 
   debug ~at:4 ~title:"normalize_spec: remove temp vars" "%s\n==>\n%s"
     (string_of_normalisedStagedSpec sp4)
@@ -940,7 +950,7 @@ let rec simplify_spec n sp2 =
     (string_of_normalisedStagedSpec sp5)
     (string_of_normalisedStagedSpec sp6); *)
   (* if sp6 = sp2 || n < 0 then sp6 else simplify_spec (n - 1) sp2 *)
-  if sp4 = sp2 || n < 0 then sp4 else simplify_spec (n - 1) sp2
+  if sp5 = sp2 || n < 0 then sp4 else simplify_spec (n - 1) sp2
 
 
 (* the main entry point *)
