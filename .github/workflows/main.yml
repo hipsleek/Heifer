@@ -38,7 +38,7 @@ jobs:
       # - run: opam install . --deps-only
       # z3 takes a long time to build and isn't needed for the web build
       # - run: opam install menhir ppx_expect z3 brr js_of_ocaml-compiler
-      - run: opam install dune menhir ppx_deriving ppx_expect brr js_of_ocaml-compiler unionFind
+      - run: opam install dune menhir ppx_deriving ppx_expect brr js_of_ocaml-compiler unionFind visitors
 
       - uses: actions/setup-node@v3
         with:
