@@ -1616,7 +1616,8 @@ let run_file inputfile =
 
       
       in 
-      print_endline finalSummary; 
+      if not !test_mode then
+        print_endline finalSummary; 
 
 
       
