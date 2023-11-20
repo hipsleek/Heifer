@@ -771,77 +771,44 @@ let final_simplification (effs, norm) =
   let ex, pre, post = norm in
   (effs1, (ex, simplify_state pre, simplify_state post))
 
-(* for each existential variable, if there is only one use, remove it; if there are two uses, substitute one into the other *)
-let remove_temp_vars : normalisedStagedSpec -> normalisedStagedSpec =
+(* for each variable, find how many times it is used and what other variables it is equal to *)
+let count_uses_and_equalities =
   let add _k a b =
     match (a, b) with
     | None, None -> None
     | Some a, None | None, Some a -> Some a
     | Some (a1, a2), Some (b1, b2) -> Some (a1 + b1, a2 @ b2)
   in
-  let merge a b = SMap.merge add a b in
-  let rec analyze_pi pi =
-    match pi with
-    | True | False -> SMap.empty
-    | Atomic (EQ, Var a, Var b) ->
-      SMap.of_seq (List.to_seq [(a, (1, [Var b])); (b, (1, [Var a]))])
-    | Atomic (EQ, Var a, b) | Atomic (EQ, b, Var a) ->
-      merge (SMap.singleton a (1, [b])) (analyze_term b)
-    | Atomic (EQ, a, b) -> merge (analyze_term a) (analyze_term b)
-    | Atomic (_, _, _) -> SMap.empty
-    | And (a, b) | Or (a, b) | Imply (a, b) ->
-      merge (analyze_pi a) (analyze_pi b)
-    | Not a -> analyze_pi a
-    | Predicate (_, tLi) -> 
-      List.fold_left (fun acc t -> merge acc (analyze_term t)) SMap.empty tLi
-  and analyze_term t =
-    match t with
-    | Num _ | UNIT | TTrue | TFalse | Nil -> SMap.empty
-    | Var v -> SMap.singleton v (1, [])
-    | Plus (a, b) | Minus (a, b) | TPower (a, b) |  TTimes (a, b) | TDiv (a, b) | Rel (_, a, b) | TAnd (a, b) | TOr (a, b) ->
-      merge (analyze_term a) (analyze_term b)
-    | TNot a -> analyze_term a
-    | TApp (_, ts) -> foldr1 merge (List.map analyze_term ts)
-    | TLambda (_, _, _) ->
-      (* TODO *)
-      SMap.empty
-    | TList _ | TTupple _ -> failwith (Format.asprintf "NYI list/tuple")
-  and analyze_heap h =
-    match h with
-    | EmptyHeap -> SMap.empty
-    | PointsTo (v, x) -> merge (SMap.singleton v (1, [])) (analyze_term x)
-    | SepConj (a, b) -> merge (analyze_heap a) (analyze_heap b)
-  and analyze_state (p, h) = merge (analyze_pi p) (analyze_heap h) in
+  let zero = SMap.empty in
+  let plus = SMap.merge add in
+  let vis =
+    object (self)
+      inherit [_] reduce_normalised as super
+      method zero = zero
+      method plus = plus
+
+      method! visit_Atomic _ op a b =
+        match op, a, b with
+        | EQ, Var a, Var b ->
+          SMap.of_seq (List.to_seq [(a, (1, [Var b])); (b, (1, [Var a]))])
+        | EQ, Var a, b | EQ, b, Var a ->
+          plus (SMap.singleton a (1, [b])) (self#visit_term () b)
+        | EQ, a, b -> plus (self#visit_term () a) (self#visit_term () b)
+        | _ -> zero
+
+      method! visit_Var _ v = SMap.singleton v (1, [])
+
+      method! visit_PointsTo _ (v, _) = SMap.singleton v (1, [])
+    end
+  in
+  vis
+
+(* for each existential variable, if there is only one use, remove it; if there are two uses, substitute one into the other *)
+let remove_temp_vars : normalisedStagedSpec -> normalisedStagedSpec =
   fun (eff, norm) ->
     let ex, pre, post = norm in
     let histo =
-      foldr1 merge
-        ([analyze_state pre; analyze_state post]
-        @ List.concat_map
-            (fun e ->
-              match e with
-              | TryCatchStage tc ->
-                [
-                  analyze_state tc.tc_pre;
-                  analyze_state tc.tc_post;
-                  (* TODO trycatch *)
-                  (* SMap.singleton (fst tc.tc_constr) (1, []); *)
-                  (* List.fold_right merge
-                    (List.map analyze_term (snd tc.tc_constr))
-                    SMap.empty; *)
-                  analyze_term tc.tc_ret;
-                ]
-              | EffHOStage e ->
-                [
-                  analyze_state e.e_pre;
-                  analyze_state e.e_post;
-                  SMap.singleton (fst e.e_constr) (1, []);
-                  List.fold_right merge
-                    (List.map analyze_term (snd e.e_constr))
-                    SMap.empty;
-                  analyze_term e.e_ret;
-                ])
-            eff)
+      count_uses_and_equalities#visit_normalisedStagedSpec () (eff, norm)
     in
     debug ~at:5 ~title:"histo" "%s"
       (string_of_smap
@@ -866,7 +833,14 @@ let remove_temp_vars : normalisedStagedSpec -> normalisedStagedSpec =
       List.map
         (fun e ->
           match e with
-          | TryCatchStage tc -> failwith "nyi"
+          | TryCatchStage tc ->
+            TryCatchStage {
+              tc with
+              tc_evars =
+                List.filter (fun v -> not (SSet.mem v occurs_once)) tc.tc_evars;
+              tc_pre = remove_subexpr_state occurs_once tc.tc_pre;
+              tc_post = remove_subexpr_state occurs_once tc.tc_post;
+            }
           | EffHOStage e ->
             EffHOStage {
               e with
@@ -903,7 +877,12 @@ let remove_temp_vars : normalisedStagedSpec -> normalisedStagedSpec =
       List.map
         (fun e ->
           match e with
-          | TryCatchStage tc -> failwith "nyi"
+          | TryCatchStage tc ->
+            TryCatchStage {
+              tc with
+              tc_pre = instantiate_state occurs_twice tc.tc_pre;
+              tc_post = instantiate_state occurs_twice tc.tc_post;
+            }
           | EffHOStage e ->
             EffHOStage {
               e with

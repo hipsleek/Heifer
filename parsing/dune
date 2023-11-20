@@ -64,7 +64,7 @@
  (name hipcore)
  (libraries unionFind str)
  (modules debug subst Pretty common hiptypes)
- (preprocess (pps ppx_expect ppx_deriving.std)))
+ (preprocess (pps visitors.ppx ppx_expect ppx_deriving.std)))
 
 (library
  (name hipprover)

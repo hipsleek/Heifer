@@ -261,12 +261,12 @@ let hash_lambda t =
     Hashtbl.hash n
   | _ -> failwith (Format.asprintf "not a lambda: %s" "(cannot print)")
 
-let rec get_existentials_eff (e : effHOTryCatchStages) : string list =
+let get_existentials_eff (e : effHOTryCatchStages) : string list =
   match e with
   | EffHOStage eff -> eff.e_evars
   | TryCatchStage tc -> tc.tc_evars
 
-let rec set_existentials_eff (e : effHOTryCatchStages) vs =
+let set_existentials_eff (e : effHOTryCatchStages) vs =
   match e with
   | EffHOStage eff -> EffHOStage { eff with e_evars = vs }
   | TryCatchStage tc -> TryCatchStage { tc with tc_evars = vs }

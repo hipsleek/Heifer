@@ -3,6 +3,8 @@ open Common
 
 type bin_op = GT | LT | EQ | GTEQ | LTEQ
 
+[@@@warning "-17"]
+
 type term =
     | UNIT 
     | Num of int
@@ -96,6 +98,17 @@ and stagedSpec =
 and spec = stagedSpec list
 
 and disj_spec = spec list
+[@@deriving
+  visitors { variety = "map"; name = "map_spec_" },
+  visitors { variety = "reduce"; name = "reduce_spec_" }]
+
+[@@@warning "+17"]
+
+class virtual ['self] reduce_spec =
+  object (self : 'self)
+    inherit [_] reduce_spec_
+    method visit_bin_op _env _ = self#zero
+  end
 
 let res_v = Var "res"
 
@@ -188,6 +201,8 @@ let create_abs_env () =
 (* concrete type environment, where every variable has a concrete type *)
 type typ_env = typ SMap.t
 
+[@@@warning "-17"]
+
 (* type effectStage =  (string list* (pi * kappa ) * (pi * kappa) * instant * term) *)
 type effectStage = {
   e_evars : string list;
@@ -195,8 +210,10 @@ type effectStage = {
   e_post : pi * kappa;
   e_constr : instant;
   e_ret : term;
-  e_typ : [`Eff | `Fn];
+  e_typ : [`Eff | `Fn] [@opaque];
 }
+[@@deriving
+  visitors { variety = "reduce"; name = "reduce_effect_stage_" }]
 
 type tryCatchStage = {
   tc_evars : string list;
@@ -205,14 +222,34 @@ type tryCatchStage = {
   tc_constr : trycatch;
   tc_ret : term;
 }
+[@@deriving
+  visitors { variety = "reduce"; name = "reduce_try_catch_stage_" }]
 
 
 type effHOTryCatchStages = EffHOStage of effectStage | TryCatchStage of tryCatchStage
+[@@deriving
+  visitors { variety = "reduce"; name = "reduce_eff_stages_" }]
 
 (** existentials, pre, post (which may contain constraints on res) *)
 type normalStage =  (string list* (pi * kappa ) * (pi * kappa))
+[@@deriving
+  visitors { variety = "reduce"; name = "reduce_normal_stages_" }]
 
 type normalisedStagedSpec = effHOTryCatchStages list * normalStage
+[@@deriving
+  visitors { variety = "reduce"; name = "reduce_normalised_" }]
+
+[@@@warning "+17"]
+
+class virtual ['self] reduce_normalised =
+  object (_ : 'self)
+    inherit [_] reduce_spec
+    inherit! [_] reduce_effect_stage_
+    inherit! [_] reduce_try_catch_stage_
+    inherit! [_] reduce_eff_stages_
+    inherit! [_] reduce_normal_stages_
+    inherit! [_] reduce_normalised_
+  end
 
 let freshNormalReturnSpec = [NormalReturn (True, EmptyHeap)]
 let freshNormalStage : normalStage = ([], (True, EmptyHeap), (True, EmptyHeap)) 
