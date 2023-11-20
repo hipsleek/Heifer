@@ -809,8 +809,9 @@ let count_uses_and_equalities =
 
       method! visit_PointsTo _ (v, _) = SMap.singleton v (1, [])
 
-      (* this is a problem with visitors, it's unclear which methods are actually called *)
-      method! visit_HigherOrder _ _fn = failwith ""
+      (* there can be unnormalized specs inside normalized ones *)
+      method! visit_HigherOrder _ ((_p, _h, (f, _a), _r) as fn) =
+        plus (SMap.singleton f (1, [])) (super#visit_HigherOrder () fn)
 
       method! visit_EffHOStage _ eh =
         match eh.e_typ with
