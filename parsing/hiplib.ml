@@ -1216,7 +1216,7 @@ let debug_tokens str =
   in
   let tokens = loop [] in
   let s = tokens |> List.map string_of_token |> String.concat " " in
-  Format.printf "%s@." s
+  debug ~at:3 ~title:"debug tokens" "%s" s
 
 let (exGlobal:(string list) ref) =  ref []
 let (unifyGlobal: pi ref) = ref True  
@@ -1599,7 +1599,7 @@ let run_file inputfile =
       let lines =  (input_lines ic ) in
       let line = List.fold_right (fun x acc -> acc ^ "\n" ^ x) (List.rev lines) "" in
       
-      (* debug_tokens line; *)
+      debug_tokens line;
 
       run_string line;
 
