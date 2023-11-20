@@ -378,15 +378,9 @@ let string_of_pred ({ p_name; p_params; p_body } : pred_def) : string =
 let string_of_inclusion (lhs:spec list) (rhs:spec list) :string =
   string_of_spec_list lhs ^" |- " ^string_of_spec_list rhs
 
-let rec string_of_normalisedStagedSpec (spec:normalisedStagedSpec) : string =
-  let (effS, normalS) = spec in
-  match effS with
-  | [] ->
-    let (existiental, (p1, h1), (p2, h2)) = normalS in
-    let ex = match existiental with [] -> [] | _ -> [Exists existiental] in
-    let current = ex @ [Require(p1, h1); NormalReturn(p2, h2)] in
-    string_of_spec current
-  | (EffHOStage x) :: xs  ->
+let string_of_effHOTryCatchStages s =
+  match s with
+  | (EffHOStage x) ->
     (let {e_pre = (p1, h1); e_post = (p2, h2); _} = x in
     let ex = match x.e_evars with [] -> [] | _ -> [Exists x.e_evars] in
     let current = ex @ [Require(p1, h1);
@@ -394,9 +388,8 @@ let rec string_of_normalisedStagedSpec (spec:normalisedStagedSpec) : string =
     | `Eff -> RaisingEff(p2, h2, x.e_constr, x.e_ret)
     | `Fn -> HigherOrder(p2, h2, x.e_constr, x.e_ret))] in
     string_of_spec current )
-    ^ "; " ^ string_of_normalisedStagedSpec (xs, normalS)
 
-  | (TryCatchStage ct) :: xs  -> 
+  | (TryCatchStage ct) -> 
     (let {tc_pre = (p1, h1); tc_post = (p2, h2); _} = ct in
     let ex = match ct.tc_evars with [] -> [] | _ -> [Exists ct.tc_evars] in
     let current = ex @ 
@@ -405,9 +398,18 @@ let rec string_of_normalisedStagedSpec (spec:normalisedStagedSpec) : string =
     )
     ] in
     string_of_spec current )
-    ^ "; " ^ string_of_normalisedStagedSpec (xs, normalS)
 
-    
+let rec string_of_normalisedStagedSpec (spec:normalisedStagedSpec) : string =
+  let (effS, normalS) = spec in
+  match effS with
+  | [] ->
+    let (existiental, (p1, h1), (p2, h2)) = normalS in
+    let ex = match existiental with [] -> [] | _ -> [Exists existiental] in
+    let current = ex @ [Require(p1, h1); NormalReturn(p2, h2)] in
+    string_of_spec current
+  | x :: xs  ->
+    string_of_effHOTryCatchStages x
+    ^ "; " ^ string_of_normalisedStagedSpec (xs, normalS)
 
 
 let string_of_normalisedStagedSpecList (specs:normalisedStagedSpec list) : string =
