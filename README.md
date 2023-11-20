@@ -134,5 +134,7 @@ Add logging using `debug ~at:n ~title:"example" "format string %d" 1;`. `info` i
 [This file](parsing/dune) lists the submodules of the various libraries.
 
 
-
-
+```sh
+opam install dune-deps
+dune-deps -x benchmarks -x src/programs.t | sed 's/\}/\{rank = same; "lib:provers_js"; "lib:provers_native";\} \}/' | tred | dot -Tpng > deps.png
+```
