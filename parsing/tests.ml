@@ -305,11 +305,11 @@ let%expect_test "normalise spec" =
 
   ex a; Norm(x->1); req x->a; Norm(x->a+1)
   ==>
-  ex a; req emp; Norm(x->1+1)
+  ex a; req 1=a; Norm(x->a+1/\a=1)
 
   ex a; Norm(x->1*y->2); req x->a; Norm(x->a+1)
   ==>
-  ex a; req emp; Norm(y->2*x->1+1)
+  ex a; req 1=a; Norm(y->2*x->a+1/\a=1)
 
   ex a; Norm(y->a/\a=3); req x->b/\b=a; Norm(x->b+1)
   ==>

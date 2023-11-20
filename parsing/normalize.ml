@@ -807,7 +807,8 @@ let count_uses_and_equalities =
 
       method! visit_Var _ v = SMap.singleton v (1, [])
 
-      method! visit_PointsTo _ (v, _) = SMap.singleton v (1, [])
+      method! visit_PointsTo _ (v, t) =
+        plus (SMap.singleton v (1, [])) (self#visit_term () t)
 
       (* there can be unnormalized specs inside normalized ones *)
       method! visit_HigherOrder _ ((_p, _h, (f, _a), _r) as fn) =
