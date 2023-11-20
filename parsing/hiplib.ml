@@ -1572,11 +1572,11 @@ let run_string s =
   Provers.handle (fun () -> run_string_ s)
 
 let retriveComments (source:string) : (string list) = 
-  let partitions = Str.split (Str.regexp "(\*@") source in 
+  let partitions = Str.split (Str.regexp "(\\*@") source in 
   match partitions with 
   | [] -> assert false 
   | _ :: rest -> (*  SYH: Note that specification can't start from line 1 *)
-  let partitionEnd = List.map (fun a -> Str.split (Str.regexp "@\*)")  a) rest in 
+  let partitionEnd = List.map (fun a -> Str.split (Str.regexp "@\\*)")  a) rest in 
   let rec helper (li: string list list): string list = 
     match li with 
     | [] -> []
