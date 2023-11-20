@@ -74,7 +74,8 @@ and kappa =
 (* a formula which describes a program state *)
 and state = pi * kappa
 
-and handlingcases = (string * spec list) * ((string * string option * spec list) list)
+(* v->phi and (Eff arg?-> phi)* *)
+and handlingcases = (string * disj_spec) * ((string * string option * disj_spec) list)
 and trycatch = (spec * handlingcases)
 
 

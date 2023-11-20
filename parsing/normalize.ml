@@ -483,26 +483,34 @@ let collect_locations (sp : normalisedStagedSpec) =
 (** this moves existentials inward and removes unused ones *)
 let optimize_existentials : normalisedStagedSpec -> normalisedStagedSpec =
  fun (ess, norm) ->
+  let@ _ =
+    Debug.span (fun r ->
+        debug ~at:3
+          ~title:"optimize_existentials result"
+          "%s\n==>\n%s" (string_of_normalisedStagedSpec (ess, norm))
+          (string_of_result string_of_normalisedStagedSpec r))
+  in
   let rec loop already_used unused acc es =
-    (* Format.printf "inward %s %s %s %s@."
+    debug ~at:4 ~title:"optimize_existentials loop"
+    "already used: %s\nunused: %s\nacc: %s\nes: %s"
        (string_of_sset already_used)
        (string_of_sset unused)
-       (string_of_list string_of_effect_stage acc)
-       (string_of_list string_of_effect_stage es); *)
+       (string_of_list string_of_effHOTryCatchStages acc)
+       (string_of_list string_of_effHOTryCatchStages es);
     match es with
     | [] -> (unused, List.rev acc)
-    | (EffHOStage e) :: rest ->
-      let available =
-        SSet.diff (SSet.union (SSet.of_list e.e_evars) unused) already_used
+    | e :: rest ->
+      let available_to_use =
+        SSet.diff (SSet.union (SSet.of_list (get_existentials_eff e)) unused) already_used
       in
-      let needed = SSet.diff (used_vars_eff ((EffHOStage e))) already_used in
+      let needed = SSet.diff (used_vars_eff e) already_used in
       let used_ex, unused_ex =
-        SSet.partition (fun v -> SSet.mem v needed) available
+        SSet.partition (fun v -> SSet.mem v needed) available_to_use
       in
       loop
         (SSet.union already_used used_ex)
         unused_ex
-        (EffHOStage { e with e_evars = SSet.elements used_ex } :: acc)
+        (set_existentials_eff e (SSet.elements used_ex) :: acc)
         rest
   in
   let unused, es1 = loop SSet.empty SSet.empty [] ess in
@@ -904,7 +912,7 @@ let remove_temp_vars =
     in
     (eff2, norm2)
 
-(*let rec simplify_spec n sp2 =
+let rec simplify_spec n sp2 =
   let sp3 = sp2 in
   (* we may get a formula that is not equisatisfiable *)
   (* let sp3 = sp2 |> remove_noncontributing_existentials in
@@ -914,7 +922,7 @@ let remove_temp_vars =
   (* redundant vars may appear due to fresh stages and removal of res via intermediate variables *)
   let sp4 = sp3 |> optimize_existentials in
 
-  debug ~at:4
+  (* debug ~at:4
     ~title:"normalize_spec: move existentials inward and remove unused"
     "%s\n==>\n%s"
     (string_of_normalisedStagedSpec sp3)
@@ -930,9 +938,10 @@ let remove_temp_vars =
   let sp6 = final_simplification sp5 in
   debug ~at:4 ~title:"normalize_spec: final simplication pass" "%s\n==>\n%s"
     (string_of_normalisedStagedSpec sp5)
-    (string_of_normalisedStagedSpec sp6);
-  if sp6 = sp2 || n < 0 then sp6 else simplify_spec (n - 1) sp2
-*)
+    (string_of_normalisedStagedSpec sp6); *)
+  (* if sp6 = sp2 || n < 0 then sp6 else simplify_spec (n - 1) sp2 *)
+  if sp4 = sp2 || n < 0 then sp4 else simplify_spec (n - 1) sp2
+
 
 (* the main entry point *)
 let normalize_spec sp =
@@ -957,7 +966,8 @@ let normalize_spec sp =
 
     sp2
   in
-  (*simplify_spec 3*) r
+  simplify_spec 3
+  r
 
 let rec effectStage2Spec (effectStages : effHOTryCatchStages list) : spec =
   match effectStages with

@@ -183,10 +183,31 @@ match eff with
       SSet.concat (List.map used_vars_term (snd eff.e_constr));
       used_vars_term eff.e_ret;
     ]
-| _ -> SSet.empty
+| TryCatchStage tc
+ ->
+  SSet.concat
+    [
+      used_vars_state tc.tc_pre;
+      used_vars_state tc.tc_post;
+      used_vars_trycatch tc.tc_constr;
+      used_vars_term tc.tc_ret;
+    ]
 
 and used_vars_norm (_vs, pre, post) =
   SSet.concat [used_vars_state pre; used_vars_state post]
+
+and used_vars_trycatch (spec, cases) =
+  SSet.concat [used_vars_spec spec; used_vars_handlingcases cases]
+
+and used_vars_handlingcase (_effname, arg, body) =
+  match arg with
+  | None -> used_vars_disj_spec body
+  | Some v -> SSet.remove v (used_vars_disj_spec body)
+
+and used_vars_handlingcases (((nv, nb), effs):handlingcases) =
+  SSet.concat ([
+    SSet.remove nv (used_vars_disj_spec nb);
+  ] @ List.map used_vars_handlingcase effs)
 
 and used_vars (sp : normalisedStagedSpec) =
   let effs, norm = sp in
@@ -240,6 +261,16 @@ let hash_lambda t =
     Hashtbl.hash n
   | _ -> failwith (Format.asprintf "not a lambda: %s" "(cannot print)")
 
+let rec get_existentials_eff (e : effHOTryCatchStages) : string list =
+  match e with
+  | EffHOStage eff -> eff.e_evars
+  | TryCatchStage tc -> tc.tc_evars
+
+let rec set_existentials_eff (e : effHOTryCatchStages) vs =
+  match e with
+  | EffHOStage eff -> EffHOStage { eff with e_evars = vs }
+  | TryCatchStage tc -> TryCatchStage { tc with tc_evars = vs }
+
 let rec getExistentialVar (spec : normalisedStagedSpec) : string list =
   let effS, normalS = spec in
   match effS with
@@ -247,4 +278,4 @@ let rec getExistentialVar (spec : normalisedStagedSpec) : string list =
     let ex, _, _ = normalS in
     ex
   | (EffHOStage eff) :: xs -> eff.e_evars @ getExistentialVar (xs, normalS)
-  | _ :: xs -> getExistentialVar (xs, normalS)
+  | (TryCatchStage tc)::xs -> tc.tc_evars @ getExistentialVar (xs, normalS)
