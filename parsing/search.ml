@@ -58,7 +58,7 @@ let rec tree_of_mut_tree ?(compact = false) t =
   match t with
   | Node { name; children; state } ->
     Hipcore.Pretty.Node
-      ( Format.asprintf "%s %s" name (string_of_search_state state),
+      ( Format.asprintf "%s %s" (string_of_search_state state) name,
         match (compact, state) with
         | true, `Done -> []
         | _ -> List.map (fun t -> tree_of_mut_tree ~compact !t) children )
