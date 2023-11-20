@@ -831,10 +831,11 @@ let remove_temp_vars : normalisedStagedSpec -> normalisedStagedSpec =
     let histo =
       count_uses_and_equalities#visit_normalisedStagedSpec () (eff, norm)
     in
-    debug ~at:5 ~title:"histo" "%s\n%s"
+    debug ~at:5 ~title:"histo" "%s\n\n%s"
+      (string_of_normalisedStagedSpec (eff, norm))
       (string_of_smap
          (string_of_pair string_of_int (string_of_list string_of_term))
-         histo) (string_of_normalisedStagedSpec (eff, norm));
+         histo);
     let quantified = Subst.getExistentialVar (eff, norm) |> SSet.of_list in
     let locations =
       SSet.concat
@@ -926,32 +927,33 @@ let remove_temp_vars : normalisedStagedSpec -> normalisedStagedSpec =
     (eff2, norm2)
 
 let rec simplify_spec n sp2 =
+
   let sp3 = sp2 in
+
   (* we may get a formula that is not equisatisfiable *)
   (* let sp3 = sp2 |> remove_noncontributing_existentials in
      debug ~at:4 ~title:"remove existentials that don't contribute" "%s\n==>\n%s"
        (string_of_normalisedStagedSpec sp2)
        (string_of_normalisedStagedSpec sp3); *)
   (* redundant vars may appear due to fresh stages and removal of res via intermediate variables *)
-  let sp4 = sp3 |> optimize_existentials in
 
+  let sp4 = sp3 |> optimize_existentials in
   debug ~at:3
     ~title:"normalize_spec: move existentials inward and remove unused"
     "%s\n==>\n%s"
     (string_of_normalisedStagedSpec sp3)
     (string_of_normalisedStagedSpec sp4);
-  let sp5 = remove_temp_vars sp4 in
-  (*print_endline((string_of_normalisedStagedSpec sp4) ^"===> "^
-  (string_of_normalisedStagedSpec sp5));*)
- 
 
+  let sp5 = remove_temp_vars sp4 in
   debug ~at:3 ~title:"normalize_spec: remove temp vars" "%s\n==>\n%s"
     (string_of_normalisedStagedSpec sp4)
     (string_of_normalisedStagedSpec sp5);
+
   let sp6 = final_simplification sp5 in
-  debug ~at:3 ~title:"normalize_spec: final simplication pass" "%s\n==>\n%s"
+  debug ~at:3 ~title:"normalize_spec: final simplification pass" "%s\n==>\n%s"
     (string_of_normalisedStagedSpec sp5)
     (string_of_normalisedStagedSpec sp6);
+
   if sp6 = sp2 || n < 0 then sp6 else simplify_spec (n - 1) sp2
 
 
