@@ -136,7 +136,8 @@ let any : name:string -> to_s:('a -> string) -> 'a list -> ('a -> 'b t) -> 'b t
   match vs with
   | [] ->
     (* Error (rule ~name "choice empty") *)
-    failwith (Format.asprintf "choice empty: %s" name)
+    (* failwith (Format.asprintf "choice empty: %s" name) *)
+    fail
   | _ :: _ ->
     let rec loop vs undone =
       match (vs, undone) with
