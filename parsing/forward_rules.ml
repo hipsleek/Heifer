@@ -290,7 +290,10 @@ let retriveLastRes (a:spec) : term =
     | None -> failwith ("retriveLastResFromPi  no res value prescribed")
     | Some t -> t 
     )
-  | _ -> failwith ("retriveLastRes ending with requre or ex ")
+  | [] -> failwith "empty"
+  | TryCatch _ :: _ -> failwith "tc"
+  | (Require _) as r :: _ -> failwith ("retriveLastRes ending with require " ^ (string_of_staged_spec r))
+  | Exists _ :: _ -> failwith ("retriveLastRes ending with ex")
 
 let rec handling_spec_inner env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj_spec)) (h_ops:(string * string option * disj_spec) list) (conti:spec) (formal_ret:string) : spec list * fvenv = 
 
@@ -500,6 +503,8 @@ and handling_spec env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj_spe
 
     | Some (effFormalArg, handler_body_spec) ->
       let effFormalArg = match effFormalArg with | None -> [] | Some v -> [v] in
+      (* Format.printf "effActualArg: %s@." (string_of_list string_of_term effActualArg); *)
+      (* Format.printf "effFormalArg: %s@." (string_of_list Fun.id effFormalArg); *)
       let bindings = bindFormalNActual (effFormalArg) (effActualArg) in 
       (*print_endline ("binding length " ^ string_of_int (List.length bindings));*)
       (* effect x is handled by a branch of the form (| (Eff effFormalArg) k -> spec) *)
