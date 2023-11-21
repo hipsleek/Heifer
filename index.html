@@ -247,10 +247,8 @@ let failing x
 = x := !x + 1;
   if !x = 3 then perform E else !x
 
-(* TODO there is a bug in handler reasoning, result should be 1 *)
-
 let main ()
-(*@ ex y; ens y->3 /\ res=3 @*)
+(*@ ex y; ens y->3 /\ res=1 @*)
 = let y = ref 2 in
   match failing y with
   | effect E k -> 1
@@ -965,9 +963,9 @@ let handler2  ()
   | effect Read k -> (continue k (!i))">src/evaluation/9_memory_cell_nested.ml</option><option value=src/evaluation/abort.ml data-text="effect Zero : unit
 
 let client () 
-(*@ ex r; Zero(emp, (), r); req false/\emp; ex r1; Norm(false/\emp, r1) @*)
+(*@ ex r; Zero(emp, r); req false/\emp; ex r1; Norm(false/\emp, r1) @*)
 =
-  perform (Zero ());
+  perform Zero;
   assert false
 
 let handler ()
@@ -1027,7 +1025,7 @@ let invalid_false ()
     <script>
       // this is substituted at build time and is used in page.js
       function postExampleLoad() {
-        console.log("Built Mon Nov 20 17:44:33 UTC 2023");
+        console.log("Built Tue Nov 21 16:54:24 UTC 2023");
         console.log("loading z3...");
       }
     </script>
