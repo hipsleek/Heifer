@@ -269,7 +269,7 @@ let replaceContinueWithHypo (afterHandling:disj_spec) (match_summary:disj_spec o
 
 
 (* This function better to be used after a normalisation *)
-let retriveLastRes (a:spec) : term = 
+let retriveLastRes (a:spec) : term option = 
   let rec retriveLastResFromPi (pi:pi) : term option = 
     match pi with 
     | Atomic(EQ, Var "res", t) -> Some t 
@@ -288,11 +288,12 @@ let retriveLastRes (a:spec) : term =
   | RaisingEff(pi, _, _, _) :: _ -> 
     (match retriveLastResFromPi pi with 
     | None -> failwith ("retriveLastResFromPi  no res value prescribed")
-    | Some t -> t 
+    | Some t -> Some t 
     )
   | [] -> failwith "empty"
   | TryCatch _ :: _ -> failwith "tc"
-  | (Require _) as r :: _ -> failwith ("retriveLastRes ending with require " ^ (string_of_staged_spec r))
+  | Require _ :: _ ->
+    None
   | Exists _ :: _ -> failwith ("retriveLastRes ending with ex")
 
 let rec handling_spec_inner env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj_spec)) (h_ops:(string * string option * disj_spec) list) (conti:spec) (formal_ret:string) : spec list * fvenv = 
@@ -378,8 +379,12 @@ let rec handling_spec_inner env (scr_spec:normalisedStagedSpec) (h_norm:(string 
         let rest, env = handling_spec_inner env (xs, scr_normal) h_norm h_ops conti formal_ret in 
 
         let res = List.map (fun a -> 
-          let returnTerm = retriveLastRes a  in 
-          let rest' = instantiateSpecList [(perform_ret, returnTerm)] rest in 
+          let rest' =
+            match retriveLastRes a with
+            | None -> rest
+            | Some returnTerm ->
+              instantiateSpecList [(perform_ret, returnTerm)] rest
+          in 
           concatenateSpecsWithSpec [a] rest'
         ) current in 
           
@@ -470,9 +475,11 @@ and handling_spec env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj_spe
         let rest, env = handling_spec env (xs, scr_normal) h_norm h_ops in
 
         let res = List.flatten (List.map (fun a -> 
-          let returnTerm = retriveLastRes a  in 
-
-          let rest' = instantiateSpecList [(perform_ret, returnTerm)] rest in
+          let rest' =
+            match retriveLastRes a with
+            | None -> rest
+            | Some returnTerm -> instantiateSpecList [(perform_ret, returnTerm)] rest
+          in
           (*print_endline ("rest = " ^ string_of_disj_spec rest); 
           print_endline ("rest' = " ^ string_of_disj_spec rest');*)
 

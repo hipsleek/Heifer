@@ -992,10 +992,12 @@ let replacePredicatesWithDef (specs:disj_spec) (ms:meth_def list) (ps:pred_def S
       let p_body' = normalise_spec_list (List.map (fun a ->
               let returnTerm = 
                 match retriveLastRes a with 
-                | Var t -> t 
-                | t -> 
+                | Some (Var t) -> t 
+                | Some t -> 
                   print_endline (string_of_term t);
-                  failwith "there is no res value "
+                  failwith "there was a res term but not a variable"
+                | None -> 
+                  failwith "there is no res value"
               in 
               instantiateSpec [(returnTerm, ret)] a
             )
