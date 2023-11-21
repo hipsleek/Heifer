@@ -1,9 +1,9 @@
 effect Zero : unit
 
 let client () 
-(*@ ex r; Zero(emp, (), r); req false/\emp; ex r1; Norm(false/\emp, r1) @*)
+(*@ ex r; Zero(emp, r); req false/\emp; ex r1; Norm(false/\emp, r1) @*)
 =
-  perform (Zero ());
+  perform Zero;
   assert false
 
 let handler ()
