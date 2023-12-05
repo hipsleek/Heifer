@@ -688,10 +688,10 @@ and stage_subsumes :
     in
     (* Format.printf "1@."; *)
     (* Format.printf "left %s@." (string_of_pi left); *)
-    let tenv1 = concrete_type_env tenv in
+    (* let tenv1 = concrete_type_env tenv in *)
     (* Format.printf "2@."; *)
     (* Format.printf "tenv %s@." (string_of_smap string_of_type tenv1); *)
-    let _check_false_derived _ =
+    (* let _check_false_derived _ =
       info
         ~title:(Format.asprintf "check: false derived?")
         "%s" (string_of_pi left);
@@ -703,7 +703,7 @@ and stage_subsumes :
           ~title:(Format.asprintf "warning: false derived in program")
           "%s => %s%s\n%s" (string_of_pi True) "" (string_of_pi left)
           (string_of_res false_not_derived)
-    in
+    in *)
     info
       ~title:(Format.asprintf "VC for postcondition of %s" what)
       "%s => %s%s" (string_of_pi left)

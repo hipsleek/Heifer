@@ -1262,7 +1262,7 @@ let res =
       let rhs = (And(p2,  Atomic(EQ, Var v2, t2) )) in 
       (*print_endline ( "yoyo1\n");
       print_endline (string_of_pi (!unifyGlobal));*)
-      (ProversEx.entailConstrains (And(lhs, !unifyGlobal)) rhs)
+      (ProversEx.is_valid (And(lhs, !unifyGlobal)) rhs)
 
     else 
       (match (t2) with 
@@ -1274,11 +1274,11 @@ let res =
         else 
           let lhs = (And(p1,  Atomic(EQ, Var v1, t1) )) in 
           let rhs = (And(p2,  Atomic(EQ, Var v2, t2) )) in 
-          (ProversEx.entailConstrains (And(lhs, !unifyGlobal)) rhs)
+          (ProversEx.is_valid (And(lhs, !unifyGlobal)) rhs)
       | _ -> 
       let lhs = (And(p1,  Atomic(EQ, Var v1, t1) )) in 
       let rhs = (And(p2,  Atomic(EQ, Var v2, t2) )) in 
-      (ProversEx.entailConstrains (And(lhs, !unifyGlobal)) rhs))
+      (ProversEx.is_valid (And(lhs, !unifyGlobal)) rhs))
 
   | (SepConj ( sp1, sp2), SepConj ( sp3, sp4)) -> 
     speration_logic_ential (p1, sp1) (p2, sp3) && speration_logic_ential (p1, sp2) (p2, sp4)
@@ -1301,7 +1301,7 @@ let rec compareEffectArgument unification v1 v2 =
   match (v1, v2) with 
   | ([], []) -> true 
   | (x::xs, y::ys) -> 
-    let r1 = ProversEx.entailConstrains unification (Atomic(EQ, x, y)) in 
+    let r1 = ProversEx.is_valid unification (Atomic(EQ, x, y)) in 
     r1 && (compareEffectArgument unification xs ys)
   | (_, _) -> false 
 

@@ -726,7 +726,7 @@ let simplify_existential_locations sp =
       ([], SSet.empty, 0) sp
   in
   let quantifiers = List.concat quantifiers in
-  let rec eqs =
+  let eqs =
     List.concat_map
       (fun s ->
         match s with
@@ -1037,7 +1037,7 @@ let rec detectfailedAssertions (spec : spec) : spec =
   | [] -> []
   | Require (pi, heap) :: xs ->
     let pi' = simplify_pure pi in
-    (match ProversEx.entailConstrains pi' False with
+    (match ProversEx.is_valid pi' False with
     | true -> 
       checkTheSourceOfFalse pi';
       (* print_endline ("\nentail False " ^ string_of_pi pi'); *)
@@ -1060,7 +1060,7 @@ let rec existControdictionSpec (spec : spec) : bool =
   | [] -> false
   | Require (pi1, _)::NormalReturn (pi, _)::xs ->
     let pi' = simplify_pure (And(pi1, pi)) in
-    (match ProversEx.entailConstrains pi' False with
+    (match ProversEx.is_valid pi' False with
     | true ->  true
     | _ -> 
       existControdictionSpec xs)
@@ -1068,7 +1068,7 @@ let rec existControdictionSpec (spec : spec) : bool =
   | RaisingEff (pi, _, _, _) :: xs
   | HigherOrder (pi, _, _, _) ::xs -> 
     let pi' = simplify_pure pi in
-    (match ProversEx.entailConstrains pi' False with
+    (match ProversEx.is_valid pi' False with
     | true ->  true
     | _ -> 
       existControdictionSpec xs)

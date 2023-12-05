@@ -317,7 +317,7 @@ let ex_quantify_expr env vars ctx e =
            e None [] [] None None))
 
 
-(** check if [p1 => ex vs. p2] is valid. this is a separate function which doesn't cache results because exists isn't in pi *)
+(* this is a separate function which doesn't cache results because exists isn't in pi *)
 let entails_exists_inner env p1 vs p2 =
   if debug then
     Format.printf "z3 valid: %s => ex %s. %s\n%s@." (string_of_pi p1)
@@ -361,7 +361,7 @@ let entails_exists env p1 vs p2 =
   entails_exists_inner env p1 vs p2
 
 
-let valid p =
+let _valid p =
   let f ctx = Z3.Boolean.mk_not ctx (pi_to_expr SMap.empty ctx p) in
   not (check_sat f)
 
@@ -377,7 +377,7 @@ let rec existInhistoryTable pi table =
 
 let counter : int ref = ref 0
 
-let askZ3 env pi =
+let _askZ3 env pi =
   match existInhistoryTable pi !historyTable with
   | Some b -> b
   | None ->

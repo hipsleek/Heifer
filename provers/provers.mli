@@ -1,7 +1,7 @@
 open Hipcore
 open Hiptypes
 
-val askZ3 : typ_env -> pi -> bool
-val valid : pi -> bool
+(** check if [p1 => ex vs. p2] is valid *)
 val entails_exists : typ_env -> pi -> string list -> pi -> bool
+
 val handle : (unit -> unit) -> unit
