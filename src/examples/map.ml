@@ -39,37 +39,79 @@ let cl_map xs x
 
 (*
 
-Proof sketch for inductive case:
+Proof:
 
-map(f, xs, r) |-  req x -> init; length(xs, r); Norm(x-> init+r /\ ret =xs, ret) 
+forall xs, x, res,
+map(f, xs, res)
+==>
+ex i r; req x->i; length(xs, r); ens x->i+r /\ res=xs
 
-[unfold map]
+[unfold map, then focus on base case, then recursive case]
 
-Norm (xs=hd::tl, _); f(hd, r);                         map(f, tl, r1); Norm (emp, r::r1) |-  req x -> init; length(xs, r); Norm(x-> init+r /\ ret =xs, ret) 
+----
+
+Base case:
+
+req emp; ens xs=[] /\ res=xs ==> ...
+
+[unfold length on the right, pick the base case]
+
+... ==> ex i; req x->i; ex r; ens x->i+r /\ xs=[] /\ r=0 /\ res=xs
+
+[VCs]
+
+x->i ==> emp * x->i
+
+x->i * xs=[] /\ res=xs ==> ex r; ens x->i+r /\ xs=[] /\ r=0 /\ res=xs
+
+----
+
+Inductive case:
+
+ex r hd tl; ens xs=hd::tl;
+f(hd, r);
+ex r1; map(f, tl, r1); ens res=r::r1
+==>
+ex i; req x->i; ex r; length(xs, r);
+ens x->i+r /\ res=xs
 
 [unfold f]
 
-Norm (xs=hd::tl, _); req x->init; Norm(x->init+1, hd); map(f, tl, r1); Norm (emp, hd::r1) |-  req x -> init; length(xs, r); Norm(x-> init+r /\ ret =xs, ret) 
+ex r hd tl; ens xs=hd::tl;
+ex j; req x->j; ens x->j+1 /\ r=hd;
+ex r1; map(f, tl, r1); ens res=hd::r1
+==>
+...
 
-LHS: 
+[unfold length on the right and choose the inductive case]
 
-Norm (xs=hd::tl, _); req x->init; 
-Norm(x->init+1, hd);  req x -> init'; <=> init+1=init'
-length(tl, r'); Norm(x-> init'+r' /\ ret =tl, ret) 
-Norm (emp, hd::tl)  
+...
+==>
+ex i; req x->i; ex r;
+ex lr xst; ens xs=_::xst; length(xst, lr); ens r=1+lr;
+ens x->i+r /\ res=xs
 
-[norm]
+[rewrite with IH]
 
-Norm (xs=hd::tl, _); req x->init; 
-length(tl, r'); Norm(x-> init+1+r' /\ ret =hd::tl, ret) |- 
+ex r hd tl; ens xs=hd::tl;
+ex j; req x->j; ens x->j+1 /\ r=hd;
+ex r1;
+ex i1 r2; req x->i1; length(tl, r2); ens x->i1+r2 /\ r1=tl;
+ens res=hd::r1
+==>
+...
 
-RHS:
-req x -> init; length(xs, r); Norm(x-> init+r /\ ret =xs, ret) 
+[norm using biabduction]
 
-[unfold length]
+ex j; req x->j;
+ex hd tl; ex r; ens xs=hd::tl /\ i1=j+1 /\ r=hd;
+ex r1;
+ex i1 r2; length(tl, r2); ens x->i1+r2 /\ r1=tl /\ res=hd::r1
+==>
+ex i; req x->i;
+ex r; ex lr xst; ens xs=_::xst; length(xst, lr); ens r=1+lr /\ x->i+r /\ res=xs
 
-req x -> init; Norm (xs=hd::tl, _); 
-length(tl, r'); Norm(x-> init+1+r' /\ ret =xs, ret) 
+
 
 *)
 
