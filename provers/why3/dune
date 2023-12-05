@@ -1,0 +1,5 @@
+
+(library
+ (name provers_why3)
+ (libraries why3)
+ (implements provers))

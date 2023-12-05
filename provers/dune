@@ -3,4 +3,4 @@
  (name provers)
  (libraries hipcore)
  (virtual_modules provers)
- (default_implementation provers_z3))
+ (default_implementation provers_why3))
