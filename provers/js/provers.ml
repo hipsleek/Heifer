@@ -45,7 +45,7 @@ let rec build_term : Jv.t -> term -> Jv.t =
     Jv.apply (Jv.get ctx "Or") [| build_term ctx a; build_term ctx b |]
   | TApp _ -> failwith "?"
   | TLambda _ -> failwith "?"
-  | TList _ | TTupple _ -> failwith "not yet implemented"
+  | TPower _ | TTimes _ | TDiv _ | TList _ | TTupple _ -> failwith "not yet implemented"
 
 let build_op : Jv.t -> bin_op -> term -> term -> Jv.t =
  fun ctx op a b ->
@@ -81,11 +81,11 @@ open Effect.Deep
 (* function is from ctx to z3 expression *)
 type _ Effect.t += Ask : (Jv.t -> Jv.t) -> bool t
 
-let askZ3 _env p =
+let _askZ3 _env p =
   (* TODO make use of env *)
   perform (Ask (build_fml p))
 
-let valid p = not (askZ3 SMap.empty (Not p))
+let _valid p = not (_askZ3 SMap.empty (Not p))
 
 (* check if p1 => ex vs. p2 is valid *)
 let entails_exists _env p1 vs p2 =

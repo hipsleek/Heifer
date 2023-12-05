@@ -3,6 +3,7 @@
 open Hipprover
 open Hipcore
 module Pretty = Pretty
+module ProversEx = ProversEx
 module Debug = Debug
 module Common = Hiptypes
 exception Foo of string
