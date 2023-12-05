@@ -136,5 +136,5 @@ Add logging using `debug ~at:n ~title:"example" "format string %d" 1;`. `info` i
 
 ```sh
 opam install dune-deps
-dune-deps -x benchmarks -x src/programs.t | sed 's/\}/\{rank = same; "lib:provers_js"; "lib:provers_native";\} \}/' | tred | dot -Tpng > deps.png
+dune-deps -x benchmarks -x src/programs.t | sed 's/\}/\{rank = same; "lib:provers_js"; "lib:provers_z3";\} \}/' | tred | dot -Tpng > deps.png
 ```

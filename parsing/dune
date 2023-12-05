@@ -90,7 +90,7 @@
 (executable
  (name hip)
  (modules hip)
- (libraries unix hiplib provers_native))
+ (libraries unix hiplib provers_z3))
 
 (executable
  (name hipjs)

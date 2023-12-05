@@ -810,7 +810,7 @@ and maybe_var f e =
 type experiemntal_data = (float list * float list) 
 
 
-(* let enatilmentHeapAssertion k1 pi : bool = 
+(* let entailmentHeapAssertion k1 pi : bool = 
   let (re, _) = check_pure (kappaToPure k1) pi in re *)
 
 let rec lookUpFromPure p str : term option = 
@@ -1617,7 +1617,7 @@ let run_file inputfile =
         "\n========== FINAL SUMMARY ==========\n" 
         ^"[  LOC  ] " ^   string_of_int (List.length lines) ^ "\n"
         ^"[  LOS  ] " ^   string_of_int (line_of_spec)  ^ "\n"
-        ^"[Forward+Enatil] " ^   string_of_float ((!summary_forward +. !summary_entail)/.1000.0)  ^ " s\n"
+        ^"[Forward+Entail] " ^   string_of_float ((!summary_forward +. !summary_entail)/.1000.0)  ^ " s\n"
         ^"[ AskZ3 ] " ^   string_of_float ((!summary_askZ3)/.1000.0)  ^ " s\n"
 
       
