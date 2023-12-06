@@ -21,12 +21,12 @@ let load_prover_config name : Whyconf.config_prover =
     exit 1
   end
   else begin
-    Format.printf "Versions of %s found:" name;
+    (* Format.printf "Versions of %s found:" name;
     Whyconf.(
       Mprover.iter
         (fun k _ -> Format.printf " %s/%s" k.prover_version k.prover_altern)
         provers);
-    Format.printf "@.";
+    Format.printf "@."; *)
     (* returning an arbitrary one *)
     snd (Whyconf.Mprover.min_binding provers)
   end
@@ -51,38 +51,41 @@ type env = {
   mutable names : Term.lsymbol SMap.t;
   int_theory : Theory.theory;
   tenv : typ SMap.t;
+  quantified : Term.vsymbol SMap.t;
 }
-
-let create_env tenv =
-  let int_theory = Env.read_theory why3_env ["int"] "Int" in
-  { int_theory; names = SMap.empty; tenv }
 
 
 let type_to_why3 (t : typ) =
   match t with
-  | Unit -> failwith "nyi Unit"
+  | Unit -> Ty.ty_tuple []
   | List_int -> failwith "nyi List_int"
   | Int -> Ty.ty_int
   | Bool -> Ty.ty_bool
   | Lamb -> failwith "nyi Lamb"
-  | TVar _ -> failwith "nyi TVar"
+  | TVar _ -> Ty.ty_int (* default to int *)
 
 
 let rec term_to_why3 env (t : term) =
   match t with
-  | UNIT -> failwith "UNIT nyi"
+  | UNIT -> Term.t_tuple []
   | Num i -> Term.t_nat_const i
   | Var v ->
     let ty =
       SMap.find_opt v env.tenv |> Option.value ~default:Int |> type_to_why3
     in
-    (match SMap.find_opt v env.names with
-    | None ->
-      let name = Ident.id_fresh v in
-      let sym = Term.create_lsymbol name [] (Some ty) in
-      env.names <- SMap.add v sym env.names;
-      Term.t_app sym [] (Some ty)
-    | Some vv -> Term.t_app vv [] (Some ty))
+    let name =
+      match SMap.find_opt v env.quantified with
+      | Some v -> Term.t_var v
+      | None ->
+        match SMap.find_opt v env.names with
+        | None ->
+          let name = Ident.id_fresh v in
+          let sym = Term.create_lsymbol name [] (Some ty) in
+          env.names <- SMap.add v sym env.names;
+          Term.t_app sym [] (Some ty)
+        | Some vv -> Term.t_app vv [] (Some ty)
+    in
+    name
   | Plus (a, b) ->
     Term.t_app_infer
       (Theory.ns_find_ls env.int_theory.Theory.th_export ["infix +"])
@@ -150,14 +153,28 @@ let rec pi_to_why3 env (pi : pi) =
   | Not a -> Term.t_not (pi_to_why3 env a)
   | Predicate (_, _) -> failwith "nyi Predicate"
 
+let create_env tenv qtf =
+  let int_theory = Env.read_theory why3_env ["int"] "Int" in
+  let quantified =
+    qtf
+      |> List.map (fun v ->
+        let ty = SMap.find_opt v tenv |> Option.value ~default:Int in
+        v, Term.create_vsymbol (Ident.id_fresh v) (type_to_why3 ty))
+      |> List.to_seq
+      |> SMap.of_seq
+  in
+  { int_theory; names = SMap.empty; tenv; quantified }
 
-let prove tenv f =
-  let env = create_env tenv in
+
+let prove tenv qtf f =
+  let env = create_env tenv qtf in
   let ass, goal = f env in
 
   (* set up task *)
   let task1 : Task.task = None in
   let task1 = Task.use_export task1 env.int_theory in
+  (* let debug = true in *)
+  let debug = false in
 
   let task1 =
     List.fold_right
@@ -165,8 +182,10 @@ let prove tenv f =
       (SMap.bindings env.names) task1
   in
 
-  (* Format.printf "assumptions: %a@." Pretty.print_term ass; *)
-  (* Format.printf "goal: %a@." Pretty.print_term goal; *)
+  if debug then
+    Format.printf "assumptions: %a@." Pretty.print_term ass;
+  if debug then
+    Format.printf "goal: %a@." Pretty.print_term goal;
   let task1 : Task.task =
     Task.add_prop_decl task1 Decl.Paxiom
       (Decl.create_prsymbol (Ident.id_fresh "ass1"))
@@ -184,18 +203,13 @@ let prove tenv f =
       (Driver.prove_task ~limit:Call_provers.empty_limit ~config:why3_config_main
          ~command:pc.Whyconf.command (load_prover_driver pc prover_z3) task1)
   in
-  (* Format.printf "%s: %a@." "Z3"
-    (Call_provers.print_prover_result ?json:None)
-    result1; *)
+  if debug then
+    Format.printf "%s: %a@." "Z3"
+      (Call_provers.print_prover_result ?json:None)
+      result1;
   match result1.pr_answer with Valid -> true | _ -> false
 
 let entails_exists tenv left ex right =
-  let vars =
-    List.map
-      (fun v ->
-        let ty = SMap.find_opt v tenv |> Option.value ~default:Int in
-        Term.create_vsymbol (Ident.id_fresh v) (type_to_why3 ty))
-      ex
-  in
-  prove tenv (fun env ->
-      (pi_to_why3 env left, Term.t_exists_close vars [] (pi_to_why3 env right)))
+  prove tenv ex (fun env ->
+      (pi_to_why3 env left,
+        Term.t_exists_close (SMap.bindings env.quantified |> List.map snd) [] (pi_to_why3 env right)))
