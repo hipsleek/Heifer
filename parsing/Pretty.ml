@@ -16,12 +16,14 @@ let col ~ansi ~html ~title text =
   (match !colours with
   | `None when title -> "==== "
   | `None -> ""
-  | `Ansi -> ansi
+  | `Ansi -> ""
+  (* ansi *)
   | `Html -> html) ^ text ^
   (match !colours with
   | `None when title -> " ===="
   | `None -> ""
-  | `Ansi -> "\u{001b}[0m"
+  | `Ansi -> ""
+    (* "\u{001b}[0m" *)
   | `Html -> "</span>")
 
 let red text = col ~ansi:"\u{001b}[31m" ~html:"<span class=\"output-error\">" ~title:false text

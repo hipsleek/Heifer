@@ -21,6 +21,7 @@ let () =
     |> Option.value ~default:0) > 0);
   if Unix.isatty Unix.stdout && not !Hiplib.file_mode then
     Hiplib.Pretty.colours := `Ansi;
+  Hiplib.Debug.init ();
   if !Hiplib.file_mode then
     redirect_stdout Hiplib.main
   else

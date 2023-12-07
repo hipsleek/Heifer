@@ -12,19 +12,26 @@ let blacklist = Sys.getenv_opt "BLACKLIST" |> Option.map Str.regexp_case_fold
 let whitelist = Sys.getenv_opt "WHITELIST" |> Option.map Str.regexp_case_fold
 let collapse = Sys.getenv_opt "COLLAPSE" |> Option.map Str.regexp_case_fold
 let collapsed = ref []
+let trace_out = ref None
 
 let summarize_stack () =
   (* String.concat "@"
      (!stack |> List.rev |> List.map (fun i -> Format.asprintf "%a" pp_event i)) *)
   match !stack with [] -> "" | e :: _ -> Format.asprintf "%a" pp_event e
 
+let ctf = false
+(* let ctf = true *)
+
 let debug_print title s =
   let title =
-    let stack =
-      if not !is_closing then ""
-      else Format.asprintf " <-%s" (summarize_stack ())
-    in
-    Format.asprintf "%s | %a%s" title pp_event !debug_event_n stack
+    match ctf with
+    | false ->
+      let stack =
+        if not !is_closing then ""
+        else Format.asprintf " <-%s" (summarize_stack ())
+      in
+      Format.asprintf "%s | %a%s" title pp_event !debug_event_n stack
+    | true -> title
   in
   let show =
     match (whitelist, blacklist) with
@@ -49,11 +56,30 @@ let debug_print title s =
         else !collapsed = []
       else !collapsed = []
   in
-  if show then (
-    if String.length title < 6 then print_string (Pretty.yellow title ^ " ")
-    else print_endline (Pretty.yellow title);
-    print_endline s;
-    if not (String.equal "" s) then print_endline "")
+  match show with
+  | false -> ()
+  | true ->
+    (match ctf with
+    | false ->
+      if String.length title < 6 then print_string (Pretty.yellow title ^ " ")
+      else print_endline (Pretty.yellow title);
+      print_endline s;
+      if not (String.equal "" s) then print_endline ""
+    | true ->
+      let typ = if !is_closing then "E" else if !is_opening then "B" else "i" in
+      let scope = if !is_closing || !is_opening then "" else {|,"s":"t"|} in
+      let scrub s =
+        s
+        |> Str.global_replace (Str.regexp "\n") ""
+        |> Str.global_replace (Str.regexp {|\\|}) {|\\\\|}
+      in
+      let s = scrub s in
+      let title = scrub title in
+      Format.fprintf (!trace_out |> Option.get)
+        {|{"name": "%s", "tid": 1, "ts": %f, "ph": "%s", "args": {"txt": "%s"}%s},@.|}
+        title
+        (Sys.time () *. 1000. *. 1000.)
+        typ s scope)
 
 (* someday https://github.com/ocaml/ocaml/pull/126 *)
 let debug ~at ~title fmt =
@@ -113,3 +139,9 @@ let pp_result f ppf r =
 
 let string_of_result f r =
   match r with None -> "..." | Some r -> Format.asprintf "%s" (f r)
+
+let init () =
+  if ctf then (
+    let oc = open_out "trace.json" in
+    trace_out := Some (Format.formatter_of_out_channel oc);
+    Format.fprintf (!trace_out |> Option.get) "[@.")

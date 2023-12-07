@@ -6,3 +6,4 @@ boot/menhir/*.ml*
 node_modules
 package*.json
 out.txt
+*.json
