@@ -352,6 +352,12 @@ Module['ready'] = new Promise(function(resolve, reject) {
       }
     
 
+      if (!Object.getOwnPropertyDescriptor(Module['ready'], '_Z3_mk_type_variable')) {
+        Object.defineProperty(Module['ready'], '_Z3_mk_type_variable', { configurable: true, get: function() { abort('You are getting _Z3_mk_type_variable on the Promise object, instead of the instance. Use .then() to get called back with the instance, see the MODULARIZE docs in src/settings.js') } });
+        Object.defineProperty(Module['ready'], '_Z3_mk_type_variable', { configurable: true, set: function() { abort('You are setting _Z3_mk_type_variable on the Promise object, instead of the instance. Use .then() to get called back with the instance, see the MODULARIZE docs in src/settings.js') } });
+      }
+    
+
       if (!Object.getOwnPropertyDescriptor(Module['ready'], '_Z3_mk_bool_sort')) {
         Object.defineProperty(Module['ready'], '_Z3_mk_bool_sort', { configurable: true, get: function() { abort('You are getting _Z3_mk_bool_sort on the Promise object, instead of the instance. Use .then() to get called back with the instance, see the MODULARIZE docs in src/settings.js') } });
         Object.defineProperty(Module['ready'], '_Z3_mk_bool_sort', { configurable: true, set: function() { abort('You are setting _Z3_mk_bool_sort on the Promise object, instead of the instance. Use .then() to get called back with the instance, see the MODULARIZE docs in src/settings.js') } });
@@ -415,6 +421,12 @@ Module['ready'] = new Promise(function(resolve, reject) {
       if (!Object.getOwnPropertyDescriptor(Module['ready'], '_Z3_mk_constructor')) {
         Object.defineProperty(Module['ready'], '_Z3_mk_constructor', { configurable: true, get: function() { abort('You are getting _Z3_mk_constructor on the Promise object, instead of the instance. Use .then() to get called back with the instance, see the MODULARIZE docs in src/settings.js') } });
         Object.defineProperty(Module['ready'], '_Z3_mk_constructor', { configurable: true, set: function() { abort('You are setting _Z3_mk_constructor on the Promise object, instead of the instance. Use .then() to get called back with the instance, see the MODULARIZE docs in src/settings.js') } });
+      }
+    
+
+      if (!Object.getOwnPropertyDescriptor(Module['ready'], '_Z3_constructor_num_fields')) {
+        Object.defineProperty(Module['ready'], '_Z3_constructor_num_fields', { configurable: true, get: function() { abort('You are getting _Z3_constructor_num_fields on the Promise object, instead of the instance. Use .then() to get called back with the instance, see the MODULARIZE docs in src/settings.js') } });
+        Object.defineProperty(Module['ready'], '_Z3_constructor_num_fields', { configurable: true, set: function() { abort('You are setting _Z3_constructor_num_fields on the Promise object, instead of the instance. Use .then() to get called back with the instance, see the MODULARIZE docs in src/settings.js') } });
       }
     
 
@@ -2101,6 +2113,18 @@ Module['ready'] = new Promise(function(resolve, reject) {
       if (!Object.getOwnPropertyDescriptor(Module['ready'], '_Z3_get_quantifier_weight')) {
         Object.defineProperty(Module['ready'], '_Z3_get_quantifier_weight', { configurable: true, get: function() { abort('You are getting _Z3_get_quantifier_weight on the Promise object, instead of the instance. Use .then() to get called back with the instance, see the MODULARIZE docs in src/settings.js') } });
         Object.defineProperty(Module['ready'], '_Z3_get_quantifier_weight', { configurable: true, set: function() { abort('You are setting _Z3_get_quantifier_weight on the Promise object, instead of the instance. Use .then() to get called back with the instance, see the MODULARIZE docs in src/settings.js') } });
+      }
+    
+
+      if (!Object.getOwnPropertyDescriptor(Module['ready'], '_Z3_get_quantifier_skolem_id')) {
+        Object.defineProperty(Module['ready'], '_Z3_get_quantifier_skolem_id', { configurable: true, get: function() { abort('You are getting _Z3_get_quantifier_skolem_id on the Promise object, instead of the instance. Use .then() to get called back with the instance, see the MODULARIZE docs in src/settings.js') } });
+        Object.defineProperty(Module['ready'], '_Z3_get_quantifier_skolem_id', { configurable: true, set: function() { abort('You are setting _Z3_get_quantifier_skolem_id on the Promise object, instead of the instance. Use .then() to get called back with the instance, see the MODULARIZE docs in src/settings.js') } });
+      }
+    
+
+      if (!Object.getOwnPropertyDescriptor(Module['ready'], '_Z3_get_quantifier_id')) {
+        Object.defineProperty(Module['ready'], '_Z3_get_quantifier_id', { configurable: true, get: function() { abort('You are getting _Z3_get_quantifier_id on the Promise object, instead of the instance. Use .then() to get called back with the instance, see the MODULARIZE docs in src/settings.js') } });
+        Object.defineProperty(Module['ready'], '_Z3_get_quantifier_id', { configurable: true, set: function() { abort('You are setting _Z3_get_quantifier_id on the Promise object, instead of the instance. Use .then() to get called back with the instance, see the MODULARIZE docs in src/settings.js') } });
       }
     
 
@@ -4564,6 +4588,90 @@ Module['ready'] = new Promise(function(resolve, reject) {
       }
     
 
+      if (!Object.getOwnPropertyDescriptor(Module['ready'], '_Z3_rcf_is_rational')) {
+        Object.defineProperty(Module['ready'], '_Z3_rcf_is_rational', { configurable: true, get: function() { abort('You are getting _Z3_rcf_is_rational on the Promise object, instead of the instance. Use .then() to get called back with the instance, see the MODULARIZE docs in src/settings.js') } });
+        Object.defineProperty(Module['ready'], '_Z3_rcf_is_rational', { configurable: true, set: function() { abort('You are setting _Z3_rcf_is_rational on the Promise object, instead of the instance. Use .then() to get called back with the instance, see the MODULARIZE docs in src/settings.js') } });
+      }
+    
+
+      if (!Object.getOwnPropertyDescriptor(Module['ready'], '_Z3_rcf_is_algebraic')) {
+        Object.defineProperty(Module['ready'], '_Z3_rcf_is_algebraic', { configurable: true, get: function() { abort('You are getting _Z3_rcf_is_algebraic on the Promise object, instead of the instance. Use .then() to get called back with the instance, see the MODULARIZE docs in src/settings.js') } });
+        Object.defineProperty(Module['ready'], '_Z3_rcf_is_algebraic', { configurable: true, set: function() { abort('You are setting _Z3_rcf_is_algebraic on the Promise object, instead of the instance. Use .then() to get called back with the instance, see the MODULARIZE docs in src/settings.js') } });
+      }
+    
+
+      if (!Object.getOwnPropertyDescriptor(Module['ready'], '_Z3_rcf_is_infinitesimal')) {
+        Object.defineProperty(Module['ready'], '_Z3_rcf_is_infinitesimal', { configurable: true, get: function() { abort('You are getting _Z3_rcf_is_infinitesimal on the Promise object, instead of the instance. Use .then() to get called back with the instance, see the MODULARIZE docs in src/settings.js') } });
+        Object.defineProperty(Module['ready'], '_Z3_rcf_is_infinitesimal', { configurable: true, set: function() { abort('You are setting _Z3_rcf_is_infinitesimal on the Promise object, instead of the instance. Use .then() to get called back with the instance, see the MODULARIZE docs in src/settings.js') } });
+      }
+    
+
+      if (!Object.getOwnPropertyDescriptor(Module['ready'], '_Z3_rcf_is_transcendental')) {
+        Object.defineProperty(Module['ready'], '_Z3_rcf_is_transcendental', { configurable: true, get: function() { abort('You are getting _Z3_rcf_is_transcendental on the Promise object, instead of the instance. Use .then() to get called back with the instance, see the MODULARIZE docs in src/settings.js') } });
+        Object.defineProperty(Module['ready'], '_Z3_rcf_is_transcendental', { configurable: true, set: function() { abort('You are setting _Z3_rcf_is_transcendental on the Promise object, instead of the instance. Use .then() to get called back with the instance, see the MODULARIZE docs in src/settings.js') } });
+      }
+    
+
+      if (!Object.getOwnPropertyDescriptor(Module['ready'], '_Z3_rcf_extension_index')) {
+        Object.defineProperty(Module['ready'], '_Z3_rcf_extension_index', { configurable: true, get: function() { abort('You are getting _Z3_rcf_extension_index on the Promise object, instead of the instance. Use .then() to get called back with the instance, see the MODULARIZE docs in src/settings.js') } });
+        Object.defineProperty(Module['ready'], '_Z3_rcf_extension_index', { configurable: true, set: function() { abort('You are setting _Z3_rcf_extension_index on the Promise object, instead of the instance. Use .then() to get called back with the instance, see the MODULARIZE docs in src/settings.js') } });
+      }
+    
+
+      if (!Object.getOwnPropertyDescriptor(Module['ready'], '_Z3_rcf_transcendental_name')) {
+        Object.defineProperty(Module['ready'], '_Z3_rcf_transcendental_name', { configurable: true, get: function() { abort('You are getting _Z3_rcf_transcendental_name on the Promise object, instead of the instance. Use .then() to get called back with the instance, see the MODULARIZE docs in src/settings.js') } });
+        Object.defineProperty(Module['ready'], '_Z3_rcf_transcendental_name', { configurable: true, set: function() { abort('You are setting _Z3_rcf_transcendental_name on the Promise object, instead of the instance. Use .then() to get called back with the instance, see the MODULARIZE docs in src/settings.js') } });
+      }
+    
+
+      if (!Object.getOwnPropertyDescriptor(Module['ready'], '_Z3_rcf_infinitesimal_name')) {
+        Object.defineProperty(Module['ready'], '_Z3_rcf_infinitesimal_name', { configurable: true, get: function() { abort('You are getting _Z3_rcf_infinitesimal_name on the Promise object, instead of the instance. Use .then() to get called back with the instance, see the MODULARIZE docs in src/settings.js') } });
+        Object.defineProperty(Module['ready'], '_Z3_rcf_infinitesimal_name', { configurable: true, set: function() { abort('You are setting _Z3_rcf_infinitesimal_name on the Promise object, instead of the instance. Use .then() to get called back with the instance, see the MODULARIZE docs in src/settings.js') } });
+      }
+    
+
+      if (!Object.getOwnPropertyDescriptor(Module['ready'], '_Z3_rcf_num_coefficients')) {
+        Object.defineProperty(Module['ready'], '_Z3_rcf_num_coefficients', { configurable: true, get: function() { abort('You are getting _Z3_rcf_num_coefficients on the Promise object, instead of the instance. Use .then() to get called back with the instance, see the MODULARIZE docs in src/settings.js') } });
+        Object.defineProperty(Module['ready'], '_Z3_rcf_num_coefficients', { configurable: true, set: function() { abort('You are setting _Z3_rcf_num_coefficients on the Promise object, instead of the instance. Use .then() to get called back with the instance, see the MODULARIZE docs in src/settings.js') } });
+      }
+    
+
+      if (!Object.getOwnPropertyDescriptor(Module['ready'], '_Z3_rcf_coefficient')) {
+        Object.defineProperty(Module['ready'], '_Z3_rcf_coefficient', { configurable: true, get: function() { abort('You are getting _Z3_rcf_coefficient on the Promise object, instead of the instance. Use .then() to get called back with the instance, see the MODULARIZE docs in src/settings.js') } });
+        Object.defineProperty(Module['ready'], '_Z3_rcf_coefficient', { configurable: true, set: function() { abort('You are setting _Z3_rcf_coefficient on the Promise object, instead of the instance. Use .then() to get called back with the instance, see the MODULARIZE docs in src/settings.js') } });
+      }
+    
+
+      if (!Object.getOwnPropertyDescriptor(Module['ready'], '_Z3_rcf_interval')) {
+        Object.defineProperty(Module['ready'], '_Z3_rcf_interval', { configurable: true, get: function() { abort('You are getting _Z3_rcf_interval on the Promise object, instead of the instance. Use .then() to get called back with the instance, see the MODULARIZE docs in src/settings.js') } });
+        Object.defineProperty(Module['ready'], '_Z3_rcf_interval', { configurable: true, set: function() { abort('You are setting _Z3_rcf_interval on the Promise object, instead of the instance. Use .then() to get called back with the instance, see the MODULARIZE docs in src/settings.js') } });
+      }
+    
+
+      if (!Object.getOwnPropertyDescriptor(Module['ready'], '_Z3_rcf_num_sign_conditions')) {
+        Object.defineProperty(Module['ready'], '_Z3_rcf_num_sign_conditions', { configurable: true, get: function() { abort('You are getting _Z3_rcf_num_sign_conditions on the Promise object, instead of the instance. Use .then() to get called back with the instance, see the MODULARIZE docs in src/settings.js') } });
+        Object.defineProperty(Module['ready'], '_Z3_rcf_num_sign_conditions', { configurable: true, set: function() { abort('You are setting _Z3_rcf_num_sign_conditions on the Promise object, instead of the instance. Use .then() to get called back with the instance, see the MODULARIZE docs in src/settings.js') } });
+      }
+    
+
+      if (!Object.getOwnPropertyDescriptor(Module['ready'], '_Z3_rcf_sign_condition_sign')) {
+        Object.defineProperty(Module['ready'], '_Z3_rcf_sign_condition_sign', { configurable: true, get: function() { abort('You are getting _Z3_rcf_sign_condition_sign on the Promise object, instead of the instance. Use .then() to get called back with the instance, see the MODULARIZE docs in src/settings.js') } });
+        Object.defineProperty(Module['ready'], '_Z3_rcf_sign_condition_sign', { configurable: true, set: function() { abort('You are setting _Z3_rcf_sign_condition_sign on the Promise object, instead of the instance. Use .then() to get called back with the instance, see the MODULARIZE docs in src/settings.js') } });
+      }
+    
+
+      if (!Object.getOwnPropertyDescriptor(Module['ready'], '_Z3_rcf_num_sign_condition_coefficients')) {
+        Object.defineProperty(Module['ready'], '_Z3_rcf_num_sign_condition_coefficients', { configurable: true, get: function() { abort('You are getting _Z3_rcf_num_sign_condition_coefficients on the Promise object, instead of the instance. Use .then() to get called back with the instance, see the MODULARIZE docs in src/settings.js') } });
+        Object.defineProperty(Module['ready'], '_Z3_rcf_num_sign_condition_coefficients', { configurable: true, set: function() { abort('You are setting _Z3_rcf_num_sign_condition_coefficients on the Promise object, instead of the instance. Use .then() to get called back with the instance, see the MODULARIZE docs in src/settings.js') } });
+      }
+    
+
+      if (!Object.getOwnPropertyDescriptor(Module['ready'], '_Z3_rcf_sign_condition_coefficient')) {
+        Object.defineProperty(Module['ready'], '_Z3_rcf_sign_condition_coefficient', { configurable: true, get: function() { abort('You are getting _Z3_rcf_sign_condition_coefficient on the Promise object, instead of the instance. Use .then() to get called back with the instance, see the MODULARIZE docs in src/settings.js') } });
+        Object.defineProperty(Module['ready'], '_Z3_rcf_sign_condition_coefficient', { configurable: true, set: function() { abort('You are setting _Z3_rcf_sign_condition_coefficient on the Promise object, instead of the instance. Use .then() to get called back with the instance, see the MODULARIZE docs in src/settings.js') } });
+      }
+    
+
       if (!Object.getOwnPropertyDescriptor(Module['ready'], '_Z3_fixedpoint_query_from_lvl')) {
         Object.defineProperty(Module['ready'], '_Z3_fixedpoint_query_from_lvl', { configurable: true, get: function() { abort('You are getting _Z3_fixedpoint_query_from_lvl on the Promise object, instead of the instance. Use .then() to get called back with the instance, see the MODULARIZE docs in src/settings.js') } });
         Object.defineProperty(Module['ready'], '_Z3_fixedpoint_query_from_lvl', { configurable: true, set: function() { abort('You are setting _Z3_fixedpoint_query_from_lvl on the Promise object, instead of the instance. Use .then() to get called back with the instance, see the MODULARIZE docs in src/settings.js') } });
@@ -5957,7 +6065,7 @@ function updateGlobalBufferAndViews(buf) {
   Module['HEAPU64'] = HEAPU64 = new BigUint64Array(buf);
 }
 
-var TOTAL_STACK = 5242880;
+var TOTAL_STACK = 20971520;
 if (Module['TOTAL_STACK']) assert(TOTAL_STACK === Module['TOTAL_STACK'], 'the stack size can no longer be determined at runtime')
 
 var INITIAL_MEMORY = Module['INITIAL_MEMORY'] || 1073741824;legacyModuleProp('INITIAL_MEMORY', 'INITIAL_MEMORY');
@@ -6501,54 +6609,54 @@ var tempI64;
 // === Body ===
 
 var ASM_CONSTS = {
-  432732: ($0) => { resolve_async(UTF8ToString($0)); },  
- 432769: () => { reject_async(new Error('failed with unknown exception')); },  
- 432831: ($0) => { reject_async(new Error(UTF8ToString($0))); },  
- 432878: ($0) => { resolve_async($0); },  
- 432901: () => { reject_async('failed with unknown exception'); },  
- 432952: ($0) => { reject_async(new Error(UTF8ToString($0))); },  
- 432999: ($0) => { resolve_async($0); },  
- 433022: () => { reject_async('failed with unknown exception'); },  
- 433073: ($0) => { reject_async(new Error(UTF8ToString($0))); },  
- 433120: ($0) => { resolve_async($0); },  
- 433143: () => { reject_async('failed with unknown exception'); },  
- 433194: ($0) => { reject_async(new Error(UTF8ToString($0))); },  
- 433241: ($0) => { resolve_async($0); },  
- 433264: () => { reject_async('failed with unknown exception'); },  
- 433315: ($0) => { reject_async(new Error(UTF8ToString($0))); },  
- 433362: ($0) => { resolve_async($0); },  
- 433385: () => { reject_async('failed with unknown exception'); },  
- 433436: ($0) => { reject_async(new Error(UTF8ToString($0))); },  
- 433483: ($0) => { resolve_async($0); },  
- 433506: () => { reject_async('failed with unknown exception'); },  
- 433557: ($0) => { reject_async(new Error(UTF8ToString($0))); },  
- 433604: ($0) => { resolve_async($0); },  
- 433627: () => { reject_async('failed with unknown exception'); },  
- 433678: ($0) => { reject_async(new Error(UTF8ToString($0))); },  
- 433725: ($0) => { resolve_async($0); },  
- 433748: () => { reject_async('failed with unknown exception'); },  
- 433799: ($0) => { reject_async(new Error(UTF8ToString($0))); },  
- 433846: ($0) => { resolve_async($0); },  
- 433869: () => { reject_async('failed with unknown exception'); },  
- 433920: ($0) => { reject_async(new Error(UTF8ToString($0))); },  
- 433967: ($0) => { resolve_async($0); },  
- 433990: () => { reject_async('failed with unknown exception'); },  
- 434041: ($0) => { reject_async(new Error(UTF8ToString($0))); },  
- 434088: ($0) => { resolve_async($0); },  
- 434111: () => { reject_async('failed with unknown exception'); },  
- 434162: ($0) => { reject_async(new Error(UTF8ToString($0))); },  
- 434209: ($0) => { resolve_async($0); },  
- 434232: () => { reject_async('failed with unknown exception'); },  
- 434283: ($0) => { reject_async(new Error(UTF8ToString($0))); },  
- 434330: ($0) => { resolve_async($0); },  
- 434353: () => { reject_async('failed with unknown exception'); },  
- 434404: ($0) => { reject_async(new Error(UTF8ToString($0))); },  
- 434451: ($0) => { resolve_async($0); },  
- 434474: () => { reject_async('failed with unknown exception'); },  
- 434525: ($0) => { reject_async(new Error(UTF8ToString($0))); },  
- 434572: ($0) => { resolve_async($0); },  
- 434595: () => { reject_async('failed with unknown exception'); },  
- 434646: ($0) => { reject_async(new Error(UTF8ToString($0))); }
+  443068: ($0) => { resolve_async(UTF8ToString($0)); },  
+ 443105: () => { reject_async(new Error('failed with unknown exception')); },  
+ 443167: ($0) => { reject_async(new Error(UTF8ToString($0))); },  
+ 443214: ($0) => { resolve_async($0); },  
+ 443237: () => { reject_async('failed with unknown exception'); },  
+ 443288: ($0) => { reject_async(new Error(UTF8ToString($0))); },  
+ 443335: ($0) => { resolve_async($0); },  
+ 443358: () => { reject_async('failed with unknown exception'); },  
+ 443409: ($0) => { reject_async(new Error(UTF8ToString($0))); },  
+ 443456: ($0) => { resolve_async($0); },  
+ 443479: () => { reject_async('failed with unknown exception'); },  
+ 443530: ($0) => { reject_async(new Error(UTF8ToString($0))); },  
+ 443577: ($0) => { resolve_async($0); },  
+ 443600: () => { reject_async('failed with unknown exception'); },  
+ 443651: ($0) => { reject_async(new Error(UTF8ToString($0))); },  
+ 443698: ($0) => { resolve_async($0); },  
+ 443721: () => { reject_async('failed with unknown exception'); },  
+ 443772: ($0) => { reject_async(new Error(UTF8ToString($0))); },  
+ 443819: ($0) => { resolve_async($0); },  
+ 443842: () => { reject_async('failed with unknown exception'); },  
+ 443893: ($0) => { reject_async(new Error(UTF8ToString($0))); },  
+ 443940: ($0) => { resolve_async($0); },  
+ 443963: () => { reject_async('failed with unknown exception'); },  
+ 444014: ($0) => { reject_async(new Error(UTF8ToString($0))); },  
+ 444061: ($0) => { resolve_async($0); },  
+ 444084: () => { reject_async('failed with unknown exception'); },  
+ 444135: ($0) => { reject_async(new Error(UTF8ToString($0))); },  
+ 444182: ($0) => { resolve_async($0); },  
+ 444205: () => { reject_async('failed with unknown exception'); },  
+ 444256: ($0) => { reject_async(new Error(UTF8ToString($0))); },  
+ 444303: ($0) => { resolve_async($0); },  
+ 444326: () => { reject_async('failed with unknown exception'); },  
+ 444377: ($0) => { reject_async(new Error(UTF8ToString($0))); },  
+ 444424: ($0) => { resolve_async($0); },  
+ 444447: () => { reject_async('failed with unknown exception'); },  
+ 444498: ($0) => { reject_async(new Error(UTF8ToString($0))); },  
+ 444545: ($0) => { resolve_async($0); },  
+ 444568: () => { reject_async('failed with unknown exception'); },  
+ 444619: ($0) => { reject_async(new Error(UTF8ToString($0))); },  
+ 444666: ($0) => { resolve_async($0); },  
+ 444689: () => { reject_async('failed with unknown exception'); },  
+ 444740: ($0) => { reject_async(new Error(UTF8ToString($0))); },  
+ 444787: ($0) => { resolve_async($0); },  
+ 444810: () => { reject_async('failed with unknown exception'); },  
+ 444861: ($0) => { reject_async(new Error(UTF8ToString($0))); },  
+ 444908: ($0) => { resolve_async($0); },  
+ 444931: () => { reject_async('failed with unknown exception'); },  
+ 444982: ($0) => { reject_async(new Error(UTF8ToString($0))); }
 };
 
 
@@ -10882,7 +10990,6 @@ var asmLibraryArg = {
   "invoke_diiii": invoke_diiii,
   "invoke_fii": invoke_fii,
   "invoke_fiii": invoke_fiii,
-  "invoke_fiiii": invoke_fiiii,
   "invoke_i": invoke_i,
   "invoke_id": invoke_id,
   "invoke_ii": invoke_ii,
@@ -10890,6 +10997,7 @@ var asmLibraryArg = {
   "invoke_iii": invoke_iii,
   "invoke_iiid": invoke_iiid,
   "invoke_iiii": invoke_iiii,
+  "invoke_iiiif": invoke_iiiif,
   "invoke_iiiii": invoke_iiiii,
   "invoke_iiiiid": invoke_iiiiid,
   "invoke_iiiiii": invoke_iiiiii,
@@ -11059,559 +11167,28 @@ var _Z3_fixedpoint_query_from_lvl = Module["_Z3_fixedpoint_query_from_lvl"] = cr
 var _Z3_polynomial_subresultants = Module["_Z3_polynomial_subresultants"] = createExportWrapper("Z3_polynomial_subresultants");
 
 /** @type {function(...*):?} */
-var _Z3_mk_context = Module["_Z3_mk_context"] = createExportWrapper("Z3_mk_context");
+var _Z3_mk_parser_context = Module["_Z3_mk_parser_context"] = createExportWrapper("Z3_mk_parser_context");
 
 /** @type {function(...*):?} */
-var _Z3_mk_context_rc = Module["_Z3_mk_context_rc"] = createExportWrapper("Z3_mk_context_rc");
+var _Z3_parser_context_inc_ref = Module["_Z3_parser_context_inc_ref"] = createExportWrapper("Z3_parser_context_inc_ref");
 
 /** @type {function(...*):?} */
-var _Z3_del_context = Module["_Z3_del_context"] = createExportWrapper("Z3_del_context");
+var _Z3_parser_context_dec_ref = Module["_Z3_parser_context_dec_ref"] = createExportWrapper("Z3_parser_context_dec_ref");
 
 /** @type {function(...*):?} */
-var _Z3_interrupt = Module["_Z3_interrupt"] = createExportWrapper("Z3_interrupt");
+var _Z3_parser_context_add_sort = Module["_Z3_parser_context_add_sort"] = createExportWrapper("Z3_parser_context_add_sort");
 
 /** @type {function(...*):?} */
-var _Z3_enable_concurrent_dec_ref = Module["_Z3_enable_concurrent_dec_ref"] = createExportWrapper("Z3_enable_concurrent_dec_ref");
+var _Z3_parser_context_add_decl = Module["_Z3_parser_context_add_decl"] = createExportWrapper("Z3_parser_context_add_decl");
 
 /** @type {function(...*):?} */
-var _Z3_toggle_warning_messages = Module["_Z3_toggle_warning_messages"] = createExportWrapper("Z3_toggle_warning_messages");
+var _Z3_parser_context_from_string = Module["_Z3_parser_context_from_string"] = createExportWrapper("Z3_parser_context_from_string");
 
 /** @type {function(...*):?} */
-var _Z3_inc_ref = Module["_Z3_inc_ref"] = createExportWrapper("Z3_inc_ref");
+var _Z3_parse_smtlib2_string = Module["_Z3_parse_smtlib2_string"] = createExportWrapper("Z3_parse_smtlib2_string");
 
 /** @type {function(...*):?} */
-var _Z3_dec_ref = Module["_Z3_dec_ref"] = createExportWrapper("Z3_dec_ref");
-
-/** @type {function(...*):?} */
-var _Z3_get_version = Module["_Z3_get_version"] = createExportWrapper("Z3_get_version");
-
-/** @type {function(...*):?} */
-var _Z3_get_full_version = Module["_Z3_get_full_version"] = createExportWrapper("Z3_get_full_version");
-
-/** @type {function(...*):?} */
-var _Z3_enable_trace = Module["_Z3_enable_trace"] = createExportWrapper("Z3_enable_trace");
-
-/** @type {function(...*):?} */
-var _Z3_disable_trace = Module["_Z3_disable_trace"] = createExportWrapper("Z3_disable_trace");
-
-/** @type {function(...*):?} */
-var _Z3_reset_memory = Module["_Z3_reset_memory"] = createExportWrapper("Z3_reset_memory");
-
-/** @type {function(...*):?} */
-var _Z3_finalize_memory = Module["_Z3_finalize_memory"] = createExportWrapper("Z3_finalize_memory");
-
-/** @type {function(...*):?} */
-var _Z3_get_error_code = Module["_Z3_get_error_code"] = createExportWrapper("Z3_get_error_code");
-
-/** @type {function(...*):?} */
-var _Z3_set_error = Module["_Z3_set_error"] = createExportWrapper("Z3_set_error");
-
-/** @type {function(...*):?} */
-var _Z3_set_ast_print_mode = Module["_Z3_set_ast_print_mode"] = createExportWrapper("Z3_set_ast_print_mode");
-
-/** @type {function(...*):?} */
-var _Z3_global_param_set = Module["_Z3_global_param_set"] = createExportWrapper("Z3_global_param_set");
-
-/** @type {function(...*):?} */
-var _Z3_global_param_reset_all = Module["_Z3_global_param_reset_all"] = createExportWrapper("Z3_global_param_reset_all");
-
-/** @type {function(...*):?} */
-var _Z3_global_param_get = Module["_Z3_global_param_get"] = createExportWrapper("Z3_global_param_get");
-
-/** @type {function(...*):?} */
-var _Z3_get_global_param_descrs = Module["_Z3_get_global_param_descrs"] = createExportWrapper("Z3_get_global_param_descrs");
-
-/** @type {function(...*):?} */
-var _Z3_mk_config = Module["_Z3_mk_config"] = createExportWrapper("Z3_mk_config");
-
-/** @type {function(...*):?} */
-var _Z3_del_config = Module["_Z3_del_config"] = createExportWrapper("Z3_del_config");
-
-/** @type {function(...*):?} */
-var _Z3_set_param_value = Module["_Z3_set_param_value"] = createExportWrapper("Z3_set_param_value");
-
-/** @type {function(...*):?} */
-var _Z3_update_param_value = Module["_Z3_update_param_value"] = createExportWrapper("Z3_update_param_value");
-
-/** @type {function(...*):?} */
-var _Z3_mk_linear_order = Module["_Z3_mk_linear_order"] = createExportWrapper("Z3_mk_linear_order");
-
-/** @type {function(...*):?} */
-var _Z3_mk_partial_order = Module["_Z3_mk_partial_order"] = createExportWrapper("Z3_mk_partial_order");
-
-/** @type {function(...*):?} */
-var _Z3_mk_piecewise_linear_order = Module["_Z3_mk_piecewise_linear_order"] = createExportWrapper("Z3_mk_piecewise_linear_order");
-
-/** @type {function(...*):?} */
-var _Z3_mk_tree_order = Module["_Z3_mk_tree_order"] = createExportWrapper("Z3_mk_tree_order");
-
-/** @type {function(...*):?} */
-var _Z3_mk_transitive_closure = Module["_Z3_mk_transitive_closure"] = createExportWrapper("Z3_mk_transitive_closure");
-
-/** @type {function(...*):?} */
-var _Z3_mk_bv_sort = Module["_Z3_mk_bv_sort"] = createExportWrapper("Z3_mk_bv_sort");
-
-/** @type {function(...*):?} */
-var _Z3_mk_bvnot = Module["_Z3_mk_bvnot"] = createExportWrapper("Z3_mk_bvnot");
-
-/** @type {function(...*):?} */
-var _Z3_mk_bvredand = Module["_Z3_mk_bvredand"] = createExportWrapper("Z3_mk_bvredand");
-
-/** @type {function(...*):?} */
-var _Z3_mk_bvredor = Module["_Z3_mk_bvredor"] = createExportWrapper("Z3_mk_bvredor");
-
-/** @type {function(...*):?} */
-var _Z3_mk_bvand = Module["_Z3_mk_bvand"] = createExportWrapper("Z3_mk_bvand");
-
-/** @type {function(...*):?} */
-var _Z3_mk_bvor = Module["_Z3_mk_bvor"] = createExportWrapper("Z3_mk_bvor");
-
-/** @type {function(...*):?} */
-var _Z3_mk_bvxor = Module["_Z3_mk_bvxor"] = createExportWrapper("Z3_mk_bvxor");
-
-/** @type {function(...*):?} */
-var _Z3_mk_bvnand = Module["_Z3_mk_bvnand"] = createExportWrapper("Z3_mk_bvnand");
-
-/** @type {function(...*):?} */
-var _Z3_mk_bvnor = Module["_Z3_mk_bvnor"] = createExportWrapper("Z3_mk_bvnor");
-
-/** @type {function(...*):?} */
-var _Z3_mk_bvxnor = Module["_Z3_mk_bvxnor"] = createExportWrapper("Z3_mk_bvxnor");
-
-/** @type {function(...*):?} */
-var _Z3_mk_bvadd = Module["_Z3_mk_bvadd"] = createExportWrapper("Z3_mk_bvadd");
-
-/** @type {function(...*):?} */
-var _Z3_mk_bvmul = Module["_Z3_mk_bvmul"] = createExportWrapper("Z3_mk_bvmul");
-
-/** @type {function(...*):?} */
-var _Z3_mk_bvudiv = Module["_Z3_mk_bvudiv"] = createExportWrapper("Z3_mk_bvudiv");
-
-/** @type {function(...*):?} */
-var _Z3_mk_bvsdiv = Module["_Z3_mk_bvsdiv"] = createExportWrapper("Z3_mk_bvsdiv");
-
-/** @type {function(...*):?} */
-var _Z3_mk_bvurem = Module["_Z3_mk_bvurem"] = createExportWrapper("Z3_mk_bvurem");
-
-/** @type {function(...*):?} */
-var _Z3_mk_bvsrem = Module["_Z3_mk_bvsrem"] = createExportWrapper("Z3_mk_bvsrem");
-
-/** @type {function(...*):?} */
-var _Z3_mk_bvsmod = Module["_Z3_mk_bvsmod"] = createExportWrapper("Z3_mk_bvsmod");
-
-/** @type {function(...*):?} */
-var _Z3_mk_bvule = Module["_Z3_mk_bvule"] = createExportWrapper("Z3_mk_bvule");
-
-/** @type {function(...*):?} */
-var _Z3_mk_bvsle = Module["_Z3_mk_bvsle"] = createExportWrapper("Z3_mk_bvsle");
-
-/** @type {function(...*):?} */
-var _Z3_mk_bvuge = Module["_Z3_mk_bvuge"] = createExportWrapper("Z3_mk_bvuge");
-
-/** @type {function(...*):?} */
-var _Z3_mk_bvsge = Module["_Z3_mk_bvsge"] = createExportWrapper("Z3_mk_bvsge");
-
-/** @type {function(...*):?} */
-var _Z3_mk_bvult = Module["_Z3_mk_bvult"] = createExportWrapper("Z3_mk_bvult");
-
-/** @type {function(...*):?} */
-var _Z3_mk_bvslt = Module["_Z3_mk_bvslt"] = createExportWrapper("Z3_mk_bvslt");
-
-/** @type {function(...*):?} */
-var _Z3_mk_bvugt = Module["_Z3_mk_bvugt"] = createExportWrapper("Z3_mk_bvugt");
-
-/** @type {function(...*):?} */
-var _Z3_mk_bvsgt = Module["_Z3_mk_bvsgt"] = createExportWrapper("Z3_mk_bvsgt");
-
-/** @type {function(...*):?} */
-var _Z3_mk_concat = Module["_Z3_mk_concat"] = createExportWrapper("Z3_mk_concat");
-
-/** @type {function(...*):?} */
-var _Z3_mk_bvshl = Module["_Z3_mk_bvshl"] = createExportWrapper("Z3_mk_bvshl");
-
-/** @type {function(...*):?} */
-var _Z3_mk_bvlshr = Module["_Z3_mk_bvlshr"] = createExportWrapper("Z3_mk_bvlshr");
-
-/** @type {function(...*):?} */
-var _Z3_mk_bvashr = Module["_Z3_mk_bvashr"] = createExportWrapper("Z3_mk_bvashr");
-
-/** @type {function(...*):?} */
-var _Z3_mk_ext_rotate_left = Module["_Z3_mk_ext_rotate_left"] = createExportWrapper("Z3_mk_ext_rotate_left");
-
-/** @type {function(...*):?} */
-var _Z3_mk_ext_rotate_right = Module["_Z3_mk_ext_rotate_right"] = createExportWrapper("Z3_mk_ext_rotate_right");
-
-/** @type {function(...*):?} */
-var _Z3_mk_extract = Module["_Z3_mk_extract"] = createExportWrapper("Z3_mk_extract");
-
-/** @type {function(...*):?} */
-var _Z3_mk_sign_ext = Module["_Z3_mk_sign_ext"] = createExportWrapper("Z3_mk_sign_ext");
-
-/** @type {function(...*):?} */
-var _Z3_mk_zero_ext = Module["_Z3_mk_zero_ext"] = createExportWrapper("Z3_mk_zero_ext");
-
-/** @type {function(...*):?} */
-var _Z3_mk_repeat = Module["_Z3_mk_repeat"] = createExportWrapper("Z3_mk_repeat");
-
-/** @type {function(...*):?} */
-var _Z3_mk_bit2bool = Module["_Z3_mk_bit2bool"] = createExportWrapper("Z3_mk_bit2bool");
-
-/** @type {function(...*):?} */
-var _Z3_mk_rotate_left = Module["_Z3_mk_rotate_left"] = createExportWrapper("Z3_mk_rotate_left");
-
-/** @type {function(...*):?} */
-var _Z3_mk_rotate_right = Module["_Z3_mk_rotate_right"] = createExportWrapper("Z3_mk_rotate_right");
-
-/** @type {function(...*):?} */
-var _Z3_mk_int2bv = Module["_Z3_mk_int2bv"] = createExportWrapper("Z3_mk_int2bv");
-
-/** @type {function(...*):?} */
-var _Z3_mk_bv2int = Module["_Z3_mk_bv2int"] = createExportWrapper("Z3_mk_bv2int");
-
-/** @type {function(...*):?} */
-var _Z3_get_bv_sort_size = Module["_Z3_get_bv_sort_size"] = createExportWrapper("Z3_get_bv_sort_size");
-
-/** @type {function(...*):?} */
-var _Z3_mk_bvadd_no_overflow = Module["_Z3_mk_bvadd_no_overflow"] = createExportWrapper("Z3_mk_bvadd_no_overflow");
-
-/** @type {function(...*):?} */
-var _Z3_mk_bvadd_no_underflow = Module["_Z3_mk_bvadd_no_underflow"] = createExportWrapper("Z3_mk_bvadd_no_underflow");
-
-/** @type {function(...*):?} */
-var _Z3_mk_bvsub_no_overflow = Module["_Z3_mk_bvsub_no_overflow"] = createExportWrapper("Z3_mk_bvsub_no_overflow");
-
-/** @type {function(...*):?} */
-var _Z3_mk_bvneg = Module["_Z3_mk_bvneg"] = createExportWrapper("Z3_mk_bvneg");
-
-/** @type {function(...*):?} */
-var _Z3_mk_bvsub_no_underflow = Module["_Z3_mk_bvsub_no_underflow"] = createExportWrapper("Z3_mk_bvsub_no_underflow");
-
-/** @type {function(...*):?} */
-var _Z3_mk_bvmul_no_overflow = Module["_Z3_mk_bvmul_no_overflow"] = createExportWrapper("Z3_mk_bvmul_no_overflow");
-
-/** @type {function(...*):?} */
-var _Z3_mk_bvmul_no_underflow = Module["_Z3_mk_bvmul_no_underflow"] = createExportWrapper("Z3_mk_bvmul_no_underflow");
-
-/** @type {function(...*):?} */
-var _Z3_mk_bvneg_no_overflow = Module["_Z3_mk_bvneg_no_overflow"] = createExportWrapper("Z3_mk_bvneg_no_overflow");
-
-/** @type {function(...*):?} */
-var _Z3_mk_bvsdiv_no_overflow = Module["_Z3_mk_bvsdiv_no_overflow"] = createExportWrapper("Z3_mk_bvsdiv_no_overflow");
-
-/** @type {function(...*):?} */
-var _Z3_mk_bvsub = Module["_Z3_mk_bvsub"] = createExportWrapper("Z3_mk_bvsub");
-
-/** @type {function(...*):?} */
-var _Z3_mk_goal = Module["_Z3_mk_goal"] = createExportWrapper("Z3_mk_goal");
-
-/** @type {function(...*):?} */
-var _Z3_goal_inc_ref = Module["_Z3_goal_inc_ref"] = createExportWrapper("Z3_goal_inc_ref");
-
-/** @type {function(...*):?} */
-var _Z3_goal_dec_ref = Module["_Z3_goal_dec_ref"] = createExportWrapper("Z3_goal_dec_ref");
-
-/** @type {function(...*):?} */
-var _Z3_goal_precision = Module["_Z3_goal_precision"] = createExportWrapper("Z3_goal_precision");
-
-/** @type {function(...*):?} */
-var _Z3_goal_assert = Module["_Z3_goal_assert"] = createExportWrapper("Z3_goal_assert");
-
-/** @type {function(...*):?} */
-var _Z3_goal_inconsistent = Module["_Z3_goal_inconsistent"] = createExportWrapper("Z3_goal_inconsistent");
-
-/** @type {function(...*):?} */
-var _Z3_goal_depth = Module["_Z3_goal_depth"] = createExportWrapper("Z3_goal_depth");
-
-/** @type {function(...*):?} */
-var _Z3_goal_reset = Module["_Z3_goal_reset"] = createExportWrapper("Z3_goal_reset");
-
-/** @type {function(...*):?} */
-var _Z3_goal_size = Module["_Z3_goal_size"] = createExportWrapper("Z3_goal_size");
-
-/** @type {function(...*):?} */
-var _Z3_goal_formula = Module["_Z3_goal_formula"] = createExportWrapper("Z3_goal_formula");
-
-/** @type {function(...*):?} */
-var _Z3_goal_num_exprs = Module["_Z3_goal_num_exprs"] = createExportWrapper("Z3_goal_num_exprs");
-
-/** @type {function(...*):?} */
-var _Z3_goal_is_decided_sat = Module["_Z3_goal_is_decided_sat"] = createExportWrapper("Z3_goal_is_decided_sat");
-
-/** @type {function(...*):?} */
-var _Z3_goal_is_decided_unsat = Module["_Z3_goal_is_decided_unsat"] = createExportWrapper("Z3_goal_is_decided_unsat");
-
-/** @type {function(...*):?} */
-var _Z3_goal_convert_model = Module["_Z3_goal_convert_model"] = createExportWrapper("Z3_goal_convert_model");
-
-/** @type {function(...*):?} */
-var _Z3_goal_translate = Module["_Z3_goal_translate"] = createExportWrapper("Z3_goal_translate");
-
-/** @type {function(...*):?} */
-var _Z3_goal_to_string = Module["_Z3_goal_to_string"] = createExportWrapper("Z3_goal_to_string");
-
-/** @type {function(...*):?} */
-var _Z3_goal_to_dimacs_string = Module["_Z3_goal_to_dimacs_string"] = createExportWrapper("Z3_goal_to_dimacs_string");
-
-/** @type {function(...*):?} */
-var _Z3_mk_tactic = Module["_Z3_mk_tactic"] = createExportWrapper("Z3_mk_tactic");
-
-/** @type {function(...*):?} */
-var _Z3_tactic_inc_ref = Module["_Z3_tactic_inc_ref"] = createExportWrapper("Z3_tactic_inc_ref");
-
-/** @type {function(...*):?} */
-var _Z3_tactic_dec_ref = Module["_Z3_tactic_dec_ref"] = createExportWrapper("Z3_tactic_dec_ref");
-
-/** @type {function(...*):?} */
-var _Z3_mk_probe = Module["_Z3_mk_probe"] = createExportWrapper("Z3_mk_probe");
-
-/** @type {function(...*):?} */
-var _Z3_probe_inc_ref = Module["_Z3_probe_inc_ref"] = createExportWrapper("Z3_probe_inc_ref");
-
-/** @type {function(...*):?} */
-var _Z3_probe_dec_ref = Module["_Z3_probe_dec_ref"] = createExportWrapper("Z3_probe_dec_ref");
-
-/** @type {function(...*):?} */
-var _Z3_tactic_and_then = Module["_Z3_tactic_and_then"] = createExportWrapper("Z3_tactic_and_then");
-
-/** @type {function(...*):?} */
-var _Z3_tactic_or_else = Module["_Z3_tactic_or_else"] = createExportWrapper("Z3_tactic_or_else");
-
-/** @type {function(...*):?} */
-var _Z3_tactic_par_or = Module["_Z3_tactic_par_or"] = createExportWrapper("Z3_tactic_par_or");
-
-/** @type {function(...*):?} */
-var _Z3_tactic_par_and_then = Module["_Z3_tactic_par_and_then"] = createExportWrapper("Z3_tactic_par_and_then");
-
-/** @type {function(...*):?} */
-var _Z3_tactic_try_for = Module["_Z3_tactic_try_for"] = createExportWrapper("Z3_tactic_try_for");
-
-/** @type {function(...*):?} */
-var _Z3_tactic_when = Module["_Z3_tactic_when"] = createExportWrapper("Z3_tactic_when");
-
-/** @type {function(...*):?} */
-var _Z3_tactic_cond = Module["_Z3_tactic_cond"] = createExportWrapper("Z3_tactic_cond");
-
-/** @type {function(...*):?} */
-var _Z3_tactic_repeat = Module["_Z3_tactic_repeat"] = createExportWrapper("Z3_tactic_repeat");
-
-/** @type {function(...*):?} */
-var _Z3_tactic_skip = Module["_Z3_tactic_skip"] = createExportWrapper("Z3_tactic_skip");
-
-/** @type {function(...*):?} */
-var _Z3_tactic_fail = Module["_Z3_tactic_fail"] = createExportWrapper("Z3_tactic_fail");
-
-/** @type {function(...*):?} */
-var _Z3_tactic_fail_if = Module["_Z3_tactic_fail_if"] = createExportWrapper("Z3_tactic_fail_if");
-
-/** @type {function(...*):?} */
-var _Z3_tactic_fail_if_not_decided = Module["_Z3_tactic_fail_if_not_decided"] = createExportWrapper("Z3_tactic_fail_if_not_decided");
-
-/** @type {function(...*):?} */
-var _Z3_tactic_using_params = Module["_Z3_tactic_using_params"] = createExportWrapper("Z3_tactic_using_params");
-
-/** @type {function(...*):?} */
-var _Z3_probe_const = Module["_Z3_probe_const"] = createExportWrapper("Z3_probe_const");
-
-/** @type {function(...*):?} */
-var _Z3_probe_lt = Module["_Z3_probe_lt"] = createExportWrapper("Z3_probe_lt");
-
-/** @type {function(...*):?} */
-var _Z3_probe_gt = Module["_Z3_probe_gt"] = createExportWrapper("Z3_probe_gt");
-
-/** @type {function(...*):?} */
-var _Z3_probe_le = Module["_Z3_probe_le"] = createExportWrapper("Z3_probe_le");
-
-/** @type {function(...*):?} */
-var _Z3_probe_ge = Module["_Z3_probe_ge"] = createExportWrapper("Z3_probe_ge");
-
-/** @type {function(...*):?} */
-var _Z3_probe_eq = Module["_Z3_probe_eq"] = createExportWrapper("Z3_probe_eq");
-
-/** @type {function(...*):?} */
-var _Z3_probe_and = Module["_Z3_probe_and"] = createExportWrapper("Z3_probe_and");
-
-/** @type {function(...*):?} */
-var _Z3_probe_or = Module["_Z3_probe_or"] = createExportWrapper("Z3_probe_or");
-
-/** @type {function(...*):?} */
-var _Z3_probe_not = Module["_Z3_probe_not"] = createExportWrapper("Z3_probe_not");
-
-/** @type {function(...*):?} */
-var _Z3_get_num_tactics = Module["_Z3_get_num_tactics"] = createExportWrapper("Z3_get_num_tactics");
-
-/** @type {function(...*):?} */
-var _Z3_get_tactic_name = Module["_Z3_get_tactic_name"] = createExportWrapper("Z3_get_tactic_name");
-
-/** @type {function(...*):?} */
-var _Z3_get_num_probes = Module["_Z3_get_num_probes"] = createExportWrapper("Z3_get_num_probes");
-
-/** @type {function(...*):?} */
-var _Z3_get_probe_name = Module["_Z3_get_probe_name"] = createExportWrapper("Z3_get_probe_name");
-
-/** @type {function(...*):?} */
-var _Z3_tactic_get_help = Module["_Z3_tactic_get_help"] = createExportWrapper("Z3_tactic_get_help");
-
-/** @type {function(...*):?} */
-var _Z3_tactic_get_param_descrs = Module["_Z3_tactic_get_param_descrs"] = createExportWrapper("Z3_tactic_get_param_descrs");
-
-/** @type {function(...*):?} */
-var _Z3_tactic_get_descr = Module["_Z3_tactic_get_descr"] = createExportWrapper("Z3_tactic_get_descr");
-
-/** @type {function(...*):?} */
-var _Z3_probe_get_descr = Module["_Z3_probe_get_descr"] = createExportWrapper("Z3_probe_get_descr");
-
-/** @type {function(...*):?} */
-var _Z3_probe_apply = Module["_Z3_probe_apply"] = createExportWrapper("Z3_probe_apply");
-
-/** @type {function(...*):?} */
-var _Z3_apply_result_inc_ref = Module["_Z3_apply_result_inc_ref"] = createExportWrapper("Z3_apply_result_inc_ref");
-
-/** @type {function(...*):?} */
-var _Z3_apply_result_dec_ref = Module["_Z3_apply_result_dec_ref"] = createExportWrapper("Z3_apply_result_dec_ref");
-
-/** @type {function(...*):?} */
-var _Z3_apply_result_to_string = Module["_Z3_apply_result_to_string"] = createExportWrapper("Z3_apply_result_to_string");
-
-/** @type {function(...*):?} */
-var _Z3_apply_result_get_num_subgoals = Module["_Z3_apply_result_get_num_subgoals"] = createExportWrapper("Z3_apply_result_get_num_subgoals");
-
-/** @type {function(...*):?} */
-var _Z3_apply_result_get_subgoal = Module["_Z3_apply_result_get_subgoal"] = createExportWrapper("Z3_apply_result_get_subgoal");
-
-/** @type {function(...*):?} */
-var _Z3_mk_simplifier = Module["_Z3_mk_simplifier"] = createExportWrapper("Z3_mk_simplifier");
-
-/** @type {function(...*):?} */
-var _Z3_simplifier_inc_ref = Module["_Z3_simplifier_inc_ref"] = createExportWrapper("Z3_simplifier_inc_ref");
-
-/** @type {function(...*):?} */
-var _Z3_simplifier_dec_ref = Module["_Z3_simplifier_dec_ref"] = createExportWrapper("Z3_simplifier_dec_ref");
-
-/** @type {function(...*):?} */
-var _Z3_get_num_simplifiers = Module["_Z3_get_num_simplifiers"] = createExportWrapper("Z3_get_num_simplifiers");
-
-/** @type {function(...*):?} */
-var _Z3_get_simplifier_name = Module["_Z3_get_simplifier_name"] = createExportWrapper("Z3_get_simplifier_name");
-
-/** @type {function(...*):?} */
-var _Z3_simplifier_and_then = Module["_Z3_simplifier_and_then"] = createExportWrapper("Z3_simplifier_and_then");
-
-/** @type {function(...*):?} */
-var _Z3_simplifier_using_params = Module["_Z3_simplifier_using_params"] = createExportWrapper("Z3_simplifier_using_params");
-
-/** @type {function(...*):?} */
-var _Z3_simplifier_get_help = Module["_Z3_simplifier_get_help"] = createExportWrapper("Z3_simplifier_get_help");
-
-/** @type {function(...*):?} */
-var _Z3_simplifier_get_param_descrs = Module["_Z3_simplifier_get_param_descrs"] = createExportWrapper("Z3_simplifier_get_param_descrs");
-
-/** @type {function(...*):?} */
-var _Z3_simplifier_get_descr = Module["_Z3_simplifier_get_descr"] = createExportWrapper("Z3_simplifier_get_descr");
-
-/** @type {function(...*):?} */
-var _Z3_mk_atmost = Module["_Z3_mk_atmost"] = createExportWrapper("Z3_mk_atmost");
-
-/** @type {function(...*):?} */
-var _Z3_mk_atleast = Module["_Z3_mk_atleast"] = createExportWrapper("Z3_mk_atleast");
-
-/** @type {function(...*):?} */
-var _Z3_mk_pble = Module["_Z3_mk_pble"] = createExportWrapper("Z3_mk_pble");
-
-/** @type {function(...*):?} */
-var _Z3_mk_pbge = Module["_Z3_mk_pbge"] = createExportWrapper("Z3_mk_pbge");
-
-/** @type {function(...*):?} */
-var _Z3_mk_pbeq = Module["_Z3_mk_pbeq"] = createExportWrapper("Z3_mk_pbeq");
-
-/** @type {function(...*):?} */
-var _Z3_open_log = Module["_Z3_open_log"] = createExportWrapper("Z3_open_log");
-
-/** @type {function(...*):?} */
-var _Z3_append_log = Module["_Z3_append_log"] = createExportWrapper("Z3_append_log");
-
-/** @type {function(...*):?} */
-var _Z3_close_log = Module["_Z3_close_log"] = createExportWrapper("Z3_close_log");
-
-/** @type {function(...*):?} */
-var _Z3_stats_to_string = Module["_Z3_stats_to_string"] = createExportWrapper("Z3_stats_to_string");
-
-/** @type {function(...*):?} */
-var _Z3_stats_inc_ref = Module["_Z3_stats_inc_ref"] = createExportWrapper("Z3_stats_inc_ref");
-
-/** @type {function(...*):?} */
-var _Z3_stats_dec_ref = Module["_Z3_stats_dec_ref"] = createExportWrapper("Z3_stats_dec_ref");
-
-/** @type {function(...*):?} */
-var _Z3_stats_size = Module["_Z3_stats_size"] = createExportWrapper("Z3_stats_size");
-
-/** @type {function(...*):?} */
-var _Z3_stats_get_key = Module["_Z3_stats_get_key"] = createExportWrapper("Z3_stats_get_key");
-
-/** @type {function(...*):?} */
-var _Z3_stats_is_uint = Module["_Z3_stats_is_uint"] = createExportWrapper("Z3_stats_is_uint");
-
-/** @type {function(...*):?} */
-var _Z3_stats_is_double = Module["_Z3_stats_is_double"] = createExportWrapper("Z3_stats_is_double");
-
-/** @type {function(...*):?} */
-var _Z3_stats_get_uint_value = Module["_Z3_stats_get_uint_value"] = createExportWrapper("Z3_stats_get_uint_value");
-
-/** @type {function(...*):?} */
-var _Z3_stats_get_double_value = Module["_Z3_stats_get_double_value"] = createExportWrapper("Z3_stats_get_double_value");
-
-/** @type {function(...*):?} */
-var _Z3_get_estimated_alloc_size = Module["_Z3_get_estimated_alloc_size"] = createExportWrapper("Z3_get_estimated_alloc_size");
-
-/** @type {function(...*):?} */
-var _Z3_mk_numeral = Module["_Z3_mk_numeral"] = createExportWrapper("Z3_mk_numeral");
-
-/** @type {function(...*):?} */
-var _Z3_mk_int = Module["_Z3_mk_int"] = createExportWrapper("Z3_mk_int");
-
-/** @type {function(...*):?} */
-var _Z3_mk_unsigned_int = Module["_Z3_mk_unsigned_int"] = createExportWrapper("Z3_mk_unsigned_int");
-
-/** @type {function(...*):?} */
-var _Z3_mk_int64 = Module["_Z3_mk_int64"] = createExportWrapper("Z3_mk_int64");
-
-/** @type {function(...*):?} */
-var _Z3_mk_unsigned_int64 = Module["_Z3_mk_unsigned_int64"] = createExportWrapper("Z3_mk_unsigned_int64");
-
-/** @type {function(...*):?} */
-var _Z3_is_numeral_ast = Module["_Z3_is_numeral_ast"] = createExportWrapper("Z3_is_numeral_ast");
-
-/** @type {function(...*):?} */
-var _Z3_get_numeral_binary_string = Module["_Z3_get_numeral_binary_string"] = createExportWrapper("Z3_get_numeral_binary_string");
-
-/** @type {function(...*):?} */
-var _Z3_get_numeral_string = Module["_Z3_get_numeral_string"] = createExportWrapper("Z3_get_numeral_string");
-
-/** @type {function(...*):?} */
-var _Z3_get_numeral_double = Module["_Z3_get_numeral_double"] = createExportWrapper("Z3_get_numeral_double");
-
-/** @type {function(...*):?} */
-var _Z3_get_numeral_decimal_string = Module["_Z3_get_numeral_decimal_string"] = createExportWrapper("Z3_get_numeral_decimal_string");
-
-/** @type {function(...*):?} */
-var _Z3_get_numeral_small = Module["_Z3_get_numeral_small"] = createExportWrapper("Z3_get_numeral_small");
-
-/** @type {function(...*):?} */
-var _Z3_get_numeral_int = Module["_Z3_get_numeral_int"] = createExportWrapper("Z3_get_numeral_int");
-
-/** @type {function(...*):?} */
-var _Z3_get_numeral_int64 = Module["_Z3_get_numeral_int64"] = createExportWrapper("Z3_get_numeral_int64");
-
-/** @type {function(...*):?} */
-var _Z3_get_numeral_uint = Module["_Z3_get_numeral_uint"] = createExportWrapper("Z3_get_numeral_uint");
-
-/** @type {function(...*):?} */
-var _Z3_get_numeral_uint64 = Module["_Z3_get_numeral_uint64"] = createExportWrapper("Z3_get_numeral_uint64");
-
-/** @type {function(...*):?} */
-var _Z3_get_numeral_rational_int64 = Module["_Z3_get_numeral_rational_int64"] = createExportWrapper("Z3_get_numeral_rational_int64");
-
-/** @type {function(...*):?} */
-var _Z3_mk_bv_numeral = Module["_Z3_mk_bv_numeral"] = createExportWrapper("Z3_mk_bv_numeral");
+var _Z3_parse_smtlib2_file = Module["_Z3_parse_smtlib2_file"] = createExportWrapper("Z3_parse_smtlib2_file");
 
 /** @type {function(...*):?} */
 var _Z3_mk_seq_sort = Module["_Z3_mk_seq_sort"] = createExportWrapper("Z3_mk_seq_sort");
@@ -11795,6 +11372,828 @@ var _Z3_mk_char_from_bv = Module["_Z3_mk_char_from_bv"] = createExportWrapper("Z
 
 /** @type {function(...*):?} */
 var _Z3_mk_char_is_digit = Module["_Z3_mk_char_is_digit"] = createExportWrapper("Z3_mk_char_is_digit");
+
+/** @type {function(...*):?} */
+var _Z3_mk_optimize = Module["_Z3_mk_optimize"] = createExportWrapper("Z3_mk_optimize");
+
+/** @type {function(...*):?} */
+var _Z3_optimize_inc_ref = Module["_Z3_optimize_inc_ref"] = createExportWrapper("Z3_optimize_inc_ref");
+
+/** @type {function(...*):?} */
+var _Z3_optimize_dec_ref = Module["_Z3_optimize_dec_ref"] = createExportWrapper("Z3_optimize_dec_ref");
+
+/** @type {function(...*):?} */
+var _Z3_optimize_assert = Module["_Z3_optimize_assert"] = createExportWrapper("Z3_optimize_assert");
+
+/** @type {function(...*):?} */
+var _Z3_optimize_assert_and_track = Module["_Z3_optimize_assert_and_track"] = createExportWrapper("Z3_optimize_assert_and_track");
+
+/** @type {function(...*):?} */
+var _Z3_optimize_assert_soft = Module["_Z3_optimize_assert_soft"] = createExportWrapper("Z3_optimize_assert_soft");
+
+/** @type {function(...*):?} */
+var _Z3_optimize_maximize = Module["_Z3_optimize_maximize"] = createExportWrapper("Z3_optimize_maximize");
+
+/** @type {function(...*):?} */
+var _Z3_optimize_minimize = Module["_Z3_optimize_minimize"] = createExportWrapper("Z3_optimize_minimize");
+
+/** @type {function(...*):?} */
+var _Z3_optimize_push = Module["_Z3_optimize_push"] = createExportWrapper("Z3_optimize_push");
+
+/** @type {function(...*):?} */
+var _Z3_optimize_pop = Module["_Z3_optimize_pop"] = createExportWrapper("Z3_optimize_pop");
+
+/** @type {function(...*):?} */
+var _Z3_optimize_get_unsat_core = Module["_Z3_optimize_get_unsat_core"] = createExportWrapper("Z3_optimize_get_unsat_core");
+
+/** @type {function(...*):?} */
+var _Z3_optimize_get_reason_unknown = Module["_Z3_optimize_get_reason_unknown"] = createExportWrapper("Z3_optimize_get_reason_unknown");
+
+/** @type {function(...*):?} */
+var _Z3_optimize_get_model = Module["_Z3_optimize_get_model"] = createExportWrapper("Z3_optimize_get_model");
+
+/** @type {function(...*):?} */
+var _Z3_optimize_set_params = Module["_Z3_optimize_set_params"] = createExportWrapper("Z3_optimize_set_params");
+
+/** @type {function(...*):?} */
+var _Z3_optimize_get_param_descrs = Module["_Z3_optimize_get_param_descrs"] = createExportWrapper("Z3_optimize_get_param_descrs");
+
+/** @type {function(...*):?} */
+var _Z3_optimize_get_lower = Module["_Z3_optimize_get_lower"] = createExportWrapper("Z3_optimize_get_lower");
+
+/** @type {function(...*):?} */
+var _Z3_optimize_get_upper = Module["_Z3_optimize_get_upper"] = createExportWrapper("Z3_optimize_get_upper");
+
+/** @type {function(...*):?} */
+var _Z3_optimize_get_lower_as_vector = Module["_Z3_optimize_get_lower_as_vector"] = createExportWrapper("Z3_optimize_get_lower_as_vector");
+
+/** @type {function(...*):?} */
+var _Z3_optimize_get_upper_as_vector = Module["_Z3_optimize_get_upper_as_vector"] = createExportWrapper("Z3_optimize_get_upper_as_vector");
+
+/** @type {function(...*):?} */
+var _Z3_optimize_to_string = Module["_Z3_optimize_to_string"] = createExportWrapper("Z3_optimize_to_string");
+
+/** @type {function(...*):?} */
+var _Z3_optimize_get_help = Module["_Z3_optimize_get_help"] = createExportWrapper("Z3_optimize_get_help");
+
+/** @type {function(...*):?} */
+var _Z3_optimize_get_statistics = Module["_Z3_optimize_get_statistics"] = createExportWrapper("Z3_optimize_get_statistics");
+
+/** @type {function(...*):?} */
+var _Z3_optimize_from_string = Module["_Z3_optimize_from_string"] = createExportWrapper("Z3_optimize_from_string");
+
+/** @type {function(...*):?} */
+var _Z3_optimize_from_file = Module["_Z3_optimize_from_file"] = createExportWrapper("Z3_optimize_from_file");
+
+/** @type {function(...*):?} */
+var _Z3_optimize_get_assertions = Module["_Z3_optimize_get_assertions"] = createExportWrapper("Z3_optimize_get_assertions");
+
+/** @type {function(...*):?} */
+var _Z3_optimize_get_objectives = Module["_Z3_optimize_get_objectives"] = createExportWrapper("Z3_optimize_get_objectives");
+
+/** @type {function(...*):?} */
+var _Z3_rcf_del = Module["_Z3_rcf_del"] = createExportWrapper("Z3_rcf_del");
+
+/** @type {function(...*):?} */
+var _Z3_rcf_mk_rational = Module["_Z3_rcf_mk_rational"] = createExportWrapper("Z3_rcf_mk_rational");
+
+/** @type {function(...*):?} */
+var _Z3_rcf_mk_small_int = Module["_Z3_rcf_mk_small_int"] = createExportWrapper("Z3_rcf_mk_small_int");
+
+/** @type {function(...*):?} */
+var _Z3_rcf_mk_pi = Module["_Z3_rcf_mk_pi"] = createExportWrapper("Z3_rcf_mk_pi");
+
+/** @type {function(...*):?} */
+var _Z3_rcf_mk_e = Module["_Z3_rcf_mk_e"] = createExportWrapper("Z3_rcf_mk_e");
+
+/** @type {function(...*):?} */
+var _Z3_rcf_mk_infinitesimal = Module["_Z3_rcf_mk_infinitesimal"] = createExportWrapper("Z3_rcf_mk_infinitesimal");
+
+/** @type {function(...*):?} */
+var _Z3_rcf_mk_roots = Module["_Z3_rcf_mk_roots"] = createExportWrapper("Z3_rcf_mk_roots");
+
+/** @type {function(...*):?} */
+var _Z3_rcf_add = Module["_Z3_rcf_add"] = createExportWrapper("Z3_rcf_add");
+
+/** @type {function(...*):?} */
+var _Z3_rcf_sub = Module["_Z3_rcf_sub"] = createExportWrapper("Z3_rcf_sub");
+
+/** @type {function(...*):?} */
+var _Z3_rcf_mul = Module["_Z3_rcf_mul"] = createExportWrapper("Z3_rcf_mul");
+
+/** @type {function(...*):?} */
+var _Z3_rcf_div = Module["_Z3_rcf_div"] = createExportWrapper("Z3_rcf_div");
+
+/** @type {function(...*):?} */
+var _Z3_rcf_neg = Module["_Z3_rcf_neg"] = createExportWrapper("Z3_rcf_neg");
+
+/** @type {function(...*):?} */
+var _Z3_rcf_inv = Module["_Z3_rcf_inv"] = createExportWrapper("Z3_rcf_inv");
+
+/** @type {function(...*):?} */
+var _Z3_rcf_power = Module["_Z3_rcf_power"] = createExportWrapper("Z3_rcf_power");
+
+/** @type {function(...*):?} */
+var _Z3_rcf_lt = Module["_Z3_rcf_lt"] = createExportWrapper("Z3_rcf_lt");
+
+/** @type {function(...*):?} */
+var _Z3_rcf_gt = Module["_Z3_rcf_gt"] = createExportWrapper("Z3_rcf_gt");
+
+/** @type {function(...*):?} */
+var _Z3_rcf_le = Module["_Z3_rcf_le"] = createExportWrapper("Z3_rcf_le");
+
+/** @type {function(...*):?} */
+var _Z3_rcf_ge = Module["_Z3_rcf_ge"] = createExportWrapper("Z3_rcf_ge");
+
+/** @type {function(...*):?} */
+var _Z3_rcf_eq = Module["_Z3_rcf_eq"] = createExportWrapper("Z3_rcf_eq");
+
+/** @type {function(...*):?} */
+var _Z3_rcf_neq = Module["_Z3_rcf_neq"] = createExportWrapper("Z3_rcf_neq");
+
+/** @type {function(...*):?} */
+var _Z3_rcf_num_to_string = Module["_Z3_rcf_num_to_string"] = createExportWrapper("Z3_rcf_num_to_string");
+
+/** @type {function(...*):?} */
+var _Z3_rcf_num_to_decimal_string = Module["_Z3_rcf_num_to_decimal_string"] = createExportWrapper("Z3_rcf_num_to_decimal_string");
+
+/** @type {function(...*):?} */
+var _Z3_rcf_get_numerator_denominator = Module["_Z3_rcf_get_numerator_denominator"] = createExportWrapper("Z3_rcf_get_numerator_denominator");
+
+/** @type {function(...*):?} */
+var _Z3_rcf_is_rational = Module["_Z3_rcf_is_rational"] = createExportWrapper("Z3_rcf_is_rational");
+
+/** @type {function(...*):?} */
+var _Z3_rcf_is_algebraic = Module["_Z3_rcf_is_algebraic"] = createExportWrapper("Z3_rcf_is_algebraic");
+
+/** @type {function(...*):?} */
+var _Z3_rcf_is_infinitesimal = Module["_Z3_rcf_is_infinitesimal"] = createExportWrapper("Z3_rcf_is_infinitesimal");
+
+/** @type {function(...*):?} */
+var _Z3_rcf_is_transcendental = Module["_Z3_rcf_is_transcendental"] = createExportWrapper("Z3_rcf_is_transcendental");
+
+/** @type {function(...*):?} */
+var _Z3_rcf_extension_index = Module["_Z3_rcf_extension_index"] = createExportWrapper("Z3_rcf_extension_index");
+
+/** @type {function(...*):?} */
+var _Z3_rcf_transcendental_name = Module["_Z3_rcf_transcendental_name"] = createExportWrapper("Z3_rcf_transcendental_name");
+
+/** @type {function(...*):?} */
+var _Z3_rcf_infinitesimal_name = Module["_Z3_rcf_infinitesimal_name"] = createExportWrapper("Z3_rcf_infinitesimal_name");
+
+/** @type {function(...*):?} */
+var _Z3_rcf_num_coefficients = Module["_Z3_rcf_num_coefficients"] = createExportWrapper("Z3_rcf_num_coefficients");
+
+/** @type {function(...*):?} */
+var _Z3_rcf_coefficient = Module["_Z3_rcf_coefficient"] = createExportWrapper("Z3_rcf_coefficient");
+
+/** @type {function(...*):?} */
+var _Z3_rcf_interval = Module["_Z3_rcf_interval"] = createExportWrapper("Z3_rcf_interval");
+
+/** @type {function(...*):?} */
+var _Z3_rcf_num_sign_conditions = Module["_Z3_rcf_num_sign_conditions"] = createExportWrapper("Z3_rcf_num_sign_conditions");
+
+/** @type {function(...*):?} */
+var _Z3_rcf_sign_condition_sign = Module["_Z3_rcf_sign_condition_sign"] = createExportWrapper("Z3_rcf_sign_condition_sign");
+
+/** @type {function(...*):?} */
+var _Z3_rcf_num_sign_condition_coefficients = Module["_Z3_rcf_num_sign_condition_coefficients"] = createExportWrapper("Z3_rcf_num_sign_condition_coefficients");
+
+/** @type {function(...*):?} */
+var _Z3_rcf_sign_condition_coefficient = Module["_Z3_rcf_sign_condition_coefficient"] = createExportWrapper("Z3_rcf_sign_condition_coefficient");
+
+/** @type {function(...*):?} */
+var _Z3_stats_to_string = Module["_Z3_stats_to_string"] = createExportWrapper("Z3_stats_to_string");
+
+/** @type {function(...*):?} */
+var _Z3_stats_inc_ref = Module["_Z3_stats_inc_ref"] = createExportWrapper("Z3_stats_inc_ref");
+
+/** @type {function(...*):?} */
+var _Z3_stats_dec_ref = Module["_Z3_stats_dec_ref"] = createExportWrapper("Z3_stats_dec_ref");
+
+/** @type {function(...*):?} */
+var _Z3_stats_size = Module["_Z3_stats_size"] = createExportWrapper("Z3_stats_size");
+
+/** @type {function(...*):?} */
+var _Z3_stats_get_key = Module["_Z3_stats_get_key"] = createExportWrapper("Z3_stats_get_key");
+
+/** @type {function(...*):?} */
+var _Z3_stats_is_uint = Module["_Z3_stats_is_uint"] = createExportWrapper("Z3_stats_is_uint");
+
+/** @type {function(...*):?} */
+var _Z3_stats_is_double = Module["_Z3_stats_is_double"] = createExportWrapper("Z3_stats_is_double");
+
+/** @type {function(...*):?} */
+var _Z3_stats_get_uint_value = Module["_Z3_stats_get_uint_value"] = createExportWrapper("Z3_stats_get_uint_value");
+
+/** @type {function(...*):?} */
+var _Z3_stats_get_double_value = Module["_Z3_stats_get_double_value"] = createExportWrapper("Z3_stats_get_double_value");
+
+/** @type {function(...*):?} */
+var _Z3_get_estimated_alloc_size = Module["_Z3_get_estimated_alloc_size"] = createExportWrapper("Z3_get_estimated_alloc_size");
+
+/** @type {function(...*):?} */
+var _Z3_mk_context = Module["_Z3_mk_context"] = createExportWrapper("Z3_mk_context");
+
+/** @type {function(...*):?} */
+var _Z3_mk_context_rc = Module["_Z3_mk_context_rc"] = createExportWrapper("Z3_mk_context_rc");
+
+/** @type {function(...*):?} */
+var _Z3_del_context = Module["_Z3_del_context"] = createExportWrapper("Z3_del_context");
+
+/** @type {function(...*):?} */
+var _Z3_interrupt = Module["_Z3_interrupt"] = createExportWrapper("Z3_interrupt");
+
+/** @type {function(...*):?} */
+var _Z3_enable_concurrent_dec_ref = Module["_Z3_enable_concurrent_dec_ref"] = createExportWrapper("Z3_enable_concurrent_dec_ref");
+
+/** @type {function(...*):?} */
+var _Z3_toggle_warning_messages = Module["_Z3_toggle_warning_messages"] = createExportWrapper("Z3_toggle_warning_messages");
+
+/** @type {function(...*):?} */
+var _Z3_inc_ref = Module["_Z3_inc_ref"] = createExportWrapper("Z3_inc_ref");
+
+/** @type {function(...*):?} */
+var _Z3_dec_ref = Module["_Z3_dec_ref"] = createExportWrapper("Z3_dec_ref");
+
+/** @type {function(...*):?} */
+var _Z3_get_version = Module["_Z3_get_version"] = createExportWrapper("Z3_get_version");
+
+/** @type {function(...*):?} */
+var _Z3_get_full_version = Module["_Z3_get_full_version"] = createExportWrapper("Z3_get_full_version");
+
+/** @type {function(...*):?} */
+var _Z3_enable_trace = Module["_Z3_enable_trace"] = createExportWrapper("Z3_enable_trace");
+
+/** @type {function(...*):?} */
+var _Z3_disable_trace = Module["_Z3_disable_trace"] = createExportWrapper("Z3_disable_trace");
+
+/** @type {function(...*):?} */
+var _Z3_reset_memory = Module["_Z3_reset_memory"] = createExportWrapper("Z3_reset_memory");
+
+/** @type {function(...*):?} */
+var _Z3_finalize_memory = Module["_Z3_finalize_memory"] = createExportWrapper("Z3_finalize_memory");
+
+/** @type {function(...*):?} */
+var _Z3_get_error_code = Module["_Z3_get_error_code"] = createExportWrapper("Z3_get_error_code");
+
+/** @type {function(...*):?} */
+var _Z3_set_error = Module["_Z3_set_error"] = createExportWrapper("Z3_set_error");
+
+/** @type {function(...*):?} */
+var _Z3_set_ast_print_mode = Module["_Z3_set_ast_print_mode"] = createExportWrapper("Z3_set_ast_print_mode");
+
+/** @type {function(...*):?} */
+var _Z3_mk_atmost = Module["_Z3_mk_atmost"] = createExportWrapper("Z3_mk_atmost");
+
+/** @type {function(...*):?} */
+var _Z3_mk_atleast = Module["_Z3_mk_atleast"] = createExportWrapper("Z3_mk_atleast");
+
+/** @type {function(...*):?} */
+var _Z3_mk_pble = Module["_Z3_mk_pble"] = createExportWrapper("Z3_mk_pble");
+
+/** @type {function(...*):?} */
+var _Z3_mk_pbge = Module["_Z3_mk_pbge"] = createExportWrapper("Z3_mk_pbge");
+
+/** @type {function(...*):?} */
+var _Z3_mk_pbeq = Module["_Z3_mk_pbeq"] = createExportWrapper("Z3_mk_pbeq");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_rounding_mode_sort = Module["_Z3_mk_fpa_rounding_mode_sort"] = createExportWrapper("Z3_mk_fpa_rounding_mode_sort");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_round_nearest_ties_to_even = Module["_Z3_mk_fpa_round_nearest_ties_to_even"] = createExportWrapper("Z3_mk_fpa_round_nearest_ties_to_even");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_rne = Module["_Z3_mk_fpa_rne"] = createExportWrapper("Z3_mk_fpa_rne");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_round_nearest_ties_to_away = Module["_Z3_mk_fpa_round_nearest_ties_to_away"] = createExportWrapper("Z3_mk_fpa_round_nearest_ties_to_away");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_rna = Module["_Z3_mk_fpa_rna"] = createExportWrapper("Z3_mk_fpa_rna");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_round_toward_positive = Module["_Z3_mk_fpa_round_toward_positive"] = createExportWrapper("Z3_mk_fpa_round_toward_positive");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_rtp = Module["_Z3_mk_fpa_rtp"] = createExportWrapper("Z3_mk_fpa_rtp");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_round_toward_negative = Module["_Z3_mk_fpa_round_toward_negative"] = createExportWrapper("Z3_mk_fpa_round_toward_negative");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_rtn = Module["_Z3_mk_fpa_rtn"] = createExportWrapper("Z3_mk_fpa_rtn");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_round_toward_zero = Module["_Z3_mk_fpa_round_toward_zero"] = createExportWrapper("Z3_mk_fpa_round_toward_zero");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_rtz = Module["_Z3_mk_fpa_rtz"] = createExportWrapper("Z3_mk_fpa_rtz");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_sort = Module["_Z3_mk_fpa_sort"] = createExportWrapper("Z3_mk_fpa_sort");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_sort_half = Module["_Z3_mk_fpa_sort_half"] = createExportWrapper("Z3_mk_fpa_sort_half");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_sort_16 = Module["_Z3_mk_fpa_sort_16"] = createExportWrapper("Z3_mk_fpa_sort_16");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_sort_single = Module["_Z3_mk_fpa_sort_single"] = createExportWrapper("Z3_mk_fpa_sort_single");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_sort_32 = Module["_Z3_mk_fpa_sort_32"] = createExportWrapper("Z3_mk_fpa_sort_32");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_sort_double = Module["_Z3_mk_fpa_sort_double"] = createExportWrapper("Z3_mk_fpa_sort_double");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_sort_64 = Module["_Z3_mk_fpa_sort_64"] = createExportWrapper("Z3_mk_fpa_sort_64");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_sort_quadruple = Module["_Z3_mk_fpa_sort_quadruple"] = createExportWrapper("Z3_mk_fpa_sort_quadruple");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_sort_128 = Module["_Z3_mk_fpa_sort_128"] = createExportWrapper("Z3_mk_fpa_sort_128");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_nan = Module["_Z3_mk_fpa_nan"] = createExportWrapper("Z3_mk_fpa_nan");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_inf = Module["_Z3_mk_fpa_inf"] = createExportWrapper("Z3_mk_fpa_inf");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_zero = Module["_Z3_mk_fpa_zero"] = createExportWrapper("Z3_mk_fpa_zero");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_fp = Module["_Z3_mk_fpa_fp"] = createExportWrapper("Z3_mk_fpa_fp");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_numeral_float = Module["_Z3_mk_fpa_numeral_float"] = createExportWrapper("Z3_mk_fpa_numeral_float");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_numeral_double = Module["_Z3_mk_fpa_numeral_double"] = createExportWrapper("Z3_mk_fpa_numeral_double");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_numeral_int = Module["_Z3_mk_fpa_numeral_int"] = createExportWrapper("Z3_mk_fpa_numeral_int");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_numeral_int_uint = Module["_Z3_mk_fpa_numeral_int_uint"] = createExportWrapper("Z3_mk_fpa_numeral_int_uint");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_numeral_int64_uint64 = Module["_Z3_mk_fpa_numeral_int64_uint64"] = createExportWrapper("Z3_mk_fpa_numeral_int64_uint64");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_abs = Module["_Z3_mk_fpa_abs"] = createExportWrapper("Z3_mk_fpa_abs");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_neg = Module["_Z3_mk_fpa_neg"] = createExportWrapper("Z3_mk_fpa_neg");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_add = Module["_Z3_mk_fpa_add"] = createExportWrapper("Z3_mk_fpa_add");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_sub = Module["_Z3_mk_fpa_sub"] = createExportWrapper("Z3_mk_fpa_sub");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_mul = Module["_Z3_mk_fpa_mul"] = createExportWrapper("Z3_mk_fpa_mul");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_div = Module["_Z3_mk_fpa_div"] = createExportWrapper("Z3_mk_fpa_div");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_fma = Module["_Z3_mk_fpa_fma"] = createExportWrapper("Z3_mk_fpa_fma");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_sqrt = Module["_Z3_mk_fpa_sqrt"] = createExportWrapper("Z3_mk_fpa_sqrt");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_rem = Module["_Z3_mk_fpa_rem"] = createExportWrapper("Z3_mk_fpa_rem");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_round_to_integral = Module["_Z3_mk_fpa_round_to_integral"] = createExportWrapper("Z3_mk_fpa_round_to_integral");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_min = Module["_Z3_mk_fpa_min"] = createExportWrapper("Z3_mk_fpa_min");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_max = Module["_Z3_mk_fpa_max"] = createExportWrapper("Z3_mk_fpa_max");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_leq = Module["_Z3_mk_fpa_leq"] = createExportWrapper("Z3_mk_fpa_leq");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_lt = Module["_Z3_mk_fpa_lt"] = createExportWrapper("Z3_mk_fpa_lt");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_geq = Module["_Z3_mk_fpa_geq"] = createExportWrapper("Z3_mk_fpa_geq");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_gt = Module["_Z3_mk_fpa_gt"] = createExportWrapper("Z3_mk_fpa_gt");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_eq = Module["_Z3_mk_fpa_eq"] = createExportWrapper("Z3_mk_fpa_eq");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_is_normal = Module["_Z3_mk_fpa_is_normal"] = createExportWrapper("Z3_mk_fpa_is_normal");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_is_subnormal = Module["_Z3_mk_fpa_is_subnormal"] = createExportWrapper("Z3_mk_fpa_is_subnormal");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_is_zero = Module["_Z3_mk_fpa_is_zero"] = createExportWrapper("Z3_mk_fpa_is_zero");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_is_infinite = Module["_Z3_mk_fpa_is_infinite"] = createExportWrapper("Z3_mk_fpa_is_infinite");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_is_nan = Module["_Z3_mk_fpa_is_nan"] = createExportWrapper("Z3_mk_fpa_is_nan");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_is_negative = Module["_Z3_mk_fpa_is_negative"] = createExportWrapper("Z3_mk_fpa_is_negative");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_is_positive = Module["_Z3_mk_fpa_is_positive"] = createExportWrapper("Z3_mk_fpa_is_positive");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_to_fp_bv = Module["_Z3_mk_fpa_to_fp_bv"] = createExportWrapper("Z3_mk_fpa_to_fp_bv");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_to_fp_float = Module["_Z3_mk_fpa_to_fp_float"] = createExportWrapper("Z3_mk_fpa_to_fp_float");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_to_fp_real = Module["_Z3_mk_fpa_to_fp_real"] = createExportWrapper("Z3_mk_fpa_to_fp_real");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_to_fp_signed = Module["_Z3_mk_fpa_to_fp_signed"] = createExportWrapper("Z3_mk_fpa_to_fp_signed");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_to_fp_unsigned = Module["_Z3_mk_fpa_to_fp_unsigned"] = createExportWrapper("Z3_mk_fpa_to_fp_unsigned");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_to_ubv = Module["_Z3_mk_fpa_to_ubv"] = createExportWrapper("Z3_mk_fpa_to_ubv");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_to_sbv = Module["_Z3_mk_fpa_to_sbv"] = createExportWrapper("Z3_mk_fpa_to_sbv");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_to_real = Module["_Z3_mk_fpa_to_real"] = createExportWrapper("Z3_mk_fpa_to_real");
+
+/** @type {function(...*):?} */
+var _Z3_fpa_get_ebits = Module["_Z3_fpa_get_ebits"] = createExportWrapper("Z3_fpa_get_ebits");
+
+/** @type {function(...*):?} */
+var _Z3_fpa_get_sbits = Module["_Z3_fpa_get_sbits"] = createExportWrapper("Z3_fpa_get_sbits");
+
+/** @type {function(...*):?} */
+var _Z3_fpa_get_numeral_sign = Module["_Z3_fpa_get_numeral_sign"] = createExportWrapper("Z3_fpa_get_numeral_sign");
+
+/** @type {function(...*):?} */
+var _Z3_fpa_get_numeral_sign_bv = Module["_Z3_fpa_get_numeral_sign_bv"] = createExportWrapper("Z3_fpa_get_numeral_sign_bv");
+
+/** @type {function(...*):?} */
+var _Z3_fpa_get_numeral_significand_bv = Module["_Z3_fpa_get_numeral_significand_bv"] = createExportWrapper("Z3_fpa_get_numeral_significand_bv");
+
+/** @type {function(...*):?} */
+var _Z3_fpa_get_numeral_significand_string = Module["_Z3_fpa_get_numeral_significand_string"] = createExportWrapper("Z3_fpa_get_numeral_significand_string");
+
+/** @type {function(...*):?} */
+var _Z3_fpa_get_numeral_significand_uint64 = Module["_Z3_fpa_get_numeral_significand_uint64"] = createExportWrapper("Z3_fpa_get_numeral_significand_uint64");
+
+/** @type {function(...*):?} */
+var _Z3_fpa_get_numeral_exponent_string = Module["_Z3_fpa_get_numeral_exponent_string"] = createExportWrapper("Z3_fpa_get_numeral_exponent_string");
+
+/** @type {function(...*):?} */
+var _Z3_fpa_get_numeral_exponent_int64 = Module["_Z3_fpa_get_numeral_exponent_int64"] = createExportWrapper("Z3_fpa_get_numeral_exponent_int64");
+
+/** @type {function(...*):?} */
+var _Z3_fpa_get_numeral_exponent_bv = Module["_Z3_fpa_get_numeral_exponent_bv"] = createExportWrapper("Z3_fpa_get_numeral_exponent_bv");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_to_ieee_bv = Module["_Z3_mk_fpa_to_ieee_bv"] = createExportWrapper("Z3_mk_fpa_to_ieee_bv");
+
+/** @type {function(...*):?} */
+var _Z3_mk_fpa_to_fp_int_real = Module["_Z3_mk_fpa_to_fp_int_real"] = createExportWrapper("Z3_mk_fpa_to_fp_int_real");
+
+/** @type {function(...*):?} */
+var _Z3_fpa_is_numeral_nan = Module["_Z3_fpa_is_numeral_nan"] = createExportWrapper("Z3_fpa_is_numeral_nan");
+
+/** @type {function(...*):?} */
+var _Z3_fpa_is_numeral_inf = Module["_Z3_fpa_is_numeral_inf"] = createExportWrapper("Z3_fpa_is_numeral_inf");
+
+/** @type {function(...*):?} */
+var _Z3_fpa_is_numeral_zero = Module["_Z3_fpa_is_numeral_zero"] = createExportWrapper("Z3_fpa_is_numeral_zero");
+
+/** @type {function(...*):?} */
+var _Z3_fpa_is_numeral_normal = Module["_Z3_fpa_is_numeral_normal"] = createExportWrapper("Z3_fpa_is_numeral_normal");
+
+/** @type {function(...*):?} */
+var _Z3_fpa_is_numeral_subnormal = Module["_Z3_fpa_is_numeral_subnormal"] = createExportWrapper("Z3_fpa_is_numeral_subnormal");
+
+/** @type {function(...*):?} */
+var _Z3_fpa_is_numeral_positive = Module["_Z3_fpa_is_numeral_positive"] = createExportWrapper("Z3_fpa_is_numeral_positive");
+
+/** @type {function(...*):?} */
+var _Z3_fpa_is_numeral_negative = Module["_Z3_fpa_is_numeral_negative"] = createExportWrapper("Z3_fpa_is_numeral_negative");
+
+/** @type {function(...*):?} */
+var _Z3_mk_linear_order = Module["_Z3_mk_linear_order"] = createExportWrapper("Z3_mk_linear_order");
+
+/** @type {function(...*):?} */
+var _Z3_mk_partial_order = Module["_Z3_mk_partial_order"] = createExportWrapper("Z3_mk_partial_order");
+
+/** @type {function(...*):?} */
+var _Z3_mk_piecewise_linear_order = Module["_Z3_mk_piecewise_linear_order"] = createExportWrapper("Z3_mk_piecewise_linear_order");
+
+/** @type {function(...*):?} */
+var _Z3_mk_tree_order = Module["_Z3_mk_tree_order"] = createExportWrapper("Z3_mk_tree_order");
+
+/** @type {function(...*):?} */
+var _Z3_mk_transitive_closure = Module["_Z3_mk_transitive_closure"] = createExportWrapper("Z3_mk_transitive_closure");
+
+/** @type {function(...*):?} */
+var _Z3_mk_ast_map = Module["_Z3_mk_ast_map"] = createExportWrapper("Z3_mk_ast_map");
+
+/** @type {function(...*):?} */
+var _Z3_ast_map_inc_ref = Module["_Z3_ast_map_inc_ref"] = createExportWrapper("Z3_ast_map_inc_ref");
+
+/** @type {function(...*):?} */
+var _Z3_ast_map_dec_ref = Module["_Z3_ast_map_dec_ref"] = createExportWrapper("Z3_ast_map_dec_ref");
+
+/** @type {function(...*):?} */
+var _Z3_ast_map_contains = Module["_Z3_ast_map_contains"] = createExportWrapper("Z3_ast_map_contains");
+
+/** @type {function(...*):?} */
+var _Z3_ast_map_find = Module["_Z3_ast_map_find"] = createExportWrapper("Z3_ast_map_find");
+
+/** @type {function(...*):?} */
+var _Z3_ast_map_insert = Module["_Z3_ast_map_insert"] = createExportWrapper("Z3_ast_map_insert");
+
+/** @type {function(...*):?} */
+var _Z3_ast_map_reset = Module["_Z3_ast_map_reset"] = createExportWrapper("Z3_ast_map_reset");
+
+/** @type {function(...*):?} */
+var _Z3_ast_map_erase = Module["_Z3_ast_map_erase"] = createExportWrapper("Z3_ast_map_erase");
+
+/** @type {function(...*):?} */
+var _Z3_ast_map_size = Module["_Z3_ast_map_size"] = createExportWrapper("Z3_ast_map_size");
+
+/** @type {function(...*):?} */
+var _Z3_ast_map_keys = Module["_Z3_ast_map_keys"] = createExportWrapper("Z3_ast_map_keys");
+
+/** @type {function(...*):?} */
+var _Z3_ast_map_to_string = Module["_Z3_ast_map_to_string"] = createExportWrapper("Z3_ast_map_to_string");
+
+/** @type {function(...*):?} */
+var _Z3_open_log = Module["_Z3_open_log"] = createExportWrapper("Z3_open_log");
+
+/** @type {function(...*):?} */
+var _Z3_append_log = Module["_Z3_append_log"] = createExportWrapper("Z3_append_log");
+
+/** @type {function(...*):?} */
+var _Z3_close_log = Module["_Z3_close_log"] = createExportWrapper("Z3_close_log");
+
+/** @type {function(...*):?} */
+var _Z3_mk_goal = Module["_Z3_mk_goal"] = createExportWrapper("Z3_mk_goal");
+
+/** @type {function(...*):?} */
+var _Z3_goal_inc_ref = Module["_Z3_goal_inc_ref"] = createExportWrapper("Z3_goal_inc_ref");
+
+/** @type {function(...*):?} */
+var _Z3_goal_dec_ref = Module["_Z3_goal_dec_ref"] = createExportWrapper("Z3_goal_dec_ref");
+
+/** @type {function(...*):?} */
+var _Z3_goal_precision = Module["_Z3_goal_precision"] = createExportWrapper("Z3_goal_precision");
+
+/** @type {function(...*):?} */
+var _Z3_goal_assert = Module["_Z3_goal_assert"] = createExportWrapper("Z3_goal_assert");
+
+/** @type {function(...*):?} */
+var _Z3_goal_inconsistent = Module["_Z3_goal_inconsistent"] = createExportWrapper("Z3_goal_inconsistent");
+
+/** @type {function(...*):?} */
+var _Z3_goal_depth = Module["_Z3_goal_depth"] = createExportWrapper("Z3_goal_depth");
+
+/** @type {function(...*):?} */
+var _Z3_goal_reset = Module["_Z3_goal_reset"] = createExportWrapper("Z3_goal_reset");
+
+/** @type {function(...*):?} */
+var _Z3_goal_size = Module["_Z3_goal_size"] = createExportWrapper("Z3_goal_size");
+
+/** @type {function(...*):?} */
+var _Z3_goal_formula = Module["_Z3_goal_formula"] = createExportWrapper("Z3_goal_formula");
+
+/** @type {function(...*):?} */
+var _Z3_goal_num_exprs = Module["_Z3_goal_num_exprs"] = createExportWrapper("Z3_goal_num_exprs");
+
+/** @type {function(...*):?} */
+var _Z3_goal_is_decided_sat = Module["_Z3_goal_is_decided_sat"] = createExportWrapper("Z3_goal_is_decided_sat");
+
+/** @type {function(...*):?} */
+var _Z3_goal_is_decided_unsat = Module["_Z3_goal_is_decided_unsat"] = createExportWrapper("Z3_goal_is_decided_unsat");
+
+/** @type {function(...*):?} */
+var _Z3_goal_convert_model = Module["_Z3_goal_convert_model"] = createExportWrapper("Z3_goal_convert_model");
+
+/** @type {function(...*):?} */
+var _Z3_goal_translate = Module["_Z3_goal_translate"] = createExportWrapper("Z3_goal_translate");
+
+/** @type {function(...*):?} */
+var _Z3_goal_to_string = Module["_Z3_goal_to_string"] = createExportWrapper("Z3_goal_to_string");
+
+/** @type {function(...*):?} */
+var _Z3_goal_to_dimacs_string = Module["_Z3_goal_to_dimacs_string"] = createExportWrapper("Z3_goal_to_dimacs_string");
+
+/** @type {function(...*):?} */
+var _Z3_qe_model_project = Module["_Z3_qe_model_project"] = createExportWrapper("Z3_qe_model_project");
+
+/** @type {function(...*):?} */
+var _Z3_qe_model_project_skolem = Module["_Z3_qe_model_project_skolem"] = createExportWrapper("Z3_qe_model_project_skolem");
+
+/** @type {function(...*):?} */
+var _Z3_model_extrapolate = Module["_Z3_model_extrapolate"] = createExportWrapper("Z3_model_extrapolate");
+
+/** @type {function(...*):?} */
+var _Z3_qe_lite = Module["_Z3_qe_lite"] = createExportWrapper("Z3_qe_lite");
+
+/** @type {function(...*):?} */
+var _Z3_mk_bv_sort = Module["_Z3_mk_bv_sort"] = createExportWrapper("Z3_mk_bv_sort");
+
+/** @type {function(...*):?} */
+var _Z3_mk_bvnot = Module["_Z3_mk_bvnot"] = createExportWrapper("Z3_mk_bvnot");
+
+/** @type {function(...*):?} */
+var _Z3_mk_bvredand = Module["_Z3_mk_bvredand"] = createExportWrapper("Z3_mk_bvredand");
+
+/** @type {function(...*):?} */
+var _Z3_mk_bvredor = Module["_Z3_mk_bvredor"] = createExportWrapper("Z3_mk_bvredor");
+
+/** @type {function(...*):?} */
+var _Z3_mk_bvand = Module["_Z3_mk_bvand"] = createExportWrapper("Z3_mk_bvand");
+
+/** @type {function(...*):?} */
+var _Z3_mk_bvor = Module["_Z3_mk_bvor"] = createExportWrapper("Z3_mk_bvor");
+
+/** @type {function(...*):?} */
+var _Z3_mk_bvxor = Module["_Z3_mk_bvxor"] = createExportWrapper("Z3_mk_bvxor");
+
+/** @type {function(...*):?} */
+var _Z3_mk_bvnand = Module["_Z3_mk_bvnand"] = createExportWrapper("Z3_mk_bvnand");
+
+/** @type {function(...*):?} */
+var _Z3_mk_bvnor = Module["_Z3_mk_bvnor"] = createExportWrapper("Z3_mk_bvnor");
+
+/** @type {function(...*):?} */
+var _Z3_mk_bvxnor = Module["_Z3_mk_bvxnor"] = createExportWrapper("Z3_mk_bvxnor");
+
+/** @type {function(...*):?} */
+var _Z3_mk_bvadd = Module["_Z3_mk_bvadd"] = createExportWrapper("Z3_mk_bvadd");
+
+/** @type {function(...*):?} */
+var _Z3_mk_bvmul = Module["_Z3_mk_bvmul"] = createExportWrapper("Z3_mk_bvmul");
+
+/** @type {function(...*):?} */
+var _Z3_mk_bvudiv = Module["_Z3_mk_bvudiv"] = createExportWrapper("Z3_mk_bvudiv");
+
+/** @type {function(...*):?} */
+var _Z3_mk_bvsdiv = Module["_Z3_mk_bvsdiv"] = createExportWrapper("Z3_mk_bvsdiv");
+
+/** @type {function(...*):?} */
+var _Z3_mk_bvurem = Module["_Z3_mk_bvurem"] = createExportWrapper("Z3_mk_bvurem");
+
+/** @type {function(...*):?} */
+var _Z3_mk_bvsrem = Module["_Z3_mk_bvsrem"] = createExportWrapper("Z3_mk_bvsrem");
+
+/** @type {function(...*):?} */
+var _Z3_mk_bvsmod = Module["_Z3_mk_bvsmod"] = createExportWrapper("Z3_mk_bvsmod");
+
+/** @type {function(...*):?} */
+var _Z3_mk_bvule = Module["_Z3_mk_bvule"] = createExportWrapper("Z3_mk_bvule");
+
+/** @type {function(...*):?} */
+var _Z3_mk_bvsle = Module["_Z3_mk_bvsle"] = createExportWrapper("Z3_mk_bvsle");
+
+/** @type {function(...*):?} */
+var _Z3_mk_bvuge = Module["_Z3_mk_bvuge"] = createExportWrapper("Z3_mk_bvuge");
+
+/** @type {function(...*):?} */
+var _Z3_mk_bvsge = Module["_Z3_mk_bvsge"] = createExportWrapper("Z3_mk_bvsge");
+
+/** @type {function(...*):?} */
+var _Z3_mk_bvult = Module["_Z3_mk_bvult"] = createExportWrapper("Z3_mk_bvult");
+
+/** @type {function(...*):?} */
+var _Z3_mk_bvslt = Module["_Z3_mk_bvslt"] = createExportWrapper("Z3_mk_bvslt");
+
+/** @type {function(...*):?} */
+var _Z3_mk_bvugt = Module["_Z3_mk_bvugt"] = createExportWrapper("Z3_mk_bvugt");
+
+/** @type {function(...*):?} */
+var _Z3_mk_bvsgt = Module["_Z3_mk_bvsgt"] = createExportWrapper("Z3_mk_bvsgt");
+
+/** @type {function(...*):?} */
+var _Z3_mk_concat = Module["_Z3_mk_concat"] = createExportWrapper("Z3_mk_concat");
+
+/** @type {function(...*):?} */
+var _Z3_mk_bvshl = Module["_Z3_mk_bvshl"] = createExportWrapper("Z3_mk_bvshl");
+
+/** @type {function(...*):?} */
+var _Z3_mk_bvlshr = Module["_Z3_mk_bvlshr"] = createExportWrapper("Z3_mk_bvlshr");
+
+/** @type {function(...*):?} */
+var _Z3_mk_bvashr = Module["_Z3_mk_bvashr"] = createExportWrapper("Z3_mk_bvashr");
+
+/** @type {function(...*):?} */
+var _Z3_mk_ext_rotate_left = Module["_Z3_mk_ext_rotate_left"] = createExportWrapper("Z3_mk_ext_rotate_left");
+
+/** @type {function(...*):?} */
+var _Z3_mk_ext_rotate_right = Module["_Z3_mk_ext_rotate_right"] = createExportWrapper("Z3_mk_ext_rotate_right");
+
+/** @type {function(...*):?} */
+var _Z3_mk_extract = Module["_Z3_mk_extract"] = createExportWrapper("Z3_mk_extract");
+
+/** @type {function(...*):?} */
+var _Z3_mk_sign_ext = Module["_Z3_mk_sign_ext"] = createExportWrapper("Z3_mk_sign_ext");
+
+/** @type {function(...*):?} */
+var _Z3_mk_zero_ext = Module["_Z3_mk_zero_ext"] = createExportWrapper("Z3_mk_zero_ext");
+
+/** @type {function(...*):?} */
+var _Z3_mk_repeat = Module["_Z3_mk_repeat"] = createExportWrapper("Z3_mk_repeat");
+
+/** @type {function(...*):?} */
+var _Z3_mk_bit2bool = Module["_Z3_mk_bit2bool"] = createExportWrapper("Z3_mk_bit2bool");
+
+/** @type {function(...*):?} */
+var _Z3_mk_rotate_left = Module["_Z3_mk_rotate_left"] = createExportWrapper("Z3_mk_rotate_left");
+
+/** @type {function(...*):?} */
+var _Z3_mk_rotate_right = Module["_Z3_mk_rotate_right"] = createExportWrapper("Z3_mk_rotate_right");
+
+/** @type {function(...*):?} */
+var _Z3_mk_int2bv = Module["_Z3_mk_int2bv"] = createExportWrapper("Z3_mk_int2bv");
+
+/** @type {function(...*):?} */
+var _Z3_mk_bv2int = Module["_Z3_mk_bv2int"] = createExportWrapper("Z3_mk_bv2int");
+
+/** @type {function(...*):?} */
+var _Z3_get_bv_sort_size = Module["_Z3_get_bv_sort_size"] = createExportWrapper("Z3_get_bv_sort_size");
+
+/** @type {function(...*):?} */
+var _Z3_mk_bvadd_no_overflow = Module["_Z3_mk_bvadd_no_overflow"] = createExportWrapper("Z3_mk_bvadd_no_overflow");
+
+/** @type {function(...*):?} */
+var _Z3_mk_bvadd_no_underflow = Module["_Z3_mk_bvadd_no_underflow"] = createExportWrapper("Z3_mk_bvadd_no_underflow");
+
+/** @type {function(...*):?} */
+var _Z3_mk_bvsub_no_overflow = Module["_Z3_mk_bvsub_no_overflow"] = createExportWrapper("Z3_mk_bvsub_no_overflow");
+
+/** @type {function(...*):?} */
+var _Z3_mk_bvneg = Module["_Z3_mk_bvneg"] = createExportWrapper("Z3_mk_bvneg");
+
+/** @type {function(...*):?} */
+var _Z3_mk_bvsub_no_underflow = Module["_Z3_mk_bvsub_no_underflow"] = createExportWrapper("Z3_mk_bvsub_no_underflow");
+
+/** @type {function(...*):?} */
+var _Z3_mk_bvmul_no_overflow = Module["_Z3_mk_bvmul_no_overflow"] = createExportWrapper("Z3_mk_bvmul_no_overflow");
+
+/** @type {function(...*):?} */
+var _Z3_mk_bvmul_no_underflow = Module["_Z3_mk_bvmul_no_underflow"] = createExportWrapper("Z3_mk_bvmul_no_underflow");
+
+/** @type {function(...*):?} */
+var _Z3_mk_bvneg_no_overflow = Module["_Z3_mk_bvneg_no_overflow"] = createExportWrapper("Z3_mk_bvneg_no_overflow");
+
+/** @type {function(...*):?} */
+var _Z3_mk_bvsdiv_no_overflow = Module["_Z3_mk_bvsdiv_no_overflow"] = createExportWrapper("Z3_mk_bvsdiv_no_overflow");
+
+/** @type {function(...*):?} */
+var _Z3_mk_bvsub = Module["_Z3_mk_bvsub"] = createExportWrapper("Z3_mk_bvsub");
+
+/** @type {function(...*):?} */
+var _Z3_global_param_set = Module["_Z3_global_param_set"] = createExportWrapper("Z3_global_param_set");
+
+/** @type {function(...*):?} */
+var _Z3_global_param_reset_all = Module["_Z3_global_param_reset_all"] = createExportWrapper("Z3_global_param_reset_all");
+
+/** @type {function(...*):?} */
+var _Z3_global_param_get = Module["_Z3_global_param_get"] = createExportWrapper("Z3_global_param_get");
+
+/** @type {function(...*):?} */
+var _Z3_get_global_param_descrs = Module["_Z3_get_global_param_descrs"] = createExportWrapper("Z3_get_global_param_descrs");
+
+/** @type {function(...*):?} */
+var _Z3_mk_config = Module["_Z3_mk_config"] = createExportWrapper("Z3_mk_config");
+
+/** @type {function(...*):?} */
+var _Z3_del_config = Module["_Z3_del_config"] = createExportWrapper("Z3_del_config");
+
+/** @type {function(...*):?} */
+var _Z3_set_param_value = Module["_Z3_set_param_value"] = createExportWrapper("Z3_set_param_value");
+
+/** @type {function(...*):?} */
+var _Z3_update_param_value = Module["_Z3_update_param_value"] = createExportWrapper("Z3_update_param_value");
 
 /** @type {function(...*):?} */
 var _Z3_get_relation_arity = Module["_Z3_get_relation_arity"] = createExportWrapper("Z3_get_relation_arity");
@@ -12052,165 +12451,6 @@ var _Z3_solver_next_split = Module["_Z3_solver_next_split"] = createExportWrappe
 var _Z3_solver_propagate_declare = Module["_Z3_solver_propagate_declare"] = createExportWrapper("Z3_solver_propagate_declare");
 
 /** @type {function(...*):?} */
-var _Z3_mk_quantifier = Module["_Z3_mk_quantifier"] = createExportWrapper("Z3_mk_quantifier");
-
-/** @type {function(...*):?} */
-var _Z3_mk_quantifier_ex = Module["_Z3_mk_quantifier_ex"] = createExportWrapper("Z3_mk_quantifier_ex");
-
-/** @type {function(...*):?} */
-var _Z3_mk_forall = Module["_Z3_mk_forall"] = createExportWrapper("Z3_mk_forall");
-
-/** @type {function(...*):?} */
-var _Z3_mk_exists = Module["_Z3_mk_exists"] = createExportWrapper("Z3_mk_exists");
-
-/** @type {function(...*):?} */
-var _Z3_mk_lambda = Module["_Z3_mk_lambda"] = createExportWrapper("Z3_mk_lambda");
-
-/** @type {function(...*):?} */
-var _Z3_mk_lambda_const = Module["_Z3_mk_lambda_const"] = createExportWrapper("Z3_mk_lambda_const");
-
-/** @type {function(...*):?} */
-var _Z3_mk_quantifier_const_ex = Module["_Z3_mk_quantifier_const_ex"] = createExportWrapper("Z3_mk_quantifier_const_ex");
-
-/** @type {function(...*):?} */
-var _Z3_mk_quantifier_const = Module["_Z3_mk_quantifier_const"] = createExportWrapper("Z3_mk_quantifier_const");
-
-/** @type {function(...*):?} */
-var _Z3_mk_forall_const = Module["_Z3_mk_forall_const"] = createExportWrapper("Z3_mk_forall_const");
-
-/** @type {function(...*):?} */
-var _Z3_mk_exists_const = Module["_Z3_mk_exists_const"] = createExportWrapper("Z3_mk_exists_const");
-
-/** @type {function(...*):?} */
-var _Z3_mk_pattern = Module["_Z3_mk_pattern"] = createExportWrapper("Z3_mk_pattern");
-
-/** @type {function(...*):?} */
-var _Z3_mk_bound = Module["_Z3_mk_bound"] = createExportWrapper("Z3_mk_bound");
-
-/** @type {function(...*):?} */
-var _Z3_is_quantifier_forall = Module["_Z3_is_quantifier_forall"] = createExportWrapper("Z3_is_quantifier_forall");
-
-/** @type {function(...*):?} */
-var _Z3_is_quantifier_exists = Module["_Z3_is_quantifier_exists"] = createExportWrapper("Z3_is_quantifier_exists");
-
-/** @type {function(...*):?} */
-var _Z3_is_lambda = Module["_Z3_is_lambda"] = createExportWrapper("Z3_is_lambda");
-
-/** @type {function(...*):?} */
-var _Z3_get_quantifier_weight = Module["_Z3_get_quantifier_weight"] = createExportWrapper("Z3_get_quantifier_weight");
-
-/** @type {function(...*):?} */
-var _Z3_get_quantifier_num_patterns = Module["_Z3_get_quantifier_num_patterns"] = createExportWrapper("Z3_get_quantifier_num_patterns");
-
-/** @type {function(...*):?} */
-var _Z3_get_quantifier_pattern_ast = Module["_Z3_get_quantifier_pattern_ast"] = createExportWrapper("Z3_get_quantifier_pattern_ast");
-
-/** @type {function(...*):?} */
-var _Z3_get_quantifier_num_no_patterns = Module["_Z3_get_quantifier_num_no_patterns"] = createExportWrapper("Z3_get_quantifier_num_no_patterns");
-
-/** @type {function(...*):?} */
-var _Z3_get_quantifier_no_pattern_ast = Module["_Z3_get_quantifier_no_pattern_ast"] = createExportWrapper("Z3_get_quantifier_no_pattern_ast");
-
-/** @type {function(...*):?} */
-var _Z3_get_quantifier_bound_name = Module["_Z3_get_quantifier_bound_name"] = createExportWrapper("Z3_get_quantifier_bound_name");
-
-/** @type {function(...*):?} */
-var _Z3_get_quantifier_bound_sort = Module["_Z3_get_quantifier_bound_sort"] = createExportWrapper("Z3_get_quantifier_bound_sort");
-
-/** @type {function(...*):?} */
-var _Z3_get_quantifier_body = Module["_Z3_get_quantifier_body"] = createExportWrapper("Z3_get_quantifier_body");
-
-/** @type {function(...*):?} */
-var _Z3_get_quantifier_num_bound = Module["_Z3_get_quantifier_num_bound"] = createExportWrapper("Z3_get_quantifier_num_bound");
-
-/** @type {function(...*):?} */
-var _Z3_get_pattern_num_terms = Module["_Z3_get_pattern_num_terms"] = createExportWrapper("Z3_get_pattern_num_terms");
-
-/** @type {function(...*):?} */
-var _Z3_get_pattern = Module["_Z3_get_pattern"] = createExportWrapper("Z3_get_pattern");
-
-/** @type {function(...*):?} */
-var _Z3_pattern_to_ast = Module["_Z3_pattern_to_ast"] = createExportWrapper("Z3_pattern_to_ast");
-
-/** @type {function(...*):?} */
-var _Z3_pattern_to_string = Module["_Z3_pattern_to_string"] = createExportWrapper("Z3_pattern_to_string");
-
-/** @type {function(...*):?} */
-var _Z3_mk_int_sort = Module["_Z3_mk_int_sort"] = createExportWrapper("Z3_mk_int_sort");
-
-/** @type {function(...*):?} */
-var _Z3_mk_real_sort = Module["_Z3_mk_real_sort"] = createExportWrapper("Z3_mk_real_sort");
-
-/** @type {function(...*):?} */
-var _Z3_mk_real_int64 = Module["_Z3_mk_real_int64"] = createExportWrapper("Z3_mk_real_int64");
-
-/** @type {function(...*):?} */
-var _Z3_mk_real = Module["_Z3_mk_real"] = createExportWrapper("Z3_mk_real");
-
-/** @type {function(...*):?} */
-var _Z3_mk_add = Module["_Z3_mk_add"] = createExportWrapper("Z3_mk_add");
-
-/** @type {function(...*):?} */
-var _Z3_mk_mul = Module["_Z3_mk_mul"] = createExportWrapper("Z3_mk_mul");
-
-/** @type {function(...*):?} */
-var _Z3_mk_power = Module["_Z3_mk_power"] = createExportWrapper("Z3_mk_power");
-
-/** @type {function(...*):?} */
-var _Z3_mk_mod = Module["_Z3_mk_mod"] = createExportWrapper("Z3_mk_mod");
-
-/** @type {function(...*):?} */
-var _Z3_mk_rem = Module["_Z3_mk_rem"] = createExportWrapper("Z3_mk_rem");
-
-/** @type {function(...*):?} */
-var _Z3_mk_div = Module["_Z3_mk_div"] = createExportWrapper("Z3_mk_div");
-
-/** @type {function(...*):?} */
-var _Z3_mk_lt = Module["_Z3_mk_lt"] = createExportWrapper("Z3_mk_lt");
-
-/** @type {function(...*):?} */
-var _Z3_mk_gt = Module["_Z3_mk_gt"] = createExportWrapper("Z3_mk_gt");
-
-/** @type {function(...*):?} */
-var _Z3_mk_le = Module["_Z3_mk_le"] = createExportWrapper("Z3_mk_le");
-
-/** @type {function(...*):?} */
-var _Z3_mk_ge = Module["_Z3_mk_ge"] = createExportWrapper("Z3_mk_ge");
-
-/** @type {function(...*):?} */
-var _Z3_mk_divides = Module["_Z3_mk_divides"] = createExportWrapper("Z3_mk_divides");
-
-/** @type {function(...*):?} */
-var _Z3_mk_int2real = Module["_Z3_mk_int2real"] = createExportWrapper("Z3_mk_int2real");
-
-/** @type {function(...*):?} */
-var _Z3_mk_real2int = Module["_Z3_mk_real2int"] = createExportWrapper("Z3_mk_real2int");
-
-/** @type {function(...*):?} */
-var _Z3_mk_is_int = Module["_Z3_mk_is_int"] = createExportWrapper("Z3_mk_is_int");
-
-/** @type {function(...*):?} */
-var _Z3_mk_sub = Module["_Z3_mk_sub"] = createExportWrapper("Z3_mk_sub");
-
-/** @type {function(...*):?} */
-var _Z3_mk_unary_minus = Module["_Z3_mk_unary_minus"] = createExportWrapper("Z3_mk_unary_minus");
-
-/** @type {function(...*):?} */
-var _Z3_is_algebraic_number = Module["_Z3_is_algebraic_number"] = createExportWrapper("Z3_is_algebraic_number");
-
-/** @type {function(...*):?} */
-var _Z3_get_algebraic_number_lower = Module["_Z3_get_algebraic_number_lower"] = createExportWrapper("Z3_get_algebraic_number_lower");
-
-/** @type {function(...*):?} */
-var _Z3_get_algebraic_number_upper = Module["_Z3_get_algebraic_number_upper"] = createExportWrapper("Z3_get_algebraic_number_upper");
-
-/** @type {function(...*):?} */
-var _Z3_get_numerator = Module["_Z3_get_numerator"] = createExportWrapper("Z3_get_numerator");
-
-/** @type {function(...*):?} */
-var _Z3_get_denominator = Module["_Z3_get_denominator"] = createExportWrapper("Z3_get_denominator");
-
-/** @type {function(...*):?} */
 var _Z3_algebraic_is_value = Module["_Z3_algebraic_is_value"] = createExportWrapper("Z3_algebraic_is_value");
 
 /** @type {function(...*):?} */
@@ -12266,282 +12506,6 @@ var _Z3_algebraic_get_poly = Module["_Z3_algebraic_get_poly"] = createExportWrap
 
 /** @type {function(...*):?} */
 var _Z3_algebraic_get_i = Module["_Z3_algebraic_get_i"] = createExportWrapper("Z3_algebraic_get_i");
-
-/** @type {function(...*):?} */
-var _Z3_mk_ast_map = Module["_Z3_mk_ast_map"] = createExportWrapper("Z3_mk_ast_map");
-
-/** @type {function(...*):?} */
-var _Z3_ast_map_inc_ref = Module["_Z3_ast_map_inc_ref"] = createExportWrapper("Z3_ast_map_inc_ref");
-
-/** @type {function(...*):?} */
-var _Z3_ast_map_dec_ref = Module["_Z3_ast_map_dec_ref"] = createExportWrapper("Z3_ast_map_dec_ref");
-
-/** @type {function(...*):?} */
-var _Z3_ast_map_contains = Module["_Z3_ast_map_contains"] = createExportWrapper("Z3_ast_map_contains");
-
-/** @type {function(...*):?} */
-var _Z3_ast_map_find = Module["_Z3_ast_map_find"] = createExportWrapper("Z3_ast_map_find");
-
-/** @type {function(...*):?} */
-var _Z3_ast_map_insert = Module["_Z3_ast_map_insert"] = createExportWrapper("Z3_ast_map_insert");
-
-/** @type {function(...*):?} */
-var _Z3_ast_map_reset = Module["_Z3_ast_map_reset"] = createExportWrapper("Z3_ast_map_reset");
-
-/** @type {function(...*):?} */
-var _Z3_ast_map_erase = Module["_Z3_ast_map_erase"] = createExportWrapper("Z3_ast_map_erase");
-
-/** @type {function(...*):?} */
-var _Z3_ast_map_size = Module["_Z3_ast_map_size"] = createExportWrapper("Z3_ast_map_size");
-
-/** @type {function(...*):?} */
-var _Z3_ast_map_keys = Module["_Z3_ast_map_keys"] = createExportWrapper("Z3_ast_map_keys");
-
-/** @type {function(...*):?} */
-var _Z3_ast_map_to_string = Module["_Z3_ast_map_to_string"] = createExportWrapper("Z3_ast_map_to_string");
-
-/** @type {function(...*):?} */
-var _Z3_qe_model_project = Module["_Z3_qe_model_project"] = createExportWrapper("Z3_qe_model_project");
-
-/** @type {function(...*):?} */
-var _Z3_qe_model_project_skolem = Module["_Z3_qe_model_project_skolem"] = createExportWrapper("Z3_qe_model_project_skolem");
-
-/** @type {function(...*):?} */
-var _Z3_model_extrapolate = Module["_Z3_model_extrapolate"] = createExportWrapper("Z3_model_extrapolate");
-
-/** @type {function(...*):?} */
-var _Z3_qe_lite = Module["_Z3_qe_lite"] = createExportWrapper("Z3_qe_lite");
-
-/** @type {function(...*):?} */
-var _Z3_mk_params = Module["_Z3_mk_params"] = createExportWrapper("Z3_mk_params");
-
-/** @type {function(...*):?} */
-var _Z3_params_inc_ref = Module["_Z3_params_inc_ref"] = createExportWrapper("Z3_params_inc_ref");
-
-/** @type {function(...*):?} */
-var _Z3_params_dec_ref = Module["_Z3_params_dec_ref"] = createExportWrapper("Z3_params_dec_ref");
-
-/** @type {function(...*):?} */
-var _Z3_params_set_bool = Module["_Z3_params_set_bool"] = createExportWrapper("Z3_params_set_bool");
-
-/** @type {function(...*):?} */
-var _Z3_params_set_uint = Module["_Z3_params_set_uint"] = createExportWrapper("Z3_params_set_uint");
-
-/** @type {function(...*):?} */
-var _Z3_params_set_double = Module["_Z3_params_set_double"] = createExportWrapper("Z3_params_set_double");
-
-/** @type {function(...*):?} */
-var _Z3_params_set_symbol = Module["_Z3_params_set_symbol"] = createExportWrapper("Z3_params_set_symbol");
-
-/** @type {function(...*):?} */
-var _Z3_params_to_string = Module["_Z3_params_to_string"] = createExportWrapper("Z3_params_to_string");
-
-/** @type {function(...*):?} */
-var _Z3_params_validate = Module["_Z3_params_validate"] = createExportWrapper("Z3_params_validate");
-
-/** @type {function(...*):?} */
-var _Z3_param_descrs_inc_ref = Module["_Z3_param_descrs_inc_ref"] = createExportWrapper("Z3_param_descrs_inc_ref");
-
-/** @type {function(...*):?} */
-var _Z3_param_descrs_dec_ref = Module["_Z3_param_descrs_dec_ref"] = createExportWrapper("Z3_param_descrs_dec_ref");
-
-/** @type {function(...*):?} */
-var _Z3_param_descrs_get_kind = Module["_Z3_param_descrs_get_kind"] = createExportWrapper("Z3_param_descrs_get_kind");
-
-/** @type {function(...*):?} */
-var _Z3_param_descrs_size = Module["_Z3_param_descrs_size"] = createExportWrapper("Z3_param_descrs_size");
-
-/** @type {function(...*):?} */
-var _Z3_param_descrs_get_name = Module["_Z3_param_descrs_get_name"] = createExportWrapper("Z3_param_descrs_get_name");
-
-/** @type {function(...*):?} */
-var _Z3_param_descrs_get_documentation = Module["_Z3_param_descrs_get_documentation"] = createExportWrapper("Z3_param_descrs_get_documentation");
-
-/** @type {function(...*):?} */
-var _Z3_param_descrs_to_string = Module["_Z3_param_descrs_to_string"] = createExportWrapper("Z3_param_descrs_to_string");
-
-/** @type {function(...*):?} */
-var _Z3_mk_tuple_sort = Module["_Z3_mk_tuple_sort"] = createExportWrapper("Z3_mk_tuple_sort");
-
-/** @type {function(...*):?} */
-var _Z3_mk_enumeration_sort = Module["_Z3_mk_enumeration_sort"] = createExportWrapper("Z3_mk_enumeration_sort");
-
-/** @type {function(...*):?} */
-var _Z3_mk_list_sort = Module["_Z3_mk_list_sort"] = createExportWrapper("Z3_mk_list_sort");
-
-/** @type {function(...*):?} */
-var _Z3_mk_constructor = Module["_Z3_mk_constructor"] = createExportWrapper("Z3_mk_constructor");
-
-/** @type {function(...*):?} */
-var _Z3_query_constructor = Module["_Z3_query_constructor"] = createExportWrapper("Z3_query_constructor");
-
-/** @type {function(...*):?} */
-var _Z3_del_constructor = Module["_Z3_del_constructor"] = createExportWrapper("Z3_del_constructor");
-
-/** @type {function(...*):?} */
-var _Z3_mk_datatype = Module["_Z3_mk_datatype"] = createExportWrapper("Z3_mk_datatype");
-
-/** @type {function(...*):?} */
-var _Z3_mk_constructor_list = Module["_Z3_mk_constructor_list"] = createExportWrapper("Z3_mk_constructor_list");
-
-/** @type {function(...*):?} */
-var _Z3_del_constructor_list = Module["_Z3_del_constructor_list"] = createExportWrapper("Z3_del_constructor_list");
-
-/** @type {function(...*):?} */
-var _Z3_mk_datatype_sort = Module["_Z3_mk_datatype_sort"] = createExportWrapper("Z3_mk_datatype_sort");
-
-/** @type {function(...*):?} */
-var _Z3_mk_datatypes = Module["_Z3_mk_datatypes"] = createExportWrapper("Z3_mk_datatypes");
-
-/** @type {function(...*):?} */
-var _Z3_get_datatype_sort_num_constructors = Module["_Z3_get_datatype_sort_num_constructors"] = createExportWrapper("Z3_get_datatype_sort_num_constructors");
-
-/** @type {function(...*):?} */
-var _Z3_get_datatype_sort_constructor = Module["_Z3_get_datatype_sort_constructor"] = createExportWrapper("Z3_get_datatype_sort_constructor");
-
-/** @type {function(...*):?} */
-var _Z3_get_datatype_sort_recognizer = Module["_Z3_get_datatype_sort_recognizer"] = createExportWrapper("Z3_get_datatype_sort_recognizer");
-
-/** @type {function(...*):?} */
-var _Z3_get_datatype_sort_constructor_accessor = Module["_Z3_get_datatype_sort_constructor_accessor"] = createExportWrapper("Z3_get_datatype_sort_constructor_accessor");
-
-/** @type {function(...*):?} */
-var _Z3_get_tuple_sort_mk_decl = Module["_Z3_get_tuple_sort_mk_decl"] = createExportWrapper("Z3_get_tuple_sort_mk_decl");
-
-/** @type {function(...*):?} */
-var _Z3_get_tuple_sort_num_fields = Module["_Z3_get_tuple_sort_num_fields"] = createExportWrapper("Z3_get_tuple_sort_num_fields");
-
-/** @type {function(...*):?} */
-var _Z3_get_tuple_sort_field_decl = Module["_Z3_get_tuple_sort_field_decl"] = createExportWrapper("Z3_get_tuple_sort_field_decl");
-
-/** @type {function(...*):?} */
-var _Z3_datatype_update_field = Module["_Z3_datatype_update_field"] = createExportWrapper("Z3_datatype_update_field");
-
-/** @type {function(...*):?} */
-var _Z3_mk_ast_vector = Module["_Z3_mk_ast_vector"] = createExportWrapper("Z3_mk_ast_vector");
-
-/** @type {function(...*):?} */
-var _Z3_ast_vector_inc_ref = Module["_Z3_ast_vector_inc_ref"] = createExportWrapper("Z3_ast_vector_inc_ref");
-
-/** @type {function(...*):?} */
-var _Z3_ast_vector_dec_ref = Module["_Z3_ast_vector_dec_ref"] = createExportWrapper("Z3_ast_vector_dec_ref");
-
-/** @type {function(...*):?} */
-var _Z3_ast_vector_set = Module["_Z3_ast_vector_set"] = createExportWrapper("Z3_ast_vector_set");
-
-/** @type {function(...*):?} */
-var _Z3_ast_vector_resize = Module["_Z3_ast_vector_resize"] = createExportWrapper("Z3_ast_vector_resize");
-
-/** @type {function(...*):?} */
-var _Z3_ast_vector_push = Module["_Z3_ast_vector_push"] = createExportWrapper("Z3_ast_vector_push");
-
-/** @type {function(...*):?} */
-var _Z3_ast_vector_translate = Module["_Z3_ast_vector_translate"] = createExportWrapper("Z3_ast_vector_translate");
-
-/** @type {function(...*):?} */
-var _Z3_ast_vector_to_string = Module["_Z3_ast_vector_to_string"] = createExportWrapper("Z3_ast_vector_to_string");
-
-/** @type {function(...*):?} */
-var _Z3_mk_array_sort = Module["_Z3_mk_array_sort"] = createExportWrapper("Z3_mk_array_sort");
-
-/** @type {function(...*):?} */
-var _Z3_mk_array_sort_n = Module["_Z3_mk_array_sort_n"] = createExportWrapper("Z3_mk_array_sort_n");
-
-/** @type {function(...*):?} */
-var _Z3_mk_select = Module["_Z3_mk_select"] = createExportWrapper("Z3_mk_select");
-
-/** @type {function(...*):?} */
-var _Z3_mk_select_n = Module["_Z3_mk_select_n"] = createExportWrapper("Z3_mk_select_n");
-
-/** @type {function(...*):?} */
-var _Z3_mk_store = Module["_Z3_mk_store"] = createExportWrapper("Z3_mk_store");
-
-/** @type {function(...*):?} */
-var _Z3_mk_store_n = Module["_Z3_mk_store_n"] = createExportWrapper("Z3_mk_store_n");
-
-/** @type {function(...*):?} */
-var _Z3_mk_map = Module["_Z3_mk_map"] = createExportWrapper("Z3_mk_map");
-
-/** @type {function(...*):?} */
-var _Z3_mk_const_array = Module["_Z3_mk_const_array"] = createExportWrapper("Z3_mk_const_array");
-
-/** @type {function(...*):?} */
-var _Z3_mk_array_default = Module["_Z3_mk_array_default"] = createExportWrapper("Z3_mk_array_default");
-
-/** @type {function(...*):?} */
-var _Z3_mk_set_sort = Module["_Z3_mk_set_sort"] = createExportWrapper("Z3_mk_set_sort");
-
-/** @type {function(...*):?} */
-var _Z3_mk_empty_set = Module["_Z3_mk_empty_set"] = createExportWrapper("Z3_mk_empty_set");
-
-/** @type {function(...*):?} */
-var _Z3_mk_full_set = Module["_Z3_mk_full_set"] = createExportWrapper("Z3_mk_full_set");
-
-/** @type {function(...*):?} */
-var _Z3_mk_set_union = Module["_Z3_mk_set_union"] = createExportWrapper("Z3_mk_set_union");
-
-/** @type {function(...*):?} */
-var _Z3_mk_set_intersect = Module["_Z3_mk_set_intersect"] = createExportWrapper("Z3_mk_set_intersect");
-
-/** @type {function(...*):?} */
-var _Z3_mk_set_difference = Module["_Z3_mk_set_difference"] = createExportWrapper("Z3_mk_set_difference");
-
-/** @type {function(...*):?} */
-var _Z3_mk_set_complement = Module["_Z3_mk_set_complement"] = createExportWrapper("Z3_mk_set_complement");
-
-/** @type {function(...*):?} */
-var _Z3_mk_set_subset = Module["_Z3_mk_set_subset"] = createExportWrapper("Z3_mk_set_subset");
-
-/** @type {function(...*):?} */
-var _Z3_mk_array_ext = Module["_Z3_mk_array_ext"] = createExportWrapper("Z3_mk_array_ext");
-
-/** @type {function(...*):?} */
-var _Z3_mk_set_has_size = Module["_Z3_mk_set_has_size"] = createExportWrapper("Z3_mk_set_has_size");
-
-/** @type {function(...*):?} */
-var _Z3_mk_as_array = Module["_Z3_mk_as_array"] = createExportWrapper("Z3_mk_as_array");
-
-/** @type {function(...*):?} */
-var _Z3_mk_set_member = Module["_Z3_mk_set_member"] = createExportWrapper("Z3_mk_set_member");
-
-/** @type {function(...*):?} */
-var _Z3_mk_set_add = Module["_Z3_mk_set_add"] = createExportWrapper("Z3_mk_set_add");
-
-/** @type {function(...*):?} */
-var _Z3_mk_set_del = Module["_Z3_mk_set_del"] = createExportWrapper("Z3_mk_set_del");
-
-/** @type {function(...*):?} */
-var _Z3_get_array_sort_domain = Module["_Z3_get_array_sort_domain"] = createExportWrapper("Z3_get_array_sort_domain");
-
-/** @type {function(...*):?} */
-var _Z3_get_array_sort_domain_n = Module["_Z3_get_array_sort_domain_n"] = createExportWrapper("Z3_get_array_sort_domain_n");
-
-/** @type {function(...*):?} */
-var _Z3_get_array_sort_range = Module["_Z3_get_array_sort_range"] = createExportWrapper("Z3_get_array_sort_range");
-
-/** @type {function(...*):?} */
-var _Z3_mk_parser_context = Module["_Z3_mk_parser_context"] = createExportWrapper("Z3_mk_parser_context");
-
-/** @type {function(...*):?} */
-var _Z3_parser_context_inc_ref = Module["_Z3_parser_context_inc_ref"] = createExportWrapper("Z3_parser_context_inc_ref");
-
-/** @type {function(...*):?} */
-var _Z3_parser_context_dec_ref = Module["_Z3_parser_context_dec_ref"] = createExportWrapper("Z3_parser_context_dec_ref");
-
-/** @type {function(...*):?} */
-var _Z3_parser_context_add_sort = Module["_Z3_parser_context_add_sort"] = createExportWrapper("Z3_parser_context_add_sort");
-
-/** @type {function(...*):?} */
-var _Z3_parser_context_add_decl = Module["_Z3_parser_context_add_decl"] = createExportWrapper("Z3_parser_context_add_decl");
-
-/** @type {function(...*):?} */
-var _Z3_parser_context_from_string = Module["_Z3_parser_context_from_string"] = createExportWrapper("Z3_parser_context_from_string");
-
-/** @type {function(...*):?} */
-var _Z3_parse_smtlib2_string = Module["_Z3_parse_smtlib2_string"] = createExportWrapper("Z3_parse_smtlib2_string");
-
-/** @type {function(...*):?} */
-var _Z3_parse_smtlib2_file = Module["_Z3_parse_smtlib2_file"] = createExportWrapper("Z3_parse_smtlib2_file");
 
 /** @type {function(...*):?} */
 var _Z3_mk_model = Module["_Z3_mk_model"] = createExportWrapper("Z3_mk_model");
@@ -12643,6 +12607,432 @@ var _Z3_func_entry_get_arg = Module["_Z3_func_entry_get_arg"] = createExportWrap
 var _Z3_model_to_string = Module["_Z3_model_to_string"] = createExportWrapper("Z3_model_to_string");
 
 /** @type {function(...*):?} */
+var _Z3_mk_quantifier = Module["_Z3_mk_quantifier"] = createExportWrapper("Z3_mk_quantifier");
+
+/** @type {function(...*):?} */
+var _Z3_mk_quantifier_ex = Module["_Z3_mk_quantifier_ex"] = createExportWrapper("Z3_mk_quantifier_ex");
+
+/** @type {function(...*):?} */
+var _Z3_mk_forall = Module["_Z3_mk_forall"] = createExportWrapper("Z3_mk_forall");
+
+/** @type {function(...*):?} */
+var _Z3_mk_exists = Module["_Z3_mk_exists"] = createExportWrapper("Z3_mk_exists");
+
+/** @type {function(...*):?} */
+var _Z3_mk_lambda = Module["_Z3_mk_lambda"] = createExportWrapper("Z3_mk_lambda");
+
+/** @type {function(...*):?} */
+var _Z3_mk_lambda_const = Module["_Z3_mk_lambda_const"] = createExportWrapper("Z3_mk_lambda_const");
+
+/** @type {function(...*):?} */
+var _Z3_mk_quantifier_const_ex = Module["_Z3_mk_quantifier_const_ex"] = createExportWrapper("Z3_mk_quantifier_const_ex");
+
+/** @type {function(...*):?} */
+var _Z3_mk_quantifier_const = Module["_Z3_mk_quantifier_const"] = createExportWrapper("Z3_mk_quantifier_const");
+
+/** @type {function(...*):?} */
+var _Z3_mk_forall_const = Module["_Z3_mk_forall_const"] = createExportWrapper("Z3_mk_forall_const");
+
+/** @type {function(...*):?} */
+var _Z3_mk_exists_const = Module["_Z3_mk_exists_const"] = createExportWrapper("Z3_mk_exists_const");
+
+/** @type {function(...*):?} */
+var _Z3_mk_pattern = Module["_Z3_mk_pattern"] = createExportWrapper("Z3_mk_pattern");
+
+/** @type {function(...*):?} */
+var _Z3_mk_bound = Module["_Z3_mk_bound"] = createExportWrapper("Z3_mk_bound");
+
+/** @type {function(...*):?} */
+var _Z3_is_quantifier_forall = Module["_Z3_is_quantifier_forall"] = createExportWrapper("Z3_is_quantifier_forall");
+
+/** @type {function(...*):?} */
+var _Z3_is_quantifier_exists = Module["_Z3_is_quantifier_exists"] = createExportWrapper("Z3_is_quantifier_exists");
+
+/** @type {function(...*):?} */
+var _Z3_is_lambda = Module["_Z3_is_lambda"] = createExportWrapper("Z3_is_lambda");
+
+/** @type {function(...*):?} */
+var _Z3_get_quantifier_weight = Module["_Z3_get_quantifier_weight"] = createExportWrapper("Z3_get_quantifier_weight");
+
+/** @type {function(...*):?} */
+var _Z3_get_quantifier_skolem_id = Module["_Z3_get_quantifier_skolem_id"] = createExportWrapper("Z3_get_quantifier_skolem_id");
+
+/** @type {function(...*):?} */
+var _Z3_get_quantifier_id = Module["_Z3_get_quantifier_id"] = createExportWrapper("Z3_get_quantifier_id");
+
+/** @type {function(...*):?} */
+var _Z3_get_quantifier_num_patterns = Module["_Z3_get_quantifier_num_patterns"] = createExportWrapper("Z3_get_quantifier_num_patterns");
+
+/** @type {function(...*):?} */
+var _Z3_get_quantifier_pattern_ast = Module["_Z3_get_quantifier_pattern_ast"] = createExportWrapper("Z3_get_quantifier_pattern_ast");
+
+/** @type {function(...*):?} */
+var _Z3_get_quantifier_num_no_patterns = Module["_Z3_get_quantifier_num_no_patterns"] = createExportWrapper("Z3_get_quantifier_num_no_patterns");
+
+/** @type {function(...*):?} */
+var _Z3_get_quantifier_no_pattern_ast = Module["_Z3_get_quantifier_no_pattern_ast"] = createExportWrapper("Z3_get_quantifier_no_pattern_ast");
+
+/** @type {function(...*):?} */
+var _Z3_get_quantifier_bound_name = Module["_Z3_get_quantifier_bound_name"] = createExportWrapper("Z3_get_quantifier_bound_name");
+
+/** @type {function(...*):?} */
+var _Z3_get_quantifier_bound_sort = Module["_Z3_get_quantifier_bound_sort"] = createExportWrapper("Z3_get_quantifier_bound_sort");
+
+/** @type {function(...*):?} */
+var _Z3_get_quantifier_body = Module["_Z3_get_quantifier_body"] = createExportWrapper("Z3_get_quantifier_body");
+
+/** @type {function(...*):?} */
+var _Z3_get_quantifier_num_bound = Module["_Z3_get_quantifier_num_bound"] = createExportWrapper("Z3_get_quantifier_num_bound");
+
+/** @type {function(...*):?} */
+var _Z3_get_pattern_num_terms = Module["_Z3_get_pattern_num_terms"] = createExportWrapper("Z3_get_pattern_num_terms");
+
+/** @type {function(...*):?} */
+var _Z3_get_pattern = Module["_Z3_get_pattern"] = createExportWrapper("Z3_get_pattern");
+
+/** @type {function(...*):?} */
+var _Z3_pattern_to_ast = Module["_Z3_pattern_to_ast"] = createExportWrapper("Z3_pattern_to_ast");
+
+/** @type {function(...*):?} */
+var _Z3_pattern_to_string = Module["_Z3_pattern_to_string"] = createExportWrapper("Z3_pattern_to_string");
+
+/** @type {function(...*):?} */
+var _Z3_mk_ast_vector = Module["_Z3_mk_ast_vector"] = createExportWrapper("Z3_mk_ast_vector");
+
+/** @type {function(...*):?} */
+var _Z3_ast_vector_inc_ref = Module["_Z3_ast_vector_inc_ref"] = createExportWrapper("Z3_ast_vector_inc_ref");
+
+/** @type {function(...*):?} */
+var _Z3_ast_vector_dec_ref = Module["_Z3_ast_vector_dec_ref"] = createExportWrapper("Z3_ast_vector_dec_ref");
+
+/** @type {function(...*):?} */
+var _Z3_ast_vector_set = Module["_Z3_ast_vector_set"] = createExportWrapper("Z3_ast_vector_set");
+
+/** @type {function(...*):?} */
+var _Z3_ast_vector_resize = Module["_Z3_ast_vector_resize"] = createExportWrapper("Z3_ast_vector_resize");
+
+/** @type {function(...*):?} */
+var _Z3_ast_vector_push = Module["_Z3_ast_vector_push"] = createExportWrapper("Z3_ast_vector_push");
+
+/** @type {function(...*):?} */
+var _Z3_ast_vector_translate = Module["_Z3_ast_vector_translate"] = createExportWrapper("Z3_ast_vector_translate");
+
+/** @type {function(...*):?} */
+var _Z3_ast_vector_to_string = Module["_Z3_ast_vector_to_string"] = createExportWrapper("Z3_ast_vector_to_string");
+
+/** @type {function(...*):?} */
+var _Z3_mk_params = Module["_Z3_mk_params"] = createExportWrapper("Z3_mk_params");
+
+/** @type {function(...*):?} */
+var _Z3_params_inc_ref = Module["_Z3_params_inc_ref"] = createExportWrapper("Z3_params_inc_ref");
+
+/** @type {function(...*):?} */
+var _Z3_params_dec_ref = Module["_Z3_params_dec_ref"] = createExportWrapper("Z3_params_dec_ref");
+
+/** @type {function(...*):?} */
+var _Z3_params_set_bool = Module["_Z3_params_set_bool"] = createExportWrapper("Z3_params_set_bool");
+
+/** @type {function(...*):?} */
+var _Z3_params_set_uint = Module["_Z3_params_set_uint"] = createExportWrapper("Z3_params_set_uint");
+
+/** @type {function(...*):?} */
+var _Z3_params_set_double = Module["_Z3_params_set_double"] = createExportWrapper("Z3_params_set_double");
+
+/** @type {function(...*):?} */
+var _Z3_params_set_symbol = Module["_Z3_params_set_symbol"] = createExportWrapper("Z3_params_set_symbol");
+
+/** @type {function(...*):?} */
+var _Z3_params_to_string = Module["_Z3_params_to_string"] = createExportWrapper("Z3_params_to_string");
+
+/** @type {function(...*):?} */
+var _Z3_params_validate = Module["_Z3_params_validate"] = createExportWrapper("Z3_params_validate");
+
+/** @type {function(...*):?} */
+var _Z3_param_descrs_inc_ref = Module["_Z3_param_descrs_inc_ref"] = createExportWrapper("Z3_param_descrs_inc_ref");
+
+/** @type {function(...*):?} */
+var _Z3_param_descrs_dec_ref = Module["_Z3_param_descrs_dec_ref"] = createExportWrapper("Z3_param_descrs_dec_ref");
+
+/** @type {function(...*):?} */
+var _Z3_param_descrs_get_kind = Module["_Z3_param_descrs_get_kind"] = createExportWrapper("Z3_param_descrs_get_kind");
+
+/** @type {function(...*):?} */
+var _Z3_param_descrs_size = Module["_Z3_param_descrs_size"] = createExportWrapper("Z3_param_descrs_size");
+
+/** @type {function(...*):?} */
+var _Z3_param_descrs_get_name = Module["_Z3_param_descrs_get_name"] = createExportWrapper("Z3_param_descrs_get_name");
+
+/** @type {function(...*):?} */
+var _Z3_param_descrs_get_documentation = Module["_Z3_param_descrs_get_documentation"] = createExportWrapper("Z3_param_descrs_get_documentation");
+
+/** @type {function(...*):?} */
+var _Z3_param_descrs_to_string = Module["_Z3_param_descrs_to_string"] = createExportWrapper("Z3_param_descrs_to_string");
+
+/** @type {function(...*):?} */
+var _Z3_mk_int_sort = Module["_Z3_mk_int_sort"] = createExportWrapper("Z3_mk_int_sort");
+
+/** @type {function(...*):?} */
+var _Z3_mk_real_sort = Module["_Z3_mk_real_sort"] = createExportWrapper("Z3_mk_real_sort");
+
+/** @type {function(...*):?} */
+var _Z3_mk_real_int64 = Module["_Z3_mk_real_int64"] = createExportWrapper("Z3_mk_real_int64");
+
+/** @type {function(...*):?} */
+var _Z3_mk_real = Module["_Z3_mk_real"] = createExportWrapper("Z3_mk_real");
+
+/** @type {function(...*):?} */
+var _Z3_mk_add = Module["_Z3_mk_add"] = createExportWrapper("Z3_mk_add");
+
+/** @type {function(...*):?} */
+var _Z3_mk_mul = Module["_Z3_mk_mul"] = createExportWrapper("Z3_mk_mul");
+
+/** @type {function(...*):?} */
+var _Z3_mk_power = Module["_Z3_mk_power"] = createExportWrapper("Z3_mk_power");
+
+/** @type {function(...*):?} */
+var _Z3_mk_mod = Module["_Z3_mk_mod"] = createExportWrapper("Z3_mk_mod");
+
+/** @type {function(...*):?} */
+var _Z3_mk_rem = Module["_Z3_mk_rem"] = createExportWrapper("Z3_mk_rem");
+
+/** @type {function(...*):?} */
+var _Z3_mk_div = Module["_Z3_mk_div"] = createExportWrapper("Z3_mk_div");
+
+/** @type {function(...*):?} */
+var _Z3_mk_lt = Module["_Z3_mk_lt"] = createExportWrapper("Z3_mk_lt");
+
+/** @type {function(...*):?} */
+var _Z3_mk_gt = Module["_Z3_mk_gt"] = createExportWrapper("Z3_mk_gt");
+
+/** @type {function(...*):?} */
+var _Z3_mk_le = Module["_Z3_mk_le"] = createExportWrapper("Z3_mk_le");
+
+/** @type {function(...*):?} */
+var _Z3_mk_ge = Module["_Z3_mk_ge"] = createExportWrapper("Z3_mk_ge");
+
+/** @type {function(...*):?} */
+var _Z3_mk_divides = Module["_Z3_mk_divides"] = createExportWrapper("Z3_mk_divides");
+
+/** @type {function(...*):?} */
+var _Z3_mk_int2real = Module["_Z3_mk_int2real"] = createExportWrapper("Z3_mk_int2real");
+
+/** @type {function(...*):?} */
+var _Z3_mk_real2int = Module["_Z3_mk_real2int"] = createExportWrapper("Z3_mk_real2int");
+
+/** @type {function(...*):?} */
+var _Z3_mk_is_int = Module["_Z3_mk_is_int"] = createExportWrapper("Z3_mk_is_int");
+
+/** @type {function(...*):?} */
+var _Z3_mk_sub = Module["_Z3_mk_sub"] = createExportWrapper("Z3_mk_sub");
+
+/** @type {function(...*):?} */
+var _Z3_mk_unary_minus = Module["_Z3_mk_unary_minus"] = createExportWrapper("Z3_mk_unary_minus");
+
+/** @type {function(...*):?} */
+var _Z3_is_algebraic_number = Module["_Z3_is_algebraic_number"] = createExportWrapper("Z3_is_algebraic_number");
+
+/** @type {function(...*):?} */
+var _Z3_get_algebraic_number_lower = Module["_Z3_get_algebraic_number_lower"] = createExportWrapper("Z3_get_algebraic_number_lower");
+
+/** @type {function(...*):?} */
+var _Z3_get_algebraic_number_upper = Module["_Z3_get_algebraic_number_upper"] = createExportWrapper("Z3_get_algebraic_number_upper");
+
+/** @type {function(...*):?} */
+var _Z3_get_numerator = Module["_Z3_get_numerator"] = createExportWrapper("Z3_get_numerator");
+
+/** @type {function(...*):?} */
+var _Z3_get_denominator = Module["_Z3_get_denominator"] = createExportWrapper("Z3_get_denominator");
+
+/** @type {function(...*):?} */
+var _Z3_mk_numeral = Module["_Z3_mk_numeral"] = createExportWrapper("Z3_mk_numeral");
+
+/** @type {function(...*):?} */
+var _Z3_mk_int = Module["_Z3_mk_int"] = createExportWrapper("Z3_mk_int");
+
+/** @type {function(...*):?} */
+var _Z3_mk_unsigned_int = Module["_Z3_mk_unsigned_int"] = createExportWrapper("Z3_mk_unsigned_int");
+
+/** @type {function(...*):?} */
+var _Z3_mk_int64 = Module["_Z3_mk_int64"] = createExportWrapper("Z3_mk_int64");
+
+/** @type {function(...*):?} */
+var _Z3_mk_unsigned_int64 = Module["_Z3_mk_unsigned_int64"] = createExportWrapper("Z3_mk_unsigned_int64");
+
+/** @type {function(...*):?} */
+var _Z3_is_numeral_ast = Module["_Z3_is_numeral_ast"] = createExportWrapper("Z3_is_numeral_ast");
+
+/** @type {function(...*):?} */
+var _Z3_get_numeral_binary_string = Module["_Z3_get_numeral_binary_string"] = createExportWrapper("Z3_get_numeral_binary_string");
+
+/** @type {function(...*):?} */
+var _Z3_get_numeral_string = Module["_Z3_get_numeral_string"] = createExportWrapper("Z3_get_numeral_string");
+
+/** @type {function(...*):?} */
+var _Z3_get_numeral_double = Module["_Z3_get_numeral_double"] = createExportWrapper("Z3_get_numeral_double");
+
+/** @type {function(...*):?} */
+var _Z3_get_numeral_decimal_string = Module["_Z3_get_numeral_decimal_string"] = createExportWrapper("Z3_get_numeral_decimal_string");
+
+/** @type {function(...*):?} */
+var _Z3_get_numeral_small = Module["_Z3_get_numeral_small"] = createExportWrapper("Z3_get_numeral_small");
+
+/** @type {function(...*):?} */
+var _Z3_get_numeral_int = Module["_Z3_get_numeral_int"] = createExportWrapper("Z3_get_numeral_int");
+
+/** @type {function(...*):?} */
+var _Z3_get_numeral_int64 = Module["_Z3_get_numeral_int64"] = createExportWrapper("Z3_get_numeral_int64");
+
+/** @type {function(...*):?} */
+var _Z3_get_numeral_uint = Module["_Z3_get_numeral_uint"] = createExportWrapper("Z3_get_numeral_uint");
+
+/** @type {function(...*):?} */
+var _Z3_get_numeral_uint64 = Module["_Z3_get_numeral_uint64"] = createExportWrapper("Z3_get_numeral_uint64");
+
+/** @type {function(...*):?} */
+var _Z3_get_numeral_rational_int64 = Module["_Z3_get_numeral_rational_int64"] = createExportWrapper("Z3_get_numeral_rational_int64");
+
+/** @type {function(...*):?} */
+var _Z3_mk_bv_numeral = Module["_Z3_mk_bv_numeral"] = createExportWrapper("Z3_mk_bv_numeral");
+
+/** @type {function(...*):?} */
+var _Z3_mk_array_sort = Module["_Z3_mk_array_sort"] = createExportWrapper("Z3_mk_array_sort");
+
+/** @type {function(...*):?} */
+var _Z3_mk_array_sort_n = Module["_Z3_mk_array_sort_n"] = createExportWrapper("Z3_mk_array_sort_n");
+
+/** @type {function(...*):?} */
+var _Z3_mk_select = Module["_Z3_mk_select"] = createExportWrapper("Z3_mk_select");
+
+/** @type {function(...*):?} */
+var _Z3_mk_select_n = Module["_Z3_mk_select_n"] = createExportWrapper("Z3_mk_select_n");
+
+/** @type {function(...*):?} */
+var _Z3_mk_store = Module["_Z3_mk_store"] = createExportWrapper("Z3_mk_store");
+
+/** @type {function(...*):?} */
+var _Z3_mk_store_n = Module["_Z3_mk_store_n"] = createExportWrapper("Z3_mk_store_n");
+
+/** @type {function(...*):?} */
+var _Z3_mk_map = Module["_Z3_mk_map"] = createExportWrapper("Z3_mk_map");
+
+/** @type {function(...*):?} */
+var _Z3_mk_const_array = Module["_Z3_mk_const_array"] = createExportWrapper("Z3_mk_const_array");
+
+/** @type {function(...*):?} */
+var _Z3_mk_array_default = Module["_Z3_mk_array_default"] = createExportWrapper("Z3_mk_array_default");
+
+/** @type {function(...*):?} */
+var _Z3_mk_set_sort = Module["_Z3_mk_set_sort"] = createExportWrapper("Z3_mk_set_sort");
+
+/** @type {function(...*):?} */
+var _Z3_mk_empty_set = Module["_Z3_mk_empty_set"] = createExportWrapper("Z3_mk_empty_set");
+
+/** @type {function(...*):?} */
+var _Z3_mk_full_set = Module["_Z3_mk_full_set"] = createExportWrapper("Z3_mk_full_set");
+
+/** @type {function(...*):?} */
+var _Z3_mk_set_union = Module["_Z3_mk_set_union"] = createExportWrapper("Z3_mk_set_union");
+
+/** @type {function(...*):?} */
+var _Z3_mk_set_intersect = Module["_Z3_mk_set_intersect"] = createExportWrapper("Z3_mk_set_intersect");
+
+/** @type {function(...*):?} */
+var _Z3_mk_set_difference = Module["_Z3_mk_set_difference"] = createExportWrapper("Z3_mk_set_difference");
+
+/** @type {function(...*):?} */
+var _Z3_mk_set_complement = Module["_Z3_mk_set_complement"] = createExportWrapper("Z3_mk_set_complement");
+
+/** @type {function(...*):?} */
+var _Z3_mk_set_subset = Module["_Z3_mk_set_subset"] = createExportWrapper("Z3_mk_set_subset");
+
+/** @type {function(...*):?} */
+var _Z3_mk_array_ext = Module["_Z3_mk_array_ext"] = createExportWrapper("Z3_mk_array_ext");
+
+/** @type {function(...*):?} */
+var _Z3_mk_set_has_size = Module["_Z3_mk_set_has_size"] = createExportWrapper("Z3_mk_set_has_size");
+
+/** @type {function(...*):?} */
+var _Z3_mk_as_array = Module["_Z3_mk_as_array"] = createExportWrapper("Z3_mk_as_array");
+
+/** @type {function(...*):?} */
+var _Z3_mk_set_member = Module["_Z3_mk_set_member"] = createExportWrapper("Z3_mk_set_member");
+
+/** @type {function(...*):?} */
+var _Z3_mk_set_add = Module["_Z3_mk_set_add"] = createExportWrapper("Z3_mk_set_add");
+
+/** @type {function(...*):?} */
+var _Z3_mk_set_del = Module["_Z3_mk_set_del"] = createExportWrapper("Z3_mk_set_del");
+
+/** @type {function(...*):?} */
+var _Z3_get_array_sort_domain = Module["_Z3_get_array_sort_domain"] = createExportWrapper("Z3_get_array_sort_domain");
+
+/** @type {function(...*):?} */
+var _Z3_get_array_sort_domain_n = Module["_Z3_get_array_sort_domain_n"] = createExportWrapper("Z3_get_array_sort_domain_n");
+
+/** @type {function(...*):?} */
+var _Z3_get_array_sort_range = Module["_Z3_get_array_sort_range"] = createExportWrapper("Z3_get_array_sort_range");
+
+/** @type {function(...*):?} */
+var _Z3_mk_tuple_sort = Module["_Z3_mk_tuple_sort"] = createExportWrapper("Z3_mk_tuple_sort");
+
+/** @type {function(...*):?} */
+var _Z3_mk_enumeration_sort = Module["_Z3_mk_enumeration_sort"] = createExportWrapper("Z3_mk_enumeration_sort");
+
+/** @type {function(...*):?} */
+var _Z3_mk_list_sort = Module["_Z3_mk_list_sort"] = createExportWrapper("Z3_mk_list_sort");
+
+/** @type {function(...*):?} */
+var _Z3_mk_constructor = Module["_Z3_mk_constructor"] = createExportWrapper("Z3_mk_constructor");
+
+/** @type {function(...*):?} */
+var _Z3_constructor_num_fields = Module["_Z3_constructor_num_fields"] = createExportWrapper("Z3_constructor_num_fields");
+
+/** @type {function(...*):?} */
+var _Z3_query_constructor = Module["_Z3_query_constructor"] = createExportWrapper("Z3_query_constructor");
+
+/** @type {function(...*):?} */
+var _Z3_del_constructor = Module["_Z3_del_constructor"] = createExportWrapper("Z3_del_constructor");
+
+/** @type {function(...*):?} */
+var _Z3_mk_datatype = Module["_Z3_mk_datatype"] = createExportWrapper("Z3_mk_datatype");
+
+/** @type {function(...*):?} */
+var _Z3_mk_constructor_list = Module["_Z3_mk_constructor_list"] = createExportWrapper("Z3_mk_constructor_list");
+
+/** @type {function(...*):?} */
+var _Z3_del_constructor_list = Module["_Z3_del_constructor_list"] = createExportWrapper("Z3_del_constructor_list");
+
+/** @type {function(...*):?} */
+var _Z3_mk_datatype_sort = Module["_Z3_mk_datatype_sort"] = createExportWrapper("Z3_mk_datatype_sort");
+
+/** @type {function(...*):?} */
+var _Z3_mk_datatypes = Module["_Z3_mk_datatypes"] = createExportWrapper("Z3_mk_datatypes");
+
+/** @type {function(...*):?} */
+var _Z3_get_datatype_sort_num_constructors = Module["_Z3_get_datatype_sort_num_constructors"] = createExportWrapper("Z3_get_datatype_sort_num_constructors");
+
+/** @type {function(...*):?} */
+var _Z3_get_datatype_sort_constructor = Module["_Z3_get_datatype_sort_constructor"] = createExportWrapper("Z3_get_datatype_sort_constructor");
+
+/** @type {function(...*):?} */
+var _Z3_get_datatype_sort_recognizer = Module["_Z3_get_datatype_sort_recognizer"] = createExportWrapper("Z3_get_datatype_sort_recognizer");
+
+/** @type {function(...*):?} */
+var _Z3_get_datatype_sort_constructor_accessor = Module["_Z3_get_datatype_sort_constructor_accessor"] = createExportWrapper("Z3_get_datatype_sort_constructor_accessor");
+
+/** @type {function(...*):?} */
+var _Z3_get_tuple_sort_mk_decl = Module["_Z3_get_tuple_sort_mk_decl"] = createExportWrapper("Z3_get_tuple_sort_mk_decl");
+
+/** @type {function(...*):?} */
+var _Z3_get_tuple_sort_num_fields = Module["_Z3_get_tuple_sort_num_fields"] = createExportWrapper("Z3_get_tuple_sort_num_fields");
+
+/** @type {function(...*):?} */
+var _Z3_get_tuple_sort_field_decl = Module["_Z3_get_tuple_sort_field_decl"] = createExportWrapper("Z3_get_tuple_sort_field_decl");
+
+/** @type {function(...*):?} */
+var _Z3_datatype_update_field = Module["_Z3_datatype_update_field"] = createExportWrapper("Z3_datatype_update_field");
+
+/** @type {function(...*):?} */
 var _Z3_mk_int_symbol = Module["_Z3_mk_int_symbol"] = createExportWrapper("Z3_mk_int_symbol");
 
 /** @type {function(...*):?} */
@@ -12653,6 +13043,9 @@ var _Z3_is_eq_sort = Module["_Z3_is_eq_sort"] = createExportWrapper("Z3_is_eq_so
 
 /** @type {function(...*):?} */
 var _Z3_mk_uninterpreted_sort = Module["_Z3_mk_uninterpreted_sort"] = createExportWrapper("Z3_mk_uninterpreted_sort");
+
+/** @type {function(...*):?} */
+var _Z3_mk_type_variable = Module["_Z3_mk_type_variable"] = createExportWrapper("Z3_mk_type_variable");
 
 /** @type {function(...*):?} */
 var _Z3_is_eq_ast = Module["_Z3_is_eq_ast"] = createExportWrapper("Z3_is_eq_ast");
@@ -12862,400 +13255,169 @@ var _Z3_get_index_value = Module["_Z3_get_index_value"] = createExportWrapper("Z
 var _Z3_translate = Module["_Z3_translate"] = createExportWrapper("Z3_translate");
 
 /** @type {function(...*):?} */
-var _Z3_mk_optimize = Module["_Z3_mk_optimize"] = createExportWrapper("Z3_mk_optimize");
+var _Z3_mk_tactic = Module["_Z3_mk_tactic"] = createExportWrapper("Z3_mk_tactic");
 
 /** @type {function(...*):?} */
-var _Z3_optimize_inc_ref = Module["_Z3_optimize_inc_ref"] = createExportWrapper("Z3_optimize_inc_ref");
+var _Z3_tactic_inc_ref = Module["_Z3_tactic_inc_ref"] = createExportWrapper("Z3_tactic_inc_ref");
 
 /** @type {function(...*):?} */
-var _Z3_optimize_dec_ref = Module["_Z3_optimize_dec_ref"] = createExportWrapper("Z3_optimize_dec_ref");
+var _Z3_tactic_dec_ref = Module["_Z3_tactic_dec_ref"] = createExportWrapper("Z3_tactic_dec_ref");
 
 /** @type {function(...*):?} */
-var _Z3_optimize_assert = Module["_Z3_optimize_assert"] = createExportWrapper("Z3_optimize_assert");
+var _Z3_mk_probe = Module["_Z3_mk_probe"] = createExportWrapper("Z3_mk_probe");
 
 /** @type {function(...*):?} */
-var _Z3_optimize_assert_and_track = Module["_Z3_optimize_assert_and_track"] = createExportWrapper("Z3_optimize_assert_and_track");
+var _Z3_probe_inc_ref = Module["_Z3_probe_inc_ref"] = createExportWrapper("Z3_probe_inc_ref");
 
 /** @type {function(...*):?} */
-var _Z3_optimize_assert_soft = Module["_Z3_optimize_assert_soft"] = createExportWrapper("Z3_optimize_assert_soft");
+var _Z3_probe_dec_ref = Module["_Z3_probe_dec_ref"] = createExportWrapper("Z3_probe_dec_ref");
 
 /** @type {function(...*):?} */
-var _Z3_optimize_maximize = Module["_Z3_optimize_maximize"] = createExportWrapper("Z3_optimize_maximize");
+var _Z3_tactic_and_then = Module["_Z3_tactic_and_then"] = createExportWrapper("Z3_tactic_and_then");
 
 /** @type {function(...*):?} */
-var _Z3_optimize_minimize = Module["_Z3_optimize_minimize"] = createExportWrapper("Z3_optimize_minimize");
+var _Z3_tactic_or_else = Module["_Z3_tactic_or_else"] = createExportWrapper("Z3_tactic_or_else");
 
 /** @type {function(...*):?} */
-var _Z3_optimize_push = Module["_Z3_optimize_push"] = createExportWrapper("Z3_optimize_push");
+var _Z3_tactic_par_or = Module["_Z3_tactic_par_or"] = createExportWrapper("Z3_tactic_par_or");
 
 /** @type {function(...*):?} */
-var _Z3_optimize_pop = Module["_Z3_optimize_pop"] = createExportWrapper("Z3_optimize_pop");
+var _Z3_tactic_par_and_then = Module["_Z3_tactic_par_and_then"] = createExportWrapper("Z3_tactic_par_and_then");
 
 /** @type {function(...*):?} */
-var _Z3_optimize_get_unsat_core = Module["_Z3_optimize_get_unsat_core"] = createExportWrapper("Z3_optimize_get_unsat_core");
+var _Z3_tactic_try_for = Module["_Z3_tactic_try_for"] = createExportWrapper("Z3_tactic_try_for");
 
 /** @type {function(...*):?} */
-var _Z3_optimize_get_reason_unknown = Module["_Z3_optimize_get_reason_unknown"] = createExportWrapper("Z3_optimize_get_reason_unknown");
+var _Z3_tactic_when = Module["_Z3_tactic_when"] = createExportWrapper("Z3_tactic_when");
 
 /** @type {function(...*):?} */
-var _Z3_optimize_get_model = Module["_Z3_optimize_get_model"] = createExportWrapper("Z3_optimize_get_model");
+var _Z3_tactic_cond = Module["_Z3_tactic_cond"] = createExportWrapper("Z3_tactic_cond");
 
 /** @type {function(...*):?} */
-var _Z3_optimize_set_params = Module["_Z3_optimize_set_params"] = createExportWrapper("Z3_optimize_set_params");
+var _Z3_tactic_repeat = Module["_Z3_tactic_repeat"] = createExportWrapper("Z3_tactic_repeat");
 
 /** @type {function(...*):?} */
-var _Z3_optimize_get_param_descrs = Module["_Z3_optimize_get_param_descrs"] = createExportWrapper("Z3_optimize_get_param_descrs");
+var _Z3_tactic_skip = Module["_Z3_tactic_skip"] = createExportWrapper("Z3_tactic_skip");
 
 /** @type {function(...*):?} */
-var _Z3_optimize_get_lower = Module["_Z3_optimize_get_lower"] = createExportWrapper("Z3_optimize_get_lower");
+var _Z3_tactic_fail = Module["_Z3_tactic_fail"] = createExportWrapper("Z3_tactic_fail");
 
 /** @type {function(...*):?} */
-var _Z3_optimize_get_upper = Module["_Z3_optimize_get_upper"] = createExportWrapper("Z3_optimize_get_upper");
+var _Z3_tactic_fail_if = Module["_Z3_tactic_fail_if"] = createExportWrapper("Z3_tactic_fail_if");
 
 /** @type {function(...*):?} */
-var _Z3_optimize_get_lower_as_vector = Module["_Z3_optimize_get_lower_as_vector"] = createExportWrapper("Z3_optimize_get_lower_as_vector");
+var _Z3_tactic_fail_if_not_decided = Module["_Z3_tactic_fail_if_not_decided"] = createExportWrapper("Z3_tactic_fail_if_not_decided");
 
 /** @type {function(...*):?} */
-var _Z3_optimize_get_upper_as_vector = Module["_Z3_optimize_get_upper_as_vector"] = createExportWrapper("Z3_optimize_get_upper_as_vector");
+var _Z3_tactic_using_params = Module["_Z3_tactic_using_params"] = createExportWrapper("Z3_tactic_using_params");
 
 /** @type {function(...*):?} */
-var _Z3_optimize_to_string = Module["_Z3_optimize_to_string"] = createExportWrapper("Z3_optimize_to_string");
+var _Z3_probe_const = Module["_Z3_probe_const"] = createExportWrapper("Z3_probe_const");
 
 /** @type {function(...*):?} */
-var _Z3_optimize_get_help = Module["_Z3_optimize_get_help"] = createExportWrapper("Z3_optimize_get_help");
+var _Z3_probe_lt = Module["_Z3_probe_lt"] = createExportWrapper("Z3_probe_lt");
 
 /** @type {function(...*):?} */
-var _Z3_optimize_get_statistics = Module["_Z3_optimize_get_statistics"] = createExportWrapper("Z3_optimize_get_statistics");
+var _Z3_probe_gt = Module["_Z3_probe_gt"] = createExportWrapper("Z3_probe_gt");
 
 /** @type {function(...*):?} */
-var _Z3_optimize_from_string = Module["_Z3_optimize_from_string"] = createExportWrapper("Z3_optimize_from_string");
+var _Z3_probe_le = Module["_Z3_probe_le"] = createExportWrapper("Z3_probe_le");
 
 /** @type {function(...*):?} */
-var _Z3_optimize_from_file = Module["_Z3_optimize_from_file"] = createExportWrapper("Z3_optimize_from_file");
+var _Z3_probe_ge = Module["_Z3_probe_ge"] = createExportWrapper("Z3_probe_ge");
 
 /** @type {function(...*):?} */
-var _Z3_optimize_get_assertions = Module["_Z3_optimize_get_assertions"] = createExportWrapper("Z3_optimize_get_assertions");
+var _Z3_probe_eq = Module["_Z3_probe_eq"] = createExportWrapper("Z3_probe_eq");
 
 /** @type {function(...*):?} */
-var _Z3_optimize_get_objectives = Module["_Z3_optimize_get_objectives"] = createExportWrapper("Z3_optimize_get_objectives");
+var _Z3_probe_and = Module["_Z3_probe_and"] = createExportWrapper("Z3_probe_and");
 
 /** @type {function(...*):?} */
-var _Z3_rcf_del = Module["_Z3_rcf_del"] = createExportWrapper("Z3_rcf_del");
+var _Z3_probe_or = Module["_Z3_probe_or"] = createExportWrapper("Z3_probe_or");
 
 /** @type {function(...*):?} */
-var _Z3_rcf_mk_rational = Module["_Z3_rcf_mk_rational"] = createExportWrapper("Z3_rcf_mk_rational");
+var _Z3_probe_not = Module["_Z3_probe_not"] = createExportWrapper("Z3_probe_not");
 
 /** @type {function(...*):?} */
-var _Z3_rcf_mk_small_int = Module["_Z3_rcf_mk_small_int"] = createExportWrapper("Z3_rcf_mk_small_int");
+var _Z3_get_num_tactics = Module["_Z3_get_num_tactics"] = createExportWrapper("Z3_get_num_tactics");
 
 /** @type {function(...*):?} */
-var _Z3_rcf_mk_pi = Module["_Z3_rcf_mk_pi"] = createExportWrapper("Z3_rcf_mk_pi");
+var _Z3_get_tactic_name = Module["_Z3_get_tactic_name"] = createExportWrapper("Z3_get_tactic_name");
 
 /** @type {function(...*):?} */
-var _Z3_rcf_mk_e = Module["_Z3_rcf_mk_e"] = createExportWrapper("Z3_rcf_mk_e");
+var _Z3_get_num_probes = Module["_Z3_get_num_probes"] = createExportWrapper("Z3_get_num_probes");
 
 /** @type {function(...*):?} */
-var _Z3_rcf_mk_infinitesimal = Module["_Z3_rcf_mk_infinitesimal"] = createExportWrapper("Z3_rcf_mk_infinitesimal");
+var _Z3_get_probe_name = Module["_Z3_get_probe_name"] = createExportWrapper("Z3_get_probe_name");
 
 /** @type {function(...*):?} */
-var _Z3_rcf_mk_roots = Module["_Z3_rcf_mk_roots"] = createExportWrapper("Z3_rcf_mk_roots");
+var _Z3_tactic_get_help = Module["_Z3_tactic_get_help"] = createExportWrapper("Z3_tactic_get_help");
 
 /** @type {function(...*):?} */
-var _Z3_rcf_add = Module["_Z3_rcf_add"] = createExportWrapper("Z3_rcf_add");
+var _Z3_tactic_get_param_descrs = Module["_Z3_tactic_get_param_descrs"] = createExportWrapper("Z3_tactic_get_param_descrs");
 
 /** @type {function(...*):?} */
-var _Z3_rcf_sub = Module["_Z3_rcf_sub"] = createExportWrapper("Z3_rcf_sub");
+var _Z3_tactic_get_descr = Module["_Z3_tactic_get_descr"] = createExportWrapper("Z3_tactic_get_descr");
 
 /** @type {function(...*):?} */
-var _Z3_rcf_mul = Module["_Z3_rcf_mul"] = createExportWrapper("Z3_rcf_mul");
+var _Z3_probe_get_descr = Module["_Z3_probe_get_descr"] = createExportWrapper("Z3_probe_get_descr");
 
 /** @type {function(...*):?} */
-var _Z3_rcf_div = Module["_Z3_rcf_div"] = createExportWrapper("Z3_rcf_div");
+var _Z3_probe_apply = Module["_Z3_probe_apply"] = createExportWrapper("Z3_probe_apply");
 
 /** @type {function(...*):?} */
-var _Z3_rcf_neg = Module["_Z3_rcf_neg"] = createExportWrapper("Z3_rcf_neg");
+var _Z3_apply_result_inc_ref = Module["_Z3_apply_result_inc_ref"] = createExportWrapper("Z3_apply_result_inc_ref");
 
 /** @type {function(...*):?} */
-var _Z3_rcf_inv = Module["_Z3_rcf_inv"] = createExportWrapper("Z3_rcf_inv");
+var _Z3_apply_result_dec_ref = Module["_Z3_apply_result_dec_ref"] = createExportWrapper("Z3_apply_result_dec_ref");
 
 /** @type {function(...*):?} */
-var _Z3_rcf_power = Module["_Z3_rcf_power"] = createExportWrapper("Z3_rcf_power");
+var _Z3_apply_result_to_string = Module["_Z3_apply_result_to_string"] = createExportWrapper("Z3_apply_result_to_string");
 
 /** @type {function(...*):?} */
-var _Z3_rcf_lt = Module["_Z3_rcf_lt"] = createExportWrapper("Z3_rcf_lt");
+var _Z3_apply_result_get_num_subgoals = Module["_Z3_apply_result_get_num_subgoals"] = createExportWrapper("Z3_apply_result_get_num_subgoals");
 
 /** @type {function(...*):?} */
-var _Z3_rcf_gt = Module["_Z3_rcf_gt"] = createExportWrapper("Z3_rcf_gt");
+var _Z3_apply_result_get_subgoal = Module["_Z3_apply_result_get_subgoal"] = createExportWrapper("Z3_apply_result_get_subgoal");
 
 /** @type {function(...*):?} */
-var _Z3_rcf_le = Module["_Z3_rcf_le"] = createExportWrapper("Z3_rcf_le");
+var _Z3_mk_simplifier = Module["_Z3_mk_simplifier"] = createExportWrapper("Z3_mk_simplifier");
 
 /** @type {function(...*):?} */
-var _Z3_rcf_ge = Module["_Z3_rcf_ge"] = createExportWrapper("Z3_rcf_ge");
+var _Z3_simplifier_inc_ref = Module["_Z3_simplifier_inc_ref"] = createExportWrapper("Z3_simplifier_inc_ref");
 
 /** @type {function(...*):?} */
-var _Z3_rcf_eq = Module["_Z3_rcf_eq"] = createExportWrapper("Z3_rcf_eq");
+var _Z3_simplifier_dec_ref = Module["_Z3_simplifier_dec_ref"] = createExportWrapper("Z3_simplifier_dec_ref");
 
 /** @type {function(...*):?} */
-var _Z3_rcf_neq = Module["_Z3_rcf_neq"] = createExportWrapper("Z3_rcf_neq");
+var _Z3_get_num_simplifiers = Module["_Z3_get_num_simplifiers"] = createExportWrapper("Z3_get_num_simplifiers");
 
 /** @type {function(...*):?} */
-var _Z3_rcf_num_to_string = Module["_Z3_rcf_num_to_string"] = createExportWrapper("Z3_rcf_num_to_string");
+var _Z3_get_simplifier_name = Module["_Z3_get_simplifier_name"] = createExportWrapper("Z3_get_simplifier_name");
 
 /** @type {function(...*):?} */
-var _Z3_rcf_num_to_decimal_string = Module["_Z3_rcf_num_to_decimal_string"] = createExportWrapper("Z3_rcf_num_to_decimal_string");
+var _Z3_simplifier_and_then = Module["_Z3_simplifier_and_then"] = createExportWrapper("Z3_simplifier_and_then");
 
 /** @type {function(...*):?} */
-var _Z3_rcf_get_numerator_denominator = Module["_Z3_rcf_get_numerator_denominator"] = createExportWrapper("Z3_rcf_get_numerator_denominator");
+var _Z3_simplifier_using_params = Module["_Z3_simplifier_using_params"] = createExportWrapper("Z3_simplifier_using_params");
 
 /** @type {function(...*):?} */
-var _Z3_mk_fpa_rounding_mode_sort = Module["_Z3_mk_fpa_rounding_mode_sort"] = createExportWrapper("Z3_mk_fpa_rounding_mode_sort");
+var _Z3_simplifier_get_help = Module["_Z3_simplifier_get_help"] = createExportWrapper("Z3_simplifier_get_help");
 
 /** @type {function(...*):?} */
-var _Z3_mk_fpa_round_nearest_ties_to_even = Module["_Z3_mk_fpa_round_nearest_ties_to_even"] = createExportWrapper("Z3_mk_fpa_round_nearest_ties_to_even");
+var _Z3_simplifier_get_param_descrs = Module["_Z3_simplifier_get_param_descrs"] = createExportWrapper("Z3_simplifier_get_param_descrs");
 
 /** @type {function(...*):?} */
-var _Z3_mk_fpa_rne = Module["_Z3_mk_fpa_rne"] = createExportWrapper("Z3_mk_fpa_rne");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_round_nearest_ties_to_away = Module["_Z3_mk_fpa_round_nearest_ties_to_away"] = createExportWrapper("Z3_mk_fpa_round_nearest_ties_to_away");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_rna = Module["_Z3_mk_fpa_rna"] = createExportWrapper("Z3_mk_fpa_rna");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_round_toward_positive = Module["_Z3_mk_fpa_round_toward_positive"] = createExportWrapper("Z3_mk_fpa_round_toward_positive");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_rtp = Module["_Z3_mk_fpa_rtp"] = createExportWrapper("Z3_mk_fpa_rtp");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_round_toward_negative = Module["_Z3_mk_fpa_round_toward_negative"] = createExportWrapper("Z3_mk_fpa_round_toward_negative");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_rtn = Module["_Z3_mk_fpa_rtn"] = createExportWrapper("Z3_mk_fpa_rtn");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_round_toward_zero = Module["_Z3_mk_fpa_round_toward_zero"] = createExportWrapper("Z3_mk_fpa_round_toward_zero");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_rtz = Module["_Z3_mk_fpa_rtz"] = createExportWrapper("Z3_mk_fpa_rtz");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_sort = Module["_Z3_mk_fpa_sort"] = createExportWrapper("Z3_mk_fpa_sort");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_sort_half = Module["_Z3_mk_fpa_sort_half"] = createExportWrapper("Z3_mk_fpa_sort_half");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_sort_16 = Module["_Z3_mk_fpa_sort_16"] = createExportWrapper("Z3_mk_fpa_sort_16");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_sort_single = Module["_Z3_mk_fpa_sort_single"] = createExportWrapper("Z3_mk_fpa_sort_single");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_sort_32 = Module["_Z3_mk_fpa_sort_32"] = createExportWrapper("Z3_mk_fpa_sort_32");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_sort_double = Module["_Z3_mk_fpa_sort_double"] = createExportWrapper("Z3_mk_fpa_sort_double");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_sort_64 = Module["_Z3_mk_fpa_sort_64"] = createExportWrapper("Z3_mk_fpa_sort_64");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_sort_quadruple = Module["_Z3_mk_fpa_sort_quadruple"] = createExportWrapper("Z3_mk_fpa_sort_quadruple");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_sort_128 = Module["_Z3_mk_fpa_sort_128"] = createExportWrapper("Z3_mk_fpa_sort_128");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_nan = Module["_Z3_mk_fpa_nan"] = createExportWrapper("Z3_mk_fpa_nan");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_inf = Module["_Z3_mk_fpa_inf"] = createExportWrapper("Z3_mk_fpa_inf");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_zero = Module["_Z3_mk_fpa_zero"] = createExportWrapper("Z3_mk_fpa_zero");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_fp = Module["_Z3_mk_fpa_fp"] = createExportWrapper("Z3_mk_fpa_fp");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_numeral_float = Module["_Z3_mk_fpa_numeral_float"] = createExportWrapper("Z3_mk_fpa_numeral_float");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_numeral_double = Module["_Z3_mk_fpa_numeral_double"] = createExportWrapper("Z3_mk_fpa_numeral_double");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_numeral_int = Module["_Z3_mk_fpa_numeral_int"] = createExportWrapper("Z3_mk_fpa_numeral_int");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_numeral_int_uint = Module["_Z3_mk_fpa_numeral_int_uint"] = createExportWrapper("Z3_mk_fpa_numeral_int_uint");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_numeral_int64_uint64 = Module["_Z3_mk_fpa_numeral_int64_uint64"] = createExportWrapper("Z3_mk_fpa_numeral_int64_uint64");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_abs = Module["_Z3_mk_fpa_abs"] = createExportWrapper("Z3_mk_fpa_abs");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_neg = Module["_Z3_mk_fpa_neg"] = createExportWrapper("Z3_mk_fpa_neg");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_add = Module["_Z3_mk_fpa_add"] = createExportWrapper("Z3_mk_fpa_add");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_sub = Module["_Z3_mk_fpa_sub"] = createExportWrapper("Z3_mk_fpa_sub");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_mul = Module["_Z3_mk_fpa_mul"] = createExportWrapper("Z3_mk_fpa_mul");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_div = Module["_Z3_mk_fpa_div"] = createExportWrapper("Z3_mk_fpa_div");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_fma = Module["_Z3_mk_fpa_fma"] = createExportWrapper("Z3_mk_fpa_fma");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_sqrt = Module["_Z3_mk_fpa_sqrt"] = createExportWrapper("Z3_mk_fpa_sqrt");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_rem = Module["_Z3_mk_fpa_rem"] = createExportWrapper("Z3_mk_fpa_rem");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_round_to_integral = Module["_Z3_mk_fpa_round_to_integral"] = createExportWrapper("Z3_mk_fpa_round_to_integral");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_min = Module["_Z3_mk_fpa_min"] = createExportWrapper("Z3_mk_fpa_min");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_max = Module["_Z3_mk_fpa_max"] = createExportWrapper("Z3_mk_fpa_max");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_leq = Module["_Z3_mk_fpa_leq"] = createExportWrapper("Z3_mk_fpa_leq");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_lt = Module["_Z3_mk_fpa_lt"] = createExportWrapper("Z3_mk_fpa_lt");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_geq = Module["_Z3_mk_fpa_geq"] = createExportWrapper("Z3_mk_fpa_geq");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_gt = Module["_Z3_mk_fpa_gt"] = createExportWrapper("Z3_mk_fpa_gt");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_eq = Module["_Z3_mk_fpa_eq"] = createExportWrapper("Z3_mk_fpa_eq");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_is_normal = Module["_Z3_mk_fpa_is_normal"] = createExportWrapper("Z3_mk_fpa_is_normal");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_is_subnormal = Module["_Z3_mk_fpa_is_subnormal"] = createExportWrapper("Z3_mk_fpa_is_subnormal");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_is_zero = Module["_Z3_mk_fpa_is_zero"] = createExportWrapper("Z3_mk_fpa_is_zero");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_is_infinite = Module["_Z3_mk_fpa_is_infinite"] = createExportWrapper("Z3_mk_fpa_is_infinite");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_is_nan = Module["_Z3_mk_fpa_is_nan"] = createExportWrapper("Z3_mk_fpa_is_nan");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_is_negative = Module["_Z3_mk_fpa_is_negative"] = createExportWrapper("Z3_mk_fpa_is_negative");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_is_positive = Module["_Z3_mk_fpa_is_positive"] = createExportWrapper("Z3_mk_fpa_is_positive");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_to_fp_bv = Module["_Z3_mk_fpa_to_fp_bv"] = createExportWrapper("Z3_mk_fpa_to_fp_bv");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_to_fp_float = Module["_Z3_mk_fpa_to_fp_float"] = createExportWrapper("Z3_mk_fpa_to_fp_float");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_to_fp_real = Module["_Z3_mk_fpa_to_fp_real"] = createExportWrapper("Z3_mk_fpa_to_fp_real");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_to_fp_signed = Module["_Z3_mk_fpa_to_fp_signed"] = createExportWrapper("Z3_mk_fpa_to_fp_signed");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_to_fp_unsigned = Module["_Z3_mk_fpa_to_fp_unsigned"] = createExportWrapper("Z3_mk_fpa_to_fp_unsigned");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_to_ubv = Module["_Z3_mk_fpa_to_ubv"] = createExportWrapper("Z3_mk_fpa_to_ubv");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_to_sbv = Module["_Z3_mk_fpa_to_sbv"] = createExportWrapper("Z3_mk_fpa_to_sbv");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_to_real = Module["_Z3_mk_fpa_to_real"] = createExportWrapper("Z3_mk_fpa_to_real");
-
-/** @type {function(...*):?} */
-var _Z3_fpa_get_ebits = Module["_Z3_fpa_get_ebits"] = createExportWrapper("Z3_fpa_get_ebits");
-
-/** @type {function(...*):?} */
-var _Z3_fpa_get_sbits = Module["_Z3_fpa_get_sbits"] = createExportWrapper("Z3_fpa_get_sbits");
-
-/** @type {function(...*):?} */
-var _Z3_fpa_get_numeral_sign = Module["_Z3_fpa_get_numeral_sign"] = createExportWrapper("Z3_fpa_get_numeral_sign");
-
-/** @type {function(...*):?} */
-var _Z3_fpa_get_numeral_sign_bv = Module["_Z3_fpa_get_numeral_sign_bv"] = createExportWrapper("Z3_fpa_get_numeral_sign_bv");
-
-/** @type {function(...*):?} */
-var _Z3_fpa_get_numeral_significand_bv = Module["_Z3_fpa_get_numeral_significand_bv"] = createExportWrapper("Z3_fpa_get_numeral_significand_bv");
-
-/** @type {function(...*):?} */
-var _Z3_fpa_get_numeral_significand_string = Module["_Z3_fpa_get_numeral_significand_string"] = createExportWrapper("Z3_fpa_get_numeral_significand_string");
-
-/** @type {function(...*):?} */
-var _Z3_fpa_get_numeral_significand_uint64 = Module["_Z3_fpa_get_numeral_significand_uint64"] = createExportWrapper("Z3_fpa_get_numeral_significand_uint64");
-
-/** @type {function(...*):?} */
-var _Z3_fpa_get_numeral_exponent_string = Module["_Z3_fpa_get_numeral_exponent_string"] = createExportWrapper("Z3_fpa_get_numeral_exponent_string");
-
-/** @type {function(...*):?} */
-var _Z3_fpa_get_numeral_exponent_int64 = Module["_Z3_fpa_get_numeral_exponent_int64"] = createExportWrapper("Z3_fpa_get_numeral_exponent_int64");
-
-/** @type {function(...*):?} */
-var _Z3_fpa_get_numeral_exponent_bv = Module["_Z3_fpa_get_numeral_exponent_bv"] = createExportWrapper("Z3_fpa_get_numeral_exponent_bv");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_to_ieee_bv = Module["_Z3_mk_fpa_to_ieee_bv"] = createExportWrapper("Z3_mk_fpa_to_ieee_bv");
-
-/** @type {function(...*):?} */
-var _Z3_mk_fpa_to_fp_int_real = Module["_Z3_mk_fpa_to_fp_int_real"] = createExportWrapper("Z3_mk_fpa_to_fp_int_real");
-
-/** @type {function(...*):?} */
-var _Z3_fpa_is_numeral_nan = Module["_Z3_fpa_is_numeral_nan"] = createExportWrapper("Z3_fpa_is_numeral_nan");
-
-/** @type {function(...*):?} */
-var _Z3_fpa_is_numeral_inf = Module["_Z3_fpa_is_numeral_inf"] = createExportWrapper("Z3_fpa_is_numeral_inf");
-
-/** @type {function(...*):?} */
-var _Z3_fpa_is_numeral_zero = Module["_Z3_fpa_is_numeral_zero"] = createExportWrapper("Z3_fpa_is_numeral_zero");
-
-/** @type {function(...*):?} */
-var _Z3_fpa_is_numeral_normal = Module["_Z3_fpa_is_numeral_normal"] = createExportWrapper("Z3_fpa_is_numeral_normal");
-
-/** @type {function(...*):?} */
-var _Z3_fpa_is_numeral_subnormal = Module["_Z3_fpa_is_numeral_subnormal"] = createExportWrapper("Z3_fpa_is_numeral_subnormal");
-
-/** @type {function(...*):?} */
-var _Z3_fpa_is_numeral_positive = Module["_Z3_fpa_is_numeral_positive"] = createExportWrapper("Z3_fpa_is_numeral_positive");
-
-/** @type {function(...*):?} */
-var _Z3_fpa_is_numeral_negative = Module["_Z3_fpa_is_numeral_negative"] = createExportWrapper("Z3_fpa_is_numeral_negative");
-
-/** @type {function(...*):?} */
-var _fflush = Module["_fflush"] = createExportWrapper("fflush");
+var _Z3_simplifier_get_descr = Module["_Z3_simplifier_get_descr"] = createExportWrapper("Z3_simplifier_get_descr");
 
 /** @type {function(...*):?} */
 var _free = Module["_free"] = createExportWrapper("free");
 
 /** @type {function(...*):?} */
 var _malloc = Module["_malloc"] = createExportWrapper("malloc");
+
+/** @type {function(...*):?} */
+var _fflush = Module["_fflush"] = createExportWrapper("fflush");
 
 /** @type {function(...*):?} */
 var __emscripten_tls_init = Module["__emscripten_tls_init"] = createExportWrapper("_emscripten_tls_init");
@@ -13458,10 +13620,10 @@ function invoke_viiii(index,a1,a2,a3,a4) {
   }
 }
 
-function invoke_dii(index,a1,a2) {
+function invoke_viiiiiiii(index,a1,a2,a3,a4,a5,a6,a7,a8) {
   var sp = stackSave();
   try {
-    return getWasmTableEntry(index)(a1,a2);
+    getWasmTableEntry(index)(a1,a2,a3,a4,a5,a6,a7,a8);
   } catch(e) {
     stackRestore(sp);
     if (e !== e+0) throw e;
@@ -13469,10 +13631,10 @@ function invoke_dii(index,a1,a2) {
   }
 }
 
-function invoke_viiiid(index,a1,a2,a3,a4,a5) {
+function invoke_iiiiiiiii(index,a1,a2,a3,a4,a5,a6,a7,a8) {
   var sp = stackSave();
   try {
-    getWasmTableEntry(index)(a1,a2,a3,a4,a5);
+    return getWasmTableEntry(index)(a1,a2,a3,a4,a5,a6,a7,a8);
   } catch(e) {
     stackRestore(sp);
     if (e !== e+0) throw e;
@@ -13491,28 +13653,6 @@ function invoke_iiiiiii(index,a1,a2,a3,a4,a5,a6) {
   }
 }
 
-function invoke_vid(index,a1,a2) {
-  var sp = stackSave();
-  try {
-    getWasmTableEntry(index)(a1,a2);
-  } catch(e) {
-    stackRestore(sp);
-    if (e !== e+0) throw e;
-    _setThrew(1, 0);
-  }
-}
-
-function invoke_id(index,a1) {
-  var sp = stackSave();
-  try {
-    return getWasmTableEntry(index)(a1);
-  } catch(e) {
-    stackRestore(sp);
-    if (e !== e+0) throw e;
-    _setThrew(1, 0);
-  }
-}
-
 function invoke_viiiii(index,a1,a2,a3,a4,a5) {
   var sp = stackSave();
   try {
@@ -13524,22 +13664,32 @@ function invoke_viiiii(index,a1,a2,a3,a4,a5) {
   }
 }
 
-function invoke_j(index) {
+function invoke_viid(index,a1,a2,a3) {
   var sp = stackSave();
   try {
-    return getWasmTableEntry(index)();
+    getWasmTableEntry(index)(a1,a2,a3);
   } catch(e) {
     stackRestore(sp);
     if (e !== e+0) throw e;
     _setThrew(1, 0);
-    return 0n;
   }
 }
 
-function invoke_iid(index,a1,a2) {
+function invoke_dii(index,a1,a2) {
   var sp = stackSave();
   try {
     return getWasmTableEntry(index)(a1,a2);
+  } catch(e) {
+    stackRestore(sp);
+    if (e !== e+0) throw e;
+    _setThrew(1, 0);
+  }
+}
+
+function invoke_viiiid(index,a1,a2,a3,a4,a5) {
+  var sp = stackSave();
+  try {
+    getWasmTableEntry(index)(a1,a2,a3,a4,a5);
   } catch(e) {
     stackRestore(sp);
     if (e !== e+0) throw e;
@@ -13591,43 +13741,10 @@ function invoke_viiiiii(index,a1,a2,a3,a4,a5,a6) {
   }
 }
 
-function invoke_viid(index,a1,a2,a3) {
-  var sp = stackSave();
-  try {
-    getWasmTableEntry(index)(a1,a2,a3);
-  } catch(e) {
-    stackRestore(sp);
-    if (e !== e+0) throw e;
-    _setThrew(1, 0);
-  }
-}
-
-function invoke_viiiiiiii(index,a1,a2,a3,a4,a5,a6,a7,a8) {
-  var sp = stackSave();
-  try {
-    getWasmTableEntry(index)(a1,a2,a3,a4,a5,a6,a7,a8);
-  } catch(e) {
-    stackRestore(sp);
-    if (e !== e+0) throw e;
-    _setThrew(1, 0);
-  }
-}
-
 function invoke_viiiiiii(index,a1,a2,a3,a4,a5,a6,a7) {
   var sp = stackSave();
   try {
     getWasmTableEntry(index)(a1,a2,a3,a4,a5,a6,a7);
-  } catch(e) {
-    stackRestore(sp);
-    if (e !== e+0) throw e;
-    _setThrew(1, 0);
-  }
-}
-
-function invoke_iiiiiiiii(index,a1,a2,a3,a4,a5,a6,a7,a8) {
-  var sp = stackSave();
-  try {
-    return getWasmTableEntry(index)(a1,a2,a3,a4,a5,a6,a7,a8);
   } catch(e) {
     stackRestore(sp);
     if (e !== e+0) throw e;
@@ -13655,6 +13772,51 @@ function invoke_jii(index,a1,a2) {
     if (e !== e+0) throw e;
     _setThrew(1, 0);
     return 0n;
+  }
+}
+
+function invoke_vid(index,a1,a2) {
+  var sp = stackSave();
+  try {
+    getWasmTableEntry(index)(a1,a2);
+  } catch(e) {
+    stackRestore(sp);
+    if (e !== e+0) throw e;
+    _setThrew(1, 0);
+  }
+}
+
+function invoke_id(index,a1) {
+  var sp = stackSave();
+  try {
+    return getWasmTableEntry(index)(a1);
+  } catch(e) {
+    stackRestore(sp);
+    if (e !== e+0) throw e;
+    _setThrew(1, 0);
+  }
+}
+
+function invoke_j(index) {
+  var sp = stackSave();
+  try {
+    return getWasmTableEntry(index)();
+  } catch(e) {
+    stackRestore(sp);
+    if (e !== e+0) throw e;
+    _setThrew(1, 0);
+    return 0n;
+  }
+}
+
+function invoke_iid(index,a1,a2) {
+  var sp = stackSave();
+  try {
+    return getWasmTableEntry(index)(a1,a2);
+  } catch(e) {
+    stackRestore(sp);
+    if (e !== e+0) throw e;
+    _setThrew(1, 0);
   }
 }
 
@@ -13859,17 +14021,6 @@ function invoke_viiiiij(index,a1,a2,a3,a4,a5,a6) {
   }
 }
 
-function invoke_iiiiiiiiiii(index,a1,a2,a3,a4,a5,a6,a7,a8,a9,a10) {
-  var sp = stackSave();
-  try {
-    return getWasmTableEntry(index)(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10);
-  } catch(e) {
-    stackRestore(sp);
-    if (e !== e+0) throw e;
-    _setThrew(1, 0);
-  }
-}
-
 function invoke_viiiiiiiiii(index,a1,a2,a3,a4,a5,a6,a7,a8,a9,a10) {
   var sp = stackSave();
   try {
@@ -13881,10 +14032,10 @@ function invoke_viiiiiiiiii(index,a1,a2,a3,a4,a5,a6,a7,a8,a9,a10) {
   }
 }
 
-function invoke_fiiii(index,a1,a2,a3,a4) {
+function invoke_viidi(index,a1,a2,a3,a4) {
   var sp = stackSave();
   try {
-    return getWasmTableEntry(index)(a1,a2,a3,a4);
+    getWasmTableEntry(index)(a1,a2,a3,a4);
   } catch(e) {
     stackRestore(sp);
     if (e !== e+0) throw e;
@@ -13892,10 +14043,21 @@ function invoke_fiiii(index,a1,a2,a3,a4) {
   }
 }
 
-function invoke_viidi(index,a1,a2,a3,a4) {
+function invoke_iiiiiiiiiii(index,a1,a2,a3,a4,a5,a6,a7,a8,a9,a10) {
   var sp = stackSave();
   try {
-    getWasmTableEntry(index)(a1,a2,a3,a4);
+    return getWasmTableEntry(index)(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10);
+  } catch(e) {
+    stackRestore(sp);
+    if (e !== e+0) throw e;
+    _setThrew(1, 0);
+  }
+}
+
+function invoke_iiiif(index,a1,a2,a3,a4) {
+  var sp = stackSave();
+  try {
+    return getWasmTableEntry(index)(a1,a2,a3,a4);
   } catch(e) {
     stackRestore(sp);
     if (e !== e+0) throw e;

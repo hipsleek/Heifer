@@ -3098,6 +3098,7 @@ var Z3_sort_kind;
     Z3_sort_kind[Z3_sort_kind["Z3_SEQ_SORT"] = 11] = "Z3_SEQ_SORT";
     Z3_sort_kind[Z3_sort_kind["Z3_RE_SORT"] = 12] = "Z3_RE_SORT";
     Z3_sort_kind[Z3_sort_kind["Z3_CHAR_SORT"] = 13] = "Z3_CHAR_SORT";
+    Z3_sort_kind[Z3_sort_kind["Z3_TYPE_VAR"] = 14] = "Z3_TYPE_VAR";
     Z3_sort_kind[Z3_sort_kind["Z3_UNKNOWN_SORT"] = 1000] = "Z3_UNKNOWN_SORT";
 })(Z3_sort_kind = exports.Z3_sort_kind || (exports.Z3_sort_kind = {}));
 var Z3_ast_kind;
@@ -3524,6 +3525,7 @@ async function init(initModule) {
                 return Mod.ccall('Z3_mk_string_symbol', 'number', ['number', 'string'], [c, s]);
             },
             mk_uninterpreted_sort: Mod._Z3_mk_uninterpreted_sort,
+            mk_type_variable: Mod._Z3_mk_type_variable,
             mk_bool_sort: Mod._Z3_mk_bool_sort,
             mk_int_sort: Mod._Z3_mk_int_sort,
             mk_real_sort: Mod._Z3_mk_real_sort,
@@ -3646,6 +3648,11 @@ async function init(initModule) {
                     intArrayToByteArr(sorts),
                     intArrayToByteArr(sort_refs),
                 ]);
+            },
+            constructor_num_fields: function (c, constr) {
+                let ret = Mod.ccall('Z3_constructor_num_fields', 'number', ['number', 'number'], [c, constr]);
+                ret = new Uint32Array([ret])[0];
+                return ret;
             },
             del_constructor: Mod._Z3_del_constructor,
             mk_datatype: function (c, name, constructors) {
@@ -4440,6 +4447,8 @@ async function init(initModule) {
                 ret = new Uint32Array([ret])[0];
                 return ret;
             },
+            get_quantifier_skolem_id: Mod._Z3_get_quantifier_skolem_id,
+            get_quantifier_id: Mod._Z3_get_quantifier_id,
             get_quantifier_num_patterns: function (c, a) {
                 let ret = Mod.ccall('Z3_get_quantifier_num_patterns', 'number', ['number', 'number'], [c, a]);
                 ret = new Uint32Array([ret])[0];
@@ -4899,7 +4908,9 @@ async function init(initModule) {
             },
             solver_congruence_root: Mod._Z3_solver_congruence_root,
             solver_congruence_next: Mod._Z3_solver_congruence_next,
-            solver_next_split: Mod._Z3_solver_next_split,
+            solver_next_split: function (c, cb, t, idx, phase) {
+                return Mod.ccall('Z3_solver_next_split', 'boolean', ['number', 'number', 'number', 'number', 'number'], [c, cb, t, idx, phase]);
+            },
             solver_propagate_declare: function (c, name, domain, range) {
                 return Mod.ccall('Z3_solver_propagate_declare', 'number', ['number', 'number', 'number', 'array', 'number'], [
                     c,
@@ -4915,7 +4926,7 @@ async function init(initModule) {
                 if (eq_lhs.length !== eq_rhs.length) {
                     throw new TypeError(`eq_lhs and eq_rhs must be the same length (got ${eq_lhs.length} and {eq_rhs.length})`);
                 }
-                return Mod.ccall('Z3_solver_propagate_consequence', 'void', [
+                return Mod.ccall('Z3_solver_propagate_consequence', 'boolean', [
                     'number',
                     'number',
                     'number',
@@ -5405,6 +5416,43 @@ async function init(initModule) {
                     d: getOutUint(1),
                 };
             },
+            rcf_is_rational: function (c, a) {
+                return Mod.ccall('Z3_rcf_is_rational', 'boolean', ['number', 'number'], [c, a]);
+            },
+            rcf_is_algebraic: function (c, a) {
+                return Mod.ccall('Z3_rcf_is_algebraic', 'boolean', ['number', 'number'], [c, a]);
+            },
+            rcf_is_infinitesimal: function (c, a) {
+                return Mod.ccall('Z3_rcf_is_infinitesimal', 'boolean', ['number', 'number'], [c, a]);
+            },
+            rcf_is_transcendental: function (c, a) {
+                return Mod.ccall('Z3_rcf_is_transcendental', 'boolean', ['number', 'number'], [c, a]);
+            },
+            rcf_extension_index: function (c, a) {
+                let ret = Mod.ccall('Z3_rcf_extension_index', 'number', ['number', 'number'], [c, a]);
+                ret = new Uint32Array([ret])[0];
+                return ret;
+            },
+            rcf_transcendental_name: Mod._Z3_rcf_transcendental_name,
+            rcf_infinitesimal_name: Mod._Z3_rcf_infinitesimal_name,
+            rcf_num_coefficients: function (c, a) {
+                let ret = Mod.ccall('Z3_rcf_num_coefficients', 'number', ['number', 'number'], [c, a]);
+                ret = new Uint32Array([ret])[0];
+                return ret;
+            },
+            rcf_coefficient: Mod._Z3_rcf_coefficient,
+            rcf_num_sign_conditions: function (c, a) {
+                let ret = Mod.ccall('Z3_rcf_num_sign_conditions', 'number', ['number', 'number'], [c, a]);
+                ret = new Uint32Array([ret])[0];
+                return ret;
+            },
+            rcf_sign_condition_sign: Mod._Z3_rcf_sign_condition_sign,
+            rcf_num_sign_condition_coefficients: function (c, a, i) {
+                let ret = Mod.ccall('Z3_rcf_num_sign_condition_coefficients', 'number', ['number', 'number', 'number'], [c, a, i]);
+                ret = new Uint32Array([ret])[0];
+                return ret;
+            },
+            rcf_sign_condition_coefficient: Mod._Z3_rcf_sign_condition_coefficient,
             fixedpoint_query_from_lvl: function (c, d, query, lvl) {
                 return Mod.async_call(Mod._async_Z3_fixedpoint_query_from_lvl, c, d, query, lvl);
             },
