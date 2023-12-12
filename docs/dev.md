@@ -10,7 +10,7 @@
 - Hiplib: interface for all the above modules
 - Hipjs, Hip: CLI and web frontends
 
-[This file](parsing/dune) lists the submodules of the various libraries. To see the structure graphically:
+[This file](../parsing/dune) lists the submodules of the various libraries. To see the structure graphically:
 
 ```sh
 opam install dune-deps
@@ -19,7 +19,7 @@ dune-deps -x benchmarks -x src/programs.t | sed 's/\}/\{rank = same; "lib:prover
 
 ## Tests
 
-`dune test` to run [tests](src/programs.t/run.t).
+`dune test` to run [tests](../src/programs.t/run.t).
 
 Setting `TEST=1` causes the frontend to print only whether a test has failed.
 A test is a function whose main entailment proof must succeed; if its name has the suffix `_false`, the entailment must fail.
