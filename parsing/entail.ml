@@ -212,7 +212,7 @@ let rec check_qf :
   (* TODO ptr equalities? *)
   let a = Heap.normalize ante in
   let c = Heap.normalize conseq in
-  info
+  debug ~at:1
     ~title:(Format.asprintf "SL entailment (%s)" id)
     "%s |- %s" (string_of_state ante) (string_of_state conseq);
   (* TODO frame and spans *)
@@ -292,11 +292,11 @@ let rec unfold_predicate_aux pred prefix (s : spec) : disj_spec =
     r
   | HigherOrder (p, h, (name, args), ret) :: s1
     when String.equal name pred.p_name ->
-    (* info
+    (* debug ~at:1
        ~title:(Format.asprintf "unfolding: %s" name)
        "%s" (string_of_pred pred); *)
     let pred1 = instantiate_pred pred args ret in
-    (* info
+    (* debug ~at:1
        ~title:(Format.asprintf "instantiated: %s" name)
        "%s" (string_of_pred pred1); *)
     let prefix =
@@ -323,7 +323,7 @@ let unfold_predicate_spec : string -> pred_def -> spec -> disj_spec =
  fun which pred sp ->
   let@ _ =
     Debug.span (fun r ->
-        info
+        debug ~at:1
           ~title:(Format.asprintf "unfolding (%s): %s" which pred.p_name)
           "%s\nin\n%s\n==>\n%s" (string_of_pred pred) (string_of_spec sp)
           (string_of_result string_of_disj_spec r))
@@ -422,7 +422,7 @@ let rec check_staged_subsumption_stagewise :
  fun ctx i assump s1 s2 ->
  (*print_endline ("check_staged_subsumption_stagewise");*)
 
-  info ~title:"flow subsumption" "%s\n<:\n%s"
+  debug ~at:1 ~title:"flow subsumption" "%s\n<:\n%s"
     (string_of_normalisedStagedSpec s1)
     (string_of_normalisedStagedSpec s2);
   let open Search in
@@ -441,7 +441,7 @@ let rec check_staged_subsumption_stagewise :
       let@ _ =
         try_other_measures ctx s1 s2 (Some c1) (Some c2) i assump |> or_else
       in
-      info ~title:"FAIL" "constr %s != %s" c1 c2;
+      debug ~at:1 ~title:"FAIL" "constr %s != %s" c1 c2;
       fail
     | true ->
       let* _ =
@@ -449,7 +449,7 @@ let rec check_staged_subsumption_stagewise :
         let l2 = List.length a2 in
         let r = l1 = l2 in
         if not r then (
-          info ~title:"FAIL" "arg length %s (%d) != %s (%d)"
+          debug ~at:1 ~title:"FAIL" "arg length %s (%d) != %s (%d)"
             (string_of_list string_of_term a1)
             l1
             (string_of_list string_of_term a2)
@@ -506,7 +506,7 @@ let rec check_staged_subsumption_stagewise :
     let ctx = collect_local_lambda_definitions ctx None (Some es2.e_post) in
     let c2, _ = es2.e_constr in
     let@ _ = try_other_measures ctx s1 s2 None (Some c2) i assump |> or_else in
-    info ~title:"FAIL" "ante is shorter\n%s\n<:\n%s"
+    debug ~at:1 ~title:"FAIL" "ante is shorter\n%s\n<:\n%s"
       (string_of_normalisedStagedSpec s1)
       (string_of_normalisedStagedSpec s2);
       (*print_endline("fail 486");*)
@@ -515,7 +515,7 @@ let rec check_staged_subsumption_stagewise :
     let ctx = collect_local_lambda_definitions ctx (Some es1.e_post) None in
     let c1, _ = es1.e_constr in
     let@ _ = try_other_measures ctx s1 s2 (Some c1) None i assump |> or_else in
-    info ~title:"FAIL" "conseq is shorter\n%s\n<:\n%s"
+    debug ~at:1 ~title:"FAIL" "conseq is shorter\n%s\n<:\n%s"
       (string_of_normalisedStagedSpec s1)
       (string_of_normalisedStagedSpec s2);
       (*print_endline("fail 495");*)
@@ -586,7 +586,7 @@ and try_other_measures :
         in
         applied
         |> Option.iter (fun l ->
-               info
+               debug ~at:1
                  ~title:(Format.asprintf "applied: %s" l.l_name)
                  "%s\n\nafter:\n%s\n<:\n%s" (string_of_lemma l)
                  (string_of_spec s1_1)
@@ -603,7 +603,7 @@ and try_other_measures :
             | Some f -> Format.asprintf "effect stage %s" f
             | None -> Format.asprintf "normal stage"
           in
-          info
+          debug ~at:1
             ~title:
               (Format.asprintf "ran out of tricks to make %s and %s match"
                  (pp c1) (pp c2))
@@ -622,7 +622,7 @@ and stage_subsumes :
   let vs1, (pre1, post1) = s1 in
   let vs2, (pre2, post2) = s2 in
   (* TODO replace uses of all_vars. this is for us to know if locations on the rhs are quantified. a smaller set of vars is possible *)
-  info
+  debug ~at:1
     ~title:(Format.asprintf "subsumption for %s" what)
     "%s * (%sreq %s; ens %s)\n<:\n(%sreq %s; ens %s)" (string_of_pi assump)
     (string_of_existentials vs1)
@@ -645,7 +645,7 @@ and stage_subsumes :
     in
     let left = Normalize.simplify_pure left in
     let right = Normalize.simplify_pure right in
-    info
+    debug ~at:1
       ~title:(Format.asprintf "VC for precondition of %s" what)
       "%s => %s%s" (string_of_pi left)
       (string_of_existentials vs1)
@@ -653,7 +653,7 @@ and stage_subsumes :
     let pre_res =
       Provers.entails_exists (concrete_type_env tenv) left vs1 right
     in
-    info ~title:(Format.asprintf "valid?") "%s" (string_of_res pre_res);
+    debug ~at:1 ~title:(Format.asprintf "valid?") "%s" (string_of_res pre_res);
     (* TODO why do we need pre_r here? as pre_l has just been proven to subsume pre_r *)
     if pre_res then Some ((conj [pre_l; pre_r; assump], pre_resi_l), tenv)
     else None
@@ -692,19 +692,19 @@ and stage_subsumes :
     (* Format.printf "2@."; *)
     (* Format.printf "tenv %s@." (string_of_smap string_of_type tenv1); *)
     (* let _check_false_derived _ =
-      info
+      debug ~at:1
         ~title:(Format.asprintf "check: false derived?")
         "%s" (string_of_pi left);
       let false_not_derived = Provers.askZ3 tenv1 left in
-      info ~title:(Format.asprintf "false") "%s" (string_of_pi left);
+      debug ~at:1 ~title:(Format.asprintf "false") "%s" (string_of_pi left);
       if not false_not_derived then
         (* since the program is usually on the left, false on the left side of the postcondition means this *)
-        info
+        debug ~at:1
           ~title:(Format.asprintf "warning: false derived in program")
           "%s => %s%s\n%s" (string_of_pi True) "" (string_of_pi left)
           (string_of_res false_not_derived)
     in *)
-    info
+    debug ~at:1
       ~title:(Format.asprintf "VC for postcondition of %s" what)
       "%s => %s%s" (string_of_pi left)
       (string_of_existentials vs22)
@@ -717,7 +717,7 @@ and stage_subsumes :
     print_endline (string_of_bool post_result);
     *)
 
-    info ~title:(Format.asprintf "valid?") "%s" (string_of_res post_result);
+    debug ~at:1 ~title:(Format.asprintf "valid?") "%s" (string_of_res post_result);
     let f = verifier_getAfreeVar "" in
     let left = instantiatePure [("res", Var f)] left in
     let right = instantiatePure [("res", Var f)] right in
@@ -741,23 +741,23 @@ let rec apply_tactics ts lems preds (ds1 : disj_spec) (ds2 : disj_spec) =
       let r =
         match c with
         | Unfold_right ->
-          info ~title:"unfold left" "%s" ((string_of_smap string_of_pred) preds);
+          debug ~at:1 ~title:"unfold left" "%s" ((string_of_smap string_of_pred) preds);
           (* let ds2 = SMap.fold (fun _n -> unfold_predicate) preds ds2 in *)
           (ds1, ds2)
         | Unfold_left ->
-          info ~title:"unfold left" "%s" (string_of_smap string_of_pred preds);
+          debug ~at:1 ~title:"unfold left" "%s" (string_of_smap string_of_pred preds);
           (* let ds1 = SMap.fold (fun _n -> unfold_predicate) preds ds1 in *)
           (ds1, ds2)
         | Case (i, ta) ->
           (* case works on the left only *)
-          info ~title:"case" "%d" i;
+          debug ~at:1 ~title:"case" "%d" i;
           let ds, _ = apply_tactics [ta] lems preds [List.nth ds1 i] ds2 in
           (* unfolding (or otherwise adding disjuncts) inside case will break use of hd *)
           let ds11 = replace_nth i (List.hd ds) ds1 in
           (ds11, ds2)
         | Apply l ->
           (* apply works on the left only *)
-          info ~title:"apply" "%s" l;
+          debug ~at:1 ~title:"apply" "%s" l;
           failwith "apply tactic needs to be updated"
         (* ( List.map
              (List.fold_right apply_lemma
@@ -765,7 +765,7 @@ let rec apply_tactics ts lems preds (ds1 : disj_spec) (ds2 : disj_spec) =
              ds1,
            ds2 ) *)
       in
-      info ~title:"after" "%s\n<:\n%s"
+      debug ~at:1 ~title:"after" "%s\n<:\n%s"
         (string_of_disj_spec (fst r))
         (string_of_disj_spec (snd r));
       r)
@@ -784,7 +784,7 @@ let create_induction_hypothesis params ds1 ds2 =
   let fail fmt =
     Format.kasprintf
       (fun s ->
-        info ~title:"no induction hypothesis" "%s" s;
+        debug ~at:1 ~title:"no induction hypothesis" "%s" s;
         None)
       fmt
   in
@@ -809,7 +809,7 @@ let create_induction_hypothesis params ds1 ds2 =
             l_right = s2;
           }
         in
-        info ~title:"induction hypothesis" "%s" (string_of_lemma ih);
+        debug ~at:1 ~title:"induction hypothesis" "%s" (string_of_lemma ih);
         Some ih
       | [_], _ -> fail "nontrivial norm stage after"
       | _ -> fail "not just a single stage")
@@ -834,7 +834,7 @@ let check_staged_subsumption_disj :
     bool =
  fun mname params _ts lems preds ds1 ds2 ->
   Search.reset ();
-  info
+  debug ~at:1
     ~title:(Format.asprintf "disj subsumption: %s" mname)
     "%s\n<:\n%s" (string_of_disj_spec ds1) (string_of_disj_spec ds2);
   let ih = create_induction_hypothesis params ds1 ds2 in

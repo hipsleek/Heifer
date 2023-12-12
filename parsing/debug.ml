@@ -184,7 +184,7 @@ let debug ~at ~title fmt =
     fmt
 
 (** info output is shown to the user *)
-let info ~title fmt = debug ~at:1 ~title fmt
+(* let info ~title fmt = debug ~at:1 ~title fmt *)
 
 type ctx = {
   event : int;

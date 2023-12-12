@@ -1533,7 +1533,7 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) =
         (function
         | None ->
           (*print_endline ("remembering predicate for " ^ meth.m_name ^ " " ^  (string_of_pred p)); *)
-          info ~title:(Format.asprintf "remembering predicate for %s" meth.m_name) "%s" (string_of_pred p);
+          debug ~at:1 ~title:(Format.asprintf "remembering predicate for %s" meth.m_name) "%s" (string_of_pred p);
           Some p
         | Some _ -> None) prog.cp_predicates
       in
@@ -1554,7 +1554,7 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) =
         in
         (*print_endline ("inferred spec for " ^ meth.m_name ^ " " ^  (string_of_disj_spec mspec)); *)
 
-        info ~title:(Format.asprintf "inferred spec for %s" meth.m_name) "%s" (string_of_disj_spec mspec);
+        debug ~at:1 ~title:(Format.asprintf "inferred spec for %s" meth.m_name) "%s" (string_of_disj_spec mspec);
         let cp_methods = List.map (fun m -> if String.equal m.m_name meth.m_name then { m with m_spec = Some mspec } else m ) prog.cp_methods
         in
         { prog with cp_methods }
@@ -1569,7 +1569,7 @@ let run_string_ line =
   debug ~at:2 ~title:"user-specified predicates" "%s" (string_of_smap string_of_pred prog.cp_predicates);
   (* as we handle methods, predicates are inferred and are used in place of absent specifications, so we have to keep updating the program as we go *)
   List.fold_left (fun prog meth ->
-    info ~title:(Format.asprintf "verifying: %s" meth.m_name) "";
+    debug ~at:1 ~title:(Format.asprintf "verifying: %s" meth.m_name) "";
     try
       analyze_method prog meth
     with Method_failure -> prog) prog prog.cp_methods |> ignore
