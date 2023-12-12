@@ -10,9 +10,6 @@ let redirect_stdout f =
   close_out newstdout
 
 let () =
-  Hiplib.Debug.(debug_level :=
-    Option.bind (Sys.getenv_opt "DEBUG") int_of_string_opt
-    |> Option.value ~default:0);
   Hiplib.(test_mode :=
     (Option.bind (Sys.getenv_opt "TEST") int_of_string_opt
     |> Option.value ~default:0) > 0);
@@ -21,7 +18,7 @@ let () =
     |> Option.value ~default:0) > 0);
   if Unix.isatty Unix.stdout && not !Hiplib.file_mode then
     Hiplib.Pretty.colours := `Ansi;
-  Hiplib.Debug.init ();
+  Hiplib.Debug.init (Sys.getenv_opt "DEBUG");
   if !Hiplib.file_mode then
     redirect_stdout Hiplib.main
   else
