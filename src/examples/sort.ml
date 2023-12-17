@@ -7,8 +7,8 @@ let rec partition xs pivot =
       if y <= pivot then (y :: less_than, greater_than)
       else (less_than, y :: greater_than)
 
-let rec quicksort xs
-= match xs with
+let rec quicksort xs =
+  match xs with
   | [] -> []
   | y :: ys ->
     (* Choose the head as a pivot *)
