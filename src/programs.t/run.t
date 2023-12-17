@@ -89,6 +89,9 @@ ALL OK!
   $ check ../examples/exception.ml
   ALL OK!
 
+  $ check ../examples/sort.ml
+  ALL OK!
+
 This example is very slow but works
 
 $ check ../examples/all.ml
