@@ -77,6 +77,9 @@ ALL OK!
   $ check ../examples/map.ml
   ALL OK!
 
+  $ check ../examples/length.ml
+  ALL OK!
+
   $ check ../examples/closure.ml
   ALL OK!
 
