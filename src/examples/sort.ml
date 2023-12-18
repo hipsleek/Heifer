@@ -14,3 +14,8 @@ let rec quicksort xs =
     (* Choose the head as a pivot *)
     let lesser_than_equal, greater_than = partition ys y in
     quicksort lesser_than_equal @ y :: (quicksort greater_than)
+
+let quicksort_example () (* FIXME *)
+(*@ Norm(emp, []) @*)
+= let lst = [] in
+  quicksort lst
