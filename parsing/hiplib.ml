@@ -1052,7 +1052,7 @@ let transform_strs (strs: structure_item list) : core_program =
         env, es, ms, ps, SMap.add p.p_sl_name p slps,ls
       | Some (`Eff a) -> env, a :: es, ms, ps, slps, ls
       | Some (`Meth (m_name, m_params, m_spec, m_body, m_tactics)) -> 
-        let m_spec' = 
+        (* let m_spec' = 
           (match m_spec with 
           | None -> None 
           | Some spec -> 
@@ -1064,7 +1064,10 @@ let transform_strs (strs: structure_item list) : core_program =
           (*print_endline ("~~~> " ^ string_of_disj_spec spec'' ^"\n");*)
           Some spec''
           ) 
-        in 
+        in *)
+        (* ASK YAHUI *)
+        (* the right fix is likely to unfold all non-recursive predicates internally before entailment *)
+        let m_spec' = m_spec in
         m_name :: env, es, { m_name=m_name; m_params=m_params; m_spec=m_spec'; m_body=m_body; m_tactics=m_tactics } :: ms, ps, slps, ls
       | _ -> env, es, ms, ps, slps, ls
     ) ([], [], [], SMap.empty, SMap.empty, SMap.empty) strs

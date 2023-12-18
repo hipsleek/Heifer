@@ -270,3 +270,14 @@ let if_let x
 (*@ Norm(emp, 1) \/ Norm(emp, 2) @*)
 = let y = not x in
   if y then 1 else 2
+
+let foo1 xs = 1
+let foo2 xs (*@ ens res=1 @*) = 1
+
+let goo1 xs
+(*@ ex t; foo1(xs, t); ens res=t @*)
+= foo1 xs
+
+let goo2 xs
+(*@ ex t; foo2(xs, t); ens res=t @*)
+= foo2 xs
