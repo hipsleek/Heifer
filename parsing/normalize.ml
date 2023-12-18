@@ -779,7 +779,7 @@ let final_simplification (effs, norm) =
   let ex, pre, post = norm in
   (effs1, (ex, simplify_state pre, simplify_state post))
 
-(* for each variable, find how many times it is used and what other variables it is equal to *)
+(* for each variable, find how many times it is used and what other terms it is equal to *)
 (* TODO generalise to related to *)
 let count_uses_and_equalities =
   let add _k a b =
@@ -803,7 +803,8 @@ let count_uses_and_equalities =
         | EQ, Var a, b | EQ, b, Var a ->
           plus (SMap.singleton a (1, [b])) (self#visit_term () b)
         | EQ, a, b -> plus (self#visit_term () a) (self#visit_term () b)
-        | _ -> zero
+        | _, a, b ->
+          plus (self#visit_term () a) (self#visit_term () b)
 
       method! visit_Var _ v = SMap.singleton v (1, [])
 
