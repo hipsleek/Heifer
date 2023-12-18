@@ -17,7 +17,7 @@ let main () =
   Jv.set Jv.global "hip_run_string"
     (Jv.callback ~arity:1 (fun s ->
          let debug = Jv.call Jv.global "debug_output" [||] |> Jv.to_bool in
-         Hiplib.Debug.debug_level := if debug then 2 else 0;
+         Hiplib.Debug.user_query := if debug then [(Show, LogLevel 2, false)] else [(Hide, All, false)];
          Hiplib.run_string (Jv.to_string s)))
 
 let () = main ()
