@@ -106,7 +106,7 @@ let all_ :
     | [], _ -> Some (List.rev rs)
     | x :: xs, u :: us ->
       update_current u;
-      info
+      debug ~at:1
         ~title:(Format.asprintf "all (%s / %s)" name (to_s x))
         "%s" (show_search_tree true);
       let r = f x in
@@ -144,7 +144,7 @@ let any : name:string -> to_s:('a -> string) -> 'a list -> ('a -> 'b t) -> 'b t
       | [], _ -> fail
       | v :: vs1, u :: us ->
         update_current u;
-        info
+        debug ~at:1
           ~title:(Format.asprintf "any (%s / %s)" name (to_s v))
           "%s" (show_search_tree true);
         let res = f v in

@@ -779,7 +779,7 @@ let final_simplification (effs, norm) =
   let ex, pre, post = norm in
   (effs1, (ex, simplify_state pre, simplify_state post))
 
-(* for each variable, find how many times it is used and what other variables it is equal to *)
+(* for each variable, find how many times it is used and what other terms it is equal to *)
 (* TODO generalise to related to *)
 let count_uses_and_equalities =
   let add _k a b =
@@ -803,7 +803,8 @@ let count_uses_and_equalities =
         | EQ, Var a, b | EQ, b, Var a ->
           plus (SMap.singleton a (1, [b])) (self#visit_term () b)
         | EQ, a, b -> plus (self#visit_term () a) (self#visit_term () b)
-        | _ -> zero
+        | _, a, b ->
+          plus (self#visit_term () a) (self#visit_term () b)
 
       method! visit_Var _ v = SMap.singleton v (1, [])
 
@@ -937,22 +938,37 @@ let rec simplify_spec n sp2 =
        (string_of_normalisedStagedSpec sp3); *)
   (* redundant vars may appear due to fresh stages and removal of res via intermediate variables *)
 
-  let sp4 = sp3 |> optimize_existentials in
-  debug ~at:3
-    ~title:"normalize_spec: move existentials inward and remove unused"
-    "%s\n==>\n%s"
-    (string_of_normalisedStagedSpec sp3)
-    (string_of_normalisedStagedSpec sp4);
+  let sp4 =
+    let@ _ =
+      Debug.span (fun r ->
+        debug ~at:3
+            ~title:"normalize_spec: move existentials inward and remove unused"
+            "%s\n==>\n%s"
+            (string_of_normalisedStagedSpec sp3)
+            (string_of_result string_of_normalisedStagedSpec r))
+    in
+    optimize_existentials sp3
+  in
 
-  let sp5 = remove_temp_vars sp4 in
-  debug ~at:3 ~title:"normalize_spec: remove temp vars" "%s\n==>\n%s"
-    (string_of_normalisedStagedSpec sp4)
-    (string_of_normalisedStagedSpec sp5);
+  let sp5 =
+    let@ _ =
+      Debug.span (fun r ->
+        debug ~at:3 ~title:"normalize_spec: remove temp vars" "%s\n==>\n%s"
+          (string_of_normalisedStagedSpec sp4)
+          (string_of_result string_of_normalisedStagedSpec r))
+    in
+    remove_temp_vars sp4
+  in
 
-  let sp6 = final_simplification sp5 in
-  debug ~at:3 ~title:"normalize_spec: final simplification pass" "%s\n==>\n%s"
-    (string_of_normalisedStagedSpec sp5)
-    (string_of_normalisedStagedSpec sp6);
+  let sp6 =
+    let@ _ =
+      Debug.span (fun r ->
+        debug ~at:3 ~title:"normalize_spec: final simplification pass" "%s\n==>\n%s"
+          (string_of_normalisedStagedSpec sp5)
+          (string_of_result string_of_normalisedStagedSpec r))
+    in
+    final_simplification sp5
+  in
 
   if sp6 = sp2 || n < 0 then sp6 else simplify_spec (n - 1) sp2
 

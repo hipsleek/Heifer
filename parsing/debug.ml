@@ -1,76 +1,84 @@
 (* 0: no output except results
    1: high-level output to explain to a user what is going on
    2 and above: for developers, higher levels give more detail *)
-let debug_level = ref 0
+(* let debug_level = ref 0 *)
 let debug_event_n = ref 0
-let stack = ref []
+let stack : (string * int) list ref = ref []
 let advanced = ref true
 let pp_event ppf r = Format.fprintf ppf "_%d" r
 let is_closing = ref false
 let is_opening = ref false
-let blacklist = Sys.getenv_opt "BLACKLIST" |> Option.map Str.regexp_case_fold
-let whitelist = Sys.getenv_opt "WHITELIST" |> Option.map Str.regexp_case_fold
-let collapse = Sys.getenv_opt "COLLAPSE" |> Option.map Str.regexp_case_fold
+let last_title = ref ""
 
 type query_on =
   | Time of int
   | Range of int * int
   | Regex of string * Str.regexp
+  | LogLevel of int
+  | All (* to avoid a catch-all regex *)
 
 type query_action =
   | Hide
   | Show
 
-type query = (query_action * query_on) list
+let may_fail f = try Some (f ()) with _ -> None
+let parses f = Option.is_some (may_fail f)
+
+type query = (query_action * query_on * bool) list
 
 (** terrible parser for a ;-separated string *)
 let parse_query s =
-  let parts = Str.split (Str.regexp {| *; *|}) s in
+  let parts = Str.split (Str.regexp {|[ ]*;[ ]*|}) s in
   let regex =
-    Str.regexp {|\(h\|s\) \(\([0-9]+\)-\([0-9]+\)\|\([0-9]+\)\|\(.*\)\)|}
+    Str.regexp
+      {|\(h\|s\|hr\|sr\) \(\([0-9]+\)-\([0-9]+\)\|\([0-9]+\)\|\(.*\)\)\|\([0-9]+\)|}
   in
-  try
-    let parts =
-      List.map
-        (fun p ->
-          if Str.string_match regex p 0 then
-            let hs =
+  (* let parts =
+       (* extract debug level *)
+       match parts with
+       | s :: rest ->
+         (try
+            debug_level := int_of_string s;
+            rest
+          with _ -> parts)
+       | [] -> parts
+     in *)
+  let parts =
+    List.concat_map
+      (fun p ->
+        if Str.string_match regex p 0 then
+          match () with
+          | _ when parses (fun () -> Str.matched_group 7 p) ->
+            let l = Str.matched_group 7 p |> int_of_string in
+            [(Show, LogLevel l, false)]
+          | _ ->
+            let action, recursive =
               match Str.matched_group 1 p with
-              | "s" -> Show
-              | "h" -> Hide
-              | (exception _) | _ -> failwith "invalid"
+              | "s" -> (Show, false)
+              | "h" -> (Hide, false)
+              | "sr" -> (Show, true)
+              | "hr" -> (Hide, true)
+              | (exception _) | _ -> failwith "invalid action"
             in
-            let other =
+            let on =
               match () with
-              | _
-                when try
-                       ignore (Str.matched_group 3 p);
-                       true
-                     with Not_found -> false ->
+              | _ when parses (fun () -> Str.matched_group 3 p) ->
                 Range
                   ( Str.matched_group 3 p |> int_of_string,
                     Str.matched_group 4 p |> int_of_string )
-              | _
-                when try
-                       ignore (Str.matched_group 5 p);
-                       true
-                     with Not_found -> false ->
+              | _ when parses (fun () -> Str.matched_group 5 p) ->
                 Time (Str.matched_group 5 p |> int_of_string)
-              | _
-                when try
-                       ignore (Str.matched_group 6 p);
-                       true
-                     with Not_found -> false ->
+              | _ when parses (fun () -> Str.matched_group 6 p) ->
                 let s = Str.matched_group 6 p in
                 Regex (s, Str.regexp_case_fold s)
-              | (exception _) | _ -> failwith "invalid"
+              | (exception _) | _ -> failwith "invalid on"
             in
-            (hs, other)
-          else failwith "unable to parse")
-        parts
-    in
-    Some parts
-  with Failure _ -> None
+            [(action, on, recursive)]
+        else failwith "unable to parse query")
+      parts
+  in
+  (* let exceptions escape *)
+  Some parts
 
 let string_of_query_action a = match a with Hide -> "Hide" | Show -> "Show"
 
@@ -79,54 +87,58 @@ let string_of_query_on o =
   | Time i -> Format.asprintf "Time(%d)" i
   | Range (a, b) -> Format.asprintf "Range(%d, %d)" a b
   | Regex (s, _) -> Format.asprintf "Regex(%s)" s
+  | LogLevel l -> Format.asprintf "LogLevel(%d)" l
+  | All -> "All"
 
 let string_of_query qs =
   Common.string_of_list
-    (fun (action, on) ->
-      Format.asprintf "(%s, %s)"
+    (fun (action, on, recursive) ->
+      Format.asprintf "(%s, %s, %b)"
         (string_of_query_action action)
-        (string_of_query_on on))
+        (string_of_query_on on) recursive)
     qs
 
-let user_query : query ref =
-  ref
-    (Sys.getenv_opt "QUERY"
-    |> (fun o -> Option.bind o parse_query)
-    |> Option.value ~default:[])
-
-let collapse i = (Hide, Time i)
-let expand i = (Show, Time i)
-let whitelist r = (Show, Regex (r, Str.regexp_case_fold r))
-let blacklist r = (Hide, Regex (r, Str.regexp_case_fold r))
+let user_query : query ref = ref []
+let collapse i = (Hide, Time i, true)
+let expand i = (Show, Time i, true)
+let whitelist r = (Show, Regex (r, Str.regexp_case_fold r), false)
+let blacklist r = (Hide, Regex (r, Str.regexp_case_fold r), false)
 let trace_out = ref None
 
 let summarize_stack () =
   (* String.concat "@"
      (!stack |> List.rev |> List.map (fun i -> Format.asprintf "%a" pp_event i)) *)
-  match !stack with [] -> "" | e :: _ -> Format.asprintf "%a" pp_event e
+  match !stack with [] -> "" | (_t, e) :: _ -> Format.asprintf "%a" pp_event e
 
-(* affects can return if it's directly or indirectly (as a child) affected, for more granular control *)
-let affects title time (_, o) =
-  match o with
-  | Regex (_, r) -> Str.string_match r title 0
-  | Time t -> List.mem t !stack || t = time
-  | Range (s, e) ->
-    List.exists (fun t -> s <= t && t <= e) !stack || s = time || e = time
+let affects at title time (_, on, recursive) =
+  match (on, recursive) with
+  | LogLevel i, _ -> at <= i
+  | Regex (_, r), false -> Str.string_match r title 0
+  | Regex (_, r), true ->
+    List.exists (fun (t, _e) -> Str.string_match r t 0) !stack
+    || Str.string_match r title 0
+  | Time t, true -> List.exists (fun (_, t1) -> t1 = t) !stack || t = time
+  | Time t, false -> t = time
+  | Range (s, e), true ->
+    List.exists (fun (_, t) -> s <= t && t <= e) !stack || s = time || e = time
+  | Range (s, e), false -> s <= time && time <= e
+  | All, _ -> true
 
-let rec interpret title time qs =
+let interpret at title time qs =
   List.rev qs
-  |> List.find_map (fun q ->
-         let af = affects title time q in
-         match (af, fst q) with
+  |> List.find_map (fun ((action, _, _) as q) ->
+         let af = affects at title time q in
+         match (af, action) with
          | true, Show -> Some true
          | true, Hide -> Some false
          | false, _ -> None)
-  |> Option.value ~default:true
+  |> Option.value ~default:false
 
 let ctf = false
 (* let ctf = true *)
 
-let debug_print title s =
+let debug_print at title s =
+  last_title := title;
   let title =
     match ctf with
     | false ->
@@ -137,7 +149,7 @@ let debug_print title s =
       Format.asprintf "%s | %a%s" title pp_event !debug_event_n stack
     | true -> title
   in
-  let show = interpret title !debug_event_n !user_query in
+  let show = interpret at title !debug_event_n !user_query in
   match show with
   | false -> ()
   | true ->
@@ -167,12 +179,13 @@ let debug_print title s =
 let debug ~at ~title fmt =
   Format.kasprintf
     (fun s ->
-      if !debug_level >= at then debug_print title s;
+      (* if !debug_level >= at then *)
+      debug_print at title s;
       incr debug_event_n)
     fmt
 
 (** info output is shown to the user *)
-let info ~title fmt = debug ~at:1 ~title fmt
+(* let info ~title fmt = debug ~at:1 ~title fmt *)
 
 type ctx = {
   event : int;
@@ -197,7 +210,7 @@ let span show k =
   show None;
   is_opening := false;
   (* in *)
-  stack := start :: !stack;
+  stack := (!last_title, start) :: !stack;
   (* Format.printf "%s@." args; *)
   let r = k () in
 
@@ -222,11 +235,13 @@ let pp_result f ppf r =
 let string_of_result f r =
   match r with None -> "..." | Some r -> Format.asprintf "%s" (f r)
 
-let init () =
+let init query =
   if ctf then (
     let oc = open_out "trace.json" in
     trace_out := Some (Format.formatter_of_out_channel oc);
-    Format.fprintf (!trace_out |> Option.get) "[@.")
+    Format.fprintf (!trace_out |> Option.get) "[@.");
+  user_query :=
+    query |> (fun o -> Option.bind o parse_query) |> Option.value ~default:[]
 
 let%expect_test _ =
   let open Common in
@@ -248,47 +263,43 @@ let%expect_test _ =
   in
 
   let test q =
-    debug_level := 3;
+    (* debug_level := 3; *)
     debug_event_n := 0;
     user_query := q;
     Format.printf "-----@.";
     Format.printf "%s@." (string_of_query q);
+    Format.printf "-----@.";
     test_program ()
   in
 
   test [];
-  test [collapse 1; whitelist "aaa"];
   test [whitelist "aa"];
-  (* test [blacklist ".*"; whitelist "aa"]; *)
+  test [blacklist "aa"];
+  test [(Show, All, false); collapse 1; whitelist "aaa"];
   test (parse_query "h .*; s aa" |> Option.get);
-  test [blacklist ".*"; expand 1];
-  test [blacklist ".*"; whitelist "aa"; blacklist ".*"; whitelist ".*efo"];
+  test [expand 1];
+  test [whitelist "aa"; blacklist ".*"; whitelist ".*efo"];
   test [whitelist "aa"; blacklist "aa"];
   test [whitelist "aa"; blacklist "aa"; whitelist "aa"];
-  test [blacklist "aa"];
-  test [blacklist ".*"; (Show, Range (1, 2))];
+  test [(Show, Range (1, 2), true)];
 
   [%expect
     {|
     -----
     []
-    ==== before | _0 ====
-    b
-
-    ==== hi | _1 ====
-    2 ==> ...
-
+    -----
+    -----
+    [(Show, Regex(aa), false)]
+    -----
     ==== aaa | _2 ====
     b
 
-    ==== hi | _3 <-_1 ====
-    2 ==> 3
-
-    ==== after | _4 ====
-    b
-
     -----
-    [(Hide, Time(1)); (Show, Regex(aaa))]
+    [(Hide, Regex(aa), false)]
+    -----
+    -----
+    [(Show, All, false); (Hide, Time(1), true); (Show, Regex(aaa), false)]
+    -----
     ==== before | _0 ====
     b
 
@@ -299,29 +310,14 @@ let%expect_test _ =
     b
 
     -----
-    [(Show, Regex(aa))]
-    ==== before | _0 ====
-    b
-
-    ==== hi | _1 ====
-    2 ==> ...
-
-    ==== aaa | _2 ====
-    b
-
-    ==== hi | _3 <-_1 ====
-    2 ==> 3
-
-    ==== after | _4 ====
-    b
-
+    [(Hide, Regex(.*), false); (Show, Regex(aa), false)]
     -----
-    [(Hide, Regex(.*)); (Show, Regex(aa))]
     ==== aaa | _2 ====
     b
 
     -----
-    [(Hide, Regex(.*)); (Show, Time(1))]
+    [(Show, Time(1), true)]
+    -----
     ==== hi | _1 ====
     2 ==> ...
 
@@ -332,57 +328,23 @@ let%expect_test _ =
     2 ==> 3
 
     -----
-    [(Hide, Regex(.*)); (Show, Regex(aa)); (Hide, Regex(.*)); (Show, Regex(.*efo))]
+    [(Show, Regex(aa), false); (Hide, Regex(.*), false); (Show, Regex(.*efo), false)]
+    -----
     ==== before | _0 ====
     b
 
     -----
-    [(Show, Regex(aa)); (Hide, Regex(aa))]
-    ==== before | _0 ====
-    b
-
-    ==== hi | _1 ====
-    2 ==> ...
-
-    ==== hi | _3 <-_1 ====
-    2 ==> 3
-
-    ==== after | _4 ====
-    b
-
+    [(Show, Regex(aa), false); (Hide, Regex(aa), false)]
     -----
-    [(Show, Regex(aa)); (Hide, Regex(aa)); (Show, Regex(aa))]
-    ==== before | _0 ====
-    b
-
-    ==== hi | _1 ====
-    2 ==> ...
-
+    -----
+    [(Show, Regex(aa), false); (Hide, Regex(aa), false); (Show, Regex(aa), false)]
+    -----
     ==== aaa | _2 ====
     b
 
-    ==== hi | _3 <-_1 ====
-    2 ==> 3
-
-    ==== after | _4 ====
-    b
-
     -----
-    [(Hide, Regex(aa))]
-    ==== before | _0 ====
-    b
-
-    ==== hi | _1 ====
-    2 ==> ...
-
-    ==== hi | _3 <-_1 ====
-    2 ==> 3
-
-    ==== after | _4 ====
-    b
-
+    [(Show, Range(1, 2), true)]
     -----
-    [(Hide, Regex(.*)); (Show, Range(1, 2))]
     ==== hi | _1 ====
     2 ==> ...
 

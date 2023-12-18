@@ -16,14 +16,12 @@ let col ~ansi ~html ~title text =
   (match !colours with
   | `None when title -> "==== "
   | `None -> ""
-  | `Ansi -> ""
-  (* ansi *)
+  | `Ansi -> ansi
   | `Html -> html) ^ text ^
   (match !colours with
   | `None when title -> " ===="
   | `None -> ""
-  | `Ansi -> ""
-    (* "\u{001b}[0m" *)
+  | `Ansi -> "\u{001b}[0m"
   | `Html -> "</span>")
 
 let red text = col ~ansi:"\u{001b}[31m" ~html:"<span class=\"output-error\">" ~title:false text
@@ -173,7 +171,7 @@ let rec string_of_term t : string =
   | TOr (a, b) -> Format.asprintf "%s || %s" (string_of_term a) (string_of_term b)
   | Var str -> str
   | Rel (bop, t1, t2) ->
-    "rel" ^ string_of_term t1 ^ (match bop with | EQ -> "==" | _ -> string_of_bin_op bop) ^ string_of_term t2
+    "(" ^ string_of_term t1 ^ (match bop with | EQ -> "==" | _ -> string_of_bin_op bop) ^ string_of_term t2 ^ ")"
   | Plus (t1, t2) -> string_of_term t1 ^ "+" ^ string_of_term t2
   | Minus (t1, t2) -> string_of_term t1 ^ "-" ^ string_of_term t2
   | TPower (t1, t2) -> "(" ^string_of_term t1 ^ "^(" ^ string_of_term t2 ^ "))"
@@ -431,7 +429,7 @@ let rec string_of_core_lang (e:core_lang) :string =
   match e with
   | CValue v -> string_of_term v
   | CLet (v, e, e1) -> Format.sprintf "let %s = %s in\n%s" v (string_of_core_lang e) (string_of_core_lang e1)
-  | CIfELse (pi, t, e) -> Format.sprintf "if %s then %s else %s" (string_of_pi pi)  (string_of_core_lang t) (string_of_core_lang e)
+  | CIfELse (pi, t, e) -> Format.sprintf "if %s then %s else (%s)" (string_of_pi pi)  (string_of_core_lang t) (string_of_core_lang e)
   | CFunCall (f, [a; b]) when not (is_alpha (String.get f 0)) -> Format.sprintf "%s %s %s" (string_of_term a) f (string_of_term b)
   | CFunCall (f, xs) -> Format.sprintf "%s %s" f (List.map string_of_term xs |> String.concat " ")
   | CWrite (v, e) -> Format.sprintf "%s := %s" v (string_of_term e)
@@ -440,7 +438,7 @@ let rec string_of_core_lang (e:core_lang) :string =
   | CAssert (p, h) -> Format.sprintf "assert (%s && %s)" (string_of_pi p) (string_of_kappa h)
   | CPerform (eff, Some arg) -> Format.sprintf "perform %s %s" eff (string_of_term arg)
   | CPerform (eff, None) -> Format.sprintf "perform %s" eff
-  | CMatch (None, e, vs, hs, cs) -> Format.sprintf "match %s with\n%s%s\n%s" (string_of_core_lang e) (match vs with | Some (v, norm) -> Format.asprintf "| %s -> %s\n" v (string_of_core_lang norm) | _ -> "") (string_of_core_handler_ops hs) (string_of_constr_cases cs)
+  | CMatch (None, e, vs, hs, cs) -> Format.sprintf "match %s with\n%s%s%s" (string_of_core_lang e) (match vs with | Some (v, norm) -> Format.asprintf "| %s -> %s\n" v (string_of_core_lang norm) | _ -> "") (match hs with | [] -> "" | _ :: _ -> string_of_core_handler_ops hs ^ "\n") (match cs with [] -> "" | _ :: _ -> string_of_constr_cases cs)
   | CMatch (Some spec, e, vs, hs, cs) -> Format.sprintf "match %s%s with\n%s%s\n%s" (string_of_disj_spec spec) (string_of_core_lang e) (match vs with | Some (v, norm) -> Format.asprintf "| %s -> %s\n" v (string_of_core_lang norm) | _ -> "") (string_of_core_handler_ops hs) (string_of_constr_cases cs)
   | CResume tList -> Format.sprintf "continue %s" (List.map string_of_term tList |> String.concat " ")
   | CLambda (xs, spec, e) -> Format.sprintf "fun %s%s -> %s" (String.concat " " xs) (match spec with None -> "" | Some ds -> Format.asprintf " (*@@ %s @@*)" (string_of_disj_spec ds)) (string_of_core_lang e)
