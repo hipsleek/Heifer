@@ -323,6 +323,14 @@ type core_program = {
   cp_methods: meth_def list;
 }
 
+let empty_program = {
+  cp_effs = [];
+  cp_methods = [];
+  cp_predicates = SMap.empty;
+  cp_sl_predicates = SMap.empty;
+  cp_lemmas = SMap.empty
+}
+
 include Common
 
 type 'a quantified = string list * 'a

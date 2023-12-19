@@ -839,6 +839,7 @@ let rec lookUpFromPure p str : term option =
 
 
 
+(** env just keeps track of all the bound names *)
 let transform_str env (s : structure_item) =
   match s.pstr_desc with
   | Pstr_value (_rec_flag, vb::_vbs_) ->
@@ -1033,50 +1034,74 @@ let replacePredicatesWithDef (specs:disj_spec) (ms:meth_def list) (ps:pred_def S
   
   in  List.flatten (List.map (fun spec -> helper spec) specs)
 
+exception Method_failure
 
-let transform_strs (strs: structure_item list) : core_program =
-  let _env, effs, mths, preds, sl_preds, lems =
-    List.fold_left (fun (env, es, ms, ps, slps, ls) c ->
+let process_items analyze_method (strs: structure_item list) : unit =
+  strs |>
+    List.fold_left (fun (env, prog) c ->
       match transform_str env c with
-      | Some (`Lem l) -> env, es, ms, ps, slps, SMap.add l.l_name l ls
+      | Some (`Lem l) ->
+        env, { prog with cp_lemmas = SMap.add l.l_name l prog.cp_lemmas }
       | Some (`Pred p) -> 
         (*print_endline ("\n"^ p.p_name ^  Format.asprintf "(%s)" (String.concat ", " p.p_params) ^ ": ");
         print_endline (string_of_disj_spec p.p_body);
         *)
 
-        let body' = replaceSLPredicatesWithDef p.p_body slps in 
+        let body' = replaceSLPredicatesWithDef p.p_body prog.cp_sl_predicates in 
         (*print_endline ("~~~> " ^ string_of_disj_spec body');
         *)
         let (p': pred_def) = {p_name =p.p_name; p_params = p.p_params; p_body = body'} in 
-        env, es, ms, SMap.add p'.p_name p' ps, slps, ls
+        env, { prog with cp_predicates = SMap.add p'.p_name p' prog.cp_predicates }
 
       | Some (`SLPred p) -> 
         (*
         print_endline ("\n"^ p.p_sl_name^  Format.asprintf "(%s)" (String.concat ", " p.p_sl_params) ^ ": " ^ Format.asprintf "ex %s; " (String.concat " " p.p_sl_ex) ^ string_of_state p.p_sl_body);
         *)
-        env, es, ms, ps, SMap.add p.p_sl_name p slps,ls
-      | Some (`Eff a) -> env, a :: es, ms, ps, slps, ls
+        env, { prog with cp_sl_predicates = SMap.add p.p_sl_name p prog.cp_sl_predicates }
+      | Some (`Eff _) ->
+        (* ignore *)
+        env, prog
       | Some (`Meth (m_name, m_params, m_spec, m_body, m_tactics)) -> 
-        (* let m_spec' = 
+        (* ASK YAHUI *)
+        (* let _m_spec' = 
           (match m_spec with 
           | None -> None 
           | Some spec -> 
           (*print_endline ("\n"^ m_name ^  Format.asprintf "(%s)" (String.concat ", " m_params) ^ ": ");
           print_endline (string_of_disj_spec spec);*)
-          let spec' = replacePredicatesWithDef spec ms ps in 
+          let spec' = replacePredicatesWithDef spec prog.cp_methods prog.cp_predicates in 
           (*print_endline ("~~~> " ^ string_of_disj_spec spec');*)
-          let spec'' = (replaceSLPredicatesWithDef spec' slps) in 
+          let spec'' = (replaceSLPredicatesWithDef spec' prog.cp_sl_predicates) in 
           (*print_endline ("~~~> " ^ string_of_disj_spec spec'' ^"\n");*)
           Some spec''
           ) 
         in *)
-        (* ASK YAHUI *)
         (* the right fix is likely to unfold all non-recursive predicates internally before entailment *)
         let m_spec' = m_spec in
-        m_name :: env, es, { m_name=m_name; m_params=m_params; m_spec=m_spec'; m_body=m_body; m_tactics=m_tactics } :: ms, ps, slps, ls
-      | _ -> env, es, ms, ps, slps, ls
-    ) ([], [], [], SMap.empty, SMap.empty, SMap.empty) strs
-  in { cp_effs = List.rev effs; cp_methods = List.rev mths; cp_predicates = preds; cp_sl_predicates = sl_preds; cp_lemmas = lems }
+        let meth = { m_name=m_name; m_params=m_params; m_spec=m_spec'; m_body=m_body; m_tactics=m_tactics } in
+
+        debug ~at:2 ~title:"parsed" "%s" (string_of_program prog);
+        debug ~at:2 ~title:"user-specified predicates" "%s" (string_of_smap string_of_pred prog.cp_predicates);
+        (* as we handle methods, predicates are inferred and are used in place of absent specifications, so we have to keep updating the program as we go *)
+        let prog = { prog with cp_methods = meth :: prog.cp_methods } in
+        begin try
+          let prog =
+            let@ _ =
+              Debug.span (fun _r ->
+                  debug ~at:1
+                    ~title:(Format.asprintf "verifying: %s" meth.m_name) "")
+            in
+            analyze_method prog meth
+          in
+          m_name :: env, prog
+        with Method_failure ->
+          (* update program with method regardless of failure *)
+          env, prog
+        end
+      | None -> env, prog
+    )
+    ([], empty_program)
+    |> ignore
 
 let string_of_token =
   let open Parser in
@@ -1432,9 +1457,7 @@ let check_obligation meth prog predicates (l, r) =
   let res = Entail.check_staged_subsumption_disj meth.m_name meth.m_params meth.m_tactics prog.cp_lemmas predicates l r in
   report_result ~kind:"Obligation" ~given_spec:r ~inferred_spec:l ~result:res meth.m_name
 
-exception Method_failure
-
-let analyze_method prog ({m_spec = given_spec; _} as meth) =
+let analyze_method prog ({m_spec = given_spec; _} as meth) : core_program =
 
   let () =  z3_consumption := 0.0 in 
   let time_stamp_beforeForward = Sys.time () in
@@ -1571,16 +1594,8 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) =
     prog)
 
 let run_string_ line =
-  let progs = Parser.implementation Lexer.token (Lexing.from_string line) in
-  let prog = transform_strs progs in
-  debug ~at:2 ~title:"parsed" "%s" (string_of_program prog);
-  debug ~at:2 ~title:"user-specified predicates" "%s" (string_of_smap string_of_pred prog.cp_predicates);
-  (* as we handle methods, predicates are inferred and are used in place of absent specifications, so we have to keep updating the program as we go *)
-  List.fold_left (fun prog meth ->
-    debug ~at:1 ~title:(Format.asprintf "verifying: %s" meth.m_name) "";
-    try
-      analyze_method prog meth
-    with Method_failure -> prog) prog prog.cp_methods |> ignore
+  let items = Parser.implementation Lexer.token (Lexing.from_string line) in
+  process_items analyze_method items
 
 let run_string s =
   Provers.handle (fun () -> run_string_ s)
