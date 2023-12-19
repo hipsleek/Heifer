@@ -1359,8 +1359,8 @@ structure_item:
     EQUAL vs=optionExistDeclear body=statefml RSPECCOMMENT
     { mkstr ~loc:$sloc (Pstr_SL_predicate (vs, name, args, body)) }
 
-  | LSPECCOMMENT LEMMA name=LIDENT EQUAL left=stagedSpec1 IMPLICATION right=effect_spec RSPECCOMMENT
-    { mkstr ~loc:$sloc (Pstr_lemma (name, left, right)) }
+  | LSPECCOMMENT LEMMA name=LIDENT args=list(LIDENT) EQUAL left=stagedSpec1 IMPLICATION right=effect_spec RSPECCOMMENT
+    { mkstr ~loc:$sloc (Pstr_lemma (name, args, left, right)) }
   | mkstr(
       item_extension post_item_attributes
         { let docs = symbol_docs $sloc in

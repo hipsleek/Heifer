@@ -858,8 +858,13 @@ let transform_str env (s : structure_item) =
       failwith (Format.asprintf "not a function binding: %a" Pprintast.expression fn)
     end
     
-  | Pstr_lemma (_l_name, _l_left, _l_right) ->
-    failwith "parsing user-defined lemma, TODO"
+  | Pstr_lemma (l_name, l_params, l_left, l_right) ->
+    let l_left =
+      match l_left with
+      | HigherOrder (_p, _h, constr, _r) -> constr
+      | _ -> failwith (Format.asprintf "lemma %s should have function on the left" l_name)
+    in
+    Some (`Lem {l_name; l_params; l_left; l_right})
   | Pstr_predicate (p_name, p_params, p_body) -> Some (`Pred {p_name; p_params; p_body})
   | Pstr_SL_predicate (p_sl_ex, p_sl_name, p_sl_params, p_sl_body) -> Some (`SLPred {p_sl_ex; p_sl_name; p_sl_params; p_sl_body})
 
@@ -1033,7 +1038,7 @@ let transform_strs (strs: structure_item list) : core_program =
   let _env, effs, mths, preds, sl_preds, lems =
     List.fold_left (fun (env, es, ms, ps, slps, ls) c ->
       match transform_str env c with
-      | Some (`Lem l) -> env, es, ms, ps, slps, SMap.add l.p_name l ls
+      | Some (`Lem l) -> env, es, ms, ps, slps, SMap.add l.l_name l ls
       | Some (`Pred p) -> 
         (*print_endline ("\n"^ p.p_name ^  Format.asprintf "(%s)" (String.concat ", " p.p_params) ^ ": ");
         print_endline (string_of_disj_spec p.p_body);

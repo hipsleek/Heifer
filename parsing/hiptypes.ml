@@ -293,10 +293,6 @@ type meth_def = {
   m_tactics : tactic list;
 }
 
-
-
-(* type eff_def = string *)
-
 (** A predicate is a name for a parameterized disjunctive spec, of the form [f(x, ...) == spec \/ ...], where x, ... are all parameters *)
 type pred_def = {
   p_name: string;
