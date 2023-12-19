@@ -626,6 +626,7 @@ let mk_directive ~loc name arg =
 %token CONJUNCTION
 %token DISJUNCTION
 %token IMPLICATION
+%token SUBSUMES
 %token REQUIRES  EFFTRY EFFCATCH
 %token ENSURES
 %token EMP
@@ -788,6 +789,7 @@ The precedences must be listed from low to high.
 %left     CONJUNCTION                   /* higher than disjunction */
 // %left     DISJUNCTION                   /* should bind less tightly than kleene/omega */
 // %right    IMPLICATION                   /* lower than conjunction */
+// %nonassoc SUBSUMES                         /* lower than implication */
 /* Finally, the first tokens of simple_expr are above everything else. */
 %nonassoc BACKQUOTE BANG BEGIN CHAR FALSE FLOAT INT
           LBRACE LBRACELESS LBRACKET LBRACKETBAR LIDENT LPAREN
@@ -1359,6 +1361,8 @@ structure_item:
     EQUAL vs=optionExistDeclear body=statefml RSPECCOMMENT
     { mkstr ~loc:$sloc (Pstr_SL_predicate (vs, name, args, body)) }
 
+  | LSPECCOMMENT LEMMA name=LIDENT args=list(LIDENT) EQUAL left=stagedSpec1 SUBSUMES right=effect_spec RSPECCOMMENT
+    { mkstr ~loc:$sloc (Pstr_lemma (name, args, left, right)) }
   | LSPECCOMMENT LEMMA name=LIDENT args=list(LIDENT) EQUAL left=stagedSpec1 IMPLICATION right=effect_spec RSPECCOMMENT
     { mkstr ~loc:$sloc (Pstr_lemma (name, args, left, right)) }
   | mkstr(

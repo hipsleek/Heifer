@@ -576,6 +576,8 @@ rule token = parse
             { PREFIXOP op }
   | ['~' '?'] symbolchar_or_hash + as op
             { PREFIXOP op }
+  | "<:"
+            { SUBSUMES }
   | ['=' '<' '>' '|' '&' '$'] symbolchar * as op
             { INFIXOP0 op }
   | ['@' '^'] symbolchar * as op

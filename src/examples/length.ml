@@ -6,7 +6,7 @@ let rec length xs =
 (*@
 
   lemma length_positive_l xs res =
-    length(xs, res) => ens res>=0
+    length(xs, res) <: ens res>=0
 
 @*)
 
