@@ -549,7 +549,7 @@ and try_other_measures :
            < unfolding_bound ->
       let unf = unfold_predicate_norm "left" def s1 in
       let@ s1_1 =
-        all ~name:"unfold lhs" ~to_s:string_of_normalisedStagedSpec unf
+        all ~name:(Format.asprintf "unfold: %s" c1)~to_s:string_of_normalisedStagedSpec unf
       in
       check_staged_subsumption_stagewise
         { ctx with unfolded = (c1, `Left) :: ctx.unfolded }
@@ -569,7 +569,7 @@ and try_other_measures :
              < unfolding_bound ->
         let unf = unfold_predicate_norm "right" pred_def s2 in
         let@ s2_1 =
-          any ~name:"unfold rhs" ~to_s:string_of_normalisedStagedSpec unf
+          any ~name:(Format.asprintf "unfold: %s " c2)~to_s:string_of_normalisedStagedSpec unf
         in
         check_staged_subsumption_stagewise
           { ctx with unfolded = (c2, `Right) :: ctx.unfolded }
@@ -587,7 +587,7 @@ and try_other_measures :
         applied
         |> Option.iter (fun l ->
                debug ~at:1
-                 ~title:(Format.asprintf "applied: %s" l.l_name)
+                 ~title:(Format.asprintf "apply %s" l.l_name)
                  "%s\n\nafter:\n%s\n<:\n%s" (string_of_lemma l)
                  (string_of_spec s1_1)
                  (string_of_normalisedStagedSpec s2));
