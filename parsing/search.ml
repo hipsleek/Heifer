@@ -17,15 +17,17 @@ let ensure cond = if cond then ok else fail
 type mut_tree =
   | Node of {
       name : string;
+      kind : string option;
       mutable state : [ `Done | `NotStarted | `Here | `Failed | `Started ];
       mutable children : mut_tree ref list;
     }
 
-let rule ?(children = []) ?(success = true) ~name fmt =
+let rule ?(children = []) ?(success = true) ~name ~kind fmt =
   Format.kasprintf
     (fun s ->
       Node
         {
+          kind;
           name =
             Format.asprintf "[%s]%s %s" name (if success then "" else " FAIL") s;
           state = `NotStarted;
@@ -33,7 +35,7 @@ let rule ?(children = []) ?(success = true) ~name fmt =
         })
     fmt
 
-let empty_tree () = Node { name = "root"; children = []; state = `NotStarted }
+let empty_tree () = Node { name = "root"; children = []; state = `NotStarted; kind = None }
 let tree_root = empty_tree ()
 
 (* this is a pointer to the node we are at (`Here) *)
@@ -50,15 +52,15 @@ let string_of_search_state s =
   | `Done -> "✔"
   (* ✓o$ *)
   | `NotStarted -> "?"
-  | `Here -> "<-" (* ← *)
+  | `Here -> "←" (* <- *)
   | `Started -> "…" (* "..." *)
   | `Failed -> "✘" (* x✗ *)
 
 let rec tree_of_mut_tree ?(compact = false) t =
   match t with
-  | Node { name; children; state } ->
+  | Node { name; children; state; kind } ->
     Hipcore.Pretty.Node
-      ( Format.asprintf "%s %s" (string_of_search_state state) name,
+      ( kind, Format.asprintf "%s %s" (string_of_search_state state) name,
         match (compact, state) with
         | true, `Done -> []
         | _ -> List.map (fun t -> tree_of_mut_tree ~compact !t) children )
@@ -69,8 +71,16 @@ let show_search_tree compact =
 (** creates subproblems, mutates them into current root, returns them via k, and after completion, restores root before returning.
 
   this is in cps form because it has some finalization, not because it backtracks; any and all are responsible for that *)
-let init_undone name vs to_s k =
-  let undone = List.map (fun v -> ref (rule ~name "%s" (to_s v))) vs in
+let init_undone kind name vs to_s k =
+  let undone = List.mapi (fun i v ->
+    let kind =
+      match i, kind with
+      | 0, `All -> Some "∀"
+      | 0, `Any -> Some "∃"
+      | _ -> None
+    in
+    ref (rule ~name ~kind "%s" (to_s v))) vs
+  in
   let old_current = current in
   let (Node n) = !current in
   n.state <- `Started;
@@ -119,7 +129,7 @@ let all_ :
         loop (r1 :: rs) xs us)
     | _ :: _, [] -> failwith "won't happen because same length"
   in
-  let@ undone = init_undone (Format.asprintf "all; %s" name) vs to_s in
+  let@ undone = init_undone `All (Format.asprintf "%s" name) vs to_s in
   loop [] vs undone
 
 let all :
@@ -159,7 +169,7 @@ let any : name:string -> to_s:('a -> string) -> 'a list -> ('a -> 'b t) -> 'b t
         end
       | _ :: _, [] -> failwith "won't happen because same length"
     in
-    let@ undone = init_undone (Format.asprintf "any; %s" name) vs to_s in
+    let@ undone = init_undone `Any name vs to_s in
     loop vs undone
 
 let either :
