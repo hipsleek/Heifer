@@ -91,16 +91,16 @@ let to_buffer ?(line_prefix = "") ~get_ornament ~get_name ~get_children buf x =
   and print_child indent is_last x =
     let line =
       Format.asprintf (if is_last then
-        "└%s─ "
+        "%s└─ "
       else
-        "├%s─ ") (match get_ornament x with Some s -> s | None -> "─")
+        "%s├─ ") (match get_ornament x with Some s -> s | None -> " ")
     in
     bprintf buf "%s%s" indent line;
     let extra_indent =
       if is_last then
         "    "
       else
-        "│   "
+        " │  "
     in
     print_root (indent ^ extra_indent) x
   in
