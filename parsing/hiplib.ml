@@ -1383,9 +1383,14 @@ let report_result ?kind ?given_spec ?given_spec_n ?inferred_spec ?inferred_spec_
   in
   f ?kind ?given_spec ?given_spec_n ?inferred_spec ?inferred_spec_n ?forward_time_ms ?entail_time_ms ?result name
 
-let check_obligation meth prog predicates (l, r) =
-  let res = Entail.check_staged_subsumption_disj meth.m_name meth.m_params meth.m_tactics prog.cp_lemmas predicates l r in
-  report_result ~kind:"Obligation" ~given_spec:r ~inferred_spec:l ~result:res meth.m_name
+let check_obligation name params lemmas predicates (l, r) =
+  let@ _ =
+    Debug.span (fun _r ->
+        debug ~at:1
+          ~title:(Format.asprintf "checking obligation: %s" name) "")
+  in
+  let res = Entail.check_staged_subsumption_disj name params [] lemmas predicates l r in
+  report_result ~kind:"Obligation" ~given_spec:r ~inferred_spec:l ~result:res name
 
 exception Method_failure
 
@@ -1421,8 +1426,8 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) : core_program =
     inf, preds_with_lambdas, env
   in
   (* check misc obligations. don't stop on failure for now *)
-  fvenv.fv_lambda_obl |> List.iter (check_obligation meth prog predicates);
-  fvenv.fv_match_obl |> List.iter (check_obligation meth prog predicates);
+  fvenv.fv_lambda_obl |> List.iter (check_obligation meth.m_name meth.m_params prog.cp_lemmas predicates);
+  fvenv.fv_match_obl |> List.iter (check_obligation meth.m_name meth.m_params prog.cp_lemmas predicates);
 
   (* check the main spec *)
   let time_stamp_afterForward = Sys.time () in
@@ -1509,11 +1514,8 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) : core_program =
         (* using the predicate instead of the raw inferred spec makes the induction hypothesis possible with current heuristics. it costs one more unfold but that is taken care of by the current entailment procedure, which repeatedly unfolds *)
         let _mspec : disj_spec = inferred_spec in
         let mspec : disj_spec =
-          let v = verifier_getAfreeVar "infr" in
           let prr, _ret = split_last pred.p_params in
-          let sp = [Exists [v]; HigherOrder (True, EmptyHeap, (pred.p_name, List.map (fun v1 -> Var v1) prr), Var v)]
-          in
-          [sp]
+          function_stage_to_disj_spec (pred.p_name, List.map (fun v1 -> Var v1) prr)
         in
         (*print_endline ("inferred spec for " ^ meth.m_name ^ " " ^  (string_of_disj_spec mspec)); *)
 
@@ -1530,6 +1532,8 @@ let process_items (strs: structure_item list) : unit =
     List.fold_left (fun (bound_names, prog) c ->
       match transform_str bound_names c with
       | Some (`Lem l) ->
+        check_obligation l.l_name l.l_params prog.cp_lemmas prog.cp_predicates (function_stage_to_disj_spec l.l_left, [l.l_right]);
+        (* add to environment regardless of failure *)
         bound_names, { prog with cp_lemmas = SMap.add l.l_name l prog.cp_lemmas }
       | Some (`Pred p) -> 
         (*print_endline ("\n"^ p.p_name ^  Format.asprintf "(%s)" (String.concat ", " p.p_params) ^ ": ");
@@ -1578,7 +1582,7 @@ let process_items (strs: structure_item list) : unit =
             let@ _ =
               Debug.span (fun _r ->
                   debug ~at:1
-                    ~title:(Format.asprintf "verifying: %s" meth.m_name) "")
+                    ~title:(Format.asprintf "verifying function: %s" meth.m_name) "")
             in
             analyze_method prog meth
           in
