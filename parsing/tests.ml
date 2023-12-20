@@ -348,7 +348,7 @@ let%expect_test "normalise spec" =
 
   ex v1 v2 v3 v4; Norm(res=v1/\v1=v2/\v2=v3/\v4=v1)
   ==>
-  ex v4; req emp; Norm(emp)
+  ex v4; req emp; Norm(res=v4)
 
   ex v1 v2 v3 r; f(v1, r); Norm(res=v1+1/\v2=r/\v3=v2)
   ==>

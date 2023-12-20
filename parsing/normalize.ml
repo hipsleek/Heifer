@@ -857,7 +857,7 @@ let count_uses_and_equalities =
   in
   vis
 
-(* for each existential variable, if there is only one use, remove it; if there are two uses, substitute one into the other *)
+(* for each existential variable, if there is only one use, remove it *)
 let remove_temp_vars : normalisedStagedSpec -> normalisedStagedSpec =
   fun (eff, norm) ->
     let ex, pre, post = norm in
@@ -914,6 +914,24 @@ let remove_temp_vars : normalisedStagedSpec -> normalisedStagedSpec =
         remove_subexpr_state occurs_once pre,
         remove_subexpr_state occurs_once post )
     in
+    (eff1, norm1)
+
+(* for each existential variable, if there are two uses, substitute one into the other *)
+let remove_vars_occurring_twice : normalisedStagedSpec -> normalisedStagedSpec =
+  fun (eff, norm) ->
+    let histo =
+      count_uses_and_equalities#visit_normalisedStagedSpec () (eff, norm)
+    in
+    debug ~at:5 ~title:"histo" "%s\n\n%s"
+      (string_of_normalisedStagedSpec (eff, norm))
+      (string_of_smap
+         (string_of_pair string_of_int (string_of_list string_of_term))
+         histo);
+    let quantified = Subst.getExistentialVar (eff, norm) |> SSet.of_list in
+    let locations =
+      SSet.concat
+        (collect_locations_norm norm :: List.map collect_locations_eff eff)
+    in
     let occurs_twice =
       SMap.filter_map
         (fun k (cnt, eqs) ->
@@ -931,7 +949,7 @@ let remove_temp_vars : normalisedStagedSpec -> normalisedStagedSpec =
     in
     debug ~at:5 ~title:"occurs twice" "%s"
       (string_of_list (string_of_pair Fun.id string_of_term) occurs_twice);
-    let eff2 =
+    let eff1 =
       List.map
         (fun e ->
           match e with
@@ -947,17 +965,17 @@ let remove_temp_vars : normalisedStagedSpec -> normalisedStagedSpec =
               e_pre = instantiate_state occurs_twice e.e_pre;
               e_post = instantiate_state occurs_twice e.e_post;
             })
-        eff1
+        eff
     in
     (* Format.printf "occurs_twice: %s@."
        (string_of_list (string_of_pair Fun.id string_of_term) occurs_twice); *)
-    let norm2 =
-      let ex, pre, post = norm1 in
+    let norm1 =
+      let ex, pre, post = norm in
       ( ex,
         instantiate_state occurs_twice pre,
         instantiate_state occurs_twice post )
     in
-    (eff2, norm2)
+    (eff1, norm1)
 
 let rec simplify_spec n sp2 =
 
@@ -995,14 +1013,24 @@ let rec simplify_spec n sp2 =
   let sp6 =
     let@ _ =
       Debug.span (fun r ->
-        debug ~at:3 ~title:"normalize_spec: final simplification pass" "%s\n==>\n%s"
+        debug ~at:3 ~title:"normalize_spec: remove vars occurring twice" "%s\n==>\n%s"
           (string_of_normalisedStagedSpec sp5)
           (string_of_result string_of_normalisedStagedSpec r))
     in
-    final_simplification sp5
+    remove_vars_occurring_twice sp5
   in
 
-  if sp6 = sp2 || n < 0 then sp6 else simplify_spec (n - 1) sp2
+  let sp7 =
+    let@ _ =
+      Debug.span (fun r ->
+        debug ~at:3 ~title:"normalize_spec: final simplification pass" "%s\n==>\n%s"
+          (string_of_normalisedStagedSpec sp6)
+          (string_of_result string_of_normalisedStagedSpec r))
+    in
+    final_simplification sp6
+  in
+
+  if sp7 = sp2 || n < 0 then sp7 else simplify_spec (n - 1) sp2
 
 
 (* the main entry point *)
