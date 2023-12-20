@@ -312,9 +312,9 @@ let check_sat f =
   
 
 
-let check env pi =
+(* let check env pi =
   debug ~at:4 ~title:"z3 sat, pi" "%s" (string_of_pi pi);
-  check_sat (fun ctx -> pi_to_expr env ctx pi)
+  check_sat (fun ctx -> pi_to_expr env ctx pi) *)
 
 (* see https://discuss.ocaml.org/t/different-z3-outputs-when-using-the-api-vs-cli/9348/3 and https://github.com/Z3Prover/z3/issues/5841 *)
 let ex_quantify_expr env vars ctx e =
@@ -373,29 +373,29 @@ let entails_exists env p1 vs p2 =
   entails_exists_inner env p1 vs p2
 
 
-let _valid p =
+(* let _valid p =
   let f ctx = Z3.Boolean.mk_not ctx (pi_to_expr SMap.empty ctx p) in
-  not (check_sat f)
+  not (check_sat f) *)
 
-let (historyTable : (string * bool) list ref) = ref []
-let hash_pi pi = string_of_int (Hashtbl.hash pi)
+(* let (historyTable : (string * bool) list ref) = ref [] *)
+(* let hash_pi pi = string_of_int (Hashtbl.hash pi) *)
 
-let rec existInhistoryTable pi table =
+(* let rec existInhistoryTable pi table =
   match table with
   | [] -> None
   | (x, b) :: xs ->
     if String.compare x (hash_pi pi) == 0 then Some b
     else existInhistoryTable pi xs
 
-let counter : int ref = ref 0
+let counter : int ref = ref 0 *)
 
-let _askZ3 env pi =
+(* let _askZ3 env pi =
   match existInhistoryTable pi !historyTable with
   | Some b -> b
   | None ->
     let _ = counter := !counter + 1 in
     let re = check env pi in
     let () = historyTable := (hash_pi pi, re) :: !historyTable in
-    re
+    re *)
 
 let handle f = f ()
