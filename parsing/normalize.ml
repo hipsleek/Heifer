@@ -757,6 +757,38 @@ let simplify_existential_locations sp =
       | _ -> sp)
     eqs sp
 
+
+(* req false; ... ==> req false; ens false
+  ens false; ... ==> ens false *)
+let check_for_false (effs, norm) =
+  (* returns true if the flow was truncated due to false *)
+  let rec loop efs =
+    match efs with
+    | [] -> `Other, [], None
+    | (TryCatchStage _) as e :: efs1 ->
+      let r, e1, pre = loop efs1 in
+      r, e :: e1, pre
+    | (EffHOStage s) as e :: efs1 ->
+      (match ProversEx.is_valid (fst s.e_pre) False with
+      | true -> `ReqFalse, [], None
+      | false ->
+        (match ProversEx.is_valid (fst s.e_post) False with
+            | true -> `EnsFalse, [], Some s.e_pre
+            | false ->
+              let r, e1, pre = loop efs1 in
+              r, e :: e1, pre))
+  in
+  let r, effs1, pre = loop effs in
+  match r, pre with
+  | `ReqFalse, _ ->
+    let refalse = ([], (False, EmptyHeap), (False, EmptyHeap)) in
+    (effs1, refalse)
+  | `EnsFalse, Some pre ->
+    let refalse = ([], pre, (False, EmptyHeap)) in
+    (effs1, refalse)
+  | `EnsFalse, None -> failwith "invalid state"
+  | `Other, _ -> (effs, norm)
+
 let final_simplification (effs, norm) =
   let effs1 =
     List.map
@@ -970,7 +1002,17 @@ let rec simplify_spec n sp2 =
     final_simplification sp5
   in
 
-  if sp6 = sp2 || n < 0 then sp6 else simplify_spec (n - 1) sp2
+  let sp7 =
+    let@ _ =
+      Debug.span (fun r ->
+        debug ~at:3 ~title:"normalize_spec: check for false" "%s\n==>\n%s"
+          (string_of_normalisedStagedSpec sp6)
+          (string_of_result string_of_normalisedStagedSpec r))
+    in
+    check_for_false sp6
+  in
+
+  if sp7 = sp2 || n < 0 then sp7 else simplify_spec (n - 1) sp2
 
 
 (* the main entry point *)
