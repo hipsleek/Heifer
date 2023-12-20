@@ -1412,7 +1412,12 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) : core_program =
     in
     let pred_env = prog.cp_predicates in 
     let env = create_fv_env method_env pred_env in
-    let inf, env = infer_of_expression env [freshNormalReturnSpec] meth.m_body in
+    let inf, env =
+      let@ _ =
+        Debug.span (fun _ -> debug ~at:2 ~title:"apply forward rules" "")
+      in
+      infer_of_expression env [freshNormalReturnSpec] meth.m_body
+    in
 
     (* make the new specs inferred for lambdas available to the entailment procedure as predicates *)
     let preds_with_lambdas =

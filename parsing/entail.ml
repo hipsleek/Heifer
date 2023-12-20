@@ -549,7 +549,7 @@ and try_other_measures :
            < unfolding_bound ->
       let unf = unfold_predicate_norm "left" def s1 in
       let@ s1_1 =
-        all ~name:(Format.asprintf "unfold: %s" c1)~to_s:string_of_normalisedStagedSpec unf
+        all ~name:(Format.asprintf "unfold lhs: %s" c1)~to_s:string_of_normalisedStagedSpec unf
       in
       check_staged_subsumption_stagewise
         { ctx with unfolded = (c1, `Left) :: ctx.unfolded }
@@ -569,7 +569,7 @@ and try_other_measures :
              < unfolding_bound ->
         let unf = unfold_predicate_norm "right" pred_def s2 in
         let@ s2_1 =
-          any ~name:(Format.asprintf "unfold: %s " c2)~to_s:string_of_normalisedStagedSpec unf
+          any ~name:(Format.asprintf "unfold rhs: %s" c2)~to_s:string_of_normalisedStagedSpec unf
         in
         check_staged_subsumption_stagewise
           { ctx with unfolded = (c2, `Right) :: ctx.unfolded }
@@ -812,7 +812,7 @@ let create_induction_hypothesis params ds1 ds2 =
         debug ~at:1 ~title:"induction hypothesis" "%s" (string_of_lemma ih);
         Some ih
       | [_], _ -> fail "nontrivial norm stage after"
-      | _ -> fail "not just a single stage")
+      | _ -> fail "lhs not just a single stage")
     | false ->
       fail "not all params used by lhs of entailment: params %s, %s used"
         (string_of_list Fun.id params)

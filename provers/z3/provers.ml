@@ -270,9 +270,6 @@ let check_sat f =
     let@ _ = Debug.span (fun _ -> debug ~at:4 ~title:"build formula" "") in
     f ctx
   in
-  let@ _ =
-    Debug.span (fun _ -> debug ~at:4 ~title:"z3 check_sat" "%s\n(check-sat)" (Expr.to_string expr))
-  in
   (* let goal = Goal.mk_goal ctx true true false in *)
   (* Goal.add goal [ expr ]; *)
   (* let goal = Goal.simplify goal None in *)
@@ -280,8 +277,10 @@ let check_sat f =
   let solver = Solver.mk_simple_solver ctx in
   Solver.add solver [expr];
   (* print both because the solver does some simplification *)
-  debug ~at:5 ~title:"z3 solver" "%s\n(check-sat)" (Solver.to_string solver);
-  Hipcore.Debug.debug ~at:4 ~title:"z3" "waiting for a result";
+  debug ~at:4 ~title:"z3 expr" "%s\n(check-sat)" (Expr.to_string expr);
+  let@ _ =
+    Debug.span (fun _ -> debug ~at:5 ~title:"z3 solver" "%s\n(check-sat)" (Solver.to_string solver);)
+  in
   let status =
     let@ _ =
       Debug.span (fun r ->
