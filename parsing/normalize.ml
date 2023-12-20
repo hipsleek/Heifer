@@ -1002,17 +1002,7 @@ let rec simplify_spec n sp2 =
     final_simplification sp5
   in
 
-  let sp7 =
-    let@ _ =
-      Debug.span (fun r ->
-        debug ~at:3 ~title:"normalize_spec: check for false" "%s\n==>\n%s"
-          (string_of_normalisedStagedSpec sp6)
-          (string_of_result string_of_normalisedStagedSpec r))
-    in
-    check_for_false sp6
-  in
-
-  if sp7 = sp2 || n < 0 then sp7 else simplify_spec (n - 1) sp2
+  if sp6 = sp2 || n < 0 then sp6 else simplify_spec (n - 1) sp2
 
 
 (* the main entry point *)
@@ -1024,7 +1014,7 @@ let normalize_spec sp =
         debug ~at:3 ~title:"normalize_spec" "%s\n==>\n%s" (string_of_spec sp)
           (string_of_result string_of_normalisedStagedSpec r))
   in
-  let r =
+  let sp =
     let sp1 = sp |> simplify_existential_locations in
     debug ~at:4 ~title:"normalize_spec: remove some existential eqs"
       "%s\n==>\n%s" (string_of_spec sp) (string_of_spec sp1);
@@ -1038,8 +1028,19 @@ let normalize_spec sp =
 
     sp2
   in
-  simplify_spec 3
-  r
+  let sp = simplify_spec 3 sp in
+
+  let sp =
+    let@ _ =
+      Debug.span (fun r ->
+        debug ~at:3 ~title:"normalize_spec: check for false" "%s\n==>\n%s"
+          (string_of_normalisedStagedSpec sp)
+          (string_of_result string_of_normalisedStagedSpec r))
+    in
+    check_for_false sp
+  in
+  sp
+
 
 let rec effectStage2Spec (effectStages : effHOTryCatchStages list) : spec =
   match effectStages with
