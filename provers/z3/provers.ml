@@ -1,4 +1,5 @@
 open Hipcore
+open Debug
 include Hiptypes
 open Pretty
 
@@ -249,25 +250,30 @@ let _test () =
   in
   let solver = Solver.mk_simple_solver ctx in
   Solver.add solver [expr];
-  Format.printf "z3 expr: %s@." (Expr.to_string expr);
-  Format.printf "z3 solver: %s@." (Solver.to_string solver);
+  debug ~at:4 ~title:"z3 expr" "%s" (Expr.to_string expr);
+  debug ~at:4 ~title:"z3 solver" "%s" (Solver.to_string solver);
   let sat = Solver.check solver [] == Solver.SATISFIABLE in
-  Format.printf "sat: %b@." sat;
-  (match Solver.get_model solver with
-  | None -> Format.printf "no model@."
-  | Some m -> Format.printf "model: %s@." (Model.to_string m));
-  Format.printf "@."
-
-let debug = try int_of_string (Sys.getenv "DEBUG") >= 4 with _ -> false
+  debug ~at:4 ~title:"sat?" "%b" sat;
+  match Solver.get_model solver with
+  | None -> debug ~at:4 ~title:"no model" ""
+  | Some m -> debug ~at:4 ~title:"model" "%s" (Model.to_string m)
 
 let check_sat f =
   let start = Unix.gettimeofday () in 
   (*let debug = true in *)
   let cfg =
+    let debug = false in
     (if debug then [("model", "false")] else []) @ [("proof", "false")]
   in
   let ctx = mk_context cfg in
-  let expr = f ctx in
+  let expr =
+    let@ _ = Debug.span (fun _ -> debug ~at:4 ~title:"build formula" "") in
+    f ctx
+  in
+  let@ _ =
+    (* for timing building the formula and such *)
+    Debug.span (fun _ -> debug ~at:4 ~title:"z3 check_sat" "%s" (Expr.to_string expr))
+  in
   (* if debug then Format.printf "z3 expr: %s@." (Expr.to_string expr); *)
   (* z3_query (Expr.to_string expr); *)
   (* let goal = Goal.mk_goal ctx true true false in *)
@@ -278,23 +284,28 @@ let check_sat f =
   Solver.add solver [expr];
   (* print both because the solver does some simplification *)
   (*Format.printf "\nz3 sat, expr: %s@.\n\n" (Expr.to_string expr);*)
-  if debug then Format.printf "z3 sat, expr: %s@." (Expr.to_string expr);
-  if debug then Format.printf "z3 sat, solver: %s@." (Solver.to_string solver);  
+  debug ~at:5 ~title:"z3 sat" "solver: %s" (Solver.to_string solver);  
   (* z3_query (Z3.Solver.to_string solver); *)
   (* expr *)
-  if debug then Format.printf "waiting for a result ... \n";
-  let status = Solver.check solver [] in 
+  Hipcore.Debug.debug ~at:4 ~title:"z3" "waiting for a result";
+  let status =
+    let@ _ =
+      Debug.span (fun r ->
+          debug ~at:4
+            ~title:"z3 sat check"
+            "%s" (string_of_result Solver.string_of_status r))
+    in
+    Solver.check solver []
+  in 
   let _sat = 
     match status with 
-    | UNSATISFIABLE ->  if debug then Format.printf ("sat: UNSATISFIABLE"); false 
-    |	UNKNOWN ->  if debug then Format.printf ("sat: UNKNOWN"); false 
-    |	SATISFIABLE ->  if debug then Format.printf ("sat: SATISFIABLE");  true 
+    | UNSATISFIABLE -> false 
+    |	UNKNOWN -> false 
+    |	SATISFIABLE -> true 
   in 
-  if debug then begin
-    match Solver.get_model solver with
-    | None -> Format.printf "no model@."
-    | Some m -> Format.printf "model: %s@." (Model.to_string m)
-  end;
+  (* (match Solver.get_model solver with
+  | None -> debug ~at:4 ~title:"no model" ""
+  | Some m -> debug ~at:4 ~title:"model" "%s" (Model.to_string m)); *)
   let z3_time = (Unix.gettimeofday () -. start) *. 1000.0 in 
   z3_consumption := !z3_consumption +. z3_time; 
   _sat
@@ -302,7 +313,7 @@ let check_sat f =
 
 
 let check env pi =
-  if debug then Format.printf "z3 sat, pi: %s@." (string_of_pi pi);
+  debug ~at:4 ~title:"z3 sat, pi" "%s" (string_of_pi pi);
   check_sat (fun ctx -> pi_to_expr env ctx pi)
 
 (* see https://discuss.ocaml.org/t/different-z3-outputs-when-using-the-api-vs-cli/9348/3 and https://github.com/Z3Prover/z3/issues/5841 *)
@@ -319,9 +330,8 @@ let ex_quantify_expr env vars ctx e =
 
 (* this is a separate function which doesn't cache results because exists isn't in pi *)
 let entails_exists_inner env p1 vs p2 =
-  if debug then
-    Format.printf "z3 valid: %s => ex %s. %s\n%s@." (string_of_pi p1)
-      (String.concat " " vs) (string_of_pi p2) (string_of_typ_env env);
+  debug ~at:4 ~title:"z3 valid" "%s => ex %s. %s\n%s" (string_of_pi p1)
+    (String.concat " " vs) (string_of_pi p2) (string_of_typ_env env);
   let f ctx =
     let r =
       Z3.Boolean.mk_not ctx
