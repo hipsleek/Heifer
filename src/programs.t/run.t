@@ -60,8 +60,10 @@
   $ check ../evaluation/12_two_pointers.ml
   ALL OK!
 
+This requires the power axioms
+
   $ check ../../benchmarks/effects/ocaml412/A_generic_count.ml
-  ALL OK!
+  FAILED: main
 
 We can't handle these cases yet
 

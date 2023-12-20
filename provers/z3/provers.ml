@@ -353,7 +353,9 @@ let entails_exists env p1 vs p2 =
   if allDisjunctions p2 && existPurePattern p2 p1 then true 
   else 
   *)
-  let p1 = 
+
+  (* darius: temporarily disabled because this makes the new ens false; ... normalization very slow, the right way is prob to add an axiom declaration so we can declare these extra assumptions where they are needed *)
+  (* let p1 = 
     if entails_exists_inner env p1 vs (Atomic(EQ, Var "n", Num 0)) then 
       let retation_v2Nplus1_is_2 = (Atomic(EQ, Var "v2Nplus1", Num 2)) in 
       And (retation_v2Nplus1_is_2, p1) 
@@ -363,7 +365,7 @@ let entails_exists env p1 vs p2 =
     else
       let retation_v2N_v2Nplus1 = Atomic (EQ, (Var "v2Nplus1"), Plus (Var "v2N", Var "v2N"))in 
       And (retation_v2N_v2Nplus1, p1) 
-  in 
+  in  *)
 
   (*
   Format.printf "entails_exists_inner, pi: %s => %s@." (string_of_pi p1) (string_of_pi p2);
