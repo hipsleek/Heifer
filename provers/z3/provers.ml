@@ -202,7 +202,7 @@ let rec pi_to_expr env ctx pi: Expr.expr =
    (* Format.printf "z3: %s@." _s; *)
    () *)
 
-let _test () =
+(* let _test () =
   let ctx = Z3.mk_context [] in
   (* let int = Z3.Arithmetic.Integer.mk_sort ctx in *)
   let list_int = list_int_sort ctx in
@@ -256,11 +256,10 @@ let _test () =
   debug ~at:4 ~title:"sat?" "%b" sat;
   match Solver.get_model solver with
   | None -> debug ~at:4 ~title:"no model" ""
-  | Some m -> debug ~at:4 ~title:"model" "%s" (Model.to_string m)
+  | Some m -> debug ~at:4 ~title:"model" "%s" (Model.to_string m) *)
 
 let check_sat f =
   let start = Unix.gettimeofday () in 
-  (*let debug = true in *)
   let cfg =
     let debug = false in
     (if debug then [("model", "false")] else []) @ [("proof", "false")]
@@ -271,11 +270,8 @@ let check_sat f =
     f ctx
   in
   let@ _ =
-    (* for timing building the formula and such *)
-    Debug.span (fun _ -> debug ~at:4 ~title:"z3 check_sat" "%s" (Expr.to_string expr))
+    Debug.span (fun _ -> debug ~at:4 ~title:"z3 check_sat" "%s\n(check-sat)" (Expr.to_string expr))
   in
-  (* if debug then Format.printf "z3 expr: %s@." (Expr.to_string expr); *)
-  (* z3_query (Expr.to_string expr); *)
   (* let goal = Goal.mk_goal ctx true true false in *)
   (* Goal.add goal [ expr ]; *)
   (* let goal = Goal.simplify goal None in *)
@@ -283,10 +279,7 @@ let check_sat f =
   let solver = Solver.mk_simple_solver ctx in
   Solver.add solver [expr];
   (* print both because the solver does some simplification *)
-  (*Format.printf "\nz3 sat, expr: %s@.\n\n" (Expr.to_string expr);*)
-  debug ~at:5 ~title:"z3 sat" "solver: %s" (Solver.to_string solver);  
-  (* z3_query (Z3.Solver.to_string solver); *)
-  (* expr *)
+  debug ~at:5 ~title:"z3 solver" "%s\n(check-sat)" (Solver.to_string solver);
   Hipcore.Debug.debug ~at:4 ~title:"z3" "waiting for a result";
   let status =
     let@ _ =
