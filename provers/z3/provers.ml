@@ -265,6 +265,7 @@ let check_sat f =
     (if debug then [("model", "false")] else []) @ [("proof", "false")]
   in
   let ctx = mk_context cfg in
+  Z3.Params.update_param_value ctx "timeout" "5000";
   let expr =
     let@ _ = Debug.span (fun _ -> debug ~at:4 ~title:"build formula" "") in
     f ctx
