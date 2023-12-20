@@ -325,8 +325,15 @@ let build_fill x n
   | [] -> 0
   | x :: xs1 -> 1 + length xs1
 
+(*@
+
+  lemma length_positive_l xs res =
+    length(xs, res) <: ens res>=0
+
+@*)
+
 let length_positive xs
-(*@ ex r; ens r>=0; Norm(emp, r) @*)
+(*@ ens res>=0 @*)
 = length xs">src/examples/length.ml</option><option value=src/examples/map.ml data-text="
 let rec map f xs =
   match xs with
@@ -1099,7 +1106,7 @@ let invalid_false ()
     <script>
       // this is substituted at build time and is used in page.js
       function postExampleLoad() {
-        console.log("Built Tue Dec 19 12:29:14 UTC 2023");
+        console.log("Built Wed Dec 20 14:06:05 UTC 2023");
         console.log("loading z3...");
       }
     </script>
