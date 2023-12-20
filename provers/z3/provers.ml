@@ -297,19 +297,12 @@ let check_sat f =
     in
     Solver.check solver []
   in 
-  let _sat = 
-    match status with 
-    | UNSATISFIABLE -> false 
-    |	UNKNOWN -> false 
-    |	SATISFIABLE -> true 
-  in 
   (* (match Solver.get_model solver with
   | None -> debug ~at:4 ~title:"no model" ""
   | Some m -> debug ~at:4 ~title:"model" "%s" (Model.to_string m)); *)
   let z3_time = (Unix.gettimeofday () -. start) *. 1000.0 in 
   z3_consumption := !z3_consumption +. z3_time; 
-  _sat
-  
+  status
 
 
 (* let check env pi =
@@ -341,7 +334,9 @@ let entails_exists_inner env p1 vs p2 =
     (* Format.printf "oblig: %s@." (Expr.to_string r); *)
     r
   in
-  not (check_sat f)
+  match check_sat f with 
+  | UNSATISFIABLE -> true
+  |	UNKNOWN |	SATISFIABLE -> false
 
 let entails_exists env p1 vs p2 =
   (*
