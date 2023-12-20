@@ -94,7 +94,7 @@ ALL OK!
   $ check ../examples/exception.ml
   ALL OK!
 
-This example is very slow but works
+This does not work yet
 
 $ check ../examples/all.ml
 ALL OK!
