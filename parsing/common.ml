@@ -54,6 +54,8 @@ module SMap = struct
 
   let keys m = bindings m |> List.map fst
 
+  let key_set m = bindings m |> List.map fst |> SSet.of_list
+
   let merge_disjoint a b =
     merge
       (fun _k x y ->

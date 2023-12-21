@@ -811,52 +811,6 @@ let final_simplification (effs, norm) =
   let ex, pre, post = norm in
   (effs1, (ex, simplify_state pre, simplify_state post))
 
-(* for each variable, find how many times it is used and what other terms it is equal to *)
-(* TODO generalise to related to *)
-let count_uses_and_equalities =
-  let add _k a b =
-    match (a, b) with
-    | None, None -> None
-    | Some a, None | None, Some a -> Some a
-    | Some (a1, a2), Some (b1, b2) -> Some (a1 + b1, a2 @ b2)
-  in
-  let zero = SMap.empty in
-  let plus = SMap.merge add in
-  let vis =
-    object (self)
-      inherit [_] reduce_normalised as super
-      method zero = zero
-      method plus = plus
-
-      method! visit_Atomic _ op a b =
-        match op, a, b with
-        | EQ, Var a, Var b ->
-          SMap.of_seq (List.to_seq [(a, (1, [Var b])); (b, (1, [Var a]))])
-        | EQ, Var a, b | EQ, b, Var a ->
-          plus (SMap.singleton a (1, [b])) (self#visit_term () b)
-        | EQ, a, b -> plus (self#visit_term () a) (self#visit_term () b)
-        | _, a, b ->
-          plus (self#visit_term () a) (self#visit_term () b)
-
-      method! visit_Var _ v = SMap.singleton v (1, [])
-
-      method! visit_PointsTo _ (v, t) =
-        plus (SMap.singleton v (1, [])) (self#visit_term () t)
-
-      (* there can be unnormalized specs inside normalized ones *)
-      method! visit_HigherOrder _ ((_p, _h, (f, _a), _r) as fn) =
-        plus (SMap.singleton f (1, [])) (super#visit_HigherOrder () fn)
-
-      method! visit_EffHOStage _ eh =
-        match eh.e_typ with
-        | `Eff -> super#visit_EffHOStage () eh
-        | `Fn ->
-          plus (SMap.singleton (fst eh.e_constr) (1, []))
-            (super#visit_EffHOStage () eh)
-    end
-  in
-  vis
-
 (* for each existential variable, if there is only one use, remove it *)
 let remove_temp_vars : normalisedStagedSpec -> normalisedStagedSpec =
   fun (eff, norm) ->
