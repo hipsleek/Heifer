@@ -65,6 +65,9 @@ and pi =
   | Imply  of pi * pi
   | Not    of pi 
   | Predicate of string * term list 
+  (* produced by match *)
+  | IsCons of string * term * term
+  | IsNil of string
 
 and kappa = 
   | EmptyHeap
