@@ -579,6 +579,8 @@ and try_other_measures :
         let eligible =
           ctx.lems |> SMap.bindings
           |> List.filter (fun (ln, _l) -> not (List.mem ln ctx.applied))
+          |> List.filter (fun (_ln, l) -> List.mem (fst l.l_left, `Left) ctx.unfolded)
+          (* prevent rewriting unless unfolding of the left side has taken place. this works for the IH, but not for lemmas in general *)
           |> List.map snd
         in
         let s1_1, applied =
