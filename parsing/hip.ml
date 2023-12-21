@@ -11,7 +11,7 @@ let redirect_stdout f =
   Unix.close oldstdout;
   close_out newstdout
 
-let zz () =
+let () =
   Hiplib.(test_mode :=
     (Option.bind (Sys.getenv_opt "TEST") int_of_string_opt
     |> Option.value ~default:0) > 0);
@@ -29,8 +29,3 @@ let zz () =
     redirect_stdout Hiplib.main
   else
     Hiplib.main ()
-
-    open Hiplib
-  let () =
-  ProversEx.is_valid True True |> ignore;
-  Format.printf "ok@."

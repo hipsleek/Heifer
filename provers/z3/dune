@@ -1,5 +1,0 @@
-
-(library
- (name provers_z3)
- (libraries str z3)
- (implements provers))

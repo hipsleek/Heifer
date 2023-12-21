@@ -91,7 +91,7 @@
 (executable
  (name hip)
  (modules hip)
- (libraries unix hiplib provers_why3))
+ (libraries unix hiplib provers_native))
 
 (executable
  (name hipjs)

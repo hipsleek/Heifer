@@ -385,5 +385,3 @@ let counter : int ref = ref 0 *)
     let re = check env pi in
     let () = historyTable := (hash_pi pi, re) :: !historyTable in
     re *)
-
-let handle f = f ()

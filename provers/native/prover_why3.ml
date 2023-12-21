@@ -3,7 +3,6 @@ include Hiptypes
 
 (* let debug = true *)
 let debug = false
-let handle f = f ()
 
 open Why3
 
