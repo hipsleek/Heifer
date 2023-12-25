@@ -293,10 +293,6 @@ type meth_def = {
   m_tactics : tactic list;
 }
 
-
-
-(* type eff_def = string *)
-
 (** A predicate is a name for a parameterized disjunctive spec, of the form [f(x, ...) == spec \/ ...], where x, ... are all parameters *)
 type pred_def = {
   p_name: string;
@@ -325,6 +321,14 @@ type core_program = {
   cp_sl_predicates: sl_pred_def SMap.t;
   cp_lemmas: lemma SMap.t;
   cp_methods: meth_def list;
+}
+
+let empty_program = {
+  cp_effs = [];
+  cp_methods = [];
+  cp_predicates = SMap.empty;
+  cp_sl_predicates = SMap.empty;
+  cp_lemmas = SMap.empty
 }
 
 include Common

@@ -9,6 +9,7 @@ let pp_event ppf r = Format.fprintf ppf "_%d" r
 let is_closing = ref false
 let is_opening = ref false
 let last_title = ref ""
+let ctf = ref false
 
 type query_on =
   | Time of int
@@ -134,41 +135,35 @@ let interpret at title time qs =
          | false, _ -> None)
   |> Option.value ~default:false
 
-let ctf = false
-(* let ctf = true *)
-
 let debug_print at title s =
   last_title := title;
-  let title =
-    match ctf with
-    | false ->
-      let stack =
-        if not !is_closing then ""
-        else Format.asprintf " <-%s" (summarize_stack ())
-      in
-      Format.asprintf "%s | %a%s" title pp_event !debug_event_n stack
-    | true -> title
-  in
+  (* the query can filter ctf output, but only one of ctf or trace output is shown *)
   let show = interpret at title !debug_event_n !user_query in
   match show with
   | false -> ()
   | true ->
-    (match ctf with
+    (match !ctf with
     | false ->
-      if String.length title < 6 then print_string (Pretty.yellow title ^ " ")
-      else print_endline (Pretty.yellow title);
+      let title =
+        let stack =
+          if not !is_closing then ""
+          else Format.asprintf " <-%s" (summarize_stack ())
+        in
+        Format.asprintf "%s | %a%s" title pp_event !debug_event_n stack
+      in
+      print_endline (Pretty.yellow title);
       print_endline s;
       if not (String.equal "" s) then print_endline ""
     | true ->
       let typ = if !is_closing then "E" else if !is_opening then "B" else "i" in
       let scope = if !is_closing || !is_opening then "" else {|,"s":"t"|} in
-      let scrub s =
+      let json_scrub s =
         s
-        |> Str.global_replace (Str.regexp "\n") ""
+        |> Str.global_replace (Str.regexp "\n") " "
         |> Str.global_replace (Str.regexp {|\\|}) {|\\\\|}
       in
-      let s = scrub s in
-      let title = scrub title in
+      let s = json_scrub s in
+      let title = json_scrub title in
       Format.fprintf (!trace_out |> Option.get)
         {|{"name": "%s", "tid": 1, "ts": %f, "ph": "%s", "args": {"txt": "%s"}%s},@.|}
         title
@@ -235,9 +230,12 @@ let pp_result f ppf r =
 let string_of_result f r =
   match r with None -> "..." | Some r -> Format.asprintf "%s" (f r)
 
-let init query =
-  if ctf then (
-    let oc = open_out "trace.json" in
+let init ctf_output query =
+  if ctf_output then (
+    ctf := true;
+    let name = "trace.json" in
+    Format.printf "%s@." name;
+    let oc = open_out name in
     trace_out := Some (Format.formatter_of_out_channel oc);
     Format.fprintf (!trace_out |> Option.get) "[@.");
   user_query :=

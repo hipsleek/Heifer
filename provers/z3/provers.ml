@@ -1,4 +1,5 @@
 open Hipcore
+open Debug
 include Hiptypes
 open Pretty
 
@@ -201,7 +202,7 @@ let rec pi_to_expr env ctx pi: Expr.expr =
    (* Format.printf "z3: %s@." _s; *)
    () *)
 
-let _test () =
+(* let _test () =
   let ctx = Z3.mk_context [] in
   (* let int = Z3.Arithmetic.Integer.mk_sort ctx in *)
   let list_int = list_int_sort ctx in
@@ -249,27 +250,26 @@ let _test () =
   in
   let solver = Solver.mk_simple_solver ctx in
   Solver.add solver [expr];
-  Format.printf "z3 expr: %s@." (Expr.to_string expr);
-  Format.printf "z3 solver: %s@." (Solver.to_string solver);
+  debug ~at:4 ~title:"z3 expr" "%s" (Expr.to_string expr);
+  debug ~at:4 ~title:"z3 solver" "%s" (Solver.to_string solver);
   let sat = Solver.check solver [] == Solver.SATISFIABLE in
-  Format.printf "sat: %b@." sat;
-  (match Solver.get_model solver with
-  | None -> Format.printf "no model@."
-  | Some m -> Format.printf "model: %s@." (Model.to_string m));
-  Format.printf "@."
-
-let debug = try int_of_string (Sys.getenv "DEBUG") >= 4 with _ -> false
+  debug ~at:4 ~title:"sat?" "%b" sat;
+  match Solver.get_model solver with
+  | None -> debug ~at:4 ~title:"no model" ""
+  | Some m -> debug ~at:4 ~title:"model" "%s" (Model.to_string m) *)
 
 let check_sat f =
   let start = Unix.gettimeofday () in 
-  (*let debug = true in *)
   let cfg =
+    let debug = false in
     (if debug then [("model", "false")] else []) @ [("proof", "false")]
   in
   let ctx = mk_context cfg in
-  let expr = f ctx in
-  (* if debug then Format.printf "z3 expr: %s@." (Expr.to_string expr); *)
-  (* z3_query (Expr.to_string expr); *)
+  Z3.Params.update_param_value ctx "timeout" "5000";
+  let expr =
+    let@ _ = Debug.span (fun _ -> debug ~at:4 ~title:"build formula" "") in
+    f ctx
+  in
   (* let goal = Goal.mk_goal ctx true true false in *)
   (* Goal.add goal [ expr ]; *)
   (* let goal = Goal.simplify goal None in *)
@@ -277,33 +277,30 @@ let check_sat f =
   let solver = Solver.mk_simple_solver ctx in
   Solver.add solver [expr];
   (* print both because the solver does some simplification *)
-  (*Format.printf "\nz3 sat, expr: %s@.\n\n" (Expr.to_string expr);*)
-  if debug then Format.printf "z3 sat, expr: %s@." (Expr.to_string expr);
-  if debug then Format.printf "z3 sat, solver: %s@." (Solver.to_string solver);  
-  (* z3_query (Z3.Solver.to_string solver); *)
-  (* expr *)
-  if debug then Format.printf "waiting for a result ... \n";
-  let status = Solver.check solver [] in 
-  let _sat = 
-    match status with 
-    | UNSATISFIABLE ->  if debug then Format.printf ("sat: UNSATISFIABLE"); false 
-    |	UNKNOWN ->  if debug then Format.printf ("sat: UNKNOWN"); false 
-    |	SATISFIABLE ->  if debug then Format.printf ("sat: SATISFIABLE");  true 
+  debug ~at:4 ~title:"z3 expr" "%s\n(check-sat)" (Expr.to_string expr);
+  let@ _ =
+    Debug.span (fun _ -> debug ~at:5 ~title:"z3 solver" "%s\n(check-sat)" (Solver.to_string solver);)
+  in
+  let status =
+    let@ _ =
+      Debug.span (fun r ->
+          debug ~at:4
+            ~title:"z3 sat check"
+            "%s" (string_of_result Solver.string_of_status r))
+    in
+    Solver.check solver []
   in 
-  if debug then begin
-    match Solver.get_model solver with
-    | None -> Format.printf "no model@."
-    | Some m -> Format.printf "model: %s@." (Model.to_string m)
-  end;
+  (* (match Solver.get_model solver with
+  | None -> debug ~at:4 ~title:"no model" ""
+  | Some m -> debug ~at:4 ~title:"model" "%s" (Model.to_string m)); *)
   let z3_time = (Unix.gettimeofday () -. start) *. 1000.0 in 
   z3_consumption := !z3_consumption +. z3_time; 
-  _sat
-  
+  status
 
 
-let check env pi =
-  if debug then Format.printf "z3 sat, pi: %s@." (string_of_pi pi);
-  check_sat (fun ctx -> pi_to_expr env ctx pi)
+(* let check env pi =
+  debug ~at:4 ~title:"z3 sat, pi" "%s" (string_of_pi pi);
+  check_sat (fun ctx -> pi_to_expr env ctx pi) *)
 
 (* see https://discuss.ocaml.org/t/different-z3-outputs-when-using-the-api-vs-cli/9348/3 and https://github.com/Z3Prover/z3/issues/5841 *)
 let ex_quantify_expr env vars ctx e =
@@ -319,9 +316,8 @@ let ex_quantify_expr env vars ctx e =
 
 (* this is a separate function which doesn't cache results because exists isn't in pi *)
 let entails_exists_inner env p1 vs p2 =
-  if debug then
-    Format.printf "z3 valid: %s => ex %s. %s\n%s@." (string_of_pi p1)
-      (String.concat " " vs) (string_of_pi p2) (string_of_typ_env env);
+  debug ~at:4 ~title:"z3 valid" "%s => ex %s. %s\n%s" (string_of_pi p1)
+    (String.concat " " vs) (string_of_pi p2) (string_of_typ_env env);
   let f ctx =
     let r =
       Z3.Boolean.mk_not ctx
@@ -331,7 +327,9 @@ let entails_exists_inner env p1 vs p2 =
     (* Format.printf "oblig: %s@." (Expr.to_string r); *)
     r
   in
-  not (check_sat f)
+  match check_sat f with 
+  | UNSATISFIABLE -> true
+  |	UNKNOWN |	SATISFIABLE -> false
 
 let entails_exists env p1 vs p2 =
   (*
@@ -343,7 +341,9 @@ let entails_exists env p1 vs p2 =
   if allDisjunctions p2 && existPurePattern p2 p1 then true 
   else 
   *)
-  let p1 = 
+
+  (* darius: temporarily disabled because this makes the new ens false; ... normalization very slow, the right way is prob to add an axiom declaration so we can declare these extra assumptions where they are needed *)
+  (* let p1 = 
     if entails_exists_inner env p1 vs (Atomic(EQ, Var "n", Num 0)) then 
       let retation_v2Nplus1_is_2 = (Atomic(EQ, Var "v2Nplus1", Num 2)) in 
       And (retation_v2Nplus1_is_2, p1) 
@@ -353,7 +353,7 @@ let entails_exists env p1 vs p2 =
     else
       let retation_v2N_v2Nplus1 = Atomic (EQ, (Var "v2Nplus1"), Plus (Var "v2N", Var "v2N"))in 
       And (retation_v2N_v2Nplus1, p1) 
-  in 
+  in  *)
 
   (*
   Format.printf "entails_exists_inner, pi: %s => %s@." (string_of_pi p1) (string_of_pi p2);
@@ -361,29 +361,29 @@ let entails_exists env p1 vs p2 =
   entails_exists_inner env p1 vs p2
 
 
-let _valid p =
+(* let _valid p =
   let f ctx = Z3.Boolean.mk_not ctx (pi_to_expr SMap.empty ctx p) in
-  not (check_sat f)
+  not (check_sat f) *)
 
-let (historyTable : (string * bool) list ref) = ref []
-let hash_pi pi = string_of_int (Hashtbl.hash pi)
+(* let (historyTable : (string * bool) list ref) = ref [] *)
+(* let hash_pi pi = string_of_int (Hashtbl.hash pi) *)
 
-let rec existInhistoryTable pi table =
+(* let rec existInhistoryTable pi table =
   match table with
   | [] -> None
   | (x, b) :: xs ->
     if String.compare x (hash_pi pi) == 0 then Some b
     else existInhistoryTable pi xs
 
-let counter : int ref = ref 0
+let counter : int ref = ref 0 *)
 
-let _askZ3 env pi =
+(* let _askZ3 env pi =
   match existInhistoryTable pi !historyTable with
   | Some b -> b
   | None ->
     let _ = counter := !counter + 1 in
     let re = check env pi in
     let () = historyTable := (hash_pi pi, re) :: !historyTable in
-    re
+    re *)
 
 let handle f = f ()

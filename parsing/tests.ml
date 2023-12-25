@@ -135,7 +135,7 @@ let%expect_test "apply lemma" =
     lemma: forall [x; res], f(x,res) <: Norm(res=x+1)
     original: req emp; f(1, 3); req emp; g(2); req emp; Norm(res=2)
     result: Some Norm(T/\T); Norm(3=1+1); g(2)
-    norm: Some ens 3=2; g(2); Norm(res=2)
+    norm: Some Norm(F)
     ---
     related suffix
     lemma: forall [x; res], f(x,res) <: Norm(res=x+1)
@@ -348,11 +348,11 @@ let%expect_test "normalise spec" =
 
   ex v1 v2 v3 v4; Norm(res=v1/\v1=v2/\v2=v3/\v4=v1)
   ==>
-  ex v4; req emp; Norm(emp)
+  ex v4; req emp; Norm(res=v4)
 
   ex v1 v2 v3 r; f(v1, r); Norm(res=v1+1/\v2=r/\v3=v2)
   ==>
-  ex v1 v2; req emp; f(v1, v2); ex v3; req emp; Norm(res=v1+1)
+  ex v1 v2; req emp; f(v1, v2); req emp; Norm(res=v1+1)
 |}]
 
 let entails_pure env_a s1 vars s2 =

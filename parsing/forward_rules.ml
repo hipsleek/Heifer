@@ -804,7 +804,7 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
             [[Exists [ret]; HigherOrder (True, EmptyHeap, (fname, actualArgs), Var ret)]]
           | Some (formalArgs, spec_of_fname) -> 
             (* TODO should we keep existentials? *)
-            (*print_endline ("Function call: " ^ string_of_disj_spec spec_of_fname);*)
+            (* print_endline ("Function call: " ^ string_of_disj_spec spec_of_fname); *)
             let spec = renamingexistientalVar spec_of_fname in
             (* let spec = freshen spec_of_fname in *)
             (* Format.printf "after freshen: %s@." (string_of_disj_spec spec); *)

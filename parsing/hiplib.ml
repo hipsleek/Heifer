@@ -624,8 +624,7 @@ let rec expr_to_formula (expr:expression) : pi * kappa =
     failwith (Format.asprintf "unknown kind of formula: %a" Pprintast.expression expr)
 
 
-(** see [transform_str] for what env is *)
-let rec transformation (env:string list) (expr:expression) : core_lang =
+let rec transformation (bound_names:string list) (expr:expression) : core_lang =
   match expr.pexp_desc with 
   | Pexp_ident {txt=Lident i; _} ->
     CValue (Var i)
@@ -645,12 +644,12 @@ let rec transformation (env:string list) (expr:expression) : core_lang =
     (* see also: Pexp_fun case below in transform_str *)
     let spec = function_spec body in
     let formals, body = collect_param_names expr in
-    let e = transformation (formals @ env) body in
+    let e = transformation (formals @ bound_names) body in
     CLambda (formals, spec, e)
   (* perform *)
   | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, ((_, {pexp_desc = Pexp_construct ({txt=Lident eff; _}, args); _}) :: _)) when name = "perform" ->
     begin match args with
-    | Some a -> transformation env a |> maybe_var (fun v -> CPerform (eff, Some v))
+    | Some a -> transformation bound_names a |> maybe_var (fun v -> CPerform (eff, Some v))
     | None -> CPerform (eff, None)
     end
   (* continue *)
@@ -665,7 +664,7 @@ let rec transformation (env:string list) (expr:expression) : core_lang =
       match args with
       | [] -> CResume (List.rev vars)
       | (_, a) :: args1 ->
-        transformation env a |> maybe_var (fun v -> loop (v :: vars) args1)
+        transformation bound_names a |> maybe_var (fun v -> loop (v :: vars) args1)
     in
     loop [] args
     
@@ -676,14 +675,14 @@ let rec transformation (env:string list) (expr:expression) : core_lang =
     CRead v
   (* ref *)
   | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, [_, a]) when name = "ref" ->
-    transformation env a |> maybe_var (fun v -> CRef v)
+    transformation bound_names a |> maybe_var (fun v -> CRef v)
   (* assign *)
   | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, [_, {pexp_desc = Pexp_ident {txt=Lident x; _}; _}; _, e]) when name = ":=" ->
-    transformation env e |> maybe_var (fun v -> CWrite (x, v))
+    transformation bound_names e |> maybe_var (fun v -> CWrite (x, v))
   (* transparent *)
   | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Ldot (Lident "Sys", "opaque_identity"); _}); _}, [_, a]) ->
     (* ignore this *)
-    transformation env a
+    transformation bound_names a
   (* primitive or invocation of higher-order function passed as argument *)
   | Pexp_construct ({txt=Lident "[]"; _}, None) ->
     CValue Nil
@@ -693,16 +692,16 @@ let rec transformation (env:string list) (expr:expression) : core_lang =
       match args with
       | [] -> CFunCall (name, List.rev vars)
       |  a :: args1 ->
-        transformation env a |> maybe_var (fun v -> loop (v :: vars) args1)
+        transformation bound_names a |> maybe_var (fun v -> loop (v :: vars) args1)
     in
     loop [] args
-  | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, args) when List.mem name env || List.mem name primitives ->
+  | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, args) when List.mem name bound_names || List.mem name primitives ->
     (* TODO this doesn't model ocaml's right-to-left evaluation order *)
     let rec loop vars args =
       match args with
       | [] -> CFunCall (name, List.rev vars)
       | (_, a) :: args1 ->
-        transformation env a |> maybe_var (fun v -> loop (v :: vars) args1)
+        transformation bound_names a |> maybe_var (fun v -> loop (v :: vars) args1)
     in
     loop [] args
   | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, args) ->
@@ -714,11 +713,11 @@ let rec transformation (env:string list) (expr:expression) : core_lang =
       match args with
       | [] -> CFunCall (name, List.rev vars)
       | (_, a) :: args1 ->
-        transformation env a |> maybe_var (fun v -> loop (v :: vars) args1)
+        transformation bound_names a |> maybe_var (fun v -> loop (v :: vars) args1)
     in
     loop [] args
   | Pexp_sequence (a, b) ->
-    CLet ("_", transformation env a, transformation env b)
+    CLet ("_", transformation bound_names a, transformation bound_names b)
   | Pexp_assert e ->
     let p, k = expr_to_formula e in
     CAssert (p, k)
@@ -727,26 +726,26 @@ let rec transformation (env:string list) (expr:expression) : core_lang =
     let exprIn = vb.pvb_expr in 
     if String.equal var_name "res" then
       failwith (Format.asprintf "cannot name variable res");
-    CLet (var_name, transformation env exprIn, transformation env e)
+    CLet (var_name, transformation bound_names exprIn, transformation bound_names e)
   | Pexp_ifthenelse (if_, then_, Some else_) ->
-    let expr = transformation env if_ in 
+    let expr = transformation bound_names if_ in 
     
 
     (match expr with 
-    | CValue v -> CIfELse ((Atomic (EQ, v, TTrue)), transformation env then_, transformation env else_)
+    | CValue v -> CIfELse ((Atomic (EQ, v, TTrue)), transformation bound_names then_, transformation bound_names else_)
     | CFunCall (name, [a;b]) -> 
       if String.compare name "==" ==0 then 
-        CIfELse ((Atomic (EQ, a, b)), transformation env then_, transformation env else_)
+        CIfELse ((Atomic (EQ, a, b)), transformation bound_names then_, transformation bound_names else_)
         
       else 
         let v = verifier_getAfreeVar "let" in
-        let rest_Expr =  CIfELse ((Atomic (EQ, Var v, TTrue)), transformation env then_, transformation env else_) in 
+        let rest_Expr =  CIfELse ((Atomic (EQ, Var v, TTrue)), transformation bound_names then_, transformation bound_names else_) in 
         CLet (v, expr, rest_Expr)
 
         
     | _ -> 
       let v = verifier_getAfreeVar "let" in
-      let rest_Expr =  CIfELse ((Atomic (EQ,Var v, TTrue)), transformation env then_, transformation env else_) in 
+      let rest_Expr =  CIfELse ((Atomic (EQ,Var v, TTrue)), transformation bound_names then_, transformation bound_names else_) in 
       CLet (v, expr, rest_Expr)
     )
       
@@ -755,7 +754,7 @@ let rec transformation (env:string list) (expr:expression) : core_lang =
       (* may be none for non-effect pattern matches *)
       cases |> List.find_map (fun c ->
         match c.pc_lhs.ppat_desc with
-        | Ppat_var {txt=v; _} -> Some (v, transformation env c.pc_rhs)
+        | Ppat_var {txt=v; _} -> Some (v, transformation bound_names c.pc_rhs)
         | _ -> None)
     in
     let effs =
@@ -772,7 +771,7 @@ let rec transformation (env:string list) (expr:expression) : core_lang =
             in
             string_of_pattern peff, arg
           in
-          Some (label, arg_binder, c.pc_spec, transformation env c.pc_rhs)
+          Some (label, arg_binder, c.pc_spec, transformation bound_names c.pc_rhs)
         | _ -> None)
     in
     let pattern_cases =
@@ -780,17 +779,17 @@ let rec transformation (env:string list) (expr:expression) : core_lang =
       cases |> List.filter_map (fun c ->
         match c.pc_lhs.ppat_desc with
         | Ppat_construct ({txt=constr; _}, None) ->
-          Some (Longident.last constr, [], transformation env c.pc_rhs)
+          Some (Longident.last constr, [], transformation bound_names c.pc_rhs)
         | Ppat_construct ({txt=constr; _}, Some {ppat_desc = Ppat_tuple ps; _}) ->
           let args = List.filter_map (fun p ->
             match p.ppat_desc with
             | Ppat_var {txt=v; _} -> Some v
             | _ -> None) ps
           in
-          Some (Longident.last constr, args, transformation env c.pc_rhs)
+          Some (Longident.last constr, args, transformation bound_names c.pc_rhs)
         | _ -> None)
     in
-    CMatch (spec (*SYHTODO*), transformation env e, norm, effs, pattern_cases)
+    CMatch (spec (*SYHTODO*), transformation bound_names e, norm, effs, pattern_cases)
   | _ -> 
     if String.compare (Pprintast.string_of_expression expr) "Obj.clone_continuation k" == 0 then (* ASK Darius*)
     CValue (Var "k")
@@ -839,7 +838,8 @@ let rec lookUpFromPure p str : term option =
 
 
 
-let transform_str env (s : structure_item) =
+(** env just keeps track of all the bound names *)
+let transform_str bound_names (s : structure_item) =
   match s.pstr_desc with
   | Pstr_value (_rec_flag, vb::_vbs_) ->
     let tactics = collect_annotations vb.pvb_attributes in
@@ -850,7 +850,7 @@ let transform_str env (s : structure_item) =
       (* see also: CLambda case *)
       let spec = function_spec tlbody in
       let formals, body = collect_param_names fn in
-      let e = transformation (fn_name :: formals @ env) body in
+      let e = transformation (fn_name :: formals @ bound_names) body in
       Some (`Meth (fn_name, formals, spec, e, tactics))
     | Pexp_apply _ -> None 
     | whatever -> 
@@ -858,8 +858,13 @@ let transform_str env (s : structure_item) =
       failwith (Format.asprintf "not a function binding: %a" Pprintast.expression fn)
     end
     
-  | Pstr_lemma (_l_name, _l_left, _l_right) ->
-    failwith "parsing user-defined lemma, TODO"
+  | Pstr_lemma (l_name, l_params, l_left, l_right) ->
+    let l_left =
+      match l_left with
+      | HigherOrder (_p, _h, constr, _r) -> constr
+      | _ -> failwith (Format.asprintf "lemma %s should have function on the left" l_name)
+    in
+    Some (`Lem {l_name; l_params; l_left; l_right})
   | Pstr_predicate (p_name, p_params, p_body) -> Some (`Pred {p_name; p_params; p_body})
   | Pstr_SL_predicate (p_sl_ex, p_sl_name, p_sl_params, p_sl_body) -> Some (`SLPred {p_sl_ex; p_sl_name; p_sl_params; p_sl_body})
 
@@ -1028,51 +1033,6 @@ let replacePredicatesWithDef (specs:disj_spec) (ms:meth_def list) (ps:pred_def S
   
   in  List.flatten (List.map (fun spec -> helper spec) specs)
 
-
-let transform_strs (strs: structure_item list) : core_program =
-  let _env, effs, mths, preds, sl_preds, lems =
-    List.fold_left (fun (env, es, ms, ps, slps, ls) c ->
-      match transform_str env c with
-      | Some (`Lem l) -> env, es, ms, ps, slps, SMap.add l.p_name l ls
-      | Some (`Pred p) -> 
-        (*print_endline ("\n"^ p.p_name ^  Format.asprintf "(%s)" (String.concat ", " p.p_params) ^ ": ");
-        print_endline (string_of_disj_spec p.p_body);
-        *)
-
-        let body' = replaceSLPredicatesWithDef p.p_body slps in 
-        (*print_endline ("~~~> " ^ string_of_disj_spec body');
-        *)
-        let (p': pred_def) = {p_name =p.p_name; p_params = p.p_params; p_body = body'} in 
-        env, es, ms, SMap.add p'.p_name p' ps, slps, ls
-
-      | Some (`SLPred p) -> 
-        (*
-        print_endline ("\n"^ p.p_sl_name^  Format.asprintf "(%s)" (String.concat ", " p.p_sl_params) ^ ": " ^ Format.asprintf "ex %s; " (String.concat " " p.p_sl_ex) ^ string_of_state p.p_sl_body);
-        *)
-        env, es, ms, ps, SMap.add p.p_sl_name p slps,ls
-      | Some (`Eff a) -> env, a :: es, ms, ps, slps, ls
-      | Some (`Meth (m_name, m_params, m_spec, m_body, m_tactics)) -> 
-        (* let m_spec' = 
-          (match m_spec with 
-          | None -> None 
-          | Some spec -> 
-          (*print_endline ("\n"^ m_name ^  Format.asprintf "(%s)" (String.concat ", " m_params) ^ ": ");
-          print_endline (string_of_disj_spec spec);*)
-          let spec' = replacePredicatesWithDef spec ms ps in 
-          (*print_endline ("~~~> " ^ string_of_disj_spec spec');*)
-          let spec'' = (replaceSLPredicatesWithDef spec' slps) in 
-          (*print_endline ("~~~> " ^ string_of_disj_spec spec'' ^"\n");*)
-          Some spec''
-          ) 
-        in *)
-        (* ASK YAHUI *)
-        (* the right fix is likely to unfold all non-recursive predicates internally before entailment *)
-        let m_spec' = m_spec in
-        m_name :: env, es, { m_name=m_name; m_params=m_params; m_spec=m_spec'; m_body=m_body; m_tactics=m_tactics } :: ms, ps, slps, ls
-      | _ -> env, es, ms, ps, slps, ls
-    ) ([], [], [], SMap.empty, SMap.empty, SMap.empty) strs
-  in { cp_effs = List.rev effs; cp_methods = List.rev mths; cp_predicates = preds; cp_sl_predicates = sl_preds; cp_lemmas = lems }
-
 let string_of_token =
   let open Parser in
   function
@@ -1211,6 +1171,7 @@ let string_of_token =
 | CONJUNCTION -> "CONJUNCTION"
 | DISJUNCTION -> "DISJUNCTION"
 | IMPLICATION -> "IMPLICATION"
+| SUBSUMES -> "SUBSUMES"
 | EFFTRY -> "EFFTRY"
 | EFFCATCH -> "EFFCATCH"
 
@@ -1423,13 +1384,18 @@ let report_result ?kind ?given_spec ?given_spec_n ?inferred_spec ?inferred_spec_
   in
   f ?kind ?given_spec ?given_spec_n ?inferred_spec ?inferred_spec_n ?forward_time_ms ?entail_time_ms ?result name
 
-let check_obligation meth prog predicates (l, r) =
-  let res = Entail.check_staged_subsumption_disj meth.m_name meth.m_params meth.m_tactics prog.cp_lemmas predicates l r in
-  report_result ~kind:"Obligation" ~given_spec:r ~inferred_spec:l ~result:res meth.m_name
+let check_obligation name params lemmas predicates (l, r) =
+  let@ _ =
+    Debug.span (fun _r ->
+        debug ~at:1
+          ~title:(Format.asprintf "checking obligation: %s" name) "")
+  in
+  let res = Entail.check_staged_subsumption_disj name params [] lemmas predicates l r in
+  report_result ~kind:"Obligation" ~given_spec:r ~inferred_spec:l ~result:res name
 
 exception Method_failure
 
-let analyze_method prog ({m_spec = given_spec; _} as meth) =
+let analyze_method prog ({m_spec = given_spec; _} as meth) : core_program =
 
   let () =  z3_consumption := 0.0 in 
   let time_stamp_beforeForward = Sys.time () in
@@ -1446,7 +1412,12 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) =
     in
     let pred_env = prog.cp_predicates in 
     let env = create_fv_env method_env pred_env in
-    let inf, env = infer_of_expression env [freshNormalReturnSpec] meth.m_body in
+    let inf, env =
+      let@ _ =
+        Debug.span (fun _ -> debug ~at:2 ~title:"apply forward rules" "")
+      in
+      infer_of_expression env [freshNormalReturnSpec] meth.m_body
+    in
 
     (* make the new specs inferred for lambdas available to the entailment procedure as predicates *)
     let preds_with_lambdas =
@@ -1461,8 +1432,8 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) =
     inf, preds_with_lambdas, env
   in
   (* check misc obligations. don't stop on failure for now *)
-  fvenv.fv_lambda_obl |> List.iter (check_obligation meth prog predicates);
-  fvenv.fv_match_obl |> List.iter (check_obligation meth prog predicates);
+  fvenv.fv_lambda_obl |> List.iter (check_obligation meth.m_name meth.m_params prog.cp_lemmas predicates);
+  fvenv.fv_match_obl |> List.iter (check_obligation meth.m_name meth.m_params prog.cp_lemmas predicates);
 
   (* check the main spec *)
   let time_stamp_afterForward = Sys.time () in
@@ -1549,11 +1520,8 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) =
         (* using the predicate instead of the raw inferred spec makes the induction hypothesis possible with current heuristics. it costs one more unfold but that is taken care of by the current entailment procedure, which repeatedly unfolds *)
         let _mspec : disj_spec = inferred_spec in
         let mspec : disj_spec =
-          let v = verifier_getAfreeVar "infr" in
           let prr, _ret = split_last pred.p_params in
-          let sp = [Exists [v]; HigherOrder (True, EmptyHeap, (pred.p_name, List.map (fun v1 -> Var v1) prr), Var v)]
-          in
-          [sp]
+          function_stage_to_disj_spec (pred.p_name, List.map (fun v1 -> Var v1) prr)
         in
         (*print_endline ("inferred spec for " ^ meth.m_name ^ " " ^  (string_of_disj_spec mspec)); *)
 
@@ -1565,17 +1533,78 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) =
     in
     prog)
 
+let process_items (strs: structure_item list) : unit =
+  strs |>
+    List.fold_left (fun (bound_names, prog) c ->
+      match transform_str bound_names c with
+      | Some (`Lem l) ->
+        check_obligation l.l_name l.l_params prog.cp_lemmas prog.cp_predicates (function_stage_to_disj_spec l.l_left, [l.l_right]);
+        (* add to environment regardless of failure *)
+        bound_names, { prog with cp_lemmas = SMap.add l.l_name l prog.cp_lemmas }
+      | Some (`Pred p) -> 
+        (*print_endline ("\n"^ p.p_name ^  Format.asprintf "(%s)" (String.concat ", " p.p_params) ^ ": ");
+        print_endline (string_of_disj_spec p.p_body);
+        *)
+
+        let body' = replaceSLPredicatesWithDef p.p_body prog.cp_sl_predicates in 
+        (*print_endline ("~~~> " ^ string_of_disj_spec body');
+        *)
+        let (p': pred_def) = {p_name =p.p_name; p_params = p.p_params; p_body = body'} in 
+        bound_names, { prog with cp_predicates = SMap.add p'.p_name p' prog.cp_predicates }
+
+      | Some (`SLPred p) -> 
+        (*
+        print_endline ("\n"^ p.p_sl_name^  Format.asprintf "(%s)" (String.concat ", " p.p_sl_params) ^ ": " ^ Format.asprintf "ex %s; " (String.concat " " p.p_sl_ex) ^ string_of_state p.p_sl_body);
+        *)
+        bound_names, { prog with cp_sl_predicates = SMap.add p.p_sl_name p prog.cp_sl_predicates }
+      | Some (`Eff _) ->
+        (* ignore *)
+        bound_names, prog
+      | Some (`Meth (m_name, m_params, m_spec, m_body, m_tactics)) -> 
+        (* ASK YAHUI *)
+        (* let _m_spec' = 
+          (match m_spec with 
+          | None -> None 
+          | Some spec -> 
+          (*print_endline ("\n"^ m_name ^  Format.asprintf "(%s)" (String.concat ", " m_params) ^ ": ");
+          print_endline (string_of_disj_spec spec);*)
+          let spec' = replacePredicatesWithDef spec prog.cp_methods prog.cp_predicates in 
+          (*print_endline ("~~~> " ^ string_of_disj_spec spec');*)
+          let spec'' = (replaceSLPredicatesWithDef spec' prog.cp_sl_predicates) in 
+          (*print_endline ("~~~> " ^ string_of_disj_spec spec'' ^"\n");*)
+          Some spec''
+          ) 
+        in *)
+        (* the right fix is likely to unfold all non-recursive predicates internally before entailment *)
+        let m_spec' = m_spec in
+        let meth = { m_name=m_name; m_params=m_params; m_spec=m_spec'; m_body=m_body; m_tactics=m_tactics } in
+
+        debug ~at:2 ~title:"parsed" "%s" (string_of_program prog);
+        debug ~at:2 ~title:"user-specified predicates" "%s" (string_of_smap string_of_pred prog.cp_predicates);
+        (* as we handle methods, predicates are inferred and are used in place of absent specifications, so we have to keep updating the program as we go *)
+        let prog = { prog with cp_methods = meth :: prog.cp_methods } in
+        begin try
+          let prog =
+            let@ _ =
+              Debug.span (fun _r ->
+                  debug ~at:1
+                    ~title:(Format.asprintf "verifying function: %s" meth.m_name) "")
+            in
+            analyze_method prog meth
+          in
+          m_name :: bound_names, prog
+        with Method_failure ->
+          (* update program with method regardless of failure *)
+          bound_names, prog
+        end
+      | None -> bound_names, prog
+    )
+    ([], empty_program)
+    |> ignore
+
 let run_string_ line =
-  let progs = Parser.implementation Lexer.token (Lexing.from_string line) in
-  let prog = transform_strs progs in
-  debug ~at:2 ~title:"parsed" "%s" (string_of_program prog);
-  debug ~at:2 ~title:"user-specified predicates" "%s" (string_of_smap string_of_pred prog.cp_predicates);
-  (* as we handle methods, predicates are inferred and are used in place of absent specifications, so we have to keep updating the program as we go *)
-  List.fold_left (fun prog meth ->
-    debug ~at:1 ~title:(Format.asprintf "verifying: %s" meth.m_name) "";
-    try
-      analyze_method prog meth
-    with Method_failure -> prog) prog prog.cp_methods |> ignore
+  let items = Parser.implementation Lexer.token (Lexing.from_string line) in
+  process_items items
 
 let run_string s =
   Provers.handle (fun () -> run_string_ s)
