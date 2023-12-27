@@ -30,3 +30,13 @@ let simple_closures ()
   let x = ref 3 in
   counter ();
   counter () + !x
+
+(* Section 2.2.1 in Modular Specification and Verification of Closures in Rust *)
+let prusti_closure () (* FIXME *)
+(*@ ex i; ex j; ens i->2*j->3 /\ res=5 @*)
+= let i = ref 1 and j = ref 2 in
+  let cl x =
+    j := !j + !x;
+    x := !x + 1;
+    !j + !x in
+  cl i
