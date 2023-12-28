@@ -33,7 +33,7 @@ let simple_closures ()
 
 (* Section 2.2.1 in Modular Specification and Verification of Closures in Rust *)
 let closure_with_effects () (* FIXME *)
-(*@ ex i; ex j; ens i->2*j->3 /\ res=5 @*)
+(*@ ex a b; req a->1*b->2; ens res=5 @*)
 = let i = ref 1 in
   let j = ref 2 in
   let cl x =
@@ -43,15 +43,10 @@ let closure_with_effects () (* FIXME *)
   cl i
 
 (* https://ilyasergey.net/CS6217/_static/slides/04-FunLog.pdf *)
-let min_max_plus ()
-(*@ ex min; ex max; ens min->1*max->2/\res=3 @*)
-= let f x y min max =
-    let min' = if x < y then x else y in
-    let max' = if x < y then y else x in
-    min := min';
-    max := max';
-    x + y in
-  let min = ref 0 in
-  let max = ref 0 in
-  f 1 2 min max
-
+let min_max_plus x y min max
+(*@ ex a b; req min->a*max->b; ex i j; ens min->i*max->j/\i<=j/\res=x+y @*)
+= let min' = if x < y then x else y in
+  let max' = if x < y then y else x in
+  min := min';
+  max := max';
+  x + y
