@@ -33,7 +33,7 @@ let simple_closures ()
 
 (* Section 2.2.1 in Modular Specification and Verification of Closures in Rust *)
 let closure_with_effects () (* FIXME *)
-(*@ ex a b; req a->1*b->2; ens res=5 @*)
+(*@ req i->1*j->2; ens i->2*j->3/\res=5 @*)
 = let i = ref 1 in
   let j = ref 2 in
   let cl x =
