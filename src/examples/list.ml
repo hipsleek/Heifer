@@ -10,13 +10,11 @@ let rec reverse lst =
   | x :: xs -> snoc (reverse xs) x 
   
 let rec subsequence sub lst =
-  match lst with
-  | [] -> (match sub with
-    | [] -> true
-    | _ -> false)
-  | x :: xs -> (match sub with
-    | [] -> true
-    | y :: ys -> if x == y then subsequence ys xs else subsequence sub xs)
+  match sub with
+  | [] -> true
+  | y :: ys -> match lst with
+    | [] -> false
+    | x :: xs -> if x = y && subsequence ys xs then true else subsequence sub xs
 
 let rec find lst y =
   match lst with
