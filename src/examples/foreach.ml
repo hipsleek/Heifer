@@ -1,6 +1,5 @@
 
 (* Adapted from https://github.com/FabianWolff/closure-examples/blob/master/for_each.rs *)
-
 let rec foreach xs f =
   match xs with
   | [] -> ()

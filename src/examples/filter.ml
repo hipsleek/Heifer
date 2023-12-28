@@ -1,6 +1,5 @@
 
 (* Adapted from https://github.com/FabianWolff/closure-examples/blob/master/filter.rs *)
-
 let rec filter xs pred =
   match xs with
   | [] -> []

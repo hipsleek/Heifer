@@ -11,6 +11,16 @@ let rec foldr f li acc =
     let acc' = f x acc in 
     foldr f xs acc'
 
+let rec exists xs f =
+  match xs with
+  | [] -> false
+  | x :: xs' -> f x || exists xs' f
+
+let foldr_exists xs pred
+(*@ ex r; exists(xs, pred, r); ens res=r @*)
+= let f x acc = pred x || acc in
+  foldr f xs false
+
 let foldr_length xs init
 (*@ ex r; length(xs, r); Norm(emp, r+init) @*)
 = let g c t = 1 + t in
