@@ -32,12 +32,16 @@ let simple_closures ()
   counter () + !x
 
 (* Section 2.2.1 in Modular Specification and Verification of Closures in Rust *)
-let closure_with_effects () (* FIXME *)
-(*@ req i->1*j->2; ens i->2*j->3/\res=5 @*)
+let closure_with_effects ()
+(*@ ex i j; ens i->2*j->3/\res=5 @*)
 = let i = ref 1 in
   let j = ref 2 in
-  let cl x =
-    j := !j + !x;
+  let cl x
+  (*@
+    ex a b; req x->a*j->b; ens j->b+a * x->a+1 /\  res=b+a+a+1
+    \/ ex a; req x->a /\ x=j; ens j->a+a+1 /\ res=a+a+1+a+1
+  @*)
+  = j := !j + !x;
     x := !x + 1;
     !j + !x in
   cl i
