@@ -61,7 +61,7 @@ let closure_with_history_invariant i j
   i := cl();
   j := cl()
 
-  (* https://ilyasergey.net/CS6217/_static/slides/04-FunLog.pdf *)
+(* https://ilyasergey.net/CS6217/_static/slides/04-FunLog.pdf *)
 let min_max_plus x y min max
 (*@ ex a b; req min->a*max->b; ex i j; ens min->i*max->j/\i<=j/\res=x+y @*)
 = let min' = if x < y then x else y in
