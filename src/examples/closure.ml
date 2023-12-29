@@ -46,7 +46,22 @@ let closure_with_effects ()
     !j + !x in
   cl i
 
-(* https://ilyasergey.net/CS6217/_static/slides/04-FunLog.pdf *)
+(* Section 3.2 in Modular Specification and Verification of Closures in Rust *)
+let closure_with_history_invariant i j
+(*@ ex iv jv; req i->iv*j->jv; ens i->1*j->2 @*)
+= let count = ref 0 in
+  let cl ()
+  (*@
+    ex a iv jv; req count->a*i->iv*j->jv;
+    ex ivv jvv; ens count->a+1*i->ivv*j->jvv/\res=a+1/\iv=ivv/\jv=jvv
+  @*)
+  (* The specification ensures that i and j are unchanged in cl *)
+  = count := !count + 1;
+    !count in
+  i := cl();
+  j := cl()
+
+  (* https://ilyasergey.net/CS6217/_static/slides/04-FunLog.pdf *)
 let min_max_plus x y min max
 (*@ ex a b; req min->a*max->b; ex i j; ens min->i*max->j/\i<=j/\res=x+y @*)
 = let min' = if x < y then x else y in
