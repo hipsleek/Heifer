@@ -348,7 +348,7 @@ let entails_exists_inner env p1 vs p2 =
   | UNSATISFIABLE -> true
   |	UNKNOWN |	SATISFIABLE -> false
 
-let entails_exists env p1 vs p2 =
+let entails_exists1 env p1 vs p2 =
   (*
   print_endline (string_of_bool ( allDisjunctions p2)); 
   print_endline (string_of_bool ( existPurePattern p2 p1)); 
@@ -377,6 +377,18 @@ let entails_exists env p1 vs p2 =
   *)
   entails_exists_inner env p1 vs p2
 
+let entails_exists env p1 vs p2 =
+  if Debug.in_debug_mode () then
+    entails_exists1 env p1 vs p2
+  else
+    try
+      entails_exists1 env p1 vs p2
+    with e ->
+      (* the stack trace printed is not the same (and is much less helpful) if the exception is caught *)
+      Debug.debug ~at:1 ~title:"an error occurred, assuming proof failed"
+      "%s" (Printexc.to_string e);
+      (* Printexc.print_backtrace stdout; *)
+      false
 
 (* let _valid p =
   let f ctx = Z3.Boolean.mk_not ctx (pi_to_expr SMap.empty ctx p) in

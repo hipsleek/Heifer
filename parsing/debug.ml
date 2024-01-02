@@ -100,6 +100,7 @@ let string_of_query qs =
     qs
 
 let user_query : query ref = ref []
+let in_debug_mode () = match !user_query with [] -> false | _ :: _ -> true
 let collapse i = (Hide, Time i, true)
 let expand i = (Show, Time i, true)
 let whitelist r = (Show, Regex (r, Str.regexp_case_fold r), false)

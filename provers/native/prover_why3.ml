@@ -1,10 +1,8 @@
+open Why3
+
+(* open this second, so it gets precedence for shadowed modules *)
 open Hipcore
 open Hiptypes
-
-(* let debug = true *)
-let debug = false
-
-open Why3
 
 let prover_configs : Whyconf.config_prover SMap.t ref = ref SMap.empty
 
@@ -111,7 +109,7 @@ let type_to_why3 env (t : typ) =
     Ty.ty_int
 
 let rec term_to_why3 env (t : term) =
-  if debug then Format.printf "term %s@." (Hipcore.Pretty.string_of_term t);
+  (* Format.printf "term %s@." (Pretty.string_of_term t); *)
   match t with
   | UNIT -> Term.t_tuple []
   | Num i ->
@@ -119,7 +117,7 @@ let rec term_to_why3 env (t : term) =
     Term.t_nat_const i
   | TLambda (_, _, _) ->
     Theories.(needed int env.theories);
-    Term.t_nat_const (Hipcore.Subst.hash_lambda t)
+    Term.t_nat_const (Subst.hash_lambda t)
   | Var v ->
     let ty =
       SMap.find_opt v env.tenv |> Option.value ~default:Int |> type_to_why3 env
@@ -137,7 +135,7 @@ let rec term_to_why3 env (t : term) =
         | Some vv -> Term.t_app vv [] (Some ty))
     in
     (* Format.printf "var %s : %s@." v
-       Hipcore.Pretty.(
+       Pretty.(
          string_of_option string_of_type (SMap.find_opt v env.tenv)); *)
     name
   | Plus (a, b) ->
@@ -200,7 +198,7 @@ let rec term_to_why3 env (t : term) =
       Theories.(get_symbol bool "notb" env.theories)
       [term_to_why3 env a]
   | TCons (a, b) ->
-    (* let open Hipcore.Pretty in *)
+    (* let open Pretty in *)
     (* Format.printf "cons %s %s @." (string_of_term a) (string_of_term b); *)
     Term.t_app
       Theories.(get_symbol list "Cons" env.theories)
@@ -224,7 +222,7 @@ let rec term_to_why3 env (t : term) =
   | TTupple _ -> failwith "TTupple nyi"
 
 let rec pi_to_why3 env (pi : pi) =
-  if debug then Format.printf "pi %s@." (Hipcore.Pretty.string_of_pi pi);
+  (* Format.printf "pi %s@." (Pretty.string_of_pi pi); *)
   match pi with
   | True -> Term.t_true
   | False -> Term.t_false
@@ -291,7 +289,7 @@ let create_env tenv qtf =
   { initial with quantified }
 
 let attempt_proof task1 =
-  (* if debug then Format.printf "task: %a@." Pretty.print_task task1; *)
+  (* Format.printf "task: %a@." Pretty.print_task task1; *)
   let prover_z3 = "Z3" in
   let prover_alt_ergo = "Alt-Ergo" in
   [prover_alt_ergo; prover_z3]
@@ -310,10 +308,9 @@ let attempt_proof task1 =
                 ~config:why3_config_main ~command:pc.Whyconf.command driver
                 task1)
          in
-         if debug then
-           Format.printf "%s: %a@." prover
-             (Call_provers.print_prover_result ?json:None)
-             result1;
+         (* Format.printf "%s: %a@." prover
+            (Call_provers.print_prover_result ?json:None)
+            result1; *)
          match result1.pr_answer with Valid -> true | _ -> false)
 
 let prove tenv qtf f =
@@ -340,10 +337,9 @@ let prove tenv qtf f =
       (SMap.bindings env.names) task1
   in
 
-  (* if debug then *)
-  (* Format.printf "tenv: %s@." (Hipcore.Pretty.string_of_typ_env tenv); *)
-  if debug then Format.printf "assumptions: %a@." Pretty.print_term ass;
-  if debug then Format.printf "goal: %a@." Pretty.print_term goal;
+  (* Format.printf "tenv: %s@." (Pretty.string_of_typ_env tenv); *)
+  (* Format.printf "assumptions: %a@." Pretty.print_term ass; *)
+  (* Format.printf "goal: %a@." Pretty.print_term goal; *)
   let task1 : Task.task =
     Task.add_prop_decl task1 Decl.Paxiom
       (Decl.create_prsymbol (Ident.id_fresh "ass1"))
@@ -375,12 +371,12 @@ let entails_exists tenv left ex right =
             (SMap.bindings env.quantified |> List.map snd)
             [] (pi_to_why3 env right) ))
   in
-  if debug then f ()
+  if Debug.in_debug_mode () then f ()
   else
     try f ()
     with e ->
-      (* the stack trace printed is not the same (and is much less helpful) if the exception is caught, hence the use of the debug flag *)
-      Format.printf "an error occurred, assuming proof failed: %a@."
+      (* the stack trace printed is not the same (and is much less helpful) if the exception is caught *)
+      Debug.debug ~at:1 ~title:"an error occurred, assuming proof failed" "%a"
         Exn_printer.exn_printer e;
       (* Printexc.print_backtrace stdout; *)
       false
