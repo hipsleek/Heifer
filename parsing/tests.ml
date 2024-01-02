@@ -368,8 +368,8 @@ let entails_pure env_a s1 vars s2 =
 let%expect_test _ =
   Format.printf "%b@."
     (entails_pure []
-       {|head(xs)=x16/\tail(xs)=xs17/\is_cons(xs)=true/\_f18=1+x16+r|} ["xs37"]
-       {|r=_f35/\xs17=xs37/\head(xs)=x36/\tail(xs)=xs37/\is_cons(xs)=true|});
+       {|xs=1+1|} ["a"]
+       {|a=1/\xs=a|});
   [%expect {| false |}]
 
 let%expect_test "union find" =

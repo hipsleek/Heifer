@@ -296,6 +296,9 @@ let prove tenv qtf f =
   (* set up task *)
   let task1 : Task.task = None in
 
+  (* with z3, somehow the builtin theory containing things like unit is not loaded unless at least one other theory is pulled in, so use the int theory every time for now *)
+  Theories.(needed int env.theories);
+
   (* make loaded theories available *)
   let task1 =
     Theories.fold
@@ -303,6 +306,7 @@ let prove tenv qtf f =
       env.theories task1
   in
 
+  (* Format.printf "task: %a@." Pretty.print_task task1; *)
   let task1 =
     List.fold_right
       (fun (_k, v) t -> Task.add_param_decl t v)
@@ -323,8 +327,7 @@ let prove tenv qtf f =
       (Decl.create_prsymbol (Ident.id_fresh "goal1"))
       goal
   in
-  (* if debug then
-     Format.printf "task: %a@." Pretty.print_task task1; *)
+  if debug then Format.printf "task: %a@." Pretty.print_task task1;
   ensure_prover_loaded prover_z3;
   let pc = get_prover_config prover_z3 in
   let result1 =

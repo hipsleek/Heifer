@@ -2589,6 +2589,11 @@ pure_formula_term:
     
   | TRUE { TTrue }
   | FALSE { TFalse }
+
+  // | LBRACKET RBRACKET { Nil }
+  // | pure_formula_term COLONCOLON pure_formula_term { TCons ($1, $3) }
+  // TODO [1; ...]
+
   | pure_formula_term PLUS pure_formula_term { Plus ($1, $3) }
 
   | pure_formula_term MINUS pure_formula_term { Minus ($1, $3) }
