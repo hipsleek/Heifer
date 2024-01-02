@@ -47,61 +47,68 @@ let load_prover_driver pc name =
       Exn_printer.exn_printer e;
     raise e
 
-(* A means of loading theories *)
-module Theories = struct end
+(** Mutable data structure for keeping track of which theories have been loaded *)
+module Theories = struct
+  module TMap = Map.Make (struct
+    type t = string list * string
+
+    let compare = compare
+  end)
+
+  type t = Theory.theory TMap.t ref
+
+  let create () = ref TMap.empty
+  let fold f t init = List.fold_right f (TMap.bindings !t) init
+
+  (* Some common ones we use *)
+  let int = (["int"], "Int")
+  let bool = (["bool"], "Bool")
+  let list = (["list"], "List")
+
+  let needed tid t =
+    match TMap.find_opt tid !t with
+    | None ->
+      let path, name = tid in
+      t := TMap.add tid (Env.read_theory why3_env path name) !t
+    | Some _ -> ()
+
+  let get_symbol th sym t =
+    match TMap.find_opt th !t with
+    | None -> failwith (Format.asprintf "theory with symbol %s not loaded" sym)
+    | Some t -> Theory.ns_find_ls t.Theory.th_export [sym]
+
+  let get_type_symbol th sym t =
+    match TMap.find_opt th !t with
+    | None ->
+      failwith (Format.asprintf "theory with type symbol %s not loaded" sym)
+    | Some t -> Theory.ns_find_ts t.Theory.th_export [sym]
+end
 
 type env = {
   mutable names : Term.lsymbol SMap.t;
-  mutable int_theory : Theory.theory option;
-  mutable bool_theory : Theory.theory option;
-  mutable list_theory : Theory.theory option;
+  theories : Theories.t; (* TODO consider making this global for performance *)
   tenv : typ SMap.t;
   quantified : Term.vsymbol SMap.t;
 }
-
-let int_theory_needed env =
-  match env.int_theory with
-  | None -> env.int_theory <- Some (Env.read_theory why3_env ["int"] "Int")
-  | Some _ -> ()
-
-let bool_theory_needed env =
-  match env.bool_theory with
-  | None -> env.bool_theory <- Some (Env.read_theory why3_env ["bool"] "Bool")
-  | Some _ -> ()
-
-let list_theory_needed env =
-  match env.list_theory with
-  | None -> env.list_theory <- Some (Env.read_theory why3_env ["list"] "List")
-  | Some _ -> ()
-
-let get_theory_symbol th sym =
-  match th with
-  | None -> failwith (Format.asprintf "theory with symbol %s not loaded" sym)
-  | Some t -> Theory.ns_find_ls t.Theory.th_export [sym]
-
-let get_theory_type_symbol th sym =
-  match th with
-  | None -> failwith (Format.asprintf "theory with symbol %s not loaded" sym)
-  | Some t -> Theory.ns_find_ts t.Theory.th_export [sym]
 
 let type_to_why3 env (t : typ) =
   match t with
   | Unit -> Ty.ty_tuple []
   | List_int ->
-    int_theory_needed env;
-    list_theory_needed env;
-    Ty.ty_app (get_theory_type_symbol env.list_theory "list") [Ty.ty_int]
+    Theories.(needed int env.theories);
+    Theories.(needed list env.theories);
+    Ty.ty_app Theories.(get_type_symbol list "list" env.theories) [Ty.ty_int]
   | Int ->
-    int_theory_needed env;
+    Theories.(needed int env.theories);
     Ty.ty_int
   | Bool ->
-    bool_theory_needed env;
+    Theories.(needed bool env.theories);
     Ty.ty_bool
   | Lamb -> failwith "nyi Lamb"
   | TVar _ ->
     (* failwith "unknown type" *)
     (* default to int *)
-    int_theory_needed env;
+    Theories.(needed int env.theories);
     Ty.ty_int
 
 let rec term_to_why3 env (t : term) =
@@ -109,7 +116,7 @@ let rec term_to_why3 env (t : term) =
   match t with
   | UNIT -> Term.t_tuple []
   | Num i ->
-    int_theory_needed env;
+    Theories.(needed int env.theories);
     Term.t_nat_const i
   | Var v ->
     let ty =
@@ -132,69 +139,69 @@ let rec term_to_why3 env (t : term) =
          string_of_option string_of_type (SMap.find_opt v env.tenv)); *)
     name
   | Plus (a, b) ->
-    int_theory_needed env;
+    Theories.(needed int env.theories);
     Term.t_app_infer
-      (get_theory_symbol env.int_theory "infix +")
+      Theories.(get_symbol int "infix +" env.theories)
       [term_to_why3 env a; term_to_why3 env b]
   | Minus (a, b) ->
-    int_theory_needed env;
+    Theories.(needed int env.theories);
     Term.t_app_infer
-      (get_theory_symbol env.int_theory "infix -")
+      Theories.(get_symbol int "infix -" env.theories)
       [term_to_why3 env a; term_to_why3 env b]
   | Rel (EQ, a, b) ->
     let a1 = term_to_why3 env a in
     let b1 = term_to_why3 env b in
     Term.t_equ a1 b1
   | Rel (GT, a, b) ->
-    int_theory_needed env;
+    Theories.(needed int env.theories);
     Term.t_app_infer
-      (get_theory_symbol env.int_theory "infix >")
+      Theories.(get_symbol int "infix >" env.theories)
       [term_to_why3 env a; term_to_why3 env b]
   | Rel (LT, a, b) ->
-    int_theory_needed env;
+    Theories.(needed int env.theories);
     Term.t_app_infer
-      (get_theory_symbol env.int_theory "infix <")
+      Theories.(get_symbol int "infix <" env.theories)
       [term_to_why3 env a; term_to_why3 env b]
   | Rel (GTEQ, a, b) ->
-    int_theory_needed env;
+    Theories.(needed int env.theories);
     Term.t_app_infer
-      (get_theory_symbol env.int_theory "infix >=")
+      Theories.(get_symbol int "infix >=" env.theories)
       [term_to_why3 env a; term_to_why3 env b]
   | Rel (LTEQ, a, b) ->
-    int_theory_needed env;
+    Theories.(needed int env.theories);
     Term.t_app_infer
-      (get_theory_symbol env.int_theory "infix <=")
+      Theories.(get_symbol int "infix <=" env.theories)
       [term_to_why3 env a; term_to_why3 env b]
   | TTrue ->
-    bool_theory_needed env;
+    Theories.(needed bool env.theories);
     Term.t_bool_true
   | TFalse ->
-    bool_theory_needed env;
+    Theories.(needed bool env.theories);
     Term.t_bool_false
   | TAnd (a, b) ->
-    bool_theory_needed env;
+    Theories.(needed bool env.theories);
     Term.t_app_infer
-      (get_theory_symbol env.bool_theory "andb")
+      Theories.(get_symbol int "andb" env.theories)
       [term_to_why3 env a; term_to_why3 env b]
     (* Term.fs_app  [] Ty.ty_bool *)
     (* Term.t_and (term_to_why3 env a) (term_to_why3 env b) *)
   | TOr (a, b) ->
     (* Term.t_and (term_to_why3 env a) (term_to_why3 env b) *)
-    bool_theory_needed env;
+    Theories.(needed bool env.theories);
     Term.t_app_infer
-      (get_theory_symbol env.bool_theory "orb")
+      Theories.(get_symbol int "orb" env.theories)
       [term_to_why3 env a; term_to_why3 env b]
   | TNot a ->
     (* Term.t_not (term_to_why3 env a) *)
-    bool_theory_needed env;
+    Theories.(needed bool env.theories);
     Term.t_app_infer
-      (get_theory_symbol env.bool_theory "notb")
+      Theories.(get_symbol int "notb" env.theories)
       [term_to_why3 env a]
   | TCons (a, b) ->
     (* let open Hipcore.Pretty in *)
     (* Format.printf "cons %s %s @." (string_of_term a) (string_of_term b); *)
     Term.t_app
-      (get_theory_symbol env.list_theory "Cons")
+      Theories.(get_symbol list "Cons" env.theories)
       [term_to_why3 env a; term_to_why3 env b]
       (Some (type_to_why3 env List_int))
     (* inferring types leads to issues reconciling types between systems *)
@@ -204,7 +211,7 @@ let rec term_to_why3 env (t : term) =
   | Nil ->
     (* Term.t_app_infer (get_theory_symbol env.list_theory "Nil") [] *)
     Term.t_app
-      (get_theory_symbol env.list_theory "Nil")
+      Theories.(get_symbol list "Nil" env.theories)
       []
       (Some (type_to_why3 env List_int))
   | TApp (s, _) -> failwith (Format.asprintf "TApp nyi %s" s)
@@ -225,24 +232,24 @@ let rec pi_to_why3 env (pi : pi) =
     let b1 = term_to_why3 env b in
     Term.t_equ a1 b1
   | Atomic (GT, a, b) ->
-    int_theory_needed env;
+    Theories.(needed int env.theories);
     Term.t_app_infer
-      (get_theory_symbol env.int_theory "infix >")
+      Theories.(get_symbol int "infix >" env.theories)
       [term_to_why3 env a; term_to_why3 env b]
   | Atomic (LT, a, b) ->
-    int_theory_needed env;
+    Theories.(needed int env.theories);
     Term.t_app_infer
-      (get_theory_symbol env.int_theory "infix <")
+      Theories.(get_symbol int "infix <" env.theories)
       [term_to_why3 env a; term_to_why3 env b]
   | Atomic (GTEQ, a, b) ->
-    int_theory_needed env;
+    Theories.(needed int env.theories);
     Term.t_app_infer
-      (get_theory_symbol env.int_theory "infix >=")
+      Theories.(get_symbol int "infix >=" env.theories)
       [term_to_why3 env a; term_to_why3 env b]
   | Atomic (LTEQ, a, b) ->
-    int_theory_needed env;
+    Theories.(needed int env.theories);
     Term.t_app_infer
-      (get_theory_symbol env.int_theory "infix <=")
+      Theories.(get_symbol int "infix <=" env.theories)
       [term_to_why3 env a; term_to_why3 env b]
   | And (a, b) -> Term.t_and (pi_to_why3 env a) (pi_to_why3 env b)
   | Or (a, b) -> Term.t_or (pi_to_why3 env a) (pi_to_why3 env b)
@@ -254,7 +261,7 @@ let rec pi_to_why3 env (pi : pi) =
     let rhs =
       let tsym =
         match (typ, constr) with
-        | "list", "cons" -> get_theory_symbol env.list_theory "Cons"
+        | "list", "cons" -> Theories.(get_symbol list "Cons" env.theories)
         | _ ->
           failwith
             (Format.asprintf "unknown type and constr: %s, %s" typ constr)
@@ -270,9 +277,7 @@ let create_env tenv qtf =
       names = SMap.empty;
       tenv;
       quantified = SMap.empty;
-      int_theory = None;
-      bool_theory = None;
-      list_theory = None;
+      theories = Theories.create ();
     }
   in
   let quantified =
@@ -290,21 +295,12 @@ let prove tenv qtf f =
 
   (* set up task *)
   let task1 : Task.task = None in
+
+  (* make loaded theories available *)
   let task1 =
-    (* match env.int_theory with
-       | None -> task1
-       | Some t -> Task.use_export task1 t *)
-    Task.use_export task1 (Env.read_theory why3_env ["int"] "Int")
-  in
-  let task1 =
-    match env.bool_theory with
-    | None -> task1
-    | Some t -> Task.use_export task1 t
-  in
-  let task1 =
-    match env.list_theory with
-    | None -> task1
-    | Some t -> Task.use_export task1 t
+    Theories.fold
+      (fun (_tid, why_th) task -> Task.use_export task why_th)
+      env.theories task1
   in
 
   let task1 =
