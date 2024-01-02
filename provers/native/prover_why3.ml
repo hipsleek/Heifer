@@ -1,13 +1,12 @@
 open Hipcore
 include Hiptypes
 
-(* let debug = true *)
-let debug = false
+let debug = true
+(* let debug = false *)
 
 open Why3
 
 let prover_configs : Whyconf.config_prover SMap.t ref = ref SMap.empty
-let prover_z3 = "Z3"
 
 (* top-level side effects *)
 let why3_config = Whyconf.init_config None
@@ -289,6 +288,32 @@ let create_env tenv qtf =
   in
   { initial with quantified }
 
+let attempt_proof task1 =
+  (* if debug then Format.printf "task: %a@." Pretty.print_task task1; *)
+  let prover_z3 = "Z3" in
+  let prover_alt_ergo = "Alt-Ergo" in
+  [prover_alt_ergo; prover_z3]
+  |> List.exists (fun prover ->
+         ensure_prover_loaded prover;
+         let pc = get_prover_config prover in
+         let driver = load_prover_driver pc prover in
+         let result1 =
+           Call_provers.wait_on_call
+             (Driver.prove_task
+                ~limit:
+                  {
+                    Call_provers.empty_limit with
+                    Call_provers.limit_time = 0.5;
+                  }
+                ~config:why3_config_main ~command:pc.Whyconf.command driver
+                task1)
+         in
+         if debug then
+           Format.printf "%s: %a@." prover
+             (Call_provers.print_prover_result ?json:None)
+             result1;
+         match result1.pr_answer with Valid -> true | _ -> false)
+
 let prove tenv qtf f =
   let env = create_env tenv qtf in
   let ass, goal = f env in
@@ -327,22 +352,7 @@ let prove tenv qtf f =
       (Decl.create_prsymbol (Ident.id_fresh "goal1"))
       goal
   in
-  if debug then Format.printf "task: %a@." Pretty.print_task task1;
-  ensure_prover_loaded prover_z3;
-  let pc = get_prover_config prover_z3 in
-  let result1 =
-    Call_provers.wait_on_call
-      (Driver.prove_task
-         ~limit:{ Call_provers.empty_limit with Call_provers.limit_time = 1. }
-         ~config:why3_config_main ~command:pc.Whyconf.command
-         (load_prover_driver pc prover_z3)
-         task1)
-  in
-  if debug then
-    Format.printf "%s: %a@." "Z3"
-      (Call_provers.print_prover_result ?json:None)
-      result1;
-  match result1.pr_answer with Valid -> true | _ -> false
+  attempt_proof task1
 
 let cache : (pi * string list * pi, bool) Hashtbl.t = Hashtbl.create 10
 
