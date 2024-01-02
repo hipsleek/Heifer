@@ -117,7 +117,7 @@ let all_ :
     | x :: xs, u :: us ->
       update_current u;
       debug ~at:1
-        ~title:(Format.asprintf "all (%s / %s)" name (to_s x))
+        ~title:"proof search"
         "%s" (show_search_tree true);
       let r = f x in
       (match r with
@@ -155,7 +155,7 @@ let any : name:string -> to_s:('a -> string) -> 'a list -> ('a -> 'b t) -> 'b t
       | v :: vs1, u :: us ->
         update_current u;
         debug ~at:1
-          ~title:(Format.asprintf "any (%s / %s)" name (to_s v))
+          ~title:"proof search"
           "%s" (show_search_tree true);
         let res = f v in
         begin

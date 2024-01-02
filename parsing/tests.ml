@@ -15,12 +15,15 @@ let%expect_test "instantiation/renaming of existentials" =
   let show a = a |> string_of_disj_spec |> print_endline in
 
   Pretty.verifier_counter_reset ();
+  (* renames existentials *)
   Forward_rules.renamingexistientalVar
     [parse_spec {|ex a; Norm(b=1/\emp, a+1)|}]
   |> show;
   Pretty.verifier_counter_reset ();
+  (* renames, then removes *)
   Forward_rules.freshen [parse_spec {|ex a; Norm(b=1/\emp, a+1)|}] |> show;
   Pretty.verifier_counter_reset ();
+  (* renames only existentials without regard for binding and could change meaning, so only rename after ensuring freshness *)
   Forward_rules.instantiateExistientalVar
     (normalize_spec (parse_spec {|ex a; Norm(b=1/\emp, a+1)|}))
     [("a", "b")]
@@ -29,9 +32,9 @@ let%expect_test "instantiation/renaming of existentials" =
   [a] |> show;
   [%expect
     {|
-    Norm(res=a+1/\b=1)
-    Norm(res=a+1/\b=1)
-    Norm(res=a+1/\b=1) |}]
+    ex v0; Norm(res=v0+1/\b=1)
+    Norm(res=v0+1/\b=1)
+    ex b; Norm(res=a+1/\b=1) |}]
 
 let%expect_test "apply lemma" =
   let test ~what ~lem:(params, left, right) applied_to =

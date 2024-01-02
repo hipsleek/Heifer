@@ -157,10 +157,13 @@ let rec infer_types_pi env pi =
   | Not a -> infer_types_pi env a
   | IsDatatype (v, typ, constr, args) ->
     (match typ, constr, args with
+    | "list", "nil", [] ->
+      let _t, env = infer_types_term ~hint:List_int env v in
+      env
     | "list", "cons", [x; y] ->
       let _t, env = infer_types_term ~hint:List_int env v in
       let _t, env = infer_types_term ~hint:Int env x in
       let _t, env = infer_types_term ~hint:List_int env y in
       env
-    | _ -> failwith "unknown type")
+    | _ -> failwith (Format.asprintf "unknown type: %s" (string_of_pi pi)))
   | Predicate (_, _) -> env (*failwith "not implemented" *)

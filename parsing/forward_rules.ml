@@ -966,20 +966,22 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
             let nil_case =
               (* let c = conj [Atomic (EQ, TApp ("is_nil", [ret]), TTrue)] in *)
               (* [NormalReturn (c, EmptyHeap)] *)
-              []
+              (* [] *)
+              [NormalReturn (IsDatatype (ret, "list", "nil", []), EmptyHeap)]
             in 
             infer_of_expression env (concatenateSpecsWithEvent history nil_case) body
           | "::", [v1; v2] ->
             let cons_case =
-              (* let c = conj [
-                Atomic (EQ, TApp ("is_cons", [ret]), TTrue);
+              let c = conj [
+                (* Atomic (EQ, TApp ("is_cons", [ret]), TTrue);
                 Atomic (EQ, TApp ("head", [ret]), Var v1);
-                Atomic (EQ, TApp ("tail", [ret]), Var v2);
+                Atomic (EQ, TApp ("tail", [ret]), Var v2); *)
+                IsDatatype (ret, "list", "cons", [Var v1; Var v2])
               ]
-              []
+              (* [] *)
             in
-              [Exists [v1; v2]; NormalReturn (c, EmptyHeap)] *)
-              [Exists [v1; v2]; NormalReturn (IsDatatype (ret, "list", "cons", [Var v1; Var v2]), EmptyHeap)]
+              [Exists [v1; v2]; NormalReturn (c, EmptyHeap)]
+              (* [Exists [v1; v2]; NormalReturn (, EmptyHeap)] *)
               (* [] *)
             in
             infer_of_expression env (concatenateSpecsWithEvent history cons_case) body

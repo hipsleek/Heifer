@@ -530,22 +530,22 @@ let optimize_existentials : normalisedStagedSpec -> normalisedStagedSpec =
   in
   (es1, norm1)
 
-let rec remove_subexpr_pi included p =
-  match p with
-  | True | False -> p
-  | Atomic (_, Var a, _) when SSet.mem a included -> True
-  | Atomic (_, _, Var a) when SSet.mem a included -> True
-  | Atomic (_, _, _) -> p
-  | And (a, b) ->
-    And (remove_subexpr_pi included a, remove_subexpr_pi included b)
-  | Or (a, b) -> Or (remove_subexpr_pi included a, remove_subexpr_pi included b)
-  | Imply (a, b) ->
-    Imply (remove_subexpr_pi included a, remove_subexpr_pi included b)
-  | Not a -> Not (remove_subexpr_pi included a)
-  | Predicate (_, _) -> p (*failwith (Format.asprintf "NYI: predicate remove_subexpr_pi") *)
-  | IsDatatype _ -> p
+let remove_conjunct_with_variable_rel included =
+  object
+    inherit [_] map_normalised as super
+    method! visit_Atomic _ op a b =
+      match a, b with
+      | Var v, _ when SSet.mem v included -> True
+      | _, Var v when SSet.mem v included -> True
+      | _ ->
+        Atomic (op, a, b)
+  end
 
-let remove_subexpr_state included (p, h) = (remove_subexpr_pi included p, h)
+let remove_existentials vs =
+  object
+    inherit [_] map_normalised as super
+    method! visit_Exists _ xs = Exists (List.filter (fun x -> not (SSet.mem x vs)) xs)
+  end
 
 (** remove existentials which don't contribute to the result, e.g.
   ex v1 v2. ens v1=v2; ens res=2
@@ -667,8 +667,8 @@ let remove_noncontributing_existentials :
     in
     (* Format.printf "do_not_contribute: %s@." (string_of_sset do_not_contribute); *)
     let ex1 = List.filter (fun e -> not (SSet.mem e do_not_contribute)) ex in
-    let pre1 = remove_subexpr_state do_not_contribute pre in
-    let post1 = remove_subexpr_state do_not_contribute post in
+    let pre1 = (remove_conjunct_with_variable_rel do_not_contribute)#visit_state () pre in
+    let post1 = (remove_conjunct_with_variable_rel do_not_contribute)#visit_state () post in
     (ex1, pre1, post1)
   in
   fun (ess, norm) ->(ess, norm) (* ASK Darius*)
@@ -819,7 +819,6 @@ let final_simplification (effs, norm) =
 (* for each existential variable, if there is only one use, remove it *)
 let remove_temp_vars : normalisedStagedSpec -> normalisedStagedSpec =
   fun (eff, norm) ->
-    let ex, pre, post = norm in
     let histo =
       count_uses_and_equalities#visit_normalisedStagedSpec () (eff, norm)
     in
@@ -846,34 +845,9 @@ let remove_temp_vars : normalisedStagedSpec -> normalisedStagedSpec =
     in
     debug ~at:5 ~title:"occurs once" "%s" (string_of_sset occurs_once);
     (* TODO removing from existentials does not handle shadowing *)
-    let eff1 =
-      List.map
-        (fun e ->
-          match e with
-          | TryCatchStage tc ->
-            TryCatchStage {
-              tc with
-              tc_evars =
-                List.filter (fun v -> not (SSet.mem v occurs_once)) tc.tc_evars;
-              tc_pre = remove_subexpr_state occurs_once tc.tc_pre;
-              tc_post = remove_subexpr_state occurs_once tc.tc_post;
-            }
-          | EffHOStage e ->
-            EffHOStage {
-              e with
-              e_evars =
-                List.filter (fun v -> not (SSet.mem v occurs_once)) e.e_evars;
-              e_pre = remove_subexpr_state occurs_once e.e_pre;
-              e_post = remove_subexpr_state occurs_once e.e_post;
-            })
-        eff
-    in
-    let norm1 =
-      ( List.filter (fun v -> not (SSet.mem v occurs_once)) ex,
-        remove_subexpr_state occurs_once pre,
-        remove_subexpr_state occurs_once post )
-    in
-    (eff1, norm1)
+    let norm1 = (remove_conjunct_with_variable_rel occurs_once)#visit_normalisedStagedSpec () (eff, norm) in
+    (* don't remove the existential binders, only their uses. it's possible some variables which occurred once could not be removed. let a subsequent phase clean up useless existential binders *)
+    norm1
 
 (* for each existential variable, if there are two uses, substitute one into the other *)
 let remove_vars_occurring_twice : normalisedStagedSpec -> normalisedStagedSpec =
@@ -947,26 +921,27 @@ let rec simplify_spec n sp2 =
        (string_of_normalisedStagedSpec sp3); *)
   (* redundant vars may appear due to fresh stages and removal of res via intermediate variables *)
 
+  (* do this before removing unused existentials *)
   let sp4 =
     let@ _ =
       Debug.span (fun r ->
-        debug ~at:3
-            ~title:"normalize_spec: move existentials inward and remove unused"
-            "%s\n==>\n%s"
-            (string_of_normalisedStagedSpec sp3)
-            (string_of_result string_of_normalisedStagedSpec r))
+        debug ~at:3 ~title:"normalize_spec: remove temp vars" "%s\n==>\n%s"
+          (string_of_normalisedStagedSpec sp3)
+          (string_of_result string_of_normalisedStagedSpec r))
     in
-    optimize_existentials sp3
+    remove_temp_vars sp3
   in
 
   let sp5 =
     let@ _ =
       Debug.span (fun r ->
-        debug ~at:3 ~title:"normalize_spec: remove temp vars" "%s\n==>\n%s"
-          (string_of_normalisedStagedSpec sp4)
-          (string_of_result string_of_normalisedStagedSpec r))
+        debug ~at:3
+            ~title:"normalize_spec: move existentials inward and remove unused"
+            "%s\n==>\n%s"
+            (string_of_normalisedStagedSpec sp4)
+            (string_of_result string_of_normalisedStagedSpec r))
     in
-    remove_temp_vars sp4
+    optimize_existentials sp4
   in
 
   let sp6 =

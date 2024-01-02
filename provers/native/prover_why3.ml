@@ -260,10 +260,9 @@ let rec pi_to_why3 env (pi : pi) =
     let rhs =
       let tsym =
         match (typ, constr) with
+        | "list", "nil" -> Theories.(get_symbol list "Nil" env.theories)
         | "list", "cons" -> Theories.(get_symbol list "Cons" env.theories)
-        | _ ->
-          failwith
-            (Format.asprintf "unknown type and constr: %s, %s" typ constr)
+        | _ -> failwith (Format.asprintf "unknown type: %s, %s" typ constr)
       in
       Term.t_app tsym args1 (Some (type_to_why3 env List_int))
     in

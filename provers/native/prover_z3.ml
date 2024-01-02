@@ -209,6 +209,8 @@ let rec pi_to_expr env ctx pi: Expr.expr =
   | Not pi -> Z3.Boolean.mk_not ctx (pi_to_expr env ctx pi)
   | IsDatatype (v, typ, constr, args) ->
     (match (typ, constr, args) with
+    | "list", "nil", [] ->
+      pi_to_expr env ctx (Atomic (EQ, v, Nil))
     | "list", "cons", [h; t] ->
       pi_to_expr env ctx (Atomic (EQ, v, TCons (h, t)))
     | _ -> failwith (Format.asprintf "unknown type %s,%s" typ constr))
