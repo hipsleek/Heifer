@@ -11,6 +11,9 @@ let list_int_sort ctx =
   (* Z3.Z3List.mk_sort ctx (Z3.Symbol.mk_string ctx "List") int *)
   Z3.Z3List.mk_list_s ctx "List" int
 
+let unit_sort ctx =
+  let us = Z3.Symbol.mk_string ctx "unit" in
+  Z3.Tuple.mk_sort ctx us [] []
 
 let get_fun_decl ctx s =
   let list_int = list_int_sort ctx in
@@ -48,20 +51,23 @@ let rec term_to_expr env ctx t : Z3.Expr.expr =
         (* default to int *)
 
         Z3.Arithmetic.Integer.mk_const_s ctx v
-      | Int | Unit | Lamb ->
+      | Int | Lamb ->
         (* Format.printf "%s is int@." v; *)
 
 
         let res = Z3.Arithmetic.Integer.mk_const_s ctx v in 
 
         res
-    
+      | Unit ->
+        Z3.Expr.mk_const_s ctx "unit" (unit_sort ctx)
       | List_int ->
         (* Format.printf "%s is list@." v; *)
         let list_int = list_int_sort ctx in
         Z3.Expr.mk_const_s ctx v list_int
       | Bool -> Z3.Boolean.mk_const_s ctx v))
-  | UNIT -> Z3.Arithmetic.Integer.mk_const_s ctx "unit"
+  | UNIT ->
+    let mk = Z3.Tuple.get_mk_decl (unit_sort ctx) in 
+    Z3.Expr.mk_app ctx mk []
   | TLambda _ ->
     (* Format.printf "z3 %s %d@." (string_of_term t) (hash_lambda t); *)
     Z3.Arithmetic.Integer.mk_numeral_i ctx (Subst.hash_lambda t)
