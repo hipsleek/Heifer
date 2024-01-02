@@ -11,3 +11,20 @@ Use `dune exec parsing/hip.exe $EXAMPLE` to run examples. Effect-related program
 ## Docs
 
 - [Development](docs/dev.md)
+
+
+
+## SYH - Build
+
+```
+opam switch 5.0.0
+
+brew install python3
+
+opam install dune menhir ppx_deriving ppx_expect brr js_of_ocaml-compiler unionFind visitors z3
+
+sudo npm install browserify -g # which browserify
+
+dune build
+dune test
+```
