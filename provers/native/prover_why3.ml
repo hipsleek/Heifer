@@ -1,8 +1,8 @@
 open Hipcore
-include Hiptypes
+open Hiptypes
 
-let debug = true
-(* let debug = false *)
+(* let debug = true *)
+let debug = false
 
 open Why3
 
@@ -103,7 +103,7 @@ let type_to_why3 env (t : typ) =
   | Bool ->
     Theories.(needed bool env.theories);
     Ty.ty_bool
-  | Lamb -> failwith "nyi Lamb"
+  | Lamb -> Ty.ty_int
   | TVar _ ->
     (* failwith "unknown type" *)
     (* default to int *)
@@ -117,6 +117,9 @@ let rec term_to_why3 env (t : term) =
   | Num i ->
     Theories.(needed int env.theories);
     Term.t_nat_const i
+  | TLambda (_, _, _) ->
+    Theories.(needed int env.theories);
+    Term.t_nat_const (Hipcore.Subst.hash_lambda t)
   | Var v ->
     let ty =
       SMap.find_opt v env.tenv |> Option.value ~default:Int |> type_to_why3 env
@@ -180,7 +183,7 @@ let rec term_to_why3 env (t : term) =
   | TAnd (a, b) ->
     Theories.(needed bool env.theories);
     Term.t_app_infer
-      Theories.(get_symbol int "andb" env.theories)
+      Theories.(get_symbol bool "andb" env.theories)
       [term_to_why3 env a; term_to_why3 env b]
     (* Term.fs_app  [] Ty.ty_bool *)
     (* Term.t_and (term_to_why3 env a) (term_to_why3 env b) *)
@@ -188,13 +191,13 @@ let rec term_to_why3 env (t : term) =
     (* Term.t_and (term_to_why3 env a) (term_to_why3 env b) *)
     Theories.(needed bool env.theories);
     Term.t_app_infer
-      Theories.(get_symbol int "orb" env.theories)
+      Theories.(get_symbol bool "orb" env.theories)
       [term_to_why3 env a; term_to_why3 env b]
   | TNot a ->
     (* Term.t_not (term_to_why3 env a) *)
     Theories.(needed bool env.theories);
     Term.t_app_infer
-      Theories.(get_symbol int "notb" env.theories)
+      Theories.(get_symbol bool "notb" env.theories)
       [term_to_why3 env a]
   | TCons (a, b) ->
     (* let open Hipcore.Pretty in *)
@@ -214,7 +217,6 @@ let rec term_to_why3 env (t : term) =
       []
       (Some (type_to_why3 env List_int))
   | TApp (s, _) -> failwith (Format.asprintf "TApp nyi %s" s)
-  | TLambda (_, _, _) -> failwith "TLambda nyi"
   | TPower (_, _) -> failwith "TPower nyi"
   | TTimes (_, _) -> failwith "TTimes nyi"
   | TDiv (_, _) -> failwith "TDiv nyi"
@@ -366,17 +368,19 @@ let memo k f =
 
 let entails_exists tenv left ex right =
   let@ _ = memo (left, ex, right) in
-  (* try *)
-  prove tenv ex (fun env ->
-      ( pi_to_why3 env left,
-        Term.t_exists_close
-          (SMap.bindings env.quantified |> List.map snd)
-          [] (pi_to_why3 env right) ))
-(* with e ->
-   (* let s = Format.asprintf "%a" Exn_printer.exn_printer e in *)
-   (* let err = "Not a term" in *)
-   (* if String.sub s 0 (String.length err) = err then raise e; *)
-   Format.printf "an error occurred, assuming proof failed: %a@."
-     Exn_printer.exn_printer e;
-   (* Printexc.print_backtrace stdout; *)
-   false *)
+  let f () =
+    prove tenv ex (fun env ->
+        ( pi_to_why3 env left,
+          Term.t_exists_close
+            (SMap.bindings env.quantified |> List.map snd)
+            [] (pi_to_why3 env right) ))
+  in
+  if debug then f ()
+  else
+    try f ()
+    with e ->
+      (* the stack trace printed is not the same (and is much less helpful) if the exception is caught, hence the use of the debug flag *)
+      Format.printf "an error occurred, assuming proof failed: %a@."
+        Exn_printer.exn_printer e;
+      (* Printexc.print_backtrace stdout; *)
+      false

@@ -1,6 +1,6 @@
 open Hipcore
 open Debug
-include Hiptypes
+open Hiptypes
 open Pretty
 
 (* open Types *)

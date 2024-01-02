@@ -83,12 +83,12 @@ let test27 ()  (*@ ex r; Eff(emp, r); ex r1; Norm(emp, r1) @*) =
 let test25_false ()  (*@ Eff(emp, ()) @*) =
   let ret = perform Eff in
   ret
-(* we can't justify that whatever Eff returns is unit *)
+(* this can be proved in why3 due to it leveraging type information - since ret is of type unit, its value must be (). our z3 encoding is wrong since we encode unit as int *)
 
 let test12_false ()  (*@ Eff(emp, ()) @*) =
   let ret = perform Eff in
   1
-(* this fails for the same reason. the return value is not checked *)
+(* this fails with a type error in why3, as it should *)
 
 let test21 ()  
 (*@ ex i ret;
