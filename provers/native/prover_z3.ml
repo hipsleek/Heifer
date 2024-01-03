@@ -117,9 +117,11 @@ let rec term_to_expr env ctx t : Z3.Expr.expr =
     Z3.Boolean.mk_and ctx [term_to_expr env ctx a; term_to_expr env ctx b]
   | TOr (a, b) ->
     Z3.Boolean.mk_or ctx [term_to_expr env ctx a; term_to_expr env ctx b]
+  | TCons (a, b) ->
+    Z3.Expr.mk_app ctx (get_fun_decl ctx "cons")
+      (List.map (term_to_expr env ctx) [a; b])
   | TApp (f, a) ->
     Z3.Expr.mk_app ctx (get_fun_decl ctx f) (List.map (term_to_expr env ctx) a)
-  
   | TPower (Num 2, Var "n") -> 
       Z3.Arithmetic.Integer.mk_const_s ctx "v2N"
   | TPower (Num 2, Plus(Var "n", Num 1)) -> 
@@ -167,6 +169,8 @@ let rec pi_to_expr env ctx pi: Expr.expr =
     let t1 = term_to_expr env ctx t1 in
     let t2 = term_to_expr env ctx t2 in
     Z3.Arithmetic.mk_le ctx t1 t2
+  (* | IsCons (v, t1, t2) -> *)
+    (* failwith "" *)
   | Atomic (EQ, t1, t2) ->
     let t1 = term_to_expr env ctx t1 in
     let t2 = term_to_expr env ctx t2 in
@@ -197,6 +201,11 @@ let rec pi_to_expr env ctx pi: Expr.expr =
   (*| Imply (pi1, pi2)    -> Z3.Boolean.mk_implies ctx (pi_to_expr env ctx pi1) (pi_to_expr env ctx pi2)
   *)
   | Not pi -> Z3.Boolean.mk_not ctx (pi_to_expr env ctx pi)
+  | IsDatatype (v, typ, constr, args) ->
+    (match (typ, constr, args) with
+    | "list", "cons", [h; t] ->
+      pi_to_expr env ctx (Atomic (EQ, v, TCons (h, t)))
+    | _ -> failwith (Format.asprintf "unknown type %s,%s" typ constr))
 
 (* let z3_query (_s : string) =
    (* Format.printf "z3: %s@." _s; *)
@@ -279,8 +288,10 @@ let check_sat f =
   (* print both because the solver does some simplification *)
   debug ~at:4 ~title:"z3 expr" "%s\n(check-sat)" (Expr.to_string expr);
   let@ _ =
-    Debug.span (fun _ -> debug ~at:5 ~title:"z3 solver" "%s\n(check-sat)" (Solver.to_string solver);)
+    Debug.span (fun _ -> debug ~at:5 ~title:"z3 solver" "%s\n(check-sat)" (Solver.to_string solver))
   in
+  (* Format.printf "%s@." (Solver.to_string solver); *)
+  (* Format.printf "%s@." (Expr.to_string expr); *)
   let status =
     let@ _ =
       Debug.span (fun r ->

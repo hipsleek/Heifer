@@ -2572,7 +2572,7 @@ pure_formula_term:
   | elts=delimited(LBRACKET, separated_list(SEMI, effect_trace_value), RBRACKET)
     //{TList (List.map (fun a -> Num a) n)}
     // turn this into a cascade of conses, like ocaml does, for simplicity
-    { List.fold_right term_cons elts Nil }
+    { List.fold_right (fun c t -> TCons (c, t)) elts Nil }
 
   | LPAREN RPAREN {UNIT}
   // | LPAREN n = list_of_TupleTerms RPAREN {TTupple n}

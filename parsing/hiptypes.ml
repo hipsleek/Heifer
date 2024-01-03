@@ -21,6 +21,7 @@ type term =
     | TOr of term * term
     | TNot of term
     | TApp of string * term list
+    | TCons of term * term
     | Nil
     (* the string is just an identifier for uniqueness.
        the last param is the name of the result *)
@@ -65,9 +66,10 @@ and pi =
   | Imply  of pi * pi
   | Not    of pi 
   | Predicate of string * term list 
-  (* produced by match *)
-  | IsCons of string * term * term
-  | IsNil of string
+  (* An assertion like v=1::[], which is represented as
+     IsDatatype(v, "list", "cons", [1; Nil]).
+     Produced by match. Technically just an equality, but some provers may need to add extra constraints when encountering this. *)
+  | IsDatatype of term * string * string * term list
 
 and kappa = 
   | EmptyHeap
@@ -146,8 +148,6 @@ let min_typ a b = if compare_typ a b <= 0 then a else b
 let is_concrete_type = function TVar _ -> false | _ -> true
 
 let concrete_types = [Unit; List_int; Int; Bool; Lamb]
-
-let term_cons c t = TApp ("cons", [c; t])
 
 module U = struct
   include UnionFind

@@ -793,7 +793,7 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
           let event = NormalReturn (res_eq (Rel (LTEQ, x1, x2)), EmptyHeap) in
           concatenateSpecsWithEvent history [event], env
         | "::", [x1; x2] ->
-          let event = NormalReturn (res_eq (TApp ("cons", [x1; x2])), EmptyHeap) in
+          let event = NormalReturn (res_eq (TCons (x1, x2)), EmptyHeap) in
           concatenateSpecsWithEvent history [event], env
         | _ -> failwith (Format.asprintf "unknown primitive: %s, args: %s" fname (string_of_list string_of_term actualArgs)))
       | false ->
@@ -964,18 +964,23 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
           match constr, vars with
           | "[]", [] ->
             let nil_case =
-              let c = conj [Atomic (EQ, TApp ("is_nil", [ret]), TTrue)] in
-              [NormalReturn (c, EmptyHeap)]
+              (* let c = conj [Atomic (EQ, TApp ("is_nil", [ret]), TTrue)] in *)
+              (* [NormalReturn (c, EmptyHeap)] *)
+              []
             in 
             infer_of_expression env (concatenateSpecsWithEvent history nil_case) body
           | "::", [v1; v2] ->
             let cons_case =
-              let c = conj [
+              (* let c = conj [
                 Atomic (EQ, TApp ("is_cons", [ret]), TTrue);
                 Atomic (EQ, TApp ("head", [ret]), Var v1);
                 Atomic (EQ, TApp ("tail", [ret]), Var v2);
-              ] in
-              [Exists [v1; v2]; NormalReturn (c, EmptyHeap)]
+              ]
+              []
+            in
+              [Exists [v1; v2]; NormalReturn (c, EmptyHeap)] *)
+              [Exists [v1; v2]; NormalReturn (IsDatatype (ret, "list", "cons", [Var v1; Var v2]), EmptyHeap)]
+              (* [] *)
             in
             infer_of_expression env (concatenateSpecsWithEvent history cons_case) body
           | _ -> failwith (Format.asprintf "unknown constructor: %s" constr)))

@@ -84,6 +84,10 @@ let rec infer_types_term ?hint (env : abs_typ_env) term : typ * abs_typ_env =
     let _bt, env = infer_types_term ~hint:Bool env b in
     (Bool, env)
   | Nil, _ -> (List_int, env)
+  | TCons (a, b), _ ->
+    let _at, env1 = infer_types_term ~hint:Int env a in
+    let _bt, env2 = infer_types_term ~hint:List_int env1 b in
+    (List_int, env2)
   | Num _, _ -> (Int, env)
   (* possibly add syntactic heuristics for types, such as names *)
   | Var v, Some t -> (t, assert_var_has_type v t env)
@@ -151,4 +155,12 @@ let rec infer_types_pi env pi =
     let env = infer_types_pi env b in
     env
   | Not a -> infer_types_pi env a
+  | IsDatatype (v, typ, constr, args) ->
+    (match typ, constr, args with
+    | "list", "cons", [x; y] ->
+      let _t, env = infer_types_term ~hint:List_int env v in
+      let _t, env = infer_types_term ~hint:Int env x in
+      let _t, env = infer_types_term ~hint:List_int env y in
+      env
+    | _ -> failwith "unknown type")
   | Predicate (_, _) -> env (*failwith "not implemented" *)

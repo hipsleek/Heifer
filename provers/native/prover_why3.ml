@@ -47,6 +47,9 @@ let load_prover_driver pc name =
       Exn_printer.exn_printer e;
     raise e
 
+(* A means of loading theories *)
+module Theories = struct end
+
 type env = {
   mutable names : Term.lsymbol SMap.t;
   mutable int_theory : Theory.theory option;
@@ -124,6 +127,9 @@ let rec term_to_why3 env (t : term) =
           Term.t_app sym [] (Some ty)
         | Some vv -> Term.t_app vv [] (Some ty))
     in
+    (* Format.printf "var %s : %s@." v
+       Hipcore.Pretty.(
+         string_of_option string_of_type (SMap.find_opt v env.tenv)); *)
     name
   | Plus (a, b) ->
     int_theory_needed env;
@@ -184,8 +190,24 @@ let rec term_to_why3 env (t : term) =
     Term.t_app_infer
       (get_theory_symbol env.bool_theory "notb")
       [term_to_why3 env a]
-  | TApp (_, _) -> failwith "TApp nyi"
-  | Nil -> failwith "Nil nyi"
+  | TCons (a, b) ->
+    (* let open Hipcore.Pretty in *)
+    (* Format.printf "cons %s %s @." (string_of_term a) (string_of_term b); *)
+    Term.t_app
+      (get_theory_symbol env.list_theory "Cons")
+      [term_to_why3 env a; term_to_why3 env b]
+      (Some (type_to_why3 env List_int))
+    (* inferring types leads to issues reconciling types between systems *)
+    (* Term.t_app_infer
+       (get_theory_symbol env.list_theory "Cons")
+       [term_to_why3 env a; term_to_why3 env b] *)
+  | Nil ->
+    (* Term.t_app_infer (get_theory_symbol env.list_theory "Nil") [] *)
+    Term.t_app
+      (get_theory_symbol env.list_theory "Nil")
+      []
+      (Some (type_to_why3 env List_int))
+  | TApp (s, _) -> failwith (Format.asprintf "TApp nyi %s" s)
   | TLambda (_, _, _) -> failwith "TLambda nyi"
   | TPower (_, _) -> failwith "TPower nyi"
   | TTimes (_, _) -> failwith "TTimes nyi"
@@ -226,6 +248,20 @@ let rec pi_to_why3 env (pi : pi) =
   | Or (a, b) -> Term.t_or (pi_to_why3 env a) (pi_to_why3 env b)
   | Imply (a, b) -> Term.t_implies (pi_to_why3 env a) (pi_to_why3 env b)
   | Not a -> Term.t_not (pi_to_why3 env a)
+  | IsDatatype (v, typ, constr, args) ->
+    let v1 = term_to_why3 env v in
+    let args1 = List.map (term_to_why3 env) args in
+    let rhs =
+      let tsym =
+        match (typ, constr) with
+        | "list", "cons" -> get_theory_symbol env.list_theory "Cons"
+        | _ ->
+          failwith
+            (Format.asprintf "unknown type and constr: %s, %s" typ constr)
+      in
+      Term.t_app tsym args1 (Some (type_to_why3 env List_int))
+    in
+    Term.t_equ v1 rhs
   | Predicate (_, _) -> failwith "nyi Predicate"
 
 let create_env tenv qtf =
@@ -265,6 +301,11 @@ let prove tenv qtf f =
     | None -> task1
     | Some t -> Task.use_export task1 t
   in
+  let task1 =
+    match env.list_theory with
+    | None -> task1
+    | Some t -> Task.use_export task1 t
+  in
 
   let task1 =
     List.fold_right
@@ -292,7 +333,8 @@ let prove tenv qtf f =
   let pc = get_prover_config prover_z3 in
   let result1 =
     Call_provers.wait_on_call
-      (Driver.prove_task ~limit:Call_provers.empty_limit
+      (Driver.prove_task
+         ~limit:{ Call_provers.empty_limit with Call_provers.limit_time = 1. }
          ~config:why3_config_main ~command:pc.Whyconf.command
          (load_prover_driver pc prover_z3)
          task1)
@@ -303,18 +345,29 @@ let prove tenv qtf f =
       result1;
   match result1.pr_answer with Valid -> true | _ -> false
 
+let cache : (pi * string list * pi, bool) Hashtbl.t = Hashtbl.create 10
+
+let memo k f =
+  match Hashtbl.find_opt cache k with
+  | None ->
+    let r = f () in
+    Hashtbl.add cache k r;
+    r
+  | Some r -> r
+
 let entails_exists tenv left ex right =
-  try
-    prove tenv ex (fun env ->
-        ( pi_to_why3 env left,
-          Term.t_exists_close
-            (SMap.bindings env.quantified |> List.map snd)
-            [] (pi_to_why3 env right) ))
-  with e ->
-    (* let s = Format.asprintf "%a" Exn_printer.exn_printer e in *)
-    (* let err = "Not a term" in *)
-    (* if String.sub s 0 (String.length err) = err then raise e; *)
-    Format.printf "an error occurred, assuming proof failed: %a@."
-      Exn_printer.exn_printer e;
-    (* Printexc.print_backtrace stdout; *)
-    false
+  let@ _ = memo (left, ex, right) in
+  (* try *)
+  prove tenv ex (fun env ->
+      ( pi_to_why3 env left,
+        Term.t_exists_close
+          (SMap.bindings env.quantified |> List.map snd)
+          [] (pi_to_why3 env right) ))
+(* with e ->
+   (* let s = Format.asprintf "%a" Exn_printer.exn_printer e in *)
+   (* let err = "Not a term" in *)
+   (* if String.sub s 0 (String.length err) = err then raise e; *)
+   Format.printf "an error occurred, assuming proof failed: %a@."
+     Exn_printer.exn_printer e;
+   (* Printexc.print_backtrace stdout; *)
+   false *)

@@ -168,6 +168,7 @@ let rec string_of_term t : string =
   | Num i -> string_of_int i
   | UNIT -> "()"
   | Nil -> "[]"
+  | TCons (a, b) -> Format.asprintf "%s::%s" (string_of_term a) (string_of_term b)
   | TTrue -> "true"
   | TFalse -> "false"
   | TNot a -> Format.asprintf "not(%s)" (string_of_term a)
@@ -282,6 +283,7 @@ and string_of_pi pi : string =
   | Imply  (p1, p2) -> string_of_pi p1 ^ "=>" ^ string_of_pi p2
   | Not    p -> "not(" ^ string_of_pi p ^ ")"
   | Predicate (str, t) -> str ^ "(" ^ (string_of_args string_of_term t) ^ ")"
+  | IsDatatype (v, typ, constr, args) -> Format.asprintf "%s=%s.%s%s" (string_of_term v) typ constr (string_of_args string_of_term args)
 
 
 
@@ -506,8 +508,8 @@ let string_of_tmap pp s =
 
 let string_of_abs_env t =
   Format.asprintf "%s, %s" (string_of_smap string_of_type t.vartypes) 
-  "<opaque>"
-(* (string_of_tmap string_of_type (TMap.map (fun t -> U.get t) !(t.equalities))) *)
+  (* "<opaque>" *)
+(string_of_tmap string_of_type (TMap.map (fun t -> U.get t) !(t.equalities)))
 
 let string_of_typ_env t =
   Format.asprintf "%s" (string_of_smap string_of_type t)
@@ -614,7 +616,8 @@ let rec local_lambda_defs pi =
   | And (a, b) | Or (a, b) | Imply (a, b) ->
     local_lambda_defs a @ local_lambda_defs b
   | Not a -> local_lambda_defs a
-  | Predicate (_, _) -> failwith "NYI: predicate"
+  | IsDatatype _ -> []
+  | Predicate (_, _) -> []
 
 let local_lambda_defs_state (p, _h) =
   local_lambda_defs p |> List.to_seq |> SMap.of_seq
