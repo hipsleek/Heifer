@@ -69,7 +69,6 @@ and pi =
   (* An assertion like v=1::[], which is represented as
      IsDatatype(v, "list", "cons", [1; Nil]).
      Produced by match. Technically just an equality, but some provers may need to add extra constraints when encountering this. *)
-  | IsDatatype of term * string * string * term list
 
 and kappa = 
   | EmptyHeap

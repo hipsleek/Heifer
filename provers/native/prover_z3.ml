@@ -207,13 +207,6 @@ let rec pi_to_expr env ctx pi: Expr.expr =
   (*| Imply (pi1, pi2)    -> Z3.Boolean.mk_implies ctx (pi_to_expr env ctx pi1) (pi_to_expr env ctx pi2)
   *)
   | Not pi -> Z3.Boolean.mk_not ctx (pi_to_expr env ctx pi)
-  | IsDatatype (v, typ, constr, args) ->
-    (match (typ, constr, args) with
-    | "list", "nil", [] ->
-      pi_to_expr env ctx (Atomic (EQ, v, Nil))
-    | "list", "cons", [h; t] ->
-      pi_to_expr env ctx (Atomic (EQ, v, TCons (h, t)))
-    | _ -> failwith (Format.asprintf "unknown type %s,%s" typ constr))
 
 (* let z3_query (_s : string) =
    (* Format.printf "z3: %s@." _s; *)

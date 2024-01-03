@@ -77,8 +77,6 @@ let simplify_pure (p : pi) : pi =
     | Not a ->
       let a1, c1 = once a in
       if c1 then (Not a1, true) else (p, false)
-    | IsDatatype _ ->
-      p, false
   in
   let r = to_fixed_point once p in
   (match (p, r) with
@@ -130,7 +128,6 @@ let getheapResidue h1 h2 : kappa =
 let rec pure_to_equalities pi =
   match pi with
   | Atomic (EQ, Var a, Var b) -> [(a, b)]
-  | IsDatatype _ -> []
   | And (a, b) -> pure_to_equalities a @ pure_to_equalities b
   | Atomic (_, _, _)
   | True | False

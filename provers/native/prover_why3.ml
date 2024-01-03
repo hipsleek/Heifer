@@ -300,19 +300,6 @@ let rec pi_to_why3 env (pi : pi) =
   | Or (a, b) -> Term.t_or (pi_to_why3 env a) (pi_to_why3 env b)
   | Imply (a, b) -> Term.t_implies (pi_to_why3 env a) (pi_to_why3 env b)
   | Not a -> Term.t_not (pi_to_why3 env a)
-  | IsDatatype (v, typ, constr, args) ->
-    let v1, _ = term_to_why3 env v in
-    let args1 = List.map (term_to_why3 env) args |> List.map fst in
-    let rhs =
-      let tsym =
-        match (typ, constr) with
-        | "list", "nil" -> Theories.(get_symbol list "Nil" env.theories)
-        | "list", "cons" -> Theories.(get_symbol list "Cons" env.theories)
-        | _ -> failwith (Format.asprintf "unknown type: %s, %s" typ constr)
-      in
-      Term.t_app tsym args1 (Some (type_to_why3 env List_int))
-    in
-    Term.t_equ v1 rhs
   | Predicate (_, _) -> failwith "nyi Predicate"
 
 let create_env tenv qtf =

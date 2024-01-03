@@ -283,7 +283,6 @@ and string_of_pi pi : string =
   | Imply  (p1, p2) -> string_of_pi p1 ^ "=>" ^ string_of_pi p2
   | Not    p -> "not(" ^ string_of_pi p ^ ")"
   | Predicate (str, t) -> str ^ "(" ^ (string_of_args string_of_term t) ^ ")"
-  | IsDatatype (v, typ, constr, args) -> Format.asprintf "%s=%s.%s%s" (string_of_term v) typ constr (string_of_args string_of_term args)
 
 
 
@@ -616,7 +615,6 @@ let rec local_lambda_defs pi =
   | And (a, b) | Or (a, b) | Imply (a, b) ->
     local_lambda_defs a @ local_lambda_defs b
   | Not a -> local_lambda_defs a
-  | IsDatatype _ -> []
   | Predicate (_, _) -> []
 
 let local_lambda_defs_state (p, _h) =
