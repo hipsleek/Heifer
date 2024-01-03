@@ -5,9 +5,9 @@ let rec filter xs pred =
   | [] -> []
   | y :: ys -> if pred y then y :: filter ys pred else filter ys pred
 
-let is_even x = x mod 2 = 0
+let is_positive x = x > 0
 
-let evens () (* FIXME *)
-(*@ ex i; Norm(i->[0;1;2;3], [0;2]) @*)
-= let lst = ref [0; 1; 2; 3] in
-  filter !lst is_even
+let positives () (* FIXME *)
+(*@ ens res=[1; 2] @*)
+(* Can be temporarily fixed by increasing the unfolding bound for do_nothing *)
+= filter [0; 1; 2; (-1)] is_positive

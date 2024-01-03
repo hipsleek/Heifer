@@ -5,10 +5,14 @@ let rec foreach xs f =
   | [] -> ()
   | y :: ys -> f y; foreach ys f
 
-let foreach_example () (* FIXME *)
-(*@ ex x; ex y; ex z; Norm(x->1*y->2*z->3) @*)
-= let x = ref 0 in
-  let y = ref 1 in
-  let z = ref 2 in
-  let incr v = v := !v + 1 in
-  foreach [x; y; z] incr;
+let incr v = v := !v + 1
+
+let do_nothing v = ()
+
+let foreach_example x (* FIXME *)
+(*@ ex v1; req x->v1; ens x->v1 @*)
+(*
+  Can be temporarily fixed by increasing the unfolding bound for do_nothing.
+  This workaround does not work for incr.
+*)
+= foreach [x] do_nothing;
