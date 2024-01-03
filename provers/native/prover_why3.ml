@@ -11,8 +11,26 @@ let why3_config = Whyconf.init_config None
 let why3_config_main = Whyconf.get_main why3_config
 
 let why3_env : Env.env =
-  (* Format.printf "cwd %s@." (Sys.getcwd ()); *)
-  Env.create_env (Sys.getcwd () :: Whyconf.loadpath why3_config_main)
+  let extra_paths =
+    let rec find_dune_project dir =
+      if Sys.file_exists (dir ^ "/dune-project") then Some dir
+      else if dir = "/" then None
+      else find_dune_project (Filename.dirname dir)
+    in
+    SSet.of_list
+      (List.concat
+         [
+           [Sys.getcwd ()];
+           Option.to_list (find_dune_project (Sys.getcwd ()));
+           (try [Filename.dirname Sys.argv.(0)] with _ -> []);
+         ])
+  in
+  let load_path =
+    SSet.to_list extra_paths @ Whyconf.loadpath why3_config_main
+  in
+  Debug.debug ~at:4 ~title:"why load path" "%s"
+    (string_of_list Fun.id load_path);
+  Env.create_env load_path
 
 let load_prover_config name : Whyconf.config_prover =
   let fp = Whyconf.parse_filter_prover name in

@@ -47,6 +47,7 @@ module SSet = struct
   include Set.Make (String)
 
   let concat sets = List.fold_right union sets empty
+  let to_list s = List.of_seq (to_seq s)
 end
 
 module SMap = struct
