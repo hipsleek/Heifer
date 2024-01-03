@@ -295,7 +295,8 @@ type meth_def = {
   m_tactics : tactic list;
 }
 
-(** A predicate is a name for a parameterized disjunctive spec, of the form [f(x, ...) == spec \/ ...], where x, ... are all parameters *)
+(** A predicate is a name for a parameterized disjunctive staged spec of the form [f(x, ...) == spec \/ ...].
+    Predicates are checked or inferred for effectful functions and remembered after. *)
 type pred_def = {
   p_name: string;
   p_params: string list; (* list to ensure ordering. last param is typically a return value *)
@@ -307,6 +308,14 @@ type sl_pred_def = {
   p_sl_name: string;
   p_sl_params: string list; (* list to ensure ordering. last param is typically a return value *)
   p_sl_body: pi * kappa;
+}
+
+(** A pure function that can be imported directly into SMT *)
+type pure_fn_def = {
+  pf_name: string;
+  pf_params: (string * typ) list;
+  pf_ret_type: typ;
+  pf_body: core_lang;
 }
 
 (** A lemma is an entailment [f(x, ...) <: spec]. The left side is restricted to be a function stage (without loss of generality). Some of x, ... may be parameters, but some may not be. *)
@@ -321,6 +330,7 @@ type core_program = {
   cp_effs: string list;
   cp_predicates: pred_def SMap.t;
   cp_sl_predicates: sl_pred_def SMap.t;
+  cp_pure_fns: pure_fn_def SMap.t;
   cp_lemmas: lemma SMap.t;
   cp_methods: meth_def list;
 }
@@ -330,6 +340,7 @@ let empty_program = {
   cp_methods = [];
   cp_predicates = SMap.empty;
   cp_sl_predicates = SMap.empty;
+  cp_pure_fns = SMap.empty;
   cp_lemmas = SMap.empty
 }
 

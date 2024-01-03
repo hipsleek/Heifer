@@ -302,6 +302,67 @@ let rec pi_to_why3 env (pi : pi) =
   | Not a -> Term.t_not (pi_to_why3 env a)
   | Predicate (_, _) -> failwith "nyi Predicate"
 
+let pure_fn_to_logic_fn env pure_fn =
+  Format.printf "prreu fcuntion@.";
+  let rec translate_expr e =
+    match e with
+    | CLet (_v, _e, _a) -> failwith "unimplemented CLet"
+    | CValue _ -> failwith "unimplemented CValue"
+    | CIfELse (_, _, _) -> failwith "unimplemented CIfELse"
+    | CFunCall (_, _) -> failwith "unimplemented CFunCall"
+    | CWrite (_, _) -> failwith "unimplemented CWrite"
+    | CRef _ -> failwith "unimplemented CRef"
+    | CRead _ -> failwith "unimplemented CRead"
+    | CAssert (_, _) -> failwith "unimplemented CAssert"
+    | CPerform (_, _) -> failwith "unimplemented CPerform"
+    | CMatch (_, scr, None, [], cases) ->
+      (* x :: xs -> e is represented as ("::", [x, xs], e) *)
+      (* and constr_cases = (string * string list * core_lang) list *)
+      Term.t_case (translate_expr scr)
+        (List.map
+           (fun (constr, args, body) ->
+             let pat =
+               match (constr, args) with
+               | "::", [x; y] ->
+                 let h =
+                   Term.create_vsymbol (Ident.id_fresh x) (type_to_why3 env Int)
+                 in
+                 let t =
+                   Term.create_vsymbol (Ident.id_fresh y)
+                     (type_to_why3 env List_int)
+                 in
+                 (* TODO nested patterns not supported *)
+                 Term.pat_app
+                   Theories.(get_symbol list "Cons" env.theories)
+                   [Term.pat_var h; Term.pat_var t]
+                   (type_to_why3 env List_int)
+               | "[]", [] ->
+                 Term.pat_app
+                   Theories.(get_symbol list "Nil" env.theories)
+                   []
+                   (type_to_why3 env List_int)
+               | c, _ -> failwith (Format.asprintf "unhandled constr %s" c)
+             in
+             Term.t_close_branch pat (translate_expr body))
+           cases)
+    | CMatch (_, _, _, _, _) -> failwith "unimplemented effect CMatch"
+    | CResume _ -> failwith "unimplemented CResume"
+    | CLambda (_, _, _) -> failwith "unimplemented CLambda"
+  in
+  let params =
+    List.map (fun (p, t) -> (p, type_to_why3 env t)) pure_fn.pf_params
+  in
+  let name =
+    Term.create_lsymbol
+      (Ident.id_fresh pure_fn.pf_name)
+      (List.map snd params)
+      (Some (type_to_why3 env pure_fn.pf_ret_type))
+  in
+  let params =
+    List.map (fun (v, t) -> Term.create_vsymbol (Ident.id_fresh v) t) params
+  in
+  Decl.make_ls_defn name params (translate_expr pure_fn.pf_body)
+
 let create_env tenv qtf =
   let initial =
     {
@@ -345,14 +406,14 @@ let attempt_proof task1 =
             result1; *)
          match result1.pr_answer with Valid -> true | _ -> false)
 
-let prove tenv qtf f =
+let prove pure_fns tenv qtf f =
   let env = create_env tenv qtf in
   let ass, goal = f env in
 
   (* set up task *)
   let task1 : Task.task = None in
 
-  (* with z3, somehow the builtin theory containing things like unit is not loaded unless at least one other theory is pulled in, so use the int theory every time for now *)
+  (* TODO with z3, somehow the builtin theory containing things like unit is not loaded unless at least one other theory is pulled in, so use the int theory every time for now *)
   Theories.(needed int env.theories);
 
   (* make loaded theories available *)
@@ -363,37 +424,25 @@ let prove tenv qtf f =
   in
 
   (* Format.printf "task: %a@." Pretty.print_task task1; *)
+
+  (* add variables as parameters *)
   let task1 =
     List.fold_right
       (fun (_k, v) t -> Task.add_param_decl t v)
       (SMap.bindings env.names) task1
   in
 
-  (* let task1 =
-       let x = Term.create_vsymbol (Ident.id_fresh "a") Ty.ty_bool in
-       let y = Term.create_vsymbol (Ident.id_fresh "b") Ty.ty_bool in
-       let eqb =
-         Term.create_lsymbol (Ident.id_fresh "eqb") [Ty.ty_bool; Ty.ty_bool] None
-       in
-       (*
-              let eqb a b =
-                match a with
-                | True -> match b with True -> True | False -> False
-                | False -> match b with True -> False | False -> True
-
-          val pat_app : lsymbol -> pattern list -> ty -> pattern
-       *)
-       let rhs =
-         Decl.make_ls_defn eqb [x; y]
-           (Term.t_case (Term.t_var x) [Term.t_close_branch 1 2])
-       in
-       Task.add_logic_decl task1
-         [
-           (* val make_ls_defn : lsymbol -> vsymbol list -> term -> logic_decl *)
-           (* val t_case : term -> term_branch list -> term *)
-           rhs;
-         ]
-     in *)
+  (* add pure functions *)
+  let task1 =
+    let fns =
+      List.map
+        (fun (_k, v) ->
+          Format.printf "translating %s@." _k;
+          pure_fn_to_logic_fn env v)
+        (SMap.bindings pure_fns)
+    in
+    match fns with [] -> task1 | _ :: _ -> Task.add_logic_decl task1 fns
+  in
 
   (* Format.printf "tenv: %s@." (Pretty.string_of_typ_env tenv); *)
   (* Format.printf "assumptions: %a@." Pretty.print_term ass; *)
@@ -420,15 +469,7 @@ let memo k f =
     r
   | Some r -> r
 
-let entails_exists tenv left ex right =
-  let@ _ = memo (left, ex, right) in
-  let f () =
-    prove tenv ex (fun env ->
-        ( pi_to_why3 env left,
-          Term.t_exists_close
-            (SMap.bindings env.quantified |> List.map snd)
-            [] (pi_to_why3 env right) ))
-  in
+let suppress_error_if_not_debug f =
   if Debug.in_debug_mode () then f ()
   else
     try f ()
@@ -438,3 +479,12 @@ let entails_exists tenv left ex right =
         Exn_printer.exn_printer e;
       (* Printexc.print_backtrace stdout; *)
       false
+
+let entails_exists ?(pure_fns = SMap.empty) tenv left ex right =
+  let@ _ = memo (left, ex, right) in
+  let@ _ = suppress_error_if_not_debug in
+  prove pure_fns tenv ex (fun env ->
+      ( pi_to_why3 env left,
+        Term.t_exists_close
+          (SMap.bindings env.quantified |> List.map snd)
+          [] (pi_to_why3 env right) ))

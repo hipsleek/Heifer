@@ -88,7 +88,9 @@ let _askZ3 _env p =
 let _valid p = not (_askZ3 SMap.empty (Not p))
 
 (* check if p1 => ex vs. p2 is valid *)
-let entails_exists _env p1 vs p2 =
+let entails_exists ?(pure_fns=SMap.empty) _env p1 vs p2 =
+  if not (Hipcore.Common.SMap.is_empty pure_fns) then
+    failwith "pure functions not yet implemented";
   (* TODO make use of the typing environment *)
   let f ctx =
     Jv.apply (Jv.get ctx "Not")

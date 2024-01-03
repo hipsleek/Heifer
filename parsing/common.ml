@@ -86,3 +86,5 @@ let foldr1 f xs =
   | _ ->
     let xs, last = unsnoc xs in
     List.fold_right f xs last
+
+let pair a b = (a, b)

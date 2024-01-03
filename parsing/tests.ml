@@ -362,8 +362,8 @@ let entails_pure env_a s1 vars s2 =
   let s1 = parse_pi s1 in
   let s2 = parse_pi s2 in
   let env = create_abs_env () in
-  let env = Infer_types.infer_types_pi env s1 in
-  let env = Infer_types.infer_types_pi env s2 in
+  let env = Infer_types.infer_types_pi SMap.empty env s1 in
+  let env = Infer_types.infer_types_pi SMap.empty env s2 in
   let env = Infer_types.concrete_type_env env in
   let env = SMap.add_seq (List.to_seq env_a) env in
   Provers.entails_exists env s1 vars s2

@@ -372,7 +372,9 @@ let entails_exists1 env p1 vs p2 =
   *)
   entails_exists_inner env p1 vs p2
 
-let entails_exists env p1 vs p2 =
+let entails_exists ?(pure_fns=SMap.empty) env p1 vs p2 =
+  if not (Hipcore.Common.SMap.is_empty pure_fns) then
+    failwith "pure functions not yet implemented";
   if Debug.in_debug_mode () then
     entails_exists1 env p1 vs p2
   else
