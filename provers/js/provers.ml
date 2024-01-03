@@ -45,7 +45,7 @@ let rec build_term : Jv.t -> term -> Jv.t =
     Jv.apply (Jv.get ctx "Or") [| build_term ctx a; build_term ctx b |]
   | TApp _ -> failwith "?"
   | TLambda _ -> failwith "?"
-  | TPower _ | TTimes _ | TDiv _ | TList _ | TTupple _ -> failwith "not yet implemented"
+  | TCons _ | TPower _ | TTimes _ | TDiv _ | TList _ | TTupple _ -> failwith "not yet implemented"
 
 let build_op : Jv.t -> bin_op -> term -> term -> Jv.t =
  fun ctx op a b ->
