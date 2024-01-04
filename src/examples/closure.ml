@@ -55,11 +55,35 @@ let closure_with_history_invariant i j
     ex a iv jv; req count->a*i->iv*j->jv;
     ex ivv jvv; ens count->a+1*i->ivv*j->jvv/\res=a+1/\iv=ivv/\jv=jvv
   @*)
-  (* The specification ensures that i and j are unchanged in cl *)
+  (* FIXME: We should not need to specify that i and j are unchanged in cl *)
   = count := !count + 1;
     !count in
   i := cl();
   j := cl()
+
+(* Section 3.3 in Modular Specification and Verification of Closures in Rust *)
+(* Temporary workaround because function parameter preconditions are unsupported *)
+let call_ret x
+(*@ req x>0; ens res>0 @*)
+= x
+
+let closure_with_hof_fail () (* Gives `req false` *)
+= let x = ref (-1) in
+  let cl i = let r = !x in x := !x + i; r in
+  call_ret !x (* -1 *)
+
+let closure_with_hof_ok ()
+= let x = ref (-1) in
+  let cl i = let r = !x in x := !x + i; r in
+  cl 2;
+  call_ret !x
+
+(* https://github.com/FabianWolff/closure-examples/blob/master/cl_returned.rs *)
+let cl_returned ()
+(*@ ens res>=0 @*)
+= let foo () = let f () = 42 in f in
+  let cl = foo () in
+  cl ()
 
 (* https://ilyasergey.net/CS6217/_static/slides/04-FunLog.pdf *)
 let min_max_plus x y min max
