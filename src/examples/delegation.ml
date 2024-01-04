@@ -5,13 +5,13 @@ let f y h g (* FIXME *)
   y := 4;
   h (); g ()
 
-let delegation_example ()
-(*@ ex x; ex y; req x->42*y->0; ens x->42*y->4 @*)
-= let h v = 0 in
+let delegation_example () (* FIXME *)
+(*@ ex x; ex y; req x->42*y->0; ens x->43*y->4 @*)
+= let h () = 0 in
   let x = ref 42 in
-  let g v
+  let g ()
   (* Captures x in the above line *)
   = x := !x + 1; 0 in
   let y = ref 0 in
 
-  f y h g
+  f y h g;
