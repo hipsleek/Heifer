@@ -21,8 +21,6 @@ let h v
 
 let h_ok () = apply h 10
 
-let f v
-(*@ req v>9; ens res>=100/\res<=110 @*)
-= 100
+let f v (*@ req v>9; ens res>=100/\res<=110 @*) = 100
 
 let f_fail () (* FIXME *)= apply f 10 (* Should give a specification of `req false` *)
