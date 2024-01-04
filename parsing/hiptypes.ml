@@ -1,11 +1,10 @@
 
 open Common
 
-type bin_op = GT | LT | EQ | GTEQ | LTEQ
-
 [@@@warning "-17"]
 
-type term =
+type bin_op = GT | LT | EQ | GTEQ | LTEQ
+and term =
     | UNIT 
     | Num of int
     | Var of string
@@ -66,9 +65,6 @@ and pi =
   | Imply  of pi * pi
   | Not    of pi 
   | Predicate of string * term list 
-  (* An assertion like v=1::[], which is represented as
-     IsDatatype(v, "list", "cons", [1; Nil]).
-     Produced by match. Technically just an equality, but some provers may need to add extra constraints when encountering this. *)
 
 and kappa = 
   | EmptyHeap
@@ -102,23 +98,28 @@ and stagedSpec =
 and spec = stagedSpec list
 
 and disj_spec = spec list
+
 [@@deriving
-  visitors { variety = "map"; name = "map_spec_" },
-  visitors { variety = "reduce"; name = "reduce_spec_" }]
+  visitors { variety = "map"; name = "map_spec" },
+  visitors { variety = "reduce"; name = "reduce_spec" } ]
+
+(* not part of the visitor because this doesn't occur recursively *)
+type typ =
+  | Unit
+  | List_int
+  | Int
+  | Bool
+  | Lamb
+  | TVar of string (* this is last, so > concrete types *)
+[@@deriving show { with_path = false }, ord]
 
 [@@@warning "+17"]
 
-class virtual ['self] reduce_spec =
-  object (self : 'self)
-    inherit [_] reduce_spec_
-    method visit_bin_op _env _ = self#zero
-  end
+let min_typ a b = if compare_typ a b <= 0 then a else b
 
-class virtual ['self] map_spec =
-  object (_self : 'self)
-    inherit [_] map_spec_
-    method visit_bin_op _env o = o
-  end
+let is_concrete_type = function TVar _ -> false | _ -> true
+
+let concrete_types = [Unit; List_int; Int; Bool; Lamb]
 
 let res_v = Var "res"
 
@@ -132,21 +133,7 @@ let summary_askZ3 = ref 0.0
 
 let res_eq t = Atomic (EQ, res_v, t)
 
-type typ =
-  | Unit
-  | List_int
-  | Int
-  | Bool
-  | Lamb
-  | TVar of string (* this is last, so > concrete types *)
-  [@@deriving show { with_path = false }, ord]
 
-
-let min_typ a b = if compare_typ a b <= 0 then a else b
-
-let is_concrete_type = function TVar _ -> false | _ -> true
-
-let concrete_types = [Unit; List_int; Int; Bool; Lamb]
 
 module U = struct
   include UnionFind

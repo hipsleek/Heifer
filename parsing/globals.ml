@@ -20,3 +20,6 @@ let is_pure_fn_defined f =
 
 let pure_fn f =
   SMap.find f global_environment.pure_fns
+
+let pure_fns () =
+  SMap.bindings global_environment.pure_fns

@@ -57,19 +57,20 @@ module SMap = struct
 
   let key_set m = bindings m |> List.map fst |> SSet.of_list
 
-  let merge_disjoint a b =
-    merge
-      (fun _k x y ->
-        match (x, y) with
-        | Some v, None | None, Some v -> Some v
-        | None, None -> None
-        | Some v1, Some v2 when v1 = v2 -> Some v1
-        | Some _, Some _ ->
-          failwith
-            (Format.asprintf "maps with keys %s and %s should be disjoint"
-               (string_of_list Fun.id (keys a))
-               (string_of_list Fun.id (keys b))))
-      a b
+  let disjoint_or_fail k x y =
+    match (x, y) with
+    | Some v, None | None, Some v -> Some v
+    | None, None -> None
+    | Some v1, Some v2 when v1 == v2 || v1 = v2 -> Some v1
+    | Some _, Some _ ->
+      failwith (Format.asprintf "maps not disjoint on key %s" k)
+
+  let merge_disjoint a b = merge disjoint_or_fail a b
+
+  let merge_all_disjoint xs =
+    List.fold_right merge_disjoint xs empty
+
+  let of_list xs = of_seq (List.to_seq xs)
 end
 
 let rec unsnoc xs =
