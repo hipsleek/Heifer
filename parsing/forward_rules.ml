@@ -46,7 +46,8 @@ let constrain_final_res (sp:disj_spec) (v:term) : disj_spec =
       | HigherOrder (p, k, (c, va), r) ->
         HigherOrder (And (p, Atomic (EQ, r, v)), k, (c, va), r)
       | RaisingEff (p, k, (c, va), r) ->
-        RaisingEff (And (p, Atomic (EQ, r, v)), k, (c, va), r)))
+        RaisingEff (And (p, Atomic (EQ, r, v)), k, (c, va), r)
+      | TryCatch _ -> failwith "unimplemented"))
 
 (** Environment used for forward verification *)
 type fvenv = {
@@ -95,7 +96,7 @@ let retrieveSpecFromEnv (fname: string) (env:fvenv) : (string list * spec list) 
 let rec specContainUndefinedHO (spec:spec) (env:fvenv) : bool = 
   match spec with 
   | [] -> false 
-  | HigherOrder (p, k, (c, va), r):: xs -> 
+  | HigherOrder (_p, _k, (c, _va), _r):: xs -> 
     (match retrieveSpecFromEnv c env with 
     | None -> true 
     | _ -> specContainUndefinedHO xs env  
@@ -307,7 +308,7 @@ let rec handling_spec_inner env (scr_spec:normalisedStagedSpec) (h_norm:(string 
 
   match scr_eff_stages with 
   | [] -> [normalStage2Spec scr_normal] , env
-  | (TryCatchStage x) :: xs -> 
+  | (TryCatchStage x) :: _xs -> 
     let trycatch_ret =
       match x.tc_ret with 
       | Var ret -> ret
@@ -320,7 +321,7 @@ let rec handling_spec_inner env (scr_spec:normalisedStagedSpec) (h_norm:(string 
     let trycatch_Pre = x.tc_pre in 
     let trycatch_Post = x.tc_post in 
 
-    let norm = (trycatch_Ex, trycatch_Pre, trycatch_Post) in 
+    let _norm = (trycatch_Ex, trycatch_Pre, trycatch_Post) in 
     let (src, (normlCase, effCases)) = x.tc_constr in 
     print_endline ("\n...........\nbefore try catch \n" ^ string_of_spec src ^ "\n");
     print_endline ("continuation_spec: " ^ string_of_spec conti); 
@@ -660,7 +661,7 @@ let recursivelyInstantiateFunctionCalls instantiatedSpec env =
     | x :: xs  -> 
       (match x with 
       | Require _ | Exists _  | NormalReturn _ | RaisingEff _ | TryCatch _ -> helper (acc@[x]) xs 
-      | HigherOrder (pi, kappa, (fname, actualArgs), ret)  -> 
+      | HigherOrder (pi, kappa, (fname, actualArgs), _ret)  -> 
         if String.compare fname "helper" == 0 then  (* check if it is recursive *)
         (match retrieveSpecFromEnv fname env with 
         | None -> helper (acc@[x]) xs 

@@ -409,6 +409,7 @@ let rec collect_lambdas_term (t : term) =
   | TNot a -> collect_lambdas_term a
   | TApp (_, args) -> SSet.concat (List.map collect_lambdas_term args)
   | TLambda (l, _params, _sp) -> SSet.singleton l
+  | TCons _ -> failwith "unimplemented"
 
 let rec collect_lambdas_pi (p : pi) =
   match p with
@@ -529,7 +530,7 @@ let optimize_existentials : normalisedStagedSpec -> normalisedStagedSpec =
 
 let remove_conjunct_with_variable_rel included =
   object
-    inherit [_] map_normalised as super
+    inherit [_] map_normalised
     method! visit_Atomic _ op a b =
       match a, b with
       | Var v, _ when SSet.mem v included -> True
@@ -540,7 +541,7 @@ let remove_conjunct_with_variable_rel included =
 
 let remove_existentials vs =
   object
-    inherit [_] map_normalised as super
+    inherit [_] map_normalised
     method! visit_Exists _ xs = Exists (List.filter (fun x -> not (SSet.mem x vs)) xs)
   end
 
@@ -584,6 +585,8 @@ let remove_noncontributing_existentials :
     | TLambda (_, _, body) -> collect_related_vars_disj_spec body
     | TList _ -> failwith (Format.asprintf "NYI list")
     | TTupple _ -> failwith (Format.asprintf "NYI tuple")
+    | TCons _ -> failwith (Format.asprintf "NYI tcons")
+
   (*
     collect(a=b) = [{a, b}]
     collect(a=b /\ c<b) = [{a, b,}, {c, b}] = [{a, b, c}]
@@ -626,12 +629,13 @@ let remove_noncontributing_existentials :
     | Exists _ -> []
     | HigherOrder (p, h, _constr, _ret) | RaisingEff (p, h, _constr, _ret) ->
       collect_related_vars_state (p, h)
+    | TryCatch _ -> failwith "unimplemented"
   and collect_related_vars_spec s =
     SSet.concat (List.concat_map collect_related_vars_stage s)
   and collect_related_vars_disj_spec ss =
     SSet.concat (List.map collect_related_vars_spec ss)
   in
-  let handle fns ex pre post =
+  let _handle fns ex pre post =
     let classes =
       merge_classes
         (collect_related_vars_state pre)

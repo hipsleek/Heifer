@@ -49,6 +49,7 @@ let apply_lemma : lemma -> spec -> spec option =
     | (st) :: sp1 ->
       let lf, largs = lem.l_left in
       (match st with
+      | TryCatch _ -> failwith "unimplemented"
       | HigherOrder (p, h, (f, args), r)
         when (not ok) (* only apply once *) && f = lf ->
         (match unify_lem_lhs_args lem.l_params largs (args @ [r]) with
@@ -479,7 +480,7 @@ let rec check_staged_subsumption_stagewise :
         (conj [assump; residue])
         (es1r, ns1) (es2r, ns2))
 
-  | (TryCatchStage tc1 :: es1r, ns1), (TryCatchStage tc2 :: es2r, ns2) ->
+  | (TryCatchStage tc1 :: _es1r, _ns1), (TryCatchStage tc2 :: _es2r, _ns2) ->
 
     let src1, _ = tc1.tc_constr in
     let src2, _ = tc2.tc_constr in
