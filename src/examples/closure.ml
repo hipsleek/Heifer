@@ -47,7 +47,6 @@ let closure_with_effects ()
   cl i
 
 (* Section 3.2 in Modular Specification and Verification of Closures in Rust *)
-
 let closure_with_history_invariant i j
 (*@ ex iv jv; req i->iv*j->jv; ens i->1*j->2 @*)
 = let count = ref 0 in
