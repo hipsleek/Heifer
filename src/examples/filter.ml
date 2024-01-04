@@ -9,5 +9,5 @@ let is_positive x = x > 0
 
 let positives () (* FIXME *)
 (*@ ens res=[1; 2] @*)
-(* Can be temporarily fixed by increasing the unfolding bound for do_nothing *)
+(* Can be temporarily fixed by increasing the unfolding bound to 5 *)
 = filter [0; 1; 2; (-1)] is_positive
