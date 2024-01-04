@@ -3,12 +3,6 @@ open Hiptypes
 open Pretty
 open Debug
 
-let global_environment : (typ list * typ) SMap.t ref = ref SMap.empty
-
-(* this is for pure functions, because we don't want to thread the type definitions through every single normalization call, since normalization invokes the prover. most other parts of the code pass the type definitions explicitly. the bindings here grow monotonically, so it should be harmless... *)
-let add_global_binding name typ =
-  global_environment := SMap.add name typ !global_environment
-
 (* record the type (or constraints on) of a program variable in the environment *)
 let assert_var_has_type v t env =
   match SMap.find_opt v env.vartypes with
@@ -57,7 +51,7 @@ let concrete_type_env abs : typ_env =
       match v with TVar _ -> find_concrete_type abs.equalities v | _ -> v)
     abs.vartypes
 
-let get_primitive_type pure_fns f =
+let get_primitive_type f =
   match f with
   | "cons" -> ([Int; List_int], List_int)
   | "head" -> ([List_int], Int)
@@ -65,17 +59,13 @@ let get_primitive_type pure_fns f =
   | "is_nil" | "is_cons" -> ([List_int], Bool)
   | "+" | "-" -> ([Int; Int], Int)
   | _ when String.compare f "effNo" == 0 -> ([Int] , Int)
-  | _ when SMap.mem f pure_fns ->
-    (* takes precedence over global environment *)
-    let fn = SMap.find f pure_fns in
+  | _ when Globals.is_pure_fn_defined f ->
+    let fn = Globals.pure_fn f in
     (List.map snd fn.pf_params, fn.pf_ret_type)
-  | _ when SMap.mem f !global_environment ->
-    SMap.find f !global_environment
   | _ ->
-    Format.printf "get primitive type%s@." (string_of_smap string_of_pure_fn pure_fns);
       failwith (Format.asprintf "unknown function 2: %s" f)
 
-let rec infer_types_term ?hint pure_fns (env : abs_typ_env) term : typ * abs_typ_env =
+let rec infer_types_term ?hint (env : abs_typ_env) term : typ * abs_typ_env =
   let@ _ =
     Debug.span (fun r ->
         debug ~at:5 ~title:"infer_types" "%s : %s -| %s" (string_of_term term)
@@ -86,20 +76,20 @@ let rec infer_types_term ?hint pure_fns (env : abs_typ_env) term : typ * abs_typ
   | UNIT, _ -> (Unit, env)
   | TTrue, _ | TFalse, _ -> (Bool, env)
   | TNot a, _ ->
-    let _at, env1 = infer_types_term ~hint:Bool pure_fns env a in
+    let _at, env1 = infer_types_term ~hint:Bool env a in
     (Bool, env1)
   | TAnd (a, b), _ ->
-    let _at, env = infer_types_term ~hint:Bool pure_fns env a in
-    let _bt, env = infer_types_term ~hint:Bool pure_fns env b in
+    let _at, env = infer_types_term ~hint:Bool env a in
+    let _bt, env = infer_types_term ~hint:Bool env b in
     (Bool, env)
   | TOr (a, b), _ ->
-    let _at, env = infer_types_term ~hint:Bool pure_fns env a in
-    let _bt, env = infer_types_term ~hint:Bool pure_fns env b in
+    let _at, env = infer_types_term ~hint:Bool env a in
+    let _bt, env = infer_types_term ~hint:Bool env b in
     (Bool, env)
   | Nil, _ -> (List_int, env)
   | TCons (a, b), _ ->
-    let _at, env1 = infer_types_term ~hint:Int pure_fns env a in
-    let _bt, env2 = infer_types_term ~hint:List_int pure_fns env1 b in
+    let _at, env1 = infer_types_term ~hint:Int env a in
+    let _bt, env2 = infer_types_term ~hint:List_int env1 b in
     (List_int, env2)
   | Num _, _ -> (Int, env)
   (* possibly add syntactic heuristics for types, such as names *)
@@ -110,30 +100,30 @@ let rec infer_types_term ?hint pure_fns (env : abs_typ_env) term : typ * abs_typ
   | TLambda _, _ -> (Lamb, env)
   | Rel (EQ, a, b), _ -> begin
     try
-      let at, env1 = infer_types_term ~hint:Int pure_fns env a in
-      let bt, env2 = infer_types_term ~hint:Int pure_fns env1 b in
+      let at, env1 = infer_types_term ~hint:Int env a in
+      let bt, env2 = infer_types_term ~hint:Int env1 b in
       let env3 = unify_types at bt env2 in
       (Bool, env3)
     with _ ->
-      let _bt, env1 = infer_types_term ~hint:Int pure_fns env b in
-      let _at, env2 = infer_types_term ~hint:Int pure_fns env1 a in
+      let _bt, env1 = infer_types_term ~hint:Int env b in
+      let _at, env2 = infer_types_term ~hint:Int env1 a in
       (Bool, env2)
   end
   | Rel ((GT | LT | GTEQ | LTEQ), a, b), _ ->
-    let _at, env1 = infer_types_term ~hint:Int pure_fns env a in
-    let _bt, env2 = infer_types_term ~hint:Int pure_fns env1 b in
+    let _at, env1 = infer_types_term ~hint:Int env a in
+    let _bt, env2 = infer_types_term ~hint:Int env1 b in
     (Bool, env2)
   | Plus (a, b), _ | Minus (a, b), _ | TPower (a, b), _ | TTimes (a, b), _ | TDiv (a, b), _ ->
-    let _at, env1 = infer_types_term ~hint:Int pure_fns env a in
-    let _bt, env2 = infer_types_term ~hint:Int pure_fns env1 b in
+    let _at, env1 = infer_types_term ~hint:Int env a in
+    let _bt, env2 = infer_types_term ~hint:Int env1 b in
     (Int, env2)
   | TApp (f, args), _ ->
-    let argtypes, ret = get_primitive_type pure_fns f in
+    let argtypes, ret = get_primitive_type f in
     let env =
       (* infer from right to left *)
       List.fold_left
         (fun env (a, at) ->
-          let _, env = infer_types_term ~hint:at pure_fns env a in
+          let _, env = infer_types_term ~hint:at env a in
           env)
         env
         (List.map2 pair args argtypes)
@@ -141,7 +131,7 @@ let rec infer_types_term ?hint pure_fns (env : abs_typ_env) term : typ * abs_typ
     (ret, env)
   | TList _, _ | TTupple _, _ -> failwith "list/tuple unimplemented"
 
-let rec infer_types_pi pure_fns env pi =
+let rec infer_types_pi env pi =
   (* let@ _ =
        Debug.span (fun r ->
            debug ~at:5 ~title:"infer_types_pi" "%s -| %s" (string_of_pi pi)
@@ -150,8 +140,8 @@ let rec infer_types_pi pure_fns env pi =
   match pi with
   | True | False -> env
   | Atomic (EQ, a, b) ->
-    let t1, env = infer_types_term pure_fns env a in
-    let t2, env = infer_types_term pure_fns env b in
+    let t1, env = infer_types_term env a in
+    let t2, env = infer_types_term env b in
     (* Format.printf "EQ %s = %s@." (string_of_term a) (string_of_term b); *)
     let env = unify_types t1 t2 env in
     env
@@ -159,13 +149,13 @@ let rec infer_types_pi pure_fns env pi =
   | Atomic (LT, a, b)
   | Atomic (GTEQ, a, b)
   | Atomic (LTEQ, a, b) -> begin
-    let _t, env = infer_types_term ~hint:Int pure_fns env a in
-    let _t, env = infer_types_term ~hint:Int pure_fns env b in
+    let _t, env = infer_types_term ~hint:Int env a in
+    let _t, env = infer_types_term ~hint:Int env b in
     env
   end
   | And (a, b) | Or (a, b) | Imply (a, b) ->
-    let env = infer_types_pi pure_fns env a in
-    let env = infer_types_pi pure_fns env b in
+    let env = infer_types_pi env a in
+    let env = infer_types_pi env b in
     env
-  | Not a -> infer_types_pi pure_fns env a
+  | Not a -> infer_types_pi env a
   | Predicate (_, _) -> env (*failwith "not implemented" *)

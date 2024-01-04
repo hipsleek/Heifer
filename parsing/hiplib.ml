@@ -1424,13 +1424,13 @@ let report_result ?kind ?given_spec ?given_spec_n ?inferred_spec ?inferred_spec_
   in
   f ?kind ?given_spec ?given_spec_n ?inferred_spec ?inferred_spec_n ?forward_time_ms ?entail_time_ms ?result name
 
-let check_obligation name params lemmas predicates pure_fns (l, r) =
+let check_obligation name params lemmas predicates (l, r) =
   let@ _ =
     Debug.span (fun _r ->
         debug ~at:1
           ~title:(Format.asprintf "checking obligation: %s" name) "")
   in
-  let res = Entail.check_staged_subsumption_disj name params [] lemmas predicates pure_fns l r in
+  let res = Entail.check_staged_subsumption_disj name params [] lemmas predicates l r in
   report_result ~kind:"Obligation" ~given_spec:r ~inferred_spec:l ~result:res name
 
 exception Method_failure
@@ -1472,8 +1472,8 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) : core_program =
     inf, preds_with_lambdas, env
   in
   (* check misc obligations. don't stop on failure for now *)
-  fvenv.fv_lambda_obl |> List.iter (check_obligation meth.m_name meth.m_params prog.cp_lemmas predicates prog.cp_pure_fns);
-  fvenv.fv_match_obl |> List.iter (check_obligation meth.m_name meth.m_params prog.cp_lemmas predicates prog.cp_pure_fns);
+  fvenv.fv_lambda_obl |> List.iter (check_obligation meth.m_name meth.m_params prog.cp_lemmas predicates);
+  fvenv.fv_match_obl |> List.iter (check_obligation meth.m_name meth.m_params prog.cp_lemmas predicates);
 
   (* check the main spec *)
   let time_stamp_afterForward = Sys.time () in
@@ -1517,7 +1517,7 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) : core_program =
             print_endline ("given_spec " ^ string_of_disj_spec given_spec); *)
             
 
-            let res = Entail.check_staged_subsumption_disj meth.m_name meth.m_params meth.m_tactics prog.cp_lemmas predicates prog.cp_pure_fns inferred_spec given_spec in 
+            let res = Entail.check_staged_subsumption_disj meth.m_name meth.m_params meth.m_tactics prog.cp_lemmas predicates inferred_spec given_spec in 
             (* print_endline ("proving end!!!==================================") ;
             print_endline (string_of_bool res); *)
             
@@ -1578,7 +1578,7 @@ let process_items (strs: structure_item list) : unit =
     List.fold_left (fun (bound_names, prog) c ->
       match transform_str bound_names c with
       | Some (`Lem l) ->
-        check_obligation l.l_name l.l_params prog.cp_lemmas prog.cp_predicates prog.cp_pure_fns (function_stage_to_disj_spec l.l_left, [l.l_right]);
+        check_obligation l.l_name l.l_params prog.cp_lemmas prog.cp_predicates (function_stage_to_disj_spec l.l_left, [l.l_right]);
         (* add to environment regardless of failure *)
         bound_names, { prog with cp_lemmas = SMap.add l.l_name l prog.cp_lemmas }
       | Some (`Pred p) -> 
@@ -1623,17 +1623,14 @@ let process_items (strs: structure_item list) : unit =
         debug ~at:2 ~title:"user-specified predicates" "%s" (string_of_smap string_of_pred prog.cp_predicates);
         (* as we handle methods, predicates are inferred and are used in place of absent specifications, so we have to keep updating the program as we go *)
         let prog = { prog with cp_methods = meth :: prog.cp_methods } in
-        let prog =
+        let () =
           match pure_fn_info with
           | Some (param_types, ret_type) ->
             let pf =
               { pf_name = m_name; pf_params = List.map2 pair m_params param_types; pf_ret_type = ret_type; pf_body = m_body; }
             in
-            (* for normalization... *)
-            Infer_types.add_global_binding m_name (param_types, ret_type);
-            { prog with cp_pure_fns =
-              SMap.add m_name pf prog.cp_pure_fns}
-          | None -> prog
+            Globals.define_pure_fn m_name pf;
+          | None -> ()
         in
         begin try
           let prog =

@@ -341,7 +341,6 @@ type pctx = {
   (* lemmas and predicats defined globally, i.e. before the current function being verified *)
   lems : lemma SMap.t;
   preds : pred_def SMap.t;
-  pure_fns : pure_fn_def SMap.t;
   (* additional predicates due to local lambda definitions *)
   preds_left : pred_def SMap.t;
   preds_right : pred_def SMap.t;
@@ -358,7 +357,6 @@ let string_of_pctx ctx =
   Format.asprintf
     "lemmas: %s\n\
      predicates: %s\n\
-     pure fns: %s\n\
      predicates left: %s\n\
      predicates right: %s\n\
      q_vars: %s\n\
@@ -367,7 +365,6 @@ let string_of_pctx ctx =
      fvenv: %s@."
     (string_of_smap string_of_lemma ctx.lems)
     (string_of_smap string_of_pred ctx.preds)
-    (string_of_smap string_of_pure_fn ctx.pure_fns)
     (string_of_smap string_of_pred ctx.preds_left)
     (string_of_smap string_of_pred ctx.preds_right)
     (string_of_list Fun.id ctx.q_vars)
@@ -377,11 +374,10 @@ let string_of_pctx ctx =
     (string_of_list Fun.id ctx.applied)
     "<...>"
 
-let create_pctx lems preds pure_fns q_vars =
+let create_pctx lems preds q_vars =
   {
     lems;
     preds;
-    pure_fns;
     preds_left = SMap.empty;
     preds_right = SMap.empty;
     q_vars;
@@ -645,8 +641,8 @@ and stage_subsumes :
     let right = pre_r in
     let tenv =
       let env = create_abs_env () in
-      let env = infer_types_pi ctx.pure_fns env left in
-      let env = infer_types_pi ctx.pure_fns env right in
+      let env = infer_types_pi env left in
+      let env = infer_types_pi env right in
       env
     in
     let left = Normalize.simplify_pure left in
@@ -657,7 +653,7 @@ and stage_subsumes :
       (string_of_existentials vs1)
       (string_of_pi right);
     let pre_res =
-      Provers.entails_exists ~pure_fns:ctx.pure_fns (concrete_type_env tenv) left vs1 right
+      Provers.entails_exists (concrete_type_env tenv) left vs1 right
     in
     debug ~at:1 ~title:(Format.asprintf "valid?") "%s" (string_of_res pre_res);
     (* TODO why do we need pre_r here? as pre_l has just been proven to subsume pre_r *)
@@ -689,7 +685,7 @@ and stage_subsumes :
       (* let env = infer_types_pi tenv left in *)
       (* let env = infer_types_pi env right in *)
       (* share things like res *)
-      let env = infer_types_pi ctx.pure_fns tenv (And (left, right)) in
+      let env = infer_types_pi tenv (And (left, right)) in
       env
     in
     (* Format.printf "1@."; *)
@@ -778,12 +774,12 @@ let rec apply_tactics ts lems preds (ds1 : disj_spec) (ds2 : disj_spec) =
     (ds1, ds2) ts
 
 let check_staged_subsumption :
-    lemma SMap.t -> pred_def SMap.t -> pure_fn_def SMap.t -> spec -> spec -> unit Search.t =
- fun lems preds pure_fns n1 n2 ->
+    lemma SMap.t -> pred_def SMap.t -> spec -> spec -> unit Search.t =
+ fun lems preds n1 n2 ->
   let es1, ns1 = normalize_spec n1 in
   let es2, ns2 = normalize_spec n2 in
   let q_vars = getExistentialVar (es1, ns1) @ getExistentialVar (es2, ns2) in
-  let ctx = create_pctx lems preds pure_fns q_vars in
+  let ctx = create_pctx lems preds q_vars in
   check_staged_subsumption_stagewise ctx 0 True (es1, ns1) (es2, ns2)
 
 let create_induction_hypothesis params ds1 ds2 =
@@ -835,11 +831,10 @@ let check_staged_subsumption_disj :
     tactic list ->
     lemma SMap.t ->
     pred_def SMap.t ->
-    pure_fn_def SMap.t ->
     disj_spec ->
     disj_spec ->
     bool =
- fun mname params _ts lems preds pure_fns ds1 ds2 ->
+ fun mname params _ts lems preds ds1 ds2 ->
   Search.reset ();
   debug ~at:1
     ~title:(Format.asprintf "disj subsumption: %s" mname)
@@ -851,7 +846,7 @@ let check_staged_subsumption_disj :
   (* let ds1, ds2 = apply_tactics ts lems preds ds1 ds2 in *)
   (let@ s1 = Search.all ~name:"disj lhs" ~to_s:string_of_spec ds1 in
    let@ s2 = Search.any ~name:"disj rhs" ~to_s:string_of_spec ds2 in
-   check_staged_subsumption lems preds pure_fns s1 s2
+   check_staged_subsumption lems preds s1 s2
    )
   |> Search.succeeded
 

@@ -330,7 +330,6 @@ type core_program = {
   cp_effs: string list;
   cp_predicates: pred_def SMap.t;
   cp_sl_predicates: sl_pred_def SMap.t;
-  cp_pure_fns: pure_fn_def SMap.t;
   cp_lemmas: lemma SMap.t;
   cp_methods: meth_def list;
 }
@@ -340,7 +339,6 @@ let empty_program = {
   cp_methods = [];
   cp_predicates = SMap.empty;
   cp_sl_predicates = SMap.empty;
-  cp_pure_fns = SMap.empty;
   cp_lemmas = SMap.empty
 }
 
