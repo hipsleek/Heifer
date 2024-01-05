@@ -859,10 +859,12 @@ let prove tenv qtf f =
     try Typing.type_mlw_file why3_env [] "myfile.mlw" mlw_file
     with Loc.Located (loc, e) ->
       (* A located exception [e] *)
-      let msg = Format.asprintf "%a" Exn_printer.exn_printer e in
-      Format.printf "%a@."
-        (Mlw_printer.with_marker ~msg loc (Mlw_printer.pp_mlw_file ~attr:true))
-        mlw_file;
+      (if Debug.in_debug_mode () then
+         let msg = Format.asprintf "%a" Exn_printer.exn_printer e in
+         Format.printf "%a@."
+           (Mlw_printer.with_marker ~msg loc
+              (Mlw_printer.pp_mlw_file ~attr:true))
+           mlw_file);
       failwith "failed due to type error"
   in
   (* there will be only one module *)
