@@ -16,7 +16,7 @@ let rec exists xs f =
   | [] -> false
   | x :: xs' -> f x || exists xs' f
 
-let foldr_exists xs pred
+let foldr_exists xs pred (* FIXME *)
 (*@ ex r; exists(xs, pred, r); ens res=r @*)
 = let f x acc = pred x || acc in
   foldr f xs false
@@ -45,3 +45,17 @@ let foldr_sum_state x xs init
 (*@ ex i; req x->i; ex r; sum(xs, r); Norm(x->i+r, r+init) @*)
 = let g c t = x := !x + c; c + t in
   foldr g xs init
+
+(* Adapted from https://github.com/FabianWolff/closure-examples/blob/master/fold.rs*)
+let foldr_all () (* FIXME *)
+(*@ ens res=false @*)
+= let xs = [1; 0; 1] in
+  let f a c = a == 1 && c in
+  foldr f xs true
+
+(* Adapted from https://github.com/FabianWolff/closure-examples/blob/master/fold.rs*)
+let foldr_any () (* FIXME *)
+(*@ ens res=false @*)
+= let xs = [1; 0; 1] in
+  let f a c = a == 1 || c in
+  foldr f xs false
