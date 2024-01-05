@@ -277,6 +277,9 @@ and string_of_pi pi : string =
   match pi with
   | True -> "T"
   | False -> "F"
+  | Atomic (EQ, (TLambda _ as l), Var v)
+  | Atomic (EQ, Var v, (TLambda _ as l)) ->
+    Format.asprintf "%s <: %s" v (string_of_term l)
   | Atomic (op, t1, t2) -> string_of_term t1 ^ string_of_bin_op op ^ string_of_term t2
   | And   (p1, p2) -> string_of_pi p1 ^ "/\\" ^ string_of_pi p2
   | Or     (p1, p2) -> string_of_pi p1 ^ "\\/" ^ string_of_pi p2
