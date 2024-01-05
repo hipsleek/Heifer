@@ -55,7 +55,7 @@ let foldr_all () (* FIXME *)
 
 (* Adapted from https://github.com/FabianWolff/closure-examples/blob/master/fold.rs*)
 let foldr_any () (* FIXME *)
-(*@ ens res=false @*)
+(*@ ens res=true @*)
 = let xs = [1; 0; 1] in
   let f a c = a == 1 || c in
   foldr f xs false
