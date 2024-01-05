@@ -9,6 +9,18 @@ let[@pure] rec length (li:int list) : int =
     ens xs=[] <: ens length(xs)=0
 @*)
 
-let aa xs
+(* let aa xs
 (*@ ens length(xs)>=0 @*)
-= xs
+= xs *)
+
+let rec foldr f li acc =
+  match li with 
+  | [] -> acc 
+  | x :: xs -> 
+    let acc' = f x acc in 
+    foldr f xs acc'
+
+let foldr_length xs init
+(*@ ex r; ens res=length(xs)+init @*)
+= let g c t = 1 + t in
+  foldr g xs init
