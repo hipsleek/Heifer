@@ -254,11 +254,10 @@ let collect_param_info rhs =
         ([], [], e, ret_type)
     in
     let names, types, body, ret_type = traverse_to_body rhs None in
-    let any = List.length types > 0 || Option.is_some ret_type in
     let not_all = List.length names <> List.length types || Option.is_none ret_type in
-    if any && not_all then
-      failwith (Format.asprintf "all the types should be given, or none should be: %d variables, %d with types, ret %s" (List.length names) (List.length types) (string_of_option string_of_type ret_type));
-    let types = Option.map (pair types) ret_type in
+    let types =
+      if not_all then None else Option.map (pair types) ret_type
+    in
     names, body, types
 
 
