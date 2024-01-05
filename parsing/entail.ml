@@ -432,7 +432,7 @@ let rec check_staged_subsumption_stagewise :
     (*print_endline ("check_staged_subsumption_stagewise case one ");*)
 
     let ctx =
-      collect_local_lambda_definitions ctx (Some es1.e_post) (Some es2.e_post)
+      collect_local_lambda_definitions ctx (Some es1.e_post) (Some es2.e_pre)
     in
     (* fail fast by doing easy checks first *)
     let c1, a1 = es1.e_constr in
@@ -512,7 +512,14 @@ let rec check_staged_subsumption_stagewise :
       (string_of_normalisedStagedSpec s2);
       (*print_endline("fail 486");*)
     fail
-  | (EffHOStage es1 :: _, _), ([], _) ->
+  | (EffHOStage es1 :: _, _), ([], n1) ->
+    (* we are allowed to find lambdas in:
+       - the pre of the right side (as it will eventually make it down via a frame)
+       - the post of the left side *)
+    let ctx =
+      let _ex, n1pre, _post = n1 in
+      collect_local_lambda_definitions ctx (Some n1pre) None
+    in
     let ctx = collect_local_lambda_definitions ctx (Some es1.e_post) None in
     let c1, _ = es1.e_constr in
     let@ _ = try_other_measures ctx s1 s2 (Some c1) None i assump |> or_else in
