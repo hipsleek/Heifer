@@ -213,7 +213,7 @@ and string_of_staged_spec (st:stagedSpec) : string =
       Format.asprintf "ens %s; %s(%s)" (string_of_state (pi, h)) f (String.concat ", " (List.map string_of_term args @ ([string_of_term ret]))) 
     end
   | NormalReturn (pi, heap) ->
-    Format.asprintf "Norm(%s)" (string_of_state (pi, heap))
+    Format.asprintf "ens %s" (string_of_state (pi, heap))
   | RaisingEff (pi, heap, (name, args), ret) ->
 
     Format.asprintf "%s(%s, %s, %s)" name (string_of_state (pi, heap)) (string_of_args string_of_term args) (string_of_term ret)

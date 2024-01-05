@@ -7,13 +7,13 @@ let rec map f xs =
 let id y = y
 
 let map_id ys
-(*@ Norm(emp, ys) @*)
+(*@ ens res=ys @*)
 = map id ys
 
 let succ x = x + 1
 
 let map_not_id_false ys
-(*@ Norm(emp, ys) @*)
+(*@ ens res=ys @*)
 = map succ ys
 
 (* ghost function that specifies what mapping succ should return *)
@@ -24,7 +24,7 @@ let rec succ_list xs =
 
 (* we use succ_list in the statement of this lemma *)
 let map_succ ys
-(*@ ex r; succ_list(ys, r); Norm(emp, r) @*)
+(*@ ex r; succ_list(ys, r); ens res=r @*)
 = map succ ys
 
 let rec length xs =
@@ -33,7 +33,7 @@ let rec length xs =
   | x :: xs1 -> 1 + length xs1
 
 let cl_map xs x
-(*@ ex i; req x->i; ex r; length(xs, r); ex r1; Norm(r1=xs/\x->i+r, r1) @*)
+(*@ ex i; req x->i; ex r; length(xs, r); ex r1; ens r1=xs/\x->i+r/\res=r1 @*)
 = let f a = x := !x+1; a in
   map f xs
 
