@@ -481,8 +481,8 @@ rule token = parse
       { CONJUNCTION }
   | "\\/"
       { DISJUNCTION }
-  | "=>"
-      { IMPLICATION }
+  (* | "=>"
+      { IMPLICATION } *)
   | "(*"
       { let s, loc = wrap_comment_lexer comment lexbuf in
         COMMENT (s, loc) }
