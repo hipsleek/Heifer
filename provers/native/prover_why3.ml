@@ -4,7 +4,8 @@ open Why3
 open Hipcore
 open Hiptypes
 
-let prover_configs : Whyconf.config_prover SMap.t ref = ref SMap.empty
+let prover_configs : (Whyconf.config_prover * Why3.Driver.driver) SMap.t ref =
+  ref SMap.empty
 
 (* top-level side effects *)
 let why3_config = Whyconf.init_config None
@@ -36,27 +37,26 @@ let load_prover_config name : Whyconf.config_prover =
   let fp = Whyconf.parse_filter_prover name in
   let provers = Whyconf.filter_provers why3_config fp in
   if Whyconf.Mprover.is_empty provers then begin
-    Format.printf "Prover %s not installed or not configured@." name;
-    exit 1
+    failwith
+      (Format.asprintf "Prover %s not installed or not configured@." name)
   end
   else begin
-    (* Format.printf "Versions of %s found:" name;
-       Whyconf.(
-         Mprover.iter
-           (fun k _ -> Format.printf " %s/%s" k.prover_version k.prover_altern)
-           provers);
-       Format.printf "@."; *)
-    (* returning an arbitrary one *)
-    snd (Whyconf.Mprover.min_binding provers)
+    let alts =
+      Whyconf.(
+        Mprover.map
+          (fun cp ->
+            Format.asprintf "%s %s %s" cp.prover.prover_name
+              cp.prover.prover_version cp.prover.prover_altern)
+          provers
+        |> Mprover.bindings |> List.map snd)
+      |> string_of_list Fun.id
+    in
+    let p, conf = Whyconf.Mprover.min_binding provers in
+    Debug.debug ~at:2 ~title:"loaded prover"
+      "defaulting to %s %s %s out of:\n%s" name p.prover_version p.prover_altern
+      alts;
+    conf
   end
-
-let ensure_prover_loaded name =
-  match SMap.find_opt name !prover_configs with
-  | None ->
-    prover_configs := SMap.add name (load_prover_config name) !prover_configs
-  | Some _ -> ()
-
-let get_prover_config name = SMap.find name !prover_configs
 
 let load_prover_driver pc name =
   try Driver.load_driver_for_prover why3_config_main why3_env pc
@@ -65,32 +65,71 @@ let load_prover_driver pc name =
       Exn_printer.exn_printer e;
     raise e
 
-let attempt_proof task1 =
-  (* Format.printf "task: %a@." Pretty.print_task task1; *)
-  let prover_z3 = "Z3" in
-  let prover_alt_ergo = "Alt-Ergo" in
+let ensure_prover_loaded name =
+  match SMap.find_opt name !prover_configs with
+  | None ->
+    let conf = load_prover_config name in
+    prover_configs :=
+      SMap.add name (conf, load_prover_driver conf name) !prover_configs
+  | Some _ -> ()
 
-  (* TODO Trans.apply_transform "induction_ty_lex" why3_env; *)
-  [prover_alt_ergo; prover_z3]
-  |> List.exists (fun prover ->
-         ensure_prover_loaded prover;
-         let pc = get_prover_config prover in
-         let driver = load_prover_driver pc prover in
-         let result1 =
-           Call_provers.wait_on_call
-             (Driver.prove_task
-                ~limit:
-                  {
-                    Call_provers.empty_limit with
-                    Call_provers.limit_time = 0.5;
-                  }
-                ~config:why3_config_main ~command:pc.Whyconf.command driver
-                task1)
-         in
-         (* Format.printf "%s: %a@." prover
-            (Call_provers.print_prover_result ?json:None)
-            result1; *)
-         match result1.pr_answer with Valid -> true | _ -> false)
+let get_prover_config name = SMap.find name !prover_configs
+
+let silence_stderr
+    (* : (unit -> 'a) -> 'a = *)
+    (* let null = open_out "/dev/null" in *)
+    (* fun f -> *)
+      f =
+  let null = open_out "/dev/null" in
+  Format.pp_set_formatter_out_channel Format.err_formatter null;
+  let result = f () in
+  Format.pp_set_formatter_out_channel Format.err_formatter stderr;
+  close_out null;
+  result
+
+let attempt_proof task1 =
+  Format.printf "task: %a@." Why3.Pretty.print_task task1;
+
+  (* only do this once, not recursively *)
+  let tasks =
+    task1 |> fun t ->
+    (* let@ _ = silence_stderr in *)
+    Trans.apply_transform "induction_ty_lex" why3_env t
+    (* |> List.concat_map (Trans.apply_transform "split_goal" why3_env) *)
+  in
+  Format.printf "subtasks: %a@."
+    (Format.pp_print_list Why3.Pretty.print_task)
+    tasks;
+  (* it's unlikely the provers will in the span of one task *)
+  let provers =
+    ["Alt-Ergo"; "CVC4"; "Z3"]
+    |> List.filter_map (fun prover ->
+           try
+             ensure_prover_loaded prover;
+             Some (get_prover_config prover)
+           with _ -> None)
+  in
+  List.for_all
+    (fun task ->
+      List.exists
+        (fun (pconf, pdriver) ->
+          let result1 =
+            Call_provers.wait_on_call
+              (Driver.prove_task
+                 ~limit:
+                   {
+                     Call_provers.empty_limit with
+                     Call_provers.limit_time = 0.5;
+                   }
+                 ~config:why3_config_main ~command:pconf.Whyconf.command pdriver
+                 task)
+          in
+          (* Format.printf "%s: %a@." prover
+             (Call_provers.print_prover_result ?json:None)
+             result1; *)
+          match result1.pr_answer with Valid -> true | _ -> false)
+        provers)
+    tasks
 
 (* old approach which uses the low-level why3 (not whyml) API.
 
@@ -817,7 +856,7 @@ let prove tenv qtf f =
         mlw_file;
       failwith "failed due to type error"
   in
-
+  (* there will be only one module *)
   Wstdlib.Mstr.fold
     (fun _ m acc ->
       let tasks = Task.split_theory m.Pmodule.mod_theory None None in

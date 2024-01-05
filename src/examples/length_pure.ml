@@ -9,9 +9,9 @@ let[@pure] rec length (li:int list) : int =
     ens xs=[] <: ens length(xs)=0
 @*)
 
-(* let aa xs
-(*@ ens length(xs)>=0 @*)
-= xs *)
+let length_positive xs
+(*@ ens res=xs /\ length(xs)>=0 @*)
+= xs
 
 let rec foldr f li acc =
   match li with 
