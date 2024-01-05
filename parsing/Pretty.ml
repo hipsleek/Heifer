@@ -609,20 +609,19 @@ let lambda_to_pred_def name t =
     failwith
       (Format.asprintf "cannot convert term to predicate: %s" (string_of_term t))
 
-let rec local_lambda_defs pi =
-  match pi with
-  | Atomic (EQ, (TLambda _ as l), Var v) | Atomic (EQ, Var v, (TLambda _ as l))
-    ->
-    [(v, lambda_to_pred_def v l)]
-  | Atomic (_, _, _) | True | False -> []
-  | And (a, b) | Or (a, b) | Imply (a, b) ->
-    local_lambda_defs a @ local_lambda_defs b
-  | Not a -> local_lambda_defs a
-  | Predicate (_, _) -> []
-
-let local_lambda_defs_state (p, _h) =
-  local_lambda_defs p |> List.to_seq |> SMap.of_seq
-
+let local_lambda_defs =
+  object
+    inherit [_] reduce_spec
+    method zero = SMap.empty
+    method plus = SMap.merge_disjoint
+    
+    method! visit_TLambda _ _ _ _ = SMap.empty
+    method! visit_Atomic () op a b =
+      match op, a, b with
+      | (EQ, (TLambda _ as l), Var v) | (EQ, Var v, (TLambda _ as l)) ->
+        SMap.singleton v (lambda_to_pred_def v l)
+      | _ -> SMap.empty
+  end
 
 
 let bindFormalNActual (formal: string list) (actual: core_value list) : ((string * core_value) list)= 
