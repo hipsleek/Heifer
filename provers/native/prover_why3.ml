@@ -37,6 +37,10 @@ let why3_env : Env.env =
     (string_of_list Fun.id load_path);
   Env.create_env load_path
 
+let string_of_prover p =
+  Format.asprintf "%s %s%s" p.Whyconf.prover_name p.prover_version
+    (match p.prover_altern with "" -> "" | a -> "/" ^ a)
+
 let load_prover_config name : Whyconf.config_prover =
   let fp = Whyconf.parse_filter_prover name in
   let provers = Whyconf.filter_provers why3_config fp in
@@ -47,18 +51,13 @@ let load_prover_config name : Whyconf.config_prover =
   else begin
     let alts =
       Whyconf.(
-        Mprover.map
-          (fun cp ->
-            Format.asprintf "%s %s %s" cp.prover.prover_name
-              cp.prover.prover_version cp.prover.prover_altern)
-          provers
+        Mprover.map (fun cp -> string_of_prover cp.prover) provers
         |> Mprover.bindings |> List.map snd)
       |> string_of_list Fun.id
     in
     let p, conf = Whyconf.Mprover.min_binding provers in
-    Debug.debug ~at:2 ~title:"loaded prover"
-      "defaulting to %s %s %s out of:\n%s" name p.prover_version p.prover_altern
-      alts;
+    Debug.debug ~at:2 ~title:"loaded prover" "defaulting to %s out of:\n%s"
+      (string_of_prover p) alts;
     conf
   end
 
