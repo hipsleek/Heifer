@@ -11,6 +11,10 @@ let prover_configs : (Whyconf.config_prover * Why3.Driver.driver) SMap.t ref =
 let why3_config = Whyconf.init_config None
 let why3_config_main = Whyconf.get_main why3_config
 
+let () =
+  if not (Debug.in_debug_mode ()) then
+    Loc.set_warning_hook (fun ?loc:_ _msg -> ())
+
 let why3_env : Env.env =
   let extra_paths =
     let rec find_dune_project dir =
