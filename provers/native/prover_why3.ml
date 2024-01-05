@@ -687,7 +687,7 @@ let rec pi_to_whyml p =
 let type_to_whyml t =
   match t with
   | Int -> PTtyapp (qualid ["Int"; "int"], [])
-  | Unit -> PTtyapp (qualid ["Tuple0"], [])
+  | Unit -> PTtyapp (qualid ["tuple0"], [])
   | List_int ->
     PTtyapp (qualid ["List"; "list"], [PTtyapp (qualid ["Int"; "int"], [])])
   | Bool -> PTtyapp (qualid ["Bool"; "bool"], [])
