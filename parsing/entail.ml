@@ -395,12 +395,16 @@ let collect_local_lambda_definitions ctx left right =
         (match left with
         | None -> ctx.preds_left
         | Some r ->
-          SMap.merge_disjoint (local_lambda_defs_state r) ctx.preds_left);
+          let defs = local_lambda_defs#visit_state () r in
+          (* Format.printf "defs: %s@." (string_of_smap string_of_pred defs); *)
+          SMap.merge_disjoint defs ctx.preds_left);
       preds_right =
         (match right with
         | None -> ctx.preds_right
         | Some r ->
-          SMap.merge_disjoint (local_lambda_defs_state r) ctx.preds_right);
+          let defs = local_lambda_defs#visit_state () r in
+          (* Format.printf "defs: %s@." (string_of_smap string_of_pred defs); *)
+          SMap.merge_disjoint defs ctx.preds_right);
     }
   in
   res
@@ -455,7 +459,6 @@ let rec check_staged_subsumption_stagewise :
             l1
             (string_of_list string_of_term a2)
             l2;
-            print_endline ("fail 448");
           fail)
         else ok
       in
@@ -493,7 +496,8 @@ let rec check_staged_subsumption_stagewise :
       
   | ([], ns1), ([], ns2) ->
     (* base case: check the normal stage at the end *)
-    let (vs1, (p1, h1), (qp1, qh1)), (vs2, (p2, h2), (qp2, qh2)) = (ns1, ns2) in
+    let (vs1, (p1, h1), (qp1, qh1)) = ns1 in
+    let (vs2, (p2, h2), (qp2, qh2)) = ns2 in
     let ctx =
       collect_local_lambda_definitions ctx (Some (qp1, qh1)) (Some (qp2, qh2))
     in
