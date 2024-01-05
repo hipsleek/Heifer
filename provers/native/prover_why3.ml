@@ -89,19 +89,23 @@ let silence_stderr
 
 let attempt_proof task1 =
   (* Format.printf "task: %a@." Why3.Pretty.print_task task1; *)
+  let tasks = Trans.apply_transform "simplify_formula" why3_env task1 in
+
+  Debug.debug ~at:5 ~title:"WhyML VC" "%a"
+    (Format.pp_print_list Why3.Pretty.print_task)
+    tasks;
 
   (* only do this once, not recursively *)
   let tasks =
-    task1 |> fun t ->
-    (* let@ _ = silence_stderr in *)
-    (* Trans.apply_transform "induction_ty_lex" why3_env t *)
-    [t]
+    tasks
+    |> List.concat_map (fun t ->
+           (* let@ _ = silence_stderr in *)
+           (* Trans.apply_transform "induction_ty_lex" why3_env t *)
+           [t])
     (* |> List.concat_map (Trans.apply_transform "split_goal" why3_env) *)
   in
-  (* Format.printf "subtasks: %a@."
-     (Format.pp_print_list Why3.Pretty.print_task)
-     tasks; *)
-  (* it's unlikely the provers will in the span of one task *)
+
+  (* it's unlikely the provers will change location in the span of one task *)
   let provers =
     ["Alt-Ergo"; "CVC4"; "Z3"]
     |> List.filter_map (fun prover ->
