@@ -723,6 +723,8 @@ let mk_directive ~loc name arg =
 %token PREDICATE
 %token LEMMA
 %token <Docstrings.docstring> DOCSTRING
+%token PROP_TRUE
+%token PROP_FALSE
 
 %token EOL
 
@@ -2613,8 +2615,8 @@ pure_formula_term:
 ;
 
 pure_formula: 
-  | TRUE { True }
-  | FALSE { False }
+  | PROP_TRUE { True }
+  | PROP_FALSE { False }
   | a = pure_formula_term LESS b = pure_formula_term { Atomic (LT, a, b) }
   | a = pure_formula_term GREATER b = pure_formula_term { Atomic (GT, a, b) }
   | a = pure_formula_term EQUAL b = pure_formula_term { Atomic (EQ, a, b) }

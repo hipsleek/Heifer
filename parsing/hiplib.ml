@@ -1213,6 +1213,8 @@ let string_of_token =
 | SUBSUMES -> "SUBSUMES"
 | EFFTRY -> "EFFTRY"
 | EFFCATCH -> "EFFCATCH"
+| PROP_TRUE -> "PROP_TRUE"
+| PROP_FALSE -> "PROP_FALSE"
 
 
 let debug_tokens str =
