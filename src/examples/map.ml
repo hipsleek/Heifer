@@ -147,14 +147,14 @@ let cl_map_incr_c xs x
   map f xs *)
 
 (* Adapted from https://github.com/FabianWolff/closure-examples/blob/master/map_vec.rs *)
-let map_test1 xs (* FIXME: Requires increasaing unfolding_bound *)
+let map_test1 xs (* FIXME: Requires increasing unfolding_bound *)
 (*@ req xs=[1;2;3]; ens res=[3;6;9] @*)
 = let cl i = i + i + i in
   map cl xs
 
 
 (* Adapted from https://github.com/FabianWolff/closure-examples/blob/master/map_vec.rs *)
-let map_test2 xs (* FIXME: Requires increasaing unfolding_bound *)
+let map_test2 xs (* FIXME: Requires increasing unfolding_bound *)
 (*@ req xs=[1;2;3]; ens res=[7;8;9] @*)
 = let x = ref 7 in
   let cl i = let r = !x in x := !x + 1; r in
