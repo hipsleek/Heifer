@@ -343,8 +343,7 @@ type pctx = {
   lems : lemma SMap.t;
   preds : pred_def SMap.t;
   (* additional predicates due to local lambda definitions *)
-  preds_left : pred_def SMap.t;
-  preds_right : pred_def SMap.t;
+  lambda_preds : pred_def SMap.t;
   (* all quantified variables in this formula *)
   q_vars : string list;
   (* predicates which have been unfolded, used as an approximation of progress (in the cyclic proof sense) *)
@@ -358,16 +357,14 @@ let string_of_pctx ctx =
   Format.asprintf
     "lemmas: %s\n\
      predicates: %s\n\
-     predicates left: %s\n\
-     predicates right: %s\n\
+     lambda predicates: %s\n\
      q_vars: %s\n\
      unfolded: %s\n\
      applied: %s\n\
      fvenv: %s@."
     (string_of_smap string_of_lemma ctx.lems)
     (string_of_smap string_of_pred ctx.preds)
-    (string_of_smap string_of_pred ctx.preds_left)
-    (string_of_smap string_of_pred ctx.preds_right)
+    (string_of_smap string_of_pred ctx.lambda_preds)
     (string_of_list Fun.id ctx.q_vars)
     (string_of_list
        (string_of_pair Fun.id (function `Left -> "L" | `Right -> "R"))
@@ -379,32 +376,21 @@ let create_pctx lems preds q_vars =
   {
     lems;
     preds;
-    preds_left = SMap.empty;
-    preds_right = SMap.empty;
+    lambda_preds = SMap.empty;
     q_vars;
     unfolded = [];
     applied = [];
   }
 
 (* it's possible we may merge the same lambda into the map multiple times because we recurse after unfolding, which may have the lambda there again *)
-let collect_local_lambda_definitions ctx left right =
+let collect_local_lambda_definitions state ctx =
   let res =
     {
       ctx with
-      preds_left =
-        (match left with
-        | None -> ctx.preds_left
-        | Some r ->
-          let defs = local_lambda_defs#visit_state () r in
-          (* Format.printf "defs: %s@." (string_of_smap string_of_pred defs); *)
-          SMap.merge_disjoint defs ctx.preds_left);
-      preds_right =
-        (match right with
-        | None -> ctx.preds_right
-        | Some r ->
-          let defs = local_lambda_defs#visit_state () r in
-          (* Format.printf "defs: %s@." (string_of_smap string_of_pred defs); *)
-          SMap.merge_disjoint defs ctx.preds_right);
+      lambda_preds =
+        let defs = local_lambda_defs#visit_state () state in
+        (* Format.printf "defs: %s@." (string_of_smap string_of_pred defs); *)
+        SMap.merge_disjoint defs ctx.lambda_preds;
     }
   in
   res
@@ -434,9 +420,9 @@ let rec check_staged_subsumption_stagewise :
   match (s1, s2) with
   | (EffHOStage es1 :: es1r, ns1), (EffHOStage es2 :: es2r, ns2) ->
     (*print_endline ("check_staged_subsumption_stagewise case one ");*)
-
     let ctx =
-      collect_local_lambda_definitions ctx (Some es1.e_post) (Some es2.e_pre)
+      ctx |> collect_local_lambda_definitions es2.e_pre
+        |> collect_local_lambda_definitions es1.e_post
     in
     (* fail fast by doing easy checks first *)
     let c1, a1 = es1.e_constr in
@@ -496,10 +482,11 @@ let rec check_staged_subsumption_stagewise :
       
   | ([], ns1), ([], ns2) ->
     (* base case: check the normal stage at the end *)
-    let (vs1, (p1, h1), (qp1, qh1)) = ns1 in
-    let (vs2, (p2, h2), (qp2, qh2)) = ns2 in
+    let (vs1, (p1, h1), (qp1, qh1 as post1)) = ns1 in
+    let (vs2, ((p2, h2) as pre2), (qp2, qh2)) = ns2 in
     let ctx =
-      collect_local_lambda_definitions ctx (Some (qp1, qh1)) (Some (qp2, qh2))
+      ctx |> collect_local_lambda_definitions post1
+        |> collect_local_lambda_definitions pre2
     in
     let* _residue =
       stage_subsumes ctx "normal stage" assump
@@ -507,8 +494,12 @@ let rec check_staged_subsumption_stagewise :
         (vs2, ((p2, h2), (qp2, qh2)))
     in
     ok
-  | ([], _), (EffHOStage es2 :: _, _) ->
-    let ctx = collect_local_lambda_definitions ctx None (Some es2.e_post) in
+  | ([], n1), (EffHOStage es2 :: _, _) ->
+    let ctx =
+      let _ex, _pre, n1post = n1 in
+      ctx |> collect_local_lambda_definitions n1post
+        |> collect_local_lambda_definitions es2.e_pre
+    in
     let c2, _ = es2.e_constr in
     let@ _ = try_other_measures ctx s1 s2 None (Some c2) i assump |> or_else in
     debug ~at:1 ~title:"FAIL" "ante is shorter\n%s\n<:\n%s"
@@ -522,9 +513,9 @@ let rec check_staged_subsumption_stagewise :
        - the post of the left side *)
     let ctx =
       let _ex, n1pre, _post = n1 in
-      collect_local_lambda_definitions ctx (Some n1pre) None
+      ctx |> collect_local_lambda_definitions n1pre
+        |> collect_local_lambda_definitions es1.e_post
     in
-    let ctx = collect_local_lambda_definitions ctx (Some es1.e_post) None in
     let c1, _ = es1.e_constr in
     let@ _ = try_other_measures ctx s1 s2 (Some c1) None i assump |> or_else in
     debug ~at:1 ~title:"FAIL" "conseq is shorter\n%s\n<:\n%s"
@@ -552,7 +543,7 @@ and try_other_measures :
       let* c1 = c1 in
       let+ res =
         let@ _ = SMap.find_opt c1 ctx.preds |> or_else in
-        SMap.find_opt c1 ctx.preds_left
+        SMap.find_opt c1 ctx.lambda_preds
       in
       (c1, res)
     with
@@ -572,7 +563,7 @@ and try_other_measures :
          let* c2 = c2 in
          let+ res =
            let@ _ = SMap.find_opt c2 ctx.preds |> or_else in
-           SMap.find_opt c2 ctx.preds_right
+           SMap.find_opt c2 ctx.lambda_preds
          in
          (c2, res)
        with
