@@ -1620,10 +1620,12 @@ let process_items (strs: structure_item list) : unit =
         let m_spec' = m_spec in
         let meth = { m_name=m_name; m_params=m_params; m_spec=m_spec'; m_body=m_body; m_tactics=m_tactics } in
 
-        debug ~at:2 ~title:"parsed" "%s" (string_of_program prog);
-        debug ~at:2 ~title:"user-specified predicates" "%s" (string_of_smap string_of_pred prog.cp_predicates);
         (* as we handle methods, predicates are inferred and are used in place of absent specifications, so we have to keep updating the program as we go *)
         let prog = { prog with cp_methods = meth :: prog.cp_methods } in
+
+        debug ~at:2 ~title:"parsed" "%s" (string_of_program prog);
+        debug ~at:2 ~title:"user-specified predicates" "%s" (string_of_smap string_of_pred prog.cp_predicates);
+
         let () =
           match pure_fn_info with
           | Some (param_types, ret_type) ->
