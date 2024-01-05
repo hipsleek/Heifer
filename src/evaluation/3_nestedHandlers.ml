@@ -1,18 +1,18 @@
 effect E : int 
-effect F : string 
+effect E1 : string 
 
 let foo () 
 (*@ 
    ex ret; 
-   F(emp, ret);
+   E1(emp, ret);
    Norm(emp, ret)
 @*)
-= perform F
+= perform E1
 
 let bar () 
 (*@ 
    ex ret; 
-   F(emp, ret);
+   E1(emp, ret);
    Norm(emp, ret)
 @*)
 =
@@ -27,5 +27,5 @@ let baz ()
 =
   match bar () with 
   | x -> x 
-  | effect F k -> continue k 1
+  | effect E1 k -> continue k 1
 

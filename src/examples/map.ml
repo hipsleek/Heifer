@@ -33,7 +33,7 @@ let rec length xs =
   | x :: xs1 -> 1 + length xs1
 
 let cl_map xs x
-(*@ ex i; req x->i; ex r; length(xs, r); ex r1; ens r1=xs/\x->i+r/\res=r1 @*)
+(*@ ex i; req x->i; ex r; length(xs, r); ex r1; ens x->i+r/\r1=xs/\res=r1 @*)
 = let f a = x := !x+1; a in
   map f xs
 
