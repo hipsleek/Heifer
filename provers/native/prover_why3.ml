@@ -675,9 +675,9 @@ let rec pi_to_whyml p =
   | Atomic (EQ, a, b) ->
     tapp (qualid [Ident.op_infix "="]) [term_to_whyml a; term_to_whyml b]
   | Atomic (op, a, b) -> term_to_whyml (Rel (op, a, b))
-  | And (a, b) -> tapp (qualid ["Bool"; "andb"]) [pi_to_whyml a; pi_to_whyml b]
-  | Or (a, b) -> tapp (qualid ["Bool"; "orb"]) [pi_to_whyml a; pi_to_whyml b]
-  | Not a -> tapp (qualid ["Bool"; "notb"]) [pi_to_whyml a]
+  | And (a, b) -> term (Tbinop (pi_to_whyml a, Dterm.DTand, pi_to_whyml b))
+  | Or (a, b) -> term (Tbinop (pi_to_whyml a, Dterm.DTor, pi_to_whyml b))
+  | Not a -> term (Tnot (pi_to_whyml a))
   | Imply (_, _) | Predicate (_, _) -> failwith "nyi"
 
 let type_to_whyml t =
