@@ -184,7 +184,7 @@ let rec string_of_term t : string =
   | TDiv (t1, t2) -> "(" ^string_of_term t1 ^ "/" ^ string_of_term t2 ^ ")"
 
   | TApp (op, args) -> Format.asprintf "%s%s" op (string_of_args string_of_term args)
-  | TLambda (_name, params, sp) -> Format.asprintf "lambda(\\%s -> %s)" (String.concat " " params) (string_of_disj_spec sp)
+  | TLambda (_name, params, sp) -> Format.asprintf "(fun %s -> %s)" (String.concat " " params) (string_of_disj_spec sp)
   | TTupple nLi ->
     let rec helper li =
       match li with
