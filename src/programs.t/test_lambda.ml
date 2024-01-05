@@ -11,7 +11,6 @@ let f2 ()
   let f3 = f1 () in
   f3 2
 
-(* <: is really the same as equality in the logic *)
 let g f
 (*@ req f <: (fun i r -> req i>9; ens r>=0/\r<=99) @*)
 = f 10
