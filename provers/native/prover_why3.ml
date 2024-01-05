@@ -701,29 +701,64 @@ let prove tenv qtf f =
   let ass, goal = f () in
 
   let vc_mod =
-    let assumptions = Dprop (Decl.Paxiom, ident "ass1", pi_to_whyml ass) in
+    (* whether to generate
 
-    let goal1 =
-      Dprop
-        ( Decl.Pgoal,
-          ident "goal1",
-          let binders =
-            List.map
-              (fun v ->
-                let type_of_existential =
-                  (* warning if default? *)
-                  SMap.find_opt v tenv |> Option.value ~default:Int
-                in
-                ( Loc.dummy_position,
-                  Some (ident v),
-                  false,
-                  Some (type_to_whyml type_of_existential) ))
-              qtf
+       goal g : forall x*. ass => ex x*. goal
+
+       or
+
+       constants x*
+       axiom ass
+       goal g : ex x*. goal
+    *)
+    let monolithic_goal = true in
+
+    (* start building goal *)
+    let universally_quantified =
+      SSet.union
+        (collect_variables#visit_pi () ass)
+        (collect_variables#visit_pi () goal)
+      |> SSet.to_list
+    in
+
+    let vars_to_params vars =
+      List.map
+        (fun v ->
+          let type_of_existential =
+            (* warning if default? *)
+            SMap.find_opt v tenv |> Option.value ~default:Int
           in
-          match binders with
-          | [] -> pi_to_whyml goal
-          | _ :: _ ->
-            term (Tquant (Dterm.DTexists, binders, [], pi_to_whyml goal)) )
+          ( Loc.dummy_position,
+            Some (ident v),
+            false,
+            Some (type_to_whyml type_of_existential) ))
+        vars
+    in
+
+    let statement =
+      let assumptions = pi_to_whyml ass in
+      let goal1 =
+        let binders = vars_to_params qtf in
+        match binders with
+        | [] -> pi_to_whyml goal
+        | _ :: _ ->
+          term (Tquant (Dterm.DTexists, binders, [], pi_to_whyml goal))
+      in
+      match monolithic_goal with
+      | false ->
+        [
+          Dprop (Decl.Paxiom, ident "ass1", pi_to_whyml ass);
+          Dprop (Decl.Pgoal, ident "goal1", goal1);
+        ]
+      | true ->
+        let forall_binders = vars_to_params universally_quantified in
+        let impl = term (Tbinop (assumptions, Dterm.DTimplies, goal1)) in
+        let goal2 =
+          match forall_binders with
+          | [] -> impl
+          | _ :: _ -> term (Tquant (Dterm.DTforall, forall_binders, [], impl))
+        in
+        [Dprop (Decl.Pgoal, ident "goal1", goal2)]
     in
 
     let fns =
@@ -743,19 +778,22 @@ let prove tenv qtf f =
     in
 
     let parameters =
-      SSet.union
-        (collect_variables#visit_pi () ass)
-        (collect_variables#visit_pi () goal)
-      |> SSet.to_list
-      |> List.map (fun v ->
-             let type_of_parameter = SMap.find v tenv in
-             {
-               ld_loc = Loc.dummy_position;
-               ld_ident = ident v;
-               ld_params = [];
-               ld_type = Some (type_to_whyml type_of_parameter);
-               ld_def = None;
-             })
+      match monolithic_goal with
+      | true -> []
+      | false ->
+        [
+          Dlogic
+            (universally_quantified
+            |> List.map (fun v ->
+                   let type_of_parameter = SMap.find v tenv in
+                   {
+                     ld_loc = Loc.dummy_position;
+                     ld_ident = ident v;
+                     ld_params = [];
+                     ld_type = Some (type_to_whyml type_of_parameter);
+                     ld_def = None;
+                   }));
+        ]
     in
 
     let imports =
@@ -765,9 +803,7 @@ let prove tenv qtf f =
         use ~import:false ["list"; "List"];
       ]
     in
-    ( ident "M",
-      List.concat
-        [imports; [Dlogic fns; Dlogic parameters]; [assumptions; goal1]] )
+    (ident "M", List.concat [imports; [Dlogic fns]; parameters; statement])
   in
   let mlw_file = Modules [vc_mod] in
   (* Format.printf "mlw file\n%a@." (Mlw_printer.pp_mlw_file ~attr:true) mlw_file; *)
