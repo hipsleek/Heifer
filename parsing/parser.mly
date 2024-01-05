@@ -2618,6 +2618,14 @@ pure_formula:
   | a = pure_formula_term LESS b = pure_formula_term { Atomic (LT, a, b) }
   | a = pure_formula_term GREATER b = pure_formula_term { Atomic (GT, a, b) }
   | a = pure_formula_term EQUAL b = pure_formula_term { Atomic (EQ, a, b) }
+  | a = LIDENT SUBSUMES b = pure_formula_term
+  {
+    (* having an lident on the left avoids a reduce/reduce conflict with lemmas.
+       the right side must be a lambda *)
+    match b with
+    | TLambda _ -> Atomic (EQ, Var a, b)
+    | _ -> failwith "use of <: expects that the right side is lambda"
+  }
 
   | a = pure_formula_term op = INFIXOP0 b = pure_formula_term
   {
