@@ -770,7 +770,7 @@ let prove tenv qtf f =
         [imports; [Dlogic fns; Dlogic parameters]; [assumptions; goal1]] )
   in
   let mlw_file = Modules [vc_mod] in
-  Format.printf "mlw file\n%a@." (Mlw_printer.pp_mlw_file ~attr:true) mlw_file;
+  (* Format.printf "mlw file\n%a@." (Mlw_printer.pp_mlw_file ~attr:true) mlw_file; *)
   let mods =
     try Typing.type_mlw_file why3_env [] "myfile.mlw" mlw_file
     with Loc.Located (loc, e) ->
