@@ -4,15 +4,6 @@ let[@pure] rec length (li:int list) : int =
   | [] -> 0
   | x :: xs -> 1 + length xs
 
-(*
-  lemma aa r =
-    ens xs=[] <: ens length(xs)=0
-@*)
-
-let length_positive xs
-(*@ ens res=xs /\ length(xs)>=0 @*)
-= xs
-
 let rec foldr f li acc =
   match li with 
   | [] -> acc 

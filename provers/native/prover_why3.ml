@@ -88,18 +88,19 @@ let silence_stderr
   result
 
 let attempt_proof task1 =
-  Format.printf "task: %a@." Why3.Pretty.print_task task1;
+  (* Format.printf "task: %a@." Why3.Pretty.print_task task1; *)
 
   (* only do this once, not recursively *)
   let tasks =
     task1 |> fun t ->
     (* let@ _ = silence_stderr in *)
-    Trans.apply_transform "induction_ty_lex" why3_env t
+    (* Trans.apply_transform "induction_ty_lex" why3_env t *)
+    [t]
     (* |> List.concat_map (Trans.apply_transform "split_goal" why3_env) *)
   in
-  Format.printf "subtasks: %a@."
-    (Format.pp_print_list Why3.Pretty.print_task)
-    tasks;
+  (* Format.printf "subtasks: %a@."
+     (Format.pp_print_list Why3.Pretty.print_task)
+     tasks; *)
   (* it's unlikely the provers will in the span of one task *)
   let provers =
     ["Alt-Ergo"; "CVC4"; "Z3"]
