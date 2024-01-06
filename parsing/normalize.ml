@@ -170,6 +170,18 @@ let rec kappa_of_list li =
 (* flag false => add to postcondition *)
 let rec deleteFromHeapListIfHas li (x, t1) existential flag assumptions :
     (string * term) list * pi =
+  let@ _ =
+    Debug.span (fun r ->
+        debug ~at:6
+          ~title:"deleteFromHeapListIfHas"
+          "(%s, %s) -* %s = %s\nex %s\nflag %b\nassumptions %s" 
+          x (string_of_term t1)
+          (string_of_list (string_of_pair Fun.id string_of_term) li)
+          (string_of_result (string_of_pair (string_of_list (string_of_pair Fun.id string_of_term)) string_of_pi) r)
+          (string_of_list Fun.id existential)
+          flag
+          (string_of_pi assumptions))
+  in
   let res =
     match li with
     | [] -> ([], True)
@@ -251,6 +263,19 @@ let rec deleteFromHeapListIfHas li (x, t1) existential flag assumptions :
 (* flag true => ens h1; req h2 *)
 (* flag false => req h2; ens h1 *)
 let normaliseMagicWand h1 h2 existential flag assumptions : kappa * pi =
+  let@ _ =
+    Debug.span (fun r ->
+        debug ~at:6
+          ~title:"normaliseMagicWand"
+          "%s * ?%s |- %s * ?%s\nex %s\nflag %b\nassumptions %s" 
+          (string_of_kappa h1)
+          (string_of_result string_of_kappa (Option.map fst r))
+          (string_of_kappa h2)
+          (string_of_result string_of_pi (Option.map snd r))
+          (string_of_list Fun.id existential)
+          flag
+          (string_of_pi assumptions))
+  in
   let listOfHeap1 = list_of_heap h1 in
   let listOfHeap2 = list_of_heap h2 in
   let rec helper (acc : (string * term) list * pi) li =
@@ -374,7 +399,7 @@ let normalise_stagedSpec (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
         freshNormStageRet ret' )
 
   in
-  debug ~at:4 ~title:"normalize step" "%s\n+\n%s\n==>\n%s"
+  debug ~at:4 ~title:"normalize_step" "%s\n+\n%s\n==>\n%s"
     (string_of_normalisedStagedSpec acc)
     (string_of_staged_spec stagedSpec)
     (string_of_normalisedStagedSpec res);
@@ -385,12 +410,12 @@ let normalise_stagedSpec (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
 
 let (*rec*) normalise_spec_ (acc : normalisedStagedSpec) (spec : spec) :
     normalisedStagedSpec =
-  List.fold_left normalise_stagedSpec acc spec
+  List.fold_left normalize_step acc spec
 (* match spec with
      | [] -> acc
      | x :: xs ->
        (*let time_1 = Sys.time() in*)
-       let acc' = normalise_stagedSpec acc x in
+       let acc' = normalize_step acc x in
        (*let time_2 = Sys.time() in
        let during = time_2 -. time_1 in
        (

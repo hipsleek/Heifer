@@ -74,19 +74,21 @@ let create_fv_env fv_methods fv_predicates = {
 }
 
 let retrieveSpecFromEnv (fname: string) (env:fvenv) : (string list * spec list) option = 
+  (* Format.printf "ENV %s@." (string_of_smap string_of_meth_def env.fv_methods); *)
   match 
-  SMap.find_opt fname env.fv_methods
-  |> Option.map (fun m -> 
-  (match m.m_spec with 
-  | None -> ()
-  | Some _ -> () (*print_endline ("retrieveSpecFromEnv: " ^ string_of_disj_spec spec)*)
-  );
-  (m.m_params, Option.get m.m_spec))
-
+    SMap.find_opt fname env.fv_methods
+    |> Option.map (fun m -> 
+      (match m.m_spec with 
+      | None -> ()
+      | Some _sp ->
+        (* print_endline ("retrieveSpecFromEnv: " ^ string_of_disj_spec _sp); *)
+        ()
+      );
+      (m.m_params, Option.get m.m_spec))
   with 
   | Some res -> 
-    (*let (_, specs) = res in 
-    print_endline ("retrieveSpecFromEnv1: " ^ string_of_disj_spec specs);*)
+    (* let (_, specs) = res in 
+    print_endline ("retrieveSpecFromEnv1: " ^ string_of_disj_spec specs); *)
     Some res
   | None -> 
 
@@ -812,7 +814,7 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
             (*if List.compare_lengths formalArgs actualArgs <> 0 then
               failwith (Format.asprintf "too few args. formals: %s, actual: %s@." (string_of_list Fun.id formalArgs) (string_of_list string_of_term actualArgs));
             *)
-              let bindings = bindFormalNActual (formalArgs) (actualArgs) in 
+            let bindings = bindFormalNActual (formalArgs) (actualArgs) in 
             let instantiatedSpec = instantiateSpecList bindings spec in 
 
             (* print_endline ("FunCallinstantiatedSpec:\n"^ string_of_spec_list instantiatedSpec); *)

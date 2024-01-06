@@ -42,7 +42,7 @@ let rec findbinding str vb_li =
   | (name, v) :: xs ->
     if String.compare name str == 0 then v else findbinding str xs
 
-  let sub_visitor bindings =
+  let subst_visitor bindings =
     object (self)
       inherit [_] map_spec
 
@@ -71,27 +71,27 @@ let rec findbinding str vb_li =
 
 let instantiateTerms (bindings : (string * core_value) list) (t : term) :
     term =
-  (sub_visitor bindings)#visit_term () t
+  (subst_visitor bindings)#visit_term () t
 
 let instantiateSpecList (bindings : (string * core_value) list) (t : disj_spec) : disj_spec =
-  (sub_visitor bindings)#visit_disj_spec () t
+  (subst_visitor bindings)#visit_disj_spec () t
 
 let instantiateSpec (bindings : (string * core_value) list) (t : spec) : spec =
-  (sub_visitor bindings)#visit_spec () t
+  (subst_visitor bindings)#visit_spec () t
 
 let instantiate_state (bindings : (string * core_value) list) (t : state) : state =
-  (sub_visitor bindings)#visit_state () t
+  (subst_visitor bindings)#visit_state () t
 
 let instantiatePure (bindings : (string * core_value) list) (t : pi) :
     pi =
-  (sub_visitor bindings)#visit_pi () t
+  (subst_visitor bindings)#visit_pi () t
 
 let instantiateHeap (bindings : (string * core_value) list) (t : kappa) :
     kappa =
-  (sub_visitor bindings)#visit_kappa () t
+  (subst_visitor bindings)#visit_kappa () t
 
 let instantiateStages (bindings : (string * core_value) list) (t : stagedSpec) : stagedSpec =
-  (sub_visitor bindings)#visit_stagedSpec () t
+  (subst_visitor bindings)#visit_stagedSpec () t
 
 (* for each variable, find how many times it is used and what other terms it is equal to *)
 (* TODO generalise to related to *)
