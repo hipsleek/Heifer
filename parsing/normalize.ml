@@ -929,7 +929,7 @@ let rec simplify_spec n sp2 =
   let sp4 =
     let@ _ =
       Debug.span (fun r ->
-        debug ~at:3 ~title:"normalize_spec: remove temp vars" "%s\n==>\n%s"
+        debug ~at:4 ~title:"normalize_spec: remove temp vars" "%s\n==>\n%s"
           (string_of_normalisedStagedSpec sp3)
           (string_of_result string_of_normalisedStagedSpec r))
     in
@@ -939,7 +939,7 @@ let rec simplify_spec n sp2 =
   let sp5 =
     let@ _ =
       Debug.span (fun r ->
-        debug ~at:3
+        debug ~at:4
             ~title:"normalize_spec: move existentials inward and remove unused"
             "%s\n==>\n%s"
             (string_of_normalisedStagedSpec sp4)
@@ -951,7 +951,7 @@ let rec simplify_spec n sp2 =
   let sp6 =
     let@ _ =
       Debug.span (fun r ->
-        debug ~at:3 ~title:"normalize_spec: remove vars occurring twice" "%s\n==>\n%s"
+        debug ~at:4 ~title:"normalize_spec: remove vars occurring twice" "%s\n==>\n%s"
           (string_of_normalisedStagedSpec sp5)
           (string_of_result string_of_normalisedStagedSpec r))
     in
@@ -961,7 +961,7 @@ let rec simplify_spec n sp2 =
   let sp7 =
     let@ _ =
       Debug.span (fun r ->
-        debug ~at:3 ~title:"normalize_spec: final simplification pass" "%s\n==>\n%s"
+        debug ~at:4 ~title:"normalize_spec: final simplification pass" "%s\n==>\n%s"
           (string_of_normalisedStagedSpec sp6)
           (string_of_result string_of_normalisedStagedSpec r))
     in
