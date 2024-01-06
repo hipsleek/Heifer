@@ -291,7 +291,44 @@ let normaliseMagicWand h1 h2 existential flag assumptions : kappa * pi =
   let temp, unification = helper (listOfHeap2, True) listOfHeap1 in
   (simplify_heap (kappa_of_list temp), unification)
 
-let normalise_stagedSpec (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
+let pure_abduction left right =
+  let@ _ =
+    Debug.span (fun r ->
+        debug ~at:5
+          ~title:"pure_abduction"
+          "%s /\ ?%s |- %s" (string_of_pi left)
+          (string_of_result string_of_pi r)
+          (string_of_pi right))
+  in
+  (* woefully incomplete *)
+  (* https://www.cs.utexas.edu/~isil/fmcad-tutorial.pdf *)
+  (*
+    A /\ a=b |- a <: c /\ F
+    A: b <: c
+    F: true
+    ens a=b; req a<:c
+    req b<:c; ens true
+  *)
+  let eqs = find_equalities#visit_pi () left in
+  let subs = find_subsumptions#visit_pi () right in
+  let asmp =
+    List.concat_map (fun (a,f) ->
+      List.concat_map (fun (b, c) ->
+          (if b = a then [Subsumption (c, f)] else []) @
+          (if c = a then [Subsumption (b, f)] else [])
+        ) eqs) subs |> conj
+  in
+  (* more general case? *)
+  (*
+    A /\ a=1 |- a=2 /\ F
+    A: 1=2
+    F: true
+    ens a=1; req a=2
+    req 1=2; ens true
+  *)
+  asmp
+
+let normalize_step (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
     : normalisedStagedSpec =
 
   (*print_endline ("\nacc = " ^ string_of_normalisedStagedSpec acc);*)
@@ -312,14 +349,16 @@ let normalise_stagedSpec (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
         (* (pure_to_equalities p2) *)
       in
 
+      let p4 = pure_abduction p2 p3 in
+
       debug ~at:5 ~title:"biabduction" "%s * %s |- %s * %s"
         (string_of_state (unification, magicWandHeap))
-        (string_of_state ens)
+        (string_of_state (p2, h2))
         (string_of_state (p3, h3))
         (string_of_state (unification1, h2'));
 
       let normalStage' =
-        let pre = mergeState req (And (p3, unification), magicWandHeap) in
+        let pre = mergeState req (conj [p4; p3; unification], magicWandHeap) in
         let post = (simplify_pure (And (p2, unification1)), h2') in
         (existential, pre, post)
       in

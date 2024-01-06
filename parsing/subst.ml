@@ -189,3 +189,23 @@ let rec getExistentialVar (spec : normalisedStagedSpec) : string list =
     ex
   | (EffHOStage eff) :: xs -> eff.e_evars @ getExistentialVar (xs, normalS)
   | (TryCatchStage tc)::xs -> tc.tc_evars @ getExistentialVar (xs, normalS)
+
+
+  let find_subsumptions =
+    object
+      inherit [_] reduce_spec
+      method zero = []
+      method plus = (@)
+      method! visit_Subsumption () a b = [(a, b)]
+    end
+
+  let find_equalities =
+    object
+      inherit [_] reduce_spec
+      method zero = []
+      method plus = (@)
+      method! visit_Atomic () op a b =
+        match op with
+        | EQ -> [(a, b)]
+        | _ -> []
+    end

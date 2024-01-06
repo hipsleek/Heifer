@@ -12,9 +12,12 @@ let f2 ()
   f3 2
 
 let g f
-(*@ req f <: (fun i r -> req i>9; ens r>=0/\r<=99) @*)
+(*@ req f <: (fun i r -> req i>9; ens r>=0/\r<=99);
+    ens res>=0/\res<=99 @*)
 = f 10
 
+(* even though we know what f we're passing, we're limited by the post of g,
+   which is in turn limited by the pre g imposes on f *)
 let main ()
-(*@ ens res=1 @*)
+(*@ ens res>=0/\res<=99 @*)
 = g (fun x -> 1)
