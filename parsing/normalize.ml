@@ -296,9 +296,11 @@ let pure_abduction left right =
     Debug.span (fun r ->
         debug ~at:5
           ~title:"pure_abduction"
-          "%s /\ ?%s |- %s" (string_of_pi left)
-          (string_of_result string_of_pi r)
-          (string_of_pi right))
+          "%s /\\ ? |- %s\nabduced: %s\nnew left: %s\nnew right: %s" (string_of_pi left)
+          (string_of_pi right)
+          (string_of_result string_of_pi (Option.map (fun (a, _, _) -> a) r))
+          (string_of_result string_of_pi (Option.map (fun (_, a, _) -> a) r))
+          (string_of_result string_of_pi (Option.map (fun (_, _, a) -> a) r)))
   in
   (* woefully incomplete *)
   (* https://www.cs.utexas.edu/~isil/fmcad-tutorial.pdf *)
@@ -312,11 +314,20 @@ let pure_abduction left right =
   let eqs = find_equalities#visit_pi () left in
   let subs = find_subsumptions#visit_pi () right in
   let asmp =
-    List.concat_map (fun (a,f) ->
-      List.concat_map (fun (b, c) ->
-          (if b = a then [Subsumption (c, f)] else []) @
-          (if c = a then [Subsumption (b, f)] else [])
-        ) eqs) subs |> conj
+    subs |> List.concat_map (fun (a, f) ->
+      eqs |> List.concat_map (fun (b, c) ->
+          (if b = a then [Subsumption (c, f), (b, c), (a, f)] else []) @
+          (if c = a then [Subsumption (b, f), (b, c), (a, f)] else [])
+        ))
+  in
+  let abduced = List.map (fun (a, _, _) -> a) asmp |> conj in
+  let left1 =
+    let used = List.map (fun (_, b, _) -> b) asmp in
+    (remove_equalities used)#visit_pi () left
+  in
+  let right1 =
+    let used = List.map (fun (_, _, c) -> c) asmp in
+    (remove_subsumptions used)#visit_pi () right
   in
   (* more general case? *)
   (*
@@ -326,7 +337,7 @@ let pure_abduction left right =
     ens a=1; req a=2
     req 1=2; ens true
   *)
-  asmp
+  abduced, left1, right1
 
 let normalize_step (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
     : normalisedStagedSpec =
@@ -349,7 +360,7 @@ let normalize_step (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
         (* (pure_to_equalities p2) *)
       in
 
-      let p4 = pure_abduction p2 p3 in
+      let p4, p2, p3 = pure_abduction p2 p3 in
 
       debug ~at:5 ~title:"biabduction" "%s * %s |- %s * %s"
         (string_of_state (unification, magicWandHeap))

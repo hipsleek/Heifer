@@ -209,3 +209,20 @@ let rec getExistentialVar (spec : normalisedStagedSpec) : string list =
         | EQ -> [(a, b)]
         | _ -> []
     end
+
+let remove_equalities eqs =
+  object
+    inherit [_] map_spec
+    method! visit_Atomic () op a b =
+      match op, a, b with
+      | EQ, a, b when List.mem (a, b) eqs -> True
+      | _ ->
+        Atomic (op, a, b)
+  end
+
+let remove_subsumptions subs =
+  object
+    inherit [_] map_spec
+    method! visit_Subsumption () a b =
+      if List.mem (a, b) subs then True else Subsumption (a, b)
+  end
