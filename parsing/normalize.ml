@@ -59,7 +59,7 @@ let simplify_pure (p : pi) : pi =
     | (Atomic (EQ, t1, Plus(Num n1, Num n2))) -> (Atomic (EQ, t1, Num (n1+n2)), true)
 
     | Atomic (EQ, a, b) when a = b -> (True, true)
-    | True | False | Atomic _ | Predicate _ -> (p, false)
+    | True | False | Atomic _ | Predicate _ | Subsumption _ -> (p, false)
     | And (True, a) | And (a, True) -> (a, true)
     | And (a, b) ->
       let a1, c1 = once a in
@@ -132,6 +132,7 @@ let rec pure_to_equalities pi =
   | Atomic (_, _, _)
   | True | False
   | Predicate (_, _)
+  | Subsumption (_, _)
   | Or (_, _)
   | Imply (_, _)
   | Not _ ->
@@ -414,6 +415,7 @@ let rec collect_lambdas_term (t : term) =
 let rec collect_lambdas_pi (p : pi) =
   match p with
   | True | False -> SSet.empty
+  | Subsumption (a, b)
   | Atomic (_, a, b) ->
     SSet.union (collect_lambdas_term a) (collect_lambdas_term b)
   | And (a, b) | Or (a, b) | Imply (a, b) ->
@@ -595,6 +597,7 @@ let remove_noncontributing_existentials :
   and collect_related_vars_pi p =
     match p with
     | True | False -> []
+    | Subsumption (a, b)
     | Atomic (_, a, b) ->
       let a1 = collect_related_vars_term a in
       let b1 = collect_related_vars_term b in

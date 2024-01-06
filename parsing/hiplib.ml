@@ -859,6 +859,7 @@ let rec lookUpFromPure p str : term option =
   | Or    _
   | Imply  _
   | Not   _
+  | Subsumption _
   | Predicate _ -> None (*raise (Foo "lookUpFromPure error")*)
 
 
@@ -946,8 +947,9 @@ let rec decomposeStateForPredicate p : (((string * term list ) list) * pi) =
       (pred1@pred2, (And (pi1, pi2)))
 
     | Atomic _
-    | True 
-    | Not _  
+    | Subsumption _
+    | True
+    | Not _
     | False -> ([], p)
     | Or    _
     | Imply  _ -> failwith "decomposePredicate nor and or and imply"

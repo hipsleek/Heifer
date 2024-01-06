@@ -65,6 +65,7 @@ and pi =
   | Imply  of pi * pi
   | Not    of pi 
   | Predicate of string * term list 
+  | Subsumption of term * term
 
 and kappa = 
   | EmptyHeap

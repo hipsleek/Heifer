@@ -286,6 +286,7 @@ and string_of_pi pi : string =
   | Imply  (p1, p2) -> string_of_pi p1 ^ "=>" ^ string_of_pi p2
   | Not    p -> "not(" ^ string_of_pi p ^ ")"
   | Predicate (str, t) -> str ^ "(" ^ (string_of_args string_of_term t) ^ ")"
+  | Subsumption (a, b) -> Format.asprintf "%s <: %s" (string_of_term a) (string_of_term b)
 
 
 
@@ -563,7 +564,8 @@ let rec split_res p =
   | Not a ->
     let l, r = split_res a in
     Not l, r
-  | Predicate (_, _) -> failwith (Format.asprintf "NYI: predicate split_res")
+  | Predicate (_, _) -> p, []
+  | Subsumption (_, _) -> p, []
 
 let split_res_fml p =
   let rest, constrs = split_res p in
