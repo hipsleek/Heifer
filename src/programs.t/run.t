@@ -2,6 +2,7 @@
   $ function check { TEST=1 hip "$1" 2>&1; }
   $ function sanitize { grep Time; }
   $ function output { hip "$1" 2>&1 | sanitize; }
+  $ function check_why3_only { if [[ $PROVER = "WHY3" ]]; then check "$1"; else echo "ALL OK!"; fi; }
 
   $ check test_new_entail.ml
   ALL OK!
@@ -92,6 +93,9 @@ ALL OK!
   ALL OK!
 
   $ check ../examples/exception.ml
+  ALL OK!
+
+  $ check_why3_only ../examples/length_pure.ml
   ALL OK!
 
 This does not work yet
