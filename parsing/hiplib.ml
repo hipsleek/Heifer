@@ -1486,7 +1486,7 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) : core_program =
   let inferred_spec_n = 
     try
         
-        normalise_spec_list_aux1 inferred_spec
+        normalise_disj_spec_aux1 inferred_spec
       with Norm_failure -> report_result ~inferred_spec ~result:false meth.m_name; raise Method_failure
     
   in
@@ -1499,7 +1499,7 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) : core_program =
     | Some given_spec ->
       let given_spec_n =
         try
-          normalise_spec_list_aux1 given_spec
+          normalise_disj_spec_aux1 given_spec
         with Norm_failure -> report_result ~inferred_spec ~inferred_spec_n ~given_spec ~result:false meth.m_name; raise Method_failure
       in
       let time_stamp_afterNormal = Sys.time () in

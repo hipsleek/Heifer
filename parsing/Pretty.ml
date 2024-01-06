@@ -621,6 +621,13 @@ let local_lambda_defs =
     method plus = SMap.merge_disjoint
     
     method! visit_TLambda _ _ _ _ = SMap.empty
+
+    method! visit_Subsumption () a b =
+      match a, b with
+      | Var v, TLambda _ ->
+        SMap.singleton v (lambda_to_pred_def v b)
+      | _ -> SMap.empty
+
     method! visit_Atomic () op a b =
       match op, a, b with
       | (EQ, (TLambda _ as l), Var v) | (EQ, Var v, (TLambda _ as l)) ->

@@ -74,7 +74,7 @@ let rec build_fml : pi -> Jv.t -> Jv.t =
     Jv.call (Jv.get ctx "Bool") "val" [| Jv.of_bool false |]
   | Atomic (op, a, b) -> build_op ctx op a b
   | Predicate (_, _) -> failwith "not implemented"
-  | Subsumption (_, _) -> failwith "subsumption is not handled here"
+  | Subsumption (_, _) -> build_fml True ctx
 
 open Effect
 open Effect.Deep

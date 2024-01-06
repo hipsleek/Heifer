@@ -1119,8 +1119,8 @@ let normalise_spec_list (specLi : spec list) : spec list =
   temp 
 
 
-let normalise_spec_list_aux1 (specLi : spec list) : normalisedStagedSpec list =
-  (*print_endline ("normalise_spec_list_aux1");*)
+let normalise_disj_spec_aux1 (specLi : disj_spec) : normalisedStagedSpec list =
+  (*print_endline ("normalise_disj_spec_aux1");*)
   List.map (fun a -> normalize_spec a) (normalise_spec_list specLi)
 
 let rec deleteFromStringList str (li : string list) =

@@ -189,7 +189,7 @@ let rec pi_to_expr env ctx pi: Expr.expr =
   | Imply (p1, p2) ->
     Z3.Boolean.mk_implies ctx (pi_to_expr env ctx p1) (pi_to_expr env ctx p2)
   | Predicate (_, _) -> failwith "pi_to_expr"
-  | Subsumption (_, _) -> failwith "subsumption is not handled here"
+  | Subsumption (_, _) -> pi_to_expr env ctx True
   (*
   | Atomic (op, t1, t2) -> (
       let t1 = term_to_expr ctx t1 in

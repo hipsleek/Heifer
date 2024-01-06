@@ -425,7 +425,7 @@ module Defunct = struct
     | Imply (a, b) -> Term.t_implies (pi_to_why3 env a) (pi_to_why3 env b)
     | Not a -> Term.t_not (pi_to_why3 env a)
     | Predicate (_, _) -> failwith "nyi Predicate"
-    | Subsumption (_, _) -> failwith "subsumption is not handled here"
+    | Subsumption (_, _) -> pi_to_why3 env True
 
   let rec expr_to_why3 env e =
     Format.printf "expr %s@." (Pretty.string_of_core_lang e);
@@ -687,7 +687,7 @@ let rec pi_to_whyml p =
   | Or (a, b) -> term (Tbinop (pi_to_whyml a, Dterm.DTor, pi_to_whyml b))
   | Not a -> term (Tnot (pi_to_whyml a))
   | Imply (_, _) | Predicate (_, _) -> failwith "nyi"
-  | Subsumption (_, _) -> failwith "subsumption is not handled here"
+  | Subsumption (_, _) -> term Ttrue
 
 let type_to_whyml t =
   match t with
