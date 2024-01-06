@@ -1427,14 +1427,31 @@ let report_result ?kind ?given_spec ?given_spec_n ?inferred_spec ?inferred_spec_
   in
   f ?kind ?given_spec ?given_spec_n ?inferred_spec ?inferred_spec_n ?forward_time_ms ?entail_time_ms ?result name
 
-let check_obligation name params lemmas predicates (l, r) =
+
+let rec check_remaining_obligations lems preds obligations =
+  let open Search in
+  all ~name:"subsumption obligation"
+    ~to_s:string_of_pobl
+    obligations (fun (params, obl) ->
+    if check_obligation (string_of_obl obl) params lems preds obl
+      then succeed
+      else fail)
+
+and check_obligation name params lemmas predicates (l, r) =
   let@ _ =
     Debug.span (fun _r ->
         debug ~at:1
           ~title:(Format.asprintf "checking obligation: %s" name) "")
   in
+  let open Search in begin
   let res = Entail.check_staged_subsumption_disj name params [] lemmas predicates l r in
-  report_result ~kind:"Obligation" ~given_spec:r ~inferred_spec:l ~result:res name
+  report_result ~kind:"Obligation" ~given_spec:r ~inferred_spec:l ~result:(Search.succeeded res) name;
+  let* res = res in
+  check_remaining_obligations lemmas predicates res.subsumption_obl
+  end |> Search.succeeded
+
+let check_obligation_ name params lemmas predicates sub =
+  check_obligation name params lemmas predicates sub |> ignore
 
 exception Method_failure
 
@@ -1475,8 +1492,8 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) : core_program =
     inf, preds_with_lambdas, env
   in
   (* check misc obligations. don't stop on failure for now *)
-  fvenv.fv_lambda_obl |> List.iter (check_obligation meth.m_name meth.m_params prog.cp_lemmas predicates);
-  fvenv.fv_match_obl |> List.iter (check_obligation meth.m_name meth.m_params prog.cp_lemmas predicates);
+  fvenv.fv_lambda_obl |> List.iter (check_obligation_ meth.m_name meth.m_params prog.cp_lemmas predicates);
+  fvenv.fv_match_obl |> List.iter (check_obligation_ meth.m_name meth.m_params prog.cp_lemmas predicates);
 
   (* check the main spec *)
   let time_stamp_afterForward = Sys.time () in
@@ -1519,12 +1536,12 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) : core_program =
             print_endline (" |= ") ;
             print_endline ("given_spec " ^ string_of_disj_spec given_spec); *)
             
-
-            let res = Entail.check_staged_subsumption_disj meth.m_name meth.m_params meth.m_tactics prog.cp_lemmas predicates inferred_spec given_spec in 
-            (* print_endline ("proving end!!!==================================") ;
-            print_endline (string_of_bool res); *)
-            
-            res
+            let open Search in begin
+              let* res =
+                Entail.check_staged_subsumption_disj meth.m_name meth.m_params meth.m_tactics prog.cp_lemmas predicates inferred_spec given_spec
+              in 
+              check_remaining_obligations prog.cp_lemmas predicates res.subsumption_obl
+            end |> succeeded
 
         with Norm_failure ->
           (* norm failing all the way to the top level may prevent some branches from being explored during proof search. this does not happen in any tests yet, however, so keep error-handling simple. if it ever happens, return an option from norm entry points *)
@@ -1581,7 +1598,7 @@ let process_items (strs: structure_item list) : unit =
     List.fold_left (fun (bound_names, prog) c ->
       match transform_str bound_names c with
       | Some (`Lem l) ->
-        check_obligation l.l_name l.l_params prog.cp_lemmas prog.cp_predicates (function_stage_to_disj_spec l.l_left, [l.l_right]);
+        check_obligation_ l.l_name l.l_params prog.cp_lemmas prog.cp_predicates (function_stage_to_disj_spec l.l_left, [l.l_right]);
         (* add to environment regardless of failure *)
         bound_names, { prog with cp_lemmas = SMap.add l.l_name l prog.cp_lemmas }
       | Some (`Pred p) -> 

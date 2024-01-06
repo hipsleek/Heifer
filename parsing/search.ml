@@ -6,13 +6,13 @@ type 'a t = 'a option
 let ( let* ) = Option.bind
 let ( let+ ) a f = Option.map f a
 let succeeded = Option.is_some
-let ok = Some ()
+let ok a = Some a
+let succeed = Some()
 let fail = None
-let check b = if b then ok else fail
+let check b = if b then succeed else fail
 let or_else o k = match o with None -> k () | Some _ -> o
 let of_bool default b = if b then Some default else None
-let pure a = Some a
-let ensure cond = if cond then ok else fail
+let ensure cond = if cond then succeed else fail
 
 type mut_tree =
   | Node of {
@@ -108,6 +108,31 @@ let current_failed () =
   let (Node n) = !current in
   n.state <- `Failed
 
+let all_state :
+    name:string -> to_s:('a -> string) -> 'a list -> 
+      'b -> ('a * 'b -> 'b t) -> 'b t =
+ fun ~name ~to_s vs init f ->
+  let rec loop z vs undone =
+    match (vs, undone) with
+    | [], _ -> Some z
+    | x :: xs, u :: us ->
+      update_current u;
+      debug ~at:1
+        ~title:"proof search"
+        "%s" (show_search_tree true);
+      let r = f (x, z) in
+      (match r with
+      | None ->
+        current_failed ();
+        None
+      | Some r1 ->
+        current_done ();
+        loop r1 xs us)
+    | _ :: _, [] -> failwith "won't happen because same length"
+  in
+  let@ undone = init_undone `All (Format.asprintf "%s" name) vs to_s in
+  loop init vs undone
+
 let all_ :
     name:string -> to_s:('a -> string) -> 'a list -> ('a -> 'b t) -> 'b list t =
  fun ~name ~to_s vs f ->
@@ -136,8 +161,8 @@ let all :
     name:string ->
     to_s:('a -> string) ->
     'a list ->
-    ('a -> 'b option) ->
-    unit option =
+    ('a -> 'b t) ->
+    unit t =
  fun ~name ~to_s vs f -> all_ ~name ~to_s vs f |> Option.map (fun _ -> ())
 
 let any : name:string -> to_s:('a -> string) -> 'a list -> ('a -> 'b t) -> 'b t

@@ -538,6 +538,12 @@ let string_of_meth_def m =
 let string_of_program (cp:core_program) :string =
   List.map string_of_meth_def cp.cp_methods |> String.concat "\n\n"
 
+let string_of_obl (d:(disj_spec * disj_spec)) :string =
+  (string_of_pair string_of_disj_spec string_of_disj_spec) d
+
+let string_of_pobl (d:(string list * (disj_spec * disj_spec))) :string =
+  string_of_pair (string_of_args Fun.id) string_of_obl d
+
 (* implements the [pi = pi_other and pi_res] split from the ho paper *)
 let rec split_res p =
   match p with
