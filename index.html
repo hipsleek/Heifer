@@ -300,7 +300,32 @@ let build_fill x n
 
 let length_positive xs
 (*@ ens res>=0 @*)
-= length xs">src/examples/length.ml</option><option value=src/examples/map.ml data-text="
+= length xs">src/examples/length.ml</option><option value=src/examples/length_pure.ml data-text="
+let[@pure] rec length (li:int list) : int = 
+  match li with 
+  | [] -> 0
+  | x :: xs -> 1 + length xs
+
+(*@
+  lemma length_length xs res =
+    length(xs, res) <: ens res=length(xs)
+@*)
+
+let length_length xs
+(*@ ens res=length(xs) @*)
+= length xs
+
+let rec foldr f li acc =
+  match li with 
+  | [] -> acc 
+  | x :: xs -> 
+    let acc' = f x acc in 
+    foldr f xs acc'
+
+let foldr_length xs init
+(*@ ex r; ens res=length(xs)+init @*)
+= let g c t = 1 + t in
+  foldr g xs init">src/examples/length_pure.ml</option><option value=src/examples/map.ml data-text="
 let rec map f xs =
   match xs with
   | [] -> []
@@ -309,13 +334,13 @@ let rec map f xs =
 let id y = y
 
 let map_id ys
-(*@ Norm(emp, ys) @*)
+(*@ ens res=ys @*)
 = map id ys
 
 let succ x = x + 1
 
 let map_not_id_false ys
-(*@ Norm(emp, ys) @*)
+(*@ ens res=ys @*)
 = map succ ys
 
 (* ghost function that specifies what mapping succ should return *)
@@ -326,7 +351,7 @@ let rec succ_list xs =
 
 (* we use succ_list in the statement of this lemma *)
 let map_succ ys
-(*@ ex r; succ_list(ys, r); Norm(emp, r) @*)
+(*@ ex r; succ_list(ys, r); ens res=r @*)
 = map succ ys
 
 let rec length xs =
@@ -335,7 +360,7 @@ let rec length xs =
   | x :: xs1 -> 1 + length xs1
 
 let cl_map xs x
-(*@ ex i; req x->i; ex r; length(xs, r); ex r1; Norm(r1=xs/\x->i+r, r1) @*)
+(*@ ex i; req x->i; ex r; length(xs, r); ex r1; ens x->i+r/\r1=xs/\res=r1 @*)
 = let f a = x := !x+1; a in
   map f xs
 
@@ -568,7 +593,7 @@ let exchange (m:int)
 = perform (Exchange m)
 
 
-let exc_hanlder (y: int ref) (new_v:int): int
+let exc_hanlder y (new_v:int)
 (*@  
    ex old_v; 
    req y -> old_v; 
@@ -661,20 +686,20 @@ let main_false ()
     (continue k 1); 
   | effect Twice k ->
     let _ = (continue (Obj.clone_continuation k) 1) in (continue k 2)">src/evaluation/2_heap_zero_once_twice.ml</option><option value=src/evaluation/3_nestedHandlers.ml data-text="effect E : int 
-effect F : string 
+effect E1 : string 
 
 let foo () 
 (*@ 
    ex ret; 
-   F(emp, ret);
+   E1(emp, ret);
    Norm(emp, ret)
 @*)
-= perform F
+= perform E1
 
 let bar () 
 (*@ 
    ex ret; 
-   F(emp, ret);
+   E1(emp, ret);
    Norm(emp, ret)
 @*)
 =
@@ -689,7 +714,7 @@ let baz ()
 =
   match bar () with 
   | x -> x 
-  | effect F k -> continue k 1">src/evaluation/3_nestedHandlers.ml</option><option value=src/evaluation/4_memory_cell.ml data-text="effect Read : int 
+  | effect E1 k -> continue k 1">src/evaluation/3_nestedHandlers.ml</option><option value=src/evaluation/4_memory_cell.ml data-text="effect Read : int 
 effect Write : int -> unit 
 
 (* let (i: int ref) = Sys.opaque_identity (ref 0) *)
@@ -1010,20 +1035,20 @@ let handler2  ()
   | effect Read k -> (continue k (!i))">src/evaluation/9_memory_cell_nested.ml</option><option value=src/evaluation/abort.ml data-text="effect Zero : unit
 
 let client () 
-(*@ ex r; Zero(emp, r); req false/\emp; ex r1; Norm(false/\emp, r1) @*)
+(*@ ex r; Zero(emp, r); req F; ens F @*)
 =
   perform Zero;
   assert false
 
 let handler ()
-(*@ ex r; Norm(r=3/\emp, r) @*)
+(*@ ex r; ens r=3/\res=r @*)
 =
   match client () with
   | v -> 2
   | effect Zero k -> 3
 
 let invalid_false ()
-(*@ ex r; Norm(false/\emp, r) @*)
+(*@ ens F @*)
 =
   match client () with
   | v -> 2
@@ -1072,7 +1097,7 @@ let invalid_false ()
     <script>
       // this is substituted at build time and is used in page.js
       function postExampleLoad() {
-        console.log("Built Tue Jan  2 13:22:38 UTC 2024");
+        console.log("Built Sun Jan  7 21:10:27 UTC 2024");
         console.log("loading z3...");
       }
     </script>
