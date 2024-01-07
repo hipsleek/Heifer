@@ -108,19 +108,23 @@ let current_failed () =
   let (Node n) = !current in
   n.state <- `Failed
 
+(* allows state to be threaded through branches on success.
+   pivot allows the user to change the state between the end of one branch and the start of the next.
+   the initial state is init, and on_end allows the state to be changed when all branches complete. *)
 let all_state :
-    name:string -> to_s:('a -> string) -> 'a list -> 
-      'b -> ('a * 'b -> 'b t) -> 'b t =
- fun ~name ~to_s vs init f ->
-  let rec loop z vs undone =
-    match (vs, undone) with
-    | [], _ -> Some z
+    name:string -> to_s:('a -> string) -> init:'b ->
+      ?pivot:('b -> 'b) -> ?on_end:('b -> 'b) -> 'a list -> ('a * 'b -> 'b t) -> 'b t =
+ fun ~name ~to_s ~init ?(pivot=Fun.id) ?(on_end=Fun.id) items f ->
+  (* items is not labelled to avoid partial application warnings *)
+  let rec loop z s undone =
+    match (s, undone) with
+    | [], _ -> Some (on_end z)
     | x :: xs, u :: us ->
       update_current u;
       debug ~at:1
         ~title:"proof search"
         "%s" (show_search_tree true);
-      let r = f (x, z) in
+      let r = f (x, pivot z) in
       (match r with
       | None ->
         current_failed ();
@@ -130,40 +134,24 @@ let all_state :
         loop r1 xs us)
     | _ :: _, [] -> failwith "won't happen because same length"
   in
-  let@ undone = init_undone `All (Format.asprintf "%s" name) vs to_s in
-  loop init vs undone
+  let@ undone = init_undone `All (Format.asprintf "%s" name) items to_s in
+  loop init items undone
 
-let all_ :
-    name:string -> to_s:('a -> string) -> 'a list -> ('a -> 'b t) -> 'b list t =
- fun ~name ~to_s vs f ->
-  let rec loop rs vs undone =
-    match (vs, undone) with
-    | [], _ -> Some (List.rev rs)
-    | x :: xs, u :: us ->
-      update_current u;
-      debug ~at:1
-        ~title:"proof search"
-        "%s" (show_search_tree true);
-      let r = f x in
-      (match r with
-      | None ->
-        current_failed ();
-        None
-      | Some r1 ->
-        current_done ();
-        loop (r1 :: rs) xs us)
-    | _ :: _, [] -> failwith "won't happen because same length"
-  in
-  let@ undone = init_undone `All (Format.asprintf "%s" name) vs to_s in
-  loop [] vs undone
+  (* simpler version that collects all outputs *)
+  let all_ :
+      name:string -> to_s:('a -> string) -> 'a list -> ('a -> 'b t) -> 'b list t =
+  fun ~name ~to_s items f ->
+    all_state ~name ~to_s ~init:[] ~on_end:List.rev
+    items (fun (v, st) -> let* s = f v in ok (s :: st))
 
-let all :
-    name:string ->
-    to_s:('a -> string) ->
-    'a list ->
-    ('a -> 'b t) ->
-    unit t =
- fun ~name ~to_s vs f -> all_ ~name ~to_s vs f |> Option.map (fun _ -> ())
+  (* even simpler version that ignores all outputs *)
+  let all :
+      name:string ->
+      to_s:('a -> string) ->
+      'a list ->
+      ('a -> 'b t) ->
+      unit t =
+  fun ~name ~to_s items f -> all_ ~name ~to_s items f |> Option.map (fun _ -> ())
 
 let any : name:string -> to_s:('a -> string) -> 'a list -> ('a -> 'b t) -> 'b t
     =

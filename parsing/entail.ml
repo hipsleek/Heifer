@@ -570,7 +570,7 @@ and try_other_measures :
            < unfolding_bound ->
       let unf = unfold_predicate_norm "left" def s1 in
       let@ s1_1, ctx =
-        all_state ~name:(Format.asprintf "unfold lhs: %s" c1)~to_s:string_of_normalisedStagedSpec unf ctx
+        all_state ~name:(Format.asprintf "unfold lhs: %s" c1)~to_s:string_of_normalisedStagedSpec ~init:ctx ~pivot:(fun c -> { ctx with subsumption_obl = c.subsumption_obl }) unf
       in
       check_staged_subsumption_stagewise
         { ctx with unfolded = (c1, `Left) :: ctx.unfolded }
@@ -851,7 +851,7 @@ let check_staged_subsumption_disj :
   in
   let ctx = create_pctx lems preds [] in
   (* let ds1, ds2 = apply_tactics ts lems preds ds1 ds2 in *)
-  let@ s1, ctx = Search.all_state ~name:"disj lhs" ~to_s:string_of_spec ds1 ctx in
+  let@ s1, ctx = Search.all_state ~name:"disj lhs" ~to_s:string_of_spec ~init:ctx ~pivot:(fun c -> { ctx with subsumption_obl = c.subsumption_obl }) ds1 in
   let@ s2 = Search.any ~name:"disj rhs" ~to_s:string_of_spec ds2 in
   (* S1 <: S3 *)
   let es1, ns1 = normalize_spec s1 in
