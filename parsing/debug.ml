@@ -152,6 +152,7 @@ let debug_print at title s =
         in
         Format.asprintf "%s | %a%s" title pp_event !debug_event_n stack
       in
+      let title = Format.asprintf "==== %s ====" title in
       print_endline (Pretty.yellow title);
       print_endline s;
       if not (String.equal "" s) then print_endline ""

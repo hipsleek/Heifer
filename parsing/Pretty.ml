@@ -12,21 +12,19 @@ exception Foo of string
 
 let colours : [`Html|`Ansi|`None] ref = ref `None
 
-let col ~ansi ~html ~title text =
+let col ~ansi ~html text =
   (match !colours with
-  | `None when title -> "==== "
   | `None -> ""
   | `Ansi -> ansi
   | `Html -> html) ^ text ^
   (match !colours with
-  | `None when title -> " ===="
   | `None -> ""
   | `Ansi -> "\u{001b}[0m"
   | `Html -> "</span>")
 
-let red text = col ~ansi:"\u{001b}[31m" ~html:"<span class=\"output-error\">" ~title:false text
-let green text = col ~ansi:"\u{001b}[32m" ~html:"<span class=\"output-ok\">" ~title:false text
-let yellow text = col ~ansi:"\u{001b}[33m" ~html:"<span class=\"output-emph\">" ~title:true text
+let red text = col ~ansi:"\u{001b}[31m" ~html:"<span class=\"output-error\">" text
+let green text = col ~ansi:"\u{001b}[32m" ~html:"<span class=\"output-ok\">" text
+let yellow text = col ~ansi:"\u{001b}[33m" ~html:"<span class=\"output-emph\">" text
 
 let verifier_counter: int ref = ref 0;;
 
