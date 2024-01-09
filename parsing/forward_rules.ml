@@ -208,6 +208,44 @@ let foldl1 f xs =
 
 let primitives = ["+"; "-"; "="; "not"; "::"; "&&"; "||"; ">"; "<"; ">="; "<="]
 
+let call_primitive env history fname actualArgs =
+  match fname, actualArgs with
+  | "+", [x1; x2] ->
+    let event = NormalReturn (res_eq (Plus(x1, x2)), EmptyHeap) in
+    concatenateSpecsWithEvent history [event], env
+  | "-", [x1; x2] ->
+    let event = NormalReturn (res_eq (Minus(x1, x2)), EmptyHeap) in
+    concatenateSpecsWithEvent history [event], env
+  | "=", [x1; x2] ->
+    (* let event = NormalReturn (Atomic (EQ, x1, x2), EmptyHeap, Eq (x1, x2)) in *)
+    let event = NormalReturn (res_eq (Rel (EQ, x1, x2)), EmptyHeap) in
+    concatenateSpecsWithEvent history [event], env
+  | "not", [x1] ->
+    let event = NormalReturn (res_eq (TNot (x1)), EmptyHeap) in
+    concatenateSpecsWithEvent history [event], env
+  | "&&", [x1; x2] ->
+    let event = NormalReturn (res_eq (TAnd (x1, x2)), EmptyHeap) in
+    concatenateSpecsWithEvent history [event], env
+  | "||", [x1; x2] ->
+    let event = NormalReturn (res_eq (TOr (x1, x2)), EmptyHeap) in
+    concatenateSpecsWithEvent history [event], env
+  | ">", [x1; x2] ->
+    let event = NormalReturn (res_eq (Rel (GT, x1, x2)), EmptyHeap) in
+    concatenateSpecsWithEvent history [event], env
+  | "<", [x1; x2] ->
+    let event = NormalReturn (res_eq (Rel (LT, x1, x2)), EmptyHeap) in
+    concatenateSpecsWithEvent history [event], env
+  | ">=", [x1; x2] ->
+    let event = NormalReturn (res_eq (Rel (GTEQ, x1, x2)), EmptyHeap) in
+    concatenateSpecsWithEvent history [event], env
+  | "<=", [x1; x2] ->
+    let event = NormalReturn (res_eq (Rel (LTEQ, x1, x2)), EmptyHeap) in
+    concatenateSpecsWithEvent history [event], env
+  | "::", [x1; x2] ->
+    let event = NormalReturn (res_eq (TCons (x1, x2)), EmptyHeap) in
+    concatenateSpecsWithEvent history [event], env
+  | _ -> failwith (Format.asprintf "unknown primitive: %s, args: %s" fname (string_of_list string_of_term actualArgs))
+
 (* Given the specs of the scrutinee, symbolically execute it against the handler's spec to produce a single flow, e.g.
 
     match A(a,r); ens res=c with
@@ -763,42 +801,7 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
     | CFunCall (fname, actualArgs) -> 
       (match List.mem fname primitives with
       | true ->
-        (match fname, actualArgs with
-        | "+", [x1; x2] ->
-          let event = NormalReturn (res_eq (Plus(x1, x2)), EmptyHeap) in
-          concatenateSpecsWithEvent history [event], env
-        | "-", [x1; x2] ->
-          let event = NormalReturn (res_eq (Minus(x1, x2)), EmptyHeap) in
-          concatenateSpecsWithEvent history [event], env
-        | "=", [x1; x2] ->
-          (* let event = NormalReturn (Atomic (EQ, x1, x2), EmptyHeap, Eq (x1, x2)) in *)
-          let event = NormalReturn (res_eq (Rel (EQ, x1, x2)), EmptyHeap) in
-          concatenateSpecsWithEvent history [event], env
-        | "not", [x1] ->
-          let event = NormalReturn (res_eq (TNot (x1)), EmptyHeap) in
-          concatenateSpecsWithEvent history [event], env
-        | "&&", [x1; x2] ->
-          let event = NormalReturn (res_eq (TAnd (x1, x2)), EmptyHeap) in
-          concatenateSpecsWithEvent history [event], env
-        | "||", [x1; x2] ->
-          let event = NormalReturn (res_eq (TOr (x1, x2)), EmptyHeap) in
-          concatenateSpecsWithEvent history [event], env
-        | ">", [x1; x2] ->
-          let event = NormalReturn (res_eq (Rel (GT, x1, x2)), EmptyHeap) in
-          concatenateSpecsWithEvent history [event], env
-        | "<", [x1; x2] ->
-          let event = NormalReturn (res_eq (Rel (LT, x1, x2)), EmptyHeap) in
-          concatenateSpecsWithEvent history [event], env
-        | ">=", [x1; x2] ->
-          let event = NormalReturn (res_eq (Rel (GTEQ, x1, x2)), EmptyHeap) in
-          concatenateSpecsWithEvent history [event], env
-        | "<=", [x1; x2] ->
-          let event = NormalReturn (res_eq (Rel (LTEQ, x1, x2)), EmptyHeap) in
-          concatenateSpecsWithEvent history [event], env
-        | "::", [x1; x2] ->
-          let event = NormalReturn (res_eq (TCons (x1, x2)), EmptyHeap) in
-          concatenateSpecsWithEvent history [event], env
-        | _ -> failwith (Format.asprintf "unknown primitive: %s, args: %s" fname (string_of_list string_of_term actualArgs)))
+        call_primitive env history fname actualArgs
       | false ->
         let spec_of_fname =
           (match retrieveSpecFromEnv fname env with 
