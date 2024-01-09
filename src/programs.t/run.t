@@ -95,6 +95,9 @@ ALL OK!
   $ check ../examples/exception.ml
   ALL OK!
 
+  $ check ../examples/blameassgn.ml
+  ALL OK!
+
   $ check_why3_only ../examples/length_pure.ml
   ALL OK!
 
