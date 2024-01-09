@@ -1429,12 +1429,18 @@ let report_result ?kind ?given_spec ?given_spec_n ?inferred_spec ?inferred_spec_
   f ?kind ?given_spec ?given_spec_n ?inferred_spec ?inferred_spec_n ?forward_time_ms ?entail_time_ms ?result name
 
 
-let rec check_remaining_obligations lems preds obligations =
+let rec check_remaining_obligations original_fname lems preds obligations =
   let open Search in
   all ~name:"subsumption obligation"
     ~to_s:string_of_pobl
     obligations (fun (params, obl) ->
-    if check_obligation (string_of_obl obl) params lems preds obl
+    let name =
+      (* the name of the obligation appears in tests and should be deterministic *)
+      let base = "sub_obl" in
+      if Str.string_match (Str.regexp ".*_false$") original_fname 0
+        then base ^ "_false" else base
+    in
+    if check_obligation name params lems preds obl
       then succeed
       else fail)
 
@@ -1448,7 +1454,7 @@ and check_obligation name params lemmas predicates (l, r) =
   let res = Entail.check_staged_subsumption_disj name params [] lemmas predicates l r in
   report_result ~kind:"Obligation" ~given_spec:r ~inferred_spec:l ~result:(Search.succeeded res) name;
   let* res = res in
-  check_remaining_obligations lemmas predicates res.subsumption_obl
+  check_remaining_obligations name lemmas predicates res.subsumption_obl
   end |> Search.succeeded
 
 let check_obligation_ name params lemmas predicates sub =
@@ -1541,7 +1547,7 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) : core_program =
               let* res =
                 Entail.check_staged_subsumption_disj meth.m_name meth.m_params meth.m_tactics prog.cp_lemmas predicates inferred_spec given_spec
               in 
-              check_remaining_obligations prog.cp_lemmas predicates res.subsumption_obl
+              check_remaining_obligations meth.m_name prog.cp_lemmas predicates res.subsumption_obl
             end |> succeeded
 
         with Norm_failure ->
