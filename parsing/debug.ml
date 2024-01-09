@@ -10,6 +10,7 @@ let is_closing = ref false
 let is_opening = ref false
 let last_title = ref ""
 let ctf = ref false
+let file_mode = ref false
 
 type query_on =
   | Time of int
@@ -152,7 +153,14 @@ let debug_print at title s =
         in
         Format.asprintf "%s | %a%s" title pp_event !debug_event_n stack
       in
-      let title = Format.asprintf "==== %s ====" title in
+      let title =
+        match !file_mode with
+        | false -> Format.asprintf "==== %s ====" title
+        | true ->
+          Format.asprintf "%s %s"
+            (String.init (List.length !stack + 1) (fun _ -> '*'))
+            title
+      in
       print_endline (Pretty.yellow title);
       print_endline s;
       if not (String.equal "" s) then print_endline ""
@@ -232,7 +240,8 @@ let pp_result f ppf r =
 let string_of_result f r =
   match r with None -> "..." | Some r -> Format.asprintf "%s" (f r)
 
-let init ctf_output query =
+let init ctf_output query to_file =
+  file_mode := to_file;
   if ctf_output then (
     ctf := true;
     let name = "trace.json" in
