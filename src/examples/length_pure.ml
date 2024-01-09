@@ -6,7 +6,7 @@ let[@pure] rec length (li:int list) : int =
 
 (*@
   lemma length_length xs res =
-    length(xs, res) <: ens res=length(xs)
+    length(xs, res) ==> ens res=length(xs)
 @*)
 
 let length_length xs

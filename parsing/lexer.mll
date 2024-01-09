@@ -483,6 +483,8 @@ rule token = parse
       { DISJUNCTION }
   (* | "=>"
       { IMPLICATION } *)
+  | "==>"
+      { LONG_IMPLICATION }
   | "(*"
       { let s, loc = wrap_comment_lexer comment lexbuf in
         COMMENT (s, loc) }
