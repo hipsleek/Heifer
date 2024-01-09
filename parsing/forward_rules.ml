@@ -693,7 +693,7 @@ let ifAsyncYiled env  =
   | None  -> false 
   | Some _ -> true  
 
-let recursivelyInstantiateFunctionCalls instantiatedSpec env = 
+let recursivelyInstantiateFunctionCalls env instantiatedSpec = 
 
   let rec helper acc li : spec list = 
     match li with 
@@ -798,43 +798,64 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
         concatenateSpecsWithEvent history [Exists [f]; HigherOrder (True, EmptyHeap, ("continue", tList), Var f)]
       in
       res, env
+    | CFunCall (fname, actualArgs) when List.mem fname primitives -> 
+      call_primitive env history fname actualArgs
     | CFunCall (fname, actualArgs) -> 
-      (match List.mem fname primitives with
-      | true ->
-        call_primitive env history fname actualArgs
-      | false ->
-        let spec_of_fname =
-          (match retrieveSpecFromEnv fname env with 
-          | None ->
-            let ret = verifier_getAfreeVar "ret" in
-            [[Exists [ret]; HigherOrder (True, EmptyHeap, (fname, actualArgs), Var ret)]]
-          | Some (formalArgs, spec_of_fname) -> 
-            (* TODO should we keep existentials? *)
-            (* print_endline ("Function call: " ^ string_of_disj_spec spec_of_fname); *)
-            let spec = renamingexistientalVar spec_of_fname in
-            (* let spec = freshen spec_of_fname in *)
-            (* Format.printf "after freshen: %s@." (string_of_disj_spec spec); *)
-            (*if List.compare_lengths formalArgs actualArgs <> 0 then
-              failwith (Format.asprintf "too few args. formals: %s, actual: %s@." (string_of_list Fun.id formalArgs) (string_of_list string_of_term actualArgs));
-            *)
-            let bindings = bindFormalNActual (formalArgs) (actualArgs) in 
-            let instantiatedSpec = instantiateSpecList bindings spec in 
-
-            (* print_endline ("FunCallinstantiatedSpec:\n"^ string_of_spec_list instantiatedSpec); *)
-
-            let instantiatedSpec = recursivelyInstantiateFunctionCalls instantiatedSpec env in 
-
-            (* print_endline ("FunCallinstantiatedSpecFinal:\n"^ string_of_spec_list instantiatedSpec); *)
-
-            instantiatedSpec)
-
-        in
-        let _spec_of_fname =
-          (* this is an alternative implementation for this whole case, which simply generates an uninterpreted function and lets the entailment procedure take care of unfolding (since the implementation above can be seen as unfolding once). unfortunately the handler reasoning in the effects work relies on unfolding in the forward reasoning, so we can't switch to it yet, but this implementation should work for higher-order *)
+      let fn_spec : disj_spec =
+        match retrieveSpecFromEnv fname env with 
+        | None ->
+          (* no known spec, produce a stage *)
           let ret = verifier_getAfreeVar "ret" in
-          [[Exists [ret]; HigherOrder (True, EmptyHeap, (fname, actualArgs), Var ret); NormalReturn (res_eq (Var ret), EmptyHeap)]]
-        in
-        concatenateSpecsWithSpec history spec_of_fname, env)
+          [[Exists [ret]; HigherOrder (True, EmptyHeap, (fname, actualArgs), Var ret)]]
+        | Some (spec_params, known_spec) ->
+          let@ _ =
+            Debug.span (fun r ->
+                debug ~at:3
+                  ~title:(Format.asprintf "function %s has known spec" fname)
+                  "forall %s\n%s\n==>\n%s" (String.concat " " spec_params) (string_of_disj_spec known_spec)
+                  (string_of_result string_of_disj_spec r))
+          in
+
+          let trf s f x =
+            let r = f x in
+            debug ~at:3
+              ~title:s
+              "%s\n==>\n%s" (string_of_disj_spec x)
+              (string_of_disj_spec r);
+            r
+          in
+
+          (* if any args are HO and have specs, substitute them as well *)
+          let arg_specs =
+            List.filter_map (fun arg ->
+              match arg with
+              | Var a ->
+                (match retrieveSpecFromEnv a env with
+                | None -> None
+                | Some (params, sp) ->
+                  let res = verifier_getAfreeVar "res" in
+                  let params = params @ [res] in
+                  Some (a, TLambda (verifier_getAfreeVar "lambda", params, sp |> renamingexistientalVar |> instantiateSpecList ["res", Var res])))
+              | _ -> None) actualArgs
+          in
+
+          let spec = known_spec |> trf "existentials" renamingexistientalVar in
+          
+          let instantiatedSpec =
+            spec |> trf "actuals" (instantiateSpecList (bindFormalNActual spec_params actualArgs))
+              |> trf "ho args" (instantiateSpecList arg_specs)
+          in 
+
+          let instantiatedSpec = instantiatedSpec |> trf "function stages" (recursivelyInstantiateFunctionCalls env) in 
+
+          instantiatedSpec
+      in
+      let _fn_spec =
+        (* this is an alternative implementation for this whole case, which simply generates an uninterpreted function and lets the entailment procedure take care of unfolding (since the implementation above can be seen as unfolding once). unfortunately the handler reasoning in the effects work relies on unfolding in the forward reasoning, so we can't switch to it yet, but this implementation should work for higher-order *)
+        let ret = verifier_getAfreeVar "ret" in
+        [[Exists [ret]; HigherOrder (True, EmptyHeap, (fname, actualArgs), Var ret); NormalReturn (res_eq (Var ret), EmptyHeap)]]
+      in
+      concatenateSpecsWithSpec history fn_spec, env
     | CWrite  (str, v) -> 
       let freshVar = verifier_getAfreeVar "wr" in 
       let event = [Exists [freshVar];Require(True, PointsTo(str, Var freshVar)); 
