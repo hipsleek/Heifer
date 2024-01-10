@@ -902,7 +902,8 @@ let transform_str bound_names (s : structure_item) =
   | Pstr_lemma (l_name, l_params, l_left, l_right) ->
     let l_left =
       match l_left with
-      | HigherOrder (_p, _h, constr, _r) -> constr
+      | HigherOrder (_p, _h, (constr, ps), r) ->
+        (constr, ps @ [r])
       | _ -> failwith (Format.asprintf "lemma %s should have function on the left" l_name)
     in
     Some (`Lem {l_name; l_params; l_left; l_right})
@@ -1596,8 +1597,8 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) : core_program =
         (* using the predicate instead of the raw inferred spec makes the induction hypothesis possible with current heuristics. it costs one more unfold but that is taken care of by the current entailment procedure, which repeatedly unfolds *)
         let _mspec : disj_spec = inferred_spec in
         let mspec : disj_spec =
-          let prr, _ret = split_last pred.p_params in
-          function_stage_to_disj_spec (pred.p_name, List.map (fun v1 -> Var v1) prr)
+          let prr, ret = unsnoc pred.p_params in
+          function_stage_to_disj_spec pred.p_name (List.map (fun v1 -> Var v1) prr) (Var ret)
         in
         (*print_endline ("inferred spec for " ^ meth.m_name ^ " " ^  (string_of_disj_spec mspec)); *)
 
@@ -1621,7 +1622,14 @@ let process_items (strs: structure_item list) : unit =
           SMap.add name def Globals.global_environment.pure_fn_types;
         bound_names, prog
       | Some (`Lem l) ->
-        check_obligation_ l.l_name l.l_params prog.cp_lemmas prog.cp_predicates (function_stage_to_disj_spec l.l_left, [l.l_right]);
+        debug ~at:4 ~title:(Format.asprintf "lemma %s" l.l_name) "%s" (string_of_lemma l);
+        let left =
+          let (f, ps) = l.l_left in
+          let args, ret = unsnoc ps in
+          function_stage_to_disj_spec f args ret
+        in
+        check_obligation_ l.l_name l.l_params prog.cp_lemmas prog.cp_predicates (left, [l.l_right]);
+        debug ~at:4 ~title:(Format.asprintf "added lemma %s" l.l_name) "%s" (string_of_lemma l);
         (* add to environment regardless of failure *)
         bound_names, { prog with cp_lemmas = SMap.add l.l_name l prog.cp_lemmas }
       | Some (`Pred p) -> 

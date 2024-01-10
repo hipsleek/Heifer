@@ -22,10 +22,14 @@ let rename_exists_pred (pred : pred_def) : pred_def =
 
 (** Matches lemma args (which may be params) and concrete args in the expr to be rewritten. If an arg is a param, adds to the returned substitution, otherwise checks if they are equal. Returns None if unification fails and the lemma shouldn't be applied, otherwise returns bindings. *)
 let unify_lem_lhs_args params la a =
+  debug ~at:4 ~title:"unify_lem_lhs_args" "%s\n%s\n%s"
+    (string_of_list Fun.id params)
+    (string_of_list string_of_term la)
+    (string_of_list string_of_term a);
   let exception Unification_failure in
   try
     Some
-      (List.fold_left
+      (List.map2 pair la a |> List.fold_left
          (fun t (la, a) ->
            let is_param =
              match la with Var v when List.mem v params -> true | _ -> false
@@ -35,13 +39,21 @@ let unify_lem_lhs_args params la a =
            | false, _ when la = a -> t
            | false, _ -> raise_notrace Unification_failure
            | _, _ -> failwith "invalid state")
-         []
-         (List.map2 pair la a))
+         [])
   with Unification_failure -> None
 
 (** goes down the given spec trying to match the lemma's left side, and rewriting on match. may fail *)
 let apply_lemma : lemma -> spec -> spec option =
  fun lem sp ->
+  let@ _ =
+    Debug.span (fun r ->
+        debug ~at:3
+          ~title:"apply_lemma"
+          "lemma: %s\nspec: %s\nres: %s"
+          (string_of_lemma lem)
+          (string_of_spec sp)
+          (string_of_result (string_of_option string_of_spec) r))
+  in
   let lem = rename_exists_lemma lem in
   let rec loop ok acc sp =
     match sp with
@@ -267,11 +279,20 @@ let rec check_qf :
 
 let instantiate_pred : pred_def -> term list -> term -> pred_def =
  fun pred args ret ->
+  let@ _ =
+    Debug.span (fun r ->
+        debug ~at:4
+          ~title:"instantiate_pred"
+          "%s\n%s\n%s\n==> %s" (string_of_pred pred)
+          (string_of_list string_of_term args)
+          (string_of_term ret)
+          (string_of_result string_of_pred r))
+  in
   (* the predicate should have one more arg than arguments given for the return value, which we'll substitute with the return term from the caller *)
   (* Format.printf "right before instantiate %s@." (string_of_pred pred); *)
   let pred = rename_exists_pred pred in
   (* Format.printf "rename exists %s@." (string_of_pred pred); *)
-  let params, ret_param = split_last pred.p_params in
+  let params, ret_param = unsnoc pred.p_params in
   let bs = (ret_param, ret) :: bindFormalNActual (*List.map2 (fun a b -> (a, b)) *) params args in
   let p_body =
     let bbody =

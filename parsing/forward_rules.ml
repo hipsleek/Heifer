@@ -743,7 +743,7 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
       phi1 |> concat_map_state env (fun spec env -> 
           (* the return value is context-sensitive and depends on what in the history came before *)
           let ret =
-            match split_last spec with
+            match unsnoc spec with
             | _, RaisingEff (_pre, _post, _constr, Var ret) -> ret
             | _, HigherOrder (_pre, _post, _constr, Var ret) -> ret
             | _, RaisingEff (_, _, _, ret) | _, HigherOrder (_, _, _, ret) -> failwith (Format.asprintf "ret not a variable: %s" (string_of_term ret))

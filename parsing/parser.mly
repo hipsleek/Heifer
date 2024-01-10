@@ -2698,14 +2698,14 @@ stagedSpec1 :
       NormalReturn (And (res_eq r, p), h)
     | "Norm", (p, h, _) -> failwith "norm cannot have more than 2 args"
     | _, (p, h, a) ->
-      let init, last = split_last a in
+      let init, last = unsnoc a in
       RaisingEff (p, h, (constr, init), last)
   }
   | constr=LIDENT args=delimited(LPAREN, separated_nonempty_list(COMMA, effect_trace_value), RPAREN)
   {
     (* INFIXOP0 *)
     (* we don't check if the infix op is a dollar *)
-    let init, last = split_last args in
+    let init, last = unsnoc args in
     HigherOrder (True, EmptyHeap, (constr, init), last)
   }
 

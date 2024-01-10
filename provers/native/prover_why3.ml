@@ -850,7 +850,9 @@ let prove tenv qtf f =
     let imports =
       let extra =
         Globals.global_environment.pure_fn_types |> SMap.bindings
-        |> List.map (fun (_, p) -> use ~import:false p.pft_logic_path)
+        |> List.map (fun (_, p) -> p.pft_logic_path)
+        |> List.sort_uniq compare
+        |> List.map (use ~import:false)
       in
       [
         use ~import:false ["int"; "Int"];
@@ -862,17 +864,20 @@ let prove tenv qtf f =
     (ident "M", List.concat [imports; [Dlogic fns]; parameters; statement])
   in
   let mlw_file = Modules [vc_mod] in
-  (* Format.printf "mlw file\n%a@." (Mlw_printer.pp_mlw_file ~attr:true) mlw_file; *)
+  Debug.debug ~at:4 ~title:"mlw file" "%a"
+    (Mlw_printer.pp_mlw_file ~attr:true)
+    mlw_file;
   let mods =
     try Typing.type_mlw_file why3_env [] "myfile.mlw" mlw_file
     with Loc.Located (loc, e) ->
       (* A located exception [e] *)
       (if Debug.in_debug_mode () then
-         let msg = Format.asprintf "%a" Exn_printer.exn_printer e in
-         Format.printf "%a@."
-           (Mlw_printer.with_marker ~msg loc
-              (Mlw_printer.pp_mlw_file ~attr:true))
-           mlw_file);
+         Debug.debug ~at:4 ~title:"failed due to type error" "%a"
+           Why3.Pretty.print_loc_as_attribute loc;
+       let msg = Format.asprintf "%a" Exn_printer.exn_printer e in
+       Format.printf "%a@."
+         (Mlw_printer.with_marker ~msg loc (Mlw_printer.pp_mlw_file ~attr:true))
+         mlw_file);
       failwith "failed due to type error"
   in
   (* there will be only one module *)

@@ -662,8 +662,8 @@ let bindNewNames (formal: string list) (actual: string list) : ((string * string
     print_endline ("actual: " ^ (List.map (fun a-> a) actual |> String.concat ", "));
     failwith ("bindNewNames length not equle")
   
-let function_stage_to_disj_spec ins =
+let function_stage_to_disj_spec constr args ret =
   (* TODO for some reason this version isn't handled by normalization *)
   (* [[HigherOrder (True, EmptyHeap, l.l_left, res_v)]] *)
   let v = verifier_getAfreeVar "v" in
-  [[Exists [v]; HigherOrder (True, EmptyHeap, ins, Var v); NormalReturn (Atomic (EQ, res_v, Var v), EmptyHeap)]]
+  [[Exists [v]; HigherOrder (True, EmptyHeap, (constr, args), ret); NormalReturn (Atomic (EQ, res_v, Var v), EmptyHeap)]]
