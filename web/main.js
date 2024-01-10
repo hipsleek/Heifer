@@ -22,7 +22,7 @@ init().then((a) => {
 // function le(ctx, a, b) { return ctx.Implies(a, b); }
 
 function solve(f, k) {
-  console.log('solve arg', arg);
+  // console.log('solve arg', arg);
   const { Context } = z3;
   // console.log(Context);
 
