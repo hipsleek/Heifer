@@ -27,7 +27,7 @@ let why3_env : Env.env =
          [
            [Sys.getcwd ()];
            Option.to_list (find_dune_project (Sys.getcwd ()));
-           (try [Filename.dirname Sys.argv.(0)] with _ -> []);
+           (try [Filename.dirname Sys.argv.(1)] with _ -> []);
          ])
   in
   let load_path =
