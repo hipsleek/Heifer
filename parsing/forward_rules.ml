@@ -46,7 +46,8 @@ let constrain_final_res (sp:disj_spec) (v:term) : disj_spec =
       | HigherOrder (p, k, (c, va), r) ->
         HigherOrder (And (p, Atomic (EQ, r, v)), k, (c, va), r)
       | RaisingEff (p, k, (c, va), r) ->
-        RaisingEff (And (p, Atomic (EQ, r, v)), k, (c, va), r)))
+        RaisingEff (And (p, Atomic (EQ, r, v)), k, (c, va), r)
+      | TryCatch _ -> failwith "unimplemented"))
 
 (** Environment used for forward verification *)
 type fvenv = {
@@ -73,19 +74,21 @@ let create_fv_env fv_methods fv_predicates = {
 }
 
 let retrieveSpecFromEnv (fname: string) (env:fvenv) : (string list * spec list) option = 
+  (* Format.printf "ENV %s@." (string_of_smap string_of_meth_def env.fv_methods); *)
   match 
-  SMap.find_opt fname env.fv_methods
-  |> Option.map (fun m -> 
-  (match m.m_spec with 
-  | None -> ()
-  | Some _ -> () (*print_endline ("retrieveSpecFromEnv: " ^ string_of_disj_spec spec)*)
-  );
-  (m.m_params, Option.get m.m_spec))
-
+    SMap.find_opt fname env.fv_methods
+    |> Option.map (fun m -> 
+      (match m.m_spec with 
+      | None -> ()
+      | Some _sp ->
+        (* print_endline ("retrieveSpecFromEnv: " ^ string_of_disj_spec _sp); *)
+        ()
+      );
+      (m.m_params, Option.get m.m_spec))
   with 
   | Some res -> 
-    (*let (_, specs) = res in 
-    print_endline ("retrieveSpecFromEnv1: " ^ string_of_disj_spec specs);*)
+    (* let (_, specs) = res in 
+    print_endline ("retrieveSpecFromEnv1: " ^ string_of_disj_spec specs); *)
     Some res
   | None -> 
 
@@ -95,7 +98,7 @@ let retrieveSpecFromEnv (fname: string) (env:fvenv) : (string list * spec list) 
 let rec specContainUndefinedHO (spec:spec) (env:fvenv) : bool = 
   match spec with 
   | [] -> false 
-  | HigherOrder (p, k, (c, va), r):: xs -> 
+  | HigherOrder (_p, _k, (c, _va), _r):: xs -> 
     (match retrieveSpecFromEnv c env with 
     | None -> true 
     | _ -> specContainUndefinedHO xs env  
@@ -205,6 +208,44 @@ let foldl1 f xs =
 
 let primitives = ["+"; "-"; "="; "not"; "::"; "&&"; "||"; ">"; "<"; ">="; "<="]
 
+let call_primitive env history fname actualArgs =
+  match fname, actualArgs with
+  | "+", [x1; x2] ->
+    let event = NormalReturn (res_eq (Plus(x1, x2)), EmptyHeap) in
+    concatenateSpecsWithEvent history [event], env
+  | "-", [x1; x2] ->
+    let event = NormalReturn (res_eq (Minus(x1, x2)), EmptyHeap) in
+    concatenateSpecsWithEvent history [event], env
+  | "=", [x1; x2] ->
+    (* let event = NormalReturn (Atomic (EQ, x1, x2), EmptyHeap, Eq (x1, x2)) in *)
+    let event = NormalReturn (res_eq (Rel (EQ, x1, x2)), EmptyHeap) in
+    concatenateSpecsWithEvent history [event], env
+  | "not", [x1] ->
+    let event = NormalReturn (res_eq (TNot (x1)), EmptyHeap) in
+    concatenateSpecsWithEvent history [event], env
+  | "&&", [x1; x2] ->
+    let event = NormalReturn (res_eq (TAnd (x1, x2)), EmptyHeap) in
+    concatenateSpecsWithEvent history [event], env
+  | "||", [x1; x2] ->
+    let event = NormalReturn (res_eq (TOr (x1, x2)), EmptyHeap) in
+    concatenateSpecsWithEvent history [event], env
+  | ">", [x1; x2] ->
+    let event = NormalReturn (res_eq (Rel (GT, x1, x2)), EmptyHeap) in
+    concatenateSpecsWithEvent history [event], env
+  | "<", [x1; x2] ->
+    let event = NormalReturn (res_eq (Rel (LT, x1, x2)), EmptyHeap) in
+    concatenateSpecsWithEvent history [event], env
+  | ">=", [x1; x2] ->
+    let event = NormalReturn (res_eq (Rel (GTEQ, x1, x2)), EmptyHeap) in
+    concatenateSpecsWithEvent history [event], env
+  | "<=", [x1; x2] ->
+    let event = NormalReturn (res_eq (Rel (LTEQ, x1, x2)), EmptyHeap) in
+    concatenateSpecsWithEvent history [event], env
+  | "::", [x1; x2] ->
+    let event = NormalReturn (res_eq (TCons (x1, x2)), EmptyHeap) in
+    concatenateSpecsWithEvent history [event], env
+  | _ -> failwith (Format.asprintf "unknown primitive: %s, args: %s" fname (string_of_list string_of_term actualArgs))
+
 (* Given the specs of the scrutinee, symbolically execute it against the handler's spec to produce a single flow, e.g.
 
     match A(a,r); ens res=c with
@@ -307,7 +348,7 @@ let rec handling_spec_inner env (scr_spec:normalisedStagedSpec) (h_norm:(string 
 
   match scr_eff_stages with 
   | [] -> [normalStage2Spec scr_normal] , env
-  | (TryCatchStage x) :: xs -> 
+  | (TryCatchStage x) :: _xs -> 
     let trycatch_ret =
       match x.tc_ret with 
       | Var ret -> ret
@@ -320,7 +361,7 @@ let rec handling_spec_inner env (scr_spec:normalisedStagedSpec) (h_norm:(string 
     let trycatch_Pre = x.tc_pre in 
     let trycatch_Post = x.tc_post in 
 
-    let norm = (trycatch_Ex, trycatch_Pre, trycatch_Post) in 
+    let _norm = (trycatch_Ex, trycatch_Pre, trycatch_Post) in 
     let (src, (normlCase, effCases)) = x.tc_constr in 
     print_endline ("\n...........\nbefore try catch \n" ^ string_of_spec src ^ "\n");
     print_endline ("continuation_spec: " ^ string_of_spec conti); 
@@ -652,7 +693,7 @@ let ifAsyncYiled env  =
   | None  -> false 
   | Some _ -> true  
 
-let recursivelyInstantiateFunctionCalls instantiatedSpec env = 
+let recursivelyInstantiateFunctionCalls env instantiatedSpec = 
 
   let rec helper acc li : spec list = 
     match li with 
@@ -660,7 +701,7 @@ let recursivelyInstantiateFunctionCalls instantiatedSpec env =
     | x :: xs  -> 
       (match x with 
       | Require _ | Exists _  | NormalReturn _ | RaisingEff _ | TryCatch _ -> helper (acc@[x]) xs 
-      | HigherOrder (pi, kappa, (fname, actualArgs), ret)  -> 
+      | HigherOrder (pi, kappa, (fname, actualArgs), _ret)  -> 
         if String.compare fname "helper" == 0 then  (* check if it is recursive *)
         (match retrieveSpecFromEnv fname env with 
         | None -> helper (acc@[x]) xs 
@@ -757,78 +798,64 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
         concatenateSpecsWithEvent history [Exists [f]; HigherOrder (True, EmptyHeap, ("continue", tList), Var f)]
       in
       res, env
+    | CFunCall (fname, actualArgs) when List.mem fname primitives -> 
+      call_primitive env history fname actualArgs
     | CFunCall (fname, actualArgs) -> 
-      (match List.mem fname primitives with
-      | true ->
-        (match fname, actualArgs with
-        | "+", [x1; x2] ->
-          let event = NormalReturn (res_eq (Plus(x1, x2)), EmptyHeap) in
-          concatenateSpecsWithEvent history [event], env
-        | "-", [x1; x2] ->
-          let event = NormalReturn (res_eq (Minus(x1, x2)), EmptyHeap) in
-          concatenateSpecsWithEvent history [event], env
-        | "=", [x1; x2] ->
-          (* let event = NormalReturn (Atomic (EQ, x1, x2), EmptyHeap, Eq (x1, x2)) in *)
-          let event = NormalReturn (res_eq (Rel (EQ, x1, x2)), EmptyHeap) in
-          concatenateSpecsWithEvent history [event], env
-        | "not", [x1] ->
-          let event = NormalReturn (res_eq (TNot (x1)), EmptyHeap) in
-          concatenateSpecsWithEvent history [event], env
-        | "&&", [x1; x2] ->
-          let event = NormalReturn (res_eq (TAnd (x1, x2)), EmptyHeap) in
-          concatenateSpecsWithEvent history [event], env
-        | "||", [x1; x2] ->
-          let event = NormalReturn (res_eq (TOr (x1, x2)), EmptyHeap) in
-          concatenateSpecsWithEvent history [event], env
-        | ">", [x1; x2] ->
-          let event = NormalReturn (res_eq (Rel (GT, x1, x2)), EmptyHeap) in
-          concatenateSpecsWithEvent history [event], env
-        | "<", [x1; x2] ->
-          let event = NormalReturn (res_eq (Rel (LT, x1, x2)), EmptyHeap) in
-          concatenateSpecsWithEvent history [event], env
-        | ">=", [x1; x2] ->
-          let event = NormalReturn (res_eq (Rel (GTEQ, x1, x2)), EmptyHeap) in
-          concatenateSpecsWithEvent history [event], env
-        | "<=", [x1; x2] ->
-          let event = NormalReturn (res_eq (Rel (LTEQ, x1, x2)), EmptyHeap) in
-          concatenateSpecsWithEvent history [event], env
-        | "::", [x1; x2] ->
-          let event = NormalReturn (res_eq (TApp ("cons", [x1; x2])), EmptyHeap) in
-          concatenateSpecsWithEvent history [event], env
-        | _ -> failwith (Format.asprintf "unknown primitive: %s, args: %s" fname (string_of_list string_of_term actualArgs)))
-      | false ->
-        let spec_of_fname =
-          (match retrieveSpecFromEnv fname env with 
-          | None ->
-            let ret = verifier_getAfreeVar "ret" in
-            [[Exists [ret]; HigherOrder (True, EmptyHeap, (fname, actualArgs), Var ret)]]
-          | Some (formalArgs, spec_of_fname) -> 
-            (* TODO should we keep existentials? *)
-            (* print_endline ("Function call: " ^ string_of_disj_spec spec_of_fname); *)
-            let spec = renamingexistientalVar spec_of_fname in
-            (* let spec = freshen spec_of_fname in *)
-            (* Format.printf "after freshen: %s@." (string_of_disj_spec spec); *)
-            (*if List.compare_lengths formalArgs actualArgs <> 0 then
-              failwith (Format.asprintf "too few args. formals: %s, actual: %s@." (string_of_list Fun.id formalArgs) (string_of_list string_of_term actualArgs));
-            *)
-              let bindings = bindFormalNActual (formalArgs) (actualArgs) in 
-            let instantiatedSpec = instantiateSpecList bindings spec in 
-
-            (* print_endline ("FunCallinstantiatedSpec:\n"^ string_of_spec_list instantiatedSpec); *)
-
-            let instantiatedSpec = recursivelyInstantiateFunctionCalls instantiatedSpec env in 
-
-            (* print_endline ("FunCallinstantiatedSpecFinal:\n"^ string_of_spec_list instantiatedSpec); *)
-
-            instantiatedSpec)
-
-        in
-        let _spec_of_fname =
-          (* this is an alternative implementation for this whole case, which simply generates an uninterpreted function and lets the entailment procedure take care of unfolding (since the implementation above can be seen as unfolding once). unfortunately the handler reasoning in the effects work relies on unfolding in the forward reasoning, so we can't switch to it yet, but this implementation should work for higher-order *)
+      let fn_spec : disj_spec =
+        match retrieveSpecFromEnv fname env with 
+        | None ->
+          (* no known spec, produce a stage *)
           let ret = verifier_getAfreeVar "ret" in
-          [[Exists [ret]; HigherOrder (True, EmptyHeap, (fname, actualArgs), Var ret); NormalReturn (res_eq (Var ret), EmptyHeap)]]
-        in
-        concatenateSpecsWithSpec history spec_of_fname, env)
+          [[Exists [ret]; HigherOrder (True, EmptyHeap, (fname, actualArgs), Var ret)]]
+        | Some (spec_params, known_spec) ->
+          let@ _ =
+            Debug.span (fun r ->
+                debug ~at:3
+                  ~title:(Format.asprintf "function %s has known spec" fname)
+                  "forall %s\n%s\n==>\n%s" (String.concat " " spec_params) (string_of_disj_spec known_spec)
+                  (string_of_result string_of_disj_spec r))
+          in
+
+          let trf s f x =
+            let r = f x in
+            debug ~at:3
+              ~title:s
+              "%s\n==>\n%s" (string_of_disj_spec x)
+              (string_of_disj_spec r);
+            r
+          in
+
+          (* if any args are HO and have specs, substitute them as well *)
+          let arg_specs =
+            List.filter_map (fun arg ->
+              match arg with
+              | Var a ->
+                (match retrieveSpecFromEnv a env with
+                | None -> None
+                | Some (params, sp) ->
+                  let res = verifier_getAfreeVar "res" in
+                  let params = params @ [res] in
+                  Some (a, TLambda (verifier_getAfreeVar "lambda", params, sp |> renamingexistientalVar |> instantiateSpecList ["res", Var res])))
+              | _ -> None) actualArgs
+          in
+
+          let spec = known_spec |> trf "existentials" renamingexistientalVar in
+          
+          let instantiatedSpec =
+            spec |> trf "actuals" (instantiateSpecList (bindFormalNActual spec_params actualArgs))
+              |> trf "ho args" (instantiateSpecList arg_specs)
+          in 
+
+          let instantiatedSpec = instantiatedSpec |> trf "function stages" (recursivelyInstantiateFunctionCalls env) in 
+
+          instantiatedSpec
+      in
+      let _fn_spec =
+        (* this is an alternative implementation for this whole case, which simply generates an uninterpreted function and lets the entailment procedure take care of unfolding (since the implementation above can be seen as unfolding once). unfortunately the handler reasoning in the effects work relies on unfolding in the forward reasoning, so we can't switch to it yet, but this implementation should work for higher-order *)
+        let ret = verifier_getAfreeVar "ret" in
+        [[Exists [ret]; HigherOrder (True, EmptyHeap, (fname, actualArgs), Var ret); NormalReturn (res_eq (Var ret), EmptyHeap)]]
+      in
+      concatenateSpecsWithSpec history fn_spec, env
     | CWrite  (str, v) -> 
       let freshVar = verifier_getAfreeVar "wr" in 
       let event = [Exists [freshVar];Require(True, PointsTo(str, Var freshVar)); 
@@ -964,18 +991,26 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
           match constr, vars with
           | "[]", [] ->
             let nil_case =
-              let c = conj [Atomic (EQ, TApp ("is_nil", [ret]), TTrue)] in
-              [NormalReturn (c, EmptyHeap)]
+              (* let c = conj [Atomic (EQ, TApp ("is_nil", [ret]), TTrue)] in *)
+              (* [NormalReturn (c, EmptyHeap)] *)
+              (* [] *)
+              [NormalReturn (Atomic (EQ, ret, Nil), EmptyHeap)]
             in 
             infer_of_expression env (concatenateSpecsWithEvent history nil_case) body
           | "::", [v1; v2] ->
             let cons_case =
               let c = conj [
-                Atomic (EQ, TApp ("is_cons", [ret]), TTrue);
+                (* Atomic (EQ, TApp ("is_cons", [ret]), TTrue);
                 Atomic (EQ, TApp ("head", [ret]), Var v1);
-                Atomic (EQ, TApp ("tail", [ret]), Var v2);
-              ] in
+                Atomic (EQ, TApp ("tail", [ret]), Var v2); *)
+                Atomic (EQ, ret, TCons (Var v1, Var v2))
+                (* IsDatatype (ret, "list", "cons", [Var v1; Var v2]) *)
+              ]
+              (* [] *)
+            in
               [Exists [v1; v2]; NormalReturn (c, EmptyHeap)]
+              (* [Exists [v1; v2]; NormalReturn (, EmptyHeap)] *)
+              (* [] *)
             in
             infer_of_expression env (concatenateSpecsWithEvent history cons_case) body
           | _ -> failwith (Format.asprintf "unknown constructor: %s" constr)))

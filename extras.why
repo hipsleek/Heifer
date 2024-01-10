@@ -1,0 +1,13 @@
+
+theory Extras
+
+  val function eqi (x y:int) : bool
+    ensures { result <-> x = y }
+
+  predicate eqb (x y:bool) =
+    match x with
+    | True -> match y with | True -> True | False -> False end
+    | False -> match y with | True -> False | False -> True end
+    end
+
+end

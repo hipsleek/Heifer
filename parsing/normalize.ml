@@ -33,6 +33,7 @@ let rec simplify_term t : term  =
   | TAnd (a, b) -> TAnd (simplify_term a, simplify_term b)
   | TOr (a, b) -> TOr (simplify_term a, simplify_term b)
   | TPower(a, b) -> TPower (simplify_term a, simplify_term b)
+  | TCons(a, b) -> TCons (simplify_term a, simplify_term b)
 
 let rec simplify_heap h : kappa =
   let once h =
@@ -58,7 +59,7 @@ let simplify_pure (p : pi) : pi =
     | (Atomic (EQ, t1, Plus(Num n1, Num n2))) -> (Atomic (EQ, t1, Num (n1+n2)), true)
 
     | Atomic (EQ, a, b) when a = b -> (True, true)
-    | True | False | Atomic _ | Predicate _ -> (p, false)
+    | True | False | Atomic _ | Predicate _ | Subsumption _ -> (p, false)
     | And (True, a) | And (a, True) -> (a, true)
     | And (a, b) ->
       let a1, c1 = once a in
@@ -131,6 +132,7 @@ let rec pure_to_equalities pi =
   | Atomic (_, _, _)
   | True | False
   | Predicate (_, _)
+  | Subsumption (_, _)
   | Or (_, _)
   | Imply (_, _)
   | Not _ ->
@@ -168,6 +170,18 @@ let rec kappa_of_list li =
 (* flag false => add to postcondition *)
 let rec deleteFromHeapListIfHas li (x, t1) existential flag assumptions :
     (string * term) list * pi =
+  let@ _ =
+    Debug.span (fun r ->
+        debug ~at:6
+          ~title:"deleteFromHeapListIfHas"
+          "(%s, %s) -* %s = %s\nex %s\nflag %b\nassumptions %s" 
+          x (string_of_term t1)
+          (string_of_list (string_of_pair Fun.id string_of_term) li)
+          (string_of_result (string_of_pair (string_of_list (string_of_pair Fun.id string_of_term)) string_of_pi) r)
+          (string_of_list Fun.id existential)
+          flag
+          (string_of_pi assumptions))
+  in
   let res =
     match li with
     | [] -> ([], True)
@@ -249,6 +263,19 @@ let rec deleteFromHeapListIfHas li (x, t1) existential flag assumptions :
 (* flag true => ens h1; req h2 *)
 (* flag false => req h2; ens h1 *)
 let normaliseMagicWand h1 h2 existential flag assumptions : kappa * pi =
+  let@ _ =
+    Debug.span (fun r ->
+        debug ~at:6
+          ~title:"normaliseMagicWand"
+          "%s * ?%s |- %s * ?%s\nex %s\nflag %b\nassumptions %s" 
+          (string_of_kappa h1)
+          (string_of_result string_of_kappa (Option.map fst r))
+          (string_of_kappa h2)
+          (string_of_result string_of_pi (Option.map snd r))
+          (string_of_list Fun.id existential)
+          flag
+          (string_of_pi assumptions))
+  in
   let listOfHeap1 = list_of_heap h1 in
   let listOfHeap2 = list_of_heap h2 in
   let rec helper (acc : (string * term) list * pi) li =
@@ -264,7 +291,55 @@ let normaliseMagicWand h1 h2 existential flag assumptions : kappa * pi =
   let temp, unification = helper (listOfHeap2, True) listOfHeap1 in
   (simplify_heap (kappa_of_list temp), unification)
 
-let normalise_stagedSpec (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
+let pure_abduction left right =
+  let@ _ =
+    Debug.span (fun r ->
+        debug ~at:5
+          ~title:"pure_abduction"
+          "%s /\\ ? |- %s\nabduced: %s\nnew left: %s\nnew right: %s" (string_of_pi left)
+          (string_of_pi right)
+          (string_of_result string_of_pi (Option.map (fun (a, _, _) -> a) r))
+          (string_of_result string_of_pi (Option.map (fun (_, a, _) -> a) r))
+          (string_of_result string_of_pi (Option.map (fun (_, _, a) -> a) r)))
+  in
+  (* woefully incomplete *)
+  (* https://www.cs.utexas.edu/~isil/fmcad-tutorial.pdf *)
+  (*
+    A /\ a=b |- a <: c /\ F
+    A: b <: c
+    F: true
+    ens a=b; req a<:c
+    req b<:c; ens true
+  *)
+  let eqs = find_equalities#visit_pi () left in
+  let subs = find_subsumptions#visit_pi () right in
+  let asmp =
+    subs |> List.concat_map (fun (a, f) ->
+      eqs |> List.concat_map (fun (b, c) ->
+          (if b = a then [Subsumption (c, f), (b, c), (a, f)] else []) @
+          (if c = a then [Subsumption (b, f), (b, c), (a, f)] else [])
+        ))
+  in
+  let abduced = List.map (fun (a, _, _) -> a) asmp |> conj in
+  let left1 =
+    let used = List.map (fun (_, b, _) -> b) asmp in
+    (remove_equalities used)#visit_pi () left
+  in
+  let right1 =
+    let used = List.map (fun (_, _, c) -> c) asmp in
+    (remove_subsumptions used)#visit_pi () right
+  in
+  (* more general case? *)
+  (*
+    A /\ a=1 |- a=2 /\ F
+    A: 1=2
+    F: true
+    ens a=1; req a=2
+    req 1=2; ens true
+  *)
+  abduced, left1, right1
+
+let normalize_step (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
     : normalisedStagedSpec =
 
   (*print_endline ("\nacc = " ^ string_of_normalisedStagedSpec acc);*)
@@ -285,14 +360,16 @@ let normalise_stagedSpec (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
         (* (pure_to_equalities p2) *)
       in
 
+      let p4, p2, p3 = pure_abduction p2 p3 in
+
       debug ~at:5 ~title:"biabduction" "%s * %s |- %s * %s"
         (string_of_state (unification, magicWandHeap))
-        (string_of_state ens)
+        (string_of_state (p2, h2))
         (string_of_state (p3, h3))
         (string_of_state (unification1, h2'));
 
       let normalStage' =
-        let pre = mergeState req (And (p3, unification), magicWandHeap) in
+        let pre = mergeState req (conj [p4; p3; unification], magicWandHeap) in
         let post = (simplify_pure (And (p2, unification1)), h2') in
         (existential, pre, post)
       in
@@ -372,7 +449,7 @@ let normalise_stagedSpec (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
         freshNormStageRet ret' )
 
   in
-  debug ~at:4 ~title:"normalize step" "%s\n+\n%s\n==>\n%s"
+  debug ~at:4 ~title:"normalize_step" "%s\n+\n%s\n==>\n%s"
     (string_of_normalisedStagedSpec acc)
     (string_of_staged_spec stagedSpec)
     (string_of_normalisedStagedSpec res);
@@ -383,12 +460,12 @@ let normalise_stagedSpec (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
 
 let (*rec*) normalise_spec_ (acc : normalisedStagedSpec) (spec : spec) :
     normalisedStagedSpec =
-  List.fold_left normalise_stagedSpec acc spec
+  List.fold_left normalize_step acc spec
 (* match spec with
      | [] -> acc
      | x :: xs ->
        (*let time_1 = Sys.time() in*)
-       let acc' = normalise_stagedSpec acc x in
+       let acc' = normalize_step acc x in
        (*let time_2 = Sys.time() in
        let during = time_2 -. time_1 in
        (
@@ -408,10 +485,12 @@ let rec collect_lambdas_term (t : term) =
   | TNot a -> collect_lambdas_term a
   | TApp (_, args) -> SSet.concat (List.map collect_lambdas_term args)
   | TLambda (l, _params, _sp) -> SSet.singleton l
+  | TCons _ -> failwith "unimplemented"
 
 let rec collect_lambdas_pi (p : pi) =
   match p with
   | True | False -> SSet.empty
+  | Subsumption (a, b)
   | Atomic (_, a, b) ->
     SSet.union (collect_lambdas_term a) (collect_lambdas_term b)
   | And (a, b) | Or (a, b) | Imply (a, b) ->
@@ -526,21 +605,22 @@ let optimize_existentials : normalisedStagedSpec -> normalisedStagedSpec =
   in
   (es1, norm1)
 
-let rec remove_subexpr_pi included p =
-  match p with
-  | True | False -> p
-  | Atomic (_, Var a, _) when SSet.mem a included -> True
-  | Atomic (_, _, Var a) when SSet.mem a included -> True
-  | Atomic (_, _, _) -> p
-  | And (a, b) ->
-    And (remove_subexpr_pi included a, remove_subexpr_pi included b)
-  | Or (a, b) -> Or (remove_subexpr_pi included a, remove_subexpr_pi included b)
-  | Imply (a, b) ->
-    Imply (remove_subexpr_pi included a, remove_subexpr_pi included b)
-  | Not a -> Not (remove_subexpr_pi included a)
-  | Predicate (_, _) -> p (*failwith (Format.asprintf "NYI: predicate remove_subexpr_pi") *)
+let remove_conjunct_with_variable_rel included =
+  object
+    inherit [_] map_normalised
+    method! visit_Atomic _ op a b =
+      match a, b with
+      | Var v, _ when SSet.mem v included -> True
+      | _, Var v when SSet.mem v included -> True
+      | _ ->
+        Atomic (op, a, b)
+  end
 
-let remove_subexpr_state included (p, h) = (remove_subexpr_pi included p, h)
+let remove_existentials vs =
+  object
+    inherit [_] map_normalised
+    method! visit_Exists _ xs = Exists (List.filter (fun x -> not (SSet.mem x vs)) xs)
+  end
 
 (** remove existentials which don't contribute to the result, e.g.
   ex v1 v2. ens v1=v2; ens res=2
@@ -582,6 +662,8 @@ let remove_noncontributing_existentials :
     | TLambda (_, _, body) -> collect_related_vars_disj_spec body
     | TList _ -> failwith (Format.asprintf "NYI list")
     | TTupple _ -> failwith (Format.asprintf "NYI tuple")
+    | TCons _ -> failwith (Format.asprintf "NYI tcons")
+
   (*
     collect(a=b) = [{a, b}]
     collect(a=b /\ c<b) = [{a, b,}, {c, b}] = [{a, b, c}]
@@ -590,6 +672,7 @@ let remove_noncontributing_existentials :
   and collect_related_vars_pi p =
     match p with
     | True | False -> []
+    | Subsumption (a, b)
     | Atomic (_, a, b) ->
       let a1 = collect_related_vars_term a in
       let b1 = collect_related_vars_term b in
@@ -624,12 +707,13 @@ let remove_noncontributing_existentials :
     | Exists _ -> []
     | HigherOrder (p, h, _constr, _ret) | RaisingEff (p, h, _constr, _ret) ->
       collect_related_vars_state (p, h)
+    | TryCatch _ -> failwith "unimplemented"
   and collect_related_vars_spec s =
     SSet.concat (List.concat_map collect_related_vars_stage s)
   and collect_related_vars_disj_spec ss =
     SSet.concat (List.map collect_related_vars_spec ss)
   in
-  let handle fns ex pre post =
+  let _handle fns ex pre post =
     let classes =
       merge_classes
         (collect_related_vars_state pre)
@@ -662,8 +746,8 @@ let remove_noncontributing_existentials :
     in
     (* Format.printf "do_not_contribute: %s@." (string_of_sset do_not_contribute); *)
     let ex1 = List.filter (fun e -> not (SSet.mem e do_not_contribute)) ex in
-    let pre1 = remove_subexpr_state do_not_contribute pre in
-    let post1 = remove_subexpr_state do_not_contribute post in
+    let pre1 = (remove_conjunct_with_variable_rel do_not_contribute)#visit_state () pre in
+    let post1 = (remove_conjunct_with_variable_rel do_not_contribute)#visit_state () post in
     (ex1, pre1, post1)
   in
   fun (ess, norm) ->(ess, norm) (* ASK Darius*)
@@ -811,56 +895,9 @@ let final_simplification (effs, norm) =
   let ex, pre, post = norm in
   (effs1, (ex, simplify_state pre, simplify_state post))
 
-(* for each variable, find how many times it is used and what other terms it is equal to *)
-(* TODO generalise to related to *)
-let count_uses_and_equalities =
-  let add _k a b =
-    match (a, b) with
-    | None, None -> None
-    | Some a, None | None, Some a -> Some a
-    | Some (a1, a2), Some (b1, b2) -> Some (a1 + b1, a2 @ b2)
-  in
-  let zero = SMap.empty in
-  let plus = SMap.merge add in
-  let vis =
-    object (self)
-      inherit [_] reduce_normalised as super
-      method zero = zero
-      method plus = plus
-
-      method! visit_Atomic _ op a b =
-        match op, a, b with
-        | EQ, Var a, Var b ->
-          SMap.of_seq (List.to_seq [(a, (1, [Var b])); (b, (1, [Var a]))])
-        | EQ, Var a, b | EQ, b, Var a ->
-          plus (SMap.singleton a (1, [b])) (self#visit_term () b)
-        | EQ, a, b -> plus (self#visit_term () a) (self#visit_term () b)
-        | _, a, b ->
-          plus (self#visit_term () a) (self#visit_term () b)
-
-      method! visit_Var _ v = SMap.singleton v (1, [])
-
-      method! visit_PointsTo _ (v, t) =
-        plus (SMap.singleton v (1, [])) (self#visit_term () t)
-
-      (* there can be unnormalized specs inside normalized ones *)
-      method! visit_HigherOrder _ ((_p, _h, (f, _a), _r) as fn) =
-        plus (SMap.singleton f (1, [])) (super#visit_HigherOrder () fn)
-
-      method! visit_EffHOStage _ eh =
-        match eh.e_typ with
-        | `Eff -> super#visit_EffHOStage () eh
-        | `Fn ->
-          plus (SMap.singleton (fst eh.e_constr) (1, []))
-            (super#visit_EffHOStage () eh)
-    end
-  in
-  vis
-
 (* for each existential variable, if there is only one use, remove it *)
 let remove_temp_vars : normalisedStagedSpec -> normalisedStagedSpec =
   fun (eff, norm) ->
-    let ex, pre, post = norm in
     let histo =
       count_uses_and_equalities#visit_normalisedStagedSpec () (eff, norm)
     in
@@ -887,34 +924,9 @@ let remove_temp_vars : normalisedStagedSpec -> normalisedStagedSpec =
     in
     debug ~at:5 ~title:"occurs once" "%s" (string_of_sset occurs_once);
     (* TODO removing from existentials does not handle shadowing *)
-    let eff1 =
-      List.map
-        (fun e ->
-          match e with
-          | TryCatchStage tc ->
-            TryCatchStage {
-              tc with
-              tc_evars =
-                List.filter (fun v -> not (SSet.mem v occurs_once)) tc.tc_evars;
-              tc_pre = remove_subexpr_state occurs_once tc.tc_pre;
-              tc_post = remove_subexpr_state occurs_once tc.tc_post;
-            }
-          | EffHOStage e ->
-            EffHOStage {
-              e with
-              e_evars =
-                List.filter (fun v -> not (SSet.mem v occurs_once)) e.e_evars;
-              e_pre = remove_subexpr_state occurs_once e.e_pre;
-              e_post = remove_subexpr_state occurs_once e.e_post;
-            })
-        eff
-    in
-    let norm1 =
-      ( List.filter (fun v -> not (SSet.mem v occurs_once)) ex,
-        remove_subexpr_state occurs_once pre,
-        remove_subexpr_state occurs_once post )
-    in
-    (eff1, norm1)
+    let norm1 = (remove_conjunct_with_variable_rel occurs_once)#visit_normalisedStagedSpec () (eff, norm) in
+    (* don't remove the existential binders, only their uses. it's possible some variables which occurred once could not be removed. let a subsequent phase clean up useless existential binders *)
+    norm1
 
 (* for each existential variable, if there are two uses, substitute one into the other *)
 let remove_vars_occurring_twice : normalisedStagedSpec -> normalisedStagedSpec =
@@ -988,32 +1000,33 @@ let rec simplify_spec n sp2 =
        (string_of_normalisedStagedSpec sp3); *)
   (* redundant vars may appear due to fresh stages and removal of res via intermediate variables *)
 
+  (* do this before removing unused existentials *)
   let sp4 =
     let@ _ =
       Debug.span (fun r ->
-        debug ~at:3
-            ~title:"normalize_spec: move existentials inward and remove unused"
-            "%s\n==>\n%s"
-            (string_of_normalisedStagedSpec sp3)
-            (string_of_result string_of_normalisedStagedSpec r))
+        debug ~at:4 ~title:"normalize_spec: remove temp vars" "%s\n==>\n%s"
+          (string_of_normalisedStagedSpec sp3)
+          (string_of_result string_of_normalisedStagedSpec r))
     in
-    optimize_existentials sp3
+    remove_temp_vars sp3
   in
 
   let sp5 =
     let@ _ =
       Debug.span (fun r ->
-        debug ~at:3 ~title:"normalize_spec: remove temp vars" "%s\n==>\n%s"
-          (string_of_normalisedStagedSpec sp4)
-          (string_of_result string_of_normalisedStagedSpec r))
+        debug ~at:4
+            ~title:"normalize_spec: move existentials inward and remove unused"
+            "%s\n==>\n%s"
+            (string_of_normalisedStagedSpec sp4)
+            (string_of_result string_of_normalisedStagedSpec r))
     in
-    remove_temp_vars sp4
+    optimize_existentials sp4
   in
 
   let sp6 =
     let@ _ =
       Debug.span (fun r ->
-        debug ~at:3 ~title:"normalize_spec: remove vars occurring twice" "%s\n==>\n%s"
+        debug ~at:4 ~title:"normalize_spec: remove vars occurring twice" "%s\n==>\n%s"
           (string_of_normalisedStagedSpec sp5)
           (string_of_result string_of_normalisedStagedSpec r))
     in
@@ -1023,7 +1036,7 @@ let rec simplify_spec n sp2 =
   let sp7 =
     let@ _ =
       Debug.span (fun r ->
-        debug ~at:3 ~title:"normalize_spec: final simplification pass" "%s\n==>\n%s"
+        debug ~at:4 ~title:"normalize_spec: final simplification pass" "%s\n==>\n%s"
           (string_of_normalisedStagedSpec sp6)
           (string_of_result string_of_normalisedStagedSpec r))
     in
@@ -1181,8 +1194,8 @@ let normalise_spec_list (specLi : spec list) : spec list =
   temp 
 
 
-let normalise_spec_list_aux1 (specLi : spec list) : normalisedStagedSpec list =
-  (*print_endline ("normalise_spec_list_aux1");*)
+let normalise_disj_spec_aux1 (specLi : disj_spec) : normalisedStagedSpec list =
+  (*print_endline ("normalise_disj_spec_aux1");*)
   List.map (fun a -> normalize_spec a) (normalise_spec_list specLi)
 
 let rec deleteFromStringList str (li : string list) =

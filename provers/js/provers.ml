@@ -45,7 +45,7 @@ let rec build_term : Jv.t -> term -> Jv.t =
     Jv.apply (Jv.get ctx "Or") [| build_term ctx a; build_term ctx b |]
   | TApp _ -> failwith "?"
   | TLambda _ -> failwith "?"
-  | TPower _ | TTimes _ | TDiv _ | TList _ | TTupple _ -> failwith "not yet implemented"
+  | TCons _ | TPower _ | TTimes _ | TDiv _ | TList _ | TTupple _ -> failwith "not yet implemented"
 
 let build_op : Jv.t -> bin_op -> term -> term -> Jv.t =
  fun ctx op a b ->
@@ -74,6 +74,7 @@ let rec build_fml : pi -> Jv.t -> Jv.t =
     Jv.call (Jv.get ctx "Bool") "val" [| Jv.of_bool false |]
   | Atomic (op, a, b) -> build_op ctx op a b
   | Predicate (_, _) -> failwith "not implemented"
+  | Subsumption (_, _) -> build_fml True ctx
 
 open Effect
 open Effect.Deep

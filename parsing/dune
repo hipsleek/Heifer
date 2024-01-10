@@ -21,7 +21,7 @@
  ; (dev     (flags (:standard -w +a-4-9-40-41-42-44-45-48-67)))
 
  ; ignore warnings
- (dev (flags (:standard -warn-error -A))
+ (dev (flags (:standard -warn-error -A+8))
   (js_of_ocaml
     (flags (:standard --enable=effects))
     (build_runtime_flags (:standard --enable=effects))))
@@ -63,7 +63,7 @@
 (library
  (name hipcore)
  (libraries unionFind str)
- (modules debug subst Pretty common hiptypes)
+ (modules debug subst Pretty common hiptypes globals)
  (inline_tests)
  (preprocess (pps visitors.ppx ppx_expect ppx_deriving.std)))
 
@@ -91,7 +91,7 @@
 (executable
  (name hip)
  (modules hip)
- (libraries unix hiplib provers_z3))
+ (libraries unix hiplib provers_native))
 
 (executable
  (name hipjs)

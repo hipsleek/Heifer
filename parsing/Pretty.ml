@@ -12,21 +12,19 @@ exception Foo of string
 
 let colours : [`Html|`Ansi|`None] ref = ref `None
 
-let col ~ansi ~html ~title text =
+let col ~ansi ~html text =
   (match !colours with
-  | `None when title -> "==== "
   | `None -> ""
   | `Ansi -> ansi
   | `Html -> html) ^ text ^
   (match !colours with
-  | `None when title -> " ===="
   | `None -> ""
   | `Ansi -> "\u{001b}[0m"
   | `Html -> "</span>")
 
-let red text = col ~ansi:"\u{001b}[31m" ~html:"<span class=\"output-error\">" ~title:false text
-let green text = col ~ansi:"\u{001b}[32m" ~html:"<span class=\"output-ok\">" ~title:false text
-let yellow text = col ~ansi:"\u{001b}[33m" ~html:"<span class=\"output-emph\">" ~title:true text
+let red text = col ~ansi:"\u{001b}[31m" ~html:"<span class=\"output-error\">" text
+let green text = col ~ansi:"\u{001b}[32m" ~html:"<span class=\"output-ok\">" text
+let yellow text = col ~ansi:"\u{001b}[33m" ~html:"<span class=\"output-emph\">" text
 
 let verifier_counter: int ref = ref 0;;
 
@@ -168,6 +166,7 @@ let rec string_of_term t : string =
   | Num i -> string_of_int i
   | UNIT -> "()"
   | Nil -> "[]"
+  | TCons (a, b) -> Format.asprintf "%s::%s" (string_of_term a) (string_of_term b)
   | TTrue -> "true"
   | TFalse -> "false"
   | TNot a -> Format.asprintf "not(%s)" (string_of_term a)
@@ -183,7 +182,7 @@ let rec string_of_term t : string =
   | TDiv (t1, t2) -> "(" ^string_of_term t1 ^ "/" ^ string_of_term t2 ^ ")"
 
   | TApp (op, args) -> Format.asprintf "%s%s" op (string_of_args string_of_term args)
-  | TLambda (_name, params, sp) -> Format.asprintf "lambda(\\%s -> %s)" (String.concat " " params) (string_of_disj_spec sp)
+  | TLambda (_name, params, sp) -> Format.asprintf "(fun %s -> %s)" (String.concat " " params) (string_of_disj_spec sp)
   | TTupple nLi ->
     let rec helper li =
       match li with
@@ -212,7 +211,7 @@ and string_of_staged_spec (st:stagedSpec) : string =
       Format.asprintf "ens %s; %s(%s)" (string_of_state (pi, h)) f (String.concat ", " (List.map string_of_term args @ ([string_of_term ret]))) 
     end
   | NormalReturn (pi, heap) ->
-    Format.asprintf "Norm(%s)" (string_of_state (pi, heap))
+    Format.asprintf "ens %s" (string_of_state (pi, heap))
   | RaisingEff (pi, heap, (name, args), ret) ->
 
     Format.asprintf "%s(%s, %s, %s)" name (string_of_state (pi, heap)) (string_of_args string_of_term args) (string_of_term ret)
@@ -282,6 +281,7 @@ and string_of_pi pi : string =
   | Imply  (p1, p2) -> string_of_pi p1 ^ "=>" ^ string_of_pi p2
   | Not    p -> "not(" ^ string_of_pi p ^ ")"
   | Predicate (str, t) -> str ^ "(" ^ (string_of_args string_of_term t) ^ ")"
+  | Subsumption (a, b) -> Format.asprintf "%s <: %s" (string_of_term a) (string_of_term b)
 
 
 
@@ -501,13 +501,16 @@ let string_of_type t =
   | Lamb -> "lambda"
   | TVar v -> Format.asprintf "'%s" v
 
+let string_of_pure_fn ({ pf_name; pf_params; pf_ret_type; pf_body } : pure_fn_def) : string =
+  Format.asprintf "let %s %s : %s = %s" pf_name (String.concat " " (List.map (fun (p, t) -> Format.asprintf "(%s:%s)" p (string_of_type t)) pf_params)) (string_of_type pf_ret_type) (string_of_core_lang pf_body)
+
 let string_of_tmap pp s =
   Format.asprintf "{%s}" (String.concat ", " (List.map (fun (k, v) -> Format.asprintf "%s -> %s" (string_of_type k) (pp v)) (TMap.bindings s)))
 
 let string_of_abs_env t =
   Format.asprintf "%s, %s" (string_of_smap string_of_type t.vartypes) 
-  "<opaque>"
-(* (string_of_tmap string_of_type (TMap.map (fun t -> U.get t) !(t.equalities))) *)
+  (* "<opaque>" *)
+(string_of_tmap string_of_type (TMap.map (fun t -> U.get t) !(t.equalities)))
 
 let string_of_typ_env t =
   Format.asprintf "%s" (string_of_smap string_of_type t)
@@ -533,6 +536,12 @@ let string_of_meth_def m =
 let string_of_program (cp:core_program) :string =
   List.map string_of_meth_def cp.cp_methods |> String.concat "\n\n"
 
+let string_of_obl (d:(disj_spec * disj_spec)) :string =
+  (string_of_pair string_of_disj_spec string_of_disj_spec) d
+
+let string_of_pobl (d:(string list * (disj_spec * disj_spec))) :string =
+  string_of_pair (string_of_args Fun.id) string_of_obl d
+
 (* implements the [pi = pi_other and pi_res] split from the ho paper *)
 let rec split_res p =
   match p with
@@ -556,7 +565,8 @@ let rec split_res p =
   | Not a ->
     let l, r = split_res a in
     Not l, r
-  | Predicate (_, _) -> failwith (Format.asprintf "NYI: predicate split_res")
+  | Predicate (_, _) -> p, []
+  | Subsumption (_, _) -> p, []
 
 let split_res_fml p =
   let rest, constrs = split_res p in
@@ -605,24 +615,30 @@ let lambda_to_pred_def name t =
     failwith
       (Format.asprintf "cannot convert term to predicate: %s" (string_of_term t))
 
-let rec local_lambda_defs pi =
-  match pi with
-  | Atomic (EQ, (TLambda _ as l), Var v) | Atomic (EQ, Var v, (TLambda _ as l))
-    ->
-    [(v, lambda_to_pred_def v l)]
-  | Atomic (_, _, _) | True | False -> []
-  | And (a, b) | Or (a, b) | Imply (a, b) ->
-    local_lambda_defs a @ local_lambda_defs b
-  | Not a -> local_lambda_defs a
-  | Predicate (_, _) -> failwith "NYI: predicate"
+let local_lambda_defs =
+  object
+    inherit [_] reduce_spec
+    method zero = SMap.empty
+    method plus = SMap.merge_disjoint
+    
+    method! visit_TLambda _ _ _ _ = SMap.empty
 
-let local_lambda_defs_state (p, _h) =
-  local_lambda_defs p |> List.to_seq |> SMap.of_seq
+    method! visit_Subsumption () a b =
+      match a, b with
+      | Var v, TLambda _ ->
+        SMap.singleton v (lambda_to_pred_def v b)
+      | _ -> SMap.empty
 
+    method! visit_Atomic () op a b =
+      match op, a, b with
+      | (EQ, (TLambda _ as l), Var v) | (EQ, Var v, (TLambda _ as l)) ->
+        SMap.singleton v (lambda_to_pred_def v l)
+      | _ -> SMap.empty
+  end
 
 
 let bindFormalNActual (formal: string list) (actual: core_value list) : ((string * core_value) list)= 
-  try List.map2 (fun a b -> (a, b)) formal actual
+  try List.map2 pair formal actual
   with 
   | Invalid_argument _ -> 
     print_endline ("formal: " ^ (List.map (fun a-> a) formal |> String.concat ", "));
@@ -638,7 +654,7 @@ let bindFormalNActual (formal: string list) (actual: core_value list) : ((string
   *)
 
 let bindNewNames (formal: string list) (actual: string list) : ((string * string) list)= 
-  try List.map2 (fun a b -> (a, b)) formal actual
+  try List.map2 pair formal actual
   with 
   | Invalid_argument _ -> 
     print_endline ("formal: " ^ (List.map (fun a-> a) formal |> String.concat ", "));

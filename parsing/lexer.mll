@@ -414,6 +414,10 @@ rule token = parse
         with Not_found -> LIDENT name }
   | lowercase_latin1 identchar_latin1 * as name
       { warn_latin1 lexbuf; LIDENT name }
+  | "T"
+      { PROP_TRUE }
+  | "F"
+      { PROP_FALSE }
   | uppercase identchar * as name
       { UIDENT name } (* No capitalized keywords *)
   | uppercase_latin1 identchar_latin1 * as name
@@ -477,8 +481,10 @@ rule token = parse
       { CONJUNCTION }
   | "\\/"
       { DISJUNCTION }
-  | "=>"
-      { IMPLICATION }
+  (* | "=>"
+      { IMPLICATION } *)
+  | "==>"
+      { LONG_IMPLICATION }
   | "(*"
       { let s, loc = wrap_comment_lexer comment lexbuf in
         COMMENT (s, loc) }

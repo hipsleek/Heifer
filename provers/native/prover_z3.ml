@@ -1,6 +1,6 @@
 open Hipcore
 open Debug
-include Hiptypes
+open Hiptypes
 open Pretty
 
 (* open Types *)
@@ -11,6 +11,9 @@ let list_int_sort ctx =
   (* Z3.Z3List.mk_sort ctx (Z3.Symbol.mk_string ctx "List") int *)
   Z3.Z3List.mk_list_s ctx "List" int
 
+let unit_sort ctx =
+  let us = Z3.Symbol.mk_string ctx "unit" in
+  Z3.Tuple.mk_sort ctx us [] []
 
 let get_fun_decl ctx s =
   let list_int = list_int_sort ctx in
@@ -48,20 +51,23 @@ let rec term_to_expr env ctx t : Z3.Expr.expr =
         (* default to int *)
 
         Z3.Arithmetic.Integer.mk_const_s ctx v
-      | Int | Unit | Lamb ->
+      | Int | Lamb ->
         (* Format.printf "%s is int@." v; *)
 
 
         let res = Z3.Arithmetic.Integer.mk_const_s ctx v in 
 
         res
-    
+      | Unit ->
+        Z3.Expr.mk_const_s ctx "unit" (unit_sort ctx)
       | List_int ->
         (* Format.printf "%s is list@." v; *)
         let list_int = list_int_sort ctx in
         Z3.Expr.mk_const_s ctx v list_int
       | Bool -> Z3.Boolean.mk_const_s ctx v))
-  | UNIT -> Z3.Arithmetic.Integer.mk_const_s ctx "unit"
+  | UNIT ->
+    let mk = Z3.Tuple.get_mk_decl (unit_sort ctx) in 
+    Z3.Expr.mk_app ctx mk []
   | TLambda _ ->
     (* Format.printf "z3 %s %d@." (string_of_term t) (hash_lambda t); *)
     Z3.Arithmetic.Integer.mk_numeral_i ctx (Subst.hash_lambda t)
@@ -117,9 +123,11 @@ let rec term_to_expr env ctx t : Z3.Expr.expr =
     Z3.Boolean.mk_and ctx [term_to_expr env ctx a; term_to_expr env ctx b]
   | TOr (a, b) ->
     Z3.Boolean.mk_or ctx [term_to_expr env ctx a; term_to_expr env ctx b]
+  | TCons (a, b) ->
+    Z3.Expr.mk_app ctx (get_fun_decl ctx "cons")
+      (List.map (term_to_expr env ctx) [a; b])
   | TApp (f, a) ->
     Z3.Expr.mk_app ctx (get_fun_decl ctx f) (List.map (term_to_expr env ctx) a)
-  
   | TPower (Num 2, Var "n") -> 
       Z3.Arithmetic.Integer.mk_const_s ctx "v2N"
   | TPower (Num 2, Plus(Var "n", Num 1)) -> 
@@ -167,6 +175,8 @@ let rec pi_to_expr env ctx pi: Expr.expr =
     let t1 = term_to_expr env ctx t1 in
     let t2 = term_to_expr env ctx t2 in
     Z3.Arithmetic.mk_le ctx t1 t2
+  (* | IsCons (v, t1, t2) -> *)
+    (* failwith "" *)
   | Atomic (EQ, t1, t2) ->
     let t1 = term_to_expr env ctx t1 in
     let t2 = term_to_expr env ctx t2 in
@@ -179,6 +189,7 @@ let rec pi_to_expr env ctx pi: Expr.expr =
   | Imply (p1, p2) ->
     Z3.Boolean.mk_implies ctx (pi_to_expr env ctx p1) (pi_to_expr env ctx p2)
   | Predicate (_, _) -> failwith "pi_to_expr"
+  | Subsumption (_, _) -> pi_to_expr env ctx True
   (*
   | Atomic (op, t1, t2) -> (
       let t1 = term_to_expr ctx t1 in
@@ -279,8 +290,10 @@ let check_sat f =
   (* print both because the solver does some simplification *)
   debug ~at:4 ~title:"z3 expr" "%s\n(check-sat)" (Expr.to_string expr);
   let@ _ =
-    Debug.span (fun _ -> debug ~at:5 ~title:"z3 solver" "%s\n(check-sat)" (Solver.to_string solver);)
+    Debug.span (fun _ -> debug ~at:5 ~title:"z3 solver" "%s\n(check-sat)" (Solver.to_string solver))
   in
+  (* Format.printf "%s@." (Solver.to_string solver); *)
+  (* Format.printf "%s@." (Expr.to_string expr); *)
   let status =
     let@ _ =
       Debug.span (fun r ->
@@ -331,7 +344,7 @@ let entails_exists_inner env p1 vs p2 =
   | UNSATISFIABLE -> true
   |	UNKNOWN |	SATISFIABLE -> false
 
-let entails_exists env p1 vs p2 =
+let entails_exists1 env p1 vs p2 =
   (*
   print_endline (string_of_bool ( allDisjunctions p2)); 
   print_endline (string_of_bool ( existPurePattern p2 p1)); 
@@ -360,6 +373,18 @@ let entails_exists env p1 vs p2 =
   *)
   entails_exists_inner env p1 vs p2
 
+let entails_exists env p1 vs p2 =
+  if Debug.in_debug_mode () then
+    entails_exists1 env p1 vs p2
+  else
+    try
+      entails_exists1 env p1 vs p2
+    with e ->
+      (* the stack trace printed is not the same (and is much less helpful) if the exception is caught *)
+      Debug.debug ~at:1 ~title:"an error occurred, assuming proof failed"
+      "%s" (Printexc.to_string e);
+      (* Printexc.print_backtrace stdout; *)
+      false
 
 (* let _valid p =
   let f ctx = Z3.Boolean.mk_not ctx (pi_to_expr SMap.empty ctx p) in
@@ -385,5 +410,3 @@ let counter : int ref = ref 0 *)
     let re = check env pi in
     let () = historyTable := (hash_pi pi, re) :: !historyTable in
     re *)
-
-let handle f = f ()

@@ -36,7 +36,7 @@ let unify_lem_lhs_args params la a =
            | false, _ -> raise_notrace Unification_failure
            | _, _ -> failwith "invalid state")
          []
-         (List.map2 (fun a b -> (a, b)) la a))
+         (List.map2 pair la a))
   with Unification_failure -> None
 
 (** goes down the given spec trying to match the lemma's left side, and rewriting on match. may fail *)
@@ -49,6 +49,7 @@ let apply_lemma : lemma -> spec -> spec option =
     | (st) :: sp1 ->
       let lf, largs = lem.l_left in
       (match st with
+      | TryCatch _ -> failwith "unimplemented"
       | HigherOrder (p, h, (f, args), r)
         when (not ok) (* only apply once *) && f = lf ->
         (match unify_lem_lhs_args lem.l_params largs (args @ [r]) with
@@ -338,71 +339,79 @@ let unfold_predicate_norm :
 
 (** proof context *)
 type pctx = {
-  (* lemmas and predicats defined globally, i.e. before the current function being verified *)
+  (* lemmas and predicates defined before (and usable by) the current function being verified *)
   lems : lemma SMap.t;
   preds : pred_def SMap.t;
   (* additional predicates due to local lambda definitions *)
-  preds_left : pred_def SMap.t;
-  preds_right : pred_def SMap.t;
+  lambda_preds : pred_def SMap.t;
   (* all quantified variables in this formula *)
   q_vars : string list;
   (* predicates which have been unfolded, used as an approximation of progress (in the cyclic proof sense) *)
   unfolded : (string * [ `Left | `Right ]) list;
   (* lemmas applied *)
   applied : string list;
-      (* the environment from forward verification, containing lambda definitions *)
+  (* subsumption proof obligations *)
+  subsumption_obl : (string list * (disj_spec * disj_spec)) list;
 }
 
 let string_of_pctx ctx =
   Format.asprintf
     "lemmas: %s\n\
      predicates: %s\n\
-     predicates left: %s\n\
-     predicates right: %s\n\
+     lambda predicates: %s\n\
      q_vars: %s\n\
      unfolded: %s\n\
      applied: %s\n\
-     fvenv: %s@."
+     subsumption obligations: %s@."
     (string_of_smap string_of_lemma ctx.lems)
     (string_of_smap string_of_pred ctx.preds)
-    (string_of_smap string_of_pred ctx.preds_left)
-    (string_of_smap string_of_pred ctx.preds_right)
+    (string_of_smap string_of_pred ctx.lambda_preds)
     (string_of_list Fun.id ctx.q_vars)
     (string_of_list
        (string_of_pair Fun.id (function `Left -> "L" | `Right -> "R"))
        ctx.unfolded)
     (string_of_list Fun.id ctx.applied)
-    "<...>"
+    (string_of_list string_of_pobl ctx.subsumption_obl)
 
 let create_pctx lems preds q_vars =
   {
     lems;
     preds;
-    preds_left = SMap.empty;
-    preds_right = SMap.empty;
+    lambda_preds = SMap.empty;
     q_vars;
     unfolded = [];
     applied = [];
+    subsumption_obl = [];
   }
 
 (* it's possible we may merge the same lambda into the map multiple times because we recurse after unfolding, which may have the lambda there again *)
-let collect_local_lambda_definitions ctx left right =
+let collect_local_lambda_definitions state ctx =
   let res =
     {
       ctx with
-      preds_left =
-        (match left with
-        | None -> ctx.preds_left
-        | Some r ->
-          SMap.merge_disjoint (local_lambda_defs_state r) ctx.preds_left);
-      preds_right =
-        (match right with
-        | None -> ctx.preds_right
-        | Some r ->
-          SMap.merge_disjoint (local_lambda_defs_state r) ctx.preds_right);
+      lambda_preds =
+        let defs = local_lambda_defs#visit_state () state in
+        (* Format.printf "defs: %s@." (string_of_smap string_of_pred defs); *)
+        SMap.merge_disjoint defs ctx.lambda_preds;
     }
   in
   res
+
+let extract_subsumption_proof_obligations ctx right =
+  let sub = find_subsumptions#visit_pi () right in
+  let right1 = (remove_subsumptions sub)#visit_pi () right in
+  let sub = List.map (fun (t1, t2) ->
+    match t1, t2 with
+    | TLambda (_, ap, _), TLambda (_, bp, _) when List.length ap <> List.length bp ->
+      failwith (Format.asprintf "|%s| != |%s|" (string_of_list Fun.id ap) (string_of_list Fun.id bp));
+    | TLambda (_, ap, a), TLambda (_, bp, b) ->
+      let fv = List.map (fun _ -> verifier_getAfreeVar "v") ap in
+      let a1 = instantiateSpecList (List.map2 (fun v x -> v, Var x) ap fv) a in
+      let b1 = instantiateSpecList (List.map2 (fun v x -> v, Var x) bp fv) b in
+      fv, (a1, b1)
+    | _ -> failwith (Format.asprintf "unable to check obligation %s <: %s" (string_of_term t1) (string_of_term t2))) sub
+  in
+  right1, { ctx with subsumption_obl = sub @ ctx.subsumption_obl }
 
 (** Given two normalized flows, checks their head stages for subsumption,
     then recurses down, propagating residue and updating the proof context
@@ -418,7 +427,7 @@ let rec check_staged_subsumption_stagewise :
     pi ->
     normalisedStagedSpec ->
     normalisedStagedSpec ->
-    unit Search.t =
+    pctx Search.t =
  fun ctx i assump s1 s2 ->
  (*print_endline ("check_staged_subsumption_stagewise");*)
 
@@ -429,9 +438,9 @@ let rec check_staged_subsumption_stagewise :
   match (s1, s2) with
   | (EffHOStage es1 :: es1r, ns1), (EffHOStage es2 :: es2r, ns2) ->
     (*print_endline ("check_staged_subsumption_stagewise case one ");*)
-
     let ctx =
-      collect_local_lambda_definitions ctx (Some es1.e_post) (Some es2.e_post)
+      ctx |> collect_local_lambda_definitions es2.e_pre
+        |> collect_local_lambda_definitions es1.e_post
     in
     (* fail fast by doing easy checks first *)
     let c1, a1 = es1.e_constr in
@@ -454,13 +463,12 @@ let rec check_staged_subsumption_stagewise :
             l1
             (string_of_list string_of_term a2)
             l2;
-            print_endline ("fail 448");
           fail)
-        else ok
+        else succeed
       in
       (* done with easy checks, start proving *)
       (* pure information propagates forward across stages, not heap info *)
-      let* residue =
+      let* residue, ctx =
         let arg_eqs = conj (List.map2 (fun x y -> Atomic (EQ, x, y)) a1 a2) in
         (*print_endline ("stage_subsumes recursive");*)
 
@@ -479,7 +487,7 @@ let rec check_staged_subsumption_stagewise :
         (conj [assump; residue])
         (es1r, ns1) (es2r, ns2))
 
-  | (TryCatchStage tc1 :: es1r, ns1), (TryCatchStage tc2 :: es2r, ns2) ->
+  | (TryCatchStage tc1 :: _es1r, _ns1), (TryCatchStage tc2 :: _es2r, _ns2) ->
 
     let src1, _ = tc1.tc_constr in
     let src2, _ = tc2.tc_constr in
@@ -492,18 +500,24 @@ let rec check_staged_subsumption_stagewise :
       
   | ([], ns1), ([], ns2) ->
     (* base case: check the normal stage at the end *)
-    let (vs1, (p1, h1), (qp1, qh1)), (vs2, (p2, h2), (qp2, qh2)) = (ns1, ns2) in
+    let (vs1, (p1, h1), (qp1, qh1 as post1)) = ns1 in
+    let (vs2, ((p2, h2) as pre2), (qp2, qh2)) = ns2 in
     let ctx =
-      collect_local_lambda_definitions ctx (Some (qp1, qh1)) (Some (qp2, qh2))
+      ctx |> collect_local_lambda_definitions post1
+        |> collect_local_lambda_definitions pre2
     in
-    let* _residue =
+    let* _residue, pctx =
       stage_subsumes ctx "normal stage" assump
         (vs1, ((p1, h1), (qp1, qh1)))
         (vs2, ((p2, h2), (qp2, qh2)))
     in
-    ok
-  | ([], _), (EffHOStage es2 :: _, _) ->
-    let ctx = collect_local_lambda_definitions ctx None (Some es2.e_post) in
+    ok pctx
+  | ([], n1), (EffHOStage es2 :: _, _) ->
+    let ctx =
+      let _ex, _pre, n1post = n1 in
+      ctx |> collect_local_lambda_definitions n1post
+        |> collect_local_lambda_definitions es2.e_pre
+    in
     let c2, _ = es2.e_constr in
     let@ _ = try_other_measures ctx s1 s2 None (Some c2) i assump |> or_else in
     debug ~at:1 ~title:"FAIL" "ante is shorter\n%s\n<:\n%s"
@@ -511,8 +525,15 @@ let rec check_staged_subsumption_stagewise :
       (string_of_normalisedStagedSpec s2);
       (*print_endline("fail 486");*)
     fail
-  | (EffHOStage es1 :: _, _), ([], _) ->
-    let ctx = collect_local_lambda_definitions ctx (Some es1.e_post) None in
+  | (EffHOStage es1 :: _, _), ([], n1) ->
+    (* we are allowed to find lambdas in:
+       - the pre of the right side (as it will eventually make it down via a frame)
+       - the post of the left side *)
+    let ctx =
+      let _ex, n1pre, _post = n1 in
+      ctx |> collect_local_lambda_definitions n1pre
+        |> collect_local_lambda_definitions es1.e_post
+    in
     let c1, _ = es1.e_constr in
     let@ _ = try_other_measures ctx s1 s2 (Some c1) None i assump |> or_else in
     debug ~at:1 ~title:"FAIL" "conseq is shorter\n%s\n<:\n%s"
@@ -532,7 +553,7 @@ and try_other_measures :
     string option ->
     int ->
     pi ->
-    unit Search.t =
+    pctx Search.t =
   let open Search in
   fun ctx s1 s2 c1 c2 i assump ->
     (* first try to unfold on the left. it works if there is something to unfold (the current stage must be a function/effect, and there is a corresponding definition in the predicate environment) *)
@@ -540,7 +561,7 @@ and try_other_measures :
       let* c1 = c1 in
       let+ res =
         let@ _ = SMap.find_opt c1 ctx.preds |> or_else in
-        SMap.find_opt c1 ctx.preds_left
+        SMap.find_opt c1 ctx.lambda_preds
       in
       (c1, res)
     with
@@ -548,8 +569,8 @@ and try_other_measures :
       when List.length (List.filter (fun s -> s = (c1, `Left)) ctx.unfolded)
            < unfolding_bound ->
       let unf = unfold_predicate_norm "left" def s1 in
-      let@ s1_1 =
-        all ~name:(Format.asprintf "unfold lhs: %s" c1)~to_s:string_of_normalisedStagedSpec unf
+      let@ s1_1, ctx =
+        all_state ~name:(Format.asprintf "unfold lhs: %s" c1)~to_s:string_of_normalisedStagedSpec ~init:ctx ~pivot:(fun c -> { ctx with subsumption_obl = c.subsumption_obl }) unf
       in
       check_staged_subsumption_stagewise
         { ctx with unfolded = (c1, `Left) :: ctx.unfolded }
@@ -560,7 +581,7 @@ and try_other_measures :
          let* c2 = c2 in
          let+ res =
            let@ _ = SMap.find_opt c2 ctx.preds |> or_else in
-           SMap.find_opt c2 ctx.preds_right
+           SMap.find_opt c2 ctx.lambda_preds
          in
          (c2, res)
        with
@@ -579,6 +600,8 @@ and try_other_measures :
         let eligible =
           ctx.lems |> SMap.bindings
           |> List.filter (fun (ln, _l) -> not (List.mem ln ctx.applied))
+          |> List.filter (fun (_ln, l) -> List.mem (fst l.l_left, `Left) ctx.unfolded)
+          (* prevent rewriting unless unfolding of the left side has taken place. this works for the IH, but not for lemmas in general *)
           |> List.map snd
         in
         let s1_1, applied =
@@ -616,7 +639,7 @@ and stage_subsumes :
     pi ->
     (state * state) quantified ->
     (state * state) quantified ->
-    pi Search.t =
+    (pi * pctx) Search.t =
  fun ctx what assump s1 s2 ->
   let open Search in
   let vs1, (pre1, post1) = s1 in
@@ -630,14 +653,12 @@ and stage_subsumes :
     (string_of_existentials vs2)
     (string_of_state pre2) (string_of_state post2);
   (* contravariance *)
-  (*print_endline ("srating contravariance ");
-  print_endline ((string_of_state pre2) ^ " |- " ^ (string_of_state pre1));
-  *)
   let@ pre_l, pre_r, pre_resi_l = check_qf "pre" ctx.q_vars pre2 pre1 in
-  let* pre_residue, tenv =
+  let* pre_residue, tenv, ctx =
     let left = conj [assump; pre_l] in
     let right = pre_r in
     let tenv =
+      (* handle the environment manually as it's shared between both sides *)
       let env = create_abs_env () in
       let env = infer_types_pi env left in
       let env = infer_types_pi env right in
@@ -645,6 +666,7 @@ and stage_subsumes :
     in
     let left = Normalize.simplify_pure left in
     let right = Normalize.simplify_pure right in
+    let right, ctx = extract_subsumption_proof_obligations ctx right in
     debug ~at:1
       ~title:(Format.asprintf "VC for precondition of %s" what)
       "%s => %s%s" (string_of_pi left)
@@ -655,14 +677,10 @@ and stage_subsumes :
     in
     debug ~at:1 ~title:(Format.asprintf "valid?") "%s" (string_of_res pre_res);
     (* TODO why do we need pre_r here? as pre_l has just been proven to subsume pre_r *)
-    if pre_res then Some ((conj [pre_l; pre_r; assump], pre_resi_l), tenv)
+    if pre_res then Some ((conj [pre_l; pre_r; assump], pre_resi_l), tenv, ctx)
     else None
   in
-  (*print_endline ("contravariance is done ");
   (* covariance *)
-  print_endline ("srating covariance ");
-  print_endline ((string_of_state post1) ^ " |- " ^ (string_of_state post2));
-  *)
   let new_univ = SSet.union (used_vars_pi pre_l) (used_vars_pi pre_r) in
   let vs22 = List.filter (fun v -> not (SSet.mem v new_univ)) vs2 in
   let conj_state (p1, h1) (p2, h2) = (And (p1, p2), SepConj (h1, h2)) in
@@ -670,9 +688,7 @@ and stage_subsumes :
   let@ post_l, post_r, _post_resi =
     check_qf "post" ctx.q_vars (conj_state pre_residue post1) post2
   in
-  (*print_endline ("pure_pre_residue " ^ string_of_pi pure_pre_residue); 
-  print_endline ("intermidiate post"); *)
-  let* post_residue =
+  let* post_residue, ctx =
     (* don't use fresh variable for the ret value so it carries forward in the residue *)
     (* let _a, r = split_res_fml post_l in *)
     (* let left = conj [fst pre_residue; post_l] in *)
@@ -704,6 +720,7 @@ and stage_subsumes :
           "%s => %s%s\n%s" (string_of_pi True) "" (string_of_pi left)
           (string_of_res false_not_derived)
     in *)
+    let right, ctx = extract_subsumption_proof_obligations ctx right in
     debug ~at:1
       ~title:(Format.asprintf "VC for postcondition of %s" what)
       "%s => %s%s" (string_of_pi left)
@@ -723,10 +740,10 @@ and stage_subsumes :
     let right = instantiatePure [("res", Var f)] right in
     (* let left = fst (split_res left) in *)
     (* let right = fst (split_res left) in *)
-    if post_result then Some (conj [left; right; pure_pre_residue]) else None
+    if post_result then Some (conj [left; right; pure_pre_residue], ctx) else None
   in
 
-  pure (conj [pure_pre_residue; post_residue])
+  ok (conj [pure_pre_residue; post_residue], ctx)
 
 let extract_binders spec =
   let binders, rest =
@@ -770,15 +787,6 @@ let rec apply_tactics ts lems preds (ds1 : disj_spec) (ds2 : disj_spec) =
         (string_of_disj_spec (snd r));
       r)
     (ds1, ds2) ts
-
-let check_staged_subsumption :
-    lemma SMap.t -> pred_def SMap.t -> spec -> spec -> unit Search.t =
- fun lems preds n1 n2 ->
-  let es1, ns1 = normalize_spec n1 in
-  let es2, ns2 = normalize_spec n2 in
-  let q_vars = getExistentialVar (es1, ns1) @ getExistentialVar (es2, ns2) in
-  let ctx = create_pctx lems preds q_vars in
-  check_staged_subsumption_stagewise ctx 0 True (es1, ns1) (es2, ns2)
 
 let create_induction_hypothesis params ds1 ds2 =
   let fail fmt =
@@ -831,7 +839,7 @@ let check_staged_subsumption_disj :
     pred_def SMap.t ->
     disj_spec ->
     disj_spec ->
-    bool =
+    pctx Search.t =
  fun mname params _ts lems preds ds1 ds2 ->
   Search.reset ();
   debug ~at:1
@@ -841,12 +849,16 @@ let check_staged_subsumption_disj :
   let lems =
     match ih with None -> lems | Some ih -> SMap.add ih.l_name ih lems
   in
+  let ctx = create_pctx lems preds [] in
   (* let ds1, ds2 = apply_tactics ts lems preds ds1 ds2 in *)
-  (let@ s1 = Search.all ~name:"disj lhs" ~to_s:string_of_spec ds1 in
-   let@ s2 = Search.any ~name:"disj rhs" ~to_s:string_of_spec ds2 in
-   check_staged_subsumption lems preds s1 s2
-   )
-  |> Search.succeeded
+  let@ s1, ctx = Search.all_state ~name:"disj lhs" ~to_s:string_of_spec ~init:ctx ~pivot:(fun c -> { ctx with subsumption_obl = c.subsumption_obl }) ds1 in
+  let@ s2 = Search.any ~name:"disj rhs" ~to_s:string_of_spec ds2 in
+  (* S1 <: S3 *)
+  let es1, ns1 = normalize_spec s1 in
+  let es2, ns2 = normalize_spec s2 in
+  let q_vars = getExistentialVar (es1, ns1) @ getExistentialVar (es2, ns2) in
+  let ctx = { ctx with q_vars } in
+  check_staged_subsumption_stagewise ctx 0 True (es1, ns1) (es2, ns2)
 
 let derive_predicate m_name m_params disj =
   let norm = List.map normalize_spec disj in

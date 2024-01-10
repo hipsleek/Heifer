@@ -625,7 +625,8 @@ let mk_directive ~loc name arg =
 %token FUNCTOR
 %token CONJUNCTION
 %token DISJUNCTION
-%token IMPLICATION
+// %token IMPLICATION
+%token LONG_IMPLICATION
 %token SUBSUMES
 %token REQUIRES  EFFTRY EFFCATCH
 %token ENSURES
@@ -723,6 +724,8 @@ let mk_directive ~loc name arg =
 %token PREDICATE
 %token LEMMA
 %token <Docstrings.docstring> DOCSTRING
+%token PROP_TRUE
+%token PROP_FALSE
 
 %token EOL
 
@@ -1361,9 +1364,7 @@ structure_item:
     EQUAL vs=optionExistDeclear body=statefml RSPECCOMMENT
     { mkstr ~loc:$sloc (Pstr_SL_predicate (vs, name, args, body)) }
 
-  | LSPECCOMMENT LEMMA name=LIDENT args=list(LIDENT) EQUAL left=stagedSpec1 SUBSUMES right=effect_spec RSPECCOMMENT
-    { mkstr ~loc:$sloc (Pstr_lemma (name, args, left, right)) }
-  | LSPECCOMMENT LEMMA name=LIDENT args=list(LIDENT) EQUAL left=stagedSpec1 IMPLICATION right=effect_spec RSPECCOMMENT
+  | LSPECCOMMENT LEMMA name=LIDENT args=list(LIDENT) EQUAL left=stagedSpec1 LONG_IMPLICATION right=effect_spec RSPECCOMMENT
     { mkstr ~loc:$sloc (Pstr_lemma (name, args, left, right)) }
   | mkstr(
       item_extension post_item_attributes
@@ -2572,7 +2573,7 @@ pure_formula_term:
   | elts=delimited(LBRACKET, separated_list(SEMI, effect_trace_value), RBRACKET)
     //{TList (List.map (fun a -> Num a) n)}
     // turn this into a cascade of conses, like ocaml does, for simplicity
-    { List.fold_right term_cons elts Nil }
+    { List.fold_right (fun c t -> TCons (c, t)) elts Nil }
 
   | LPAREN RPAREN {UNIT}
   // | LPAREN n = list_of_TupleTerms RPAREN {TTupple n}
@@ -2589,6 +2590,11 @@ pure_formula_term:
     
   | TRUE { TTrue }
   | FALSE { TFalse }
+
+  // | LBRACKET RBRACKET { Nil }
+  // | pure_formula_term COLONCOLON pure_formula_term { TCons ($1, $3) }
+  // TODO [1; ...]
+
   | pure_formula_term PLUS pure_formula_term { Plus ($1, $3) }
 
   | pure_formula_term MINUS pure_formula_term { Minus ($1, $3) }
@@ -2608,11 +2614,12 @@ pure_formula_term:
 ;
 
 pure_formula: 
-  | TRUE { True }
-  | FALSE { False }
+  | PROP_TRUE { True }
+  | PROP_FALSE { False }
   | a = pure_formula_term LESS b = pure_formula_term { Atomic (LT, a, b) }
   | a = pure_formula_term GREATER b = pure_formula_term { Atomic (GT, a, b) }
   | a = pure_formula_term EQUAL b = pure_formula_term { Atomic (EQ, a, b) }
+  | a = pure_formula_term SUBSUMES b = pure_formula_term { Subsumption (a, b) }
 
   | a = pure_formula_term op = INFIXOP0 b = pure_formula_term
   {

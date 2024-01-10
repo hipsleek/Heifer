@@ -1,11 +1,10 @@
 
 open Common
 
-type bin_op = GT | LT | EQ | GTEQ | LTEQ
-
 [@@@warning "-17"]
 
-type term =
+type bin_op = GT | LT | EQ | GTEQ | LTEQ
+and term =
     | UNIT 
     | Num of int
     | Var of string
@@ -21,6 +20,7 @@ type term =
     | TOr of term * term
     | TNot of term
     | TApp of string * term list
+    | TCons of term * term
     | Nil
     (* the string is just an identifier for uniqueness.
        the last param is the name of the result *)
@@ -65,6 +65,7 @@ and pi =
   | Imply  of pi * pi
   | Not    of pi 
   | Predicate of string * term list 
+  | Subsumption of term * term
 
 and kappa = 
   | EmptyHeap
@@ -98,23 +99,28 @@ and stagedSpec =
 and spec = stagedSpec list
 
 and disj_spec = spec list
+
 [@@deriving
-  visitors { variety = "map"; name = "map_spec_" },
-  visitors { variety = "reduce"; name = "reduce_spec_" }]
+  visitors { variety = "map"; name = "map_spec" },
+  visitors { variety = "reduce"; name = "reduce_spec" } ]
+
+(* not part of the visitor because this doesn't occur recursively *)
+type typ =
+  | Unit
+  | List_int
+  | Int
+  | Bool
+  | Lamb
+  | TVar of string (* this is last, so > concrete types *)
+[@@deriving show { with_path = false }, ord]
 
 [@@@warning "+17"]
 
-class virtual ['self] reduce_spec =
-  object (self : 'self)
-    inherit [_] reduce_spec_
-    method visit_bin_op _env _ = self#zero
-  end
+let min_typ a b = if compare_typ a b <= 0 then a else b
 
-class virtual ['self] map_spec =
-  object (_self : 'self)
-    inherit [_] map_spec_
-    method visit_bin_op _env o = o
-  end
+let is_concrete_type = function TVar _ -> false | _ -> true
+
+let concrete_types = [Unit; List_int; Int; Bool; Lamb]
 
 let res_v = Var "res"
 
@@ -128,23 +134,7 @@ let summary_askZ3 = ref 0.0
 
 let res_eq t = Atomic (EQ, res_v, t)
 
-type typ =
-  | Unit
-  | List_int
-  | Int
-  | Bool
-  | Lamb
-  | TVar of string (* this is last, so > concrete types *)
-  [@@deriving show { with_path = false }, ord]
 
-
-let min_typ a b = if compare_typ a b <= 0 then a else b
-
-let is_concrete_type = function TVar _ -> false | _ -> true
-
-let concrete_types = [Unit; List_int; Int; Bool; Lamb]
-
-let term_cons c t = TApp ("cons", [c; t])
 
 module U = struct
   include UnionFind
@@ -293,7 +283,8 @@ type meth_def = {
   m_tactics : tactic list;
 }
 
-(** A predicate is a name for a parameterized disjunctive spec, of the form [f(x, ...) == spec \/ ...], where x, ... are all parameters *)
+(** A predicate is a name for a parameterized disjunctive staged spec of the form [f(x, ...) == spec \/ ...].
+    Predicates are checked or inferred for effectful functions and remembered after. *)
 type pred_def = {
   p_name: string;
   p_params: string list; (* list to ensure ordering. last param is typically a return value *)
@@ -305,6 +296,14 @@ type sl_pred_def = {
   p_sl_name: string;
   p_sl_params: string list; (* list to ensure ordering. last param is typically a return value *)
   p_sl_body: pi * kappa;
+}
+
+(** A pure function that can be imported directly into SMT *)
+type pure_fn_def = {
+  pf_name: string;
+  pf_params: (string * typ) list;
+  pf_ret_type: typ;
+  pf_body: core_lang;
 }
 
 (** A lemma is an entailment [f(x, ...) <: spec]. The left side is restricted to be a function stage (without loss of generality). Some of x, ... may be parameters, but some may not be. *)

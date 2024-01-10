@@ -58,9 +58,12 @@ let get_primitive_type f =
   | "tail" -> ([List_int], List_int)
   | "is_nil" | "is_cons" -> ([List_int], Bool)
   | "+" | "-" -> ([Int; Int], Int)
-  | _ -> 
-    if String.compare f "effNo" == 0 then ([Int] , Int)
-    else failwith (Format.asprintf "unknown function 2: %s" f)
+  | _ when String.compare f "effNo" == 0 -> ([Int] , Int)
+  | _ when Globals.is_pure_fn_defined f ->
+    let fn = Globals.pure_fn f in
+    (List.map snd fn.pf_params, fn.pf_ret_type)
+  | _ ->
+      failwith (Format.asprintf "unknown function 2: %s" f)
 
 let rec infer_types_term ?hint (env : abs_typ_env) term : typ * abs_typ_env =
   let@ _ =
@@ -84,6 +87,10 @@ let rec infer_types_term ?hint (env : abs_typ_env) term : typ * abs_typ_env =
     let _bt, env = infer_types_term ~hint:Bool env b in
     (Bool, env)
   | Nil, _ -> (List_int, env)
+  | TCons (a, b), _ ->
+    let _at, env1 = infer_types_term ~hint:Int env a in
+    let _bt, env2 = infer_types_term ~hint:List_int env1 b in
+    (List_int, env2)
   | Num _, _ -> (Int, env)
   (* possibly add syntactic heuristics for types, such as names *)
   | Var v, Some t -> (t, assert_var_has_type v t env)
@@ -119,7 +126,7 @@ let rec infer_types_term ?hint (env : abs_typ_env) term : typ * abs_typ_env =
           let _, env = infer_types_term ~hint:at env a in
           env)
         env
-        (List.map2 (fun a b -> (a, b)) args argtypes)
+        (List.map2 pair args argtypes)
     in
     (ret, env)
   | TList _, _ | TTupple _, _ -> failwith "list/tuple unimplemented"
@@ -151,4 +158,5 @@ let rec infer_types_pi env pi =
     let env = infer_types_pi env b in
     env
   | Not a -> infer_types_pi env a
-  | Predicate (_, _) -> env (*failwith "not implemented" *)
+  | Predicate (_, _) -> env
+  | Subsumption (_, _) -> env

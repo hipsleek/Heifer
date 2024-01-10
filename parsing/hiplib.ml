@@ -202,35 +202,64 @@ let function_spec rhs =
     in
     traverse_to_body rhs
 
-let collect_param_names rhs =
-    let rec traverse_to_body e =
+let core_type_to_simple_type t =
+  match t.ptyp_desc with
+  | Ptyp_constr ({txt = Lident "bool"; _}, []) -> Bool
+  | Ptyp_constr ({txt = Lident "int"; _}, []) -> Int
+  | Ptyp_constr ({txt = Lident "list"; _}, [
+    { ptyp_desc = Ptyp_constr ({txt = Lident "int"; _}, []) ; _}
+  ]) -> List_int
+  | _ -> failwith (Format.asprintf "core_type_to_simple_type: not yet implemented %a" Pprintast.core_type t)
+
+(*
+   let f (a:int) (b:string) : bool = c
+
+   is actually
+
+   let f = fun (a:int) -> fun (b:string) -> (c:bool)
+
+   This recurses down the funs non-tail-recursively to collect all variable names, their types, the return type, and the body.
+*)
+let collect_param_info rhs =
+    (* TODO allow let f : int -> string -> bool = fun a b -> c *)
+    let rec traverse_to_body e ret_type =
       match e.pexp_desc with
-      | Pexp_constraint (e, _t) ->
+      | Pexp_constraint (e, t) ->
+        (* Format.printf "constraint %a@." Pprintast.core_type t; *)
         (* ignore constraints *)
-        traverse_to_body e
+        traverse_to_body e (Some (core_type_to_simple_type t))
       | Pexp_fun (_, _, name, body) ->
-        let name =
+        let name, typ =
           match name.ppat_desc with
-          | Ppat_var s -> [s.txt]
-          | Ppat_constraint (p, _ ) -> 
+          | Ppat_var s -> [s.txt], []
+          | Ppat_constraint (p, t) -> 
+            (* Format.printf "annotation %a@." Pprintast.core_type t; *)
             (
               match p.ppat_desc with
-              | Ppat_var s -> [s.txt]
+              | Ppat_var s -> [s.txt], [core_type_to_simple_type t]
               | _ -> raise (Foo "collect_param_names other type")
             )
           
           | _ ->
             (* dummy name for things like a unit pattern, so we at least have the same number of parameters *)
-            [verifier_getAfreeVar "dummy"]
+            [verifier_getAfreeVar "dummy"], []
             (* we don't currently recurse inside patterns to pull out variables, so something like
               let f () (Foo a) = 1
               will be treated as if it has no formal params. *)
         in
-        let ns, body = traverse_to_body body in
-        name @ ns, body
-      | _ -> ([], e)
+        let ns, typs, body, ret = traverse_to_body body None in
+        name @ ns, typ @ typs, body, ret
+      | _ ->
+        (* we have reached the end *)
+        ([], [], e, ret_type)
     in
-    traverse_to_body rhs
+    let names, types, body, ret_type = traverse_to_body rhs None in
+    let not_all = List.length names <> List.length types || Option.is_none ret_type in
+    let types =
+      if not_all then None else Option.map (pair types) ret_type
+    in
+    names, body, types
+
 
 let rec string_of_effectList (specs:spec list):string =
   match specs with 
@@ -643,7 +672,8 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
   | Pexp_fun (_, _, _, body) ->
     (* see also: Pexp_fun case below in transform_str *)
     let spec = function_spec body in
-    let formals, body = collect_param_names expr in
+    (* types aren't used because lambdas cannot be translated to pure functions *)
+    let formals, body, _types = collect_param_info expr in
     let e = transformation (formals @ bound_names) body in
     CLambda (formals, spec, e)
   (* perform *)
@@ -829,6 +859,7 @@ let rec lookUpFromPure p str : term option =
   | Or    _
   | Imply  _
   | Not   _
+  | Subsumption _
   | Predicate _ -> None (*raise (Foo "lookUpFromPure error")*)
 
 
@@ -849,11 +880,20 @@ let transform_str bound_names (s : structure_item) =
     | Pexp_fun (_, _, _, tlbody) ->
       (* see also: CLambda case *)
       let spec = function_spec tlbody in
-      let formals, body = collect_param_names fn in
+      let formals, body, types = collect_param_info fn in
+      let pure_fn_info =
+        let has_pure_annotation =
+          List.exists (fun a -> String.equal a.attr_name.txt "pure") vb.pvb_attributes
+        in
+        match has_pure_annotation, types with
+        | true, None -> failwith (Format.asprintf "%s has pure annotation but no type information given" fn_name)
+        | true, Some _ -> types
+        | false, _ -> None
+      in
       let e = transformation (fn_name :: formals @ bound_names) body in
-      Some (`Meth (fn_name, formals, spec, e, tactics))
+      Some (`Meth (fn_name, formals, spec, e, tactics, pure_fn_info))
     | Pexp_apply _ -> None 
-    | whatever -> 
+    | whatever ->
       print_endline (string_of_expression_kind whatever); 
       failwith (Format.asprintf "not a function binding: %a" Pprintast.expression fn)
     end
@@ -907,8 +947,9 @@ let rec decomposeStateForPredicate p : (((string * term list ) list) * pi) =
       (pred1@pred2, (And (pi1, pi2)))
 
     | Atomic _
-    | True 
-    | Not _  
+    | Subsumption _
+    | True
+    | Not _
     | False -> ([], p)
     | Or    _
     | Imply  _ -> failwith "decomposePredicate nor and or and imply"
@@ -1170,10 +1211,13 @@ let string_of_token =
 | QUOTED_STRING_ITEM _ -> "QUOTED_STRING_ITEM"
 | CONJUNCTION -> "CONJUNCTION"
 | DISJUNCTION -> "DISJUNCTION"
-| IMPLICATION -> "IMPLICATION"
+(* | IMPLICATION -> "IMPLICATION" *)
+| LONG_IMPLICATION -> "LONG_IMPLICATION"
 | SUBSUMES -> "SUBSUMES"
 | EFFTRY -> "EFFTRY"
 | EFFCATCH -> "EFFCATCH"
+| PROP_TRUE -> "PROP_TRUE"
+| PROP_FALSE -> "PROP_FALSE"
 
 
 let debug_tokens str =
@@ -1384,14 +1428,37 @@ let report_result ?kind ?given_spec ?given_spec_n ?inferred_spec ?inferred_spec_
   in
   f ?kind ?given_spec ?given_spec_n ?inferred_spec ?inferred_spec_n ?forward_time_ms ?entail_time_ms ?result name
 
-let check_obligation name params lemmas predicates (l, r) =
+
+let rec check_remaining_obligations original_fname lems preds obligations =
+  let open Search in
+  all ~name:"subsumption obligation"
+    ~to_s:string_of_pobl
+    obligations (fun (params, obl) ->
+    let name =
+      (* the name of the obligation appears in tests and should be deterministic *)
+      let base = "sub_obl" in
+      if Str.string_match (Str.regexp ".*_false$") original_fname 0
+        then base ^ "_false" else base
+    in
+    if check_obligation name params lems preds obl
+      then succeed
+      else fail)
+
+and check_obligation name params lemmas predicates (l, r) =
   let@ _ =
     Debug.span (fun _r ->
         debug ~at:1
           ~title:(Format.asprintf "checking obligation: %s" name) "")
   in
+  let open Search in begin
   let res = Entail.check_staged_subsumption_disj name params [] lemmas predicates l r in
-  report_result ~kind:"Obligation" ~given_spec:r ~inferred_spec:l ~result:res name
+  report_result ~kind:"Obligation" ~given_spec:r ~inferred_spec:l ~result:(Search.succeeded res) name;
+  let* res = res in
+  check_remaining_obligations name lemmas predicates res.subsumption_obl
+  end |> Search.succeeded
+
+let check_obligation_ name params lemmas predicates sub =
+  check_obligation name params lemmas predicates sub |> ignore
 
 exception Method_failure
 
@@ -1432,8 +1499,8 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) : core_program =
     inf, preds_with_lambdas, env
   in
   (* check misc obligations. don't stop on failure for now *)
-  fvenv.fv_lambda_obl |> List.iter (check_obligation meth.m_name meth.m_params prog.cp_lemmas predicates);
-  fvenv.fv_match_obl |> List.iter (check_obligation meth.m_name meth.m_params prog.cp_lemmas predicates);
+  fvenv.fv_lambda_obl |> List.iter (check_obligation_ meth.m_name meth.m_params prog.cp_lemmas predicates);
+  fvenv.fv_match_obl |> List.iter (check_obligation_ meth.m_name meth.m_params prog.cp_lemmas predicates);
 
   (* check the main spec *)
   let time_stamp_afterForward = Sys.time () in
@@ -1443,7 +1510,7 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) : core_program =
   let inferred_spec_n = 
     try
         
-        normalise_spec_list_aux1 inferred_spec
+        normalise_disj_spec_aux1 inferred_spec
       with Norm_failure -> report_result ~inferred_spec ~result:false meth.m_name; raise Method_failure
     
   in
@@ -1456,7 +1523,7 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) : core_program =
     | Some given_spec ->
       let given_spec_n =
         try
-          normalise_spec_list_aux1 given_spec
+          normalise_disj_spec_aux1 given_spec
         with Norm_failure -> report_result ~inferred_spec ~inferred_spec_n ~given_spec ~result:false meth.m_name; raise Method_failure
       in
       let time_stamp_afterNormal = Sys.time () in
@@ -1476,12 +1543,12 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) : core_program =
             print_endline (" |= ") ;
             print_endline ("given_spec " ^ string_of_disj_spec given_spec); *)
             
-
-            let res = Entail.check_staged_subsumption_disj meth.m_name meth.m_params meth.m_tactics prog.cp_lemmas predicates inferred_spec given_spec in 
-            (* print_endline ("proving end!!!==================================") ;
-            print_endline (string_of_bool res); *)
-            
-            res
+            let open Search in begin
+              let* res =
+                Entail.check_staged_subsumption_disj meth.m_name meth.m_params meth.m_tactics prog.cp_lemmas predicates inferred_spec given_spec
+              in 
+              check_remaining_obligations meth.m_name prog.cp_lemmas predicates res.subsumption_obl
+            end |> succeeded
 
         with Norm_failure ->
           (* norm failing all the way to the top level may prevent some branches from being explored during proof search. this does not happen in any tests yet, however, so keep error-handling simple. if it ever happens, return an option from norm entry points *)
@@ -1538,7 +1605,7 @@ let process_items (strs: structure_item list) : unit =
     List.fold_left (fun (bound_names, prog) c ->
       match transform_str bound_names c with
       | Some (`Lem l) ->
-        check_obligation l.l_name l.l_params prog.cp_lemmas prog.cp_predicates (function_stage_to_disj_spec l.l_left, [l.l_right]);
+        check_obligation_ l.l_name l.l_params prog.cp_lemmas prog.cp_predicates (function_stage_to_disj_spec l.l_left, [l.l_right]);
         (* add to environment regardless of failure *)
         bound_names, { prog with cp_lemmas = SMap.add l.l_name l prog.cp_lemmas }
       | Some (`Pred p) -> 
@@ -1560,7 +1627,7 @@ let process_items (strs: structure_item list) : unit =
       | Some (`Eff _) ->
         (* ignore *)
         bound_names, prog
-      | Some (`Meth (m_name, m_params, m_spec, m_body, m_tactics)) -> 
+      | Some (`Meth (m_name, m_params, m_spec, m_body, m_tactics, pure_fn_info)) -> 
         (* ASK YAHUI *)
         (* let _m_spec' = 
           (match m_spec with 
@@ -1579,10 +1646,21 @@ let process_items (strs: structure_item list) : unit =
         let m_spec' = m_spec in
         let meth = { m_name=m_name; m_params=m_params; m_spec=m_spec'; m_body=m_body; m_tactics=m_tactics } in
 
-        debug ~at:2 ~title:"parsed" "%s" (string_of_program prog);
-        debug ~at:2 ~title:"user-specified predicates" "%s" (string_of_smap string_of_pred prog.cp_predicates);
         (* as we handle methods, predicates are inferred and are used in place of absent specifications, so we have to keep updating the program as we go *)
         let prog = { prog with cp_methods = meth :: prog.cp_methods } in
+
+        debug ~at:2 ~title:"parsed" "%s" (string_of_program prog);
+        debug ~at:2 ~title:"user-specified predicates" "%s" (string_of_smap string_of_pred prog.cp_predicates);
+
+        let () =
+          match pure_fn_info with
+          | Some (param_types, ret_type) ->
+            let pf =
+              { pf_name = m_name; pf_params = List.map2 pair m_params param_types; pf_ret_type = ret_type; pf_body = m_body; }
+            in
+            Globals.define_pure_fn m_name pf;
+          | None -> ()
+        in
         begin try
           let prog =
             let@ _ =
