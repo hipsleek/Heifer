@@ -21,7 +21,7 @@
  ; (dev     (flags (:standard -w +a-4-9-40-41-42-44-45-48-67)))
 
  ; ignore warnings
- (dev (flags (:standard -warn-error -A+8))
+ (dev (flags (:standard -warn-error -A))
   (js_of_ocaml
     (flags (:standard --enable=effects))
     (build_runtime_flags (:standard --enable=effects))))
@@ -77,7 +77,8 @@
 (library
  (name ocamlfrontend)
  (modules
- parser lexer Syntaxerr Pprintast Printast Asttypes Ast_helper Longident Parsetree Location Warnings Misc Terminfo Docstrings Build_path_prefix_map Clflags Profile Numbers Identifiable Arg_helper CamlinternalMenhirLib)
+ parser lexer Syntaxerr Pprintast Printast Asttypes Ast_helper Longident Parsetree Location Warnings Misc Terminfo Docstrings Build_path_prefix_map Clflags Profile Numbers Identifiable Arg_helper CamlinternalMenhirLib
+ core_lang) ; the only module we own
  (libraries hipcore)
  (flags :standard -w -A))
 

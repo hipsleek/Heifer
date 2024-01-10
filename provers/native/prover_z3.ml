@@ -72,6 +72,8 @@ let rec term_to_expr env ctx t : Z3.Expr.expr =
   | TLambda _ ->
     (* Format.printf "z3 %s %d@." (string_of_term t) (hash_lambda t); *)
     Z3.Arithmetic.Integer.mk_numeral_i ctx (Subst.hash_lambda t)
+  | PureLambda _ ->
+    failwith "not yet implemented"
   | Nil ->
     let list_int = list_int_sort ctx in
     Z3.Z3List.nil list_int

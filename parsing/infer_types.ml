@@ -68,7 +68,39 @@ let get_primitive_type f =
   | _ ->
       failwith (Format.asprintf "unknown function 2: %s" f)
 
-let rec infer_types_term ?hint (env : abs_typ_env) term : typ * abs_typ_env =
+let get_primitive_fn_type f =
+  match f with
+  | "=" -> ([Int; Int], Int)
+  | _ -> failwith (Format.asprintf "unknown function: %s" f)
+
+let rec infer_types_core_lang env e =
+  match e with
+  | CValue t -> infer_types_term env t
+  | CFunCall (f, args) ->
+    let at, rt = get_primitive_fn_type f in
+    let arg_types, env =
+    List.fold_right (fun c (t, env) ->
+      let ct, env = infer_types_term env c in
+      ct :: t, env
+      ) args ([], env)
+    in
+    let args_ok =
+      List.map2 pair at arg_types |> List.for_all (fun (exp, act) -> exp = act)
+    in
+    if args_ok then rt, env else failwith "type error in args"
+  | CLet (_, _, _) -> failwith "CLet"
+  | CIfELse (_, _, _) -> failwith "CIfELse"
+  | CWrite (_, _) -> failwith "CWrite"
+  | CRef _ -> failwith "CRef"
+  | CRead _ -> failwith "CRead"
+  | CAssert (_, _) -> failwith "CAssert"
+  | CPerform (_, _) -> failwith "CPerform"
+  | CMatch (_, _, _, _, _) -> failwith "CMatch"
+  | CResume _ -> failwith "CResume"
+  | CLambda (_, _, _) ->
+    failwith "not implemented"
+
+and infer_types_term ?hint (env : abs_typ_env) term : typ * abs_typ_env =
   let@ _ =
     Debug.span (fun r ->
         debug ~at:5 ~title:"infer_types" "%s : %s -| %s" (string_of_term term)
@@ -101,6 +133,7 @@ let rec infer_types_term ?hint (env : abs_typ_env) term : typ * abs_typ_env =
     let t = TVar (verifier_getAfreeVar v) in
     (t, assert_var_has_type v t env)
   | TLambda _, _ -> (Lamb, env)
+  | PureLambda _, _ -> (Lamb, env)
   | Rel (EQ, a, b), _ -> begin
     try
       let at, env1 = infer_types_term ~hint:Int env a in

@@ -206,8 +206,6 @@ let foldl1 f xs =
   | x :: xs1 ->
     List.fold_left f x xs1
 
-let primitives = ["+"; "-"; "="; "not"; "::"; "&&"; "||"; ">"; "<"; ">="; "<="]
-
 let call_primitive env history fname actualArgs =
   match fname, actualArgs with
   | "+", [x1; x2] ->
@@ -798,7 +796,7 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
         concatenateSpecsWithEvent history [Exists [f]; HigherOrder (True, EmptyHeap, ("continue", tList), Var f)]
       in
       res, env
-    | CFunCall (fname, actualArgs) when List.mem fname primitives -> 
+    | CFunCall (fname, actualArgs) when List.mem fname primitive_functions -> 
       call_primitive env history fname actualArgs
     | CFunCall (fname, actualArgs) -> 
       let fn_spec : disj_spec =
