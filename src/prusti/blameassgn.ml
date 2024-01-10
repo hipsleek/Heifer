@@ -3,6 +3,14 @@
 
 (* https://github.com/EmilyOng/AlgebraicEffect/blob/EmilyOng/examples/src/examples/blameassgn.ml *)
 
+(* let g_f_x? f x
+(*@ req x->_ * f <: (fun v r -> req v>9; ens r>=0/\r<=99) @*)
+= f 0 *)
+
+(* let g_f_x? f x
+(*@ req x->_ * f <: (fun v r -> x->v ... req v>9; ens r>=0/\r<=99) @*)
+= f 0 *)
+
 let g_false f
 (*@ req f <: (fun v r -> req v>9; ens r>=0/\r<=99) @*)
 = f 0
