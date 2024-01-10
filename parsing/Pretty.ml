@@ -492,7 +492,7 @@ let conj xs =
   | [] -> True
   | x :: xs -> List.fold_right (fun c t -> And (c, t)) xs x
 
-let string_of_type t =
+let rec string_of_type t =
   match t with
   | Int -> "int"
   | Unit -> "unit"
@@ -500,6 +500,7 @@ let string_of_type t =
   | Bool -> "bool"
   | Lamb -> "lambda"
   | TVar v -> Format.asprintf "'%s" v
+  | Arrow (t1, t2) -> Format.asprintf "%s->%s" (string_of_type t1) (string_of_type t2)
 
 let string_of_pure_fn ({ pf_name; pf_params; pf_ret_type; pf_body } : pure_fn_def) : string =
   Format.asprintf "let %s %s : %s = %s" pf_name (String.concat " " (List.map (fun (p, t) -> Format.asprintf "(%s:%s)" p (string_of_type t)) pf_params)) (string_of_type pf_ret_type) (string_of_core_lang pf_body)

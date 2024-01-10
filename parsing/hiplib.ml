@@ -202,13 +202,14 @@ let function_spec rhs =
     in
     traverse_to_body rhs
 
-let core_type_to_simple_type t =
+let rec core_type_to_simple_type t =
   match t.ptyp_desc with
   | Ptyp_constr ({txt = Lident "bool"; _}, []) -> Bool
   | Ptyp_constr ({txt = Lident "int"; _}, []) -> Int
   | Ptyp_constr ({txt = Lident "list"; _}, [
     { ptyp_desc = Ptyp_constr ({txt = Lident "int"; _}, []) ; _}
   ]) -> List_int
+  | Ptyp_arrow (_, t1, t2) -> Arrow (core_type_to_simple_type t1, core_type_to_simple_type t2)
   | _ -> failwith (Format.asprintf "core_type_to_simple_type: not yet implemented %a" Pprintast.core_type t)
 
 (*
@@ -913,6 +914,14 @@ let transform_str bound_names (s : structure_item) =
       Some (`Eff name)
   | Pstr_type _ 
   | Pstr_typext _ -> None 
+  | Pstr_primitive { pval_name; pval_type; pval_prim = [ext_name]; _ } ->
+    let path, name =
+      Str.split (Str.regexp "\\.") ext_name |> unsnoc
+    in
+    let params, ret =
+      core_type_to_simple_type pval_type |> interpret_arrow_as_params
+    in
+    Some (`LogicTypeDecl (pval_name.txt, params, ret, path, name))
   | _ -> failwith (Format.asprintf "unknown program element: %a" Pprintast.structure [s])
 
 
@@ -1604,6 +1613,13 @@ let process_items (strs: structure_item list) : unit =
   strs |>
     List.fold_left (fun (bound_names, prog) c ->
       match transform_str bound_names c with
+      | Some (`LogicTypeDecl (name, params, ret, path, lname)) ->
+        let def =
+          { pft_name = name; pft_params = params; pft_ret_type = ret; pft_logic_name = lname; pft_logic_path = path }
+        in
+        Globals.global_environment.pure_fn_types <-
+          SMap.add name def Globals.global_environment.pure_fn_types;
+        bound_names, prog
       | Some (`Lem l) ->
         check_obligation_ l.l_name l.l_params prog.cp_lemmas prog.cp_predicates (function_stage_to_disj_spec l.l_left, [l.l_right]);
         (* add to environment regardless of failure *)

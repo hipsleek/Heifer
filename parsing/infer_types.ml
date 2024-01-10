@@ -62,6 +62,9 @@ let get_primitive_type f =
   | _ when Globals.is_pure_fn_defined f ->
     let fn = Globals.pure_fn f in
     (List.map snd fn.pf_params, fn.pf_ret_type)
+  | _ when SMap.mem f Globals.global_environment.pure_fn_types ->
+    let fn = SMap.find f Globals.global_environment.pure_fn_types in
+    (fn.pft_params, fn.pft_ret_type)
   | _ ->
       failwith (Format.asprintf "unknown function 2: %s" f)
 
@@ -120,13 +123,13 @@ let rec infer_types_term ?hint (env : abs_typ_env) term : typ * abs_typ_env =
   | TApp (f, args), _ ->
     let argtypes, ret = get_primitive_type f in
     let env =
-      (* infer from right to left *)
-      List.fold_left
-        (fun env (a, at) ->
-          let _, env = infer_types_term ~hint:at env a in
-          env)
-        env
-        (List.map2 pair args argtypes)
+      List.map2 pair args argtypes |>
+        (* infer from right to left *)
+        List.fold_left
+          (fun env (a, at) ->
+            let _, env = infer_types_term ~hint:at env a in
+            env)
+          env
     in
     (ret, env)
   | TList _, _ | TTupple _, _ -> failwith "list/tuple unimplemented"

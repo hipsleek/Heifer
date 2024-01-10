@@ -2,11 +2,13 @@
 open Hiptypes
 
 type t = {
-  mutable pure_fns : pure_fn_def SMap.t
+  mutable pure_fns : pure_fn_def SMap.t;
+  mutable pure_fn_types : pure_fn_type_def SMap.t;
 }
 
 let create () = {
-  pure_fns = SMap.empty
+  pure_fns = SMap.empty;
+  pure_fn_types = SMap.empty;
 }
 let global_environment : t = create ()
 

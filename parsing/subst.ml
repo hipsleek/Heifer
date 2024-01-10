@@ -226,3 +226,10 @@ let remove_subsumptions subs =
     method! visit_Subsumption () a b =
       if List.mem (a, b) subs then True else Subsumption (a, b)
   end
+
+let rec interpret_arrow_as_params t =
+  match t with
+  | Int | Unit | List_int | Bool | Lamb | TVar _ -> [], t
+  | Arrow (t1, t2) ->
+    let p, r = interpret_arrow_as_params t2 in
+    t1 :: p, r

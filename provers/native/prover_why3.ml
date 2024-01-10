@@ -218,7 +218,7 @@ module Defunct = struct
     letbound : Term.vsymbol SMap.t;
   }
 
-  let type_to_why3 env (t : typ) =
+  let rec type_to_why3 env (t : typ) =
     match t with
     | Unit -> Ty.ty_tuple []
     | List_int ->
@@ -236,6 +236,7 @@ module Defunct = struct
       (* default to int *)
       Theories.(needed int env.theories);
       Ty.ty_int
+    | Arrow (t1, t2) -> Ty.ty_func (type_to_why3 env t1) (type_to_why3 env t2)
 
   let rec term_to_why3 env (t : term) =
     Format.printf "term %s@." (Pretty.string_of_term t);
@@ -689,7 +690,7 @@ let rec pi_to_whyml p =
   | Imply (_, _) | Predicate (_, _) -> failwith "nyi"
   | Subsumption (_, _) -> term Ttrue
 
-let type_to_whyml t =
+let rec type_to_whyml t =
   match t with
   | Int -> PTtyapp (qualid ["Int"; "int"], [])
   | Unit -> PTtyapp (qualid ["tuple0"], [])
@@ -698,6 +699,7 @@ let type_to_whyml t =
   | Bool -> PTtyapp (qualid ["Bool"; "bool"], [])
   | Lamb -> PTtyapp (qualid ["Int"; "int"], [])
   | TVar _ -> PTtyapp (qualid ["Int"; "int"], [])
+  | Arrow (t1, t2) -> PTarrow (type_to_whyml t1, type_to_whyml t2)
 
 let rec pure_expr_to_whyml e =
   match e with
@@ -846,11 +848,16 @@ let prove tenv qtf f =
     in
 
     let imports =
+      let extra =
+        Globals.global_environment.pure_fn_types |> SMap.bindings
+        |> List.map (fun (_, p) -> use ~import:false p.pft_logic_path)
+      in
       [
         use ~import:false ["int"; "Int"];
         use ~import:false ["bool"; "Bool"];
         use ~import:false ["list"; "List"];
       ]
+      @ extra
     in
     (ident "M", List.concat [imports; [Dlogic fns]; parameters; statement])
   in
