@@ -48,7 +48,9 @@ let find_concrete_type = TEnv.concretize
 let concrete_type_env abs : typ_env =
   SMap.map
     (fun v ->
-      match v with TVar _ -> find_concrete_type abs.equalities v | _ -> v)
+      match v with TVar _ ->
+        (* Format.printf "%s@." (string_of_type v); *)
+        find_concrete_type abs.equalities v | _ -> v)
     abs.vartypes
 
 let get_primitive_type f =
@@ -70,24 +72,22 @@ let get_primitive_type f =
 
 let get_primitive_fn_type f =
   match f with
-  | "=" -> ([Int; Int], Int)
+  | "=" -> ([Int; Int], Bool)
   | _ -> failwith (Format.asprintf "unknown function: %s" f)
 
 let rec infer_types_core_lang env e =
   match e with
   | CValue t -> infer_types_term env t
   | CFunCall (f, args) ->
-    let at, rt = get_primitive_fn_type f in
-    let arg_types, env =
-    List.fold_right (fun c (t, env) ->
-      let ct, env = infer_types_term env c in
-      ct :: t, env
-      ) args ([], env)
+    let ex_args, ex_ret = get_primitive_fn_type f in
+    let _arg_types, env =
+    List.fold_right2 (fun arg ex_arg (t, env) ->
+      let inf_arg, env = infer_types_term env arg in
+      let env = unify_types inf_arg ex_arg env in
+      inf_arg :: t, env
+      ) args ex_args ([], env)
     in
-    let args_ok =
-      List.map2 pair at arg_types |> List.for_all (fun (exp, act) -> exp = act)
-    in
-    if args_ok then rt, env else failwith "type error in args"
+    ex_ret, env
   | CLet (_, _, _) -> failwith "CLet"
   | CIfELse (_, _, _) -> failwith "CIfELse"
   | CWrite (_, _) -> failwith "CWrite"
@@ -132,7 +132,15 @@ and infer_types_term ?hint (env : abs_typ_env) term : typ * abs_typ_env =
   | Var v, None ->
     let t = TVar (verifier_getAfreeVar v) in
     (t, assert_var_has_type v t env)
-  | TLambda _, _ -> (Lamb, env)
+  | TLambda (_, _, _, None), _ -> (Lamb, env)
+  | TLambda (_, params, _, Some b), _ ->
+    (* TODO use the spec? *)
+    let params, _ret = unsnoc params in
+    let ptvs = List.map (fun _ -> TVar (verifier_getAfreeVar "param")) params in
+    let env = List.fold_right2 (fun p pt env -> assert_var_has_type p pt env) params ptvs env in
+    let ty_ret, env = infer_types_core_lang env b in
+    let ty = List.fold_right (fun c t -> Arrow (c, t)) ptvs ty_ret in
+    ty, env
   | Rel (EQ, a, b), _ -> begin
     try
       let at, env1 = infer_types_term ~hint:Int env a in

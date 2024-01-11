@@ -694,9 +694,15 @@ let rec term_to_whyml tenv t =
   | Nil -> tapp (qualid ["List"; "Nil"]) []
   | TCons (h, t) ->
     tapp (qualid ["List"; "Cons"]) [term_to_whyml tenv h; term_to_whyml tenv t]
-  | TLambda _ -> tconst (Subst.hash_lambda t)
-  (* let binders = vars_to_params tenv params in
-     term (Tquant (Dterm.DTlambda, binders, [], pure_expr_to_whyml tenv body)) *)
+  | TLambda (_name, _, _sp, None) ->
+    (* if there is no body, generate something that only respects alpha equivalence *)
+    (* this probably doesn't always work *)
+    (* tconst (Subst.hash_lambda t) *)
+    failwith "no body"
+  | TLambda (_name, params, _sp, Some body) ->
+    let params, _ret = unsnoc params in
+    let binders = vars_to_params tenv params in
+    term (Tquant (Dterm.DTlambda, binders, [], core_lang_to_whyml tenv body))
   | TList _ | TTupple _ | TPower (_, _) | TTimes (_, _) | TDiv (_, _) ->
     failwith "nyi"
 
@@ -713,29 +719,30 @@ and vars_to_params tenv vars =
         Some (type_to_whyml type_of_existential) ))
     vars
 
-and pure_expr_to_whyml tenv e =
+and core_lang_to_whyml tenv e =
   match e with
   | CValue t -> term_to_whyml tenv t
   | CLet (v, e1, e2) ->
     term
-      (Tlet (ident v, pure_expr_to_whyml tenv e1, pure_expr_to_whyml tenv e2))
+      (Tlet (ident v, core_lang_to_whyml tenv e1, core_lang_to_whyml tenv e2))
   | CIfELse (c, t, e) ->
     term
       (Tif
          ( pi_to_whyml tenv c,
-           pure_expr_to_whyml tenv t,
-           pure_expr_to_whyml tenv e ))
+           core_lang_to_whyml tenv t,
+           core_lang_to_whyml tenv e ))
   | CFunCall (s, args) ->
     let fn =
       match s with
       | "+" | "-" | ">" | "<" | ">=" | "<=" -> qualid ["Int"; Ident.op_infix s]
+      | "=" -> qualid ["Int"; Ident.op_infix s] (* for now *)
       | _ -> qualid [s]
     in
     tapp fn (List.map (term_to_whyml tenv) args)
   | CMatch (None, scr, None, [], cases) ->
     term
       (Tcase
-         ( pure_expr_to_whyml tenv scr,
+         ( core_lang_to_whyml tenv scr,
            List.map
              (fun (constr, args, b) ->
                let real_constr =
@@ -747,7 +754,7 @@ and pure_expr_to_whyml tenv e =
                ( pat
                    (Papp
                       (real_constr, List.map (fun a -> pat_var (ident a)) args)),
-                 pure_expr_to_whyml tenv b ))
+                 core_lang_to_whyml tenv b ))
              cases ))
   | CMatch (_, _, _, _, _) -> failwith "unsupported kind of match"
   | CAssert (_, _) | CLambda (_, _, _) -> failwith "unimplemented"
@@ -851,7 +858,7 @@ let prove tenv qtf f =
                         type_to_whyml t ))
                     fn.pf_params;
                 ld_type = Some (type_to_whyml fn.pf_ret_type);
-                ld_def = Some (pure_expr_to_whyml tenv fn.pf_body);
+                ld_def = Some (core_lang_to_whyml tenv fn.pf_body);
               })
             f
         in
