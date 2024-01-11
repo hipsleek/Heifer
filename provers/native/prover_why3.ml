@@ -245,7 +245,6 @@ module Defunct = struct
     | Num i ->
       Theories.(needed int env.theories);
       (Term.t_nat_const i, Int)
-    | PureLambda (_, _) -> failwith "not implemented"
     | TLambda (_, _, _) ->
       Theories.(needed int env.theories);
       failwith "not updated" (* (Term.t_nat_const (Subst.hash_lambda t), Int) *)
@@ -695,10 +694,9 @@ let rec term_to_whyml tenv t =
   | Nil -> tapp (qualid ["List"; "Nil"]) []
   | TCons (h, t) ->
     tapp (qualid ["List"; "Cons"]) [term_to_whyml tenv h; term_to_whyml tenv t]
-  | PureLambda (params, body) ->
-    let binders = vars_to_params tenv params in
-    term (Tquant (Dterm.DTlambda, binders, [], pure_expr_to_whyml tenv body))
   | TLambda _ -> tconst (Subst.hash_lambda t)
+  (* let binders = vars_to_params tenv params in
+     term (Tquant (Dterm.DTlambda, binders, [], pure_expr_to_whyml tenv body)) *)
   | TList _ | TTupple _ | TPower (_, _) | TTimes (_, _) | TDiv (_, _) ->
     failwith "nyi"
 

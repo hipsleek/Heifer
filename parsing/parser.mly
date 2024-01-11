@@ -2613,10 +2613,6 @@ pure_formula_term:
   | LPAREN pure_formula_term RPAREN { $2 }
 
   | LPAREN FUN params=nonempty_list(LIDENT) MINUSGREATER ef=disj_effect_spec RPAREN { TLambda (Pretty.verifier_getAfreeVar "plambda", params, ef) }
-
-  | LPAREN PURE FUN params=nonempty_list(LIDENT) MINUSGREATER body=expr RPAREN {
-    PureLambda (params, Core_lang.transformation [] body)
-    }
 ;
 
 pure_formula: 

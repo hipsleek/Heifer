@@ -189,7 +189,6 @@ let rec string_of_term t : string =
 
   | TApp (op, args) -> Format.asprintf "%s%s" op (string_of_args string_of_term args)
   | TLambda (_name, params, sp) -> Format.asprintf "(fun %s -> %s)" (String.concat " " params) (string_of_disj_spec sp)
-  | PureLambda (params, body) -> Format.asprintf "(fun %s -> %s)" (String.concat " " params) (string_of_core_lang body)
   | TTupple nLi ->
     let rec helper li =
       match li with
