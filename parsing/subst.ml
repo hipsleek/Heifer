@@ -69,6 +69,16 @@ let rec findbinding str vb_li =
         binding
     end
 
+  let subst_visitor_subsumptions_only bindings =
+    object
+      inherit [_] map_spec
+
+      method! visit_Subsumption () a b =
+        let vis = subst_visitor bindings in
+        Subsumption (vis#visit_term () a, vis#visit_term () b)
+    end
+
+
 let instantiateTerms (bindings : (string * core_value) list) (t : term) :
     term =
   (subst_visitor bindings)#visit_term () t

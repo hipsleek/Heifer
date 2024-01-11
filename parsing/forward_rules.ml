@@ -841,7 +841,8 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
           
           let instantiatedSpec =
             spec |> trf "actuals" (instantiateSpecList (bindFormalNActual spec_params actualArgs))
-              |> trf "ho args" (instantiateSpecList arg_specs)
+              (* substituting too zealously (e.g. expanding every term argument into a lambda) can cause proofs to fail, due to either bugs or incomplete handling of lambda. to work around this, do only the minimal substitution needed here, as subsumption formulae aren't helped by unfolding, whereas functions are *)
+              |> trf "ho args" ((subst_visitor_subsumptions_only arg_specs)#visit_disj_spec ())
           in 
 
           let instantiatedSpec = instantiatedSpec |> trf "function stages" (recursivelyInstantiateFunctionCalls env) in 
