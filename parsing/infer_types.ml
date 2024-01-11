@@ -88,7 +88,10 @@ let rec infer_types_core_lang env e =
       ) args ex_args ([], env)
     in
     ex_ret, env
-  | CLet (_, _, _) -> failwith "CLet"
+  | CLet (x, e1, e2) ->
+    let t1, env = infer_types_core_lang env e1 in
+    let env = assert_var_has_type x t1 env in
+    infer_types_core_lang env e2
   | CIfELse (_, _, _) -> failwith "CIfELse"
   | CWrite (_, _) -> failwith "CWrite"
   | CRef _ -> failwith "CRef"
@@ -135,12 +138,16 @@ and infer_types_term ?hint (env : abs_typ_env) term : typ * abs_typ_env =
   | TLambda (_, _, _, None), _ -> (Lamb, env)
   | TLambda (_, params, _, Some b), _ ->
     (* TODO use the spec? *)
-    let params, _ret = unsnoc params in
-    let ptvs = List.map (fun _ -> TVar (verifier_getAfreeVar "param")) params in
-    let env = List.fold_right2 (fun p pt env -> assert_var_has_type p pt env) params ptvs env in
-    let ty_ret, env = infer_types_core_lang env b in
-    let ty = List.fold_right (fun c t -> Arrow (c, t)) ptvs ty_ret in
-    ty, env
+    (try
+      let params, _ret = unsnoc params in
+      let ptvs = List.map (fun _ -> TVar (verifier_getAfreeVar "param")) params in
+      let env = List.fold_right2 (fun p pt env -> assert_var_has_type p pt env) params ptvs env in
+      let ty_ret, env = infer_types_core_lang env b in
+      let ty = List.fold_right (fun c t -> Arrow (c, t)) ptvs ty_ret in
+      ty, env
+    with Failure _ ->
+      (* if inferring types for the body fails (likely due to the types of impure stuff not being representable), fall back to old behavior for now *)
+      Lamb, env)
   | Rel (EQ, a, b), _ -> begin
     try
       let at, env1 = infer_types_term ~hint:Int env a in
