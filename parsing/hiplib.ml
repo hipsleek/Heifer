@@ -1753,4 +1753,5 @@ let run_file inputfile =
 let main () =
   let inputfile = (Sys.getcwd () ^ "/" ^ Sys.argv.(1)) in
   run_file inputfile;
-  if !test_mode && not !tests_failed then Format.printf "ALL OK!@."
+  if !test_mode && not !tests_failed then Format.printf "ALL OK!@.";
+  exit (if !tests_failed then 1 else 0)
