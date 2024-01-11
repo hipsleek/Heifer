@@ -74,13 +74,6 @@ let closure_with_hof_ok ()
   cl 2;
   call_ret !x
 
-(* https://github.com/FabianWolff/closure-examples/blob/master/cl_returned.rs *)
-let cl_returned ()
-(*@ ens res>=0 @*)
-= let foo () = let f () = 42 in f in
-  let cl = foo () in
-  cl ()
-
 (* https://ilyasergey.net/CS6217/_static/slides/04-FunLog.pdf *)
 let min_max_plus x y min max
 (*@ ex a b; req min->a*max->b; ex i j; ens min->i*max->j/\i<=j/\res=x+y @*)

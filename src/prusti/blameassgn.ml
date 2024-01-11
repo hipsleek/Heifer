@@ -1,8 +1,6 @@
 
 (* https://github.com/FabianWolff/closure-examples/blob/master/blameassgn.rs *)
 
-(* https://github.com/EmilyOng/AlgebraicEffect/blob/EmilyOng/examples/src/examples/blameassgn.ml *)
-
 let g_false f
 (*@ req f <: (fun v r -> req v>9; ens r>=0/\r<=99) @*)
 = f 0

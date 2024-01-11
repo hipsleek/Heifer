@@ -1,5 +1,5 @@
 
-(* Adapted from https://github.com/FabianWolff/closure-examples/blob/master/all.rs *)
+(* https://github.com/FabianWolff/closure-examples/blob/master/all.rs *)
 
 let rec integers n =
   if n <= 0 then []
