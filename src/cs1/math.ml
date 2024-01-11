@@ -1,5 +1,5 @@
 
-(* CS1101S Reading Assessment 1 18/19 S1 *)
+(* NUS CS1101S Reading Assessment 1 18/19 S1 *)
 
 (* This is expected to fail since modulo operator is unimplemented *)
 let is_even_false x (*@ req x>0 @*) = x mod 2 = 0

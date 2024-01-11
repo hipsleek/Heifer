@@ -1,5 +1,5 @@
 
-(* CS1101S Reading Assessment 1 20/21 S1 *)
+(* NUS CS1101S Reading Assessment 1 20/21 S1 *)
 let capture_u_and_override_v u v
 (*@ ex i; req u->i; ens res=i+12 @*)
 = let foo u = let v = 4 in u + v + 3 in
