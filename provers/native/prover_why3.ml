@@ -833,19 +833,29 @@ let prove tenv qtf f =
     in
 
     let fns =
-      Globals.pure_fns ()
-      |> List.map (fun (k, fn) ->
-             {
-               ld_loc = Loc.dummy_position;
-               ld_ident = ident k;
-               ld_params =
-                 List.map
-                   (fun (p, t) ->
-                     (Loc.dummy_position, Some (ident p), false, type_to_whyml t))
-                   fn.pf_params;
-               ld_type = Some (type_to_whyml fn.pf_ret_type);
-               ld_def = Some (pure_expr_to_whyml tenv fn.pf_body);
-             })
+      match Globals.pure_fns () with
+      | [] -> []
+      | f ->
+        let ff =
+          List.map
+            (fun (k, fn) ->
+              {
+                ld_loc = Loc.dummy_position;
+                ld_ident = ident k;
+                ld_params =
+                  List.map
+                    (fun (p, t) ->
+                      ( Loc.dummy_position,
+                        Some (ident p),
+                        false,
+                        type_to_whyml t ))
+                    fn.pf_params;
+                ld_type = Some (type_to_whyml fn.pf_ret_type);
+                ld_def = Some (pure_expr_to_whyml tenv fn.pf_body);
+              })
+            f
+        in
+        [Dlogic ff]
     in
 
     let parameters =
@@ -881,7 +891,7 @@ let prove tenv qtf f =
       ]
       @ extra
     in
-    (ident "M", List.concat [imports; [Dlogic fns]; parameters; statement])
+    (ident "M", List.concat [imports; fns; parameters; statement])
   in
   let mlw_file = Modules [vc_mod] in
   Debug.debug ~at:4 ~title:"mlw file" "%a"
