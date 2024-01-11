@@ -5,9 +5,12 @@ let rec filter xs pred =
   | [] -> []
   | y :: ys -> if pred y then y :: filter ys pred else filter ys pred
 
-let is_positive x = x > 0
+let rec all_positive xs =
+  match xs with
+  | [] -> true
+  | x :: xs' -> x > 0 && all_positive xs'
 
-let positives () (* FIXME *)
-(*@ ens res=[1; 2] @*)
-(* Can be temporarily fixed by increasing the unfolding bound to 5 *)
-= filter [0; 1; 2; (-1)] is_positive
+let positives xs (* FIXME *)
+(*@ ex ys r; all_positive(ys, r); ens r=true/\res=ys @*)
+= let is_positive x = x > 0 in
+  filter xs is_positive

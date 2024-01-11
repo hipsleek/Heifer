@@ -2,8 +2,8 @@
 (* https://github.com/FabianWolff/closure-examples/blob/master/counter.rs *)
 
 let foo f
-= let inner v (*@ req v>=2; ens res>=2 @*)  = v in
-  inner (f ())
+(*@ req f <: (fun r -> ens r>=1) @*)
+= ()
 
 let counter_ok ()
 = let x = ref 0 in
