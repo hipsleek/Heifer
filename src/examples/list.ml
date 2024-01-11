@@ -1,26 +1,3 @@
-
-let rec snoc lst x =
-  match lst with
-  | [] -> [x]
-  | y :: ys -> y :: snoc ys x
-
-let rec append xs ys =
-  match xs with
-  | [] -> ys
-  | x :: xs' -> x :: append xs' ys
-
-let append_append1 xs ys zs = append (append xs ys) zs
-let append_append2 xs ys zs = append xs (append ys zs)
-
-(*@
-  lemma append_associativity_lemma xs ys zs res =
-    append_append1(xs, ys, zs, res) <: ex r; append_append2(xs, ys, zs, r); ens res=r
-@*)
-
-let rec reverse lst =
-  match lst with
-  | [] -> []
-  | x :: xs -> snoc (reverse xs) x 
   
 let rec subsequence sub lst =
   match sub with
