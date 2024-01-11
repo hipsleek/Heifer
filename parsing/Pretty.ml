@@ -188,7 +188,13 @@ let rec string_of_term t : string =
   | TDiv (t1, t2) -> "(" ^string_of_term t1 ^ "/" ^ string_of_term t2 ^ ")"
 
   | TApp (op, args) -> Format.asprintf "%s%s" op (string_of_args string_of_term args)
-  | TLambda (_name, params, sp) -> Format.asprintf "(fun %s -> %s)" (String.concat " " params) (string_of_disj_spec sp)
+  | TLambda (_name, params, sp, body) ->
+    let body =
+      match body with
+      | None -> ""
+      | Some b -> Format.asprintf "-> %s" (string_of_core_lang b)
+    in
+    Format.asprintf "(fun %s (*@@ %s @@*) %s)" (String.concat " " params) (string_of_disj_spec sp) body
   | TTupple nLi ->
     let rec helper li =
       match li with
@@ -605,7 +611,7 @@ let quantify_res_state (p, h) =
 
 let lambda_to_pred_def name t =
   match t with
-  | TLambda (_lid, params, spec) ->
+  | TLambda (_lid, params, spec, _body) ->
     {
       p_name = name;
       p_params = params;
@@ -621,7 +627,7 @@ let local_lambda_defs =
     method zero = SMap.empty
     method plus = SMap.merge_disjoint
     
-    method! visit_TLambda _ _ _ _ = SMap.empty
+    method! visit_TLambda _ _ _ _ _ = SMap.empty
 
     method! visit_Subsumption () a b =
       match a, b with

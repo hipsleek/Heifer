@@ -245,7 +245,7 @@ module Defunct = struct
     | Num i ->
       Theories.(needed int env.theories);
       (Term.t_nat_const i, Int)
-    | TLambda (_, _, _) ->
+    | TLambda (_, _, _, _) ->
       Theories.(needed int env.theories);
       failwith "not updated" (* (Term.t_nat_const (Subst.hash_lambda t), Int) *)
     | Var v when SMap.mem v env.tenv ->
@@ -779,7 +779,7 @@ let collect_variables =
     method! visit_Var _ v = SSet.singleton v
 
     (* don't go inside lambda, as those variables don't get encoded *)
-    method! visit_TLambda _ _ _ _ = SSet.empty
+    method! visit_TLambda _ _ _ _ _ = SSet.empty
   end
 
 let prove tenv qtf f =

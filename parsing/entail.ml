@@ -423,9 +423,9 @@ let extract_subsumption_proof_obligations ctx right =
   let right1 = (remove_subsumptions sub)#visit_pi () right in
   let sub = List.map (fun (t1, t2) ->
     match t1, t2 with
-    | TLambda (_, ap, _), TLambda (_, bp, _) when List.length ap <> List.length bp ->
+    | TLambda (_, ap, _, _), TLambda (_, bp, _, _) when List.length ap <> List.length bp ->
       failwith (Format.asprintf "|%s| != |%s|" (string_of_list Fun.id ap) (string_of_list Fun.id bp));
-    | TLambda (_, ap, a), TLambda (_, bp, b) ->
+    | TLambda (_, ap, a, _), TLambda (_, bp, b, _) ->
       let fv = List.map (fun _ -> verifier_getAfreeVar "v") ap in
       let a1 = instantiateSpecList (List.map2 (fun v x -> v, Var x) ap fv) a in
       let b1 = instantiateSpecList (List.map2 (fun v x -> v, Var x) bp fv) b in

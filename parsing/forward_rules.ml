@@ -833,7 +833,7 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
                 | Some (params, sp) ->
                   let res = verifier_getAfreeVar "res" in
                   let params = params @ [res] in
-                  Some (a, TLambda (verifier_getAfreeVar "lambda", params, sp |> renamingexistientalVar |> instantiateSpecList ["res", Var res])))
+                  Some (a, TLambda (verifier_getAfreeVar "lambda", params, sp |> renamingexistientalVar |> instantiateSpecList ["res", Var res], None)))
               | _ -> None) actualArgs
           in
 
@@ -892,7 +892,7 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
         | None -> env
         | Some g -> { env with fv_lambda_obl = (inferred, g) :: env.fv_lambda_obl }
       in
-      let event = NormalReturn (res_eq (TLambda (lid, params @ [ret], spec_to_use)), EmptyHeap) in 
+      let event = NormalReturn (res_eq (TLambda (lid, params @ [ret], spec_to_use, Some body)), EmptyHeap) in 
       concatenateSpecsWithEvent history [event], env
 
     | CMatch (match_summary, scr, Some val_case, eff_cases, []) -> (* effects *)

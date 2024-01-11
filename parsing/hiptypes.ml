@@ -24,7 +24,7 @@ and term =
     | Nil
     (* the string is just an identifier for uniqueness.
        the last param is the name of the result *)
-    | TLambda of string * string list * disj_spec
+    | TLambda of string * string list * disj_spec * core_lang option
     (* unused *)
     | TList of term list
     | TTupple of term list
