@@ -1,5 +1,5 @@
 
-let rec is_sorted xs =
+let[@pure] rec is_sorted (xs: int list): bool =
   match xs with
   | [] -> true
   | x :: xs' -> (
@@ -8,21 +8,16 @@ let rec is_sorted xs =
     | x' :: xs'' -> x <= x' && is_sorted xs'
   )
 
-let rec insert_in_sorted_list v xs
+let[@pure] rec insert_in_sorted_list (v: int) (xs: int list): int list
 = match xs with
   | [] -> [v]
   | x :: xs' -> if v <= x then v :: xs else x :: insert_in_sorted_list v xs'
 
-let insert_in_sorted_list_ v xs (* FIXME *)
-(*@
-  ex t1 t2 r;
-  is_sorted(xs, t1); req t1=true;
-  insert_in_sorted_list(v, xs, r);
-  is_sorted(r, t2); ens t2=true/\res=r
-@*)
+let[@pure] insert_in_sorted_list_ (v: int) (xs: int list): int list (* FIXME *)
+(*@ req is_sorted(xs)=true; ex r; ens is_sorted(r)=true/\res=r @*)
 = insert_in_sorted_list v xs
 
-let rec insertion_sort xs =
+let[@pure] rec insertion_sort (xs: int list): int list =
   match xs with
   | [] -> []
   | x :: xs' -> insert_in_sorted_list x (insertion_sort xs')

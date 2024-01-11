@@ -6,17 +6,21 @@ let rec any xs pred
 | [] -> false
 | x :: xs' -> pred x || any xs' pred
 
-let test1 xs (* FIXME *)
-(*@ req xs->[1;2;3]; ens res=true @*)
+let rec integers n =
+  if n <= 0 then []
+  else n :: integers (n - 1)
+
+let test1 n (* FIXME *)
+(*@ req n>=3; ens res=true @*)
 = let is_equal_three v = v = 3 in
-  any !xs is_equal_three
+  any (integers n) is_equal_three
 
-let test2 xs (* FIXME *)
-(*@ req xs->[1;2;3]; ens res=false @*)
+let test2 n (* FIXME *)
+(*@ req n<100; ens res=false @*)
 = let is_equal_hundred v = v = 100 in
-  any !xs is_equal_hundred
+  any (integers n) is_equal_hundred
 
-let test3 xs (* FIXME *)
-(*@ req xs->[1;2;3]; ens res=false @*)
+let test3 n (* FIXME *)
+(*@ req n<10; ens res=false @*)
 = let is_greater_than_ten v = v > 10 in
-  any !xs is_greater_than_ten
+  any (integers n) is_greater_than_ten
