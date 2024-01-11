@@ -1,8 +1,11 @@
 
+(* https://github.com/FabianWolff/closure-examples/blob/master/delegation.rs *)
+
 let f y h g (* FIXME *)
 (*@ ex yv; req y->yv; ens y->4 @*)
 = let x = ref 3 in
   y := 4;
+  (* Ensure that h and g are called successfully *)
   h (); g ()
 
 let delegation_example () (* FIXME *)
