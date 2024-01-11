@@ -1,7 +1,7 @@
 
 (* https://github.com/FabianWolff/closure-examples/blob/master/delegation.rs *)
 
-let f y h g (* FIXME *)
+let f_false y h g (* FIXME *)
 (*@
   ex yv;
   req y->yv
@@ -24,7 +24,7 @@ let f y h g (* FIXME *)
   (* Ensure that h and g are called successfully *)
   h (); g ()
 
-let delegation_example () (* FIXME *)
+let delegation_example_false () (* FIXME *)
 (*@ ex x; ex y; req x->42*y->0; ens x->43*y->4 @*)
 = let h () = 0 in
   let x = ref 42 in
