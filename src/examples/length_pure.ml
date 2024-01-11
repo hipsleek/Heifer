@@ -39,6 +39,6 @@ let rec snoc (lst: int list) (x: int): int list =
   | [] -> [x]
   | y :: ys -> y :: snoc ys x
 
-let snoc_length (xs: int list) (x: int): int =
+let snoc_length (xs: int list) (x: int): int
 (*@ ens res=length(xs)+1 @*)
-  length (snoc xs x)
+= length (snoc xs x)
