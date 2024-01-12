@@ -596,19 +596,6 @@ let is_just_res_of pi t =
     (get_res_value pi) = t
   with _ -> false
 
-let quantify_res p =
-  let r, rez = split_res_fml p in
-  let nv = verifier_getAfreeVar "split" in
-  And (r, Subst.instantiatePure ["res", Var nv] rez), nv
-
-(** existentially quantify, i.e. replace with fresh variable *)
-let quantify_res_state (p, h) =
-  let p1, nv = quantify_res p in
-  (p1, h), nv
-
-  let contains_res_state (p, h) =
-    SSet.mem "res" (Subst.used_vars_state (p, h))
-
 let lambda_to_pred_def name t =
   match t with
   | TLambda (_lid, params, spec, _body) ->

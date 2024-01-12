@@ -281,3 +281,9 @@ let goo1 xs
 let goo2 xs
 (*@ ex t; foo2(xs, t); ens res=t @*)
 = foo2 xs
+
+let call_f_in_g ()
+(*@ ens res=5 @*)
+= let x = 3 in
+  let f x = x in
+  f 5
