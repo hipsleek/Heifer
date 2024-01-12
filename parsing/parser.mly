@@ -723,7 +723,7 @@ let mk_directive ~loc name arg =
 %token RSPECCOMMENT
 %token PREDICATE
 %token LEMMA
-%token PURE
+// %token PURE
 %token <Docstrings.docstring> DOCSTRING
 %token PROP_TRUE
 %token PROP_FALSE
