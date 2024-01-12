@@ -20,7 +20,7 @@
  (description "Verifier for imperative higher order programs")
  (depends
   (ocaml (>= 5))
-  (z3 (>= 4.12.2))
+  (z3 (= 4.12.2)) ; 4.12.4 has some unsat->unknown issues...
   (menhir (>= 20220210))
   (dune (>= 3.8.0))
   (ppx_deriving (>= 5.2.1))
