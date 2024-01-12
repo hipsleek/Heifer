@@ -1,4 +1,5 @@
 open Hiptypes
+open Pretty
 
 let rec findNewName str vb_li =
   match vb_li with
@@ -42,28 +43,33 @@ let rec findbinding str vb_li =
   | (name, v) :: xs ->
     if String.compare name str == 0 then v else findbinding str xs
 
-  let subst_visitor bindings =
+  let subst_visitor =
     object (self)
       inherit [_] map_spec
 
+      (* not full capture-avoiding, we just stop substituting a name when it is bound *)
+      method! visit_TLambda bindings name params sp body =
+        let bs = List.filter (fun (b, _) -> not (List.mem b params)) bindings in
+        TLambda (name, params, (self#visit_disj_spec bs sp), (self#visit_option self#visit_core_lang bs body))
+
       method! visit_Exists _ v = Exists v
 
-      method! visit_PointsTo _ (str, t1) =
+      method! visit_PointsTo bindings (str, t1) =
         let binding = findbinding str bindings in
         let newName = match binding with Var str1 -> str1 | _ -> str in
-        PointsTo (newName, self#visit_term () t1)
+        PointsTo (newName, self#visit_term bindings t1)
 
-      method! visit_HigherOrder _ (pi, kappa, (str, basic_t_list), ret) =
+      method! visit_HigherOrder bindings (pi, kappa, (str, basic_t_list), ret) =
         let constr =
           match List.assoc_opt str bindings with Some (Var s) -> s | _ -> str
         in
         HigherOrder
-          ( self#visit_pi () pi,
-            self#visit_kappa () kappa,
-            (constr, List.map (fun bt -> self#visit_term () bt) basic_t_list),
-            self#visit_term () ret )
+          ( self#visit_pi bindings pi,
+            self#visit_kappa bindings kappa,
+            (constr, List.map (fun bt -> self#visit_term bindings bt) basic_t_list),
+            self#visit_term bindings ret )
 
-      method! visit_Var _ v =
+      method! visit_Var bindings v =
         let binding = findbinding v bindings in
         (* Format.printf "replacing %s with %s under %s@." str (string_of_term binding) (string_of_list (string_of_pair Fun.id string_of_term) bindings); *)
         binding
@@ -74,34 +80,48 @@ let rec findbinding str vb_li =
       inherit [_] map_spec
 
       method! visit_Subsumption () a b =
-        let vis = subst_visitor bindings in
-        Subsumption (vis#visit_term () a, vis#visit_term () b)
+        Subsumption (subst_visitor#visit_term bindings a, subst_visitor#visit_term bindings b)
     end
 
 
 let instantiateTerms (bindings : (string * core_value) list) (t : term) :
     term =
-  (subst_visitor bindings)#visit_term () t
+  subst_visitor#visit_term bindings t
+
+let string_of_bindings bs =
+  String.concat "" (List.map (fun (s, t) -> Format.asprintf "[%s/%s]" (string_of_term t) s) bs)
 
 let instantiateSpecList (bindings : (string * core_value) list) (t : disj_spec) : disj_spec =
-  (subst_visitor bindings)#visit_disj_spec () t
+  let r = subst_visitor#visit_disj_spec bindings t in
+  Debug.debug ~at:5
+    ~title:"instantiateSpecList"
+    "%s\n%s\n%s" (string_of_disj_spec t)
+    (string_of_bindings bindings)
+    (string_of_disj_spec r);
+  r
 
 let instantiateSpec (bindings : (string * core_value) list) (t : spec) : spec =
-  (subst_visitor bindings)#visit_spec () t
+  let r = subst_visitor#visit_spec bindings t in
+  Debug.debug ~at:5
+    ~title:"instantiateSpec"
+    "%s\n%s\n%s" (string_of_spec t)
+    (string_of_bindings bindings)
+    (string_of_spec r);
+  r
 
 let instantiate_state (bindings : (string * core_value) list) (t : state) : state =
-  (subst_visitor bindings)#visit_state () t
+  subst_visitor#visit_state bindings t
 
 let instantiatePure (bindings : (string * core_value) list) (t : pi) :
     pi =
-  (subst_visitor bindings)#visit_pi () t
+  subst_visitor#visit_pi bindings t
 
 let instantiateHeap (bindings : (string * core_value) list) (t : kappa) :
     kappa =
-  (subst_visitor bindings)#visit_kappa () t
+  subst_visitor#visit_kappa bindings t
 
 let instantiateStages (bindings : (string * core_value) list) (t : stagedSpec) : stagedSpec =
-  (subst_visitor bindings)#visit_stagedSpec () t
+  subst_visitor#visit_stagedSpec bindings t
 
 (* for each variable, find how many times it is used and what other terms it is equal to *)
 (* TODO generalise to related to *)
@@ -244,3 +264,16 @@ let rec interpret_arrow_as_params t =
   | Arrow (t1, t2) ->
     let p, r = interpret_arrow_as_params t2 in
     t1 :: p, r
+
+let quantify_res p =
+  let r, rez = split_res_fml p in
+  let nv = verifier_getAfreeVar "split" in
+  And (r, instantiatePure ["res", Var nv] rez), nv
+
+(** existentially quantify, i.e. replace with fresh variable *)
+let quantify_res_state (p, h) =
+  let p1, nv = quantify_res p in
+  (p1, h), nv
+
+  let contains_res_state (p, h) =
+    SSet.mem "res" (used_vars_state (p, h))
