@@ -2612,7 +2612,7 @@ pure_formula_term:
 
   | LPAREN pure_formula_term RPAREN { $2 }
 
-  | LPAREN FUN params=nonempty_list(LIDENT) LSPECCOMMENT RSPECCOMMENT ef=disj_effect_spec b=ioption(preceded(MINUSGREATER, expr)) RPAREN
+  | LPAREN FUN params=nonempty_list(LIDENT) LSPECCOMMENT ef=disj_effect_spec RSPECCOMMENT b=ioption(preceded(MINUSGREATER, expr)) RPAREN
     { TLambda (Pretty.verifier_getAfreeVar "plambda", params, ef, Option.map (Core_lang.transformation []) b) }
 ;
 

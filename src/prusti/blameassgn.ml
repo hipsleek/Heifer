@@ -12,11 +12,11 @@
 = f 0 *)
 
 let g_false f
-(*@ req f <: (fun v r -> req v>9; ens r>=0/\r<=99) @*)
+(*@ req f <: (fun v r (*@ req v>9; ens r>=0/\r<=99 @*) ) @*)
 = f 0
 
 let g f
-(*@ req f <: (fun v r -> req v>9; ens r>=0/\r<=99); ens res>=0/\res<=99 @*)
+(*@ req f <: (fun v r (*@ req v>9; ens r>=0/\r<=99 @*) ); ens res>=0/\res<=99 @*)
 = f 10
 
 let h v
