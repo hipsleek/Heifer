@@ -171,12 +171,13 @@ let used_vars_disj_spec (norm:disj_spec) =
 (* if alpha_equiv(t1, t2), then hash t1 = hash t2 *)
 let hash_lambda t =
   match t with
-  | TLambda (_id, params, spec, body) ->
+  | TLambda (_id, params, spec, _body) ->
     let bs = List.mapi (fun i p -> (p, "l" ^ string_of_int i)) params in
     let renamed =
       instantiateSpecList (List.map (fun (p, v) -> (p, Var v)) bs) spec
     in
-    let n = TLambda ("id", List.map snd bs, renamed, body) in
+    (* don't include body in hash *)
+    let n = (List.map snd bs, renamed) in
     (* Format.printf "renamed %s@." (string_of_term n); *)
     Hashtbl.hash n
   | _ -> failwith (Format.asprintf "not a lambda: %s" "(cannot print)")

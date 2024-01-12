@@ -135,8 +135,9 @@ and infer_types_term ?hint (env : abs_typ_env) term : typ * abs_typ_env =
   | Var v, None ->
     let t = TVar (verifier_getAfreeVar v) in
     (t, assert_var_has_type v t env)
+  | TLambda (_, _, _, Some _), _
   | TLambda (_, _, _, None), _ -> (Lamb, env)
-  | TLambda (_, params, _, Some b), _ ->
+  (* | TLambda (_, params, _, Some b), _ ->
     (* TODO use the spec? *)
     (try
       let params, _ret = unsnoc params in
@@ -147,7 +148,7 @@ and infer_types_term ?hint (env : abs_typ_env) term : typ * abs_typ_env =
       ty, env
     with Failure _ ->
       (* if inferring types for the body fails (likely due to the types of impure stuff not being representable), fall back to old behavior for now *)
-      Lamb, env)
+      Lamb, env) *)
   | Rel (EQ, a, b), _ -> begin
     try
       let at, env1 = infer_types_term ~hint:Int env a in

@@ -694,15 +694,16 @@ let rec term_to_whyml tenv t =
   | Nil -> tapp (qualid ["List"; "Nil"]) []
   | TCons (h, t) ->
     tapp (qualid ["List"; "Cons"]) [term_to_whyml tenv h; term_to_whyml tenv t]
-  | TLambda (_name, _, _sp, None) ->
+  | TLambda (_name, _, _sp, Some _) | TLambda (_name, _, _sp, None) ->
     (* if there is no body, generate something that only respects alpha equivalence *)
     (* this probably doesn't always work *)
-    (* tconst (Subst.hash_lambda t) *)
-    failwith "no body"
-  | TLambda (_name, params, _sp, Some body) ->
-    let params, _ret = unsnoc params in
-    let binders = vars_to_params tenv params in
-    term (Tquant (Dterm.DTlambda, binders, [], core_lang_to_whyml tenv body))
+    tconst (Subst.hash_lambda t)
+  (* failwith "no body" *)
+  (* disabled temporarily *)
+  (* | TLambda (_name, params, _sp, Some body) ->
+     let params, _ret = unsnoc params in
+     let binders = vars_to_params tenv params in
+     term (Tquant (Dterm.DTlambda, binders, [], core_lang_to_whyml tenv body)) *)
   | TList _ | TTupple _ | TPower (_, _) | TTimes (_, _) | TDiv (_, _) ->
     failwith "nyi"
 
