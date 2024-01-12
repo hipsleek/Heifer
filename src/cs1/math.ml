@@ -10,7 +10,7 @@ let rec even_or_odd_false x
 @*)
 = if x = 1 then false
   else if x = 2 then true
-  else even_or_odd (x - 2)
+  else even_or_odd_false (x - 2)
 
 let min_of_three a b c
 (*@

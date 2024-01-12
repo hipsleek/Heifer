@@ -18,7 +18,7 @@ let is_pos x = x > 0
 
 let has_property p xs = all p xs
 
-let all_pos n
+let all_pos n (* FIXME *)
 (*@ ex r ys; has_property(is_pos, ys, r); ens r=true/\res=ys @*)
 = repeat 1 n
 
