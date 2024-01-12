@@ -2,7 +2,7 @@
 (* https://github.com/FabianWolff/closure-examples/blob/master/counter.rs *)
 
 let foo f
-(*@ req f <: (fun v r -> ens r>=2) @*)
+(*@ req f <: (fun v r (*@ ens r>=2 @*)) @*)
 = ()
 
 let counter_ok () (* FIXME *)

@@ -6,8 +6,8 @@ let f_false y h g (* FIXME *)
   ex yv;
   req y->yv
     (* Ensures that h and g do not change anything on the heap *)
-    /\ h <: (fun v r -> req T; ens T/\res=r)
-    /\ g <: (fun v r -> req T; ens T/\res=r);
+    /\ h <: (fun v r (*@ req T; ens T/\res=r @*))
+    /\ g <: (fun v r (*@ req T; ens T/\res=r @*);
   ens y->4
 @*)
 (**
