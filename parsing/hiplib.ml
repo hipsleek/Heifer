@@ -691,28 +691,40 @@ let rec entailmentchecking (lhs:normalisedStagedSpec list) (rhs:normalisedStaged
     r1 && r2
 
 let normal_report ?(kind="Function") ?given_spec ?given_spec_n ?inferred_spec ?inferred_spec_n ?forward_time_ms ?entail_time_ms ?result name =
+  let normed_spec, normed_post =
+    let@ _ =
+      Debug.span (fun _r -> debug ~at:2 ~title:"final normalization" "")
+    in
+    let normed_spec =
+      match given_spec_n with
+      | Some s -> "[Normed   Spec] " ^ string_of_spec_list (normalise_spec_list_aux2 s) ^ "\n\n"
+      | None -> ""
+    in
+    let normed_post =
+      match inferred_spec_n with
+      | Some s ->
+          (*print_endline ("\ninferred_spec_n:");
+          let _ = List.iter (fun spec -> print_endline (string_of_normalisedStagedSpec spec) ) s in
+          print_endline("\n----------------");
+
+          print_endline (string_of_spec_list (normalise_spec_list_aux2 s)); 
+          *)
+        "[Normed   Post] " ^ string_of_spec_list (normalise_spec_list (normalise_spec_list_aux2 s)) ^ "\n\n"
+      | None -> ""
+    in
+    normed_spec, normed_post
+  in
+  debug ~at:2 ~title:"verification result" "";
   let header =
     "\n========== " ^ kind ^ ": "^ name ^" ==========\n" ^
     (match given_spec with
     | Some s -> "[Specification] " ^ string_of_spec_list s ^ "\n\n"
     | None -> "") ^
-    (match given_spec_n with
-    | Some s -> "[Normed   Spec] " ^ string_of_spec_list (normalise_spec_list_aux2 s) ^ "\n\n"
-    | None -> "") ^
+    normed_spec ^
     (match inferred_spec with
     | Some s -> "[Raw Post Spec] " ^ string_of_spec_list s ^ "\n\n"
     | None -> "") ^
-    (match inferred_spec_n with
-    | Some s -> 
-    
-        (*print_endline ("\ninferred_spec_n:");
-        let _ = List.iter (fun spec -> print_endline (string_of_normalisedStagedSpec spec) ) s in 
-        print_endline("\n----------------");
-
-        print_endline (string_of_spec_list (normalise_spec_list_aux2 s)); 
-*)
-      "[Normed   Post] " ^ string_of_spec_list (normalise_spec_list (normalise_spec_list_aux2 s)) ^ "\n\n"
-    | None -> "") ^
+    normed_post ^
     (match forward_time_ms with
     | Some t -> 
       (
@@ -894,15 +906,20 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) : core_program =
   (* only save these specs for use by later functions if verification succeeds *)
   if not res then prog 
   else (
+    let@ _ =
+      Debug.span (fun _r ->
+          debug ~at:2
+            ~title:(Format.asprintf "remembering predicate for %s" meth.m_name) "")
+    in
     let prog, pred =
       (* if the user has not provided a predicate for the given function,
         produce one from the inferred spec *)
-      let p = Entail.derive_predicate meth.m_name meth.m_params inferred_spec in
+      let p =
+        Entail.derive_predicate meth.m_name meth.m_params inferred_spec
+      in
       let cp_predicates = SMap.update meth.m_name
         (function
         | None ->
-          (*print_endline ("remembering predicate for " ^ meth.m_name ^ " " ^  (string_of_pred p)); *)
-          debug ~at:1 ~title:(Format.asprintf "remembering predicate for %s" meth.m_name) "%s" (string_of_pred p);
           Some p
         | Some _ -> None) prog.cp_predicates
       in
