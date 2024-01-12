@@ -16,7 +16,7 @@
   $ check test_match.ml
   ALL OK!
 
-  $ check test_lambda.ml
+  $ check_why3_only test_lambda.ml
   ALL OK!
 
   $ check test_closures.ml
@@ -95,7 +95,7 @@ ALL OK!
   $ check ../examples/exception.ml
   ALL OK!
 
-  $ check ../examples/blameassgn.ml
+  $ check ../prusti/blameassgn.ml
   ALL OK!
 
   $ check_why3_only ../examples/length_pure.ml
