@@ -848,11 +848,11 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) : core_program =
   (*print_endline ("\n----------------\ninferred_spec: \n" ^ string_of_spec_list inferred_spec);*)
 
   let inferred_spec_n = 
+    let@ _ = Debug.span (fun _r -> debug ~at:2 ~title:"normalization" "") in
     try
         
         normalise_disj_spec_aux1 inferred_spec
       with Norm_failure -> report_result ~inferred_spec ~result:false meth.m_name; raise Method_failure
-    
   in
 
 
@@ -862,6 +862,7 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) : core_program =
     match given_spec with
     | Some given_spec ->
       let given_spec_n =
+        let@ _ = Debug.span (fun _r -> debug ~at:2 ~title:"normalization" "") in
         try
           normalise_disj_spec_aux1 given_spec
         with Norm_failure -> report_result ~inferred_spec ~inferred_spec_n ~given_spec ~result:false meth.m_name; raise Method_failure
@@ -875,8 +876,10 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) : core_program =
           | false ->
              (*normalization occurs after unfolding in entailment *)
 
-            let inferred_spec = normalise_spec_list inferred_spec in 
-            let given_spec = normalise_spec_list given_spec in 
+            let inferred_spec, given_spec  =
+              let@ _ = Debug.span (fun _r -> debug ~at:2 ~title:"normalization" "") in
+              normalise_spec_list inferred_spec, normalise_spec_list given_spec
+            in
 
             (* print_endline ("proving!!!==================================") ;
             print_endline ("inferred_spec " ^ string_of_disj_spec inferred_spec);
@@ -1082,6 +1085,7 @@ let run_file inputfile =
 
       let line_of_spec = List.fold_left (fun acc a -> acc + (List.length (Str.split (Str.regexp "\n") a))) 0 partitions in 
 
+      debug ~at:2 ~title:"final summary" "";
       let finalSummary = 
         "\n========== FINAL SUMMARY ==========\n" 
         ^"[  LOC  ] " ^   string_of_int (List.length lines) ^ "\n"

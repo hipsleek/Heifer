@@ -10,7 +10,7 @@ let unfolding_bound = 1
 
 type fvenv = Forward_rules.fvenv
 
-let string_of_pi p = string_of_pi (simplify_pure p)
+(* let string_of_pi p = string_of_pi (simplify_pure p) *)
 let with_pure pi ((p, h) : state) : state = (conj [p; pi], h)
 let rename_exists_spec sp = List.hd (Forward_rules.renamingexistientalVar [sp])
 
@@ -666,18 +666,33 @@ and stage_subsumes :
   let vs1, (pre1, post1) = s1 in
   let vs2, (pre2, post2) = s2 in
   (* TODO replace uses of all_vars. this is for us to know if locations on the rhs are quantified. a smaller set of vars is possible *)
-  debug ~at:1
-    ~title:(Format.asprintf "subsumption for %s" what)
-    "%s * (%sreq %s; ens %s)\n<:\n(%sreq %s; ens %s)" (string_of_pi assump)
-    (string_of_existentials vs1)
-    (string_of_state pre1) (string_of_state post1)
-    (string_of_existentials vs2)
-    (string_of_state pre2) (string_of_state post2);
+  let@ _ =
+    Debug.span (fun r ->
+      debug ~at:1
+        ~title:(Format.asprintf "subsumption for %s" what)
+        "%s * (%sreq %s; ens %s)\n<:\n(%sreq %s; ens %s)\n==>\n%s" (string_of_pi assump)
+        (string_of_existentials vs1)
+        (string_of_state pre1) (string_of_state post1)
+        (string_of_existentials vs2)
+        (string_of_state pre2) (string_of_state post2)
+        (string_of_result (fun o -> string_of_bool (Option.is_some o)) r))
+  in
   (* contravariance *)
   let@ pre_l, pre_r, pre_resi_l = check_qf "pre" ctx.q_vars pre2 pre1 in
   let* pre_residue, tenv, ctx =
     let left = conj [assump; pre_l] in
     let right = pre_r in
+    let left = Normalize.simplify_pure left in
+    let right = Normalize.simplify_pure right in
+    let@ _ =
+      Debug.span (fun r ->
+          debug ~at:2
+            ~title:(Format.asprintf "VC for precondition of %s" what)
+            "%s => %s%s\n\nvalid? %s" (string_of_pi left)
+            (string_of_existentials vs1)
+            (string_of_pi right)
+            (string_of_result (fun o -> string_of_bool (Option.is_some o)) r))
+    in
     let tenv =
       (* handle the environment manually as it's shared between both sides *)
       let env = create_abs_env () in
@@ -685,18 +700,16 @@ and stage_subsumes :
       let env = infer_types_pi env right in
       env
     in
-    let left = Normalize.simplify_pure left in
-    let right = Normalize.simplify_pure right in
     let right, ctx = extract_subsumption_proof_obligations ctx right in
-    debug ~at:1
+    (* debug ~at:1
       ~title:(Format.asprintf "VC for precondition of %s" what)
       "%s => %s%s" (string_of_pi left)
       (string_of_existentials vs1)
-      (string_of_pi right);
+      (string_of_pi right); *)
     let pre_res =
       Provers.entails_exists (concrete_type_env tenv) left vs1 right
     in
-    debug ~at:1 ~title:(Format.asprintf "valid?") "%s" (string_of_res pre_res);
+    (* debug ~at:1 ~title:(Format.asprintf "valid?") "%s" (string_of_res pre_res); *)
     (* TODO why do we need pre_r here? as pre_l has just been proven to subsume pre_r *)
     if pre_res then Some ((conj [pre_l; pre_r; assump], pre_resi_l), tenv, ctx)
     else None
@@ -716,6 +729,17 @@ and stage_subsumes :
     (* let right = conj [post_r; r] in *)
     let left = conj [fst pre_residue; post_l] in
     let right = conj [post_r] in
+    let left = Normalize.simplify_pure left in
+    let right = Normalize.simplify_pure right in
+    let@ _ =
+      Debug.span (fun r ->
+          debug ~at:2
+            ~title:(Format.asprintf "VC for postcondition of %s" what)
+            "%s => %s%s\n\nvalid? %s" (string_of_pi left)
+            (string_of_existentials vs22)
+            (string_of_pi right)
+            (string_of_result (fun o -> string_of_bool (Option.is_some o)) r))
+    in
     let tenv =
       (* let env = infer_types_pi tenv left in *)
       (* let env = infer_types_pi env right in *)
@@ -742,11 +766,11 @@ and stage_subsumes :
           (string_of_res false_not_derived)
     in *)
     let right, ctx = extract_subsumption_proof_obligations ctx right in
-    debug ~at:1
+    (* debug ~at:1
       ~title:(Format.asprintf "VC for postcondition of %s" what)
       "%s => %s%s" (string_of_pi left)
       (string_of_existentials vs22)
-      (string_of_pi right);
+      (string_of_pi right); *)
     let post_result =
       Provers.entails_exists (concrete_type_env tenv) left vs22 right
     in
@@ -755,7 +779,7 @@ and stage_subsumes :
     print_endline (string_of_bool post_result);
     *)
 
-    debug ~at:1 ~title:(Format.asprintf "valid?") "%s" (string_of_res post_result);
+    (* debug ~at:1 ~title:(Format.asprintf "valid?") "%s" (string_of_res post_result); *)
     let f = verifier_getAfreeVar "" in
     let left = instantiatePure [("res", Var f)] left in
     let right = instantiatePure [("res", Var f)] right in
