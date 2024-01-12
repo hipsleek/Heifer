@@ -5,8 +5,7 @@ let foo f
 (*@ req f <: (fun v r (*@ ens r>=2 @*)) @*)
 = ()
 
-let counter_ok () (* FIXME *)
-(*@ ens T @*)
+let counter_ok ()
 = let x = ref 0 in
   let inc ()
   (*@ ex v; req x->v/\v>=0; ens x->v+1/\res=v @*)

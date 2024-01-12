@@ -1,7 +1,7 @@
 
 (* https://github.com/FabianWolff/closure-examples/blob/master/delegation.rs *)
 
-let f_false y h g (* FIXME *)
+let f y h g (* FIXME *)
 (*@
   ex yv;
   req y->yv

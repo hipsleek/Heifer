@@ -6,7 +6,7 @@ let rec map f xs =
 
 let id y = y
 
-let map_id ys (* FIXME *)
+let map_id ys
 (*@ ens res=ys @*)
 = map id ys
 
@@ -23,7 +23,7 @@ let rec succ_list xs =
   | x :: xs1 -> succ x :: succ_list xs1
 
 (* we use succ_list in the statement of this lemma *)
-let map_succ ys (* FIXME *)
+let map_succ ys
 (*@ ex r; succ_list(ys, r); ens res=r @*)
 = map succ ys
 

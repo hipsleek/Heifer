@@ -95,7 +95,16 @@ ALL OK!
   $ check ../examples/exception.ml
   ALL OK!
 
+  $ check ../prusti/all.ml
+  ALL OK!
+
   $ check ../prusti/blameassgn.ml
+  ALL OK!
+
+  $ check ../prusti/counter.ml
+  ALL OK!
+
+  $ check ../prusti/cl_returned.ml
   ALL OK!
 
   $ check_why3_only ../examples/length_pure.ml

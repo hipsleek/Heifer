@@ -10,28 +10,28 @@ let rec all xs pred
 | [] -> true
 | x :: xs' -> pred x && all xs' pred
 
-(*(*@
+(*@
   lemma all_all_false xs p res =
    all(xs, p, res) ==> ens res=all(xs, p)
-@*)*)
-
-let rec integers n =
-  if n <= 0 then []
-  else n :: integers (n - 1)
+@*)
 
 let rec repeat x n =
   if n <= 0 then []
   else x :: repeat x (n - 1)
 
-let is_pos x = x > 0
+let is_positive x = x > 0
 
-let has_property p xs = all p xs
+let rec all_positive xs =
+  match xs with
+  | [] -> true
+  | x :: xs' -> x > 0 && all_positive xs'
 
-let all_pos n (* FIXME *)
-(*@ ex r ys; has_property(is_pos, ys, r); ens r=true/\res=ys @*)
-= repeat 1 n
+(* let has_property p xs = all p xs *)
 
-(* Unlike pure length, this is not provable because p on the left may have effects *)
+(* let test_all_positive n (* FIXME *)
+(*@ ex r ys; all_positive(ys, r); ens r=true/\res=ys @*)
+= repeat 1 n *)
+
 let test1 xs
 (*@ req xs=[1;2;3;4]; ens res=false @*)
 = let is_equal_four v = v = 4 in

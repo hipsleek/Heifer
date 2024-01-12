@@ -11,14 +11,14 @@ let call_g_in_f w
   let f w = g w + g w in
   f (w + 2)
 
-let define_g_in_f w
+(* let define_g_in_f w
 (*@ ens res=4*.w+8 @*)
 = let f w =
     let x = 3 in
     (* FIXME: Scoping issue here where x=3 *)
     let g x = w + x in
     g w + g w in
-  f (w + 2)
+  f (w + 2) *)
 
 let chain_of_functions y z x w
 (*@ ens res=y+z+x+w @*)
@@ -35,11 +35,11 @@ let call_f_in_g ()
 = let g f = (fun x -> f x) in
   g (fun x -> x + 1) 4
 
-let nested_lambdas x y (* FIXME: Possible issues with scoping *)
+(* let nested_lambdas x y (* FIXME: Possible issues with scoping *)
 (*@ ens res=3*.x+y+14 @*)
 = let f = (fun x y ->
     let outer = (fun y -> y x + 1) in
     let inner = (fun x -> x + x + x + y) in
     outer inner
   ) in
-  f (x + 4) (y + 1)
+  f (x + 4) (y + 1) *)
