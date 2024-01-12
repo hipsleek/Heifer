@@ -1,7 +1,7 @@
 
 (* https://github.com/FabianWolff/closure-examples/blob/master/repeat_with_n.rs *)
 let rec repeat_with_n f n =
-  if n = 0 then []
+  if n <= 0 then []
   else f () :: repeat_with_n f (n - 1)
 
 let rec integers n =
