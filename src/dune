@@ -1,5 +1,6 @@
 (cram
  (deps (env_var PROVER) %{bin:hip}
+ (source_tree prusti)
  (source_tree examples)
  (source_tree ../benchmarks/effects/ocaml412)
  (source_tree evaluation)))

@@ -395,6 +395,8 @@ rule token = parse
       { PREDICATE }
   | "lemma"
       { LEMMA }
+  (* | "pure" *)
+      (* { PURE } *)
   | "~" (lowercase identchar * as name) ':'
       { check_label_name lexbuf name;
         LABEL name }

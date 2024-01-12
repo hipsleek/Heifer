@@ -64,7 +64,8 @@ let rec term_to_expr env ctx t : Z3.Expr.expr =
         (* Format.printf "%s is list@." v; *)
         let list_int = list_int_sort ctx in
         Z3.Expr.mk_const_s ctx v list_int
-      | Bool -> Z3.Boolean.mk_const_s ctx v))
+      | Bool -> Z3.Boolean.mk_const_s ctx v
+      | Arrow (_, _) -> failwith "arrow not implemented"))
   | UNIT ->
     let mk = Z3.Tuple.get_mk_decl (unit_sort ctx) in 
     Z3.Expr.mk_app ctx mk []

@@ -1,0 +1,12 @@
+
+module Extras
+
+  use list.List
+
+  function all (xs:list int) (pred:int -> bool) : bool =
+    match xs with
+    | Nil -> true
+    | Cons x xs1 -> pred x && all xs1 pred
+    end
+
+end

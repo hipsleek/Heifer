@@ -484,7 +484,7 @@ let rec collect_lambdas_term (t : term) =
     SSet.union (collect_lambdas_term a) (collect_lambdas_term b)
   | TNot a -> collect_lambdas_term a
   | TApp (_, args) -> SSet.concat (List.map collect_lambdas_term args)
-  | TLambda (l, _params, _sp) -> SSet.singleton l
+  | TLambda (l, _params, _sp, _body) -> SSet.singleton l
   | TCons _ -> failwith "unimplemented"
 
 let rec collect_lambdas_pi (p : pi) =
@@ -659,7 +659,7 @@ let remove_noncontributing_existentials :
     | TNot t -> collect_related_vars_term t
     | TApp (_, ts) -> SSet.concat (List.map collect_related_vars_term ts)
     | Rel (_, _, _) -> failwith (Format.asprintf "NYI rel")
-    | TLambda (_, _, body) -> collect_related_vars_disj_spec body
+    | TLambda (_, _, spec, _body) -> collect_related_vars_disj_spec spec
     | TList _ -> failwith (Format.asprintf "NYI list")
     | TTupple _ -> failwith (Format.asprintf "NYI tuple")
     | TCons _ -> failwith (Format.asprintf "NYI tcons")

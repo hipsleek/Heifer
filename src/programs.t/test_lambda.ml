@@ -1,7 +1,7 @@
 
 
 let f1 ()
-(*@ ens res=(fun x r -> ens r=x) @*)
+(*@ ens res=(fun x r (*@ ens r=x @*) ) @*)
 = let _ = () in
   fun x (*@ ens res=x @*) -> x
 
@@ -12,7 +12,7 @@ let f2 ()
   f3 2
 
 let g f
-(*@ req f <: (fun i r -> req i>9; ens r>=0/\r<=99);
+(*@ req f <: (fun i r (*@ req i>9; ens r>=0/\r<=99 @*) );
     ens res>=0/\res<=99 @*)
 = f 10
 

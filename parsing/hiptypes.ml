@@ -24,7 +24,7 @@ and term =
     | Nil
     (* the string is just an identifier for uniqueness.
        the last param is the name of the result *)
-    | TLambda of string * string list * disj_spec
+    | TLambda of string * string list * disj_spec * core_lang option
     (* unused *)
     | TList of term list
     | TTupple of term list
@@ -111,6 +111,7 @@ type typ =
   | Int
   | Bool
   | Lamb
+  | Arrow of typ * typ
   | TVar of string (* this is last, so > concrete types *)
 [@@deriving show { with_path = false }, ord]
 
@@ -306,6 +307,14 @@ type pure_fn_def = {
   pf_body: core_lang;
 }
 
+type pure_fn_type_def = {
+  pft_name: string;
+  pft_logic_path: string list;
+  pft_logic_name: string;
+  pft_params: typ list;
+  pft_ret_type: typ;
+}
+
 (** A lemma is an entailment [f(x, ...) <: spec]. The left side is restricted to be a function stage (without loss of generality). Some of x, ... may be parameters, but some may not be. *)
 type lemma = {
   l_name: string;
@@ -335,3 +344,5 @@ include Common
 type 'a quantified = string list * 'a
 
 type instantiations = (string * string) list
+
+let primitive_functions = ["+"; "-"; "="; "not"; "::"; "&&"; "||"; ">"; "<"; ">="; "<="]

@@ -161,6 +161,12 @@ let string_of_bin_op op : string =
   | GTEQ -> ">="
   | LTEQ -> "<="
 
+let string_of_constr_call n args =
+  match n, args with
+  | "[]", _ -> "[]"
+  | "::", [a1; a2] -> Format.asprintf "%s :: %s" a1 a2
+  | _ -> Format.asprintf "%s(%s)" n (String.concat ", " args)
+
 let rec string_of_term t : string =
   match t with
   | Num i -> string_of_int i
@@ -182,7 +188,13 @@ let rec string_of_term t : string =
   | TDiv (t1, t2) -> "(" ^string_of_term t1 ^ "/" ^ string_of_term t2 ^ ")"
 
   | TApp (op, args) -> Format.asprintf "%s%s" op (string_of_args string_of_term args)
-  | TLambda (_name, params, sp) -> Format.asprintf "(fun %s -> %s)" (String.concat " " params) (string_of_disj_spec sp)
+  | TLambda (_name, params, sp, body) ->
+    let body =
+      match body with
+      | None -> ""
+      | Some b -> Format.asprintf "-> %s" (string_of_core_lang b)
+    in
+    Format.asprintf "(fun %s (*@@ %s @@*) %s)" (String.concat " " params) (string_of_disj_spec sp) body
   | TTupple nLi ->
     let rec helper li =
       match li with
@@ -283,7 +295,32 @@ and string_of_pi pi : string =
   | Predicate (str, t) -> str ^ "(" ^ (string_of_args string_of_term t) ^ ")"
   | Subsumption (a, b) -> Format.asprintf "%s <: %s" (string_of_term a) (string_of_term b)
 
+and string_of_core_lang (e:core_lang) :string =
+  match e with
+  | CValue v -> string_of_term v
+  | CLet (v, e, e1) -> Format.sprintf "let %s = %s in\n%s" v (string_of_core_lang e) (string_of_core_lang e1)
+  | CIfELse (pi, t, e) -> Format.sprintf "if %s then %s else (%s)" (string_of_pi pi)  (string_of_core_lang t) (string_of_core_lang e)
+  | CFunCall (f, [a; b]) when not (is_alpha (String.get f 0)) -> Format.sprintf "%s %s %s" (string_of_term a) f (string_of_term b)
+  | CFunCall (f, xs) -> Format.sprintf "%s %s" f (List.map string_of_term xs |> String.concat " ")
+  | CWrite (v, e) -> Format.sprintf "%s := %s" v (string_of_term e)
+  | CRef v -> Format.sprintf "ref %s" (string_of_term v)
+  | CRead v -> Format.sprintf "!%s" v
+  | CAssert (p, h) -> Format.sprintf "assert (%s && %s)" (string_of_pi p) (string_of_kappa h)
+  | CPerform (eff, Some arg) -> Format.sprintf "perform %s %s" eff (string_of_term arg)
+  | CPerform (eff, None) -> Format.sprintf "perform %s" eff
+  | CMatch (None, e, vs, hs, cs) -> Format.sprintf "match %s with\n%s%s%s" (string_of_core_lang e) (match vs with | Some (v, norm) -> Format.asprintf "| %s -> %s\n" v (string_of_core_lang norm) | _ -> "") (match hs with | [] -> "" | _ :: _ -> string_of_core_handler_ops hs ^ "\n") (match cs with [] -> "" | _ :: _ -> string_of_constr_cases cs)
+  | CMatch (Some spec, e, vs, hs, cs) -> Format.sprintf "match %s%s with\n%s%s\n%s" (string_of_disj_spec spec) (string_of_core_lang e) (match vs with | Some (v, norm) -> Format.asprintf "| %s -> %s\n" v (string_of_core_lang norm) | _ -> "") (string_of_core_handler_ops hs) (string_of_constr_cases cs)
+  | CResume tList -> Format.sprintf "continue %s" (List.map string_of_term tList |> String.concat " ")
+  | CLambda (xs, spec, e) -> Format.sprintf "fun %s%s -> %s" (String.concat " " xs) (match spec with None -> "" | Some ds -> Format.asprintf " (*@@ %s @@*)" (string_of_disj_spec ds)) (string_of_core_lang e)
 
+and string_of_constr_cases cs =
+  cs |> List.map (fun (n, args, body) -> Format.asprintf "| %s -> %s" (string_of_constr_call n args) (string_of_core_lang body)) |> String.concat "\n"
+
+and string_of_core_handler_ops hs =
+  List.map (fun (name, v, spec, body) ->
+    let spec = spec |> Option.map (fun s -> Format.asprintf " (*@@ %s @@*)" (string_of_disj_spec s)) |> Option.value ~default:"" in
+    Format.asprintf "| effect %s k%s -> %s"
+      (match v with None -> name | Some v -> Format.asprintf "(%s %s)" name v) spec (string_of_core_lang body)) hs |> String.concat "\n"
 
 let rec stricTcompareTerm (term1:term) (term2:term) : bool =
   match (term1, term2) with
@@ -423,38 +460,6 @@ let string_of_normalisedStagedSpecList (specs:normalisedStagedSpec list) : strin
 
 
 
-let string_of_constr_call n args =
-  match n, args with
-  | "[]", _ -> "[]"
-  | "::", [a1; a2] -> Format.asprintf "%s :: %s" a1 a2
-  | _ -> Format.asprintf "%s(%s)" n (String.concat ", " args)
-
-let rec string_of_core_lang (e:core_lang) :string =
-  match e with
-  | CValue v -> string_of_term v
-  | CLet (v, e, e1) -> Format.sprintf "let %s = %s in\n%s" v (string_of_core_lang e) (string_of_core_lang e1)
-  | CIfELse (pi, t, e) -> Format.sprintf "if %s then %s else (%s)" (string_of_pi pi)  (string_of_core_lang t) (string_of_core_lang e)
-  | CFunCall (f, [a; b]) when not (is_alpha (String.get f 0)) -> Format.sprintf "%s %s %s" (string_of_term a) f (string_of_term b)
-  | CFunCall (f, xs) -> Format.sprintf "%s %s" f (List.map string_of_term xs |> String.concat " ")
-  | CWrite (v, e) -> Format.sprintf "%s := %s" v (string_of_term e)
-  | CRef v -> Format.sprintf "ref %s" (string_of_term v)
-  | CRead v -> Format.sprintf "!%s" v
-  | CAssert (p, h) -> Format.sprintf "assert (%s && %s)" (string_of_pi p) (string_of_kappa h)
-  | CPerform (eff, Some arg) -> Format.sprintf "perform %s %s" eff (string_of_term arg)
-  | CPerform (eff, None) -> Format.sprintf "perform %s" eff
-  | CMatch (None, e, vs, hs, cs) -> Format.sprintf "match %s with\n%s%s%s" (string_of_core_lang e) (match vs with | Some (v, norm) -> Format.asprintf "| %s -> %s\n" v (string_of_core_lang norm) | _ -> "") (match hs with | [] -> "" | _ :: _ -> string_of_core_handler_ops hs ^ "\n") (match cs with [] -> "" | _ :: _ -> string_of_constr_cases cs)
-  | CMatch (Some spec, e, vs, hs, cs) -> Format.sprintf "match %s%s with\n%s%s\n%s" (string_of_disj_spec spec) (string_of_core_lang e) (match vs with | Some (v, norm) -> Format.asprintf "| %s -> %s\n" v (string_of_core_lang norm) | _ -> "") (string_of_core_handler_ops hs) (string_of_constr_cases cs)
-  | CResume tList -> Format.sprintf "continue %s" (List.map string_of_term tList |> String.concat " ")
-  | CLambda (xs, spec, e) -> Format.sprintf "fun %s%s -> %s" (String.concat " " xs) (match spec with None -> "" | Some ds -> Format.asprintf " (*@@ %s @@*)" (string_of_disj_spec ds)) (string_of_core_lang e)
-
-and string_of_constr_cases cs =
-  cs |> List.map (fun (n, args, body) -> Format.asprintf "| %s -> %s" (string_of_constr_call n args) (string_of_core_lang body)) |> String.concat "\n"
-
-and string_of_core_handler_ops hs =
-  List.map (fun (name, v, spec, body) ->
-    let spec = spec |> Option.map (fun s -> Format.asprintf " (*@@ %s @@*)" (string_of_disj_spec s)) |> Option.value ~default:"" in
-    Format.asprintf "| effect %s k%s -> %s"
-      (match v with None -> name | Some v -> Format.asprintf "(%s %s)" name v) spec (string_of_core_lang body)) hs |> String.concat "\n"
 
 let string_of_effect_stage1 (vs, pre, post, eff, ret) =
   Format.asprintf "ex %s. req %s; ens %s /\\ %s /\\ res=%s" (String.concat " " vs) (string_of_state pre) (string_of_state post) (string_of_instant eff) (string_of_term ret)
@@ -492,7 +497,7 @@ let conj xs =
   | [] -> True
   | x :: xs -> List.fold_right (fun c t -> And (c, t)) xs x
 
-let string_of_type t =
+let rec string_of_type t =
   match t with
   | Int -> "int"
   | Unit -> "unit"
@@ -500,6 +505,7 @@ let string_of_type t =
   | Bool -> "bool"
   | Lamb -> "lambda"
   | TVar v -> Format.asprintf "'%s" v
+  | Arrow (t1, t2) -> Format.asprintf "%s->%s" (string_of_type t1) (string_of_type t2)
 
 let string_of_pure_fn ({ pf_name; pf_params; pf_ret_type; pf_body } : pure_fn_def) : string =
   Format.asprintf "let %s %s : %s = %s" pf_name (String.concat " " (List.map (fun (p, t) -> Format.asprintf "(%s:%s)" p (string_of_type t)) pf_params)) (string_of_type pf_ret_type) (string_of_core_lang pf_body)
@@ -605,11 +611,11 @@ let quantify_res_state (p, h) =
 
 let lambda_to_pred_def name t =
   match t with
-  | TLambda (_lid, params, body) ->
+  | TLambda (_lid, params, spec, _body) ->
     {
       p_name = name;
       p_params = params;
-      p_body = body;
+      p_body = spec;
     }
   | _ ->
     failwith
@@ -621,7 +627,7 @@ let local_lambda_defs =
     method zero = SMap.empty
     method plus = SMap.merge_disjoint
     
-    method! visit_TLambda _ _ _ _ = SMap.empty
+    method! visit_TLambda _ _ _ _ _ = SMap.empty
 
     method! visit_Subsumption () a b =
       match a, b with
@@ -661,8 +667,8 @@ let bindNewNames (formal: string list) (actual: string list) : ((string * string
     print_endline ("actual: " ^ (List.map (fun a-> a) actual |> String.concat ", "));
     failwith ("bindNewNames length not equle")
   
-let function_stage_to_disj_spec ins =
+let function_stage_to_disj_spec constr args ret =
   (* TODO for some reason this version isn't handled by normalization *)
   (* [[HigherOrder (True, EmptyHeap, l.l_left, res_v)]] *)
   let v = verifier_getAfreeVar "v" in
-  [[Exists [v]; HigherOrder (True, EmptyHeap, ins, Var v); NormalReturn (Atomic (EQ, res_v, Var v), EmptyHeap)]]
+  [[Exists [v]; HigherOrder (True, EmptyHeap, (constr, args), Var v); NormalReturn (Atomic (EQ, ret, Var v), EmptyHeap)]]

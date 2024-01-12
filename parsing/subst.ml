@@ -69,6 +69,16 @@ let rec findbinding str vb_li =
         binding
     end
 
+  let subst_visitor_subsumptions_only bindings =
+    object
+      inherit [_] map_spec
+
+      method! visit_Subsumption () a b =
+        let vis = subst_visitor bindings in
+        Subsumption (vis#visit_term () a, vis#visit_term () b)
+    end
+
+
 let instantiateTerms (bindings : (string * core_value) list) (t : term) :
     term =
   (subst_visitor bindings)#visit_term () t
@@ -161,12 +171,13 @@ let used_vars_disj_spec (norm:disj_spec) =
 (* if alpha_equiv(t1, t2), then hash t1 = hash t2 *)
 let hash_lambda t =
   match t with
-  | TLambda (_id, params, spec) ->
+  | TLambda (_id, params, spec, _body) ->
     let bs = List.mapi (fun i p -> (p, "l" ^ string_of_int i)) params in
     let renamed =
       instantiateSpecList (List.map (fun (p, v) -> (p, Var v)) bs) spec
     in
-    let n = TLambda ("id", List.map snd bs, renamed) in
+    (* don't include body in hash *)
+    let n = (List.map snd bs, renamed) in
     (* Format.printf "renamed %s@." (string_of_term n); *)
     Hashtbl.hash n
   | _ -> failwith (Format.asprintf "not a lambda: %s" "(cannot print)")
@@ -226,3 +237,10 @@ let remove_subsumptions subs =
     method! visit_Subsumption () a b =
       if List.mem (a, b) subs then True else Subsumption (a, b)
   end
+
+let rec interpret_arrow_as_params t =
+  match t with
+  | Int | Unit | List_int | Bool | Lamb | TVar _ -> [], t
+  | Arrow (t1, t2) ->
+    let p, r = interpret_arrow_as_params t2 in
+    t1 :: p, r

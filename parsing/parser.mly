@@ -723,6 +723,7 @@ let mk_directive ~loc name arg =
 %token RSPECCOMMENT
 %token PREDICATE
 %token LEMMA
+// %token PURE
 %token <Docstrings.docstring> DOCSTRING
 %token PROP_TRUE
 %token PROP_FALSE
@@ -2610,7 +2611,9 @@ pure_formula_term:
 
 
   | LPAREN pure_formula_term RPAREN { $2 }
-  | LPAREN FUN params=nonempty_list(LIDENT) MINUSGREATER ef=disj_effect_spec RPAREN { TLambda (Pretty.verifier_getAfreeVar "plambda", params, ef) }
+
+  | LPAREN FUN params=nonempty_list(LIDENT) LSPECCOMMENT ef=disj_effect_spec RSPECCOMMENT b=ioption(preceded(MINUSGREATER, expr)) RPAREN
+    { TLambda (Pretty.verifier_getAfreeVar "plambda", params, ef, Option.map (Core_lang.transformation []) b) }
 ;
 
 pure_formula: 
@@ -2698,14 +2701,14 @@ stagedSpec1 :
       NormalReturn (And (res_eq r, p), h)
     | "Norm", (p, h, _) -> failwith "norm cannot have more than 2 args"
     | _, (p, h, a) ->
-      let init, last = split_last a in
+      let init, last = unsnoc a in
       RaisingEff (p, h, (constr, init), last)
   }
   | constr=LIDENT args=delimited(LPAREN, separated_nonempty_list(COMMA, effect_trace_value), RPAREN)
   {
     (* INFIXOP0 *)
     (* we don't check if the infix op is a dollar *)
-    let init, last = split_last args in
+    let init, last = unsnoc args in
     HigherOrder (True, EmptyHeap, (constr, init), last)
   }
 

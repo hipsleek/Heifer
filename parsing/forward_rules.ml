@@ -206,8 +206,6 @@ let foldl1 f xs =
   | x :: xs1 ->
     List.fold_left f x xs1
 
-let primitives = ["+"; "-"; "="; "not"; "::"; "&&"; "||"; ">"; "<"; ">="; "<="]
-
 let call_primitive env history fname actualArgs =
   match fname, actualArgs with
   | "+", [x1; x2] ->
@@ -743,7 +741,7 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
       phi1 |> concat_map_state env (fun spec env -> 
           (* the return value is context-sensitive and depends on what in the history came before *)
           let ret =
-            match split_last spec with
+            match unsnoc spec with
             | _, RaisingEff (_pre, _post, _constr, Var ret) -> ret
             | _, HigherOrder (_pre, _post, _constr, Var ret) -> ret
             | _, RaisingEff (_, _, _, ret) | _, HigherOrder (_, _, _, ret) -> failwith (Format.asprintf "ret not a variable: %s" (string_of_term ret))
@@ -798,7 +796,7 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
         concatenateSpecsWithEvent history [Exists [f]; HigherOrder (True, EmptyHeap, ("continue", tList), Var f)]
       in
       res, env
-    | CFunCall (fname, actualArgs) when List.mem fname primitives -> 
+    | CFunCall (fname, actualArgs) when List.mem fname primitive_functions -> 
       call_primitive env history fname actualArgs
     | CFunCall (fname, actualArgs) -> 
       let fn_spec : disj_spec =
@@ -835,7 +833,7 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
                 | Some (params, sp) ->
                   let res = verifier_getAfreeVar "res" in
                   let params = params @ [res] in
-                  Some (a, TLambda (verifier_getAfreeVar "lambda", params, sp |> renamingexistientalVar |> instantiateSpecList ["res", Var res])))
+                  Some (a, TLambda (verifier_getAfreeVar "lambda", params, sp |> renamingexistientalVar |> instantiateSpecList ["res", Var res], None)))
               | _ -> None) actualArgs
           in
 
@@ -843,7 +841,8 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
           
           let instantiatedSpec =
             spec |> trf "actuals" (instantiateSpecList (bindFormalNActual spec_params actualArgs))
-              |> trf "ho args" (instantiateSpecList arg_specs)
+              (* substituting too zealously (e.g. expanding every term argument into a lambda) can cause proofs to fail, due to either bugs or incomplete handling of lambda. to work around this, do only the minimal substitution needed here, as subsumption formulae aren't helped by unfolding, whereas functions are *)
+              |> trf "ho args" ((subst_visitor_subsumptions_only arg_specs)#visit_disj_spec ())
           in 
 
           let instantiatedSpec = instantiatedSpec |> trf "function stages" (recursivelyInstantiateFunctionCalls env) in 
@@ -894,7 +893,7 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
         | None -> env
         | Some g -> { env with fv_lambda_obl = (inferred, g) :: env.fv_lambda_obl }
       in
-      let event = NormalReturn (res_eq (TLambda (lid, params @ [ret], spec_to_use)), EmptyHeap) in 
+      let event = NormalReturn (res_eq (TLambda (lid, params @ [ret], spec_to_use, Some body)), EmptyHeap) in 
       concatenateSpecsWithEvent history [event], env
 
     | CMatch (match_summary, scr, Some val_case, eff_cases, []) -> (* effects *)
