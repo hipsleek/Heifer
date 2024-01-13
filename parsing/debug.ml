@@ -12,6 +12,42 @@ let last_title = ref ""
 let ctf = ref false
 let file_mode = ref false
 
+module Buffered = struct
+  let buffered_event : (string * string * int) option ref = ref None
+
+  let write_line title s =
+    print_endline (Pretty.yellow title);
+    print_endline s;
+    if not (String.equal "" s) then print_endline ""
+
+  let buffer_event title s n = buffered_event := Some (title, s, n)
+  let clear_buffer () = buffered_event := None
+
+  let flush_buffer () =
+    match !buffered_event with
+    | None -> ()
+    | Some (title, s, _) ->
+      clear_buffer ();
+      write_line title s
+
+  let collapse_empty_spans title s =
+    match !buffered_event with
+    | Some (_, _, _) when !is_closing ->
+      (* we assume events are well-bracketed.
+         on closing a span, if there's something in the buffer, we must have left it there. *)
+      clear_buffer ();
+      write_line title s
+    | None when !is_closing ->
+      (* something must have occurred which cleared the buffer before us, so output normally *)
+      write_line title s
+    | _ when !is_opening ->
+      flush_buffer ();
+      buffer_event title s !debug_event_n
+    | _ ->
+      flush_buffer ();
+      write_line title s
+end
+
 type query_on =
   | Time of int
   | Range of int * int
@@ -161,9 +197,12 @@ let debug_print at title s =
             (String.init (List.length !stack + 1) (fun _ -> '*'))
             title
       in
-      print_endline (Pretty.yellow title);
-      print_endline s;
-      if not (String.equal "" s) then print_endline ""
+      begin
+        let should_buffer = true in
+        match should_buffer with
+        | true -> Buffered.collapse_empty_spans title s
+        | false -> Buffered.write_line title s
+      end
     | true ->
       let typ = if !is_closing then "E" else if !is_opening then "B" else "i" in
       let scope = if !is_closing || !is_opening then "" else {|,"s":"t"|} in
