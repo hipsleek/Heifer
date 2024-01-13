@@ -107,6 +107,9 @@ ALL OK!
   $ check ../prusti/cl_returned.ml
   ALL OK!
 
+  $ check ../prusti/repeat_with_n.ml
+  ALL OK!
+
   $ check_why3_only ../examples/length_pure.ml
   ALL OK!
 
