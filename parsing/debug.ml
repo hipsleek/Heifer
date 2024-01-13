@@ -286,6 +286,7 @@ let string_of_result f r =
   match r with None -> "..." | Some r -> Format.asprintf "%s" (f r)
 
 let init ctf_output query to_file =
+  at_exit (fun () -> Buffered.flush_buffer ());
   file_mode := to_file;
   if ctf_output then (
     ctf := true;
