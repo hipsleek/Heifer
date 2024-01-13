@@ -6,20 +6,21 @@ let foo f
 = ()
 
 let counter_ok ()
+(* Here, we cannot prove that the obligation (foo inc) will pass *)
 = let x = ref 0 in
   let inc ()
   (*@ ex v; req x->v/\v>=0; ens x->v+1/\res=v @*)
   = let r = !x in x := !x + 1; r in
   inc ();
   inc ();
-  foo inc (* Succeeds because the result of the closure is 2 *)
+  (* assert (!x=2) *)
+  foo inc
 
-(*let counter_false () (* Entailment check is expected to fail **)
+let counter_false () (* Entailment check is expected to fail **)
 (*@ ens T @*)
 = let x = ref 0 in
   let inc ()
-  (*@ ex v; req x->v/\v>=0; ens x->v+1/\res=v @*)
   = let r = !x in x := !x + 1; r in
   inc ();
-  foo inc (* Fails because the result of the closure is 1 *)
-*)
+  (* assert (!x=1) *)
+  foo inc
