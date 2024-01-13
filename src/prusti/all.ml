@@ -28,9 +28,9 @@ let rec all_positive xs =
 
 (* let has_property p xs = all p xs *)
 
-(* let test_all_positive n (* FIXME *)
-(*@ ex r ys; all_positive(ys, r); ens r=true/\res=ys @*)
-= repeat 1 n *)
+let test_all_positive n
+(*@ ex r ys; all_positive(ys, r); req res=ys; ens r=true/\res=ys @*)
+= repeat 1 n
 
 let test1 xs
 (*@ req xs=[1;2;3;4]; ens res=false @*)
