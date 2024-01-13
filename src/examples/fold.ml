@@ -11,10 +11,10 @@ let rec sum li =
   | [] -> 0
   | x :: xs -> x + sum xs
 
-let foldr_sum xs init
-(*@ ex r; sum(xs, r); ens res=r+init @*)
+let foldr_sum xs k
+(*@ ex r; sum(xs, r); ens res=r+k @*)
 = let g c t = c + t in
-  foldr g xs init
+  foldr g xs k
 
 let rec length li = 
   match li with 

@@ -23,4 +23,3 @@ let test2 n c
 (*@ ex r i; req c->i/\n>=1; range(i+1, i+n, r); ens c->i+n/\res=r @*)
 = let cl () = c := !c + 1; !c in
   repeat_with_n cl n
-  
