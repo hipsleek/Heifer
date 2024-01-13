@@ -5,7 +5,7 @@ let[@pure] rec length (xs: int list): int
   | x :: xs1 -> 1 + length xs1
 
 (* Example 6.4 *)
-let[@pure] rec at (xs: int list) (i: int): int
+let rec at xs i
 (*@ req i>=0/\i<length(xs) @*)
 = match xs with
   | [] -> 0

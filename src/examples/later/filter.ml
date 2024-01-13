@@ -10,7 +10,7 @@ let rec all_positive xs =
   | [] -> true
   | x :: xs' -> x > 0 && all_positive xs'
 
-let positives xs (* FIXME *)
+let positives xs
 (*@ ex ys r; all_positive(ys, r); ens r=true/\res=ys @*)
 = let is_positive x = x > 0 in
   filter xs is_positive

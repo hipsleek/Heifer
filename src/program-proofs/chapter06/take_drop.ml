@@ -22,14 +22,14 @@ let[@pure] rec drop (xs: int list) (n: int): int list
 | [] -> []
 | x :: xs' -> drop xs' (n - 1)
 
-let[@pure] append_take_drop (xs: int list) (n: int): int list
+let append_take_drop xs n
 (*@ req n>=0/\n<=length(xs); ens res=xs @*)
 = append (take xs n) (drop xs n)
 
-let[@pure] take_drop_append1 (xs: int list) (ys: int list)
+let take_drop_append1 xs ys
 (*@ ens res=xs @*)
 = take (append xs ys) (length xs)
 
-let[@pure] take_drop_append2 (xs: int list) (ys: int list)
+let take_drop_append2 xs ys
 (*@ ens res=ys @*)
 = drop (append xs ys) (length xs)

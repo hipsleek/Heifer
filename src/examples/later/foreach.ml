@@ -9,7 +9,7 @@ let incr v = v := !v + 1
 
 let do_nothing v = ()
 
-let foreach_example x (* FIXME *)
+let foreach_example x
 (*@ ex v1; req x->v1; ens x->v1 @*)
 (*
   Can be temporarily fixed by increasing the unfolding bound for do_nothing.

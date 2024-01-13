@@ -16,6 +16,6 @@ let[@pure] rec reverse (xs: int list): int list =
   | [] -> []
   | x :: xs' -> snoc (reverse xs') x 
 
-let[@pure] length_reverse (xs: int list): int
+let length_reverse xs
 (*@ ens res=length(xs) @*)
 = length (reverse xs)

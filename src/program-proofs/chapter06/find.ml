@@ -12,14 +12,14 @@ let[@pure] rec length (xs: int list): int
 
 (* Example 6.5 *)
 let[@pure] rec find (xs: int list) (y: int): int
-(*@ ex r; ens r>=0/\r<=length(xs)/\res=r @*)
+(*@ ex r; req res=r; ens r>=0/\r<=length(xs)/\res=r @*)
 = match xs with
 | [] -> 0
 | x :: xs' -> if x = y then 0 else 1 + find xs' y
 
-(* let[@pure] at_find (xs: int list) (y: int): int
+let at_find xs y
 (*@
   ex r; ens r=length(xs)/\res=r
-  \/ ex r; ens at(xs, r)=y/\res=r
+  \/ ex r; ens at(xs,r)=y/\res=r
 @*)
-= find xs y *)
+= find xs y

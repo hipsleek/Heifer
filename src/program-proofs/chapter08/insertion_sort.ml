@@ -17,7 +17,7 @@ let[@pure] insert_in_sorted_list_ (v: int) (xs: int list): int list (* FIXME *)
 (*@ req is_sorted(xs)=true; ex r; ens is_sorted(r)=true/\res=r @*)
 = insert_in_sorted_list v xs
 
-let[@pure] rec insertion_sort (xs: int list): int list =
+let rec insertion_sort xs =
   match xs with
   | [] -> []
   | x :: xs' -> insert_in_sorted_list x (insertion_sort xs')

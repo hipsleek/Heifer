@@ -1,5 +1,5 @@
 
-let rec length (xs: int list): int
+let[@pure] rec length (xs: int list): int
 = match xs with
   | [] -> 0
   | x :: xs1 -> 1 + length xs1
@@ -16,5 +16,5 @@ let append_nil xs
 = append xs []    
 
 let length_append xs ys (* FIXME *)
-(*@ ex l1 l2; length(xs, l1); length(ys, l2); ens res=l1+l2 @*)
+(*@ ens res=length(xs)+length(ys) @*)
 = length (append xs ys)
