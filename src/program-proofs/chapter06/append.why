@@ -1,0 +1,15 @@
+
+module Extras
+
+  use list.List
+  use int.Int
+
+  function length (xs:list int) : int =
+    match xs with
+    | Nil -> 0
+    | Cons x xs1 -> 1 + length xs1
+    end
+
+  function length_append (xs:list int) (ys: list int) (res: list int) : bool =
+    length xs + length ys = length res
+end
