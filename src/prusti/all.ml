@@ -28,8 +28,10 @@ let rec all_positive xs =
 
 (* let has_property p xs = all p xs *)
 
+external all_positive : int list -> bool = "all.Extras.all_positive"
+
 let test_all_positive n
-(*@ ex r ys; all_positive(ys, r); req res=ys; ens r=true/\res=ys @*)
+(*@ ens all_positive(res)=true @*)
 = repeat 1 n
 
 (* Unlike pure length, this is not provable because p on the left may have effects *)
