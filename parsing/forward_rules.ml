@@ -804,7 +804,7 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
         | None ->
           (* no known spec, produce a stage *)
           let ret = verifier_getAfreeVar "ret" in
-          [[Exists [ret]; HigherOrder (True, EmptyHeap, (fname, actualArgs), Var ret)]]
+          [[Exists [ret]; HigherOrder (True, EmptyHeap, (fname, actualArgs), Var ret); NormalReturn (res_eq (Var ret), EmptyHeap)]]
         | Some (spec_params, known_spec) ->
           let@ _ =
             Debug.span (fun r ->

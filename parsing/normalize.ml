@@ -430,7 +430,7 @@ let normalize_step (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
               e_typ = `Fn;
             };
           ],
-        freshNormStageRet ret' )
+        freshNormalStage )
     | TryCatch (pi, heap, (a, b), ret') -> 
       let ens1, nex =
         if contains_res_state ens then
