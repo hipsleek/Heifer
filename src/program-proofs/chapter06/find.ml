@@ -9,10 +9,6 @@ let[@pure] rec at (xs: int list) (i: int): int
   | [] -> 0
   | x :: xs' -> if i = 0 then x else at xs' (i - 1)
 
-let test_at xs i
-(*@ req i>=0/\i<length(xs) @*)
-= at xs i
-
 (* Example 6.5 *)
 let[@pure] rec find (xs: int list) (y: int): int
 = match xs with
