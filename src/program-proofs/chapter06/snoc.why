@@ -10,6 +10,6 @@ module Extras
     | Cons x xs1 -> 1 + length xs1
     end
 
-  function length_snoc (xs:list int) (x: int) (res: list int) : bool =
+  function length_snoc (xs:list int) (x:int) (res:list int) : bool =
     length xs + 1 = length res
-end
+    end
