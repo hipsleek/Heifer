@@ -210,11 +210,12 @@ module LowLevel = struct
   module TSet = Set.Make (Tid)
 
   type env = {
-    mutable names : Term.lsymbol SMap.t;
+    mutable forall : Term.vsymbol SMap.t;
+    mutable fn_names : Term.lsymbol SMap.t;
     theories : Theories.t;
         (* TODO consider making this global for performance *)
     tenv : typ SMap.t;
-    quantified : Term.vsymbol SMap.t;
+    exists : Term.vsymbol SMap.t;
     letbound : Term.vsymbol SMap.t;
   }
 
@@ -239,7 +240,7 @@ module LowLevel = struct
     | Arrow (t1, t2) -> Ty.ty_func (type_to_why3 env t1) (type_to_why3 env t2)
 
   let rec term_to_why3 env (t : term) =
-    Format.printf "term %s@." (Pretty.string_of_term t);
+    (* Format.printf "term %s@." (Pretty.string_of_term t); *)
     match t with
     | UNIT -> (Term.t_tuple [], Unit)
     | Num i ->
@@ -252,16 +253,20 @@ module LowLevel = struct
       let ty1 = SMap.find v env.tenv (* |> Option.value ~default:Int *) in
       let ty = type_to_why3 env ty1 in
       let name =
-        match SMap.find_opt v env.quantified with
+        match SMap.find_opt v env.exists with
         | Some v -> Term.t_var v
         | None ->
-          (match SMap.find_opt v env.names with
+          (match SMap.find_opt v env.forall with
           | None ->
             let name = Ident.id_fresh v in
-            let sym = Term.create_lsymbol name [] (Some ty) in
-            env.names <- SMap.add v sym env.names;
-            Term.t_app sym [] (Some ty)
-          | Some vv -> Term.t_app vv [] (Some ty))
+            (* let sym = Term.create_lsymbol name [] (Some ty) in *)
+            let sym = Term.create_vsymbol name ty in
+            env.forall <- SMap.add v sym env.forall;
+            Term.t_var sym
+            (* Term.t_app sym [] (Some ty) *)
+          | Some vv ->
+            (* Term.t_app vv [] (Some ty) *)
+            Term.t_var vv)
       in
       (* Format.printf "var %s : %s@." v
          Pretty.(
@@ -377,8 +382,9 @@ module LowLevel = struct
       let args1 = List.map (term_to_why3 env) args |> List.map fst in
       let defn = Globals.pure_fn s in
       let ret_typ = type_to_why3 env defn.pf_ret_type in
-      Format.printf "app %s@." s;
-      (Term.t_app (SMap.find s env.names) args1 (Some ret_typ), defn.pf_ret_type)
+      (* Format.printf "app %s@." s; *)
+      ( Term.t_app (SMap.find s env.fn_names) args1 (Some ret_typ),
+        defn.pf_ret_type )
     | TApp (s, _) -> failwith (Format.asprintf "unknown function term %s" s)
     | TPower (_, _) -> failwith "TPower nyi"
     | TTimes (_, _) -> failwith "TTimes nyi"
@@ -387,7 +393,7 @@ module LowLevel = struct
     | TTupple _ -> failwith "TTupple nyi"
 
   let rec pi_to_why3 env (pi : pi) =
-    Format.printf "pi %s@." (Pretty.string_of_pi pi);
+    (* Format.printf "pi %s@." (Pretty.string_of_pi pi); *)
     match pi with
     | True -> Term.t_true
     | False -> Term.t_false
@@ -429,10 +435,10 @@ module LowLevel = struct
     | Subsumption (_, _) -> pi_to_why3 env True
 
   let rec expr_to_why3 env e =
-    Format.printf "expr %s@." (Pretty.string_of_core_lang e);
+    (* Format.printf "expr %s@." (Pretty.string_of_core_lang e); *)
     match e with
     | CLet (v, e1, a) ->
-      Format.printf "??%s@." (Pretty.string_of_core_lang e);
+      (* Format.printf "??%s@." (Pretty.string_of_core_lang e); *)
       let h = Term.create_vsymbol (Ident.id_fresh v) (type_to_why3 env Int) in
       let e2 = expr_to_why3 env e1 in
       let a1 =
@@ -450,7 +456,7 @@ module LowLevel = struct
       let args1 = List.map (term_to_why3 env) args |> List.map fst in
       let fn = Globals.pure_fn s in
       (* Format.printf "%s@." s; *)
-      Term.t_app (SMap.find s env.names) args1
+      Term.t_app (SMap.find s env.fn_names) args1
         (Some (type_to_why3 env fn.pf_ret_type))
       (* failwith "unimplemented CFunCall" *)
     | CFunCall (s, _) -> failwith (Format.asprintf "unknown function %s" s)
@@ -499,7 +505,7 @@ module LowLevel = struct
     in
     (* on first translation, we store the name *)
     let fn_name =
-      match SMap.find_opt pure_fn.pf_name env.names with
+      match SMap.find_opt pure_fn.pf_name env.fn_names with
       | None ->
         let ls =
           Term.create_lsymbol
@@ -507,7 +513,7 @@ module LowLevel = struct
             (List.map snd params)
             (Some (type_to_why3 env pure_fn.pf_ret_type))
         in
-        env.names <- SMap.add pure_fn.pf_name ls env.names;
+        env.fn_names <- SMap.add pure_fn.pf_name ls env.fn_names;
         (* failwith "asd"; *)
         ls
       | Some ls -> ls
@@ -521,16 +527,28 @@ module LowLevel = struct
     (* let params_m = SMap.of_list params in *)
     Decl.make_ls_defn fn_name params_l (expr_to_why3 env pure_fn.pf_body)
 
-  let prove_old tenv qtf f =
+  let prove tenv qtf f =
     let env =
       {
         tenv;
         theories = Theories.create ();
-        names = SMap.empty;
-        quantified = SMap.empty;
+        forall = SMap.empty;
+        fn_names = SMap.empty;
+        exists = SMap.empty;
         letbound = SMap.empty;
       }
     in
+
+    let quantified =
+      qtf
+      |> List.map (fun v ->
+             let ty = SMap.find_opt v tenv |> Option.value ~default:Int in
+             (v, Term.create_vsymbol (Ident.id_fresh v) (type_to_why3 env ty)))
+      |> List.to_seq |> SMap.of_seq
+    in
+
+    (* set this before traversing the formula for real *)
+    let env = { env with exists = quantified } in
 
     (* after pure functions are translated, so the names are in the env *)
     (* before adding theories to the task *)
@@ -558,16 +576,16 @@ module LowLevel = struct
     (* add theories to the task *)
     (* TODO with z3, somehow the builtin theory containing things like unit is not loaded unless at least one other theory is pulled in, so use the int theory every time for now *)
     (* use all theories. analyzing the formula for theories requires building it first, which is cyclic. this used to be broken by loading theories on demand, however *)
-    (* List.iter
-         (fun t -> Theories.(needed t env.theories))
-         Theories.[int; bool; list; extras];
-       Format.printf "initial@.";
-       (* Theories.(needed int env.theories); *)
-       TSet.iter (fun t -> Theories.needed t env.theories) theories_needed; *)
+    List.iter
+      (fun t -> Theories.(needed t env.theories))
+      Theories.[int; bool; list; extras];
+    (* Format.printf "initial@."; *)
+    (* Theories.(needed int env.theories); *)
+    (* TSet.iter (fun t -> Theories.needed t env.theories) theories_needed; *)
     let task1 =
       Theories.fold
-        (fun (tid, why_th) task ->
-          Format.printf "theory added: %s@." (string_of_tid tid);
+        (fun (_tid, why_th) task ->
+          (* Format.printf "theory added: %s@." (string_of_tid tid); *)
           Task.use_export task why_th)
         env.theories task1
     in
@@ -581,29 +599,24 @@ module LowLevel = struct
                 (fun (_, v) -> vis#visit_core_lang () v.pf_body)
                 (Globals.pure_fns ()))
        in *)
-    let quantified =
-      qtf
-      |> List.map (fun v ->
-             let ty = SMap.find_opt v tenv |> Option.value ~default:Int in
-             (v, Term.create_vsymbol (Ident.id_fresh v) (type_to_why3 env ty)))
-      |> List.to_seq |> SMap.of_seq
-    in
 
     (* { initial with quantified } *)
 
     (* let env = create_env names tenv qtf in *)
-    let env = { env with quantified } in
+    (* Format.printf "forall %s exists %s@."
+       (string_of_list Fun.id (SMap.bindings env.forall |> List.map fst))
+       (string_of_list Fun.id (SMap.bindings env.exists |> List.map fst)); *)
 
     (* let create_env names tenv qtf = *)
 
     (* add pure functions *)
     (* before adding theories to the task, as translation loads them *)
-    Format.printf "adding pure fns@.";
+    (* Format.printf "adding pure fns@."; *)
     let task1 =
       let fns =
         List.map
           (fun (_k, v) ->
-            Format.printf "translating %s@." _k;
+            (* Format.printf "translating %s@." _k; *)
             pure_fn_to_logic_fn env v)
           (Globals.pure_fns ())
       in
@@ -612,27 +625,48 @@ module LowLevel = struct
 
     (* Format.printf "task: %a@." Why3.Pretty.print_task task1; *)
 
-    (* add variables as parameters *)
-    let task1 =
-      List.fold_right
-        (fun (_k, v) t -> Task.add_param_decl t v)
-        (SMap.bindings env.names) task1
-    in
-
     (* Format.printf "tenv: %s@." (Pretty.string_of_typ_env tenv); *)
-    (* Format.printf "assumptions: %a@." Pretty.print_term ass; *)
-    (* Format.printf "goal: %a@." Pretty.print_term goal; *)
-    let task1 : Task.task =
-      Task.add_prop_decl task1 Decl.Paxiom
-        (Decl.create_prsymbol (Ident.id_fresh "ass1"))
-        ass
+    (* Format.printf "assumptions: %a@." Why3.Pretty.print_term ass; *)
+    (* Format.printf "goal: %a@." Why3.Pretty.print_term goal; *)
+    let monolithic_goal = true in
+    let task1 =
+      match monolithic_goal with
+      | false ->
+        (* add variables as parameters *)
+        (* let task1 =
+             List.fold_right
+               (fun (_k, v) t -> Task.add_param_decl t v)
+               (SMap.bindings env.names) task1
+           in *)
+        let task1 : Task.task =
+          Task.add_prop_decl task1 Decl.Paxiom
+            (Decl.create_prsymbol (Ident.id_fresh "ass1"))
+            ass
+        in
+        let task1 : Task.task =
+          Task.add_prop_decl task1 Decl.Pgoal
+            (Decl.create_prsymbol (Ident.id_fresh "goal1"))
+            goal
+        in
+        task1
+      | true ->
+        let overall =
+          let ex =
+            let ex = SMap.bindings env.exists |> List.map snd in
+            Term.t_exists_close ex [] goal
+          in
+          let all = SMap.bindings env.forall |> List.map snd in
+          Term.t_forall_close all [] (Term.t_implies ass ex)
+        in
+        let task1 : Task.task =
+          (* Format.printf "%a@." Why3.Pretty.print_term overall; *)
+          Task.add_prop_decl task1 Decl.Pgoal
+            (Decl.create_prsymbol (Ident.id_fresh "goal1"))
+            overall
+        in
+        task1
     in
-    let task1 : Task.task =
-      Task.add_prop_decl task1 Decl.Pgoal
-        (Decl.create_prsymbol (Ident.id_fresh "goal1"))
-        goal
-    in
-    Format.printf "--- prove@.";
+    (* Format.printf "--- prove@."; *)
     attempt_proof task1
 end
 
@@ -957,8 +991,9 @@ let entails_exists tenv left ex right =
   | true ->
     (* keep this around for a while before we commit to the other approach *)
     let open LowLevel in
-    prove_old tenv ex (fun env ->
+    prove tenv ex (fun env ->
         ( pi_to_why3 env left,
-          Term.t_exists_close
-            (SMap.bindings env.quantified |> List.map snd)
-            [] (pi_to_why3 env right) ))
+          (* Term.t_exists_close *)
+          (* (SMap.bindings env.exists |> List.map snd) *)
+          (* [] () *)
+          pi_to_why3 env right ))
