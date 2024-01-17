@@ -152,7 +152,7 @@ let attempt_proof task1 =
    the whyml type checker and inferring types over and over again), but that
    would us to type our source language.
 *)
-module Defunct = struct
+module LowLevel = struct
   (** theory identifier *)
   module Tid = struct
     type t = string list * string
@@ -951,11 +951,12 @@ let suppress_error_if_not_debug f =
 let entails_exists tenv left ex right =
   let@ _ = memo (left, ex, right) in
   let@ _ = suppress_error_if_not_debug in
-  match true with
-  | true -> prove tenv ex (fun _env -> (left, right))
-  | false ->
+  let use_low_level = true in
+  match use_low_level with
+  | false -> prove tenv ex (fun _env -> (left, right))
+  | true ->
     (* keep this around for a while before we commit to the other approach *)
-    let open Defunct in
+    let open LowLevel in
     prove_old tenv ex (fun env ->
         ( pi_to_why3 env left,
           Term.t_exists_close
