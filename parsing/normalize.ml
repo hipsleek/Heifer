@@ -1073,7 +1073,7 @@ let normalize_spec sp =
   in
   let sp = simplify_spec 3 sp in
 
-  let sp =
+  (* let sp =
     let@ _ =
       Debug.span (fun r ->
         debug ~at:3 ~title:"normalize_spec: check for false" "%s\n==>\n%s"
@@ -1081,7 +1081,7 @@ let normalize_spec sp =
           (string_of_result string_of_normalisedStagedSpec r))
     in
     check_for_false sp
-  in
+  in *)
   sp
 
 
@@ -1150,7 +1150,8 @@ let rec detectfailedAssertions (spec : spec) : spec =
 
 let normalisedStagedSpec2Spec (normalisedStagedSpec : normalisedStagedSpec) : spec =
   let effS, normalS = normalisedStagedSpec in
-  detectfailedAssertions (effectStage2Spec effS @ normalStage2Spec normalS)
+  (* detectfailedAssertions *)
+  (effectStage2Spec effS @ normalStage2Spec normalS)
 
 (* spec list -> normalisedStagedSpec list *)
 
@@ -1190,9 +1191,10 @@ let normalise_spec_list (specLi : spec list) : spec list =
       (normalisedStagedSpec2Spec normalisedStagedSpec))
     specLi in 
 
-  let temp = List.filter (fun a-> 
+  (* let temp = List.filter (fun a-> 
     let temp = existControdictionSpec a in 
-    not (temp)) raw in 
+    not (temp)) raw in  *)
+  let temp = raw in
   temp 
 
 
