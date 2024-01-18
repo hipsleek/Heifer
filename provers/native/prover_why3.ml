@@ -110,7 +110,9 @@ let attempt_proof task1 =
 
   (* it's unlikely the provers will change location in the span of one task *)
   let provers =
-    ["Alt-Ergo"; "CVC4"; "Z3"]
+    (* ["Alt-Ergo"; "CVC4"; "Z3"] *)
+    (* ["Alt-Ergo"] *)
+    ["Z3"]
     |> List.filter_map (fun prover ->
            try
              ensure_prover_loaded prover;
