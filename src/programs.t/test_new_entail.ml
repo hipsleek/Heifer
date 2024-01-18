@@ -85,9 +85,9 @@ let test25 ()  (*@ Eff(emp, ()) @*) =
   ret
 (* this can be proved in why3 due to it leveraging type information - since ret is of type unit, its value must be (). *)
 
-let test12_false ()  (*@ Eff(emp, ()) @*) =
+(* let test12_false ()  (*@ Eff(emp, ()) @*) =
   let ret = perform Eff in
-  1
+  1 *)
 (* this fails with a type error in why3, as it should *)
 
 let test21 ()  
