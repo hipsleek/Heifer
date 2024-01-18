@@ -28,9 +28,13 @@ module Timing = struct
   let norm = ref 0.
   let z3 = ref 0.
   let why3 = ref 0.
+  let z3_all = ref 0.
+  let why3_all = ref 0.
 
   let update_totals () =
     provers_all := !provers_all +. !z3 +. !why3;
+    z3_all := !z3_all +. !z3;
+    why3_all := !why3_all +. !why3;
     z3 := 0.;
     why3 := 0.;
     forward := 0.;

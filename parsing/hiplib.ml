@@ -1093,7 +1093,8 @@ let run_file inputfile =
         "\n========== FINAL SUMMARY ==========\n" 
         ^"[   LoC   ] " ^   string_of_int loc ^ "\n"
         ^"[   LoS   ] " ^   string_of_int (line_of_spec) ^ " (" ^ los_loc_ratio ^ ")\n"
-        ^"[ Z3+Why3 ] " ^   Format.asprintf "%.2f" (!Globals.Timing.provers_all/.1000.0)  ^ " s\n"
+        ^"[    Z3   ] " ^   Format.asprintf "%.2f" (!Globals.Timing.z3_all/.1000.0)  ^ " s\n"
+        ^"[   Why3  ] " ^   Format.asprintf "%.2f" (!Globals.Timing.why3_all/.1000.0)  ^ " s\n"
         ^"[  Total  ] " ^   Format.asprintf "%.2f" (!Globals.Timing.overall_all/.1000.0)  ^ " s\n"
 
       
