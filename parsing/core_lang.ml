@@ -489,6 +489,7 @@ let transform_str bound_names (s : structure_item) =
   | Pstr_type _ 
   | Pstr_typext _ -> None 
   | Pstr_primitive { pval_name; pval_type; pval_prim = [ext_name]; _ } ->
+    Globals.using_pure_fns := true;
     let path, name =
       Str.split (Str.regexp "\\.") ext_name |> unsnoc
     in
