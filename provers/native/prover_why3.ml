@@ -989,7 +989,7 @@ let suppress_error_if_not_debug f =
 let entails_exists tenv left ex right =
   let@ _ = Globals.Timing.(time why3) in
   let@ _ = suppress_error_if_not_debug in
-  let use_low_level = true in
+  let use_low_level = false in
   match use_low_level with
   | false -> prove tenv ex (fun _env -> (left, right))
   | true ->
