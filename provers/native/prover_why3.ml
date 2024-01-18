@@ -975,16 +975,6 @@ let prove tenv qtf f =
       List.for_all attempt_proof tasks && acc)
     mods true
 
-let cache : (pi * string list * pi, bool) Hashtbl.t = Hashtbl.create 10
-
-let memo k f =
-  match Hashtbl.find_opt cache k with
-  | None ->
-    let r = f () in
-    Hashtbl.add cache k r;
-    r
-  | Some r -> r
-
 let suppress_error_if_not_debug f =
   if Debug.in_debug_mode () then f ()
   else
@@ -997,7 +987,6 @@ let suppress_error_if_not_debug f =
       false
 
 let entails_exists tenv left ex right =
-  let@ _ = memo (left, ex, right) in
   let@ _ = suppress_error_if_not_debug in
   let use_low_level = true in
   match use_low_level with
