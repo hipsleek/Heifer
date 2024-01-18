@@ -527,147 +527,159 @@ module LowLevel = struct
     (* let params_m = SMap.of_list params in *)
     Decl.make_ls_defn fn_name params_l (expr_to_why3 env pure_fn.pf_body)
 
-  let prove tenv qtf f =
-    let env =
-      {
-        tenv;
-        theories = Theories.create ();
-        forall = SMap.empty;
-        fn_names = SMap.empty;
-        exists = SMap.empty;
-        letbound = SMap.empty;
-      }
-    in
-
-    let quantified =
-      qtf
-      |> List.map (fun v ->
-             let ty = SMap.find_opt v tenv |> Option.value ~default:Int in
-             (v, Term.create_vsymbol (Ident.id_fresh v) (type_to_why3 env ty)))
-      |> List.to_seq |> SMap.of_seq
-    in
-
-    (* set this before traversing the formula for real *)
-    let env = { env with exists = quantified } in
-
-    (* after pure functions are translated, so the names are in the env *)
-    (* before adding theories to the task *)
-    (* requires theories to build the formula *)
-    let ass, goal = f env in
-
-    (* let theories_needed =
-         let ts =
-           find_needed_theories#visit_pi () f
-           :: List.map
-                (fun (_, v) -> find_needed_theories#visit_core_lang () v.pf_body)
-                (Globals.pure_fns ())
-         in
-         List.fold_right TSet.union ts TSet.empty
-       in *)
-
-    (* let int = (["int"], "Int")
-       let bool = (["bool"], "Bool")
-       let list = (["list"], "List")
-       let extras = (["extras"], "Extras") *)
-
-    (* set up task *)
+  let prove =
+    let theories = Theories.create () in
     let task1 : Task.task = None in
-
-    (* add theories to the task *)
-    (* TODO with z3, somehow the builtin theory containing things like unit is not loaded unless at least one other theory is pulled in, so use the int theory every time for now *)
-    (* use all theories. analyzing the formula for theories requires building it first, which is cyclic. this used to be broken by loading theories on demand, however *)
     List.iter
-      (fun t -> Theories.(needed t env.theories))
+      (fun t -> Theories.(needed t theories))
       Theories.[int; bool; list; extras];
-    (* Format.printf "initial@."; *)
-    (* Theories.(needed int env.theories); *)
-    (* TSet.iter (fun t -> Theories.needed t env.theories) theories_needed; *)
     let task1 =
       Theories.fold
-        (fun (_tid, why_th) task ->
-          (* Format.printf "theory added: %s@." (string_of_tid tid); *)
-          Task.use_export task why_th)
-        env.theories task1
+        (fun (_tid, why_th) task -> Task.use_export task why_th)
+        theories task1
     in
-
-    (* handle names, which requires types, which means theories must be loaded by now *)
-    (* let names =
-         let vis = build_name_map env in
-         SMap.merge_all_disjoint
-           (vis#visit_pi () f
-           :: List.map
-                (fun (_, v) -> vis#visit_core_lang () v.pf_body)
-                (Globals.pure_fns ()))
-       in *)
-
-    (* { initial with quantified } *)
-
-    (* let env = create_env names tenv qtf in *)
-    (* Format.printf "forall %s exists %s@."
-       (string_of_list Fun.id (SMap.bindings env.forall |> List.map fst))
-       (string_of_list Fun.id (SMap.bindings env.exists |> List.map fst)); *)
-
-    (* let create_env names tenv qtf = *)
-
-    (* add pure functions *)
-    (* before adding theories to the task, as translation loads them *)
-    (* Format.printf "adding pure fns@."; *)
-    let task1 =
-      let fns =
-        List.map
-          (fun (_k, v) ->
-            (* Format.printf "translating %s@." _k; *)
-            pure_fn_to_logic_fn env v)
-          (Globals.pure_fns ())
+    fun tenv qtf f ->
+      let env =
+        {
+          tenv;
+          theories = Theories.create ();
+          forall = SMap.empty;
+          fn_names = SMap.empty;
+          exists = SMap.empty;
+          letbound = SMap.empty;
+        }
       in
-      match fns with [] -> task1 | _ :: _ -> Task.add_logic_decl task1 fns
-    in
 
-    (* Format.printf "task: %a@." Why3.Pretty.print_task task1; *)
+      let quantified =
+        qtf
+        |> List.map (fun v ->
+               let ty = SMap.find_opt v tenv |> Option.value ~default:Int in
+               (v, Term.create_vsymbol (Ident.id_fresh v) (type_to_why3 env ty)))
+        |> List.to_seq |> SMap.of_seq
+      in
 
-    (* Format.printf "tenv: %s@." (Pretty.string_of_typ_env tenv); *)
-    (* Format.printf "assumptions: %a@." Why3.Pretty.print_term ass; *)
-    (* Format.printf "goal: %a@." Why3.Pretty.print_term goal; *)
-    let monolithic_goal = true in
-    let task1 =
-      match monolithic_goal with
-      | false ->
-        (* add variables as parameters *)
-        (* let task1 =
-             List.fold_right
-               (fun (_k, v) t -> Task.add_param_decl t v)
-               (SMap.bindings env.names) task1
-           in *)
-        let task1 : Task.task =
-          Task.add_prop_decl task1 Decl.Paxiom
-            (Decl.create_prsymbol (Ident.id_fresh "ass1"))
-            ass
+      (* set this before traversing the formula for real *)
+      let env = { env with exists = quantified } in
+
+      (* after pure functions are translated, so the names are in the env *)
+      (* before adding theories to the task *)
+      (* requires theories to build the formula *)
+      let ass, goal = f env in
+
+      (* let theories_needed =
+           let ts =
+             find_needed_theories#visit_pi () f
+             :: List.map
+                  (fun (_, v) -> find_needed_theories#visit_core_lang () v.pf_body)
+                  (Globals.pure_fns ())
+           in
+           List.fold_right TSet.union ts TSet.empty
+         in *)
+
+      (* let int = (["int"], "Int")
+         let bool = (["bool"], "Bool")
+         let list = (["list"], "List")
+         let extras = (["extras"], "Extras") *)
+
+      (* set up task *)
+
+      (* let task1 : Task.task = None in
+
+         (* add theories to the task *)
+         (* TODO with z3, somehow the builtin theory containing things like unit is not loaded unless at least one other theory is pulled in, so use the int theory every time for now *)
+         (* use all theories. analyzing the formula for theories requires building it first, which is cyclic. this used to be broken by loading theories on demand, however *)
+         List.iter
+           (fun t -> Theories.(needed t env.theories))
+           Theories.[int; bool; list; extras];
+         (* Format.printf "initial@."; *)
+         (* Theories.(needed int env.theories); *)
+         (* TSet.iter (fun t -> Theories.needed t env.theories) theories_needed; *)
+         let task1 =
+           Theories.fold
+             (fun (_tid, why_th) task ->
+               (* Format.printf "theory added: %s@." (string_of_tid tid); *)
+               Task.use_export task why_th)
+             env.theories task1
+         in *)
+
+      (* handle names, which requires types, which means theories must be loaded by now *)
+      (* let names =
+           let vis = build_name_map env in
+           SMap.merge_all_disjoint
+             (vis#visit_pi () f
+             :: List.map
+                  (fun (_, v) -> vis#visit_core_lang () v.pf_body)
+                  (Globals.pure_fns ()))
+         in *)
+
+      (* { initial with quantified } *)
+
+      (* let env = create_env names tenv qtf in *)
+      (* Format.printf "forall %s exists %s@."
+         (string_of_list Fun.id (SMap.bindings env.forall |> List.map fst))
+         (string_of_list Fun.id (SMap.bindings env.exists |> List.map fst)); *)
+
+      (* let create_env names tenv qtf = *)
+
+      (* add pure functions *)
+      (* before adding theories to the task, as translation loads them *)
+      (* Format.printf "adding pure fns@."; *)
+      let task1 =
+        let fns =
+          List.map
+            (fun (_k, v) ->
+              (* Format.printf "translating %s@." _k; *)
+              pure_fn_to_logic_fn env v)
+            (Globals.pure_fns ())
         in
-        let task1 : Task.task =
-          Task.add_prop_decl task1 Decl.Pgoal
-            (Decl.create_prsymbol (Ident.id_fresh "goal1"))
-            goal
-        in
-        task1
-      | true ->
-        let overall =
-          let ex =
-            let ex = SMap.bindings env.exists |> List.map snd in
-            Term.t_exists_close ex [] goal
+        match fns with [] -> task1 | _ :: _ -> Task.add_logic_decl task1 fns
+      in
+
+      (* Format.printf "task: %a@." Why3.Pretty.print_task task1; *)
+
+      (* Format.printf "tenv: %s@." (Pretty.string_of_typ_env tenv); *)
+      (* Format.printf "assumptions: %a@." Why3.Pretty.print_term ass; *)
+      (* Format.printf "goal: %a@." Why3.Pretty.print_term goal; *)
+      let monolithic_goal = true in
+      let task1 =
+        match monolithic_goal with
+        | false ->
+          (* add variables as parameters *)
+          (* let task1 =
+               List.fold_right
+                 (fun (_k, v) t -> Task.add_param_decl t v)
+                 (SMap.bindings env.names) task1
+             in *)
+          let task1 : Task.task =
+            Task.add_prop_decl task1 Decl.Paxiom
+              (Decl.create_prsymbol (Ident.id_fresh "ass1"))
+              ass
           in
-          let all = SMap.bindings env.forall |> List.map snd in
-          Term.t_forall_close all [] (Term.t_implies ass ex)
-        in
-        let task1 : Task.task =
-          (* Format.printf "%a@." Why3.Pretty.print_term overall; *)
-          Task.add_prop_decl task1 Decl.Pgoal
-            (Decl.create_prsymbol (Ident.id_fresh "goal1"))
-            overall
-        in
-        task1
-    in
-    (* Format.printf "--- prove@."; *)
-    attempt_proof task1
+          let task1 : Task.task =
+            Task.add_prop_decl task1 Decl.Pgoal
+              (Decl.create_prsymbol (Ident.id_fresh "goal1"))
+              goal
+          in
+          task1
+        | true ->
+          let overall =
+            let ex =
+              let ex = SMap.bindings env.exists |> List.map snd in
+              Term.t_exists_close ex [] goal
+            in
+            let all = SMap.bindings env.forall |> List.map snd in
+            Term.t_forall_close all [] (Term.t_implies ass ex)
+          in
+          let task1 : Task.task =
+            (* Format.printf "%a@." Why3.Pretty.print_term overall; *)
+            Task.add_prop_decl task1 Decl.Pgoal
+              (Decl.create_prsymbol (Ident.id_fresh "goal1"))
+              overall
+          in
+          task1
+      in
+      (* Format.printf "--- prove@."; *)
+      attempt_proof task1
 end
 
 open Ptree
