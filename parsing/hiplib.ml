@@ -698,7 +698,7 @@ let normal_report ?(kind="Function") ?(show_time=false) ?given_spec ?given_spec_
     in
     let normed_spec =
       match given_spec_n with
-      | Some s -> "[Normed   Spec] " ^ string_of_spec_list (normalise_spec_list_aux2 s) ^ "\n\n"
+      | Some s -> "[  Normed Spec  ] " ^ string_of_spec_list (normalise_spec_list_aux2 s) ^ "\n\n"
       | None -> ""
     in
     let normed_post =
@@ -710,7 +710,7 @@ let normal_report ?(kind="Function") ?(show_time=false) ?given_spec ?given_spec_
 
           print_endline (string_of_spec_list (normalise_spec_list_aux2 s)); 
           *)
-        "[Normed   Post] " ^ string_of_spec_list (normalise_spec_list (normalise_spec_list_aux2 s)) ^ "\n\n"
+        "[  Normed Post  ] " ^ string_of_spec_list (normalise_spec_list (normalise_spec_list_aux2 s)) ^ "\n\n"
       | None -> ""
     in
     normed_spec, normed_post
@@ -719,26 +719,26 @@ let normal_report ?(kind="Function") ?(show_time=false) ?given_spec ?given_spec_
   let header =
     "\n========== " ^ kind ^ ": "^ name ^" ==========\n" ^
     (match given_spec with
-    | Some s -> "[Specification] " ^ string_of_spec_list s ^ "\n\n"
+    | Some s -> "[ Specification ] " ^ string_of_spec_list s ^ "\n\n"
     | None -> "") ^
     normed_spec ^
     (match inferred_spec with
-    | Some s -> "[Raw Post Spec] " ^ string_of_spec_list s ^ "\n\n"
+    | Some s -> "[ Raw Post Spec ] " ^ string_of_spec_list s ^ "\n\n"
     | None -> "") ^
     normed_post ^
     (match result with
     | Some r ->
       let don't_worry = if not r && String.ends_with ~suffix:"_false" name then " (expected)" else "" in 
-      "[Entail  Check] " ^ (string_of_res r) ^ don't_worry ^ "\n\n"
+      "[  Entail Check ] " ^ (string_of_res r) ^ don't_worry ^ "\n\n"
     | None -> "") ^
     (match show_time with
     | true -> String.concat "\n" [
-        "[Forward  Time] " ^ string_of_time !Globals.Timing.forward ^ " ms";
-        "[Norm     Time] " ^ string_of_time !Globals.Timing.norm ^ " ms";
-        "[Entail   Time] " ^ string_of_time !Globals.Timing.entail ^ " ms";
-        "[Z3       Time] " ^ string_of_time !Globals.Timing.z3 ^ " ms";
-        "[Why3     Time] " ^ string_of_time !Globals.Timing.why3 ^ " ms";
-        "[Overall  Time] " ^ string_of_time !Globals.Timing.overall ^ " ms";
+        "[  Forward Time ] " ^ string_of_time !Globals.Timing.forward ^ " ms";
+        "[   Norm Time   ] " ^ string_of_time !Globals.Timing.norm ^ " ms";
+        "[  Entail Time  ] " ^ string_of_time !Globals.Timing.entail ^ " ms";
+        "[    Z3 Time    ] " ^ string_of_time !Globals.Timing.z3 ^ " ms";
+        "[   Why3 Time   ] " ^ string_of_time !Globals.Timing.why3 ^ " ms";
+        "[  Overall Time ] " ^ string_of_time !Globals.Timing.overall ^ " ms";
       ]
     | false -> "") ^ "\n" ^
     (String.init (String.length name + 32) (fun _ -> '=')) ^ "\n"
@@ -1088,11 +1088,13 @@ let run_file inputfile =
 
       debug ~at:2 ~title:"final summary" "";
       let finalSummary = 
+        let loc = (List.length lines) in
+        let los_loc_ratio = Format.asprintf "%.2f" ((float_of_int line_of_spec) /. (float_of_int loc)) in
         "\n========== FINAL SUMMARY ==========\n" 
-        ^"[  LOC  ] " ^   string_of_int (List.length lines) ^ "\n"
-        ^"[  LOS  ] " ^   string_of_int (line_of_spec)  ^ "\n"
-        ^"[Forward+Entail+Norm] " ^   Format.asprintf "%.2f" (Globals.Timing.(!overall_all -. !provers_all)/.1000.0)  ^ " s\n"
+        ^"[   LoC   ] " ^   string_of_int loc ^ "\n"
+        ^"[   LoS   ] " ^   string_of_int (line_of_spec) ^ " (" ^ los_loc_ratio ^ ")\n"
         ^"[ Z3+Why3 ] " ^   Format.asprintf "%.2f" (!Globals.Timing.provers_all/.1000.0)  ^ " s\n"
+        ^"[  Total  ] " ^   Format.asprintf "%.2f" (!Globals.Timing.overall_all/.1000.0)  ^ " s\n"
 
       
       in 
