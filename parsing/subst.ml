@@ -277,3 +277,13 @@ let quantify_res_state (p, h) =
 
   let contains_res_state (p, h) =
     SSet.mem "res" (used_vars_state (p, h))
+
+let needs_why3 =
+  object
+    inherit [_] reduce_spec
+    method zero = false
+    method plus = (||)
+
+    method! visit_TApp () _f _a =
+      true
+  end
