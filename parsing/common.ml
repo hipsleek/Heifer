@@ -81,3 +81,5 @@ let foldr1 f xs =
     List.fold_right f xs last
 
 let pair a b = (a, b)
+
+let protected f finally = Fun.protect ~finally f

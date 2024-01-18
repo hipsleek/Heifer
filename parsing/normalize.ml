@@ -1050,6 +1050,7 @@ let rec simplify_spec n sp2 =
 
 (* the main entry point *)
 let normalize_spec sp =
+  let@ _ = Globals.Timing.(time norm) in 
   (*print_endline("\nnormalize_spec:\n "^ (string_of_spec sp));*)
 
   let@ _ =

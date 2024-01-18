@@ -690,8 +690,9 @@ let rec entailmentchecking (lhs:normalisedStagedSpec list) (rhs:normalisedStaged
     let r2 = entailmentchecking xs rhs in 
     r1 && r2
 
-let normal_report ?(kind="Function") ?given_spec ?given_spec_n ?inferred_spec ?inferred_spec_n ?forward_time_ms ?entail_time_ms ?result name =
+let normal_report ?(kind="Function") ?(show_time=false) ?given_spec ?given_spec_n ?inferred_spec ?inferred_spec_n ?result name =
   let normed_spec, normed_post =
+    let@ _ = Globals.Timing.(time overall) in 
     let@ _ =
       Debug.span (fun _r -> debug ~at:2 ~title:"final normalization" "")
     in
@@ -725,33 +726,26 @@ let normal_report ?(kind="Function") ?given_spec ?given_spec_n ?inferred_spec ?i
     | Some s -> "[Raw Post Spec] " ^ string_of_spec_list s ^ "\n\n"
     | None -> "") ^
     normed_post ^
-    (match forward_time_ms with
-    | Some t -> 
-      (
-      let () = summary_forward := !summary_forward  +. t in   
-      "[Forward  Time] " ^ string_of_time t ^ " ms\n")
-    | None -> "") ^
     (match result with
     | Some r ->
       let don't_worry = if not r && String.ends_with ~suffix:"_false" name then " (expected)" else "" in 
-      "[Entail  Check] " ^ (string_of_res r) ^ don't_worry ^ "\n"
+      "[Entail  Check] " ^ (string_of_res r) ^ don't_worry ^ "\n\n"
     | None -> "") ^
-    (match entail_time_ms with
-    | Some t -> 
-      (
-      let () = summary_entail := !summary_entail  +. t in     
-      "[Entail   Time] " ^ string_of_time t ^ " ms\n")
-    | None -> "") ^
-
-    (let () = summary_askZ3 := !summary_askZ3  +. !z3_consumption in 
-    ("[Z3       Time] " ^ string_of_time !z3_consumption^ " ms\n"))
-    
-    ^
+    (match show_time with
+    | true -> String.concat "\n" [
+        "[Forward  Time] " ^ string_of_time !Globals.Timing.forward ^ " ms";
+        "[Norm     Time] " ^ string_of_time !Globals.Timing.norm ^ " ms";
+        "[Entail   Time] " ^ string_of_time !Globals.Timing.entail ^ " ms";
+        "[Z3       Time] " ^ string_of_time !Globals.Timing.z3 ^ " ms";
+        "[Why3     Time] " ^ string_of_time !Globals.Timing.why3 ^ " ms";
+        "[Overall  Time] " ^ string_of_time !Globals.Timing.overall ^ " ms";
+      ]
+    | false -> "") ^ "\n" ^
     (String.init (String.length name + 32) (fun _ -> '=')) ^ "\n"
   in
   Format.printf "%s@." header
 
-let test_report ?kind:_ ?given_spec:_ ?given_spec_n:_ ?inferred_spec:_ ?inferred_spec_n:_ ?forward_time_ms:_ ?entail_time_ms:_ ?result name =
+let test_report ?kind:_ ?show_time:_ ?given_spec:_ ?given_spec_n:_ ?inferred_spec:_ ?inferred_spec_n:_ ?result name =
   let false_expected = String.ends_with ~suffix:"_false" name in
   match result with
   | Some true when false_expected ->
@@ -762,11 +756,16 @@ let test_report ?kind:_ ?given_spec:_ ?given_spec_n:_ ?inferred_spec:_ ?inferred
     Format.printf "FAILED: %s@." name
   | _ -> ()
 
-let report_result ?kind ?given_spec ?given_spec_n ?inferred_spec ?inferred_spec_n ?forward_time_ms ?entail_time_ms ?result name =
+let report_result ?kind ?show_time ?given_spec ?given_spec_n ?inferred_spec ?inferred_spec_n ?result name =
   let f =
     if !test_mode then test_report else normal_report
   in
-  f ?kind ?given_spec ?given_spec_n ?inferred_spec ?inferred_spec_n ?forward_time_ms ?entail_time_ms ?result name
+  let r =
+    f ?kind ?show_time ?given_spec ?given_spec_n ?inferred_spec ?inferred_spec_n ?result name
+  in
+  (* do this after reporting *)
+  Globals.Timing.update_totals ();
+  r
 
 
 let rec check_remaining_obligations original_fname lems preds obligations =
@@ -800,86 +799,84 @@ and check_obligation name params lemmas predicates (l, r) =
 let check_obligation_ name params lemmas predicates sub =
   check_obligation name params lemmas predicates sub |> ignore
 
-exception Method_failure
-
-let analyze_method prog ({m_spec = given_spec; _} as meth) : core_program =
-
-  let () =  z3_consumption := 0.0 in 
-  let time_stamp_beforeForward = Sys.time () in
-  let inferred_spec, predicates, fvenv =
-    (* the env is looked up from the program every time, as it's updated as we go *)
-    let method_env = prog.cp_methods
-      (* within a method body, params/locals should shadow functions defined outside *)
-      |> List.filter (fun m -> not (List.mem m.m_name meth.m_params))
-      (* treat recursive calls as abstract, as recursive functions should be summarized using predicates *)
-      |> List.filter (fun m -> not (String.equal m.m_name meth.m_name))
-      |> List.map (fun m -> m.m_name, m)
-      |> List.to_seq
-      |> SMap.of_seq
-    in
-    let pred_env = prog.cp_predicates in 
-    let env = create_fv_env method_env pred_env in
-    let inf, env =
-      let@ _ =
-        Debug.span (fun _ -> debug ~at:2 ~title:"apply forward rules" "")
-      in
-      infer_of_expression env [freshNormalReturnSpec] meth.m_body
-    in
-
-    (* make the new specs inferred for lambdas available to the entailment procedure as predicates *)
-    let preds_with_lambdas =
-      let lambda =
-        env.fv_methods
-        |> SMap.filter (fun k _ -> not (SMap.mem k method_env))
-        |> SMap.map (fun meth -> Entail.derive_predicate meth.m_name meth.m_params (Option.get meth.m_spec)) (* these have to have specs as they did not occur earlier, indicating they are lambdask *)
-        |> SMap.to_seq
-      in
-      SMap.add_seq lambda prog.cp_predicates
-    in
-    inf, preds_with_lambdas, env
+let infer_and_check_method prog meth given_spec =
+  let exception Ret of disj_spec * normalisedStagedSpec list option *
+    disj_spec option * normalisedStagedSpec list option * bool
   in
-  (* check misc obligations. don't stop on failure for now *)
-  fvenv.fv_lambda_obl |> List.iter (check_obligation_ meth.m_name meth.m_params prog.cp_lemmas predicates);
-  fvenv.fv_match_obl |> List.iter (check_obligation_ meth.m_name meth.m_params prog.cp_lemmas predicates);
+  try
+    let inferred_spec, predicates, fvenv =
+      (* the env is looked up from the program every time, as it's updated as we go *)
+      let method_env = prog.cp_methods
+        (* within a method body, params/locals should shadow functions defined outside *)
+        |> List.filter (fun m -> not (List.mem m.m_name meth.m_params))
+        (* treat recursive calls as abstract, as recursive functions should be summarized using predicates *)
+        |> List.filter (fun m -> not (String.equal m.m_name meth.m_name))
+        |> List.map (fun m -> m.m_name, m)
+        |> List.to_seq
+        |> SMap.of_seq
+      in
+      let pred_env = prog.cp_predicates in 
+      let env = create_fv_env method_env pred_env in
+      let inf, env =
+        let@ _ =
+          Debug.span (fun _ -> debug ~at:2 ~title:"apply forward rules" "")
+        in
+        let@ _ = Globals.Timing.(time forward) in 
+        infer_of_expression env [freshNormalReturnSpec] meth.m_body
+      in
 
-  (* check the main spec *)
-  let time_stamp_afterForward = Sys.time () in
+      (* make the new specs inferred for lambdas available to the entailment procedure as predicates *)
+      let preds_with_lambdas =
+        let lambda =
+          env.fv_methods
+          |> SMap.filter (fun k _ -> not (SMap.mem k method_env))
+          |> SMap.map (fun meth -> Entail.derive_predicate meth.m_name meth.m_params (Option.get meth.m_spec)) (* these have to have specs as they did not occur earlier, indicating they are lambdask *)
+          |> SMap.to_seq
+        in
+        SMap.add_seq lambda prog.cp_predicates
+      in
+      inf, preds_with_lambdas, env
+    in
+    (* check misc obligations. don't stop on failure for now *)
+    fvenv.fv_lambda_obl |> List.iter (check_obligation_ meth.m_name meth.m_params prog.cp_lemmas predicates);
+    fvenv.fv_match_obl |> List.iter (check_obligation_ meth.m_name meth.m_params prog.cp_lemmas predicates);
 
-  (*print_endline ("\n----------------\ninferred_spec: \n" ^ string_of_spec_list inferred_spec);*)
+    (* check the main spec *)
 
-  let inferred_spec_n = 
-    let@ _ = Debug.span (fun _r -> debug ~at:2 ~title:"normalization" "") in
-    try
-        
+    (*print_endline ("\n----------------\ninferred_spec: \n" ^ string_of_spec_list inferred_spec);*)
+
+    let inferred_spec_n = 
+      let@ _ = Debug.span (fun _r -> debug ~at:2 ~title:"normalization" "") in
+      try
         normalise_disj_spec_aux1 inferred_spec
-      with Norm_failure -> report_result ~inferred_spec ~result:false meth.m_name; raise Method_failure
-  in
+      with Norm_failure ->
+        raise (Ret (inferred_spec, None, None, None, false))
+    in
 
-
-
-
-  let res =
+    (* let res = *)
     match given_spec with
     | Some given_spec ->
       let given_spec_n =
         let@ _ = Debug.span (fun _r -> debug ~at:2 ~title:"normalization" "") in
         try
           normalise_disj_spec_aux1 given_spec
-        with Norm_failure -> report_result ~inferred_spec ~inferred_spec_n ~given_spec ~result:false meth.m_name; raise Method_failure
+        with Norm_failure ->
+          raise (Ret (inferred_spec, Some inferred_spec_n, Some given_spec, None, false))
       in
-      let time_stamp_afterNormal = Sys.time () in
       let res =
         try
           let syh_old_entailment = false in
           match syh_old_entailment with
           | true -> entailmentchecking inferred_spec_n given_spec_n
           | false ->
-             (*normalization occurs after unfolding in entailment *)
+            (*normalization occurs after unfolding in entailment *)
 
             let inferred_spec, given_spec  =
               let@ _ = Debug.span (fun _r -> debug ~at:2 ~title:"normalization" "") in
               normalise_spec_list inferred_spec, normalise_spec_list given_spec
             in
+
+            let@ _ = Globals.Timing.(time entail) in 
 
             (* print_endline ("proving!!!==================================") ;
             print_endline ("inferred_spec " ^ string_of_disj_spec inferred_spec);
@@ -897,56 +894,63 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) : core_program =
           (* norm failing all the way to the top level may prevent some branches from being explored during proof search. this does not happen in any tests yet, however, so keep error-handling simple. if it ever happens, return an option from norm entry points *)
           false
       in
-      let time_stamp_afterEntail = Sys.time () in
-      let entail_time_ms = ((time_stamp_afterEntail -. time_stamp_afterNormal) *. 1000.0) in
-      let forward_time_ms = ((time_stamp_afterForward -. time_stamp_beforeForward) *. 1000.0) in
-      report_result ~inferred_spec ~inferred_spec_n ~given_spec ~given_spec_n ~entail_time_ms ~forward_time_ms ~result:res meth.m_name;
-      res
+      inferred_spec, Some inferred_spec_n, Some given_spec, Some given_spec_n, res
     | None ->
-      report_result ~inferred_spec ~inferred_spec_n meth.m_name;
-      true
-  in
-  (* only save these specs for use by later functions if verification succeeds *)
-  if not res then prog 
-  else (
-    let@ _ =
-      Debug.span (fun _r ->
-          debug ~at:2
-            ~title:(Format.asprintf "remembering predicate for %s" meth.m_name) "")
-    in
-    let prog, pred =
-      (* if the user has not provided a predicate for the given function,
-        produce one from the inferred spec *)
-      let p =
-        Entail.derive_predicate meth.m_name meth.m_params inferred_spec
-      in
-      let cp_predicates = SMap.update meth.m_name
-        (function
-        | None ->
-          Some p
-        | Some _ -> None) prog.cp_predicates
-      in
-      { prog with cp_predicates }, p
-    in
-    let prog =
-      (* if the user has not provided a spec for the given function, remember the inferred method spec for future use *)
-      match given_spec with
-      | None ->
-        (* using the predicate instead of the raw inferred spec makes the induction hypothesis possible with current heuristics. it costs one more unfold but that is taken care of by the current entailment procedure, which repeatedly unfolds *)
-        let _mspec : disj_spec = inferred_spec in
-        let mspec : disj_spec =
-          let prr, ret = unsnoc pred.p_params in
-          function_stage_to_disj_spec pred.p_name (List.map (fun v1 -> Var v1) prr) (Var ret)
-        in
-        (*print_endline ("inferred spec for " ^ meth.m_name ^ " " ^  (string_of_disj_spec mspec)); *)
+      raise (Ret (inferred_spec, Some inferred_spec_n, None, None, true))
+  with Ret (a, b, c, d, e) ->
+    (a, b, c, d, e)
 
-        debug ~at:1 ~title:(Format.asprintf "inferred spec for %s" meth.m_name) "%s" (string_of_disj_spec mspec);
-        let cp_methods = List.map (fun m -> if String.equal m.m_name meth.m_name then { m with m_spec = Some mspec } else m ) prog.cp_methods
+let analyze_method prog ({m_spec = given_spec; _} as meth) : core_program =
+  let inferred_spec, inferred_spec_n, given_spec, given_spec_n, res =
+    let@ _ = Globals.Timing.(time overall) in 
+    infer_and_check_method prog meth given_spec
+  in
+  let prog =
+    let@ _ = Globals.Timing.(time overall) in 
+    (* only save these specs for use by later functions if verification succeeds *)
+    if not res then prog 
+    else (
+      let@ _ =
+        Debug.span (fun _r ->
+            debug ~at:2
+              ~title:(Format.asprintf "remembering predicate for %s" meth.m_name) "")
+      in
+      let prog, pred =
+        (* if the user has not provided a predicate for the given function,
+          produce one from the inferred spec *)
+        let p =
+          Entail.derive_predicate meth.m_name meth.m_params inferred_spec
         in
-        { prog with cp_methods }
-      | Some _ -> prog
-    in
-    prog)
+        let cp_predicates = SMap.update meth.m_name
+          (function
+          | None ->
+            Some p
+          | Some _ -> None) prog.cp_predicates
+        in
+        { prog with cp_predicates }, p
+      in
+      let prog =
+        (* if the user has not provided a spec for the given function, remember the inferred method spec for future use *)
+        match given_spec with
+        | None ->
+          (* using the predicate instead of the raw inferred spec makes the induction hypothesis possible with current heuristics. it costs one more unfold but that is taken care of by the current entailment procedure, which repeatedly unfolds *)
+          let _mspec : disj_spec = inferred_spec in
+          let mspec : disj_spec =
+            let prr, ret = unsnoc pred.p_params in
+            function_stage_to_disj_spec pred.p_name (List.map (fun v1 -> Var v1) prr) (Var ret)
+          in
+          (*print_endline ("inferred spec for " ^ meth.m_name ^ " " ^  (string_of_disj_spec mspec)); *)
+
+          debug ~at:1 ~title:(Format.asprintf "inferred spec for %s" meth.m_name) "%s" (string_of_disj_spec mspec);
+          let cp_methods = List.map (fun m -> if String.equal m.m_name meth.m_name then { m with m_spec = Some mspec } else m ) prog.cp_methods
+          in
+          { prog with cp_methods }
+        | Some _ -> prog
+      in
+      prog)
+  in
+  report_result ~inferred_spec ?inferred_spec_n ?given_spec ?given_spec_n ~result:res ~show_time:true meth.m_name;
+  prog
 
 let process_items (strs: structure_item list) : unit =
   strs |>
@@ -1023,20 +1027,16 @@ let process_items (strs: structure_item list) : unit =
             Globals.define_pure_fn m_name pf;
           | None -> ()
         in
-        begin try
-          let prog =
-            let@ _ =
-              Debug.span (fun _r ->
-                  debug ~at:1
-                    ~title:(Format.asprintf "verifying function: %s" meth.m_name) "")
-            in
-            analyze_method prog meth
+        let prog =
+          let@ _ =
+            Debug.span (fun _r ->
+                debug ~at:1
+                  ~title:(Format.asprintf "verifying function: %s" meth.m_name) "")
           in
-          m_name :: bound_names, prog
-        with Method_failure ->
-          (* update program with method regardless of failure *)
-          bound_names, prog
-        end
+          analyze_method prog meth
+        in
+        (* update prog with name regardless of failure? *)
+        m_name :: bound_names, prog
       | None -> bound_names, prog
     )
     ([], empty_program)
@@ -1044,6 +1044,7 @@ let process_items (strs: structure_item list) : unit =
 
 let run_string_ line =
   let items = Parser.implementation Lexer.token (Lexing.from_string line) in
+  let@ _ = Globals.Timing.(time overall_all) in 
   process_items items
 
 let run_string s =
@@ -1090,8 +1091,8 @@ let run_file inputfile =
         "\n========== FINAL SUMMARY ==========\n" 
         ^"[  LOC  ] " ^   string_of_int (List.length lines) ^ "\n"
         ^"[  LOS  ] " ^   string_of_int (line_of_spec)  ^ "\n"
-        ^"[Forward+Entail] " ^   string_of_float ((!summary_forward +. !summary_entail)/.1000.0)  ^ " s\n"
-        ^"[ AskZ3 ] " ^   string_of_float ((!summary_askZ3)/.1000.0)  ^ " s\n"
+        ^"[Forward+Entail+Norm] " ^   Format.asprintf "%.2f" (Globals.Timing.(!overall_all -. !provers_all)/.1000.0)  ^ " s\n"
+        ^"[ Z3+Why3 ] " ^   Format.asprintf "%.2f" (!Globals.Timing.provers_all/.1000.0)  ^ " s\n"
 
       
       in 
