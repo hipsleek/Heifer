@@ -5,8 +5,7 @@ let[@pure] rec is_sorted (xs: int list): bool =
   | x :: xs' -> (
     match xs' with
     | [] -> true
-    (* Note: && is not yet supported *)
-    | x' :: xs'' -> if x <= x' then is_sorted xs' else false
+    | x' :: xs'' -> x <= x' && is_sorted xs'
   )
 
 let rec insert_in_sorted_list v xs

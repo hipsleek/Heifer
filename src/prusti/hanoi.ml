@@ -1,12 +1,7 @@
 
 (* https://github.com/viperproject/prusti-dev/blob/master/prusti-tests/tests/verify_overflow/pass/rosetta/Towers_of_Hanoi_spec.rs *)
 
-let[@pure] valid_pole (x: int): bool =
-  (* Temporary workaround for || *)
-  if x = 1 then true
-  else if x = 2 then true
-  else if x = 3 then true
-  else false
+let[@pure] valid_pole (x: int): bool = x = 1 || x = 2 || x = 3
 
 let[@pure] equals (a: int) (b: int): bool = a = b
 
