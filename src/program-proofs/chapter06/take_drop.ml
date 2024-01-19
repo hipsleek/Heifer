@@ -34,8 +34,10 @@ let append_take_drop xs n (* FIXME: By induction *)
 
 let take_drop_append1 xs ys (* FIXME *)
 (*@ ens res=xs @*)
+(* Workaround to avoid type errors in Why3 *)
 = let n = length xs in take_spec (append xs ys) n
 
 let take_drop_append2 xs ys (* FIXME *)
 (*@ ens res=ys @*)
+(* Workaround to avoid type errors in Why3 *)
 = let n = length xs in drop_spec (append xs ys) n
