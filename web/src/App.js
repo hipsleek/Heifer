@@ -1,4 +1,3 @@
-import logo from './logo.svg';
 import NavigationBar from './NavigationBar';
 import './App.css';
 
