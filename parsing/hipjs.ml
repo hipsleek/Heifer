@@ -7,7 +7,7 @@ let ready () =
       let r =
         Hiplib.ProversEx.is_valid True (Atomic (EQ, Num 3, Plus (Num 1, Num 1)))
       in
-      Console.(log [str (Format.asprintf "test z3: 1+1=3? %b@." (not r))]);
+      Console.(log [str (Format.asprintf "test z3: 1+1=3 valid? %b@." r)]);
       ())
 
 let main () =
@@ -17,7 +17,7 @@ let main () =
   Jv.set Jv.global "hip_run_string"
     (Jv.callback ~arity:1 (fun s ->
          let debug = Jv.call Jv.global "debug_output" [||] |> Jv.to_bool in
-         Hiplib.Debug.user_query := if debug then [(Show, LogLevel 2, false)] else [(Hide, All, false)];
+         Hiplib.Debug.Query.user_query := if debug then [(Show, LogLevel 2, false)] else [(Hide, All, false)];
          Hiplib.run_string (Jv.to_string s)))
 
 let () = main ()

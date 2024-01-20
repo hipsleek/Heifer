@@ -1,20 +1,20 @@
 effect Zero : unit
 
 let client () 
-(*@ ex r; Zero(emp, r); req false/\emp; ex r1; Norm(false/\emp, r1) @*)
+(*@ ex r; Zero(emp, r); req F; ens F @*)
 =
   perform Zero;
   assert false
 
 let handler ()
-(*@ ex r; Norm(r=3/\emp, r) @*)
+(*@ ex r; ens r=3/\res=r @*)
 =
   match client () with
   | v -> 2
   | effect Zero k -> 3
 
 let invalid_false ()
-(*@ ex r; Norm(false/\emp, r) @*)
+(*@ ens F @*)
 =
   match client () with
   | v -> 2

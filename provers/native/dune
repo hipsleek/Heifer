@@ -1,0 +1,7 @@
+
+(library
+ (name provers_native)
+ (libraries str z3 why3)
+ (implements provers))
+
+(env (dev (flags (:standard -warn-error -A+8))))

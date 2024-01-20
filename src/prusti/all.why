@@ -1,0 +1,15 @@
+
+module Extras
+
+  use list.List
+  use int.Int
+
+  function all (xs:list int) (pred:int -> bool) : bool =
+    match xs with
+    | Nil -> true
+    | Cons x xs1 -> pred x && all xs1 pred
+    end
+
+  function all_positive (xs:list int) : bool = all xs (fun x -> x >= 0)
+
+end

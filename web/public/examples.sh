@@ -10,6 +10,6 @@ for file in "${files[@]}"; do
   output+="$transformed_contents"
 done
 
-MORE="$output" TZ=UTC-8 INITIAL_OUTPUT="Built $(date)" envsubst < "$1" > index1.html
+MORE="$output" TZ=Singapore INITIAL_OUTPUT="Built $(date)" envsubst < "$1" > index1.html
 cp index1.html "$2"
 

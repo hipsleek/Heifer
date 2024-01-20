@@ -63,7 +63,7 @@
 (library
  (name hipcore)
  (libraries unionFind str)
- (modules debug subst Pretty common hiptypes)
+ (modules debug subst Pretty common hiptypes globals)
  (inline_tests)
  (preprocess (pps visitors.ppx ppx_expect ppx_deriving.std)))
 
@@ -77,7 +77,8 @@
 (library
  (name ocamlfrontend)
  (modules
- parser lexer Syntaxerr Pprintast Printast Asttypes Ast_helper Longident Parsetree Location Warnings Misc Terminfo Docstrings Build_path_prefix_map Clflags Profile Numbers Identifiable Arg_helper CamlinternalMenhirLib)
+ parser lexer Syntaxerr Pprintast Printast Asttypes Ast_helper Longident Parsetree Location Warnings Misc Terminfo Docstrings Build_path_prefix_map Clflags Profile Numbers Identifiable Arg_helper CamlinternalMenhirLib
+ core_lang) ; the only module we own
  (libraries hipcore)
  (flags :standard -w -A))
 
@@ -91,7 +92,7 @@
 (executable
  (name hip)
  (modules hip)
- (libraries unix hiplib provers_z3))
+ (libraries unix hiplib provers_native))
 
 (executable
  (name hipjs)

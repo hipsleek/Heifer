@@ -14,7 +14,7 @@
 
 ```sh
 opam install dune-deps
-dune-deps -x benchmarks -x src/programs.t | sed 's/\}/\{rank = same; "lib:provers_js"; "lib:provers_z3";\} \}/' | tred | dot -Tpng > deps.png
+dune-deps -x benchmarks -x src/programs.t | sed 's/\}/\{rank = same; "lib:provers_js"; "lib:provers_native";\} \}/' | tred | dot -Tpng > deps.png
 ```
 
 ## Tests
@@ -25,7 +25,7 @@ Setting `TEST=1` causes the frontend to print only whether a test has failed.
 A test is a function whose main entailment proof must succeed; if its name has the suffix `_false`, the entailment must fail.
 We record the results for various interesting files using [cram tests](https://dune.readthedocs.io/en/stable/tests.html#cram-tests).
 
-## Logging
+## Logging and tracing
 
 View log output by setting `DEBUG=n`.
 
@@ -34,3 +34,7 @@ View log output by setting `DEBUG=n`.
 | 0    | Results                              |
 | 1    | Explanations, for users              |
 | >= 2 | More and more detail, for developers |
+
+Set `FILE=1` to direct logs to an org-mode file, which is useful for structural navigation.
+
+Set `CTF=1` to produce a trace file that can be viewed with [Perfetto](https://ui.perfetto.dev/), queried with [PerfettoSQL](https://perfetto.dev/docs/quickstart/trace-analysis), etc. This is useful for profiling.

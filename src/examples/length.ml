@@ -1,3 +1,4 @@
+
 let rec length xs =
   match xs with
   | [] -> 0
@@ -5,12 +6,12 @@ let rec length xs =
 
 (*@
   lemma length_positive_l xs res =
-    length(xs, res) <: ens res>=0
+    length(xs, res) ==> ens res>=0
 @*)
 
 (*@
   lemma length_empty res =
-    length([], res) <: ens res=0
+    length([], res) ==> ens res=0
 @*)
 
 let length_positive xs

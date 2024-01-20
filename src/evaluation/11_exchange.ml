@@ -9,7 +9,7 @@ let exchange (m:int)
 = perform (Exchange m)
 
 
-let exc_hanlder (y: int ref) (new_v:int): int
+let exc_hanlder y (new_v:int)
 (*@  
    ex old_v; 
    req y -> old_v; 

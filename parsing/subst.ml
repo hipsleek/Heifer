@@ -1,4 +1,5 @@
 open Hiptypes
+open Pretty
 
 let rec findNewName str vb_li =
   match vb_li with
@@ -42,221 +43,161 @@ let rec findbinding str vb_li =
   | (name, v) :: xs ->
     if String.compare name str == 0 then v else findbinding str xs
 
-let rec instantiateTerms (bindings : (string * core_value) list) (t : term) :
+  let subst_visitor =
+    object (self)
+      inherit [_] map_spec
+
+      (* not full capture-avoiding, we just stop substituting a name when it is bound *)
+      method! visit_TLambda bindings name params sp body =
+        let bs = List.filter (fun (b, _) -> not (List.mem b params)) bindings in
+        TLambda (name, params, (self#visit_disj_spec bs sp), (self#visit_option self#visit_core_lang bs body))
+
+      method! visit_Exists _ v = Exists v
+
+      method! visit_PointsTo bindings (str, t1) =
+        let binding = findbinding str bindings in
+        let newName = match binding with Var str1 -> str1 | _ -> str in
+        PointsTo (newName, self#visit_term bindings t1)
+
+      method! visit_HigherOrder bindings (pi, kappa, (str, basic_t_list), ret) =
+        let constr =
+          match List.assoc_opt str bindings with Some (Var s) -> s | _ -> str
+        in
+        HigherOrder
+          ( self#visit_pi bindings pi,
+            self#visit_kappa bindings kappa,
+            (constr, List.map (fun bt -> self#visit_term bindings bt) basic_t_list),
+            self#visit_term bindings ret )
+
+      method! visit_Var bindings v =
+        let binding = findbinding v bindings in
+        (* Format.printf "replacing %s with %s under %s@." str (string_of_term binding) (string_of_list (string_of_pair Fun.id string_of_term) bindings); *)
+        binding
+    end
+
+  let subst_visitor_subsumptions_only bindings =
+    object
+      inherit [_] map_spec
+
+      method! visit_Subsumption () a b =
+        Subsumption (subst_visitor#visit_term bindings a, subst_visitor#visit_term bindings b)
+    end
+
+
+let instantiateTerms (bindings : (string * core_value) list) (t : term) :
     term =
-  match t with
-  | Nil | Num _ | UNIT | TTrue | TFalse -> t
-  | Var str ->
-    let binding = findbinding str bindings in
-    (* Format.printf "replacing %s with %s under %s@." str (string_of_term binding) (string_of_list (string_of_pair Fun.id string_of_term) bindings); *)
-    binding
-  | TList tLi -> TList (List.map (fun t1 -> instantiateTerms bindings t1) tLi)
-  | TTupple tLi -> TList (List.map (fun t1 -> instantiateTerms bindings t1) tLi)
-  | TNot t1 -> TNot (instantiateTerms bindings t1)
-  | TAnd (t1, t2) ->
-    TAnd (instantiateTerms bindings t1, instantiateTerms bindings t2)
-  | TOr (t1, t2) ->
-    TOr (instantiateTerms bindings t1, instantiateTerms bindings t2)
-  | Plus (t1, t2) ->
-    Plus (instantiateTerms bindings t1, instantiateTerms bindings t2)
-  | Rel (bop, t1, t2) ->
-    Rel (bop, instantiateTerms bindings t1, instantiateTerms bindings t2)
+  subst_visitor#visit_term bindings t
 
-  | TTimes (t1, t2) -> TTimes (instantiateTerms bindings t1, instantiateTerms bindings t2)
-  | TDiv (t1, t2) -> TDiv (instantiateTerms bindings t1, instantiateTerms bindings t2)
-  | Minus (t1, t2) ->
-    Minus (instantiateTerms bindings t1, instantiateTerms bindings t2)
-  | TPower (t1, t2) ->
-    TPower (instantiateTerms bindings t1, instantiateTerms bindings t2)
-  | TApp (t1, t2) -> TApp (t1, List.map (instantiateTerms bindings) t2)
-  | TLambda (n, params, sp) ->
-    TLambda (n, params, instantiateSpecList bindings sp)
+let string_of_bindings bs =
+  String.concat "" (List.map (fun (s, t) -> Format.asprintf "[%s/%s]" (string_of_term t) s) bs)
 
-and instantiatePure (bindings : (string * core_value) list) (pi : pi) : pi =
-  match pi with
-  | True | False -> pi
-  | Atomic (bop, t1, t2) ->
-    Atomic (bop, instantiateTerms bindings t1, instantiateTerms bindings t2)
-  | And (p1, p2) ->
-    And (instantiatePure bindings p1, instantiatePure bindings p2)
-  | Or (p1, p2) -> Or (instantiatePure bindings p1, instantiatePure bindings p2)
-  | Imply (p1, p2) ->
-    Imply (instantiatePure bindings p1, instantiatePure bindings p2)
-  | Not p1 -> Not (instantiatePure bindings p1)
-  | Predicate (str, t1) -> Predicate (str, List.map (fun t' -> instantiateTerms bindings t') t1)
+let instantiateSpecList (bindings : (string * core_value) list) (t : disj_spec) : disj_spec =
+  let r = subst_visitor#visit_disj_spec bindings t in
+  Debug.debug ~at:5
+    ~title:"instantiateSpecList"
+    "%s\n%s\n%s" (string_of_disj_spec t)
+    (string_of_bindings bindings)
+    (string_of_disj_spec r);
+  r
 
-and instantiateHeap (bindings : (string * core_value) list) (kappa : kappa) :
+let instantiateSpec (bindings : (string * core_value) list) (t : spec) : spec =
+  let r = subst_visitor#visit_spec bindings t in
+  Debug.debug ~at:5
+    ~title:"instantiateSpec"
+    "%s\n%s\n%s" (string_of_spec t)
+    (string_of_bindings bindings)
+    (string_of_spec r);
+  r
+
+let instantiate_state (bindings : (string * core_value) list) (t : state) : state =
+  subst_visitor#visit_state bindings t
+
+let instantiatePure (bindings : (string * core_value) list) (t : pi) :
+    pi =
+  subst_visitor#visit_pi bindings t
+
+let instantiateHeap (bindings : (string * core_value) list) (t : kappa) :
     kappa =
-  match kappa with
-  | EmptyHeap -> kappa
-  | PointsTo (str, t1) ->
-    let binding = findbinding str bindings in
-    let newName = match binding with Var str1 -> str1 | _ -> str in
-    PointsTo (newName, instantiateTerms bindings t1)
-  | SepConj (k1, k2) ->
-    SepConj (instantiateHeap bindings k1, instantiateHeap bindings k2)
+  subst_visitor#visit_kappa bindings t
 
-and instantiate_state bindings (p, h) =
-  (instantiatePure bindings p, instantiateHeap bindings h)
+let instantiateStages (bindings : (string * core_value) list) (t : stagedSpec) : stagedSpec =
+  subst_visitor#visit_stagedSpec bindings t
 
-and instantiateStages (bindings : (string * core_value) list)
-    (stagedSpec : stagedSpec) : stagedSpec =
-  match stagedSpec with
-  | Exists _ -> stagedSpec
-  | Require (pi, kappa) ->
-    Require (instantiatePure bindings pi, instantiateHeap bindings kappa)
-  (* higher-order functions *)
-  | NormalReturn (pi, kappa) ->
-    NormalReturn (instantiatePure bindings pi, instantiateHeap bindings kappa)
-  | HigherOrder (pi, kappa, (str, basic_t_list), ret) ->
-    let constr =
-      match List.assoc_opt str bindings with Some (Var s) -> s | _ -> str
-    in
-    HigherOrder
-      ( instantiatePure bindings pi,
-        instantiateHeap bindings kappa,
-        (constr, List.map (fun bt -> instantiateTerms bindings bt) basic_t_list),
-        instantiateTerms bindings ret )
-  (* effects *)
-  | RaisingEff (pi, kappa, (label, basic_t_list), ret) ->
-    RaisingEff
-      ( instantiatePure bindings pi,
-        instantiateHeap bindings kappa,
-        (label, List.map (fun bt -> instantiateTerms bindings bt) basic_t_list),
-        instantiateTerms bindings ret )
-  | TryCatch (pi, kappa, handlerspec, ret) -> 
-    let (a, b) = handlerspec in 
-    TryCatch ( instantiatePure bindings pi,
-    instantiateHeap bindings kappa,
-    (instantiateSpec bindings a, b),
-    instantiateTerms bindings ret )
-    
-  
-(* | Pred {name; args}  ->  *)
-(* Pred {name; args = List.map (instantiateTerms bindings) args} *)
+(* for each variable, find how many times it is used and what other terms it is equal to *)
+(* TODO generalise to related to *)
+let count_uses_and_equalities =
+  let add _k a b =
+    match (a, b) with
+    | None, None -> None
+    | Some a, None | None, Some a -> Some a
+    | Some (a1, a2), Some (b1, b2) -> Some (a1 + b1, a2 @ b2)
+  in
+  let zero = SMap.empty in
+  let plus = SMap.merge add in
+  let vis =
+    object (self)
+      inherit [_] reduce_normalised as super
+      method zero = zero
+      method plus = plus
 
-and instantiateSpec (bindings : (string * core_value) list) (sepc : spec) : spec
-    =
-  List.map (fun a -> instantiateStages bindings a) sepc
+      method! visit_Atomic _ op a b =
+        match op, a, b with
+        | EQ, Var a, Var b ->
+          SMap.of_seq (List.to_seq [(a, (1, [Var b])); (b, (1, [Var a]))])
+        | EQ, Var a, b | EQ, b, Var a ->
+          plus (SMap.singleton a (1, [b])) (self#visit_term () b)
+        | EQ, a, b -> plus (self#visit_term () a) (self#visit_term () b)
+        | _, a, b ->
+          plus (self#visit_term () a) (self#visit_term () b)
 
-and instantiateSpecList (bindings : (string * core_value) list)
-    (sepcs : disj_spec) : disj_spec =
-  List.map (fun a -> instantiateSpec bindings a) sepcs
+      method! visit_Var _ v = SMap.singleton v (1, [])
 
-let rec used_vars_term (t : term) =
-  match t with
-  | Nil | TTrue | TFalse | UNIT | Num _ -> SSet.empty
-  | TList ts | TTupple ts -> SSet.concat (List.map used_vars_term ts)
-  | Var s -> SSet.singleton s
-  | Rel (_, a, b) | Plus (a, b) | Minus (a, b) | TAnd (a, b) | TOr (a, b) | TPower (a, b) |  TTimes (a, b) | TDiv (a, b)  ->
-    SSet.union (used_vars_term a) (used_vars_term b)
-  | TNot a -> used_vars_term a
-  | TApp (_, args) -> SSet.concat (List.map used_vars_term args)
-  | TLambda (_lid, params, spec) ->
-    SSet.diff (used_vars_disj_spec spec) (SSet.of_list params)
+      method! visit_PointsTo _ (v, t) =
+        plus (SMap.singleton v (1, [])) (self#visit_term () t)
 
-and used_vars_pi (p : pi) =
-  match p with
-  | True | False -> SSet.empty
-  | Atomic (_, a, b) -> SSet.union (used_vars_term a) (used_vars_term b)
-  | And (a, b) | Or (a, b) | Imply (a, b) ->
-    SSet.union (used_vars_pi a) (used_vars_pi b)
-  | Not a -> used_vars_pi a
-  | Predicate (_, t) -> 
-    List.fold_left (fun acc a -> SSet.union acc (used_vars_term a)) SSet.empty t
+      (* there can be unnormalized specs inside normalized ones *)
+      method! visit_HigherOrder _ ((_p, _h, (f, _a), _r) as fn) =
+        plus (SMap.singleton f (1, [])) (super#visit_HigherOrder () fn)
 
-and used_vars_heap (h : kappa) =
-  match h with
-  | EmptyHeap -> SSet.empty
-  | PointsTo (a, t) -> SSet.add a (used_vars_term t)
-  | SepConj (a, b) -> SSet.union (used_vars_heap a) (used_vars_heap b)
+      method! visit_EffHOStage _ eh =
+        match eh.e_typ with
+        | `Eff -> super#visit_EffHOStage () eh
+        | `Fn ->
+          plus (SMap.singleton (fst eh.e_constr) (1, []))
+            (super#visit_EffHOStage () eh)
+    end
+  in
+  vis
 
-and used_vars_state (p, h) = SSet.union (used_vars_pi p) (used_vars_heap h)
 
-and used_vars_eff (eff:effHOTryCatchStages) =
-match eff with
-| EffHOStage eff -> 
-  SSet.concat
-    [
-      used_vars_state eff.e_pre;
-      used_vars_state eff.e_post;
-      SSet.concat (List.map used_vars_term (snd eff.e_constr));
-      used_vars_term eff.e_ret;
-    ]
-| TryCatchStage tc
- ->
-  SSet.concat
-    [
-      used_vars_state tc.tc_pre;
-      used_vars_state tc.tc_post;
-      used_vars_trycatch tc.tc_constr;
-      used_vars_term tc.tc_ret;
-    ]
+let used_vars (sp : normalisedStagedSpec) =
+  count_uses_and_equalities#visit_normalisedStagedSpec () sp |> SMap.key_set
 
-and used_vars_norm (_vs, pre, post) =
-  SSet.concat [used_vars_state pre; used_vars_state post]
+let used_vars_pi p =
+  count_uses_and_equalities#visit_pi () p |> SMap.key_set
 
-and used_vars_trycatch (spec, cases) =
-  SSet.concat [used_vars_spec spec; used_vars_handlingcases cases]
+let used_vars_state (p, h) =
+  count_uses_and_equalities#visit_state () (p, h) |> SMap.key_set
 
-and used_vars_handlingcase (_effname, arg, body) =
-  match arg with
-  | None -> used_vars_disj_spec body
-  | Some v -> SSet.remove v (used_vars_disj_spec body)
+let used_vars_eff (eff:effHOTryCatchStages) =
+  count_uses_and_equalities#visit_effHOTryCatchStages () eff |> SMap.key_set
 
-and used_vars_handlingcases (((nv, nb), effs):handlingcases) =
-  SSet.concat ([
-    SSet.remove nv (used_vars_disj_spec nb);
-  ] @ List.map used_vars_handlingcase effs)
+let used_vars_norm (norm:normalStage) =
+  count_uses_and_equalities#visit_normalStage () norm |> SMap.key_set
 
-and used_vars (sp : normalisedStagedSpec) =
-  let effs, norm = sp in
-  SSet.concat (used_vars_norm norm :: List.map used_vars_eff effs)
-
-and used_vars_stage (s : stagedSpec) =
-  match s with
-  | Require (p, h) | NormalReturn (p, h) ->
-    SSet.union (used_vars_pi p) (used_vars_heap h)
-  | Exists vs -> SSet.of_list vs
-  | HigherOrder (p, h, (f, a), t) | RaisingEff (p, h, (f, a), t) ->
-    SSet.concat
-      [
-        used_vars_pi p;
-        used_vars_heap h;
-        SSet.concat (List.map used_vars_term a);
-        SSet.of_list [f];
-        used_vars_term t;
-      ]
-  | TryCatch (p, h, (src, _), t) ->
-    (*  let ((normParam, normSpec), _) = handlingspec in 
-     (string * spec list) * ((string * string option * spec list) list) *)
-    SSet.concat
-      [
-        used_vars_pi p;
-        used_vars_heap h;
-        used_vars_spec src;
-        used_vars_term t;
-        (*SSet.of_list [normParam];
-        used_vars_disj_spec normSpec; *)
-
-      ]
-  
-    
-
-and used_vars_spec (sp : spec) = SSet.concat (List.map used_vars_stage sp)
-
-and used_vars_disj_spec (d : disj_spec) =
-  SSet.concat (List.map used_vars_spec d)
+let used_vars_disj_spec (norm:disj_spec) =
+  count_uses_and_equalities#visit_disj_spec () norm |> SMap.key_set
 
 (* if alpha_equiv(t1, t2), then hash t1 = hash t2 *)
 let hash_lambda t =
   match t with
-  | TLambda (_id, params, spec) ->
+  | TLambda (_id, params, spec, _body) ->
     let bs = List.mapi (fun i p -> (p, "l" ^ string_of_int i)) params in
     let renamed =
       instantiateSpecList (List.map (fun (p, v) -> (p, Var v)) bs) spec
     in
-    let n = TLambda ("id", List.map snd bs, renamed) in
+    (* don't include body in hash *)
+    let n = (List.map snd bs, renamed) in
     (* Format.printf "renamed %s@." (string_of_term n); *)
     Hashtbl.hash n
   | _ -> failwith (Format.asprintf "not a lambda: %s" "(cannot print)")
@@ -279,3 +220,60 @@ let rec getExistentialVar (spec : normalisedStagedSpec) : string list =
     ex
   | (EffHOStage eff) :: xs -> eff.e_evars @ getExistentialVar (xs, normalS)
   | (TryCatchStage tc)::xs -> tc.tc_evars @ getExistentialVar (xs, normalS)
+
+
+  let find_subsumptions =
+    object
+      inherit [_] reduce_spec
+      method zero = []
+      method plus = (@)
+      method! visit_Subsumption () a b = [(a, b)]
+    end
+
+  let find_equalities =
+    object
+      inherit [_] reduce_spec
+      method zero = []
+      method plus = (@)
+      method! visit_Atomic () op a b =
+        match op with
+        | EQ -> [(a, b)]
+        | _ -> []
+    end
+
+let remove_equalities eqs =
+  object
+    inherit [_] map_spec
+    method! visit_Atomic () op a b =
+      match op, a, b with
+      | EQ, a, b when List.mem (a, b) eqs -> True
+      | _ ->
+        Atomic (op, a, b)
+  end
+
+let remove_subsumptions subs =
+  object
+    inherit [_] map_spec
+    method! visit_Subsumption () a b =
+      if List.mem (a, b) subs then True else Subsumption (a, b)
+  end
+
+let rec interpret_arrow_as_params t =
+  match t with
+  | Int | Unit | List_int | Bool | Lamb | TVar _ -> [], t
+  | Arrow (t1, t2) ->
+    let p, r = interpret_arrow_as_params t2 in
+    t1 :: p, r
+
+let quantify_res p =
+  let r, rez = split_res_fml p in
+  let nv = verifier_getAfreeVar "split" in
+  And (r, instantiatePure ["res", Var nv] rez), nv
+
+(** existentially quantify, i.e. replace with fresh variable *)
+let quantify_res_state (p, h) =
+  let p1, nv = quantify_res p in
+  (p1, h), nv
+
+  let contains_res_state (p, h) =
+    SSet.mem "res" (used_vars_state (p, h))

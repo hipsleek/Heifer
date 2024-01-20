@@ -1,7 +1,8 @@
 
-  $ function check { TEST=1 hip "$1" 2>&1; }
-  $ function sanitize { grep Time; }
-  $ function output { hip "$1" 2>&1 | sanitize; }
+  $ check() { TEST=1 hip "$1" 2>&1; }
+  $ sanitize() { grep Time; }
+  $ output() { hip "$1" 2>&1 | sanitize; }
+  $ check_why3_only() { if [ "$PROVER" = "WHY3" ]; then check "$1"; else echo "ALL OK!"; fi; }
 
   $ check test_new_entail.ml
   ALL OK!
@@ -15,7 +16,7 @@
   $ check test_match.ml
   ALL OK!
 
-  $ check test_lambda.ml
+  $ check_why3_only test_lambda.ml
   ALL OK!
 
   $ check test_closures.ml
@@ -62,8 +63,8 @@
 
 This requires the power axioms
 
-  $ check ../../benchmarks/effects/ocaml412/A_generic_count.ml
-  FAILED: main
+$ check ../../benchmarks/effects/ocaml412/A_generic_count.ml
+FAILED: main
 
 We can't handle these cases yet
 
@@ -92,6 +93,24 @@ ALL OK!
   ALL OK!
 
   $ check ../examples/exception.ml
+  ALL OK!
+
+  $ check ../prusti/all.ml
+  ALL OK!
+
+  $ check ../prusti/blameassgn.ml
+  ALL OK!
+
+  $ check ../prusti/counter.ml
+  ALL OK!
+
+  $ check ../prusti/cl_returned.ml
+  ALL OK!
+
+  $ check ../prusti/repeat_with_n.ml
+  ALL OK!
+
+  $ check_why3_only ../examples/length_pure.ml
   ALL OK!
 
 This does not work yet

@@ -10,130 +10,174 @@ let is_closing = ref false
 let is_opening = ref false
 let last_title = ref ""
 let ctf = ref false
+let file_mode = ref false
 
-type query_on =
-  | Time of int
-  | Range of int * int
-  | Regex of string * Str.regexp
-  | LogLevel of int
-  | All (* to avoid a catch-all regex *)
+module Buffered = struct
+  let buffered_event : (string * string * int) option ref = ref None
 
-type query_action =
-  | Hide
-  | Show
+  let write_line title s =
+    print_endline (Pretty.yellow title);
+    print_endline s;
+    if not (String.equal "" s) then print_endline ""
+
+  let buffer_event title s n = buffered_event := Some (title, s, n)
+  let clear_buffer () = buffered_event := None
+
+  let flush_buffer () =
+    match !buffered_event with
+    | None -> ()
+    | Some (title, s, _) ->
+      clear_buffer ();
+      write_line title s
+
+  let collapse_empty_spans title s =
+    match !buffered_event with
+    | Some (_, _, _) when !is_closing ->
+      (* we assume events are well-bracketed.
+         on closing a span, if there's something in the buffer, we must have left it there. *)
+      clear_buffer ();
+      write_line title s
+    | None when !is_closing ->
+      (* something must have occurred which cleared the buffer before us, so output normally *)
+      write_line title s
+    | _ when !is_opening ->
+      flush_buffer ();
+      buffer_event title s !debug_event_n
+    | _ ->
+      flush_buffer ();
+      write_line title s
+end
 
 let may_fail f = try Some (f ()) with _ -> None
 let parses f = Option.is_some (may_fail f)
 
-type query = (query_action * query_on * bool) list
+module Query = struct
+  type query_on =
+    | Time of int
+    | Range of int * int
+    | Regex of string * Str.regexp
+    | LogLevel of int
+    | All (* to avoid a catch-all regex *)
 
-(** terrible parser for a ;-separated string *)
-let parse_query s =
-  let parts = Str.split (Str.regexp {|[ ]*;[ ]*|}) s in
-  let regex =
-    Str.regexp
-      {|\(h\|s\|hr\|sr\) \(\([0-9]+\)-\([0-9]+\)\|\([0-9]+\)\|\(.*\)\)\|\([0-9]+\)|}
-  in
-  (* let parts =
-       (* extract debug level *)
-       match parts with
-       | s :: rest ->
-         (try
-            debug_level := int_of_string s;
-            rest
-          with _ -> parts)
-       | [] -> parts
-     in *)
-  let parts =
-    List.concat_map
-      (fun p ->
-        if Str.string_match regex p 0 then
-          match () with
-          | _ when parses (fun () -> Str.matched_group 7 p) ->
-            let l = Str.matched_group 7 p |> int_of_string in
-            [(Show, LogLevel l, false)]
-          | _ ->
-            let action, recursive =
-              match Str.matched_group 1 p with
-              | "s" -> (Show, false)
-              | "h" -> (Hide, false)
-              | "sr" -> (Show, true)
-              | "hr" -> (Hide, true)
-              | (exception _) | _ -> failwith "invalid action"
-            in
-            let on =
-              match () with
-              | _ when parses (fun () -> Str.matched_group 3 p) ->
-                Range
-                  ( Str.matched_group 3 p |> int_of_string,
-                    Str.matched_group 4 p |> int_of_string )
-              | _ when parses (fun () -> Str.matched_group 5 p) ->
-                Time (Str.matched_group 5 p |> int_of_string)
-              | _ when parses (fun () -> Str.matched_group 6 p) ->
-                let s = Str.matched_group 6 p in
-                Regex (s, Str.regexp_case_fold s)
-              | (exception _) | _ -> failwith "invalid on"
-            in
-            [(action, on, recursive)]
-        else failwith "unable to parse query")
-      parts
-  in
-  (* let exceptions escape *)
-  Some parts
+  type query_action =
+    | Hide
+    | Show
 
-let string_of_query_action a = match a with Hide -> "Hide" | Show -> "Show"
+  type query = (query_action * query_on * bool) list
 
-let string_of_query_on o =
-  match o with
-  | Time i -> Format.asprintf "Time(%d)" i
-  | Range (a, b) -> Format.asprintf "Range(%d, %d)" a b
-  | Regex (s, _) -> Format.asprintf "Regex(%s)" s
-  | LogLevel l -> Format.asprintf "LogLevel(%d)" l
-  | All -> "All"
+  (** terrible parser for a ;-separated string *)
+  let parse_query s =
+    let parts = Str.split (Str.regexp {|[ ]*;[ ]*|}) s in
+    let regex =
+      Str.regexp
+        {|\(h\|s\|hr\|sr\) \(\([0-9]+\)-\([0-9]+\)\|\([0-9]+\)\|\(.*\)\)\|\([0-9]+\)|}
+    in
+    (* let parts =
+         (* extract debug level *)
+         match parts with
+         | s :: rest ->
+           (try
+              debug_level := int_of_string s;
+              rest
+            with _ -> parts)
+         | [] -> parts
+       in *)
+    let parts =
+      List.concat_map
+        (fun p ->
+          if Str.string_match regex p 0 then
+            match () with
+            | _ when parses (fun () -> Str.matched_group 7 p) ->
+              let l = Str.matched_group 7 p |> int_of_string in
+              [(Show, LogLevel l, false)]
+            | _ ->
+              let action, recursive =
+                match Str.matched_group 1 p with
+                | "s" -> (Show, false)
+                | "h" -> (Hide, false)
+                | "sr" -> (Show, true)
+                | "hr" -> (Hide, true)
+                | (exception _) | _ -> failwith "invalid action"
+              in
+              let on =
+                match () with
+                | _ when parses (fun () -> Str.matched_group 3 p) ->
+                  Range
+                    ( Str.matched_group 3 p |> int_of_string,
+                      Str.matched_group 4 p |> int_of_string )
+                | _ when parses (fun () -> Str.matched_group 5 p) ->
+                  Time (Str.matched_group 5 p |> int_of_string)
+                | _ when parses (fun () -> Str.matched_group 6 p) ->
+                  let s = Str.matched_group 6 p in
+                  Regex (s, Str.regexp_case_fold s)
+                | (exception _) | _ -> failwith "invalid on"
+              in
+              [(action, on, recursive)]
+          else failwith "unable to parse query")
+        parts
+    in
+    (* let exceptions escape *)
+    Some parts
 
-let string_of_query qs =
-  Common.string_of_list
-    (fun (action, on, recursive) ->
-      Format.asprintf "(%s, %s, %b)"
-        (string_of_query_action action)
-        (string_of_query_on on) recursive)
-    qs
+  let string_of_query_action a = match a with Hide -> "Hide" | Show -> "Show"
 
-let user_query : query ref = ref []
-let collapse i = (Hide, Time i, true)
-let expand i = (Show, Time i, true)
-let whitelist r = (Show, Regex (r, Str.regexp_case_fold r), false)
-let blacklist r = (Hide, Regex (r, Str.regexp_case_fold r), false)
+  let string_of_query_on o =
+    match o with
+    | Time i -> Format.asprintf "Time(%d)" i
+    | Range (a, b) -> Format.asprintf "Range(%d, %d)" a b
+    | Regex (s, _) -> Format.asprintf "Regex(%s)" s
+    | LogLevel l -> Format.asprintf "LogLevel(%d)" l
+    | All -> "All"
+
+  let string_of_query qs =
+    Common.string_of_list
+      (fun (action, on, recursive) ->
+        Format.asprintf "(%s, %s, %b)"
+          (string_of_query_action action)
+          (string_of_query_on on) recursive)
+      qs
+
+  let user_query : query ref = ref []
+  let collapse i = (Hide, Time i, true)
+  let expand i = (Show, Time i, true)
+  let whitelist r = (Show, Regex (r, Str.regexp_case_fold r), false)
+  let blacklist r = (Hide, Regex (r, Str.regexp_case_fold r), false)
+
+  let affects at title time (_, on, recursive) =
+    match (on, recursive) with
+    | LogLevel i, _ -> at <= i
+    | Regex (_, r), false -> Str.string_match r title 0
+    | Regex (_, r), true ->
+      List.exists (fun (t, _e) -> Str.string_match r t 0) !stack
+      || Str.string_match r title 0
+    | Time t, true -> List.exists (fun (_, t1) -> t1 = t) !stack || t = time
+    | Time t, false -> t = time
+    | Range (s, e), true ->
+      List.exists (fun (_, t) -> s <= t && t <= e) !stack
+      || s = time || e = time
+    | Range (s, e), false -> s <= time && time <= e
+    | All, _ -> true
+
+  let interpret at title time qs =
+    List.rev qs
+    |> List.find_map (fun ((action, _, _) as q) ->
+           let af = affects at title time q in
+           match (af, action) with
+           | true, Show -> Some true
+           | true, Hide -> Some false
+           | false, _ -> None)
+    |> Option.value ~default:false
+end
+
+open Query
+
+let in_debug_mode () = match !user_query with [] -> false | _ :: _ -> true
 let trace_out = ref None
 
 let summarize_stack () =
   (* String.concat "@"
      (!stack |> List.rev |> List.map (fun i -> Format.asprintf "%a" pp_event i)) *)
   match !stack with [] -> "" | (_t, e) :: _ -> Format.asprintf "%a" pp_event e
-
-let affects at title time (_, on, recursive) =
-  match (on, recursive) with
-  | LogLevel i, _ -> at <= i
-  | Regex (_, r), false -> Str.string_match r title 0
-  | Regex (_, r), true ->
-    List.exists (fun (t, _e) -> Str.string_match r t 0) !stack
-    || Str.string_match r title 0
-  | Time t, true -> List.exists (fun (_, t1) -> t1 = t) !stack || t = time
-  | Time t, false -> t = time
-  | Range (s, e), true ->
-    List.exists (fun (_, t) -> s <= t && t <= e) !stack || s = time || e = time
-  | Range (s, e), false -> s <= time && time <= e
-  | All, _ -> true
-
-let interpret at title time qs =
-  List.rev qs
-  |> List.find_map (fun ((action, _, _) as q) ->
-         let af = affects at title time q in
-         match (af, action) with
-         | true, Show -> Some true
-         | true, Hide -> Some false
-         | false, _ -> None)
-  |> Option.value ~default:false
 
 let debug_print at title s =
   last_title := title;
@@ -151,9 +195,20 @@ let debug_print at title s =
         in
         Format.asprintf "%s | %a%s" title pp_event !debug_event_n stack
       in
-      print_endline (Pretty.yellow title);
-      print_endline s;
-      if not (String.equal "" s) then print_endline ""
+      let title =
+        match !file_mode with
+        | false -> Format.asprintf "==== %s ====" title
+        | true ->
+          Format.asprintf "%s %s"
+            (String.init (List.length !stack + 1) (fun _ -> '*'))
+            title
+      in
+      begin
+        let should_buffer = true in
+        match should_buffer with
+        | true -> Buffered.collapse_empty_spans title s
+        | false -> Buffered.write_line title s
+      end
     | true ->
       let typ = if !is_closing then "E" else if !is_opening then "B" else "i" in
       let scope = if !is_closing || !is_opening then "" else {|,"s":"t"|} in
@@ -230,7 +285,9 @@ let pp_result f ppf r =
 let string_of_result f r =
   match r with None -> "..." | Some r -> Format.asprintf "%s" (f r)
 
-let init ctf_output query =
+let init ctf_output query to_file =
+  at_exit (fun () -> Buffered.flush_buffer ());
+  file_mode := to_file;
   if ctf_output then (
     ctf := true;
     let name = "trace.json" in

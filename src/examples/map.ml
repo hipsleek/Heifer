@@ -7,13 +7,13 @@ let rec map f xs =
 let id y = y
 
 let map_id ys
-(*@ Norm(emp, ys) @*)
+(*@ ens res=ys @*)
 = map id ys
 
 let succ x = x + 1
 
 let map_not_id_false ys
-(*@ Norm(emp, ys) @*)
+(*@ ens res=ys @*)
 = map succ ys
 
 (* ghost function that specifies what mapping succ should return *)
@@ -24,7 +24,7 @@ let rec succ_list xs =
 
 (* we use succ_list in the statement of this lemma *)
 let map_succ ys
-(*@ ex r; succ_list(ys, r); Norm(emp, r) @*)
+(*@ ex r; succ_list(ys, r); ens res=r @*)
 = map succ ys
 
 let rec length xs =
@@ -33,8 +33,8 @@ let rec length xs =
   | x :: xs1 -> 1 + length xs1
 
 let cl_map xs x
-(*@ ex i; req x->i; ex r; length(xs, r); ex r1; Norm(r1=xs/\x->i+r, r1) @*)
-= let f a = x := !x+1; a in
+(*@ ex i; req x->i; ex r; length(xs, r); ex r1; ens x->i+r/\r1=xs/\res=r1 @*)
+= let f a = x := !x + 1; a in
   map f xs
 
 (*
@@ -117,7 +117,7 @@ ex r; ex lr xst; ens xs=_::xst; length(xst, lr); ens r=1+lr /\ x->i+r /\ res=xs
 
 (* this cannot be proved because the final stage doesn't match after one unfolding *)
 let cl_map_1_false ()
-(*@ Norm(emp, 0) @*)=
+(*@ ens res=0 @*)=
   let y = ref 0 in
   cl_map [] y;
   !y
@@ -125,7 +125,7 @@ let cl_map_1_false ()
 (* this cannot be proved because we bound the number of unfoldings.
    we could fully unfold if given finite constants perhaps *)
 let cl_map_12_false ()
-(*@ Norm(emp, 2) @*)=
+(*@ ens res=2 @*)=
   let y = ref 0 in
   cl_map [1;2] y;
   !y
@@ -136,12 +136,24 @@ let rec incr_list init li =
   | x :: xs -> 
     init :: incr_list (init + 1) xs
 
-(* let cl_map_incr_l xs x
-(*@ ex i; req x->i; ex r; length(xs, r); ex r1; Norm(x->i+r, r1) @*)
-= let f a = x := !x+1; !x in
+(* Adapted from https://github.com/FabianWolff/closure-examples/blob/master/map_vec.rs *)
+let cl_map_incr_l xs x
+(*@ ex i; req x->i; ex r; length(xs, r); ex r1; ens x->i+r/\res=r1 @*)
+= let f a = x := !x + 1; !x in
   map f xs
 
 let cl_map_incr_c xs x
-(*@ ex i; req x->i; ex r; incr_list(i+1, xs, r); Norm(emp, r) @*)
-= let f a = x := !x+1; !x in
-  map f xs *)
+(*@ ex i; req x->i; ex ys; ex j; ens j=i+1; incr_list(j, xs, ys); ens res=ys @*)
+= let f a = x := !x + 1; !x in
+  map f xs
+
+(* Adapted from https://github.com/FabianWolff/closure-examples/blob/master/map_vec.rs *)
+let rec thrice_list xs =
+  match xs with
+  | [] -> []
+  | x :: xs' -> (x + x + x) :: thrice_list xs'
+
+let map_thrice xs
+(*@ ex ys; thrice_list(xs, ys); ens res=ys @*)
+= let cl i = i + i + i in
+  map cl xs

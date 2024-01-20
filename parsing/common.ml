@@ -1,13 +1,5 @@
 let ( let@ ) f x = f x
 
-let rec split_last xs =
-  match xs with
-  | [] -> failwith "split_last"
-  | [x] -> ([], x)
-  | x :: xs ->
-    let init, last = split_last xs in
-    (x :: init, last)
-
 let rec replace_nth n y xs =
   match (n, xs) with
   | 0, [] -> []
@@ -47,6 +39,7 @@ module SSet = struct
   include Set.Make (String)
 
   let concat sets = List.fold_right union sets empty
+  let to_list s = List.of_seq (to_seq s)
 end
 
 module SMap = struct
@@ -54,19 +47,22 @@ module SMap = struct
 
   let keys m = bindings m |> List.map fst
 
-  let merge_disjoint a b =
-    merge
-      (fun _k x y ->
-        match (x, y) with
-        | Some v, None | None, Some v -> Some v
-        | None, None -> None
-        | Some v1, Some v2 when v1 = v2 -> Some v1
-        | Some _, Some _ ->
-          failwith
-            (Format.asprintf "maps with keys %s and %s should be disjoint"
-               (string_of_list Fun.id (keys a))
-               (string_of_list Fun.id (keys b))))
-      a b
+  let key_set m = bindings m |> List.map fst |> SSet.of_list
+
+  let disjoint_or_fail k x y =
+    match (x, y) with
+    | Some v, None | None, Some v -> Some v
+    | None, None -> None
+    | Some v1, Some v2 when v1 == v2 || v1 = v2 -> Some v1
+    | Some _, Some _ ->
+      failwith (Format.asprintf "maps not disjoint on key %s" k)
+
+  let merge_disjoint a b = merge disjoint_or_fail a b
+
+  let merge_all_disjoint xs =
+    List.fold_right merge_disjoint xs empty
+
+  let of_list xs = of_seq (List.to_seq xs)
 end
 
 let rec unsnoc xs =
@@ -83,3 +79,5 @@ let foldr1 f xs =
   | _ ->
     let xs, last = unsnoc xs in
     List.fold_right f xs last
+
+let pair a b = (a, b)
