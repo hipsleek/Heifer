@@ -7,3 +7,16 @@ node_modules
 package*.json
 out.txt
 *.json
+
+
+# dependencies
+web/node_modules
+web/.pnp
+web/*.pnp.js
+
+# production
+web/build
+
+web/npm-debug.log*
+web/yarn-debug.log*
+web/yarn-error.log*
