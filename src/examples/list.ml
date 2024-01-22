@@ -19,15 +19,39 @@ let rec interleave xs ys =
   | y :: ys' -> x :: (y :: interleave xs' ys')
 
 
-(* List scanning/searching: https://v2.ocaml.org/api/List.html *)
+(* OCaml List Module: https://v2.ocaml.org/api/List.html *)
 
-(* Returns the index of y in lst if it exists, or the length of lst *)
+(* https://v2.ocaml.org/api/List.html#VALfind_index *)
 let rec find_index lst y =
   match lst with
   | [] -> 0
   | x :: xs -> if x = y then 0 else 1 + (find_index xs y)
 
+(* https://v2.ocaml.org/api/List.html#VALexists *)
 let rec exists lst f =
   match lst with
   | [] -> false
   | x :: xs -> f x || exists xs f
+
+(* https://v2.ocaml.org/api/List.html#VALint *)
+let init len f =
+  if len < 0 then perform Invalid_argument;
+  let rec aux idx
+  = if idx = len then []
+    else let k = f idx in k :: aux (idx + 1)
+  in
+  aux 0
+
+(* https://v2.ocaml.org/api/List.html#VALequal *)
+let rec equal xs ys =
+  match xs with
+  | [] -> (
+    match ys with
+    | [] -> true
+    | y :: ys' -> false
+  )
+  | x :: xs' -> (
+    match ys with
+    | [] -> false
+    | y :: ys' -> x = y && equal xs' ys'
+  )

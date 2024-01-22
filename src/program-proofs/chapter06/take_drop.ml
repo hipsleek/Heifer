@@ -4,32 +4,40 @@ let[@pure] rec length (xs: int list): int
   | [] -> 0
   | x :: xs1 -> 1 + length xs1
 
-let[@pure] rec append (xs: int list) (ys: int list): int list =
+let rec append xs ys =
   match xs with
   | [] -> ys
   | x :: xs' -> x :: append xs' ys
 
 (* Example 6.3 *)
-let[@pure] rec take (xs: int list) (n: int): int list
-(*@ req n>=0/\n<=length(xs) @*)
+let rec take xs n
 = if n = 0 then [] else match xs with
 | [] -> []
 | x :: xs' -> x :: take xs' (n - 1)
 
-let[@pure] rec drop (xs: int list) (n: int): int list
+let take_spec xs n
 (*@ req n>=0/\n<=length(xs) @*)
+= take xs n
+
+let rec drop xs n
 = if n = 0 then xs else match xs with
 | [] -> []
 | x :: xs' -> drop xs' (n - 1)
 
-let append_take_drop xs n
-(*@ req n>=0/\n<=length(xs); ens res=xs @*)
-= append (take xs n) (drop xs n)
+let drop_spec xs n
+(*@ req n>=0/\n<=length(xs) @*)
+= drop xs n
 
-let take_drop_append1 xs ys
+let append_take_drop xs n (* FIXME: By induction *)
 (*@ ens res=xs @*)
-= take (append xs ys) (length xs)
+= append (take_spec xs n) (drop_spec xs n)
 
-let take_drop_append2 xs ys
+let take_drop_append1 xs ys (* FIXME *)
+(*@ ens res=xs @*)
+(* Workaround to avoid type errors in Why3 *)
+= let n = length xs in take_spec (append xs ys) n
+
+let take_drop_append2 xs ys (* FIXME *)
 (*@ ens res=ys @*)
-= drop (append xs ys) (length xs)
+(* Workaround to avoid type errors in Why3 *)
+= let n = length xs in drop_spec (append xs ys) n
