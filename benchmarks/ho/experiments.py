@@ -229,12 +229,12 @@ Why3: {t.why3_time}
         if t.src:
             src = rf"~\cite{{{t.src}}}"
 
-        cameleer_cols = "- & - & - & -"
+        cameleer_cols = "- & - & -"
         if n in cameleer_benchmarks:
             b = cameleer_benchmarks[n]
-            cameleer_cols = f"{b.loc} & {b.los} & {b.ratio:.2f} & {b.total_time:.2f}"
+            cameleer_cols = f"{b.loc} & {b.los} & {b.total_time:.2f}"
 
         print(
-            f"{n}{src} & {t.loc} & {t.los} & {t.ratio:.2f} & {t.total_time:.2f} & {t.z3_time:.2f} & {t.why3_time:.2f} & {cameleer_cols} \\\\"
+            f"{n}{src} & {t.loc} & {t.los} & {t.total_time:.2f} & {t.z3_time + t.why3_time:.2f} & {cameleer_cols} \\\\"
         )
     print("% end generated")
