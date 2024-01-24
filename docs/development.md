@@ -38,3 +38,29 @@ View log output by setting `DEBUG=n`.
 Set `FILE=1` to direct logs to an org-mode file, which is useful for structural navigation.
 
 Set `CTF=1` to produce a trace file that can be viewed with [Perfetto](https://ui.perfetto.dev/), queried with [PerfettoSQL](https://perfetto.dev/docs/quickstart/trace-analysis), etc. This is useful for profiling.
+
+## Testing programs using the old effect syntax
+
+The old Multicore OCaml branch should work:
+
+```sh
+opam switch create 4.12.0+domains+effects
+```
+
+Otherwise, try [these instructions](https://github.com/ocaml/ocaml/blob/trunk/HACKING.adoc#testing-with-opam) with [this patch on top of OCaml 5.2](https://github.com/ocaml/ocaml/pull/12309).
+
+```sh
+opam switch create $SWITCH_NAME --empty
+opam pin add ocaml-variants git+https://github.com/avsm/ocaml#effect-syntax
+```
+
+There are some differences. These modules need to be opened.
+
+```ml
+open Effect
+open Effect.Deep
+```
+
+`Obj.clone_continuation` is also unavailable.
+
+[ocaml-multicont](https://github.com/dhil/ocaml-multicont) can be used, but then it has a different API for continuations ("resumptions") and the old syntax won't be usable.
