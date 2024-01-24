@@ -8,16 +8,6 @@ let accumulator init =
   = total := !total + x; !total in
   acc
 
-(* external sum : int -> int -> int -> int = "accumulator_factory.Extras.sum" *)
-
-(* let sum_aux x n init =
-  let total = ref init in
-  let rec aux x n =
-    if n = 0 then !total
-    else let _ = total := !total + x in aux x (n - 1)
-  in
-  aux x n *)
-
 let test x n init (* FIXME *)
 (*@ req n>=0; ens res=init+(n*.x) @*)
 = assert (n >= 0);

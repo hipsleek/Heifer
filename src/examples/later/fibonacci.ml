@@ -19,8 +19,8 @@ let fib_iter n (* FIXME *)
   = if k = n then !x
     else
       let tmp = !x in
-      let _ = (x := !y) in
-      let _ = (y := !y + tmp) in
+      x := !y;
+      y := !y + tmp;
       aux (k + 1) x y
     in
   aux 0 x y
