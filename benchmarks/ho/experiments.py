@@ -237,4 +237,8 @@ Why3: {t.why3_time}
         print(
             f"{n}{src} & {t.loc} & {t.los} & {t.total_time:.2f} & {t.z3_time + t.why3_time:.2f} & {cameleer_cols} \\\\"
         )
+    print("\\hline")
+    print(
+        f"& {heifer_total_loc} & {heifer_total_los} &  &  & {cameleer_total_loc} & {cameleer_total_los} & \\\\"
+    )
     print("% end generated")
