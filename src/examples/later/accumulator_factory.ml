@@ -4,25 +4,32 @@
 let accumulator init =
   let total = ref init in
   let acc x
-  (*@ ex t; req total->t; ens total->t+x @*)
+  (*@ ex t; req total->t; ens total->t+x/\res=t+x @*)
   = total := !total + x; !total in
   acc
 
-external sum : int -> int -> int -> int = "accumulator_factory.Extras.sum"
+(* external sum : int -> int -> int -> int = "accumulator_factory.Extras.sum" *)
 
-let sum_aux x n init =
+(* let sum_aux x n init =
   let total = ref init in
   let rec aux x n =
     if n = 0 then !total
     else let _ = total := !total + x in aux x (n - 1)
   in
-  aux n
+  aux x n *)
 
-let test init x n
-(*@ ex r; sum_aux(x,n,init,r); ens res=r @*)
-= let acc = accumulator init in
-  let rec repeat x n =
-    if n = 0 then (acc 0)
-    else let r = acc x in repeat x (n - 1)
+let test x n init (* FIXME *)
+(*@ req n>=0; ens res=init+(n*.x) @*)
+= assert (n >= 0);
+  let acc = accumulator init in
+  let rec repeat x k
+  (*@
+    req k=n; ex v; acc(0,v); req v=init+(n*.x); ens res=v
+    \/ req 0<=k/\k<n;
+       ex v; acc(x,v); req v=init+(k*.x+x);
+       ex r; repeat(x,k+1,r); req r=init+(n*.x); ens res=r
+  @*)
+  = if k = n then acc 0
+    else (acc x; repeat x (k + 1))
   in
-  repeat x n
+  repeat x 0
