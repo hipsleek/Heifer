@@ -1,5 +1,5 @@
 
-let rec length xs =
+let[@pure] rec length (xs:int list): int =
   match xs with
   | [] -> 0
   | x :: xs1 -> 1 + length xs1
@@ -17,3 +17,15 @@ let rec length xs =
 let length_positive xs
 (*@ ens res>=0 @*)
 = length xs
+
+let rec foldr f li acc =
+  match li with 
+  | [] -> acc 
+  | x :: xs -> 
+    let acc' = f x acc in 
+    foldr f xs acc'
+
+let foldr_length xs init
+(*@ ex r; ens res=length(xs)+init @*)
+= let g c t = 1 + t in
+  foldr g xs init
