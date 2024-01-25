@@ -2,6 +2,21 @@
 
 # Usage: benchmarks/ho/experiments.py | pbcopy
 
+ML_COMMENTS = r"\(\*\s(?:.|\n)*?\*\)"
+RUST_COMMENTS = r"//[^\n]+"
+RUST_COMMENTS = r"//[^\n]+"
+CAMELEER_SPEC = r"\(\*@[^@]+\*\)"
+HEIFER_SPEC = r"\(\*@[^@]+\*\)"
+
+# we can't matched balanced parens without recursion.
+# example: #[requires([
+#            ...
+#          ])]
+#          ^
+# the extra .* at the end consumes everything after the first ],
+# so all that should be on the same line.
+PRUSTI_SPEC = r"#\[(?:.|\n)*?\].*"
+
 import subprocess
 import re
 from dataclasses import dataclass, field
@@ -46,12 +61,12 @@ def count_loc(s):
     return len([l for l in s.split("\n") if l.strip()])
 
 
-def process_src_file(fname, spec_comment_regex):
+def process_src_file(fname, comment_regex, spec_comment_regex):
     with open(fname, "r") as f:
         txt = f.read()
 
     # strip comments
-    txt = re.sub(r"\(\*\s(?:.|\n)*?\*\)", "", txt)
+    txt = re.sub(comment_regex, "", txt)
 
     # eprint('WITHOUT COMMENTS', txt)
 
@@ -74,6 +89,9 @@ def process_src_file(fname, spec_comment_regex):
 
 
 def run_heifer(test):
+    """
+    Actualy run Heifer and collect stats
+    """
     # eprint(filename)
     output = subprocess.run(
         ["dune", "exec", "parsing/hip.exe", test.file], capture_output=True, text=True
@@ -86,7 +104,11 @@ def run_heifer(test):
     # test.los = int(los_ratio.group(1))
     # test.ratio = float(los_ratio.group(2))
 
-    loc, los = process_src_file(fname=test.file, spec_comment_regex=r"\(\*@[^@]+@\*\)")
+    loc, los = process_src_file(
+        fname=test.file,
+        comment_regex=ML_COMMENTS,
+        spec_comment_regex=r"\(\*@[^@]+@\*\)",
+    )
     test.loc = loc
     test.los = los
     test.ratio = float(los) / float(loc)
@@ -99,7 +121,24 @@ def run_heifer(test):
     test.lemmas = len(re.findall(r"Entail Check", output))
 
 
+def run_prusti(test):
+    """
+    Does not run the files, only counts lines
+    """
+    loc, los = process_src_file(
+        fname=test.file,
+        comment_regex=RUST_COMMENTS,
+        spec_comment_regex=PRUSTI_SPEC,
+    )
+    test.loc = loc
+    test.los = los
+    test.ratio = float(los) / float(loc)
+
+
 def run_cameleer(test):
+    """
+    Read Why3 session file, which contains a record of how the proof was done
+    """
     # file = f"{path}/{bench}/why3session.xml"
     file, _ = os.path.splitext(test.file)
     file += "/why3session.xml"
@@ -113,7 +152,8 @@ def run_cameleer(test):
 
     loc, los = process_src_file(
         fname=test.file,
-        spec_comment_regex=r"\(\*@[^@]+\*\)",
+        comment_regex=ML_COMMENTS,
+        spec_comment_regex=CAMELEER_SPEC,
     )
     # eprint(test.file)
     test.loc = loc
@@ -122,8 +162,24 @@ def run_cameleer(test):
     test.lemmas = len(re.findall(r"^ <goal", txt, re.MULTILINE))
 
 
+def compute_stats(name, benchmarks):
+    avg = float(sum([b.ratio for _, b in benchmarks.items()])) / float(len(benchmarks))
+    total_loc = sum([b.loc for _, b in benchmarks.items()])
+    total_los = sum([b.los for _, b in benchmarks.items()])
+
+    eprint(name)
+    eprint(f"average ratio: {avg:.2f}")
+    eprint(f"total loc: {total_loc:.2f}")
+    eprint(f"total los: {total_los:.2f}")
+    eprint()
+    return avg, total_loc, total_los
+
+
 if __name__ == "__main__":
+    # CONFIGURE SOME STUFF
+
     cameleer_path = os.path.expanduser("~/ocaml/cameleer")
+
     cameleer_benchmarks = {
         "map": Test(
             file=f"{cameleer_path}/map.ml",
@@ -154,9 +210,6 @@ if __name__ == "__main__":
         # "exception": Test(file=f"{cameleer_path}/exception.ml"),
         # "map_list": Test(file=f"{cameleer_path}/map_list.ml"),
     }
-
-    for k, v in cameleer_benchmarks.items():
-        run_cameleer(v)
 
     heifer_benchmarks = {
         "map": Test(
@@ -220,7 +273,7 @@ if __name__ == "__main__":
         "blameassgn": Test(
             file="src/prusti/blameassgn.ml",
             src="Findler2002ContractsFH",
-            properties=["g_h_ok"],
+            properties=["g_f_false"],
         ),
         "counter": Test(
             file="src/prusti/counter.ml",
@@ -231,11 +284,42 @@ if __name__ == "__main__":
         # 'exception': Test(file='src/examples/exception.ml'),
     }
 
+    prusti_path = os.path.expanduser(
+        "~/ocaml/AlgebraicEffect/stuff/prusti-artifact-programs/pass"
+    )
+
+    prusti_benchmarks = {
+        "blameassgn": Test(
+            file=f"{prusti_path}/blameassgn.rs",
+            properties=[
+                "main",
+            ],
+            total_time=5.247,
+        ),
+        "counter": Test(
+            file=f"{prusti_path}/counter.rs",
+            properties=[
+                "main",
+            ],
+            total_time=6.395,
+        ),
+    }
+
+    # END CONFIGURATION
+
+    for k, v in cameleer_benchmarks.items():
+        run_cameleer(v)
+
+    for k, v in prusti_benchmarks.items():
+        run_prusti(v)
+
     for n, t in heifer_benchmarks.items():
         eprint(f"{n}")
         run_heifer(t)
+
     eprint()
 
+    # print state before transforming anything
     for n, t in heifer_benchmarks.items():
         eprint(
             f"""Benchmark: {n}
@@ -255,28 +339,15 @@ Lemmas: {t.lemmas}
         del heifer_benchmarks["length_pure"]
 
     # compute some stats
-    heifer_avg = float(sum([b.ratio for _, b in heifer_benchmarks.items()])) / float(
-        len(heifer_benchmarks)
+    heifer_avg, heifer_total_loc, heifer_total_los = compute_stats(
+        "heifer", heifer_benchmarks
     )
-    cameleer_avg = float(
-        sum([b.ratio for _, b in cameleer_benchmarks.items()])
-    ) / float(len(cameleer_benchmarks))
-    heifer_total_loc = sum([b.loc for _, b in heifer_benchmarks.items()])
-    heifer_total_los = sum([b.los for _, b in heifer_benchmarks.items()])
-    cameleer_total_loc = sum([b.loc for _, b in cameleer_benchmarks.items()])
-    cameleer_total_los = sum([b.los for _, b in cameleer_benchmarks.items()])
-
-    eprint("heifer")
-    eprint(f"average ratio: {heifer_avg:.2f}")
-    eprint(f"total loc: {heifer_total_loc:.2f}")
-    eprint(f"total los: {heifer_total_los:.2f}")
-    eprint()
-
-    eprint("cameleer")
-    eprint(f"average ratio: {cameleer_avg:.2f}")
-    eprint(f"total loc: {cameleer_total_loc:.2f}")
-    eprint(f"total los: {cameleer_total_los:.2f}")
-    eprint()
+    cameleer_avg, cameleer_total_loc, cameleer_total_los = compute_stats(
+        "cameleer", cameleer_benchmarks
+    )
+    prusti_avg, prusti_total_loc, prusti_total_los = compute_stats(
+        "prusti", prusti_benchmarks
+    )
 
     print("% generated")
     for n, t in heifer_benchmarks.items():
@@ -284,18 +355,27 @@ Lemmas: {t.lemmas}
         if t.src:
             src = rf"~\cite{{{t.src}}}"
 
-        cameleer_cols = "- & - & - & -"
+        # cameleer's default is inexpressible
+        cameleer_cols = r"\inexpressible & \inexpressible & \inexpressible"
         if n in cameleer_benchmarks:
             b = cameleer_benchmarks[n]
-            cameleer_cols = (
-                f"{b.loc} & {b.los} & {len(b.properties)} & {b.total_time:.2f}"
-            )
+            cameleer_cols = f"{b.loc} & {b.los} & {b.total_time:.2f}"
+
+        # prusti's default is untried
+        prusti_cols = r"\untried & \untried & \untried"
+        if n in prusti_benchmarks:
+            b = prusti_benchmarks[n]
+            prusti_cols = f"{b.loc} & {b.los} & {b.total_time:.2f}"
 
         print(
-            f"{n}{src} & {t.loc} & {t.los} & {len(t.properties)} & {t.total_time:.2f} & {t.z3_time + t.why3_time:.2f} & {cameleer_cols} \\\\"
+            f"{n}{src} & {t.loc} & {t.los} & {t.total_time:.2f} & {t.z3_time + t.why3_time:.2f} & {cameleer_cols} & {prusti_cols} \\\\"
         )
     print("\\hline")
     print(
-        f"& {heifer_total_loc} & {heifer_total_los} & & & & {cameleer_total_loc} & {cameleer_total_los} & & \\\\"
+        f"& {heifer_total_loc} & {heifer_total_los} & & & {cameleer_total_loc} & {cameleer_total_los} & & {prusti_total_loc} & {prusti_total_los} & \\\\"
     )
     print("% end generated")
+
+    eprint(rf"\newcommand*{{\heiferratio}}{{{heifer_avg:.2f}}}")
+    eprint(rf"\newcommand*{{\cameleerratio}}{{{cameleer_avg:.2f}}}")
+    eprint(rf"\newcommand*{{\prustiratio}}{{{prusti_avg:.2f}}}")
