@@ -949,7 +949,8 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) : core_program =
       in
       prog)
   in
-  report_result ~inferred_spec ?inferred_spec_n ?given_spec ?given_spec_n ~result:res ~show_time:true meth.m_name;
+  let res = Option.map (fun _ -> res) given_spec in
+  report_result ~inferred_spec ?inferred_spec_n ?given_spec ?given_spec_n ?result:res ~show_time:true meth.m_name;
   prog
 
 let process_items (strs: structure_item list) : unit =
