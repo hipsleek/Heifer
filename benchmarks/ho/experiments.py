@@ -214,26 +214,36 @@ if __name__ == "__main__":
     heifer_benchmarks = {
         "map": Test(
             file="src/examples/map.ml",
-            src="DBLP:journals/pacmpl/WolffBMMS21",
             properties=[
                 "map_id",
                 "map_succ",
+                "map_thrice",
+            ],
+        ),
+        "map_closure": Test(
+            file="src/examples/map_closure.ml",
+            src="DBLP:journals/pacmpl/WolffBMMS21",
+            properties=[
                 "cl_map",
                 "cl_map_incr_l",
                 "cl_map_incr_l",
-                "map_thrice",
             ],
         ),
         "fold": Test(
             file="src/examples/fold.ml",
-            src="DBLP:journals/pacmpl/WolffBMMS21",
             properties=[
                 "foldl_sum",
                 "foldl_length",
-                "foldl_sum_state",
-                "foldl_length_state",
                 "foldr_sum",
                 "foldr_length",
+            ],
+        ),
+        "fold_closure": Test(
+            file="src/examples/fold_closure.ml",
+            src="DBLP:journals/pacmpl/WolffBMMS21",
+            properties=[
+                "foldl_sum_state",
+                "foldl_length_state",
                 "foldr_sum_state",
                 "foldr_length_state",
             ],
@@ -245,14 +255,18 @@ if __name__ == "__main__":
         ),
         "compose": Test(
             file="src/examples/compose.ml",
-            properties=["compose_pure", "compose_state_1", "compose_state_2"],
+            properties=["compose_pure"],
+        ),
+        "compose_closure": Test(
+            file="src/examples/compose_closure.ml",
+            properties=["compose_state_1", "compose_state_2"],
         ),
         "length": Test(
             file="src/examples/length.ml",
             properties=["length_positive", "length_empty"],
         ),
-        "length_pure": Test(
-            file="src/examples/length_pure.ml",
+        "length_stage": Test(
+            file="src/examples/length_stage.ml",
             properties=["length_length"],
         ),
         "closure": Test(
@@ -334,9 +348,9 @@ Lemmas: {t.lemmas}
         )
 
     # merge some before generating table
-    if "length" in heifer_benchmarks and "length_pure" in heifer_benchmarks:
-        heifer_benchmarks["length"].add(heifer_benchmarks["length_pure"])
-        del heifer_benchmarks["length_pure"]
+    # if "length" in heifer_benchmarks and "length_pure" in heifer_benchmarks:
+    #     heifer_benchmarks["length"].add(heifer_benchmarks["length_pure"])
+    #     del heifer_benchmarks["length_pure"]
 
     # compute some stats
     heifer_avg, heifer_total_loc, heifer_total_los = compute_stats(
@@ -356,19 +370,24 @@ Lemmas: {t.lemmas}
             src = rf"~\cite{{{t.src}}}"
 
         # cameleer's default is inexpressible
-        cameleer_cols = r"\inexpressible & \inexpressible & \inexpressible"
+        # cameleer_cols = r"\inexpressible & \inexpressible & \inexpressible"
+        cameleer_cols = r"& \inexpressible &"
         if n in cameleer_benchmarks:
             b = cameleer_benchmarks[n]
             cameleer_cols = f"{b.loc} & {b.los} & {b.total_time:.2f}"
 
         # prusti's default is untried
-        prusti_cols = r"\untried & \untried & \untried"
+        # prusti_cols = r"\untried & \untried & \untried"
+        prusti_cols = r"& \untried &"
         if n in prusti_benchmarks:
             b = prusti_benchmarks[n]
             prusti_cols = f"{b.loc} & {b.los} & {b.total_time:.2f}"
 
+        # escape name of benchmark
+        n1 = re.sub("_", r"\_", n)
+
         print(
-            f"{n}{src} & {t.loc} & {t.los} & {t.total_time:.2f} & {t.z3_time + t.why3_time:.2f} & {cameleer_cols} & {prusti_cols} \\\\"
+            f"{n1}{src} & {t.loc} & {t.los} & {t.total_time:.2f} & {t.z3_time + t.why3_time:.2f} & {cameleer_cols} & {prusti_cols} \\\\"
         )
     print("\\hline")
     print(
