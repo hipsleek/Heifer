@@ -31,11 +31,12 @@ def eprint(*args, **kwargs):
 
 @dataclass
 class Test:
-    file: str
+    file: str = None
     src: str = None
 
     # manually-given list of properties to prove, should be comparable across verifiers
     properties: list[str] = field(default_factory=list)
+    inexpressible: bool = False
 
     # updated after test
     lemmas: int = None  # total number of lemmas proved, may include aux. not comparable
@@ -123,16 +124,30 @@ def run_heifer(test):
 
 def run_prusti(test):
     """
-    Does not run the files, only counts lines
+    Does not run the files, only counts lines.
+    Files can be absent for inexpressible=True.
     """
-    loc, los = process_src_file(
-        fname=test.file,
-        comment_regex=RUST_COMMENTS,
-        spec_comment_regex=PRUSTI_SPEC,
-    )
-    test.loc = loc
-    test.los = los
-    test.ratio = float(los) / float(loc)
+    # output = subprocess.run(
+    #     ["docker", "run", "-it", "oopsla215", "time", "./run-test.sh", test.file],
+    #     capture_output=True,
+    #     text=True,
+    # ).stdout
+    # test.total_time = float(
+    #     re.search(r"\[\s*Total\s*\]\s*([0-9.]+) s", output).group(1)
+    # )
+    if test.file:
+        loc, los = process_src_file(
+            fname=test.file,
+            comment_regex=RUST_COMMENTS,
+            spec_comment_regex=PRUSTI_SPEC,
+        )
+        test.loc = loc
+        test.los = los
+        test.ratio = float(los) / float(loc)
+    else:
+        test.loc = 0
+        test.los = 0
+        test.ratio = 0
 
 
 def run_cameleer(test):
@@ -261,14 +276,15 @@ if __name__ == "__main__":
             file="src/examples/closure.ml",
             src="svendsen2013modular",
             properties=[
-                "closures",
                 "closures_with_local_state",
-                "simple_closures",
                 "closure_with_effects",
-                "closure_with_history_invariant",
-                "call_ret",
-                "closure_with_hof_false",
-                "min_max_plus",
+                "private_aliased",
+            ],
+        ),
+        "closure_list": Test(
+            file="src/examples/closure_list.ml",
+            properties=[
+                "closure_list",
             ],
         ),
         "applyN": Test(file="src/examples/applyN.ml", properties=["summary"]),
@@ -291,19 +307,39 @@ if __name__ == "__main__":
     )
 
     prusti_benchmarks = {
+        "closure": Test(
+            file=f"{prusti_path}/../../prusti/closure.rs", # written by us
+            properties=[
+                "main",
+            ],
+            total_time=6.753,
+        ),
         "blameassgn": Test(
             file=f"{prusti_path}/blameassgn.rs",
             properties=[
                 "main",
             ],
-            total_time=5.247,
+            total_time=6.235,
         ),
         "counter": Test(
             file=f"{prusti_path}/counter.rs",
             properties=[
                 "main",
             ],
-            total_time=6.395,
+            total_time=6.374,
+        ),
+        "map": Test(
+            file=f"{prusti_path}/map_vec.rs",
+            properties=[
+                "main",
+            ],
+            total_time=10.349,  # test2 removed first
+        ),
+        "map_closure": Test(
+            inexpressible=True,
+        ),
+        "compose_closure": Test(
+            inexpressible=True,
         ),
     }
 
@@ -364,7 +400,10 @@ Lemmas: {t.lemmas}
         prusti_cols = r"& \untried &"
         if n in prusti_benchmarks:
             b = prusti_benchmarks[n]
-            prusti_cols = f"{b.loc} & {b.los} & {b.total_time:.2f}"
+            if b.inexpressible:
+                prusti_cols = r"& \inexpressible &"
+            else:
+                prusti_cols = f"{b.loc} & {b.los} & {b.total_time:.2f}"
 
         # escape name of benchmark
         n1 = re.sub("_", r"\_", n)
