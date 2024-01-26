@@ -233,7 +233,6 @@ if __name__ == "__main__":
         ),
         "map_closure": Test(
             file="src/examples/map_closure.ml",
-            src="DBLP:journals/pacmpl/WolffBMMS21",
             properties=[
                 "cl_map",
                 "cl_map_incr_l",
@@ -251,7 +250,6 @@ if __name__ == "__main__":
         ),
         "fold_closure": Test(
             file="src/examples/fold_closure.ml",
-            src="DBLP:journals/pacmpl/WolffBMMS21",
             properties=[
                 "foldl_sum_state",
                 "foldl_length_state",
@@ -261,7 +259,6 @@ if __name__ == "__main__":
         ),
         "iter": Test(
             file="src/examples/iter.ml",
-            src="DBLP:conf/tacas/DenisJ23",
             properties=["build_fill"],
         ),
         "compose": Test(
@@ -308,7 +305,7 @@ if __name__ == "__main__":
 
     prusti_benchmarks = {
         "closure": Test(
-            file=f"{prusti_path}/../../../benchmarks/ho/prusti/closure.rs", # written by us
+            file=f"{prusti_path}/../../../benchmarks/ho/prusti/closure.rs",  # written by us
             properties=[
                 "main",
             ],
