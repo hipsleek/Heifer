@@ -308,7 +308,7 @@ if __name__ == "__main__":
 
     prusti_benchmarks = {
         "closure": Test(
-            file=f"{prusti_path}/../../prusti/closure.rs", # written by us
+            file=f"{prusti_path}/../../../benchmarks/ho/prusti/closure.rs", # written by us
             properties=[
                 "main",
             ],
