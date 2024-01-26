@@ -202,10 +202,6 @@ if __name__ == "__main__":
         "compose": Test(
             file=f"{cameleer_path}/compose.ml", properties=["compose_pure"]
         ),
-        "length": Test(
-            file=f"{cameleer_path}/length.ml",
-            properties=["length_positive", "length_empty"],
-        ),
         # leaving these out
         # "exception": Test(file=f"{cameleer_path}/exception.ml"),
         # "map_list": Test(file=f"{cameleer_path}/map_list.ml"),
@@ -260,14 +256,6 @@ if __name__ == "__main__":
         "compose_closure": Test(
             file="src/examples/compose_closure.ml",
             properties=["compose_state_1", "compose_state_2"],
-        ),
-        "length": Test(
-            file="src/examples/length.ml",
-            properties=["length_positive", "length_empty"],
-        ),
-        "length_stage": Test(
-            file="src/examples/length_stage.ml",
-            properties=["length_length"],
         ),
         "closure": Test(
             file="src/examples/closure.ml",
@@ -346,11 +334,6 @@ Why3: {t.why3_time}
 Lemmas: {t.lemmas}
 """
         )
-
-    # merge some before generating table
-    # if "length" in heifer_benchmarks and "length_pure" in heifer_benchmarks:
-    #     heifer_benchmarks["length"].add(heifer_benchmarks["length_pure"])
-    #     del heifer_benchmarks["length_pure"]
 
     # compute some stats
     heifer_avg, heifer_total_loc, heifer_total_los = compute_stats(
