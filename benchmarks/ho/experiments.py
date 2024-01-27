@@ -38,8 +38,6 @@ class Test:
     properties: list[str] = field(default_factory=list)
     inexpressible: bool = False
     loc_but_actually_los: int = 0
-    ignore_loc: int = 0
-    ignore_los: int = 0
 
     # updated after test
     lemmas: int = None  # total number of lemmas proved, may include aux. not comparable
@@ -113,8 +111,8 @@ def run_heifer(test):
         comment_regex=ML_COMMENTS,
         spec_comment_regex=r"\(\*@[^@]+@\*\)",
     )
-    test.loc = loc - test.loc_but_actually_los - test.ignore_loc
-    test.los = los + test.loc_but_actually_los - test.ignore_los
+    test.loc = loc - test.loc_but_actually_los
+    test.los = los + test.loc_but_actually_los
     test.ratio = float(los) / float(loc)
 
     test.z3_time = float(re.search(r"\[\s*Z3\s*\]\s*([0-9.]+) s", output).group(1))
@@ -227,7 +225,7 @@ if __name__ == "__main__":
 
     heifer_benchmarks = {
         "map": Test(
-            file="src/examples/map.ml",
+            file="benchmarks/ho/heifer/map.ml",
             properties=[
                 "map_id",
                 "map_succ",
@@ -235,12 +233,9 @@ if __name__ == "__main__":
             ],
             # succ_list, thrice_list
             loc_but_actually_los=4 + 4,
-            # map_not_id_false
-            ignore_los=1,
-            ignore_loc=2,
         ),
         "map_closure": Test(
-            file="src/examples/map_closure.ml",
+            file="benchmarks/ho/heifer/map_closure.ml",
             properties=[
                 "cl_map",
                 "cl_map_incr_l",
@@ -248,12 +243,9 @@ if __name__ == "__main__":
             ],
             # length
             loc_but_actually_los=4,
-            # cl_map1_false, cl_map_12_false
-            ignore_los=1 + 1,
-            ignore_loc=4 + 4,
         ),
         "fold": Test(
-            file="src/examples/fold.ml",
+            file="benchmarks/ho/heifer/fold.ml",
             properties=[
                 "foldl_sum",
                 "foldl_length",
@@ -264,7 +256,7 @@ if __name__ == "__main__":
             loc_but_actually_los=4 + 4,
         ),
         "fold_closure": Test(
-            file="src/examples/fold_closure.ml",
+            file="benchmarks/ho/heifer/fold_closure.ml",
             properties=[
                 "foldl_sum_state",
                 "foldl_length_state",
@@ -275,24 +267,21 @@ if __name__ == "__main__":
             loc_but_actually_los=4 + 4,
         ),
         "iter": Test(
-            file="src/examples/iter.ml",
+            file="benchmarks/ho/heifer/iter.ml",
             properties=["build_fill"],
             # integers
             loc_but_actually_los=3,
-            # build_fill_faslse
-            ignore_los=1,
-            ignore_loc=9,
         ),
         "compose": Test(
-            file="src/examples/compose.ml",
+            file="benchmarks/ho/heifer/compose.ml",
             properties=["compose_pure"],
         ),
         "compose_closure": Test(
-            file="src/examples/compose_closure.ml",
+            file="benchmarks/ho/heifer/compose_closure.ml",
             properties=["compose_state_1", "compose_state_2"],
         ),
         "closure": Test(
-            file="src/examples/closure.ml",
+            file="benchmarks/ho/heifer/closure.ml",
             src="svendsen2013modular",
             properties=[
                 "closures_with_local_state",
@@ -301,31 +290,26 @@ if __name__ == "__main__":
             ],
         ),
         "closure_list": Test(
-            file="src/examples/closure_list.ml",
+            file="benchmarks/ho/heifer/closure_list.ml",
             properties=[
                 "closure_list",
             ],
         ),
         "applyN": Test(
-            file="src/examples/applyN.ml",
+            file="benchmarks/ho/heifer/applyN.ml",
             properties=["summary"],
-            ignore_loc=2 + 2 + 2 + 3,
-            ignore_los=1 + 1 + 1 + 2,
         ),
         "blameassgn": Test(
-            file="src/prusti/blameassgn.ml",
+            file="benchmarks/ho/heifer/blameassgn.ml",
             src="Findler2002ContractsFH",
             properties=["g_f_false"],
         ),
         "counter": Test(
-            file="src/prusti/counter.ml",
+            file="benchmarks/ho/heifer/counter.ml",
             src="Kassios2010SpecificationAV",
             properties=["counter"],
-            ignore_loc=5,
-            ignore_los=1,
         ),
-        "lambda": Test(file="src/programs.t/test_lambda.ml", properties=["main", "g"]),
-        # 'exception': Test(file='src/examples/exception.ml'),
+        "lambda": Test(file="benchmarks/ho/heifer/lambda.ml", properties=["main", "g"]),
     }
 
     prusti_path = os.path.expanduser(

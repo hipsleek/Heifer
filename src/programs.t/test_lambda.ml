@@ -7,8 +7,7 @@ let f1 ()
 
 let f2 ()
 (*@ ens res=2 @*)
-=
-  let f3 = f1 () in
+= let f3 = f1 () in
   f3 2
 
 let g f

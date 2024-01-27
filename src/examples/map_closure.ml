@@ -113,7 +113,6 @@ let rec incr_list init li =
   | x :: xs -> 
     init :: incr_list (init + 1) xs
 
-(* Adapted from https://github.com/FabianWolff/closure-examples/blob/master/map_vec.rs *)
 let cl_map_incr_l xs x
 (*@ ex i; req x->i; ex r; length(xs, r); ex r1; ens x->i+r/\res=r1 @*)
 = let f a = x := !x + 1; !x in
