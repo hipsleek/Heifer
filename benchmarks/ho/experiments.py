@@ -37,6 +37,9 @@ class Test:
     # manually-given list of properties to prove, should be comparable across verifiers
     properties: list[str] = field(default_factory=list)
     inexpressible: bool = False
+    loc_but_actually_los: int = 0
+    ignore_loc: int = 0
+    ignore_los: int = 0
 
     # updated after test
     lemmas: int = None  # total number of lemmas proved, may include aux. not comparable
@@ -110,8 +113,8 @@ def run_heifer(test):
         comment_regex=ML_COMMENTS,
         spec_comment_regex=r"\(\*@[^@]+@\*\)",
     )
-    test.loc = loc
-    test.los = los
+    test.loc = loc - test.loc_but_actually_los - test.ignore_loc
+    test.los = los + test.loc_but_actually_los - test.ignore_los
     test.ratio = float(los) / float(loc)
 
     test.z3_time = float(re.search(r"\[\s*Z3\s*\]\s*([0-9.]+) s", output).group(1))
@@ -230,6 +233,11 @@ if __name__ == "__main__":
                 "map_succ",
                 "map_thrice",
             ],
+            # succ_list, thrice_list
+            loc_but_actually_los=4 + 4,
+            # map_not_id_false
+            ignore_los=1,
+            ignore_loc=2,
         ),
         "map_closure": Test(
             file="src/examples/map_closure.ml",
@@ -238,6 +246,11 @@ if __name__ == "__main__":
                 "cl_map_incr_l",
                 "cl_map_incr_l",
             ],
+            # length
+            loc_but_actually_los=4,
+            # cl_map1_false, cl_map_12_false
+            ignore_los=1 + 1,
+            ignore_loc=4 + 4,
         ),
         "fold": Test(
             file="src/examples/fold.ml",
@@ -247,6 +260,8 @@ if __name__ == "__main__":
                 "foldr_sum",
                 "foldr_length",
             ],
+            # length, sum
+            loc_but_actually_los=4 + 4,
         ),
         "fold_closure": Test(
             file="src/examples/fold_closure.ml",
@@ -256,10 +271,17 @@ if __name__ == "__main__":
                 "foldr_sum_state",
                 "foldr_length_state",
             ],
+            # length, sum
+            loc_but_actually_los=4 + 4,
         ),
         "iter": Test(
             file="src/examples/iter.ml",
             properties=["build_fill"],
+            # integers
+            loc_but_actually_los=3,
+            # build_fill_faslse
+            ignore_los=1,
+            ignore_loc=9,
         ),
         "compose": Test(
             file="src/examples/compose.ml",
@@ -284,7 +306,12 @@ if __name__ == "__main__":
                 "closure_list",
             ],
         ),
-        "applyN": Test(file="src/examples/applyN.ml", properties=["summary"]),
+        "applyN": Test(
+            file="src/examples/applyN.ml",
+            properties=["summary"],
+            ignore_loc=2 + 2 + 2 + 3,
+            ignore_los=1 + 1 + 1 + 2,
+        ),
         "blameassgn": Test(
             file="src/prusti/blameassgn.ml",
             src="Findler2002ContractsFH",
@@ -294,6 +321,8 @@ if __name__ == "__main__":
             file="src/prusti/counter.ml",
             src="Kassios2010SpecificationAV",
             properties=["counter"],
+            ignore_loc=5,
+            ignore_los=1,
         ),
         "lambda": Test(file="src/programs.t/test_lambda.ml", properties=["main", "g"]),
         # 'exception': Test(file='src/examples/exception.ml'),
