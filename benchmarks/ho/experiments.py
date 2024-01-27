@@ -325,13 +325,13 @@ if __name__ == "__main__":
             ],
             total_time=6.374,
         ),
-        "map": Test(
-            file=f"{prusti_path}/map_vec.rs",
-            properties=[
-                "main",
-            ],
-            total_time=10.349,  # test2 removed first
-        ),
+        # "map": Test(
+        #     file=f"{prusti_path}/map_vec.rs",
+        #     properties=[
+        #         "main",
+        #     ],
+        #     total_time=10.349,  # with test2 removed
+        # ),
         "map_closure": Test(
             inexpressible=True,
         ),
