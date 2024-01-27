@@ -27,7 +27,6 @@ let map_succ ys
 (*@ ex r; succ_list(ys, r); ens res=r @*)
 = map succ ys
 
-(* Adapted from https://github.com/FabianWolff/closure-examples/blob/master/map_vec.rs *)
 let rec thrice_list xs =
   match xs with
   | [] -> []

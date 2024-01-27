@@ -1,6 +1,6 @@
 
 let closure_list ()
-(*@ ex i; Norm(i->[8;7;42], [8;7;42]) @*)
+(*@ ex i; ens i->[8;7;42]/\res=[8;7;42] @*)
 = let l = ref [] in
   l := 42 :: !l;
   let f i = l := i :: !l in
