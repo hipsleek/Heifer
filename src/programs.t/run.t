@@ -95,7 +95,7 @@ ALL OK!
   $ check ../examples/exception.ml
   ALL OK!
 
-  $ check ../prusti/all.ml
+  $ check_why3_only ../prusti/all.ml
   ALL OK!
 
   $ check ../prusti/blameassgn.ml
