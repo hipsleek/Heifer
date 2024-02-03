@@ -1,10 +1,8 @@
 
   $ source ../utility.sh
 
-We can't handle these cases yet
-
-$ check ../examples/calls.ml
-ALL OK!
+  $ check ../examples/calls.ml
+  ALL OK!
 
   $ check ../examples/compose.ml
   ALL OK!

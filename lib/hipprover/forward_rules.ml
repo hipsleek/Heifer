@@ -109,6 +109,7 @@ let maybe_add_local_predicate_defn x phi1 env =
     let pred =
       {
         p_name = name;
+        p_rec = (find_rec name)#visit_disj_spec () spec;
         p_params = params;
         p_body = spec_res;
       }
