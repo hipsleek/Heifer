@@ -413,7 +413,7 @@ let rec kappaToPure kappa : pi =
 
 
 
-let string_of_pred ({ p_name; p_params; p_body } : pred_def) : string =
+let string_of_pred ({ p_name; p_params; p_body; _ } : pred_def) : string =
   Format.asprintf "%s(%s) == %s" p_name (String.concat "," p_params) (string_of_spec_list p_body)
 
 let string_of_inclusion (lhs:spec list) (rhs:spec list) :string =
@@ -599,10 +599,21 @@ let is_just_res_of pi t =
 let lambda_to_pred_def name t =
   match t with
   | TLambda (_lid, params, spec, _body) ->
+    let find_rec p_name =
+      object(self)
+        inherit [_] reduce_spec as super
+        method zero = false
+        method plus = (||)
+    
+        method! visit_HigherOrder _ ((_p, _h, (f, _a), _r) as fn) =
+          self#plus (f = p_name) (super#visit_HigherOrder () fn)
+      end
+    in
     {
       p_name = name;
       p_params = params;
       p_body = spec;
+      p_rec = (find_rec name)#visit_disj_spec () spec;
     }
   | _ ->
     failwith

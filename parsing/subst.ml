@@ -277,3 +277,13 @@ let quantify_res_state (p, h) =
 
   let contains_res_state (p, h) =
     SSet.mem "res" (used_vars_state (p, h))
+
+let find_rec p_name =
+  object(self)
+    inherit [_] reduce_spec as super
+    method zero = false
+    method plus = (||)
+
+    method! visit_HigherOrder _ ((_p, _h, (f, _a), _r) as fn) =
+      self#plus (f = p_name) (super#visit_HigherOrder () fn)
+  end
