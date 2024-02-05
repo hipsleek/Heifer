@@ -16,6 +16,7 @@ Use `dune exec parsing/hip.exe $EXAMPLE` to run examples. Effect-related program
 
 - [Development](docs/development.md)
 - [Why3](docs/why3.md)
+- [How the web build works](docs/web.md)
 
 
 
