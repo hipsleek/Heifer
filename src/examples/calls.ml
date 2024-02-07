@@ -32,7 +32,7 @@ let main ()
   (* L2: the call here is only valid after L1*)
   call_ret swap
 
-let main1_false ()
+let main1 ()
 (*@ ens res=1 @*)
 = let x = ref 2 in
 
@@ -48,7 +48,7 @@ let main1_false ()
   (* the function call is only valid at the first time *)
   1
 
-let main3_false ()
+let main3 ()
 (*@ ens res=1 @*)
 = let x = ref 2 in
   assert (!x=2);
