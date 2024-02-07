@@ -305,7 +305,7 @@ let instantiate_pred : pred_def -> term list -> term -> pred_def =
          (string_of_list (string_of_list string_of_staged_spec) bbody); *)
     bbody
   in
-  { pred with p_body; p_rec = (find_rec pred.p_name)#visit_disj_spec () p_body }
+  { pred with p_body }
 
 let rec unfold_predicate_aux pred prefix (s : spec) : disj_spec =
   match s with

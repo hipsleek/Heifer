@@ -83,6 +83,9 @@ ALL OK!
   $ check ../examples/length.ml
   ALL OK!
 
+  $ check ../examples/calls.ml
+  ALL OK!
+
   $ check ../examples/closure.ml
   ALL OK!
 

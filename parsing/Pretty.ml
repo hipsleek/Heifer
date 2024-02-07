@@ -364,6 +364,15 @@ let rec existPi pi li =
     )
     ;;
 
+let find_rec p_name =
+  object(self)
+    inherit [_] reduce_spec as super
+    method zero = false
+    method plus = (||)
+
+    method! visit_HigherOrder _ ((_p, _h, (f, _a), _r) as fn) =
+      self#plus (f = p_name) (super#visit_HigherOrder () fn)
+  end    
 
 (**********************************************)
 exception FooAskz3 of string
@@ -599,16 +608,6 @@ let is_just_res_of pi t =
 let lambda_to_pred_def name t =
   match t with
   | TLambda (_lid, params, spec, _body) ->
-    let find_rec p_name =
-      object(self)
-        inherit [_] reduce_spec as super
-        method zero = false
-        method plus = (||)
-    
-        method! visit_HigherOrder _ ((_p, _h, (f, _a), _r) as fn) =
-          self#plus (f = p_name) (super#visit_HigherOrder () fn)
-      end
-    in
     {
       p_name = name;
       p_params = params;
