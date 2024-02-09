@@ -18,10 +18,17 @@ let tossHandlerTail counter n : int  (*  counter = !counter + 2^(n+1) - 2 *)
       counter := !counter + 1;            (* increase the counter *)
       let res1 = continue (Obj.clone_continuation k) true in         (* resume with true     *)
       counter := !counter + 1;            (* increase the counter *)
-      let res2 = continue k false in        (* resume with false    *)
+      let res2 = continue k false in      (* resume with false    *)
       res1 + res2                         (* gather the results   *)
-(*proof: counter := !counter + 1; counter := !counter + (2^(n) -2;  counter := !counter + 1; counter := !counter + (2^(n) -2;  
+(*proof (deep):
+       counter := !counter + 1; counter := !counter + (2^(n) -2;  counter := !counter + 1; counter := !counter + (2^(n) -2;  
        counter := !counter + 1 + (2^(n) -2) + 1 + (2^(n) -2) = !counter + 2^(n+1) -2
+*)
+
+(* 
+lemma: ex res; tossNtimeTail(n,res); \Phi catch H ⊑ counter := !counter + 1; tossNtimeTail(n-1,res); counter := !counter + 1; tossNtimeTail(n-1,res);
+proof (shallow): 
+      counter := !counter + 1; tossNtimeTail(n-1,res);  counter := !counter + 1; tossNtimeTail(n-1,res);  
 *)
 
 
