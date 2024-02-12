@@ -45,8 +45,8 @@ let rec tossNtimeNonTail n
        let r2 = perform Flip in r1 && r2
 
 
-(* \phi_inv'(n,acc,r) = ex w ; req counter -> w ens[r] counter -> w+(2^(n) - 1) /\ (acc/\r=1 \/ !acc/\r=0) *)
-(* lemma: ex res; tossNtimeNonTail(n,res); N catch H ⊑ ex r; \phi_inv'(n,acc,r) * N *)
+(* \phi_inv'(n,acc,s,r) = ex w ; req counter -> w ens[r] counter -> w + ((2^n -1) * s) /\ (acc/\r=1 \/ !acc/\r=0) *)
+(* lemma: ex res; tossNtimeNonTail(n,res); counter -> counter + s catch H ⊑ ex r; \phi_inv'(n,acc,s,r) *)
 
 let tossHandlerNonTail counter n : int   (*  counter = !counter + 2^(n+1) - 2 *)
 = match tossNtimeNonTail n with 
@@ -64,6 +64,10 @@ proof: counter := !counter + ??? ; counter := !counter + 1;   counter := !counte
        = !counter + 2^(n+1) -2
 *)
 
+
+(* lemma: ex res; tossNtimeTailShallow(1,res); \phi catch H ⊑ counter -> counter + 1;  \phi; counter + 1;  \phi; *)
+(* lemma: ex res; n > 1 /\ tossNtimeTailShallow(n,res); \phi catch H ⊑ 
+   counter -> counter + 1; tossNtimeTailShallow(n-1,res); \phi; counter + 1;  tossNtimeTailShallow(n-1,res);  \phi; *)
 
 let _ = 
    let counter = ref 0 in 
