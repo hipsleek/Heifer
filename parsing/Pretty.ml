@@ -372,6 +372,11 @@ let find_rec p_name =
 
     method! visit_HigherOrder _ ((_p, _h, (f, _a), _r) as fn) =
       self#plus (f = p_name) (super#visit_HigherOrder () fn)
+
+    method! visit_Atomic () op a b =
+      match op with
+      | EQ -> (string_of_term a) = p_name || (string_of_term b) = p_name
+      | _ -> false
   end    
 
 (**********************************************)
