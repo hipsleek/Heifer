@@ -12,7 +12,7 @@ let test x n init (* FIXME *)
 (*@ req n>=0; ens res=init+(n*.x) @*)
 = let acc = accumulator init in
   let rec repeat x k
-  = if k = n then acc 0
-    else (acc x; repeat x (k + 1))
+  = if k = 0 then acc 0
+    else (acc x; repeat x (k - 1))
   in
-  repeat x 0
+  repeat x n
