@@ -375,7 +375,9 @@ let find_rec p_name =
 
     method! visit_Atomic () op a b =
       match op with
-      | EQ -> (string_of_term a) = p_name || (string_of_term b) = p_name
+      | EQ -> (match (a, b) with
+        | (Var x, Var y) -> x = p_name || y = p_name
+        | _ -> false)
       | _ -> false
   end    
 
