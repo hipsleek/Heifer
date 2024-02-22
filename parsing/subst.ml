@@ -191,8 +191,8 @@ let used_vars_disj_spec (norm:disj_spec) =
 (* if alpha_equiv(t1, t2), then hash t1 = hash t2 *)
 let hash_lambda t =
   match t with
-  | TLambda (_id, params, spec, _body) ->
-    let bs = List.mapi (fun i p -> (p, "l" ^ string_of_int i)) params in
+  | TLambda (_id, _params, spec, _body) ->
+    let bs = List.mapi (fun i p -> (p, "l" ^ string_of_int i)) (SSet.to_list (used_vars_disj_spec spec)) in
     let renamed =
       instantiateSpecList (List.map (fun (p, v) -> (p, Var v)) bs) spec
     in
