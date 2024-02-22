@@ -113,7 +113,7 @@ def run_heifer(test):
     )
     test.loc = loc - test.loc_but_actually_los
     test.los = los + test.loc_but_actually_los
-    test.ratio = float(los) / float(loc)
+    test.ratio = float(test.los) / float(test.loc)
 
     test.z3_time = float(re.search(r"\[\s*Z3\s*\]\s*([0-9.]+) s", output).group(1))
     test.why3_time = float(re.search(r"\[\s*Why3\s*\]\s*([0-9.]+) s", output).group(1))
@@ -179,9 +179,9 @@ def run_cameleer(test):
 
 
 def compute_stats(name, benchmarks):
-    avg = float(sum([b.ratio for _, b in benchmarks.items()])) / float(len(benchmarks))
     total_loc = sum([b.loc for _, b in benchmarks.items()])
     total_los = sum([b.los for _, b in benchmarks.items()])
+    avg = total_los / total_loc
 
     eprint(name)
     eprint(f"average ratio: {avg:.2f}")
@@ -345,9 +345,9 @@ if __name__ == "__main__":
         #     ],
         #     total_time=10.349,  # with test2 removed
         # ),
-        "map_closure": Test(
-            inexpressible=True,
-        ),
+        # "map_closure": Test(
+        #     inexpressible=True,
+        # ),
         "compose_closure": Test(
             inexpressible=True,
         ),

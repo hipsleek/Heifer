@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE why3session PUBLIC "-//Why3//proof session v5//EN"
+"http://why3.lri.fr/why3session.dtd">
+<why3session shape_version="6">
+<prover id="0" name="Alt-Ergo" version="2.4.3" timelimit="5" steplimit="0" memlimit="1000"/>
+<prover id="2" name="CVC4" version="1.8" timelimit="5" steplimit="0" memlimit="1000"/>
+<file format="ocaml" proved="true">
+<path name=".."/><path name="map.ml"/>
+<theory name="Map" proved="true">
+ <goal name="seq_of_list_append" proved="true">
+ <transf name="split_vc" proved="true" >
+  <goal name="seq_of_list_append.0" proved="true">
+  <transf name="induction_arg_ty_lex" proved="true" arg1="l1">
+   <goal name="seq_of_list_append.0.0" proved="true">
+   <transf name="split_vc" proved="true" >
+    <goal name="seq_of_list_append.0.0.0" proved="true">
+    <proof prover="0"><result status="valid" time="0.035062" steps="201"/></proof>
+    </goal>
+    <goal name="seq_of_list_append.0.0.1" proved="true">
+    <proof prover="0"><result status="valid" time="0.059757" steps="533"/></proof>
+    </goal>
+   </transf>
+   </goal>
+  </transf>
+  </goal>
+ </transf>
+ </goal>
+ <goal name="map&#39;vc" expl="VC for map" proved="true">
+ <transf name="split_vc" proved="true" >
+  <goal name="map&#39;vc.0" expl="variant decrease" proved="true">
+  <proof prover="0"><result status="valid" time="0.030227" steps="74"/></proof>
+  </goal>
+  <goal name="map&#39;vc.1" expl="postcondition" proved="true">
+  <transf name="split_vc" proved="true" >
+   <goal name="map&#39;vc.1.0" expl="postcondition" proved="true">
+   <proof prover="0"><result status="valid" time="0.029668" steps="76"/></proof>
+   </goal>
+   <goal name="map&#39;vc.1.1" expl="postcondition" proved="true">
+   <proof prover="0"><result status="valid" time="0.028808" steps="90"/></proof>
+   </goal>
+  </transf>
+  </goal>
+  <goal name="map&#39;vc.2" expl="postcondition" proved="true">
+  <transf name="split_vc" proved="true" >
+   <goal name="map&#39;vc.2.0" expl="postcondition" proved="true">
+   <proof prover="0"><result status="valid" time="0.047295" steps="88"/></proof>
+   </goal>
+   <goal name="map&#39;vc.2.1" expl="postcondition" proved="true">
+   <proof prover="0"><result status="valid" time="0.030480" steps="194"/></proof>
+   </goal>
+  </transf>
+  </goal>
+ </transf>
+ </goal>
+ <goal name="id&#39;vc" expl="VC for id" proved="true">
+ <proof prover="0"><result status="valid" time="0.019760" steps="12"/></proof>
+ </goal>
+ <goal name="length_seq_of_list" proved="true">
+ <transf name="induction_ty_lex" proved="true" >
+  <goal name="length_seq_of_list.0" proved="true">
+  <proof prover="0"><result status="valid" time="0.027808" steps="73"/></proof>
+  </goal>
+ </transf>
+ </goal>
+ <goal name="index_shift" proved="true">
+ <proof prover="0"><result status="valid" time="0.027977" steps="70"/></proof>
+ </goal>
+ <goal name="length_smaller" proved="true">
+ <transf name="induction_ty_lex" proved="true" >
+  <goal name="length_smaller.0" proved="true">
+  <transf name="split_vc" proved="true" >
+   <goal name="length_smaller.0.0" proved="true">
+   <proof prover="0"><result status="valid" time="0.027720" steps="71"/></proof>
+   </goal>
+   <goal name="length_smaller.0.1" proved="true">
+   <transf name="instantiate" proved="true" arg1="index_shift" arg2="x,xs">
+    <goal name="length_smaller.0.1.0" proved="true">
+    <proof prover="0"><result status="valid" time="0.072778" steps="724"/></proof>
+    </goal>
+   </transf>
+   </goal>
+  </transf>
+  </goal>
+ </transf>
+ </goal>
+ <goal name="equal_length_and_elements" proved="true">
+ <transf name="intros" proved="true" arg1="l1">
+  <goal name="equal_length_and_elements.0" proved="true">
+  <transf name="induction_arg_ty_lex" proved="true" arg1="l1">
+   <goal name="equal_length_and_elements.0.0" proved="true">
+   <transf name="split_vc" proved="true" >
+    <goal name="equal_length_and_elements.0.0.0" proved="true">
+    <proof prover="0"><result status="valid" time="0.024697" steps="59"/></proof>
+    </goal>
+    <goal name="equal_length_and_elements.0.0.1" proved="true">
+    <transf name="destruct_term" proved="true" arg1="l2">
+     <goal name="equal_length_and_elements.0.0.1.0" proved="true">
+     <proof prover="0"><result status="valid" time="0.055657" steps="537"/></proof>
+     </goal>
+     <goal name="equal_length_and_elements.0.0.1.1" proved="true">
+     <proof prover="0"><result status="valid" time="0.027303" steps="94"/></proof>
+     </goal>
+    </transf>
+    </goal>
+   </transf>
+   </goal>
+  </transf>
+  </goal>
+ </transf>
+ </goal>
+ <goal name="map_id&#39;vc" expl="VC for map_id" proved="true">
+ <transf name="induction_ty_lex" proved="true" >
+  <goal name="map_id&#39;vc.0" expl="VC for map_id" proved="true">
+  <transf name="split_vc" proved="true" >
+   <goal name="map_id&#39;vc.0.0" expl="postcondition" proved="true">
+   <proof prover="0"><result status="valid" time="0.024569" steps="99"/></proof>
+   </goal>
+   <goal name="map_id&#39;vc.0.1" expl="postcondition" proved="true">
+   <transf name="split_vc" proved="true" >
+    <goal name="map_id&#39;vc.0.1.0" expl="postcondition" proved="true">
+    <proof prover="0"><result status="valid" time="0.040598" steps="221"/></proof>
+    </goal>
+   </transf>
+   </goal>
+  </transf>
+  </goal>
+ </transf>
+ </goal>
+ <goal name="index_shift_gen" proved="true">
+ <proof prover="0"><result status="valid" time="0.025731" steps="24"/></proof>
+ </goal>
+ <goal name="index_shift_p1" proved="true">
+ <proof prover="0"><result status="valid" time="0.026545" steps="27"/></proof>
+ </goal>
+ <goal name="length_smaller_p1" proved="true">
+ <proof prover="2"><result status="valid" time="0.151603" steps="41813"/></proof>
+ </goal>
+ <goal name="map_succ&#39;vc" expl="VC for map_succ" proved="true">
+ <proof prover="0"><result status="valid" time="0.050902" steps="62"/></proof>
+ </goal>
+ <goal name="map_succ1&#39;vc" expl="VC for map_succ1" proved="true">
+ <transf name="induction_ty_lex" proved="true" >
+  <goal name="map_succ1&#39;vc.0" expl="VC for map_succ1" proved="true">
+  <transf name="split_vc" proved="true" >
+   <goal name="map_succ1&#39;vc.0.0" expl="postcondition" proved="true">
+   <proof prover="0"><result status="valid" time="0.032657" steps="116"/></proof>
+   </goal>
+   <goal name="map_succ1&#39;vc.0.1" expl="postcondition" proved="true">
+   <transf name="destruct_term" proved="true" arg1="r">
+    <goal name="map_succ1&#39;vc.0.1.0" expl="postcondition" proved="true">
+    <transf name="instantiate" proved="true" arg1="index_shift_p1" arg2="x1,x">
+     <goal name="map_succ1&#39;vc.0.1.0.0" expl="postcondition" proved="true">
+     <proof prover="0"><result status="valid" time="0.286268" steps="2954"/></proof>
+     </goal>
+    </transf>
+    </goal>
+    <goal name="map_succ1&#39;vc.0.1.1" expl="postcondition" proved="true">
+    <proof prover="0"><result status="valid" time="0.031279" steps="141"/></proof>
+    </goal>
+   </transf>
+   </goal>
+  </transf>
+  </goal>
+ </transf>
+ </goal>
+</theory>
+</file>
+</why3session>

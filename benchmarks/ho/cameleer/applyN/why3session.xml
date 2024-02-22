@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE why3session PUBLIC "-//Why3//proof session v5//EN"
+"http://why3.lri.fr/why3session.dtd">
+<why3session shape_version="6">
+<prover id="2" name="Alt-Ergo" version="2.4.3" timelimit="5" steplimit="0" memlimit="1000"/>
+<file format="ocaml" proved="true">
+<path name=".."/><path name="applyN.ml"/>
+<theory name="ApplyN" proved="true">
+ <goal name="applyN&#39;vc" expl="VC for applyN" proved="true">
+ <transf name="split_vc" proved="true" >
+  <goal name="applyN&#39;vc.0" expl="variant decrease" proved="true">
+  <proof prover="2"><result status="valid" time="0.019968" steps="20"/></proof>
+  </goal>
+  <goal name="applyN&#39;vc.1" expl="precondition" proved="true">
+  <transf name="split_vc" proved="true" >
+   <goal name="applyN&#39;vc.1.0" expl="precondition" proved="true">
+   <proof prover="2"><result status="valid" time="0.024344" steps="20"/></proof>
+   </goal>
+  </transf>
+  </goal>
+  <goal name="applyN&#39;vc.2" expl="precondition" proved="true">
+  <proof prover="2"><result status="valid" time="0.023206" steps="21"/></proof>
+  </goal>
+  <goal name="applyN&#39;vc.3" expl="precondition" proved="true">
+  <proof prover="2"><result status="valid" time="0.023787" steps="24"/></proof>
+  </goal>
+  <goal name="applyN&#39;vc.4" expl="precondition" proved="true">
+  <proof prover="2"><result status="valid" time="0.023783" steps="28"/></proof>
+  </goal>
+  <goal name="applyN&#39;vc.5" expl="postcondition" proved="true">
+  <proof prover="2"><result status="valid" time="0.024575" steps="18"/></proof>
+  </goal>
+ </transf>
+ </goal>
+ <goal name="summary&#39;vc" expl="VC for summary" proved="true">
+ <transf name="split_vc" proved="true" >
+  <goal name="summary&#39;vc.0" expl="precondition" proved="true">
+  <proof prover="2"><result status="valid" time="0.020001" steps="14"/></proof>
+  </goal>
+  <goal name="summary&#39;vc.1" expl="precondition" proved="true">
+  <proof prover="2"><result status="valid" time="0.023236" steps="14"/></proof>
+  </goal>
+  <goal name="summary&#39;vc.2" expl="precondition" proved="true">
+  <proof prover="2"><result status="valid" time="0.023773" steps="17"/></proof>
+  </goal>
+  <goal name="summary&#39;vc.3" expl="precondition" proved="true">
+  <proof prover="2"><result status="valid" time="0.023661" steps="23"/></proof>
+  </goal>
+  <goal name="summary&#39;vc.4" expl="postcondition" proved="true">
+  <proof prover="2"><result status="valid" time="0.023448" steps="19"/></proof>
+  </goal>
+ </transf>
+ </goal>
+ <goal name="summary1&#39;vc" expl="VC for summary1" proved="true">
+ <transf name="split_vc" proved="true" >
+  <goal name="summary1&#39;vc.0" expl="precondition" proved="true">
+  <proof prover="2"><result status="valid" time="0.023428" steps="14"/></proof>
+  </goal>
+  <goal name="summary1&#39;vc.1" expl="precondition" proved="true">
+  <proof prover="2"><result status="valid" time="0.024628" steps="14"/></proof>
+  </goal>
+  <goal name="summary1&#39;vc.2" expl="precondition" proved="true">
+  <proof prover="2"><result status="valid" time="0.024476" steps="19"/></proof>
+  </goal>
+  <goal name="summary1&#39;vc.3" expl="precondition" proved="true">
+  <proof prover="2"><result status="valid" time="0.023388" steps="24"/></proof>
+  </goal>
+  <goal name="summary1&#39;vc.4" expl="postcondition" proved="true">
+  <proof prover="2"><result status="valid" time="0.023747" steps="19"/></proof>
+  </goal>
+ </transf>
+ </goal>
+</theory>
+</file>
+</why3session>

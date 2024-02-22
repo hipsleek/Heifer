@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE why3session PUBLIC "-//Why3//proof session v5//EN"
+"http://why3.lri.fr/why3session.dtd">
+<why3session shape_version="6">
+<prover id="0" name="Alt-Ergo" version="2.4.3" timelimit="5" steplimit="0" memlimit="1000"/>
+<file format="ocaml" proved="true">
+<path name=".."/><path name="compose.ml"/>
+<theory name="Compose" proved="true">
+ <goal name="compose&#39;vc" expl="VC for compose" proved="true">
+ <proof prover="0"><result status="valid" time="0.022476" steps="12"/></proof>
+ </goal>
+ <goal name="test1&#39;vc" expl="VC for test1" proved="true">
+ <proof prover="0"><result status="valid" time="0.026791" steps="18"/></proof>
+ </goal>
+</theory>
+</file>
+</why3session>

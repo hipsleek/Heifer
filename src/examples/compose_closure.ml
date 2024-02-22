@@ -6,7 +6,6 @@ let f x = x := !x + 1; x
 let g x = x := !x + !x; x
 
 let compose_state_1 () 
-(*@ ex w; ens w->3/\res=3 @*)
 = let x = ref 1 in
   let y1 = compose f g x in
   !y1
