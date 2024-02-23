@@ -1,6 +1,6 @@
 
 let redirect_stdout f =
-  let name = "out.txt" in
+  let name = "out.org" in
   Format.printf "%s@." name;
   let oldstdout = Unix.dup Unix.stdout in
   let newstdout = open_out name in

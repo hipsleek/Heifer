@@ -5,7 +5,7 @@ boot/menhir/*.ml*
 .DS_Store
 node_modules
 package*.json
-out.txt
+*.org
 *.json
 
 
