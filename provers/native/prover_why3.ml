@@ -737,6 +737,8 @@ and core_lang_to_whyml tenv e =
       match s with
       | "+" | "-" | ">" | "<" | ">=" | "<=" -> qualid ["Int"; Ident.op_infix s]
       | "=" -> qualid ["Int"; Ident.op_infix s] (* for now *)
+      | "||" -> qualid ["Bool"; "orb"]
+      | "&&" -> qualid ["Bool"; "andb"]
       | _ -> qualid [s]
     in
     tapp fn (List.map (term_to_whyml tenv) args)

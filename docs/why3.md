@@ -2,6 +2,7 @@
 # The Why3 backend (experimental)
 
 ```sh
+opam update 
 # Install dependencies, which includes the Why3 IDE
 opam install . --deps-only
 

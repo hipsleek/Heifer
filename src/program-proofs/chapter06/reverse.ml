@@ -4,17 +4,17 @@ let[@pure] rec length (xs: int list): int
   | [] -> 0
   | x :: xs1 -> 1 + length xs1
 
-let[@pure] rec snoc (lst: int list) (x: int): int list =
+let rec snoc lst x =
   match lst with
   | [] -> [x]
   | y :: ys -> y :: snoc ys x
 
 (* Example 6.6 *)
-let[@pure] rec reverse (xs: int list): int list =
+let rec reverse xs =
   match xs with
   | [] -> []
   | x :: xs' -> snoc (reverse xs') x 
 
-let length_reverse xs
+let length_reverse xs (* FIXME *)
 (*@ ens res=length(xs) @*)
 = length (reverse xs)

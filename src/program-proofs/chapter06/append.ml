@@ -15,6 +15,8 @@ let append_nil xs
 (*@ ens res=xs @*)
 = append xs []    
 
-let length_append xs ys (* FIXME *)
-(*@ ens res=length(xs)+length(ys) @*)
-= length (append xs ys)
+external length_append : int list -> int list -> int list -> bool = "append.Extras.length_append"
+
+let test_length_append xs ys
+(*@ ens length_append(xs,ys,res)=true @*)
+= append xs ys

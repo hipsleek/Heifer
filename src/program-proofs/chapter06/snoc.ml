@@ -9,6 +9,8 @@ let rec snoc lst x =
   | [] -> [x]
   | y :: ys -> y :: snoc ys x
 
-let length_snoc xs x (* FIXME *)
-(*@ ens res=length(xs)+1 @*)
-= length (snoc xs x)
+external length_snoc : int list -> int -> int list -> bool = "snoc.Extras.length_snoc"
+
+let length_snoc xs x
+(*@ ens length_snoc(xs, x, res)=true @*)
+= snoc xs x
