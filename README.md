@@ -19,7 +19,6 @@ Use `dune exec parsing/hip.exe $EXAMPLE` to run examples. Effect-related program
 - [How the web build works](docs/web.md)
 
 
-
 ## SYH - Build
 
 ```
@@ -43,6 +42,7 @@ ocamllex lexer.mll
 menhir parser.mly 
 
 dune exec parsing/hip.exe src/evaluation/0_heap_zero_once_twice.ml
+dune exec parsing/hip.exe src/demo/1_State_Monad.ml
 ```
 
 

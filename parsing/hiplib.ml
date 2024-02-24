@@ -690,6 +690,7 @@ let rec entailmentchecking (lhs:normalisedStagedSpec list) (rhs:normalisedStaged
     r1 && r2
 
 let normal_report ?(kind="Function") ?given_spec ?given_spec_n ?inferred_spec ?inferred_spec_n ?forward_time_ms ?entail_time_ms ?result name =
+  let z3_consumption_freeze = !z3_consumption  in 
   let normed_spec, normed_post =
     let@ _ =
       Debug.span (fun _r -> debug ~at:2 ~title:"final normalization" "")
@@ -742,8 +743,8 @@ let normal_report ?(kind="Function") ?given_spec ?given_spec_n ?inferred_spec ?i
       "[Entail   Time] " ^ string_of_time t ^ " ms\n")
     | None -> "") ^
 
-    (let () = summary_askZ3 := !summary_askZ3  +. !z3_consumption in 
-    ("[Z3       Time] " ^ string_of_time !z3_consumption^ " ms\n"))
+    (let () = summary_askZ3 := !summary_askZ3  +. z3_consumption_freeze in 
+    ("[Z3       Time] " ^ string_of_time z3_consumption_freeze ^ " ms\n"))
     
     ^
     (String.init (String.length name + 32) (fun _ -> '=')) ^ "\n"
@@ -855,6 +856,7 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) : core_program =
 
   (* check the main spec *)
   let time_stamp_afterForward = Sys.time () in
+  let forward_time_ms = ((time_stamp_afterForward -. time_stamp_beforeForward) *. 1000.0) in
 
 
   let res =
@@ -896,13 +898,11 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) : core_program =
           (* norm failing all the way to the top level may prevent some branches from being explored during proof search. this does not happen in any tests yet, however, so keep error-handling simple. if it ever happens, return an option from norm entry points *)
           false
       in
-      let time_stamp_afterEntail = Sys.time () in
-      let entail_time_ms = ((time_stamp_afterEntail -. time_stamp_afterNormal) *. 1000.0) in
-      let forward_time_ms = ((time_stamp_afterForward -. time_stamp_beforeForward) *. 1000.0) in
+      let entail_time_ms = ((Sys.time () -. time_stamp_afterNormal) *. 1000.0) in
       report_result ~inferred_spec ~inferred_spec_n ~given_spec ~given_spec_n ~entail_time_ms ~forward_time_ms ~result:res meth.m_name;
       res
     | None ->
-      report_result ~inferred_spec ~inferred_spec_n meth.m_name;
+      report_result ~inferred_spec ~inferred_spec_n ~forward_time_ms meth.m_name;
       true
   in
   (* only save these specs for use by later functions if verification succeeds *)
