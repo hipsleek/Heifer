@@ -618,7 +618,48 @@ let rec handling_spec env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj
 
     current, env
 
-  | _ -> [normalisedStagedSpec2Spec scr_spec], env
+  | (TryCatchStage _) :: _ -> failwith "unhandled"
+
+  | (EffHOStage x) :: xs ->
+    let handledContinuation, env = handling_spec env (xs, scr_normal) h_norm h_ops in 
+
+    (* there is an effect stage x, which may or may not be handled *)
+    let perform_ret =
+      match x.e_ret with 
+      | Var ret -> ret
+      | _ -> 
+        print_endline (string_of_term x.e_ret);
+        failwith "effect return is not var 1"
+    in
+    let performEx = x.e_evars in 
+    let performPre = x.e_pre in 
+    let performPost = x.e_post in 
+
+    let norm = (performEx, performPre, performPost) in 
+
+    let (label, effActualArg) = x.e_constr in
+    (match lookforHandlingCases h_ops label with 
+    | None -> concatenateEventWithSpecs (effectStage2Spec [EffHOStage x]) handledContinuation, env
+    | Some (effFormalArg, handler_body_spec) ->
+      let effFormalArg = match effFormalArg with | None -> [] | Some v -> [v] in
+      (* Format.printf "effActualArg: %s@." (string_of_list string_of_term effActualArg); *)
+      (* Format.printf "effFormalArg: %s@." (string_of_list Fun.id effFormalArg); *)
+      let bindings = bindFormalNActual (effFormalArg) (effActualArg) in 
+      (*print_endline ("binding length " ^ string_of_int (List.length bindings));*)
+      (* effect x is handled by a branch of the form (| (Eff effFormalArg) k -> spec) *)
+      (* debug ~at:5 ~title:"before freshen" "%s" (string_of_disj_spec handler_body_spec); *)
+      (* freshen, as each instance of the handler body should not interfere with previous ones *)
+      let handler_body_spec = renamingexistientalVar handler_body_spec in
+      let handler_body_spec = instantiateSpecList bindings handler_body_spec in 
+      (* debug ~at:5 ~title:(Format.asprintf "handler_body_spec for effect stage %s" (fst x.e_constr)) "%s" (string_of_disj_spec handler_body_spec); *)
+      print_endline ("Effect: " ^label ^ " and handler_body_spec: "  ^ string_of_disj_spec handler_body_spec); 
+      (* the rest of the trace is now the spec of the continuation *)
+
+      print_endline ("continuation_spec: " ^ string_of_spec_list handledContinuation);
+      handledContinuation, env
+    )
+
+
 
 
 let ifAsyncYiled env  = 
@@ -905,7 +946,7 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
         ) phi1
       in 
 
-      print_endline ("After afterHandling at handler: \n" ^ string_of_disj_spec afterHandling ^ "\n\n");  
+      print_endline ("\nAfter afterHandling at handler: \n" ^ string_of_disj_spec afterHandling ^ "\n\n");  
 
       
 
