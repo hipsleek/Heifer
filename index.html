@@ -400,18 +400,42 @@ let rec interleave xs ys =
   | y :: ys' -> x :: (y :: interleave xs' ys')
 
 
-(* List scanning/searching: https://v2.ocaml.org/api/List.html *)
+(* OCaml List Module: https://v2.ocaml.org/api/List.html *)
 
-(* Returns the index of y in lst if it exists, or the length of lst *)
+(* https://v2.ocaml.org/api/List.html#VALfind_index *)
 let rec find_index lst y =
   match lst with
   | [] -> 0
   | x :: xs -> if x = y then 0 else 1 + (find_index xs y)
 
+(* https://v2.ocaml.org/api/List.html#VALexists *)
 let rec exists lst f =
   match lst with
   | [] -> false
-  | x :: xs -> f x || exists xs f">src/examples/list.ml</option><option value=src/examples/map.ml data-text="
+  | x :: xs -> f x || exists xs f
+
+(* https://v2.ocaml.org/api/List.html#VALint *)
+let init len f =
+  if len < 0 then perform Invalid_argument;
+  let rec aux idx
+  = if idx = len then []
+    else let k = f idx in k :: aux (idx + 1)
+  in
+  aux 0
+
+(* https://v2.ocaml.org/api/List.html#VALequal *)
+let rec equal xs ys =
+  match xs with
+  | [] -> (
+    match ys with
+    | [] -> true
+    | y :: ys' -> false
+  )
+  | x :: xs' -> (
+    match ys with
+    | [] -> false
+    | y :: ys' -> x = y && equal xs' ys'
+  )">src/examples/list.ml</option><option value=src/examples/map.ml data-text="
 let rec map f xs =
   match xs with
   | [] -> []
@@ -1150,7 +1174,169 @@ let invalid_false ()
 =
   match client () with
   | v -> 2
-  | effect Zero k -> continue k ()">src/evaluation/abort.ml</option>
+  | effect Zero k -> continue k ()">src/evaluation/abort.ml</option><option value=src/evaluation/nqueens.ml data-text="open Effect
+open Effect.Deep
+
+(* Ported from: https://github.com/effect-handlers/effect-handlers-bench/blob/d4a32ec337b77859c328a1103e195d3e4b3dcb5b/benchmarks/ocaml/001_nqueens/001_nqueens_ocaml.ml *)
+let n = try int_of_string Sys.argv.(1) with _ -> 8
+
+let rec safe queen diag xs =
+  match xs with
+  | [] -> true
+  | q :: qs ->
+      queen <> q
+      && queen <> q + diag
+      && queen <> q - diag
+      && safe queen (diag + 1) qs
+
+type _ Effect.t += Pick : int -> int Effect.t
+
+exception Fail
+
+let rec find_solution n col : int list =
+  if col = 0 then []
+  else
+    let sol = find_solution n (col - 1) in
+    let queen = perform (Pick n) in
+    if safe queen 1 sol then queen :: sol else raise Fail
+
+let queens_count n =
+  match_with (find_solution n) n
+    {
+      retc = (fun _ -> 1);
+      exnc = (function Fail -> 0 | e -> raise e);
+      effc =
+        (fun (type a) (e : a Effect.t) ->
+          match e with
+          | Pick n ->
+              Some
+                (fun (k : (a, _) continuation) ->
+                  let rec loop i acc =
+                    if i = n then continue k i + acc
+                    else
+                      loop (i + 1)
+                        (continue (Multicont.Deep.clone_continuation k) i + acc)
+                  in
+                  loop 1 0)
+          | _ -> None);
+    }
+
+let queens_choose n =
+  match_with (find_solution n) n
+    {
+      retc = (fun x -> [ x ]);
+      exnc = (function Fail -> [] | e -> raise e);
+      effc =
+        (fun (type a) (e : a Effect.t) ->
+          match e with
+          | Pick n ->
+              Some
+                (fun (k : (a, _) continuation) ->
+                  let rec loop i acc : int list list =
+                    if i = 1 then continue k i @ acc
+                    else
+                      loop (i - 1)
+                        (continue (Multicont.Deep.clone_continuation k) i @ acc)
+                  in
+                  loop n [])
+          | _ -> None);
+    }
+
+let print_all_solutions () =
+  let sols = queens_choose n in
+  List.iter
+    (fun l ->
+      List.iter (fun pos -> Printf.printf &quot;%d &quot; pos) l;
+      print_endline &quot;&quot;)
+    sols
+
+let _ =
+  print_all_solutions ();
+  Printf.printf &quot;%d\n&quot; (queens_count n)">src/evaluation/nqueens.ml</option><option value=src/evaluation/toss.ml data-text="effect Flip : bool
+
+let rec tossNtimeTail n 
+(* tossNtimeTail(n, res) = ens n=1; Flip(res)  \/ 
+                    ex r1; ens n>1; Flip(r1); ex r2; tossNtimeTail(n-1, r2); ens res=r1 && r2 *)
+= match n with 
+| 1 -> perform Flip
+| n -> let r1 = perform Flip in 
+       let r2 = tossNtimeTail (n-1) in r1 && r2
+
+(* \phi_inv(n,acc,r) = ex w ; req counter -> w ens[r] counter -> w+(2^(n+1) -2) /\ (acc/\r=1 \/ !acc/\r=0) *)
+(* lemma: ex res; tossNtimeTail(n,res); ens[acc'] acc'=(acc /\ res) catch H ⊑ ex r; \phi_inv(n,acc,r) *)
+
+let tossHandlerTail counter n : int  (*  counter = !counter + 2^(n+1) - 2 *)
+= match tossNtimeTail n with 
+  | x -> if x then 1 else 0                
+  | effect Flip k ->
+      counter := !counter + 1;            (* increase the counter *)
+      let res1 = continue (Obj.clone_continuation k) true in         (* resume with true     *)
+      counter := !counter + 1;            (* increase the counter *)
+      let res2 = continue k false in      (* resume with false    *)
+      res1 + res2                         (* gather the results   *)
+(*proof (deep):
+       counter := !counter + 1; counter := !counter + (2^(n) -2;  counter := !counter + 1; counter := !counter + (2^(n) -2;  
+       counter := !counter + 1 + (2^(n) -2) + 1 + (2^(n) -2) = !counter + 2^(n+1) -2
+*)
+
+(* 
+lemma: ex res; tossNtimeTail(n,res); \Phi catch H ⊑ counter := !counter + 1; tossNtimeTail(n-1,res); counter := !counter + 1; tossNtimeTail(n-1,res);
+proof (shallow): 
+      counter := !counter + 1; tossNtimeTail(n-1,res);  counter := !counter + 1; tossNtimeTail(n-1,res);  
+*)
+
+
+let rec tossNtimeNonTail n 
+(* tossNtimeTail(n, res) = ens n=1; Flip(res)  \/ 
+                    ex r1; ens n>1; tossNtimeTail(n-1, r1); ex r2; Flip(r2); ens res=r1 && r2 *)
+
+(* tossNtimeTail(n, res) = ens n=1; Flip(res)  \/ 
+                    ex r1; ens n>1; tossNtimeTail(n-1, r1); ens counter := !counter + 2 /\ (r1\/ false) *)
+
+= match n with 
+| 1 -> perform Flip
+| n -> let r1 = tossNtimeNonTail (n-1) in 
+       let r2 = perform Flip in r1 && r2
+
+
+(* \phi_inv'(n,acc,s,r) = ex w ; req counter -> w ens[r] counter -> w + ((2^n -1) * s) /\ (acc/\r=1 \/ !acc/\r=0) *)
+(* lemma: ex res; tossNtimeNonTail(n,res); counter -> counter + s catch H ⊑ ex r; \phi_inv'(n,acc,s,r) *)
+
+
+(* \phi_inv'(n,acc,r) = ex w ; req counter -> w ens[r] counter -> w + 2^(n+2)-2 /\ (acc/\r=1 \/ !acc/\r=0) *)
+(* lemma: ex res; tossNtimeNonTail(n,res); counter -> counter + 2 catch H ⊑ ex r; \phi_inv'(n,acc,r) *)
+
+
+let tossHandlerNonTail counter n : int   (*  counter = !counter + 2^(n+1) - 2 *)
+= match tossNtimeNonTail n with 
+  | x -> if x then 1 else 0                
+  | effect Flip k ->
+      counter := !counter + 1;            (* increase the counter *)
+      let res1 = continue (Obj.clone_continuation k) true in         (* resume with true     *)
+      counter := !counter + 1;            (* increase the counter *)
+      let res2 = continue k false in       (* resume with false    *)
+      res1 + res2                         (* gather the results   *)
+
+(*
+proof: counter := !counter + ??? ; counter := !counter + 1;   counter := !counter + 1;
+       counter :=  (2^n - 1) * (2)           
+       = !counter + 2^(n+1) -2
+*)
+
+
+(* lemma: ex res; try tossNtimeTailShallow(1,res); \phi catch H ⊑ counter -> counter + 1;  \phi; counter + 1;  \phi; *)
+(* lemma: ex res; try n > 1 /\ tossNtimeTailShallow(n,res); \phi catch H ⊑ 
+   counter -> counter + 1; tossNtimeTailShallow(n-1,res); \phi; counter + 1;  tossNtimeTailShallow(n-1,res);  \phi; *)
+
+let _ = 
+   let counter = ref 0 in 
+   let res = tossHandlerTail counter 9 in 
+   print_endline (string_of_int !counter);
+   print_endline (string_of_int res);
+   let counter1 = ref 0 in 
+   let res = tossHandlerNonTail counter1 9 in 
+   print_endline (string_of_int !counter1);
+   print_endline (string_of_int res)">src/evaluation/toss.ml</option>
         </select>
         <button id="share-btn" disabled onclick="share()">Share</button>
         <span style="display: inline-block">
@@ -1195,7 +1381,7 @@ let invalid_false ()
     <script>
       // this is substituted at build time and is used in page.js
       function postExampleLoad() {
-        console.log("Built Mon Jan 15 19:02:36 +08 2024");
+        console.log("Built Sat Feb 24 16:56:09 +08 2024");
         console.log("loading z3...");
       }
     </script>
