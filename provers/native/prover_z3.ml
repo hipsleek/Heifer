@@ -307,8 +307,7 @@ let check_sat f =
   (* (match Solver.get_model solver with
   | None -> debug ~at:4 ~title:"no model" ""
   | Some m -> debug ~at:4 ~title:"model" "%s" (Model.to_string m)); *)
-  let z3_time = (Unix.gettimeofday () -. start) *. 1000.0 in 
-  z3_consumption := !z3_consumption +. z3_time; 
+  z3_consumption := !z3_consumption +. ((Unix.gettimeofday () -. start) *. 1000.0); 
   status
 
 

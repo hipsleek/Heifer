@@ -628,7 +628,7 @@ let mk_directive ~loc name arg =
 // %token IMPLICATION
 %token LONG_IMPLICATION
 %token SUBSUMES
-%token REQUIRES  EFFTRY EFFCATCH
+%token REQUIRES  EFFCATCH
 %token ENSURES
 %token EMP
 %token GREATER
