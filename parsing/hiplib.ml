@@ -542,7 +542,6 @@ let string_of_token =
 (* | IMPLICATION -> "IMPLICATION" *)
 | LONG_IMPLICATION -> "LONG_IMPLICATION"
 | SUBSUMES -> "SUBSUMES"
-| EFFTRY -> "EFFTRY"
 | EFFCATCH -> "EFFCATCH"
 | PROP_TRUE -> "PROP_TRUE"
 | PROP_FALSE -> "PROP_FALSE"
@@ -842,8 +841,6 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) : core_program =
   fvenv.fv_lambda_obl |> List.iter (check_obligation_ meth.m_name meth.m_params prog.cp_lemmas predicates);
   fvenv.fv_match_obl |> List.iter (check_obligation_ meth.m_name meth.m_params prog.cp_lemmas predicates);
 
-  (* check the main spec *)
-  let time_stamp_afterForward = Sys.time () in
 
   (*print_endline ("\n----------------\ninferred_spec: \n" ^ string_of_spec_list inferred_spec);*)
 
@@ -856,9 +853,12 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) : core_program =
   in
 
 
+  (* check the main spec *)
+  let time_stamp_afterForward = Sys.time () in
 
 
   let res =
+    let time_stamp_afterNormal = Sys.time () in
     match given_spec with
     | Some given_spec ->
       let given_spec_n =
@@ -867,7 +867,6 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) : core_program =
           normalise_disj_spec_aux1 given_spec
         with Norm_failure -> report_result ~inferred_spec ~inferred_spec_n ~given_spec ~result:false meth.m_name; raise Method_failure
       in
-      let time_stamp_afterNormal = Sys.time () in
       let res =
         try
           let syh_old_entailment = false in
@@ -909,6 +908,8 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) : core_program =
   (* only save these specs for use by later functions if verification succeeds *)
   if not res then prog 
   else (
+    let time_stamp_record_spec_start = Sys.time () in
+
     let@ _ =
       Debug.span (fun _r ->
           debug ~at:2
@@ -946,6 +947,8 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) : core_program =
         { prog with cp_methods }
       | Some _ -> prog
     in
+    summary_storing_spec := !summary_storing_spec +. (Sys.time () -. time_stamp_record_spec_start) ;
+
     prog)
 
 let process_items (strs: structure_item list) : unit =
@@ -1090,7 +1093,7 @@ let run_file inputfile =
         "\n========== FINAL SUMMARY ==========\n" 
         ^"[  LOC  ] " ^   string_of_int (List.length lines) ^ "\n"
         ^"[  LOS  ] " ^   string_of_int (line_of_spec)  ^ "\n"
-        ^"[Forward+Entail] " ^   string_of_float ((!summary_forward +. !summary_entail)/.1000.0)  ^ " s\n"
+        ^"[Forward+Entail+StoreSpec] " ^   string_of_float ((!summary_forward +. !summary_entail +. !summary_storing_spec)/.1000.0)  ^ " s\n"
         ^"[ AskZ3 ] " ^   string_of_float ((!summary_askZ3)/.1000.0)  ^ " s\n"
 
       

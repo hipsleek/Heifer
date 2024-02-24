@@ -29,8 +29,20 @@ brew install python3
 
 opam install dune menhir ppx_deriving ppx_expect brr js_of_ocaml-compiler unionFind visitors z3
 
-sudo npm install browserify -g # which browserify
+sudo npm install browserify -g 
+
+which browserify
 
 dune build
 dune test
 ```
+
+```
+cd parsing 
+ocamllex lexer.mll
+menhir parser.mly 
+
+dune exec parsing/hip.exe src/evaluation/0_heap_zero_once_twice.ml
+```
+
+
