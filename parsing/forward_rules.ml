@@ -597,7 +597,7 @@ let cartesian_product li1 li2 =
 
 
 let instantiateSpecListUponResume (handlingSpec: spec list) (contiInput:string) (continuation: spec list) : spec list = 
-  print_endline ("contiInput = " ^ contiInput  );
+  (*print_endline ("contiInput = " ^ contiInput  ); *)
   let rec helper (handlingSpecIn:spec) (continuationIn:spec) : spec =
     match handlingSpecIn with 
     | [] -> [] 
@@ -645,7 +645,7 @@ let rec handling_spec env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj
       Format.printf "formal: %s@."  h_val_param;*)
 
       let actualRet = get_res_value p2 in 
-      Format.printf "actualRet: %s@."  (string_of_term actualRet);
+      (*Format.printf "actualRet: %s@."  (string_of_term actualRet);*)
 
       let p2 = instantiatePure ["res", actualRet] p2 in
       let scr_normal = (normalStage2Spec (ex, (p1, h1), (p2, h2))) in 
@@ -683,8 +683,9 @@ let rec handling_spec env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj
     | None -> concatenateEventWithSpecs (effectStage2Spec [EffHOStage x]) handledContinuation, env
     | Some (effFormalArg, handler_body_spec) ->
       let effFormalArg = match effFormalArg with | None -> [] | Some v -> [v] in
-      Format.printf "effActualArg: %s@." (string_of_list string_of_term effActualArg); 
+      (*Format.printf "effActualArg: %s@." (string_of_list string_of_term effActualArg); 
       Format.printf "effFormalArg: %s@." (string_of_list Fun.id effFormalArg); 
+      *)
       let bindings = bindFormalNActual (effFormalArg) (effActualArg) in 
       (*print_endline ("binding length " ^ string_of_int (List.length bindings));*)
       (* effect x is handled by a branch of the form (| (Eff effFormalArg) k -> spec) *)
@@ -694,14 +695,13 @@ let rec handling_spec env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj
       let handler_body_spec = renamingexistientalVar handler_body_spec in
       let handler_body_spec = instantiateSpecList bindings handler_body_spec in 
       (* debug ~at:5 ~title:(Format.asprintf "handler_body_spec for effect stage %s" (fst x.e_constr)) "%s" (string_of_disj_spec handler_body_spec); *)
-      print_endline ("Effect: " ^label ^ " and handler_body_spec: "  ^ string_of_disj_spec handler_body_spec); 
+      (*print_endline ("Effect: " ^label ^ " and handler_body_spec: "  ^ string_of_disj_spec handler_body_spec); *)
       (* the rest of the trace is now the spec of the continuation *)
-      print_endline ("continuation_spec: " ^ string_of_spec_list handledContinuation);
+      (*print_endline ("continuation_spec: " ^ string_of_spec_list handledContinuation);*)
       
 
       let handler_body_specAfterSubstituteK = instantiateSpecListUponResume handler_body_spec perform_ret handledContinuation in 
-      print_endline ("handler_body_specAfterSubstituteK: " ^ string_of_spec_list handler_body_specAfterSubstituteK);
-      
+      (*print_endline ("handler_body_specAfterSubstituteK: " ^ string_of_spec_list handler_body_specAfterSubstituteK);*)
       let res = concatenateEventWithSpecs  (normalStage2Spec norm) handler_body_specAfterSubstituteK in 
 
       res, env
@@ -924,7 +924,8 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
       (* infer specs for branches of the form (Constr param -> spec), which also updates the env with obligations *)
 
       
-      print_endline ("CMatch(" ^string_of_core_lang scr ^ "). match_summary = " ^ (match match_summary with | None -> "none" | Some match_summary -> string_of_disj_spec match_summary) );
+      (*print_endline ("CMatch(" ^string_of_core_lang scr ^ "). match_summary = " ^ (match match_summary with | None -> "none" | Some match_summary -> string_of_disj_spec match_summary) );
+      *)
       
       (*let env = 
         match match_summary with 
@@ -962,9 +963,10 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
             replaceContinueWithHypo temp match_summary
           else sp in 
     
-          print_endline ("Inferred_effect_cases_specs: --------- \n" ^ effname  ^  (match param with | None -> " " | Some p -> "("^ p ^ ") ")^ ": " ^ 
+          (*print_endline ("Inferred_effect_cases_specs: --------- \n" ^ effname  ^  (match param with | None -> " " | Some p -> "("^ p ^ ") ")^ ": " ^ 
           string_of_disj_spec sp
           );   
+          *)
           
           (effname, param, sp) :: t, env
         ) eff_cases ([], env)
@@ -975,18 +977,18 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
         let inf_val_spec, env = infer_of_expression env [[]] body in
         let inf_val_spec = if ifAsyncYiled env then replaceContinueWithHypo inf_val_spec match_summary
         else inf_val_spec in 
-        print_endline ("Inferred_nromal_clause_spec: --------- \n" ^  (match param with | p -> p ^ "")^ ": " ^ 
-        string_of_disj_spec (normalise_spec_list inf_val_spec)); 
+        (*print_endline ("Inferred_nromal_clause_spec: --------- \n" ^  (match param with | p -> p ^ "")^ ": " ^ 
+        string_of_disj_spec (normalise_spec_list inf_val_spec));  *)
 
         (param, inf_val_spec), env
       in
       (* for each disjunct of the scrutinee's behaviour, reason using the handler *)
       let phi1, env = infer_of_expression env [freshNormalReturnSpec] scr in 
 
-      print_endline ("\nSpec of the try block: " ^ string_of_disj_spec phi1 ^ "\n\n"); 
+      (*print_endline ("\nSpec of the try block: " ^ string_of_disj_spec phi1 ^ "\n\n"); *)
 
       let afterHandling, env =
-        print_endline ("Handling at handler:  ");
+        (*print_endline ("Handling at handler:  "); *)
         concat_map_state env (fun spec env -> 
           let spec_n = (normalize_spec spec) in 
           print_endline (string_of_normalisedStagedSpec  spec_n ^ "\n\n");  
@@ -994,7 +996,8 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
         ) phi1
       in 
 
-      print_endline ("\nAfter afterHandling at handler: \n" ^ string_of_disj_spec afterHandling ^ "\n\n");  
+      (*print_endline ("\nAfter afterHandling at handler: \n" ^ string_of_disj_spec afterHandling ^ "\n\n");  
+      *)
 
       
 
