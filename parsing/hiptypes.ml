@@ -35,6 +35,9 @@ and core_handler_ops = (string * string option * disj_spec option * core_lang) l
 (* x :: xs -> e is represented as ("::", [x, xs], e) *)
 and constr_cases = (string * string list * core_lang) list
 
+and tryCatchLemma = (spec * spec option * disj_spec) (*tcl_head, tcl_handledCont, tcl_summary*)
+
+
 and core_lang = 
       | CValue of core_value 
       | CLet of string * core_lang * core_lang
@@ -46,7 +49,7 @@ and core_lang =
       | CAssert of pi * kappa 
       | CPerform of string * core_value option
       (* match e with | v -> e1 | eff case... | constr case... *)
-      | CMatch of disj_spec option * core_lang * (string * core_lang) option * core_handler_ops * constr_cases
+      | CMatch of tryCatchLemma option * core_lang * (string * core_lang) option * core_handler_ops * constr_cases
       | CResume of core_value list
       | CLambda of string list * disj_spec option * core_lang
 
@@ -322,6 +325,8 @@ type lemma = {
   l_left: instant; (* for simplicity of rewriting *)
   l_right: spec; (* could also be disj_spec but not needed *)
 }
+
+
 
 type core_program = {
   cp_effs: string list;

@@ -1,12 +1,7 @@
 effect Inc : int -> int 
 
 
-(*
-sumEff(n,res) = n=0 /\ res=n
-  \/ n>0 /\ ex r; (emp, Inc(n,r)); 
-     ex r2; (emp, sumEff(n-1,r2)); 
-     (emp, Norm(r+r2))
-*)
+
 
 let rec sumEff n 
 (*@ req n>0; ens n=1; Norm(emp, 1) \/  
@@ -19,11 +14,17 @@ let rec sumEff n
     let r = perform (Inc n) in 
     r + sumEff(n-1)
 
+(*
+  TRY ex res; sumEff(n,res) # ex r' acc'; Norm(acc'=acc+res, acc') CATCH  === 
+  ex r w; req i->w; Norm (i->w+(n*.(n-1)/2), n+acc)
+*) 
 
 let handler n 
 (*@ req n>0; ex i; Norm(i->(n*.(n-1)/2) , n) @*)
 = let i = ref 0 in 
-  match sumEff n with
+  match sumEff n with 
+  (*@ ex res; sumEff(n,res)
+  @*) 
   | v ->  v
   | effect (Inc v) k -> i := !i + v -1; continue k 1
 

@@ -960,11 +960,6 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
           in
           (*let sp = normalize_spec sp in *)
           let sp = (normalise_spec_list sp) in 
-
-          let sp = if ifAsyncYiled env then 
-            let temp = instantiateSpecList [("k", Var ("f2"));("f'", Var("f1"))] sp in 
-            replaceContinueWithHypo temp match_summary
-          else sp in 
     
           (*print_endline ("Inferred_effect_cases_specs: --------- \n" ^ effname  ^  (match param with | None -> " " | Some p -> "("^ p ^ ") ")^ ": " ^ 
           string_of_disj_spec sp
@@ -978,8 +973,7 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
       let inferred_val_case, env =
         let (param, body)  = val_case in
         let inf_val_spec, env = infer_of_expression env [[]] body in
-        let inf_val_spec = if ifAsyncYiled env then replaceContinueWithHypo inf_val_spec match_summary
-        else inf_val_spec in 
+
         (*print_endline ("Inferred_nromal_clause_spec: --------- \n" ^  (match param with | p -> p ^ "")^ ": " ^ 
         string_of_disj_spec (normalise_spec_list inf_val_spec));  *)
 

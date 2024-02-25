@@ -2250,7 +2250,7 @@ expr:
       { (mk_newtypes ~loc:$sloc $5 $7).pexp_desc, $2 }
   | MATCH ext_attributes seq_expr WITH match_cases
       { Pexp_match(None, $3, $5), $2 }
-  | MATCH ext_attributes seq_expr WITH c=fn_contract match_cases
+  | MATCH ext_attributes seq_expr WITH c=try_catch_lemma match_cases
       { Pexp_match(c, $3, $6), $2 }
 
       
@@ -2736,6 +2736,12 @@ only_disj_effect_spec:
 
 disj_effect_spec:
 | d=separated_nonempty_list(DISJUNCTION, effect_spec) { d }
+
+try_catch_lemma: 
+| LSPECCOMMENT head_spec= effect_spec  RSPECCOMMENT 
+{Some (head_spec, None, [])}
+| {None }
+
 
 fn_contract:
   | LSPECCOMMENT spec=disj_effect_spec RSPECCOMMENT

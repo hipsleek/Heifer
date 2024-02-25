@@ -67,7 +67,7 @@ let exc_handler (l) (new_v:int)
       resume k old
 
 (* More monad examples *)
-(* ASK DARIUS *)
+(* ASK DARIUS : the enatilment checking does not terminate *)
 let test1 ()
 (* ex r1; Read(emp, r1); 
     ex r2 r3; Write(r2=r1+1, (r2), r3); 
