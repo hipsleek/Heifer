@@ -23,8 +23,9 @@ let handler n
 (*@ req n>0; ex i; Norm(i->(n*.(n-1)/2) , n) @*)
 = let i = ref 0 in 
   match sumEff n with 
-  (*@ ex res; sumEff(n,res)
-  @*) 
+  (*@ try ex res; sumEff(n,res) #  ex r' acc'; Norm(acc'=acc+res, acc')  catch 
+  =
+  ex r w; req i->w; Norm (i->w+(n*.(n-1)/2), n+acc)  @*) 
   | v ->  v
   | effect (Inc v) k -> i := !i + v -1; continue k 1
 

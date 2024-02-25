@@ -2737,9 +2737,16 @@ only_disj_effect_spec:
 disj_effect_spec:
 | d=separated_nonempty_list(DISJUNCTION, effect_spec) { d }
 
+option_conti_sharp :
+| HASH conti= effect_spec {Some conti }
+| {None }
+
 try_catch_lemma: 
-| LSPECCOMMENT head_spec= effect_spec  RSPECCOMMENT 
-{Some (head_spec, None, [])}
+| LSPECCOMMENT TRY head_spec= effect_spec conti=option_conti_sharp EFFCATCH EQUAL 
+  summary = disj_effect_spec
+  RSPECCOMMENT 
+  {Some (head_spec, conti, summary)}
+
 | {None }
 
 
