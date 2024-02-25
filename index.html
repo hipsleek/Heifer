@@ -1012,40 +1012,7 @@ let write n
    Write(emp, n,  ret);
    Norm(emp, ret)
 @*)
-= perform (Write n)
-
-
-let test ()
-(*@ 
-  ex x1; 
-  Read(emp, x1); 
-  ex x2; 
-  Write(emp, (x1+1), x2); 
-  ex x3; 
-  Read(emp, x3); 
-  ex x4; 
-  Write(emp, (x3+1), x4); 
-  ex x5; 
-  Read(emp, x5); 
-  Norm(emp, x5)
-@*)
-= 
-  let x = read () in 
-  write (x+1);
-  let z = read () in 
-  write (z+1);
-  read ()
-
-let handler () 
-(*@ 
-  ex i; 
-  Norm(i->2,  2)
-@*)
-= let i = Sys.opaque_identity (ref 0) in 
-  match test () with 
-  | v -> !i
-  | effect Read k -> (continue k (!i)) 
-  | effect (Write x) k -> i := x; (continue k ())">src/evaluation/7_memory_cell_mix_handler.ml</option><option value=src/evaluation/8_memory_cell_nested.ml data-text="effect Read : int 
+= perform (Write n)">src/evaluation/7_memory_cell_mix_handler.ml</option><option value=src/evaluation/8_memory_cell_nested.ml data-text="effect Read : int 
 effect Write : int -> unit 
 
 (* let (i: int ref) = Sys.opaque_identity (ref 0) *)
@@ -1381,7 +1348,7 @@ let _ =
     <script>
       // this is substituted at build time and is used in page.js
       function postExampleLoad() {
-        console.log("Built Sun Feb 25 16:53:37 +08 2024");
+        console.log("Built Sun Feb 25 18:50:30 +08 2024");
         console.log("loading z3...");
       }
     </script>
