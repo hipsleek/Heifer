@@ -915,6 +915,7 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) : core_program =
           debug ~at:2
             ~title:(Format.asprintf "remembering predicate for %s" meth.m_name) "")
     in
+    (*print_endline ("remembering predicate for " ^ meth.m_name) ;*)
     let prog, pred =
       (* if the user has not provided a predicate for the given function,
         produce one from the inferred spec *)
@@ -941,8 +942,8 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) : core_program =
         in
         (*print_endline ("inferred spec for " ^ meth.m_name ^ " " ^  (string_of_disj_spec mspec)); *)
 
-        debug ~at:1 ~title:(Format.asprintf "inferred spec for %s" meth.m_name) "%s" (string_of_disj_spec mspec);
-        let cp_methods = List.map (fun m -> if String.equal m.m_name meth.m_name then { m with m_spec = Some mspec } else m ) prog.cp_methods
+        debug ~at:1 ~title:(Format.asprintf "inferred spec for %s" meth.m_name) "%s" (string_of_disj_spec mspec); (* ASK DARIUS *)
+        let cp_methods = List.map (fun m -> if String.equal m.m_name meth.m_name then { m with m_spec = Some _mspec } else m ) prog.cp_methods
         in
         { prog with cp_methods }
       | Some _ -> prog

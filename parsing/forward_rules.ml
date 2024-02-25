@@ -830,6 +830,8 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
           let ret = verifier_getAfreeVar "ret" in
           [[Exists [ret]; HigherOrder (True, EmptyHeap, (fname, actualArgs), Var ret)]]
         | Some (spec_params, known_spec) ->
+
+
           let@ _ =
             Debug.span (fun r ->
                 debug ~at:3
@@ -862,6 +864,7 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
           in
 
           let spec = known_spec |> trf "existentials" renamingexistientalVar in
+
           
           let instantiatedSpec =
             spec |> trf "actuals" (instantiateSpecList (bindFormalNActual spec_params actualArgs))
@@ -991,7 +994,7 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
         (*print_endline ("Handling at handler:  "); *)
         concat_map_state env (fun spec env -> 
           let spec_n = (normalize_spec spec) in 
-          print_endline (string_of_normalisedStagedSpec  spec_n ^ "\n\n");  
+          (*print_endline (string_of_normalisedStagedSpec  spec_n ^ "\n\n");   *)
           handling_spec env spec_n inferred_val_case inferred_branch_specs
         ) phi1
       in 
