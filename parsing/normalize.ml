@@ -26,10 +26,39 @@ let rec simplify_term t : term  =
   | Rel (op, a, b) -> Rel (op, simplify_term a, simplify_term b)
   | Plus (Minus(t, Num n1), Num n2) -> 
     if n1 == n2 then t else if n1>= n2 then Minus(t, Num (n1-n2)) else Plus(t, Num (n1-n2))
-  | Plus (a, b)  -> Plus (simplify_term a, simplify_term b)
-  | TTimes (a, b)  -> TTimes (simplify_term a, simplify_term b)
-  | TDiv (a, b)  -> TDiv (simplify_term a, simplify_term b)
-  | Minus (a, b) -> Minus (simplify_term a, simplify_term b)
+  | Plus (a, b)  -> 
+    let a' = simplify_term a in 
+    let b' = simplify_term b in 
+    (match a', b' with 
+    | Num n1, Num n2 -> Num(n1 + n2)
+    | _, _ -> Plus (a', b')
+    )
+  
+  | TTimes (a, b)  ->   
+    let a' = simplify_term a in 
+    let b' = simplify_term b in 
+    (match a', b' with 
+    | Num n1, Num n2 -> Num(n1*n2)
+    | _, _ -> TTimes (a', b')
+    )
+
+  | TDiv (a, b)  -> 
+    let a' = simplify_term a in 
+    let b' = simplify_term b in 
+    (match a', b' with 
+    | Num n1, Num n2 -> Num(n1/n2)
+    | _, _ -> TDiv (a', b')
+    )
+  
+  | Minus (a, b) -> 
+    let a' = simplify_term a in 
+    let b' = simplify_term b in 
+    (match a', b' with 
+    | Num n1, Num n2 -> Num(n1 - n2)
+    | _, _ -> Minus (a', b')
+    )
+  
+
   | TAnd (a, b) -> TAnd (simplify_term a, simplify_term b)
   | TOr (a, b) -> TOr (simplify_term a, simplify_term b)
   | TPower(a, b) -> TPower (simplify_term a, simplify_term b)
@@ -45,7 +74,9 @@ let rec simplify_heap h : kappa =
   *)
     | SepConj (EmptyHeap, h1) -> (simplify_heap h1, true)
     | SepConj (h1, EmptyHeap) -> (simplify_heap h1, true)
-    | PointsTo (str, t) -> (PointsTo (str, simplify_term t), false)
+    | PointsTo (str, t) -> 
+      (*print_endline (string_of_term t); *)
+      (PointsTo (str, simplify_term t), false)
     | _ -> (h, false)
   in
   to_fixed_point once h
