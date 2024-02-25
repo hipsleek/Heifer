@@ -264,6 +264,15 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
         transformation bound_names a |> maybe_var (fun v -> loop (v :: vars) args1)
     in
     loop [] args
+
+  | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, args) when name = "resume" ->
+    let rec loop vars args =
+      match args with
+      | [] -> CResume (List.rev vars)
+      | (_, a) :: args1 ->
+        transformation bound_names a |> maybe_var (fun v -> loop (v :: vars) args1)
+    in
+    loop [] args
     
 
   

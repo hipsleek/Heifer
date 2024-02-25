@@ -10,7 +10,6 @@ let unfolding_bound = 1
 
 type fvenv = Forward_rules.fvenv
 
-(* let string_of_pi p = string_of_pi (simplify_pure p) *)
 let with_pure pi ((p, h) : state) : state = (conj [p; pi], h)
 let rename_exists_spec sp = List.hd (Forward_rules.renamingexistientalVar [sp])
 

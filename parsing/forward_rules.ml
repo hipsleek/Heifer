@@ -583,6 +583,49 @@ and handling_spec env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj_spe
 
 *)
 
+let rec flattenList lili = 
+  match lili with 
+  | [] -> []
+  | x :: xs -> List.append x (flattenList xs) 
+
+  
+
+let cartesian_product li1 li2 = 
+  flattenList (List.map  (fun l1 -> 
+    List.map  (fun l2 -> (l1, l2)) li2) li1)
+
+
+
+let instantiateSpecListUponResume (handlingSpec: spec list) (contiInput:string) (continuation: spec list) : spec list = 
+  print_endline ("contiInput = " ^ contiInput  );
+  let rec helper (handlingSpecIn:spec) (continuationIn:spec) : spec =
+    match handlingSpecIn with 
+    | [] -> [] 
+    | HigherOrder ((p', h', (f', hd'::actual::rest), r')) :: xs  -> 
+      let x = (p', h', (f', hd'::actual::rest), r') in  (* hd' is k, and we assume there is only one argument for effects *)
+      if String.compare f' "continue" == 0 
+      then 
+        let instantiation =  instantiateSpec [(contiInput, actual)] continuationIn in 
+        let contiRet = retrieve_return_value instantiation in 
+        let instantiation = instantiateSpec ["res", contiRet] instantiation in 
+
+        let newPi=  And (p', Atomic(EQ, contiRet, r' ) ) in
+        (*print_endline (string_of_pi newPi); *)
+
+        let prefix = NormalReturn (newPi, h') in 
+
+        normalisedStagedSpec2Spec (normalize_spec (prefix:: instantiation @ helper xs continuationIn))
+      else 
+        HigherOrder x :: helper xs continuationIn
+    | x :: xs -> x :: helper xs continuationIn
+  
+  in 
+
+  let mix = cartesian_product handlingSpec continuation in 
+  List.map (fun (h_spec, conti) -> helper h_spec conti) mix 
+
+
+
 let rec handling_spec env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj_spec)) (h_ops:(string * string option * disj_spec) list) : spec list * fvenv = 
   (*print_endline ("\nhandling_spec " ^ (string_of_spec (normalisedStagedSpec2Spec scr_spec))); *)
   let@ _ = Debug.span (fun r ->
@@ -595,25 +638,23 @@ let rec handling_spec env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj
     let (h_val_param, h_val_spec) = h_norm in 
 
     let current =
-      (* Given match 1 with v -> v | effect ..., replace v with 1 in the value case *)
-      let (_, _, _) = scr_normal in
-
-      let new_res = verifier_getAfreeVar "rez" in
-      (* Format.printf "new_res: %s@."  new_res; *)
-      let h_spec = instantiateSpecList [h_val_param, Var new_res] h_val_spec in
-      (* Format.printf "h_spec: %s@." (string_of_disj_spec h_spec); *)
-
-      (* the heap state present in the scrutinee also carries forward *)
       let (ex, (p1, h1), (p2, h2)) = scr_normal in
-      let p2 = instantiatePure ["res", Var new_res] p2 in
-      (* Format.printf "p2: %s@." (string_of_pi p2); *)
-      let hist = [[Exists (new_res::ex); Require (p1, h1); NormalReturn (p2, h2)]] in
 
-      let@ _ = Debug.span (fun r ->
-        debug ~at:3 ~title:"handling_spec: completely handled" "match\n  (*@@ %s @@*)\nwith\n| %s -> (*@@ %s *@@)\n| ...\n==>\n%s" (string_of_spec (normalisedStagedSpec2Spec scr_spec)) h_val_param (string_of_disj_spec h_val_spec) (string_of_result string_of_disj_spec r);
-      ) in
+      (*Format.printf "\\phi_n: %s@." (string_of_disj_spec h_val_spec); 
+      Format.printf "N(r): %s@." (string_of_normalisedStagedSpec ([], scr_normal)); 
+      Format.printf "formal: %s@."  h_val_param;*)
 
-      concatenateSpecsWithSpec hist h_spec
+      let actualRet = get_res_value p2 in 
+      Format.printf "actualRet: %s@."  (string_of_term actualRet);
+
+      let p2 = instantiatePure ["res", actualRet] p2 in
+      let scr_normal = (normalStage2Spec (ex, (p1, h1), (p2, h2))) in 
+
+      let h_spec = instantiateSpecList [h_val_param, actualRet] h_val_spec in
+      (*Format.printf "h_spec: %s@." (string_of_disj_spec h_spec); *)
+
+      concatenateSpecsWithSpec (normalise_spec_list [(scr_normal)]) h_spec
+
     in
 
     current, env
@@ -642,21 +683,28 @@ let rec handling_spec env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj
     | None -> concatenateEventWithSpecs (effectStage2Spec [EffHOStage x]) handledContinuation, env
     | Some (effFormalArg, handler_body_spec) ->
       let effFormalArg = match effFormalArg with | None -> [] | Some v -> [v] in
-      (* Format.printf "effActualArg: %s@." (string_of_list string_of_term effActualArg); *)
-      (* Format.printf "effFormalArg: %s@." (string_of_list Fun.id effFormalArg); *)
+      Format.printf "effActualArg: %s@." (string_of_list string_of_term effActualArg); 
+      Format.printf "effFormalArg: %s@." (string_of_list Fun.id effFormalArg); 
       let bindings = bindFormalNActual (effFormalArg) (effActualArg) in 
       (*print_endline ("binding length " ^ string_of_int (List.length bindings));*)
       (* effect x is handled by a branch of the form (| (Eff effFormalArg) k -> spec) *)
       (* debug ~at:5 ~title:"before freshen" "%s" (string_of_disj_spec handler_body_spec); *)
       (* freshen, as each instance of the handler body should not interfere with previous ones *)
+
       let handler_body_spec = renamingexistientalVar handler_body_spec in
       let handler_body_spec = instantiateSpecList bindings handler_body_spec in 
       (* debug ~at:5 ~title:(Format.asprintf "handler_body_spec for effect stage %s" (fst x.e_constr)) "%s" (string_of_disj_spec handler_body_spec); *)
       print_endline ("Effect: " ^label ^ " and handler_body_spec: "  ^ string_of_disj_spec handler_body_spec); 
       (* the rest of the trace is now the spec of the continuation *)
-
       print_endline ("continuation_spec: " ^ string_of_spec_list handledContinuation);
-      handledContinuation, env
+      
+
+      let handler_body_specAfterSubstituteK = instantiateSpecListUponResume handler_body_spec perform_ret handledContinuation in 
+      print_endline ("handler_body_specAfterSubstituteK: " ^ string_of_spec_list handler_body_specAfterSubstituteK);
+      
+      let res = concatenateEventWithSpecs  (normalStage2Spec norm) handler_body_specAfterSubstituteK in 
+
+      res, env
     )
 
 
