@@ -37,6 +37,7 @@ and constr_cases = (string * string list * core_lang) list
 
 and tryCatchLemma = (spec * disj_spec option * disj_spec) (*tcl_head, tcl_handledCont, tcl_summary*)
 
+and handler_type = Shallow | Deep 
 
 and core_lang = 
       | CValue of core_value 
@@ -49,7 +50,7 @@ and core_lang =
       | CAssert of pi * kappa 
       | CPerform of string * core_value option
       (* match e with | v -> e1 | eff case... | constr case... *)
-      | CMatch of tryCatchLemma option * core_lang * (string * core_lang) option * core_handler_ops * constr_cases
+      | CMatch of handler_type * tryCatchLemma option * core_lang * (string * core_lang) option * core_handler_ops * constr_cases
       | CResume of core_value list
       | CLambda of string list * disj_spec option * core_lang
 

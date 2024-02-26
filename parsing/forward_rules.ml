@@ -807,7 +807,7 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
       let event = NormalReturn (res_eq (TLambda (lid, params @ [ret], spec_to_use, Some body)), EmptyHeap) in 
       concatenateSpecsWithEvent history [event], env
 
-    | CMatch (match_summary, scr, Some val_case, eff_cases, []) -> (* effects *)
+    | CMatch (typ, match_summary, scr, Some val_case, eff_cases, []) -> (* effects *)
       (* infer specs for branches of the form (Constr param -> spec), which also updates the env with obligations *)
 
       
@@ -875,7 +875,7 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
 
       res, env
 
-    | CMatch (_, discr, None, _, cases) -> (* pattern matching *)
+    | CMatch (_, _, discr, None, _, cases) -> (* pattern matching *)
 
       (* this is quite similar to if-else. generate a disjunct for each branch with variables bound to the result of destructuring *)
       let dsp, env = infer_of_expression env history discr in
@@ -911,7 +911,7 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
           | _ -> failwith (Format.asprintf "unknown constructor: %s" constr)))
       in
       dsp, env
-    | CMatch (_, _, Some _, _, _ :: _) -> 
+    | CMatch (_, _, _, Some _, _, _ :: _) -> 
       (* TODO *)
       failwith "combining effect handlers and pattern matching not yet implemented"
   in

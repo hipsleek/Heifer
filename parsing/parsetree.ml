@@ -301,7 +301,7 @@ and expression_desc =
 
            Invariant: n > 0
          *)
-  | Pexp_match of tryCatchLemma option * expression * case list
+  | Pexp_match of handler_type * tryCatchLemma option * expression * case list
         (* match E0 with P1 -> E1 | ... | Pn -> En *)
   | Pexp_try of expression * case list
         (* try E0 with P1 -> E1 | ... | Pn -> En *)

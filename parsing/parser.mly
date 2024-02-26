@@ -611,6 +611,7 @@ let mk_directive ~loc name arg =
 %token DOWNTO
 %token EFFECT
 %token EXISTS
+%token SHALLOW
 %token ELSE
 %token END
 %token EOF
@@ -2248,10 +2249,12 @@ expr:
         Pexp_fun(l, o, p, $4), $2 }
   | FUN ext_attributes LPAREN TYPE lident_list RPAREN fun_def
       { (mk_newtypes ~loc:$sloc $5 $7).pexp_desc, $2 }
-  | MATCH ext_attributes seq_expr WITH match_cases
-      { Pexp_match(None, $3, $5), $2 }
-  | MATCH ext_attributes seq_expr WITH c=try_catch_lemma match_cases
-      { Pexp_match(c, $3, $6), $2 }
+  | MATCH ext_attributes block=seq_expr WITH c=try_catch_lemma mc=match_cases
+      { Pexp_match(Deep, c, block, mc), $2 }
+
+  | SHALLOW ext_attributes block=seq_expr WITH c=try_catch_lemma mc=match_cases
+      { Pexp_match(Shallow, c, block, mc), $2 }
+
 
       
   | TRY ext_attributes seq_expr WITH match_cases
@@ -2748,6 +2751,8 @@ try_catch_lemma:
   {Some (head_spec, conti, summary)}
 
 | {None }
+
+
 
 
 fn_contract:

@@ -14,15 +14,15 @@ let rec tossNtimeRight n
   =   ex w final; req counter->w; Norm (counter->w+(2^(n+1) -2) /\ (final=1/\acc=true \/ final=0/\acc=false), final)  *) 
 
 let tossHandlerTail counter n 
-(*@ ex w; req counter->w /\ n>=1; Norm (counter->w+((2^(n+1)) -2) ,1) @*)
-= match tossNtimeRight n with 
-
-  (* try-catch lemma defined here *)
-  (*@ try ex r; req n>=0; tossNtimeRight(n,r) 
-      # Norm((acc&&r)=false,0) \/  Norm((acc&&r)=true,1) catch 
-  =  ex w1 r1; req counter->w1; Norm (counter->w1+((2^(n+1)) -2) /\  res=r1/\r1=1/\acc=true , res) 
-  \/ ex w2 r2; req counter->w2; Norm (counter->w2+((2^(n+1)) -2) /\  res=r2/\r2=0/\acc=false, res)  @*) 
-  
+(*@ ex w; req counter->w /\ n>=1; Norm (counter->w+2 /\ n=1 ,1)  \/ 
+    ex w1 r1; req counter->w1 ; ens counter->w1+1;  tossNtimeRight(n-1, r1); 
+    ex w2 r2; req counter->w2 ; ens counter->w2+1; tossNtimeRight(n-1, r2); 
+    Norm(n>1 /\ r1=true, 1) \/
+    ex w1 r1; req counter->w1 ; ens counter->w1+1;  tossNtimeRight(n-1, r1); 
+    ex w2 r2; req counter->w2 ; ens counter->w2+1; tossNtimeRight(n-1, r2); 
+    Norm(n>1 /\ r1=false, 0) 
+@*)
+= shallow-match tossNtimeRight n with 
   | x -> if x 
          then 1 
          else 0     

@@ -430,6 +430,7 @@ let string_of_token =
 | DOWNTO -> "DOWNTO"
 | EFFECT -> "EFFECT"
 | EXISTS -> "EXISTS"
+| SHALLOW -> "SHALLOW"
 | ELSE -> "ELSE"
 | END -> "END"
 | EOF -> "EOF"

@@ -98,7 +98,7 @@ let rec infer_types_core_lang env e =
   | CRead _ -> failwith "CRead"
   | CAssert (_, _) -> failwith "CAssert"
   | CPerform (_, _) -> failwith "CPerform"
-  | CMatch (_, _, _, _, _) -> failwith "CMatch"
+  | CMatch (_, _, _, _, _, _) -> failwith "CMatch"
   | CResume _ -> failwith "CResume"
   | CLambda (_, _, _) ->
     failwith "not implemented"

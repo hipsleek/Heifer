@@ -355,7 +355,7 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
       CLet (v, expr, rest_Expr)
     )
       
-  | Pexp_match (spec, e, cases) ->
+  | Pexp_match (typ, spec, e, cases) ->
     let norm =
       (* may be none for non-effect pattern matches *)
       cases |> List.find_map (fun c ->
@@ -395,7 +395,7 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
           Some (Longident.last constr, args, transformation bound_names c.pc_rhs)
         | _ -> None)
     in
-    CMatch (spec (*SYHTODO*), transformation bound_names e, norm, effs, pattern_cases)
+    CMatch (typ, spec (*SYHTODO*), transformation bound_names e, norm, effs, pattern_cases)
   | _ -> 
     if String.compare (Pprintast.string_of_expression expr) "Obj.clone_continuation k" == 0 then (* ASK Darius*)
     CValue (Var "k")
