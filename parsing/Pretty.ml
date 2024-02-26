@@ -672,3 +672,17 @@ let function_stage_to_disj_spec constr args ret =
   (* [[HigherOrder (True, EmptyHeap, l.l_left, res_v)]] *)
   let v = verifier_getAfreeVar "v" in
   [[Exists [v]; HigherOrder (True, EmptyHeap, (constr, args), Var v); NormalReturn (Atomic (EQ, ret, Var v), EmptyHeap)]]
+
+
+let startingFromALowerCase (label:string) : bool = 
+  let c = label.[0] in 
+  if Char.code c >= 97 then true else false 
+
+
+let retriveFormalArg arg :string = 
+  match arg  with 
+  | Var ret -> ret
+  | _ -> 
+        print_endline (string_of_term arg);
+        failwith "effect return is not var 1"
+

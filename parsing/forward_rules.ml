@@ -168,6 +168,10 @@ let renamingexistientalVar (specs:disj_spec): disj_spec =
       r
   ) specs
 
+let renameSpecAndInstantiate specList bindings = 
+  let specList' = renamingexistientalVar specList in 
+  instantiateSpecList bindings specList'
+
 (** substitutes existentials with fresh variables, and the resulting formula has no quantifiers *)
 let freshen (specs:disj_spec): disj_spec = 
   renamingexistientalVar specs
@@ -335,253 +339,7 @@ let retriveLastRes (a:spec) : term option =
     None
   | Exists _ :: _ -> failwith ("retriveLastRes ending with ex")
 
-(*
-let rec handling_spec_inner env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj_spec)) (h_ops:(string * string option * disj_spec) list) (conti:spec) (formal_ret:string) : spec list * fvenv = 
 
-  let (scr_eff_stages, scr_normal) = scr_spec in 
-  (*print_endline ("scr_spec: " ^ string_of_normalisedStagedSpec scr_spec); 
-  print_endline ("continuation_spec: " ^ string_of_spec conti); 
-  print_endline ("formal_ret: " ^ formal_ret); 
-  *)
-  
-
-  match scr_eff_stages with 
-  | [] -> [normalStage2Spec scr_normal] , env
-  | (TryCatchStage x) :: _xs -> 
-    let trycatch_ret =
-      match x.tc_ret with 
-      | Var ret -> ret
-      | _ -> 
-        print_endline (string_of_term x.tc_ret);
-        failwith "TryCatchStage return is not var"
-    in
-
-    let trycatch_Ex = x.tc_evars in 
-    let trycatch_Pre = x.tc_pre in 
-    let trycatch_Post = x.tc_post in 
-
-    let _norm = (trycatch_Ex, trycatch_Pre, trycatch_Post) in 
-    let (src, (normlCase, effCases)) = x.tc_constr in 
-    print_endline ("\n...........\nbefore try catch \n" ^ string_of_spec src ^ "\n");
-    print_endline ("continuation_spec: " ^ string_of_spec conti); 
-
-
-    let rest, env = handling_spec_inner env (normalize_spec src) normlCase effCases conti trycatch_ret in 
-    print_endline ("after try catch \n" ^ string_of_spec_list rest ^ "\n");
-    rest, env 
-
-  
-
-
-  | (EffHOStage x) :: xs ->
-    (* there is an effect stage x in the scrutinee which may or may not be handled *)
-    let perform_ret =
-      match x.e_ret with 
-      | Var ret -> ret
-      | _ -> 
-        print_endline (string_of_term x.e_ret);
-        failwith "effect return is not var 1"
-    in
-    let performEx = x.e_evars in 
-    let performPre = x.e_pre in 
-    let performPost = x.e_post in 
-
-    let norm = (performEx, performPre, performPost) in 
-
-    let (label, effActualArgs) = x.e_constr
-      (*match  with 
-      | (l, args) -> l, v 
-      | (l, [Var "k" ; v]) -> l, v 
-      | (l, li) -> 
-        print_endline (l^":");
-        failwith "continue return more or less"
-        *)
-    in
-
-    if String.compare label "continue" !=0 then 
-      let rest, env = handling_spec_inner env (xs, scr_normal) h_norm h_ops conti formal_ret in 
-      concatenateEventWithSpecs (effectStage2Spec [EffHOStage x]) (rest), env
-
-    else 
-      match effActualArgs with 
-      | [] | [_] -> failwith "continue statement does not have any arguments"
-      | [Var "k"; effActualArg] -> 
-
-        (*print_endline ("continuation _spec: " ^ string_of_spec conti); *)
-
-        let conti' = instantiateSpec [(formal_ret, effActualArg)] conti in 
-        (*print_endline ("continuation'_spec: " ^ string_of_spec conti'); *)
-
-        let current, env =  handling_spec env (normalize_spec conti') h_norm h_ops in 
-        let current = (normalise_spec_list current) in 
-        
-
-        let rest, env = handling_spec_inner env (xs, scr_normal) h_norm h_ops conti formal_ret in 
-
-        let res = List.map (fun a -> 
-          let rest' =
-            match retriveLastRes a with
-            | None -> rest
-            | Some returnTerm ->
-              instantiateSpecList [(perform_ret, returnTerm)] rest
-          in 
-          concatenateSpecsWithSpec [a] rest'
-        ) current in 
-          
-        let res = concatenateEventWithSpecs (normalStage2Spec norm) (List.flatten res) in 
-
-        res, env
-
-      | _ -> 
-        print_endline ("continuation _spec: " ^ string_of_spec conti); 
-
-        print_endline ((List.map string_of_term effActualArgs |> String.concat " "));
-        [conti], env (*failwith("TODO: inductive hyposisis application") *)
-
-  
-
-
-and handling_spec env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj_spec)) (h_ops:(string * string option * disj_spec) list) : spec list * fvenv = 
-      
-  (*print_endline ("\nhandling_spec " ^ (string_of_spec (normalisedStagedSpec2Spec scr_spec)));
-  *)
-  let@ _ = Debug.span (fun r ->
-    (* Format.asprintf "handling" *)
-    debug ~at:3 ~title:"handling_spec" "match\n  (*@@ %s @@*)\nwith\n| ...\n| ...\n==>\n%s" (string_of_spec (normalisedStagedSpec2Spec scr_spec)) (string_of_result string_of_disj_spec (Option.map fst r))
-    ) in
-  let (scr_eff_stages, scr_normal) = scr_spec in 
-  match scr_eff_stages with 
-  | [] ->
-    (* the scrutinee's effects have been completely handled, so go into the value case *)
-    let (h_val_param, h_val_spec) = h_norm in 
-
-    let current =
-      (* Given match 1 with v -> v | effect ..., replace v with 1 in the value case *)
-      let (_, _, _) = scr_normal in
-
-      let new_res = verifier_getAfreeVar "rez" in
-      (* Format.printf "new_res: %s@."  new_res; *)
-      let h_spec = instantiateSpecList [h_val_param, Var new_res] h_val_spec in
-      (* Format.printf "h_spec: %s@." (string_of_disj_spec h_spec); *)
-
-      (* the heap state present in the scrutinee also carries forward *)
-      let (ex, (p1, h1), (p2, h2)) = scr_normal in
-      let p2 = instantiatePure ["res", Var new_res] p2 in
-      (* Format.printf "p2: %s@." (string_of_pi p2); *)
-      let hist = [[Exists (new_res::ex); Require (p1, h1); NormalReturn (p2, h2)]] in
-
-      let@ _ = Debug.span (fun r ->
-        debug ~at:3 ~title:"handling_spec: completely handled" "match\n  (*@@ %s @@*)\nwith\n| %s -> (*@@ %s *@@)\n| ...\n==>\n%s" (string_of_spec (normalisedStagedSpec2Spec scr_spec)) h_val_param (string_of_disj_spec h_val_spec) (string_of_result string_of_disj_spec r);
-      ) in
-
-      concatenateSpecsWithSpec hist h_spec
-    in
-
-    current, env
-    
-  | (TryCatchStage _) :: _ -> failwith "unhandled"
-  | (EffHOStage x) :: xs ->
-    (* there is an effect stage x in the scrutinee which may or may not be handled *)
-    let perform_ret =
-      match x.e_ret with 
-      | Var ret -> ret
-      | _ -> failwith "effect return is not var 2"
-    in
-    let performEx = x.e_evars in 
-    let performPre = x.e_pre in 
-    let performPost = x.e_post in 
-
-    let norm = (performEx, performPre, performPost) in 
-
-
-(* reflected to be the correct results. *)
-    let (label, effActualArg) = x.e_constr in
-    match lookforHandlingCases h_ops label with 
-    | None ->
-      (
-      match retrieveMatchSummaryFromEnv label env with 
-      | Some (effFormalArg, summary) ->  
-        let summary =  renamingexistientalVar summary in 
- 
-        let bindings = bindFormalNActual (effFormalArg) (effActualArg) in 
-        let summary' = normalise_spec_list (instantiateSpecList bindings summary) in 
-        (*print_endline ("formal " ^ List.fold_left (fun acc a -> acc ^ a ^ ",") "" effFormalArg) ; 
-        print_endline ("actual " ^ List.fold_left (fun acc a -> acc ^ string_of_term a ^ ",") "" effActualArg ^ "\n res=" ^ perform_ret) ; 
-        *)
-        (*print_endline ("\nsummary:" ^ string_of_disj_spec summary) ; 
-        print_endline ("summary':" ^ string_of_disj_spec summary') ; 
-        *)
-
-        let rest, env = handling_spec env (xs, scr_normal) h_norm h_ops in
-
-        let res = List.flatten (List.map (fun a -> 
-          let rest' =
-            match retriveLastRes a with
-            | None -> rest
-            | Some returnTerm -> instantiateSpecList [(perform_ret, returnTerm)] rest
-          in
-          (*print_endline ("rest = " ^ string_of_disj_spec rest); 
-          print_endline ("rest' = " ^ string_of_disj_spec rest');*)
-
-          concatenateSpecsWithSpec [a] rest'
-        ) summary') in 
-
-        
-        let res = concatenateEventWithSpecs (normalStage2Spec norm) res in 
-
-
-        res, env
-
- 
-
-
-      | None ->
-
-        let@ _ = Debug.span (fun r ->
-          debug ~at:3 ~title:(Format.asprintf "handling_spec: unhandled effect %s" label)"%s\n==>\n%s" (string_of_spec (normalisedStagedSpec2Spec scr_spec)) (string_of_result string_of_disj_spec (Option.map fst r));
-        ) in
-
-      (* effect x is unhandled. handle the rest of the trace and append it after the unhandled effect. this assumption is sound for deep handlers, as if x is resumed, xs will be handled under this handler. *)
-        let r, env = handling_spec env (xs, scr_normal) h_norm h_ops in
-        let current = concatenateEventWithSpecs (effectStage2Spec [EffHOStage x]) (r) in
-
-
-        current, env)
-
-    | Some (effFormalArg, handler_body_spec) ->
-      let effFormalArg = match effFormalArg with | None -> [] | Some v -> [v] in
-      (* Format.printf "effActualArg: %s@." (string_of_list string_of_term effActualArg); *)
-      (* Format.printf "effFormalArg: %s@." (string_of_list Fun.id effFormalArg); *)
-      let bindings = bindFormalNActual (effFormalArg) (effActualArg) in 
-      (*print_endline ("binding length " ^ string_of_int (List.length bindings));*)
-      (* effect x is handled by a branch of the form (| (Eff effFormalArg) k -> spec) *)
-      (* TODO we might have to constrain this *)
-
-      (* debug ~at:5 ~title:"before freshen" "%s" (string_of_disj_spec handler_body_spec); *)
-
-      (* freshen, as each instance of the handler body should not interfere with previous ones *)
-      let handler_body_spec = renamingexistientalVar handler_body_spec in
-      let handler_body_spec = instantiateSpecList bindings handler_body_spec in 
-      (* debug ~at:5 ~title:(Format.asprintf "handler_body_spec for effect stage %s" (fst x.e_constr)) "%s" (string_of_disj_spec handler_body_spec); *)
-
-      (*print_endline ("\nhandlering " ^ (string_of_spec (normalisedStagedSpec2Spec scr_spec)));
-      print_endline ("handler_body_spec: " ^ string_of_disj_spec handler_body_spec); *)
-      (* the rest of the trace is now the spec of the continuation *)
-      let continuation_spec = normalisedStagedSpec2Spec (xs, scr_normal) in 
-
-      (*print_endline ("continuation_spec: " ^ string_of_spec continuation_spec);*)
-
-      let raw = List.flatten (List.map (fun a -> 
-        let res, _ = handling_spec_inner env (normalize_spec a) h_norm h_ops continuation_spec perform_ret in 
-        res
-      ) handler_body_spec) in 
-      (*print_endline ("handling : " ^ label ^ " with norm = " ^ string_of_normalisedStagedSpec([], norm)); 
-      *)
-      let raw = concatenateEventWithSpecs (normalStage2Spec norm) raw in 
-      
-      raw, env
-
-*)
 
 let rec flattenList lili = 
   match lili with 
@@ -626,7 +384,7 @@ let instantiateSpecListUponResume (handlingSpec: spec list) (contiInput:string) 
 
 
 
-let rec handling_spec env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj_spec)) (h_ops:(string * string option * disj_spec) list) : spec list * fvenv = 
+let rec handling_spec env (match_summary:tryCatchLemma option) (scr_spec:normalisedStagedSpec) (h_norm:(string * disj_spec)) (h_ops:(string * string option * disj_spec) list) : spec list * fvenv = 
   (*print_endline ("\nhandling_spec " ^ (string_of_spec (normalisedStagedSpec2Spec scr_spec))); *)
   let@ _ = Debug.span (fun r ->
     debug ~at:3 ~title:"handling_spec" "match\n  (*@@ %s @@*)\nwith\n| ...\n| ...\n==>\n%s" (string_of_spec (normalisedStagedSpec2Spec scr_spec)) (string_of_result string_of_disj_spec (Option.map fst r))
@@ -661,31 +419,88 @@ let rec handling_spec env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj
 
   | (TryCatchStage _) :: _ -> failwith "unhandled"
 
-  | (EffHOStage x) :: xs ->
-    let handledContinuation, env = handling_spec env (xs, scr_normal) h_norm h_ops in 
+  | (EffHOStage x) :: xs -> 
+    let handledContinuation, env = handling_spec env match_summary (xs, scr_normal) h_norm h_ops in 
 
     (* there is an effect stage x, which may or may not be handled *)
-    let perform_ret =
-      match x.e_ret with 
-      | Var ret -> ret
-      | _ -> 
-        print_endline (string_of_term x.e_ret);
-        failwith "effect return is not var 1"
-    in
+    let perform_ret = retriveFormalArg x.e_ret in 
     let performEx = x.e_evars in 
     let performPre = x.e_pre in 
     let performPost = x.e_post in 
 
     let norm = (performEx, performPre, performPost) in 
-
+    
     let (label, effActualArg) = x.e_constr in
-    (match lookforHandlingCases h_ops label with 
+
+    if startingFromALowerCase label then 
+      (
+      print_endline ("lower case " ^ label)  ;
+      match match_summary with 
+      | Some (tcl_head, Some tcl_handledCont, tcl_summary) -> 
+        let effFormalArg = 
+          match normalize_spec tcl_head with 
+          | ([(EffHOStage y) ], _) -> 
+            let (label_lemma, effActualArg_lemma) = y.e_constr in
+            if String.compare label_lemma label == 0 then 
+              List.map (fun a -> retriveFormalArg a ) (effActualArg_lemma@[y.e_ret])
+            else failwith (Format.asprintf "lemma does not start with a label %s" label);
+          | _ -> failwith (Format.asprintf "lemma does not start with a HO stage for %s" label);
+
+        in 
+
+        Format.printf "effActualArg: %s@." (string_of_list string_of_term (effActualArg@[x.e_ret])); 
+        Format.printf "effFormalArg: %s@." (string_of_list Fun.id effFormalArg); 
+      
+        let bindings = bindFormalNActual (effFormalArg) (effActualArg@[x.e_ret]) in  
+
+        let instantiate_tcl_handledCont = instantiateSpec bindings tcl_handledCont in 
+        print_endline ("instantiate_tcl_handledCont: " ^  string_of_spec instantiate_tcl_handledCont); 
+        
+        let lemmaRet = retrieve_return_value instantiate_tcl_handledCont in 
+        let contiRets = List.map retrieve_return_value handledContinuation in 
+
+        let newPi = 
+          match contiRets with 
+          | [hd] -> Atomic(EQ, lemmaRet, hd)
+          | _ -> failwith ("not sure how to handle empty contiRets")
+        in 
+        print_endline (string_of_pi newPi); 
+
+        let instantiate_tcl_summary = renameSpecAndInstantiate tcl_summary bindings in
+        let instantiate_tcl_summary = List.map (fun s -> NormalReturn (newPi, EmptyHeap) :: s) instantiate_tcl_summary in 
+        
+
+        print_endline ("instantiate_instantiate_tcl_summary: " ^  string_of_spec_list instantiate_tcl_summary); 
+
+
+        
+
+        print_endline (string_of_try_catch_lemma (tcl_head, Some tcl_handledCont, tcl_summary) ^ "\n");
+        print_endline (string_of_effHOTryCatchStages (EffHOStage x) ^ " # " ^ string_of_spec_list handledContinuation);
+        print_endline ("");
+
+        instantiate_tcl_summary, env
+
+
+      | Some _  -> 
+        failwith (Format.asprintf "lemma without continuation %s" label);
+
+      | None -> 
+        failwith (Format.asprintf "no lemma provided for %s" label);
+
+        (*[normalisedStagedSpec2Spec scr_spec], env *)
+      )
+      
+    else 
+
+    (
+    match lookforHandlingCases h_ops label with 
     | None -> concatenateEventWithSpecs (effectStage2Spec [EffHOStage x]) handledContinuation, env
     | Some (effFormalArg, handler_body_spec) ->
       let effFormalArg = match effFormalArg with | None -> [] | Some v -> [v] in
-      (*Format.printf "effActualArg: %s@." (string_of_list string_of_term effActualArg); 
+      Format.printf "effActualArg: %s@." (string_of_list string_of_term effActualArg); 
       Format.printf "effFormalArg: %s@." (string_of_list Fun.id effFormalArg); 
-      *)
+      
       let bindings = bindFormalNActual (effFormalArg) (effActualArg) in 
       (*print_endline ("binding length " ^ string_of_int (List.length bindings));*)
       (* effect x is handled by a branch of the form (| (Eff effFormalArg) k -> spec) *)
@@ -695,9 +510,9 @@ let rec handling_spec env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj
       let handler_body_spec = renamingexistientalVar handler_body_spec in
       let handler_body_spec = instantiateSpecList bindings handler_body_spec in 
       (* debug ~at:5 ~title:(Format.asprintf "handler_body_spec for effect stage %s" (fst x.e_constr)) "%s" (string_of_disj_spec handler_body_spec); *)
-      (*print_endline ("Effect: " ^label ^ " and handler_body_spec: "  ^ string_of_disj_spec handler_body_spec); *)
+      print_endline ("Effect: " ^label ^ " and handler_body_spec: "  ^ string_of_disj_spec handler_body_spec); 
       (* the rest of the trace is now the spec of the continuation *)
-      (*print_endline ("continuation_spec: " ^ string_of_spec_list handledContinuation);*)
+      print_endline ("continuation_spec: " ^ string_of_spec_list handledContinuation);
       
 
       let handler_body_specAfterSubstituteK = instantiateSpecListUponResume handler_body_spec perform_ret handledContinuation in 
@@ -927,28 +742,9 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
       (* infer specs for branches of the form (Constr param -> spec), which also updates the env with obligations *)
 
       
-      (*print_endline ("CMatch(" ^string_of_core_lang scr ^ "). match_summary = " ^ (match match_summary with | None -> "none" | Some match_summary -> string_of_disj_spec match_summary) );
+      (*print_endline ((match match_summary with | None -> "none" | Some match_summary -> string_of_try_catch_lemma match_summary) );
       *)
       
-      (*let env = 
-        match match_summary with 
-        | Some (summary) -> 
-          let (lable, formalAgrs)  = 
-            match scr with 
-            | CFunCall (str, [Var n]) ->  (str, [n]) 
-            | CFunCall (str, [UNIT]) ->  (str, []) 
-            | CLet(_, CFunCall (str, [Var n]), _) ->  (str, [n]) 
-            | CLet(_, CFunCall (str, [Var n; Var n2]), _) ->  (str, [n;n2]) 
-            | CLet(_, CFunCall (str, [UNIT]), _) ->  (str, []) 
-
-            | _ -> 
-              print_endline (string_of_core_lang scr);
-              failwith "there is no pattern for the matched code "
-          in 
-          { env with fv_match_summary = (lable, formalAgrs , summary) :: env.fv_match_summary } 
-        | None  -> env
-      in 
-      *)
 
       let inferred_branch_specs, env =
         List.fold_right (fun (effname, param, spec, body) (t, env) ->
@@ -961,10 +757,10 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
           (*let sp = normalize_spec sp in *)
           let sp = (normalise_spec_list sp) in 
     
-          (*print_endline ("Inferred_effect_cases_specs: --------- \n" ^ effname  ^  (match param with | None -> " " | Some p -> "("^ p ^ ") ")^ ": " ^ 
+          print_endline ("Inferred_effect_cases_specs: --------- \n" ^ effname  ^  (match param with | None -> " " | Some p -> "("^ p ^ ") ")^ ": " ^ 
           string_of_disj_spec sp
           );   
-          *)
+          
           
           (effname, param, sp) :: t, env
         ) eff_cases ([], env)
@@ -974,31 +770,33 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
         let (param, body)  = val_case in
         let inf_val_spec, env = infer_of_expression env [[]] body in
 
-        (*print_endline ("Inferred_nromal_clause_spec: --------- \n" ^  (match param with | p -> p ^ "")^ ": " ^ 
-        string_of_disj_spec (normalise_spec_list inf_val_spec));  *)
+        print_endline ("Inferred_nromal_clause_spec: --------- \n" ^  (match param with | p -> p ^ "")^ ": " ^ 
+        string_of_disj_spec (normalise_spec_list inf_val_spec));  
 
         (param, inf_val_spec), env
       in
       (* for each disjunct of the scrutinee's behaviour, reason using the handler *)
       let phi1, env = infer_of_expression env [freshNormalReturnSpec] scr in 
 
-      (*print_endline ("\nSpec of the try block: " ^ string_of_disj_spec phi1 ^ "\n\n"); *)
+      print_endline ("\nSpec of the try block: " ^ string_of_disj_spec phi1 ^ "\n\n"); 
+
+
 
       let afterHandling, env =
         (*print_endline ("Handling at handler:  "); *)
         concat_map_state env (fun spec env -> 
           let spec_n = (normalize_spec spec) in 
           (*print_endline (string_of_normalisedStagedSpec  spec_n ^ "\n\n");   *)
-          handling_spec env spec_n inferred_val_case inferred_branch_specs
+          handling_spec env match_summary spec_n inferred_val_case inferred_branch_specs
         ) phi1
       in 
 
-      (*print_endline ("\nAfter afterHandling at handler: \n" ^ string_of_disj_spec afterHandling ^ "\n\n");  
-      *)
-
+      print_endline ("\nAfter afterHandling at handler: \n" ^ string_of_disj_spec afterHandling ^ "\n\n");  
       
 
       let res, env = concatenateSpecsWithSpec history afterHandling, env in
+
+
       res, env
 
     | CMatch (_, discr, None, _, cases) -> (* pattern matching *)
