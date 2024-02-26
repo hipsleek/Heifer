@@ -11,22 +11,31 @@ let rec sumEff n
     let r = perform (Inc n) in 
     r + sumEff(n-1)
 
-(*
-  TRY ex res; sumEff(n,res) # ex r' acc'; Norm(acc'=acc+res, acc') CATCH  === 
-  ex r w; req i->w; Norm (i->w+(n*.(n-1)/2), n+acc)
-*) 
 
 let handler n 
 (*@ req n>=0; ex i; Norm(i->(n*.(n-1)/2) , n) @*)
 = let i = ref 0 in 
   match sumEff n with 
+  (* try-catch lemma defined here *)
   (*@ try ex r; req n>=0; sumEff(n,r) # Norm(emp,acc+r) catch 
   =   ex w; req i->w; Norm (i->w+(n*.(n-1)/2), n+acc)  @*) 
   | v ->  v
-  | effect (Inc v) k -> i := !i + v -1; continue k 1
+  | effect (Inc v) k -> 
+    i := !i + v -1; 
+    continue k 1
 
 
-let test () 
+    
+let test1 () 
 (*@ ex i; Norm(i-> 10 /\ res=5, res) @*)
 = handler 5
 
+
+let test2 () 
+(*@ ex i; Norm(i-> 45 /\ res=10, res) @*)
+= handler 10
+
+
+let test3 () 
+(*@ ex i; Norm(i-> 4950 /\ res=100, res) @*)
+= handler 100
