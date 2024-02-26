@@ -168,9 +168,15 @@ let renamingexistientalVar (specs:disj_spec): disj_spec =
       r
   ) specs
 
-let renameSpecAndInstantiate specList bindings = 
+let renameSpecListAndInstantiate specList bindings = 
   let specList' = renamingexistientalVar specList in 
   instantiateSpecList bindings specList'
+
+let renameSpecAndInstantiate spec bindings = 
+  let specList' = renamingexistientalVar [spec] in 
+  match specList' with 
+  | hd::_ -> instantiateSpec bindings hd 
+  | _ -> failwith ("error renameSpecAndInstantiate")
 
 (** substitutes existentials with fresh variables, and the resulting formula has no quantifiers *)
 let freshen (specs:disj_spec): disj_spec = 
@@ -355,7 +361,7 @@ let cartesian_product li1 li2 =
 
 
 let instantiateSpecListUponResume (handlingSpec: spec list) (contiInput:string) (continuation: spec list) : spec list = 
-  print_endline ("contiInput = " ^ contiInput  ); 
+  (*print_endline ("contiInput = " ^ contiInput  );  *)
   let rec helper (handlingSpecIn:spec) (continuationIn:spec list) : spec list =
     match handlingSpecIn with 
     | [] -> [[]] 
@@ -363,8 +369,10 @@ let instantiateSpecListUponResume (handlingSpec: spec list) (contiInput:string) 
       let x = (p', h', (f', hd'::actual::rest), r') in  (* hd' is k, and we assume there is only one argument for effects *)
       if String.compare f' "continue" == 0 
       then 
-        let instantiations =  (normalise_spec_list (instantiateSpecList [(contiInput, actual)] continuationIn)) in 
-        print_endline ("instantiation_continuationIn: " ^ string_of_spec_list instantiations);
+        let instantiations =  normalise_spec_list ( (renameSpecListAndInstantiate continuationIn [(contiInput, actual)])) in 
+          (*(normalise_spec_list (instantiateSpecList [(contiInput, actual)] )) in *)
+        (*print_endline ("instantiation_continuationIn: " ^ string_of_spec_list instantiations);
+        *)
 
         List.map (fun instantiation -> 
           let contiRet = retrieve_return_value instantiation in 
@@ -372,7 +380,7 @@ let instantiateSpecListUponResume (handlingSpec: spec list) (contiInput:string) 
           let instantiation = instantiateSpec ["res", contiRet] instantiation in 
 
           let newPi=  And (p', Atomic(EQ, contiRet, r' ) ) in
-          print_endline (string_of_pi newPi); 
+          (*print_endline (string_of_pi newPi);  *)
 
           let (prefix:spec) = NormalReturn (newPi, h') :: instantiation in 
 
@@ -391,7 +399,15 @@ let instantiateSpecListUponResume (handlingSpec: spec list) (contiInput:string) 
   
   in 
 
-  List.flatten (List.map (fun (h_spec) -> helper h_spec continuation) handlingSpec) 
+  List.flatten (List.map (fun (h_spec) -> 
+    let temp = 
+    helper h_spec continuation in 
+    (*print_endline ("!!!!!!!!" ^ string_of_spec h_spec  ^ " \nand conti = " ^ string_of_spec_list continuation);
+    print_endline ("= " ^ string_of_spec_list temp);
+    *)
+    temp
+    
+    ) handlingSpec) 
 
 
 let findTheActualArg4AccTerm arg (term:term): term option =
@@ -487,14 +503,15 @@ let rec handling_spec env (match_summary:tryCatchLemma option) (scr_spec:normali
 
     if startingFromALowerCase label then 
       (
-      print_endline ("lower case " ^ label)  ;
+      (*print_endline ("lower case " ^ label)  ; *)
 
 
       match match_summary with 
-      | Some (tcl_head, Some tcl_handledCont, tcl_summary) -> 
-      print_endline (string_of_try_catch_lemma (tcl_head, Some tcl_handledCont, tcl_summary) ^ "\n");
+      | Some (tcl_head, Some _, tcl_summary) -> 
+      (*print_endline (string_of_try_catch_lemma (tcl_head, Some tcl_handledCont, tcl_summary) ^ "\n");
       print_endline (string_of_effHOTryCatchStages (EffHOStage x) ^ " # " ^ string_of_spec_list handledContinuation);
       print_endline ("");
+      *)
         let effFormalArg = 
           match normalize_spec tcl_head with 
           | ([(EffHOStage y) ], _) -> 
@@ -506,27 +523,28 @@ let rec handling_spec env (match_summary:tryCatchLemma option) (scr_spec:normali
 
         in 
 
-        Format.printf "effActualArg: %s@." (string_of_list string_of_term (effActualArg@[x.e_ret])); 
+        (*Format.printf "effActualArg: %s@." (string_of_list string_of_term (effActualArg@[x.e_ret])); 
         Format.printf "effFormalArg: %s@." (string_of_list Fun.id effFormalArg); 
-      
+      *)
         let bindings = bindFormalNActual (effFormalArg) (effActualArg@[x.e_ret]) in  
 
-        let instantiate_tcl_handledCont = instantiateSpecList bindings tcl_handledCont in 
-        print_endline ("instantiate_tcl_handledCont: " ^  string_of_spec_list instantiate_tcl_handledCont); 
-        
+
         let contiRet = findTheActualArg4Acc_x_e_ret x.e_ret handledContinuation in 
 
+        (*
         print_endline ("continuation_spec: " ^ string_of_spec_list handledContinuation);
-
-        let newPi = Atomic(EQ, contiRet, Var "acc") in 
+*)
+        (*let newPi = Atomic(EQ, contiRet, Var "acc") in 
         print_endline (string_of_pi newPi); 
+        *)
 
-        let instantiate_tcl_summary = renameSpecAndInstantiate tcl_summary bindings in
-        let instantiate_tcl_summary = List.map (fun s -> NormalReturn (newPi, EmptyHeap) :: s) instantiate_tcl_summary in 
+        let instantiate_tcl_summary = renameSpecListAndInstantiate tcl_summary (("acc", contiRet)::bindings) in
+        let instantiate_tcl_summary = normalise_spec_list instantiate_tcl_summary in 
         
 
+        (*
         print_endline ("instantiate_instantiate_tcl_summary: " ^  string_of_spec_list instantiate_tcl_summary ^"\n"); 
-
+*)
 
         instantiate_tcl_summary, env
 
@@ -546,9 +564,9 @@ let rec handling_spec env (match_summary:tryCatchLemma option) (scr_spec:normali
     | None -> concatenateEventWithSpecs (effectStage2Spec [EffHOStage x]) handledContinuation, env
     | Some (effFormalArg, handler_body_spec) ->
       let effFormalArg = match effFormalArg with | None -> [] | Some v -> [v] in
-      Format.printf "effActualArg: %s@." (string_of_list string_of_term effActualArg); 
+      (*Format.printf "effActualArg: %s@." (string_of_list string_of_term effActualArg); 
       Format.printf "effFormalArg: %s@." (string_of_list Fun.id effFormalArg); 
-      
+      *)
       let bindings = bindFormalNActual (effFormalArg) (effActualArg) in 
       (*print_endline ("binding length " ^ string_of_int (List.length bindings));*)
       (* effect x is handled by a branch of the form (| (Eff effFormalArg) k -> spec) *)
@@ -558,13 +576,15 @@ let rec handling_spec env (match_summary:tryCatchLemma option) (scr_spec:normali
       let handler_body_spec = renamingexistientalVar handler_body_spec in
       let handler_body_spec = instantiateSpecList bindings handler_body_spec in 
       (* debug ~at:5 ~title:(Format.asprintf "handler_body_spec for effect stage %s" (fst x.e_constr)) "%s" (string_of_disj_spec handler_body_spec); *)
-      print_endline ("Effect: " ^label ^ " and handler_body_spec: "  ^ string_of_disj_spec handler_body_spec); 
+      (*print_endline ("Effect: " ^label ^ " and handler_body_spec: "  ^ string_of_disj_spec handler_body_spec); 
       (* the rest of the trace is now the spec of the continuation *)
       print_endline ("continuation_spec: " ^ string_of_spec_list handledContinuation);
-      
+      *)
 
       let handler_body_specAfterSubstituteK = instantiateSpecListUponResume handler_body_spec perform_ret handledContinuation in 
+      (*
       print_endline ("handler_body_specAfterSubstituteK: " ^ string_of_spec_list handler_body_specAfterSubstituteK);
+      *)
       let res = concatenateEventWithSpecs  (normalStage2Spec norm) handler_body_specAfterSubstituteK in 
       res, env
     )
@@ -804,9 +824,10 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
           (*let sp = normalize_spec sp in *)
           let sp = (normalise_spec_list sp) in 
     
-          print_endline ("Inferred_effect_cases_specs: --------- \n" ^ effname  ^  (match param with | None -> " " | Some p -> "("^ p ^ ") ")^ ": " ^ 
+          (*print_endline ("Inferred_effect_cases_specs: --------- \n" ^ effname  ^  (match param with | None -> " " | Some p -> "("^ p ^ ") ")^ ": " ^ 
           string_of_disj_spec sp
-          );   
+          ); 
+          *)  
           
           
           (effname, param, sp) :: t, env
@@ -817,8 +838,9 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
         let (param, body)  = val_case in
         let inf_val_spec, env = infer_of_expression env [[]] body in
 
-        print_endline ("Inferred_nromal_clause_spec: --------- \n" ^  (match param with | p -> p ^ "")^ ": " ^ 
+        (*print_endline ("Inferred_nromal_clause_spec: --------- \n" ^  (match param with | p -> p ^ "")^ ": " ^ 
         string_of_disj_spec (normalise_spec_list inf_val_spec));  
+        *)
 
         (param, inf_val_spec), env
       in
@@ -830,21 +852,21 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
       in 
       *)
 
-      print_endline ("\nSpec of the try block: " ^ string_of_disj_spec phi1 ^ "\n\n"); 
-
+      (*print_endline ("\nSpec of the try block: " ^ string_of_disj_spec phi1 ^ "\n\n"); 
+*)
 
       let afterHandling, env =
         concat_map_state env (fun spec env -> 
           let spec_n = (normalize_spec spec) in 
           let temp = handling_spec env match_summary spec_n inferred_val_case inferred_branch_specs in 
-          print_endline ("-------------------");
+          (*print_endline ("-------------------"); *)
           temp
         ) phi1
       in 
 
 
-      print_endline ("\nAfter afterHandling at handler: \n" ^ string_of_disj_spec afterHandling ^ "\n\n");  
-      
+      (*print_endline ("\nAfter afterHandling at handler: \n" ^ string_of_disj_spec afterHandling ^ "\n\n");  
+      *)
 
       let res, env = concatenateSpecsWithSpec history afterHandling, env in
 

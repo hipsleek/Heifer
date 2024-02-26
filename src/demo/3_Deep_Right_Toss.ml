@@ -11,7 +11,7 @@ let rec tossNtimeTail n
     in r1 && r2
 
 (* try ex r; req n>=0; tossNtimeTail(n,r) #  Norm((acc&&r)=false,0) \/ Norm((acc&&r)=true,1) catch 
-  =   ex w final; req i->w; Norm (i->w+(2^(n+1) -2) /\ (final=1/\acc=true \/ final=0/\acc=false), final)  *) 
+  =   ex w final; req counter->w; Norm (counter->w+(2^(n+1) -2) /\ (final=1/\acc=true \/ final=0/\acc=false), final)  *) 
 
 let tossHandlerTail counter n 
 (*@ ex w; req counter->w /\ n>=1; Norm (counter->w+((2^(n+1)) -2) ,1) @*)
@@ -20,8 +20,8 @@ let tossHandlerTail counter n
   (* try-catch lemma defined here *)
   (*@ try ex r; req n>=0; tossNtimeTail(n,r) 
       # Norm((acc&&r)=false,0) \/  Norm((acc&&r)=true,1) catch 
-  =  ex w1 r1; req i->w1; Norm (i->w1+((2^(n+1)) -2) /\  res=r1/\r1=1/\acc=true , res) 
-  \/ ex w2 r2; req i->w2; Norm (i->w2+((2^(n+1)) -2) /\  res=r2/\r2=0/\acc=false, res)  @*) 
+  =  ex w1 r1; req counter->w1; Norm (counter->w1+((2^(n+1)) -2) /\  res=r1/\r1=1/\acc=true , res) 
+  \/ ex w2 r2; req counter->w2; Norm (counter->w2+((2^(n+1)) -2) /\  res=r2/\r2=0/\acc=false, res)  @*) 
   
   | x -> if x 
          then 1 
