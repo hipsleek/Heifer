@@ -317,6 +317,13 @@ type lemma = {
   l_right: spec; (* could also be disj_spec but not needed *)
 }
 
+type lambda_obligation = {
+  lo_name: string;
+  lo_preds: pred_def SMap.t;
+  lo_left: disj_spec;
+  lo_right: disj_spec;
+}
+
 type core_program = {
   cp_effs: string list;
   cp_predicates: pred_def SMap.t;

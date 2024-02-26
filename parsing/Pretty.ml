@@ -542,6 +542,10 @@ let string_of_meth_def m =
 let string_of_program (cp:core_program) :string =
   List.map string_of_meth_def cp.cp_methods |> String.concat "\n\n"
 
+let string_of_lambda_obl (o:lambda_obligation) :string =
+  Format.asprintf "%s:\n%s\n|-\n%s\n<:\n%s"
+  o.lo_name (string_of_smap string_of_pred o.lo_preds) (string_of_disj_spec o.lo_left) (string_of_disj_spec o.lo_right)
+
 let string_of_obl (d:(disj_spec * disj_spec)) :string =
   (string_of_pair string_of_disj_spec string_of_disj_spec) d
 
@@ -583,18 +587,24 @@ let get_res_value p =
   let _rest, eqs = split_res p in
   match eqs with
   | [Atomic (EQ, Var "res", t)]
-  | [Atomic (EQ, t, Var "res")] -> t
+  | [Atomic (EQ, t, Var "res")] -> Some t
   | [Atomic (_, _, _)] ->
-    failwith (Format.asprintf "not an equality on res: %s" (string_of_pi p))
+    (* failwith (Format.asprintf "not an equality on res: %s" (string_of_pi p)) *)
+    None
   | [] ->
-    failwith (Format.asprintf "no mention of res: %s" (string_of_pi p))
+    (* failwith (Format.asprintf "no mention of res: %s" (string_of_pi p)) *)
+    None
   | _ ->
-    failwith (Format.asprintf "many possible res values: %s" (string_of_pi p))
+    (* failwith (Format.asprintf "many possible res values: %s" (string_of_pi p)) *)
+    None
+
+let get_res_value_exn p =
+  get_res_value p |> Option.get
 
 let is_just_res_of pi t =
-  try
-    (get_res_value pi) = t
-  with _ -> false
+  match get_res_value pi with
+  | None -> false
+  | Some r -> r = t
 
 let lambda_to_pred_def name t =
   match t with
@@ -659,3 +669,4 @@ let function_stage_to_disj_spec constr args ret =
   (* [[HigherOrder (True, EmptyHeap, l.l_left, res_v)]] *)
   let v = verifier_getAfreeVar "v" in
   [[Exists [v]; HigherOrder (True, EmptyHeap, (constr, args), Var v); NormalReturn (Atomic (EQ, ret, Var v), EmptyHeap)]]
+

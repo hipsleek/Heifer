@@ -59,6 +59,13 @@ module SMap = struct
 
   let merge_disjoint a b = merge disjoint_or_fail a b
 
+  let merge_right_priority a b =
+    merge (fun _k x y ->
+      match x, y with
+      | None, Some z | Some z, None -> Some z
+      | None, None -> None
+      | Some _, Some z -> Some z) a b
+
   let merge_all_disjoint xs =
     List.fold_right merge_disjoint xs empty
 

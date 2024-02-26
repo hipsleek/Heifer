@@ -799,6 +799,12 @@ and check_obligation name params lemmas predicates (l, r) =
 let check_obligation_ name params lemmas predicates sub =
   check_obligation name params lemmas predicates sub |> ignore
 
+let check_lambda_obligation_ name params lemmas predicates obl =
+  let preds =
+    SMap.merge_right_priority predicates obl.lo_preds
+  in
+  check_obligation_ name params lemmas preds (obl.lo_left, obl.lo_right)
+
 let infer_and_check_method prog meth given_spec =
   let exception Ret of disj_spec * normalisedStagedSpec list option *
     disj_spec option * normalisedStagedSpec list option * bool
@@ -838,7 +844,7 @@ let infer_and_check_method prog meth given_spec =
       inf, preds_with_lambdas, env
     in
     (* check misc obligations. don't stop on failure for now *)
-    fvenv.fv_lambda_obl |> List.iter (check_obligation_ meth.m_name meth.m_params prog.cp_lemmas predicates);
+    fvenv.fv_lambda_obl |> List.iter (check_lambda_obligation_ meth.m_name meth.m_params prog.cp_lemmas predicates);
     fvenv.fv_match_obl |> List.iter (check_obligation_ meth.m_name meth.m_params prog.cp_lemmas predicates);
 
     (* check the main spec *)
