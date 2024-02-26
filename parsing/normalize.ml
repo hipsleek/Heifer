@@ -91,11 +91,18 @@ let simplify_pure (p : pi) : pi =
   let rec once p =
     match p with
     | Not (Atomic (EQ, a, TTrue)) -> (Atomic (EQ, a, TFalse), true)
+    | (Atomic (EQ, Var "res", Var "res")) -> (True, true)
     | (Atomic (EQ, TAnd(TTrue, TTrue), TTrue)) -> (True, true)
     | (Atomic (EQ, TAnd(TFalse, TTrue), TFalse)) -> (True, true)
     | (Atomic (EQ, t1, Plus(Num n1, Num n2))) -> (Atomic (EQ, t1, Num (n1+n2)), true)
 
-    | Atomic (EQ, a, b) when a = b -> (True, true)
+    (*| Atomic (EQ, a, b) when a = b -> (True, true)
+    | Atomic (EQ, TAnd (_, TFalse), b)
+    | Atomic (EQ, TAnd (TFalse, _), b) -> Atomic (EQ, TFalse, b), true
+    | Atomic (EQ, TAnd (a, TTrue), b)
+    | Atomic (EQ, TAnd (TTrue, a), b) -> Atomic (EQ, a, b), true
+    *)
+
     | True | False | Atomic _ | Predicate _ | Subsumption _ -> (p, false)
     | And (True, a) | And (a, True) -> (a, true)
     | And (a, b) ->

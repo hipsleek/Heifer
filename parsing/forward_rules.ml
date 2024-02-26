@@ -453,7 +453,7 @@ let findTheActualArg4Acc_x_e_ret (arg:term) (specs:disj_spec): term =
   
   | _ -> failwith ("findTheTermAssocatiedWith_x_e_ret empty spec")
 
-let rec handling_spec env (match_summary:tryCatchLemma option) (scr_spec:normalisedStagedSpec) (h_norm:(string * disj_spec)) (h_ops:(string * string option * disj_spec) list) : spec list * fvenv = 
+let rec handling_spec typ env (match_summary:tryCatchLemma option) (scr_spec:normalisedStagedSpec) (h_norm:(string * disj_spec)) (h_ops:(string * string option * disj_spec) list) : spec list * fvenv = 
   print_endline ("\nhandling_spec " ^ (string_of_spec (normalisedStagedSpec2Spec scr_spec))); 
   let@ _ = Debug.span (fun r ->
     debug ~at:3 ~title:"handling_spec" "match\n  (*@@ %s @@*)\nwith\n| ...\n| ...\n==>\n%s" (string_of_spec (normalisedStagedSpec2Spec scr_spec)) (string_of_result string_of_disj_spec (Option.map fst r))
@@ -489,7 +489,19 @@ let rec handling_spec env (match_summary:tryCatchLemma option) (scr_spec:normali
   | (TryCatchStage _) :: _ -> failwith "unhandled"
 
   | (EffHOStage x) :: xs -> 
-    let handledContinuation, env = handling_spec env match_summary (xs, scr_normal) h_norm h_ops in 
+    let (label, effActualArg) = x.e_constr in
+
+    let handledContinuation, env = 
+      match typ with 
+      | Shallow -> 
+        if String.compare label "Flip" == 0 then 
+          let normalCase, env = handling_spec Shallow env match_summary ([], scr_normal) h_norm h_ops in 
+          let prefix = effectStage2Spec xs in 
+          List.map (fun a -> prefix @ a ) normalCase , env
+        else 
+          [normalisedStagedSpec2Spec (xs, scr_normal)] , env
+      | Deep -> handling_spec Deep env match_summary (xs, scr_normal) h_norm h_ops 
+    in 
     let handledContinuation = normalise_spec_list handledContinuation in 
     print_endline ("handledContinuation: " ^ string_of_spec_list handledContinuation);
 
@@ -503,7 +515,6 @@ let rec handling_spec env (match_summary:tryCatchLemma option) (scr_spec:normali
 
     let norm = (performEx, performPre, performPost) in 
     
-    let (label, effActualArg) = x.e_constr in
 
     if startingFromALowerCase label then 
       (
@@ -528,9 +539,9 @@ let rec handling_spec env (match_summary:tryCatchLemma option) (scr_spec:normali
 
         in 
 
-        (*Format.printf "effActualArg: %s@." (string_of_list string_of_term (effActualArg@[x.e_ret])); 
+        Format.printf "effActualArg: %s@." (string_of_list string_of_term (effActualArg@[x.e_ret])); 
         Format.printf "effFormalArg: %s@." (string_of_list Fun.id effFormalArg); 
-      *)
+      
         let bindings = bindFormalNActual (effFormalArg) (effActualArg@[x.e_ret]) in  
 
 
@@ -584,9 +595,9 @@ let rec handling_spec env (match_summary:tryCatchLemma option) (scr_spec:normali
       *)
 
       let handler_body_specAfterSubstituteK = instantiateSpecListUponResume handler_body_spec perform_ret handledContinuation in 
-      (*
+      
       print_endline ("handler_body_specAfterSubstituteK: " ^ string_of_spec_list handler_body_specAfterSubstituteK);
-      *)
+      
       let res = concatenateEventWithSpecs  (normalStage2Spec norm) handler_body_specAfterSubstituteK in 
       res, env
     )
@@ -812,7 +823,7 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
       (* infer specs for branches of the form (Constr param -> spec), which also updates the env with obligations *)
 
       
-      print_endline (string_of_handler_type typ);
+      print_endline (string_of_handler_type typ); 
       
 
       let inferred_branch_specs, env =
@@ -850,30 +861,24 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
       let phi1, env = infer_of_expression env [freshNormalReturnSpec] scr in 
       (*let phi1 = 
         match phi1 with 
-        | hd::_ -> [hd]
+        | _::hd::_ -> [hd]
       in 
       *)
+      
 
-      (*print_endline ("\nSpec of the try block: " ^ string_of_disj_spec phi1 ^ "\n\n"); 
-*)
-      (match typ with 
-      | Shallow -> 
-        failwith ("shallow handler")
-        
-      | Deep -> 
-        let afterHandling, env =
-          concat_map_state env (fun spec env -> 
-            let spec_n = (normalize_spec spec) in 
-            let temp = handling_spec env match_summary spec_n inferred_val_case inferred_branch_specs in 
-            (*print_endline ("-------------------"); *)
-            temp
-          ) phi1
-        in 
-        (*print_endline ("\nAfter afterHandling at handler: \n" ^ string_of_disj_spec afterHandling ^ "\n\n");  
-        *)
-        concatenateSpecsWithSpec history afterHandling, env 
-      )
+      print_endline ("\nSpec of the try block: " ^ string_of_disj_spec phi1 ^ "\n\n"); 
 
+      let afterHandling, env =
+        concat_map_state env (fun spec env -> 
+          let spec_n = (normalize_spec spec) in 
+          let temp = handling_spec typ env match_summary spec_n inferred_val_case inferred_branch_specs in 
+          (*print_endline ("-------------------"); *)
+          temp
+        ) phi1
+      in 
+      (*print_endline ("\nAfter afterHandling at handler: \n" ^ string_of_disj_spec afterHandling ^ "\n\n");  
+      *)
+      concatenateSpecsWithSpec history afterHandling, env 
       
 
     | CMatch (_, _, discr, None, _, cases) -> (* pattern matching *)
