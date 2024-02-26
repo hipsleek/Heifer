@@ -454,7 +454,7 @@ let findTheActualArg4Acc_x_e_ret (arg:term) (specs:disj_spec): term =
   | _ -> failwith ("findTheTermAssocatiedWith_x_e_ret empty spec")
 
 let rec handling_spec env (match_summary:tryCatchLemma option) (scr_spec:normalisedStagedSpec) (h_norm:(string * disj_spec)) (h_ops:(string * string option * disj_spec) list) : spec list * fvenv = 
-  (*print_endline ("\nhandling_spec " ^ (string_of_spec (normalisedStagedSpec2Spec scr_spec))); *)
+  print_endline ("\nhandling_spec " ^ (string_of_spec (normalisedStagedSpec2Spec scr_spec))); 
   let@ _ = Debug.span (fun r ->
     debug ~at:3 ~title:"handling_spec" "match\n  (*@@ %s @@*)\nwith\n| ...\n| ...\n==>\n%s" (string_of_spec (normalisedStagedSpec2Spec scr_spec)) (string_of_result string_of_disj_spec (Option.map fst r))
     ) in
@@ -490,6 +490,10 @@ let rec handling_spec env (match_summary:tryCatchLemma option) (scr_spec:normali
 
   | (EffHOStage x) :: xs -> 
     let handledContinuation, env = handling_spec env match_summary (xs, scr_normal) h_norm h_ops in 
+    let handledContinuation = normalise_spec_list handledContinuation in 
+    print_endline ("handledContinuation: " ^ string_of_spec_list handledContinuation);
+
+
 
     (* there is an effect stage x, which may or may not be handled *)
     let perform_ret = retriveFormalArg x.e_ret in 
@@ -503,15 +507,16 @@ let rec handling_spec env (match_summary:tryCatchLemma option) (scr_spec:normali
 
     if startingFromALowerCase label then 
       (
-      (*print_endline ("lower case " ^ label)  ; *)
+      print_endline ("lower case " ^ label)  ; 
 
 
       match match_summary with 
-      | Some (tcl_head, Some _, tcl_summary) -> 
-      (*print_endline (string_of_try_catch_lemma (tcl_head, Some tcl_handledCont, tcl_summary) ^ "\n");
+      | Some (tcl_head, Some tcl_handledCont, tcl_summary) -> 
+      print_endline (string_of_try_catch_lemma (tcl_head, Some tcl_handledCont, tcl_summary) ^ "\n");
       print_endline (string_of_effHOTryCatchStages (EffHOStage x) ^ " # " ^ string_of_spec_list handledContinuation);
+
       print_endline ("");
-      *)
+      
         let effFormalArg = 
           match normalize_spec tcl_head with 
           | ([(EffHOStage y) ], _) -> 
@@ -531,20 +536,17 @@ let rec handling_spec env (match_summary:tryCatchLemma option) (scr_spec:normali
 
         let contiRet = findTheActualArg4Acc_x_e_ret x.e_ret handledContinuation in 
 
-        (*
-        print_endline ("continuation_spec: " ^ string_of_spec_list handledContinuation);
-*)
-        (*let newPi = Atomic(EQ, contiRet, Var "acc") in 
-        print_endline (string_of_pi newPi); 
-        *)
+        
 
-        let instantiate_tcl_summary = renameSpecListAndInstantiate tcl_summary (("acc", contiRet)::bindings) in
+
+        (* SYH: here hard coded the instantiation for m and acc for the purpose of the toss example. *)
+        let instantiate_tcl_summary = renameSpecListAndInstantiate tcl_summary (("m", Num 2)::("acc", contiRet)::bindings) in
         let instantiate_tcl_summary = normalise_spec_list instantiate_tcl_summary in 
         
 
-        (*
+        
         print_endline ("instantiate_instantiate_tcl_summary: " ^  string_of_spec_list instantiate_tcl_summary ^"\n"); 
-*)
+
 
         instantiate_tcl_summary, env
 

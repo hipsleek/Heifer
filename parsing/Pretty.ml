@@ -169,7 +169,7 @@ let string_of_constr_call n args =
 
 let rec string_of_term t : string =
   match t with
-  | Num i -> string_of_int i
+  | Num i -> if i >=0 then string_of_int i else  "(" ^string_of_int i^ ")"
   | UNIT -> "()"
   | Nil -> "[]"
   | TCons (a, b) -> Format.asprintf "%s::%s" (string_of_term a) (string_of_term b)

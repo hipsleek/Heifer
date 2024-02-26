@@ -25,7 +25,9 @@ let rec simplify_term t : term  =
   | TNot a -> TNot (simplify_term a)
   | Rel (op, a, b) -> Rel (op, simplify_term a, simplify_term b)
   | Plus (Minus(t, Num n1), Num n2) -> 
-    if n1 == n2 then t else if n1>= n2 then Minus(t, Num (n1-n2)) else Plus(t, Num (n1-n2))
+    if n1 == n2 then t 
+    else if n1>= n2 then Minus(t, Num (n1-n2)) 
+    else Plus(t, Num (n2-n1))
 
 
   | Minus (Minus(t, Num n1), Num n2) -> Minus(t, Num (n1+n2))
