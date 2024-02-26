@@ -49,7 +49,7 @@ let keyword_table =
     "downto", DOWNTO;
     "effect", EFFECT;
     "ex", EXISTS;
-    "shallow-match", SHALLOW;
+    "shallow", SHALLOW;
     "else", ELSE;
     "end", END;
     "exception", EXCEPTION;

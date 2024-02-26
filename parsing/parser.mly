@@ -2249,11 +2249,10 @@ expr:
         Pexp_fun(l, o, p, $4), $2 }
   | FUN ext_attributes LPAREN TYPE lident_list RPAREN fun_def
       { (mk_newtypes ~loc:$sloc $5 $7).pexp_desc, $2 }
-  | MATCH ext_attributes block=seq_expr WITH c=try_catch_lemma mc=match_cases
-      { Pexp_match(Deep, c, block, mc), $2 }
+  | MATCH ext_attributes block=seq_expr WITH c=type_try_catch_lemma mc=match_cases
+      { let typ, lemma = c in 
+        Pexp_match(typ, lemma, block, mc), $2 }
 
-  | SHALLOW ext_attributes block=seq_expr WITH c=try_catch_lemma mc=match_cases
-      { Pexp_match(Shallow, c, block, mc), $2 }
 
 
       
@@ -2744,13 +2743,20 @@ option_conti_sharp :
 | HASH conti= disj_effect_spec {Some conti }
 | {None }
 
-try_catch_lemma: 
-| LSPECCOMMENT TRY head_spec= effect_spec conti=option_conti_sharp EFFCATCH EQUAL 
-  summary = disj_effect_spec
-  RSPECCOMMENT 
-  {Some (head_spec, conti, summary)}
 
-| {None }
+
+handler_type:
+| SHALLOW {Shallow}
+| {Deep}
+
+type_try_catch_lemma:
+| LSPECCOMMENT ht=handler_type RSPECCOMMENT
+{ht, None}
+| LSPECCOMMENT ht=handler_type TRY head_spec= effect_spec conti=option_conti_sharp EFFCATCH EQUAL 
+  summary = disj_effect_spec
+   RSPECCOMMENT
+  {(ht, Some (head_spec, conti, summary))}
+| {(Deep, None)}
 
 
 

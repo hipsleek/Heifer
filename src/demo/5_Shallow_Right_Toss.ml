@@ -22,7 +22,8 @@ let tossHandlerTail counter n
     ex w2 r2; req counter->w2 ; ens counter->w2+1; tossNtimeRight(n-1, r2); 
     Norm(n>1 /\ r1=false, 0) 
 @*)
-= shallow-match tossNtimeRight n with 
+= match tossNtimeRight n with 
+  (*@ shallow @*)
   | x -> if x 
          then 1 
          else 0     

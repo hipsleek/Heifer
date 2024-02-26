@@ -21,7 +21,7 @@ let tossHandlerTail counter n
 = match tossNtimeLeft n with 
 
   (* try-catch lemma defined here *)
-  (*@ try ex r; req n>0; tossNtimeLeft(n,r) 
+  (*@  try ex r; req n>0; tossNtimeLeft(n,r) 
       # ex z1; req counter->z1; ens counter->z1+((2^(m)) -2); Norm((acc&&r)=false,0) \/ 
         ex z2; req counter->z2; ens counter->z2+((2^(m)) -2); Norm((acc&&r)=true,0) 
       catch 

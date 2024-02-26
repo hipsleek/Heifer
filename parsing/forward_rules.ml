@@ -805,14 +805,14 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
         | Some g -> { env with fv_lambda_obl = (inferred, g) :: env.fv_lambda_obl }
       in
       let event = NormalReturn (res_eq (TLambda (lid, params @ [ret], spec_to_use, Some body)), EmptyHeap) in 
-      concatenateSpecsWithEvent history [event], env
+      concatenateSpecsWithEvent history [event], env        
+
 
     | CMatch (typ, match_summary, scr, Some val_case, eff_cases, []) -> (* effects *)
       (* infer specs for branches of the form (Constr param -> spec), which also updates the env with obligations *)
 
       
-      (*print_endline ((match match_summary with | None -> "none" | Some match_summary -> string_of_try_catch_lemma match_summary) );
-      *)
+      print_endline (string_of_handler_type typ);
       
 
       let inferred_branch_specs, env =
@@ -856,24 +856,25 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
 
       (*print_endline ("\nSpec of the try block: " ^ string_of_disj_spec phi1 ^ "\n\n"); 
 *)
+      (match typ with 
+      | Shallow -> 
+        failwith ("shallow handler")
+        
+      | Deep -> 
+        let afterHandling, env =
+          concat_map_state env (fun spec env -> 
+            let spec_n = (normalize_spec spec) in 
+            let temp = handling_spec env match_summary spec_n inferred_val_case inferred_branch_specs in 
+            (*print_endline ("-------------------"); *)
+            temp
+          ) phi1
+        in 
+        (*print_endline ("\nAfter afterHandling at handler: \n" ^ string_of_disj_spec afterHandling ^ "\n\n");  
+        *)
+        concatenateSpecsWithSpec history afterHandling, env 
+      )
 
-      let afterHandling, env =
-        concat_map_state env (fun spec env -> 
-          let spec_n = (normalize_spec spec) in 
-          let temp = handling_spec env match_summary spec_n inferred_val_case inferred_branch_specs in 
-          (*print_endline ("-------------------"); *)
-          temp
-        ) phi1
-      in 
-
-
-      (*print_endline ("\nAfter afterHandling at handler: \n" ^ string_of_disj_spec afterHandling ^ "\n\n");  
-      *)
-
-      let res, env = concatenateSpecsWithSpec history afterHandling, env in
-
-
-      res, env
+      
 
     | CMatch (_, _, discr, None, _, cases) -> (* pattern matching *)
 
