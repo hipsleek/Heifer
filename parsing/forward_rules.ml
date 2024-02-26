@@ -453,15 +453,15 @@ let rec handling_spec env (match_summary:tryCatchLemma option) (scr_spec:normali
       
         let bindings = bindFormalNActual (effFormalArg) (effActualArg@[x.e_ret]) in  
 
-        let instantiate_tcl_handledCont = instantiateSpec bindings tcl_handledCont in 
-        print_endline ("instantiate_tcl_handledCont: " ^  string_of_spec instantiate_tcl_handledCont); 
+        let instantiate_tcl_handledCont = instantiateSpecList bindings tcl_handledCont in 
+        print_endline ("instantiate_tcl_handledCont: " ^  string_of_spec_list instantiate_tcl_handledCont); 
         
-        let lemmaRet = retrieve_return_value instantiate_tcl_handledCont in 
+        let lemmaRets = List.map retrieve_return_value instantiate_tcl_handledCont in 
         let contiRets = List.map retrieve_return_value handledContinuation in 
 
         let newPi = 
-          match contiRets with 
-          | [hd] -> Atomic(EQ, lemmaRet, hd)
+          match contiRets, lemmaRets with 
+          | [contiRet], [lemmaRet] -> Atomic(EQ, contiRet, lemmaRet)
           | _ -> failwith ("not sure how to handle empty contiRets")
         in 
         print_endline (string_of_pi newPi); 

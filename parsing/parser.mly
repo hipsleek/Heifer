@@ -2738,7 +2738,7 @@ disj_effect_spec:
 | d=separated_nonempty_list(DISJUNCTION, effect_spec) { d }
 
 option_conti_sharp :
-| HASH conti= effect_spec {Some conti }
+| HASH conti= disj_effect_spec {Some conti }
 | {None }
 
 try_catch_lemma: 

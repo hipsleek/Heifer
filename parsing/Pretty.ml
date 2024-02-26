@@ -302,7 +302,7 @@ and string_of_try_catch_lemma (x:tryCatchLemma) : string =
   string_of_spec tcl_head 
 
   ^ (match tcl_handledCont with 
-  | None -> "" | Some conti -> " # " ^ string_of_spec conti)
+  | None -> "" | Some conti -> " # " ^ string_of_disj_spec conti)
 
   
   ^ " CATCH \n"
