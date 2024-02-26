@@ -26,6 +26,8 @@ let rec simplify_term t : term  =
   | Rel (op, a, b) -> Rel (op, simplify_term a, simplify_term b)
   | Plus (Minus(t, Num n1), Num n2) -> 
     if n1 == n2 then t else if n1>= n2 then Minus(t, Num (n1-n2)) else Plus(t, Num (n1-n2))
+
+
   | Minus (Minus(t, Num n1), Num n2) -> Minus(t, Num (n1+n2))
 
   | Plus (a, b)  -> 
@@ -492,6 +494,20 @@ let normalize_step (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
 
 (* | IndPred {name; _} -> *)
 (* failwith (Format.asprintf "cannot normalise predicate %s" name) *)
+
+let getherPureFromSpec_step (acc:pi) (stagedSpec : stagedSpec) : pi =
+  match stagedSpec with 
+  | Exists _ -> acc 
+  | Require (pi, _) 
+  | NormalReturn (pi, _) 
+  | RaisingEff (pi, _, _, _) 
+  | HigherOrder (pi, _, _, _) 
+  | TryCatch (pi, _, _, _) -> 
+    And(acc, pi)
+
+
+let getherPureFromSpec (spec : spec) :pi = 
+  List.fold_left getherPureFromSpec_step (True) spec
 
 let (*rec*) normalise_spec_ (acc : normalisedStagedSpec) (spec : spec) :
     normalisedStagedSpec =

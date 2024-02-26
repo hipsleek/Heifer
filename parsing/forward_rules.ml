@@ -355,34 +355,87 @@ let cartesian_product li1 li2 =
 
 
 let instantiateSpecListUponResume (handlingSpec: spec list) (contiInput:string) (continuation: spec list) : spec list = 
-  (*print_endline ("contiInput = " ^ contiInput  ); *)
-  let rec helper (handlingSpecIn:spec) (continuationIn:spec) : spec =
+  print_endline ("contiInput = " ^ contiInput  ); 
+  let rec helper (handlingSpecIn:spec) (continuationIn:spec list) : spec list =
     match handlingSpecIn with 
-    | [] -> [] 
+    | [] -> [[]] 
     | HigherOrder ((p', h', (f', hd'::actual::rest), r')) :: xs  -> 
       let x = (p', h', (f', hd'::actual::rest), r') in  (* hd' is k, and we assume there is only one argument for effects *)
       if String.compare f' "continue" == 0 
       then 
-        let instantiation =  instantiateSpec [(contiInput, actual)] continuationIn in 
-        let contiRet = retrieve_return_value instantiation in 
-        let instantiation = instantiateSpec ["res", contiRet] instantiation in 
+        let instantiations =  (normalise_spec_list (instantiateSpecList [(contiInput, actual)] continuationIn)) in 
+        print_endline ("instantiation_continuationIn: " ^ string_of_spec_list instantiations);
 
-        let newPi=  And (p', Atomic(EQ, contiRet, r' ) ) in
-        (*print_endline (string_of_pi newPi); *)
+        List.map (fun instantiation -> 
+          let contiRet = retrieve_return_value instantiation in 
 
-        let prefix = NormalReturn (newPi, h') in 
+          let instantiation = instantiateSpec ["res", contiRet] instantiation in 
 
-        normalisedStagedSpec2Spec (normalize_spec (prefix:: instantiation @ helper xs continuationIn))
+          let newPi=  And (p', Atomic(EQ, contiRet, r' ) ) in
+          print_endline (string_of_pi newPi); 
+
+          let (prefix:spec) = NormalReturn (newPi, h') :: instantiation in 
+
+          List.flatten(List.map (fun (rest:spec) -> prefix @ rest) (helper xs continuationIn))
+
+        
+        )
+        instantiations
+
+        
       else 
-        HigherOrder x :: helper xs continuationIn
-    | x :: xs -> x :: helper xs continuationIn
+        List.map (fun rest -> (HigherOrder x):: rest) (helper xs continuationIn)
+
+    | x :: xs -> 
+      List.map (fun rest -> x:: rest) (helper xs continuationIn)
   
   in 
 
-  let mix = cartesian_product handlingSpec continuation in 
-  List.map (fun (h_spec, conti) -> helper h_spec conti) mix 
+  List.flatten (List.map (fun (h_spec) -> helper h_spec continuation) handlingSpec) 
 
 
+let findTheActualArg4AccTerm arg (term:term): term option =
+  match term with
+  | Plus (t1, t2) 
+  | TAnd (t1, t2)  -> 
+    if stricTcompareTerm t1 arg then Some t2 
+    else if stricTcompareTerm t2 arg then Some t1
+    else None  
+  | _ -> None 
+
+
+
+let rec findTheActualArg4AccPure arg (pi:pi): term option =
+  match pi with 
+  | Atomic (_, t1, t2) -> 
+    (match findTheActualArg4AccTerm arg t1 with 
+    | Some t -> Some t 
+    | None -> findTheActualArg4AccTerm arg t2
+    )
+  | And   (p1, p2) 
+  | Or    (p1, p2) 
+  | Imply (p1, p2) -> 
+    (match findTheActualArg4AccPure arg p1 with 
+    | Some t -> Some t 
+    | None -> findTheActualArg4AccPure arg p2
+    )
+  | Not    p -> findTheActualArg4AccPure arg p
+  | _ -> None
+
+
+
+
+
+let findTheActualArg4Acc_x_e_ret (arg:term) (specs:disj_spec): term =
+  match normalise_spec_list specs with
+  | spec_n :: _ -> 
+    let (allPure:pi) = getherPureFromSpec spec_n in 
+    (match findTheActualArg4AccPure arg allPure with
+    | None  -> failwith ("can not find findTheActualArg4Acc_x_e_ret ")
+    | Some t -> t 
+    )
+  
+  | _ -> failwith ("findTheTermAssocatiedWith_x_e_ret empty spec")
 
 let rec handling_spec env (match_summary:tryCatchLemma option) (scr_spec:normalisedStagedSpec) (h_norm:(string * disj_spec)) (h_ops:(string * string option * disj_spec) list) : spec list * fvenv = 
   (*print_endline ("\nhandling_spec " ^ (string_of_spec (normalisedStagedSpec2Spec scr_spec))); *)
@@ -435,8 +488,13 @@ let rec handling_spec env (match_summary:tryCatchLemma option) (scr_spec:normali
     if startingFromALowerCase label then 
       (
       print_endline ("lower case " ^ label)  ;
+
+
       match match_summary with 
       | Some (tcl_head, Some tcl_handledCont, tcl_summary) -> 
+      print_endline (string_of_try_catch_lemma (tcl_head, Some tcl_handledCont, tcl_summary) ^ "\n");
+      print_endline (string_of_effHOTryCatchStages (EffHOStage x) ^ " # " ^ string_of_spec_list handledContinuation);
+      print_endline ("");
         let effFormalArg = 
           match normalize_spec tcl_head with 
           | ([(EffHOStage y) ], _) -> 
@@ -456,28 +514,19 @@ let rec handling_spec env (match_summary:tryCatchLemma option) (scr_spec:normali
         let instantiate_tcl_handledCont = instantiateSpecList bindings tcl_handledCont in 
         print_endline ("instantiate_tcl_handledCont: " ^  string_of_spec_list instantiate_tcl_handledCont); 
         
-        let lemmaRets = List.map retrieve_return_value instantiate_tcl_handledCont in 
-        let contiRets = List.map retrieve_return_value handledContinuation in 
+        let contiRet = findTheActualArg4Acc_x_e_ret x.e_ret handledContinuation in 
 
-        let newPi = 
-          match contiRets, lemmaRets with 
-          | [contiRet], [lemmaRet] -> Atomic(EQ, contiRet, lemmaRet)
-          | _ -> failwith ("not sure how to handle empty contiRets")
-        in 
+        print_endline ("continuation_spec: " ^ string_of_spec_list handledContinuation);
+
+        let newPi = Atomic(EQ, contiRet, Var "acc") in 
         print_endline (string_of_pi newPi); 
 
         let instantiate_tcl_summary = renameSpecAndInstantiate tcl_summary bindings in
         let instantiate_tcl_summary = List.map (fun s -> NormalReturn (newPi, EmptyHeap) :: s) instantiate_tcl_summary in 
         
 
-        print_endline ("instantiate_instantiate_tcl_summary: " ^  string_of_spec_list instantiate_tcl_summary); 
+        print_endline ("instantiate_instantiate_tcl_summary: " ^  string_of_spec_list instantiate_tcl_summary ^"\n"); 
 
-
-        
-
-        print_endline (string_of_try_catch_lemma (tcl_head, Some tcl_handledCont, tcl_summary) ^ "\n");
-        print_endline (string_of_effHOTryCatchStages (EffHOStage x) ^ " # " ^ string_of_spec_list handledContinuation);
-        print_endline ("");
 
         instantiate_tcl_summary, env
 
@@ -488,7 +537,6 @@ let rec handling_spec env (match_summary:tryCatchLemma option) (scr_spec:normali
       | None -> 
         failwith (Format.asprintf "no lemma provided for %s" label);
 
-        (*[normalisedStagedSpec2Spec scr_spec], env *)
       )
       
     else 
@@ -516,9 +564,8 @@ let rec handling_spec env (match_summary:tryCatchLemma option) (scr_spec:normali
       
 
       let handler_body_specAfterSubstituteK = instantiateSpecListUponResume handler_body_spec perform_ret handledContinuation in 
-      (*print_endline ("handler_body_specAfterSubstituteK: " ^ string_of_spec_list handler_body_specAfterSubstituteK);*)
+      print_endline ("handler_body_specAfterSubstituteK: " ^ string_of_spec_list handler_body_specAfterSubstituteK);
       let res = concatenateEventWithSpecs  (normalStage2Spec norm) handler_body_specAfterSubstituteK in 
-
       res, env
     )
 
@@ -777,19 +824,24 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
       in
       (* for each disjunct of the scrutinee's behaviour, reason using the handler *)
       let phi1, env = infer_of_expression env [freshNormalReturnSpec] scr in 
+      (*let phi1 = 
+        match phi1 with 
+        | hd::_ -> [hd]
+      in 
+      *)
 
       print_endline ("\nSpec of the try block: " ^ string_of_disj_spec phi1 ^ "\n\n"); 
 
 
-
       let afterHandling, env =
-        (*print_endline ("Handling at handler:  "); *)
         concat_map_state env (fun spec env -> 
           let spec_n = (normalize_spec spec) in 
-          (*print_endline (string_of_normalisedStagedSpec  spec_n ^ "\n\n");   *)
-          handling_spec env match_summary spec_n inferred_val_case inferred_branch_specs
+          let temp = handling_spec env match_summary spec_n inferred_val_case inferred_branch_specs in 
+          print_endline ("-------------------");
+          temp
         ) phi1
       in 
+
 
       print_endline ("\nAfter afterHandling at handler: \n" ^ string_of_disj_spec afterHandling ^ "\n\n");  
       
