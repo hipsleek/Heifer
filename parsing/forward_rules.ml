@@ -486,7 +486,7 @@ let rec handling_spec typ env (match_summary:tryCatchLemma option) (scr_spec:nor
 
     current, env
 
-  | (TryCatchStage _) :: _ -> failwith "unhandled"
+  | (TryCatchStage _) :: _ ->[(normalisedStagedSpec2Spec scr_spec)], env
 
   | (EffHOStage x) :: xs -> 
     let (label, effActualArg) = x.e_constr in
@@ -566,8 +566,10 @@ let rec handling_spec typ env (match_summary:tryCatchLemma option) (scr_spec:nor
       | Some _  -> 
         failwith (Format.asprintf "lemma without continuation %s" label);
 
-      | None -> 
-        failwith (Format.asprintf "no lemma provided for %s" label);
+      | None -> [(normalisedStagedSpec2Spec scr_spec)], env
+          (*if String.compare label "continue" == 0 then 
+          else failwith (Format.asprintf "no lemma provided for %s" label);
+          *)
 
       )
       

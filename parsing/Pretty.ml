@@ -654,7 +654,8 @@ let bindFormalNActual (formal: string list) (actual: core_value list) : ((string
   | Invalid_argument _ -> 
     print_endline ("formal: " ^ (List.map (fun a-> a) formal |> String.concat ", "));
     print_endline ("actual: " ^ (List.map (fun a-> string_of_term a) actual |> String.concat ", "));
-    failwith ("bindFormalNActual length not equle")
+    print_endline ("bindFormalNActual length not equle");
+    []
   
 
   (*
