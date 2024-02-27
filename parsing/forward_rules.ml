@@ -551,7 +551,8 @@ let rec handling_spec typ env (match_summary:tryCatchLemma option) (scr_spec:nor
 
 
         (* SYH: here hard coded the instantiation for m and acc for the purpose of the toss example. *)
-        let instantiate_tcl_summary = renameSpecListAndInstantiate tcl_summary (("m", Num 2)::("acc", contiRet)::bindings) in
+        let mi = match typ with | Deep -> ("m", Num 2) | Shallow -> ("m", Num 1) in 
+        let instantiate_tcl_summary = renameSpecListAndInstantiate tcl_summary (mi::("acc", contiRet)::bindings) in
         let instantiate_tcl_summary = normalise_spec_list instantiate_tcl_summary in 
         
 
@@ -859,10 +860,13 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
       in
       (* for each disjunct of the scrutinee's behaviour, reason using the handler *)
       let phi1, env = infer_of_expression env [freshNormalReturnSpec] scr in 
+      (*
       let phi1 = 
         match phi1 with 
         | _::hd::_-> [hd]
-      in 
+      in    
+      *)
+      
       
       
 

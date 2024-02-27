@@ -43,9 +43,13 @@ let tossHandlerTail counter n
   (*@  shallow try ex r; req n>0; tossNtimeLeft(n,r) 
       # ex acc1 r1; ens acc1=(acc&&r); helper (m, acc1, r1)
       catch 
-  =  ex w1 acc1 i1; req counter->w1; ens counter->w1+1 /\ i1=(n-1)+m; helper (i1, acc, acc1);
-     ex w2 acc2 i2; req counter->w2; ens counter->w2+1/\ i2=(n-1)+m; helper (i2, false, acc2); 
-     Norm(res=acc1, res) 
+  =  ex w1 acc1 i1; req counter->w1; ens counter->w1+1 /\ i1=(n-1)+m; tossNtimeRight (i1, acc1);
+     ex w2 acc2 i2; req counter->w2; ens counter->w2+1/\ i2=(n-1)+m; tossNtimeRight (i2, acc2); 
+     Norm(n>1 /\res=1/\acc1=true, res) 
+     \/
+     ex w1 acc1 i1; req counter->w1; ens counter->w1+1 /\ i1=(n-1)+m; tossNtimeRight (i1, acc1);
+     ex w2 acc2 i2; req counter->w2; ens counter->w2+1/\ i2=(n-1)+m; tossNtimeRight (i2, acc2); 
+     Norm(n>1 /\res=0/\acc1=false, res) 
   @*) 
   | x -> if x 
          then 1 
