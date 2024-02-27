@@ -35,6 +35,9 @@ let rec simplify_term t : term  =
   | Plus (a, b)  -> 
     let a' = simplify_term a in 
     let b' = simplify_term b in 
+    (*print_endline (string_of_term t);
+    print_endline ("===>" ^ string_of_term a' ^ "+" ^ string_of_term b');
+    *)
     (match a', b' with 
     | Num n1, Num n2 -> Num(n1 + n2)
     | _, _ -> Plus (a', b')
@@ -91,17 +94,24 @@ let simplify_pure (p : pi) : pi =
   let rec once p =
     match p with
     | Not (Atomic (EQ, a, TTrue)) -> (Atomic (EQ, a, TFalse), true)
-    | (Atomic (EQ, Var "res", Var "res")) -> (True, true)
-    | (Atomic (EQ, TAnd(TTrue, TTrue), TTrue)) -> (True, true)
-    | (Atomic (EQ, TAnd(TFalse, TTrue), TFalse)) -> (True, true)
-    | (Atomic (EQ, t1, Plus(Num n1, Num n2))) -> (Atomic (EQ, t1, Num (n1+n2)), true)
+    | (Atomic (EQ, t1, t2 )) -> 
+      let t1 = simplify_term t1 in 
+      let t2 = simplify_term t2 in 
+      (match t1, t2 with
+      | Var "res", Var "res" -> (True, true)
+      | TFalse, TFalse -> (True, true)
+      | TTrue, TTrue -> (True, true)
+      | Num n1, Num n2 -> 
+        if n1==n2 then (True, true)
+        else (p, true)
 
-    (*| Atomic (EQ, a, b) when a = b -> (True, true)
-    | Atomic (EQ, TAnd (_, TFalse), b)
-    | Atomic (EQ, TAnd (TFalse, _), b) -> Atomic (EQ, TFalse, b), true
-    | Atomic (EQ, TAnd (a, TTrue), b)
-    | Atomic (EQ, TAnd (TTrue, a), b) -> Atomic (EQ, a, b), true
-    *)
+      | TAnd(TTrue, TTrue), TTrue -> (True, true)
+      | TAnd(TFalse, TTrue), TFalse -> (True, true)
+      | t1, Plus(Num n1, Num n2) -> (Atomic (EQ, t1, Num (n1+n2)), true)
+      | _, _ -> (Atomic (EQ, t1, t2 )), false 
+      
+      )
+
 
     | True | False | Atomic _ | Predicate _ | Subsumption _ -> (p, false)
     | And (True, a) | And (a, True) -> (a, true)

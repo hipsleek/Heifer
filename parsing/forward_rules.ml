@@ -859,11 +859,11 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
       in
       (* for each disjunct of the scrutinee's behaviour, reason using the handler *)
       let phi1, env = infer_of_expression env [freshNormalReturnSpec] scr in 
-      (*let phi1 = 
+      let phi1 = 
         match phi1 with 
-        | _::hd::_ -> [hd]
+        | _::hd::_-> [hd]
       in 
-      *)
+      
       
 
       print_endline ("\nSpec of the try block: " ^ string_of_disj_spec phi1 ^ "\n\n"); 
