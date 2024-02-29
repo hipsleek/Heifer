@@ -42,7 +42,16 @@ ocamllex lexer.mll
 menhir parser.mly 
 
 dune exec parsing/hip.exe src/evaluation/0_heap_zero_once_twice.ml
-dune exec parsing/hip.exe src/demo/1_State_Monad.ml
+
 ```
+
+dune exec parsing/hip.exe src/demo/1_State_Monad.ml
+dune exec parsing/hip.exe src/demo/2_Inductive_Sum.ml
+dune exec parsing/hip.exe src/demo/3_Deep_Right_Toss.ml
+dune exec parsing/hip.exe src/demo/4_Deep_Left_Toss.ml
+dune exec parsing/hip.exe src/demo/5_Shallow_Right_Toss.ml
+dune exec parsing/hip.exe src/demo/6_Shallow_Left_Toss.ml
+dune exec parsing/hip.exe src/demo/7_amb.ml
+dune exec parsing/hip.exe src/demo/8_schduler.ml
 
 
