@@ -22,7 +22,7 @@ let read_n_write ()
   read ()
 
 
-(* Figure 38 *)
+(* Figure 37 *)
 let state_handler () 
 (*@ ex ret i; Norm(i->1/\ret=1, ret) @*)
 = let i = ref 0 in 
@@ -32,7 +32,7 @@ let state_handler ()
   | effect (Write v) k -> i := v; resume k ()
 
 
-(* Figure 39 *)
+(* Figure 38 *)
 let write_handler j  
 (*@ ex r1;   Read(emp, r1); 
     ex r2;   req j-> r2; ens j-> r1+1; 
@@ -42,7 +42,7 @@ let write_handler j
   | effect (Write v) k -> j := v; resume k ()
 
 
-(* Figure 39 *)
+(* Figure 38 *)
 let read_handler  ()
 (*@ ex ret i; Norm(i->1/\ret=1, ret) @*)
 = let i = ref 0 in 
@@ -56,7 +56,7 @@ let exchange (m:int)
 = perform (Exchange m)
 
   
-(* Figure 40 *)
+(* Figure 39 *)
 let exc_handler (l) (new_v:int)
 (*@ ex old; req l-> old ; ens l-> new_v; Norm (res=old, res)   @*)
 = match exchange new_v with 

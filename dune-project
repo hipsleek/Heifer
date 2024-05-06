@@ -11,7 +11,7 @@
 
 (authors "Song Yahui, Darius Foo")
 
-(maintainers "e0210374@u.nus.edu, darius.foo.tw@gmail.com")
+(maintainers "yahui_s@nus.edu.sg, darius.foo.tw@gmail.com")
 (license MIT)
 
 (package
