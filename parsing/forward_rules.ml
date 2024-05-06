@@ -453,9 +453,9 @@ let findTheActualArg4Acc_x_e_ret (arg:term) (specs:disj_spec): term =
   
   | _ -> failwith ("findTheTermAssocatiedWith_x_e_ret empty spec")
 
+(** this is the entrance of the try-catch reduction **)
 let rec handling_spec typ env (match_summary:tryCatchLemma option) (scr_spec:normalisedStagedSpec) (h_norm:(string * disj_spec)) (h_ops:(string * string option * disj_spec) list) : spec list * fvenv = 
-  (*print_endline ("\nhandling_spec " ^ (string_of_spec (normalisedStagedSpec2Spec scr_spec))); 
-  *)
+  
   let@ _ = Debug.span (fun r ->
     debug ~at:3 ~title:"handling_spec" "match\n  (*@@ %s @@*)\nwith\n| ...\n| ...\n==>\n%s" (string_of_spec (normalisedStagedSpec2Spec scr_spec)) (string_of_result string_of_disj_spec (Option.map fst r))
     ) in
@@ -468,26 +468,33 @@ let rec handling_spec typ env (match_summary:tryCatchLemma option) (scr_spec:nor
     let current =
       let (ex, (p1, h1), (p2, h2)) = scr_normal in
 
-      (*Format.printf "\\phi_n: %s@." (string_of_disj_spec h_val_spec); 
+      (*
+      Format.printf "\\phi_n: %s@." (string_of_disj_spec h_val_spec); 
       Format.printf "N(r): %s@." (string_of_normalisedStagedSpec ([], scr_normal)); 
-      Format.printf "formal: %s@."  h_val_param;*)
-
+      Format.printf "formal: %s@."  h_val_param;
+*)
       let actualRet = get_res_value p2 in 
-      (*Format.printf "actualRet: %s@."  (string_of_term actualRet);*)
-
+      (*
+      Format.printf "actualRet: %s@."  (string_of_term actualRet);
+*)
       let p2 = instantiatePure ["res", actualRet] p2 in
       let scr_normal = (normalStage2Spec (ex, (p1, h1), (p2, h2))) in 
-
+      (*
+      Format.printf "scr_normal: %s@." (string_of_spec scr_normal); 
+*)
       let h_spec = instantiateSpecList [h_val_param, actualRet] h_val_spec in
-      (*Format.printf "h_spec: %s@." (string_of_disj_spec h_spec); *)
-
+      (*
+      Format.printf "h_spec: %s@." (string_of_disj_spec h_spec); 
+*)
       concatenateSpecsWithSpec (normalise_spec_list [(scr_normal)]) h_spec
 
     in
+    print_endline ("\nhandling_spec " ^ (string_of_spec (normalisedStagedSpec2Spec scr_spec))); 
 
+    print_endline ("Final results [] : " ^ string_of_spec_list current);
     current, env
 
-  | (TryCatchStage _) :: _ ->[(normalisedStagedSpec2Spec scr_spec)], env
+  | (TryCatchStage _) :: _ -> [(normalisedStagedSpec2Spec scr_spec)], env
 
   | (EffHOStage x) :: xs -> 
     let (label, effActualArg) = x.e_constr in
@@ -519,16 +526,18 @@ let rec handling_spec typ env (match_summary:tryCatchLemma option) (scr_spec:nor
     
 
     if startingFromALowerCase label then 
-      (
-      print_endline ("lower case " ^ label)  ; 
+      ((* lower case stages are for function calls *)
+      (*print_endline ("lower case " ^ label)  ; *)
 
 
       match match_summary with 
       | Some (tcl_head, Some tcl_handledCont, tcl_summary) -> 
+      
+      
       print_endline (string_of_try_catch_lemma (tcl_head, Some tcl_handledCont, tcl_summary) ^ "\n");
       print_endline (string_of_effHOTryCatchStages (EffHOStage x) ^ " # " ^ string_of_spec_list handledContinuation);
-
       print_endline ("");
+      
       
         let effFormalArg = 
           match normalize_spec tcl_head with 
@@ -541,6 +550,7 @@ let rec handling_spec typ env (match_summary:tryCatchLemma option) (scr_spec:nor
 
         in 
 
+        
         Format.printf "effActualArg: %s@." (string_of_list string_of_term (effActualArg@[x.e_ret])); 
         Format.printf "effFormalArg: %s@." (string_of_list Fun.id effFormalArg); 
       
@@ -559,7 +569,8 @@ let rec handling_spec typ env (match_summary:tryCatchLemma option) (scr_spec:nor
         
 
         
-        print_endline ("instantiate_instantiate_tcl_summary: " ^  string_of_spec_list instantiate_tcl_summary ^"\n"); 
+        print_endline ("\nhandling_spec " ^ (string_of_spec (normalisedStagedSpec2Spec scr_spec))); 
+        print_endline ("Final results lower case: \n" ^  string_of_spec_list instantiate_tcl_summary ^"\n"); 
 
 
         instantiate_tcl_summary, env
@@ -576,7 +587,7 @@ let rec handling_spec typ env (match_summary:tryCatchLemma option) (scr_spec:nor
       )
       
     else 
-
+    (* upper case stages are for effects *)
     (
     match lookforHandlingCases h_ops label with 
     | None -> concatenateEventWithSpecs (effectStage2Spec [EffHOStage x]) handledContinuation, env
@@ -586,7 +597,7 @@ let rec handling_spec typ env (match_summary:tryCatchLemma option) (scr_spec:nor
       Format.printf "effFormalArg: %s@." (string_of_list Fun.id effFormalArg); 
       *)
       let bindings = bindFormalNActual (effFormalArg) (effActualArg) in 
-      (*print_endline ("binding length " ^ string_of_int (List.length bindings));*)
+      print_endline ("binding length " ^ string_of_int (List.length bindings));
       (* effect x is handled by a branch of the form (| (Eff effFormalArg) k -> spec) *)
       (* debug ~at:5 ~title:"before freshen" "%s" (string_of_disj_spec handler_body_spec); *)
       (* freshen, as each instance of the handler body should not interfere with previous ones *)
@@ -594,17 +605,21 @@ let rec handling_spec typ env (match_summary:tryCatchLemma option) (scr_spec:nor
       let handler_body_spec = renamingexistientalVar handler_body_spec in
       let handler_body_spec = instantiateSpecList bindings handler_body_spec in 
       (* debug ~at:5 ~title:(Format.asprintf "handler_body_spec for effect stage %s" (fst x.e_constr)) "%s" (string_of_disj_spec handler_body_spec); *)
-      (*print_endline ("Effect: " ^label ^ " and handler_body_spec: "  ^ string_of_disj_spec handler_body_spec); 
+      print_endline ("Effect: " ^label ^ " and handler_body_spec: "  ^ string_of_disj_spec handler_body_spec); 
       (* the rest of the trace is now the spec of the continuation *)
       print_endline ("continuation_spec: " ^ string_of_spec_list handledContinuation);
-      *)
+      
 
       let handler_body_specAfterSubstituteK = instantiateSpecListUponResume handler_body_spec perform_ret handledContinuation in 
       
-      (*
+      
       print_endline ("handler_body_specAfterSubstituteK: " ^ string_of_spec_list handler_body_specAfterSubstituteK);
-      *)
+      
       let res = concatenateEventWithSpecs  (normalStage2Spec norm) handler_body_specAfterSubstituteK in 
+
+      print_endline ("\nhandling_spec " ^ (string_of_spec (normalisedStagedSpec2Spec scr_spec))); 
+      print_endline ("Final results upper case: \n" ^  string_of_spec_list res ^"\n"); 
+      
       res, env
     )
 
@@ -647,6 +662,7 @@ let recursivelyInstantiateFunctionCalls env instantiatedSpec =
 
  
 (** may update the environment because of higher order functions *)
+(** This is the entrence of the forward reasoning **)
 let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): disj_spec * fvenv =
   if SSet.mem "res" (used_vars_disj_spec history) then
     failwith (Format.asprintf "invariant violated: { %s } %s { ... } is not res-free" (string_of_disj_spec history) (string_of_core_lang expr));

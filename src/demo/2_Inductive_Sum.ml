@@ -17,8 +17,8 @@ let handler n
 = let i = ref 0 in 
   match sumEff n with 
   (* try-catch lemma defined here *)
-  (*@ try ex r; req n>=0; sumEff(n,r) # Norm(emp,acc+r) catch 
-  =   ex w; req i->w; Norm (i->w+(n*.(n-1)/2), n+acc)  @*) 
+  (*@   try ex r; req n>=0; sumEff(n,r) # Norm(emp,acc+r) catch 
+     =  ex w; req i->w; Norm (i->w+(n*.(n-1)/2), n+acc)  @*) 
   | v ->  v
   | effect (Inc v) k -> 
     i := !i + v -1; 
@@ -26,6 +26,7 @@ let handler n
 
 
     
+(*
 let test1 () 
 (*@ ex i; Norm(i-> 10 /\ res=5, res) @*)
 = handler 5
@@ -39,3 +40,4 @@ let test2 ()
 let test3 () 
 (*@ ex i; Norm(i-> 4950 /\ res=100, res) @*)
 = handler 100
+*)

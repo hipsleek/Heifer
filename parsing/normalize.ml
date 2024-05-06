@@ -90,6 +90,12 @@ let rec simplify_heap h : kappa =
   in
   to_fixed_point once h
 
+let compareTerms (t1:term) (t2:term) : bool = 
+  let str1= string_of_term t1 in 
+  let str2= string_of_term t2 in 
+  if String.compare str1 str2 == 0 then true else false 
+
+
 let simplify_pure (p : pi) : pi =
   let rec once p =
     match p with
@@ -108,7 +114,10 @@ let simplify_pure (p : pi) : pi =
       | TAnd(TTrue, TTrue), TTrue -> (True, true)
       | TAnd(TFalse, TTrue), TFalse -> (True, true)
       | t1, Plus(Num n1, Num n2) -> (Atomic (EQ, t1, Num (n1+n2)), true)
-      | _, _ -> (Atomic (EQ, t1, t2 )), false 
+      | _, _ -> 
+        if compareTerms t1 t2 then (True, true)
+        else 
+        (Atomic (EQ, t1, t2 )), false 
       
       )
 
@@ -1180,8 +1189,12 @@ let rec effectStage2Spec (effectStages : effHOTryCatchStages list) : spec =
 
 
 
+
 let normalStage2Spec (normalStage : normalStage) : spec =
   let existiental, (p1, h1), (p2, h2) = normalStage in
+  let p1 = simplify_pure p1 in 
+  let p2 = simplify_pure p2 in 
+
   (match existiental with [] -> [] | _ -> [Exists existiental])
   @ (match (p1, h1) with True, EmptyHeap -> [] | _ -> [Require (p1, h1)])
   @
