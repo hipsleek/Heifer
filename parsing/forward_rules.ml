@@ -593,9 +593,9 @@ let rec handling_spec typ env (match_summary:tryCatchLemma option) (scr_spec:nor
     | None -> concatenateEventWithSpecs (effectStage2Spec [EffHOStage x]) handledContinuation, env
     | Some (effFormalArg, handler_body_spec) ->
       let effFormalArg = match effFormalArg with | None -> [] | Some v -> [v] in
-      (*Format.printf "effActualArg: %s@." (string_of_list string_of_term effActualArg); 
+      Format.printf "effActualArg: %s@." (string_of_list string_of_term effActualArg); 
       Format.printf "effFormalArg: %s@." (string_of_list Fun.id effFormalArg); 
-      *)
+      
       let bindings = bindFormalNActual (effFormalArg) (effActualArg) in 
       print_endline ("binding length " ^ string_of_int (List.length bindings));
       (* effect x is handled by a branch of the form (| (Eff effFormalArg) k -> spec) *)
@@ -610,12 +610,12 @@ let rec handling_spec typ env (match_summary:tryCatchLemma option) (scr_spec:nor
       print_endline ("continuation_spec: " ^ string_of_spec_list handledContinuation);
       
 
-      let handler_body_specAfterSubstituteK = instantiateSpecListUponResume handler_body_spec perform_ret handledContinuation in 
+      let handler_body_specAfterSubstituteK = normalise_spec_list(instantiateSpecListUponResume handler_body_spec perform_ret handledContinuation) in 
       
       
-      print_endline ("handler_body_specAfterSubstituteK: " ^ string_of_spec_list handler_body_specAfterSubstituteK);
+      print_endline ("handlerbodyAfterSubstituteK: " ^ string_of_spec_list handler_body_specAfterSubstituteK);
       
-      let res = concatenateEventWithSpecs  (normalStage2Spec norm) handler_body_specAfterSubstituteK in 
+      let res = concatenateEventWithSpecs  (normalStage2Spec norm) ( handler_body_specAfterSubstituteK) in 
 
       print_endline ("\nhandling_spec " ^ (string_of_spec (normalisedStagedSpec2Spec scr_spec))); 
       print_endline ("Final results upper case: \n" ^  string_of_spec_list res ^"\n"); 

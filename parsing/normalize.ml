@@ -115,9 +115,12 @@ let simplify_pure (p : pi) : pi =
       | TAnd(TFalse, TTrue), TFalse -> (True, true)
       | t1, Plus(Num n1, Num n2) -> (Atomic (EQ, t1, Num (n1+n2)), true)
       | _, _ -> 
-        if compareTerms t1 t2 then (True, true)
+        if compareTerms t1 t2 then 
+        (
+        (True, true))
         else 
-        (Atomic (EQ, t1, t2 )), false 
+        (
+        (Atomic (EQ, t1, t2 )), false )
       
       )
 
@@ -440,6 +443,7 @@ let normalize_step (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
       in
       (effectStages, normalStage')
     | NormalReturn (pi, heap) ->
+      let pi = simplify_pure pi in 
       (* pi may contain a res, so split the res out of the previous post *)
       (* if both sides contain res, remove from the left side *)
       let ens1, nex =
