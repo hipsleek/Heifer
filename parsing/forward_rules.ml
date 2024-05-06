@@ -454,7 +454,8 @@ let findTheActualArg4Acc_x_e_ret (arg:term) (specs:disj_spec): term =
   | _ -> failwith ("findTheTermAssocatiedWith_x_e_ret empty spec")
 
 let rec handling_spec typ env (match_summary:tryCatchLemma option) (scr_spec:normalisedStagedSpec) (h_norm:(string * disj_spec)) (h_ops:(string * string option * disj_spec) list) : spec list * fvenv = 
-  print_endline ("\nhandling_spec " ^ (string_of_spec (normalisedStagedSpec2Spec scr_spec))); 
+  (*print_endline ("\nhandling_spec " ^ (string_of_spec (normalisedStagedSpec2Spec scr_spec))); 
+  *)
   let@ _ = Debug.span (fun r ->
     debug ~at:3 ~title:"handling_spec" "match\n  (*@@ %s @@*)\nwith\n| ...\n| ...\n==>\n%s" (string_of_spec (normalisedStagedSpec2Spec scr_spec)) (string_of_result string_of_disj_spec (Option.map fst r))
     ) in
@@ -503,8 +504,9 @@ let rec handling_spec typ env (match_summary:tryCatchLemma option) (scr_spec:nor
       | Deep -> handling_spec Deep env match_summary (xs, scr_normal) h_norm h_ops 
     in 
     let handledContinuation = normalise_spec_list handledContinuation in 
+    (*
     print_endline ("handledContinuation: " ^ string_of_spec_list handledContinuation);
-
+*)
 
 
     (* there is an effect stage x, which may or may not be handled *)
@@ -599,8 +601,9 @@ let rec handling_spec typ env (match_summary:tryCatchLemma option) (scr_spec:nor
 
       let handler_body_specAfterSubstituteK = instantiateSpecListUponResume handler_body_spec perform_ret handledContinuation in 
       
+      (*
       print_endline ("handler_body_specAfterSubstituteK: " ^ string_of_spec_list handler_body_specAfterSubstituteK);
-      
+      *)
       let res = concatenateEventWithSpecs  (normalStage2Spec norm) handler_body_specAfterSubstituteK in 
       res, env
     )
@@ -826,7 +829,7 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
       (* infer specs for branches of the form (Constr param -> spec), which also updates the env with obligations *)
 
       
-      print_endline (string_of_handler_type typ); 
+      (*print_endline (string_of_handler_type typ); *)
       
 
       let inferred_branch_specs, env =
@@ -872,8 +875,9 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
       
       
 
+      (*
       print_endline ("\nSpec of the try block: " ^ string_of_disj_spec phi1 ^ "\n\n"); 
-
+*)
       let afterHandling, env =
         concat_map_state env (fun spec env -> 
           let spec_n = (normalize_spec spec) in 
