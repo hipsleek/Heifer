@@ -320,7 +320,7 @@ and string_of_handlingcases ((h_normal, h_ops):handlingcases) : string =
 
 
 and string_of_try_catch_lemma (x:tryCatchLemma) : string = 
-  let (tcl_head, tcl_handledCont, (h_normal, h_ops), tcl_summary) = x in 
+  let (tcl_head, tcl_handledCont, (*(h_normal, h_ops),*) tcl_summary) = x in 
   "TRY " 
   ^ 
   string_of_spec tcl_head 
@@ -329,7 +329,7 @@ and string_of_try_catch_lemma (x:tryCatchLemma) : string =
   | None -> "" | Some conti -> " # " ^ string_of_disj_spec conti)
 
   
-  ^ " CATCH \n" ^ string_of_handlingcases (h_normal, h_ops )
+  ^ " CATCH \n" (*^ string_of_handlingcases (h_normal, h_ops ) *)
   ^ "=> " ^ string_of_disj_spec tcl_summary
 
 and string_of_handler_type (h:handler_type) : string = 

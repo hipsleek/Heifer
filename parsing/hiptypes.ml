@@ -35,7 +35,7 @@ and core_handler_ops = (string * string option * disj_spec option * core_lang) l
 (* x :: xs -> e is represented as ("::", [x, xs], e) *)
 and constr_cases = (string * string list * core_lang) list
 
-and tryCatchLemma = (spec * disj_spec option * (handlingcases) * disj_spec) (*tcl_head, tcl_handledCont, tcl_summary*)
+and tryCatchLemma = (spec * disj_spec option * (*(handlingcases) **) disj_spec) (*tcl_head, tcl_handledCont, tcl_summary*)
 
 and handler_type = Shallow | Deep 
 

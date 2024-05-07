@@ -2765,16 +2765,18 @@ type_try_catch_lemma:
 | LSPECCOMMENT ht=handler_type RSPECCOMMENT
 {ht, None}
 | LSPECCOMMENT ht=handler_type TRY head_spec= effect_spec conti=option_conti_sharp EFFCATCH 
+  (*
   LBRACE h_normal_param = LIDENT  COLON h_normal_spec= disj_effect_spec BAR 
   h_ops = handler_effect_cases 
   RBRACE
+  *)
   EQUAL 
   summary = disj_effect_spec
    RSPECCOMMENT
   {
-    let h_normal = (h_normal_param, h_normal_spec) in 
-    
-    (ht, Some (head_spec, conti, (h_normal, h_ops),  summary))}
+    (*let h_normal = (h_normal_param, h_normal_spec) in 
+    *)
+    (ht, Some (head_spec, conti, (*(h_normal, h_ops), *) summary))}
 | {(Deep, None)}
 
 

@@ -456,8 +456,6 @@ let findTheActualArg4Acc_x_e_ret (arg:term) (specs:disj_spec): term =
 
 
 
-
-
 (** this is the entrance of the try-catch reduction **)
 let rec handling_spec typ env (match_summary:tryCatchLemma option) (scr_spec:normalisedStagedSpec) (h_norm:(string * disj_spec)) (h_ops:(string * string option * disj_spec) list) : spec list * fvenv = 
   
@@ -537,14 +535,19 @@ let rec handling_spec typ env (match_summary:tryCatchLemma option) (scr_spec:nor
 
 
       match match_summary with 
-      | Some (tcl_head, Some tcl_handledCont, (handlerSpec),  tcl_summary) -> 
-      
-      
-      print_endline (string_of_try_catch_lemma (tcl_head, Some tcl_handledCont, handlerSpec, tcl_summary) ^ "\n");
-      print_endline (string_of_effHOTryCatchStages (EffHOStage x) ^ " # " ^ string_of_spec_list handledContinuation);
-      print_endline ("");
+      | Some (tcl_head, Some tcl_handledCont, (*(handlerSpec),*)  tcl_summary) -> 
 
-      print_endline (string_of_handlingcases (h_norm,h_ops)); 
+        print_endline ("======================================\n");
+
+        print_endline (string_of_try_catch_lemma (tcl_head, Some tcl_handledCont, (*handlerSpec,*) tcl_summary) ^ "\n");
+        print_endline (string_of_effHOTryCatchStages (EffHOStage x) ^ " # " ^ string_of_spec_list handledContinuation);
+        print_endline ("");
+        print_endline (string_of_handlingcases (h_norm,h_ops)); 
+
+
+        print_endline ("======================================\n");
+
+      
 
 
       
