@@ -596,15 +596,9 @@ let rec handling_spec typ env (match_summary:tryCatchLemma option) (scr_spec:nor
           let prefix = effectStage2Spec scr_eff_stages in 
           let ret = verifier_getAfreeVar "res" in
           let (stage:stagedSpec) = TryCatch(True, EmptyHeap, (prefix, (h_norm, h_ops)), Var ret) in 
-          let res = normalise_spec_list (concatenateEventWithSpecs  (normalStage2Spec norm) [( [stage] )]) in 
+          let res = normalise_spec_list ((*concatenateEventWithSpecs  (normalStage2Spec norm)*) [( [stage] )]) in 
 
           res , env )
-
-
-          
-          
-
-          
 
       )
       
@@ -920,11 +914,11 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
       *)
       
       
-      
-
-      (*
+      print_endline (string_of_core_lang scr) ; 
+      (print_endline (string_of_handlingcases (inferred_val_case, inferred_branch_specs)));
+  
       print_endline ("\nSpec of the try block: " ^ string_of_disj_spec phi1 ^ "\n\n"); 
-*)
+
       let afterHandling, env =
         concat_map_state env (fun spec env -> 
           let spec_n = (normalize_spec spec) in 
