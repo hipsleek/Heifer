@@ -2749,13 +2749,32 @@ handler_type:
 | SHALLOW {Shallow}
 | {Deep}
 
+option_formal_arg :
+| str= LIDENT {Some str }
+| {None }
+
+
+handler_effect_cases:
+| {[]}
+| eff = UIDENT LPAREN arg = option_formal_arg RPAREN COLON h_effect_spec= disj_effect_spec BAR  
+  h_ops = handler_effect_cases 
+  {(eff, arg, h_effect_spec)::h_ops}
+
+
 type_try_catch_lemma:
 | LSPECCOMMENT ht=handler_type RSPECCOMMENT
 {ht, None}
-| LSPECCOMMENT ht=handler_type TRY head_spec= effect_spec conti=option_conti_sharp EFFCATCH EQUAL 
+| LSPECCOMMENT ht=handler_type TRY head_spec= effect_spec conti=option_conti_sharp EFFCATCH 
+  LBRACE h_normal_param = LIDENT  COLON h_normal_spec= disj_effect_spec BAR 
+  h_ops = handler_effect_cases 
+  RBRACE
+  EQUAL 
   summary = disj_effect_spec
    RSPECCOMMENT
-  {(ht, Some (head_spec, conti, summary))}
+  {
+    let h_normal = (h_normal_param, h_normal_spec) in 
+    
+    (ht, Some (head_spec, conti, (h_normal, h_ops),  summary))}
 | {(Deep, None)}
 
 

@@ -295,8 +295,32 @@ and string_of_pi pi : string =
   | Predicate (str, t) -> str ^ "(" ^ (string_of_args string_of_term t) ^ ")"
   | Subsumption (a, b) -> Format.asprintf "%s <: %s" (string_of_term a) (string_of_term b)
 
+
+and  string_of_effect_cases_specs (h_ops:(string * string option * disj_spec) list): string = 
+  match h_ops with 
+  | [] -> ""
+  | [(effname, param, spec)] -> 
+    (effname  ^  (match param with | None -> " " | Some p -> "("^ p ^ ") ")^ ": " ^ 
+    string_of_disj_spec spec)
+  | (effname, param, spec) ::xs -> 
+    (effname  ^  (match param with | None -> " " | Some p -> "("^ p ^ ") ")^ ": " ^ 
+    string_of_disj_spec spec ^ "\n"
+    ) ^ string_of_effect_cases_specs xs 
+
+
+and string_of_normal_case_specs ((param, h_norm):(string * disj_spec)): string = 
+  ((match param with | p -> p ^ "")^ ": " ^ string_of_disj_spec (h_norm)); 
+
+and string_of_handlingcases ((h_normal, h_ops):handlingcases) : string = 
+    "{\n" ^ 
+    string_of_normal_case_specs h_normal ^ "\n" ^ 
+    string_of_effect_cases_specs h_ops 
+    ^ "\n}\n"
+
+
+
 and string_of_try_catch_lemma (x:tryCatchLemma) : string = 
-  let (tcl_head, tcl_handledCont, tcl_summary) = x in 
+  let (tcl_head, tcl_handledCont, (h_normal, h_ops), tcl_summary) = x in 
   "TRY " 
   ^ 
   string_of_spec tcl_head 
@@ -305,8 +329,8 @@ and string_of_try_catch_lemma (x:tryCatchLemma) : string =
   | None -> "" | Some conti -> " # " ^ string_of_disj_spec conti)
 
   
-  ^ " CATCH \n"
-  ^ "=== " ^ string_of_disj_spec tcl_summary
+  ^ " CATCH \n" ^ string_of_handlingcases (h_normal, h_ops )
+  ^ "=> " ^ string_of_disj_spec tcl_summary
 
 and string_of_handler_type (h:handler_type) : string = 
     match h with

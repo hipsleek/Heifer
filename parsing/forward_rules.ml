@@ -453,6 +453,11 @@ let findTheActualArg4Acc_x_e_ret (arg:term) (specs:disj_spec): term =
   
   | _ -> failwith ("findTheTermAssocatiedWith_x_e_ret empty spec")
 
+
+
+
+
+
 (** this is the entrance of the try-catch reduction **)
 let rec handling_spec typ env (match_summary:tryCatchLemma option) (scr_spec:normalisedStagedSpec) (h_norm:(string * disj_spec)) (h_ops:(string * string option * disj_spec) list) : spec list * fvenv = 
   
@@ -489,9 +494,10 @@ let rec handling_spec typ env (match_summary:tryCatchLemma option) (scr_spec:nor
       concatenateSpecsWithSpec (normalise_spec_list [(scr_normal)]) h_spec
 
     in
-    print_endline ("\nhandling_spec " ^ (string_of_spec (normalisedStagedSpec2Spec scr_spec))); 
+    (*print_endline ("\nhandling_spec " ^ (string_of_spec (normalisedStagedSpec2Spec scr_spec))); 
 
     print_endline ("Final results [] : " ^ string_of_spec_list current);
+    *)
     current, env
 
   | (TryCatchStage _) :: _ -> [(normalisedStagedSpec2Spec scr_spec)], env
@@ -531,12 +537,16 @@ let rec handling_spec typ env (match_summary:tryCatchLemma option) (scr_spec:nor
 
 
       match match_summary with 
-      | Some (tcl_head, Some tcl_handledCont, tcl_summary) -> 
+      | Some (tcl_head, Some tcl_handledCont, (handlerSpec),  tcl_summary) -> 
       
       
-      print_endline (string_of_try_catch_lemma (tcl_head, Some tcl_handledCont, tcl_summary) ^ "\n");
+      print_endline (string_of_try_catch_lemma (tcl_head, Some tcl_handledCont, handlerSpec, tcl_summary) ^ "\n");
       print_endline (string_of_effHOTryCatchStages (EffHOStage x) ^ " # " ^ string_of_spec_list handledContinuation);
       print_endline ("");
+
+      print_endline (string_of_handlingcases (h_norm,h_ops)); 
+
+
       
       
         let effFormalArg = 
@@ -560,8 +570,6 @@ let rec handling_spec typ env (match_summary:tryCatchLemma option) (scr_spec:nor
         let contiRet = findTheActualArg4Acc_x_e_ret x.e_ret handledContinuation in 
 
         
-
-
         (* SYH: here hard coded the instantiation for m and acc for the purpose of the toss example. *)
         let mi = match typ with | Deep -> ("m", Num 2) | Shallow -> ("m", Num 1) in 
         let instantiate_tcl_summary = renameSpecListAndInstantiate tcl_summary (mi::("acc", contiRet)::bindings) in
@@ -858,12 +866,12 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
           in
           (*let sp = normalize_spec sp in *)
           let sp = (normalise_spec_list sp) in 
+
+          (*
+          print_endline (string_of_effect_cases_specs [(effname,param, sp)]); 
+    *)
     
-          (*print_endline ("Inferred_effect_cases_specs: --------- \n" ^ effname  ^  (match param with | None -> " " | Some p -> "("^ p ^ ") ")^ ": " ^ 
-          string_of_disj_spec sp
-          ); 
-          *)  
-          
+
           
           (effname, param, sp) :: t, env
         ) eff_cases ([], env)
@@ -872,10 +880,12 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
       let inferred_val_case, env =
         let (param, body)  = val_case in
         let inf_val_spec, env = infer_of_expression env [[]] body in
+        let inf_val_spec = normalise_spec_list inf_val_spec in 
 
-        (*print_endline ("Inferred_nromal_clause_spec: --------- \n" ^  (match param with | p -> p ^ "")^ ": " ^ 
-        string_of_disj_spec (normalise_spec_list inf_val_spec));  
-        *)
+        (*
+        print_endline (string_of_normal_case_specs (param, inf_val_spec)); 
+*)
+
 
         (param, inf_val_spec), env
       in

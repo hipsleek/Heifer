@@ -18,6 +18,9 @@ let handler n
   match sumEff n with 
   (* try-catch lemma defined here *)
   (*@   try ex r; req n>=0; sumEff(n,r) # Norm(emp,acc+r) catch 
+     {v : ens res=v | 
+     Inc(v) : ex v207 v208 v209 v210 v211; req i->v207; ens i->v210/\v208=(v207+v)/\v210=(v208-1); continue(k, 1, v211); ens res=v211 | 
+     }
      =  ex w; req i->w; Norm (i->w+(n*.(n-1)/2), n+acc)  @*) 
   | v ->  v
   | effect (Inc v) k -> 
