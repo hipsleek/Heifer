@@ -492,10 +492,10 @@ let rec handling_spec typ env (match_summary:tryCatchLemma option) (scr_spec:nor
       concatenateSpecsWithSpec (normalise_spec_list [(scr_normal)]) h_spec
 
     in
-    (*print_endline ("\nhandling_spec " ^ (string_of_spec (normalisedStagedSpec2Spec scr_spec))); 
+    print_endline ("\nhandling_spec " ^ (string_of_spec (normalisedStagedSpec2Spec scr_spec))); 
 
     print_endline ("Final results [] : " ^ string_of_spec_list current);
-    *)
+    
     current, env
 
   | (TryCatchStage _) :: _ -> [(normalisedStagedSpec2Spec scr_spec)], env
@@ -537,6 +537,7 @@ let rec handling_spec typ env (match_summary:tryCatchLemma option) (scr_spec:nor
       match match_summary with 
       | Some (tcl_head, Some tcl_handledCont, (*(handlerSpec),*)  tcl_summary) -> 
 
+(*
         print_endline ("======================================\n");
 
         print_endline (string_of_try_catch_lemma (tcl_head, Some tcl_handledCont, (*handlerSpec,*) tcl_summary) ^ "\n");
@@ -546,7 +547,7 @@ let rec handling_spec typ env (match_summary:tryCatchLemma option) (scr_spec:nor
 
 
         print_endline ("======================================\n");
-
+*)
       
 
 

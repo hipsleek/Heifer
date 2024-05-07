@@ -32,6 +32,17 @@ let rec simplify_term t : term  =
 
   | Minus (Minus(t, Num n1), Num n2) -> Minus(t, Num (n1+n2))
 
+  | Plus (Plus(a, Num n1), Minus(b, Num n2))  -> Plus(Plus(a, b), Num (n1-n2))
+
+  | Plus (Plus(a, Num n1), Num n2)  -> Plus(a, Num (n1+n2))
+
+  | Plus (a, Num n)  -> if n < 0 then Minus (a, Num (-1 * n)) else t 
+
+
+  | Plus (Plus(Plus(a, TPower(Num 2, Var v1)), Num(n1)), TPower(Num 2, Var v2))  -> 
+    if String.compare v1 v2 == 0 then Plus (Plus(a, TPower(Num 2, Plus(Var v1, Num 1))), Num(n1) )
+    else t 
+
   | Plus (a, b)  -> 
     let a' = simplify_term a in 
     let b' = simplify_term b in 
@@ -154,7 +165,68 @@ let simplify_pure (p : pi) : pi =
       ;
   r
 
-let simplify_state (p, h) = (simplify_pure p, simplify_heap h)
+let rec lookforEqualityinPure (str : string) (p:pi) : term option =
+  match p with
+  | Atomic (EQ, Var v, t) -> 
+    if String.compare v str == 0 then Some t 
+    else None 
+  | True
+  | False 
+  | Imply  _ 
+  | Not   _ 
+  | Predicate _ 
+  | Subsumption _
+  | Or _
+  | Atomic _ -> None 
+  | And (p1, p2) -> 
+    (match lookforEqualityinPure str p1 with 
+    | Some t -> Some t 
+    | None -> lookforEqualityinPure str p2
+    )
+
+
+
+let rec accumulateTheSumTerm (p:pi) (t:term) : term = 
+  match t with
+  | Var str -> 
+    (match lookforEqualityinPure str p with 
+    | None -> t 
+    | Some t' -> 
+      if String.compare (string_of_term t) (string_of_term t') == 0 then  t' 
+      else accumulateTheSumTerm p (t')
+    )
+  | Num _ 
+  | UNIT 
+  | Nil 
+  | TTrue 
+  | TFalse 
+  | TApp _
+  | TLambda _  | TTupple _ | TList _ -> t
+  | TNot t1 -> TNot (accumulateTheSumTerm p t1)
+  | TCons (t1, t2) -> TCons (accumulateTheSumTerm p t1, accumulateTheSumTerm p t2) 
+  | TAnd (t1, t2) -> TAnd (accumulateTheSumTerm p t1, accumulateTheSumTerm p t2) 
+  | TOr (t1, t2) -> TOr (accumulateTheSumTerm p t1, accumulateTheSumTerm p t2) 
+  | Rel (bop, t1, t2) -> Rel (bop, accumulateTheSumTerm p t1, accumulateTheSumTerm p t2) 
+  | Plus (t1, t2) -> Plus (accumulateTheSumTerm p t1, accumulateTheSumTerm p t2) 
+  | Minus (t1, t2) -> Minus (accumulateTheSumTerm p t1, accumulateTheSumTerm p t2) 
+  | TPower (t1, t2) -> TPower (accumulateTheSumTerm p t1, accumulateTheSumTerm p t2) 
+  | TTimes (t1, t2) -> TTimes (accumulateTheSumTerm p t1, accumulateTheSumTerm p t2) 
+  | TDiv (t1, t2) -> TDiv (accumulateTheSumTerm p t1, accumulateTheSumTerm p t2) 
+;; 
+
+
+let rec accumulateTheSum (p:pi) (h:kappa) : kappa = 
+  match h with 
+  | EmptyHeap -> h 
+  | PointsTo (pointer, term) -> 
+    let term' = accumulateTheSumTerm p term in 
+    PointsTo (pointer, term')
+  | SepConj (h1, h2) -> SepConj (accumulateTheSum p h1, accumulateTheSum p h2) 
+
+let simplify_state (p, h) = 
+  let (p, h) = (simplify_pure p, simplify_heap h) in 
+  let h' = accumulateTheSum p h in 
+  (p, h')
 
 let mergeState (pi1, h1) (pi2, h2) =
   let heap = simplify_heap (SepConj (h1, h2)) in

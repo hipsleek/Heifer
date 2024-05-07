@@ -14,7 +14,10 @@ let rec tossNtimeRight n
   =   ex w final; req counter->w; Norm (counter->w+(2^(n+1) -2) /\ (final=1/\acc=true \/ final=0/\acc=false), final)  *) 
 
 let tossHandlerTail counter n 
-(*@ ex w; req counter->w /\ n>=1; Norm (counter->w+((2^(n+1)) -2) ,1) @*)
+(*@ 
+ex w; req counter->w /\ n=1; Norm (counter->w+2 ,1)
+\/ 
+ex w; req counter->w /\ n>=1; Norm (counter->w+((2^(n+1)) -2) ,1) @*)
 = match tossNtimeRight n with 
 
   (* try-catch lemma defined here *)
