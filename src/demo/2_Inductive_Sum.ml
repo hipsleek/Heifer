@@ -25,19 +25,18 @@ let handler n
     continue k 1
 
 
-    
-(*
 let test1 () 
-(*@ ex i; Norm(i-> 10 /\ res=5, res) @*)
+(*@ ex i; Norm(i-> 15 /\ res=5, res) @*)
 = handler 5
 
 
+
 let test2 () 
-(*@ ex i; Norm(i-> 45 /\ res=10, res) @*)
+(*@ ex i; Norm(i-> 55 /\ res=10, res) @*)
 = handler 10
 
 
+
 let test3 () 
-(*@ ex i; Norm(i-> 4950 /\ res=100, res) @*)
+(*@ ex i; Norm(i-> 5050 /\ res=100, res) @*)
 = handler 100
-*)
