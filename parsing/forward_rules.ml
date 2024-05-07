@@ -492,8 +492,8 @@ let rec handling_spec typ env (match_summary:tryCatchLemma option) (scr_spec:nor
       concatenateSpecsWithSpec (normalise_spec_list [(scr_normal)]) h_spec
 
     in
-    (*print_endline ("\nhandling_spec " ^ (string_of_spec (normalisedStagedSpec2Spec scr_spec))); 
-
+    (*
+    print_endline ("\nhandling_spec " ^ (string_of_spec (normalisedStagedSpec2Spec scr_spec))); 
     print_endline ("Final results [] : " ^ string_of_spec_list current);
     *)
     current, env
@@ -548,11 +548,6 @@ let rec handling_spec typ env (match_summary:tryCatchLemma option) (scr_spec:nor
 
         print_endline ("======================================\n");
 *)
-      
-
-
-      
-      
         let effFormalArg = 
           match normalize_spec tcl_head with 
           | ([(EffHOStage y) ], _) -> 
@@ -593,10 +588,23 @@ let rec handling_spec typ env (match_summary:tryCatchLemma option) (scr_spec:nor
       | Some _  -> 
         failwith (Format.asprintf "lemma without continuation %s" label);
 
-      | None -> [(normalisedStagedSpec2Spec scr_spec)], env
-          (*if String.compare label "continue" == 0 then 
-          else failwith (Format.asprintf "no lemma provided for %s" label);
-          *)
+      | None -> (*  *)
+          if String.compare label "continue" == 0 then [(normalisedStagedSpec2Spec scr_spec)], env
+          else 
+          (
+          (*print_endline ("no lemma provided for " ^ label ); *)
+          let prefix = effectStage2Spec scr_eff_stages in 
+          let ret = verifier_getAfreeVar "res" in
+          let (stage:stagedSpec) = TryCatch(True, EmptyHeap, (prefix, (h_norm, h_ops)), Var ret) in 
+          let res = normalise_spec_list (concatenateEventWithSpecs  (normalStage2Spec norm) [( [stage] )]) in 
+
+          res , env )
+
+
+          
+          
+
+          
 
       )
       
