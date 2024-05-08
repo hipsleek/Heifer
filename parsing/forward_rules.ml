@@ -480,38 +480,41 @@ let rec resolveInnerTryCatches typ env (match_summary:tryCatchLemma option) (spe
 
       let spec_body'= normalize_spec (NormalReturn(pi, heap)::spec_body) in 
       print_endline ("--------\n spec_body' " ^ string_of_normalisedStagedSpec spec_body');
+      print_endline ("\n handler:' " ^ string_of_handlingcases (h_n, h_eff)^"\n");
 
       let phi1, _ = handling_spec typ env match_summary spec_body' h_n h_eff  in 
+      print_endline ("--------\n phi1 " ^ string_of_disj_spec phi1 ^"\n");
 
-      let ret =
-          match phi1 with 
-          | [spec_body] ->
-            (match unsnoc spec_body with
+      let res = 
+        List.map 
+        (fun phi1_spec_body -> 
+        let ret =
+            (match unsnoc phi1_spec_body with
             | _, RaisingEff (_pre, _post, _constr, Var ret) -> ret
             | _, HigherOrder (_pre, _post, _constr, Var ret) -> ret
             | _, TryCatch (_pre, _post, _constr, Var ret) -> ret
             | _, RaisingEff (_, _, _, ret) | _, HigherOrder (_, _, _, ret) |  _, TryCatch (_, _, _, ret) -> failwith (Format.asprintf "ret not a variable: %s" (string_of_term ret))
             | _ -> 
-            (match retriveLastRes spec_body with 
+            (match retriveLastRes phi1_spec_body with 
             | Some (Var v) -> v 
             | _ -> "res"
-            )
-            )
-          | _ -> "res"
+            ))
       in
 
-      print_endline ("--------\n phi1' " ^ string_of_disj_spec phi1 ^"\n");
 
-      print_endline ("returns are " ^ ret ^ string_of_term ret');
-      (* And(pi, ) *)
+      print_endline ("returns are " ^ ret ^ " " ^ string_of_term ret');
 
-      let phi1 = List.map (fun spec -> (NormalReturn (Atomic(EQ, Var ret,ret' ), EmptyHeap))::spec) phi1 in 
-      print_endline ("\n handler:' " ^ string_of_handlingcases (h_n, h_eff)^"\n");
+      let phi1_spec_body' = (NormalReturn (Atomic(EQ, Var ret,ret' ), EmptyHeap)) :: phi1_spec_body in 
+      print_endline ("--------\n phi1' " ^ string_of_spec phi1_spec_body' ^"\n");
 
-      
+      phi1_spec_body'
+      )
+
+      phi1 in 
+
       let phi2 = (helper xs) in 
-      if List.length phi2 == 0 then phi1
-      else flattenList(List.map (fun tail -> List.map (fun hd -> hd @ tail) phi1) phi2)
+      if List.length phi2 == 0 then res
+      else flattenList(List.map (fun tail -> List.map (fun hd -> hd @ tail) res) phi2)
 
 
     | x ::xs -> 

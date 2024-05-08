@@ -70,8 +70,7 @@ try
  catch {
     x -> ens res=x 
   | (Success r) -> ens res=r 
- }[hr] ;
- ens res= hr
+ }[hr] 
 @*)
 = 
   match iter (helperk) xs; perform (Failure 404) with 
@@ -87,7 +86,7 @@ let amb (xs) counter : bool
 
 let m xs counter
 (*@ ex r1; Choose(emp, (xs), r1); ex x r; req counter->x; Norm(counter->x+1 /\ r1= true /\ res =r /\ r=7 ) 
- \/ ex r1; Choose(emp, (xs), r1); ex r2 x;req counter->x; Failure(counter->x+1 /\r1=false, 500, r2); Norm(res =r2 ) @*)
+ \/ ex r1; Choose(emp, (xs), r1); ex r2 x;req counter->x; Failure(counter->x+1 /\r1=false, 500, r2) @*)
 = if amb xs counter then 7 
   else 
     perform (Failure 500)
