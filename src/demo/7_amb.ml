@@ -10,7 +10,7 @@ effect Failure : int -> int
 let rec iter (f)  (xs) 
 (*@ ens xs=[]/\res=(); Norm(emp, res) 
 \/ 
-    ex h t; ens head(xs)=h/\tail(xs)=t/\is_cons(xs)=true; 
+    ex t; ens head(xs)=h/\tail(xs)=t/\is_cons(xs)=true; 
     ex r1; f(h, r1); 
     ex r2; iter(f, t, r2); Norm(res=r2)    
  @*)
@@ -25,10 +25,10 @@ let rec iter (f)  (xs)
    Norm(r1=false); ex r c'; containRetTrue (t,c',r) ; Norm(c = c'+1 /\ res=r) 
 @*)
 
-let helperk h 
+let helperk hh 
 (*@ 
     ex hret; 
-    try  ex hr1; h((), hr1); ex hr2; continue(k, hr1, hr2); ex hr3; Success(emp, hr2, hr3)
+    try ex hr1; h((), hr1); ex hr2; continue(k, hr1, hr2); ex hr3; Success(emp, hr2, hr3)
     catch {
       x ->  Norm(res=()) 
     | (Success x) -> ex hkr; Success(emp, x, hkr); Norm (res=hkr) 

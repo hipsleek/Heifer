@@ -723,7 +723,7 @@ let normal_report ?(kind="Function") ?given_spec ?given_spec_n ?inferred_spec ?i
     | None -> "") ^
     normed_spec ^
     (match inferred_spec with
-    | Some s -> "[Raw Post Spec] OMITTED\n" (*^ string_of_spec_list s ^ "\n\n" *)
+    | Some _ (* s *) -> "[Raw Post Spec] OMITTED\n" (*^ string_of_spec_list s ^ "\n\n" *)
     | None -> "") ^
     normed_post ^
     (match forward_time_ms with

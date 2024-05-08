@@ -451,6 +451,7 @@ let rec check_staged_subsumption_stagewise :
  fun ctx i assump s1 s2 ->
  (*print_endline ("check_staged_subsumption_stagewise");*)
 
+
   debug ~at:1 ~title:"flow subsumption" "%s\n<:\n%s"
     (string_of_normalisedStagedSpec s1)
     (string_of_normalisedStagedSpec s2);
