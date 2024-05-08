@@ -31,6 +31,7 @@ let rec instantiateExistientalVar (spec : normalisedStagedSpec)
       norm' )
 
   | (TryCatchStage tc) :: xs -> 
+    print_endline ("instantiateExistientalVar");
     let rest, norm' = instantiateExistientalVar (xs, normalS) bindings in
     ( TryCatchStage { tc with tc_evars = instantiateExistientalVar_aux tc.tc_evars bindings }
       :: rest,
@@ -71,7 +72,7 @@ let rec findbinding str vb_li =
 
       method! visit_Var bindings v =
         let binding = findbinding v bindings in
-        (* Format.printf "replacing %s with %s under %s@." str (string_of_term binding) (string_of_list (string_of_pair Fun.id string_of_term) bindings); *)
+        (*Format.printf "replacing %s with %s under %s@." v (string_of_term binding) (string_of_list (string_of_pair Fun.id string_of_term) bindings); *)
         binding
     end
 

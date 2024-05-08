@@ -257,6 +257,7 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
 
 
   | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, args) when name = "continue" ->
+    (*print_endline (List.fold_left  (fun acc a -> acc ^ ", " ^ a) "" bound_names); *)
     let rec loop vars args =
       match args with
       | [] -> CResume (List.rev vars)

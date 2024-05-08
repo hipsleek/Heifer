@@ -27,11 +27,13 @@ let rec iter (f)  (xs)
 
 let helperk h 
 (*@ 
-    try  ex r1; h((), r1); ex r2; continue(k, r1, r2); ex r3; Success(emp, r2, r3)
+    ex hret; 
+    try  ex hr1; h((), hr1); ex hr2; continue(k, hr1, hr2); ex hr3; Success(emp, hr2, hr3)
     catch {
-      x -> ex r; Norm(res=r/\ r=()) 
-    | (Failure x) -> ex r; Norm(res=r/\ r=())  
-    | (Success x) -> ex r; Success(emp, x, r); Norm (res=r) }[res]
+      x ->  Norm(res=()) 
+    | (Success x) -> ex hkr; Success(emp, x, hkr); Norm (res=hkr) 
+    | (Failure x) -> Norm(res=())  
+    }[hret]
 @*)
 = match
     let k = Obj.clone_continuation k in
@@ -47,10 +49,17 @@ let aux k xs
 (*@ 
  ex r; Failure(xs=[], (404), r) 
 \/ 
+ex hr; 
 try 
- ex h t; ens head(xs)=h/\tail(xs)=t/\is_cons(xs)=true; 
- ex hr r1; helperk(h, r1); 
- ex r2; iter(helperk, t, r2); Norm(res=r2); ex r; Failure(emp, (404), r) 
+ ex h t hret; ens head(xs)=h/\tail(xs)=t/\is_cons(xs)=true;     
+    try ex hr1; h((), hr1); ex hr2; continue(k, hr1, hr2); ex hr3; Success(emp, hr2, hr3)
+    catch {
+      x ->  Norm(res=()) 
+    | (Success x) -> ex hkr; Success(emp, x, hkr); Norm (res=hkr) 
+    | (Failure x) -> Norm(res=())  
+    }[hret]
+;
+ ex r2; iter(helperk, t, r2); ex r; Failure(emp, (404), r) 
  catch {
     x -> ens res=x 
   | (Success r) -> ens res=r 
@@ -61,6 +70,11 @@ try
   match iter (helperk) xs; perform (Failure 404) with 
   | effect (Success r) k1 -> r
   | x -> x  
+
+
+
+
+(*
 
    
 
@@ -85,10 +99,9 @@ ex r c a r1; req counter -> a; containRetTrue (xs, c, r1); ens counter->a+c /\ r
   | effect (Choose xs) k -> aux k xs
    
 
-(*
 
- 
-   
+
+
 *)
 
 (*

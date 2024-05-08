@@ -508,7 +508,7 @@ let rec check_staged_subsumption_stagewise :
         (es1r, ns1) (es2r, ns2))
 
   | (TryCatchStage tc1 :: _es1r, _ns1), (TryCatchStage tc2 :: _es2r, _ns2) ->
-
+    print_endline ("entailement checking with two catches");
     let src1, _ = tc1.tc_constr in
     let src2, _ = tc2.tc_constr in
 

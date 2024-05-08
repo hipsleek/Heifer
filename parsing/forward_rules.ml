@@ -498,7 +498,16 @@ let rec handling_spec typ env (match_summary:tryCatchLemma option) (scr_spec:nor
     *)
     current, env
 
-  | (TryCatchStage _) :: _ -> [(normalisedStagedSpec2Spec scr_spec)], env
+  | (TryCatchStage _) :: _ -> 
+
+  print_endline ("unresolved try catch"); 
+  let prefix = effectStage2Spec scr_eff_stages in 
+  let ret = verifier_getAfreeVar "res" in
+  let (stage:stagedSpec) = TryCatch(True, EmptyHeap, (prefix, (h_norm, h_ops)), Var ret) in 
+  let res = normalise_spec_list ((*concatenateEventWithSpecs  (normalStage2Spec norm)*) [( [Exists [ret];stage] )]) in 
+
+  res , env 
+
 
   | (EffHOStage x) :: xs -> 
     let (label, effActualArg) = x.e_constr in
@@ -592,11 +601,11 @@ let rec handling_spec typ env (match_summary:tryCatchLemma option) (scr_spec:nor
           if String.compare label "continue" == 0 then [(normalisedStagedSpec2Spec scr_spec)], env
           else 
           (
-          (*print_endline ("no lemma provided for " ^ label ); *)
+          print_endline ("no lemma provided for " ^ label ); 
           let prefix = effectStage2Spec scr_eff_stages in 
           let ret = verifier_getAfreeVar "res" in
           let (stage:stagedSpec) = TryCatch(True, EmptyHeap, (prefix, (h_norm, h_ops)), Var ret) in 
-          let res = normalise_spec_list ((*concatenateEventWithSpecs  (normalStage2Spec norm)*) [( [stage] )]) in 
+          let res = normalise_spec_list ((*concatenateEventWithSpecs  (normalStage2Spec norm)*) [( [Exists [ret];stage] )]) in 
 
           res , env )
 
@@ -654,7 +663,7 @@ let ifAsyncYiled env  =
   | None  -> false 
   | Some _ -> true  
 
-let recursivelyInstantiateFunctionCalls env instantiatedSpec = 
+let recursivelyInstantiateFunctionCalls (current_function:string) env instantiatedSpec = 
 
   let rec helper acc li : spec list = 
     match li with 
@@ -663,7 +672,7 @@ let recursivelyInstantiateFunctionCalls env instantiatedSpec =
       (match x with 
       | Require _ | Exists _  | NormalReturn _ | RaisingEff _ | TryCatch _ -> helper (acc@[x]) xs 
       | HigherOrder (pi, kappa, (fname, actualArgs), _ret)  -> 
-        if String.compare fname "helper" == 0 then  (* check if it is recursive *)
+        if String.compare fname current_function != 0 then  (* check if it is recursive *)
         (match retrieveSpecFromEnv fname env with 
         | None -> helper (acc@[x]) xs 
         | Some (formalArgs, spec_of_fname) -> 
@@ -708,13 +717,31 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
             match unsnoc spec with
             | _, RaisingEff (_pre, _post, _constr, Var ret) -> ret
             | _, HigherOrder (_pre, _post, _constr, Var ret) -> ret
-            | _, RaisingEff (_, _, _, ret) | _, HigherOrder (_, _, _, ret) -> failwith (Format.asprintf "ret not a variable: %s" (string_of_term ret))
+            | _, TryCatch (_pre, _post, _constr, Var ret) -> ret
+            | _, RaisingEff (_, _, _, ret) | _, HigherOrder (_, _, _, ret) |  _, TryCatch (_, _, _, ret) -> failwith (Format.asprintf "ret not a variable: %s" (string_of_term ret))
             | _ -> "res"
           in
 
+          (*
+          print_endline ("========let==============   ret = " ^ ret ); 
+          print_endline (string_of_spec spec); 
+          *)
+
           (* create an existential by creating a fresh variable, and preserve the invariant by removing res from the post of the first expr, as it will now appear on the left of the second premise *)
           let nv = verifier_getAfreeVar "let" in
-          let spec = instantiateSpec [ret, Var nv] spec in
+
+          
+          let spec = 
+            flattenList (List.map  (fun a -> 
+              match a with 
+              | TryCatch _ -> [a] 
+              | _ -> instantiateSpec [ret, Var nv] [a]
+            ) spec )in
+
+          (*print_endline ("====>  "  ); 
+          print_endline (string_of_spec spec); 
+          *)
+
           (* let spec = spec @ [NormalReturn (Atomic (EQ, Var nv, Var str), EmptyHeap)] in *)
           let spec = (Exists [nv]) :: spec in
 
@@ -771,6 +798,9 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
           [[Exists [ret]; HigherOrder (True, EmptyHeap, (fname, actualArgs), Var ret)]]
         | Some (spec_params, known_spec) ->
 
+          print_endline ("calling " ^ fname);
+
+          print_endline (string_of_disj_spec known_spec);
 
           let@ _ =
             Debug.span (fun r ->
@@ -812,7 +842,15 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
               |> trf "ho args" ((subst_visitor_subsumptions_only arg_specs)#visit_disj_spec ())
           in 
 
-          let instantiatedSpec = instantiatedSpec |> trf "function stages" (recursivelyInstantiateFunctionCalls env) in 
+
+
+          print_endline (string_of_disj_spec instantiatedSpec);
+
+
+          let instantiatedSpec = instantiatedSpec |> trf "function stages" (recursivelyInstantiateFunctionCalls fname env) in 
+
+          print_endline (string_of_disj_spec instantiatedSpec);
+
 
           instantiatedSpec
       in
@@ -821,7 +859,9 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
         let ret = verifier_getAfreeVar "ret" in
         [[Exists [ret]; HigherOrder (True, EmptyHeap, (fname, actualArgs), Var ret); NormalReturn (res_eq (Var ret), EmptyHeap)]]
       in
-      concatenateSpecsWithSpec history fn_spec, env
+      let res = concatenateSpecsWithSpec history fn_spec in 
+
+      res, env
     | CWrite  (str, v) -> 
       let freshVar = verifier_getAfreeVar "wr" in 
       let event = [Exists [freshVar];Require(True, PointsTo(str, Var freshVar)); 
@@ -905,7 +945,6 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
         (param, inf_val_spec), env
       in
       (* for each disjunct of the scrutinee's behaviour, reason using the handler *)
-      let phi1, env = infer_of_expression env [freshNormalReturnSpec] scr in 
       (*
       let phi1 = 
         match phi1 with 
@@ -913,10 +952,11 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
       in    
       *)
       
-      
       print_endline (string_of_core_lang scr) ; 
       (print_endline (string_of_handlingcases (inferred_val_case, inferred_branch_specs)));
   
+      let phi1, env = infer_of_expression env [freshNormalReturnSpec] scr in 
+
       print_endline ("\nSpec of the try block: " ^ string_of_disj_spec phi1 ^ "\n\n"); 
 
       let afterHandling, env =
@@ -927,8 +967,8 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
           temp
         ) phi1
       in 
-      (*print_endline ("\nAfter afterHandling at handler: \n" ^ string_of_disj_spec afterHandling ^ "\n\n");  
-      *)
+      print_endline ("\nAfter afterHandling at handler: \n" ^ string_of_disj_spec afterHandling ^ "\n\n");  
+      
       concatenateSpecsWithSpec history afterHandling, env 
       
 
