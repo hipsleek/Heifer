@@ -31,7 +31,6 @@ let rec instantiateExistientalVar (spec : normalisedStagedSpec)
       norm' )
 
   | (TryCatchStage tc) :: xs -> 
-    print_endline ("instantiateExistientalVar");
     let rest, norm' = instantiateExistientalVar (xs, normalS) bindings in
     ( TryCatchStage { tc with tc_evars = instantiateExistientalVar_aux tc.tc_evars bindings }
       :: rest,
