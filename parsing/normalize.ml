@@ -1323,6 +1323,13 @@ let rec existControdictionSpec (spec : spec) : bool =
     | true ->  true
     | _ -> 
       existControdictionSpec xs)
+
+  | Require (pi1, _) ::xs ->
+    (match ProversEx.is_valid pi1 False with
+    | true ->  true
+    | _ -> 
+      existControdictionSpec xs)
+
   | NormalReturn (pi, _)::xs 
   | RaisingEff (pi, _, _, _) :: xs
   | HigherOrder (pi, _, _, _) ::xs -> 

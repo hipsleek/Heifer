@@ -495,7 +495,9 @@ let rec resolveInnerTryCatches typ env (match_summary:tryCatchLemma option) (spe
             | _, RaisingEff (_pre, _post, _constr, ret) -> ret
             | _, HigherOrder (_pre, _post, _constr, ret) -> ret
             | _, TryCatch (_pre, _post, _constr, ret) -> ret
+            (*
             | _, RaisingEff (_, _, _, ret) | _, HigherOrder (_, _, _, ret) |  _, TryCatch (_, _, _, ret) -> failwith (Format.asprintf "ret not a variable: %s" (string_of_term ret))
+            *)
             | _ -> 
             (match retriveLastRes phi1_spec_body with 
             | Some t -> t
