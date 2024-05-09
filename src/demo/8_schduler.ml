@@ -114,14 +114,13 @@ ex cr; spawn (f, run_q, cr)
 
 (*@ predicate task(f) = 
      Norm(effNo(f) = 0 /\ res=())
-@*)
-    
-(*
-   \/ex n r1 f2; ens effNo(f)=n/\n>0/\effNo(f2)=n-1; Yield(emp, r1); task(f2)
-   \/ex r r1 f1 f2 r2 n m1 m2; 
+  \/ ex n r1 f2; ens effNo(f)=n/\n>0/\effNo(f2)=n-1; Yield(emp, r1); task(f2)
+  \/ ex r r1 f1 f2 r2 n m1 m2; 
      ens effNo(f)=n /\ n>0 /\ effNo(f1)= m1 /\ effNo(f2)=m2 /\ m1>0 /\ m2>0 /\ (m1+m2)=(n-1); 
      Fork(emp, f1, r1); task(f2) 
+@*)  
 
+(*
  ex r; queue_is_empty(run_q, true) ; ens effNo(f)=0 /\ res =r /\ r= () 
 \/ ex m m' w w' ele cr; req non_empty_queue(run_q, m);  
    Norm(any_queue(run_q, m') /\ effNo(f)=0 /\ effNo(ele) =w' /\ m'<m );
@@ -129,7 +128,6 @@ ex cr; spawn (f, run_q, cr)
 \/ ex m m' w w' ele cr qq mm; req any_queue(run_q, m) /\ effNo(qq)=mm /\ mm>0 ;  
     Norm(any_queue(run_q, m') /\ effNo(f)=w /\ effNo(ele) =w' /\ w>0 /\ w'>0 /\ (w'+m')<(m+w) );
     spawn (ele, run_q, cr); Norm(res=cr)
-  
 *)
 let rec spawn f run_q 
 (*@
@@ -137,6 +135,10 @@ let rec spawn f run_q
 \/ ex q q' m m' w ele cr; 
    req run_q->q /\effNo(q)=m/\m>0/\effNo(f)=0; ens run_q->q'/\effNo(q')=m'/\m'>=0/\effNo(ele)=w/\w+m'=m; 
    spawn (ele, run_q, cr) 
+\/ ex q q' m m' w w' ele cr; 
+   req run_q->q /\effNo(q)=m/\m>=0; ens run_q->q' /\effNo(q')=m'/\m'>=0  
+   /\ effNo(f)=w /\ effNo(ele) =w' /\ w>0 /\ w'>0 /\ (w'+m')<(m+w) ;
+   spawn (ele, run_q, cr)
 @*) 
 = match (*f ()*) task(f) with
   (* spawn (f, run_q, res) *)
