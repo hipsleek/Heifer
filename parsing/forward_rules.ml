@@ -479,12 +479,14 @@ let rec resolveInnerTryCatches typ env (match_summary:tryCatchLemma option) (spe
         in 
 
       let spec_body'= normalize_spec (NormalReturn(pi, heap)::spec_body) in 
+      (*
       print_endline ("--------\n spec_body' " ^ string_of_normalisedStagedSpec spec_body');
       print_endline ("\n handler:' " ^ string_of_handlingcases (h_n, h_eff)^"\n");
-
+*)
       let phi1, _ = handling_spec typ env match_summary spec_body' h_n h_eff  in 
+      (*
       print_endline ("--------\n phi1 " ^ string_of_disj_spec phi1 ^"\n");
-
+*)
       let res = 
         List.map 
         (fun phi1_spec_body -> 
@@ -502,10 +504,13 @@ let rec resolveInnerTryCatches typ env (match_summary:tryCatchLemma option) (spe
       in
 
 
-      print_endline ("returns are " ^ string_of_term ret ^ " " ^ string_of_term ret');
 
       let phi1_spec_body' = (NormalReturn (Atomic(EQ, ret,ret' ), EmptyHeap)) :: phi1_spec_body in 
+      (*
+      print_endline ("returns are " ^ string_of_term ret ^ " " ^ string_of_term ret');
+
       print_endline ("--------\n phi1' " ^ string_of_spec phi1_spec_body' ^"\n");
+      *)
 
       phi1_spec_body'
       )
@@ -578,7 +583,9 @@ and handling_spec typ env (match_summary:tryCatchLemma option) (scr_spec:normali
 
   | (TryCatchStage _) :: _ -> 
 
+  (*
   print_endline ("unresolved try catch"); 
+  *)
   let prefix = effectStage2Spec scr_eff_stages in 
   let ret = verifier_getAfreeVar "res" in
   let (stage:stagedSpec) = TryCatch(True, EmptyHeap, (prefix, (h_norm, h_ops)), Var ret) in 
@@ -652,8 +659,9 @@ and handling_spec typ env (match_summary:tryCatchLemma option) (scr_spec:normali
       *)
         let bindings = bindFormalNActual (effFormalArg) (effActualArg@[x.e_ret]) in  
 
+        (*
         print_endline (string_of_effHOTryCatchStages (EffHOStage x) ^ " # " ^ string_of_spec_list handledContinuation);
-
+*)
         let contiRet = findTheActualArg4Acc_x_e_ret x.e_ret handledContinuation in 
 
         
@@ -665,12 +673,13 @@ and handling_spec typ env (match_summary:tryCatchLemma option) (scr_spec:normali
 
         
         
+        (*
         print_endline ("\nhandling_spec " ^ (string_of_spec (normalisedStagedSpec2Spec scr_spec))); 
         print_endline ("prefix: \n" ^  string_of_spec (normalStage2Spec norm) ^"\n"); 
 
         
         print_endline ("Final results lower case: \n" ^  string_of_spec_list instantiate_tcl_summary ^"\n"); 
-
+*)
 
         instantiate_tcl_summary, env
 
@@ -682,7 +691,9 @@ and handling_spec typ env (match_summary:tryCatchLemma option) (scr_spec:normali
           if String.compare label "continue" == 0 then [(normalisedStagedSpec2Spec scr_spec)], env
           else 
           (
+          (*
           print_endline ("no lemma provided for " ^ label ); 
+          *)
           let prefix = effectStage2Spec scr_eff_stages in 
           let ret = verifier_getAfreeVar "res" in
           let (stage:stagedSpec) = TryCatch(True, EmptyHeap, (prefix, (h_norm, h_ops)), Var ret) in 
@@ -726,8 +737,9 @@ and handling_spec typ env (match_summary:tryCatchLemma option) (scr_spec:normali
       let handler_body_specAfterSubstituteK = resolveInnerTryCatches typ env match_summary handler_body_specAfterSubstituteK in 
 
       
+      (*
       print_endline ("handlerbodyAfterSubstituteK: " ^ string_of_spec_list handler_body_specAfterSubstituteK);
-      
+      *)
 
       let res = concatenateEventWithSpecs  (normalStage2Spec norm) ( handler_body_specAfterSubstituteK) in 
 
@@ -1036,9 +1048,10 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
       in    
       *)
       
+      (*
       print_endline (string_of_core_lang scr) ; 
       (print_endline (string_of_handlingcases (inferred_val_case, inferred_branch_specs)));
-  
+  *)
       let phi1, env = infer_of_expression env [freshNormalReturnSpec] scr in 
 
       (*

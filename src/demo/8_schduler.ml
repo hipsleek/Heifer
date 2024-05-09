@@ -15,6 +15,7 @@ let yield ()
 (*@ ex r; Yield(emp, r); Norm(res=r) @*)
 = perform Yield 
 
+(* seperation logic predicates are starting with a ~ *)
 (*@ ~predicate any_queue(queue, m) 
 = ex q; queue->q /\ effNo(q) = m /\ m>=0 @*)
 
@@ -24,18 +25,29 @@ let yield ()
 (*@ ~predicate empty_queue(queue) 
 = ex q; queue->q /\ effNo(q) = 0   @*)
 
-
 let queue_create () = ref ([], [])
 
 let queue_push ele queue 
-(*@ ex mm mm' w inter; req any_queue(queue, mm); 
-  Norm(non_empty_queue(queue, mm') /\ effNo(ele)=w /\ w >0 /\ mm'=mm+w /\ res=inter /\ inter=()) @*)
+(*@
+ex m m' q q'; req queue->q /\ effNo(q) = m /\ m>=0; 
+ens  queue->q' /\ effNo(q') = m' /\ m'>0 /\ effNo(ele)=w /\ w >0 /\ m'=m+w /\ res=() 
+@*)
 = let (front, back) = !queue in
   queue := (front, ele::back)
 
+(* ex mm mm' w inter; req any_queue(queue, mm); 
+  Norm(non_empty_queue(queue, mm') /\ effNo(ele)=w /\ w >0 /\ mm'=mm+w /\ res=inter /\ inter=()) *)
+let enqueue ele queue
+(*@
+ex m m' q q'; req queue->q /\ effNo(q) = m /\ m>=0; 
+ens  queue->q' /\ effNo(q') = m' /\ m'>0 /\ effNo(ele)=w /\ w >0 /\ m'=m+w /\ res=() 
+@*)
+= queue_push ele queue
+
+(*
 let queue_is_empty queue 
-(*@ ex inter; req empty_queue(queue); Norm(empty_queue(queue) /\ res=inter /\ inter=true)
-\/ ex m inter; req non_empty_queue(queue, m);  Norm(non_empty_queue(queue, m) /\ res=inter /\ inter=false) @*)
+(*@ ex inter; req empty_queue(queue); Norm(empty_queue(queue) /\ res=true /\ inter=true)
+\/ ex m inter; req non_empty_queue(queue, m);  Norm(non_empty_queue(queue, m) /\ res=false) @*)
 = let (front, back) = !queue in
   List.length front = 0 && List.length back = 0
 
@@ -61,17 +73,14 @@ let queue_pop queue
         queue := (newfront, []);
         h)
 
-let enqueue f run_q
-(*@ ex r; queue_push(f, run_q, r); Norm(res=r) @*)
-= queue_push f run_q
-
 let wrapPop run_q 
 (*@ ex f; queue_pop (run_q, f); Norm (res=f)@*)
 =  queue_pop run_q
 
 let dequeue run_q
 (*@ queue_is_empty(run_q, true); Norm(res=())
-\/  ex m m' w f cr; req non_empty_queue(run_q, m);  
+\/  queue_is_empty(run_q, false); 
+    ex m m' w f cr; req non_empty_queue(run_q, m);  
     Norm(any_queue(run_q, m') /\ effNo(f) =w /\ w >0 /\ m'+w=m );
     continue (f, (), cr); Norm(res=cr)
 @*)
@@ -79,7 +88,6 @@ let dequeue run_q
   else 
     let f = queue_pop run_q in 
     continue f ()
-
 
 
 (*@ predicate f(arg) = 
@@ -110,7 +118,8 @@ let rec spawn f run_q
      enqueue k run_q; 
      spawn f' run_q
 
-
+*)
+(*
 (* A concurrent round-robin scheduler *)
 let run main
 (*@ ex queue q r; Norm (queue->q /\ effNo(q)=0 /\ res = r /\ r = ()) @*)
@@ -124,7 +133,6 @@ let task name () =
   Printf.printf "ending %s\n%!" name;
   ()
 
-(*
 let main () =
   (*let pa = fork (task "a") in
   let _pb = fork (task "b") in

@@ -30,7 +30,6 @@ let test1 ()
 = handler 5
 
 
-
 let test2 () 
 (*@ ex i; Norm(i-> 55 /\ res=10, res) @*)
 = handler 10
