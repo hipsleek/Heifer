@@ -90,6 +90,9 @@ ens  queue->q' /\ effNo(q') = m' /\ m'>0 /\ effNo(ele)=w /\ w >0 /\ m'=m+w /\ re
 @*)
 = queue_push ele queue
 
+(*@ predicate continue_syh (ele, a) = spawn (ele, run_q, cr)
+@*)
+
 (* queue_is_empty(run_q, true); Norm(res=())
 \/  queue_is_empty(run_q, false); 
     ex m m' w f cr; req non_empty_queue(run_q, m);  
@@ -102,7 +105,7 @@ ex q; req run_q->q /\ effNo(q)=0; ens run_q->q  /\ res=()
 ex m m' q q' f w;  
 req run_q->q /\ effNo(q)=m /\ m >0; 
 ens run_q->q' /\ effNo(q') = m' /\ m'>=0  /\ effNo(f)=w /\ w >0 /\ m'+w=m;
-ex cr; continue_syh (f, (), cr)
+ex cr; spawn (f, run_q, cr)
 @*)
 = if queue_is_empty run_q then ()
   else 
@@ -111,23 +114,31 @@ ex cr; continue_syh (f, (), cr)
 
 (*@ predicate task(f) = 
      Norm(effNo(f) = 0 /\ res=())
+@*)
+    
+(*
    \/ex n r1 f2; ens effNo(f)=n/\n>0/\effNo(f2)=n-1; Yield(emp, r1); task(f2)
    \/ex r r1 f1 f2 r2 n m1 m2; 
      ens effNo(f)=n /\ n>0 /\ effNo(f1)= m1 /\ effNo(f2)=m2 /\ m1>0 /\ m2>0 /\ (m1+m2)=(n-1); 
      Fork(emp, f1, r1); task(f2) 
-@*)
-    
 
-let rec spawn f run_q 
-(*@ ex r; queue_is_empty(run_q, true) ; ens effNo(f)=0 /\ res =r /\ r= () 
+ ex r; queue_is_empty(run_q, true) ; ens effNo(f)=0 /\ res =r /\ r= () 
 \/ ex m m' w w' ele cr; req non_empty_queue(run_q, m);  
    Norm(any_queue(run_q, m') /\ effNo(f)=0 /\ effNo(ele) =w' /\ m'<m );
    spawn (ele, run_q, cr); Norm(res=cr)
 \/ ex m m' w w' ele cr qq mm; req any_queue(run_q, m) /\ effNo(qq)=mm /\ mm>0 ;  
     Norm(any_queue(run_q, m') /\ effNo(f)=w /\ effNo(ele) =w' /\ w>0 /\ w'>0 /\ (w'+m')<(m+w) );
     spawn (ele, run_q, cr); Norm(res=cr)
-@*)
-= match f () with
+  
+*)
+let rec spawn f run_q 
+(*@
+   ex q; req run_q->q /\ effNo(q)=0 /\ effNo(f)=0; ens run_q->q  /\ res=() 
+\/ ex q q' m m' w ele cr; 
+   req run_q->q /\effNo(q)=m/\m>0/\effNo(f)=0; ens run_q->q'/\effNo(q')=m'/\m'>=0/\effNo(ele)=w/\w+m'=m; 
+   spawn (ele, run_q, cr) 
+@*) 
+= match (*f ()*) task(f) with
   (* spawn (f, run_q, res) *)
   | x -> dequeue run_q;
   | effect Yield k ->
