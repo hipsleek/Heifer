@@ -101,7 +101,7 @@ ex q; req run_q->q /\ effNo(q)=0; ens run_q->q  /\ res=()
 \/ 
 ex m m' q q' f w;  
 req run_q->q /\ effNo(q)=m /\ m >0; 
-ens run_q->q' /\ effNo(q') = m' /\ m'>=0  /\ effNo(f) =w /\ w >0 /\ m'+w=m;
+ens run_q->q' /\ effNo(q') = m' /\ m'>=0  /\ effNo(f)=w /\ w >0 /\ m'+w=m;
 ex cr; continue_syh (f, (), cr)
 @*)
 = if queue_is_empty run_q then ()
@@ -109,16 +109,15 @@ ex cr; continue_syh (f, (), cr)
     let f = queue_pop run_q in 
     continue_syh f ()
 
-(*@ predicate f(arg) = 
-     ex r; Norm(effNo(f) = 0 /\ r = () /\ res=r)
-   \/
-   ex r r1 r2 n; Yield(effNo(f)=n/\n>0/\effNo(f2)=n-1, r1); f2(r2);
-      Norm(res = r /\ r= ()) 
-    \/ ex r r1 r2 n m1 m2; Fork(effNo(f)=n /\ n>0 /\ effNo(f1)= m1 /\ effNo(f2)=m2 /\ m1>0 /\ m2>0 /\ (m1+m2)=(n-1), f1, r1); f2(r2); 
-      Norm(res =r /\ r= ())
+(*@ predicate task(f) = 
+     Norm(effNo(f) = 0 /\ res=())
+   \/ex n r1 f2; ens effNo(f)=n/\n>0/\effNo(f2)=n-1; Yield(emp, r1); task(f2)
+   \/ex r r1 f1 f2 r2 n m1 m2; 
+     ens effNo(f)=n /\ n>0 /\ effNo(f1)= m1 /\ effNo(f2)=m2 /\ m1>0 /\ m2>0 /\ (m1+m2)=(n-1); 
+     Fork(emp, f1, r1); task(f2) 
 @*)
+    
 
-(*
 let rec spawn f run_q 
 (*@ ex r; queue_is_empty(run_q, true) ; ens effNo(f)=0 /\ res =r /\ r= () 
 \/ ex m m' w w' ele cr; req non_empty_queue(run_q, m);  
@@ -138,7 +137,7 @@ let rec spawn f run_q
      enqueue k run_q; 
      spawn f' run_q
 
-*)
+
 (*
 (* A concurrent round-robin scheduler *)
 let run main
