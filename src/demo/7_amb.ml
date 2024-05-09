@@ -94,16 +94,20 @@ let m xs counter
 
 let handle (xs) counter 
 (*@ 
-ex r c a r1; req counter -> a; containRetTrue (xs, c, r1); ens counter->a+c /\ r1 = true /\ res = r /\ r=7 
+ex v1308; Failure(xs=[], (404), v1308); ens res=v1308 \/ 
+ex v1311; req counter->v1311; ens counter->(v1311+1)/\is_cons(xs)=true/\head_r=true/\res=7 \/ 
+ex t v1230 v1268 v1269 v1270; req counter->v1230/\(v1230+1)=v1268; ens tail(xs)=t/\is_cons(xs)=true/\head_r=false/\v1268=(v1230+1); containRetTrue(t, v1269, v1270); ens counter->(v1268+v1269)/\v1270=true/\res=7 \/ 
+ex t v1230 v1273 v1274 v1275; req counter->v1230/\(v1230+1)=v1273; ens tail(xs)=t/\is_cons(xs)=true/\head_r=false/\v1273=(v1230+1); containRetTrue(t, v1274, v1275); ex v1226; Failure(counter->(v1273+v1274)/\v1275=false, (500), v1226); ens res=v1226
 @*)
-(* \/ ex r c a r1; req counter -> a; containRetTrue (xs, c, r1); Failure(counter->a+c /\r1=false, 500, r) *)
+(* 
+ex r c a r1; req counter -> a; containRetTrue (xs, c, r1); ens counter->a+c /\ r1 = true /\ res = r /\ r=7    
+\/ ex r c a r1; req counter -> a; containRetTrue (xs, c, r1); Failure(counter->a+c /\r1=false, 500, r) *)
 = match m xs counter with
   (* try-catch lemma defined here *)
   (*@   try ex t r;  iter(helperk, t,r) # ex r200; Failure(emp, (404), r200) catch 
-     =  ex r c a r1; req counter -> a; containRetTrue (t, c, r1); ens counter->a+c /\ r1 = true /\ res = r /\ r=7 
+     =  ex r c a r1; req counter -> a; containRetTrue (t, c, r1); ens counter->a+c /\ r1 = true /\ res=7 
      \/ ex r c a r1; req counter -> a; containRetTrue (t, c, r1); Failure(counter->a+c /\r1=false, 500, r)
   @*) 
-
   | x -> x
   | effect (Choose xs) k -> aux k xs
    

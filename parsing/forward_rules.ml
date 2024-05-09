@@ -488,23 +488,23 @@ let rec resolveInnerTryCatches typ env (match_summary:tryCatchLemma option) (spe
       let res = 
         List.map 
         (fun phi1_spec_body -> 
-        let ret =
+        let (ret:term) =
             (match unsnoc phi1_spec_body with
-            | _, RaisingEff (_pre, _post, _constr, Var ret) -> ret
-            | _, HigherOrder (_pre, _post, _constr, Var ret) -> ret
-            | _, TryCatch (_pre, _post, _constr, Var ret) -> ret
+            | _, RaisingEff (_pre, _post, _constr, ret) -> ret
+            | _, HigherOrder (_pre, _post, _constr, ret) -> ret
+            | _, TryCatch (_pre, _post, _constr, ret) -> ret
             | _, RaisingEff (_, _, _, ret) | _, HigherOrder (_, _, _, ret) |  _, TryCatch (_, _, _, ret) -> failwith (Format.asprintf "ret not a variable: %s" (string_of_term ret))
             | _ -> 
             (match retriveLastRes phi1_spec_body with 
-            | Some (Var v) -> v 
-            | _ -> "res"
+            | Some t -> t
+            | _ -> Var "res"
             ))
       in
 
 
-      print_endline ("returns are " ^ ret ^ " " ^ string_of_term ret');
+      print_endline ("returns are " ^ string_of_term ret ^ " " ^ string_of_term ret');
 
-      let phi1_spec_body' = (NormalReturn (Atomic(EQ, Var ret,ret' ), EmptyHeap)) :: phi1_spec_body in 
+      let phi1_spec_body' = (NormalReturn (Atomic(EQ, ret,ret' ), EmptyHeap)) :: phi1_spec_body in 
       print_endline ("--------\n phi1' " ^ string_of_spec phi1_spec_body' ^"\n");
 
       phi1_spec_body'
