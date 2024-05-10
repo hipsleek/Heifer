@@ -120,6 +120,14 @@ ex cr; spawn (f, run_q, cr)
      Fork(emp, f1, r1)
 @*) 
 
+(* ex r; queue_is_empty(run_q, true) ; ens effNo(f)=0 /\ res =r /\ r= () 
+\/ ex m m' w w' ele cr; req non_empty_queue(run_q, m);  
+   Norm(any_queue(run_q, m') /\ effNo(f)=0 /\ effNo(ele) =w' /\ m'<m );
+   spawn (ele, run_q, cr); Norm(res=cr)
+\/ ex m m' w w' ele cr qq mm; req any_queue(run_q, m) /\ effNo(qq)=mm /\ mm>0 ;  
+    Norm(any_queue(run_q, m') /\ effNo(f)=w /\ effNo(ele) =w' /\ w>0 /\ w'>0 /\ (w'+m')<(m+w) );
+    spawn (ele, run_q, cr); Norm(res=cr)
+*)
 let rec spawn f run_q 
 (*@
     ex q; req run_q->q /\ effNo(q)=0 /\ effNo(f)=0; 
@@ -143,19 +151,9 @@ let rec spawn f run_q
      enqueue k run_q; 
      spawn f' run_q
 
-
-(* ex r; queue_is_empty(run_q, true) ; ens effNo(f)=0 /\ res =r /\ r= () 
-\/ ex m m' w w' ele cr; req non_empty_queue(run_q, m);  
-   Norm(any_queue(run_q, m') /\ effNo(f)=0 /\ effNo(ele) =w' /\ m'<m );
-   spawn (ele, run_q, cr); Norm(res=cr)
-\/ ex m m' w w' ele cr qq mm; req any_queue(run_q, m) /\ effNo(qq)=mm /\ mm>0 ;  
-    Norm(any_queue(run_q, m') /\ effNo(f)=w /\ effNo(ele) =w' /\ w>0 /\ w'>0 /\ (w'+m')<(m+w) );
-    spawn (ele, run_q, cr); Norm(res=cr)
-*)
-(*
 (* A concurrent round-robin scheduler *)
 let run main
-(*@ ex queue q r; Norm (queue->q /\ effNo(q)=0 /\ res = r /\ r = ()) @*)
+(* ex queue q r; Norm (queue->q /\ effNo(q)=0 /\ res = r /\ r = ()) *)
 = let run_q = queue_create () 
   in spawn main run_q
 
@@ -165,7 +163,7 @@ let task name () =
   yield ();
   Printf.printf "ending %s\n%!" name;
   ()
-
+(*
 let main () =
   (*let pa = fork (task "a") in
   let _pb = fork (task "b") in
@@ -173,9 +171,7 @@ let main () =
   let _pe = fork (task "b") in
   let _pd = fork (task "c") in
   *)
-
   let p_total = (yield ();fork (fun () -> fork (task "a"); fork (task "b") )) in
   p_total
-
 let _ = run main
 *)
