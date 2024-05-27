@@ -9,9 +9,9 @@ ICFP24 (#95) submission:
 **Specification and Verification for Unrestricted Algebraic Effects and Handling**. 
 
 
-## Build Heifer 
+## Building Heifer 
 
-We have a docker image to try out our tool, which is detailed in the 
+We have a Docker image to try out our tool, which may be run this way:
 
 ```sh
 docker pull yahuuuuui/heifer-icfp24:latest
@@ -36,11 +36,11 @@ dune test
 ```
 -->
 
+## Reproduce Table 1
+
 Use `heifer $EXAMPLE` to run examples.
 
 <!-- Effect-related programs are in [src/evaluation](src/evaluation), higher-order programs are in [src/examples](src/examples). -->
-
-## Reproduce Table 1
 
 ```sh
 heifer src/demo/1_State_Monad.ml
