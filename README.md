@@ -11,7 +11,7 @@ ICFP24 (#95) submission:
 
 ## Building Heifer 
 
-We have a docker image to try out our tool, which is accessed from 
+We have a docker image to try out our tool, which can be accessed from 
 [Zenodo](https://link-url-here.org). 
 
 The source code repository is placed in "/home/", called "AlgebraicEffect". 
@@ -31,15 +31,14 @@ Once successfully built, use `dune exec parsing/hip.exe $EXAMPLE` to run example
 
 ## Reproduce Table 1
 
-There are **eight** examples shown in Table 1, where each example 
-has a reference for its implementation in the paper, either 
-in the main text or in the appendix. 
+Table 1 shows eight examples, each referencing its implementation in the paper, either in the main text or the appendix. 
 
 As an example, to verify the first example, when running the following 
 command: 
 ```
 dune exec parsing/hip.exe src/demo/1_State_Monad.ml
 ```
+
 the terminal eventually shows the following: 
 ```
 ========== FINAL SUMMARY ==========
@@ -48,8 +47,8 @@ the terminal eventually shows the following:
 [Forward+Entail+StoreSpec] 7.518679252 s
 [ AskZ3 ] 5.47071003914 s
 ```
-where "[LOC]" and "[LOS]" stand for lines of code and lines of specification, respectively; 
-"[Forward+Entail+StoreSpec]" stands for the total execution time; 
+
+where "[LOC]" and "[LOS]" stand for lines of code and lines of specification, respectively; "[Forward+Entail+StoreSpec]" stands for the total execution time; 
 and "[AskZ3]" stands for the time spent by the Z3 solver. 
 Each of the items can find an correspondence in the Table. 
 
