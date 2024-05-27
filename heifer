@@ -1,0 +1,4 @@
+#!/bin/sh
+
+set -x
+dune exec parsing/hip.exe "$@"

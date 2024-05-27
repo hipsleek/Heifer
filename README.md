@@ -9,7 +9,7 @@ ICFP24 (#95) submission:
 **Specification and Verification for Unrestricted Algebraic Effects and Handling**. 
 
 
-## Build Heifer 
+## Building Heifer 
 
 We have a docker image to try out our tool, which is accessed from 
 [Zenodo](https://link-url-here.org). 
@@ -65,10 +65,21 @@ dune exec parsing/hip.exe src/demo/8_schduler.ml
 ```
 
 
+## Project structure
+
+The source code is in the `parsing` directory.
+The project builds with dune, and the `dune` file in that directory contains a listing of the project's components.
+A brief description of the relevant ones:
+
+- hip: entry point
+- ocamlfrontend: part of the OCaml 4.12 compiler frontend, modified to parse the `(*@ comments @*)` used for writing ESL specifications
+- hipcore: AST for staged/separation logic/pure formulae and operations such as pretty-printing, substitution, etc.
+- hipprover: the entailment prover for staged formulae, which consists of modules for applying the forward rules, applying lemmas, proof search, biabduction-based normalization, and entailment checking
 
 ## Docs
 
 - [Development](docs/development.md)
 - [Why3](docs/why3.md)
 - [How the web build works](docs/web.md)
+- [Docker packaging](docs/docker.md)
 
