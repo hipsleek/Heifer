@@ -53,4 +53,5 @@ dune exec parsing/hip.exe src/demo/8_schduler.ml
 - [Development](docs/development.md)
 - [Why3](docs/why3.md)
 - [How the web build works](docs/web.md)
+- [Docker packaging](docs/docker.md)
 
