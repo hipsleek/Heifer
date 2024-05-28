@@ -22,10 +22,12 @@ docker run -i -t yahuuuuui/heifer-icfp24 /bin/bash
 The source code repository is placed in "/home/AlgebraicEffect". 
 The benchmarks are also summarized in the docker file, at "/home/AlgebraicEffect/src/demo/". 
 
-To test build, one can use the following command: 
+To test build, one can use the following command. 
+When you run it, if there are no errors, you know it builds correctly. 
 ```
 dune build parsing/hip.exe 
 ```
+
 
 To build Heifer from scratch, the same [Dockerfile](Dockerfile) used to build the above image is provided together with the source code, and may be used or consulted.
 
@@ -33,7 +35,7 @@ Once successfully built, we could use `dune exec parsing/hip.exe $EXAMPLE` to ru
 
 ## Reproduce Table 1
 
-Table 1 shows eight examples, each referencing its implementation in the paper, either in the main text or the appendix. 
+Table 1 shows 8 examples, each referencing its implementation in the paper, either in the main text or the appendix. 
 
 As an example, to verify the first example, when running the following 
 command: 
@@ -41,7 +43,7 @@ command:
 dune exec parsing/hip.exe src/demo/1_State_Monad.ml
 ```
 
-and the terminal eventually shows the following: 
+the terminal eventually shows the following: 
 ```
 ========== FINAL SUMMARY ==========
 [  LOC  ] 126
@@ -91,8 +93,10 @@ dune exec parsing/hip.exe src/demo/7_amb.ml
 dune exec parsing/hip.exe src/demo/8_schduler.ml
 ``` 
 
-In the last example, "8_schduler.ml", three functions do not verify: 
-queue_push, queue_is_empty and queue_pop. This is OK because their specifications are for modeling purposes, which may not correspond to the actual implementation. Nevertheless, this example aims to verify the "spawn" function. More explanations for this example can be found in Appendix C.0.5. 
+In the last example, "8_schduler.ml", three functions do not verify: queue_push, queue_is_empty and queue_pop. 
+This is OK because we take their specifications as  axioms, and with these assumptions, this example 
+aims to verify the "spawn" function. More explanations for this example can be found in Appendix C.0.5. 
+
 
 
 ## Project structure
