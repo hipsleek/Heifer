@@ -3,3 +3,5 @@
  (name debug)
  (libraries str)
  (preprocess (pps ppx_expect)))
+
+(env (dev (flags (:standard -warn-error -A))))
