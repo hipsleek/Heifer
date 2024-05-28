@@ -242,7 +242,7 @@ let rec check_qf :
       debug ~at:4 ~title:(Format.asprintf "existential location %s" x) "";
       let left_heap = list_of_heap h1 in
       (match left_heap with
-      | [] -> None
+      | [] -> fail
       | _ :: _ ->
         (* x is bound and could potentially be instantiated with anything on the right side, so try everything *)
         let r1 =
@@ -272,7 +272,7 @@ let rec check_qf :
       | None ->
         (* TODO *)
         debug ~at:4 ~title:(Format.asprintf "failed") "";
-        None
+        fail
     end
     | None -> failwith (Format.asprintf "could not split LHS, bug?")
   end
@@ -281,9 +281,8 @@ let instantiate_pred : pred_def -> term list -> term -> pred_def =
  fun pred args ret ->
   let@ _ =
     Debug.span (fun r ->
-        debug ~at:4
-          ~title:"instantiate_pred"
-          "%s\n%s\n%s\n==> %s" (string_of_pred pred)
+        debug ~at:4 ~title:"instantiate_pred" "%s\n%s\n%s\n==> %s"
+          (string_of_pred pred)
           (string_of_list string_of_term args)
           (string_of_term ret)
           (string_of_result string_of_pred r))

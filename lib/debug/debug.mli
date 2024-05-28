@@ -36,6 +36,8 @@ val init : bool -> string option -> bool -> unit
 val debug :
   at:int -> title:string -> ('a, Format.formatter, unit, unit) format4 -> 'a
 
+val ( let@ ) : ('a -> 'b) -> 'a -> 'b
+
 (** Output a span. Example usage:
 
     {[

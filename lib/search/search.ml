@@ -10,9 +10,11 @@ let succeeded = Option.is_some
 let ok a = Some a
 let succeed = Some ()
 let fail = None
-let check b = if b then succeed else fail
+
+(* let check b = if b then succeed else fail *)
 let or_else o k = match o with None -> k () | Some _ -> o
-let of_bool default b = if b then Some default else None
+
+(* let of_bool default b = if b then Some default else None *)
 let ensure cond = if cond then succeed else fail
 
 type mut_tree =
@@ -191,9 +193,9 @@ let any : name:string -> to_s:('a -> string) -> 'a list -> ('a -> 'b t) -> 'b t
     let@ undone = init_undone `Any name vs to_s in
     loop vs undone
 
-let either :
-    name:string ->
-    (* to_s:(bool -> string) -> *)
-    (bool -> 'b option) ->
-    'b option =
- fun ~name f -> any ~name ~to_s:string_of_bool [true; false] f
+(* let either :
+      name:string ->
+      (* to_s:(bool -> string) -> *)
+      (bool -> 'b option) ->
+      'b option =
+   fun ~name f -> any ~name ~to_s:string_of_bool [true; false] f *)
