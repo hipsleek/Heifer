@@ -1,6 +1,9 @@
 
 FROM ocaml/opam:ubuntu-23.04-ocaml-5.1
 
+USER root
+WORKDIR /home
+
 RUN git clone https://github.com/songyahui/AlgebraicEffect.git
 
 WORKDIR AlgebraicEffect
