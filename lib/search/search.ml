@@ -1,5 +1,6 @@
-open Hipcore.Common
 open Debug
+
+let ( let@ ) f x = f x
 
 type 'a t = 'a option
 
@@ -61,7 +62,7 @@ let string_of_search_state s =
 let rec tree_of_mut_tree ?(compact = false) t =
   match t with
   | Node { name; children; state; kind } ->
-    Hipcore.Pretty.Node
+    Tree.Node
       ( kind,
         Format.asprintf "%s %s" (string_of_search_state state) name,
         match (compact, state) with
@@ -69,7 +70,7 @@ let rec tree_of_mut_tree ?(compact = false) t =
         | _ -> List.map (fun t -> tree_of_mut_tree ~compact !t) children )
 
 let show_search_tree compact =
-  Hipcore.Pretty.string_of_proof (tree_of_mut_tree ~compact tree_root)
+  Tree.string_of_proof (tree_of_mut_tree ~compact tree_root)
 
 (** creates subproblems, mutates them into current root, returns them via k, and after completion, restores root before returning.
 

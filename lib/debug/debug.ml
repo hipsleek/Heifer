@@ -1,3 +1,5 @@
+let ( let@ ) f x = f x
+
 (* 0: no output except results
    1: high-level output to explain to a user what is going on
    2 and above: for developers, higher levels give more detail *)
@@ -305,8 +307,6 @@ let init ctf_output query to_file =
     Format.fprintf (!trace_out |> Option.get) "[@.");
   user_query :=
     query |> (fun o -> Option.bind o parse_query) |> Option.value ~default:[]
-
-let ( let@ ) f x = f x
 
 let%expect_test _ =
   let test_program () =

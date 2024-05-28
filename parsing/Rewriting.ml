@@ -100,7 +100,7 @@ let comparePure (p1:pi) (p2:pi) : bool =
 
 
 
-let  check_containment (_:spec) (_:spec) :(bool * binary_tree) = failwith "TBD check_containment"
+(* let  check_containment (_:spec) (_:spec) :(bool * binary_tree) = failwith "TBD check_containment" *)
 
 ;;
 
