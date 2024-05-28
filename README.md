@@ -1,8 +1,7 @@
 # Heifer 
 
 Heifer is an automated verification tool for 
-effectful higher-order programs and 
-algebraic effects and handlers. 
+effectful higher-order programs which supports primitive algebraic effects and handlers. 
 
 This README file serves for the artifact evaluation for the 
 ICFP24 (#95) submission: 
@@ -14,20 +13,18 @@ ICFP24 (#95) submission:
 We have a docker image to try out our tool, which can be accessed from 
 [Zenodo](https://link-url-here.org). 
 
-The source code repository is placed in "/home/", called "AlgebraicEffect". 
+```
+docker pull yahuuuuui/heifer-icfp24
+docker run -i -t yahuuuuui/heifer-icfp24 /bin/bash
+```
+
+
+The source code repository is placed in "/home/", called "AlgebraicEffect". \
 The benchmarks are also summarized in the docker file, at "/home/AlgebraicEffect/src/demo/". 
 
-Alternatively, one could build Heifer from scratch using a Linux system (tested on Ubuntu 22.04.4 LTS), with the following dependencies:
+To build Heifer from scratch, the same [Dockerfile](Dockerfile) used to build the above image is provided together with the source code, and may be used or consulted.
 
-```
-opam switch 5.0.0
-apt install python3 dune menhir ppx_deriving ppx_expect brr js_of_ocaml-compiler unionFind visitors z3
-npm install browserify -g 
-dune build
-dune test
-```
-
-Once successfully built, use `dune exec parsing/hip.exe $EXAMPLE` to run examples. 
+Once successfully built, we could use `dune exec parsing/hip.exe $EXAMPLE` to run examples. 
 
 ## Reproduce Table 1
 
@@ -48,8 +45,7 @@ the terminal eventually shows the following:
 [ AskZ3 ] 5.47071003914 s
 ```
 
-where "[LOC]" and "[LOS]" stand for lines of code and lines of specification, respectively; "[Forward+Entail+StoreSpec]" stands for the total execution time; 
-and "[AskZ3]" stands for the time spent by the Z3 solver. 
+Here, "[LOC]" and "[LOS]" stand for lines of code and lines of specifications, respectively; "[Forward+Entail+StoreSpec]" stands for the total verification time; and "[AskZ3]" stands for the time spent by the Z3 solver. 
 Each of the items can find an correspondence in the Table. 
 
 For the rest examples, the execution commands are summarized as follows: 
