@@ -1,4 +1,6 @@
+module Hipdebug = Debug
 open Why3
+module Debug = Hipdebug
 
 (* open this second, so it gets precedence for shadowed modules *)
 open Hipcore

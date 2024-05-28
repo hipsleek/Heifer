@@ -1,0 +1,5 @@
+
+(library
+ (name debug)
+ (libraries str)
+ (preprocess (pps ppx_expect)))

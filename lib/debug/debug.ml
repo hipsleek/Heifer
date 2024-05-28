@@ -11,12 +11,13 @@ let is_opening = ref false
 let last_title = ref ""
 let ctf = ref false
 let file_mode = ref false
+let yellow text = "\u{001b}[33m" ^ text ^ "\u{001b}[0m"
 
 module Buffered = struct
   let buffered_event : (string * string * int) option ref = ref None
 
   let write_line title s =
-    print_endline (Pretty.yellow title);
+    print_endline (yellow title);
     print_endline s;
     if not (String.equal "" s) then print_endline ""
 
@@ -129,8 +130,15 @@ module Query = struct
     | LogLevel l -> Format.asprintf "LogLevel(%d)" l
     | All -> "All"
 
+  let string_of_list p xs =
+    match xs with
+    | [] -> "[]"
+    | _ ->
+      let a = List.map p xs |> String.concat "; " in
+      Format.asprintf "[%s]" a
+
   let string_of_query qs =
-    Common.string_of_list
+    string_of_list
       (fun (action, on, recursive) ->
         Format.asprintf "(%s, %s, %b)"
           (string_of_query_action action)
@@ -298,8 +306,9 @@ let init ctf_output query to_file =
   user_query :=
     query |> (fun o -> Option.bind o parse_query) |> Option.value ~default:[]
 
+let ( let@ ) f x = f x
+
 let%expect_test _ =
-  let open Common in
   let test_program () =
     let f x =
       let@ _ =

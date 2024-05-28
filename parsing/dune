@@ -62,15 +62,15 @@
 
 (library
  (name hipcore)
- (libraries unionFind str)
- (modules debug subst Pretty common hiptypes globals)
+ (modules subst Pretty common hiptypes globals)
+ (libraries debug unionFind str)
  (inline_tests)
  (preprocess (pps visitors.ppx ppx_expect ppx_deriving.std)))
 
 (library
  (name hipprover)
  (modules ProversEx Rewriting entail search forward_rules infer_types normalize)
- (libraries hipcore provers)
+ (libraries debug hipcore provers)
  (inline_tests)
  (preprocess (pps ppx_expect)))
 
