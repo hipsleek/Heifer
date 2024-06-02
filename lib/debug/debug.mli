@@ -26,11 +26,11 @@ v}
 
 *)
 
-(** [init ctf query org] initializes the library,
+(** [init ~ctf ~org query] initializes the library,
     where [ctf] enables production of trace data in CTF,
     [query] is a query string for controlling what is logged, setting debug levels, etc., and
     [org] is true for org-mode output and false for more human-readable output. *)
-val init : bool -> string option -> bool -> unit
+val init : ctf:bool -> org:bool -> string option -> unit
 
 (** [debug ~at:log_level ~title fmt] outputs an instantaneous event. *)
 val debug :

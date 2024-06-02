@@ -11,9 +11,13 @@ let pp_event ppf r = Format.fprintf ppf "_%d" r
 let is_closing = ref false
 let is_opening = ref false
 let last_title = ref ""
-let ctf = ref false
+let ctf_output = ref false
 let file_mode = ref false
-let yellow text = "\u{001b}[33m" ^ text ^ "\u{001b}[0m"
+
+let yellow text =
+  match !file_mode with
+  | false -> "\u{001b}[33m" ^ text ^ "\u{001b}[0m"
+  | true -> text
 
 module Buffered = struct
   let buffered_event : (string * string * int) option ref = ref None
@@ -196,7 +200,7 @@ let debug_print at title s =
   match show with
   | false -> ()
   | true ->
-    (match !ctf with
+    (match !ctf_output with
     | false ->
       let title =
         let stack =
@@ -324,11 +328,11 @@ let string_of_result f r =
   | Exn e -> Printexc.to_string e
   | Value r -> Format.asprintf "%s" (f r)
 
-let init ctf_output query to_file =
+let init ~ctf ~org query =
   at_exit (fun () -> Buffered.flush_buffer ());
-  file_mode := to_file;
-  if ctf_output then (
-    ctf := true;
+  file_mode := org;
+  if ctf then (
+    ctf_output := true;
     let name = "trace.json" in
     Format.printf "%s@." name;
     let oc = open_out name in

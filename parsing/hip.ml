@@ -24,7 +24,7 @@ let () =
   in
   if Unix.isatty Unix.stdout && not !Hiplib.file_mode && not ctf then
     Hiplib.Pretty.colours := `Ansi;
-  Hiplib.Debug.init ctf (Sys.getenv_opt "DEBUG") !Hiplib.file_mode;
+  Hiplib.Debug.init ~ctf ~org:!Hiplib.file_mode (Sys.getenv_opt "DEBUG");
   if !Hiplib.file_mode then
     redirect_stdout Hiplib.main
   else
