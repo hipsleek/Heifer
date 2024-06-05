@@ -74,10 +74,11 @@ core_value:
 
 
 core_lang: 
-| LPAREN TRUE RPAREN {CValue TTrue}
+| LPAREN v=core_value RPAREN {CValue v}
 | LPAREN LAMBDA LPAREN params=params RPAREN m_body=core_lang RPAREN {CLambda (params, None, m_body)}
 | LPAREN nm=LIDENT params=core_values RPAREN {(CFunCall(nm, params))}
-
+| LPAREN SHIFT nm=LIDENT m_body=core_lang RPAREN {(CShift(nm, m_body))}
+| LPAREN RESET m_body=core_lang RPAREN {(CReset(m_body))}
 
 
 

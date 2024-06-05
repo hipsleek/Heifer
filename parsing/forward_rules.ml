@@ -798,6 +798,7 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
   (* TODO infer_of_expression is likely O(n^2) due to appending at the end *)
   let res, env =
     match expr with
+    | CShift _ | CReset _ -> failwith("TODO shift and reset infer_of_expression ")
     | CValue v -> 
       let event = NormalReturn (res_eq v, EmptyHeap) in 
       concatenateSpecsWithEvent history [event], env

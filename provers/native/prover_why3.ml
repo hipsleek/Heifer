@@ -492,6 +492,8 @@ module Defunct = struct
     | CMatch (_, _, _, _, _, _) -> failwith "unimplemented effect CMatch"
     | CResume _ -> failwith "unimplemented CResume"
     | CLambda (_, _, _) -> failwith "unimplemented CLambda"
+    | CShift _ | CReset _ -> failwith("TODO shift and reset expr_to_why3 ")
+
 
   let pure_fn_to_logic_fn env pure_fn =
     let params =
@@ -763,6 +765,8 @@ and core_lang_to_whyml tenv e =
   | CAssert (_, _) | CLambda (_, _, _) -> failwith "unimplemented"
   | CWrite (_, _) | CRef _ | CRead _ -> failwith "heap operations not allowed"
   | CResume _ | CPerform (_, _) -> failwith "effects not allowed"
+  | CShift _ | CReset _ -> failwith("TODO shift and reset core_lang_to_whyml ")
+
 
 and pi_to_whyml tenv p =
   match p with
