@@ -274,7 +274,7 @@ let freshNormalStage : normalStage = ([], (True, EmptyHeap), (True, EmptyHeap))
 
 let freshNormStageRet r : normalStage = ([], (True, EmptyHeap), (res_eq r, EmptyHeap)) 
 
-
+let counter_4_inserting_let_bindings = ref 0 
 
 type tactic =
   | Unfold_right
