@@ -1054,10 +1054,11 @@ let run_ocaml_string_ line =
   let items = Parser.implementation Lexer.token (Lexing.from_string line) in
   process_items items
 
+(* this is the entry of inputing the Racket file *)
 let run_racket_string_ line =
   let open Racketfrontend in
-  let _items = Racket_parser.prog Racket_lexer.token (Lexing.from_string line) in
-  Format.printf "parsed racket program@."
+  let (core_program:core_program) = Racket_parser.prog Racket_lexer.token (Lexing.from_string line) in
+  Format.printf "parsed racket program@. %s" (string_of_program core_program) 
   (* process_items items *)
 
 let run_string kind s =
