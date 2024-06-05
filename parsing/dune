@@ -83,9 +83,21 @@
  (flags :standard -w -A))
 
 (library
+ (name racketfrontend)
+ (modules
+ racket_parser racket_lexer)
+ (libraries hipcore)
+ (flags :standard -w -A))
+
+(menhir
+ (modules racket_parser))
+
+(ocamllex racket_lexer)
+
+(library
  (name hiplib)
  (modules hiplib tests)
- (libraries hipprover ocamlfrontend)
+ (libraries hipprover ocamlfrontend racketfrontend)
  (inline_tests)
  (preprocess (pps ppx_expect)))
 

@@ -1050,12 +1050,21 @@ let process_items (strs: structure_item list) : unit =
     ([], empty_program)
     |> ignore
 
-let run_string_ line =
+let run_ocaml_string_ line =
   let items = Parser.implementation Lexer.token (Lexing.from_string line) in
   process_items items
 
-let run_string s =
-  Provers.handle (fun () -> run_string_ s)
+let run_racket_string_ line =
+  let open Racketfrontend in
+  let _items = Racket_parser.prog Racket_lexer.token (Lexing.from_string line) in
+  Format.printf "parsed racket program@."
+  (* process_items items *)
+
+let run_string kind s =
+  Provers.handle (fun () ->
+    match kind with
+    | `Ocaml -> run_ocaml_string_ s
+    | `Racket -> run_racket_string_ s)
 
 let retriveComments (source:string) : (string list) = 
   let partitions = Str.split (Str.regexp "(\\*@") source in 
@@ -1077,6 +1086,14 @@ let retriveComments (source:string) : (string list) =
   let temp = helper partitionEnd in 
   temp
 
+let get_file_type =
+  let racket_regex = Str.regexp ".*\\.rkt$" in
+  fun fn ->
+    let is_racket_file = Str.string_match racket_regex fn 0 in
+    if is_racket_file then
+      `Racket
+    else `Ocaml
+
 let run_file inputfile =
 (* let outputfile = (Sys.getcwd ()^ "/" ^ Sys.argv.(2)) in
    print_string (inputfile ^ "\n" ^ outputfile^"\n");*)
@@ -1087,11 +1104,18 @@ let run_file inputfile =
       
       debug_tokens line;
 
-      run_string line;
+      let file_kind = get_file_type inputfile in
+      run_string file_kind line;
 
-      let partitions = retriveComments line in
-
-      let line_of_spec = List.fold_left (fun acc a -> acc + (List.length (Str.split (Str.regexp "\n") a))) 0 partitions in 
+      let line_of_spec =
+        match file_kind with
+        | `Ocaml ->
+          let partitions = retriveComments line in
+          List.fold_left (fun acc a -> acc + (List.length (Str.split (Str.regexp "\n") a))) 0 partitions
+        | `Racket ->
+          (* TODO *)
+          0
+      in 
 
       debug ~at:2 ~title:"final summary" "";
       let finalSummary = 
@@ -1122,6 +1146,10 @@ let run_file inputfile =
    ;;
 
 let main () =
+  if Array.length (Sys.argv) < 2 then begin
+    Format.printf "Usage: hip [input.ml|input.rkt]@.";
+    exit 1
+  end;
   let inputfile = (Sys.getcwd () ^ "/" ^ Sys.argv.(1)) in
   run_file inputfile;
   if !test_mode && not !tests_failed then Format.printf "ALL OK!@.";
