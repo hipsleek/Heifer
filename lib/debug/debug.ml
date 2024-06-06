@@ -469,3 +469,50 @@ let%expect_test "collapsing" =
       ** f | _4 <-_2
       2 ==> 3
     |}]
+
+let%expect_test "exceptions" =
+  debug_event_n := 0;
+  user_query := [(Show, All, false)];
+  file_mode := true;
+  let f x =
+    let@ _ =
+      span (fun r ->
+          debug ~at:2
+            ~title:"f"
+            "%s ==> %s" (string_of_int x)
+            (string_of_result string_of_int r))
+    in
+    if x > 3 then
+      debug ~at:2 ~title:"f is running" "";
+    failwith "this function never returns"
+  in
+  begin try
+  f 4 |> ignore;
+  with Failure _ ->
+    debug ~at:2 ~title:"f failed" "why?"
+  end;
+  (* test collapsing *)
+  begin try
+  f 2 |> ignore;
+  with Failure _ ->
+    debug ~at:2 ~title:"f failed" "why?"
+  end;
+  [%expect
+    {|
+      * f | _0
+      4 ==> ...
+
+      ** f is running | _1
+
+      ** f | _2 <-_0
+      4 ==> Failure("this function never returns")
+
+      * f failed | _3
+      why?
+
+      * f | _5 <-_4
+      2 ==> Failure("this function never returns")
+
+      * f failed | _6
+      why?
+    |}]

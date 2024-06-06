@@ -38,6 +38,7 @@ val debug :
 
 val ( let@ ) : ('a -> 'b) -> 'a -> 'b
 
+(** The result of a function call at a point in time; either it has not materialized yet, or is a value or exception. *)
 module Res : sig
   type 'a t =
     | NoValueYet
