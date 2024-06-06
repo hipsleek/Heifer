@@ -6,7 +6,6 @@ let ( let@ ) f x = f x
 (* let debug_level = ref 0 *)
 let debug_event_n = ref 0
 let stack : (string * int) list ref = ref []
-let advanced = ref true
 let pp_event ppf r = Format.fprintf ppf "_%d" r
 let is_closing = ref false
 let is_opening = ref false
@@ -247,22 +246,6 @@ let debug ~at ~title fmt =
       debug_print at title s;
       incr debug_event_n)
     fmt
-
-(** info output is shown to the user *)
-(* let info ~title fmt = debug ~at:1 ~title fmt *)
-
-type ctx = {
-  event : int;
-  stack : string;
-}
-
-(* let get_event () =
-   let r = !debug_event_n in
-   incr debug_event_n;
-   r *)
-
-let pp_opening ppf r =
-  match r with None -> () | Some r -> Format.fprintf ppf "%a" pp_event r
 
 module Res = struct
   type 'a t =
