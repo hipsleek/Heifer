@@ -38,13 +38,22 @@ val debug :
 
 val ( let@ ) : ('a -> 'b) -> 'a -> 'b
 
+module Res : sig
+  type 'a t =
+    | NoValueYet
+    | Value of 'a
+    | Exn of exn
+
+  val map : ('a -> 'b) -> 'a t -> 'b t
+end
+
 (** Output a span. Example usage:
 
     {[
-      let f param : res =
+      let f param : v =
         let@ _ = Debug.span (fun r ->
           debug ~at:3 ~title:"f" "f %s => %s"
-            (string_of_param param) (string_of_result string_of_res r))
+            (string_of_param param) (string_of_result string_of_v r))
         in
         <body>
     ]}
@@ -52,12 +61,12 @@ val ( let@ ) : ('a -> 'b) -> 'a -> 'b
     Given a call [f 1], this will produce [f 1 => ?] before [body] executes and [f 1 => res] after.
     Intervening events will be nested inside the span.
 *)
-val span : ('a option -> unit) -> (unit -> 'a) -> 'a
+val span : ('a Res.t -> unit) -> (unit -> 'a) -> 'a
 
 (** Returns true iff debug logging is enabled, which requires a query to be provided. *)
 val in_debug_mode : unit -> bool
 
-val string_of_result : ('a -> string) -> 'a option -> string
+val string_of_result : ('a -> string) -> 'a Res.t -> string
 
 val pp_result :
-  (Format.formatter -> 'a -> unit) -> Format.formatter -> 'a option -> unit
+  (Format.formatter -> 'a -> unit) -> Format.formatter -> 'a Res.t -> unit

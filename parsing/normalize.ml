@@ -271,9 +271,9 @@ let normaliseMagicWand h1 h2 existential flag assumptions : kappa * pi =
           ~title:"normaliseMagicWand"
           "%s * ?%s |- %s * ?%s\nex %s\nflag %b\nassumptions %s" 
           (string_of_kappa h1)
-          (string_of_result string_of_kappa (Option.map fst r))
+          (string_of_result string_of_kappa (Res.map fst r))
           (string_of_kappa h2)
-          (string_of_result string_of_pi (Option.map snd r))
+          (string_of_result string_of_pi (Res.map snd r))
           (string_of_list Fun.id existential)
           flag
           (string_of_pi assumptions))
@@ -300,9 +300,9 @@ let pure_abduction left right =
           ~title:"pure_abduction"
           "%s /\\ ? |- %s\nabduced: %s\nnew left: %s\nnew right: %s" (string_of_pi left)
           (string_of_pi right)
-          (string_of_result string_of_pi (Option.map (fun (a, _, _) -> a) r))
-          (string_of_result string_of_pi (Option.map (fun (_, a, _) -> a) r))
-          (string_of_result string_of_pi (Option.map (fun (_, _, a) -> a) r)))
+          (string_of_result string_of_pi (Res.map (fun (a, _, _) -> a) r))
+          (string_of_result string_of_pi (Res.map (fun (_, a, _) -> a) r))
+          (string_of_result string_of_pi (Res.map (fun (_, _, a) -> a) r)))
   in
   (* woefully incomplete *)
   (* https://www.cs.utexas.edu/~isil/fmcad-tutorial.pdf *)

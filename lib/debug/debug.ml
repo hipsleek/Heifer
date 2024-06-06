@@ -260,6 +260,21 @@ type ctx = {
 let pp_opening ppf r =
   match r with None -> () | Some r -> Format.fprintf ppf "%a" pp_event r
 
+module Res = struct
+  type 'a t =
+    | NoValueYet
+    | Value of 'a
+    | Exn of exn
+
+  let map f a =
+    match a with
+    | NoValueYet -> NoValueYet
+    | Exn e -> Exn e
+    | Value a -> Value (f a)
+end
+
+open Res
+
 let span show k =
   let start = !debug_event_n in
 
@@ -267,33 +282,47 @@ let span show k =
   (* let args = *)
   (* { stack = sum1; event = start } *)
   is_opening := true;
-  show None;
+  show NoValueYet;
   is_opening := false;
   (* in *)
   stack := (!last_title, start) :: !stack;
   (* Format.printf "%s@." args; *)
-  let r = k () in
+  match k () with
+  | r ->
+    (* let stop = !debug_event_n in *)
+    (* let sum2 = summarize_stack () in *)
+    (* { stack = sum2; event = stop } *)
 
-  (* let stop = !debug_event_n in *)
-  (* let sum2 = summarize_stack () in *)
-  (* { stack = sum2; event = stop } *)
+    (* this is safe because the user is only supposed to call debug inside here, not do further recursion, so this is just a way of communicating non-locally across functions in this module *)
+    is_closing := true;
+    show (Value r);
+    is_closing := false;
 
-  (* this is safe because the user is only supposed to call debug inside here, not do further recursion, so this is just a way of communicating non-locally across functions in this module *)
-  is_closing := true;
-  show (Some r);
-  is_closing := false;
+    stack := List.tl !stack;
+    (* Format.printf "%s@." ; *)
+    r
+  | exception e ->
+    (* https://ocamlpro.com/blog/2024_04_25_ocaml_backtraces_on_uncaught_exceptions/#reraising *)
+    let bt = Printexc.get_raw_backtrace () in
+    is_closing := true;
+    show (Exn e);
+    is_closing := false;
 
-  stack := List.tl !stack;
-  (* Format.printf "%s@." ; *)
-  r
+    stack := List.tl !stack;
+    (* Format.printf "%s@." ; *)
+    Printexc.raise_with_backtrace e bt
 
 let pp_result f ppf r =
   match r with
-  | None -> Format.fprintf ppf "..."
-  | Some r -> Format.fprintf ppf "%a" f r
+  | NoValueYet -> Format.fprintf ppf "..."
+  | Value r -> Format.fprintf ppf "%a" f r
+  | Exn e -> Format.fprintf ppf "%s" (Printexc.to_string e)
 
 let string_of_result f r =
-  match r with None -> "..." | Some r -> Format.asprintf "%s" (f r)
+  match r with
+  | NoValueYet -> "..."
+  | Exn e -> Printexc.to_string e
+  | Value r -> Format.asprintf "%s" (f r)
 
 let init ctf_output query to_file =
   at_exit (fun () -> Buffered.flush_buffer ());
