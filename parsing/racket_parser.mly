@@ -88,6 +88,45 @@ core_value:
 core_lang: 
 | v=core_value {CValue v}
 | LAMBDA LPAREN params=params RPAREN m_body=core_lang {CLambda (params, None, m_body)}
+| PLUS p1 = core_lang  p2 = core_lang {
+
+    let getAnewBinder () = 
+      let correntCounter = !counter_4_inserting_let_bindings in 
+      let newBinder = "x" ^ string_of_int correntCounter in 
+      let () = counter_4_inserting_let_bindings :=correntCounter +1 in 
+      newBinder
+    in 
+
+    let rec aux (params:Hiptypes.core_lang list) : 
+      (((string * Hiptypes.core_lang) list) * (Hiptypes.core_value list) ) = 
+      match params with 
+      | [] -> [], [] 
+      | param::rest -> 
+        let (binder1, formal1) = 
+        (match param with 
+        | CValue v -> [], [v]
+        | _ -> 
+          let newBinder = getAnewBinder () in 
+          [(newBinder, param)], [((Var newBinder))]
+        ) in 
+        let (binder2, formal2) = aux rest in 
+        (binder1@binder2, formal1@formal2) 
+
+    in 
+    let params' = aux [p1;p2] in 
+    
+    let rec compose (li1, li2) = 
+      match li1 with
+      | [] -> 
+        CFunCall("+", li2)
+
+      | (str, expr) :: rest -> CLet(str, expr, compose (rest, li2))
+    in 
+    (compose params')
+
+
+
+  }
 | list_of_expression =expre_list 
   {
   match list_of_expression with 
