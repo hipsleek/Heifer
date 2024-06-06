@@ -42,16 +42,16 @@ module Buffered = struct
       (* we assume events are well-bracketed.
          on closing a span, if there's something in the buffer, we must have left it there. *)
       clear_buffer ();
-      write_line title s
+      write_line (title (-1)) s
     | None when !is_closing ->
       (* something must have occurred which cleared the buffer before us, so output normally *)
-      write_line title s
+      write_line (title 0) s
     | _ when !is_opening ->
       flush_buffer ();
-      buffer_event title s !debug_event_n
+      buffer_event (title 0) s !debug_event_n
     | _ ->
       flush_buffer ();
-      write_line title s
+      write_line (title 0) s
 end
 
 let may_fail f = try Some (f ()) with _ -> None
@@ -210,17 +210,18 @@ let debug_print at title s =
       in
       let title =
         match !file_mode with
-        | false -> Format.asprintf "==== %s ====" title
+        | false -> fun _ -> Format.asprintf "==== %s ====" title
         | true ->
-          Format.asprintf "%s %s"
-            (String.init (List.length !stack + 1) (fun _ -> '*'))
-            title
+          fun n ->
+            Format.asprintf "%s %s"
+              (String.init (List.length !stack + 1 + n) (fun _ -> '*'))
+              title
       in
       begin
         let should_buffer = true in
         match should_buffer with
         | true -> Buffered.collapse_empty_spans title s
-        | false -> Buffered.write_line title s
+        | false -> Buffered.write_line (title 0) s
       end
     | true ->
       let typ = if !is_closing then "E" else if !is_opening then "B" else "i" in
@@ -324,7 +325,9 @@ let init ~ctf ~org query =
   user_query :=
     query |> (fun o -> Option.bind o parse_query) |> Option.value ~default:[]
 
-let%expect_test _ =
+let%expect_test "queries" =
+  file_mode := true;
+
   let test_program () =
     let f x =
       let@ _ =
@@ -371,7 +374,7 @@ let%expect_test _ =
     -----
     [(Show, Regex(aa), false)]
     -----
-    ==== aaa | _2 ====
+    ** aaa | _2
     b
 
     -----
@@ -380,37 +383,37 @@ let%expect_test _ =
     -----
     [(Show, All, false); (Hide, Time(1), true); (Show, Regex(aaa), false)]
     -----
-    ==== before | _0 ====
+    * before | _0
     b
 
-    ==== aaa | _2 ====
+    ** aaa | _2
     b
 
-    ==== after | _4 ====
+    * after | _4
     b
 
     -----
     [(Hide, Regex(.*), false); (Show, Regex(aa), false)]
     -----
-    ==== aaa | _2 ====
+    ** aaa | _2
     b
 
     -----
     [(Show, Time(1), true)]
     -----
-    ==== hi | _1 ====
+    * hi | _1
     2 ==> ...
 
-    ==== aaa | _2 ====
+    ** aaa | _2
     b
 
-    ==== hi | _3 <-_1 ====
+    ** hi | _3 <-_1
     2 ==> 3
 
     -----
     [(Show, Regex(aa), false); (Hide, Regex(.*), false); (Show, Regex(.*efo), false)]
     -----
-    ==== before | _0 ====
+    * before | _0
     b
 
     -----
@@ -419,18 +422,50 @@ let%expect_test _ =
     -----
     [(Show, Regex(aa), false); (Hide, Regex(aa), false); (Show, Regex(aa), false)]
     -----
-    ==== aaa | _2 ====
+    ** aaa | _2
     b
 
     -----
     [(Show, Range(1, 2), true)]
     -----
-    ==== hi | _1 ====
+    * hi | _1
     2 ==> ...
 
-    ==== aaa | _2 ====
+    ** aaa | _2
     b
 
-    ==== hi | _3 <-_1 ====
+    ** hi | _3 <-_1
     2 ==> 3
+    |}]
+
+let%expect_test "collapsing" =
+  debug_event_n := 0;
+  user_query := [(Show, All, false)];
+  file_mode := true;
+  let f g x =
+    let@ _ =
+      span (fun r ->
+          debug ~at:2
+            ~title:"f"
+            "%s ==> %s" (string_of_int x)
+            (string_of_result string_of_int r))
+    in
+    g ();
+    x + 1
+  in
+  f (fun () -> ()) 2 |> ignore;
+  f (fun () -> debug ~at:1 ~title:"g" "hi") 2 |> ignore;
+  [%expect
+    {|
+      * f | _1 <-_0
+      2 ==> 3
+
+      * f | _2
+      2 ==> ...
+
+      ** g | _3
+      hi
+
+      ** f | _4 <-_2
+      2 ==> 3
     |}]
