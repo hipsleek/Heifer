@@ -385,6 +385,7 @@ module Defunct = struct
     | TDiv (_, _) -> failwith "TDiv nyi"
     | TList _ -> failwith "TList nyi"
     | TTupple _ -> failwith "TTupple nyi"
+    | TStr _ -> failwith "TStr nyi"
 
   let rec pi_to_why3 env (pi : pi) =
     Format.printf "pi %s@." (Pretty.string_of_pi pi);
@@ -706,7 +707,7 @@ let rec term_to_whyml tenv t =
      let params, _ret = unsnoc params in
      let binders = vars_to_params tenv params in
      term (Tquant (Dterm.DTlambda, binders, [], core_lang_to_whyml tenv body)) *)
-  | TList _ | TTupple _ | TPower (_, _) | TTimes (_, _) | TDiv (_, _) ->
+  | TList _ | TTupple _ | TPower (_, _) | TTimes (_, _) | TDiv (_, _) | TStr _  ->
     failwith "nyi"
 
 and vars_to_params tenv vars =

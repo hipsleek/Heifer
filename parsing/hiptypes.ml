@@ -8,6 +8,8 @@ and term =
     | UNIT 
     | Num of int
     | Var of string
+    | TStr of string
+
     | Plus of term * term 
     | Minus of term * term 
     | Rel of bin_op * term * term 

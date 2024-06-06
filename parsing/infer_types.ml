@@ -181,7 +181,7 @@ and infer_types_term ?hint (env : abs_typ_env) term : typ * abs_typ_env =
           env
     in
     (ret, env)
-  | TList _, _ | TTupple _, _ -> failwith "list/tuple unimplemented"
+  | TList _, _ | TTupple _, _ | TStr _, _ -> failwith "list/tuple/str unimplemented"
 
 let rec infer_types_pi env pi =
   (* let@ _ =

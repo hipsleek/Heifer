@@ -211,6 +211,8 @@ let rec string_of_term t : string =
       | x:: xs -> string_of_term x ^";"^ helper xs
     in "[" ^ helper nLi ^ "]"
 
+  | TStr str -> "\"" ^ str ^ "\""
+
 and string_of_staged_spec (st:stagedSpec) : string =
   match st with
   | Require (p, h) ->
@@ -357,7 +359,7 @@ and string_of_core_lang (e:core_lang) :string =
   | CShift (k, e) -> Format.sprintf "Shift %s -> %s" k (string_of_core_lang e)
   | CReset (e) -> Format.sprintf "<%s>" (string_of_core_lang e)
 
-  
+
 and string_of_constr_cases cs =
   cs |> List.map (fun (n, args, body) -> Format.asprintf "| %s -> %s" (string_of_constr_call n args) (string_of_core_lang body)) |> String.concat "\n"
 

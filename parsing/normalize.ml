@@ -21,7 +21,7 @@ let rec to_fixed_point_ptr_eq f spec =
 
 let rec simplify_term t : term  = 
   match t with 
-  | Nil | TTrue | TFalse | UNIT | Num _ | TList _ | TTupple _ | Var _ | TApp _ | TLambda _  -> t
+  | Nil | TTrue | TFalse | UNIT | Num _ | TList _ | TTupple _ | Var _ | TApp _ | TLambda _ | TStr _ -> t
   | TNot a -> TNot (simplify_term a)
   | Rel (op, a, b) -> Rel (op, simplify_term a, simplify_term b)
   | Plus (Minus(t, Num n1), Num n2) -> 
@@ -201,6 +201,7 @@ let rec accumulateTheSumTerm (p:pi) (t:term) : term =
   | TTrue 
   | TFalse 
   | TApp _
+  | TStr _
   | TLambda _  | TTupple _ | TList _ -> t
   | TNot t1 -> TNot (accumulateTheSumTerm p t1)
   | TCons (t1, t2) -> TCons (accumulateTheSumTerm p t1, accumulateTheSumTerm p t2) 
@@ -641,6 +642,8 @@ let rec collect_lambdas_term (t : term) =
   | TApp (_, args) -> SSet.concat (List.map collect_lambdas_term args)
   | TLambda (l, _params, _sp, _body) -> SSet.singleton l
   | TCons _ -> failwith "unimplemented"
+  | TStr _ -> failwith "unimplemented"
+
 
 let rec collect_lambdas_pi (p : pi) =
   match p with
@@ -818,6 +821,7 @@ let remove_noncontributing_existentials :
     | TList _ -> failwith (Format.asprintf "NYI list")
     | TTupple _ -> failwith (Format.asprintf "NYI tuple")
     | TCons _ -> failwith (Format.asprintf "NYI tcons")
+    | TStr _ -> failwith (Format.asprintf "NYI tStr")
 
   (*
     collect(a=b) = [{a, b}]
