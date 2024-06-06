@@ -65,7 +65,8 @@ core_value:
   // | core_value COLONCOLON core_value { TCons ($1, $3) }
   // TODO [1; ...]
 
-  | core_value PLUS core_value { Plus ($1, $3) }
+  (*| core_value PLUS core_value { Plus ($1, $3) }
+  *)
 
   | core_value MINUS core_value { Minus ($1, $3) }
   | core_value AMPERAMPER core_value { TAnd ($1, $3) }
@@ -88,7 +89,8 @@ core_value:
 core_lang: 
 | v=core_value {CValue v}
 | LAMBDA LPAREN params=params RPAREN m_body=core_lang {CLambda (params, None, m_body)}
-| PLUS p1 = core_lang  p2 = core_lang {
+| PLUS p1 = core_lang   p2 = core_lang
+| p1 = core_lang PLUS  p2 = core_lang {
 
     let getAnewBinder () = 
       let correntCounter = !counter_4_inserting_let_bindings in 
