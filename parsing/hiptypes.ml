@@ -100,7 +100,7 @@ and stagedSpec =
       (* f$(x, y) is HigherOrder(..., ..., (f, [x]), y) *)
       | HigherOrder of (pi * kappa * instant * term)
       | Shift of string * disj_spec * term
-      | Reset of disj_spec
+      | Reset of disj_spec * term
       (* effects: H /\ P /\ E(...args, v), term is always a placeholder variable *)
       | RaisingEff of (pi * kappa * instant * term)
       (* | IndPred of { name : string; args: term list } *)
@@ -210,7 +210,6 @@ type typ_env = typ SMap.t
 
 [@@@warning "-17"]
 
-(* type effectStage =  (string list* (pi * kappa ) * (pi * kappa) * instant * term) *)
 type effectStage = {
   e_evars : string list;
   e_pre : pi * kappa;
@@ -222,6 +221,29 @@ type effectStage = {
 [@@deriving
   visitors { variety = "map"; name = "map_effect_stage_" },
   visitors { variety = "reduce"; name = "reduce_effect_stage_" }]
+
+type shiftStage = {
+  s_evars : string list;
+  s_pre : pi * kappa;
+  s_post : pi * kappa;
+  s_cont : string;
+  s_body : disj_spec;
+  s_ret : term;
+}
+[@@deriving
+  visitors { variety = "map"; name = "map_shift_stage_" },
+  visitors { variety = "reduce"; name = "reduce_shift_stage_" }]
+
+type resetStage = {
+  rs_evars : string list;
+  rs_pre : pi * kappa;
+  rs_post : pi * kappa;
+  rs_body : disj_spec;
+  rs_ret : term;
+}
+[@@deriving
+  visitors { variety = "map"; name = "map_reset_stage_" },
+  visitors { variety = "reduce"; name = "reduce_reset_stage_" }]
 
 type tryCatchStage = {
   tc_evars : string list;
@@ -235,7 +257,11 @@ type tryCatchStage = {
   visitors { variety = "reduce"; name = "reduce_try_catch_stage_" }]
 
 
-type effHOTryCatchStages = EffHOStage of effectStage | TryCatchStage of tryCatchStage
+type effHOTryCatchStages =
+  | EffHOStage of effectStage
+  | ShiftStage of shiftStage
+  | TryCatchStage of tryCatchStage
+  | ResetStage of resetStage
 [@@deriving
   visitors { variety = "map"; name = "map_eff_stages_" },
   visitors { variety = "reduce"; name = "reduce_eff_stages_" }]
@@ -257,7 +283,9 @@ class virtual ['self] reduce_normalised =
   object (_ : 'self)
     inherit [_] reduce_spec
     inherit! [_] reduce_effect_stage_
+    inherit! [_] reduce_shift_stage_
     inherit! [_] reduce_try_catch_stage_
+    inherit! [_] reduce_reset_stage_
     inherit! [_] reduce_eff_stages_
     inherit! [_] reduce_normal_stages_
     inherit! [_] reduce_normalised_
@@ -267,7 +295,9 @@ class virtual ['self] map_normalised =
   object (_ : 'self)
     inherit [_] map_spec
     inherit! [_] map_effect_stage_
+    inherit! [_] map_shift_stage_
     inherit! [_] map_try_catch_stage_
+    inherit! [_] map_reset_stage_
     inherit! [_] map_eff_stages_
     inherit! [_] map_normal_stages_
     inherit! [_] map_normalised_

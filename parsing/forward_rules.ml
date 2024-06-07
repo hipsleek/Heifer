@@ -728,6 +728,8 @@ and handling_spec typ env (match_summary:tryCatchLemma option) (scr_spec:normali
       *)
       res, env
     )
+  | ShiftStage _ :: _ -> failwith "todo"
+  | ResetStage _ :: _ -> failwith "todo"
 
 
 
@@ -768,7 +770,7 @@ let recursivelyInstantiateFunctionCalls (current_function:string) env instantiat
 
 
 let shift_reset_reduction env (sp:disj_spec) : disj_spec =
-  (* let reduce_flow (sp:spec) : spec =
+  (* let reduce_flow (sp:s) : spec =
     match sp with
     | 
     sp

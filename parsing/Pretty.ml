@@ -217,8 +217,8 @@ and string_of_staged_spec (st:stagedSpec) : string =
   match st with
   | Shift (k, body, r) ->
     Format.asprintf "shift(%s. %s, %s)" k (string_of_disj_spec body) (string_of_term r)
-  | Reset body ->
-    Format.asprintf "reset(%s)" (string_of_disj_spec body)
+  | Reset (body, r) ->
+    Format.asprintf "reset(%s, %s)" (string_of_disj_spec body) (string_of_term r)
   | Require (p, h) ->
     Format.asprintf "req %s" (string_of_state (p, h))
   | HigherOrder (pi, h, (f, args), ret) ->
@@ -506,12 +506,27 @@ let string_of_effHOTryCatchStages s =
     | `Fn -> HigherOrder(p2, h2, x.e_constr, x.e_ret))] in
     string_of_spec current )
 
+  | ShiftStage x ->
+    let ex = match x.s_evars with [] -> [] | _ -> [Exists x.s_evars] in
+    let current = ex @ [Shift (x.s_cont, x.s_body, x.s_ret)] in
+    string_of_spec current
+
   | (TryCatchStage ct) -> 
     (let {tc_pre = (p1, h1); tc_post = (p2, h2); _} = ct in
     let ex = match ct.tc_evars with [] -> [] | _ -> [Exists ct.tc_evars] in
     let current = ex @ 
     [Require(p1, h1);
     (TryCatch(p2, h2, ct.tc_constr ,ct.tc_ret)
+    )
+    ] in
+    string_of_spec current )
+  
+  | (ResetStage ct) -> 
+    (let {rs_pre = (p1, h1); rs_post = (p2, h2); _} = ct in
+    let ex = match ct.rs_evars with [] -> [] | _ -> [Exists ct.rs_evars] in
+    let current = ex @ 
+    [Require(p1, h1); NormalReturn (p2, h2);
+    (Reset(ct.rs_body, ct.rs_ret)
     )
     ] in
     string_of_spec current )

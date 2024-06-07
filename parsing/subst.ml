@@ -30,9 +30,21 @@ let rec instantiateExistientalVar (spec : normalisedStagedSpec)
       :: rest,
       norm' )
 
+  | (ShiftStage sh) :: xs ->
+    let rest, norm' = instantiateExistientalVar (xs, normalS) bindings in
+    ( ShiftStage { sh with s_evars = instantiateExistientalVar_aux sh.s_evars bindings }
+      :: rest,
+      norm' )
+
   | (TryCatchStage tc) :: xs -> 
     let rest, norm' = instantiateExistientalVar (xs, normalS) bindings in
     ( TryCatchStage { tc with tc_evars = instantiateExistientalVar_aux tc.tc_evars bindings }
+      :: rest,
+      norm' )
+  
+  | (ResetStage rs) :: xs -> 
+    let rest, norm' = instantiateExistientalVar (xs, normalS) bindings in
+    ( ResetStage { rs with rs_evars = instantiateExistientalVar_aux rs.rs_evars bindings }
       :: rest,
       norm' )
 
@@ -204,13 +216,17 @@ let hash_lambda t =
 
 let get_existentials_eff (e : effHOTryCatchStages) : string list =
   match e with
+  | ResetStage rs -> rs.rs_evars
   | EffHOStage eff -> eff.e_evars
+  | ShiftStage sh -> sh.s_evars
   | TryCatchStage tc -> tc.tc_evars
 
 let set_existentials_eff (e : effHOTryCatchStages) vs =
   match e with
   | EffHOStage eff -> EffHOStage { eff with e_evars = vs }
+  | ShiftStage sh -> ShiftStage { sh with s_evars = vs }
   | TryCatchStage tc -> TryCatchStage { tc with tc_evars = vs }
+  | ResetStage rs -> ResetStage { rs with rs_evars = vs }
 
 let rec getExistentialVar (spec : normalisedStagedSpec) : string list =
   let effS, normalS = spec in
@@ -219,7 +235,9 @@ let rec getExistentialVar (spec : normalisedStagedSpec) : string list =
     let ex, _, _ = normalS in
     ex
   | (EffHOStage eff) :: xs -> eff.e_evars @ getExistentialVar (xs, normalS)
+  | (ShiftStage sh) :: xs -> sh.s_evars @ getExistentialVar (xs, normalS)
   | (TryCatchStage tc)::xs -> tc.tc_evars @ getExistentialVar (xs, normalS)
+  | (ResetStage rs)::xs -> rs.rs_evars @ getExistentialVar (xs, normalS)
 
 
   let find_subsumptions =

@@ -487,8 +487,6 @@ let normalize_step (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
   let res =
     let effectStages, (existential, req, ens) = acc in
     match stagedSpec with
-    | Shift _ -> failwith "todo"
-    | Reset _ -> failwith "todo"
     | Exists li -> (effectStages, (existential @ li, req, ens))
     | Require (p3, h3) ->
       let p2, h2 = ens in
@@ -552,7 +550,25 @@ let normalize_step (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
             };
           ],
         freshNormStageRet ret' )
-    (* higher-order functions *)
+    | Shift (k, body, r) ->
+      let ens1, nex =
+        if contains_res_state ens then
+          let e, n = quantify_res_state ens in
+          (e, [n])
+        else (ens, [])
+      in
+      ( effectStages
+        @ [
+          ShiftStage {
+              s_evars = nex @ existential;
+              s_pre = req;
+              s_post = ens1;
+              s_cont = k;
+              s_body = body;
+              s_ret = r;
+            };
+          ],
+        freshNormStageRet r )
     | HigherOrder (pi, heap, ins, ret') ->
       (* let ens1, nex = merge_state_containing_res ens (pi, heap) in *)
       let ens1, nex =
@@ -573,6 +589,24 @@ let normalize_step (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
             };
           ],
         freshNormStageRet ret' )
+    | Reset (body, r) ->
+      let ens1, nex =
+        if contains_res_state ens then
+          let e, n = quantify_res_state ens in
+          (e, [n])
+        else (ens, [])
+      in
+      ( effectStages
+        @ [
+          ResetStage {
+              rs_evars = nex @ existential;
+              rs_pre = req;
+              rs_post = ens1;
+              rs_body = body;
+              rs_ret = r;
+            };
+          ],
+        freshNormStageRet r )
     | TryCatch (pi, heap, (a, b), ret') -> 
       let ens1, nex =
         if contains_res_state ens then
@@ -978,8 +1012,8 @@ let simplify_existential_locations sp =
     List.concat_map
       (fun s ->
         match s with
-        | Shift _ -> failwith "todo"
-        | Reset _ -> failwith "todo"
+        | Shift _ -> []
+        | Reset _ -> []
         | Exists _ | TryCatch _ -> []
         | Require (p, _)
         | NormalReturn (p, _)
@@ -1018,12 +1052,24 @@ let check_for_false (effs, norm) =
     | (TryCatchStage _) as e :: efs1 ->
       let r, e1, pre = loop efs1 in
       r, e :: e1, pre
+    | (ResetStage _) as e :: efs1 ->
+      let r, e1, pre = loop efs1 in
+      r, e :: e1, pre
     | (EffHOStage s) as e :: efs1 ->
       (match ProversEx.is_valid (fst s.e_pre) False with
       | true -> `ReqFalse, [], None
       | false ->
         (match ProversEx.is_valid (fst s.e_post) False with
             | true -> `EnsFalse, [], Some s.e_pre
+            | false ->
+              let r, e1, pre = loop efs1 in
+              r, e :: e1, pre))
+    | (ShiftStage s) as e :: efs1 ->
+      (match ProversEx.is_valid (fst s.s_pre) False with
+      | true -> `ReqFalse, [], None
+      | false ->
+        (match ProversEx.is_valid (fst s.s_post) False with
+            | true -> `EnsFalse, [], Some s.s_pre
             | false ->
               let r, e1, pre = loop efs1 in
               r, e :: e1, pre))
@@ -1050,11 +1096,23 @@ let final_simplification (effs, norm) =
             tc_pre = simplify_state tc.tc_pre;
             tc_post = simplify_state tc.tc_post;
           }
+        | ResetStage rs ->
+          ResetStage {
+            rs with
+            rs_pre = simplify_state rs.rs_pre;
+            rs_post = simplify_state rs.rs_post;
+          }
         | EffHOStage efs ->
           EffHOStage {
             efs with
             e_pre = simplify_state efs.e_pre;
             e_post = simplify_state efs.e_post;
+          }
+        | ShiftStage efs ->
+          ShiftStage {
+            efs with
+            s_pre = simplify_state efs.s_pre;
+            s_post = simplify_state efs.s_post;
           })
       effs
   in
@@ -1131,6 +1189,18 @@ let remove_vars_occurring_twice : normalisedStagedSpec -> normalisedStagedSpec =
       List.map
         (fun e ->
           match e with
+          | ResetStage rs ->
+            ResetStage {
+              rs with
+              rs_pre = instantiate_state occurs_twice rs.rs_pre;
+              rs_post = instantiate_state occurs_twice rs.rs_post;
+            }
+          | ShiftStage sh ->
+            ShiftStage {
+              sh with
+              s_pre = instantiate_state occurs_twice sh.s_pre;
+              s_post = instantiate_state occurs_twice sh.s_post;
+            }
           | TryCatchStage tc ->
             TryCatchStage {
               tc with
@@ -1252,6 +1322,24 @@ let normalize_spec sp =
 let rec effectStage2Spec (effectStages : effHOTryCatchStages list) : spec =
   match effectStages with
   | [] -> []
+  | (ShiftStage sh) :: xs ->
+    (match sh.s_evars with [] -> [] | _ -> [Exists sh.s_evars])
+    @ (match sh.s_pre with
+      | True, EmptyHeap -> []
+      | p1, h1 -> [Require (p1, h1)])
+    @ (match sh.s_post with
+      | True, EmptyHeap -> []
+      | p2, h2 -> [NormalReturn (p2, h2)])
+    @ effectStage2Spec xs
+  | (ResetStage rs) :: xs ->
+    (match rs.rs_evars with [] -> [] | _ -> [Exists rs.rs_evars])
+    @ (match rs.rs_pre with
+      | True, EmptyHeap -> []
+      | p1, h1 -> [Require (p1, h1)])
+    @ (match rs.rs_post with
+      | True, EmptyHeap -> []
+      | p2, h2 -> [NormalReturn (p2, h2)])
+    @ effectStage2Spec xs
   | (EffHOStage eff) :: xs ->
     let p2, h2 = eff.e_post in
     (match eff.e_evars with [] -> [] | _ -> [Exists eff.e_evars])
