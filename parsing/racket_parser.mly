@@ -9,7 +9,7 @@ open Hiptypes
 %token TRUE SHIFT RESET LAMBDA REQUIRE SHARP LANG DEFINE FALSE FUN LET IF
 %token LPAREN RPAREN LBRACKET RBRACKET SLASH AMPERAMPER SEMI COMMA LSPECCOMMENT RSPECCOMMENT
 %token EOF
-%start <Hiptypes.core_program> prog
+%start <Hiptypes.intermediate list> prog
 %type <string list> params
 %type <string> rec_path
 %type <Hiptypes.core_lang> core_lang
@@ -191,17 +191,20 @@ prog:
 | LPAREN REQUIRE rec_path RPAREN prog=prog { prog } 
 | LPAREN DEFINE signature=fun_signature m_body=core_lang RPAREN prog=prog {
   let (m_name, m_params) = signature in 
-  let new_meth = {m_name= m_name; m_params= m_params; m_spec= None; m_body= m_body; m_tactics=[]} in 
-  {prog with cp_methods=new_meth::prog.cp_methods}}
+
+  let new_meth = Meth (m_name, m_params, None, m_body, [], None) in 
+  new_meth :: prog
+
+}
 
 | LPAREN DEFINE nm=LIDENT m_body=core_value RPAREN prog=prog {
   let (m_name, m_params) = ("main", []) in 
   let m_body' = CLet (nm, CRef m_body , CValue (UNIT) ) in 
-  let new_meth = {m_name= m_name; m_params= m_params; m_spec= None; m_body= m_body'; m_tactics=[]} in 
-  {prog with cp_methods=new_meth::prog.cp_methods}}
+  let new_meth = Meth (m_name, m_params, None, m_body', [], None) in 
+  new_meth :: prog}
 
 | LPAREN m_body=core_lang RPAREN prog=prog { 
   let (m_name, m_params) = ("main", []) in 
-  let new_meth = {m_name= m_name; m_params= m_params; m_spec= None; m_body= m_body; m_tactics=[]} in 
-  {prog with cp_methods=new_meth::prog.cp_methods}}
-| EOF {empty_program} 
+  let new_meth = Meth (m_name, m_params, None, m_body, [], None) in 
+  new_meth :: prog}
+| EOF {[]} 
