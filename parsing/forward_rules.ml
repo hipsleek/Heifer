@@ -801,11 +801,20 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
           (* the return value is context-sensitive and depends on what in the history came before *)
           let ret =
             match unsnoc spec with
+            | _, Reset (_body, Var ret) -> ret
+            | _, Shift (_binder, _body, Var ret) -> ret
             | _, RaisingEff (_pre, _post, _constr, Var ret) -> ret
             | _, HigherOrder (_pre, _post, _constr, Var ret) -> ret
             | _, TryCatch (_pre, _post, _constr, Var ret) -> ret
-            | _, RaisingEff (_, _, _, ret) | _, HigherOrder (_, _, _, ret) |  _, TryCatch (_, _, _, ret) -> failwith (Format.asprintf "ret not a variable: %s" (string_of_term ret))
-            | _ -> "res"
+            | _, Shift (_, _, ret)
+            | _, Reset (_, ret)
+            | _, RaisingEff (_, _, _, ret)
+            | _, HigherOrder (_, _, _, ret)
+            | _, TryCatch (_, _, _, ret) ->
+               failwith (Format.asprintf "ret not a variable: %s" (string_of_term ret))
+            | _, Exists _
+            | _, Require _
+            | _, NormalReturn _ -> "res"
           in
 
           (*
