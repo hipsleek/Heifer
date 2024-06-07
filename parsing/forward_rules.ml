@@ -545,7 +545,7 @@ let rec resolveInnerTryCatches typ env (match_summary:tryCatchLemma option) (spe
 and handling_spec typ env (match_summary:tryCatchLemma option) (scr_spec:normalisedStagedSpec) (h_norm:(string * disj_spec)) (h_ops:(string * string option * disj_spec) list) : spec list * fvenv = 
   
   let@ _ = Debug.span (fun r ->
-    debug ~at:3 ~title:"handling_spec" "match\n  (*@@ %s @@*)\nwith\n| ...\n| ...\n==>\n%s" (string_of_spec (normalisedStagedSpec2Spec scr_spec)) (string_of_result string_of_disj_spec (Option.map fst r))
+    debug ~at:3 ~title:"handling_spec" "match\n  (*@@ %s @@*)\nwith\n| ...\n| ...\n==>\n%s" (string_of_spec (normalisedStagedSpec2Spec scr_spec)) (string_of_result string_of_disj_spec (map_presult fst r))
     ) in
   let (scr_eff_stages, scr_normal) = scr_spec in 
   match scr_eff_stages with 

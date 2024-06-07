@@ -1,22 +1,28 @@
+let ( let@ ) f x = f x
+
 (* 0: no output except results
    1: high-level output to explain to a user what is going on
    2 and above: for developers, higher levels give more detail *)
 (* let debug_level = ref 0 *)
 let debug_event_n = ref 0
 let stack : (string * int) list ref = ref []
-let advanced = ref true
 let pp_event ppf r = Format.fprintf ppf "_%d" r
 let is_closing = ref false
 let is_opening = ref false
 let last_title = ref ""
-let ctf = ref false
+let ctf_output = ref false
 let file_mode = ref false
+
+let yellow text =
+  match !file_mode with
+  | false -> "\u{001b}[33m" ^ text ^ "\u{001b}[0m"
+  | true -> text
 
 module Buffered = struct
   let buffered_event : (string * string * int) option ref = ref None
 
   let write_line title s =
-    print_endline (Pretty.yellow title);
+    print_endline (yellow title);
     print_endline s;
     if not (String.equal "" s) then print_endline ""
 
@@ -36,16 +42,16 @@ module Buffered = struct
       (* we assume events are well-bracketed.
          on closing a span, if there's something in the buffer, we must have left it there. *)
       clear_buffer ();
-      write_line title s
+      write_line (title (-1)) s
     | None when !is_closing ->
       (* something must have occurred which cleared the buffer before us, so output normally *)
-      write_line title s
+      write_line (title 0) s
     | _ when !is_opening ->
       flush_buffer ();
-      buffer_event title s !debug_event_n
+      buffer_event (title 0) s !debug_event_n
     | _ ->
       flush_buffer ();
-      write_line title s
+      write_line (title 0) s
 end
 
 let may_fail f = try Some (f ()) with _ -> None
@@ -129,8 +135,15 @@ module Query = struct
     | LogLevel l -> Format.asprintf "LogLevel(%d)" l
     | All -> "All"
 
+  let string_of_list p xs =
+    match xs with
+    | [] -> "[]"
+    | _ ->
+      let a = List.map p xs |> String.concat "; " in
+      Format.asprintf "[%s]" a
+
   let string_of_query qs =
-    Common.string_of_list
+    string_of_list
       (fun (action, on, recursive) ->
         Format.asprintf "(%s, %s, %b)"
           (string_of_query_action action)
@@ -186,7 +199,7 @@ let debug_print at title s =
   match show with
   | false -> ()
   | true ->
-    (match !ctf with
+    (match !ctf_output with
     | false ->
       let title =
         let stack =
@@ -197,17 +210,18 @@ let debug_print at title s =
       in
       let title =
         match !file_mode with
-        | false -> Format.asprintf "==== %s ====" title
+        | false -> fun _ -> Format.asprintf "==== %s ====" title
         | true ->
-          Format.asprintf "%s %s"
-            (String.init (List.length !stack + 1) (fun _ -> '*'))
-            title
+          fun n ->
+            Format.asprintf "%s %s"
+              (String.init (List.length !stack + 1 + n) (fun _ -> '*'))
+              title
       in
       begin
         let should_buffer = true in
         match should_buffer with
         | true -> Buffered.collapse_empty_spans title s
-        | false -> Buffered.write_line title s
+        | false -> Buffered.write_line (title 0) s
       end
     | true ->
       let typ = if !is_closing then "E" else if !is_opening then "B" else "i" in
@@ -234,21 +248,16 @@ let debug ~at ~title fmt =
       incr debug_event_n)
     fmt
 
-(** info output is shown to the user *)
-(* let info ~title fmt = debug ~at:1 ~title fmt *)
+type 'a presult =
+  | NoValueYet
+  | Value of 'a
+  | Exn of exn
 
-type ctx = {
-  event : int;
-  stack : string;
-}
-
-(* let get_event () =
-   let r = !debug_event_n in
-   incr debug_event_n;
-   r *)
-
-let pp_opening ppf r =
-  match r with None -> () | Some r -> Format.fprintf ppf "%a" pp_event r
+let map_presult f a =
+  match a with
+  | NoValueYet -> NoValueYet
+  | Exn e -> Exn e
+  | Value a -> Value (f a)
 
 let span show k =
   let start = !debug_event_n in
@@ -257,39 +266,53 @@ let span show k =
   (* let args = *)
   (* { stack = sum1; event = start } *)
   is_opening := true;
-  show None;
+  show NoValueYet;
   is_opening := false;
   (* in *)
   stack := (!last_title, start) :: !stack;
   (* Format.printf "%s@." args; *)
-  let r = k () in
+  match k () with
+  | r ->
+    (* let stop = !debug_event_n in *)
+    (* let sum2 = summarize_stack () in *)
+    (* { stack = sum2; event = stop } *)
 
-  (* let stop = !debug_event_n in *)
-  (* let sum2 = summarize_stack () in *)
-  (* { stack = sum2; event = stop } *)
+    (* this is safe because the user is only supposed to call debug inside here, not do further recursion, so this is just a way of communicating non-locally across functions in this module *)
+    is_closing := true;
+    show (Value r);
+    is_closing := false;
 
-  (* this is safe because the user is only supposed to call debug inside here, not do further recursion, so this is just a way of communicating non-locally across functions in this module *)
-  is_closing := true;
-  show (Some r);
-  is_closing := false;
+    stack := List.tl !stack;
+    (* Format.printf "%s@." ; *)
+    r
+  | exception e ->
+    (* https://ocamlpro.com/blog/2024_04_25_ocaml_backtraces_on_uncaught_exceptions/#reraising *)
+    let bt = Printexc.get_raw_backtrace () in
+    is_closing := true;
+    show (Exn e);
+    is_closing := false;
 
-  stack := List.tl !stack;
-  (* Format.printf "%s@." ; *)
-  r
+    stack := List.tl !stack;
+    (* Format.printf "%s@." ; *)
+    Printexc.raise_with_backtrace e bt
 
 let pp_result f ppf r =
   match r with
-  | None -> Format.fprintf ppf "..."
-  | Some r -> Format.fprintf ppf "%a" f r
+  | NoValueYet -> Format.fprintf ppf "..."
+  | Value r -> Format.fprintf ppf "%a" f r
+  | Exn e -> Format.fprintf ppf "%s" (Printexc.to_string e)
 
 let string_of_result f r =
-  match r with None -> "..." | Some r -> Format.asprintf "%s" (f r)
+  match r with
+  | NoValueYet -> "..."
+  | Exn e -> Printexc.to_string e
+  | Value r -> Format.asprintf "%s" (f r)
 
-let init ctf_output query to_file =
+let init ~ctf ~org query =
   at_exit (fun () -> Buffered.flush_buffer ());
-  file_mode := to_file;
-  if ctf_output then (
-    ctf := true;
+  file_mode := org;
+  if ctf then (
+    ctf_output := true;
     let name = "trace.json" in
     Format.printf "%s@." name;
     let oc = open_out name in
@@ -298,8 +321,9 @@ let init ctf_output query to_file =
   user_query :=
     query |> (fun o -> Option.bind o parse_query) |> Option.value ~default:[]
 
-let%expect_test _ =
-  let open Common in
+let%expect_test "queries" =
+  file_mode := true;
+
   let test_program () =
     let f x =
       let@ _ =
@@ -346,7 +370,7 @@ let%expect_test _ =
     -----
     [(Show, Regex(aa), false)]
     -----
-    ==== aaa | _2 ====
+    ** aaa | _2
     b
 
     -----
@@ -355,37 +379,37 @@ let%expect_test _ =
     -----
     [(Show, All, false); (Hide, Time(1), true); (Show, Regex(aaa), false)]
     -----
-    ==== before | _0 ====
+    * before | _0
     b
 
-    ==== aaa | _2 ====
+    ** aaa | _2
     b
 
-    ==== after | _4 ====
+    * after | _4
     b
 
     -----
     [(Hide, Regex(.*), false); (Show, Regex(aa), false)]
     -----
-    ==== aaa | _2 ====
+    ** aaa | _2
     b
 
     -----
     [(Show, Time(1), true)]
     -----
-    ==== hi | _1 ====
+    * hi | _1
     2 ==> ...
 
-    ==== aaa | _2 ====
+    ** aaa | _2
     b
 
-    ==== hi | _3 <-_1 ====
+    ** hi | _3 <-_1
     2 ==> 3
 
     -----
     [(Show, Regex(aa), false); (Hide, Regex(.*), false); (Show, Regex(.*efo), false)]
     -----
-    ==== before | _0 ====
+    * before | _0
     b
 
     -----
@@ -394,18 +418,97 @@ let%expect_test _ =
     -----
     [(Show, Regex(aa), false); (Hide, Regex(aa), false); (Show, Regex(aa), false)]
     -----
-    ==== aaa | _2 ====
+    ** aaa | _2
     b
 
     -----
     [(Show, Range(1, 2), true)]
     -----
-    ==== hi | _1 ====
+    * hi | _1
     2 ==> ...
 
-    ==== aaa | _2 ====
+    ** aaa | _2
     b
 
-    ==== hi | _3 <-_1 ====
+    ** hi | _3 <-_1
     2 ==> 3
+    |}]
+
+let%expect_test "collapsing" =
+  debug_event_n := 0;
+  user_query := [(Show, All, false)];
+  file_mode := true;
+  let f g x =
+    let@ _ =
+      span (fun r ->
+          debug ~at:2
+            ~title:"f"
+            "%s ==> %s" (string_of_int x)
+            (string_of_result string_of_int r))
+    in
+    g ();
+    x + 1
+  in
+  f (fun () -> ()) 2 |> ignore;
+  f (fun () -> debug ~at:1 ~title:"g" "hi") 2 |> ignore;
+  [%expect
+    {|
+      * f | _1 <-_0
+      2 ==> 3
+
+      * f | _2
+      2 ==> ...
+
+      ** g | _3
+      hi
+
+      ** f | _4 <-_2
+      2 ==> 3
+    |}]
+
+let%expect_test "exceptions" =
+  debug_event_n := 0;
+  user_query := [(Show, All, false)];
+  file_mode := true;
+  let f x =
+    let@ _ =
+      span (fun r ->
+          debug ~at:2
+            ~title:"f"
+            "%s ==> %s" (string_of_int x)
+            (string_of_result string_of_int r))
+    in
+    if x > 3 then
+      debug ~at:2 ~title:"f is running" "";
+    failwith "this function never returns"
+  in
+  begin try
+  f 4 |> ignore;
+  with Failure _ ->
+    debug ~at:2 ~title:"f failed" "why?"
+  end;
+  (* test collapsing *)
+  begin try
+  f 2 |> ignore;
+  with Failure _ ->
+    debug ~at:2 ~title:"f failed" "why?"
+  end;
+  [%expect
+    {|
+      * f | _0
+      4 ==> ...
+
+      ** f is running | _1
+
+      ** f | _2 <-_0
+      4 ==> Failure("this function never returns")
+
+      * f failed | _3
+      why?
+
+      * f | _5 <-_4
+      2 ==> Failure("this function never returns")
+
+      * f failed | _6
+      why?
     |}]

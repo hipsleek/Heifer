@@ -1,4 +1,6 @@
+module D = Debug
 open Why3
+module Debug = D
 
 (* open this second, so it gets precedence for shadowed modules *)
 open Hipcore
@@ -493,8 +495,7 @@ module Defunct = struct
     | CMatch (_, _, _, _, _, _) -> failwith "unimplemented effect CMatch"
     | CResume _ -> failwith "unimplemented CResume"
     | CLambda (_, _, _) -> failwith "unimplemented CLambda"
-    | CShift _ | CReset _ -> failwith("TODO shift and reset expr_to_why3 ")
-
+    | CShift _ | CReset _ -> failwith "TODO shift and reset expr_to_why3 "
 
   let pure_fn_to_logic_fn env pure_fn =
     let params =
@@ -707,7 +708,8 @@ let rec term_to_whyml tenv t =
      let params, _ret = unsnoc params in
      let binders = vars_to_params tenv params in
      term (Tquant (Dterm.DTlambda, binders, [], core_lang_to_whyml tenv body)) *)
-  | TList _ | TTupple _ | TPower (_, _) | TTimes (_, _) | TDiv (_, _) | TStr _  ->
+  | TList _ | TTupple _ | TPower (_, _) | TTimes (_, _) | TDiv (_, _) | TStr _
+    ->
     failwith "nyi"
 
 and vars_to_params tenv vars =
@@ -766,8 +768,7 @@ and core_lang_to_whyml tenv e =
   | CAssert (_, _) | CLambda (_, _, _) -> failwith "unimplemented"
   | CWrite (_, _) | CRef _ | CRead _ -> failwith "heap operations not allowed"
   | CResume _ | CPerform (_, _) -> failwith "effects not allowed"
-  | CShift _ | CReset _ -> failwith("TODO shift and reset core_lang_to_whyml ")
-
+  | CShift _ | CReset _ -> failwith "TODO shift and reset core_lang_to_whyml "
 
 and pi_to_whyml tenv p =
   match p with

@@ -108,8 +108,8 @@ and infer_types_term ?hint (env : abs_typ_env) term : typ * abs_typ_env =
   let@ _ =
     Debug.span (fun r ->
         debug ~at:5 ~title:"infer_types" "%s : %s -| %s" (string_of_term term)
-          (string_of_result string_of_type (Option.map fst r))
-          (string_of_result string_of_abs_env (Option.map snd r)))
+          (string_of_result string_of_type (map_presult fst r))
+          (string_of_result string_of_abs_env (map_presult snd r)))
   in
   match (term, hint) with
   | UNIT, _ -> (Unit, env)
