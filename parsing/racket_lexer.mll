@@ -37,7 +37,7 @@ let float = digit* frac? exp?
 (* part 3 *)
 let white = [' ' '\t']+
 let newline = '\n' | '\r' | "\r\n" 
-let id = ['a'-'v' 'x'-'z' '<' '+' '-' ] [ '-' '!' '>' '=' '+' 'a'-'z' 'A'-'Z' '0'-'9' '_']*
+let id = ['a'-'v' 'x'-'z'  ] [ 'a'-'z' 'A'-'Z' '0'-'9' '_']*
 
 
 let white = [' ' '\t']+
@@ -69,11 +69,26 @@ rule token =
   | ']' { RBRACKET }
   | ";"  { SEMI }
   | ","  { COMMA }
+  | "*"  { STAR }
+  | "+"  { PLUS } 
+  | "-"  { MINUS }
+  | "->" { MINUSGREATER }
+  | "="  { EQUAL } 
+  | "<="  { LESSTHENEQUAL } 
+  | ">="  { GREATERTHENEQUAL } 
+
+  | "<"  { LESSTHEN } 
+  | ">"  { GREATERTHEN } 
+  | "!"  { BANG }
   | "&&" { AMPERAMPER }
   | "(*@"
       { LSPECCOMMENT } 
   | "@*)"
       { RSPECCOMMENT }
+  | "\\/"
+      { DISJUNCTION }
+  | "/\\"
+      { CONJUNCTION }
   | id as str { LIDENT str }
   | '"' { read_string (Buffer.create 17) lexbuf }
 

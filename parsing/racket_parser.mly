@@ -15,7 +15,9 @@ let getAnewBinder () =
 %token <string> LIDENT 
 %token <string> INT
 %token TRUE SHIFT RESET LAMBDA REQUIRE SHARP LANG DEFINE FALSE FUN LET IF GET SET
-%token LPAREN RPAREN LBRACKET RBRACKET SLASH AMPERAMPER SEMI COMMA LSPECCOMMENT RSPECCOMMENT
+%token LPAREN RPAREN LBRACKET RBRACKET SLASH AMPERAMPER SEMI COMMA 
+%token LSPECCOMMENT RSPECCOMMENT DISJUNCTION CONJUNCTION STAR
+%token PLUS  MINUS  MINUSGREATER EQUAL BANG  LESSTHENEQUAL GREATERTHENEQUAL LESSTHEN GREATERTHEN
 %token EOF
 %start <Hiptypes.intermediate list> prog
 %type <string list> params
@@ -28,11 +30,22 @@ let getAnewBinder () =
 
 
 %%
+ident:
+| s = LIDENT {s} 
+| s = LIDENT BANG {s^"!"} 
+| s1 = LIDENT MINUSGREATER s2 = LIDENT {s1^"->"^s2} 
+| s1 = LIDENT MINUS s2 = LIDENT {s1^"-"^s2} 
+| PLUS {"+"}
+| MINUS {"-"}
+| LESSTHENEQUAL {"<="}
+| GREATERTHENEQUAL {">="}
+| LESSTHEN {"<"}
+| GREATERTHEN {">"}
 
 
 params:
 | {[]}
-| s=LIDENT rest = params {s :: rest}
+| s=ident rest = params {s :: rest}
 
 core_values:
 | {[]}
@@ -49,50 +62,33 @@ sequencing:
 
 
 fun_signature: 
-| LPAREN nm= LIDENT params=params RPAREN {(nm, params)}
+| LPAREN nm= ident params=params RPAREN {(nm, params)}
 | LPAREN nm= GET params=params RPAREN {("get!", params)}
 
 
 
 core_value:
   | n = INT { Num (int_of_string n) }
-
   | LPAREN RPAREN {UNIT}
-
-  // | LPAREN n = list_of_TupleTerms RPAREN {TTupple n}
-
-
-  | v = LIDENT { Var v }
+  | v = ident { Var v }
   | v = STRING { TStr v }
-
-
-    
   | TRUE { TTrue }
   | FALSE { TFalse }
-
-  // | LBRACKET RBRACKET { Nil }
-  // | core_value COLONCOLON core_value { TCons ($1, $3) }
-  // TODO [1; ...]
-
-
   | core_value AMPERAMPER core_value { TAnd ($1, $3) }
-
-
-
   | LPAREN core_value RPAREN { $2 }
 
 
 
 let_binding: 
 | {[]}
-| LBRACKET nm=LIDENT expr=core_lang RBRACKET rest = let_binding  {(nm, expr):: rest}
+| LBRACKET nm=ident expr=core_lang RBRACKET rest = let_binding  {(nm, expr):: rest}
 
 
 
 core_lang: 
 | v=core_value {CValue v}
-| GET id=LIDENT {CRead id}
-| SET id=LIDENT m_body=core_lang {
+| GET id=ident {CRead id}
+| SET id=ident m_body=core_lang {
   match m_body with 
   | CValue v -> CWrite (id, v)
   | _-> 
@@ -162,7 +158,7 @@ core_lang:
     in 
     (compose params')}
     
-| SHIFT nm=LIDENT m_bodys=sequencing {
+| SHIFT nm=ident m_bodys=sequencing {
   let rec compose body_list = 
     match body_list with 
     | [x] -> x
@@ -198,12 +194,13 @@ core_lang:
 
 
 rec_path:
-| s= LIDENT {s}
-| s= LIDENT SLASH rest=rec_path {s^"/"^rest}
+| s= ident {s}
+| s= ident SLASH rest=rec_path {s^"/"^rest}
 
 prog:
 | SHARP LANG rec_path prog=prog {prog} (* this is an imcomplete parsing for "#lang racket" *)
 | LPAREN REQUIRE rec_path RPAREN prog=prog { prog } 
+
 
 
 | LPAREN DEFINE signature=fun_signature m_body=core_lang RPAREN prog=prog {
@@ -214,7 +211,7 @@ prog:
 
 }
 
-| LPAREN DEFINE nm=LIDENT m_body=core_value RPAREN prog=prog {
+| LPAREN DEFINE nm=ident m_body=core_value RPAREN prog=prog {
   let (m_name, m_params) = ("main", []) in 
   let m_body' = CLet (nm, CRef m_body , CValue (Var nm) ) in 
   let new_meth = Meth (m_name, m_params, None, m_body', [], None) in 
@@ -225,3 +222,43 @@ prog:
   let new_meth = Meth (m_name, m_params, None, m_body, [], None) in 
   new_meth :: prog}
 | EOF {[]} 
+
+(*
+| SEMI LSPECCOMMENT ef=disj_effect_spec RSPECCOMMENT 
+  LPAREN DEFINE signature=fun_signature m_body=core_lang RPAREN prog=prog {
+  let (m_name, m_params) = signature in 
+
+  let new_meth = Meth (m_name, m_params, Some ef, m_body, [], None) in 
+  new_meth :: prog
+
+}
+
+statefml:
+  | h=heapkappa { (True, h) }
+  | p=pure_formula CONJUNCTION h=heapkappa { (p, h) }
+  | h=heapkappa CONJUNCTION p=pure_formula { (p, h) }
+  | p=pure_formula { (p, EmptyHeap) }
+
+
+heapkappa:
+| EMP { EmptyHeap }
+| str=ident MINUSGREATER args = pure_formula_term
+  { PointsTo(str, args) }
+| a=heapkappa STAR b=heapkappa
+  { SepConj(a, b) }
+
+stagedSpec1 : 
+  | EXISTS vs=nonempty_list(ident) { Exists vs }
+  | REQUIRES f=statefml {
+      let (p, h) = f in
+      Require (p, h)
+    }
+  
+
+effect_spec:
+| s=separated_nonempty_list(SEMI, stagedSpec1) { s }
+
+disj_effect_spec:
+| d=separated_nonempty_list(DISJUNCTION, effect_spec) { d }
+
+*)
