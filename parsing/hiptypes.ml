@@ -331,7 +331,14 @@ type lemma = {
   l_right: spec; (* could also be disj_spec but not needed *)
 }
 
-
+type intermediate =
+  | Eff of string
+  | Lem of lemma
+  | LogicTypeDecl of string * typ list * typ * string list * string
+  (* name, params, spec, body, tactics, pure_fn_info *)
+  | Meth of string * string list * disj_spec option * core_lang * tactic list * (typ list * typ) option
+  | Pred of pred_def
+  | SLPred of sl_pred_def
 
 type core_program = {
   cp_effs: string list;

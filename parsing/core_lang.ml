@@ -475,7 +475,7 @@ let transform_str bound_names (s : structure_item) =
         | false, _ -> None
       in
       let e = transformation (fn_name :: formals @ bound_names) body in
-      Some (`Meth (fn_name, formals, spec, e, tactics, pure_fn_info))
+      Some (Meth (fn_name, formals, spec, e, tactics, pure_fn_info))
     | Pexp_apply _ -> None 
     | whatever ->
       print_endline (string_of_expression_kind whatever); 
@@ -489,13 +489,13 @@ let transform_str bound_names (s : structure_item) =
         (constr, ps @ [r])
       | _ -> failwith (Format.asprintf "lemma %s should have function on the left" l_name)
     in
-    Some (`Lem {l_name; l_params; l_left; l_right})
-  | Pstr_predicate (p_name, p_params, p_body) -> Some (`Pred {p_name; p_params; p_body})
-  | Pstr_SL_predicate (p_sl_ex, p_sl_name, p_sl_params, p_sl_body) -> Some (`SLPred {p_sl_ex; p_sl_name; p_sl_params; p_sl_body})
+    Some (Lem {l_name; l_params; l_left; l_right})
+  | Pstr_predicate (p_name, p_params, p_body) -> Some (Pred {p_name; p_params; p_body})
+  | Pstr_SL_predicate (p_sl_ex, p_sl_name, p_sl_params, p_sl_body) -> Some (SLPred {p_sl_ex; p_sl_name; p_sl_params; p_sl_body})
 
   | Pstr_effect { peff_name; peff_kind=_; _ } ->
       let name = peff_name.txt in
-      Some (`Eff name)
+      Some (Eff name)
   | Pstr_type _ 
   | Pstr_typext _ -> None 
   | Pstr_primitive { pval_name; pval_type; pval_prim = [ext_name]; _ } ->
@@ -505,5 +505,5 @@ let transform_str bound_names (s : structure_item) =
     let params, ret =
       core_type_to_simple_type pval_type |> interpret_arrow_as_params
     in
-    Some (`LogicTypeDecl (pval_name.txt, params, ret, path, name))
+    Some (LogicTypeDecl (pval_name.txt, params, ret, path, name))
   | _ -> failwith (Format.asprintf "unknown program element: %a" Pprintast.structure [s])

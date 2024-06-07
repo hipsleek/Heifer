@@ -956,95 +956,101 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) : core_program =
 
     prog)
 
-let process_items (strs: structure_item list) : unit =
+let process_intermediates it prog =
+  match it with
+  | LogicTypeDecl (name, params, ret, path, lname) ->
+    let def =
+      { pft_name = name; pft_params = params; pft_ret_type = ret; pft_logic_name = lname; pft_logic_path = path }
+    in
+    Globals.global_environment.pure_fn_types <-
+      SMap.add name def Globals.global_environment.pure_fn_types;
+    [], prog
+  | Lem l ->
+    debug ~at:4 ~title:(Format.asprintf "lemma %s" l.l_name) "%s" (string_of_lemma l);
+    let left =
+      let (f, ps) = l.l_left in
+      let args, ret = unsnoc ps in
+      function_stage_to_disj_spec f args ret
+    in
+    check_obligation_ l.l_name l.l_params prog.cp_lemmas prog.cp_predicates (left, [l.l_right]);
+    debug ~at:4 ~title:(Format.asprintf "added lemma %s" l.l_name) "%s" (string_of_lemma l);
+    (* add to environment regardless of failure *)
+    [], { prog with cp_lemmas = SMap.add l.l_name l prog.cp_lemmas }
+  | Pred p -> 
+    (*print_endline ("\n"^ p.p_name ^  Format.asprintf "(%s)" (String.concat ", " p.p_params) ^ ": ");
+    print_endline (string_of_disj_spec p.p_body);
+    *)
+
+    let body' = replaceSLPredicatesWithDef p.p_body prog.cp_sl_predicates in 
+    (*print_endline ("~~~> " ^ string_of_disj_spec body');
+    *)
+    let (p': pred_def) = {p_name =p.p_name; p_params = p.p_params; p_body = body'} in 
+    [], { prog with cp_predicates = SMap.add p'.p_name p' prog.cp_predicates }
+
+  | SLPred p -> 
+    (*
+    print_endline ("\n"^ p.p_sl_name^  Format.asprintf "(%s)" (String.concat ", " p.p_sl_params) ^ ": " ^ Format.asprintf "ex %s; " (String.concat " " p.p_sl_ex) ^ string_of_state p.p_sl_body);
+    *)
+    [], { prog with cp_sl_predicates = SMap.add p.p_sl_name p prog.cp_sl_predicates }
+  | Eff _ ->
+    (* ignore *)
+    [], prog
+  | Meth (m_name, m_params, m_spec, m_body, m_tactics, pure_fn_info) -> 
+    (* ASK YAHUI *)
+    (* let _m_spec' = 
+      (match m_spec with 
+      | None -> None 
+      | Some spec -> 
+      (*print_endline ("\n"^ m_name ^  Format.asprintf "(%s)" (String.concat ", " m_params) ^ ": ");
+      print_endline (string_of_disj_spec spec);*)
+      let spec' = replacePredicatesWithDef spec prog.cp_methods prog.cp_predicates in 
+      (*print_endline ("~~~> " ^ string_of_disj_spec spec');*)
+      let spec'' = (replaceSLPredicatesWithDef spec' prog.cp_sl_predicates) in 
+      (*print_endline ("~~~> " ^ string_of_disj_spec spec'' ^"\n");*)
+      Some spec''
+      ) 
+    in *)
+    (* the right fix is likely to unfold all non-recursive predicates internally before entailment *)
+    let m_spec' = m_spec in
+    let meth = { m_name=m_name; m_params=m_params; m_spec=m_spec'; m_body=m_body; m_tactics=m_tactics } in
+
+    (* as we handle methods, predicates are inferred and are used in place of absent specifications, so we have to keep updating the program as we go *)
+    let prog = { prog with cp_methods = meth :: prog.cp_methods } in
+
+    debug ~at:2 ~title:"parsed" "%s" (string_of_program prog);
+    debug ~at:2 ~title:"user-specified predicates" "%s" (string_of_smap string_of_pred prog.cp_predicates);
+
+    let () =
+      match pure_fn_info with
+      | Some (param_types, ret_type) ->
+        let pf =
+          { pf_name = m_name; pf_params = List.map2 pair m_params param_types; pf_ret_type = ret_type; pf_body = m_body; }
+        in
+        Globals.define_pure_fn m_name pf;
+      | None -> ()
+    in
+    begin try
+      let prog =
+        let@ _ =
+          Debug.span (fun _r ->
+              debug ~at:1
+                ~title:(Format.asprintf "verifying function: %s" meth.m_name) "")
+        in
+        analyze_method prog meth
+      in
+      [m_name], prog
+    with Method_failure ->
+      (* update program with method regardless of failure *)
+      [], prog
+    end
+
+let process_ocaml_structure (strs: structure) : unit =
   strs |>
     List.fold_left (fun (bound_names, prog) c ->
       match Core_lang.transform_str bound_names c with
-      | Some (`LogicTypeDecl (name, params, ret, path, lname)) ->
-        let def =
-          { pft_name = name; pft_params = params; pft_ret_type = ret; pft_logic_name = lname; pft_logic_path = path }
-        in
-        Globals.global_environment.pure_fn_types <-
-          SMap.add name def Globals.global_environment.pure_fn_types;
-        bound_names, prog
-      | Some (`Lem l) ->
-        debug ~at:4 ~title:(Format.asprintf "lemma %s" l.l_name) "%s" (string_of_lemma l);
-        let left =
-          let (f, ps) = l.l_left in
-          let args, ret = unsnoc ps in
-          function_stage_to_disj_spec f args ret
-        in
-        check_obligation_ l.l_name l.l_params prog.cp_lemmas prog.cp_predicates (left, [l.l_right]);
-        debug ~at:4 ~title:(Format.asprintf "added lemma %s" l.l_name) "%s" (string_of_lemma l);
-        (* add to environment regardless of failure *)
-        bound_names, { prog with cp_lemmas = SMap.add l.l_name l prog.cp_lemmas }
-      | Some (`Pred p) -> 
-        (*print_endline ("\n"^ p.p_name ^  Format.asprintf "(%s)" (String.concat ", " p.p_params) ^ ": ");
-        print_endline (string_of_disj_spec p.p_body);
-        *)
-
-        let body' = replaceSLPredicatesWithDef p.p_body prog.cp_sl_predicates in 
-        (*print_endline ("~~~> " ^ string_of_disj_spec body');
-        *)
-        let (p': pred_def) = {p_name =p.p_name; p_params = p.p_params; p_body = body'} in 
-        bound_names, { prog with cp_predicates = SMap.add p'.p_name p' prog.cp_predicates }
-
-      | Some (`SLPred p) -> 
-        (*
-        print_endline ("\n"^ p.p_sl_name^  Format.asprintf "(%s)" (String.concat ", " p.p_sl_params) ^ ": " ^ Format.asprintf "ex %s; " (String.concat " " p.p_sl_ex) ^ string_of_state p.p_sl_body);
-        *)
-        bound_names, { prog with cp_sl_predicates = SMap.add p.p_sl_name p prog.cp_sl_predicates }
-      | Some (`Eff _) ->
-        (* ignore *)
-        bound_names, prog
-      | Some (`Meth (m_name, m_params, m_spec, m_body, m_tactics, pure_fn_info)) -> 
-        (* ASK YAHUI *)
-        (* let _m_spec' = 
-          (match m_spec with 
-          | None -> None 
-          | Some spec -> 
-          (*print_endline ("\n"^ m_name ^  Format.asprintf "(%s)" (String.concat ", " m_params) ^ ": ");
-          print_endline (string_of_disj_spec spec);*)
-          let spec' = replacePredicatesWithDef spec prog.cp_methods prog.cp_predicates in 
-          (*print_endline ("~~~> " ^ string_of_disj_spec spec');*)
-          let spec'' = (replaceSLPredicatesWithDef spec' prog.cp_sl_predicates) in 
-          (*print_endline ("~~~> " ^ string_of_disj_spec spec'' ^"\n");*)
-          Some spec''
-          ) 
-        in *)
-        (* the right fix is likely to unfold all non-recursive predicates internally before entailment *)
-        let m_spec' = m_spec in
-        let meth = { m_name=m_name; m_params=m_params; m_spec=m_spec'; m_body=m_body; m_tactics=m_tactics } in
-
-        (* as we handle methods, predicates are inferred and are used in place of absent specifications, so we have to keep updating the program as we go *)
-        let prog = { prog with cp_methods = meth :: prog.cp_methods } in
-
-        debug ~at:2 ~title:"parsed" "%s" (string_of_program prog);
-        debug ~at:2 ~title:"user-specified predicates" "%s" (string_of_smap string_of_pred prog.cp_predicates);
-
-        let () =
-          match pure_fn_info with
-          | Some (param_types, ret_type) ->
-            let pf =
-              { pf_name = m_name; pf_params = List.map2 pair m_params param_types; pf_ret_type = ret_type; pf_body = m_body; }
-            in
-            Globals.define_pure_fn m_name pf;
-          | None -> ()
-        in
-        begin try
-          let prog =
-            let@ _ =
-              Debug.span (fun _r ->
-                  debug ~at:1
-                    ~title:(Format.asprintf "verifying function: %s" meth.m_name) "")
-            in
-            analyze_method prog meth
-          in
-          m_name :: bound_names, prog
-        with Method_failure ->
-          (* update program with method regardless of failure *)
-          bound_names, prog
-        end
+      | Some it ->
+        let new_bound, prog = process_intermediates it prog in
+        new_bound @ bound_names, prog
       | None -> bound_names, prog
     )
     ([], empty_program)
@@ -1052,14 +1058,19 @@ let process_items (strs: structure_item list) : unit =
 
 let run_ocaml_string_ line =
   let items = Parser.implementation Lexer.token (Lexing.from_string line) in
-  process_items items
+  process_ocaml_structure items
 
 (* this is the entry of inputing the Racket file *)
 let run_racket_string_ line =
   let open Racketfrontend in
+  (* DARIUS: parsing should return a list of intermediate *)
   let (core_program:core_program) = Racket_parser.prog Racket_lexer.token (Lexing.from_string line) in
-  Format.printf "parsed racket program@. %s" (string_of_program core_program) 
-  (* process_items items *)
+  Format.printf "parsed racket program@. %s" (string_of_program core_program);
+  (* List.fold_left (fun t i ->
+    let _bound, prog = process_intermediates i prog in
+    prog
+  ) empty_program items |> ignore *)
+   failwith "not done yet"
 
 let run_string kind s =
   Provers.handle (fun () ->
