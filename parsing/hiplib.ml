@@ -1065,6 +1065,7 @@ let run_racket_string_ line =
   let open Racketfrontend in
   (* DARIUS: parsing should return a list of intermediate *)
   let (core_program:core_program) = Racket_parser.prog Racket_lexer.token (Lexing.from_string line) in
+  (* Format.printf "parsed racket program@. %s" (string_of_list string_of_intermediate core_program); *)
   Format.printf "parsed racket program@. %s" (string_of_program core_program);
   (* List.fold_left (fun t i ->
     let _bound, prog = process_intermediates i prog in

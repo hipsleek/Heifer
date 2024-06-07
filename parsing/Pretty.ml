@@ -458,6 +458,25 @@ let rec kappaToPure kappa : pi =
 
 
 
+let string_of_intermediate (i:intermediate) : string =
+  match i with
+  | Eff _ -> failwith "todo"
+  | Lem _ -> failwith "todo"
+  | LogicTypeDecl (_, _, _, _, _) -> failwith "todo"
+  | Meth (n, p, spec, body, _, _) ->
+    let spec =
+      match spec with
+      | None -> ""
+      | Some s -> Format.asprintf "(*@@ %s @@*) " (string_of_disj_spec s)
+    in
+    let params =
+      match p with
+      | [] -> ""
+      | _ -> String.concat " " p
+    in
+    Format.asprintf "let %s%s %s= %s" n params spec (string_of_core_lang body)
+  | Pred _ -> failwith "todo"
+  | SLPred _ -> failwith "todo"
 
 
 let string_of_pred ({ p_name; p_params; p_body } : pred_def) : string =
