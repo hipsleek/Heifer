@@ -215,6 +215,10 @@ let rec string_of_term t : string =
 
 and string_of_staged_spec (st:stagedSpec) : string =
   match st with
+  | Shift (k, body, r) ->
+    Format.asprintf "shift(%s. %s, %s)" k (string_of_disj_spec body) (string_of_term r)
+  | Reset body ->
+    Format.asprintf "reset(%s)" (string_of_disj_spec body)
   | Require (p, h) ->
     Format.asprintf "req %s" (string_of_state (p, h))
   | HigherOrder (pi, h, (f, args), ret) ->
@@ -745,4 +749,3 @@ let retriveFormalArg arg :string =
   | _ -> 
         print_endline (string_of_term arg);
         failwith "effect return is not var 1"
-

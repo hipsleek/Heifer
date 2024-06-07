@@ -6,8 +6,6 @@ open Normalize
 include Subst
 open Debug
 
-let shift_stage_name = "shift"
-
 let concatenateSpecsWithEvent (current:disj_spec) (event:spec) : disj_spec = 
   List.map (fun a -> List.append a event) current
 
@@ -40,6 +38,8 @@ let constrain_final_res (sp:disj_spec) (v:term) : disj_spec =
     let l = List.length s in
     s |> List.mapi (fun i a -> if i < l-1 then a else
       match a with
+      | Shift _ -> failwith "todo"
+      | Reset _ -> failwith "todo"
       | Exists _ -> a
       | Require (_, _) -> a
       | NormalReturn (p, h) ->
@@ -307,6 +307,8 @@ let retriveLastRes (a:spec) : term option =
   (*print_endline ("current " ^ string_of_spec a); *)
   let src = List.rev a in 
   match src with 
+  | Shift _ :: _ -> failwith "todo"
+  | Reset _ :: _ -> failwith "todo"
   | NormalReturn (pi, _) :: _ 
   | HigherOrder (pi, _, _, _) :: _
   | RaisingEff(pi, _, _, _) :: _ -> 
@@ -742,6 +744,8 @@ let recursivelyInstantiateFunctionCalls (current_function:string) env instantiat
     | [] -> [acc] 
     | x :: xs  -> 
       (match x with 
+      | Shift _ -> failwith "todo"
+      | Reset _ -> failwith "todo"
       | Require _ | Exists _  | NormalReturn _ | RaisingEff _ | TryCatch _ -> helper (acc@[x]) xs 
       | HigherOrder (pi, kappa, (fname, actualArgs), _ret)  -> 
         if String.compare fname current_function != 0 then  (* check if it is recursive *)
@@ -763,7 +767,14 @@ let recursivelyInstantiateFunctionCalls (current_function:string) env instantiat
   List.flatten (List.map (fun spec -> helper [] spec) instantiatedSpec)
 
 
-
+let shift_reset_reduction env (sp:disj_spec) : disj_spec =
+  (* let reduce_flow (sp:spec) : spec =
+    match sp with
+    | 
+    sp
+  in*)
+  (* List.map reduce_flow sp*)
+  failwith ""
  
 (** may update the environment because of higher order functions *)
 (** This is the entrence of the forward reasoning **)
@@ -937,19 +948,9 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
 
       res, env
     | CShift (k, body) ->
-      (* this is handled in a very similar way to an unknown function call *)
       let ret = verifier_getAfreeVar "r" in
-      let ln = verifier_getAfreeVar "l" in
-      (* add an assignment to the lambda term before *)
-      let assign =
-        let lamb =
-          let lamb_sp, _ = infer_of_expression env [[]] body in
-          let n = verifier_getAfreeVar "l" in
-          TLambda (n, [k], lamb_sp, Some body)
-        in
-        Atomic (EQ, Var ln, lamb)
-      in
-      [[Exists [ret]; HigherOrder (assign, EmptyHeap, (shift_stage_name, [Var ln]), Var ret)]], env
+      let body1, env = infer_of_expression env [[]] body in
+      [[Exists [ret]; Shift (k, body1, Var ret)]], env
     | CWrite  (str, v) -> 
       let freshVar = verifier_getAfreeVar "wr" in 
       let event = [Exists [freshVar];Require(True, PointsTo(str, Var freshVar)); 

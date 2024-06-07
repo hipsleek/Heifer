@@ -487,6 +487,8 @@ let normalize_step (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
   let res =
     let effectStages, (existential, req, ens) = acc in
     match stagedSpec with
+    | Shift _ -> failwith "todo"
+    | Reset _ -> failwith "todo"
     | Exists li -> (effectStages, (existential @ li, req, ens))
     | Require (p3, h3) ->
       let p2, h2 = ens in
@@ -602,6 +604,8 @@ let normalize_step (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
 
 let getherPureFromSpec_step (acc:pi) (stagedSpec : stagedSpec) : pi =
   match stagedSpec with 
+  | Shift _ -> failwith "todo"
+  | Reset _ -> failwith "todo"
   | Exists _ -> acc 
   | Require (pi, _) 
   | NormalReturn (pi, _) 
@@ -862,6 +866,7 @@ let remove_noncontributing_existentials :
     merge_classes h1 p1
   and collect_related_vars_stage st =
     match st with
+    | Shift _ | Reset _ -> failwith "todo"
     | Require (p, h) | NormalReturn (p, h) -> collect_related_vars_state (p, h)
     | Exists _ -> []
     | HigherOrder (p, h, _constr, _ret) | RaisingEff (p, h, _constr, _ret) ->
@@ -973,6 +978,8 @@ let simplify_existential_locations sp =
     List.concat_map
       (fun s ->
         match s with
+        | Shift _ -> failwith "todo"
+        | Reset _ -> failwith "todo"
         | Exists _ | TryCatch _ -> []
         | Require (p, _)
         | NormalReturn (p, _)

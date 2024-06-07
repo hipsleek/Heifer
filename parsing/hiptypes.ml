@@ -99,6 +99,8 @@ and stagedSpec =
       (* this constructor is also used for inductive predicate applications *)
       (* f$(x, y) is HigherOrder(..., ..., (f, [x]), y) *)
       | HigherOrder of (pi * kappa * instant * term)
+      | Shift of string * disj_spec * term
+      | Reset of disj_spec
       (* effects: H /\ P /\ E(...args, v), term is always a placeholder variable *)
       | RaisingEff of (pi * kappa * instant * term)
       (* | IndPred of { name : string; args: term list } *)

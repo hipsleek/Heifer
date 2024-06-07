@@ -61,6 +61,8 @@ let apply_lemma : lemma -> spec -> spec option =
       let lf, largs = lem.l_left in
       (match st with
       | TryCatch _ -> failwith "unimplemented"
+      | Reset _ -> failwith "unimplemented"
+      | Shift _ -> failwith "unimplemented"
       | HigherOrder (p, h, (f, args), r)
         when (not ok) (* only apply once *) && f = lf ->
         (match unify_lem_lhs_args lem.l_params largs (args @ [r]) with

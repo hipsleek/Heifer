@@ -288,6 +288,8 @@ let rec decomposeStateForPredicate p : (((string * term list ) list) * pi) =
 let replaceSLPredicatesWithDef (specs:disj_spec) (slps:sl_pred_def SMap.t) = 
   let helper (stage:stagedSpec): spec = 
     match stage with 
+    | Shift _ -> failwith "todo"
+    | Reset _ -> failwith "todo"
     | Require (p, h) ->
       let (preds, p') = decomposeStateForPredicate p in 
       let (ex, p_pred, h_pred) = mergePredicates preds slps in 
