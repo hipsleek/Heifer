@@ -43,7 +43,7 @@ ident:
 | GREATERTHENEQUAL {">="}
 | LESSTHEN {"<"}
 | GREATERTHEN {">"}
-
+| EQUAL {"="}
 
 params:
 | {[]}
