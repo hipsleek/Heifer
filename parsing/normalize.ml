@@ -1330,6 +1330,7 @@ let rec effectStage2Spec (effectStages : effHOTryCatchStages list) : spec =
     @ (match sh.s_post with
       | True, EmptyHeap -> []
       | p2, h2 -> [NormalReturn (p2, h2)])
+    @ [ Shift (sh.s_cont, sh.s_body, sh.s_ret) ]
     @ effectStage2Spec xs
   | (ResetStage rs) :: xs ->
     (match rs.rs_evars with [] -> [] | _ -> [Exists rs.rs_evars])
@@ -1339,6 +1340,7 @@ let rec effectStage2Spec (effectStages : effHOTryCatchStages list) : spec =
     @ (match rs.rs_post with
       | True, EmptyHeap -> []
       | p2, h2 -> [NormalReturn (p2, h2)])
+    @ [ Reset (rs.rs_body, rs.rs_ret) ]
     @ effectStage2Spec xs
   | (EffHOStage eff) :: xs ->
     let p2, h2 = eff.e_post in
@@ -1405,6 +1407,13 @@ let rec detectfailedAssertions (spec : spec) : spec =
   | x :: xs -> x :: detectfailedAssertions xs
 
 let normalisedStagedSpec2Spec (normalisedStagedSpec : normalisedStagedSpec) : spec =
+  let@ _ =
+    Debug.span (fun r ->
+        debug ~at:2
+          ~title:"norm to spec"
+          "%s\n==>\n%s" (string_of_normalisedStagedSpec normalisedStagedSpec)
+          (string_of_result string_of_spec r))
+  in
   let effS, normalS = normalisedStagedSpec in
   detectfailedAssertions (effectStage2Spec effS @ normalStage2Spec normalS)
 
@@ -1453,9 +1462,18 @@ let normalise_spec_list (specLi : spec list) : spec list =
       (normalisedStagedSpec2Spec normalisedStagedSpec))
     specLi in 
 
-  let temp = List.filter (fun a-> 
+  let temp =
+    let@ _ =
+      Debug.span (fun r ->
+          debug ~at:2
+            ~title:"filter contradictory"
+            "%s\n==>\n%s" (string_of_disj_spec raw)
+            (string_of_result string_of_disj_spec r))
+    in
+    List.filter (fun a-> 
     let temp = existControdictionSpec a in 
-    not (temp)) raw in 
+    not (temp)) raw
+  in 
   temp 
 
 

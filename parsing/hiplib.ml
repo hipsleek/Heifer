@@ -852,11 +852,13 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) : core_program =
   (*print_endline ("\n----------------\ninferred_spec: \n" ^ string_of_spec_list inferred_spec);*)
 
   let inferred_spec_n = 
-    let@ _ = Debug.span (fun _r -> debug ~at:2 ~title:"normalization" "") in
+    let@ _ = Debug.span (fun r ->
+      debug ~at:2 ~title:"normalization" "%s\n==>\n%s"
+        (string_of_disj_spec inferred_spec)
+        (string_of_result string_of_normalisedStagedSpecList r)) in
     try
-        
-        normalise_disj_spec_aux1 inferred_spec
-      with Norm_failure -> report_result ~inferred_spec ~result:false meth.m_name; raise Method_failure
+      normalise_disj_spec_aux1 inferred_spec
+    with Norm_failure -> report_result ~inferred_spec ~result:false meth.m_name; raise Method_failure
   in
 
 
