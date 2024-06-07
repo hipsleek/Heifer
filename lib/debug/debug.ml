@@ -248,20 +248,16 @@ let debug ~at ~title fmt =
       incr debug_event_n)
     fmt
 
-module Res = struct
-  type 'a t =
-    | NoValueYet
-    | Value of 'a
-    | Exn of exn
+type 'a presult =
+  | NoValueYet
+  | Value of 'a
+  | Exn of exn
 
-  let map f a =
-    match a with
-    | NoValueYet -> NoValueYet
-    | Exn e -> Exn e
-    | Value a -> Value (f a)
-end
-
-open Res
+let map_presult f a =
+  match a with
+  | NoValueYet -> NoValueYet
+  | Exn e -> Exn e
+  | Value a -> Value (f a)
 
 let span show k =
   let start = !debug_event_n in

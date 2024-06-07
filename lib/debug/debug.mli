@@ -38,15 +38,14 @@ val debug :
 
 val ( let@ ) : ('a -> 'b) -> 'a -> 'b
 
-(** The result of a function call at a point in time; either it has not materialized yet, or is a value or exception. *)
-module Res : sig
-  type 'a t =
-    | NoValueYet
-    | Value of 'a
-    | Exn of exn
+(** Partial/pending results: the result of a function call at a point in time.
+    Either it has not materialized yet, or has and is a value or exception. *)
+type 'a presult =
+  | NoValueYet
+  | Value of 'a
+  | Exn of exn
 
-  val map : ('a -> 'b) -> 'a t -> 'b t
-end
+val map_presult : ('a -> 'b) -> 'a presult -> 'b presult
 
 (** Output a span. Example usage:
 
@@ -62,12 +61,12 @@ end
     Given a call [f 1], this will produce [f 1 => ?] before [body] executes and [f 1 => res] after.
     Intervening events will be nested inside the span.
 *)
-val span : ('a Res.t -> unit) -> (unit -> 'a) -> 'a
+val span : ('a presult -> unit) -> (unit -> 'a) -> 'a
 
 (** Returns true iff debug logging is enabled, which requires a query to be provided. *)
 val in_debug_mode : unit -> bool
 
-val string_of_result : ('a -> string) -> 'a Res.t -> string
+val string_of_result : ('a -> string) -> 'a presult -> string
 
 val pp_result :
-  (Format.formatter -> 'a -> unit) -> Format.formatter -> 'a Res.t -> unit
+  (Format.formatter -> 'a -> unit) -> Format.formatter -> 'a presult -> unit

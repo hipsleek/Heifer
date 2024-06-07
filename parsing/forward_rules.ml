@@ -489,7 +489,7 @@ and handling_spec env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj_spe
   *)
   let@ _ = Debug.span (fun r ->
     (* Format.asprintf "handling" *)
-    debug ~at:3 ~title:"handling_spec" "match\n  (*@@ %s @@*)\nwith\n| ...\n| ...\n==>\n%s" (string_of_spec (normalisedStagedSpec2Spec scr_spec)) (string_of_result string_of_disj_spec (Res.map fst r))
+    debug ~at:3 ~title:"handling_spec" "match\n  (*@@ %s @@*)\nwith\n| ...\n| ...\n==>\n%s" (string_of_spec (normalisedStagedSpec2Spec scr_spec)) (string_of_result string_of_disj_spec (map_presult fst r))
     ) in
   let (scr_eff_stages, scr_normal) = scr_spec in 
   match scr_eff_stages with 
@@ -580,7 +580,7 @@ and handling_spec env (scr_spec:normalisedStagedSpec) (h_norm:(string * disj_spe
       | None ->
 
         let@ _ = Debug.span (fun r ->
-          debug ~at:3 ~title:(Format.asprintf "handling_spec: unhandled effect %s" label)"%s\n==>\n%s" (string_of_spec (normalisedStagedSpec2Spec scr_spec)) (string_of_result string_of_disj_spec (Res.map fst r));
+          debug ~at:3 ~title:(Format.asprintf "handling_spec: unhandled effect %s" label)"%s\n==>\n%s" (string_of_spec (normalisedStagedSpec2Spec scr_spec)) (string_of_result string_of_disj_spec (map_presult fst r));
         ) in
 
       (* effect x is unhandled. handle the rest of the trace and append it after the unhandled effect. this assumption is sound for deep handlers, as if x is resumed, xs will be handled under this handler. *)
