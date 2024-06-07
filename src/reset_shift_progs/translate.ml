@@ -1,5 +1,6 @@
 
+(* let main () =
+  reset (1 + shift k 1)*)
+
 let main () =
-  reset (1 + shift k 1)
-
-
+  1 + shift k 1

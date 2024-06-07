@@ -6,6 +6,7 @@ open Normalize
 include Subst
 open Debug
 
+let shift_stage_name = "shift"
 
 let concatenateSpecsWithEvent (current:disj_spec) (event:spec) : disj_spec = 
   List.map (fun a -> List.append a event) current
@@ -798,7 +799,7 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
   (* TODO infer_of_expression is likely O(n^2) due to appending at the end *)
   let res, env =
     match expr with
-    | CShift _ | CReset _ -> failwith("TODO shift and reset infer_of_expression ")
+    | CReset _ -> failwith("TODO reset infer_of_expression ")
     | CValue v -> 
       let event = NormalReturn (res_eq v, EmptyHeap) in 
       concatenateSpecsWithEvent history [event], env
@@ -961,6 +962,20 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
       let res = concatenateSpecsWithSpec history fn_spec in 
 
       res, env
+    | CShift (k, body) ->
+      (* this is handled in a very similar way to an unknown function call *)
+      let ret = verifier_getAfreeVar "r" in
+      let ln = verifier_getAfreeVar "l" in
+      (* add an assignment to the lambda term before *)
+      let assign =
+        let lamb =
+          let lamb_sp, _ = infer_of_expression env [[]] body in
+          let n = verifier_getAfreeVar "l" in
+          TLambda (n, [k], lamb_sp, Some body)
+        in
+        Atomic (EQ, Var ln, lamb)
+      in
+      [[Exists [ret]; HigherOrder (assign, EmptyHeap, (shift_stage_name, [Var ln]), Var ret)]], env
     | CWrite  (str, v) -> 
       let freshVar = verifier_getAfreeVar "wr" in 
       let event = [Exists [freshVar];Require(True, PointsTo(str, Var freshVar)); 
