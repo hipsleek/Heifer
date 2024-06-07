@@ -243,6 +243,20 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
     let formals, body, _types = collect_param_info expr in
     let e = transformation (formals @ bound_names) body in
     CLambda (formals, spec, e)
+  (* shift *)
+  | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident "shift"; _}); _}, args) ->
+    begin match List.map snd args with
+    | [{pexp_desc = Pexp_ident ({txt = Lident k; _}); _}; body] ->
+      CShift (k, transformation bound_names body)
+    | _ ->  failwith "invalid shift args"
+    end
+  (* reset *)
+  | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident "reset"; _}); _}, args) ->
+    begin match List.map snd args with
+    | [body] ->
+      CReset (transformation bound_names body)
+    | _ ->  failwith "invalid reset args"
+    end
   (* perform *)
   | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, ((_, {pexp_desc = Pexp_construct ({txt=Lident eff; _}, args); _}) :: _)) when name = "perform" ->
     begin match args with
@@ -253,10 +267,7 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
   (*| Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, [_, _k; _, e]) when name = "continue" ->
     transformation env e |> maybe_var (fun v -> CResume v)
   *)
-  
-
-
-  | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, args) when name = "continue" ->
+  | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, args) when name = "continue" || name = "resume" ->
     (*print_endline (List.fold_left  (fun acc a -> acc ^ ", " ^ a) "" bound_names); *)
     let rec loop vars args =
       match args with
@@ -265,17 +276,6 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
         transformation bound_names a |> maybe_var (fun v -> loop (v :: vars) args1)
     in
     loop [] args
-
-  | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, args) when name = "resume" ->
-    let rec loop vars args =
-      match args with
-      | [] -> CResume (List.rev vars)
-      | (_, a) :: args1 ->
-        transformation bound_names a |> maybe_var (fun v -> loop (v :: vars) args1)
-    in
-    loop [] args
-    
-
   
   (* dereference *)
   | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, [_, {pexp_desc=Pexp_ident {txt=Lident v;_}; _}]) when name = "!" ->
