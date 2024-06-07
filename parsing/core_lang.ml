@@ -247,7 +247,7 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
   | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident "shift"; _}); _}, args) ->
     begin match List.map snd args with
     | [{pexp_desc = Pexp_ident ({txt = Lident k; _}); _}; body] ->
-      CShift (k, transformation bound_names body)
+      CShift (true, k, transformation bound_names body)
     | _ ->  failwith "invalid shift args"
     end
   (* reset *)

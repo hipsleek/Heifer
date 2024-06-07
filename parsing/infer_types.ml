@@ -100,7 +100,7 @@ let rec infer_types_core_lang env e =
   | CPerform (_, _) -> failwith "CPerform"
   | CMatch (_, _, _, _, _, _) -> failwith "CMatch"
   | CResume _ -> failwith "CResume"
-  | CShift (_, _) | CReset _
+  | CShift (_, _, _) | CReset _
   | CLambda (_, _, _) ->
     failwith "not implemented"
 

@@ -55,7 +55,7 @@ and core_lang =
       | CMatch of handler_type * tryCatchLemma option * core_lang * (string * core_lang) option * core_handler_ops * constr_cases
       | CResume of core_value list
       | CLambda of string list * disj_spec option * core_lang
-      | CShift of string * core_lang (* \k -> expr *)
+      | CShift of bool * string * core_lang (* bool=true is for shift, and book=false is for shift0 \k -> expr *)
       | CReset of core_lang
 
 and core_value = term

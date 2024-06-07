@@ -61,8 +61,11 @@ rule token =
   | "ens" {ENSURES}
   | "emp" {EMP}
   | "fun"  {FUN}
+  | "shift0" {SHIFT0}
   | "shift" {SHIFT}
+  
   | "reset" {RESET}
+  | "reset0" {RESET0}
   | "lambda" {LAMBDA}
   | "require" {REQUIRE}
   | "lang" {LANG}

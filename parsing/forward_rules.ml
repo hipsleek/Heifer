@@ -958,10 +958,12 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
       let res = concatenateSpecsWithSpec history fn_spec in 
 
       res, env
-    | CShift (k, body) ->
+    | CShift (true, k, body) ->
       let ret = verifier_getAfreeVar "r" in
       let body1, env = infer_of_expression env [[]] body in
       [[Exists [ret]; Shift (k, body1, Var ret)]], env
+    | CShift (false, k, body) -> failwith ("shift 0 TBD infer_of_expression")
+
     | CWrite  (str, v) -> 
       let freshVar = verifier_getAfreeVar "wr" in 
       let event = [Exists [freshVar];Require(True, PointsTo(str, Var freshVar)); 

@@ -15,7 +15,7 @@ let getAnewBinder () =
 %token <string> LIDENT 
 %token <string> UIDENT
 %token <string> INT
-%token TRUE SHIFT RESET LAMBDA REQUIRE SHARP LANG DEFINE FALSE FUN LET IF GET SET
+%token TRUE SHIFT SHIFT0 RESET RESET0 LAMBDA REQUIRE SHARP LANG DEFINE FALSE FUN LET IF GET SET
 %token LPAREN RPAREN LBRACKET RBRACKET SLASH AMPERAMPER SEMI COMMA 
 %token LSPECCOMMENT RSPECCOMMENT DISJUNCTION CONJUNCTION STAR
 %token PLUS  MINUS  MINUSGREATER EQUAL BANG  LESSTHENEQUAL GREATERTHENEQUAL LESSTHEN GREATERTHEN
@@ -166,7 +166,16 @@ core_lang:
     | [x] -> x
     | x :: xs -> CLet ("_", x, compose xs)
   in 
-  CShift(nm, compose m_bodys)
+  CShift(true, nm, compose m_bodys)
+  
+  }
+| SHIFT0 nm=ident m_bodys=sequencing {
+  let rec compose body_list = 
+    match body_list with 
+    | [x] -> x
+    | x :: xs -> CLet ("_", x, compose xs)
+  in 
+  CShift(false, nm, compose m_bodys)
   
   }
 | LET LPAREN letbinding=let_binding RPAREN m_bodys=sequencing {
@@ -188,6 +197,8 @@ core_lang:
   
 }
 | RESET m_body=core_lang {(CReset(m_body))}
+| RESET0 m_body=core_lang {(CReset(m_body))}
+
 | LPAREN expr=core_lang RPAREN {expr}
 
 
