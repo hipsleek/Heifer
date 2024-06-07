@@ -478,6 +478,12 @@ let string_of_intermediate (i:intermediate) : string =
   | Pred _ -> failwith "todo"
   | SLPred _ -> failwith "todo"
 
+let rec string_of_intermediate_list (i:intermediate list) : string =
+  match i with 
+  | [] -> ""
+  | x :: xs -> string_of_intermediate  x ^ ";;\n\n" ^ string_of_intermediate_list xs 
+
+
 
 let string_of_pred ({ p_name; p_params; p_body } : pred_def) : string =
   Format.asprintf "%s(%s) == %s" p_name (String.concat "," p_params) (string_of_spec_list p_body)

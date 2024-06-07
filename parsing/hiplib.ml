@@ -1060,12 +1060,34 @@ let run_ocaml_string_ line =
   let items = Parser.implementation Lexer.token (Lexing.from_string line) in
   process_ocaml_structure items
 
+let mergeTopLevelCodeIntoOneMain (prog : intermediate list) : intermediate list = 
+  let rec helper li: (intermediate list  * core_lang list )= 
+    match li with 
+    | [] -> [], []
+    | x :: xs  -> 
+      let (nonMain, mainMeth) = helper xs in 
+      (match x with 
+      | Meth (nm, _, _, body, _, _) -> if String.compare nm "main" == 0 then (nonMain, body::mainMeth) else (x::nonMain, mainMeth)
+      | _ -> (x::nonMain, mainMeth)
+      )
+  in let (nonMain, mainMeth) = helper prog in 
+  let rec compose (main_segments: core_lang list) : core_lang = 
+    match main_segments with 
+    | [] -> CValue UNIT
+    | [x] -> x 
+    | x :: xs -> 
+      CLet ("_", x, compose xs) 
+  in 
+  nonMain @ [(Meth ("main", [], None, compose mainMeth, [], None ) )]
+    
+
 (* this is the entry of inputing the Racket file *)
 let run_racket_string_ line =
   let open Racketfrontend in
   (* DARIUS: parsing should return a list of intermediate *)
   let (core_program:intermediate list) = Racket_parser.prog Racket_lexer.token (Lexing.from_string line) in
-  Format.printf "parsed racket program@. %s" (string_of_list string_of_intermediate core_program); 
+  let core_program = mergeTopLevelCodeIntoOneMain core_program in 
+  Format.printf "parsed racket program@. %s" (string_of_intermediate_list core_program); 
   List.fold_left (fun t i ->
     let _bound, prog = process_intermediates i t in
     prog
