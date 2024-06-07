@@ -38,7 +38,7 @@ let float = digit* frac? exp?
 let white = [' ' '\t']+
 let newline = '\n' | '\r' | "\r\n" 
 let id = ['a'-'v' 'x'-'z'  ] [ 'a'-'z' 'A'-'Z' '0'-'9' '_']*
-
+let uid = ['A'-'Z'] [ 'a'-'z' 'A'-'Z' '0'-'9' '_']*
 
 let white = [' ' '\t']+
 let newline = '\r' | '\n' | "\r\n"
@@ -54,6 +54,12 @@ rule token =
   | "if"   { IF }
   | "#t"   { TRUE }
   | "#f"  {FALSE}
+  | "T" { PROP_TRUE } 
+  | "F" { PROP_FALSE }
+  | "ex" {EXISTS} 
+  | "req"  {REQUIRES}
+  | "ens" {ENSURES}
+  | "emp" {EMP}
   | "fun"  {FUN}
   | "shift" {SHIFT}
   | "reset" {RESET}
@@ -76,7 +82,12 @@ rule token =
   | "="  { EQUAL } 
   | "<="  { LESSTHENEQUAL } 
   | ">="  { GREATERTHENEQUAL } 
-
+  | "<:" { SUBSUMES }
+  | "^"  { POWER } 
+  | "~" { TILDE }
+  | "{"  { LBRACE } 
+  | "|"  { BAR }
+  | "}"  { RBRACE }
   | "<"  { LESSTHEN } 
   | ">"  { GREATERTHEN } 
   | "!"  { BANG }
@@ -90,6 +101,7 @@ rule token =
   | "/\\"
       { CONJUNCTION }
   | id as str { LIDENT str }
+  | uid as str {UIDENT str}
   | '"' { read_string (Buffer.create 17) lexbuf }
 
   | int_literal as lit { INT (lit) }
