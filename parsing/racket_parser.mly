@@ -6,8 +6,8 @@ open Hiptypes
 %token <string> STRING
 %token <string> LIDENT 
 %token <string> INT
-%token TRUE SHIFT RESET LAMBDA REQUIRE SHARP LANG DEFINE FALSE FUN
-%token LPAREN RPAREN LBRACKET RBRACKET SLASH AMPERAMPER MINUS SEMI COMMA PLUS LSPECCOMMENT RSPECCOMMENT
+%token TRUE SHIFT RESET LAMBDA REQUIRE SHARP LANG DEFINE FALSE FUN LET IF
+%token LPAREN RPAREN LBRACKET RBRACKET SLASH AMPERAMPER SEMI COMMA LSPECCOMMENT RSPECCOMMENT
 %token EOF
 %start <Hiptypes.core_program> prog
 %type <string list> params
@@ -35,6 +35,10 @@ expre_list:
 | s=core_lang rest = expre_list {s :: rest}
 
 
+sequencing:
+| s=core_lang {[s]}
+| LPAREN s=core_lang RPAREN rest = sequencing {s :: rest}
+
 
 fun_signature: 
 | LPAREN nm= LIDENT params=params RPAREN {(nm, params)}
@@ -49,13 +53,9 @@ core_value:
   // | LPAREN n = list_of_TupleTerms RPAREN {TTupple n}
 
 
-  | MINUS {Var "_"}
   | v = LIDENT { Var v }
   | v = STRING { TStr v }
-  (*| core_value rest = core_value_aux { 
-    let (op, t) = rest in 
-    if String.compare op "+" == 0 then Plus ($1, t) 
-    *)
+
 
     
   | TRUE { TTrue }
@@ -65,70 +65,55 @@ core_value:
   // | core_value COLONCOLON core_value { TCons ($1, $3) }
   // TODO [1; ...]
 
-  (*| core_value PLUS core_value { Plus ($1, $3) }
-  *)
 
-  | core_value MINUS core_value { Minus ($1, $3) }
   | core_value AMPERAMPER core_value { TAnd ($1, $3) }
 
 
 
   | LPAREN core_value RPAREN { $2 }
 
-  (*
-  | LPAREN FUN params=nonempty_list(LIDENT) LSPECCOMMENT (*ef=disj_effect_spec*) RSPECCOMMENT b=ioption(preceded(MINUSGREATER, core_lang)) RPAREN
-    { TLambda (Pretty.verifier_getAfreeVar "plambda", params, (* ef *) [], Option.map (Core_lang.transformation []) b) }
 
 
-*)
-
-
+let_binding: 
+| {[]}
+| LBRACKET nm=LIDENT expr=core_lang RBRACKET rest = let_binding  {(nm, expr):: rest}
 
 
 
 core_lang: 
 | v=core_value {CValue v}
-| LAMBDA LPAREN params=params RPAREN m_body=core_lang {CLambda (params, None, m_body)}
-| PLUS p1 = core_lang   p2 = core_lang
-| p1 = core_lang PLUS  p2 = core_lang {
 
-    let getAnewBinder () = 
-      let correntCounter = !counter_4_inserting_let_bindings in 
-      let newBinder = "x" ^ string_of_int correntCounter in 
-      let () = counter_4_inserting_let_bindings :=correntCounter +1 in 
-      newBinder
-    in 
-
-    let rec aux (params:Hiptypes.core_lang list) : 
-      (((string * Hiptypes.core_lang) list) * (Hiptypes.core_value list) ) = 
-      match params with 
-      | [] -> [], [] 
-      | param::rest -> 
-        let (binder1, formal1) = 
-        (match param with 
-        | CValue v -> [], [v]
-        | _ -> 
-          let newBinder = getAnewBinder () in 
-          [(newBinder, param)], [((Var newBinder))]
-        ) in 
-        let (binder2, formal2) = aux rest in 
-        (binder1@binder2, formal1@formal2) 
-
-    in 
-    let params' = aux [p1;p2] in 
+| LET LPAREN letbinding=let_binding RPAREN m_body=core_lang {
+  let rec compose li =
+    match li with 
+    | [(nm, expr)] -> CLet (nm, expr, m_body)
+    | (nm, expr) :: rest -> CLet (nm, expr, compose rest)
+  in 
+  compose letbinding
+  
+}
+| IF cond=core_lang thenB=core_lang elseB=core_lang {
+  let getAnewBinder () = 
+    let correntCounter = !counter_4_inserting_let_bindings in 
+    let newBinder = "x" ^ string_of_int correntCounter in 
+    let () = counter_4_inserting_let_bindings :=correntCounter +1 in 
+    newBinder
+  in 
     
-    let rec compose (li1, li2) = 
-      match li1 with
-      | [] -> 
-        CFunCall("+", li2)
 
-      | (str, expr) :: rest -> CLet(str, expr, compose (rest, li2))
-    in 
-    (compose params')
-
+  match cond with 
+  | CValue v -> CIfELse (Atomic(EQ, v, TTrue ), thenB, elseB)
+  | _ -> 
+    let newBinder = getAnewBinder () in 
+    let if_else = CIfELse (Atomic(EQ, Var newBinder, TTrue ), thenB, elseB) in 
+    CLet(newBinder, cond, if_else)
 
 
-  }
+
+
+  
+}
+| LAMBDA LPAREN params=params RPAREN m_body=core_lang {CLambda (params, None, m_body)}
 | list_of_expression =expre_list 
   {
   match list_of_expression with 
@@ -180,7 +165,15 @@ core_lang:
     in 
     (compose params')}
     
-| SHIFT nm=LIDENT m_body=core_lang {(CShift(nm, m_body))}
+| SHIFT nm=LIDENT m_bodys=sequencing {
+  let rec compose body_list = 
+    match body_list with 
+    | [x] -> x
+    | x :: xs -> CLet ("_", x, compose xs)
+  in 
+  CShift(nm, compose m_bodys)
+  
+  }
 | RESET m_body=core_lang {(CReset(m_body))}
 | LPAREN expr=core_lang RPAREN {expr}
 
@@ -200,6 +193,13 @@ prog:
   let (m_name, m_params) = signature in 
   let new_meth = {m_name= m_name; m_params= m_params; m_spec= None; m_body= m_body; m_tactics=[]} in 
   {prog with cp_methods=new_meth::prog.cp_methods}}
+
+| LPAREN DEFINE nm=LIDENT m_body=core_value RPAREN prog=prog {
+  let (m_name, m_params) = ("main", []) in 
+  let m_body' = CLet (nm, CRef m_body , CValue (UNIT) ) in 
+  let new_meth = {m_name= m_name; m_params= m_params; m_spec= None; m_body= m_body'; m_tactics=[]} in 
+  {prog with cp_methods=new_meth::prog.cp_methods}}
+
 | LPAREN m_body=core_lang RPAREN prog=prog { 
   let (m_name, m_params) = ("main", []) in 
   let new_meth = {m_name= m_name; m_params= m_params; m_spec= None; m_body= m_body; m_tactics=[]} in 
