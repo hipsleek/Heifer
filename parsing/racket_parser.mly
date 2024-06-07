@@ -1,12 +1,20 @@
 %{ 
 open Hipcore
 open Hiptypes 
+
+let getAnewBinder () = 
+    let correntCounter = !counter_4_inserting_let_bindings in 
+    let newBinder = "x" ^ string_of_int correntCounter in 
+    let () = counter_4_inserting_let_bindings :=correntCounter +1 in 
+    newBinder
+
+
 %}
 
 %token <string> STRING
 %token <string> LIDENT 
 %token <string> INT
-%token TRUE SHIFT RESET LAMBDA REQUIRE SHARP LANG DEFINE FALSE FUN LET IF
+%token TRUE SHIFT RESET LAMBDA REQUIRE SHARP LANG DEFINE FALSE FUN LET IF GET SET
 %token LPAREN RPAREN LBRACKET RBRACKET SLASH AMPERAMPER SEMI COMMA LSPECCOMMENT RSPECCOMMENT
 %token EOF
 %start <Hiptypes.intermediate list> prog
@@ -42,6 +50,7 @@ sequencing:
 
 fun_signature: 
 | LPAREN nm= LIDENT params=params RPAREN {(nm, params)}
+| LPAREN nm= GET params=params RPAREN {("get!", params)}
 
 
 
@@ -82,23 +91,19 @@ let_binding:
 
 core_lang: 
 | v=core_value {CValue v}
+| GET id=LIDENT {CRead id}
+| SET id=LIDENT m_body=core_lang {
+  match m_body with 
+  | CValue v -> CWrite (id, v)
+  | _-> 
+    let newBinder = getAnewBinder () in 
+    CLet (newBinder, m_body, CWrite (id, Var newBinder ) )
 
-| LET LPAREN letbinding=let_binding RPAREN m_body=core_lang {
-  let rec compose li =
-    match li with 
-    | [(nm, expr)] -> CLet (nm, expr, m_body)
-    | (nm, expr) :: rest -> CLet (nm, expr, compose rest)
-  in 
-  compose letbinding
   
-}
+  }
+
+
 | IF cond=core_lang thenB=core_lang elseB=core_lang {
-  let getAnewBinder () = 
-    let correntCounter = !counter_4_inserting_let_bindings in 
-    let newBinder = "x" ^ string_of_int correntCounter in 
-    let () = counter_4_inserting_let_bindings :=correntCounter +1 in 
-    newBinder
-  in 
     
 
   match cond with 
@@ -119,14 +124,6 @@ core_lang:
   match list_of_expression with 
   | head :: tail -> 
     
-
-    let getAnewBinder () = 
-      let correntCounter = !counter_4_inserting_let_bindings in 
-      let newBinder = "x" ^ string_of_int correntCounter in 
-      let () = counter_4_inserting_let_bindings :=correntCounter +1 in 
-      newBinder
-    in 
-
     let rec aux (params:Hiptypes.core_lang list) : 
       (((string * Hiptypes.core_lang) list) * (Hiptypes.core_value list) ) = 
       match params with 
@@ -174,6 +171,24 @@ core_lang:
   CShift(nm, compose m_bodys)
   
   }
+| LET LPAREN letbinding=let_binding RPAREN m_bodys=sequencing {
+  let rec compose_body m_bodys = 
+    match m_bodys with 
+    | [x] -> x
+    | x :: xs -> CLet ("_", x, compose_body xs)
+  in 
+
+  let m_body = compose_body m_bodys in 
+
+
+  let rec compose li =
+    match li with 
+    | [(nm, expr)] -> CLet (nm, expr, m_body)
+    | (nm, expr) :: rest -> CLet (nm, expr, compose rest)
+  in 
+  compose letbinding
+  
+}
 | RESET m_body=core_lang {(CReset(m_body))}
 | LPAREN expr=core_lang RPAREN {expr}
 
@@ -189,6 +204,8 @@ rec_path:
 prog:
 | SHARP LANG rec_path prog=prog {prog} (* this is an imcomplete parsing for "#lang racket" *)
 | LPAREN REQUIRE rec_path RPAREN prog=prog { prog } 
+
+
 | LPAREN DEFINE signature=fun_signature m_body=core_lang RPAREN prog=prog {
   let (m_name, m_params) = signature in 
 
@@ -199,7 +216,7 @@ prog:
 
 | LPAREN DEFINE nm=LIDENT m_body=core_value RPAREN prog=prog {
   let (m_name, m_params) = ("main", []) in 
-  let m_body' = CLet (nm, CRef m_body , CValue (UNIT) ) in 
+  let m_body' = CLet (nm, CRef m_body , CValue (Var nm) ) in 
   let new_meth = Meth (m_name, m_params, None, m_body', [], None) in 
   new_meth :: prog}
 

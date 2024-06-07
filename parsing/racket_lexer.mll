@@ -37,7 +37,7 @@ let float = digit* frac? exp?
 (* part 3 *)
 let white = [' ' '\t']+
 let newline = '\n' | '\r' | "\r\n" 
-let id = ['a'-'v' 'x'-'z' '<' '+' '-' ] [ '-' '>' '!' '=' '+' 'a'-'z' 'A'-'Z' '0'-'9' '_']*
+let id = ['a'-'v' 'x'-'z' '<' '+' '-' ] [ '-' '!' '>' '=' '+' 'a'-'z' 'A'-'Z' '0'-'9' '_']*
 
 
 let white = [' ' '\t']+
@@ -48,6 +48,8 @@ rule token =
   | white    { token lexbuf }
   | newline  { next_line lexbuf; token lexbuf }
 
+  | "get!"   { GET } 
+  | "set!"   { SET }
   | "let"   { LET }
   | "if"   { IF }
   | "#t"   { TRUE }
