@@ -92,7 +92,7 @@ and trycatch = (spec * handlingcases)
 
 and stagedSpec = 
       | Exists of string list
-      | Require of pi * kappa 
+      | Require of (pi * kappa)
       (* ens H /\ P, where P may contain contraints on res *)
       | NormalReturn of (pi * kappa)
       (* higher-order functions: H /\ P /\ f$(...args, term) *)

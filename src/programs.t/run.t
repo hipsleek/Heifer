@@ -120,3 +120,6 @@ ALL OK!
 
   $ check ../evaluation/abort.ml
   ALL OK!
+
+  $ check ../reset_shift_progs/translate.ml
+  ALL OK!

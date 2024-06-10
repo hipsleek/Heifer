@@ -769,14 +769,107 @@ let recursivelyInstantiateFunctionCalls (current_function:string) env instantiat
   List.flatten (List.map (fun spec -> helper [] spec) instantiatedSpec)
 
 
-let shift_reset_reduction env (sp:disj_spec) : disj_spec =
-  (* let reduce_flow (sp:s) : spec =
-    match sp with
-    | 
-    sp
-  in*)
-  (* List.map reduce_flow sp*)
-  failwith ""
+let rec shift_reset_reduction (dsp:disj_spec) : disj_spec =
+  let@ _ =
+    Debug.span (fun r ->
+        debug ~at:2
+          ~title:"shift_reset_reduction"
+          "%s\n==>\n%s" (string_of_disj_spec dsp)
+          (string_of_result string_of_disj_spec r))
+  in
+  List.concat_map reduce_flow dsp
+
+and reduce_flow (sp:spec) : disj_spec =
+  let@ _ =
+    Debug.span (fun r ->
+        debug ~at:2
+          ~title:"reduce_flow"
+          "%s\n==>\n%s" (string_of_spec sp)
+          (string_of_result string_of_disj_spec r))
+  in
+  match sp with
+  | [] -> [[]]
+  | Reset (e, r) :: rest ->
+    let e1 = List.concat_map reduce_inside_reset e in
+    let e2 = instantiateSpecList ["res", r] e1 in
+    let rest1 = reduce_flow rest in
+    concatenateSpecsWithSpec e2 rest1
+  | e :: rest -> concatenateEventWithSpecs [e] (reduce_flow rest)
+
+and reduce_inside_reset (sp:spec) : disj_spec =
+  let@ _ =
+    Debug.span (fun r ->
+        debug ~at:2
+          ~title:"reduce_inside_reset"
+          "%s\n==>\n%s" (string_of_spec sp)
+          (string_of_result string_of_disj_spec r))
+  in
+  match sp with
+  | [] -> [[]]
+  | Shift (k, body, r) :: cont ->
+    let r1 = verifier_getAfreeVar "r" in
+    (* reduce the continuation first to know what k is *)
+    let rest1 =
+      reduce_flow [Reset ([cont], Var r1)]
+    in
+    let b1 = body |> List.map (fun b ->
+      let klamb =
+        let p, rest2 =
+          (* freshen the parameter of the resulting continuation lambda, as it's already (existentially) bound outside *)
+          let p1 = verifier_getAfreeVar "r" in
+          (* the return value of shift is assumed to be a variable *)
+          let r = retriveFormalArg r in
+          p1, instantiateSpecList [r, Var p1] rest1
+        in
+        TLambda (verifier_getAfreeVar "l", [p; r1], rest2, None)
+      in
+      debug ~at:2 ~title:"k is?" "%s\n%s" (string_of_disj_spec rest1) (string_of_term klamb);
+      let assign = Atomic (EQ, Var k, klamb) in
+      NormalReturn (assign, EmptyHeap) :: b)
+    in
+    b1
+  | sp :: rest ->
+    concatenateEventWithSpecs [sp] (reduce_inside_reset rest)
+
+and reduce_stage (sp:stagedSpec) (cont:spec) : disj_spec =
+  let@ _ =
+    Debug.span (fun r ->
+        debug ~at:2
+          ~title:"reduce_stage"
+          "%s\n==>\n%s" (string_of_staged_spec sp)
+          (string_of_result string_of_disj_spec r))
+  in
+  match sp with
+  | Exists ex -> [[Exists ex]]
+  | NormalReturn ens ->
+    [[NormalReturn ens]]
+  | Require (h, p) ->
+    [[Require (h, p)]]
+  | Shift (k, body, r) ->
+    let r1 = verifier_getAfreeVar "r" in
+    let rest1 =
+      reduce_flow [Reset ([cont], Var r1)]
+    in
+    debug ~at:2 ~title:"k is?" "%s" (string_of_disj_spec rest1);
+    let b1 = List.map (fun b ->
+      let l = verifier_getAfreeVar "l" in
+      let r = retriveFormalArg r in
+      let assign = Atomic (EQ, Var k, TLambda (l, [r; r1], rest1, None)) in
+      NormalReturn (assign, EmptyHeap) :: b) body
+    in
+    b1
+  | HigherOrder _ ->
+    []
+    (* failwith "reduce flow ho" *)
+  | Reset (_, _) ->
+    []
+    (* failwith "reduce flow reset" *)
+  | RaisingEff _ ->
+    []
+    (* failwith "reduce flow eff" *)
+  | TryCatch _ ->
+    []
+    (* failwith "reduce flow try" *)
  
 (** may update the environment because of higher order functions *)
 (** This is the entrence of the forward reasoning **)
@@ -786,7 +879,15 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
   (* TODO infer_of_expression is likely O(n^2) due to appending at the end *)
   let res, env =
     match expr with
-    | CReset _ -> failwith("TODO reset infer_of_expression ")
+    | CReset e ->
+      let f, env = infer_of_expression env history e in
+      let f1 =
+        let r = verifier_getAfreeVar "r" in
+        let f2 = shift_reset_reduction [[Reset (f, Var r)]] in
+        let f3 = instantiateSpecList [r, res_v] f2 in
+        f3
+      in
+      f1, env
     | CValue v -> 
       let event = NormalReturn (res_eq v, EmptyHeap) in 
       concatenateSpecsWithEvent history [event], env
@@ -956,13 +1057,15 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
         [[Exists [ret]; HigherOrder (True, EmptyHeap, (fname, actualArgs), Var ret); NormalReturn (res_eq (Var ret), EmptyHeap)]]
       in
       let res = concatenateSpecsWithSpec history fn_spec in 
-
       res, env
+
     | CShift (true, k, body) ->
       let ret = verifier_getAfreeVar "r" in
       let body1, env = infer_of_expression env [[]] body in
       [[Exists [ret]; Shift (k, body1, Var ret)]], env
-    | CShift (false, k, body) -> failwith ("shift 0 TBD infer_of_expression")
+
+    | CShift (false, _k, _body) ->
+      failwith ("shift 0 TBD infer_of_expression")
 
     | CWrite  (str, v) -> 
       let freshVar = verifier_getAfreeVar "wr" in 
@@ -1119,3 +1222,4 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
   in
   debug ~at:2 ~title:"forward rules" "{%s}\n%s\n{%s}" (string_of_disj_spec history) (string_of_core_lang expr) (string_of_disj_spec res);
   res, env
+
