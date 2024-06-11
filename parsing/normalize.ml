@@ -1225,9 +1225,9 @@ let remove_vars_occurring_twice : normalisedStagedSpec -> normalisedStagedSpec =
     in
     (eff1, norm1)
 
-let rec simplify_spec n sp2 =
+let rec simplify_spec n sp =
 
-  let sp3 = sp2 in
+  (* let sp3 = sp2 in *)
 
   (* we may get a formula that is not equisatisfiable *)
   (* let sp3 = sp2 |> remove_noncontributing_existentials in
@@ -1236,50 +1236,63 @@ let rec simplify_spec n sp2 =
        (string_of_normalisedStagedSpec sp3); *)
   (* redundant vars may appear due to fresh stages and removal of res via intermediate variables *)
 
-  (* do this before removing unused existentials *)
-  let sp4 =
-    let@ _ =
-      Debug.span (fun r ->
-        debug ~at:4 ~title:"normalize_spec: remove temp vars" "%s\n==>\n%s"
-          (string_of_normalisedStagedSpec sp3)
-          (string_of_result string_of_normalisedStagedSpec r))
-    in
-    remove_temp_vars sp3
-  in
+  let sp1 = sp |>
 
-  let sp5 =
-    let@ _ =
-      Debug.span (fun r ->
-        debug ~at:4
-            ~title:"normalize_spec: move existentials inward and remove unused"
-            "%s\n==>\n%s"
-            (string_of_normalisedStagedSpec sp4)
+    (* do this before removing unused existentials *)
+    begin fun sp ->
+      let@ _ =
+        Debug.span (fun r ->
+          debug ~at:4 ~title:"normalize_spec: remove temp vars" "%s\n==>\n%s"
+            (string_of_normalisedStagedSpec sp)
             (string_of_result string_of_normalisedStagedSpec r))
-    in
-    optimize_existentials sp4
+      in
+      remove_temp_vars sp
+    end |>
+
+    begin fun sp ->
+      let@ _ =
+        Debug.span (fun r ->
+          debug ~at:4
+              ~title:"normalize_spec: move existentials inward and remove unused"
+              "%s\n==>\n%s"
+              (string_of_normalisedStagedSpec sp)
+              (string_of_result string_of_normalisedStagedSpec r))
+      in
+      optimize_existentials sp
+    end |>
+
+    begin fun sp ->
+      let@ _ =
+        Debug.span (fun r ->
+          debug ~at:4 ~title:"normalize_spec: remove vars occurring twice" "%s\n==>\n%s"
+            (string_of_normalisedStagedSpec sp)
+            (string_of_result string_of_normalisedStagedSpec r))
+      in
+      remove_vars_occurring_twice sp
+    end |>
+
+    begin fun sp ->
+      let@ _ =
+        Debug.span (fun r ->
+          debug ~at:4 ~title:"normalize_spec: remove vars occurring twice" "%s\n==>\n%s"
+            (string_of_normalisedStagedSpec sp)
+            (string_of_result string_of_normalisedStagedSpec r))
+      in
+      remove_vars_occurring_twice sp
+    end |>
+
+    begin fun sp ->
+      let@ _ =
+        Debug.span (fun r ->
+          debug ~at:4 ~title:"normalize_spec: final simplification pass" "%s\n==>\n%s"
+            (string_of_normalisedStagedSpec sp)
+            (string_of_result string_of_normalisedStagedSpec r))
+      in
+      final_simplification sp
+    end
   in
 
-  let sp6 =
-    let@ _ =
-      Debug.span (fun r ->
-        debug ~at:4 ~title:"normalize_spec: remove vars occurring twice" "%s\n==>\n%s"
-          (string_of_normalisedStagedSpec sp5)
-          (string_of_result string_of_normalisedStagedSpec r))
-    in
-    remove_vars_occurring_twice sp5
-  in
-
-  let sp7 =
-    let@ _ =
-      Debug.span (fun r ->
-        debug ~at:4 ~title:"normalize_spec: final simplification pass" "%s\n==>\n%s"
-          (string_of_normalisedStagedSpec sp6)
-          (string_of_result string_of_normalisedStagedSpec r))
-    in
-    final_simplification sp6
-  in
-
-  if sp7 = sp2 || n < 0 then sp7 else simplify_spec (n - 1) sp2
+  if sp = sp1 || n < 0 then sp1 else simplify_spec (n - 1) sp1
 
 
 (* the main entry point *)
