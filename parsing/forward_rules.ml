@@ -1062,7 +1062,9 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
     | CShift (true, k, body) ->
       let ret = verifier_getAfreeVar "r" in
       let body1, env = infer_of_expression env [[]] body in
-      [[Exists [ret]; Shift (k, body1, Var ret)]], env
+      [[Exists [ret]; Shift (k, body1, Var ret); NormalReturn (res_eq (Var ret), EmptyHeap)]], env
+      (* other parts don't handle this simpler form correctly... *)
+      (* [[Shift (k, body1, res_v)]], env *)
 
     | CShift (false, _k, _body) ->
       failwith ("shift 0 TBD infer_of_expression")
