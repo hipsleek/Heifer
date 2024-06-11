@@ -3,6 +3,14 @@ let hello_lambda ()
 (*@ ens res=2 @*)
 = (fun x -> x) 2
 
+let hello_string ()
+(*@ ens res="a" @*)
+= "a"
+
+let hello_string_conc ()
+(*@ ens res="a" ++ "b" @*)
+= "a" ^ "b"
+
 let undelimited () =
   1 + shift k 1
 
@@ -48,27 +56,6 @@ let hello8 ()
 (*@ ens res=8 @*)
 = ((reset (shift k k + shift k k)) 3) 5
 
-let hello_string ()
-(*@ ens res="a" @*)
-= "a"
-
-let hello_string_conc ()
-(*@ ens res="a" ++ "b" @*)
-= "a" ^ "b"
-
-(* let main1 ()
-(*@ ens res=3 @*)
-= let get_int () = shift k (fun x -> k x) in
-  ((reset (get_int () + 1)) 2) *)
-
-  (* ((reset (get_int () + get_int ())) 1) 2 *)
-
-(* ((reset (get_int () ^ get_int ())) "a") "b" *)
-
-(* shift k k *)
-
-(* let get_int () = shift k (fun x -> k x)
-
-let main1 ()
-(*@ ens res=3 @*)
-= ((reset (get_int () + 1)) 2) *)
+let hello_printf ()
+(*@ ens res="ab!" @*)
+= ((reset (shift k k ^ shift k k ^ "!")) "a") "b"
