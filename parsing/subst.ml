@@ -57,7 +57,7 @@ let rec findbinding str vb_li =
 
   let subst_visitor =
     object (self)
-      inherit [_] map_spec
+      inherit [_] map_normalised
 
       method! visit_Shift bindings k body ret =
         (* shift binds res and k *)
@@ -85,6 +85,31 @@ let rec findbinding str vb_li =
             self#visit_kappa bindings kappa,
             (constr, List.map (fun bt -> self#visit_term bindings bt) basic_t_list),
             self#visit_term bindings ret )
+
+      method! visit_effectStage bindings effectStage =
+        match effectStage.e_typ with
+        | `Eff ->
+          {
+            effectStage with
+            e_constr =
+              (let (e, a) = effectStage.e_constr in
+              (e, List.map (self#visit_term bindings) a));
+            e_pre = self#visit_state bindings effectStage.e_pre;
+            e_post = self#visit_state bindings effectStage.e_post;
+            e_ret = self#visit_term bindings effectStage.e_ret
+          }
+        | `Fn ->
+          let f =
+            let f = fst effectStage.e_constr in
+            match List.assoc_opt f bindings with Some (Var s) -> s | _ -> f
+          in
+          { effectStage with
+            e_pre = self#visit_state bindings effectStage.e_pre;
+            e_post = self#visit_state bindings effectStage.e_post;
+            e_constr = (f, List.map (fun bt -> self#visit_term bindings bt) (snd effectStage.e_constr));
+            e_ret = self#visit_term bindings effectStage.e_ret
+          }
+
 
       method! visit_Var bindings v =
         let binding = findbinding v bindings in
@@ -245,6 +270,23 @@ let rec getExistentialVar (spec : normalisedStagedSpec) : string list =
   | (ResetStage rs)::xs -> rs.rs_evars @ getExistentialVar (xs, normalS)
 
 
+  let find_function_stages =
+    object
+      inherit [_] reduce_normalised
+      method zero = []
+      method plus = (@)
+      method! visit_HigherOrder () (_p, _h, (f, _a), _r) = [f]
+      method! visit_EffHOStage () effStage =
+        match effStage.e_typ with
+        | `Fn -> [fst effStage.e_constr]
+        | `Eff -> []
+
+      (* don't go into these for now *)
+      method! visit_TLambda () _ _ _ _ = []
+      method! visit_Shift () _ _ _ = []
+      method! visit_Reset () _ _ = []
+    end
+
   let find_subsumptions =
     object
       inherit [_] reduce_spec
@@ -255,7 +297,7 @@ let rec getExistentialVar (spec : normalisedStagedSpec) : string list =
 
   let find_equalities =
     object
-      inherit [_] reduce_spec
+      inherit [_] reduce_normalised
       method zero = []
       method plus = (@)
       method! visit_Atomic () op a b =

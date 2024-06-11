@@ -1152,6 +1152,29 @@ let remove_temp_vars : normalisedStagedSpec -> normalisedStagedSpec =
     (* don't remove the existential binders, only their uses. it's possible some variables which occurred once could not be removed. let a subsequent phase clean up useless existential binders *)
     norm1
 
+(* b=(fun ...)/\a=b; a(...) ==> b=(fun ...); b(...) *)
+let propagate_function_stage_equalities : normalisedStagedSpec -> normalisedStagedSpec =
+  fun (eff, norm) ->
+    let fn_stages =
+      find_function_stages#visit_normalisedStagedSpec () (eff, norm)
+    in
+    debug ~at:5 ~title:"fn stages" "%s" (string_of_list Fun.id fn_stages);
+    let eqs =
+      find_equalities#visit_normalisedStagedSpec () (eff, norm)
+    in
+    debug ~at:5 ~title:"equalities" "%s" (string_of_list (string_of_pair string_of_term string_of_term) eqs);
+    let use =
+      List.filter_map (fun (a, b) ->
+        match a, b with
+        | Var x, Var y when List.mem y fn_stages || List.mem x fn_stages ->
+          Some (x, Var y)
+        | _ -> None) eqs
+    in
+    debug ~at:5 ~title:"interesting" "%s" (string_of_list (string_of_pair Fun.id string_of_term) use);
+    let norm1 = subst_visitor#visit_normalisedStagedSpec use (eff, norm) in
+    (* let now-trivial equalities be removed by a subsequent phase *)
+    norm1
+
 (* for each existential variable, if there are two uses, substitute one into the other *)
 let remove_vars_occurring_twice : normalisedStagedSpec -> normalisedStagedSpec =
   fun (eff, norm) ->
@@ -1274,11 +1297,11 @@ let rec simplify_spec n sp =
     begin fun sp ->
       let@ _ =
         Debug.span (fun r ->
-          debug ~at:4 ~title:"normalize_spec: remove vars occurring twice" "%s\n==>\n%s"
+          debug ~at:4 ~title:"normalize_spec: propagate function stage equalities" "%s\n==>\n%s"
             (string_of_normalisedStagedSpec sp)
             (string_of_result string_of_normalisedStagedSpec r))
       in
-      remove_vars_occurring_twice sp
+      propagate_function_stage_equalities sp
     end |>
 
     begin fun sp ->
