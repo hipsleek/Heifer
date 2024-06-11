@@ -311,18 +311,18 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
         transformation bound_names a |> maybe_var (fun v -> loop (v :: vars) args1)
     in
     loop [] args
-  | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, args) ->
-    (* unknown function call, e.g. printf. translate to assert true for now *)
-    (* debug ~at:2 ~title:"unknown function call" "%a" Pprintast.expression f; *)
-    (* with higher-order functions, we can no longer know statically which variables are functions, so we give up on doing this and emit a function call *)
-    (* CAssert (True, EmptyHeap) *)
-    let rec loop vars args =
+  | Pexp_apply (f, args) ->
+    (* handles both named/unknown function calls, e.g. printf, and applications of compound expressions, which get named *)
+    let rec loop name vars args =
       match args with
       | [] -> CFunCall (name, List.rev vars)
       | (_, a) :: args1 ->
-        transformation bound_names a |> maybe_var (fun v -> loop (v :: vars) args1)
+        transformation bound_names a |> maybe_var (fun v -> loop name (v :: vars) args1)
     in
-    loop [] args
+    transformation bound_names f |> maybe_var (fun f1 ->
+      match f1 with
+      | Var f2 -> loop f2 [] args
+      | _ -> failwith "attempt to apply non-function?")
   | Pexp_sequence (a, b) ->
     CLet ("_", transformation bound_names a, transformation bound_names b)
   | Pexp_assert e ->
@@ -402,8 +402,8 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
     CValue (Var "k")
     else 
     CValue (UNIT)
-    (*failwith (Format.asprintf "expression not in core language: %a" Pprintast.expression expr)  *)
-    (* (Printast.expression 0) expr *)
+    (* failwith (Format.asprintf "expression not in core language: %a" Pprintast.expression expr)  *)
+    (* (Format.printf "expression not in core language: %a@." (Printast.expression 0) expr; failwith "failed") *)
 
 and maybe_var f e =
   (* generate fewer unnecessary variables *)

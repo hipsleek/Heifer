@@ -495,7 +495,7 @@ module Defunct = struct
     | CMatch (_, _, _, _, _, _) -> failwith "unimplemented effect CMatch"
     | CResume _ -> failwith "unimplemented CResume"
     | CLambda (_, _, _) -> failwith "unimplemented CLambda"
-    | CShift _  | CReset _ -> failwith "TODO shift and reset expr_to_why3 "
+    | CShift _ | CReset _ -> failwith "TODO shift and reset expr_to_why3 "
 
   let pure_fn_to_logic_fn env pure_fn =
     let params =

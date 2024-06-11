@@ -15,5 +15,18 @@ let hello3 ()
 = let f x = x + x in
   reset (1 + shift k (k (f 1)))
 
-(* let main1 () =
-  1 + shift k (fun x -> k (i2s x)) *)
+let hello4 ()
+(*@ ens res=4 @*)
+= let f x = x + x in
+  (reset (shift k (fun x -> k (f x)))) 2
+
+(* let get_int () =
+  shift k (fun x -> k x)
+
+let main () =
+  (reset (get_int () ^ get_int ())) "a" "b" *)
+
+(* let hello_lambda ()
+(*@ ens res=4 @*)
+= let f x = x + x in
+  (fun x -> x) 2 *)
