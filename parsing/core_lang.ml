@@ -233,6 +233,7 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
   | Pexp_constant c ->
     begin match c with
     | Pconst_integer (i, _) -> CValue (Num (int_of_string i))
+    | Pconst_string (s, _, _) -> CValue (TStr s)
     | _ -> failwith (Format.asprintf "unknown kind of constant: %a" Pprintast.expression expr)
     end
   (* lambda *)

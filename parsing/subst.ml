@@ -325,7 +325,7 @@ let remove_subsumptions subs =
 
 let rec interpret_arrow_as_params t =
   match t with
-  | Int | Unit | List_int | Bool | Lamb | TVar _ -> [], t
+  | TyString | Int | Unit | List_int | Bool | Lamb | TVar _ -> [], t
   | Arrow (t1, t2) ->
     let p, r = interpret_arrow_as_params t2 in
     t1 :: p, r

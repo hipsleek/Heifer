@@ -174,6 +174,7 @@ module Defunct = struct
     let fold f t init = List.fold_right f (TMap.bindings !t) init
 
     (* Some common ones we use *)
+    let string = (["string"], "String")
     let int = (["int"], "Int")
     let bool = (["bool"], "Bool")
     let list = (["list"], "List")
@@ -226,6 +227,9 @@ module Defunct = struct
     | List_int ->
       Theories.(needed int env.theories);
       Ty.ty_app Theories.(get_type_symbol list "list" env.theories) [Ty.ty_int]
+    | TyString ->
+      Theories.(needed string env.theories);
+      Ty.ty_str
     | Int ->
       Theories.(needed int env.theories);
       Ty.ty_int
@@ -645,6 +649,7 @@ open Ptree_helpers
 
 let rec type_to_whyml t =
   match t with
+  | TyString -> PTtyapp (qualid ["String"; "string"], [])
   | Int -> PTtyapp (qualid ["Int"; "int"], [])
   | Unit -> PTtyapp (qualid ["tuple0"], [])
   | List_int ->

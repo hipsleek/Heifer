@@ -65,6 +65,7 @@ let rec term_to_expr env ctx t : Z3.Expr.expr =
         let list_int = list_int_sort ctx in
         Z3.Expr.mk_const_s ctx v list_int
       | Bool -> Z3.Boolean.mk_const_s ctx v
+      | TyString -> Z3.Expr.mk_const_s ctx v (Z3.Seq.mk_string_sort ctx)
       | Arrow (_, _) -> failwith "arrow not implemented"))
   | UNIT ->
     let mk = Z3.Tuple.get_mk_decl (unit_sort ctx) in 
@@ -119,6 +120,7 @@ let rec term_to_expr env ctx t : Z3.Expr.expr =
         (term_to_expr env ctx t2))
   | TTrue -> Z3.Boolean.mk_true ctx
   | TFalse -> Z3.Boolean.mk_false ctx
+  | TStr s -> Z3.Seq.mk_string ctx s
   | TNot a -> Z3.Boolean.mk_not ctx (term_to_expr env ctx a)
   | TAnd (a, b) ->
     Z3.Boolean.mk_and ctx [term_to_expr env ctx a; term_to_expr env ctx b]
@@ -154,7 +156,7 @@ let rec term_to_expr env ctx t : Z3.Expr.expr =
   | TTimes (t1, t2) -> Z3.Arithmetic.mk_mul ctx [term_to_expr env ctx t1; term_to_expr env ctx t2]
   | TDiv (t1, t2) -> Z3.Arithmetic.mk_div ctx (term_to_expr env ctx t1) (term_to_expr env ctx t2)
 
-  | TList _ | TTupple _ | TStr _ -> failwith "term_to_expr"
+  | TList _ | TTupple _ -> failwith "term_to_expr"
 
 let rec pi_to_expr env ctx pi: Expr.expr = 
   match pi with 

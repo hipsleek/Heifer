@@ -591,6 +591,7 @@ let conj xs =
 
 let rec string_of_type t =
   match t with
+  | TyString -> "string"
   | Int -> "int"
   | Unit -> "unit"
   | List_int -> "intlist"

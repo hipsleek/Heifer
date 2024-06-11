@@ -2593,6 +2593,7 @@ pure_formula_term:
     
   | TRUE { TTrue }
   | FALSE { TFalse }
+  | s=STRING { let s, _, _ = s in TStr s }
 
   // | LBRACKET RBRACKET { Nil }
   // | pure_formula_term COLONCOLON pure_formula_term { TCons ($1, $3) }

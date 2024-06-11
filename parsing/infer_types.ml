@@ -114,6 +114,7 @@ and infer_types_term ?hint (env : abs_typ_env) term : typ * abs_typ_env =
   match (term, hint) with
   | UNIT, _ -> (Unit, env)
   | TTrue, _ | TFalse, _ -> (Bool, env)
+  | TStr _, _ -> (TyString, env)
   | TNot a, _ ->
     let _at, env1 = infer_types_term ~hint:Bool env a in
     (Bool, env1)
@@ -181,7 +182,7 @@ and infer_types_term ?hint (env : abs_typ_env) term : typ * abs_typ_env =
           env
     in
     (ret, env)
-  | TList _, _ | TTupple _, _ | TStr _, _ -> failwith "list/tuple/str unimplemented"
+  | TList _, _ | TTupple _, _ -> failwith "list/tuple unimplemented"
 
 let rec infer_types_pi env pi =
   (* let@ _ =
