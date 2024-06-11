@@ -59,6 +59,11 @@ let rec findbinding str vb_li =
     object (self)
       inherit [_] map_spec
 
+      method! visit_Shift bindings k body ret =
+        (* shift binds res and k *)
+        let bs = List.filter (fun (b, _) -> not (List.mem b [k; "res"])) bindings in
+        Shift (k, self#visit_disj_spec bs body, self#visit_term bs ret)
+
       (* not full capture-avoiding, we just stop substituting a name when it is bound *)
       method! visit_TLambda bindings name params sp body =
         let bs = List.filter (fun (b, _) -> not (List.mem b params)) bindings in

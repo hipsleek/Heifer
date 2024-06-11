@@ -879,15 +879,6 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
   (* TODO infer_of_expression is likely O(n^2) due to appending at the end *)
   let res, env =
     match expr with
-    | CReset e ->
-      let f, env = infer_of_expression env history e in
-      let f1 =
-        let r = verifier_getAfreeVar "r" in
-        let f2 = shift_reset_reduction [[Reset (f, Var r)]] in
-        let f3 = instantiateSpecList [r, res_v] f2 in
-        f3
-      in
-      f1, env
     | CValue v -> 
       let event = NormalReturn (res_eq v, EmptyHeap) in 
       concatenateSpecsWithEvent history [event], env
@@ -1068,6 +1059,16 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
 
     | CShift (false, _k, _body) ->
       failwith ("shift 0 TBD infer_of_expression")
+
+    | CReset e ->
+      let f, env = infer_of_expression env history e in
+      let f1 =
+        let r = verifier_getAfreeVar "r" in
+        let f2 = shift_reset_reduction [[Reset (f, Var r)]] in
+        let f3 = instantiateSpecList [r, res_v] f2 in
+        f3
+      in
+      f1, env
 
     | CWrite  (str, v) -> 
       let freshVar = verifier_getAfreeVar "wr" in 
