@@ -79,6 +79,11 @@ let rec term_to_expr env ctx t : Z3.Expr.expr =
   (*
   | Gen i          -> Z3.Arithmetic.Real.mk_const_s ctx ("t" ^ string_of_int i ^ "'")
   *)
+  | SConcat (t1, t2) ->
+    let t1' = term_to_expr env ctx t1 in 
+    let t2' = term_to_expr env ctx t2 in 
+    let res = Z3.Seq.mk_seq_concat ctx [t1'; t2'] in 
+    res
   | Plus (t1, t2) ->
     (*print_endline ("\n-------\nPlus " ^ string_of_term t);*)
     let t1' = term_to_expr env ctx t1 in 

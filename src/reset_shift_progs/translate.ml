@@ -1,5 +1,5 @@
 
-(* let hello_lambda ()
+let hello_lambda ()
 (*@ ens res=2 @*)
 = (fun x -> x) 2
 
@@ -46,15 +46,15 @@ let hello_eta ()
 
 let hello8 ()
 (*@ ens res=8 @*)
-= ((reset (shift k k + shift k k)) 3) 5 *)
-
-let hello_ni ()
-(*@ ens res=1 @*)
-= 1
+= ((reset (shift k k + shift k k)) 3) 5
 
 let hello_string ()
 (*@ ens res="a" @*)
 = "a"
+
+let hello_string_conc ()
+(*@ ens res="a" ++ "b" @*)
+= "a" ^ "b"
 
 (* let main1 ()
 (*@ ens res=3 @*)

@@ -24,6 +24,8 @@ let rec simplify_term t : term  =
   | Nil | TTrue | TFalse | UNIT | Num _ | TList _ | TTupple _ | Var _ | TApp _ | TLambda _ | TStr _ -> t
   | TNot a -> TNot (simplify_term a)
   | Rel (op, a, b) -> Rel (op, simplify_term a, simplify_term b)
+  | SConcat (TStr a, TStr b) ->  TStr (a ^ b)
+  | SConcat _ ->  t
   | Plus (Minus(t, Num n1), Num n2) -> 
     if n1 == n2 then t 
     else if n1>= n2 then Minus(t, Num (n1-n2)) 
@@ -202,7 +204,7 @@ let rec accumulateTheSumTerm (p:pi) (t:term) : term =
   | TFalse 
   | TApp _
   | TStr _
-  | TLambda _  | TTupple _ | TList _ -> t
+  | TLambda _  | TTupple _ | TList _ | SConcat _ -> t
   | TNot t1 -> TNot (accumulateTheSumTerm p t1)
   | TCons (t1, t2) -> TCons (accumulateTheSumTerm p t1, accumulateTheSumTerm p t2) 
   | TAnd (t1, t2) -> TAnd (accumulateTheSumTerm p t1, accumulateTheSumTerm p t2) 
@@ -673,7 +675,7 @@ let rec collect_lambdas_term (t : term) =
   | Nil | TTrue | TFalse | UNIT | Num _ -> SSet.empty
   | TList ts | TTupple ts -> SSet.concat (List.map collect_lambdas_term ts)
   | Var _ -> SSet.empty
-  | Rel (_, a, b) | Plus (a, b) | Minus (a, b) | TAnd (a, b) | TOr (a, b) | TPower(a, b) | TTimes (a, b) | TDiv (a, b)  
+  | Rel (_, a, b) | Plus (a, b) | Minus (a, b) | TAnd (a, b) | TOr (a, b) | TPower(a, b) | TTimes (a, b) | TDiv (a, b) | SConcat (a, b)
     ->
     SSet.union (collect_lambdas_term a) (collect_lambdas_term b)
   | TNot a -> collect_lambdas_term a
@@ -850,7 +852,7 @@ let remove_noncontributing_existentials :
     match t with
     | Var v -> SSet.singleton v
     | UNIT | TTrue | TFalse | Nil | Num _ -> SSet.empty
-    | Plus (a, b) | Minus (a, b) | TAnd (a, b) | TOr (a, b) | TPower(a, b) | TTimes(a, b) | TDiv(a, b)  ->
+    | Plus (a, b) | Minus (a, b) | TAnd (a, b) | TOr (a, b) | TPower(a, b) | TTimes(a, b) | TDiv(a, b) | SConcat (a, b) ->
       SSet.union (collect_related_vars_term a) (collect_related_vars_term b)
     | TNot t -> collect_related_vars_term t
     | TApp (_, ts) -> SSet.concat (List.map collect_related_vars_term ts)

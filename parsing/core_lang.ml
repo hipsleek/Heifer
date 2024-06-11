@@ -92,6 +92,7 @@ let rec expr_to_term (expr:expression) : term =
   | Pexp_ident {txt=Lident i; _} -> Var i
   | Pexp_apply ({pexp_desc = Pexp_ident {txt=Lident i; _}; _}, [(_, a); (_, b)]) ->
       begin match i with
+      | "^" -> SConcat (expr_to_term a, expr_to_term b)
       | "+" -> Plus (expr_to_term a, expr_to_term b)
       | "-" -> Minus (expr_to_term a, expr_to_term b)
       | _ -> failwith (Format.asprintf "unknown op %s" i)

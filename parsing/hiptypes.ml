@@ -11,6 +11,7 @@ and term =
     | TStr of string
     | Plus of term * term 
     | Minus of term * term 
+    | SConcat of term * term 
     | Rel of bin_op * term * term 
     | TTrue
     | TFalse
@@ -394,4 +395,4 @@ type 'a quantified = string list * 'a
 
 type instantiations = (string * string) list
 
-let primitive_functions = ["+"; "-"; "="; "not"; "::"; "&&"; "||"; ">"; "<"; ">="; "<="]
+let primitive_functions = ["+"; "-"; "="; "not"; "::"; "&&"; "||"; ">"; "<"; ">="; "<="; "^"]

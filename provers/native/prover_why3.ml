@@ -274,6 +274,13 @@ module Defunct = struct
            string_of_option string_of_type (SMap.find_opt v env.tenv)); *)
       (name, ty1)
     | Var v -> failwith (Format.asprintf "variable %s has no type" v)
+    | SConcat (a, b) ->
+      let a1, _ = term_to_why3 env a in
+      let b1, _ = term_to_why3 env b in
+      ( Term.t_app_infer
+          Theories.(get_symbol string "concat" env.theories)
+          [a1; b1],
+        Int )
     | Plus (a, b) ->
       let a1, _ = term_to_why3 env a in
       let b1, _ = term_to_why3 env b in
@@ -666,6 +673,8 @@ let rec term_to_whyml tenv t =
   | TFalse -> term Tfalse
   | Num i -> tconst i
   | Var v -> tvar (qualid [v])
+  | SConcat (a, b) ->
+    tapp (qualid ["String"; "concat"]) [term_to_whyml tenv a; term_to_whyml tenv b]
   | Plus (a, b) ->
     tapp
       (qualid ["Int"; Ident.op_infix "+"])

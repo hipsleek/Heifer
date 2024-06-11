@@ -166,6 +166,10 @@ and infer_types_term ?hint (env : abs_typ_env) term : typ * abs_typ_env =
     let _at, env1 = infer_types_term ~hint:Int env a in
     let _bt, env2 = infer_types_term ~hint:Int env1 b in
     (Bool, env2)
+  | SConcat (a, b), _ ->
+    let _at, env1 = infer_types_term ~hint:TyString env a in
+    let _bt, env2 = infer_types_term ~hint:TyString env1 b in
+    (TyString, env2)
   | Plus (a, b), _ | Minus (a, b), _ | TPower (a, b), _ | TTimes (a, b), _ | TDiv (a, b), _ ->
     let _at, env1 = infer_types_term ~hint:Int env a in
     let _bt, env2 = infer_types_term ~hint:Int env1 b in
