@@ -813,6 +813,7 @@ and reduce_inside_reset (sp:spec) : disj_spec =
     let r1 = verifier_getAfreeVar "r" in
     (* reduce the continuation first to know what k is *)
     let cont1 =
+      (* deep handling/where control/prompt makes a difference *)
       reduce_flow [Reset ([cont], Var r1)]
     in
     let body1 = body |> List.concat_map (fun (b:spec) ->
@@ -832,6 +833,7 @@ and reduce_inside_reset (sp:spec) : disj_spec =
       (* List.map *)
       (* let b1 = if nz then [[Reset (b, res_v)]] else b in *)
       (* NormalReturn (assign, EmptyHeap) :: b1 *)
+      (* this is where shift0 makes a difference *)
       let b1 = if nz then reduce_flow [Reset ([b], res_v)] else [b] in
       concatenateEventWithSpecs [NormalReturn (assign, EmptyHeap)] b1)
     in

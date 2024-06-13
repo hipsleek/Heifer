@@ -245,11 +245,11 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
     let formals, body, _types = collect_param_info expr in
     let e = transformation (formals @ bound_names) body in
     CLambda (formals, spec, e)
-  (* shift *)
-  | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident "shift"; _}); _}, args) ->
+  (* shift and shift0 *)
+  | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, args) when List.mem name ["shift"; "shift0"] ->
     begin match List.map snd args with
     | [{pexp_desc = Pexp_ident ({txt = Lident k; _}); _}; body] ->
-      CShift (true, k, transformation bound_names body)
+      CShift (name = "shift", k, transformation bound_names body)
     | _ ->  failwith "invalid shift args"
     end
   (* reset *)
