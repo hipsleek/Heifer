@@ -552,7 +552,7 @@ let normalize_step (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
             };
           ],
         freshNormStageRet ret' )
-    | Shift (k, body, r) ->
+    | Shift (nz, k, body, r) ->
       let ens1, nex =
         if contains_res_state ens then
           let e, n = quantify_res_state ens in
@@ -568,6 +568,7 @@ let normalize_step (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
               s_cont = k;
               s_body = body;
               s_ret = r;
+              s_notzero = nz;
             };
           ],
         freshNormStageRet r )
@@ -1368,7 +1369,7 @@ let rec effectStage2Spec (effectStages : effHOTryCatchStages list) : spec =
     @ (match sh.s_post with
       | True, EmptyHeap -> []
       | p2, h2 -> [NormalReturn (p2, h2)])
-    @ [ Shift (sh.s_cont, sh.s_body, sh.s_ret) ]
+    @ [ Shift (sh.s_notzero, sh.s_cont, sh.s_body, sh.s_ret) ]
     @ effectStage2Spec xs
   | (ResetStage rs) :: xs ->
     (match rs.rs_evars with [] -> [] | _ -> [Exists rs.rs_evars])

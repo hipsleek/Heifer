@@ -809,70 +809,35 @@ and reduce_inside_reset (sp:spec) : disj_spec =
   in
   match sp with
   | [] -> [[]]
-  | Shift (k, body, r) :: cont ->
+  | Shift (nz, k, body, r) :: cont ->
     let r1 = verifier_getAfreeVar "r" in
     (* reduce the continuation first to know what k is *)
-    let rest1 =
+    let cont1 =
       reduce_flow [Reset ([cont], Var r1)]
     in
-    let b1 = body |> List.map (fun b ->
+    let body1 = body |> List.concat_map (fun (b:spec) ->
       let klamb =
         let p, rest2 =
           (* freshen the parameter of the resulting continuation lambda, as it's already (existentially) bound outside *)
           let p1 = verifier_getAfreeVar "r" in
           (* the return value of shift is assumed to be a variable *)
           let r = retriveFormalArg r in
-          p1, instantiateSpecList [r, Var p1] rest1
+          p1, instantiateSpecList [r, Var p1] cont1
         in
         TLambda (verifier_getAfreeVar "l", [p; r1], rest2, None)
       in
-      debug ~at:2 ~title:"k is?" "%s\n%s" (string_of_disj_spec rest1) (string_of_term klamb);
+      debug ~at:2 ~title:"k is?" "%s\n%s" (string_of_disj_spec cont1) (string_of_term klamb);
       let assign = Atomic (EQ, Var k, klamb) in
-      NormalReturn (assign, EmptyHeap) :: b)
+      (* it seems like we have to keep reducing here *)
+      (* List.map *)
+      (* let b1 = if nz then [[Reset (b, res_v)]] else b in *)
+      (* NormalReturn (assign, EmptyHeap) :: b1 *)
+      let b1 = if nz then reduce_flow [Reset ([b], res_v)] else [b] in
+      concatenateEventWithSpecs [NormalReturn (assign, EmptyHeap)] b1)
     in
-    b1
+    body1
   | sp :: rest ->
     concatenateEventWithSpecs [sp] (reduce_inside_reset rest)
-
-and reduce_stage (sp:stagedSpec) (cont:spec) : disj_spec =
-  let@ _ =
-    Debug.span (fun r ->
-        debug ~at:2
-          ~title:"reduce_stage"
-          "%s\n==>\n%s" (string_of_staged_spec sp)
-          (string_of_result string_of_disj_spec r))
-  in
-  match sp with
-  | Exists ex -> [[Exists ex]]
-  | NormalReturn ens ->
-    [[NormalReturn ens]]
-  | Require (h, p) ->
-    [[Require (h, p)]]
-  | Shift (k, body, r) ->
-    let r1 = verifier_getAfreeVar "r" in
-    let rest1 =
-      reduce_flow [Reset ([cont], Var r1)]
-    in
-    debug ~at:2 ~title:"k is?" "%s" (string_of_disj_spec rest1);
-    let b1 = List.map (fun b ->
-      let l = verifier_getAfreeVar "l" in
-      let r = retriveFormalArg r in
-      let assign = Atomic (EQ, Var k, TLambda (l, [r; r1], rest1, None)) in
-      NormalReturn (assign, EmptyHeap) :: b) body
-    in
-    b1
-  | HigherOrder _ ->
-    []
-    (* failwith "reduce flow ho" *)
-  | Reset (_, _) ->
-    []
-    (* failwith "reduce flow reset" *)
-  | RaisingEff _ ->
-    []
-    (* failwith "reduce flow eff" *)
-  | TryCatch _ ->
-    []
-    (* failwith "reduce flow try" *)
  
 (** may update the environment because of higher order functions *)
 (** This is the entrence of the forward reasoning **)
@@ -897,11 +862,11 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
           let ret =
             match unsnoc spec with
             | _, Reset (_body, Var ret) -> ret
-            | _, Shift (_binder, _body, Var ret) -> ret
+            | _, Shift (_nz, _binder, _body, Var ret) -> ret
             | _, RaisingEff (_pre, _post, _constr, Var ret) -> ret
             | _, HigherOrder (_pre, _post, _constr, Var ret) -> ret
             | _, TryCatch (_pre, _post, _constr, Var ret) -> ret
-            | _, Shift (_, _, ret)
+            | _, Shift (_, _, _, ret)
             | _, Reset (_, ret)
             | _, RaisingEff (_, _, _, ret)
             | _, HigherOrder (_, _, _, ret)
@@ -1053,15 +1018,12 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
       let res = concatenateSpecsWithSpec history fn_spec in 
       res, env
 
-    | CShift (true, k, body) ->
+    | CShift (nz, k, body) ->
       let ret = verifier_getAfreeVar "r" in
       let body1, env = infer_of_expression env [[]] body in
-      [[Exists [ret]; Shift (k, body1, Var ret); NormalReturn (res_eq (Var ret), EmptyHeap)]], env
+      [[Exists [ret]; Shift (nz, k, body1, Var ret); NormalReturn (res_eq (Var ret), EmptyHeap)]], env
       (* other parts don't handle this simpler form correctly... *)
       (* [[Shift (k, body1, res_v)]], env *)
-
-    | CShift (false, _k, _body) ->
-      failwith ("shift 0 TBD infer_of_expression")
 
     | CReset e ->
       let f, env = infer_of_expression env history e in

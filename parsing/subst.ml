@@ -59,10 +59,10 @@ let rec findbinding str vb_li =
     object (self)
       inherit [_] map_normalised
 
-      method! visit_Shift bindings k body ret =
+      method! visit_Shift bindings nz k body ret =
         (* shift binds res and k *)
         let bs = List.filter (fun (b, _) -> not (List.mem b [k; "res"])) bindings in
-        Shift (k, self#visit_disj_spec bs body, self#visit_term bs ret)
+        Shift (nz, k, self#visit_disj_spec bs body, self#visit_term bs ret)
 
       (* not full capture-avoiding, we just stop substituting a name when it is bound *)
       method! visit_TLambda bindings name params sp body =
@@ -283,7 +283,7 @@ let rec getExistentialVar (spec : normalisedStagedSpec) : string list =
 
       (* don't go into these for now *)
       method! visit_TLambda () _ _ _ _ = []
-      method! visit_Shift () _ _ _ = []
+      method! visit_Shift () _ _ _ _ = []
       method! visit_Reset () _ _ = []
     end
 

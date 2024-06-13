@@ -55,7 +55,7 @@ and core_lang =
       | CMatch of handler_type * tryCatchLemma option * core_lang * (string * core_lang) option * core_handler_ops * constr_cases
       | CResume of core_value list
       | CLambda of string list * disj_spec option * core_lang
-      | CShift of bool * string * core_lang (* bool=true is for shift, and book=false is for shift0 \k -> expr *)
+      | CShift of bool * string * core_lang (* bool=true is for shift, and bool=false for shift0 *)
       | CReset of core_lang
 
 and core_value = term
@@ -99,7 +99,7 @@ and stagedSpec =
       (* this constructor is also used for inductive predicate applications *)
       (* f$(x, y) is HigherOrder(..., ..., (f, [x]), y) *)
       | HigherOrder of (pi * kappa * instant * term)
-      | Shift of string * disj_spec * term
+      | Shift of bool * string * disj_spec * term (* see CShift for meaning of bool *)
       | Reset of disj_spec * term
       (* effects: H /\ P /\ E(...args, v), term is always a placeholder variable *)
       | RaisingEff of (pi * kappa * instant * term)
@@ -225,6 +225,7 @@ type effectStage = {
 
 type shiftStage = {
   s_evars : string list;
+  s_notzero : bool;
   s_pre : pi * kappa;
   s_post : pi * kappa;
   s_cont : string;

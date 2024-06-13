@@ -216,8 +216,9 @@ let rec string_of_term t : string =
 
 and string_of_staged_spec (st:stagedSpec) : string =
   match st with
-  | Shift (k, body, r) ->
-    Format.asprintf "shift(%s. %s, %s)" k (string_of_disj_spec body) (string_of_term r)
+  | Shift (nz, k, body, r) ->
+    let zero = if nz then "" else "0" in
+    Format.asprintf "shift%s(%s. %s, %s)" zero k (string_of_disj_spec body) (string_of_term r)
   | Reset (body, r) ->
     Format.asprintf "reset(%s, %s)" (string_of_disj_spec body) (string_of_term r)
   | Require (p, h) ->
@@ -510,7 +511,7 @@ let string_of_effHOTryCatchStages s =
 
   | ShiftStage x ->
     let ex = match x.s_evars with [] -> [] | _ -> [Exists x.s_evars] in
-    let current = ex @ [Shift (x.s_cont, x.s_body, x.s_ret)] in
+    let current = ex @ [Shift (x.s_notzero, x.s_cont, x.s_body, x.s_ret)] in
     string_of_spec current
 
   | (TryCatchStage ct) -> 
