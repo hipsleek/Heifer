@@ -60,6 +60,7 @@ let get_primitive_type f =
   | "tail" -> ([List_int], List_int)
   | "is_nil" | "is_cons" -> ([List_int], Bool)
   | "+" | "-" -> ([Int; Int], Int)
+  | "string_of_int" -> ([Int], TyString)
   | _ when String.compare f "effNo" == 0 -> ([Int] , Int)
   | _ when Globals.is_pure_fn_defined f ->
     let fn = Globals.pure_fn f in

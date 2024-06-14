@@ -230,6 +230,9 @@ let call_primitive env history fname actualArgs =
   | "^", [x1; x2] ->
     let event = NormalReturn (res_eq (SConcat (x1, x2)), EmptyHeap) in
     concatenateSpecsWithEvent history [event], env
+  | "string_of_int", [x1] ->
+    let event = NormalReturn (res_eq (TApp ("string_of_int", [x1])), EmptyHeap) in
+    concatenateSpecsWithEvent history [event], env
   | _ -> failwith (Format.asprintf "unknown primitive: %s, args: %s" fname (string_of_list string_of_term actualArgs))
 
 (* Given the specs of the scrutinee, symbolically execute it against the handler's spec to produce a single flow, e.g.

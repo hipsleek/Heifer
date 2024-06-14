@@ -674,7 +674,9 @@ let rec term_to_whyml tenv t =
   | Num i -> tconst i
   | Var v -> tvar (qualid [v])
   | SConcat (a, b) ->
-    tapp (qualid ["String"; "concat"]) [term_to_whyml tenv a; term_to_whyml tenv b]
+    tapp
+      (qualid ["String"; "concat"])
+      [term_to_whyml tenv a; term_to_whyml tenv b]
   | Plus (a, b) ->
     tapp
       (qualid ["Int"; Ident.op_infix "+"])
@@ -758,6 +760,7 @@ and core_lang_to_whyml tenv e =
       | "=" -> qualid ["Int"; Ident.op_infix s] (* for now *)
       | "||" -> qualid ["Bool"; "orb"]
       | "&&" -> qualid ["Bool"; "andb"]
+      | "string_of_int" -> qualid ["String"; "from_int"]
       | _ -> qualid [s]
     in
     tapp fn (List.map (term_to_whyml tenv) args)

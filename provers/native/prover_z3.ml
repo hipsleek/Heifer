@@ -134,6 +134,8 @@ let rec term_to_expr env ctx t : Z3.Expr.expr =
   | TCons (a, b) ->
     Z3.Expr.mk_app ctx (get_fun_decl ctx "cons")
       (List.map (term_to_expr env ctx) [a; b])
+  | TApp ("string_of_int" , [x]) ->
+    Z3.Seq.mk_int_to_str ctx (term_to_expr env ctx x)
   | TApp (f, a) ->
     Z3.Expr.mk_app ctx (get_fun_decl ctx f) (List.map (term_to_expr env ctx) a)
   | TPower (Num 2, Var "n") -> 
