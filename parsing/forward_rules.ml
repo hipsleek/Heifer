@@ -745,15 +745,23 @@ let ifAsyncYiled env  =
   | None  -> false 
   | Some _ -> true  
 
+(** get the defn of current_function from env, and replace ho stages in instantiatedSpec with it *)
 let recursivelyInstantiateFunctionCalls (current_function:string) env instantiatedSpec = 
+  let@ _ =
+    Debug.span (fun r ->
+        debug ~at:2
+          ~title:"recursivelyInstantiateFunctionCalls"
+          "%s\n%s\n%s\n==>\n%s" current_function "<fvenv>" (string_of_disj_spec instantiatedSpec)
+          (string_of_result string_of_disj_spec r))
+  in
 
   let rec helper acc li : spec list = 
     match li with 
     | [] -> [acc] 
     | x :: xs  -> 
       (match x with 
-      | Shift _ -> failwith "todo"
-      | Reset _ -> failwith "todo"
+      | Shift _
+      | Reset _
       | Require _ | Exists _  | NormalReturn _ | RaisingEff _ | TryCatch _ -> helper (acc@[x]) xs 
       | HigherOrder (pi, kappa, (fname, actualArgs), _ret)  -> 
         if String.compare fname current_function != 0 then  (* check if it is recursive *)
@@ -1025,10 +1033,16 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
 
     | CShift (nz, k, body) ->
       let ret = verifier_getAfreeVar "r" in
-      let body1, env = infer_of_expression env [[]] body in
-      [[Exists [ret]; Shift (nz, k, body1, Var ret); NormalReturn (res_eq (Var ret), EmptyHeap)]], env
+
+      let k1 = verifier_getAfreeVar k in
+      (* let body = subst_visitor#visit_core_lang [k, Var k1] body in *)
+
+      let sp, env = infer_of_expression env [[]] body in
+      let sp1 = instantiateSpecList [k, Var k1] sp in
+
+      [[Exists [ret]; Shift (nz, k1, sp1, Var ret); NormalReturn (res_eq (Var ret), EmptyHeap)]], env
       (* other parts don't handle this simpler form correctly... *)
-      (* [[Shift (k, body1, res_v)]], env *)
+      (* [[Shift (k1, sp1, res_v)]], env *)
 
     | CReset e ->
       let f, env = infer_of_expression env history e in

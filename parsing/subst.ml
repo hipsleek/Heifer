@@ -69,6 +69,11 @@ let rec findbinding str vb_li =
         let bs = List.filter (fun (b, _) -> not (List.mem b params)) bindings in
         TLambda (name, params, (self#visit_disj_spec bs sp), (self#visit_option self#visit_core_lang bs body))
 
+      method! visit_CLambda bindings params sp body =
+        let bs = List.filter (fun (b, _) -> not (List.mem b params)) bindings in
+        Format.printf "bs: %s@." (string_of_list (string_of_pair Fun.id string_of_term) bs);
+        CLambda (params, (self#visit_option self#visit_disj_spec bs sp), (self#visit_core_lang bs body))
+
       method! visit_Exists _ v = Exists v
 
       method! visit_PointsTo bindings (str, t1) =
@@ -110,10 +115,19 @@ let rec findbinding str vb_li =
             e_ret = self#visit_term bindings effectStage.e_ret
           }
 
+      (* TODO some other expressions like assign and perform need to be implemented *)
+
+      method! visit_CFunCall bindings f args =
+        let f1 = findbinding f bindings in
+        match f1 with
+        | Var s -> CFunCall (s, args)
+        | _ ->
+          let s = verifier_getAfreeVar "x" in
+          CLet (s, CValue f1, CFunCall (s, args))
 
       method! visit_Var bindings v =
         let binding = findbinding v bindings in
-        (*Format.printf "replacing %s with %s under %s@." v (string_of_term binding) (string_of_list (string_of_pair Fun.id string_of_term) bindings); *)
+        (* Format.printf "replacing %s with %s under %s.@." v (string_of_term binding) (string_of_list (string_of_pair Fun.id string_of_term) bindings); *)
         binding
     end
 
