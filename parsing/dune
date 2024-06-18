@@ -12,11 +12,6 @@
 ;*                                                                        *
 ;**************************************************************************
 
-;; We're just reusing the stuff from boot/ here.
-;; One could add a dune file in boot/menhir/ with the appropriate rules if we
-;; want to regenerate the parser while building with dune, but it doesn't seem
-;; essential right now.
-
 (env
  ; (dev     (flags (:standard -w +a-4-9-40-41-42-44-45-48-67)))
 
@@ -31,30 +26,10 @@
    (build_runtime_flags (:standard --enable=effects)))))
 
 (rule
- (targets camlinternalMenhirLib.ml)
- (mode    fallback)
- (action  (copy# ../boot/menhir/menhirLib.ml %{targets})))
-
-(rule
- (targets camlinternalMenhirLib.mli)
- (mode    fallback)
- (action  (copy# ../boot/menhir/menhirLib.mli %{targets})))
-
-(rule
- (targets parser.ml)
- (mode    fallback)
- (deps    (:dep ../boot/menhir/parser.ml))
- (action
-   (with-stdout-to %{targets}
-     (bash "cat %{dep} | sed 's/MenhirLib/CamlinternalMenhirLib/g'"))))
-
-(rule
- (targets parser.mli)
- (mode    fallback)
- (deps    (:dep ../boot/menhir/parser.mli))
- (action
-   (with-stdout-to %{targets}
-     (bash "cat %{dep} | sed 's/MenhirLib/CamlinternalMenhirLib/g'"))))
+ (targets parser.mli parser.ml camlinternalMenhirLib.ml camlinternalMenhirLib.mli)
+ (action  (run ./generate_parser.sh))
+ (deps    parser.mly)
+ (mode fallback))
 
 (ocamllex
  (modules lexer)
@@ -62,6 +37,7 @@
 
 (library
  (name hipcore)
+ (public_name heifer.hipcore)
  (libraries debug unionFind str)
  (modules subst Pretty common hiptypes globals)
  (inline_tests)
@@ -69,6 +45,7 @@
 
 (library
  (name hipprover)
+ (public_name heifer.hipprover)
  (modules ProversEx Rewriting entail forward_rules infer_types normalize)
  (libraries hipcore provers search)
  (inline_tests)
@@ -76,6 +53,7 @@
 
 (library
  (name ocamlfrontend)
+ (public_name heifer.ocamlfrontend)
  (modules
  parser lexer Syntaxerr Pprintast Printast Asttypes Ast_helper Longident Parsetree Location Warnings Misc Terminfo Docstrings Build_path_prefix_map Clflags Profile Numbers Identifiable Arg_helper CamlinternalMenhirLib
  core_lang) ; the only module we own
@@ -84,6 +62,7 @@
 
 (library
  (name racketfrontend)
+ (public_name heifer.racketfrontend)
  (modules
  racket_parser racket_lexer)
  (libraries hipcore)
@@ -96,6 +75,7 @@
 
 (library
  (name hiplib)
+ (public_name heifer)
  (modules hiplib tests)
  (libraries hipprover ocamlfrontend racketfrontend)
  (inline_tests)
@@ -103,6 +83,7 @@
 
 (executable
  (name hip)
+ (public_name heifer)
  (modules hip)
  (libraries unix hiplib provers_native))
 

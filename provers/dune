@@ -1,6 +1,7 @@
 
 (library
  (name provers)
+ (public_name heifer.provers)
  (libraries hipcore)
  (virtual_modules provers)
  (default_implementation provers_native))

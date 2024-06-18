@@ -1,6 +1,7 @@
 
 (library
  (name provers_native)
+ (public_name heifer.provers_native)
  (libraries debug str z3 why3)
  (implements provers))
 
