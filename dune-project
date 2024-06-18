@@ -4,7 +4,7 @@
 (using directory-targets 0.1)
 (using menhir 2.1)
 
-(name hip)
+(name heifer)
 (generate_opam_files true)
 
 (source
@@ -16,7 +16,7 @@
 (license MIT)
 
 (package
- (name hip)
+ (name heifer)
  (synopsis "Verifier")
  (description "Verifier for imperative higher order programs")
  (depends
