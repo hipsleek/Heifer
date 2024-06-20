@@ -185,8 +185,8 @@ def compute_stats(name, benchmarks):
 
     eprint(name)
     eprint(f"average ratio: {avg:.2f}")
-    eprint(f"total loc: {total_loc:.2f}")
-    eprint(f"total los: {total_los:.2f}")
+    eprint(f"total loc: {total_loc}")
+    eprint(f"total los: {total_los}")
     eprint()
     return avg, total_loc, total_los
 
@@ -194,7 +194,7 @@ def compute_stats(name, benchmarks):
 if __name__ == "__main__":
     # CONFIGURE SOME STUFF
 
-    cameleer_path = os.path.expanduser("~/ocaml/cameleer")
+    cameleer_path = os.path.expanduser("benchmarks/ho/cameleer")
 
     cameleer_benchmarks = {
         "map": Test(
@@ -206,7 +206,7 @@ if __name__ == "__main__":
             ],
         ),
         "fold": Test(
-            file=f"{cameleer_path}/examples/ocaml_fold.ml",
+            file=f"{cameleer_path}/ocaml_fold.ml",
             properties=[
                 "foldl_sum",
                 "foldl_length",
@@ -312,13 +312,11 @@ if __name__ == "__main__":
         "lambda": Test(file="benchmarks/ho/heifer/lambda.ml", properties=["main", "g"]),
     }
 
-    prusti_path = os.path.expanduser(
-        "~/ocaml/AlgebraicEffect/stuff/prusti-artifact-programs/pass"
-    )
+    prusti_path = os.path.expanduser("benchmarks/ho/prusti")
 
     prusti_benchmarks = {
         "closure": Test(
-            file=f"{prusti_path}/../../../benchmarks/ho/prusti/closure.rs",  # written by us
+            file=f"{prusti_path}/closure.rs",  # written by us
             properties=[
                 "main",
             ],
@@ -355,6 +353,7 @@ if __name__ == "__main__":
 
     # END CONFIGURATION
 
+    eprint("Running benchmarks...")
     for k, v in cameleer_benchmarks.items():
         run_cameleer(v)
 
@@ -365,7 +364,7 @@ if __name__ == "__main__":
         eprint(f"{n}")
         run_heifer(t)
 
-    eprint()
+    eprint("\n----------\n")
 
     # print state before transforming anything
     for n, t in heifer_benchmarks.items():
@@ -373,14 +372,16 @@ if __name__ == "__main__":
             f"""Benchmark: {n}
 LoC: {t.loc}
 LoS: {t.los}
-Ratio: {t.ratio}
-Total: {t.total_time}
-Z3: {t.z3_time}
-Why3: {t.why3_time}
-Lemmas: {t.lemmas}
+Total time: {t.total_time}
+Prover time: {t.z3_time + t.why3_time}
 """
         )
+    # Ratio: {t.ratio}
+    # Z3: {t.z3_time}
+    # Why3: {t.why3_time}
+    # Lemmas: {t.lemmas}
 
+    eprint("----------\n")
     # compute some stats
     heifer_avg, heifer_total_loc, heifer_total_los = compute_stats(
         "heifer", heifer_benchmarks
@@ -392,6 +393,7 @@ Lemmas: {t.lemmas}
         "prusti", prusti_benchmarks
     )
 
+    eprint("----------\n")
     print("% generated")
     for n, t in heifer_benchmarks.items():
         src = ""
