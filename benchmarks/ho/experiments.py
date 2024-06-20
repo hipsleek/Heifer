@@ -393,42 +393,43 @@ Prover time: {t.z3_time + t.why3_time}
         "prusti", prusti_benchmarks
     )
 
-    eprint("----------\n")
-    print("% generated")
-    for n, t in heifer_benchmarks.items():
-        src = ""
-        if t.src:
-            src = rf"~\cite{{{t.src}}}"
+    if os.environ.get("LATEX"):
+        eprint("----------\n")
+        print("% generated")
+        for n, t in heifer_benchmarks.items():
+            src = ""
+            if t.src:
+                src = rf"~\cite{{{t.src}}}"
 
-        # cameleer's default is inexpressible
-        # cameleer_cols = r"\inexpressible & \inexpressible & \inexpressible"
-        cameleer_cols = r"& \inexpressible &"
-        if n in cameleer_benchmarks:
-            b = cameleer_benchmarks[n]
-            cameleer_cols = f"{b.loc} & {b.los} & {b.total_time:.2f}"
+            # cameleer's default is inexpressible
+            # cameleer_cols = r"\inexpressible & \inexpressible & \inexpressible"
+            cameleer_cols = r"& \inexpressible &"
+            if n in cameleer_benchmarks:
+                b = cameleer_benchmarks[n]
+                cameleer_cols = f"{b.loc} & {b.los} & {b.total_time:.2f}"
 
-        # prusti's default is untried
-        # prusti_cols = r"\untried & \untried & \untried"
-        prusti_cols = r"& \untried &"
-        if n in prusti_benchmarks:
-            b = prusti_benchmarks[n]
-            if b.inexpressible:
-                prusti_cols = r"& \inexpressible &"
-            else:
-                prusti_cols = f"{b.loc} & {b.los} & {b.total_time:.2f}"
+            # prusti's default is untried
+            # prusti_cols = r"\untried & \untried & \untried"
+            prusti_cols = r"& \untried &"
+            if n in prusti_benchmarks:
+                b = prusti_benchmarks[n]
+                if b.inexpressible:
+                    prusti_cols = r"& \inexpressible &"
+                else:
+                    prusti_cols = f"{b.loc} & {b.los} & {b.total_time:.2f}"
 
-        # escape name of benchmark
-        n1 = re.sub("_", r"\_", n)
+            # escape name of benchmark
+            n1 = re.sub("_", r"\_", n)
 
+            print(
+                f"{n1}{src} & {t.loc} & {t.los} & {t.total_time:.2f} & {t.z3_time + t.why3_time:.2f} & {cameleer_cols} & {prusti_cols} \\\\"
+            )
+        print("\\hline")
         print(
-            f"{n1}{src} & {t.loc} & {t.los} & {t.total_time:.2f} & {t.z3_time + t.why3_time:.2f} & {cameleer_cols} & {prusti_cols} \\\\"
+            f"& {heifer_total_loc} & {heifer_total_los} & & & {cameleer_total_loc} & {cameleer_total_los} & & {prusti_total_loc} & {prusti_total_los} & \\\\"
         )
-    print("\\hline")
-    print(
-        f"& {heifer_total_loc} & {heifer_total_los} & & & {cameleer_total_loc} & {cameleer_total_los} & & {prusti_total_loc} & {prusti_total_los} & \\\\"
-    )
-    print("% end generated")
+        print("% end generated")
 
-    eprint(rf"\newcommand*{{\heiferratio}}{{{heifer_avg:.2f}}}")
-    eprint(rf"\newcommand*{{\cameleerratio}}{{{cameleer_avg:.2f}}}")
-    eprint(rf"\newcommand*{{\prustiratio}}{{{prusti_avg:.2f}}}")
+        eprint(rf"\newcommand*{{\heiferratio}}{{{heifer_avg:.2f}}}")
+        eprint(rf"\newcommand*{{\cameleerratio}}{{{cameleer_avg:.2f}}}")
+        eprint(rf"\newcommand*{{\prustiratio}}{{{prusti_avg:.2f}}}")
