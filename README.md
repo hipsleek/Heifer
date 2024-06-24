@@ -15,7 +15,7 @@ After downloading the artifact from Zenodo, it may be run as follows.
 # assuming current directory contains artifact,
 # named heifer-fm24.tgz
 docker load -i heifer-fm24.tgz
-docker run -it --rm heifer-icfp24 bash
+docker run -it --rm dariusf/heifer-fm24 bash
 ```
 
 You should see the following before the shell prompt appears.
