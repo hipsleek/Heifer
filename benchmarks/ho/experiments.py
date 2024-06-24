@@ -179,14 +179,15 @@ def run_cameleer(test):
 
 
 def compute_stats(name, benchmarks):
-    avg = float(sum([b.ratio for _, b in benchmarks.items()])) / float(len(benchmarks))
+    # avg = float(sum([b.ratio for _, b in benchmarks.items()])) / float(len(benchmarks))
     total_loc = sum([b.loc for _, b in benchmarks.items()])
     total_los = sum([b.los for _, b in benchmarks.items()])
+    avg = total_los / total_loc
 
     eprint(name)
-    eprint(f"average ratio: {avg:.2f}")
     eprint(f"total loc: {total_loc}")
     eprint(f"total los: {total_los}")
+    eprint(f"ratio: {avg:.2f}")
     eprint()
     return avg, total_loc, total_los
 
