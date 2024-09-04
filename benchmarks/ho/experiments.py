@@ -96,7 +96,7 @@ def run_heifer(test):
     """
     # eprint(filename)
     output = subprocess.run(
-        ["dune", "exec", "parsing/hip.exe", test.file], capture_output=True, text=True
+        ["dune", "exec", "main/hip.exe", test.file], capture_output=True, text=True
     ).stdout
     # eprint(output)
 

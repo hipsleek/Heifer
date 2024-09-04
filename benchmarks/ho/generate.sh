@@ -5,7 +5,7 @@
 for f in src/examples/{iter.ml,closure.ml,map.ml,fold.ml,compose.ml,applyN.ml,all.ml,exception.ml}; do
   echo "
 \`\`\`sh
-\$ DEBUG=0 hyperfine --warmup 2 'dune exec parsing/hip.exe $f'
+\$ DEBUG=0 hyperfine --warmup 2 'dune exec main/hip.exe $f'
 \$ loc $f
 
 \$ rg --multiline --multiline-dotall '(\*@.*?@\*)' $f
