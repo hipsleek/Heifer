@@ -1,0 +1,14 @@
+(executable
+ (name hip)
+ (modules hip)
+ (libraries unix hiplib provers_native))
+
+(executable
+ (name hipjs)
+ (modules hipjs)
+ (libraries brr hiplib provers_js)
+ (modes js))
+
+(install
+ (section bin)
+ (files (hip.exe as hip)))

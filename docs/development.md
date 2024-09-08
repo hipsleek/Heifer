@@ -3,14 +3,17 @@
 
 ## Project structure
 
+**Libraries**
 - Hipcore: core language and spec AST and pure functions for manipulating it
 - Provers: prover back ends which translate Hipcore types into SMT
 - Hipprover: code which depends on calls to an external prover, e.g. normalization
 - Ocamlfrontend: OCaml parser
+
+**Executables**
 - Hiplib: interface for all the above modules
 - Hipjs, Hip: CLI and web frontends
 
-[This file](../parsing/dune) lists the submodules of the various libraries. To see the structure graphically:
+To see the structure of the project graphically:
 
 ```sh
 opam install dune-deps

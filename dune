@@ -2,7 +2,7 @@
 ; build web version
 
 (rule
- (action (copy parsing/hipjs.bc.js hipjs.bc.js)))
+ (action (copy main/hipjs.bc.js hipjs.bc.js)))
 (rule
  (action (copy web/main.js main.js)))
 

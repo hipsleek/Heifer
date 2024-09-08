@@ -6,15 +6,15 @@ It should take around 5 minutes.
 Some sanity checks first:
 
 ```sh
-$ dune exec parsing/hip.exe src/examples/applyN.ml | grep Time | choose 2 | paste -s -d+ - | bc
+$ dune exec main/hip.exe src/examples/applyN.ml | grep Time | choose 2 | paste -s -d+ - | bc
 ```
 
 ```sh
-$ DEBUG=0 hyperfine --warmup 2 'dune exec parsing/hip.exe src/examples/applyN.ml'
+$ DEBUG=0 hyperfine --warmup 2 'dune exec main/hip.exe src/examples/applyN.ml'
 ```
 
 ```sh
-$ DEBUG=0 time dune exec parsing/hip.exe src/examples/applyN.ml > /dev/null
+$ DEBUG=0 time dune exec main/hip.exe src/examples/applyN.ml > /dev/null
 ```
 
 Project size:
@@ -28,7 +28,7 @@ Stats:
 (The following is generated using generate.sh)
 
 ```sh
-$ DEBUG=0 hyperfine --warmup 2 'dune exec parsing/hip.exe src/examples/iter.ml'
+$ DEBUG=0 hyperfine --warmup 2 'dune exec main/hip.exe src/examples/iter.ml'
 $ loc src/examples/iter.ml
 
 $ rg --multiline --multiline-dotall '(\*@.*?@\*)' src/examples/iter.ml
@@ -39,7 +39,7 @@ $ rg --multiline --multiline-dotall '(\*@.*?@\*)' src/examples/iter.ml | wc -l
 ```
 
 ```sh
-$ DEBUG=0 hyperfine --warmup 2 'dune exec parsing/hip.exe src/examples/closure.ml'
+$ DEBUG=0 hyperfine --warmup 2 'dune exec main/hip.exe src/examples/closure.ml'
 $ loc src/examples/closure.ml
 
 $ rg --multiline --multiline-dotall '(\*@.*?@\*)' src/examples/closure.ml
@@ -50,7 +50,7 @@ $ rg --multiline --multiline-dotall '(\*@.*?@\*)' src/examples/closure.ml | wc -
 ```
 
 ```sh
-$ DEBUG=0 hyperfine --warmup 2 'dune exec parsing/hip.exe src/examples/map.ml'
+$ DEBUG=0 hyperfine --warmup 2 'dune exec main/hip.exe src/examples/map.ml'
 $ loc src/examples/map.ml
 
 $ rg --multiline --multiline-dotall '(\*@.*?@\*)' src/examples/map.ml
@@ -61,7 +61,7 @@ $ rg --multiline --multiline-dotall '(\*@.*?@\*)' src/examples/map.ml | wc -l
 ```
 
 ```sh
-$ DEBUG=0 hyperfine --warmup 2 'dune exec parsing/hip.exe src/examples/fold.ml'
+$ DEBUG=0 hyperfine --warmup 2 'dune exec main/hip.exe src/examples/fold.ml'
 $ loc src/examples/fold.ml
 
 $ rg --multiline --multiline-dotall '(\*@.*?@\*)' src/examples/fold.ml
@@ -72,7 +72,7 @@ $ rg --multiline --multiline-dotall '(\*@.*?@\*)' src/examples/fold.ml | wc -l
 ```
 
 ```sh
-$ DEBUG=0 hyperfine --warmup 2 'dune exec parsing/hip.exe src/examples/compose.ml'
+$ DEBUG=0 hyperfine --warmup 2 'dune exec main/hip.exe src/examples/compose.ml'
 $ loc src/examples/compose.ml
 
 $ rg --multiline --multiline-dotall '(\*@.*?@\*)' src/examples/compose.ml
@@ -83,7 +83,7 @@ $ rg --multiline --multiline-dotall '(\*@.*?@\*)' src/examples/compose.ml | wc -
 ```
 
 ```sh
-$ DEBUG=0 hyperfine --warmup 2 'dune exec parsing/hip.exe src/examples/applyN.ml'
+$ DEBUG=0 hyperfine --warmup 2 'dune exec main/hip.exe src/examples/applyN.ml'
 $ loc src/examples/applyN.ml
 
 $ rg --multiline --multiline-dotall '(\*@.*?@\*)' src/examples/applyN.ml
@@ -94,7 +94,7 @@ $ rg --multiline --multiline-dotall '(\*@.*?@\*)' src/examples/applyN.ml | wc -l
 ```
 
 ```sh
-$ DEBUG=0 hyperfine --warmup 2 'dune exec parsing/hip.exe src/examples/all.ml'
+$ DEBUG=0 hyperfine --warmup 2 'dune exec main/hip.exe src/examples/all.ml'
 $ loc src/examples/all.ml
 
 $ rg --multiline --multiline-dotall '(\*@.*?@\*)' src/examples/all.ml
@@ -105,7 +105,7 @@ $ rg --multiline --multiline-dotall '(\*@.*?@\*)' src/examples/all.ml | wc -l
 ```
 
 ```sh
-$ DEBUG=0 hyperfine --warmup 2 'dune exec parsing/hip.exe src/examples/exception.ml'
+$ DEBUG=0 hyperfine --warmup 2 'dune exec main/hip.exe src/examples/exception.ml'
 $ loc src/examples/exception.ml
 
 $ rg --multiline --multiline-dotall '(\*@.*?@\*)' src/examples/exception.ml

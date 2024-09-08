@@ -14,6 +14,6 @@ brew install cvc4
 why3 config detect
 
 # Run examples and tests
-PROVER=WHY3 dune exec parsing/hip.exe $EXAMPLE
+PROVER=WHY3 dune exec main/hip.exe $EXAMPLE
 PROVER=WHY3 dune test
 ```

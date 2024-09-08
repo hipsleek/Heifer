@@ -1,4 +1,4 @@
-dune exec parsing/hip.exe src/programs.t/transaction.ml
+dune exec main/hip.exe src/programs.t/transaction.ml
 
 (A)^w |- (A)^oo :true 
 
