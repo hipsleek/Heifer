@@ -3150,6 +3150,7 @@ var Z3_decl_kind;
     Z3_decl_kind[Z3_decl_kind["Z3_OP_TO_INT"] = 527] = "Z3_OP_TO_INT";
     Z3_decl_kind[Z3_decl_kind["Z3_OP_IS_INT"] = 528] = "Z3_OP_IS_INT";
     Z3_decl_kind[Z3_decl_kind["Z3_OP_POWER"] = 529] = "Z3_OP_POWER";
+    Z3_decl_kind[Z3_decl_kind["Z3_OP_ABS"] = 530] = "Z3_OP_ABS";
     Z3_decl_kind[Z3_decl_kind["Z3_OP_STORE"] = 768] = "Z3_OP_STORE";
     Z3_decl_kind[Z3_decl_kind["Z3_OP_SELECT"] = 769] = "Z3_OP_SELECT";
     Z3_decl_kind[Z3_decl_kind["Z3_OP_CONST_ARRAY"] = 770] = "Z3_OP_CONST_ARRAY";
@@ -3299,37 +3300,41 @@ var Z3_decl_kind;
     Z3_decl_kind[Z3_decl_kind["Z3_OP_SEQ_LAST_INDEX"] = 1566] = "Z3_OP_SEQ_LAST_INDEX";
     Z3_decl_kind[Z3_decl_kind["Z3_OP_SEQ_TO_RE"] = 1567] = "Z3_OP_SEQ_TO_RE";
     Z3_decl_kind[Z3_decl_kind["Z3_OP_SEQ_IN_RE"] = 1568] = "Z3_OP_SEQ_IN_RE";
-    Z3_decl_kind[Z3_decl_kind["Z3_OP_STR_TO_INT"] = 1569] = "Z3_OP_STR_TO_INT";
-    Z3_decl_kind[Z3_decl_kind["Z3_OP_INT_TO_STR"] = 1570] = "Z3_OP_INT_TO_STR";
-    Z3_decl_kind[Z3_decl_kind["Z3_OP_UBV_TO_STR"] = 1571] = "Z3_OP_UBV_TO_STR";
-    Z3_decl_kind[Z3_decl_kind["Z3_OP_SBV_TO_STR"] = 1572] = "Z3_OP_SBV_TO_STR";
-    Z3_decl_kind[Z3_decl_kind["Z3_OP_STR_TO_CODE"] = 1573] = "Z3_OP_STR_TO_CODE";
-    Z3_decl_kind[Z3_decl_kind["Z3_OP_STR_FROM_CODE"] = 1574] = "Z3_OP_STR_FROM_CODE";
-    Z3_decl_kind[Z3_decl_kind["Z3_OP_STRING_LT"] = 1575] = "Z3_OP_STRING_LT";
-    Z3_decl_kind[Z3_decl_kind["Z3_OP_STRING_LE"] = 1576] = "Z3_OP_STRING_LE";
-    Z3_decl_kind[Z3_decl_kind["Z3_OP_RE_PLUS"] = 1577] = "Z3_OP_RE_PLUS";
-    Z3_decl_kind[Z3_decl_kind["Z3_OP_RE_STAR"] = 1578] = "Z3_OP_RE_STAR";
-    Z3_decl_kind[Z3_decl_kind["Z3_OP_RE_OPTION"] = 1579] = "Z3_OP_RE_OPTION";
-    Z3_decl_kind[Z3_decl_kind["Z3_OP_RE_CONCAT"] = 1580] = "Z3_OP_RE_CONCAT";
-    Z3_decl_kind[Z3_decl_kind["Z3_OP_RE_UNION"] = 1581] = "Z3_OP_RE_UNION";
-    Z3_decl_kind[Z3_decl_kind["Z3_OP_RE_RANGE"] = 1582] = "Z3_OP_RE_RANGE";
-    Z3_decl_kind[Z3_decl_kind["Z3_OP_RE_DIFF"] = 1583] = "Z3_OP_RE_DIFF";
-    Z3_decl_kind[Z3_decl_kind["Z3_OP_RE_INTERSECT"] = 1584] = "Z3_OP_RE_INTERSECT";
-    Z3_decl_kind[Z3_decl_kind["Z3_OP_RE_LOOP"] = 1585] = "Z3_OP_RE_LOOP";
-    Z3_decl_kind[Z3_decl_kind["Z3_OP_RE_POWER"] = 1586] = "Z3_OP_RE_POWER";
-    Z3_decl_kind[Z3_decl_kind["Z3_OP_RE_COMPLEMENT"] = 1587] = "Z3_OP_RE_COMPLEMENT";
-    Z3_decl_kind[Z3_decl_kind["Z3_OP_RE_EMPTY_SET"] = 1588] = "Z3_OP_RE_EMPTY_SET";
-    Z3_decl_kind[Z3_decl_kind["Z3_OP_RE_FULL_SET"] = 1589] = "Z3_OP_RE_FULL_SET";
-    Z3_decl_kind[Z3_decl_kind["Z3_OP_RE_FULL_CHAR_SET"] = 1590] = "Z3_OP_RE_FULL_CHAR_SET";
-    Z3_decl_kind[Z3_decl_kind["Z3_OP_RE_OF_PRED"] = 1591] = "Z3_OP_RE_OF_PRED";
-    Z3_decl_kind[Z3_decl_kind["Z3_OP_RE_REVERSE"] = 1592] = "Z3_OP_RE_REVERSE";
-    Z3_decl_kind[Z3_decl_kind["Z3_OP_RE_DERIVATIVE"] = 1593] = "Z3_OP_RE_DERIVATIVE";
-    Z3_decl_kind[Z3_decl_kind["Z3_OP_CHAR_CONST"] = 1594] = "Z3_OP_CHAR_CONST";
-    Z3_decl_kind[Z3_decl_kind["Z3_OP_CHAR_LE"] = 1595] = "Z3_OP_CHAR_LE";
-    Z3_decl_kind[Z3_decl_kind["Z3_OP_CHAR_TO_INT"] = 1596] = "Z3_OP_CHAR_TO_INT";
-    Z3_decl_kind[Z3_decl_kind["Z3_OP_CHAR_TO_BV"] = 1597] = "Z3_OP_CHAR_TO_BV";
-    Z3_decl_kind[Z3_decl_kind["Z3_OP_CHAR_FROM_BV"] = 1598] = "Z3_OP_CHAR_FROM_BV";
-    Z3_decl_kind[Z3_decl_kind["Z3_OP_CHAR_IS_DIGIT"] = 1599] = "Z3_OP_CHAR_IS_DIGIT";
+    Z3_decl_kind[Z3_decl_kind["Z3_OP_SEQ_MAP"] = 1569] = "Z3_OP_SEQ_MAP";
+    Z3_decl_kind[Z3_decl_kind["Z3_OP_SEQ_MAPI"] = 1570] = "Z3_OP_SEQ_MAPI";
+    Z3_decl_kind[Z3_decl_kind["Z3_OP_SEQ_FOLDL"] = 1571] = "Z3_OP_SEQ_FOLDL";
+    Z3_decl_kind[Z3_decl_kind["Z3_OP_SEQ_FOLDLI"] = 1572] = "Z3_OP_SEQ_FOLDLI";
+    Z3_decl_kind[Z3_decl_kind["Z3_OP_STR_TO_INT"] = 1573] = "Z3_OP_STR_TO_INT";
+    Z3_decl_kind[Z3_decl_kind["Z3_OP_INT_TO_STR"] = 1574] = "Z3_OP_INT_TO_STR";
+    Z3_decl_kind[Z3_decl_kind["Z3_OP_UBV_TO_STR"] = 1575] = "Z3_OP_UBV_TO_STR";
+    Z3_decl_kind[Z3_decl_kind["Z3_OP_SBV_TO_STR"] = 1576] = "Z3_OP_SBV_TO_STR";
+    Z3_decl_kind[Z3_decl_kind["Z3_OP_STR_TO_CODE"] = 1577] = "Z3_OP_STR_TO_CODE";
+    Z3_decl_kind[Z3_decl_kind["Z3_OP_STR_FROM_CODE"] = 1578] = "Z3_OP_STR_FROM_CODE";
+    Z3_decl_kind[Z3_decl_kind["Z3_OP_STRING_LT"] = 1579] = "Z3_OP_STRING_LT";
+    Z3_decl_kind[Z3_decl_kind["Z3_OP_STRING_LE"] = 1580] = "Z3_OP_STRING_LE";
+    Z3_decl_kind[Z3_decl_kind["Z3_OP_RE_PLUS"] = 1581] = "Z3_OP_RE_PLUS";
+    Z3_decl_kind[Z3_decl_kind["Z3_OP_RE_STAR"] = 1582] = "Z3_OP_RE_STAR";
+    Z3_decl_kind[Z3_decl_kind["Z3_OP_RE_OPTION"] = 1583] = "Z3_OP_RE_OPTION";
+    Z3_decl_kind[Z3_decl_kind["Z3_OP_RE_CONCAT"] = 1584] = "Z3_OP_RE_CONCAT";
+    Z3_decl_kind[Z3_decl_kind["Z3_OP_RE_UNION"] = 1585] = "Z3_OP_RE_UNION";
+    Z3_decl_kind[Z3_decl_kind["Z3_OP_RE_RANGE"] = 1586] = "Z3_OP_RE_RANGE";
+    Z3_decl_kind[Z3_decl_kind["Z3_OP_RE_DIFF"] = 1587] = "Z3_OP_RE_DIFF";
+    Z3_decl_kind[Z3_decl_kind["Z3_OP_RE_INTERSECT"] = 1588] = "Z3_OP_RE_INTERSECT";
+    Z3_decl_kind[Z3_decl_kind["Z3_OP_RE_LOOP"] = 1589] = "Z3_OP_RE_LOOP";
+    Z3_decl_kind[Z3_decl_kind["Z3_OP_RE_POWER"] = 1590] = "Z3_OP_RE_POWER";
+    Z3_decl_kind[Z3_decl_kind["Z3_OP_RE_COMPLEMENT"] = 1591] = "Z3_OP_RE_COMPLEMENT";
+    Z3_decl_kind[Z3_decl_kind["Z3_OP_RE_EMPTY_SET"] = 1592] = "Z3_OP_RE_EMPTY_SET";
+    Z3_decl_kind[Z3_decl_kind["Z3_OP_RE_FULL_SET"] = 1593] = "Z3_OP_RE_FULL_SET";
+    Z3_decl_kind[Z3_decl_kind["Z3_OP_RE_FULL_CHAR_SET"] = 1594] = "Z3_OP_RE_FULL_CHAR_SET";
+    Z3_decl_kind[Z3_decl_kind["Z3_OP_RE_OF_PRED"] = 1595] = "Z3_OP_RE_OF_PRED";
+    Z3_decl_kind[Z3_decl_kind["Z3_OP_RE_REVERSE"] = 1596] = "Z3_OP_RE_REVERSE";
+    Z3_decl_kind[Z3_decl_kind["Z3_OP_RE_DERIVATIVE"] = 1597] = "Z3_OP_RE_DERIVATIVE";
+    Z3_decl_kind[Z3_decl_kind["Z3_OP_CHAR_CONST"] = 1598] = "Z3_OP_CHAR_CONST";
+    Z3_decl_kind[Z3_decl_kind["Z3_OP_CHAR_LE"] = 1599] = "Z3_OP_CHAR_LE";
+    Z3_decl_kind[Z3_decl_kind["Z3_OP_CHAR_TO_INT"] = 1600] = "Z3_OP_CHAR_TO_INT";
+    Z3_decl_kind[Z3_decl_kind["Z3_OP_CHAR_TO_BV"] = 1601] = "Z3_OP_CHAR_TO_BV";
+    Z3_decl_kind[Z3_decl_kind["Z3_OP_CHAR_FROM_BV"] = 1602] = "Z3_OP_CHAR_FROM_BV";
+    Z3_decl_kind[Z3_decl_kind["Z3_OP_CHAR_IS_DIGIT"] = 1603] = "Z3_OP_CHAR_IS_DIGIT";
     Z3_decl_kind[Z3_decl_kind["Z3_OP_LABEL"] = 1792] = "Z3_OP_LABEL";
     Z3_decl_kind[Z3_decl_kind["Z3_OP_LABEL_LIT"] = 1793] = "Z3_OP_LABEL_LIT";
     Z3_decl_kind[Z3_decl_kind["Z3_OP_DT_CONSTRUCTOR"] = 2048] = "Z3_OP_DT_CONSTRUCTOR";
@@ -3793,6 +3798,7 @@ async function init(initModule) {
             mk_mod: Mod._Z3_mk_mod,
             mk_rem: Mod._Z3_mk_rem,
             mk_power: Mod._Z3_mk_power,
+            mk_abs: Mod._Z3_mk_abs,
             mk_lt: Mod._Z3_mk_lt,
             mk_le: Mod._Z3_mk_le,
             mk_gt: Mod._Z3_mk_gt,
@@ -3958,6 +3964,10 @@ async function init(initModule) {
             mk_seq_length: Mod._Z3_mk_seq_length,
             mk_seq_index: Mod._Z3_mk_seq_index,
             mk_seq_last_index: Mod._Z3_mk_seq_last_index,
+            mk_seq_map: Mod._Z3_mk_seq_map,
+            mk_seq_mapi: Mod._Z3_mk_seq_mapi,
+            mk_seq_foldl: Mod._Z3_mk_seq_foldl,
+            mk_seq_foldli: Mod._Z3_mk_seq_foldli,
             mk_str_to_int: Mod._Z3_mk_str_to_int,
             mk_int_to_str: Mod._Z3_mk_int_to_str,
             mk_string_to_code: Mod._Z3_mk_string_to_code,
@@ -4897,8 +4907,8 @@ async function init(initModule) {
             solver_from_file: function (c, s, file_name) {
                 return Mod.ccall('Z3_solver_from_file', 'void', ['number', 'number', 'string'], [c, s, file_name]);
             },
-            solver_from_string: function (c, s, file_name) {
-                return Mod.ccall('Z3_solver_from_string', 'void', ['number', 'number', 'string'], [c, s, file_name]);
+            solver_from_string: function (c, s, str) {
+                return Mod.ccall('Z3_solver_from_string', 'void', ['number', 'number', 'string'], [c, s, str]);
             },
             solver_get_assertions: Mod._Z3_solver_get_assertions,
             solver_get_units: Mod._Z3_solver_get_units,
@@ -4953,6 +4963,7 @@ async function init(initModule) {
                     conseq,
                 ]);
             },
+            solver_set_initial_value: Mod._Z3_solver_set_initial_value,
             solver_check: function (c, s) {
                 return Mod.async_call(Mod._async_Z3_solver_check, c, s);
             },
@@ -5321,6 +5332,7 @@ async function init(initModule) {
             },
             optimize_push: Mod._Z3_optimize_push,
             optimize_pop: Mod._Z3_optimize_pop,
+            optimize_set_initial_value: Mod._Z3_optimize_set_initial_value,
             optimize_check: async function (c, o, assumptions) {
                 return await Mod.async_call(() => Mod.ccall('async_Z3_optimize_check', 'number', ['number', 'number', 'number', 'array'], [
                     c,
