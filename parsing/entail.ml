@@ -99,64 +99,6 @@ let apply_one_lemma : lemma list -> spec -> spec * lemma option =
         (match sp1 with None -> (sp, app) | Some sp1 -> (sp1, Some l)))
     (sp, None) lems
 
-module Heap = struct
-  let normalize : state -> state =
-   fun (p, h) ->
-    let h = simplify_heap h in
-    (simplify_pure p, h)
-
-  (** given a nonempty heap formula, splits it into a points-to expression and another heap formula *)
-  let rec split_one : kappa -> ((string * term) * kappa) option =
-   fun h ->
-    match h with
-    | EmptyHeap -> None
-    | PointsTo (x, v) -> Some ((x, v), EmptyHeap)
-    | SepConj (a, b) -> begin
-      match split_one a with
-      | None -> split_one b
-      | Some (c, r) -> Some (c, SepConj (r, b))
-    end
-
-  (** like split_one, but searches for a particular points-to *)
-  let rec split_find : string -> kappa -> (term * kappa) option =
-   fun n h ->
-    match h with
-    | EmptyHeap -> None
-    | PointsTo (x, v) when x = n -> Some (v, EmptyHeap)
-    | PointsTo _ -> None
-    | SepConj (a, b) -> begin
-      match split_find n a with
-      | None ->
-        split_find n b |> Option.map (fun (t, b1) -> (t, SepConj (a, b1)))
-      | Some (t, a1) -> Some (t, SepConj (a1, b))
-    end
-
-  let pairwise_var_inequality v1 v2 =
-    List.concat_map
-      (fun x ->
-        List.filter_map
-          (fun y ->
-            if String.equal x y then None
-            else Some (Not (Atomic (EQ, Var x, Var y))))
-          v2)
-      v1
-    |> conj
-
-  let xpure : kappa -> pi =
-   fun h ->
-    let rec run h =
-      match h with
-      | EmptyHeap -> (True, [])
-      | PointsTo (x, _t) -> (Atomic (GT, Var x, Num 0), [x])
-      | SepConj (a, b) ->
-        let a, v1 = run a in
-        let b, v2 = run b in
-        (And (a, And (b, pairwise_var_inequality v1 v2)), [])
-    in
-    let p, _vs = run h in
-    p
-end
-
 let check_staged_entail : spec -> spec -> spec option =
  fun n1 n2 ->
   let norm = normalize_spec (n1 @ n2) in
@@ -200,82 +142,6 @@ let instantiate_existentials :
       instantiate_state bindings post )
   in
   (List.map (fun a -> EffHOStage a) efs1, ns1)
-
-let freshen_existentials vs state =
-  let vars_fresh = List.map (fun v -> (v, Var (verifier_getAfreeVar v))) vs in
-  (vars_fresh, instantiate_state vars_fresh state)
-
-(** Given two heap formulae, matches points-to predicates.
-  may backtrack if the locations are quantified.
-  returns (by invoking the continuation) when matching is complete (when right is empty).
-
-  id: human-readable name
-  vs: quantified variables
-  k: continuation
-*)
-let rec check_qf :
-    string ->
-    string list ->
-    state ->
-    state ->
-    (pi * pi * kappa -> 'a Search.t) ->
-    'a Search.t =
- fun id vs ante conseq k ->
-  let open Search in
-  (* TODO ptr equalities? *)
-  let a = Heap.normalize ante in
-  let c = Heap.normalize conseq in
-  debug ~at:1
-    ~title:(Format.asprintf "SL entailment (%s)" id)
-    "%s |- %s" (string_of_state ante) (string_of_state conseq);
-  (* TODO frame and spans *)
-  match (a, c) with
-  | (p1, h1), (p2, EmptyHeap) ->
-    debug ~at:4 ~title:(Format.asprintf "right empty") "";
-    let left = And (Heap.xpure h1, p1) in
-    (* TODO add more logging to surface what happens in these entailments *)
-    k (left, p2, h1)
-  | (p1, h1), (p2, h2) -> begin
-    (* we know h2 is non-empty *)
-    match Heap.split_one h2 with
-    | Some ((x, v), h2') when List.mem x vs ->
-      debug ~at:4 ~title:(Format.asprintf "existential location %s" x) "";
-      let left_heap = list_of_heap h1 in
-      (match left_heap with
-      | [] -> fail
-      | _ :: _ ->
-        (* x is bound and could potentially be instantiated with anything on the right side, so try everything *)
-        let r1 =
-          any
-            ~to_s:(fun (a, _) -> string_of_pair Fun.id string_of_term a)
-            ~name:"ent-match-any"
-            (left_heap |> List.map (fun a -> (a, (x, v))))
-            (fun ((x1, v1), _) ->
-              let _v2, h1' = Heap.split_find x1 h1 |> Option.get in
-              (* ptr equality *)
-              let _ptr_eq = Atomic (EQ, Var x1, Var x) in
-              let triv = Atomic (EQ, v, v1) in
-              (* matching ptr values are added as an eq to the right side, since we don't have a term := term substitution function *)
-              check_qf id vs (conj [p1], h1') (conj [p2; triv], h2') k)
-        in
-        r1)
-    | Some ((x, v), h2') -> begin
-      debug ~at:4 ~title:(Format.asprintf "free location %s" x) "";
-      (* x is free. match against h1 exactly *)
-      match Heap.split_find x h1 with
-      | Some (v1, h1') -> begin
-        check_qf id vs
-          (conj [p1], h1')
-          (conj [p2; And (p1, Atomic (EQ, v, v1))], h2')
-          k
-      end
-      | None ->
-        (* TODO *)
-        debug ~at:4 ~title:(Format.asprintf "failed") "";
-        fail
-    end
-    | None -> failwith (Format.asprintf "could not split LHS, bug?")
-  end
 
 let instantiate_pred : pred_def -> term list -> term -> pred_def =
  fun pred args ret ->
@@ -677,7 +543,7 @@ and stage_subsumes :
         (string_of_result (fun o -> string_of_bool (Option.is_some o)) r))
   in
   (* contravariance *)
-  let@ pre_l, pre_r, pre_resi_l = check_qf "pre" ctx.q_vars pre2 pre1 in
+  let@ pre_l, pre_r, pre_resi_l = Heap.check "pre" ctx.q_vars pre2 pre1 in
   let* pre_residue, tenv, ctx =
     let left = conj [assump; pre_l] in
     let right = pre_r in
@@ -719,7 +585,7 @@ and stage_subsumes :
   let conj_state (p1, h1) (p2, h2) = (And (p1, p2), SepConj (h1, h2)) in
   let pure_pre_residue = fst pre_residue in
   let@ post_l, post_r, _post_resi =
-    check_qf "post" ctx.q_vars (conj_state pre_residue post1) post2
+    Heap.check "post" ctx.q_vars (conj_state pre_residue post1) post2
   in
   let* post_residue, ctx =
     (* don't use fresh variable for the ret value so it carries forward in the residue *)

@@ -69,7 +69,7 @@
 
 (library
  (name hipprover)
- (modules ProversEx Rewriting entail forward_rules infer_types normalize)
+ (modules ProversEx Rewriting entail heap forward_rules infer_types normalize)
  (libraries debug search hipcore provers)
  (inline_tests)
  (preprocess (pps ppx_expect)))
