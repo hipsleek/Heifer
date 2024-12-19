@@ -4,7 +4,7 @@ on:
   pull_request:
   push:
     branches:
-      - StagedSL
+      - master
   schedule:
     # Prime the caches every Monday
     - cron: 0 1 * * MON
@@ -35,10 +35,10 @@ jobs:
           ocaml-compiler: ${{ matrix.ocaml-compiler }}
           opam-pin: false
           opam-depext: false
-      # - run: opam install . --deps-only
+      - run: opam install . --deps-only
       # z3 takes a long time to build and isn't needed for the web build
       # - run: opam install menhir ppx_expect z3 brr js_of_ocaml-compiler
-      - run: opam install dune menhir ppx_deriving ppx_expect brr js_of_ocaml-compiler unionFind visitors
+      # - run: opam install dune menhir ppx_deriving ppx_expect brr js_of_ocaml-compiler unionFind visitors
 
       - uses: actions/setup-node@v3
         with:
@@ -46,11 +46,13 @@ jobs:
       - run: npm install -g browserify
       - run: npm install z3-solver
 
-      - run: eval $(opam env); dune build @web --profile release
+      - run: |
+          eval $(opam env)
+          TEST_ALL=1 dune test && dune build @web --profile release
 
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v3
-        if: github.ref == 'refs/heads/StagedSL'
+        if: github.ref == 'refs/heads/master'
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: _build/default/deploy
