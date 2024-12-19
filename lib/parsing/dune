@@ -33,17 +33,17 @@
 (rule
  (targets camlinternalMenhirLib.ml)
  (mode    fallback)
- (action  (copy# ../boot/menhir/menhirLib.ml %{targets})))
+ (action  (copy# ../../boot/menhir/menhirLib.ml %{targets})))
 
 (rule
  (targets camlinternalMenhirLib.mli)
  (mode    fallback)
- (action  (copy# ../boot/menhir/menhirLib.mli %{targets})))
+ (action  (copy# ../../boot/menhir/menhirLib.mli %{targets})))
 
 (rule
  (targets parser.ml)
  (mode    fallback)
- (deps    (:dep ../boot/menhir/parser.ml))
+ (deps    (:dep ../../boot/menhir/parser.ml))
  (action
    (with-stdout-to %{targets}
      (bash "cat %{dep} | sed 's/MenhirLib/CamlinternalMenhirLib/g'"))))
@@ -51,7 +51,7 @@
 (rule
  (targets parser.mli)
  (mode    fallback)
- (deps    (:dep ../boot/menhir/parser.mli))
+ (deps    (:dep ../../boot/menhir/parser.mli))
  (action
    (with-stdout-to %{targets}
      (bash "cat %{dep} | sed 's/MenhirLib/CamlinternalMenhirLib/g'"))))
@@ -61,45 +61,9 @@
  (mode fallback))
 
 (library
- (name hipcore)
- (modules subst Pretty common hiptypes globals)
- (libraries debug unionFind str)
- (inline_tests)
- (preprocess (pps visitors.ppx ppx_expect ppx_deriving.std)))
-
-(library
- (name hipprover)
- (modules ProversEx Rewriting entail forward_rules infer_types normalize)
- (libraries debug search hipcore provers)
- (inline_tests)
- (preprocess (pps ppx_expect)))
-
-(library
  (name ocamlfrontend)
  (modules
  parser lexer Syntaxerr Pprintast Printast Asttypes Ast_helper Longident Parsetree Location Warnings Misc Terminfo Docstrings Build_path_prefix_map Clflags Profile Numbers Identifiable Arg_helper CamlinternalMenhirLib
  core_lang) ; the only module we own
  (libraries hipcore)
  (flags :standard -w -A))
-
-(library
- (name hiplib)
- (modules hiplib tests)
- (libraries hipprover ocamlfrontend)
- (inline_tests)
- (preprocess (pps ppx_expect)))
-
-(executable
- (name hip)
- (modules hip)
- (libraries unix hiplib provers_native))
-
-(executable
- (name hipjs)
- (modules hipjs)
- (libraries brr hiplib provers_js)
- (modes js))
-
-(install
- (section bin)
- (files (hip.exe as hip)))
