@@ -1,4 +1,4 @@
 #!/bin/sh
 
 set -x
-dune exec main/hip.exe "$@"
+dune exec main/hip.exe -- "$@"
