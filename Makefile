@@ -3,5 +3,11 @@ export OCAMLRUNPARAM=b
 all:
 	dune build @doc-private
 	dune build main/hip.exe
-	# dune test -w
-	# dune exec main/hip.exe src/sp_tests/0_heap_zero_once_twice.ml -w
+
+.PHONY: test
+test:
+	dune test
+
+.PHONY: test-all
+test-all:
+	TEST_ALL=1 dune test
