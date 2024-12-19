@@ -17,16 +17,22 @@ To see the structure of the project graphically:
 
 ```sh
 opam install dune-deps
-dune-deps -x benchmarks -x test/heifer.t | sed 's/\}/\{rank = same; "lib:provers_js"; "lib:provers_native";\} \}/' | tred | dot -Tpng > deps.png
+dune-deps -x benchmarks -x test/higher-order.t | sed 's/\}/\{rank = same; "lib:provers_js"; "lib:provers_native";\} \}/' | tred | dot -Tpng > deps.png
 ```
 
 ## Tests
 
-`dune test` to run [tests](../test/heifer.t/run.t).
+`dune test` will run only unit tests, which are written inline in .ml files using [ppx_expect](https://github.com/janestreet/ppx_expect).
 
-Setting `TEST=1` causes the frontend to print only whether a test has failed.
-A test is a function whose main entailment proof must succeed; if its name has the suffix `_false`, the entailment must fail.
-We record the results for various interesting files using [cram tests](https://dune.readthedocs.io/en/stable/tests.html#cram-tests).
+`TEST_ALL=1 dune test` will run slower integration tests. These use [cram](https://dune.readthedocs.io/en/stable/reference/cram.html) and may be found in `test/*.t/run.t`.
+Individual suites of integration tests can be run using `TEST_ALL=1 dune build @higher-order`.
+
+Some of the environment variables Heifer interprets may be useful for testing.
+
+`PROVER=WHY3` or `PROVER=Z3` forces the use of the given prover. By default, the prover is chosen dynamically based on the verification task. Some tests pertain only to certain provers.
+
+Setting `TEST=1` causes Heifer to print only whether a test has failed, which is useful for integration tests.
+A test in this context is a function whose main entailment proof must succeed; if its name has the suffix `_false`, the entailment must fail.
 
 ## Logging and tracing
 
