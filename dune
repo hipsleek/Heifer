@@ -13,7 +13,7 @@
 (rule
  (alias web)
  (target index.html)
- (deps (source_tree src/examples) (source_tree src/evaluation) web/index.html coi-serviceworker.min.js hipjs.bc.js bundle.js z3-built.js z3-built.wasm z3-built.worker.js ace_ocaml.js page.js)
+ (deps (source_tree test/examples) (source_tree test/evaluation) web/index.html coi-serviceworker.min.js hipjs.bc.js bundle.js z3-built.js z3-built.wasm z3-built.worker.js ace_ocaml.js page.js)
  (action (run web/examples.sh web/index.html index.html)))
 
 (rule

@@ -17,12 +17,12 @@ To see the structure of the project graphically:
 
 ```sh
 opam install dune-deps
-dune-deps -x benchmarks -x src/programs.t | sed 's/\}/\{rank = same; "lib:provers_js"; "lib:provers_native";\} \}/' | tred | dot -Tpng > deps.png
+dune-deps -x benchmarks -x test/heifer.t | sed 's/\}/\{rank = same; "lib:provers_js"; "lib:provers_native";\} \}/' | tred | dot -Tpng > deps.png
 ```
 
 ## Tests
 
-`dune test` to run [tests](../src/programs.t/run.t).
+`dune test` to run [tests](../test/heifer.t/run.t).
 
 Setting `TEST=1` causes the frontend to print only whether a test has failed.
 A test is a function whose main entailment proof must succeed; if its name has the suffix `_false`, the entailment must fail.

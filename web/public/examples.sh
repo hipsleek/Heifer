@@ -1,6 +1,6 @@
 #!/bin/bash
 
-files=(src/examples/*.ml src/evaluation/*.ml)
+files=(test/examples/*.ml test/evaluation/*.ml)
 
 for file in "${files[@]}"; do
   contents="$(sed 's/"/\&quot;/g' < "$file")"

@@ -10,7 +10,7 @@ You will need OCaml 5.
 opam install . --deps-only
 ```
 
-Use `dune exec main/hip.exe $EXAMPLE` to run examples. Effect-related programs are in [src/evaluation](src/evaluation), higher-order programs are in [src/examples](src/examples).
+Use `dune exec main/hip.exe $EXAMPLE` to run examples. Effect-related programs are in [test/evaluation](test/evaluation), higher-order programs are in [test/examples](test/examples).
 
 ## Docs
 
