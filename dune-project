@@ -1,13 +1,13 @@
-(lang dune 3.6)
+(lang dune 3.17)
 (using experimental_building_ocaml_compiler_with_dune 0.1)
 (using coq 0.2)
 (using directory-targets 0.1)
 
-(name hip)
+(name heifer)
 (generate_opam_files true)
 
 (source
- (github songyahui/AlgebraicEffect))
+ (github hipsleek/Heifer))
 
 (authors "Song Yahui, Darius Foo")
 
@@ -15,9 +15,9 @@
 (license MIT)
 
 (package
- (name hip)
- (synopsis "Verifier")
- (description "Verifier for imperative higher order programs")
+ (name heifer)
+ (synopsis "Program verifier")
+ (description "A verifier for effectful, higher-order OCaml programs")
  (depends
   (ocaml (>= 5))
   (z3 (>= 4.12.2))
