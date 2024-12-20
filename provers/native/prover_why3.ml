@@ -128,9 +128,9 @@ let attempt_proof task1 =
           let result1 =
             Call_provers.wait_on_call
               (Driver.prove_task
-                 ~limit:
+                 ~limits:
                    {
-                     Call_provers.empty_limit with
+                     Call_provers.empty_limits with
                      Call_provers.limit_time = 0.5;
                    }
                  ~config:why3_config_main ~command:pconf.Whyconf.command pdriver

@@ -26,7 +26,7 @@
   (ppx_deriving (>= 5.2.1))
   (ppx_expect (>= v0.15.1))
   (brr (>= 0.0.4))
-  (why3-ide (>= 1.7.0))
+  (why3-ide (>= 1.8.0))
   (js_of_ocaml (>= 5.4.0))
   (unionFind (>= 20220122))
   (visitors (>= 20210608))))
