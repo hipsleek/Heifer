@@ -128,9 +128,9 @@ let attempt_proof task1 =
           let result1 =
             Call_provers.wait_on_call
               (Driver.prove_task
-                 ~limits:
+                 ~limit:
                    {
-                     Call_provers.empty_limits with
+                     Call_provers.empty_limit with
                      Call_provers.limit_time = 0.5;
                    }
                  ~config:why3_config_main ~command:pconf.Whyconf.command pdriver
@@ -469,7 +469,7 @@ module LowLevel = struct
     | CRead _ -> failwith "unimplemented CRead"
     | CAssert (_, _) -> failwith "unimplemented CAssert"
     | CPerform (_, _) -> failwith "unimplemented CPerform"
-    | CMatch (_, scr, None, [], cases) ->
+    | CMatch (_, _, scr, None, [], cases) ->
       (* x :: xs -> e is represented as ("::", [x, xs], e) *)
       (* and constr_cases = (string * string list * core_lang) list *)
       Term.t_case (expr_to_why3 env scr)
@@ -499,7 +499,7 @@ module LowLevel = struct
              in
              Term.t_close_branch pat (expr_to_why3 env body))
            cases)
-    | CMatch (_, _, _, _, _) -> failwith "unimplemented effect CMatch"
+    | CMatch (_, _, _, _, _, _) -> failwith "unimplemented effect CMatch"
     | CResume _ -> failwith "unimplemented CResume"
     | CLambda (_, _, _) -> failwith "unimplemented CLambda"
 
@@ -792,7 +792,7 @@ and core_lang_to_whyml tenv e =
       | _ -> qualid [s]
     in
     tapp fn (List.map (term_to_whyml tenv) args)
-  | CMatch (None, scr, None, [], cases) ->
+  | CMatch (_, None, scr, None, [], cases) ->
     term
       (Tcase
          ( core_lang_to_whyml tenv scr,
@@ -809,7 +809,7 @@ and core_lang_to_whyml tenv e =
                       (real_constr, List.map (fun a -> pat_var (ident a)) args)),
                  core_lang_to_whyml tenv b ))
              cases ))
-  | CMatch (_, _, _, _, _) -> failwith "unsupported kind of match"
+  | CMatch (_, _, _, _, _, _) -> failwith "unsupported kind of match"
   | CAssert (_, _) | CLambda (_, _, _) -> failwith "unimplemented"
   | CWrite (_, _) | CRef _ | CRead _ -> failwith "heap operations not allowed"
   | CResume _ | CPerform (_, _) -> failwith "effects not allowed"

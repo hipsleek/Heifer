@@ -611,6 +611,7 @@ let mk_directive ~loc name arg =
 %token DOWNTO
 %token EFFECT
 %token EXISTS
+%token SHALLOW
 %token ELSE
 %token END
 %token EOF
@@ -628,7 +629,7 @@ let mk_directive ~loc name arg =
 // %token IMPLICATION
 %token LONG_IMPLICATION
 %token SUBSUMES
-%token REQUIRES  EFFTRY EFFCATCH
+%token REQUIRES  EFFCATCH
 %token ENSURES
 %token EMP
 %token GREATER
@@ -2248,10 +2249,11 @@ expr:
         Pexp_fun(l, o, p, $4), $2 }
   | FUN ext_attributes LPAREN TYPE lident_list RPAREN fun_def
       { (mk_newtypes ~loc:$sloc $5 $7).pexp_desc, $2 }
-  | MATCH ext_attributes seq_expr WITH match_cases
-      { Pexp_match(None, $3, $5), $2 }
-  | MATCH ext_attributes seq_expr WITH c=fn_contract match_cases
-      { Pexp_match(c, $3, $6), $2 }
+  | MATCH ext_attributes block=seq_expr WITH c=type_try_catch_lemma mc=match_cases
+      { let typ, lemma = c in 
+        Pexp_match(typ, lemma, block, mc), $2 }
+
+
 
       
   | TRY ext_attributes seq_expr WITH match_cases
@@ -2736,6 +2738,49 @@ only_disj_effect_spec:
 
 disj_effect_spec:
 | d=separated_nonempty_list(DISJUNCTION, effect_spec) { d }
+
+option_conti_sharp :
+| HASH conti= disj_effect_spec {Some conti }
+| {None }
+
+
+
+handler_type:
+| SHALLOW {Shallow}
+| {Deep}
+
+option_formal_arg :
+| str= LIDENT {Some str }
+| {None }
+
+
+handler_effect_cases:
+| {[]}
+| eff = UIDENT LPAREN arg = option_formal_arg RPAREN COLON h_effect_spec= disj_effect_spec BAR  
+  h_ops = handler_effect_cases 
+  {(eff, arg, h_effect_spec)::h_ops}
+
+
+type_try_catch_lemma:
+| LSPECCOMMENT ht=handler_type RSPECCOMMENT
+{ht, None}
+| LSPECCOMMENT ht=handler_type TRY head_spec= effect_spec conti=option_conti_sharp EFFCATCH 
+  (*
+  LBRACE h_normal_param = LIDENT  COLON h_normal_spec= disj_effect_spec BAR 
+  h_ops = handler_effect_cases 
+  RBRACE
+  *)
+  EQUAL 
+  summary = disj_effect_spec
+   RSPECCOMMENT
+  {
+    (*let h_normal = (h_normal_param, h_normal_spec) in 
+    *)
+    (ht, Some (head_spec, conti, (*(h_normal, h_ops), *) summary))}
+| {(Deep, None)}
+
+
+
 
 fn_contract:
   | LSPECCOMMENT spec=disj_effect_spec RSPECCOMMENT

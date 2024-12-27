@@ -106,20 +106,20 @@ let string_of_constr_call n args =
 
 let rec string_of_term t : string =
   match t with
-  | Num i -> string_of_int i
+  | Num i -> if i >=0 then string_of_int i else  "(" ^string_of_int i^ ")"
   | UNIT -> "()"
   | Nil -> "[]"
   | TCons (a, b) -> Format.asprintf "%s::%s" (string_of_term a) (string_of_term b)
   | TTrue -> "true"
   | TFalse -> "false"
   | TNot a -> Format.asprintf "not(%s)" (string_of_term a)
-  | TAnd (a, b) -> Format.asprintf "%s && %s" (string_of_term a) (string_of_term b)
+  | TAnd (a, b) -> Format.asprintf "(%s&&%s)" (string_of_term a) (string_of_term b)
   | TOr (a, b) -> Format.asprintf "%s || %s" (string_of_term a) (string_of_term b)
   | Var str -> str
   | Rel (bop, t1, t2) ->
     "(" ^ string_of_term t1 ^ (match bop with | EQ -> "==" | _ -> string_of_bin_op bop) ^ string_of_term t2 ^ ")"
-  | Plus (t1, t2) -> string_of_term t1 ^ "+" ^ string_of_term t2
-  | Minus (t1, t2) -> string_of_term t1 ^ "-" ^ string_of_term t2
+  | Plus (t1, t2) -> "(" ^string_of_term t1 ^ "+" ^ string_of_term t2^ ")"
+  | Minus (t1, t2) -> "(" ^string_of_term t1 ^ "-" ^ string_of_term t2 ^ ")"
   | TPower (t1, t2) -> "(" ^string_of_term t1 ^ "^(" ^ string_of_term t2 ^ "))"
   | TTimes (t1, t2) -> "(" ^string_of_term t1 ^ "*" ^ string_of_term t2 ^ ")"
   | TDiv (t1, t2) -> "(" ^string_of_term t1 ^ "/" ^ string_of_term t2 ^ ")"
@@ -232,6 +232,48 @@ and string_of_pi pi : string =
   | Predicate (str, t) -> str ^ "(" ^ (string_of_args string_of_term t) ^ ")"
   | Subsumption (a, b) -> Format.asprintf "%s <: %s" (string_of_term a) (string_of_term b)
 
+
+and  string_of_effect_cases_specs (h_ops:(string * string option * disj_spec) list): string = 
+  match h_ops with 
+  | [] -> ""
+  | [(effname, param, spec)] -> 
+    (effname  ^  (match param with | None -> " " | Some p -> "("^ p ^ ") ")^ ": " ^ 
+    string_of_disj_spec spec)
+  | (effname, param, spec) ::xs -> 
+    (effname  ^  (match param with | None -> " " | Some p -> "("^ p ^ ") ")^ ": " ^ 
+    string_of_disj_spec spec ^ "\n"
+    ) ^ string_of_effect_cases_specs xs 
+
+
+and string_of_normal_case_specs ((param, h_norm):(string * disj_spec)): string = 
+  ((match param with | p -> p ^ "")^ ": " ^ string_of_disj_spec (h_norm)); 
+
+and string_of_handlingcases ((h_normal, h_ops):handlingcases) : string = 
+    "{\n" ^ 
+    string_of_normal_case_specs h_normal ^ "\n" ^ 
+    string_of_effect_cases_specs h_ops 
+    ^ "\n}\n"
+
+
+
+and string_of_try_catch_lemma (x:tryCatchLemma) : string = 
+  let (tcl_head, tcl_handledCont, (*(h_normal, h_ops),*) tcl_summary) = x in 
+  "TRY " 
+  ^ 
+  string_of_spec tcl_head 
+
+  ^ (match tcl_handledCont with 
+  | None -> "" | Some conti -> " # " ^ string_of_disj_spec conti)
+
+  
+  ^ " CATCH \n" (*^ string_of_handlingcases (h_normal, h_ops ) *)
+  ^ "=> " ^ string_of_disj_spec tcl_summary
+
+and string_of_handler_type (h:handler_type) : string = 
+    match h with
+    | Deep -> "d"
+    | Shallow -> "s"
+
 and string_of_core_lang (e:core_lang) :string =
   match e with
   | CValue v -> string_of_term v
@@ -245,8 +287,8 @@ and string_of_core_lang (e:core_lang) :string =
   | CAssert (p, h) -> Format.sprintf "assert (%s && %s)" (string_of_pi p) (string_of_kappa h)
   | CPerform (eff, Some arg) -> Format.sprintf "perform %s %s" eff (string_of_term arg)
   | CPerform (eff, None) -> Format.sprintf "perform %s" eff
-  | CMatch (None, e, vs, hs, cs) -> Format.sprintf "match %s with\n%s%s%s" (string_of_core_lang e) (match vs with | Some (v, norm) -> Format.asprintf "| %s -> %s\n" v (string_of_core_lang norm) | _ -> "") (match hs with | [] -> "" | _ :: _ -> string_of_core_handler_ops hs ^ "\n") (match cs with [] -> "" | _ :: _ -> string_of_constr_cases cs)
-  | CMatch (Some spec, e, vs, hs, cs) -> Format.sprintf "match %s%s with\n%s%s\n%s" (string_of_disj_spec spec) (string_of_core_lang e) (match vs with | Some (v, norm) -> Format.asprintf "| %s -> %s\n" v (string_of_core_lang norm) | _ -> "") (string_of_core_handler_ops hs) (string_of_constr_cases cs)
+  | CMatch (typ, None, e, vs, hs, cs) -> Format.sprintf "match[%s] %s with\n%s%s%s" (string_of_handler_type typ) (string_of_core_lang e) (match vs with | Some (v, norm) -> Format.asprintf "| %s -> %s\n" v (string_of_core_lang norm) | _ -> "") (match hs with | [] -> "" | _ :: _ -> string_of_core_handler_ops hs ^ "\n") (match cs with [] -> "" | _ :: _ -> string_of_constr_cases cs)
+  | CMatch (typ, Some spec, e, vs, hs, cs) -> Format.sprintf "match[%s] %s%s with\n%s%s\n%s" (string_of_handler_type typ) (string_of_try_catch_lemma spec) (string_of_core_lang e) (match vs with | Some (v, norm) -> Format.asprintf "| %s -> %s\n" v (string_of_core_lang norm) | _ -> "") (string_of_core_handler_ops hs) (string_of_constr_cases cs)
   | CResume tList -> Format.sprintf "continue %s" (List.map string_of_term tList |> String.concat " ")
   | CLambda (xs, spec, e) -> Format.sprintf "fun %s%s -> %s" (String.concat " " xs) (match spec with None -> "" | Some ds -> Format.asprintf " (*@@ %s @@*)" (string_of_disj_spec ds)) (string_of_core_lang e)
 
@@ -600,7 +642,8 @@ let bindFormalNActual (formal: string list) (actual: core_value list) : ((string
   | Invalid_argument _ -> 
     print_endline ("formal: " ^ (List.map (fun a-> a) formal |> String.concat ", "));
     print_endline ("actual: " ^ (List.map (fun a-> string_of_term a) actual |> String.concat ", "));
-    failwith ("bindFormalNActual length not equle")
+    print_endline ("bindFormalNActual length not equle");
+    []
   
 
   (*
@@ -623,4 +666,17 @@ let function_stage_to_disj_spec constr args ret =
   (* [[HigherOrder (True, EmptyHeap, l.l_left, res_v)]] *)
   let v = verifier_getAfreeVar "v" in
   [[Exists [v]; HigherOrder (True, EmptyHeap, (constr, args), Var v); NormalReturn (Atomic (EQ, ret, Var v), EmptyHeap)]]
+
+
+let startingFromALowerCase (label:string) : bool = 
+  let c = label.[0] in 
+  if Char.code c >= 97 then true else false 
+
+
+let retriveFormalArg arg :string = 
+  match arg  with 
+  | Var ret -> ret
+  | _ -> 
+        print_endline (string_of_term arg);
+        failwith "effect return is not var 1"
 

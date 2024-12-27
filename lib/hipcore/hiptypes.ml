@@ -35,6 +35,10 @@ and core_handler_ops = (string * string option * disj_spec option * core_lang) l
 (* x :: xs -> e is represented as ("::", [x, xs], e) *)
 and constr_cases = (string * string list * core_lang) list
 
+and tryCatchLemma = (spec * disj_spec option * (*(handlingcases) **) disj_spec) (*tcl_head, tcl_handledCont, tcl_summary*)
+
+and handler_type = Shallow | Deep 
+
 and core_lang = 
       | CValue of core_value 
       | CLet of string * core_lang * core_lang
@@ -46,7 +50,7 @@ and core_lang =
       | CAssert of pi * kappa 
       | CPerform of string * core_value option
       (* match e with | v -> e1 | eff case... | constr case... *)
-      | CMatch of disj_spec option * core_lang * (string * core_lang) option * core_handler_ops * constr_cases
+      | CMatch of handler_type * tryCatchLemma option * core_lang * (string * core_lang) option * core_handler_ops * constr_cases
       | CResume of core_value list
       | CLambda of string list * disj_spec option * core_lang
 
@@ -124,6 +128,12 @@ let is_concrete_type = function TVar _ -> false | _ -> true
 let concrete_types = [Unit; List_int; Int; Bool; Lamb]
 
 let res_v = Var "res"
+
+let z3_consumption = ref 0.0
+let summary_forward = ref 0.0
+let summary_entail = ref 0.0
+let summary_storing_spec = ref 0.0
+let summary_askZ3 = ref 0.0
 
 
 

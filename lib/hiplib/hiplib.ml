@@ -430,6 +430,7 @@ let string_of_token =
 | DOWNTO -> "DOWNTO"
 | EFFECT -> "EFFECT"
 | EXISTS -> "EXISTS"
+| SHALLOW -> "SHALLOW"
 | ELSE -> "ELSE"
 | END -> "END"
 | EOF -> "EOF"
@@ -542,7 +543,6 @@ let string_of_token =
 (* | IMPLICATION -> "IMPLICATION" *)
 | LONG_IMPLICATION -> "LONG_IMPLICATION"
 | SUBSUMES -> "SUBSUMES"
-| EFFTRY -> "EFFTRY"
 | EFFCATCH -> "EFFCATCH"
 | PROP_TRUE -> "PROP_TRUE"
 | PROP_FALSE -> "PROP_FALSE"
@@ -796,6 +796,9 @@ and check_obligation name params lemmas predicates (l, r) =
   check_remaining_obligations name lemmas predicates res.subsumption_obl
   end |> Search.succeeded
 
+
+
+
 let check_obligation_ name params lemmas predicates sub =
   check_obligation name params lemmas predicates sub |> ignore
 
@@ -847,7 +850,7 @@ let infer_and_check_method prog meth given_spec =
     fvenv.fv_lambda_obl |> List.iter (check_lambda_obligation_ meth.m_name meth.m_params prog.cp_lemmas predicates);
     fvenv.fv_match_obl |> List.iter (check_obligation_ meth.m_name meth.m_params prog.cp_lemmas predicates);
 
-    (* check the main spec *)
+  (* check the main spec *)
 
     (*print_endline ("\n----------------\ninferred_spec: \n" ^ string_of_spec_list inferred_spec);*)
 
