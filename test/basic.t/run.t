@@ -1,5 +1,5 @@
 
-  $ source ../utility.sh
+  $ . ../utility.sh
 
   $ check test_new_entail.ml
   ALL OK!
