@@ -25,11 +25,60 @@ let rec simplify_term t : term  =
   | TNot a -> TNot (simplify_term a)
   | Rel (op, a, b) -> Rel (op, simplify_term a, simplify_term b)
   | Plus (Minus(t, Num n1), Num n2) -> 
-    if n1 == n2 then t else if n1>= n2 then Minus(t, Num (n1-n2)) else Plus(t, Num (n1-n2))
-  | Plus (a, b)  -> Plus (simplify_term a, simplify_term b)
-  | TTimes (a, b)  -> TTimes (simplify_term a, simplify_term b)
-  | TDiv (a, b)  -> TDiv (simplify_term a, simplify_term b)
-  | Minus (a, b) -> Minus (simplify_term a, simplify_term b)
+    if n1 == n2 then t 
+    else if n1>= n2 then Minus(t, Num (n1-n2)) 
+    else Plus(t, Num (n2-n1))
+
+
+  | Minus (Minus(t, Num n1), Num n2) -> Minus(t, Num (n1+n2))
+
+  | Plus (Plus(a, Num n1), Minus(b, Num n2))  -> Plus(Plus(a, b), Num (n1-n2))
+
+  | Plus (Plus(a, Num n1), Num n2)  -> Plus(a, Num (n1+n2))
+
+  | Plus (a, Num n)  -> if n < 0 then Minus (a, Num (-1 * n)) else t 
+
+
+  | Plus (Plus(Plus(a, TPower(Num 2, Var v1)), Num(n1)), TPower(Num 2, Var v2))  -> 
+    if String.compare v1 v2 == 0 then Plus (Plus(a, TPower(Num 2, Plus(Var v1, Num 1))), Num(n1) )
+    else t 
+
+  | Plus (a, b)  -> 
+    let a' = simplify_term a in 
+    let b' = simplify_term b in 
+    (*print_endline (string_of_term t);
+    print_endline ("===>" ^ string_of_term a' ^ "+" ^ string_of_term b');
+    *)
+    (match a', b' with 
+    | Num n1, Num n2 -> Num(n1 + n2)
+    | _, _ -> Plus (a', b')
+    )
+  
+  | TTimes (a, b)  ->   
+    let a' = simplify_term a in 
+    let b' = simplify_term b in 
+    (match a', b' with 
+    | Num n1, Num n2 -> Num(n1*n2)
+    | _, _ -> TTimes (a', b')
+    )
+
+  | TDiv (a, b)  -> 
+    let a' = simplify_term a in 
+    let b' = simplify_term b in 
+    (match a', b' with 
+    | Num n1, Num n2 -> Num(n1/n2)
+    | _, _ -> TDiv (a', b')
+    )
+  
+  | Minus (a, b) -> 
+    let a' = simplify_term a in 
+    let b' = simplify_term b in 
+    (match a', b' with 
+    | Num n1, Num n2 -> Num(n1 - n2)
+    | _, _ -> Minus (a', b')
+    )
+  
+
   | TAnd (a, b) -> TAnd (simplify_term a, simplify_term b)
   | TOr (a, b) -> TOr (simplify_term a, simplify_term b)
   | TPower(a, b) -> TPower (simplify_term a, simplify_term b)
@@ -45,20 +94,48 @@ let rec simplify_heap h : kappa =
   *)
     | SepConj (EmptyHeap, h1) -> (simplify_heap h1, true)
     | SepConj (h1, EmptyHeap) -> (simplify_heap h1, true)
-    | PointsTo (str, t) -> (PointsTo (str, simplify_term t), false)
+    | PointsTo (str, t) -> 
+      (*print_endline (string_of_term t); *)
+      (PointsTo (str, simplify_term t), false)
     | _ -> (h, false)
   in
   to_fixed_point once h
+
+let compareTerms (t1:term) (t2:term) : bool = 
+  let str1= string_of_term t1 in 
+  let str2= string_of_term t2 in 
+  if String.compare str1 str2 == 0 then true else false 
+
 
 let simplify_pure (p : pi) : pi =
   let rec once p =
     match p with
     | Not (Atomic (EQ, a, TTrue)) -> (Atomic (EQ, a, TFalse), true)
-    | (Atomic (EQ, TAnd(TTrue, TTrue), TTrue)) -> (True, true)
-    | (Atomic (EQ, TAnd(TFalse, TTrue), TFalse)) -> (True, true)
-    | (Atomic (EQ, t1, Plus(Num n1, Num n2))) -> (Atomic (EQ, t1, Num (n1+n2)), true)
+    | (Atomic (EQ, t1, t2 )) -> 
+      let t1 = simplify_term t1 in 
+      let t2 = simplify_term t2 in 
+      (match t1, t2 with
+      | Var "res", Var "res" -> (True, true)
+      | TFalse, TFalse -> (True, true)
+      | TTrue, TTrue -> (True, true)
+      | Num n1, Num n2 -> 
+        if n1==n2 then (True, true)
+        else (p, true)
 
-    | Atomic (EQ, a, b) when a = b -> (True, true)
+      | TAnd(TTrue, TTrue), TTrue -> (True, true)
+      | TAnd(TFalse, TTrue), TFalse -> (True, true)
+      | t1, Plus(Num n1, Num n2) -> (Atomic (EQ, t1, Num (n1+n2)), true)
+      | _, _ -> 
+        if compareTerms t1 t2 then 
+        (
+        (True, true))
+        else 
+        (
+        (Atomic (EQ, t1, t2 )), false )
+      
+      )
+
+
     | True | False | Atomic _ | Predicate _ | Subsumption _ -> (p, false)
     | And (True, a) | And (a, True) -> (a, true)
     | And (a, b) ->
@@ -88,7 +165,68 @@ let simplify_pure (p : pi) : pi =
       ;
   r
 
-let simplify_state (p, h) = (simplify_pure p, simplify_heap h)
+let rec lookforEqualityinPure (str : string) (p:pi) : term option =
+  match p with
+  | Atomic (EQ, Var v, t) -> 
+    if String.compare v str == 0 then Some t 
+    else None 
+  | True
+  | False 
+  | Imply  _ 
+  | Not   _ 
+  | Predicate _ 
+  | Subsumption _
+  | Or _
+  | Atomic _ -> None 
+  | And (p1, p2) -> 
+    (match lookforEqualityinPure str p1 with 
+    | Some t -> Some t 
+    | None -> lookforEqualityinPure str p2
+    )
+
+
+
+let rec accumulateTheSumTerm (p:pi) (t:term) : term = 
+  match t with
+  | Var str -> 
+    (match lookforEqualityinPure str p with 
+    | None -> t 
+    | Some t' -> 
+      if String.compare (string_of_term t) (string_of_term t') == 0 then  t' 
+      else accumulateTheSumTerm p (t')
+    )
+  | Num _ 
+  | UNIT 
+  | Nil 
+  | TTrue 
+  | TFalse 
+  | TApp _
+  | TLambda _  | TTupple _ | TList _ -> t
+  | TNot t1 -> TNot (accumulateTheSumTerm p t1)
+  | TCons (t1, t2) -> TCons (accumulateTheSumTerm p t1, accumulateTheSumTerm p t2) 
+  | TAnd (t1, t2) -> TAnd (accumulateTheSumTerm p t1, accumulateTheSumTerm p t2) 
+  | TOr (t1, t2) -> TOr (accumulateTheSumTerm p t1, accumulateTheSumTerm p t2) 
+  | Rel (bop, t1, t2) -> Rel (bop, accumulateTheSumTerm p t1, accumulateTheSumTerm p t2) 
+  | Plus (t1, t2) -> Plus (accumulateTheSumTerm p t1, accumulateTheSumTerm p t2) 
+  | Minus (t1, t2) -> Minus (accumulateTheSumTerm p t1, accumulateTheSumTerm p t2) 
+  | TPower (t1, t2) -> TPower (accumulateTheSumTerm p t1, accumulateTheSumTerm p t2) 
+  | TTimes (t1, t2) -> TTimes (accumulateTheSumTerm p t1, accumulateTheSumTerm p t2) 
+  | TDiv (t1, t2) -> TDiv (accumulateTheSumTerm p t1, accumulateTheSumTerm p t2) 
+;; 
+
+
+let rec accumulateTheSum (p:pi) (h:kappa) : kappa = 
+  match h with 
+  | EmptyHeap -> h 
+  | PointsTo (pointer, term) -> 
+    let term' = accumulateTheSumTerm p term in 
+    PointsTo (pointer, term')
+  | SepConj (h1, h2) -> SepConj (accumulateTheSum p h1, accumulateTheSum p h2) 
+
+let simplify_state (p, h) = 
+  let (p, h) = (simplify_pure p, simplify_heap h) in 
+  let h' = accumulateTheSum p h in 
+  (p, h')
 
 let mergeState (pi1, h1) (pi2, h2) =
   let heap = simplify_heap (SepConj (h1, h2)) in
@@ -377,6 +515,7 @@ let normalize_step (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
       in
       (effectStages, normalStage')
     | NormalReturn (pi, heap) ->
+      let pi = simplify_pure pi in 
       (* pi may contain a res, so split the res out of the previous post *)
       (* if both sides contain res, remove from the left side *)
       let ens1, nex =
@@ -459,6 +598,20 @@ let normalize_step (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
 
 (* | IndPred {name; _} -> *)
 (* failwith (Format.asprintf "cannot normalise predicate %s" name) *)
+
+let getherPureFromSpec_step (acc:pi) (stagedSpec : stagedSpec) : pi =
+  match stagedSpec with 
+  | Exists _ -> acc 
+  | Require (pi, _) 
+  | NormalReturn (pi, _) 
+  | RaisingEff (pi, _, _, _) 
+  | HigherOrder (pi, _, _, _) 
+  | TryCatch (pi, _, _, _) -> 
+    And(acc, pi)
+
+
+let getherPureFromSpec (spec : spec) :pi = 
+  List.fold_left getherPureFromSpec_step (True) spec
 
 let (*rec*) normalise_spec_ (acc : normalisedStagedSpec) (spec : spec) :
     normalisedStagedSpec =
@@ -1113,8 +1266,12 @@ let rec effectStage2Spec (effectStages : effHOTryCatchStages list) : spec =
 
 
 
+
 let normalStage2Spec (normalStage : normalStage) : spec =
   let existiental, (p1, h1), (p2, h2) = normalStage in
+  let p1 = simplify_pure p1 in 
+  let p2 = simplify_pure p2 in 
+
   (match existiental with [] -> [] | _ -> [Exists existiental])
   @ (match (p1, h1) with True, EmptyHeap -> [] | _ -> [Require (p1, h1)])
   @
@@ -1168,6 +1325,13 @@ let rec existControdictionSpec (spec : spec) : bool =
     | true ->  true
     | _ -> 
       existControdictionSpec xs)
+
+  | Require (pi1, _) ::xs ->
+    (match ProversEx.is_valid pi1 False with
+    | true ->  true
+    | _ -> 
+      existControdictionSpec xs)
+
   | NormalReturn (pi, _)::xs 
   | RaisingEff (pi, _, _, _) :: xs
   | HigherOrder (pi, _, _, _) ::xs -> 

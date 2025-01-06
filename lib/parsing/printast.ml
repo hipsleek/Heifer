@@ -288,7 +288,7 @@ and expression i ppf x =
       line i ppf "Pexp_apply\n";
       expression i ppf e;
       list i label_x_expression ppf l;
-  | Pexp_match (_, e, l) ->
+  | Pexp_match (_, _, e, l) ->
       line i ppf "Pexp_match\n";
       expression i ppf e;
       list i case ppf l;

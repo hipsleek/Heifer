@@ -80,8 +80,8 @@ let handle (xs:(unit -> bool) list) counter : int
     | effect (Success r) k -> r
     | x -> x  
 
-(*
-let branch_example_generic (xs: (unit -> bool) list) counter : int
+
+let branch_example_generic (xs) counter 
 = handle xs counter
 
 let _ =
@@ -89,4 +89,4 @@ let _ =
   let v = branch_example_generic [(fun () -> false); (fun () -> false); (fun () -> true); (fun () -> false)] counter in
   Printf.printf "(%d)\n%!" v;
   Printf.printf "(counter = %d)\n%!" !counter
-  *)
+  

@@ -257,6 +257,16 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
 
 
   | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, args) when name = "continue" ->
+    (*print_endline (List.fold_left  (fun acc a -> acc ^ ", " ^ a) "" bound_names); *)
+    let rec loop vars args =
+      match args with
+      | [] -> CResume (List.rev vars)
+      | (_, a) :: args1 ->
+        transformation bound_names a |> maybe_var (fun v -> loop (v :: vars) args1)
+    in
+    loop [] args
+
+  | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, args) when name = "resume" ->
     let rec loop vars args =
       match args with
       | [] -> CResume (List.rev vars)
@@ -346,7 +356,7 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
       CLet (v, expr, rest_Expr)
     )
       
-  | Pexp_match (spec, e, cases) ->
+  | Pexp_match (typ, spec, e, cases) ->
     let norm =
       (* may be none for non-effect pattern matches *)
       cases |> List.find_map (fun c ->
@@ -386,7 +396,7 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
           Some (Longident.last constr, args, transformation bound_names c.pc_rhs)
         | _ -> None)
     in
-    CMatch (spec (*SYHTODO*), transformation bound_names e, norm, effs, pattern_cases)
+    CMatch (typ, spec (*SYHTODO*), transformation bound_names e, norm, effs, pattern_cases)
   | _ -> 
     if String.compare (Pprintast.string_of_expression expr) "Obj.clone_continuation k" == 0 then (* ASK Darius*)
     CValue (Var "k")

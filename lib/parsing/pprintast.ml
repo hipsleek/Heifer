@@ -625,7 +625,7 @@ and expression ctxt f x =
           (expression ctxt) e
     | Pexp_function l ->
         pp f "@[<hv>function%a@]" (case_list ctxt) l
-    | Pexp_match (_, e, l) ->
+    | Pexp_match (_, _, e, l) ->
         pp f "@[<hv0>@[<hv0>@[<2>match %a@]@ with@]%a@]"
           (expression reset_ctxt) e (case_list ctxt) l
 

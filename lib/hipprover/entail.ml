@@ -10,7 +10,6 @@ let unfolding_bound = 1
 
 type fvenv = Forward_rules.fvenv
 
-(* let string_of_pi p = string_of_pi (simplify_pure p) *)
 let with_pure pi ((p, h) : state) : state = (conj [p; pi], h)
 let rename_exists_spec sp = List.hd (Forward_rules.renamingexistientalVar [sp])
 
@@ -451,6 +450,7 @@ let rec check_staged_subsumption_stagewise :
  fun ctx i assump s1 s2 ->
  (*print_endline ("check_staged_subsumption_stagewise");*)
 
+
   debug ~at:1 ~title:"flow subsumption" "%s\n<:\n%s"
     (string_of_normalisedStagedSpec s1)
     (string_of_normalisedStagedSpec s2);
@@ -508,7 +508,7 @@ let rec check_staged_subsumption_stagewise :
         (es1r, ns1) (es2r, ns2))
 
   | (TryCatchStage tc1 :: _es1r, _ns1), (TryCatchStage tc2 :: _es2r, _ns2) ->
-
+    (*print_endline ("entailement checking with two catches"); *)
     let src1, _ = tc1.tc_constr in
     let src2, _ = tc2.tc_constr in
 
