@@ -65,6 +65,7 @@ let rec term_to_expr env ctx t : Z3.Expr.expr =
         let list_int = list_int_sort ctx in
         Z3.Expr.mk_const_s ctx v list_int
       | Bool -> Z3.Boolean.mk_const_s ctx v
+      | TyString -> Z3.Expr.mk_const_s ctx v (Z3.Seq.mk_string_sort ctx)
       | Arrow (_, _) -> failwith "arrow not implemented"))
   | UNIT ->
     let mk = Z3.Tuple.get_mk_decl (unit_sort ctx) in 
@@ -78,6 +79,11 @@ let rec term_to_expr env ctx t : Z3.Expr.expr =
   (*
   | Gen i          -> Z3.Arithmetic.Real.mk_const_s ctx ("t" ^ string_of_int i ^ "'")
   *)
+  | SConcat (t1, t2) ->
+    let t1' = term_to_expr env ctx t1 in 
+    let t2' = term_to_expr env ctx t2 in 
+    let res = Z3.Seq.mk_seq_concat ctx [t1'; t2'] in 
+    res
   | Plus (t1, t2) ->
     (*print_endline ("\n-------\nPlus " ^ string_of_term t);*)
     let t1' = term_to_expr env ctx t1 in 
@@ -119,6 +125,7 @@ let rec term_to_expr env ctx t : Z3.Expr.expr =
         (term_to_expr env ctx t2))
   | TTrue -> Z3.Boolean.mk_true ctx
   | TFalse -> Z3.Boolean.mk_false ctx
+  | TStr s -> Z3.Seq.mk_string ctx s
   | TNot a -> Z3.Boolean.mk_not ctx (term_to_expr env ctx a)
   | TAnd (a, b) ->
     Z3.Boolean.mk_and ctx [term_to_expr env ctx a; term_to_expr env ctx b]
@@ -127,6 +134,8 @@ let rec term_to_expr env ctx t : Z3.Expr.expr =
   | TCons (a, b) ->
     Z3.Expr.mk_app ctx (get_fun_decl ctx "cons")
       (List.map (term_to_expr env ctx) [a; b])
+  | TApp ("string_of_int" , [x]) ->
+    Z3.Seq.mk_int_to_str ctx (term_to_expr env ctx x)
   | TApp (f, a) ->
     Z3.Expr.mk_app ctx (get_fun_decl ctx f) (List.map (term_to_expr env ctx) a)
   | TPower (Num 2, Var "n") -> 

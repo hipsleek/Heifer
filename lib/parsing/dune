@@ -12,11 +12,6 @@
 ;*                                                                        *
 ;**************************************************************************
 
-;; We're just reusing the stuff from boot/ here.
-;; One could add a dune file in boot/menhir/ with the appropriate rules if we
-;; want to regenerate the parser while building with dune, but it doesn't seem
-;; essential right now.
-
 (env
  ; (dev     (flags (:standard -w +a-4-9-40-41-42-44-45-48-67)))
 
@@ -62,8 +57,46 @@
 
 (library
  (name ocamlfrontend)
+ (public_name heifer.ocamlfrontend)
  (modules
  parser lexer Syntaxerr Pprintast Printast Asttypes Ast_helper Longident Parsetree Location Warnings Misc Terminfo Docstrings Build_path_prefix_map Clflags Profile Numbers Identifiable Arg_helper CamlinternalMenhirLib
  core_lang) ; the only module we own
  (libraries hipcore)
  (flags :standard -w -A))
+
+(library
+ (name racketfrontend)
+ (public_name heifer.racketfrontend)
+ (modules
+ racket_parser racket_lexer)
+ (libraries hipcore)
+ (flags :standard -w -A))
+
+(menhir
+ (modules racket_parser))
+
+(ocamllex racket_lexer)
+
+(library
+ (name hiplib)
+ (public_name heifer)
+ (modules hiplib tests)
+ (libraries hipprover ocamlfrontend racketfrontend)
+ (inline_tests)
+ (preprocess (pps ppx_expect)))
+
+(executable
+ (name hip)
+ (public_name heifer)
+ (modules hip)
+ (libraries unix hiplib provers_native))
+
+(executable
+ (name hipjs)
+ (modules hipjs)
+ (libraries brr hiplib provers_js)
+ (modes js))
+
+(install
+ (section bin)
+ (files (hip.exe as hip)))

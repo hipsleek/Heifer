@@ -1,4 +1,4 @@
-# Heifer 
+# Heifer
 
 Heifer is a new verifier for effectful, higher-order OCaml programs.
 
@@ -18,4 +18,3 @@ Use `dune exec main/hip.exe $EXAMPLE` to run examples. Effect-related programs a
 - [Why3](docs/why3.md)
 - [How the web build works](docs/web.md)
 - [Docker packaging](docs/docker.md)
-

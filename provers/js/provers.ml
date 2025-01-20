@@ -22,7 +22,9 @@ r = await s.check()
 let rec build_term : Jv.t -> term -> Jv.t =
  fun ctx t ->
   match t with
-  | Rel (bop, a, b) ->
+    | TStr _ -> failwith "nyi"
+    | SConcat _ -> failwith "nyi"
+    | Rel (bop, a, b) ->
     (match bop with
     | EQ -> Jv.call (build_term ctx a) "eq" [| build_term ctx b |]
     | _ -> failwith "TODO")

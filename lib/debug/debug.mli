@@ -70,3 +70,20 @@ val string_of_result : ('a -> string) -> 'a presult -> string
 
 val pp_result :
   (Format.formatter -> 'a -> unit) -> Format.formatter -> 'a presult -> unit
+
+module Query : sig
+  type query_on =
+    | Time of int
+    | Range of int * int
+    | Regex of string * Str.regexp
+    | LogLevel of int
+    | All (* to avoid a catch-all regex *)
+
+  type query_action =
+    | Hide
+    | Show
+
+  type query = (query_action * query_on * bool) list
+  
+  val user_query : query ref
+end

@@ -92,6 +92,7 @@ let rec expr_to_term (expr:expression) : term =
   | Pexp_ident {txt=Lident i; _} -> Var i
   | Pexp_apply ({pexp_desc = Pexp_ident {txt=Lident i; _}; _}, [(_, a); (_, b)]) ->
       begin match i with
+      | "^" -> SConcat (expr_to_term a, expr_to_term b)
       | "+" -> Plus (expr_to_term a, expr_to_term b)
       | "-" -> Minus (expr_to_term a, expr_to_term b)
       | _ -> failwith (Format.asprintf "unknown op %s" i)
@@ -233,6 +234,7 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
   | Pexp_constant c ->
     begin match c with
     | Pconst_integer (i, _) -> CValue (Num (int_of_string i))
+    | Pconst_string (s, _, _) -> CValue (TStr s)
     | _ -> failwith (Format.asprintf "unknown kind of constant: %a" Pprintast.expression expr)
     end
   (* lambda *)
@@ -243,6 +245,20 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
     let formals, body, _types = collect_param_info expr in
     let e = transformation (formals @ bound_names) body in
     CLambda (formals, spec, e)
+  (* shift and shift0 *)
+  | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, args) when List.mem name ["shift"; "shift0"] ->
+    begin match List.map snd args with
+    | [{pexp_desc = Pexp_ident ({txt = Lident k; _}); _}; body] ->
+      CShift (name = "shift", k, transformation bound_names body)
+    | _ ->  failwith "invalid shift args"
+    end
+  (* reset *)
+  | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident "reset"; _}); _}, args) ->
+    begin match List.map snd args with
+    | [body] ->
+      CReset (transformation bound_names body)
+    | _ ->  failwith "invalid reset args"
+    end
   (* perform *)
   | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, ((_, {pexp_desc = Pexp_construct ({txt=Lident eff; _}, args); _}) :: _)) when name = "perform" ->
     begin match args with
@@ -253,10 +269,7 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
   (*| Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, [_, _k; _, e]) when name = "continue" ->
     transformation env e |> maybe_var (fun v -> CResume v)
   *)
-  
-
-
-  | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, args) when name = "continue" ->
+  | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, args) when name = "continue" || name = "resume" ->
     (*print_endline (List.fold_left  (fun acc a -> acc ^ ", " ^ a) "" bound_names); *)
     let rec loop vars args =
       match args with
@@ -265,17 +278,6 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
         transformation bound_names a |> maybe_var (fun v -> loop (v :: vars) args1)
     in
     loop [] args
-
-  | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, args) when name = "resume" ->
-    let rec loop vars args =
-      match args with
-      | [] -> CResume (List.rev vars)
-      | (_, a) :: args1 ->
-        transformation bound_names a |> maybe_var (fun v -> loop (v :: vars) args1)
-    in
-    loop [] args
-    
-
   
   (* dereference *)
   | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, [_, {pexp_desc=Pexp_ident {txt=Lident v;_}; _}]) when name = "!" ->
@@ -311,18 +313,18 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
         transformation bound_names a |> maybe_var (fun v -> loop (v :: vars) args1)
     in
     loop [] args
-  | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, args) ->
-    (* unknown function call, e.g. printf. translate to assert true for now *)
-    (* debug ~at:2 ~title:"unknown function call" "%a" Pprintast.expression f; *)
-    (* with higher-order functions, we can no longer know statically which variables are functions, so we give up on doing this and emit a function call *)
-    (* CAssert (True, EmptyHeap) *)
-    let rec loop vars args =
+  | Pexp_apply (f, args) ->
+    (* handles both named/unknown function calls, e.g. printf, and applications of compound expressions, which get named *)
+    let rec loop name vars args =
       match args with
       | [] -> CFunCall (name, List.rev vars)
       | (_, a) :: args1 ->
-        transformation bound_names a |> maybe_var (fun v -> loop (v :: vars) args1)
+        transformation bound_names a |> maybe_var (fun v -> loop name (v :: vars) args1)
     in
-    loop [] args
+    transformation bound_names f |> maybe_var (fun f1 ->
+      match f1 with
+      | Var f2 -> loop f2 [] args
+      | _ -> failwith "attempt to apply non-function?")
   | Pexp_sequence (a, b) ->
     CLet ("_", transformation bound_names a, transformation bound_names b)
   | Pexp_assert e ->
@@ -402,8 +404,8 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
     CValue (Var "k")
     else 
     CValue (UNIT)
-    (*failwith (Format.asprintf "expression not in core language: %a" Pprintast.expression expr)  *)
-    (* (Printast.expression 0) expr *)
+    (* failwith (Format.asprintf "expression not in core language: %a" Pprintast.expression expr)  *)
+    (* (Format.printf "expression not in core language: %a@." (Printast.expression 0) expr; failwith "failed") *)
 
 and maybe_var f e =
   (* generate fewer unnecessary variables *)
@@ -475,7 +477,7 @@ let transform_str bound_names (s : structure_item) =
         | false, _ -> None
       in
       let e = transformation (fn_name :: formals @ bound_names) body in
-      Some (`Meth (fn_name, formals, spec, e, tactics, pure_fn_info))
+      Some (Meth (fn_name, formals, spec, e, tactics, pure_fn_info))
     | Pexp_apply _ -> None 
     | whatever ->
       print_endline (string_of_expression_kind whatever); 
@@ -489,14 +491,13 @@ let transform_str bound_names (s : structure_item) =
         (constr, ps @ [r])
       | _ -> failwith (Format.asprintf "lemma %s should have function on the left" l_name)
     in
-    Some (`Lem {l_name; l_params; l_left; l_right})
+    Some (Lem {l_name; l_params; l_left; l_right})
   | Pstr_predicate (p_name, p_params, p_body) ->
-    Some (`Pred {p_name; p_params; p_body; p_rec = (find_rec p_name)#visit_disj_spec () p_body})
-  | Pstr_SL_predicate (p_sl_ex, p_sl_name, p_sl_params, p_sl_body) -> Some (`SLPred {p_sl_ex; p_sl_name; p_sl_params; p_sl_body})
-
+    Some (Pred {p_name; p_params; p_body; p_rec = (find_rec p_name)#visit_disj_spec () p_body})
+  | Pstr_SL_predicate (p_sl_ex, p_sl_name, p_sl_params, p_sl_body) -> Some (SLPred {p_sl_ex; p_sl_name; p_sl_params; p_sl_body})
   | Pstr_effect { peff_name; peff_kind=_; _ } ->
       let name = peff_name.txt in
-      Some (`Eff name)
+      Some (Eff name)
   | Pstr_type _ 
   | Pstr_typext _ -> None 
   | Pstr_primitive { pval_name; pval_type; pval_prim = [ext_name]; _ } ->
@@ -507,5 +508,5 @@ let transform_str bound_names (s : structure_item) =
     let params, ret =
       core_type_to_simple_type pval_type |> interpret_arrow_as_params
     in
-    Some (`LogicTypeDecl (pval_name.txt, params, ret, path, name))
+    Some (LogicTypeDecl (pval_name.txt, params, ret, path, name))
   | _ -> failwith (Format.asprintf "unknown program element: %a" Pprintast.structure [s])

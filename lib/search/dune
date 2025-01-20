@@ -1,5 +1,6 @@
 
 (library
  (name search)
+ (public_name heifer.search)
  (libraries debug)
  (preprocess (pps ppx_expect)))
