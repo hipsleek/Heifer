@@ -65,17 +65,19 @@
  (libraries hipcore)
  (flags :standard -w -A))
 
+(menhir
+ (modules racket_parser))
+
+(ocamllex
+  (modules racket_lexer)
+  (mode fallback))
+
 (library
  (name racketfrontend)
  (public_name heifer.racketfrontend)
  (modules racket_parser racket_lexer)
  (libraries hipcore)
  (flags :standard -w -A))
-
-(menhir
- (modules racket_parser))
-
-(ocamllex racket_lexer)
 
 ; (library
 ;  (name hiplib)

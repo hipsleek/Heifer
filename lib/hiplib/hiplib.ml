@@ -1063,7 +1063,7 @@ let run_racket_string_ line =
     Racket_parser.prog Racket_lexer.token (Lexing.from_string line)
   in
   let core_program : intermediate list = mergeTopLevelCodeIntoOneMain core_program in
-  Format.printf "parsed racket program@.\n%s" (string_of_intermediate_list core_program);
+  (* Format.printf "parsed racket program@.\n%s" (string_of_intermediate_list core_program); *)
   List.fold_left (fun t i ->
     let _bound, prog = process_intermediates i t in prog)
     empty_program core_program |> ignore
