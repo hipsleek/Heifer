@@ -998,7 +998,8 @@ let process_intermediates it prog =
         Globals.define_pure_fn m_name pf;
       | None -> ()
     in
-    begin try
+    (* begin try *)
+    begin
       let prog =
         let@ _ =
           Debug.span (fun _r ->
@@ -1008,9 +1009,9 @@ let process_intermediates it prog =
         analyze_method prog meth
       in
       [m_name], prog
-    with Method_failure ->
+    (* with Method_failure ->
       (* update program with method regardless of failure *)
-      [], prog
+      [], prog *)
     end
 
 let process_ocaml_structure (strs: structure) : unit =

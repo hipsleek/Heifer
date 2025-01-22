@@ -58,17 +58,17 @@
 (library
  (name ocamlfrontend)
  (public_name heifer.ocamlfrontend)
- (modules
- parser lexer Syntaxerr Pprintast Printast Asttypes Ast_helper Longident Parsetree Location Warnings Misc Terminfo Docstrings Build_path_prefix_map Clflags Profile Numbers Identifiable Arg_helper CamlinternalMenhirLib
- core_lang) ; the only module we own
+ (modules parser lexer Syntaxerr Pprintast Printast Asttypes Ast_helper
+          Longident Parsetree Location Warnings Misc Terminfo Docstrings
+          Build_path_prefix_map Clflags Profile Numbers Identifiable
+          Arg_helper CamlinternalMenhirLib core_lang) ; the only module we own
  (libraries hipcore)
  (flags :standard -w -A))
 
 (library
  (name racketfrontend)
  (public_name heifer.racketfrontend)
- (modules
- racket_parser racket_lexer)
+ (modules racket_parser racket_lexer)
  (libraries hipcore)
  (flags :standard -w -A))
 
@@ -77,26 +77,26 @@
 
 (ocamllex racket_lexer)
 
-(library
- (name hiplib)
- (public_name heifer)
- (modules hiplib tests)
- (libraries hipprover ocamlfrontend racketfrontend)
- (inline_tests)
- (preprocess (pps ppx_expect)))
+; (library
+;  (name hiplib)
+;  (public_name heifer)
+;  (modules hiplib tests)
+;  (libraries hipprover ocamlfrontend racketfrontend)
+;  (inline_tests)
+;  (preprocess (pps ppx_expect)))
 
-(executable
- (name hip)
- (public_name heifer)
- (modules hip)
- (libraries unix hiplib provers_native))
+; (executable
+;  (name hip)
+;  (public_name heifer)
+;  (modules hip)
+;  (libraries unix hiplib provers_native))
 
-(executable
- (name hipjs)
- (modules hipjs)
- (libraries brr hiplib provers_js)
- (modes js))
+; (executable
+;  (name hipjs)
+;  (modules hipjs)
+;  (libraries brr hiplib provers_js)
+;  (modes js))
 
-(install
- (section bin)
- (files (hip.exe as hip)))
+; (install
+;  (section bin)
+;  (files (hip.exe as hip)))
