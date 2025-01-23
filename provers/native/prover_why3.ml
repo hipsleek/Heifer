@@ -176,6 +176,7 @@ module LowLevel = struct
     let fold f t init = List.fold_right f (TMap.bindings !t) init
 
     (* Some common ones we use *)
+    let string = (["string"], "String")
     let int = (["int"], "Int")
     let bool = (["bool"], "Bool")
     let list = (["list"], "List")
@@ -229,6 +230,9 @@ module LowLevel = struct
     | List_int ->
       Theories.(needed int env.theories);
       Ty.ty_app Theories.(get_type_symbol list "list" env.theories) [Ty.ty_int]
+    | TyString ->
+      Theories.(needed string env.theories);
+      Ty.ty_str
     | Int ->
       Theories.(needed int env.theories);
       Ty.ty_int
@@ -277,6 +281,13 @@ module LowLevel = struct
            string_of_option string_of_type (SMap.find_opt v env.tenv)); *)
       (name, ty1)
     | Var v -> failwith (Format.asprintf "variable %s has no type" v)
+    | SConcat (a, b) ->
+      let a1, _ = term_to_why3 env a in
+      let b1, _ = term_to_why3 env b in
+      ( Term.t_app_infer
+          Theories.(get_symbol string "concat" env.theories)
+          [a1; b1],
+        Int )
     | Plus (a, b) ->
       let a1, _ = term_to_why3 env a in
       let b1, _ = term_to_why3 env b in
@@ -395,6 +406,7 @@ module LowLevel = struct
     | TDiv (_, _) -> failwith "TDiv nyi"
     | TList _ -> failwith "TList nyi"
     | TTupple _ -> failwith "TTupple nyi"
+    | TStr _ -> failwith "TStr nyi"
 
   let rec pi_to_why3 env (pi : pi) =
     (* Format.printf "pi %s@." (Pretty.string_of_pi pi); *)
@@ -502,6 +514,7 @@ module LowLevel = struct
     | CMatch (_, _, _, _, _, _) -> failwith "unimplemented effect CMatch"
     | CResume _ -> failwith "unimplemented CResume"
     | CLambda (_, _, _) -> failwith "unimplemented CLambda"
+    | CShift _ | CReset _ -> failwith "TODO shift and reset expr_to_why3 "
 
   let pure_fn_to_logic_fn env pure_fn =
     let params =
@@ -691,6 +704,7 @@ open Ptree_helpers
 
 let rec type_to_whyml t =
   match t with
+  | TyString -> PTtyapp (qualid ["String"; "string"], [])
   | Int -> PTtyapp (qualid ["Int"; "int"], [])
   | Unit -> PTtyapp (qualid ["tuple0"], [])
   | List_int ->
@@ -707,6 +721,10 @@ let rec term_to_whyml tenv t =
   | TFalse -> term Tfalse
   | Num i -> tconst i
   | Var v -> tvar (qualid [v])
+  | SConcat (a, b) ->
+    tapp
+      (qualid ["String"; "concat"])
+      [term_to_whyml tenv a; term_to_whyml tenv b]
   | Plus (a, b) ->
     tapp
       (qualid ["Int"; Ident.op_infix "+"])
@@ -754,7 +772,8 @@ let rec term_to_whyml tenv t =
      let params, _ret = unsnoc params in
      let binders = vars_to_params tenv params in
      term (Tquant (Dterm.DTlambda, binders, [], core_lang_to_whyml tenv body)) *)
-  | TList _ | TTupple _ | TPower (_, _) | TTimes (_, _) | TDiv (_, _) ->
+  | TList _ | TTupple _ | TPower (_, _) | TTimes (_, _) | TDiv (_, _) | TStr _
+    ->
     failwith "nyi"
 
 and vars_to_params tenv vars =
@@ -789,6 +808,7 @@ and core_lang_to_whyml tenv e =
       | "=" -> qualid ["Int"; Ident.op_infix s] (* for now *)
       | "||" -> qualid ["Bool"; "orb"]
       | "&&" -> qualid ["Bool"; "andb"]
+      | "string_of_int" -> qualid ["String"; "from_int"]
       | _ -> qualid [s]
     in
     tapp fn (List.map (term_to_whyml tenv) args)
@@ -813,6 +833,7 @@ and core_lang_to_whyml tenv e =
   | CAssert (_, _) | CLambda (_, _, _) -> failwith "unimplemented"
   | CWrite (_, _) | CRef _ | CRead _ -> failwith "heap operations not allowed"
   | CResume _ | CPerform (_, _) -> failwith "effects not allowed"
+  | CShift _ | CReset _ -> failwith "TODO shift and reset core_lang_to_whyml "
 
 and pi_to_whyml tenv p =
   match p with

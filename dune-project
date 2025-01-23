@@ -2,6 +2,7 @@
 (using experimental_building_ocaml_compiler_with_dune 0.1)
 (using coq 0.2)
 (using directory-targets 0.1)
+(using menhir 2.1)
 
 (name heifer)
 (generate_opam_files true)

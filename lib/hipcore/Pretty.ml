@@ -118,6 +118,7 @@ let rec string_of_term t : string =
   | Var str -> str
   | Rel (bop, t1, t2) ->
     "(" ^ string_of_term t1 ^ (match bop with | EQ -> "==" | _ -> string_of_bin_op bop) ^ string_of_term t2 ^ ")"
+  | SConcat (t1, t2) -> "(" ^string_of_term t1 ^ "++" ^ string_of_term t2^ ")"
   | Plus (t1, t2) -> "(" ^string_of_term t1 ^ "+" ^ string_of_term t2^ ")"
   | Minus (t1, t2) -> "(" ^string_of_term t1 ^ "-" ^ string_of_term t2 ^ ")"
   | TPower (t1, t2) -> "(" ^string_of_term t1 ^ "^(" ^ string_of_term t2 ^ "))"
@@ -148,8 +149,15 @@ let rec string_of_term t : string =
       | x:: xs -> string_of_term x ^";"^ helper xs
     in "[" ^ helper nLi ^ "]"
 
+  | TStr str -> "\"" ^ str ^ "\""
+
 and string_of_staged_spec (st:stagedSpec) : string =
   match st with
+  | Shift (nz, k, body, r) ->
+    let zero = if nz then "" else "0" in
+    Format.asprintf "shift%s(%s. %s, %s)" zero k (string_of_disj_spec body) (string_of_term r)
+  | Reset (body, r) ->
+    Format.asprintf "reset(%s, %s)" (string_of_disj_spec body) (string_of_term r)
   | Require (p, h) ->
     Format.asprintf "req %s" (string_of_state (p, h))
   | HigherOrder (pi, h, (f, args), ret) ->
@@ -291,6 +299,10 @@ and string_of_core_lang (e:core_lang) :string =
   | CMatch (typ, Some spec, e, vs, hs, cs) -> Format.sprintf "match[%s] %s%s with\n%s%s\n%s" (string_of_handler_type typ) (string_of_try_catch_lemma spec) (string_of_core_lang e) (match vs with | Some (v, norm) -> Format.asprintf "| %s -> %s\n" v (string_of_core_lang norm) | _ -> "") (string_of_core_handler_ops hs) (string_of_constr_cases cs)
   | CResume tList -> Format.sprintf "continue %s" (List.map string_of_term tList |> String.concat " ")
   | CLambda (xs, spec, e) -> Format.sprintf "fun %s%s -> %s" (String.concat " " xs) (match spec with None -> "" | Some ds -> Format.asprintf " (*@@ %s @@*)" (string_of_disj_spec ds)) (string_of_core_lang e)
+  | CShift (b, k, e) -> Format.sprintf "Shift%s %s -> %s" (if b then "" else "0") k (string_of_core_lang e)
+
+  | CReset (e) -> Format.sprintf "<%s>" (string_of_core_lang e)
+
 
 and string_of_constr_cases cs =
   cs |> List.map (fun (n, args, body) -> Format.asprintf "| %s -> %s" (string_of_constr_call n args) (string_of_core_lang body)) |> String.concat "\n"
@@ -425,12 +437,27 @@ let string_of_effHOTryCatchStages s =
     | `Fn -> HigherOrder(p2, h2, x.e_constr, x.e_ret))] in
     string_of_spec current )
 
+  | ShiftStage x ->
+    let ex = match x.s_evars with [] -> [] | _ -> [Exists x.s_evars] in
+    let current = ex @ [Shift (x.s_notzero, x.s_cont, x.s_body, x.s_ret)] in
+    string_of_spec current
+
   | (TryCatchStage ct) -> 
     (let {tc_pre = (p1, h1); tc_post = (p2, h2); _} = ct in
     let ex = match ct.tc_evars with [] -> [] | _ -> [Exists ct.tc_evars] in
     let current = ex @ 
     [Require(p1, h1);
     (TryCatch(p2, h2, ct.tc_constr ,ct.tc_ret)
+    )
+    ] in
+    string_of_spec current )
+  
+  | (ResetStage ct) -> 
+    (let {rs_pre = (p1, h1); rs_post = (p2, h2); _} = ct in
+    let ex = match ct.rs_evars with [] -> [] | _ -> [Exists ct.rs_evars] in
+    let current = ex @ 
+    [Require(p1, h1); NormalReturn (p2, h2);
+    (Reset(ct.rs_body, ct.rs_ret)
     )
     ] in
     string_of_spec current )
@@ -494,6 +521,7 @@ let conj xs =
 
 let rec string_of_type t =
   match t with
+  | TyString -> "string"
   | Int -> "int"
   | Unit -> "unit"
   | List_int -> "intlist"
@@ -679,4 +707,3 @@ let retriveFormalArg arg :string =
   | _ -> 
         print_endline (string_of_term arg);
         failwith "effect return is not var 1"
-
