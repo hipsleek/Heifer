@@ -18,22 +18,23 @@ let () =
     Loc.set_warning_hook (fun ?loc:_ _msg -> ())
 
 let why3_env : Env.env =
-  let extra_paths =
+  let extra_paths : SSet.t =
     let rec find_dune_project dir =
       if Sys.file_exists (dir ^ "/dune-project") then Some dir
       else if dir = "/" then None
       else find_dune_project (Filename.dirname dir)
     in
-    SSet.of_list
-      (List.concat
-         [
-           [Sys.getcwd ()];
-           Option.to_list (find_dune_project (Sys.getcwd ()));
-           (try [Filename.dirname Sys.argv.(1)] with _ -> []);
-         ])
+    let cwd = Sys.getcwd () in
+    SSet.of_list (List.concat
+      [
+        [cwd];
+        Option.to_list (find_dune_project cwd);
+        (try [Filename.dirname Sys.argv.(1)] with _ -> []);
+      ])
   in
-  let load_path =
-    SSet.to_list extra_paths @ Whyconf.loadpath why3_config_main
+  let load_path = SSet.of_list (Whyconf.loadpath why3_config_main)
+    |> SSet.union extra_paths
+    |> SSet.to_list
   in
   Debug.debug ~at:4 ~title:"why load path" "%s"
     (string_of_list Fun.id load_path);
@@ -54,7 +55,8 @@ let load_prover_config name : Whyconf.config_prover =
     let alts =
       Whyconf.(
         Mprover.map (fun cp -> string_of_prover cp.prover) provers
-        |> Mprover.bindings |> List.map snd)
+        |> Mprover.bindings
+        |> List.map snd)
       |> string_of_list Fun.id
     in
     let p, conf = Whyconf.Mprover.min_binding provers in
@@ -63,11 +65,12 @@ let load_prover_config name : Whyconf.config_prover =
     conf
   end
 
-let load_prover_driver pc name =
-  try Driver.load_driver_for_prover why3_config_main why3_env pc
+let load_prover_driver conf name =
+  try Driver.load_driver_for_prover why3_config_main why3_env conf
   with e ->
-    Format.printf "Failed to load driver for %s: %a@." name
-      Exn_printer.exn_printer e;
+    Format.printf
+      "Failed to load driver for %s: %a@."
+      name Exn_printer.exn_printer e;
     raise e
 
 let ensure_prover_loaded name =
@@ -101,14 +104,14 @@ let attempt_proof task1 =
     tasks;
 
   (* only do this once, not recursively *)
-  let tasks =
+  (* let tasks =
     tasks
     |> List.concat_map (fun t ->
            (* let@ _ = silence_stderr in *)
            (* Trans.apply_transform "induction_ty_lex" why3_env t *)
            [t])
     (* |> List.concat_map (Trans.apply_transform "split_goal" why3_env) *)
-  in
+  in *)
 
   (* it's unlikely the provers will change location in the span of one task *)
   let provers =
@@ -116,11 +119,12 @@ let attempt_proof task1 =
     (* ["Alt-Ergo"] *)
     ["Z3"]
     |> List.filter_map (fun prover ->
-           try
-             ensure_prover_loaded prover;
-             Some (get_prover_config prover)
-           with _ -> None)
+        try
+          ensure_prover_loaded prover;
+          Some (get_prover_config prover)
+        with _ -> None)
   in
+  (* try each task, on all possible provers *)
   List.for_all
     (fun task ->
       List.exists
@@ -128,13 +132,10 @@ let attempt_proof task1 =
           let result1 =
             Call_provers.wait_on_call
               (Driver.prove_task
-                 ~limit:
-                   {
-                     Call_provers.empty_limit with
-                     Call_provers.limit_time = 0.5;
-                   }
-                 ~config:why3_config_main ~command:pconf.Whyconf.command pdriver
-                 task)
+                ~limit:{Call_provers.empty_limit with limit_time = 0.5}
+                ~config:why3_config_main
+                ~command:pconf.Whyconf.command
+                pdriver task)
           in
           (* Format.printf "%s: %a@." prover
              (Call_provers.print_prover_result ?json:None)
@@ -1009,6 +1010,7 @@ let suppress_error_if_not_debug f =
       (* Printexc.print_backtrace stdout; *)
       false
 
+(* Entry point to call why3 *)
 let entails_exists tenv left ex right =
   let@ _ = Globals.Timing.(time why3) in
   let@ _ = suppress_error_if_not_debug in
