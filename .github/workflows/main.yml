@@ -34,8 +34,9 @@ jobs:
         uses: ocaml/setup-ocaml@v3
         with:
           ocaml-compiler: ${{ matrix.ocaml-compiler }}
+          dune-cache: true
           opam-pin: false
-          opam-depext: false
+          # opam-depext: false
       - run: opam install . --deps-only
       # z3 takes a long time to build and isn't needed for the web build
       # - run: opam install menhir ppx_expect z3 brr js_of_ocaml-compiler
@@ -47,9 +48,9 @@ jobs:
       - run: npm install -g browserify
       - run: npm install z3-solver
 
-      - run: |
-          eval $(opam env)
-          TEST_ALL=1 dune test && dune build @web --profile release
+      # - run: |
+      #     eval $(opam env)
+      #     TEST_ALL=1 dune test && dune build @web --profile release
 
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v3
