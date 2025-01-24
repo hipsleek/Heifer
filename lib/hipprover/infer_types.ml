@@ -60,6 +60,7 @@ let get_primitive_type f =
   | "tail" -> ([List_int], List_int)
   | "is_nil" | "is_cons" -> ([List_int], Bool)
   | "+" | "-" -> ([Int; Int], Int)
+  | "string_of_int" -> ([Int], TyString)
   | _ when String.compare f "effNo" == 0 -> ([Int] , Int)
   | _ when Globals.is_pure_fn_defined f ->
     let fn = Globals.pure_fn f in
@@ -98,8 +99,9 @@ let rec infer_types_core_lang env e =
   | CRead _ -> failwith "CRead"
   | CAssert (_, _) -> failwith "CAssert"
   | CPerform (_, _) -> failwith "CPerform"
-  | CMatch (_, _, _, _, _) -> failwith "CMatch"
+  | CMatch (_, _, _, _, _, _) -> failwith "CMatch"
   | CResume _ -> failwith "CResume"
+  | CShift (_, _, _) | CReset _
   | CLambda (_, _, _) ->
     failwith "not implemented"
 
@@ -113,6 +115,7 @@ and infer_types_term ?hint (env : abs_typ_env) term : typ * abs_typ_env =
   match (term, hint) with
   | UNIT, _ -> (Unit, env)
   | TTrue, _ | TFalse, _ -> (Bool, env)
+  | TStr _, _ -> (TyString, env)
   | TNot a, _ ->
     let _at, env1 = infer_types_term ~hint:Bool env a in
     (Bool, env1)
@@ -164,6 +167,10 @@ and infer_types_term ?hint (env : abs_typ_env) term : typ * abs_typ_env =
     let _at, env1 = infer_types_term ~hint:Int env a in
     let _bt, env2 = infer_types_term ~hint:Int env1 b in
     (Bool, env2)
+  | SConcat (a, b), _ ->
+    let _at, env1 = infer_types_term ~hint:TyString env a in
+    let _bt, env2 = infer_types_term ~hint:TyString env1 b in
+    (TyString, env2)
   | Plus (a, b), _ | Minus (a, b), _ | TPower (a, b), _ | TTimes (a, b), _ | TDiv (a, b), _ ->
     let _at, env1 = infer_types_term ~hint:Int env a in
     let _bt, env2 = infer_types_term ~hint:Int env1 b in

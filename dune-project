@@ -2,6 +2,7 @@
 (using experimental_building_ocaml_compiler_with_dune 0.1)
 (using coq 0.2)
 (using directory-targets 0.1)
+(using menhir 2.1)
 
 (name heifer)
 (generate_opam_files true)
@@ -11,7 +12,7 @@
 
 (authors "Song Yahui, Darius Foo")
 
-(maintainers "e0210374@u.nus.edu, darius.foo.tw@gmail.com")
+(maintainers "yahui_s@nus.edu.sg, darius.foo.tw@gmail.com")
 (license MIT)
 
 (package

@@ -17,3 +17,4 @@ Use `dune exec main/hip.exe $EXAMPLE` to run examples. Effect-related programs a
 - [Development](docs/development.md)
 - [Why3](docs/why3.md)
 - [How the web build works](docs/web.md)
+- [Docker packaging](docs/docker.md)

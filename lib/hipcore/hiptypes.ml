@@ -8,8 +8,10 @@ and term =
     | UNIT 
     | Num of int
     | Var of string
+    | TStr of string
     | Plus of term * term 
     | Minus of term * term 
+    | SConcat of term * term 
     | Rel of bin_op * term * term 
     | TTrue
     | TFalse
@@ -35,6 +37,10 @@ and core_handler_ops = (string * string option * disj_spec option * core_lang) l
 (* x :: xs -> e is represented as ("::", [x, xs], e) *)
 and constr_cases = (string * string list * core_lang) list
 
+and tryCatchLemma = (spec * disj_spec option * (*(handlingcases) **) disj_spec) (*tcl_head, tcl_handledCont, tcl_summary*)
+
+and handler_type = Shallow | Deep 
+
 and core_lang = 
       | CValue of core_value 
       | CLet of string * core_lang * core_lang
@@ -46,9 +52,11 @@ and core_lang =
       | CAssert of pi * kappa 
       | CPerform of string * core_value option
       (* match e with | v -> e1 | eff case... | constr case... *)
-      | CMatch of disj_spec option * core_lang * (string * core_lang) option * core_handler_ops * constr_cases
+      | CMatch of handler_type * tryCatchLemma option * core_lang * (string * core_lang) option * core_handler_ops * constr_cases
       | CResume of core_value list
       | CLambda of string list * disj_spec option * core_lang
+      | CShift of bool * string * core_lang (* bool=true is for shift, and bool=false for shift0 *)
+      | CReset of core_lang
 
 and core_value = term
 
@@ -84,13 +92,15 @@ and trycatch = (spec * handlingcases)
 
 and stagedSpec = 
       | Exists of string list
-      | Require of pi * kappa 
+      | Require of (pi * kappa)
       (* ens H /\ P, where P may contain contraints on res *)
       | NormalReturn of (pi * kappa)
       (* higher-order functions: H /\ P /\ f$(...args, term) *)
       (* this constructor is also used for inductive predicate applications *)
       (* f$(x, y) is HigherOrder(..., ..., (f, [x]), y) *)
       | HigherOrder of (pi * kappa * instant * term)
+      | Shift of bool * string * disj_spec * term (* see CShift for meaning of bool *)
+      | Reset of disj_spec * term
       (* effects: H /\ P /\ E(...args, v), term is always a placeholder variable *)
       | RaisingEff of (pi * kappa * instant * term)
       (* | IndPred of { name : string; args: term list } *)
@@ -110,6 +120,7 @@ type typ =
   | List_int
   | Int
   | Bool
+  | TyString
   | Lamb
   | Arrow of typ * typ
   | TVar of string (* this is last, so > concrete types *)
@@ -124,6 +135,12 @@ let is_concrete_type = function TVar _ -> false | _ -> true
 let concrete_types = [Unit; List_int; Int; Bool; Lamb]
 
 let res_v = Var "res"
+
+let z3_consumption = ref 0.0
+let summary_forward = ref 0.0
+let summary_entail = ref 0.0
+let summary_storing_spec = ref 0.0
+let summary_askZ3 = ref 0.0
 
 
 
@@ -194,7 +211,6 @@ type typ_env = typ SMap.t
 
 [@@@warning "-17"]
 
-(* type effectStage =  (string list* (pi * kappa ) * (pi * kappa) * instant * term) *)
 type effectStage = {
   e_evars : string list;
   e_pre : pi * kappa;
@@ -206,6 +222,30 @@ type effectStage = {
 [@@deriving
   visitors { variety = "map"; name = "map_effect_stage_" },
   visitors { variety = "reduce"; name = "reduce_effect_stage_" }]
+
+type shiftStage = {
+  s_evars : string list;
+  s_notzero : bool;
+  s_pre : pi * kappa;
+  s_post : pi * kappa;
+  s_cont : string;
+  s_body : disj_spec;
+  s_ret : term;
+}
+[@@deriving
+  visitors { variety = "map"; name = "map_shift_stage_" },
+  visitors { variety = "reduce"; name = "reduce_shift_stage_" }]
+
+type resetStage = {
+  rs_evars : string list;
+  rs_pre : pi * kappa;
+  rs_post : pi * kappa;
+  rs_body : disj_spec;
+  rs_ret : term;
+}
+[@@deriving
+  visitors { variety = "map"; name = "map_reset_stage_" },
+  visitors { variety = "reduce"; name = "reduce_reset_stage_" }]
 
 type tryCatchStage = {
   tc_evars : string list;
@@ -219,7 +259,11 @@ type tryCatchStage = {
   visitors { variety = "reduce"; name = "reduce_try_catch_stage_" }]
 
 
-type effHOTryCatchStages = EffHOStage of effectStage | TryCatchStage of tryCatchStage
+type effHOTryCatchStages =
+  | EffHOStage of effectStage
+  | ShiftStage of shiftStage
+  | TryCatchStage of tryCatchStage
+  | ResetStage of resetStage
 [@@deriving
   visitors { variety = "map"; name = "map_eff_stages_" },
   visitors { variety = "reduce"; name = "reduce_eff_stages_" }]
@@ -241,7 +285,9 @@ class virtual ['self] reduce_normalised =
   object (_ : 'self)
     inherit [_] reduce_spec
     inherit! [_] reduce_effect_stage_
+    inherit! [_] reduce_shift_stage_
     inherit! [_] reduce_try_catch_stage_
+    inherit! [_] reduce_reset_stage_
     inherit! [_] reduce_eff_stages_
     inherit! [_] reduce_normal_stages_
     inherit! [_] reduce_normalised_
@@ -251,7 +297,9 @@ class virtual ['self] map_normalised =
   object (_ : 'self)
     inherit [_] map_spec
     inherit! [_] map_effect_stage_
+    inherit! [_] map_shift_stage_
     inherit! [_] map_try_catch_stage_
+    inherit! [_] map_reset_stage_
     inherit! [_] map_eff_stages_
     inherit! [_] map_normal_stages_
     inherit! [_] map_normalised_
@@ -262,7 +310,7 @@ let freshNormalStage : normalStage = ([], (True, EmptyHeap), (True, EmptyHeap))
 
 let freshNormStageRet r : normalStage = ([], (True, EmptyHeap), (res_eq r, EmptyHeap)) 
 
-
+let counter_4_inserting_let_bindings = ref 0 
 
 type tactic =
   | Unfold_right
@@ -324,6 +372,14 @@ type lambda_obligation = {
   lo_left: disj_spec;
   lo_right: disj_spec;
 }
+type intermediate =
+  | Eff of string
+  | Lem of lemma
+  | LogicTypeDecl of string * typ list * typ * string list * string
+  (* name, params, spec, body, tactics, pure_fn_info *)
+  | Meth of string * string list * disj_spec option * core_lang * tactic list * (typ list * typ) option
+  | Pred of pred_def
+  | SLPred of sl_pred_def
 
 type core_program = {
   cp_effs: string list;
@@ -347,4 +403,4 @@ type 'a quantified = string list * 'a
 
 type instantiations = (string * string) list
 
-let primitive_functions = ["+"; "-"; "="; "not"; "::"; "&&"; "||"; ">"; "<"; ">="; "<="]
+let primitive_functions = ["+"; "-"; "="; "not"; "::"; "&&"; "||"; ">"; "<"; ">="; "<="; "^"; "string_of_int"]

@@ -1,5 +1,6 @@
 (library
  (name hipcore)
+ (public_name heifer.hipcore)
  (modules subst Pretty common hiptypes globals)
  (libraries debug unionFind str)
  (inline_tests)

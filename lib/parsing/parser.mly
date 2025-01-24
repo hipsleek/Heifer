@@ -611,6 +611,7 @@ let mk_directive ~loc name arg =
 %token DOWNTO
 %token EFFECT
 %token EXISTS
+%token SHALLOW
 %token ELSE
 %token END
 %token EOF
@@ -628,7 +629,7 @@ let mk_directive ~loc name arg =
 // %token IMPLICATION
 %token LONG_IMPLICATION
 %token SUBSUMES
-%token REQUIRES  EFFTRY EFFCATCH
+%token REQUIRES  EFFCATCH
 %token ENSURES
 %token EMP
 %token GREATER
@@ -2248,10 +2249,11 @@ expr:
         Pexp_fun(l, o, p, $4), $2 }
   | FUN ext_attributes LPAREN TYPE lident_list RPAREN fun_def
       { (mk_newtypes ~loc:$sloc $5 $7).pexp_desc, $2 }
-  | MATCH ext_attributes seq_expr WITH match_cases
-      { Pexp_match(None, $3, $5), $2 }
-  | MATCH ext_attributes seq_expr WITH c=fn_contract match_cases
-      { Pexp_match(c, $3, $6), $2 }
+  | MATCH ext_attributes block=seq_expr WITH c=type_try_catch_lemma mc=match_cases
+      { let typ, lemma = c in 
+        Pexp_match(typ, lemma, block, mc), $2 }
+
+
 
       
   | TRY ext_attributes seq_expr WITH match_cases
@@ -2591,6 +2593,7 @@ pure_formula_term:
     
   | TRUE { TTrue }
   | FALSE { TFalse }
+  | s=STRING { let s, _, _ = s in TStr s }
 
   // | LBRACKET RBRACKET { Nil }
   // | pure_formula_term COLONCOLON pure_formula_term { TCons ($1, $3) }
@@ -2600,15 +2603,13 @@ pure_formula_term:
 
   | pure_formula_term MINUS pure_formula_term { Minus ($1, $3) }
   | pure_formula_term AMPERAMPER pure_formula_term { TAnd ($1, $3) }
-  | LPAREN pure_formula_term INFIXOP1 LPAREN pure_formula_term RPAREN RPAREN { TPower ($2, $5) }
-  
-  | pure_formula_term op=INFIXOP3 pure_formula_term {
-      match op with
-      | "*." -> TTimes ($1, $3) (* STAR is used for separating conjunction *)
-      | "/" -> TDiv ($1, $3) 
-      | _ -> failwith ("unknown operator " ^ op)
-    }
 
+  | a=pure_formula_term INFIXOP2 b=pure_formula_term
+    { SConcat (a, b) } // ++
+
+  | LPAREN pure_formula_term INFIXOP1 LPAREN pure_formula_term RPAREN RPAREN
+    { TPower ($2, $5) } // ^
+  
 
   | LPAREN pure_formula_term RPAREN { $2 }
 
@@ -2736,6 +2737,49 @@ only_disj_effect_spec:
 
 disj_effect_spec:
 | d=separated_nonempty_list(DISJUNCTION, effect_spec) { d }
+
+option_conti_sharp :
+| HASH conti= disj_effect_spec {Some conti }
+| {None }
+
+
+
+handler_type:
+| SHALLOW {Shallow}
+| {Deep}
+
+option_formal_arg :
+| str= LIDENT {Some str }
+| {None }
+
+
+handler_effect_cases:
+| {[]}
+| eff = UIDENT LPAREN arg = option_formal_arg RPAREN COLON h_effect_spec= disj_effect_spec BAR  
+  h_ops = handler_effect_cases 
+  {(eff, arg, h_effect_spec)::h_ops}
+
+
+type_try_catch_lemma:
+| LSPECCOMMENT ht=handler_type RSPECCOMMENT
+{ht, None}
+| LSPECCOMMENT ht=handler_type TRY head_spec= effect_spec conti=option_conti_sharp EFFCATCH 
+  (*
+  LBRACE h_normal_param = LIDENT  COLON h_normal_spec= disj_effect_spec BAR 
+  h_ops = handler_effect_cases 
+  RBRACE
+  *)
+  EQUAL 
+  summary = disj_effect_spec
+   RSPECCOMMENT
+  {
+    (*let h_normal = (h_normal_param, h_normal_spec) in 
+    *)
+    (ht, Some (head_spec, conti, (*(h_normal, h_ops), *) summary))}
+| {(Deep, None)}
+
+
+
 
 fn_contract:
   | LSPECCOMMENT spec=disj_effect_spec RSPECCOMMENT

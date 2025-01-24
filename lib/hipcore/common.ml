@@ -89,4 +89,31 @@ let foldr1 f xs =
 
 let pair a b = (a, b)
 
+let map_state env f xs =
+  let r, env =
+    List.fold_right (fun c (t, env) ->
+      let r, e1 = f c env
+      in (r :: t, e1)
+    ) xs ([], env)
+  in
+  r, env
+
+(** Like concat_map, but threads an extra "environment" argument through which can be updated by the function *)
+let concat_map_state env f xs =
+  let r, env = map_state env f xs in
+  List.concat r, env
+
+let%expect_test _ =
+  let r, e = (concat_map_state 0 (fun x e -> [x; x * 3], e + 1) [1; 2; 3]) in
+  Format.printf "%s %d@." (string_of_list string_of_int r) e;
+  [%expect
+    {| [1; 3; 2; 6; 3; 9] 3 |}]
+
+let foldl1 f xs =
+  match xs with
+  | [] -> failwith "foldl1"
+  | x :: xs1 ->
+    List.fold_left f x xs1
+
+
 let protected f finally = Fun.protect ~finally f

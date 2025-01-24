@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
-cp $(opam var lib)/menhirLib/menhirLib.ml* .
+cp $(opam var lib)/menhirLib/menhirLib.ml .
+cp $(opam var lib)/menhirLib/menhirLib.mli .
 
 #	 Derived from promote-menhir in https://github.com/ocaml/ocaml/blob/trunk/Makefile.menhir
 #	 Other useful options: --strict --explain --dump --log-grammar 1 --log-automaton 1 --require-aliases,

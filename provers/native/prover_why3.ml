@@ -18,22 +18,23 @@ let () =
     Loc.set_warning_hook (fun ?loc:_ _msg -> ())
 
 let why3_env : Env.env =
-  let extra_paths =
+  let extra_paths : SSet.t =
     let rec find_dune_project dir =
       if Sys.file_exists (dir ^ "/dune-project") then Some dir
       else if dir = "/" then None
       else find_dune_project (Filename.dirname dir)
     in
-    SSet.of_list
-      (List.concat
-         [
-           [Sys.getcwd ()];
-           Option.to_list (find_dune_project (Sys.getcwd ()));
-           (try [Filename.dirname Sys.argv.(1)] with _ -> []);
-         ])
+    let cwd = Sys.getcwd () in
+    SSet.of_list (List.concat
+      [
+        [cwd];
+        Option.to_list (find_dune_project cwd);
+        (try [Filename.dirname Sys.argv.(1)] with _ -> []);
+      ])
   in
-  let load_path =
-    SSet.to_list extra_paths @ Whyconf.loadpath why3_config_main
+  let load_path = SSet.of_list (Whyconf.loadpath why3_config_main)
+    |> SSet.union extra_paths
+    |> SSet.to_list
   in
   Debug.debug ~at:4 ~title:"why load path" "%s"
     (string_of_list Fun.id load_path);
@@ -54,7 +55,8 @@ let load_prover_config name : Whyconf.config_prover =
     let alts =
       Whyconf.(
         Mprover.map (fun cp -> string_of_prover cp.prover) provers
-        |> Mprover.bindings |> List.map snd)
+        |> Mprover.bindings
+        |> List.map snd)
       |> string_of_list Fun.id
     in
     let p, conf = Whyconf.Mprover.min_binding provers in
@@ -63,11 +65,12 @@ let load_prover_config name : Whyconf.config_prover =
     conf
   end
 
-let load_prover_driver pc name =
-  try Driver.load_driver_for_prover why3_config_main why3_env pc
+let load_prover_driver conf name =
+  try Driver.load_driver_for_prover why3_config_main why3_env conf
   with e ->
-    Format.printf "Failed to load driver for %s: %a@." name
-      Exn_printer.exn_printer e;
+    Format.printf
+      "Failed to load driver for %s: %a@."
+      name Exn_printer.exn_printer e;
     raise e
 
 let ensure_prover_loaded name =
@@ -101,14 +104,14 @@ let attempt_proof task1 =
     tasks;
 
   (* only do this once, not recursively *)
-  let tasks =
+  (* let tasks =
     tasks
     |> List.concat_map (fun t ->
            (* let@ _ = silence_stderr in *)
            (* Trans.apply_transform "induction_ty_lex" why3_env t *)
            [t])
     (* |> List.concat_map (Trans.apply_transform "split_goal" why3_env) *)
-  in
+  in *)
 
   (* it's unlikely the provers will change location in the span of one task *)
   let provers =
@@ -116,11 +119,12 @@ let attempt_proof task1 =
     (* ["Alt-Ergo"] *)
     ["Z3"]
     |> List.filter_map (fun prover ->
-           try
-             ensure_prover_loaded prover;
-             Some (get_prover_config prover)
-           with _ -> None)
+        try
+          ensure_prover_loaded prover;
+          Some (get_prover_config prover)
+        with _ -> None)
   in
+  (* try each task, on all possible provers *)
   List.for_all
     (fun task ->
       List.exists
@@ -128,13 +132,10 @@ let attempt_proof task1 =
           let result1 =
             Call_provers.wait_on_call
               (Driver.prove_task
-                 ~limits:
-                   {
-                     Call_provers.empty_limits with
-                     Call_provers.limit_time = 0.5;
-                   }
-                 ~config:why3_config_main ~command:pconf.Whyconf.command pdriver
-                 task)
+                ~limit:{Call_provers.empty_limit with limit_time = 0.5}
+                ~config:why3_config_main
+                ~command:pconf.Whyconf.command
+                pdriver task)
           in
           (* Format.printf "%s: %a@." prover
              (Call_provers.print_prover_result ?json:None)
@@ -176,6 +177,7 @@ module LowLevel = struct
     let fold f t init = List.fold_right f (TMap.bindings !t) init
 
     (* Some common ones we use *)
+    let string = (["string"], "String")
     let int = (["int"], "Int")
     let bool = (["bool"], "Bool")
     let list = (["list"], "List")
@@ -229,6 +231,9 @@ module LowLevel = struct
     | List_int ->
       Theories.(needed int env.theories);
       Ty.ty_app Theories.(get_type_symbol list "list" env.theories) [Ty.ty_int]
+    | TyString ->
+      Theories.(needed string env.theories);
+      Ty.ty_str
     | Int ->
       Theories.(needed int env.theories);
       Ty.ty_int
@@ -277,6 +282,13 @@ module LowLevel = struct
            string_of_option string_of_type (SMap.find_opt v env.tenv)); *)
       (name, ty1)
     | Var v -> failwith (Format.asprintf "variable %s has no type" v)
+    | SConcat (a, b) ->
+      let a1, _ = term_to_why3 env a in
+      let b1, _ = term_to_why3 env b in
+      ( Term.t_app_infer
+          Theories.(get_symbol string "concat" env.theories)
+          [a1; b1],
+        Int )
     | Plus (a, b) ->
       let a1, _ = term_to_why3 env a in
       let b1, _ = term_to_why3 env b in
@@ -395,6 +407,7 @@ module LowLevel = struct
     | TDiv (_, _) -> failwith "TDiv nyi"
     | TList _ -> failwith "TList nyi"
     | TTupple _ -> failwith "TTupple nyi"
+    | TStr _ -> failwith "TStr nyi"
 
   let rec pi_to_why3 env (pi : pi) =
     (* Format.printf "pi %s@." (Pretty.string_of_pi pi); *)
@@ -469,7 +482,7 @@ module LowLevel = struct
     | CRead _ -> failwith "unimplemented CRead"
     | CAssert (_, _) -> failwith "unimplemented CAssert"
     | CPerform (_, _) -> failwith "unimplemented CPerform"
-    | CMatch (_, scr, None, [], cases) ->
+    | CMatch (_, _, scr, None, [], cases) ->
       (* x :: xs -> e is represented as ("::", [x, xs], e) *)
       (* and constr_cases = (string * string list * core_lang) list *)
       Term.t_case (expr_to_why3 env scr)
@@ -499,9 +512,10 @@ module LowLevel = struct
              in
              Term.t_close_branch pat (expr_to_why3 env body))
            cases)
-    | CMatch (_, _, _, _, _) -> failwith "unimplemented effect CMatch"
+    | CMatch (_, _, _, _, _, _) -> failwith "unimplemented effect CMatch"
     | CResume _ -> failwith "unimplemented CResume"
     | CLambda (_, _, _) -> failwith "unimplemented CLambda"
+    | CShift _ | CReset _ -> failwith "TODO shift and reset expr_to_why3 "
 
   let pure_fn_to_logic_fn env pure_fn =
     let params =
@@ -691,6 +705,7 @@ open Ptree_helpers
 
 let rec type_to_whyml t =
   match t with
+  | TyString -> PTtyapp (qualid ["String"; "string"], [])
   | Int -> PTtyapp (qualid ["Int"; "int"], [])
   | Unit -> PTtyapp (qualid ["tuple0"], [])
   | List_int ->
@@ -707,6 +722,10 @@ let rec term_to_whyml tenv t =
   | TFalse -> term Tfalse
   | Num i -> tconst i
   | Var v -> tvar (qualid [v])
+  | SConcat (a, b) ->
+    tapp
+      (qualid ["String"; "concat"])
+      [term_to_whyml tenv a; term_to_whyml tenv b]
   | Plus (a, b) ->
     tapp
       (qualid ["Int"; Ident.op_infix "+"])
@@ -754,7 +773,8 @@ let rec term_to_whyml tenv t =
      let params, _ret = unsnoc params in
      let binders = vars_to_params tenv params in
      term (Tquant (Dterm.DTlambda, binders, [], core_lang_to_whyml tenv body)) *)
-  | TList _ | TTupple _ | TPower (_, _) | TTimes (_, _) | TDiv (_, _) ->
+  | TList _ | TTupple _ | TPower (_, _) | TTimes (_, _) | TDiv (_, _) | TStr _
+    ->
     failwith "nyi"
 
 and vars_to_params tenv vars =
@@ -789,10 +809,11 @@ and core_lang_to_whyml tenv e =
       | "=" -> qualid ["Int"; Ident.op_infix s] (* for now *)
       | "||" -> qualid ["Bool"; "orb"]
       | "&&" -> qualid ["Bool"; "andb"]
+      | "string_of_int" -> qualid ["String"; "from_int"]
       | _ -> qualid [s]
     in
     tapp fn (List.map (term_to_whyml tenv) args)
-  | CMatch (None, scr, None, [], cases) ->
+  | CMatch (_, None, scr, None, [], cases) ->
     term
       (Tcase
          ( core_lang_to_whyml tenv scr,
@@ -809,10 +830,11 @@ and core_lang_to_whyml tenv e =
                       (real_constr, List.map (fun a -> pat_var (ident a)) args)),
                  core_lang_to_whyml tenv b ))
              cases ))
-  | CMatch (_, _, _, _, _) -> failwith "unsupported kind of match"
+  | CMatch (_, _, _, _, _, _) -> failwith "unsupported kind of match"
   | CAssert (_, _) | CLambda (_, _, _) -> failwith "unimplemented"
   | CWrite (_, _) | CRef _ | CRead _ -> failwith "heap operations not allowed"
   | CResume _ | CPerform (_, _) -> failwith "effects not allowed"
+  | CShift _ | CReset _ -> failwith "TODO shift and reset core_lang_to_whyml "
 
 and pi_to_whyml tenv p =
   match p with
@@ -988,6 +1010,7 @@ let suppress_error_if_not_debug f =
       (* Printexc.print_backtrace stdout; *)
       false
 
+(* Entry point to call why3 *)
 let entails_exists tenv left ex right =
   let@ _ = Globals.Timing.(time why3) in
   let@ _ = suppress_error_if_not_debug in
