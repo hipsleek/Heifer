@@ -101,10 +101,8 @@ let apply_one_lemma : lemma list -> spec -> spec * lemma option =
     (sp, None) lems
 
 module Heap = struct
-  let normalize : state -> state =
-   fun (p, h) ->
-    let h = simplify_heap h in
-    (simplify_pure p, h)
+
+  let normalize (p, h : state) : state = simplify_pure p, simplify_heap h
 
   (** given a nonempty heap formula, splits it into a points-to expression and another heap formula *)
   let rec split_one : kappa -> ((string * term) * kappa) option =
@@ -185,14 +183,14 @@ let instantiate_existentials :
     (string * term) list -> normalisedStagedSpec -> normalisedStagedSpec =
  fun bindings (efs, ns) ->
   let names = List.map fst bindings in
-  let (efs:effectStage list) = 
-    List.fold_left (fun acc a -> 
-    let temp = match a with 
+  let (efs:effectStage list) =
+    List.fold_left (fun acc a ->
+    let temp = match a with
     | EffHOStage ele -> [ele]
     | _ -> []
-    in 
-    acc @ temp) [] efs 
-  in 
+    in
+    acc @ temp) [] efs
+  in
   let efs1 = List.map (instantiate_existentials_effect_stage bindings) efs in
   let ns1 =
     let vs, pre, post = ns in
@@ -242,7 +240,7 @@ let rec check_qf :
     | Some ((x, v), h2') when List.mem x vs ->
       debug ~at:4 ~title:(Format.asprintf "existential location %s" x) "";
       let left_heap = list_of_heap h1 in
-      (match left_heap with
+      begin match left_heap with
       | [] -> fail
       | _ :: _ ->
         (* x is bound and could potentially be instantiated with anything on the right side, so try everything *)
@@ -259,7 +257,8 @@ let rec check_qf :
               (* matching ptr values are added as an eq to the right side, since we don't have a term := term substitution function *)
               check_qf id vs (conj [p1], h1') (conj [p2; triv], h2') k)
         in
-        r1)
+        r1
+        end
     | Some ((x, v), h2') -> begin
       debug ~at:4 ~title:(Format.asprintf "free location %s" x) "";
       (* x is free. match against h1 exactly *)
@@ -501,8 +500,8 @@ let rec check_staged_subsumption_stagewise :
           ( es2.e_evars,
             (es2.e_pre, with_pure (And (arg_eqs, res_eq es2.e_ret)) es2.e_post)
           )
-        in 
-        temp 
+        in
+        temp
       in
       (*print_endline ("check_staged_subsumption_stagewise recursive");*)
       check_staged_subsumption_stagewise ctx (i + 1)
@@ -516,10 +515,10 @@ let rec check_staged_subsumption_stagewise :
 
     let es1, ns1 = normalize_spec src1 in
     let es2, ns2 = normalize_spec src2 in
-    check_staged_subsumption_stagewise ctx 0 True (es1, ns1) (es2, ns2) 
+    check_staged_subsumption_stagewise ctx 0 True (es1, ns1) (es2, ns2)
     (* Ask Darius *)
-    
-      
+
+
   | ([], ns1), ([], ns2) ->
     (* base case: check the normal stage at the end *)
     let (vs1, (p1, h1), (qp1, qh1 as post1)) = ns1 in
@@ -565,7 +564,7 @@ let rec check_staged_subsumption_stagewise :
     fail
 
   | _  ->fail
-  
+
 
 and try_other_measures :
     pctx ->
@@ -790,7 +789,6 @@ and stage_subsumes :
     (* let right = fst (split_res left) in *)
     if post_result then Some (conj [left; right; pure_pre_residue], ctx) else None
   in
-
   ok (conj [pure_pre_residue; post_residue], ctx)
 
 let extract_binders spec =
