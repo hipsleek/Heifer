@@ -48,9 +48,9 @@ jobs:
       - run: npm install -g browserify
       - run: npm install z3-solver
 
-      # - run: |
-      #     eval $(opam env)
-      #     TEST_ALL=1 dune test && dune build @web --profile release
+      - run: |
+          eval $(opam env)
+          TEST_ALL=1 dune test && dune build @web --profile release
 
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v3
