@@ -11,9 +11,13 @@ let rec existStr str li =
   | [] -> false
   | x :: xs -> if String.compare x str == 0 then true else existStr str xs
 
-let rec to_fixed_point f spec =
-  let spec, changed = f spec in
-  if not changed then spec else to_fixed_point f spec
+let rec to_fixed_point ?(fuel = 5) f spec =
+  if fuel == 0 then
+    spec
+  else begin
+    let spec, changed = f spec in
+    if not changed then spec else to_fixed_point f spec ~fuel:(fuel - 1)
+  end
 
 let rec to_fixed_point_ptr_eq f spec =
   let spec1 = f spec in
@@ -110,34 +114,29 @@ let compareTerms (t1:term) (t2:term) : bool =
 
 
 let simplify_pure (p : pi) : pi =
-  let rec once p =
+  let rec once p : pi * bool =
     match p with
+    (* | True -> True, false
+    | False -> False, false
+    | Atomic (op, t1, t2) -> failwith "todo" *)
     | Not (Atomic (EQ, a, TTrue)) -> (Atomic (EQ, a, TFalse), true)
-    | (Atomic (EQ, t1, t2 )) -> 
-      let t1 = simplify_term t1 in 
-      let t2 = simplify_term t2 in 
-      (match t1, t2 with
-      | Var "res", Var "res" -> (True, true)
-      | TFalse, TFalse -> (True, true)
-      | TTrue, TTrue -> (True, true)
-      | Num n1, Num n2 -> 
-        if n1==n2 then (True, true)
-        else (p, true)
-
-      | TAnd(TTrue, TTrue), TTrue -> (True, true)
-      | TAnd(TFalse, TTrue), TFalse -> (True, true)
-      | t1, Plus(Num n1, Num n2) -> (Atomic (EQ, t1, Num (n1+n2)), true)
-      | _, _ -> 
-        if compareTerms t1 t2 then 
-        (
-        (True, true))
-        else 
-        (
-        (Atomic (EQ, t1, t2 )), false )
-      
-      )
-
-
+    | Atomic (EQ, t1, t2) ->
+        let t1 = simplify_term t1 in 
+        let t2 = simplify_term t2 in 
+        begin match t1, t2 with
+        | Var "res", Var "res" -> (True, true)
+        | TFalse, TFalse -> (True, true)
+        | TTrue, TTrue -> (True, true)
+        | Num n1, Num n2 -> if n1 == n2 then (True, true) else (p, true)
+        | TAnd (TTrue, TTrue), TTrue -> (True, true)
+        | TAnd (TFalse, TTrue), TFalse -> (True, true)
+        | t1, Plus (Num n1, Num n2) -> (Atomic (EQ, t1, Num (n1+n2)), true)
+        | _, _ -> 
+            if compareTerms t1 t2 then 
+            ((True, true))
+            else 
+            ((Atomic (EQ, t1, t2 )), false )
+        end
     | True | False | Atomic _ | Predicate _ | Subsumption _ -> (p, false)
     | And (True, a) | And (a, True) -> (a, true)
     | And (a, b) ->
@@ -157,14 +156,11 @@ let simplify_pure (p : pi) : pi =
       let a1, c1 = once a in
       if c1 then (Not a1, true) else (p, false)
   in
+  (* may be loop here? *)
   let r = to_fixed_point once p in
-  (* (match (p, r) with
-  | True, True -> ()
-  | _ -> *)
-    debug ~at:5 ~title:"simplify_pure" "%s\n==>\n%s" (string_of_pi p)
-      (string_of_pi r)
-      (* ) *)
-      ;
+  debug ~at:5 ~title:"simplify_pure" "%s\n==>\n%s"
+    (string_of_pi p)
+    (string_of_pi r);
   r
 
 let rec lookforEqualityinPure (str : string) (p:pi) : term option =
