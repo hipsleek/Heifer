@@ -5,25 +5,25 @@ open Common
 
 type bin_op = GT | LT | EQ | GTEQ | LTEQ
 and term =
-    | UNIT 
-    | Num of int
-    | Var of string
-    | TStr of string
-    | Plus of term * term 
-    | Minus of term * term 
-    | SConcat of term * term 
-    | Rel of bin_op * term * term 
+    | UNIT
     | TTrue
     | TFalse
-    | TAnd of term * term
-    | TPower of term * term
+    | Nil
+    | Num of int
+    | TStr of string
+    | Var of string
+    | Plus of term * term
+    | Minus of term * term
     | TTimes of term * term
     | TDiv of term * term
+    | TPower of term * term
+    | SConcat of term * term
+    | TAnd of term * term
     | TOr of term * term
+    | TCons of term * term
+    | Rel of bin_op * term * term
     | TNot of term
     | TApp of string * term list
-    | TCons of term * term
-    | Nil
     (* the string is just an identifier for uniqueness.
        the last param is the name of the result *)
     | TLambda of string * string list * disj_spec * core_lang option
@@ -39,17 +39,17 @@ and constr_cases = (string * string list * core_lang) list
 
 and tryCatchLemma = (spec * disj_spec option * (*(handlingcases) **) disj_spec) (*tcl_head, tcl_handledCont, tcl_summary*)
 
-and handler_type = Shallow | Deep 
+and handler_type = Shallow | Deep
 
-and core_lang = 
-      | CValue of core_value 
+and core_lang =
+      | CValue of core_value
       | CLet of string * core_lang * core_lang
       | CIfELse of (*core_value*) pi * core_lang * core_lang
       | CFunCall of string * (core_value) list
-      | CWrite of string * core_value  
+      | CWrite of string * core_value
       | CRef of core_value
-      | CRead of string 
-      | CAssert of pi * kappa 
+      | CRead of string
+      | CAssert of pi * kappa
       | CPerform of string * core_value option
       (* match e with | v -> e1 | eff case... | constr case... *)
       | CMatch of handler_type * tryCatchLemma option * core_lang * (string * core_lang) option * core_handler_ops * constr_cases
@@ -64,18 +64,18 @@ and core_value = term
 and instant = string * term list
 
 
-and pi = 
+and pi =
   | True
   | False
   | Atomic of bin_op * term * term
   | And    of pi * pi
   | Or     of pi * pi
   | Imply  of pi * pi
-  | Not    of pi 
-  | Predicate of string * term list 
+  | Not    of pi
+  | Predicate of string * term list
   | Subsumption of term * term
 
-and kappa = 
+and kappa =
   | EmptyHeap
     (* x -> -   means x is allocated, and - is encoded as Var "_" *)
   | PointsTo of (string * term)
@@ -90,7 +90,7 @@ and handlingcases = (string * disj_spec) * ((string * string option * disj_spec)
 and trycatch = (spec * handlingcases)
 
 
-and stagedSpec = 
+and stagedSpec =
       | Exists of string list
       | Require of (pi * kappa)
       (* ens H /\ P, where P may contain contraints on res *)
@@ -306,11 +306,11 @@ class virtual ['self] map_normalised =
   end
 
 let freshNormalReturnSpec = [NormalReturn (True, EmptyHeap)]
-let freshNormalStage : normalStage = ([], (True, EmptyHeap), (True, EmptyHeap)) 
+let freshNormalStage : normalStage = ([], (True, EmptyHeap), (True, EmptyHeap))
 
-let freshNormStageRet r : normalStage = ([], (True, EmptyHeap), (res_eq r, EmptyHeap)) 
+let freshNormStageRet r : normalStage = ([], (True, EmptyHeap), (res_eq r, EmptyHeap))
 
-let counter_4_inserting_let_bindings = ref 0 
+let counter_4_inserting_let_bindings = ref 0
 
 type tactic =
   | Unfold_right
