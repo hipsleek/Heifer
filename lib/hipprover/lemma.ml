@@ -1,24 +1,43 @@
 open Hipcore
 open Hiptypes
 
-(** goes down the given spec trying to match the lemma's left side, and rewriting on match. may fail *)
-(** TODO: rewrite this *)
-(** What we need here is some kind of unification between the LHS of a lemma and the spec *)
-(** How to do the unification tho? *)
 let todo () = failwith "todo"
 
-(* we need a mapping from variable -> term *)
-(* in the enviroment, variable can either be *)
-
-(* We can run in two steps: unify and then check for alpha-equivalence? *)
+(** A mapping from variables -> variables/terms *)
 type unification_val =
-  | Subst_none
-  | Subst_term of term
-  | Subst_string of string
+  | U_none
+  | U_term of term
+  | U_string of string
 
 type unification_env = unification_val SMap.t
 
 exception Unification_failure
+
+let unify_string (s1 : string) (s2 : string) (e : unification_env) : unification_env =
+  (* if s1 is not present, s1 is not a bound variable. Error! *)
+  (* if s1 is present, then it is mapped to a unification_val *)
+  (* now consider the unification_val *)
+    (* if it is a none, we add a new binding *)
+    (* if it is a string, we check for equality in the content *)
+    (* if it is a term, fail *)
+  let uval = try SMap.find s1 e with Not_found -> raise Unification_failure in
+  match uval with
+  | U_none ->
+      SMap.add s1 (U_string s2) e
+  | U_string s2' when s2 = s2' ->
+      e
+  | _ ->
+      raise Unification_failure
+
+let unify_var (s : string) (t : term) (e : unification_env) : unification_env =
+  let uval = try SMap.find s e with Not_found -> raise Unification_failure in
+  match uval with
+  | U_none ->
+      SMap.add s (U_term t) e
+  | U_term t' when t = t' -> (* TODO: do we need to check for alpha-equivalence? *)
+      e
+  | _ ->
+      raise Unification_failure
 
 (* let unify_lem_lhs_args params la a =
   (* debug ~at:4 ~title:"unify_lem_lhs_args" "%s\n%s\n%s"
@@ -70,17 +89,17 @@ let rec unify_term (t1 : term) (t2 : term)  (e : unification_env) : unification_
       unify_term t12 t22 (unify_term t11 t21 e)
   | TNot t1', TNot t2' ->
       unify_term t1' t2' e
-  | TApp (s1, t1s), TApp (s2, t2s) ->
-      ignore (s1, t1s, s2, t2s);
-      todo ()
+  | TApp (s1, t1s), TApp (s2, t2s) when s1 = s2 ->
+      (* we cannot quantify over function name *)
+      unify_term_list t1s t2s e
   | TLambda _, TLambda _ ->
       (* difficult *)
       todo ()
   | TList t1s, TList t2s
   | TTupple t1s, TTupple t2s ->
       unify_term_list t1s t2s e
-  | Var _, _ ->
-      todo ()
+  | Var s, _ ->
+      unify_var s t2 e
   | _, _ ->
       raise Unification_failure
 
@@ -104,7 +123,7 @@ let rec unify_pi (p1 : pi) (p2 : pi) (e : unification_env) : unification_env =
   | Not p1', Not p2' ->
       unify_pi p1' p2' e
   | Predicate (s1, t1s), Predicate (s2, t2s) when s1 = s2 ->
-      (* Assume that we cannot quantify over predicate name *)
+      (* we cannot quantify over predicate name *)
       unify_term_list t1s t2s e
   | Subsumption (t11, t12), Subsumption (t21, t22) ->
       unify_term t12 t22 (unify_term t11 t21 e)
@@ -116,9 +135,7 @@ let rec unify_kappa (k1 : kappa) (k2 : kappa) (e : unification_env) : unificatio
   | EmptyHeap, EmptyHeap ->
       e
   | PointsTo (s1, t1), PointsTo (s2, t2) ->
-      (* unify the two string s1 and s2 if possible *)
-      ignore (s1, s2);
-      unify_term t1 t2 e
+      unify_term t1 t2 (unify_string s1 s2 e)
   | SepConj (k11, k12), SepConj (k21, k22) ->
       unify_kappa k12 k22 (unify_kappa k11 k21 e)
   | _, _ ->
@@ -155,6 +172,8 @@ and unify_disj_spec (dsp1 : disj_spec) (dsp2 : disj_spec) (e : unification_env) 
     List.fold_left2 (fun e' sp1 sp2 -> unify_spec sp1 sp2 e') e dsp1 dsp2
   with Invalid_argument _ ->
     raise Unification_failure
+
+(* for the substitution to the RHS, can we use subst.ml? *)
 
 type new_lemma = {
   l_name : string;
