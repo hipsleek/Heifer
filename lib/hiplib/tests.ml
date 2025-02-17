@@ -293,70 +293,70 @@ let%expect_test "normalise spec" =
   test1 {|ex v1 v2 v3 r; f(v1, r); ens res=v1+1 /\ v2=r /\ v3=v2|};
   [%expect
     {|
-  --- norm
+    --- norm
 
-  ens emp
-  ==>
-  req emp; ens emp
+    ens emp
+    ==>
+    req emp; ens emp
 
-  ens x->2; req x->1
-  =/=>
+    ens x->2; req x->1
+    =/=>
 
-  req x->1; ens x->1; req y->2; ens y->2
-  ==>
-  req x->1*y->2; ens x->1*y->2
+    req x->1; ens x->1; req y->2; ens y->2
+    ==>
+    req x->1*y->2; ens x->1*y->2
 
-  ex a; ens x->1; req x->a; ens x->a+1
-  ==>
-  ex a; req 1=a; ens x->a+1/\a=1
+    ex a; ens x->1; req x->a; ens x->a+1
+    ==>
+    ex a; req 1=a; ens x->a+1/\a=1
 
-  ex a; ens x->1*y->2; req x->a; ens x->a+1
-  ==>
-  ex a; req 1=a; ens y->2*x->a+1/\a=1
+    ex a; ens x->1*y->2; req x->a; ens x->a+1
+    ==>
+    ex a; req 1=a; ens y->2*x->a+1/\a=1
 
-  ex a; ens y->a/\a=3; req x->b/\b=a; ens x->b+1
-  ==>
-  ex a; req x->b/\b=a; ens y->a*x->b+1/\a=3
+    ex a; ens y->a/\a=3; req x->b/\b=a; ens x->b+1
+    ==>
+    ex a; req x->b/\b=a; ens y->a*x->b+1/\a=3
 
-  --- existential locations
+    --- existential locations
 
-  ex x; ens x->1/\x=y; ex y; req y->1
-  ==>
-  req emp; ens emp
+    ex x; ens x->1/\x=y; ex y; req y->1
+    ==>
+    req emp; ens emp
 
-  ex x; ens x->2/\x=y; ex y; req y->1
-  =/=>
+    ex x; ens x->2/\x=y; ex y; req y->1
+    =/=>
 
-  ex x; ens x->1; ex y; req y->1; ens x=y
-  ==>
-  req emp; ens emp
+    ex x; ens x->1; ex y; req y->1; ens x=y
+    ==>
+    req emp; ens emp
 
-  --- eff
+    --- eff
 
-  ens x->1; req x->1; E(x->1, (3), ()); ens y->2
-  ==>
-  req 1=1; E(x->1/\1=1, (3), ()); req emp; ens y->2/\res=()
+    ens x->1; req x->1; E(x->1, (3), ()); ens y->2
+    ==>
+    req 1=1; E(x->1/\1=1, (3), ()); req emp; ens y->2/\res=()
 
-  ens x->1; f(3, ()); ens y->2
-  ==>
-  req emp; ens x->1; f(3, ()); req emp; ens y->2
+    ens x->1; f(3, ()); ens y->2
+    ==>
+    req emp; ens x->1; f(3, ()); req emp; ens y->2
 
-  --- regression
+    --- regression
 
-  ex x1; Read(emp, (()), x1); ex x2; Write(emp, (x1+1), x2); ex x3; Read(emp, (()), x3); ens res=x3
-  ==>
-  ex x1; req emp; Read(emp, (()), x1); ex x2; req emp; Write(emp, (x1+1), x2); ex x3; req emp; Read(emp, (()), x3); req emp; ens res=x3
+    ex x1; Read(emp, (()), x1); ex x2; Write(emp, (x1+1), x2); ex x3; Read(emp, (()), x3); ens res=x3
+    ==>
+    ex x1; req emp; Read(emp, (()), x1); ex x2; req emp; Write(emp, (x1+1), x2); ex x3; req emp; Read(emp, (()), x3); req emp; ens res=x3
 
-  --- optimization
+    --- optimization
 
-  ex v1 v2 v3 v4; ens res=v1/\v1=v2/\v2=v3/\v4=v1
-  ==>
-  ex v4; req emp; ens res=v4
+    ex v1 v2 v3 v4; ens res=v1/\v1=v2/\v2=v3/\v4=v1
+    ==>
+    ex v4; req emp; ens res=v4
 
-  ex v1 v2 v3 r; f(v1, r); ens res=v1+1/\v2=r/\v3=v2
-  ==>
-  ex v1 v2; req emp; f(v1, v2); req emp; ens res=v1+1
-|}]
+    ex v1 v2 v3 r; f(v1, r); ens res=v1+1/\v2=r/\v3=v2
+    ==>
+    ex v1 v2; req emp; f(v1, v2); req emp; ens res=v1+1
+    |}]
 
 let entails_pure env_a s1 vars s2 =
   let s1 = parse_pi s1 in
