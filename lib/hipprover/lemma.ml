@@ -8,6 +8,7 @@ type unification_val =
   | U_none
   | U_term of term
   | U_string of string
+  | U_alpha of string (* for alpha-equivalence *)
 
 type unification_env = unification_val SMap.t
 
@@ -24,7 +25,8 @@ let unify_string (s1 : string) (s2 : string) (e : unification_env) : unification
   match uval with
   | U_none ->
       SMap.add s1 (U_string s2) e
-  | U_string s2' when s2 = s2' ->
+  | U_string s2'
+  | U_alpha s2' when s2 = s2' ->
       e
   | _ ->
       raise Unification_failure
@@ -34,31 +36,37 @@ let unify_var (s : string) (t : term) (e : unification_env) : unification_env =
   match uval with
   | U_none ->
       SMap.add s (U_term t) e
-  | U_term t' when t = t' -> (* TODO: do we need to check for alpha-equivalence? *)
+  | U_term t' when t = t' ->
+      (* Do we need to check for alpha-equivalence? *)
       e
+  | U_alpha s_alpha ->
+      begin match t with
+      | Var s' when s_alpha = s' -> e
+      | _ -> raise Unification_failure
+      end
   | _ ->
       raise Unification_failure
 
-(* let unify_lem_lhs_args params la a =
-  (* debug ~at:4 ~title:"unify_lem_lhs_args" "%s\n%s\n%s"
-    (string_of_list Fun.id params)
-    (string_of_list string_of_term la)
-    (string_of_list string_of_term a); *)
-  let exception Unification_failure in
-  try
-    Some
-      (List.map2 pair la a |> List.fold_left
-         (fun t (la, a) ->
-           let is_param =
-             match la with Var v when List.mem v params -> true | _ -> false
-           in
-           match (is_param, la) with
-           | true, Var la -> (la, a) :: t
-           | false, _ when la = a -> t
-           | false, _ -> raise_notrace Unification_failure
-           | _, _ -> failwith "invalid state")
-         [])
-  with Unification_failure -> None *)
+(** "Unify" two bounded variables introduced by exists/shift/lambda.
+    This "unification" is to support checking for alpha-equivalence.
+    The alpha-"unification" will be removed during substituition.
+  *)
+let unify_alpha (s1 : string) (s2 : string) (e : unification_env) : unification_env =
+  (* if s1 exists already, we override it *)
+  SMap.add s1 (U_alpha s2) e
+
+let ununify_alpha (s1 : string) (s2 : string) (e : unification_env) : unification_env =
+  let uval =
+    try
+      SMap.find s1 e
+    with Not_found ->
+      failwith "ununify_alpha: binding not found"
+  in
+  match uval with
+  | U_alpha s2' when s2 = s2' ->
+      SMap.remove s1 e
+  | _ ->
+      failwith "ununify_alpha: unexpected binding"
 
 (** unification of two terms. We note that Var can be
     unified with any term in the RHS. We assume that the RHS
@@ -94,7 +102,7 @@ let rec unify_term (t1 : term) (t2 : term)  (e : unification_env) : unification_
       unify_term_list t1s t2s e
   | TLambda _, TLambda _ ->
       (* difficult *)
-      todo ()
+      failwith "unify_term: matching TLambda, but not supported"
   | TList t1s, TList t2s
   | TTupple t1s, TTupple t2s ->
       unify_term_list t1s t2s e
@@ -146,20 +154,30 @@ let rec unify_kappa (k1 : kappa) (k2 : kappa) (e : unification_env) : unificatio
    and then try to unify *)
 let rec unify_stagedSpec (ssp1 : stagedSpec) (ssp2 : stagedSpec) (e : unification_env) : unification_env =
   match ssp1, ssp2 with
-  | Exists _, Exists _ ->
-      todo ()
+  | Exists s1s, Exists s2s ->
+      List.fold_left2 (fun e' s1 s2 -> unify_alpha s1 s2 e') e s1s s2s
   | Require (p1, k1), Require (p2, k2)
   | NormalReturn (p1, k1), NormalReturn (p2, k2) ->
       unify_kappa k1 k2 (unify_pi p1 p2 e)
-  | HigherOrder _, HigherOrder _
-  | Shift _, Shift _
-  | Reset _, Reset _ ->
-      todo ()
+  | HigherOrder _, HigherOrder _ ->
+      failwith "unify_stagedSpec: matching HigherOrder, but not supported"
+  | Shift (b1, k1, dsp1, t1), Shift (b2, k2, dsp2, t2) when b1 = b2 ->
+      (* k1 and k2 are now alpha-equivalence *)
+      (* k1 and k2 are only bounded when we are traversing the
+         body of shift *)
+      let e = unify_alpha k1 k2 e in
+      let e = unify_disj_spec dsp1 dsp2 e in
+      let e = ununify_alpha k1 k2 e in
+      let e = unify_term t1 t2 e in
+      e
+  | Reset (dsp1, t1), Reset (dsp2, t2) ->
+      unify_term t1 t2 (unify_disj_spec dsp1 dsp2 e)
   | RaisingEff _, RaisingEff _ ->
       failwith "unify_stagedSpec: matching RaisingEff, but not supported"
   | TryCatch _, TryCatch _ ->
       failwith "unify_stagedSpec: matching TryCatch, but not supported"
-  | _ -> todo ()
+  | _ ->
+      raise Unification_failure
 
 and unify_spec (sp1 : spec) (sp2 : spec) (e : unification_env) : unification_env =
   try
@@ -174,6 +192,7 @@ and unify_disj_spec (dsp1 : disj_spec) (dsp2 : disj_spec) (e : unification_env) 
     raise Unification_failure
 
 (* for the substitution to the RHS, can we use subst.ml? *)
+(* Seems like we can use the subst visitor *)
 
 type new_lemma = {
   l_name : string;
@@ -201,70 +220,12 @@ type new_lemma_1 = {
 (* in any case, after the unification, we will instantiate the spec with the bindings and then *)
 (* add everything into an accumulator *)
 
-(*
-let apply_lemma : lemma -> spec -> spec option =
-  fun lem sp ->
-    let@ _ =
-      Debug.span (fun r ->
-        debug ~at:3
-          ~title:"apply_lemma"
-          "lemma: %s\nspec: %s\nres: %s"
-
-          (* observation: the old lemma is to be applied on a single stage *)
-          (* which is different from this lemma, which is to be applied on the entire spec *)
-          (string_of_lemma lem)
-          (string_of_spec sp)
-          (string_of_result (string_of_option string_of_spec) r))
-    in
-    let lem = rename_exists_lemma lem in
-    let rec loop ok acc sp =
-      match sp with
-      | [] -> (Acc.to_list acc, ok)
-      | st :: sp1 ->
-          let lf, largs = lem.l_left in
-          begin match st with
-          | TryCatch _ -> failwith "unimplemented"
-          | Reset _ -> failwith "unimplemented"
-          | Shift _ -> failwith "unimplemented"
-          | HigherOrder (p, h, (f, args), r)
-              when (not ok) (* only apply once *) && f = lf ->
-              begin match unify_lem_lhs_args lem.l_params largs (args @ [r]) with
-              | Some bs ->
-                  let inst_lem_rhs = List.map (instantiateStages bs) lem.l_right in
-                  let extra_ret_equality =
-             (* TODO *)
-                  try
-                    let rhs_ret = Forward_rules.retrieve_return_value inst_lem_rhs in
-                    Atomic (EQ, r, rhs_ret)
-                  with _ ->
-                    True
-                  in
-                  loop true (Acc.add_all
-                      (NormalReturn (And (p, extra_ret_equality), h) :: inst_lem_rhs) acc) sp1
-              | None ->
-                  loop ok (Acc.add st acc) sp1)
-       | HigherOrder _
-       | NormalReturn _
-       | Exists _
-
-       (* observation: the old lemma is to be applied on a single stage *)
-       (* which is different from this lemma, which is to be applied on the entire spec *)
-       | Require (_, _)
-       | RaisingEff _ ->
-          loop ok (Acc.add st acc) sp1
-   in
-   let r, ok = loop false Acc.empty sp in
-   if ok then Some r else None
-
-(* literally apply one lemma, we scan the list of lemmas and apply the first one possible *)
-let apply_one_lemma : lemma list -> spec -> spec * lemma option =
-  fun lems sp ->
-    List.fold_left
-      (fun (sp, app) l ->
-        match app with
-        | Some _ -> (sp, app)
-        | None ->
-            let sp1 = apply_lemma l sp in
-            match sp1 with None -> (sp, app) | Some sp1 -> (sp1, Some l))
-      (sp, None) lems
-*)
+let convert_to_bindings (e : unification_env) =
+  let fm (v, u) =
+    match u with
+    | U_none -> failwith "convert_to_bindings: ununified variable"
+    | U_string s -> Some (v, Var s)
+    | U_term t -> Some (v, t)
+    | U_alpha _ -> None
+  in
+  List.filter_map fm (SMap.bindings e)
