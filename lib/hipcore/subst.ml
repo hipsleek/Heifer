@@ -80,7 +80,11 @@ let subst_visitor =
     method! visit_Shift bindings nz k body ret =
       (* shift binds res and k *)
       let bs = List.filter (fun (b, _) -> not (List.mem b [k; "res"])) bindings in
-      Shift (nz, k, self#visit_disj_spec bs body, self#visit_term bs ret)
+      Shift (nz, k, self#visit_disj_spec bs body, self#visit_term bindings ret)
+
+    method! visit_Reset bindings dsp ret =
+      let bs = List.remove_assoc "res" bindings in
+      Reset (self#visit_disj_spec bs dsp, self#visit_term bindings ret)
 
     (* not full capture-avoiding, we just stop substituting a name when it is bound *)
     method! visit_TLambda bindings name params sp body =

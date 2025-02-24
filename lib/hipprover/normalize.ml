@@ -1454,9 +1454,8 @@ let normalisedStagedSpec2Spec (normalisedStagedSpec : normalisedStagedSpec) : sp
   (* detectfailedAssertions *)
   (effectStage2Spec effS @ normalStage2Spec normalS)
 
-(* spec list -> normalisedStagedSpec list *)
-
-
+let normalisedStagedSpecList2SpecList : normalisedStagedSpec list -> spec list =
+  List.map normalisedStagedSpec2Spec
 
 (* this is to delete the controdictory cases, such as Norm(true=false, _) *)
 let rec existControdictionSpec (spec : spec) : bool =
@@ -1486,7 +1485,8 @@ let rec existControdictionSpec (spec : spec) : bool =
 
   | _ :: xs -> existControdictionSpec xs
 
-    
+let remove_contradicting_spec : spec list -> spec list =
+  List.filter (fun sp -> not (existControdictionSpec sp))
 
 let normalise_spec_list_aux2 (specLi : normalisedStagedSpec list) : spec list =
   let raw = List.map (fun a -> normalisedStagedSpec2Spec a) specLi in 
@@ -1507,9 +1507,7 @@ let normalise_spec_list (specLi : spec list) : spec list =
             "%s\n==>\n%s" (string_of_disj_spec raw)
             (string_of_result string_of_disj_spec r))
     in
-    List.filter (fun a-> 
-    let temp = existControdictionSpec a in 
-    not (temp)) raw
+    remove_contradicting_spec raw
   in 
   temp 
 

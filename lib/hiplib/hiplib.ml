@@ -765,6 +765,7 @@ let check_lambda_obligation_ name params lemmas predicates obl =
   check_obligation_ name params lemmas preds (obl.lo_left, obl.lo_right)
 
 let infer_and_check_method prog meth given_spec =
+  let open Reduce_shift_reset in
   let exception Ret of
     disj_spec *
     normalisedStagedSpec list option *
@@ -791,7 +792,7 @@ let infer_and_check_method prog meth given_spec =
           Debug.span (fun _ -> debug ~at:2 ~title:"apply forward rules" "")
         in
         let@ _ = Globals.Timing.(time forward) in 
-        infer_of_expression env [freshNormalReturnSpec] meth.m_body
+        infer_of_expression env [[]] meth.m_body
       in
 
       (* make the new specs inferred for lambdas available to the entailment procedure as predicates *)
@@ -817,7 +818,8 @@ let infer_and_check_method prog meth given_spec =
     let inferred_spec_n = 
       let@ _ = Debug.span (fun _r -> debug ~at:2 ~title:"normalization" "") in
       try
-        normalise_disj_spec_aux1 inferred_spec
+        (* we can try apply shift/reset reduction here*)
+        inferred_spec |> shift_reset_reduction |> normalise_disj_spec_aux1
       with Norm_failure ->
         raise (Ret (inferred_spec, None, None, None, false))
     in
@@ -828,7 +830,7 @@ let infer_and_check_method prog meth given_spec =
       let given_spec_n =
         let@ _ = Debug.span (fun _r -> debug ~at:2 ~title:"normalization" "") in
         try
-          normalise_disj_spec_aux1 given_spec
+          given_spec |> shift_reset_reduction |> normalise_disj_spec_aux1
         with Norm_failure ->
           raise (Ret (inferred_spec, Some inferred_spec_n, Some given_spec, None, false))
       in
@@ -840,10 +842,12 @@ let infer_and_check_method prog meth given_spec =
           | false ->
             (*normalization occurs after unfolding in entailment *)
 
-            let inferred_spec, given_spec  =
+            (* let inferred_spec, given_spec  =
               let@ _ = Debug.span (fun _r -> debug ~at:2 ~title:"normalization" "") in
               normalise_spec_list inferred_spec, normalise_spec_list given_spec
-            in
+            in *)
+            let inferred_spec = remove_contradicting_spec (normalisedStagedSpecList2SpecList inferred_spec_n) in
+            let given_spec = remove_contradicting_spec (normalisedStagedSpecList2SpecList inferred_spec_n) in
 
             let@ _ = Globals.Timing.(time entail) in 
 
@@ -865,7 +869,7 @@ let infer_and_check_method prog meth given_spec =
       in
       inferred_spec, Some inferred_spec_n, Some given_spec, Some given_spec_n, res
     | None ->
-      raise (Ret (inferred_spec, Some inferred_spec_n, None, None, true))
+      inferred_spec, Some inferred_spec_n, None, None, true
   with Ret (a, b, c, d, e) ->
     (a, b, c, d, e)
 

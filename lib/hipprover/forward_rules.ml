@@ -886,7 +886,7 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
 
       debug ~at:2 ~title:"let e1 done" "%s" (string_of_disj_spec phi1);
       let env = maybe_add_local_predicate_defn str phi1 env in
-      let phi2, env = infer_of_expression env [freshNormalReturnSpec] expr2 in
+      let phi2, env = infer_of_expression env [[]] expr2 in
 
       (* preserve invariant that left side is res-free *)
       phi1 |> concat_map_state env (fun spec env ->
@@ -1029,13 +1029,14 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
       res, env
 
     | CShift (nz, k, body) ->
-      let ret = verifier_getAfreeVar "r" in
+      let ret = verifier_getAfreeVar "r" in (* TODO: we can use res here, but the logic of `subst.ml` for shift must be fixed *)
       let k1 = verifier_getAfreeVar k in
       let sp, env = infer_of_expression env [[]] body in
       let sp1 = instantiateSpecList [k, Var k1] sp in
       let event =
         [ Exists [ret]
         ; Shift (nz, k1, sp1, Var ret)
+        ; NormalReturn (res_eq (Var ret), EmptyHeap)
         ]
       in
       concatenateSpecsWithEvent history event, env
@@ -1049,10 +1050,8 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
       in
       f1, env *)
       let f, env = infer_of_expression env [[]] e in
-      let r = verifier_getAfreeVar "r" in
-      let event = 
-        [ Exists [r]
-        ; Reset (f, Var r)
+      let event =
+        [ Reset (f, res_v)
         ]
       in
       concatenateSpecsWithEvent history event, env

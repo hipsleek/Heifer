@@ -3,4 +3,4 @@ let get_int () =
 
 let hello_printf_int ()
   (*@ ens res="3!" @*)
-  = (reset (get_int () ^ "!")) 3
+= (reset (get_int () ^ "!")) 3
