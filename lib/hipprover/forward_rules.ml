@@ -1029,14 +1029,11 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
       res, env
 
     | CShift (nz, k, body) ->
-      let ret = verifier_getAfreeVar "r" in (* TODO: we can use res here, but the logic of `subst.ml` for shift must be fixed *)
       let k1 = verifier_getAfreeVar k in
       let sp, env = infer_of_expression env [[]] body in
       let sp1 = instantiateSpecList [k, Var k1] sp in
       let event =
-        [ Exists [ret]
-        ; Shift (nz, k1, sp1, Var ret)
-        ; NormalReturn (res_eq (Var ret), EmptyHeap)
+        [ Shift (nz, k1, sp1, res_v)
         ]
       in
       concatenateSpecsWithEvent history event, env
