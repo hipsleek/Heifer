@@ -185,16 +185,13 @@ let renamingexistientalVar (specs:disj_spec): disj_spec =
         (* Format.printf "normalSpec: %s@." (string_of_normalisedStagedSpec normalSpec); *)
       let existientalVar = getExistentialVar normalSpec in
       (* Format.printf "existientalVar: %s@." ( string_of_list Fun.id existientalVar); *)
-      let newNames = List.map (fun n -> (verifier_getAfreeVar n)) existientalVar in
+      let newNames = List.map (verifier_getAfreeVar) existientalVar in
       let newNameTerms = List.map (fun a -> Var a) newNames in
       let bindings = bindNewNames existientalVar newNames in
       let temp = instantiateExistientalVar normalSpec bindings in
         (* Format.printf "temp: %s@." (string_of_normalisedStagedSpec temp); *)
       let bindings = bindFormalNActual existientalVar newNameTerms in
-      let r =
-      instantiateSpec bindings (normalisedStagedSpec2Spec temp)
-      in
-        (* Format.printf "r: %s@." (string_of_spec r); *)
+      let r = instantiateSpec bindings (normalisedStagedSpec2Spec temp) in
       r
   ) specs
 
@@ -966,8 +963,9 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
         match retrieveSpecFromEnv fname env with
         | None ->
           (* no known spec, produce a stage *)
-          let ret = verifier_getAfreeVar "ret" in
-          [[Exists [ret]; HigherOrder (True, EmptyHeap, (fname, actualArgs), Var ret); NormalReturn (res_eq (Var ret), EmptyHeap)]]
+          (* let ret = verifier_getAfreeVar "ret" in
+          [[Exists [ret]; HigherOrder (True, EmptyHeap, (fname, actualArgs), Var ret); NormalReturn (res_eq (Var ret), EmptyHeap)]] *)
+          [[HigherOrder (True, EmptyHeap, (fname, actualArgs), res_v)]]
         | Some (spec_params, known_spec) ->
 
           (*print_endline ("calling " ^ fname);
@@ -1069,7 +1067,13 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
       let inferred = normalise_spec_list inferred in
       let lid = verifier_getAfreeVar "lambda" in
 
-      debug ~at:2 ~title:(Format.asprintf "lambda %s spec" lid) "body: %s\n\ngiven: %s\n\ninferred: %s" (string_of_core_lang body) (string_of_option string_of_disj_spec given_spec) (string_of_disj_spec inferred);
+      debug
+        ~at:2
+        ~title:(Format.asprintf "lambda %s spec" lid)
+        "body: %s\n\ngiven: %s\n\ninferred: %s"
+        (string_of_core_lang body)
+        (string_of_option string_of_disj_spec given_spec)
+        (string_of_disj_spec inferred);
 
       (* debug ~at:2 ~title:"history" "%s" (string_of_disj_spec history); *)
       (* debug ~at:2 ~title:"env" "%s" (string_of_fvenv env); *)
@@ -1079,9 +1083,8 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
         | None -> inferred
         | Some g -> g
       in
-
-      let lt = create_lambda_term ~lid params spec_to_use ~body in
-
+      (* no body in spec, for readability *)
+      let lt = create_lambda_term ~lid params spec_to_use ?body:None in
       let env =
         match given_spec with
         | None -> env
@@ -1096,7 +1099,6 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
       in
       let event = NormalReturn (res_eq lt, EmptyHeap) in
       concatenateSpecsWithEvent history [event], env
-
 
     | CMatch (typ, match_summary, scr, Some val_case, eff_cases, []) -> (* effects *)
       (* infer specs for branches of the form (Constr param -> spec), which also updates the env with obligations *)

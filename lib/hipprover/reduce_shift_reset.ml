@@ -68,6 +68,8 @@ and reduce_inside_reset (predicates : pred_def SMap.t) (sp : spec) : disj_spec =
       (* we need to create new cont, by replace the result of shift `r` with a new var *)
       let r = retriveFormalArg r in (* assume to be a variable *)
       let a = verifier_getAfreeVar "a" in
+      let fresh_k = verifier_free_k k in (* may not be necessary *)
+      let body = instantiateSpecList [k, Var fresh_k] body in
       (* (reset E[(shift k expr)]) => (reset ((lambda (k) expr) (lambda (v) (reset E[v]))))
          The continuation, refined into a lambda, should be wrapped by a reset.
          This is to prevent any further shift in the body of the lambda from
@@ -82,15 +84,12 @@ and reduce_inside_reset (predicates : pred_def SMap.t) (sp : spec) : disj_spec =
       let lbody = reduce_flow predicates [Reset ([cont_sp], Var lret)] in
       (* cont = \a -> <body> *)
       let lparams = [a; lret] in
-      let lval = TLambda ("<k>", lparams, lbody, None) in
-      let spec = [Exists [k]; NormalReturn (Atomic (EQ, Var k, lval), EmptyHeap)] in
+      let lval = TLambda (fresh_k, lparams, lbody, None) in
+      let spec = [Exists [fresh_k]; NormalReturn (Atomic (EQ, Var fresh_k, lval), EmptyHeap)] in
       let body = concatenateEventWithSpecs spec body in
-      (* we also have another predicate definition *)
-      let lpred = { p_name = k; p_params = lparams; p_rec = false; p_body = lbody } in
-      let updated_predicates = SMap.add k lpred predicates in
+      let lpred = { p_name = fresh_k; p_params = lparams; p_rec = false; p_body = lbody } in
+      let updated_predicates = SMap.add fresh_k lpred predicates in
       (* now we call the body? *)
-      (* the body is a disj_spec. Therefore, the result of this reduction
-         is a disj_spec *)
       (* the body must be wrapped in reset or not, depending on whether
          this is a shift0 *)
       (* let reducer = if nz then reduce_inside_reset_aux else reduce_flow in *)

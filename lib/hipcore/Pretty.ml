@@ -25,7 +25,7 @@ let red text = col ~ansi:"\u{001b}[31m" ~html:"<span class=\"output-error\">" te
 let green text = col ~ansi:"\u{001b}[32m" ~html:"<span class=\"output-ok\">" text
 let yellow text = col ~ansi:"\u{001b}[33m" ~html:"<span class=\"output-emph\">" text
 
-let verifier_counter: int ref = ref 0;;
+let verifier_counter: int ref = ref 0
 
 (* only for testing! to make tests deterministic *)
 let verifier_counter_reset () = verifier_counter := 0
@@ -34,6 +34,11 @@ let verifier_counter_reset_to n = verifier_counter := n
 let end_of_var = Str.regexp "_?[0-9]+$"
 let verifier_getAfreeVar _from :string  =
   let x = "v" ^ string_of_int (!verifier_counter) in
+  incr verifier_counter;
+  x
+
+let verifier_free_k k =
+  let x = k ^ "_" ^ string_of_int (!verifier_counter) in
   incr verifier_counter;
   x
 
