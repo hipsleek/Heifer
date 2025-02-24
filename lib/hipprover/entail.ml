@@ -4,6 +4,7 @@ open Pretty
 open Infer_types
 open Normalize
 open Subst
+open Unfold
 open Debug
 
 let unfolding_bound = 1
@@ -15,9 +16,6 @@ let rename_exists_spec sp = List.hd (Forward_rules.renamingexistientalVar [sp])
 
 let rename_exists_lemma (lem : lemma) : lemma =
   { lem with l_right = rename_exists_spec lem.l_right }
-
-let rename_exists_pred (pred : pred_def) : pred_def =
-  { pred with p_body = Forward_rules.renamingexistientalVar pred.p_body }
 
 (** Matches lemma args (which may be params) and concrete args in the expr to be rewritten. If an arg is a param, adds to the returned substitution, otherwise checks if they are equal. Returns None if unification fails and the lemma shouldn't be applied, otherwise returns bindings. *)
 let unify_lem_lhs_args params la a =
@@ -276,86 +274,6 @@ let rec check_qf :
     end
     | None -> failwith (Format.asprintf "could not split LHS, bug?")
   end
-
-let instantiate_pred : pred_def -> term list -> term -> pred_def =
- fun pred args ret ->
-  let@ _ =
-    Debug.span (fun r ->
-        debug ~at:4 ~title:"instantiate_pred" "%s\n%s\n%s\n==> %s"
-          (string_of_pred pred)
-          (string_of_list string_of_term args)
-          (string_of_term ret)
-          (string_of_result string_of_pred r))
-  in
-  (* the predicate should have one more arg than arguments given for the return value, which we'll substitute with the return term from the caller *)
-  (* Format.printf "right before instantiate %s@." (string_of_pred pred); *)
-  let pred = rename_exists_pred pred in
-  (* Format.printf "rename exists %s@." (string_of_pred pred); *)
-  let params, ret_param = unsnoc pred.p_params in
-  let bs = (ret_param, ret) :: bindFormalNActual (*List.map2 (fun a b -> (a, b)) *) params args in
-  let p_body =
-    let bbody =
-      pred.p_body |> List.map (fun b -> List.map (instantiateStages bs) b)
-    in
-    (* Format.printf "bs %s@."
-         (string_of_list (string_of_pair Fun.id string_of_term) bs);
-       Format.printf "pred.p_body %s@." (string_of_disj_spec pred.p_body);
-       Format.printf "bbody %s@."
-         (string_of_list (string_of_list string_of_staged_spec) bbody); *)
-    bbody
-  in
-  { pred with p_body }
-
-let rec unfold_predicate_aux pred prefix (s : spec) : disj_spec =
-  match s with
-  | [] ->
-    let r = List.map Acc.to_list prefix in
-    r
-  | HigherOrder (p, h, (name, args), ret) :: s1
-    when String.equal name pred.p_name ->
-    (* debug ~at:1
-       ~title:(Format.asprintf "unfolding: %s" name)
-       "%s" (string_of_pred pred); *)
-    let pred1 = instantiate_pred pred args ret in
-    (* debug ~at:1
-       ~title:(Format.asprintf "instantiated: %s" name)
-       "%s" (string_of_pred pred1); *)
-    let prefix =
-      prefix
-      |> List.concat_map (fun p1 ->
-             List.map
-               (fun disj ->
-                 p1 |> Acc.add (NormalReturn (p, h)) |> Acc.add_all disj)
-               pred1.p_body)
-    in
-    unfold_predicate_aux pred prefix s1
-  | c :: s1 ->
-    let pref = List.map (fun p -> Acc.add c p) prefix in
-    unfold_predicate_aux pred pref s1
-
-(* let unfold_predicate : pred_def -> disj_spec -> disj_spec =
-   fun pred ds ->
-    List.concat_map (fun s -> unfold_predicate_aux pred [Acc.empty] s) ds *)
-
-(** f;a;e \/ b and a == c \/ d
-  => f;(c \/ d);e \/ b
-  => f;c;e \/ f;d;e \/ b *)
-let unfold_predicate_spec : string -> pred_def -> spec -> disj_spec =
- fun which pred sp ->
-  let@ _ =
-    Debug.span (fun r ->
-        debug ~at:1
-          ~title:(Format.asprintf "unfolding (%s): %s" which pred.p_name)
-          "%s\nin\n%s\n==>\n%s" (string_of_pred pred) (string_of_spec sp)
-          (string_of_result string_of_disj_spec r))
-  in
-  unfold_predicate_aux pred [Acc.empty] sp
-
-let unfold_predicate_norm :
-    string -> pred_def -> normalisedStagedSpec -> normalisedStagedSpec list =
- fun which pred sp ->
-  List.map normalize_spec
-    (unfold_predicate_spec which pred (normalisedStagedSpec2Spec sp))
 
 (** proof context *)
 type pctx = {

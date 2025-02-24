@@ -104,7 +104,7 @@ let maybe_add_local_predicate_defn x phi1 env =
   | Some (TLambda (name, params, spec, _body)) ->
     (* predicate don't have an explicit res param, so get rid of it... *)
     let params, res = unsnoc params in
-    let spec_res = instantiateSpecList [res, Var "res"] spec in
+    let spec_res = instantiateSpecList [res, res_v] spec in
     let pred =
       {
         p_name = name;
@@ -889,7 +889,7 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
       let phi2, env = infer_of_expression env [[]] expr2 in
 
       (* preserve invariant that left side is res-free *)
-      phi1 |> concat_map_state env (fun spec env ->
+      phi1 |> List.concat_map (fun spec ->
           (* the return value is context-sensitive and depends on what in the history came before *)
           let ret =
             match unsnoc spec with
@@ -908,12 +908,6 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
             | _, Require _
             | _, NormalReturn _ -> "res"
           in
-
-          (*
-          print_endline ("========let==============   ret = " ^ ret );
-          print_endline (string_of_spec spec);
-          *)
-
           (* create an existential by creating a fresh variable, and preserve the invariant by removing res from the post of the first expr, as it will now appear on the left of the second premise *)
           let nv = verifier_getAfreeVar "let" in
           let spec =
@@ -926,8 +920,8 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
           let spec = (Exists [nv]) :: spec in
           (* let var = verifier_getAfreeVar "let" in *)
           let phi2 = instantiateSpecList [str, Var nv] phi2 in
-          concatenateSpecsWithSpec [spec] phi2, env
-        )
+          concatenateSpecsWithSpec [spec] phi2
+        ), env
     | CRef v ->
       let freshVar = verifier_getAfreeVar "ref" in
       let event = NormalReturn (res_eq (Var freshVar), PointsTo(freshVar, v)) in

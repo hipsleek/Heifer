@@ -764,7 +764,7 @@ let check_lambda_obligation_ name params lemmas predicates obl =
   let preds = SMap.merge_right_priority predicates obl.lo_preds in
   check_obligation_ name params lemmas preds (obl.lo_left, obl.lo_right)
 
-let infer_and_check_method prog meth given_spec =
+let infer_and_check_method (prog : core_program) meth given_spec =
   let open Reduce_shift_reset in
   let exception Ret of
     disj_spec *
@@ -803,7 +803,7 @@ let infer_and_check_method prog meth given_spec =
           |> SMap.map (fun meth -> Entail.derive_predicate meth.m_name meth.m_params (Option.get meth.m_spec)) (* these have to have specs as they did not occur earlier, indicating they are lambdask *)
           |> SMap.to_seq
         in
-        SMap.add_seq lambda prog.cp_predicates
+        SMap.add_seq lambda pred_env
       in
       inf, preds_with_lambdas, env
     in
@@ -819,7 +819,7 @@ let infer_and_check_method prog meth given_spec =
       let@ _ = Debug.span (fun _r -> debug ~at:2 ~title:"normalization" "") in
       try
         (* we can try apply shift/reset reduction here*)
-        inferred_spec |> shift_reset_reduction |> normalise_disj_spec_aux1
+        inferred_spec |> (shift_reset_reduction predicates) |> normalise_disj_spec_aux1
       with Norm_failure ->
         raise (Ret (inferred_spec, None, None, None, false))
     in
@@ -830,7 +830,7 @@ let infer_and_check_method prog meth given_spec =
       let given_spec_n =
         let@ _ = Debug.span (fun _r -> debug ~at:2 ~title:"normalization" "") in
         try
-          given_spec |> shift_reset_reduction |> normalise_disj_spec_aux1
+          given_spec |> (shift_reset_reduction predicates) |> normalise_disj_spec_aux1
         with Norm_failure ->
           raise (Ret (inferred_spec, Some inferred_spec_n, Some given_spec, None, false))
       in
