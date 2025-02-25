@@ -527,7 +527,7 @@ let (unifyGlobal: pi ref) = ref True
 
 let term_is_Extiatential t ctx =
   match t with
-  | Var str -> if existStr str ctx then true else false
+  | Var str -> List.mem str ctx
   | _ -> false
 
 let normaliseKappa k =
@@ -545,11 +545,11 @@ let res =
   | (_, EmptyHeap) -> true
   | (EmptyHeap, _) -> false
   | (PointsTo (v1, t1), PointsTo (v2, t2)) ->
-    if existStr v2 !exGlobal && stricTcompareTerm t1 t2 then
+    if List.mem v2 !exGlobal && stricTcompareTerm t1 t2 then
       let () = unifyGlobal := And (!unifyGlobal, And (Atomic(EQ, Var v1, Var v2), p1)) in
       (*print_string ("adding " ^ string_of_pi (And (Atomic(EQ, Var v1, Var v2), p1)) ^ "\n");*)
       true
-    else if existStr v2 !exGlobal then
+    else if List.mem v2 !exGlobal then
       if term_is_Extiatential t2 !exGlobal then
         let () = unifyGlobal := And (!unifyGlobal, And (Atomic(EQ, t1, t2), p1)) in
         (*print_string ("adding " ^ string_of_pi (And (Atomic(EQ, t1, t2), p1)) ^ "\n");*)
@@ -566,7 +566,7 @@ let res =
     else
       (match (t2) with
       | Var t2Str ->
-        if existStr t2Str !exGlobal then
+        if List.mem t2Str !exGlobal then
           let () = unifyGlobal := And (!unifyGlobal, And (Atomic(EQ, t1, t2), p1)) in
           (*print_string ("adding " ^ string_of_pi (And (Atomic(EQ, t1, t2), p1)) ^ "\n");*)
           true

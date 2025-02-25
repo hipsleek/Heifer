@@ -145,32 +145,28 @@ let rec string_of_term t : string =
 and string_of_staged_spec (st:stagedSpec) : string =
   match st with
   | Shift (nz, k, body, r) ->
-    let zero = if nz then "" else "0" in
-    Format.asprintf "shift%s(%s. %s, %s)" zero k (string_of_disj_spec body) (string_of_term r)
+      let zero = if nz then "" else "0" in
+      Format.asprintf "shift%s(%s. %s, %s)" zero k (string_of_disj_spec body) (string_of_term r)
   | Reset (body, r) ->
-    Format.asprintf "reset(%s, %s)" (string_of_disj_spec body) (string_of_term r)
+      Format.asprintf "reset(%s, %s)" (string_of_disj_spec body) (string_of_term r)
   | Require (p, h) ->
-    Format.asprintf "req %s" (string_of_state (p, h))
+      Format.asprintf "req %s" (string_of_state (p, h))
   | HigherOrder ((f, args), ret) ->
-    Format.asprintf "%s(%s)" f (String.concat ", " (List.map string_of_term args @ ([string_of_term ret]))) 
+      Format.asprintf "%s(%s)" f (String.concat ", " (List.map string_of_term args @ ([string_of_term ret]))) 
   | NormalReturn (pi, heap) ->
-    Format.asprintf "ens %s" (string_of_state (pi, heap))
+      Format.asprintf "ens %s" (string_of_state (pi, heap))
   | RaisingEff (pi, heap, (name, args), ret) ->
-
-    Format.asprintf "%s(%s, %s, %s)" name (string_of_state (pi, heap)) (string_of_args string_of_term args) (string_of_term ret)
+      Format.asprintf "%s(%s, %s, %s)" name (string_of_state (pi, heap)) (string_of_args string_of_term args) (string_of_term ret)
   | Exists vs ->
-    Format.asprintf "ex %s" (String.concat " " vs)
-  (* | IndPred {name; args} -> *)
-    (* Format.asprintf "%s(%s)" name (String.concat " " (List.map string_of_term args)) *)
+      Format.asprintf "ex %s" (String.concat " " vs)
   | TryCatch (pi, h, ( src, ((normP, normSpec), ops)), ret) -> 
-
-
     let string_of_normal_case = normP ^ ": " ^ string_of_disj_spec (normSpec) in 
     let string_of_eff_case (eName, param, eSpec)=  eName  ^  
       (match param with | None -> " " | Some p -> "("^ p ^ ") ")^ ": " ^ string_of_disj_spec eSpec   in 
     let string_of_eff_cases ops =  List.fold_left (fun acc a -> acc ^ ";\n" ^string_of_eff_case a) "" ops in 
     Format.asprintf "ens %s; \n(TRY \n(%s)\nCATCH \n{%s%s}[%s])\n" (string_of_state (pi, h)) (string_of_spec src) (string_of_normal_case) (string_of_eff_cases ops) (string_of_term ret)
-
+  (* | SpecDisj dsp ->
+      Format.asprintf "(%s)" (string_of_disj_spec dsp) *)
 
 and string_of_spec (spec:spec) :string =
   match spec with

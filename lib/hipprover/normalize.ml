@@ -6,11 +6,6 @@ open Debug
 
 exception Norm_failure
 
-let rec existStr str li =
-  match li with
-  | [] -> false
-  | x :: xs -> if String.compare x str == 0 then true else existStr str xs
-
 let rec to_fixed_point ?(fuel = 5) f spec =
   if fuel == 0 then
     spec
@@ -340,7 +335,7 @@ let rec deleteFromHeapListIfHas li (x, t1) existential flag assumptions :
                 else (ys, Atomic (EQ, t1, t2))
               (* x->11 -* x-> z   ~~~>   (emp, true) *)
               | (Num _ | UNIT | TTrue | TFalse | Nil), Var t2Str ->
-                if existStr t2Str existential then (ys, True)
+                if List.mem t2Str existential then (ys, True)
                 else (ys, Atomic (EQ, t1, t2))
               | Num a, Num b -> (ys, if a = b then True else raise Norm_failure)
               | UNIT, UNIT | TTrue, TTrue | TFalse, TFalse | Nil, Nil ->
@@ -1305,29 +1300,30 @@ let rec simplify_spec n sp =
 (* the main entry point *)
 let normalize_spec sp =
   let@ _ = Globals.Timing.(time norm) in 
-  (*print_endline("\nnormalize_spec:\n "^ (string_of_spec sp));*)
-
   let@ _ =
     Debug.span (fun r ->
-        debug ~at:3 ~title:"normalize_spec" "%s\n==>\n%s" (string_of_spec sp)
-          (string_of_result string_of_normalisedStagedSpec r))
+      debug
+        ~at:3
+        ~title:"normalize_spec"
+        "%s\n==>\n%s"
+        (string_of_spec sp)
+        (string_of_result string_of_normalisedStagedSpec r))
   in
   let sp =
-    let sp1 = sp |> simplify_existential_locations in
+    let sp1 = simplify_existential_locations sp in
     debug ~at:4 ~title:"normalize_spec: remove some existential eqs"
       "%s\n==>\n%s" (string_of_spec sp) (string_of_spec sp1);
     (*print_endline ("sp1 = " ^ string_of_spec sp1);*)
     let sp2 = sp1 |> normalise_spec_ ([], freshNormalStage) in
-    debug ~at:4 ~title:"normalize_spec: actually normalize" "%s\n==>\n%s"
+    debug
+      ~at:4
+      ~title:"normalize_spec: actually normalize"
+      "%s\n==>\n%s"
       (string_of_spec sp1)
       (string_of_normalisedStagedSpec sp2);
-    (*print_endline ((string_of_spec sp1));
-    print_endline("===>\n"^ (string_of_normalisedStagedSpec sp2));*)
-
     sp2
   in
   let sp = simplify_spec 3 sp in
-
   let sp =
     let@ _ =
       Debug.span (fun r ->
@@ -1401,40 +1397,26 @@ let normalStage2Spec (normalStage : normalStage) : spec =
   (*| (True, EmptyHeap, UNIT) -> [] *)
   | _ -> [NormalReturn (p2, h2)]
 
-
-let checkTheSourceOfFalse _ = ()
-  (*
-  match pi' with 
-  | And (pi1, pi2) -> 
-    (match ProversEx.entailConstrains pi False with
-    | true -> 
-      checkTheSourceOfFalse pi1;
-      checkTheSourceOfFalse pi2;
-    | _ -> ())
-  | 
-  *)
-
-let rec detectfailedAssertions (spec : spec) : spec =
+(* let rec detectfailedAssertions (spec : spec) : spec =
   match spec with
   | [] -> []
   | Require (pi, heap) :: xs ->
     let pi' = simplify_pure pi in
-    (match ProversEx.is_valid pi' False with
-    | true -> 
-      checkTheSourceOfFalse pi';
-      (* print_endline ("\nentail False " ^ string_of_pi pi'); *)
+    if ProversEx.is_valid pi' False then
       [Require (False, heap)]
-    | _ -> Require (pi', heap) :: detectfailedAssertions xs)
+    else
+      Require (pi', heap) :: detectfailedAssertions xs
   (* higher-order functions *)
-  | x :: xs -> x :: detectfailedAssertions xs
+  | x :: xs -> x :: detectfailedAssertions xs *)
 
 let normalisedStagedSpec2Spec (normalisedStagedSpec : normalisedStagedSpec) : spec =
   let@ _ =
     Debug.span (fun r ->
-        debug ~at:2
-          ~title:"norm to spec"
-          "%s\n==>\n%s" (string_of_normalisedStagedSpec normalisedStagedSpec)
-          (string_of_result string_of_spec r))
+      debug ~at:5
+        ~title:"norm to spec"
+        "%s\n==>\n%s"
+        (string_of_normalisedStagedSpec normalisedStagedSpec)
+        (string_of_result string_of_spec r))
   in
   let effS, normalS = normalisedStagedSpec in
   (* detectfailedAssertions *)
@@ -1491,18 +1473,3 @@ let normalise_spec_list (dsp : spec list) : spec list =
 (* TODO: redundant call to normalize spec, refactor *)
 let normalise_disj_spec_aux1 (dsp : disj_spec) : normalisedStagedSpec list =
   List.map normalize_spec (normalise_spec_list dsp)
-
-let rec deleteFromStringList str (li : string list) =
-  match li with
-  | [] -> []
-  | x :: xs ->
-    if String.compare x str == 0 then xs else x :: deleteFromStringList str xs
-
-let removeExist (specs : spec list) str : spec list =
-  let aux (stage : stagedSpec) : stagedSpec =
-    match stage with
-    | Exists strli -> Exists (deleteFromStringList str strli)
-    | _ -> stage
-  in
-  let helper (spec : spec) : spec = List.map (fun a -> aux a) spec in
-  List.map (fun a -> helper a) specs

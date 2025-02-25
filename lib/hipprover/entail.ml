@@ -12,6 +12,7 @@ let unfolding_bound = 1
 type fvenv = Forward_rules.fvenv
 
 let with_pure pi ((p, h) : state) : state = (conj [p; pi], h)
+
 let rename_exists_spec sp = List.hd (Forward_rules.renamingexistientalVar [sp])
 
 let rename_exists_lemma (lem : lemma) : lemma =
@@ -103,64 +104,57 @@ module Heap = struct
   let normalize (p, h : state) : state = simplify_pure p, simplify_heap h
 
   (** given a nonempty heap formula, splits it into a points-to expression and another heap formula *)
-  let rec split_one : kappa -> ((string * term) * kappa) option =
-   fun h ->
+  let rec split_one (h : kappa) : ((string * term) * kappa) option =
     match h with
     | EmptyHeap -> None
     | PointsTo (x, v) -> Some ((x, v), EmptyHeap)
-    | SepConj (a, b) -> begin
-      match split_one a with
-      | None -> split_one b
-      | Some (c, r) -> Some (c, SepConj (r, b))
-    end
+    | SepConj (a, b) ->
+        begin match split_one a with
+        | None -> split_one b
+        | Some (c, r) -> Some (c, SepConj (r, b))
+        end
 
   (** like split_one, but searches for a particular points-to *)
-  let rec split_find : string -> kappa -> (term * kappa) option =
-   fun n h ->
+  let rec split_find (n : string) (h : kappa) : (term * kappa) option =
     match h with
     | EmptyHeap -> None
-    | PointsTo (x, v) when x = n -> Some (v, EmptyHeap)
-    | PointsTo _ -> None
-    | SepConj (a, b) -> begin
-      match split_find n a with
-      | None ->
-        split_find n b |> Option.map (fun (t, b1) -> (t, SepConj (a, b1)))
-      | Some (t, a1) -> Some (t, SepConj (a1, b))
-    end
+    | PointsTo (x, v) -> if x = n then Some (v, EmptyHeap) else None
+    | SepConj (a, b) ->
+        begin match split_find n a with
+        | None -> Option.map (fun (t, b1) -> (t, SepConj (a, b1))) (split_find n b)
+        | Some (t, a1) -> Some (t, SepConj (a1, b))
+        end
 
-  let pairwise_var_inequality v1 v2 =
+  let pairwise_var_inequality (v1s : string list) (v2s : string list) =
     List.concat_map
       (fun x ->
         List.filter_map
           (fun y ->
             if String.equal x y then None
             else Some (Not (Atomic (EQ, Var x, Var y))))
-          v2)
-      v1
+          v2s)
+      v1s
     |> conj
 
-  let xpure : kappa -> pi =
-   fun h ->
+  let xpure (h : kappa) : pi =
     let rec run h =
       match h with
-      | EmptyHeap -> (True, [])
-      | PointsTo (x, _t) -> (Atomic (GT, Var x, Num 0), [x])
+      | EmptyHeap -> True, []
+      | PointsTo (x, _) -> Atomic (GT, Var x, Num 0), [x]
       | SepConj (a, b) ->
-        let a, v1 = run a in
-        let b, v2 = run b in
-        (And (a, And (b, pairwise_var_inequality v1 v2)), [])
+          let a, v1s = run a in
+          let b, v2s = run b in
+          And (a, And (b, pairwise_var_inequality v1s v2s)), v1s @ v2s
     in
-    let p, _vs = run h in
-    p
+    fst (run h)
 end
 
-let check_staged_entail : spec -> spec -> spec option =
- fun n1 n2 ->
-  let norm = normalize_spec (n1 @ n2) in
+let check_staged_entail (sp1 : spec) (sp2 : spec) : spec option =
+  let norm = normalize_spec (sp1 @ sp2) in
   Some (normalisedStagedSpec2Spec norm)
 
 let instantiate_state bindings (p, h) =
-  (instantiatePure bindings p, instantiateHeap bindings h)
+  instantiatePure bindings p, instantiateHeap bindings h
 
 let instantiate_existentials_effect_stage bindings =
   let names = List.map fst bindings in

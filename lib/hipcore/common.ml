@@ -69,7 +69,6 @@ module SMap = struct
   let merge_all_disjoint xs =
     List.fold_right merge_disjoint xs empty
 
-  let of_list xs = of_seq (List.to_seq xs)
 end
 
 let rec unsnoc xs =

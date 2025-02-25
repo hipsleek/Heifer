@@ -189,12 +189,10 @@ let instantiateSpec (bindings : (string * core_value) list) (t : spec) : spec =
 let instantiate_state (bindings : (string * core_value) list) (t : state) : state =
   subst_visitor#visit_state bindings t
 
-let instantiatePure (bindings : (string * core_value) list) (t : pi) :
-    pi =
+let instantiatePure (bindings : (string * core_value) list) (t : pi) : pi =
   subst_visitor#visit_pi bindings t
 
-let instantiateHeap (bindings : (string * core_value) list) (t : kappa) :
-    kappa =
+let instantiateHeap (bindings : (string * core_value) list) (t : kappa) : kappa =
   subst_visitor#visit_kappa bindings t
 
 let instantiateStages (bindings : (string * core_value) list) (t : stagedSpec) : stagedSpec =
