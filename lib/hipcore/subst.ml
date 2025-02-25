@@ -103,15 +103,14 @@ let subst_visitor =
       let newName = match binding with Var str1 -> str1 | _ -> str in
       PointsTo (newName, self#visit_term bindings t1)
 
-    method! visit_HigherOrder bindings (pi, kappa, (str, basic_t_list), ret) =
+    method! visit_HigherOrder bindings ((str, basic_t_list), ret) =
       let constr =
         match List.assoc_opt str bindings with Some (Var s) -> s | _ -> str
       in
       HigherOrder
-        ( self#visit_pi bindings pi,
-          self#visit_kappa bindings kappa,
-          (constr, List.map (fun bt -> self#visit_term bindings bt) basic_t_list),
-          self#visit_term bindings ret )
+        ( (constr, List.map (fun bt -> self#visit_term bindings bt) basic_t_list)
+        , self#visit_term bindings ret
+        )
 
     method! visit_effectStage bindings effectStage =
       match effectStage.e_typ with
@@ -234,7 +233,7 @@ let count_uses_and_equalities =
         plus (SMap.singleton v (1, [])) (self#visit_term () t)
 
       (* there can be unnormalized specs inside normalized ones *)
-      method! visit_HigherOrder _ ((_p, _h, (f, _a), _r) as fn) =
+      method! visit_HigherOrder _ (((f, _a), _r) as fn) =
         plus (SMap.singleton f (1, [])) (super#visit_HigherOrder () fn)
 
       method! visit_EffHOStage _ eh =
@@ -311,7 +310,7 @@ let rec getExistentialVar (spec : normalisedStagedSpec) : string list =
       inherit [_] reduce_normalised
       method zero = []
       method plus = (@)
-      method! visit_HigherOrder () (_p, _h, (f, _a), _r) = [f]
+      method! visit_HigherOrder () ((f, _a), _r) = [f]
       method! visit_EffHOStage () effStage =
         match effStage.e_typ with
         | `Fn -> [fst effStage.e_constr]

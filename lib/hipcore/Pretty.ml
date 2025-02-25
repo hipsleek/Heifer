@@ -151,13 +151,8 @@ and string_of_staged_spec (st:stagedSpec) : string =
     Format.asprintf "reset(%s, %s)" (string_of_disj_spec body) (string_of_term r)
   | Require (p, h) ->
     Format.asprintf "req %s" (string_of_state (p, h))
-  | HigherOrder (pi, h, (f, args), ret) ->
-    begin match pi, h with
-    | True, EmptyHeap ->
-      Format.asprintf "%s(%s)" f (String.concat ", " (List.map string_of_term args @ ([string_of_term ret]))) 
-    | _ ->
-      Format.asprintf "ens %s; %s(%s)" (string_of_state (pi, h)) f (String.concat ", " (List.map string_of_term args @ ([string_of_term ret]))) 
-    end
+  | HigherOrder ((f, args), ret) ->
+    Format.asprintf "%s(%s)" f (String.concat ", " (List.map string_of_term args @ ([string_of_term ret]))) 
   | NormalReturn (pi, heap) ->
     Format.asprintf "ens %s" (string_of_state (pi, heap))
   | RaisingEff (pi, heap, (name, args), ret) ->
@@ -352,7 +347,7 @@ let find_rec p_name =
     method zero = false
     method plus = (||)
 
-    method! visit_HigherOrder _ ((_p, _h, (f, _a), _r) as fn) =
+    method! visit_HigherOrder _ ((f, _a), _r as fn) =
       self#plus (f = p_name) (super#visit_HigherOrder () fn)
 
     method! visit_Atomic () op a b =
@@ -425,7 +420,7 @@ let string_of_effHOTryCatchStages s =
     let current = ex @ [Require(p1, h1);
     (match x.e_typ with
     | `Eff -> RaisingEff(p2, h2, x.e_constr, x.e_ret)
-    | `Fn -> HigherOrder(p2, h2, x.e_constr, x.e_ret))] in
+    | `Fn -> HigherOrder((* p2, h2, *) x.e_constr, x.e_ret))] in
     string_of_spec current )
 
   | ShiftStage x ->
@@ -684,7 +679,7 @@ let function_stage_to_disj_spec constr args ret =
   (* TODO for some reason this version isn't handled by normalization *)
   (* [[HigherOrder (True, EmptyHeap, l.l_left, res_v)]] *)
   let v = verifier_getAfreeVar "v" in
-  [[Exists [v]; HigherOrder (True, EmptyHeap, (constr, args), Var v); NormalReturn (Atomic (EQ, ret, Var v), EmptyHeap)]]
+  [[Exists [v]; HigherOrder ((constr, args), Var v); NormalReturn (Atomic (EQ, ret, Var v), EmptyHeap)]]
 
 
 let startingFromALowerCase (label:string) : bool = 

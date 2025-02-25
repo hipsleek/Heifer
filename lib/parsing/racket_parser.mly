@@ -367,7 +367,7 @@ stagedSpec1 :
     (* INFIXOP0 *)
     (* we don't check if the infix op is a dollar *)
     let init, last = unsnoc args in
-    HigherOrder (True, EmptyHeap, (constr, init), last)
+    HigherOrder ((constr, init), last)
   }
 
 

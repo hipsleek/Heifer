@@ -66,7 +66,7 @@ and reduce_inside_reset (predicates : pred_def SMap.t) (sp : spec) : disj_spec =
       let e' = reduce_reset predicates e r in
       let rest1 = reduce_inside_reset predicates rest in
       concatenateSpecsWithSpec e' rest1
-  | HigherOrder (_pi, _kappa, (name, _args), _term) :: _ ->
+  | HigherOrder ((name, _args), _term) :: _ ->
       debug
         ~at:5
         ~title:"HigherOrder during shift/reset reduction"

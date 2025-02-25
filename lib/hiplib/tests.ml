@@ -281,7 +281,7 @@ let%expect_test "normalise spec" =
   test
     [
       NormalReturn (True, PointsTo ("x", Num 1));
-      HigherOrder (True, EmptyHeap, ("f", [Num 3]), UNIT);
+      HigherOrder (("f", [Num 3]), UNIT);
       NormalReturn (True, PointsTo ("y", Num 2));
     ];
   print_endline "--- regression\n";

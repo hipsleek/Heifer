@@ -41,7 +41,7 @@ let instantiate_pred : pred_def -> term list -> term -> pred_def =
    | [] ->
      let r = List.map Acc.to_list prefix in
      r
-   | HigherOrder (p, h, (name, args), ret) :: s1
+   | HigherOrder ((name, args), ret) :: s1
      when String.equal name pred.p_name ->
      (* debug ~at:1
         ~title:(Format.asprintf "unfolding: %s" name)
@@ -54,8 +54,7 @@ let instantiate_pred : pred_def -> term list -> term -> pred_def =
        prefix
        |> List.concat_map (fun p1 ->
               List.map
-                (fun disj ->
-                  p1 |> Acc.add (NormalReturn (p, h)) |> Acc.add_all disj)
+                (fun disj -> p1 |> Acc.add_all disj)
                 pred1.p_body)
      in
      unfold_predicate_aux pred prefix s1
@@ -96,7 +95,7 @@ let get_first_predicate_spec
   (predicates : pred_def SMap.t)
   (sp : spec) : pred_def option =
   let f = function
-    | HigherOrder (_, _, (name, _), _) ->
+    | HigherOrder ((name, _), _) ->
         let pred_opt = SMap.find_opt name predicates in
         let bind_opt pred = if filter pred then Some pred else None in
         Option.bind pred_opt bind_opt

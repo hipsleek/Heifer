@@ -268,10 +268,11 @@ let replaceSLPredicatesWithDef (specs:disj_spec) (slps:sl_pred_def SMap.t) =
         let (preds, p') = decomposeStateForPredicate p in
         let (ex, p_pred, h_pred) = mergePredicates preds slps in
         [Exists ex; Require (p_pred, h_pred); Require (p', h)]
-    | HigherOrder (p, h, (f, args), ret) ->
-        let (preds, p') = decomposeStateForPredicate p in
+    | HigherOrder (* p, h, (f, args), ret *) _ ->
+        (* let (preds, p') = decomposeStateForPredicate p in
         let (ex, p_pred, h_pred) = mergePredicates preds slps in
-        [Exists ex; NormalReturn (p_pred, h_pred);  HigherOrder (p', h, (f, args), ret)]
+        [Exists ex; NormalReturn (p_pred, h_pred);  HigherOrder (p', h, (f, args), ret)] *)
+        failwith "replaceSLPredicatesWithDef: HigherOrder refactoring, remove pi and kappa"
     | NormalReturn (p, heap) ->
         let (preds, p') = decomposeStateForPredicate p in
         let (ex, p_pred, h_pred) = mergePredicates preds slps in
@@ -300,10 +301,10 @@ let replacePredicatesWithDef (specs:disj_spec) (ms:meth_def list) (ps:pred_def S
   let rec helper (spec:spec) : disj_spec =
     match spec with
     | [] -> [[]]
-    | HigherOrder (pi, h, (f, actualArg), ret) :: xs  ->
+    | HigherOrder ((f, actualArg), ret) :: xs  ->
       (match retrieveSpecFromMs_Ps f ms ps with
       | None -> let temp = helper xs in
-                List.map (fun li -> HigherOrder (pi, h, (f, actualArg), ret) :: li) temp
+                List.map (fun li -> HigherOrder ((f, actualArg), ret) :: li) temp
 
       | Some (p_params, p_body) ->
       (*print_endline ("\n replacePredicates for " ^ p_name);
@@ -342,8 +343,7 @@ let replacePredicatesWithDef (specs:disj_spec) (ms:meth_def list) (ps:pred_def S
       let temp = helper xs in
       List.flatten (List.map (fun li ->
         List.map (
-          fun p_b ->
-            NormalReturn(pi, h) ::p_b  @ li
+          fun p_b -> p_b  @ li
         ) p_body'
       ) temp)
 

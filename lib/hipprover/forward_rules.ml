@@ -20,7 +20,7 @@ let rec retrieve_return_value (spec : spec) : term =
   match spec with
   | [] -> failwith "retrieve_return_value empty spec"
   | [NormalReturn (pi, _)] -> get_res_value_exn pi
-  | [HigherOrder (_, _, _, retN)]
+  | [HigherOrder (_, retN)]
   | [RaisingEff (_, _, _, retN)] -> retN
   | _ :: xs -> retrieve_return_value xs
 
@@ -43,7 +43,7 @@ let create_lambda_term ?(lid=verifier_getAfreeVar "lambda") ?body params spec =
 let rec replace_return_value (t:term) (spec:spec) : spec =
   match spec with
   | [] -> failwith "replace_return_value empty spec"
-  | [HigherOrder (p, h, i, _)] -> [HigherOrder (p, h, i, t)]
+  | [HigherOrder (i, _)] -> [HigherOrder (i, t)]
   | [NormalReturn (p, h)] -> [NormalReturn (p, h)]
   | [RaisingEff(p, h, i, _)] -> [RaisingEff (p, h, i, t)]
   | s :: ss -> s :: replace_return_value t ss
@@ -60,8 +60,8 @@ let constrain_final_res (sp:disj_spec) (v:term) : disj_spec =
       | Require (_, _) -> a
       | NormalReturn (p, h) ->
         NormalReturn (And (p, res_eq v), h)
-      | HigherOrder (p, k, (c, va), r) ->
-        HigherOrder (And (p, Atomic (EQ, r, v)), k, (c, va), r)
+      | HigherOrder _ ->
+        failwith "constrain_final_res: HigherOrder refactoring, remove pi and kappa"
       | RaisingEff (p, k, (c, va), r) ->
         RaisingEff (And (p, Atomic (EQ, r, v)), k, (c, va), r)
       | TryCatch _ -> failwith "unimplemented"))
@@ -141,7 +141,7 @@ let retrieveSpecFromEnv (fname: string) (env:fvenv) : (string list * spec list) 
 let rec specContainUndefinedHO (spec:spec) (env:fvenv) : bool =
   match spec with
   | [] -> false
-  | HigherOrder (_p, _k, (c, _va), _r):: xs ->
+  | HigherOrder ((c, _va), _r):: xs ->
     (match retrieveSpecFromEnv c env with
     | None -> true
     | _ -> specContainUndefinedHO xs env
@@ -296,7 +296,7 @@ let call_primitive env history fname actualArgs =
 let replaceContinueWithHypo (afterHandling:disj_spec) (match_summary:disj_spec option):disj_spec =
   match match_summary with
   | None -> afterHandling
-  | Some ([[HigherOrder (_, _, (f, _::formal), _)]]) ->
+  | Some ([[HigherOrder ((f, _::formal), _)]]) ->
     (*print_endline ("replaceContinueWithHypo: " ^ string_of_staged_spec (HigherOrder (p, h, (f, hd::formal), r)));
     *)
     List.map (
@@ -304,11 +304,11 @@ let replaceContinueWithHypo (afterHandling:disj_spec) (match_summary:disj_spec o
         let rec helper (history:spec) (specIn:spec) : spec =
           match specIn with
           | [] ->  history
-          | HigherOrder (p', h', (f', hd'::actual), r') :: xs  ->
-            let x = HigherOrder (p', h', (f', hd'::actual), r') in
+          | HigherOrder ((f', hd'::actual), r') :: xs  ->
+            let x = HigherOrder ((f', hd'::actual), r') in
             if String.compare f' "continue" != 0 then helper (history@[x]) xs
             else
-              let newStage =HigherOrder (p', h', (f, hd'::formal), r') in
+              let newStage =HigherOrder ((f, hd'::formal), r') in
               history@[newStage]@xs
           | x :: xs -> helper( history@[x]) xs
         in
@@ -334,8 +334,9 @@ let retriveLastRes (a:spec) : term option =
   match src with
   | Shift _ :: _ -> failwith "todo"
   | Reset _ :: _ -> failwith "todo"
+  | HigherOrder _ :: _ ->
+    failwith "retriveLastRes: HigherOrder refactoring, remove pi and kappa"
   | NormalReturn (pi, _) :: _
-  | HigherOrder (pi, _, _, _) :: _
   | RaisingEff(pi, _, _, _) :: _ ->
     (match retriveLastResFromPi pi with
     | None -> failwith ("retriveLastResFromPi  no res value prescribed")
@@ -359,8 +360,8 @@ let instantiateSpecListUponResume (handlingSpec: spec list) (contiInput:string) 
   let rec helper (handlingSpecIn:spec) (continuationIn:spec list) : spec list =
     match handlingSpecIn with
     | [] -> [[]]
-    | HigherOrder ((p', h', (f', hd'::actual::rest), r')) :: xs  ->
-      let x = (p', h', (f', hd'::actual::rest), r') in  (* hd' is k, and we assume there is only one argument for effects *)
+    | HigherOrder (((f', hd'::actual::rest), r')) :: xs  ->
+      let x = ((f', hd'::actual::rest), r') in  (* hd' is k, and we assume there is only one argument for effects *)
       if String.compare f' "continue" == 0 || String.compare f' "continue_syh" == 0
       then
         let instantiations =  normalise_spec_list ( (renameSpecListAndInstantiate continuationIn [(contiInput, actual)])) in
@@ -370,17 +371,10 @@ let instantiateSpecListUponResume (handlingSpec: spec list) (contiInput:string) 
 
         List.map (fun instantiation ->
           let contiRet = retrieve_return_value instantiation in
-
           let instantiation = instantiateSpec ["res", contiRet] instantiation in
-
-          let newPi=  And (p', Atomic(EQ, contiRet, r' ) ) in
-          (*print_endline (string_of_pi newPi);  *)
-
-          let (prefix:spec) = NormalReturn (newPi, h') :: instantiation in
-
+          let newPi=  Atomic(EQ, contiRet, r' ) in
+          let (prefix:spec) = NormalReturn (newPi, EmptyHeap) :: instantiation in
           List.flatten(List.map (fun (rest:spec) -> prefix @ rest) (helper xs continuationIn))
-
-
         )
         instantiations
 
@@ -487,7 +481,7 @@ let rec resolveInnerTryCatches typ env (match_summary:tryCatchLemma option) (spe
         let (ret:term) =
             (match unsnoc phi1_spec_body with
             | _, RaisingEff (_pre, _post, _constr, ret) -> ret
-            | _, HigherOrder (_pre, _post, _constr, ret) -> ret
+            | _, HigherOrder (_constr, ret) -> ret
             | _, TryCatch (_pre, _post, _constr, ret) -> ret
             (*
             | _, RaisingEff (_, _, _, ret) | _, HigherOrder (_, _, _, ret) |  _, TryCatch (_, _, _, ret) -> failwith (Format.asprintf "ret not a variable: %s" (string_of_term ret))
@@ -774,7 +768,7 @@ let recursivelyInstantiateFunctionCalls (current_function:string) env instantiat
       | Shift _
       | Reset _
       | Require _ | Exists _  | NormalReturn _ | RaisingEff _ | TryCatch _ -> helper (acc@[x]) xs
-      | HigherOrder (pi, kappa, (fname, actualArgs), _ret)  ->
+      | HigherOrder ((fname, actualArgs), _ret)  ->
         if String.compare fname current_function != 0 then  (* check if it is recursive *)
         (match retrieveSpecFromEnv fname env with
         | None -> helper (acc@[x]) xs
@@ -782,7 +776,7 @@ let recursivelyInstantiateFunctionCalls (current_function:string) env instantiat
           let bindings = bindFormalNActual ((*"res"::*)formalArgs) ((*ret::*)actualArgs) in
           let instantiatedSpec = instantiateSpecList bindings spec_of_fname in
           List.flatten (List.map (fun spec ->
-            helper (acc@[NormalReturn (pi, kappa)]@spec) xs
+            helper (acc @ spec) xs
           ) instantiatedSpec)
         )
         else helper (acc@[x]) xs
@@ -893,12 +887,12 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
             | _, Reset (_body, Var ret) -> ret
             | _, Shift (_nz, _binder, _body, Var ret) -> ret
             | _, RaisingEff (_pre, _post, _constr, Var ret) -> ret
-            | _, HigherOrder (_pre, _post, _constr, Var ret) -> ret
+            | _, HigherOrder (_constr, Var ret) -> ret
             | _, TryCatch (_pre, _post, _constr, Var ret) -> ret
             | _, Shift (_, _, _, ret)
             | _, Reset (_, ret)
             | _, RaisingEff (_, _, _, ret)
-            | _, HigherOrder (_, _, _, ret)
+            | _, HigherOrder (_, ret)
             | _, TryCatch (_, _, _, ret) ->
                failwith (Format.asprintf "ret not a variable: %s" (string_of_term ret))
             | _, Exists _
@@ -952,7 +946,7 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
     | CResume tList ->
       let f = verifier_getAfreeVar "re" in
       let res =
-        concatenateSpecsWithEvent history [Exists [f]; HigherOrder (True, EmptyHeap, ("continue", tList), Var f)]
+        concatenateSpecsWithEvent history [Exists [f]; HigherOrder (("continue", tList), Var f)]
       in
       res, env
     | CFunCall (fname, actualArgs) when List.mem fname primitive_functions ->
@@ -964,7 +958,7 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
           (* no known spec, produce a stage *)
           (* let ret = verifier_getAfreeVar "ret" in
           [[Exists [ret]; HigherOrder (True, EmptyHeap, (fname, actualArgs), Var ret); NormalReturn (res_eq (Var ret), EmptyHeap)]] *)
-          [[HigherOrder (True, EmptyHeap, (fname, actualArgs), res_v)]]
+          [[HigherOrder ((fname, actualArgs), res_v)]]
         | Some (spec_params, known_spec) ->
             let@ _ =
               Debug.span (fun r ->
@@ -1010,7 +1004,7 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
       let _fn_spec =
         (* this is an alternative implementation for this whole case, which simply generates an uninterpreted function and lets the entailment procedure take care of unfolding (since the implementation above can be seen as unfolding once). unfortunately the handler reasoning in the effects work relies on unfolding in the forward reasoning, so we can't switch to it yet, but this implementation should work for higher-order *)
         let ret = verifier_getAfreeVar "ret" in
-        [[Exists [ret]; HigherOrder (True, EmptyHeap, (fname, actualArgs), Var ret); NormalReturn (res_eq (Var ret), EmptyHeap)]]
+        [[Exists [ret]; HigherOrder ((fname, actualArgs), Var ret); NormalReturn (res_eq (Var ret), EmptyHeap)]]
       in
       let res = concatenateSpecsWithSpec history fn_spec in
       res, env

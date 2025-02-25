@@ -61,7 +61,7 @@ let apply_lemma : lemma -> spec -> spec option =
       | TryCatch _ -> failwith "unimplemented"
       | Reset _ -> failwith "unimplemented"
       | Shift _ -> failwith "unimplemented"
-      | HigherOrder (p, h, (f, args), r)
+      | HigherOrder ((f, args), r)
         when (not ok) (* only apply once *) && f = lf ->
         (match unify_lem_lhs_args lem.l_params largs (args @ [r]) with
         | Some bs ->
@@ -75,7 +75,7 @@ let apply_lemma : lemma -> spec -> spec option =
           in
           loop true
             (Acc.add_all
-               (NormalReturn (And (p, extra_ret_equality), h) :: inst_lem_rhs)
+               (NormalReturn (extra_ret_equality, EmptyHeap) :: inst_lem_rhs)
                acc)
             sp1
         | None -> loop ok (Acc.add st acc) sp1)

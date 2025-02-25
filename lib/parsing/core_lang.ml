@@ -487,7 +487,7 @@ let transform_str bound_names (s : structure_item) =
   | Pstr_lemma (l_name, l_params, l_left, l_right) ->
     let l_left =
       match l_left with
-      | HigherOrder (_p, _h, (constr, ps), r) ->
+      | HigherOrder ((constr, ps), r) ->
         (constr, ps @ [r])
       | _ -> failwith (Format.asprintf "lemma %s should have function on the left" l_name)
     in

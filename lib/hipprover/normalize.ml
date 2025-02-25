@@ -555,7 +555,7 @@ let normalize_step (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
             };
           ],
         freshNormStageRet r )
-    | HigherOrder (pi, heap, ins, ret') ->
+    | HigherOrder (ins, ret') ->
       (* let ens1, nex = merge_state_containing_res ens (pi, heap) in *)
       let ens1, nex =
         if contains_res_state ens then
@@ -568,7 +568,7 @@ let normalize_step (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
           EffHOStage {
               e_evars = nex @ existential;
               e_pre = req;
-              e_post = mergeState ens1 (pi, heap);
+              e_post = ens1;
               e_constr = ins;
               e_ret = ret';
               e_typ = `Fn;
@@ -630,10 +630,9 @@ let getherPureFromSpec_step (acc:pi) (stagedSpec : stagedSpec) : pi =
   | Require (pi, _) 
   | NormalReturn (pi, _) 
   | RaisingEff (pi, _, _, _) 
-  | HigherOrder (pi, _, _, _) 
   | TryCatch (pi, _, _, _) -> 
     And(acc, pi)
-
+  | HigherOrder _ -> acc
 
 let getherPureFromSpec (spec : spec) :pi = 
   List.fold_left getherPureFromSpec_step (True) spec
@@ -888,8 +887,9 @@ let remove_noncontributing_existentials :
     match st with
     | Shift _ | Reset _ -> failwith "todo"
     | Require (p, h) | NormalReturn (p, h) -> collect_related_vars_state (p, h)
+    | HigherOrder _
     | Exists _ -> []
-    | HigherOrder (p, h, _constr, _ret) | RaisingEff (p, h, _constr, _ret) ->
+    | RaisingEff (p, h, _constr, _ret) ->
       collect_related_vars_state (p, h)
     | TryCatch _ -> failwith "unimplemented"
   and collect_related_vars_spec s =
@@ -1000,16 +1000,14 @@ let simplify_existential_locations sp =
         match s with
         | Shift _ -> []
         | Reset _ -> []
-        | Exists _ | TryCatch _ -> []
+        | Exists _
+        | HigherOrder _
+        | TryCatch _ -> []
         | Require (p, _)
         | NormalReturn (p, _)
-        | HigherOrder (p, _, _, _)
         | RaisingEff (p, _, _, _) ->
-          pure_to_equalities p
-        
-          
+          pure_to_equalities p   
       )
-
       sp
   in
   (* if there is an eq between two existential locations, keep only one *)
@@ -1371,11 +1369,12 @@ let rec effectStage2Spec (effectStages : effHOTryCatchStages list) : spec =
     @ (match eff.e_pre with
       | True, EmptyHeap -> []
       | p1, h1 -> [Require (p1, h1)])
-    @ [
-        (match eff.e_typ with
-        | `Eff -> RaisingEff (p2, h2, eff.e_constr, eff.e_ret)
-        | `Fn -> HigherOrder (p2, h2, eff.e_constr, eff.e_ret));
-      ]
+    @ (match eff.e_typ with
+      | `Eff -> [RaisingEff (p2, h2, eff.e_constr, eff.e_ret)]
+      | `Fn -> [NormalReturn (p2, h2); HigherOrder (eff.e_constr, eff.e_ret)]
+          (* failwith "effectStage2Spec: refactor HigherOrder" *)
+          (* HigherOrder (p2, h2, eff.e_constr, eff.e_ret) *)
+      );
     @ effectStage2Spec xs
   | (TryCatchStage tc):: xs -> 
     let p2, h2 = tc.tc_post in
@@ -1462,8 +1461,7 @@ let rec existControdictionSpec (spec : spec) : bool =
       existControdictionSpec xs)
 
   | NormalReturn (pi, _)::xs 
-  | RaisingEff (pi, _, _, _) :: xs
-  | HigherOrder (pi, _, _, _) ::xs -> 
+  | RaisingEff (pi, _, _, _) :: xs ->
     let pi' = simplify_pure pi in
     (match ProversEx.is_valid pi' False with
     | true ->  true

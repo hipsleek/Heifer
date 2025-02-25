@@ -98,7 +98,7 @@ and stagedSpec =
       (* higher-order functions: H /\ P /\ f$(...args, term) *)
       (* this constructor is also used for inductive predicate applications *)
       (* f$(x, y) is HigherOrder(..., ..., (f, [x]), y) *)
-      | HigherOrder of (pi * kappa * instant * term)
+      | HigherOrder of (instant * term)
       | Shift of bool * string * disj_spec * term (* see CShift for meaning of bool *)
       | Reset of disj_spec * term
       (* effects: H /\ P /\ E(...args, v), term is always a placeholder variable *)
