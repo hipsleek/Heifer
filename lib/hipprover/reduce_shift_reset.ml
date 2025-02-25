@@ -4,8 +4,21 @@ open Debug
 open Pretty
 open Subst
 open Utilities
+open Unfold
 
 exception CannotReduce
+
+let pred_filter pred = not pred.p_rec
+
+(* A hack, we should refactor the code base and make the logic more uniform instead *)
+let rec find_continuation_argv (r : string) (cont : spec) : string * spec =
+  match cont with
+  | NormalReturn (True, EmptyHeap) :: cont' ->
+      find_continuation_argv r cont'
+  | NormalReturn (Atomic (EQ, Var v1, Var v2), EmptyHeap) :: cont' when v2 = r ->
+      v1, cont'
+  | _ ->
+      r, cont
 
 let rec shift_reset_reduction (predicates : pred_def SMap.t) (dsp : disj_spec) : disj_spec =
   let@ _ =
@@ -17,38 +30,36 @@ let rec shift_reset_reduction (predicates : pred_def SMap.t) (dsp : disj_spec) :
         (string_of_disj_spec dsp)
         (string_of_result string_of_disj_spec r))
   in
-  debug ~at:5 ~title:"available predicates" "%s" (String.concat ", " (SMap.keys predicates));
-  List.concat_map (reduce_flow predicates) dsp
+  reduce_flow predicates dsp
 
-and reduce_flow (predicates : pred_def SMap.t) (sp : spec) : disj_spec =
+and reduce_flow (predicates : pred_def SMap.t) (dsp : disj_spec) : disj_spec =
   let@ _ =
     Debug.span
       (fun r -> debug
         ~at:2
         ~title:"reduce_flow"
         "%s\n==>\n%s"
-        (string_of_spec sp)
+        (string_of_disj_spec dsp)
         (string_of_result string_of_disj_spec r))
   in
+  debug ~at:5 ~title:"available predicates" "%s" (String.concat ", " (SMap.keys predicates));
+  let dsp = recursively_unfold_predicates_disj_spec pred_filter predicates dsp in
+  let dsp = List.concat_map (reduce_inside_flow predicates) dsp in
+  dsp
+
+and reduce_inside_flow (predicates : pred_def SMap.t) (sp : spec) : disj_spec =
+  debug ~at:5 ~title:"reduce inside flow" "%s" (string_of_spec sp);
   match sp with
   | [] -> [[]]
   | Reset (e, r) :: rest ->
       let e' = reduce_reset predicates e r in
-      let rest1 = reduce_flow predicates rest in
+      let rest1 = reduce_inside_flow predicates rest in
       concatenateSpecsWithSpec e' rest1
   | e :: rest ->
-      concatenateEventWithSpecs [e] (reduce_flow predicates rest)
+      concatenateEventWithSpecs [e] (reduce_inside_flow predicates rest)
 
 and reduce_inside_reset (predicates : pred_def SMap.t) (sp : spec) : disj_spec =
-  let@ _ =
-    Debug.span
-      (fun r -> debug
-        ~at:2
-        ~title:"reduce_inside_reset"
-        "%s\n==>\n%s"
-        (string_of_spec sp)
-        (string_of_result string_of_disj_spec r))
-  in
+  debug ~at:5 ~title:"reduce inside reset" "%s" (string_of_spec sp);
   match sp with
   | [] -> [[]]
   | Reset (e, r) :: rest ->
@@ -65,23 +76,24 @@ and reduce_inside_reset (predicates : pred_def SMap.t) (sp : spec) : disj_spec =
       raise CannotReduce
   | Shift (_nz, k, body, r) :: cont ->
       (* k is the variable of the continuation *)
-      (* we need to create new cont, by replace the result of shift `r` with a new var *)
-      let r = retriveFormalArg r in (* assume to be a variable *)
-      let a = verifier_getAfreeVar "a" in
-      let fresh_k = verifier_free_k k in (* may not be necessary *)
+      let fresh_k = verifier_getAfreeVar k ^ "_" ^ k in
       let body = instantiateSpecList [k, Var fresh_k] body in
-      (* (reset E[(shift k expr)]) => (reset ((lambda (k) expr) (lambda (v) (reset E[v]))))
-         The continuation, refined into a lambda, should be wrapped by a reset.
-         This is to prevent any further shift in the body of the lambda from
-         escaping this delimiter.
-       *)
+      let r = retriveFormalArg r in (* assume to be a variable *)
+      let r, cont = find_continuation_argv r cont in (* a hack here! *)
+      debug ~at:5 ~title:"continuation argv" "%s" r;
+      let a = verifier_getAfreeVar "a" in
       let lret = verifier_getAfreeVar "lret" in
       let cont_sp = match cont with
         | [] -> [NormalReturn (res_eq (Var a), EmptyHeap)]
         | _ -> instantiateSpec [r, Var a] cont
       in
+      (* (reset E[(shift k expr)]) => (reset ((lambda (k) expr) (lambda (v) (reset E[v]))))
+         The continuation, refined into a lambda, should be wrapped by a reset.
+         This is to prevent any further shift in the body of the lambda from
+         escaping this delimiter.
+       *)
       (* let lbody = [[Reset ([cont_sp], Var lret)]] in *)
-      let lbody = reduce_flow predicates [Reset ([cont_sp], Var lret)] in
+      let lbody = reduce_inside_flow predicates [Reset ([cont_sp], Var lret)] in
       (* cont = \a -> <body> *)
       let lparams = [a; lret] in
       let lval = TLambda (fresh_k, lparams, lbody, None) in
@@ -92,19 +104,29 @@ and reduce_inside_reset (predicates : pred_def SMap.t) (sp : spec) : disj_spec =
       (* now we call the body? *)
       (* the body must be wrapped in reset or not, depending on whether
          this is a shift0 *)
-      (* let reducer = if nz then reduce_inside_reset_aux else reduce_flow in *)
-      reduce_flow updated_predicates [Reset (body, res_v)]
+      (* let reducer = if nz then reduce_inside_reset_aux else reduce_inside_flow in *)
+      reduce_inside_flow updated_predicates [Reset (body, res_v)]
   | stage :: rest ->
       concatenateEventWithSpecs [stage] (reduce_inside_reset predicates rest)
 
-and reduce_reset (predicates : pred_def SMap.t) (e : disj_spec) (r : term) : disj_spec =
+and reduce_reset (predicates : pred_def SMap.t) (dsp : disj_spec) (res : term) : disj_spec =
+  let@ _ =
+    Debug.span
+      (fun r -> debug
+        ~at:2
+        ~title:"reduce_reset"
+        "%s\n==>\n%s"
+        (string_of_disj_spec dsp)
+        (string_of_result string_of_disj_spec r))
+  in
   let reduce_spec sp =
     try
       reduce_inside_reset predicates sp
     with CannotReduce ->
-      [[Reset ([sp], r)]]
+      [[Reset ([sp], res)]]
   in
-  let e = Unfold.try_unfold_predicates_disj_spec predicates e in
-  let e1 = List.concat_map reduce_spec e in
-  let e2 = instantiateSpecList ["res", r] e1 in
-  e2
+  debug ~at:5 ~title:"available predicates" "%s" (String.concat ", " (SMap.keys predicates));
+  let dsp = recursively_unfold_predicates_disj_spec pred_filter predicates dsp in
+  let dsp = List.concat_map reduce_spec dsp in
+  let dsp = instantiateSpecList ["res", res] dsp in
+  dsp

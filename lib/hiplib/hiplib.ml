@@ -785,13 +785,13 @@ let infer_and_check_method (prog : core_program) meth given_spec =
         |> List.to_seq
         |> SMap.of_seq
       in
-      let pred_env = prog.cp_predicates in 
+      let pred_env = prog.cp_predicates in
       let env = create_fv_env method_env pred_env in
       let inf, env =
         let@ _ =
           Debug.span (fun _ -> debug ~at:2 ~title:"apply forward rules" "")
         in
-        let@ _ = Globals.Timing.(time forward) in 
+        let@ _ = Globals.Timing.(time forward) in
         infer_of_expression env [[]] meth.m_body
       in
 
@@ -815,7 +815,7 @@ let infer_and_check_method (prog : core_program) meth given_spec =
 
     (*print_endline ("\n----------------\ninferred_spec: \n" ^ string_of_spec_list inferred_spec);*)
 
-    let inferred_spec_n = 
+    let inferred_spec_n =
       let@ _ = Debug.span (fun _r -> debug ~at:2 ~title:"normalization" "") in
       try
         (* we can try apply shift/reset reduction here*)
@@ -846,20 +846,14 @@ let infer_and_check_method (prog : core_program) meth given_spec =
               let@ _ = Debug.span (fun _r -> debug ~at:2 ~title:"normalization" "") in
               normalise_spec_list inferred_spec, normalise_spec_list given_spec
             in *)
-            let inferred_spec = remove_contradicting_spec (normalisedStagedSpecList2SpecList inferred_spec_n) in
-            let given_spec = remove_contradicting_spec (normalisedStagedSpecList2SpecList inferred_spec_n) in
+            let inferred_spec = normalisedStagedSpecList2SpecList inferred_spec_n in
+            let given_spec = normalisedStagedSpecList2SpecList given_spec_n in
 
-            let@ _ = Globals.Timing.(time entail) in 
-
-            (* print_endline ("proving!!!==================================") ;
-            print_endline ("inferred_spec " ^ string_of_disj_spec inferred_spec);
-            print_endline (" |= ") ;
-            print_endline ("given_spec " ^ string_of_disj_spec given_spec); *)
-            
+            let@ _ = Globals.Timing.(time entail) in
             let open Search in begin
               let* res =
                 Entail.check_staged_subsumption_disj meth.m_name meth.m_params meth.m_tactics prog.cp_lemmas predicates inferred_spec given_spec
-              in 
+              in
               check_remaining_obligations meth.m_name prog.cp_lemmas predicates res.subsumption_obl
             end |> succeeded
 

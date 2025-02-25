@@ -88,29 +88,46 @@ let unfold_predicate_norm
   List.map normalize_spec
     (unfold_predicate_spec which pred (normalisedStagedSpec2Spec sp))
 
-let try_unfold_predicates_spec
+(** Gets the predicate definition of the first higher-order stage in the spec,
+    that satisfies the given filtering condition.
+  *)
+let get_first_predicate_spec
+  (filter : pred_def -> bool)
+  (predicates : pred_def SMap.t)
+  (sp : spec) : pred_def option =
+  let f = function
+    | HigherOrder (_, _, (name, _), _) ->
+        let pred_opt = SMap.find_opt name predicates in
+        let bind_opt pred = if filter pred then Some pred else None in
+        Option.bind pred_opt bind_opt
+    | _ ->
+        None
+  in
+  List.find_map f sp
+
+let try_unfold_first_predicate_spec
+  (filter : pred_def -> bool)
   (predicates : pred_def SMap.t)
   (sp : spec) : disj_spec =
-  let extract_name1 = function
-    | HigherOrder (_, _, (name, _), _) -> Some name
-    | _ -> None
-  in
-  let extract_names sp = List.filter_map extract_name1 sp in
-  let try_unfold1 name sp : disj_spec =
-    try
-      let pred = SMap.find name predicates in
-      if pred.p_rec then [sp] else unfold_predicate_spec "try_unfold_predicates" pred sp
-    with
-      Not_found -> [sp]
-  in
-  let try_unfolds sp : disj_spec =
-    let names = extract_names sp in
-    let step dsp name = List.concat_map (try_unfold1 name) dsp in
-    List.fold_left step [sp] names
-  in
-  try_unfolds sp
-  (* List.concat_map try_unfold_predicate names *)
-  (* repeat more, think! *)
+  match get_first_predicate_spec filter predicates sp with
+  | None ->
+      [sp]
+  | Some pred ->
+      unfold_predicate_spec "try_unfold_first_predicate_spec" pred sp
 
-let try_unfold_predicates_disj_spec (predicates : pred_def SMap.t) (dsp : disj_spec) =
-  List.concat_map (try_unfold_predicates_spec predicates) dsp
+let rec recursively_unfold_predicates_spec
+  (filter : pred_def -> bool)
+  (predicates : pred_def SMap.t)
+  (sp : spec) : disj_spec =
+  match get_first_predicate_spec filter predicates sp with
+  | None ->
+      [sp]
+  | Some pred ->
+      let dsp = unfold_predicate_spec "try_unfold_first_predicate_spec" pred sp in
+      recursively_unfold_predicates_disj_spec filter predicates dsp
+
+and recursively_unfold_predicates_disj_spec
+  (filter : pred_def -> bool)
+  (predicates : pred_def SMap.t)
+  (dsp : disj_spec) =
+  List.concat_map (recursively_unfold_predicates_spec filter predicates) dsp

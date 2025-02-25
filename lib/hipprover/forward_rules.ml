@@ -24,7 +24,7 @@ let rec retrieve_return_value (spec : spec) : term =
   | [RaisingEff (_, _, _, retN)] -> retN
   | _ :: xs -> retrieve_return_value xs
 
-let get_lambda_return_value (d:disj_spec) : term option =
+let get_lambda_return_value (d : disj_spec) : term option =
   let vals = List.concat_map (fun s ->
     try
       [retrieve_return_value s]
@@ -920,10 +920,9 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
           concatenateSpecsWithSpec [spec] phi2
         ), env
     | CRef v ->
-      let freshVar = verifier_getAfreeVar "ref" in
-      let event = NormalReturn (res_eq (Var freshVar), PointsTo(freshVar, v)) in
-      concatenateSpecsWithEvent history [Exists [freshVar]; event], env
-
+        let freshVar = verifier_getAfreeVar "ref" in
+        let event = NormalReturn (res_eq (Var freshVar), PointsTo(freshVar, v)) in
+        concatenateSpecsWithEvent history [Exists [freshVar]; event], env
 
     | CRead str ->
       let freshVar = verifier_getAfreeVar str in
@@ -967,19 +966,15 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
           [[Exists [ret]; HigherOrder (True, EmptyHeap, (fname, actualArgs), Var ret); NormalReturn (res_eq (Var ret), EmptyHeap)]] *)
           [[HigherOrder (True, EmptyHeap, (fname, actualArgs), res_v)]]
         | Some (spec_params, known_spec) ->
-
-          (*print_endline ("calling " ^ fname);
-
-          print_endline (string_of_disj_spec known_spec);
-          *)
-
-          let@ _ =
-            Debug.span (fun r ->
+            let@ _ =
+              Debug.span (fun r ->
                 debug ~at:3
                   ~title:(Format.asprintf "function %s has known spec" fname)
-                  "forall %s\n%s\n==>\n%s" (String.concat " " spec_params) (string_of_disj_spec known_spec)
+                  "forall %s\n%s\n==>\n%s"
+                  (String.concat " " spec_params)
+                  (string_of_disj_spec known_spec)
                   (string_of_result string_of_disj_spec r))
-          in
+            in
 
           let trf s f x =
             let r = f x in

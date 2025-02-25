@@ -163,26 +163,15 @@ let simplify_pure (p : pi) : pi =
     (string_of_pi r);
   r
 
-let rec lookforEqualityinPure (str : string) (p:pi) : term option =
+let rec lookforEqualityinPure (s : string) (p : pi) : term option =
   match p with
-  | Atomic (EQ, Var v, t) -> 
-    if String.compare v str == 0 then Some t 
-    else None 
-  | True
-  | False 
-  | Imply  _ 
-  | Not   _ 
-  | Predicate _ 
-  | Subsumption _
-  | Or _
-  | Atomic _ -> None 
-  | And (p1, p2) -> 
-    (match lookforEqualityinPure str p1 with 
-    | Some t -> Some t 
-    | None -> lookforEqualityinPure str p2
-    )
-
-
+  | Atomic (EQ, Var v, t) when v = s -> Some t
+  | And (p1, p2) ->
+      begin match lookforEqualityinPure s p1 with
+      | Some t -> Some t
+      | None -> lookforEqualityinPure s p2
+      end
+  | _ -> None
 
 let rec accumulateTheSumTerm (p:pi) (t:term) : term = 
   match t with
@@ -211,8 +200,6 @@ let rec accumulateTheSumTerm (p:pi) (t:term) : term =
   | TPower (t1, t2) -> TPower (accumulateTheSumTerm p t1, accumulateTheSumTerm p t2) 
   | TTimes (t1, t2) -> TTimes (accumulateTheSumTerm p t1, accumulateTheSumTerm p t2) 
   | TDiv (t1, t2) -> TDiv (accumulateTheSumTerm p t1, accumulateTheSumTerm p t2) 
-;; 
-
 
 let rec accumulateTheSum (p:pi) (h:kappa) : kappa = 
   match h with 
@@ -1492,29 +1479,20 @@ let normalise_spec_list_aux2 (specLi : normalisedStagedSpec list) : spec list =
   let raw = List.map (fun a -> normalisedStagedSpec2Spec a) specLi in 
   List.filter (fun a-> not (existControdictionSpec a)) raw
 
-let normalise_spec_list (specLi : spec list) : spec list =
-  let raw = List.map
-    (fun a ->
-      let normalisedStagedSpec = normalize_spec a in
-      (normalisedStagedSpec2Spec normalisedStagedSpec))
-    specLi in 
-
-  let temp =
-    let@ _ =
-      Debug.span (fun r ->
-          debug ~at:2
-            ~title:"filter contradictory"
-            "%s\n==>\n%s" (string_of_disj_spec raw)
-            (string_of_result string_of_disj_spec r))
-    in
-    remove_contradicting_spec raw
-  in 
-  temp 
-
-
-let normalise_disj_spec_aux1 (specLi : disj_spec) : normalisedStagedSpec list =
-  (*print_endline ("normalise_disj_spec_aux1");*)
-  List.map (fun a -> normalize_spec a) (normalise_spec_list specLi)
+let normalise_spec_list (dsp : spec list) : spec list =
+  let dsp = List.map (fun sp -> normalisedStagedSpec2Spec (normalize_spec sp)) dsp in
+  let@ _ =
+    Debug.span (fun r ->
+        debug ~at:2
+          ~title:"filter contradictory"
+          "%s\n==>\n%s" (string_of_disj_spec dsp)
+          (string_of_result string_of_disj_spec r))
+  in
+  remove_contradicting_spec dsp
+  
+(* TODO: redundant call to normalize spec, refactor *)
+let normalise_disj_spec_aux1 (dsp : disj_spec) : normalisedStagedSpec list =
+  List.map normalize_spec (normalise_spec_list dsp)
 
 let rec deleteFromStringList str (li : string list) =
   match li with
@@ -1523,8 +1501,6 @@ let rec deleteFromStringList str (li : string list) =
     if String.compare x str == 0 then xs else x :: deleteFromStringList str xs
 
 let removeExist (specs : spec list) str : spec list =
-  (*print_endline ("removeExist ===>   " ^ str );
-  *)
   let aux (stage : stagedSpec) : stagedSpec =
     match stage with
     | Exists strli -> Exists (deleteFromStringList str strli)

@@ -37,11 +37,6 @@ let verifier_getAfreeVar _from :string  =
   incr verifier_counter;
   x
 
-let verifier_free_k k =
-  let x = k ^ "_" ^ string_of_int (!verifier_counter) in
-  incr verifier_counter;
-  x
-
 (* let%expect_test _ =
   let p = print_endline in
   verifier_counter_reset ();
