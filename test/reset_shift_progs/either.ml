@@ -1,5 +1,5 @@
-let either a b =
-  shift k (k a; k b)
+let either a b
+= shift k (k a; k b)
 
 let main ()
 (*@ ens res = 10 @*)
