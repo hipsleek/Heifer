@@ -152,21 +152,21 @@ and string_of_staged_spec (st:stagedSpec) : string =
   | Require (p, h) ->
       Format.asprintf "req %s" (string_of_state (p, h))
   | HigherOrder ((f, args), ret) ->
-      Format.asprintf "%s(%s)" f (String.concat ", " (List.map string_of_term args @ ([string_of_term ret]))) 
+      Format.asprintf "%s(%s)" f (String.concat ", " (List.map string_of_term args @ ([string_of_term ret])))
   | NormalReturn (pi, heap) ->
       Format.asprintf "ens %s" (string_of_state (pi, heap))
   | RaisingEff (pi, heap, (name, args), ret) ->
       Format.asprintf "%s(%s, %s, %s)" name (string_of_state (pi, heap)) (string_of_args string_of_term args) (string_of_term ret)
   | Exists vs ->
       Format.asprintf "ex %s" (String.concat " " vs)
-  | TryCatch (pi, h, ( src, ((normP, normSpec), ops)), ret) -> 
-    let string_of_normal_case = normP ^ ": " ^ string_of_disj_spec (normSpec) in 
-    let string_of_eff_case (eName, param, eSpec)=  eName  ^  
-      (match param with | None -> " " | Some p -> "("^ p ^ ") ")^ ": " ^ string_of_disj_spec eSpec   in 
-    let string_of_eff_cases ops =  List.fold_left (fun acc a -> acc ^ ";\n" ^string_of_eff_case a) "" ops in 
-    Format.asprintf "ens %s; \n(TRY \n(%s)\nCATCH \n{%s%s}[%s])\n" (string_of_state (pi, h)) (string_of_spec src) (string_of_normal_case) (string_of_eff_cases ops) (string_of_term ret)
-  (* | SpecDisj dsp ->
-      Format.asprintf "(%s)" (string_of_disj_spec dsp) *)
+  | TryCatch (pi, h, ( src, ((normP, normSpec), ops)), ret) ->
+      let string_of_normal_case = normP ^ ": " ^ string_of_disj_spec (normSpec) in
+      let string_of_eff_case (eName, param, eSpec)=  eName  ^
+        (match param with | None -> " " | Some p -> "("^ p ^ ") ")^ ": " ^ string_of_disj_spec eSpec in
+      let string_of_eff_cases ops =  List.fold_left (fun acc a -> acc ^ ";\n" ^string_of_eff_case a) "" ops in
+      Format.asprintf "ens %s; \n(TRY \n(%s)\nCATCH \n{%s%s}[%s])\n" (string_of_state (pi, h)) (string_of_spec src) (string_of_normal_case) (string_of_eff_cases ops) (string_of_term ret)
+  | SpecDisj dsp ->
+      Format.asprintf "(%s)" (string_of_disj_spec dsp)
 
 and string_of_spec (spec:spec) :string =
   match spec with
@@ -223,43 +223,43 @@ and string_of_pi pi : string =
   | Subsumption (a, b) -> Format.asprintf "%s <: %s" (string_of_term a) (string_of_term b)
 
 
-and  string_of_effect_cases_specs (h_ops:(string * string option * disj_spec) list): string = 
-  match h_ops with 
+and  string_of_effect_cases_specs (h_ops:(string * string option * disj_spec) list): string =
+  match h_ops with
   | [] -> ""
-  | [(effname, param, spec)] -> 
-    (effname  ^  (match param with | None -> " " | Some p -> "("^ p ^ ") ")^ ": " ^ 
+  | [(effname, param, spec)] ->
+    (effname  ^  (match param with | None -> " " | Some p -> "("^ p ^ ") ")^ ": " ^
     string_of_disj_spec spec)
-  | (effname, param, spec) ::xs -> 
-    (effname  ^  (match param with | None -> " " | Some p -> "("^ p ^ ") ")^ ": " ^ 
+  | (effname, param, spec) ::xs ->
+    (effname  ^  (match param with | None -> " " | Some p -> "("^ p ^ ") ")^ ": " ^
     string_of_disj_spec spec ^ "\n"
-    ) ^ string_of_effect_cases_specs xs 
+    ) ^ string_of_effect_cases_specs xs
 
 
-and string_of_normal_case_specs ((param, h_norm):(string * disj_spec)): string = 
-  ((match param with | p -> p ^ "")^ ": " ^ string_of_disj_spec (h_norm)); 
+and string_of_normal_case_specs ((param, h_norm):(string * disj_spec)): string =
+  ((match param with | p -> p ^ "")^ ": " ^ string_of_disj_spec (h_norm));
 
-and string_of_handlingcases ((h_normal, h_ops):handlingcases) : string = 
-    "{\n" ^ 
-    string_of_normal_case_specs h_normal ^ "\n" ^ 
-    string_of_effect_cases_specs h_ops 
+and string_of_handlingcases ((h_normal, h_ops):handlingcases) : string =
+    "{\n" ^
+    string_of_normal_case_specs h_normal ^ "\n" ^
+    string_of_effect_cases_specs h_ops
     ^ "\n}\n"
 
 
 
-and string_of_try_catch_lemma (x:tryCatchLemma) : string = 
-  let (tcl_head, tcl_handledCont, (*(h_normal, h_ops),*) tcl_summary) = x in 
-  "TRY " 
-  ^ 
-  string_of_spec tcl_head 
+and string_of_try_catch_lemma (x:tryCatchLemma) : string =
+  let (tcl_head, tcl_handledCont, (*(h_normal, h_ops),*) tcl_summary) = x in
+  "TRY "
+  ^
+  string_of_spec tcl_head
 
-  ^ (match tcl_handledCont with 
+  ^ (match tcl_handledCont with
   | None -> "" | Some conti -> " # " ^ string_of_disj_spec conti)
 
-  
+
   ^ " CATCH \n" (*^ string_of_handlingcases (h_normal, h_ops ) *)
   ^ "=> " ^ string_of_disj_spec tcl_summary
 
-and string_of_handler_type (h:handler_type) : string = 
+and string_of_handler_type (h:handler_type) : string =
     match h with
     | Deep -> "d"
     | Shallow -> "s"
@@ -424,20 +424,20 @@ let string_of_effHOTryCatchStages s =
     let current = ex @ [Shift (x.s_notzero, x.s_cont, x.s_body, x.s_ret)] in
     string_of_spec current
 
-  | (TryCatchStage ct) -> 
+  | (TryCatchStage ct) ->
     (let {tc_pre = (p1, h1); tc_post = (p2, h2); _} = ct in
     let ex = match ct.tc_evars with [] -> [] | _ -> [Exists ct.tc_evars] in
-    let current = ex @ 
+    let current = ex @
     [Require(p1, h1);
     (TryCatch(p2, h2, ct.tc_constr ,ct.tc_ret)
     )
     ] in
     string_of_spec current )
-  
-  | (ResetStage ct) -> 
+
+  | (ResetStage ct) ->
     (let {rs_pre = (p1, h1); rs_post = (p2, h2); _} = ct in
     let ex = match ct.rs_evars with [] -> [] | _ -> [Exists ct.rs_evars] in
-    let current = ex @ 
+    let current = ex @
     [Require(p1, h1); NormalReturn (p2, h2);
     (Reset(ct.rs_body, ct.rs_ret)
     )
@@ -519,7 +519,7 @@ let string_of_tmap pp s =
   Format.asprintf "{%s}" (String.concat ", " (List.map (fun (k, v) -> Format.asprintf "%s -> %s" (string_of_type k) (pp v)) (TMap.bindings s)))
 
 let string_of_abs_env t =
-  Format.asprintf "%s, %s" (string_of_smap string_of_type t.vartypes) 
+  Format.asprintf "%s, %s" (string_of_smap string_of_type t.vartypes)
   (* "<opaque>" *)
 (string_of_tmap string_of_type (TMap.map (fun t -> U.get t) !(t.equalities)))
 
@@ -629,7 +629,7 @@ let local_lambda_defs =
     inherit [_] reduce_spec
     method zero = SMap.empty
     method plus = SMap.merge_disjoint
-    
+
     method! visit_TLambda _ _ _ _ _ = SMap.empty
 
     method! visit_Subsumption () a b =
@@ -646,31 +646,31 @@ let local_lambda_defs =
   end
 
 
-let bindFormalNActual (formal: string list) (actual: core_value list) : ((string * core_value) list)= 
+let bindFormalNActual (formal: string list) (actual: core_value list) : ((string * core_value) list)=
   try List.map2 pair formal actual
-  with 
-  | Invalid_argument _ -> 
+  with
+  | Invalid_argument _ ->
     print_endline ("formal: " ^ (List.map (fun a-> a) formal |> String.concat ", "));
     print_endline ("actual: " ^ (List.map (fun a-> string_of_term a) actual |> String.concat ", "));
     print_endline ("bindFormalNActual length not equle");
     []
-  
+
 
   (*
-  match (formal, actual) with 
-  | (x::xs, y::ys) -> (x, y)::bindFormalNActual xs ys 
-  | ([], []) -> [] 
-  | _ -> []   
+  match (formal, actual) with
+  | (x::xs, y::ys) -> (x, y)::bindFormalNActual xs ys
+  | ([], []) -> []
+  | _ -> []
   *)
 
-let bindNewNames (formal: string list) (actual: string list) : ((string * string) list)= 
+let bindNewNames (formal: string list) (actual: string list) : ((string * string) list)=
   try List.map2 pair formal actual
-  with 
-  | Invalid_argument _ -> 
+  with
+  | Invalid_argument _ ->
     print_endline ("formal: " ^ (List.map (fun a-> a) formal |> String.concat ", "));
     print_endline ("actual: " ^ (List.map (fun a-> a) actual |> String.concat ", "));
     failwith ("bindNewNames length not equle")
-  
+
 let function_stage_to_disj_spec constr args ret =
   (* TODO for some reason this version isn't handled by normalization *)
   (* [[HigherOrder (True, EmptyHeap, l.l_left, res_v)]] *)
@@ -678,14 +678,14 @@ let function_stage_to_disj_spec constr args ret =
   [[Exists [v]; HigherOrder ((constr, args), Var v); NormalReturn (Atomic (EQ, ret, Var v), EmptyHeap)]]
 
 
-let startingFromALowerCase (label:string) : bool = 
-  let c = label.[0] in 
-  if Char.code c >= 97 then true else false 
+let startingFromALowerCase (label:string) : bool =
+  let c = label.[0] in
+  if Char.code c >= 97 then true else false
 
 
-let retriveFormalArg arg :string = 
-  match arg  with 
+let retriveFormalArg arg :string =
+  match arg  with
   | Var ret -> ret
-  | _ -> 
+  | _ ->
         print_endline (string_of_term arg);
         failwith "effect return is not var 1"

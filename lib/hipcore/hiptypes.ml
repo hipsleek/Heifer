@@ -105,7 +105,7 @@ and stagedSpec =
       | RaisingEff of (pi * kappa * instant * term)
       (* | IndPred of { name : string; args: term list } *)
       | TryCatch of (pi * kappa * trycatch * term)
-      (* | SpecDisj of disj_spec *)
+      | SpecDisj of disj_spec
 
 and spec = stagedSpec list
 

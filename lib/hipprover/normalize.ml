@@ -605,8 +605,8 @@ let normalize_step (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
               tc_ret = ret';
             };
           ],
-        freshNormStageRet ret' )
-
+        freshNormStageRet ret')
+    | SpecDisj _ -> failwith "todo"
   in
   debug ~at:4 ~title:"normalize_step" "%s\n+\n%s\n==>\n%s"
     (string_of_normalisedStagedSpec acc)
@@ -617,6 +617,7 @@ let normalize_step (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
 (* | IndPred {name; _} -> *)
 (* failwith (Format.asprintf "cannot normalise predicate %s" name) *)
 
+(*
 let getherPureFromSpec_step (acc:pi) (stagedSpec : stagedSpec) : pi =
   match stagedSpec with 
   | Shift _ -> failwith "todo"
@@ -631,6 +632,7 @@ let getherPureFromSpec_step (acc:pi) (stagedSpec : stagedSpec) : pi =
 
 let getherPureFromSpec (spec : spec) :pi = 
   List.fold_left getherPureFromSpec_step (True) spec
+*)
 
 let (*rec*) normalise_spec_ (acc : normalisedStagedSpec) (spec : spec) :
     normalisedStagedSpec =
@@ -884,9 +886,9 @@ let remove_noncontributing_existentials :
     | Require (p, h) | NormalReturn (p, h) -> collect_related_vars_state (p, h)
     | HigherOrder _
     | Exists _ -> []
-    | RaisingEff (p, h, _constr, _ret) ->
-      collect_related_vars_state (p, h)
+    | RaisingEff (p, h, _constr, _ret) -> collect_related_vars_state (p, h)
     | TryCatch _ -> failwith "unimplemented"
+    | SpecDisj dsp -> [collect_related_vars_disj_spec dsp]
   and collect_related_vars_spec s =
     SSet.concat (List.concat_map collect_related_vars_stage s)
   and collect_related_vars_disj_spec ss =
@@ -1000,8 +1002,8 @@ let simplify_existential_locations sp =
         | TryCatch _ -> []
         | Require (p, _)
         | NormalReturn (p, _)
-        | RaisingEff (p, _, _, _) ->
-          pure_to_equalities p   
+        | RaisingEff (p, _, _, _) -> pure_to_equalities p
+        | SpecDisj _ -> failwith "todo"
       )
       sp
   in
