@@ -1,5 +1,5 @@
 
-  $ source ../utility.sh
+  $ . ../utility.sh
 
   $ check ../examples/calls.ml
   ALL OK!

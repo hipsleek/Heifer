@@ -1,5 +1,5 @@
 
-  $ source ../utility.sh
+  $ . ../utility.sh
 
   $ check ../evaluation/0_heap_zero_once_twice.ml
   ALL OK!
