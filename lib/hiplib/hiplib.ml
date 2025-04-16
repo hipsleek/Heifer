@@ -6,7 +6,7 @@ module Pretty = Pretty
 module ProversEx = ProversEx
 module Debug = Debug
 module Common = Hiptypes
-open Ocamlfrontend
+open Ocaml_compiler
 open Parsetree
 open Asttypes
 (* get rid of the alias *)
@@ -16,6 +16,9 @@ open Pretty
 open Debug
 open Hiptypes
 open Normalize
+
+(** Re-export Env, since it gets shadowed by another declaration later on. *)
+module Compiler_env = Env
 
 let file_mode = ref false
 let test_mode = ref false
@@ -391,8 +394,6 @@ let string_of_token =
 | DOTDOT -> "DOTDOT"
 | DOWNTO -> "DOWNTO"
 | EFFECT -> "EFFECT"
-| EXISTS -> "EXISTS"
-| SHALLOW -> "SHALLOW"
 | ELSE -> "ELSE"
 | END -> "END"
 | EOF -> "EOF"
@@ -405,9 +406,6 @@ let string_of_token =
 | FUN -> "FUN"
 | FUNCTION -> "FUNCTION"
 | FUNCTOR -> "FUNCTOR"
-| REQUIRES -> "REQUIRES"
-| ENSURES -> "ENSURES"
-| EMP -> "EMP"
 | GREATER -> "GREATER"
 | GREATERRBRACE -> "GREATERRBRACE"
 | GREATERRBRACKET -> "GREATERRBRACKET"
@@ -491,23 +489,15 @@ let string_of_token =
 | WHILE -> "WHILE"
 | WITH -> "WITH"
 | COMMENT _ -> "COMMENT"
-| LSPECCOMMENT -> "LSPECCOMMENT"
-| RSPECCOMMENT -> "RSPECCOMMENT"
-| PREDICATE -> "PREDICATE"
-| LEMMA -> "LEMMA"
 (* | PURE -> "PURE" *)
 | DOCSTRING _ -> "DOCSTRING"
 | EOL -> "EOL"
 | QUOTED_STRING_EXPR _ -> "QUOTED_STRING_EXPR"
 | QUOTED_STRING_ITEM _ -> "QUOTED_STRING_ITEM"
-| CONJUNCTION -> "CONJUNCTION"
-| DISJUNCTION -> "DISJUNCTION"
+| METAOCAML_ESCAPE  -> "METAOCAML_ESCAPE"
+| METAOCAML_BRACKET_OPEN -> "METAOCAML_BRACKET_OPEN"
+| METAOCAML_BRACKET_CLOSE -> "METAOCAML_BRACKET_CLOSE"
 (* | IMPLICATION -> "IMPLICATION" *)
-| LONG_IMPLICATION -> "LONG_IMPLICATION"
-| SUBSUMES -> "SUBSUMES"
-| EFFCATCH -> "EFFCATCH"
-| PROP_TRUE -> "PROP_TRUE"
-| PROP_FALSE -> "PROP_FALSE"
 
 
 let debug_tokens str =
@@ -1014,7 +1004,7 @@ let process_intermediates it prog =
       [], prog *)
     end
 
-let process_ocaml_structure (strs: structure) : unit =
+let process_ocaml_structure (strs: Ocaml_common.Typedtree.structure) : unit =
   let helper (bound_names, prog) s =
     match Core_lang.transform_str bound_names s with
     | Some it ->
@@ -1023,12 +1013,20 @@ let process_ocaml_structure (strs: structure) : unit =
     | None ->
         bound_names, prog
   in
+  let strs = Ocaml_common.Untypeast.untype_structure strs in
   List.fold_left helper ([], empty_program) strs |> ignore
 
 let run_ocaml_string_ line =
-  let items = Parser.implementation Lexer.token (Lexing.from_string line) in
-  let@ _ = Globals.Timing.(time overall_all) in
-  process_ocaml_structure items
+  (* Parse and typecheck the code, before converting it into a core language program.
+     This mirrors the flow of compilation used in ocamlc. *)
+  let items = Parse.implementation (Lexing.from_string line) in
+  let unit_info = Unit_info.(make ~source_file:"" Impl "") in
+  Compile_common.with_info ~native:false ~tool_name:"heifer" ~dump_ext:"" unit_info @@ begin fun info ->
+    let typed_implementation = Compile_common.typecheck_impl info items in
+    let@ _ = Globals.Timing.(time overall_all) in
+    process_ocaml_structure typed_implementation.structure
+  end
+      
 
 let mergeTopLevelCodeIntoOneMain (prog : intermediate list) : intermediate list =
   let rec helper li: (intermediate list  * core_lang list )=

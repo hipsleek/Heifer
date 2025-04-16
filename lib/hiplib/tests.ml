@@ -1,4 +1,4 @@
-open Ocamlfrontend
+open Ocaml_compiler.Ocaml_common
 open Hipcore
 open Hipprover
 open Pretty
