@@ -617,7 +617,7 @@ let normalize_step (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
 (* | IndPred {name; _} -> *)
 (* failwith (Format.asprintf "cannot normalise predicate %s" name) *)
 
-(*
+
 let getherPureFromSpec_step (acc:pi) (stagedSpec : stagedSpec) : pi =
   match stagedSpec with 
   | Shift _ -> failwith "todo"
@@ -629,10 +629,11 @@ let getherPureFromSpec_step (acc:pi) (stagedSpec : stagedSpec) : pi =
   | TryCatch (pi, _, _, _) -> 
     And(acc, pi)
   | HigherOrder _ -> acc
+  | SpecDisj _ -> failwith "SpecDisj"
 
 let getherPureFromSpec (spec : spec) :pi = 
   List.fold_left getherPureFromSpec_step (True) spec
-*)
+
 
 let (*rec*) normalise_spec_ (acc : normalisedStagedSpec) (spec : spec) :
     normalisedStagedSpec =
@@ -1003,7 +1004,7 @@ let simplify_existential_locations sp =
         | Require (p, _)
         | NormalReturn (p, _)
         | RaisingEff (p, _, _, _) -> pure_to_equalities p
-        | SpecDisj _ -> failwith "todo"
+        | SpecDisj _ -> []
       )
       sp
   in
@@ -1300,7 +1301,7 @@ let rec simplify_spec n sp =
 
 
 (* the main entry point *)
-let normalize_spec sp =
+let normalize_spec (sp : spec) : normalisedStagedSpec =
   let@ _ = Globals.Timing.(time norm) in 
   let@ _ =
     Debug.span (fun r ->

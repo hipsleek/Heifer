@@ -83,7 +83,8 @@ let apply_lemma : lemma -> spec -> spec option =
       | HigherOrder _ | NormalReturn _ | Exists _
       | Require (_, _)
       | RaisingEff _ ->
-        loop ok (Acc.add st acc) sp1)
+        loop ok (Acc.add st acc) sp1
+      | SpecDisj _ -> failwith "SpecDisj")
   in
   let r, ok = loop false Acc.empty sp in
   if ok then Some r else None

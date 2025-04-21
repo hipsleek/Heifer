@@ -64,7 +64,8 @@ let constrain_final_res (sp:disj_spec) (v:term) : disj_spec =
         failwith "constrain_final_res: HigherOrder refactoring, remove pi and kappa"
       | RaisingEff (p, k, (c, va), r) ->
         RaisingEff (And (p, Atomic (EQ, r, v)), k, (c, va), r)
-      | TryCatch _ -> failwith "unimplemented"))
+      | TryCatch _ -> failwith "unimplemented"
+      | SpecDisj _ -> failwith "spec disj"))
 
 (** Environment used for forward verification *)
 type fvenv = {
@@ -347,6 +348,7 @@ let retriveLastRes (a:spec) : term option =
   | Require _ :: _ ->
     None
   | Exists _ :: _ -> failwith ("retriveLastRes ending with ex")
+  | SpecDisj _ :: _ -> failwith "SpecDisj"
 
 
 let cartesian_product li1 li2 =
@@ -768,6 +770,7 @@ let recursivelyInstantiateFunctionCalls (current_function:string) env instantiat
       | Shift _
       | Reset _
       | Require _ | Exists _  | NormalReturn _ | RaisingEff _ | TryCatch _ -> helper (acc@[x]) xs
+      | SpecDisj _ -> failwith "SpecDisj"
       | HigherOrder ((fname, actualArgs), _ret)  ->
         if String.compare fname current_function != 0 then  (* check if it is recursive *)
         (match retrieveSpecFromEnv fname env with
@@ -898,6 +901,7 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
             | _, Exists _
             | _, Require _
             | _, NormalReturn _ -> "res"
+            | _, SpecDisj _ -> failwith "SpecDisj"
           in
           (* create an existential by creating a fresh variable, and preserve the invariant by removing res from the post of the first expr, as it will now appear on the left of the second premise *)
           let nv = verifier_getAfreeVar "let" in
@@ -1044,12 +1048,15 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
     | CIfELse (v, expr2, expr3) ->
       let eventThen = NormalReturn (v, EmptyHeap) in
       let eventElse = NormalReturn (Not v, EmptyHeap) in
-      let currentThen = concatenateSpecsWithEvent history [eventThen] in
-      let currentElse = concatenateSpecsWithEvent history [eventElse] in
+      (* let currentThen = concatenateSpecsWithEvent history [eventThen] in *)
+      (* let currentElse = concatenateSpecsWithEvent history [eventElse] in *)
+      let currentThen = [[eventThen]] in
+      let currentElse = [[eventElse]] in
       let r1, env = infer_of_expression env currentThen expr2 in
       let r2, env = infer_of_expression env currentElse expr3 in
-      r1 @ r2, env
-
+      let event = [SpecDisj (r1 @ r2)] in
+      concatenateSpecsWithEvent history event, env
+      (* r1 @ r2, env *)
 
     | CLambda (params, given_spec, body) ->
       let inferred, env = infer_of_expression env [[]] body in

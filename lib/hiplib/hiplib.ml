@@ -283,6 +283,7 @@ let replaceSLPredicatesWithDef (specs:disj_spec) (slps:sl_pred_def SMap.t) =
         [Exists ex; NormalReturn (p_pred, h_pred);  RaisingEff (p', h, (f, args), ret)]
     | Exists _
     | TryCatch _ -> [stage]
+    | SpecDisj _ -> failwith "SpecDisj"
   in
   normalise_spec_list (List.map (fun spec -> List.flatten (List.map helper spec)) specs)
 
