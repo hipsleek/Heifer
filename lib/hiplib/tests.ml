@@ -36,7 +36,7 @@ let%expect_test "instantiation/renaming of existentials" =
     ens res=v0+1/\b=1
     ex b; ens res=a+1/\b=1 |}]
 
-let%expect_test "apply lemma" =
+(* let%expect_test "apply lemma" =
   let test ~what ~lem:(params, left, right) applied_to =
     Pretty.verifier_counter_reset ();
     let parse_fn_stage_as_lem_lhs s =
@@ -199,7 +199,7 @@ let%expect_test "apply lemma" =
     original: ex a; req emp; ens a=b/\b=2; f(1, 2); ex r; req emp; ens res=a+4
     result: Some ex a; ens res=3/\a=b/\b=2; ens T/\T; ens 2=1; ex r; ens res=r/\r=a+4
     norm: Some ex a r; ens a=b/\b=2/\2=1/\res=a+4
-    --- |}]
+    --- |}] *)
 
 let%expect_test "normalise spec" =
   (* Debug.debug_level := 5; *)

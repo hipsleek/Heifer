@@ -246,6 +246,7 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
     let e = transformation (formals @ bound_names) body in
     CLambda (formals, spec, e)
   (* shift and shift0 *)
+  (* todo: too adhoc! Change this! *)
   | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, args) when List.mem name ["shift"; "shift0"] ->
     begin match List.map snd args with
     | [{pexp_desc = Pexp_ident ({txt = Lident k; _}); _}; body] ->
@@ -485,12 +486,12 @@ let transform_str bound_names (s : structure_item) =
     end
     
   | Pstr_lemma (l_name, l_params, l_left, l_right) ->
-    let l_left =
+    (* let l_left =
       match l_left with
       | HigherOrder ((constr, ps), r) ->
         (constr, ps @ [r])
       | _ -> failwith (Format.asprintf "lemma %s should have function on the left" l_name)
-    in
+    in *)
     Some (Lem {l_name; l_params; l_left; l_right})
   | Pstr_predicate (p_name, p_params, p_body) ->
     Some (Pred {p_name; p_params; p_body; p_rec = (find_rec p_name)#visit_disj_spec () p_body})

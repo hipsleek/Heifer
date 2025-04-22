@@ -728,7 +728,8 @@ let mk_directive ~loc name arg =
 %token <Docstrings.docstring> DOCSTRING
 %token PROP_TRUE
 %token PROP_FALSE
-
+%token SHIFT
+%token RESET
 %token EOL
 
 /* Precedences and associativities.
@@ -800,6 +801,7 @@ The precedences must be listed from low to high.
           LBRACE LBRACELESS LBRACKET LBRACKETBAR LIDENT LPAREN
           NEW PREFIXOP STRING TRUE UIDENT
           LBRACKETPERCENT QUOTED_STRING_EXPR
+          SHIFT RESET
 
 /* Entry points */
 
@@ -2366,6 +2368,10 @@ simple_expr:
 %inline simple_expr_:
   | mkrhs(val_longident)
       { Pexp_ident ($1) }
+  | SHIFT
+      { Pexp_ident ({txt = Lident "shift"; loc = Location.none}) }
+  | RESET
+      { Pexp_ident ({txt = Lident "reset"; loc = Location.none}) }
   | constant
       { Pexp_constant $1 }
   | mkrhs(constr_longident) %prec prec_constant_constructor
@@ -2711,6 +2717,12 @@ stagedSpec1 :
     (* we don't check if the infix op is a dollar *)
     let init, last = unsnoc args in
     HigherOrder ((constr, init), last)
+  }
+  | SHIFT LPAREN k=LIDENT DOT body=disj_effect_spec COMMA r=LIDENT RPAREN {
+    Shift (true, k, body, Var r)
+  }
+  | RESET LPAREN body=disj_effect_spec COMMA r=LIDENT RPAREN {
+    Reset (body, Var r)
   }
 
 statefml:

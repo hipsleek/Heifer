@@ -107,6 +107,7 @@ let rec unify_term (t1 : term) (t2 : term)  (e : unification_env) : unification_
   | TTupple t1s, TTupple t2s ->
       unify_term_list t1s t2s e
   | Var s, _ ->
+      Debug.debug ~at:2 ~title:"try unify var" "%s %s\n" s (Pretty.string_of_term t2);
       unify_var s t2 e
   | _, _ ->
       raise Unification_failure
@@ -159,8 +160,11 @@ let rec unify_stagedSpec (ssp1 : stagedSpec) (ssp2 : stagedSpec) (e : unificatio
   | Require (p1, k1), Require (p2, k2)
   | NormalReturn (p1, k1), NormalReturn (p2, k2) ->
       unify_kappa k1 k2 (unify_pi p1 p2 e)
-  | HigherOrder _, HigherOrder _ ->
-      failwith "unify_stagedSpec: matching HigherOrder, but not supported"
+  | HigherOrder ((f1, args1), t1), HigherOrder ((f2, args2), t2) when f1 = f2 ->
+      (* failwith "unify_stagedSpec: matching HigherOrder, but not supported" *)
+      Debug.debug ~at:2 ~title:"try unify higher-order" "%s, %s\n" f1 f2;
+      let e = List.fold_left2 (fun e' arg1 arg2 -> unify_term arg1 arg2 e') e args1 args2 in
+      unify_term t1 t2 e
   | Shift (b1, k1, dsp1, t1), Shift (b2, k2, dsp2, t2) when b1 = b2 ->
       (* k1 and k2 are now alpha-equivalence *)
       (* k1 and k2 are only bounded when we are traversing the
@@ -219,6 +223,9 @@ type new_lemma_1 = {
 
 (* in any case, after the unification, we will instantiate the spec with the bindings and then *)
 (* add everything into an accumulator *)
+
+let create_initial_unification_env (params : string list) =
+  List.fold_left (fun acc param -> SMap.add param U_none acc) SMap.empty params
 
 let convert_to_bindings (e : unification_env) =
   let fm (v, u) =

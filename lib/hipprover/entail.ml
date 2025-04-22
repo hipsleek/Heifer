@@ -41,6 +41,7 @@ let unify_lem_lhs_args params la a =
   with Unification_failure -> None
 
 (** goes down the given spec trying to match the lemma's left side, and rewriting on match. may fail *)
+(*
 let apply_lemma : lemma -> spec -> spec option =
  fun lem sp ->
   let@ _ =
@@ -88,17 +89,54 @@ let apply_lemma : lemma -> spec -> spec option =
   in
   let r, ok = loop false Acc.empty sp in
   if ok then Some r else None
+*)
+
+let apply_lemma : lemma -> spec -> spec option =
+  fun lem sp ->
+    let@ _ =
+      Debug.span (fun r ->
+        debug ~at:3
+          ~title:"apply_lemma"
+          "lemma: %s\nspec: %s\nres: %s"
+          (string_of_lemma lem)
+          (string_of_spec sp)
+          (string_of_result (string_of_option string_of_spec) r))
+    in
+    let lem = rename_exists_lemma lem in
+    let init_env = Lemma.create_initial_unification_env lem.l_params in
+    let rec loop ok acc sp =
+      match sp with
+      | [] ->
+          Acc.to_list acc, ok
+      | st :: sp' when not ok ->
+          begin try
+            let env = Lemma.unify_stagedSpec lem.l_left st init_env in
+            let bindings = Lemma.convert_to_bindings env in
+            let inst_lem_rhs = Subst.instantiateSpec bindings lem.l_right in
+            loop true (Acc.add_all inst_lem_rhs acc) sp'
+          with Lemma.Unification_failure ->
+            debug ~at:1 ~title:"unification failure" "stage: %s\n" (string_of_staged_spec st);
+            loop ok (Acc.add st acc) sp'
+          end
+      | st :: sp' ->
+          loop ok (Acc.add st acc) sp'
+    in
+    let r, ok = loop false Acc.empty sp in
+    if ok then Some r else None
 
 let apply_one_lemma : lemma list -> spec -> spec * lemma option =
- fun lems sp ->
-  List.fold_left
-    (fun (sp, app) l ->
-      match app with
-      | Some _ -> (sp, app)
-      | None ->
-        let sp1 = apply_lemma l sp in
-        (match sp1 with None -> (sp, app) | Some sp1 -> (sp1, Some l)))
-    (sp, None) lems
+  fun lems sp ->
+    List.fold_left
+      (fun (sp, app) l ->
+        match app with
+        | Some _ -> (sp, app)
+        | None ->
+            let sp1 = apply_lemma l sp in
+            match sp1 with
+            | None -> sp, app
+            | Some sp1 -> sp1, Some l)
+      (sp, None)
+      lems
 
 module Heap = struct
 
@@ -373,7 +411,8 @@ let rec check_staged_subsumption_stagewise :
   | (EffHOStage es1 :: es1r, ns1), (EffHOStage es2 :: es2r, ns2) ->
     (*print_endline ("check_staged_subsumption_stagewise case one ");*)
     let ctx =
-      ctx |> collect_local_lambda_definitions es2.e_pre
+      ctx
+        |> collect_local_lambda_definitions es2.e_pre
         |> collect_local_lambda_definitions es1.e_post
     in
     (* fail fast by doing easy checks first *)
@@ -475,7 +514,6 @@ let rec check_staged_subsumption_stagewise :
       (string_of_normalisedStagedSpec s2);
       (*print_endline("fail 495");*)
     fail
-
   | _  ->fail
 
 
@@ -536,7 +574,7 @@ and try_other_measures :
         let eligible =
           ctx.lems |> SMap.bindings
           |> List.filter (fun (ln, _l) -> not (List.mem ln ctx.applied))
-          |> List.filter (fun (_ln, l) -> List.mem (fst l.l_left, `Left) ctx.unfolded)
+          (* |> List.filter (fun (_ln, l) -> List.mem (fst l.l_left, `Left) ctx.unfolded) *)
           (* prevent rewriting unless unfolding of the left side has taken place. this works for the IH, but not for lemmas in general *)
           |> List.map snd
         in
@@ -747,7 +785,7 @@ let rec apply_tactics ts lems preds (ds1 : disj_spec) (ds2 : disj_spec) =
       r)
     (ds1, ds2) ts
 
-let create_induction_hypothesis params ds1 ds2 =
+(* let create_induction_hypothesis params ds1 ds2 =
   let fail fmt =
     Format.kasprintf
       (fun s ->
@@ -784,7 +822,7 @@ let create_induction_hypothesis params ds1 ds2 =
       fail "not all params used by lhs of entailment: params %s, %s used"
         (string_of_list Fun.id params)
         (string_of_sset used_l))
-  | _ -> fail "left side disjunctive"
+  | _ -> fail "left side disjunctive" *)
 
 (**
   Subsumption between disjunctive specs.
@@ -800,14 +838,15 @@ let check_staged_subsumption_disj :
     disj_spec ->
     pctx Search.t =
  fun mname params _ts lems preds ds1 ds2 ->
+  ignore params;
   Search.reset ();
   debug ~at:1
     ~title:(Format.asprintf "disj subsumption: %s" mname)
     "%s\n<:\n%s" (string_of_disj_spec ds1) (string_of_disj_spec ds2);
-  let ih = create_induction_hypothesis params ds1 ds2 in
-  let lems =
-    match ih with None -> lems | Some ih -> SMap.add ih.l_name ih lems
-  in
+  (* let ih = create_induction_hypothesis params ds1 ds2 in *)
+  (* let lems = *)
+    (* match ih with None -> lems | Some ih -> SMap.add ih.l_name ih lems *)
+  (* in *)
   let ctx = create_pctx lems preds [] in
   (* let ds1, ds2 = apply_tactics ts lems preds ds1 ds2 in *)
   let@ s1, ctx = Search.all_state ~name:"disj lhs" ~to_s:string_of_spec ~init:ctx ~pivot:(fun c -> { ctx with subsumption_obl = c.subsumption_obl }) ds1 in

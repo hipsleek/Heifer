@@ -1048,15 +1048,15 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
     | CIfELse (v, expr2, expr3) ->
       let eventThen = NormalReturn (v, EmptyHeap) in
       let eventElse = NormalReturn (Not v, EmptyHeap) in
-      (* let currentThen = concatenateSpecsWithEvent history [eventThen] in *)
-      (* let currentElse = concatenateSpecsWithEvent history [eventElse] in *)
-      let currentThen = [[eventThen]] in
-      let currentElse = [[eventElse]] in
+      let currentThen = concatenateSpecsWithEvent history [eventThen] in
+      let currentElse = concatenateSpecsWithEvent history [eventElse] in
+      (* let currentThen = [[eventThen]] in *)
+      (* let currentElse = [[eventElse]] in *)
       let r1, env = infer_of_expression env currentThen expr2 in
       let r2, env = infer_of_expression env currentElse expr3 in
-      let event = [SpecDisj (r1 @ r2)] in
-      concatenateSpecsWithEvent history event, env
-      (* r1 @ r2, env *)
+      (* let event = [SpecDisj (r1 @ r2)] in *)
+      (* concatenateSpecsWithEvent history event, env *)
+      r1 @ r2, env
 
     | CLambda (params, given_spec, body) ->
       let inferred, env = infer_of_expression env [[]] body in

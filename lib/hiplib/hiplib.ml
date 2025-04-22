@@ -509,7 +509,8 @@ let string_of_token =
 | EFFCATCH -> "EFFCATCH"
 | PROP_TRUE -> "PROP_TRUE"
 | PROP_FALSE -> "PROP_FALSE"
-
+| SHIFT -> "SHIFT"
+| RESET -> "RESET"
 
 let debug_tokens str =
   let lb = Lexing.from_string str in
@@ -932,12 +933,12 @@ let process_intermediates it prog =
       [], prog
   | Lem l ->
       debug ~at:4 ~title:(Format.asprintf "lemma %s" l.l_name) "%s" (string_of_lemma l);
-      let left =
+      (* let left =
         let (f, ps) = l.l_left in
         let args, ret = unsnoc ps in
         function_stage_to_disj_spec f args ret
-      in
-      check_obligation_ l.l_name l.l_params prog.cp_lemmas prog.cp_predicates (left, [l.l_right]);
+      in *)
+      check_obligation_ l.l_name l.l_params prog.cp_lemmas prog.cp_predicates ([[l.l_left]], [l.l_right]);
       debug ~at:4 ~title:(Format.asprintf "added lemma %s" l.l_name) "%s" (string_of_lemma l);
       (* add to environment regardless of failure *)
       [], { prog with cp_lemmas = SMap.add l.l_name l prog.cp_lemmas }

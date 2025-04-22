@@ -95,7 +95,8 @@ let keyword_table =
     "when", WHEN;
     "while", WHILE;
     "with", WITH;
-
+    "shift", SHIFT;
+    "reset", RESET;
     "lor", INFIXOP3("lor"); (* Should be INFIXOP2 *)
     "lxor", INFIXOP3("lxor"); (* Should be INFIXOP2 *)
     "mod", INFIXOP3("mod");

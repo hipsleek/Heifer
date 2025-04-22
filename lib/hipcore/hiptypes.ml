@@ -360,7 +360,7 @@ type pure_fn_type_def = {
 type lemma = {
   l_name: string;
   l_params: string list; (* ordered, the last parameter is a result *)
-  l_left: instant; (* for simplicity of rewriting *)
+  l_left: stagedSpec;
   l_right: spec; (* could also be disj_spec but not needed *)
 }
 
