@@ -1006,7 +1006,7 @@ let process_intermediates it prog =
 
 let process_ocaml_structure (strs: Ocaml_common.Typedtree.structure) : unit =
   let helper (bound_names, prog) s =
-    match Core_lang.transform_str bound_names s with
+    match Ocamlfrontend.Core_lang2.transform_str bound_names s with
     | Some it ->
         let new_bound, prog = process_intermediates it prog in
         new_bound @ bound_names, prog

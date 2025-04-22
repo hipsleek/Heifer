@@ -1,10 +1,11 @@
 
 module Hipsubst = Subst
-open Ocaml_compiler
+open Ocaml_compiler.Ocaml_common
 open Parsetree
 open Asttypes
 (* get rid of the alias *)
 type string = label
+open Hipcore
 open Hiptypes
 open Pretty
 
@@ -441,7 +442,7 @@ let string_of_expression_kind (expr:Parsetree.expression_desc) : string =
   | Pexp_unreachable -> "Pexp_unreachable"
 
 (** env just keeps track of all the bound names *)
-let transform_str bound_names (s : Ocaml_common.Parsetree.structure_item) =
+let transform_str bound_names (s : structure_item) =
   match s.pstr_desc with
   | Pstr_value (_rec_flag, vb::_vbs_) ->
     let tactics = collect_annotations vb.pvb_attributes in
@@ -476,7 +477,7 @@ let transform_str bound_names (s : Ocaml_common.Parsetree.structure_item) =
       Str.split (Str.regexp "\\.") ext_name |> unsnoc
     in
     let params, ret =
-      core_type_to_simple_type pval_type |> Hipsubst.interpret_arrow_as_params
+      core_type_to_simple_type pval_type |> Subst.interpret_arrow_as_params
     in
     Some (LogicTypeDecl (pval_name.txt, params, ret, path, name))
   | _ -> failwith (Format.asprintf "unknown program element: %a" Pprintast.structure [s])

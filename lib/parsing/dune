@@ -63,6 +63,16 @@
   (mode fallback))
 
 (library
+ (name ocamlfrontend)
+ (public_name heifer.ocamlfrontend)
+ (modules parser lexer Syntaxerr Pprintast Printast Asttypes Ast_helper
+          Longident Parsetree Location Warnings Misc Terminfo Docstrings
+          Build_path_prefix_map Clflags Profile Numbers Identifiable
+          Arg_helper CamlinternalMenhirLib core_lang core_lang2) ; the only module we own
+ (libraries hipcore ocaml_compiler)
+ (flags :standard -w -A))
+
+(library
  (name racketfrontend)
  (public_name heifer.racketfrontend)
  (modules racket_parser racket_lexer)

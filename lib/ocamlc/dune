@@ -1,0 +1,4 @@
+(library
+  (name ocaml_compiler)
+  (public_name heifer.ocaml_compiler)
+  (libraries compiler-libs.common))
