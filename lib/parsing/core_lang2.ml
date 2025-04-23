@@ -1,5 +1,8 @@
+(**
+  This version of Core_lang uses Compiler-libs's built in Parsetree instead
+  as a basis for transformation.
+   *)
 
-module Hipsubst = Subst
 open Ocaml_compiler.Ocaml_common
 open Parsetree
 open Asttypes
@@ -158,10 +161,6 @@ let rec core_type_to_simple_type t =
   | Ptyp_arrow (_, t1, t2) -> Arrow (core_type_to_simple_type t1, core_type_to_simple_type t2)
   | _ -> failwith (Format.asprintf "core_type_to_simple_type: not yet implemented %a" Pprintast.core_type t)
 
-(** Given the RHS of a let binding, returns the es it is annotated with *)
-let function_spec _rhs =
-  (* FIXME Implement reading this in via attributes. *)
-  None
 
 (*
    let f (a:int) (b:string) : bool = c
@@ -225,7 +224,7 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
   (* lambda *)
   | Pexp_function (_, _, body) ->
     (* see also: Pexp_fun case below in transform_str *)
-    let spec = function_spec body in
+    let spec = Annotation.extract_spec_attribute expr.pexp_attributes in
     (* types aren't used because lambdas cannot be translated to pure functions *)
     let formals, body, _types = collect_param_info expr in
     let e = transformation (formals @ bound_names) body in
@@ -366,7 +365,8 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
             string_of_pattern peff, arg
           in
           (* FIXME pass handler specifications in here *)
-          Some (label, arg_binder, None, transformation bound_names c.pc_rhs)
+          let spec = Annotation.extract_spec_attribute c.pc_lhs.ppat_attributes in
+          Some (label, arg_binder, spec, transformation bound_names c.pc_rhs)
         | _ -> None)
     in
     let pattern_cases =
@@ -385,7 +385,7 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
         | _ -> None)
     in
     (* FIXME properly fill in the handler type and handler specification *)
-    CMatch (Shallow, None, transformation bound_names e, norm, effs, pattern_cases)
+    CMatch (Deep, None, transformation bound_names e, norm, effs, pattern_cases)
   | _ -> 
     if String.compare (Pprintast.string_of_expression expr) "Obj.clone_continuation k" == 0 then (* ASK Darius*)
     CValue (Var "k")
@@ -451,7 +451,7 @@ let transform_str bound_names (s : structure_item) =
     begin match fn.pexp_desc with
     | Pexp_function (_, _, tlbody) ->
       (* see also: CLambda case *)
-      let spec = function_spec tlbody in
+      let spec = Annotation.extract_spec_attribute vb.pvb_attributes in
       let formals, body, types = collect_param_info fn in
       let pure_fn_info =
         let has_pure_annotation =

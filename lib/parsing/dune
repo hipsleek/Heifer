@@ -68,7 +68,7 @@
  (modules parser lexer Syntaxerr Pprintast Printast Asttypes Ast_helper
           Longident Parsetree Location Warnings Misc Terminfo Docstrings
           Build_path_prefix_map Clflags Profile Numbers Identifiable
-          Arg_helper CamlinternalMenhirLib core_lang core_lang2) ; the only module we own
+          Arg_helper CamlinternalMenhirLib annotation core_lang2 core_lang) ; the only module we own
  (libraries hipcore ocaml_compiler)
  (flags :standard -w -A))
 
