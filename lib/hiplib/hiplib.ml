@@ -1006,15 +1006,15 @@ let process_intermediates it prog =
 
 let process_ocaml_structure (strs: Ocaml_common.Typedtree.structure) : unit =
   let helper (bound_names, prog) s =
-    match Ocamlfrontend.Core_lang2.transform_str bound_names s with
+    match Ocamlfrontend.Core_lang_typed.transform_str bound_names s with
     | Some it ->
-        let new_bound, prog = process_intermediates it prog in
+        let untyped_it = Typedhip.Untypehip.untype_intermediate it in
+        let new_bound, prog = process_intermediates untyped_it prog in
         new_bound @ bound_names, prog
     | None ->
         bound_names, prog
   in
-  let strs = Ocaml_common.Untypeast.untype_structure strs in
-  List.fold_left helper ([], empty_program) strs |> ignore
+  List.fold_left helper ([], empty_program) strs.str_items |> ignore
 
 let run_ocaml_string_ line =
   (* Parse and typecheck the code, before converting it into a core language program.

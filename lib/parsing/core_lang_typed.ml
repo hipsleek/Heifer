@@ -89,6 +89,7 @@ let rec string_of_pattern (p) : string =
 let rec hip_type_of_type_expr (texpr: Types.type_expr) =
   match (Types.get_desc texpr) with
   | Tvar (Some var) -> TVar var
+  | Tvar (None) -> Typedhip.new_type_var ()
   (* TODO: This does not preserve argument labels, because Heifer's type system does not model them. *)
   | Tarrow (_, t1, t2, _) -> Arrow (hip_type_of_type_expr t1, hip_type_of_type_expr t2)
   (* TODO implement ref types *)
@@ -98,24 +99,30 @@ let rec hip_type_of_type_expr (texpr: Types.type_expr) =
       | "bool" -> Bool
       | "string" -> TyString
       | "unit" -> TyUnit
+      | unknown -> failwith ("Unknown type constructor: " ^ unknown)
     end
   | Tconstr (path, [arg], _) -> begin
     match (Path.name path) with
       | "ref" -> Ref (hip_type_of_type_expr arg)
+      | unknown -> failwith ("Unknown unary type constructor: " ^ unknown)
     end
+  | _ -> failwith "Unknown type expression"
+  
 
 let rec expr_to_term (expr:expression) : term =
   let term_desc = 
     match expr.exp_desc with
-    | Texp_constant (Const_int num) -> Num num 
+    | Texp_constant (Const_int num) -> Const (Num num )
     | Texp_ident (_, ident, _) -> Var (String.concat "." (Longident.flatten ident.txt))
     | Texp_apply ({exp_desc = Texp_ident (_, {txt=Lident i; _}, _); _}, [(_, Some a); (_, Some b)]) ->
-        begin match i with
-        | "^" -> SConcat (expr_to_term a, expr_to_term b)
-        | "+" -> Plus (expr_to_term a, expr_to_term b)
-        | "-" -> Minus (expr_to_term a, expr_to_term b)
+        let op = begin match i with
+        | "^" -> SConcat
+        | "+" -> Plus
+        | "-" -> Minus
         | _ -> failwith (Format.asprintf "unknown op %s" i)
         end
+        in
+        BinOp (op, expr_to_term a, expr_to_term b)
     | _ -> failwith (Format.asprintf "unknown term %a" Pprintast.expression (Untypeast.untype_expression expr))
   in
   let term_type = hip_type_of_type_expr expr.exp_type in
@@ -212,8 +219,8 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
   let exp_hip_type = hip_type_of_type_expr expr.exp_type in
   let clang_with_expr_type core_desc = {core_desc; core_type = exp_hip_type} in
   let term_with_expr_type term_desc = {term_desc; term_type = exp_hip_type} in
-  let true_term = {term_desc = TTrue; term_type = Bool} in
-  let false_term = {term_desc = TFalse; term_type = Bool} in
+  let true_term = {term_desc = Const TTrue; term_type = Bool} in
+  let false_term = {term_desc = Const TFalse; term_type = Bool} in
   match expr.exp_desc with 
   | Texp_ident (_, {txt=Lident i; _}, _) ->
       CValue (Var i |> term_with_expr_type) |> clang_with_expr_type
@@ -223,8 +230,8 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
       CValue false_term |> clang_with_expr_type
   | Texp_constant c ->
     begin match c with
-    | Const_int i -> CValue (Num i |> term_with_expr_type) |> clang_with_expr_type
-    | Const_string (s, _, _) -> CValue (TStr s |> term_with_expr_type) |> clang_with_expr_type
+    | Const_int i -> CValue (Const (Num i) |> term_with_expr_type) |> clang_with_expr_type
+    | Const_string (s, _, _) -> CValue (Const (TStr s) |> term_with_expr_type) |> clang_with_expr_type
     | _ -> failwith (Format.asprintf "unknown kind of constant: %a" Pprintast.expression (Untypeast.untype_expression expr))
     end
   (* lambda *)
@@ -287,7 +294,7 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
     transformation bound_names a
   (* nil *)
   | Texp_construct ({txt=Lident "[]"; _}, _, []) ->
-      {core_desc = CValue {term_desc = Nil; term_type = exp_hip_type}; core_type = exp_hip_type}
+      {core_desc = CValue {term_desc = Const Nil; term_type = exp_hip_type}; core_type = exp_hip_type}
   (* cons *)
   | Texp_construct ({txt = Lident ("::" as name); _}, _, args) ->
     (* this is almost the same as the next case. can't be unified because the pattern has a different type *)
@@ -338,17 +345,17 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
   | Texp_ifthenelse (if_, then_, Some else_) ->
     let expr = transformation bound_names if_ in 
     (match expr.core_desc with 
-    | CValue v -> (CIfELse ((Atomic (EQ, v, true_term)), transformation bound_names then_, transformation bound_names else_)) |> clang_with_expr_type
+    | CValue v -> (CIfElse ((Atomic (EQ, v, true_term)), transformation bound_names then_, transformation bound_names else_)) |> clang_with_expr_type
     | CFunCall (name, [a;b]) -> 
       if String.compare name "==" ==0 then 
-        CIfELse ((Atomic (EQ, a, b)), transformation bound_names then_, transformation bound_names else_) |> clang_with_expr_type
+        CIfElse ((Atomic (EQ, a, b)), transformation bound_names then_, transformation bound_names else_) |> clang_with_expr_type
       else 
         let v = verifier_getAfreeVar "let" in
-        let rest_Expr =  CIfELse ((Atomic (EQ, {term_desc = Var v; term_type = expr.core_type}, true_term)), transformation bound_names then_, transformation bound_names else_) |> clang_with_expr_type in 
+        let rest_Expr =  CIfElse ((Atomic (EQ, {term_desc = Var v; term_type = expr.core_type}, true_term)), transformation bound_names then_, transformation bound_names else_) |> clang_with_expr_type in 
         CLet (v, expr, rest_Expr) |> clang_with_expr_type
     | _ -> 
       let v = verifier_getAfreeVar "let" in
-      let rest_Expr =  CIfELse ((Atomic (EQ,{term_desc = Var v; term_type = expr.core_type}, true_term)), transformation bound_names then_, transformation bound_names else_) |> clang_with_expr_type in 
+      let rest_Expr =  CIfElse ((Atomic (EQ,{term_desc = Var v; term_type = expr.core_type}, true_term)), transformation bound_names then_, transformation bound_names else_) |> clang_with_expr_type in 
       CLet (v, expr, rest_Expr) |> clang_with_expr_type
     )
   | Texp_match (e, computation_cases, value_cases, _) ->
@@ -375,7 +382,6 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
                 in
              eff_name, arg
               in
-              (* FIXME pass handler specifications in here *)
               let spec = Annotation.extract_spec_attribute c.c_lhs.pat_attributes |> Option.map Fill_type.fill_untyped_disj_spec in
               Some (label, arg_binder, spec, transformation bound_names c.c_rhs)
             | _ -> failwith (Format.asprintf "unknown kind of effect constructor pattern: %a" Pprintast.pattern (Untypeast.untype_pattern c.c_lhs))
@@ -396,13 +402,12 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
           Some (Longident.last constr, args, transformation bound_names c.c_rhs)
         | _ -> None)
     in
-    (* FIXME properly fill in the handler type and handler specification *)
     {core_desc = CMatch (Deep, None, transformation bound_names e, catch_all_case, effs, pattern_cases); core_type = exp_hip_type}
   | _ -> 
     (*if String.compare (Pprintast.string_of_expression (Untypeast.untype_expression expr)) "Obj.clone_continuation k" == 0 then (* ASK Darius*)*)
     (*CValue (Var "k")*)
     (*else *)
-      {core_desc = CValue {term_desc = Unit; term_type = TyUnit}; core_type = TyUnit}
+      {core_desc = CValue {term_desc = Const Unit; term_type = TyUnit}; core_type = TyUnit}
     (* failwith (Format.asprintf "expression not in core language: %a" Pprintast.expression expr)  *)
     (* (Format.printf "expression not in core language: %a@." ({pat_desc = Tpat_construct ({txt = Lident eff_name}, _, _, _); _}Printast.expression 0) expr; failwith "failed") *)
 
