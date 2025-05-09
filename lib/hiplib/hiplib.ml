@@ -1019,13 +1019,16 @@ let process_ocaml_structure (strs: Ocaml_common.Typedtree.structure) : unit =
 let run_ocaml_string_ line =
   (* Parse and typecheck the code, before converting it into a core language program.
      This mirrors the flow of compilation used in ocamlc. *)
-  let items = Parse.implementation (Lexing.from_string line) in
-  let unit_info = Unit_info.(make ~source_file:"" Impl "") in
-  Compile_common.with_info ~native:false ~tool_name:"heifer" ~dump_ext:"" unit_info @@ begin fun info ->
-    let typed_implementation = Compile_common.typecheck_impl info items in
-    let@ _ = Globals.Timing.(time overall_all) in
-    process_ocaml_structure typed_implementation.structure
-  end
+  try
+    let items = Parse.implementation (Lexing.from_string line) in
+    let unit_info = Unit_info.(make ~source_file:"" Impl "") in
+    Compile_common.with_info ~native:false ~tool_name:"heifer" ~dump_ext:"" unit_info @@ begin fun info ->
+      let typed_implementation = Compile_common.typecheck_impl info items in
+      let@ _ = Globals.Timing.(time overall_all) in
+      process_ocaml_structure typed_implementation.structure
+    end
+  with
+    | exn -> Format.printf "%a\n" Location.report_exception exn
       
 
 let mergeTopLevelCodeIntoOneMain (prog : intermediate list) : intermediate list =
