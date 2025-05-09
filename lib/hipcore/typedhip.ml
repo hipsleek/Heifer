@@ -114,9 +114,10 @@ and typ =
   | TyString
   | Lamb
   | Arrow of typ * typ
-  | Ref of typ
+  | TConstr of string * typ list (* TConstr ("ty", [a; b]) => (a, b) ty *)
   (* TODO Add this: | Poly of string list * typ (* Poly (["a", "b"], ty) ==> 'a 'b. ty *) *)
   | TVar of string (* this is last, so > concrete types *)
+
 [@@deriving
   visitors { variety = "map"; name = "map_spec" },
   visitors { variety = "reduce"; name = "reduce_spec" } ]

@@ -101,10 +101,8 @@ let rec hip_type_of_type_expr (texpr: Types.type_expr) =
       | "unit" -> TyUnit
       | unknown -> failwith ("Unknown type constructor: " ^ unknown)
     end
-  | Tconstr (path, [arg], _) -> begin
-    match (Path.name path) with
-      | "ref" -> Ref (hip_type_of_type_expr arg)
-      | unknown -> failwith ("Unknown unary type constructor: " ^ unknown)
+  | Tconstr (path, args, _) -> begin
+    TConstr (Path.name path, List.map hip_type_of_type_expr args)
     end
   | _ -> failwith "Unknown type expression"
   
