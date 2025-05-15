@@ -32,7 +32,7 @@ and term =
 and core_handler_ops = (string * string option * disj_spec option * core_lang) list
 
 (* x :: xs -> e is represented as ("::", [x, xs], e) *)
-and constr_cases = (string * string list * core_lang) list
+and constr_cases = (string * binder list * core_lang) list
 
 and tryCatchLemma = (spec * disj_spec option * (*(handlingcases) **) disj_spec) (*tcl_head, tcl_handledCont, tcl_summary*)
 
@@ -49,7 +49,7 @@ and core_lang_desc =
       | CAssert of pi * kappa 
       | CPerform of string * core_value option
       (* match e with | v -> e1 | eff case... | constr case... *)
-      | CMatch of handler_type * tryCatchLemma option * core_lang * (string * core_lang) option * core_handler_ops * constr_cases
+      | CMatch of handler_type * tryCatchLemma option * core_lang * (binder * core_lang) option * core_handler_ops * constr_cases
       | CResume of core_value list
       | CLambda of binder list * disj_spec option * core_lang
       | CShift of bool * string * core_lang (* bool=true is for shift, and bool=false for shift0 *)
@@ -124,25 +124,56 @@ and typ =
 
 type tactic = Hiptypes.tactic
 
+type meth_def = {
+  m_name : string;
+  m_params : binder list;
+  m_spec : disj_spec option;
+  m_body : core_lang;
+  m_tactics : tactic list;
+}
+
 type sl_pred_def = {
-  p_sl_ex: string list;
+  p_sl_ex: binder list;
   p_sl_name: string;
-  p_sl_params: string list; (* list to ensure ordering. last param is typically a return value *)
+  p_sl_params: binder list; (* list to ensure ordering. last param is typically a return value *)
   p_sl_body: pi * kappa;
 }
 
 type pred_def = {
   p_name: string;
-  p_params: string list; (* list to ensure ordering. last param is typically a return value *)
+  p_params: binder list; (* list to ensure ordering. last param is typically a return value *)
   p_body: disj_spec;
   p_rec: bool;
 }
 
 type lemma = {
   l_name: string;
-  l_params: string list; (* ordered, the last parameter is a result *)
+  l_params: binder list; (* ordered, the last parameter is a result *)
   l_left: instant; (* for simplicity of rewriting *)
   l_right: spec; (* could also be disj_spec but not needed *)
+}
+
+type lambda_obligation = {
+  lo_name: string;
+  lo_preds: pred_def Common.SMap.t;
+  lo_left: disj_spec;
+  lo_right: disj_spec;
+}
+
+(** A pure function that can be imported directly into SMT *)
+type pure_fn_def = {
+  pf_name: string;
+  pf_params: binder list;
+  pf_ret_type: typ;
+  pf_body: core_lang;
+}
+
+type pure_fn_type_def = {
+  pft_name: string;
+  pft_logic_path: string list;
+  pft_logic_name: string;
+  pft_params: typ list;
+  pft_ret_type: typ;
 }
 
 type intermediate =
@@ -150,9 +181,90 @@ type intermediate =
   | Lem of lemma
   | LogicTypeDecl of string * typ list * typ * string list * string
   (* name, params, spec, body, tactics, pure_fn_info *)
-  | Meth of string * string list * disj_spec option * core_lang * tactic list * (typ list * typ) option
+  | Meth of string * binder list * disj_spec option * core_lang * tactic list * (typ list * typ) option
   | Pred of pred_def
   | SLPred of sl_pred_def
+
+type core_program = {
+  cp_effs: string list;
+  cp_predicates: pred_def Common.SMap.t;
+  cp_sl_predicates: sl_pred_def Common.SMap.t;
+  cp_lemmas: lemma Common.SMap.t;
+  cp_methods: meth_def list;
+}
+
+let empty_program = {
+  cp_effs = [];
+  cp_methods = [];
+  cp_predicates = Common.SMap.empty;
+  cp_sl_predicates = Common.SMap.empty;
+  cp_lemmas = Common.SMap.empty
+}
+
+type normalStage =  (binder list* (pi * kappa ) * (pi * kappa))
+[@@deriving
+  visitors { variety = "map"; name = "map_normal_stages_" },
+  visitors { variety = "reduce"; name = "reduce_normal_stages_" }]
+
+type shiftStage = {
+  s_evars : binder list;
+  s_notzero : bool;
+  s_pre : pi * kappa;
+  s_post : pi * kappa;
+  s_cont : string;
+  s_body : disj_spec;
+  s_ret : term;
+}
+[@@deriving
+  visitors { variety = "map"; name = "map_shift_stage_" },
+  visitors { variety = "reduce"; name = "reduce_shift_stage_" }]
+
+type resetStage = {
+  rs_evars : binder list;
+  rs_pre : pi * kappa;
+  rs_post : pi * kappa;
+  rs_body : disj_spec;
+  rs_ret : term;
+}
+[@@deriving
+  visitors { variety = "map"; name = "map_reset_stage_" },
+  visitors { variety = "reduce"; name = "reduce_reset_stage_" }]
+
+type tryCatchStage = {
+  tc_evars : binder list;
+  tc_pre : pi * kappa;
+  tc_post : pi * kappa;
+  tc_constr : trycatch;
+  tc_ret : term;
+}
+[@@deriving
+  visitors { variety = "map"; name = "map_try_catch_stage_" },
+  visitors { variety = "reduce"; name = "reduce_try_catch_stage_" }]
+type effectStage = {
+  e_evars : binder list;
+  e_pre : pi * kappa;
+  e_post : pi * kappa;
+  e_constr : instant;
+  e_ret : term;
+  e_typ : [`Eff | `Fn] [@opaque];
+}
+[@@deriving
+  visitors { variety = "map"; name = "map_effect_stage_" },
+  visitors { variety = "reduce"; name = "reduce_effect_stage_" }]
+
+type effHOTryCatchStages =
+  | EffHOStage of effectStage
+  | ShiftStage of shiftStage
+  | TryCatchStage of tryCatchStage
+  | ResetStage of resetStage
+
+[@@deriving
+  visitors { variety = "map"; name = "map_eff_stages_" },
+  visitors { variety = "reduce"; name = "reduce_eff_stages_" }]
+type normalisedStagedSpec = effHOTryCatchStages list * normalStage
+[@@deriving
+  visitors { variety = "map"; name = "map_normalised_" },
+  visitors { variety = "reduce"; name = "reduce_normalised_" }]
 
 let new_type_var : ?name:string -> unit -> typ =
   let counter = ref 0 in begin
@@ -175,6 +287,17 @@ module Fill_type = struct
       All types are filled in with placeholders, to be populated during typechecking. Since
       there are utilities that take the Typedtree as input, most program types should be coming from
       the OCaml typechecker; this is used to typecheck annotations.*)
+
+
+  let rec from_hiptypes_typ : Hiptypes.typ -> typ = function
+    | List_int -> TConstr ("list", [Int])
+    | Unit -> TyUnit
+    | Int -> Int
+    | Bool -> Bool
+    | TyString -> TyString
+    | Lamb -> Lamb
+    | TVar s -> TVar s
+    | Arrow (x, y) -> Arrow (from_hiptypes_typ x, from_hiptypes_typ y)
 
   let rec fill_untyped_term (term : Hiptypes.term) =
     let term_desc = match term with
@@ -237,6 +360,12 @@ module Fill_type = struct
     | Hiptypes.TryCatch (p, k, trycatch, t) -> TryCatch (fill_untyped_pi p, fill_untyped_kappa k, fill_untyped_trycatch trycatch, fill_untyped_term t)
   and fill_untyped_spec (spec : Hiptypes.spec) : spec = List.map fill_untyped_spec_stage spec
   and fill_untyped_disj_spec (disj_spec : Hiptypes.disj_spec) : disj_spec = List.map fill_untyped_spec disj_spec
+  and fill_untyped_constr_cases (cases : Hiptypes.constr_cases) : constr_cases =
+    List.map (fun (name, args, expr) -> (name, List.map binder_of_ident args, fill_untyped_core_lang expr)) cases
+  and fill_untyped_try_catch_lemma ((spec, cont, summary) : Hiptypes.tryCatchLemma) : tryCatchLemma =
+    (fill_untyped_spec spec, Option.map fill_untyped_disj_spec cont, fill_untyped_disj_spec summary)
+  and fill_untyped_core_handler_ops (handlers : Hiptypes.core_handler_ops) : core_handler_ops =
+    List.map (fun (name, cont, spec, expr) -> (name, cont, Option.map fill_untyped_disj_spec spec, fill_untyped_core_lang expr)) handlers
   and fill_untyped_core_lang (core_lang : Hiptypes.core_lang) : core_lang =
     let core_desc = match core_lang with
     | Hiptypes.CValue cvalue -> CValue (fill_untyped_term cvalue)
@@ -248,12 +377,121 @@ module Fill_type = struct
     | Hiptypes.CRead loc -> CRead loc
     | Hiptypes.CAssert (p, k) -> CAssert (fill_untyped_pi p, fill_untyped_kappa k)
     | Hiptypes.CPerform (eff, args) -> CPerform (eff, Option.map fill_untyped_term args)
-    | Hiptypes.CMatch _ -> failwith "TODO"
-    | Hiptypes.CResume _ -> failwith "TODO"
+    | Hiptypes.CMatch (handler_type, lemma, scrutinee, fallback, computation_cases, value_cases) ->
+        CMatch (handler_type, Option.map fill_untyped_try_catch_lemma lemma, fill_untyped_core_lang scrutinee,
+        Option.map (fun (v, expr) -> (binder_of_ident v, fill_untyped_core_lang expr)) fallback,
+        fill_untyped_core_handler_ops computation_cases, fill_untyped_constr_cases value_cases)
+    | Hiptypes.CResume args -> CResume (List.map fill_untyped_term args)
     | Hiptypes.CLambda (args, spec, body) -> CLambda (List.map binder_of_ident args, Option.map fill_untyped_disj_spec spec, fill_untyped_core_lang body)
     | Hiptypes.CShift _ | Hiptypes.CReset _ -> failwith "TODO"
     in
     {core_desc; core_type = new_type_var ()}
+  let fill_untyped_state ((pi, kappa) : Hiptypes.state) : state = (fill_untyped_pi pi, fill_untyped_kappa kappa)
+  let fill_untyped_pred_def (d : Hiptypes.pred_def) : pred_def =
+    { p_name = Hiptypes.(d.p_name);
+      p_params = List.map binder_of_ident Hiptypes.(d.p_params);
+      p_body = fill_untyped_disj_spec Hiptypes.(d.p_body);
+      p_rec = Hiptypes.(d.p_rec);
+    }
+
+  let fill_untyped_lambda_obligation (lo : Hiptypes.lambda_obligation) : lambda_obligation =
+    { lo_name = Hiptypes.(lo.lo_name);
+      lo_preds = Common.SMap.map fill_untyped_pred_def Hiptypes.(lo.lo_preds);
+      lo_left = fill_untyped_disj_spec Hiptypes.(lo.lo_left);
+      lo_right = fill_untyped_disj_spec Hiptypes.(lo.lo_right);
+    }
+
+  let fill_untyped_meth_def (d : Hiptypes.meth_def) : meth_def =
+    { m_name = Hiptypes.(d.m_name);
+      m_params = List.map binder_of_ident d.m_params;
+      m_spec = Option.map fill_untyped_disj_spec Hiptypes.(d.m_spec);
+      m_body = fill_untyped_core_lang Hiptypes.(d.m_body);
+      m_tactics = Hiptypes.(d.m_tactics)
+    }
+  let fill_untyped_sl_pred_def (d : Hiptypes.sl_pred_def) : sl_pred_def =
+    { p_sl_ex = List.map binder_of_ident d.p_sl_ex;
+      p_sl_name = d.p_sl_name;
+      p_sl_params = List.map binder_of_ident d.p_sl_params;
+      p_sl_body = fill_untyped_state d.p_sl_body
+    }
+
+  let fill_untyped_single_subsumption_obligation (vars, (l, r)) =
+    (vars, (fill_untyped_disj_spec l, fill_untyped_disj_spec r))
+
+  let fill_untyped_subsumption_obligation ls =
+    List.map fill_untyped_single_subsumption_obligation ls
+
+  let fill_untyped_normal_stage ((evars, pre, post) : Hiptypes.normalStage) : normalStage =
+    (List.map binder_of_ident evars, fill_untyped_state pre, fill_untyped_state post)
+
+  let fill_untyped_shift_stage (s : Hiptypes.shiftStage) : shiftStage =
+  {
+    s_evars = List.map binder_of_ident s.s_evars;
+    s_notzero = s.s_notzero;
+    s_pre = fill_untyped_state s.s_pre;
+    s_post = fill_untyped_state s.s_post;
+    s_cont = s.s_cont;
+    s_body = fill_untyped_disj_spec s.s_body;
+    s_ret = fill_untyped_term s.s_ret;
+  }
+
+  let fill_untyped_reset_stage (r : Hiptypes.resetStage) : resetStage =
+  {
+    rs_evars = List.map binder_of_ident r.rs_evars;
+    rs_pre = fill_untyped_state r.rs_pre;
+    rs_post = fill_untyped_state r.rs_post;
+    rs_body = fill_untyped_disj_spec r.rs_body;
+    rs_ret = fill_untyped_term r.rs_ret;
+  }
+
+  let fill_untyped_trycatch_stage (tc : Hiptypes.tryCatchStage) : tryCatchStage =
+  {
+    tc_evars = List.map binder_of_ident tc.tc_evars;
+    tc_pre = fill_untyped_state tc.tc_pre;
+    tc_post = fill_untyped_state tc.tc_post;
+    tc_constr = fill_untyped_trycatch tc.tc_constr;
+    tc_ret = fill_untyped_term tc.tc_ret;
+  }
+
+  let fill_untyped_effect_stage (e : Hiptypes.effectStage) : effectStage =
+  {
+    e_evars = List.map binder_of_ident e.e_evars;
+    e_pre = fill_untyped_state e.e_pre;
+    e_post = fill_untyped_state e.e_post;
+    e_constr = fill_untyped_instant e.e_constr;
+    e_ret = fill_untyped_term e.e_ret;
+    e_typ = e.e_typ;
+  }
+
+  let fill_untyped_eff_ho_trycatch_stage (s : Hiptypes.effHOTryCatchStages) : effHOTryCatchStages =
+  match s with
+  | Hiptypes.EffHOStage e -> EffHOStage (fill_untyped_effect_stage e)
+  | Hiptypes.ShiftStage s -> ShiftStage (fill_untyped_shift_stage s)
+  | Hiptypes.TryCatchStage t -> TryCatchStage (fill_untyped_trycatch_stage t)
+  | Hiptypes.ResetStage r -> ResetStage (fill_untyped_reset_stage r)
+
+  let fill_normalized_staged_spec ((non_normal, normal): Hiptypes.normalisedStagedSpec) : normalisedStagedSpec =
+    List.map fill_untyped_eff_ho_trycatch_stage non_normal, fill_untyped_normal_stage normal
+
+
+  let fill_untyped_lemma (l : Hiptypes.lemma) : lemma =
+  { l_name = l.l_name;
+    l_params = List.map binder_of_ident l.l_params;
+    l_left = fill_untyped_instant l.l_left;
+    l_right = fill_untyped_spec l.l_right
+  }
+
+  let fill_untyped_intermediate (i : Hiptypes.intermediate) : intermediate =
+    match i with
+    | Eff name -> Eff name
+    | Lem lemma -> Lem (fill_untyped_lemma lemma)
+    | LogicTypeDecl (name, typs, ret_typ, path, lname) ->
+        LogicTypeDecl (name, List.map from_hiptypes_typ typs, from_hiptypes_typ ret_typ, path, lname)
+    | Meth (name, params, spec, body, tactics, pure_fn_info) ->
+        Meth (name, List.map binder_of_ident params, Option.map fill_untyped_disj_spec spec, fill_untyped_core_lang body,
+        tactics, Option.map (fun (typs, ret) -> (List.map from_hiptypes_typ typs, from_hiptypes_typ ret)) pure_fn_info)
+    | Pred pred_def -> Pred (fill_untyped_pred_def pred_def) 
+    | SLPred sl_pred_def -> SLPred (fill_untyped_sl_pred_def sl_pred_def)
 end
 
 module Untypehip = struct
@@ -327,7 +565,7 @@ module Untypehip = struct
         CPerform (eff, Option.map untype_term arg_opt)
     | CMatch (ht, trycatch_opt, scrutinee, value_case, handler_cases, constr_cases) ->
         let trycatch_opt' = Option.map untype_tryCatchLemma trycatch_opt in
-        let value_case' = Option.map (fun (v, e) -> (v, untype_core_lang e)) value_case in
+        let value_case' = Option.map (fun (v, e) -> (ident_of_binder v, untype_core_lang e)) value_case in
         let handler_cases' = untype_handler_ops handler_cases in
         let constr_cases' = untype_constr_cases constr_cases in
         CMatch (ht, trycatch_opt', untype_core_lang scrutinee, value_case', handler_cases', constr_cases')
@@ -340,7 +578,7 @@ module Untypehip = struct
   and untype_handler_ops (ops : core_handler_ops) : Hiptypes.core_handler_ops =
     List.map (fun (label, k_opt, spec, body) -> (label, k_opt, Option.map untype_disj_spec spec, untype_core_lang body)) ops
   and untype_constr_cases (cases : constr_cases) : Hiptypes.constr_cases =
-    List.map (fun (name, args, body) -> (name, args, untype_core_lang body)) cases
+    List.map (fun (name, args, body) -> (name, List.map ident_of_binder args, untype_core_lang body)) cases
   and untype_tryCatchLemma (tcl : tryCatchLemma) : Hiptypes.tryCatchLemma =
     let (head, handled_cont, summary) = tcl in
     (untype_spec head, Option.map untype_disj_spec handled_cont, untype_disj_spec summary)
@@ -371,19 +609,36 @@ module Untypehip = struct
   and untype_spec spec = List.map untype_staged_spec spec
   and untype_disj_spec spec = List.map untype_spec spec
 
+  let untype_state ((p, k) : state) : Hiptypes.state  =
+    (untype_pi p, untype_kappa k)
+
+  let untype_single_subsumption_obligation (vars, (l, r)) =
+    (vars, (untype_disj_spec l, untype_disj_spec r))
+
+  let untype_subsumption_obligation ls =
+    List.map untype_single_subsumption_obligation ls
+
   let untype_sl_pred_def (d : sl_pred_def) : Hiptypes.sl_pred_def =
     let (phi, h) = d.p_sl_body in
     {
-      Hiptypes.p_sl_ex = d.p_sl_ex;
+      Hiptypes.p_sl_ex = List.map ident_of_binder d.p_sl_ex;
       Hiptypes.p_sl_name = d.p_sl_name;
-      Hiptypes.p_sl_params = d.p_sl_params;
+      Hiptypes.p_sl_params = List.map ident_of_binder d.p_sl_params;
       Hiptypes.p_sl_body = (untype_pi phi, untype_kappa h);
+    }
+
+  let untype_meth_def (d : meth_def) : Hiptypes.meth_def =
+    { Hiptypes.m_name = d.m_name;
+      Hiptypes.m_params = List.map ident_of_binder d.m_params;
+      Hiptypes.m_spec = Option.map untype_disj_spec d.m_spec;
+      Hiptypes.m_body = untype_core_lang d.m_body;
+      Hiptypes.m_tactics = d.m_tactics
     }
 
   let untype_pred_def (d : pred_def) : Hiptypes.pred_def =
     {
       Hiptypes.p_name = d.p_name;
-      Hiptypes.p_params = d.p_params;
+      Hiptypes.p_params = List.map ident_of_binder d.p_params;
       Hiptypes.p_body = untype_disj_spec d.p_body;
       Hiptypes.p_rec = d.p_rec;
     }
@@ -391,7 +646,7 @@ module Untypehip = struct
   let untype_lemma (l : lemma) : Hiptypes.lemma =
     {
       Hiptypes.l_name = l.l_name;
-      Hiptypes.l_params = l.l_params;
+      Hiptypes.l_params = (List.map ident_of_binder l.l_params);
       Hiptypes.l_left = untype_instant l.l_left;
       Hiptypes.l_right = untype_spec l.l_right;
     }
@@ -400,12 +655,12 @@ module Untypehip = struct
     match i with
     | Eff name -> Hiptypes.Eff name
     | Lem lemma -> Hiptypes.Lem (untype_lemma lemma)
-    | LogicTypeDecl (name, typs, ret_typ, classes, doc) ->
-        Hiptypes.LogicTypeDecl (name, List.map hiptypes_typ typs, hiptypes_typ ret_typ, classes, doc)
+    | LogicTypeDecl (name, typs, ret_typ, path, lname) ->
+        Hiptypes.LogicTypeDecl (name, List.map hiptypes_typ typs, hiptypes_typ ret_typ, path, lname)
     | Meth (name, params, spec, body, tactics, pure_fn_info) ->
         Hiptypes.Meth (
           name,
-          params,
+          List.map ident_of_binder params,
           Option.map untype_disj_spec spec,
           untype_core_lang body,
           tactics,
@@ -413,4 +668,79 @@ module Untypehip = struct
         )
     | Pred def -> Hiptypes.Pred (untype_pred_def def)
     | SLPred def -> Hiptypes.SLPred (untype_sl_pred_def def)
+
+  let untype_core_program (prog : core_program) : Hiptypes.core_program = {
+    cp_effs = prog.cp_effs;
+    cp_predicates = Common.SMap.map untype_pred_def (prog.cp_predicates);
+    cp_sl_predicates = Common.SMap.map untype_sl_pred_def (prog.cp_sl_predicates);
+    cp_lemmas = Common.SMap.map untype_lemma (prog.cp_lemmas);
+    cp_methods = List.map untype_meth_def (prog.cp_methods)
+  }
+
+  let untype_normal_stage ((evars, pre, post) : normalStage) : Hiptypes.normalStage =
+    (List.map ident_of_binder evars, untype_state pre, untype_state post)
+    
+  let untype_shift_stage (s : shiftStage) : Hiptypes.shiftStage =
+  {
+    s_evars = List.map ident_of_binder s.s_evars;
+    s_notzero = s.s_notzero;
+    s_pre = untype_state s.s_pre;
+    s_post = untype_state s.s_post;
+    s_cont = s.s_cont;
+    s_body = untype_disj_spec s.s_body;
+    s_ret = untype_term s.s_ret;
+  }
+  
+  let untype_reset_stage (r : resetStage) : Hiptypes.resetStage =
+  {
+    rs_evars = List.map ident_of_binder r.rs_evars;
+    rs_pre = untype_state r.rs_pre;
+    rs_post = untype_state r.rs_post;
+    rs_body = untype_disj_spec r.rs_body;
+    rs_ret = untype_term r.rs_ret;
+  }
+
+  let untype_trycatch_stage (tc : tryCatchStage) : Hiptypes.tryCatchStage =
+  {
+    Hiptypes.tc_evars = List.map ident_of_binder tc.tc_evars;
+    tc_pre = untype_state tc.tc_pre;
+    tc_post = untype_state tc.tc_post;
+    tc_constr = untype_trycatch tc.tc_constr;
+    tc_ret = untype_term tc.tc_ret;
+  }
+
+  let untype_effect_stage (e : effectStage) : Hiptypes.effectStage =
+  {
+    Hiptypes.e_evars = List.map ident_of_binder e.e_evars;
+    e_pre = untype_state e.e_pre;
+    e_post = untype_state e.e_post;
+    e_constr = untype_instant e.e_constr;
+    e_ret = untype_term e.e_ret;
+    e_typ = e.e_typ;
+  }
+
+  let untype_eff_ho_trycatch_stage (s : effHOTryCatchStages) : Hiptypes.effHOTryCatchStages =
+  match s with
+  | EffHOStage e -> Hiptypes.EffHOStage (untype_effect_stage e)
+  | ShiftStage s -> Hiptypes.ShiftStage (untype_shift_stage s)
+  | TryCatchStage t -> Hiptypes.TryCatchStage (untype_trycatch_stage t)
+  | ResetStage r -> Hiptypes.ResetStage (untype_reset_stage r)
+
+  let untype_normalized_staged_spec ((non_normal, normal): normalisedStagedSpec) : Hiptypes.normalisedStagedSpec =
+    List.map untype_eff_ho_trycatch_stage non_normal, untype_normal_stage normal
+
+  let untype_pure_fn_def (d : pure_fn_def) : Hiptypes.pure_fn_def = {
+      pf_name = d.pf_name;
+      pf_params = List.map (fun (name, typ) -> (name, hiptypes_typ typ)) d.pf_params;
+      pf_ret_type = hiptypes_typ d.pf_ret_type;
+      pf_body = untype_core_lang d.pf_body
+    }
+
+  let untype_pure_fn_type_def (d : pure_fn_type_def) : Hiptypes.pure_fn_type_def = {
+    pft_name = d.pft_name;
+    pft_logic_path = d.pft_logic_path;
+    pft_logic_name = d.pft_logic_name;
+    pft_params = List.map hiptypes_typ d.pft_params;
+    pft_ret_type = hiptypes_typ d.pft_ret_type;
+  }
 end
