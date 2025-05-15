@@ -361,7 +361,9 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
       (* may be none for non-effect pattern matches *)
       value_cases |> List.find_map (fun c ->
         match c.c_lhs.pat_desc with
-        | Tpat_var (ident, _, _) -> Some (Ident.name ident, transformation bound_names c.c_rhs)
+        | Tpat_var (ident, _, _) -> 
+            let pat_typ = c.c_lhs.pat_type in
+            Some ((Ident.name ident, hip_type_of_type_expr pat_typ), transformation bound_names c.c_rhs)
         | _ -> None)
     in
     let effs =
@@ -394,7 +396,7 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
         | Tpat_construct ({txt=constr; _}, _, ps, _) ->
           let args = List.filter_map (fun p ->
             match p.pat_desc with
-            | Tpat_var (ident, _, _) -> Some (Ident.name ident)
+            | Tpat_var (ident, _, _) -> Some (Ident.name ident, hip_type_of_type_expr p.pat_type)
             | _ -> None) ps
           in
           Some (Longident.last constr, args, transformation bound_names c.c_rhs)
@@ -479,8 +481,12 @@ let transform_str bound_names (s : structure_item) =
         in
         if has_pure_annotation then Some types else None
       in
+      let typed_formals =
+        let (types, _) = types in
+        List.combine formals types
+      in
       let e = transformation (fn_name :: formals @ bound_names) body in
-      Some (Meth (fn_name, formals, spec, e, tactics, pure_fn_info))
+      Some (Meth (fn_name, typed_formals, spec, e, tactics, pure_fn_info))
     | Texp_apply _ -> None 
     | whatever ->
       failwith (Format.asprintf "not a function binding: %a" Pprintast.expression (Untypeast.untype_expression fn))

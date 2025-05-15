@@ -54,6 +54,7 @@ let concrete_type_env abs : typ_env =
     abs.vartypes
 
 let get_primitive_type f =
+  let untype = Typedhip.Untypehip.hiptypes_typ in
   match f with
   | "cons" -> ([Int; List_int], List_int)
   | "head" -> ([List_int], Int)
@@ -64,10 +65,10 @@ let get_primitive_type f =
   | _ when String.compare f "effNo" == 0 -> ([Int] , Int)
   | _ when Globals.is_pure_fn_defined f ->
     let fn = Globals.pure_fn f in
-    (List.map snd fn.pf_params, fn.pf_ret_type)
+    (List.map snd fn.pf_params |> List.map untype, fn.pf_ret_type |> untype)
   | _ when SMap.mem f Globals.global_environment.pure_fn_types ->
     let fn = SMap.find f Globals.global_environment.pure_fn_types in
-    (fn.pft_params, fn.pft_ret_type)
+    (fn.pft_params |> List.map untype, fn.pft_ret_type |> untype)
   | _ ->
       failwith (Format.asprintf "unknown function 2: %s" f)
 
