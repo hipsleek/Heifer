@@ -367,39 +367,39 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
         | _ -> None)
     in
     let effs =
-      (* may be empty for non-effect pattern matches *)
+      value_cases |> List.filter_map (fun c ->
+        begin match c.c_lhs.pat_desc with
+        | Tpat_construct ({txt=Lident eff_name; _}, _, eff_args, _) ->
+          let label, arg_binder =
+            let arg =
+              match eff_args with
+              | a::_ -> Some (string_of_pattern a)
+              | _ -> None
+            in
+         eff_name, arg
+          in
+          let spec = Annotation.extract_spec_attribute c.c_lhs.pat_attributes |> Option.map Fill_type.fill_untyped_disj_spec in
+          Some (label, arg_binder, spec, transformation bound_names c.c_rhs)
+        | _ -> failwith (Format.asprintf "unknown kind of effect constructor pattern: %a" Pprintast.pattern (Untypeast.untype_pattern c.c_lhs))
+        end
+      )
+    in
+    let pattern_cases = 
       computation_cases |> List.filter_map (fun c ->
         match c.c_lhs.pat_desc with
         | Tpat_value value_arg ->
-            let pat = (value_arg :> value general_pattern) in
-            match pat.pat_desc with
-            | Tpat_construct ({txt=Lident eff_name; _}, _, eff_args, _) ->
-              let label, arg_binder =
-                let arg =
-                  match eff_args with
-                  | a::_ -> Some (string_of_pattern a)
-                  | _ -> None
-                in
-             eff_name, arg
+            let pat = (value_arg :> value general_pattern) in 
+            begin match pat.pat_desc with
+            | Tpat_construct ({txt=constr; _}, _, [], None) ->
+              Some (Longident.last constr, [], transformation bound_names c.c_rhs)
+            | Tpat_construct ({txt=constr; _}, _, ps, _) ->
+              let args = List.filter_map (fun p ->
+                match p.pat_desc with
+                | Tpat_var (ident, _, _) -> Some (Ident.name ident, hip_type_of_type_expr p.pat_type)
+                | _ -> None) ps
               in
-              let spec = Annotation.extract_spec_attribute c.c_lhs.pat_attributes |> Option.map Fill_type.fill_untyped_disj_spec in
-              Some (label, arg_binder, spec, transformation bound_names c.c_rhs)
-            | _ -> failwith (Format.asprintf "unknown kind of effect constructor pattern: %a" Pprintast.pattern (Untypeast.untype_pattern c.c_lhs))
-        | _ -> None)
-    in
-    let pattern_cases =
-      (* may be empty for non-effect pattern matches *)
-      value_cases |> List.filter_map (fun c ->
-        match c.c_lhs.pat_desc with
-        | Tpat_construct ({txt=constr; _}, _, [], None) ->
-          Some (Longident.last constr, [], transformation bound_names c.c_rhs)
-        | Tpat_construct ({txt=constr; _}, _, ps, _) ->
-          let args = List.filter_map (fun p ->
-            match p.pat_desc with
-            | Tpat_var (ident, _, _) -> Some (Ident.name ident, hip_type_of_type_expr p.pat_type)
-            | _ -> None) ps
-          in
-          Some (Longident.last constr, args, transformation bound_names c.c_rhs)
+              Some (Longident.last constr, args, transformation bound_names c.c_rhs)
+            end
         | _ -> None)
     in
     {core_desc = CMatch (Deep, None, transformation bound_names e, catch_all_case, effs, pattern_cases); core_type = exp_hip_type}
