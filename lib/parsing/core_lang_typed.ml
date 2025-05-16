@@ -264,18 +264,19 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
       | [] -> CPerform (eff, None) |> clang_with_expr_type
     end
   (* continue *)
-  (*| Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, [_, _k; _, e]) when name = "continue" ->
-    transformation env e |> maybe_var (fun v -> CResume v)
-  *)
-  (*| Texp_apply ({exp_desc = Texp_ident (_, {txt = Lident name; _}, _); _}, args) when name = "continue" || name = "resume" ->*)
-  (*  (*print_endline (List.fold_left  (fun acc a -> acc ^ ", " ^ a) "" bound_names); *)*)
-  (*  let rec loop vars args =*)
-  (*    match args with*)
-  (*    | [] -> CResume (List.rev vars)*)
-  (*    | (_, a) :: args1 ->*)
-  (*      transformation bound_names a |> maybe_var (fun v -> loop (v :: vars) args1)*)
-  (*  in*)
-  (*  loop [] args*)
+  | Texp_apply ({exp_desc = Texp_ident (_, {txt = Lident name; _}, _); _}, [_, Some _k; _, Some e]) when name = "continue" ->
+      transformation bound_names e |> maybe_var (fun v -> CResume [v] |> clang_with_expr_type)
+
+  | Texp_apply ({exp_desc = Texp_ident (_, {txt = Lident name; _}, _); _}, args) when name = "continue" || name = "resume" ->
+    (*print_endline (List.fold_left  (fun acc a -> acc ^ ", " ^ a) "" bound_names); *)
+    let args = List.filter_map (fun (label, arg) -> Option.map (fun arg -> (label, arg)) arg) args in
+    let rec loop vars args =
+      match args with
+      | [] -> CResume (List.rev vars) |> clang_with_expr_type
+      | (_, a) :: args1 ->
+        transformation bound_names a |> maybe_var (fun v -> loop (v :: vars) args1)
+    in
+    loop [] args
   
   (* dereference *)
   | Texp_apply ({exp_desc = Texp_ident (_, {txt = Lident name; _}, _); _}, [_, Some {exp_desc=Texp_ident (_, {txt=Lident v;_}, _); _}]) when name = "!" ->
@@ -510,4 +511,5 @@ let transform_str bound_names (s : structure_item) =
     Some (LogicTypeDecl (val_name.txt, params, ret, path, name))
   (* TODO we need the full structure to convert s back to a Parsetree.structure via Untypeast *)
   (*| _ -> failwith (Format.asprintf "unknown program element: %a" Pprintast.structure (Untypeast.untype_structure [s]))*)
+  | Tstr_open _ -> None
   | _ -> failwith "unknown program element"
