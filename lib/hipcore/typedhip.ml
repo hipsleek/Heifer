@@ -120,8 +120,66 @@ and typ =
 
 [@@deriving
   visitors { variety = "map"; name = "map_spec" },
-  visitors { variety = "reduce"; name = "reduce_spec" } ]
+  visitors { variety = "reduce"; name = "reduce_spec" },
+  ord]
 
+let min_typ a b = if compare_typ a b <= 0 then a else b
+
+let is_concrete_type = function TVar _ -> false | _ -> true
+
+module TMap = Map.Make (struct
+  type t = typ
+  let compare = compare_typ
+end)
+
+module U = Hiptypes.U
+
+module TEnv = struct
+
+  type t = typ U.elem TMap.t ref
+
+  (* TODO this might break inference, because we cannot have
+     one map entry corresponding to concrete types anymore. we may have to
+     lazily create them as needed. *)
+  let create () =
+    TMap.empty
+    (* TMap.of_seq (List.to_seq (List.map (fun t -> t, U.make t) concrete_types)) *)
+
+  let get_or_create m k =
+    match TMap.find_opt k !m with
+    | None ->
+      let r = U.make k in
+      m := TMap.add k r !m;
+      r
+    | Some v ->
+      v
+
+  let equate m t1 t2 =
+    let t1r = get_or_create m t1 in
+    let t2r = get_or_create m t2 in
+    U.merge min_typ t1r t2r
+
+  let concretize m t = TMap.find t !m |> U.get
+
+  let has_concrete_type m t =
+    match TMap.find_opt t !m with
+    | None -> false
+    | Some r -> is_concrete_type (U.get r)
+
+end
+
+type abs_typ_env = {
+  (* formula variable -> type, which may be a variable *)
+  vartypes: typ Common.SMap.t;
+  (* types of type variables so far *)
+  equalities : TEnv.t;
+}
+
+let create_abs_env () =
+  {
+    vartypes = Common.SMap.empty;
+    equalities = ref (TEnv.create ()) ;
+  }
 type tactic = Hiptypes.tactic
 
 type meth_def = {
