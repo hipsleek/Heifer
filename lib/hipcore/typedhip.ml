@@ -75,6 +75,7 @@ and pi =
 and kappa = 
   | EmptyHeap
     (* x -> -   means x is allocated, and - is encoded as Var "_" *)
+  (* TODO should PointsTo use binders instead of strings...? *)
   | PointsTo of (string * term)
   | SepConj of kappa * kappa
   (*| MagicWand of kappa * kappa*)
@@ -117,6 +118,8 @@ and typ = [%import : Hiptypes.typ]
 let min_typ a b = if compare_typ a b <= 0 then a else b
 
 let is_concrete_type = function TVar _ -> false | _ -> true
+
+let res_eq t = Atomic (EQ, {term_desc = Var "res"; term_type = t.term_type}, t)
 
 module TMap = Map.Make (struct
   type t = typ
@@ -285,6 +288,13 @@ let binder_of_ident ?(typ=new_type_var ()) (ident : string) : binder =
   (ident, typ)
 
 let ident_of_binder ((name, _) : binder) = name
+
+let var_from_binder ((name, typ) : binder) = {term_desc = Var name; term_type = typ}
+
+let binder_of_var (var : term) =
+  match var with
+  | {term_desc = Var name; term_type} -> (name, term_type)
+  | _ -> raise (Invalid_argument "binder_of_var: Not a variable")
 
 (* Modules regarding converting a Typedhip AST to a Hiptypes AST and vice versa.
    There may be interest in using an Untypeast-like API for this instead, to allow
@@ -501,6 +511,9 @@ module Fill_type = struct
         tactics, Option.map (fun (typs, ret) -> (List.map from_hiptypes_typ typs, from_hiptypes_typ ret)) pure_fn_info)
     | Pred pred_def -> Pred (fill_untyped_pred_def pred_def) 
     | SLPred sl_pred_def -> SLPred (fill_untyped_sl_pred_def sl_pred_def)
+
+  let fill_untyped_bindings (bindings : (string * Hiptypes.term) list) : (binder * term) list =
+    List.map (fun (b, t) -> (binder_of_ident b, fill_untyped_term t)) bindings
 end
 
 module Untypehip = struct
@@ -743,4 +756,12 @@ module Untypehip = struct
     pft_params = List.map hiptypes_typ d.pft_params;
     pft_ret_type = hiptypes_typ d.pft_ret_type;
   }
+
+  let untype_bindings (bindings : (binder * term) list) : (string * Hiptypes.term) list =
+    List.map (fun (b, t) -> (ident_of_binder b, untype_term t)) bindings
+
+  (* let untype_type_env_map (env : Hiptypes.TMap.t) : TMap.t = *)
+  (*   ref (TMap.bindings !env) *)
 end
+
+type 'a quantified = binder list * 'a

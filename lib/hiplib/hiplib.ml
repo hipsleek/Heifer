@@ -748,11 +748,10 @@ and check_obligation name params lemmas predicates (l, r) : bool =
       (fun _ -> debug ~at:1 ~title:(Format.asprintf "checking obligation: %s" name) "")
   in
   let open Search in begin
-  let open Untypehip in
-  let res = Entail.check_staged_subsumption_disj name params [] (SMap.map untype_lemma lemmas) (SMap.map untype_pred_def predicates) (untype_disj_spec l) (untype_disj_spec r) in
+  let res = Entail.check_staged_subsumption_disj name params [] lemmas predicates l r in
   report_result ~kind:"Obligation" ~given_spec:r ~inferred_spec:r ~result:(Search.succeeded res) name;
   let* res = res in
-  check_remaining_obligations name lemmas predicates (Fill_type.fill_untyped_subsumption_obligation res.subsumption_obl)
+  check_remaining_obligations name lemmas predicates res.subsumption_obl
   end |> Search.succeeded
 
 let check_obligation_ name params lemmas predicates sub =
@@ -798,8 +797,7 @@ let infer_and_check_method prog meth given_spec =
           env.fv_methods
         |> SMap.map Fill_type.fill_untyped_meth_def
           |> SMap.filter (fun k _ -> not (SMap.mem k method_env))
-          |> SMap.map (fun meth -> Entail.derive_predicate meth.m_name (List.map ident_of_binder meth.m_params) (List.map Untypehip.untype_spec (Option.get meth.m_spec))) (* these have to have specs as they did not occur earlier, indicating they are lambdask *)
-          |> SMap.map Fill_type.fill_untyped_pred_def
+          |> SMap.map (fun meth -> Entail.derive_predicate meth.m_name meth.m_params (List.map Untypehip.untype_spec (Option.get meth.m_spec))) (* these have to have specs as they did not occur earlier, indicating they are lambdask *)
           |> SMap.to_seq
         in
         SMap.add_seq lambda prog.cp_predicates
@@ -807,8 +805,8 @@ let infer_and_check_method prog meth given_spec =
       inf, preds_with_lambdas, env
     in
     (* check misc obligations. don't stop on failure for now *)
-    fvenv.fv_lambda_obl |> List.map Fill_type.fill_untyped_lambda_obligation |> List.iter (check_lambda_obligation_ meth.m_name (List.map ident_of_binder meth.m_params) prog.cp_lemmas predicates);
-    fvenv.fv_match_obl |> List.map (fun (lhs, rhs) -> Fill_type.(fill_untyped_disj_spec lhs, fill_untyped_disj_spec rhs)) |> List.iter (check_obligation_ meth.m_name (List.map ident_of_binder meth.m_params) prog.cp_lemmas predicates);
+    fvenv.fv_lambda_obl |> List.map Fill_type.fill_untyped_lambda_obligation |> List.iter (check_lambda_obligation_ meth.m_name meth.m_params prog.cp_lemmas predicates);
+    fvenv.fv_match_obl |> List.map (fun (lhs, rhs) -> Fill_type.(fill_untyped_disj_spec lhs, fill_untyped_disj_spec rhs)) |> List.iter (check_obligation_ meth.m_name meth.m_params prog.cp_lemmas predicates);
 
   (* check the main spec *)
 
@@ -842,7 +840,7 @@ let infer_and_check_method prog meth given_spec =
 
             let inferred_spec, given_spec  =
               let@ _ = Debug.span (fun _r -> debug ~at:2 ~title:"normalization" "") in
-              normalise_spec_list inferred_spec, normalise_spec_list (Untypehip.untype_disj_spec given_spec)
+              normalise_spec_list inferred_spec |> List.map Fill_type.fill_untyped_spec , normalise_spec_list (Untypehip.untype_disj_spec given_spec) |> List.map Fill_type.fill_untyped_spec
             in
 
             let@ _ = Globals.Timing.(time entail) in 
@@ -854,10 +852,10 @@ let infer_and_check_method prog meth given_spec =
             
             let open Search in begin
               let* res =
-                Entail.check_staged_subsumption_disj meth.m_name (List.map ident_of_binder meth.m_params) meth.m_tactics (SMap.map Untypehip.untype_lemma prog.cp_lemmas)
-                (SMap.map Untypehip.untype_pred_def predicates) inferred_spec given_spec
+                Entail.check_staged_subsumption_disj meth.m_name meth.m_params meth.m_tactics prog.cp_lemmas
+                predicates inferred_spec given_spec
               in 
-              check_remaining_obligations meth.m_name prog.cp_lemmas predicates (Fill_type.fill_untyped_subsumption_obligation res.subsumption_obl)
+              check_remaining_obligations meth.m_name prog.cp_lemmas predicates res.subsumption_obl
             end |> succeeded
 
         with Norm_failure ->
@@ -888,8 +886,7 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) : core_program =
       let prog, pred =
         (* if the user has not provided a predicate for the given function,
           produce one from the inferred spec *)
-        let p = Entail.derive_predicate meth.m_name (List.map ident_of_binder meth.m_params) (Untypehip.untype_disj_spec inferred_spec) in
-        let p = Fill_type.fill_untyped_pred_def p in
+        let p = Entail.derive_predicate meth.m_name meth.m_params (Untypehip.untype_disj_spec inferred_spec) in
         let cp_predicates = SMap.update meth.m_name (function
           | None -> Some p
           | Some _ -> None) prog.cp_predicates
@@ -944,7 +941,7 @@ let process_intermediates it prog =
         let args, ret = unsnoc ps in
         function_stage_to_disj_spec f args ret
       in
-      check_obligation_ l.l_name (List.map ident_of_binder l.l_params) prog.cp_lemmas prog.cp_predicates (left, [l.l_right]);
+      check_obligation_ l.l_name l.l_params prog.cp_lemmas prog.cp_predicates (left, [l.l_right]);
       debug ~at:4 ~title:(Format.asprintf "added lemma %s" l.l_name) "%s" (string_of_lemma l);
       (* add to environment regardless of failure *)
       [], { prog with cp_lemmas = SMap.add l.l_name l prog.cp_lemmas }

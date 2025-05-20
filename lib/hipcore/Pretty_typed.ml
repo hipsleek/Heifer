@@ -395,7 +395,7 @@ let string_of_normal_stage (vs, pre, post, ret) =
 let string_of_existentials vs =
   match vs with
   | [] -> ""
-  | _ :: _ -> Format.asprintf "ex %s. " (String.concat "," vs)
+  | _ :: _ -> Format.asprintf "ex %s. " (String.concat "," (List.map string_of_binder vs))
 
 let string_of_res b = if b then green "true" else red "false"
 
@@ -459,8 +459,8 @@ let string_of_lambda_obl (o:lambda_obligation) :string =
 let string_of_obl (d:(disj_spec * disj_spec)) :string =
   (string_of_pair string_of_disj_spec string_of_disj_spec) d
 
-let string_of_pobl (d:(string list * (disj_spec * disj_spec))) :string =
-  string_of_pair (string_of_args Fun.id) string_of_obl d
+let string_of_pobl (d:(binder list * (disj_spec * disj_spec))) :string =
+  string_of_pair (string_of_args string_of_binder) string_of_obl d
 
 (* implements the [pi = pi_other and pi_res] split from the ho paper *)
 let rec split_res p =
