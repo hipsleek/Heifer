@@ -63,17 +63,7 @@ let verifier_getAfreeVar ?(typ= new_type_var ()) _from : binder  =
     v4
   |}] *)
 
-let rec string_of_type t =
-  match t with
-  | TyString -> "string"
-  | Int -> "int"
-  | TyUnit -> "unit"
-  | TConstr (name, args) ->
-      Format.sprintf "(%s) %s" (List.map string_of_type args |> String.concat ", ") name
-  | Bool -> "bool"
-  | Lamb -> "lambda"
-  | TVar v -> Format.asprintf "'%s" v
-  | Arrow (t1, t2) -> Format.asprintf "%s->%s" (string_of_type t1) (string_of_type t2)
+let string_of_type = Pretty.string_of_type
 
 let string_of_binder ((ident, typ) : binder) =
   Format.sprintf "(%s : %s)" ident (string_of_type typ)
@@ -254,7 +244,7 @@ let rec stricTcompareTerm (term1:term) (term2:term) : bool =
     (Var s1, Var s2) -> String.compare s1 s2 == 0
   | (Const Num n1, Const Num n2) -> n1 == n2
   | (BinOp (op1, lhs1, rhs1), BinOp(op2, lhs2, rhs2)) -> op1 == op2 && stricTcompareTerm lhs1 rhs1 && stricTcompareTerm lhs2 rhs2
-  | (Const Unit, Const Unit) -> true
+  | (Const ValUnit, Const ValUnit) -> true
   | _ -> false
   in
   let same_type = term1.term_type = term2.term_type in
@@ -435,10 +425,8 @@ let string_of_pure_fn ({ pf_name; pf_params; pf_ret_type; pf_body } : pure_fn_de
 let string_of_tmap pp s =
   Format.asprintf "{%s}" (String.concat ", " (List.map (fun (k, v) -> Format.asprintf "%s -> %s" (string_of_type k) (pp v)) (TMap.bindings s)))
 
-let string_of_abs_env t =
-  Format.asprintf "%s, %s" (string_of_smap string_of_type t.vartypes) 
+let string_of_abs_env t = Pretty.string_of_abs_env t
   (* "<opaque>" *)
-(string_of_tmap string_of_type (TMap.map (fun t -> U.get t) !(t.equalities)))
 
 let string_of_typ_env t =
   Format.asprintf "%s" (string_of_smap string_of_type t)

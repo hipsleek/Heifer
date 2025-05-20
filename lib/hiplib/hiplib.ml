@@ -1064,7 +1064,7 @@ let mergeTopLevelCodeIntoOneMain (prog : intermediate list) : intermediate list 
   let nonMain, mainMeth = helper prog in
   let rec compose (main_segments: core_lang list) : core_lang =
     match main_segments with
-    | [] -> {core_desc = CValue ({term_desc = Const Unit; term_type = TyUnit}); core_type = TyUnit}
+    | [] -> {core_desc = CValue ({term_desc = Const ValUnit; term_type = Unit}); core_type = Unit}
     | [x] -> x
     | x :: xs -> 
         let remaining = compose xs in

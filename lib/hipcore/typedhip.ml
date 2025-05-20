@@ -4,7 +4,7 @@ type bin_rel_op = [%import: Hiptypes.bin_op]
 and binder = string * typ
 and bin_term_op = Plus | Minus | SConcat | TAnd | TPower | TTimes | TDiv | TOr | TCons
 and const = 
-  | Unit
+  | ValUnit
   | Num of int
   | TStr of string
   | Nil
@@ -107,16 +107,7 @@ and spec = stagedSpec list
 
 and disj_spec = spec list
 
-and typ =
-  | TyUnit
-  | Int
-  | Bool
-  | TyString
-  | Lamb
-  | Arrow of typ * typ
-  | TConstr of string * typ list (* TConstr ("ty", [a; b]) => (a, b) ty *)
-  (* TODO Add this: | Poly of string list * typ (* Poly (["a", "b"], ty) ==> 'a 'b. ty *) *)
-  | TVar of string (* this is last, so > concrete types *)
+and typ = [%import : Hiptypes.typ]
 
 [@@deriving
   visitors { variety = "map"; name = "map_spec" },
@@ -134,52 +125,11 @@ end)
 
 module U = Hiptypes.U
 
-module TEnv = struct
+module TEnv = Hiptypes.TEnv
 
-  type t = typ U.elem TMap.t ref
+type abs_typ_env = Hiptypes.abs_typ_env
+let create_abs_env = Hiptypes.create_abs_env
 
-  (* TODO this might break inference, because we cannot have
-     one map entry corresponding to concrete types anymore. we may have to
-     lazily create them as needed. *)
-  let create () =
-    TMap.empty
-    (* TMap.of_seq (List.to_seq (List.map (fun t -> t, U.make t) concrete_types)) *)
-
-  let get_or_create m k =
-    match TMap.find_opt k !m with
-    | None ->
-      let r = U.make k in
-      m := TMap.add k r !m;
-      r
-    | Some v ->
-      v
-
-  let equate m t1 t2 =
-    let t1r = get_or_create m t1 in
-    let t2r = get_or_create m t2 in
-    U.merge min_typ t1r t2r
-
-  let concretize m t = TMap.find t !m |> U.get
-
-  let has_concrete_type m t =
-    match TMap.find_opt t !m with
-    | None -> false
-    | Some r -> is_concrete_type (U.get r)
-
-end
-
-type abs_typ_env = {
-  (* formula variable -> type, which may be a variable *)
-  vartypes: typ Common.SMap.t;
-  (* types of type variables so far *)
-  equalities : TEnv.t;
-}
-
-let create_abs_env () =
-  {
-    vartypes = Common.SMap.empty;
-    equalities = ref (TEnv.create ()) ;
-  }
 type tactic = Hiptypes.tactic
 
 type meth_def = {
@@ -347,19 +297,20 @@ module Fill_type = struct
       the OCaml typechecker; this is used to typecheck annotations.*)
 
 
-  let rec from_hiptypes_typ : Hiptypes.typ -> typ = function
-    | List_int -> TConstr ("list", [Int])
-    | Unit -> TyUnit
-    | Int -> Int
-    | Bool -> Bool
-    | TyString -> TyString
-    | Lamb -> Lamb
-    | TVar s -> TVar s
-    | Arrow (x, y) -> Arrow (from_hiptypes_typ x, from_hiptypes_typ y)
+  let from_hiptypes_typ : Hiptypes.typ -> typ = Fun.id
+    (* | List_int -> TConstr ("list", [Int]) *)
+    (* | TConstr (name, args) -> TConstr (name, args) *)
+    (* | TyUnit -> TyUnit *)
+    (* | Int -> Int *)
+    (* | Bool -> Bool *)
+    (* | TyString -> TyString *)
+    (* | Lamb -> Lamb *)
+    (* | TVar s -> TVar s *)
+    (* | Arrow (x, y) -> Arrow (from_hiptypes_typ x, from_hiptypes_typ y) *)
 
   let rec fill_untyped_term (term : Hiptypes.term) =
     let term_desc = match term with
-    | Hiptypes.UNIT -> Const Unit
+    | Hiptypes.UNIT -> Const ValUnit
     | Hiptypes.Num n -> Const (Num n)
     | Hiptypes.Var v -> Var v
     | Hiptypes.TStr s -> Const (TStr s)
@@ -553,20 +504,11 @@ module Fill_type = struct
 end
 
 module Untypehip = struct
-  let rec hiptypes_typ (t : typ) : Hiptypes.typ =
-    match t with
-    | TyUnit -> Hiptypes.Unit
-    | Int -> Hiptypes.Int
-    | Bool -> Hiptypes.Bool
-    | TyString -> Hiptypes.TyString
-    | Lamb -> Hiptypes.Lamb
-    | Arrow (a, b) -> Hiptypes.Arrow (hiptypes_typ a, hiptypes_typ b)
-    | TVar s -> Hiptypes.TVar s
-    | _ -> failwith "Type not represented in original type"
+  let hiptypes_typ (t : typ) : Hiptypes.typ = t
 
   let rec untype_term (t : term) : Hiptypes.term =
     match t.term_desc with
-    | Const Unit -> UNIT
+    | Const ValUnit -> UNIT
     | Const (Num n) -> Num n
     | Const (TStr s) -> TStr s
     | Const TTrue -> TTrue

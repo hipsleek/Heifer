@@ -98,7 +98,7 @@ let rec hip_type_of_type_expr (texpr: Types.type_expr) =
       | "int" -> Int
       | "bool" -> Bool
       | "string" -> TyString
-      | "unit" -> TyUnit
+      | "unit" -> Unit
       | unknown -> failwith ("Unknown type constructor: " ^ unknown)
     end
   | Tconstr (path, args, _) -> begin
@@ -286,7 +286,7 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
       transformation bound_names addr |> maybe_var (fun v -> CRef v |> clang_with_expr_type)
   (* assign *)
   | Texp_apply ({exp_desc = Texp_ident (_, {txt = Lident name; _}, _); _}, [_, Some {exp_desc=Texp_ident (_, {txt=Lident addr;_}, _); _}; _, Some value]) when name = ":=" ->
-      transformation bound_names value |> maybe_var (fun v -> {core_desc = CWrite (addr, v); core_type = TyUnit})
+      transformation bound_names value |> maybe_var (fun v -> {core_desc = CWrite (addr, v); core_type = Unit})
   (* transparent *)
   | Texp_apply ({exp_desc = Texp_ident (_, {txt = Ldot (Lident "Sys", "opaque_identity"); _}, _); _}, [_, Some a]) ->
     (* ignore this *)
@@ -334,7 +334,7 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
       CLet ("_", transformation bound_names a, transformation bound_names b) |> clang_with_expr_type
   | Texp_assert (e, _) ->
     let p, k = expr_to_formula e in
-    {core_desc = CAssert (p, k); core_type = TyUnit}
+    {core_desc = CAssert (p, k); core_type = Unit}
   | Texp_let (_rec, vb::_vbs, e) ->
     let var_name = string_of_pattern (vb.vb_pat) in 
     let exprIn = vb.vb_expr in 
@@ -408,7 +408,7 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
     (*if String.compare (Pprintast.string_of_expression (Untypeast.untype_expression expr)) "Obj.clone_continuation k" == 0 then (* ASK Darius*)*)
     (*CValue (Var "k")*)
     (*else *)
-      {core_desc = CValue {term_desc = Const Unit; term_type = TyUnit}; core_type = TyUnit}
+      {core_desc = CValue {term_desc = Const ValUnit; term_type = Unit}; core_type = Unit}
     (* failwith (Format.asprintf "expression not in core language: %a" Pprintast.expression expr)  *)
     (* (Format.printf "expression not in core language: %a@." ({pat_desc = Tpat_construct ({txt = Lident eff_name}, _, _, _); _}Printast.expression 0) expr; failwith "failed") *)
 
@@ -500,7 +500,7 @@ let transform_str bound_names (s : structure_item) =
       Str.split (Str.regexp "\\.") ext_name |> unsnoc
     in
     let rec interpret_arrow_as_params t = match t with
-      | TyString | Int | TyUnit | Bool | Lamb | TVar _ -> [], t
+      | TyString | Int | Unit | Bool | Lamb | TVar _ -> [], t
       | Arrow (t1, t2) ->
         let p, r = interpret_arrow_as_params t2 in
         t1 :: p, r

@@ -339,10 +339,10 @@ let remove_subsumptions subs =
 
 let rec interpret_arrow_as_params t =
   match t with
-  | TyString | Int | Unit | List_int | Bool | Lamb | TVar _ -> [], t
   | Arrow (t1, t2) ->
     let p, r = interpret_arrow_as_params t2 in
     t1 :: p, r
+  | _ -> [], t
 
 let quantify_res p =
   let r, rez = split_res_fml p in
