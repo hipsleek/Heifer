@@ -278,11 +278,13 @@ type normalisedStagedSpec = effHOTryCatchStages list * normalStage
   visitors { variety = "reduce"; name = "reduce_normalised_" }]
 
 let new_type_var : ?name:string -> unit -> typ =
-  let counter = ref 0 in begin
-  fun ?(name="") () ->
-    counter := !counter + 1;
-    TVar (if name = "" then "[tvar " ^ string_of_int !counter ^ "]" else name)
-  end
+  (* let counter = ref 0 in begin *)
+  (* fun ?(name="") () -> *)
+  (*   counter := !counter + 1; *)
+  (*   TVar (if name = "" then "[tvar " ^ string_of_int !counter ^ "]" else name) *)
+  (* end *)
+  (* FIXME temp fix to make anonymous/filled types irrelevant for equality checking *)
+  fun ?(name="_") _ -> TVar name
 
 let binder_of_ident ?(typ=new_type_var ()) (ident : string) : binder =
   (ident, typ)

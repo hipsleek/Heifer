@@ -390,7 +390,7 @@ let string_of_effect_stage {e_evars = vs; e_pre = pre; e_post = post; e_constr =
   Format.asprintf "ex %s. req %s; ens %s /\\ %s /\\ res=%s" (String.concat " " (List.map string_of_binder vs)) (string_of_state pre) (string_of_state post) (string_of_instant eff) (string_of_term ret)
 
 let string_of_normal_stage (vs, pre, post, ret) =
-  Format.asprintf "ex %s. req %s; ens %s /\\ res=%s" (String.concat " " vs) (string_of_state pre) (string_of_state post) (string_of_term ret)
+  Format.asprintf "ex %s. req %s; ens %s /\\ res=%s" (String.concat " " (List.map string_of_binder vs)) (string_of_state pre) (string_of_state post) (string_of_term ret)
 
 let string_of_existentials vs =
   match vs with
