@@ -1,22 +1,18 @@
 open Hiptypes
-open Pretty
+open Typedhip
+open Pretty_typed
 
-let rec findNewName str vb_li =
-  match vb_li with
-  | [] -> str
-  | (name, new_name) :: xs ->
-    if String.compare name str == 0 then new_name else findNewName str xs
+let find_new_mapping elem assoc =
+  List.assoc_opt elem assoc |> Option.value ~default:elem
 
-let rec instantiateExistientalVar_aux (li : string list)
-    (bindings : (string * string) list) : string list =
-  match li with
-  | [] -> []
-  | str :: xs ->
-    let str' = findNewName str bindings in
-    str' :: instantiateExistientalVar_aux xs bindings
+let findNewName str vb_li = find_new_mapping str vb_li
 
+let instantiateExistientalVar_aux li bindings =
+  List.map (fun s -> findNewName s bindings) li
+
+(** Rename a list of variables in a normalized specification. *)
 let rec instantiateExistientalVar (spec : normalisedStagedSpec)
-    (bindings : (string * string) list) : normalisedStagedSpec =
+    (bindings : (binder * binder) list) : normalisedStagedSpec =
   let effS, normalS = spec in
   match effS with
   | [] ->
@@ -49,41 +45,43 @@ let rec instantiateExistientalVar (spec : normalisedStagedSpec)
       norm' )
 
 
-let rec findbinding str vb_li =
-  match vb_li with
-  | [] -> Var str
-  | (name, v) :: xs ->
-    if String.compare name str == 0 then v else findbinding str xs
+let findbinding str vb_li =
+  List.assoc_opt (ident_of_binder str) vb_li |> Option.value ~default:(var_from_binder str)
 
+(** Object with several visitor methods that replace all instances
+    of a free variable with a given term. 
+
+    The identifiers used for bindings are untyped because this visitor is also used to rename
+    things that aren't exactly binders (e.g. identifiers for higher-order functions/effect constructors). *)
   let subst_visitor =
     object (self)
-      inherit [_] map_normalised
+      inherit [_] map_normalised as super
 
-      method! visit_Shift bindings nz k body ret =
+      method! visit_Shift (bindings : (string * term) list) nz k body ret =
         (* shift binds res and k *)
-        let bs = List.filter (fun (b, _) -> not (List.mem b [k; "res"])) bindings in
+        let bs = List.filter (fun (b, _) -> not (List.mem b [(ident_of_binder k); "res"])) bindings in
         Shift (nz, k, self#visit_disj_spec bs body, self#visit_term bs ret)
 
       (* not full capture-avoiding, we just stop substituting a name when it is bound *)
       method! visit_TLambda bindings name params sp body =
-        let bs = List.filter (fun (b, _) -> not (List.mem b params)) bindings in
+        let bs = List.filter (fun (b, _) -> not (List.mem b (List.map ident_of_binder params))) bindings in
         TLambda (name, params, (self#visit_disj_spec bs sp), (self#visit_option self#visit_core_lang bs body))
 
       method! visit_CLambda bindings params sp body =
-        let bs = List.filter (fun (b, _) -> not (List.mem b params)) bindings in
+        let bs = List.filter (fun (b, _) -> not (List.mem b (List.map ident_of_binder params))) bindings in
         Format.printf "bs: %s@." (string_of_list (string_of_pair Fun.id string_of_term) bs);
         CLambda (params, (self#visit_option self#visit_disj_spec bs sp), (self#visit_core_lang bs body))
 
       method! visit_Exists _ v = Exists v
 
       method! visit_PointsTo bindings (str, t1) =
-        let binding = findbinding str bindings in
-        let newName = match binding with Var str1 -> str1 | _ -> str in
+        let binding = findbinding (binder_of_ident str) bindings in
+        let newName = match binding.term_desc with Var str1 -> str1 | _ -> str in
         PointsTo (newName, self#visit_term bindings t1)
 
       method! visit_HigherOrder bindings (pi, kappa, (str, basic_t_list), ret) =
         let constr =
-          match List.assoc_opt str bindings with Some (Var s) -> s | _ -> str
+          match List.assoc_opt str bindings with Some {term_desc = Var s; _}-> s | _ -> str
         in
         HigherOrder
           ( self#visit_pi bindings pi,
@@ -106,7 +104,7 @@ let rec findbinding str vb_li =
         | `Fn ->
           let f =
             let f = fst effectStage.e_constr in
-            match List.assoc_opt f bindings with Some (Var s) -> s | _ -> f
+            match List.assoc_opt f bindings with Some {term_desc = Var s; _} -> s | _ -> f
           in
           { effectStage with
             e_pre = self#visit_state bindings effectStage.e_pre;
@@ -117,18 +115,27 @@ let rec findbinding str vb_li =
 
       (* TODO some other expressions like assign and perform need to be implemented *)
 
-      method! visit_CFunCall bindings f args =
-        let f1 = findbinding f bindings in
-        match f1 with
-        | Var s -> CFunCall (s, args)
-        | _ ->
-          let s = verifier_getAfreeVar "x" in
-          CLet (s, CValue f1, CFunCall (s, args))
+      (* visitor methods that need the enclosing node's type *)
 
-      method! visit_Var bindings v =
-        let binding = findbinding v bindings in
-        (* Format.printf "replacing %s with %s under %s.@." v (string_of_term binding) (string_of_list (string_of_pair Fun.id string_of_term) bindings); *)
-        binding
+      method! visit_core_lang bindings cl =
+        match cl.core_desc with
+        | CFunCall (f, args) ->
+          let f1 = findbinding (binder_of_ident f) bindings in
+          begin match f1 with
+          (* if bound to a variable, simply rename the function call *)
+          | {term_desc = Var s; _} -> {cl with core_desc = CFunCall (s, args)}
+          (* otherwise, use a let-binding to capture the value *)
+          | _ ->
+            let s = verifier_getAfreeVar "x" in
+            {cl with core_desc = CLet (ident_of_binder s, {core_desc = CValue f1; core_type = f1.term_type}, {core_desc = CFunCall (ident_of_binder s, args); core_type = cl.core_type})}
+          end
+        | _ -> super#visit_core_lang bindings cl
+
+      method! visit_term bindings t =
+        match t.term_desc with
+        | Var _ ->
+            findbinding (binder_of_var t) bindings
+        | _ -> super#visit_term bindings t
     end
 
   let subst_visitor_subsumptions_only bindings =
@@ -196,12 +203,12 @@ let count_uses_and_equalities =
       method zero = zero
       method plus = plus
 
-      method! visit_Atomic _ op a b =
-        match op, a, b with
-        | EQ, Var a, Var b ->
-          SMap.of_seq (List.to_seq [(a, (1, [Var b])); (b, (1, [Var a]))])
-        | EQ, Var a, b | EQ, b, Var a ->
-          plus (SMap.singleton a (1, [b])) (self#visit_term () b)
+      method! visit_Atomic _ op lhs rhs =
+        match op, lhs, rhs with
+        | EQ, {term_desc = Var a; _}, {term_desc = Var b; _} ->
+          SMap.of_seq (List.to_seq [(a, (1, [rhs])); (b, (1, [lhs]))])
+        | EQ, {term_desc = Var a; _}, b | EQ, b, {term_desc = Var a; _} ->
+          plus (SMap.singleton a (1, [rhs])) (self#visit_term () b)
         | EQ, a, b -> plus (self#visit_term () a) (self#visit_term () b)
         | _, a, b ->
           plus (self#visit_term () a) (self#visit_term () b)
@@ -250,7 +257,9 @@ let hash_lambda t =
   | TLambda (_id, _params, spec, _body) ->
     let bs = List.mapi (fun i p -> (p, "l" ^ string_of_int i)) (SSet.to_list (used_vars_disj_spec spec)) in
     let renamed =
-      instantiateSpecList (List.map (fun (p, v) -> (p, Var v)) bs) spec
+      (* this destroys a good amount of type information, but is only needed so two alpha-equivalent
+         lambdas get hashed to the same value, so it's fine *)
+      instantiateSpecList (List.map (fun (p, v) -> (p, var_from_binder (binder_of_ident v))) bs) spec
     in
     (* don't include body in hash *)
     let n = (List.map snd bs, renamed) in
@@ -258,7 +267,7 @@ let hash_lambda t =
     Hashtbl.hash n
   | _ -> failwith (Format.asprintf "not a lambda: %s" "(cannot print)")
 
-let get_existentials_eff (e : effHOTryCatchStages) : string list =
+let get_existentials_eff (e : effHOTryCatchStages) : binder list =
   match e with
   | ResetStage rs -> rs.rs_evars
   | EffHOStage eff -> eff.e_evars
@@ -272,7 +281,7 @@ let set_existentials_eff (e : effHOTryCatchStages) vs =
   | TryCatchStage tc -> TryCatchStage { tc with tc_evars = vs }
   | ResetStage rs -> ResetStage { rs with rs_evars = vs }
 
-let rec getExistentialVar (spec : normalisedStagedSpec) : string list =
+let rec getExistentialVar (spec : normalisedStagedSpec) : binder list =
   let effS, normalS = spec in
   match effS with
   | [] ->
@@ -344,10 +353,27 @@ let rec interpret_arrow_as_params t =
     t1 :: p, r
   | _ -> [], t
 
+let get_type_of_free_var ident pi =
+  let visitor =
+    object
+      inherit [_] reduce_normalised as super
+      method zero = []
+      method plus = (@)
+
+      method! visit_term ident t =
+        match t.term_desc with
+        | Var name when name = ident ->
+            [t.term_type]
+        | _ -> super#visit_term ident t
+    end in
+  
+  (* TODO: make this more robust by checking for the "most concrete type"/failing on type mismatch *)
+  visitor#visit_pi ident pi |> List.hd
+
 let quantify_res p =
   let r, rez = split_res_fml p in
-  let nv = verifier_getAfreeVar "split" in
-  And (r, instantiatePure ["res", Var nv] rez), nv
+  let nv = verifier_getAfreeVar ~typ:(get_type_of_free_var "res" p) "split" in
+  And (r, instantiatePure ["res", var_from_binder nv] rez), nv
 
 (** existentially quantify, i.e. replace with fresh variable *)
 let quantify_res_state (p, h) =

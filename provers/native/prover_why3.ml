@@ -250,6 +250,7 @@ module LowLevel = struct
       Theories.(needed int env.theories);
       Ty.ty_int
     | Arrow (t1, t2) -> Ty.ty_func (type_to_why3 env t1) (type_to_why3 env t2)
+    | TConstr _ -> failwith "general ADTs not implemented"
 
   let rec term_to_why3 env (t : term) =
     (* Format.printf "term %s@." (Pretty.string_of_term t); *)
@@ -399,7 +400,7 @@ module LowLevel = struct
         List_int )
     | TApp (s, args) when Globals.is_pure_fn_defined s ->
       let args1 = List.map (term_to_why3 env) args |> List.map fst in
-      let defn = Globals.pure_fn s in
+      let defn = Globals.pure_fn s |> Hipcore.Typedhip.Untypehip.untype_pure_fn_def in
       let ret_typ = type_to_why3 env defn.pf_ret_type in
       (* Format.printf "app %s@." s; *)
       ( Term.t_app (SMap.find s env.fn_names) args1 (Some ret_typ),
@@ -474,7 +475,7 @@ module LowLevel = struct
     | CFunCall (s, args) when Globals.is_pure_fn_defined s ->
       (* SMap.mem s env.names *)
       let args1 = List.map (term_to_why3 env) args |> List.map fst in
-      let fn = Globals.pure_fn s in
+      let fn = Globals.pure_fn s |> Hipcore.Typedhip.Untypehip.untype_pure_fn_def in
       (* Format.printf "%s@." s; *)
       Term.t_app (SMap.find s env.fn_names) args1
         (Some (type_to_why3 env fn.pf_ret_type))
@@ -651,7 +652,7 @@ module LowLevel = struct
             (fun (_k, v) ->
               (* Format.printf "translating %s@." _k; *)
               pure_fn_to_logic_fn env v)
-            (Globals.pure_fns ())
+            (Globals.pure_fns () |> List.map (fun (name, fn) -> (name, Hipcore.Typedhip.Untypehip.untype_pure_fn_def fn)))
         in
         match fns with [] -> task1 | _ :: _ -> Task.add_logic_decl task1 fns
       in
@@ -717,6 +718,7 @@ let rec type_to_whyml t =
   | Lamb -> PTtyapp (qualid ["Int"; "int"], [])
   | TVar _ -> PTtyapp (qualid ["Int"; "int"], [])
   | Arrow (t1, t2) -> PTarrow (type_to_whyml t1, type_to_whyml t2)
+  | TConstr _ -> failwith "general ADTs not implemented"
 
 let rec term_to_whyml tenv t =
   match t with
@@ -918,7 +920,7 @@ let prove tenv qtf f =
     in
 
     let fns =
-      match Globals.pure_fns () with
+      match (Globals.pure_fns () |> List.map (fun (name, fn) -> (name, Hipcore.Typedhip.Untypehip.untype_pure_fn_def fn))) with
       | [] -> []
       | f ->
         let ff =
@@ -964,7 +966,7 @@ let prove tenv qtf f =
 
     let imports =
       let extra =
-        Globals.global_environment.pure_fn_types |> SMap.bindings
+        Globals.global_environment.pure_fn_types |> SMap.map Hipcore.Typedhip.Untypehip.untype_pure_fn_type_def |> SMap.bindings
         |> List.map (fun (_, p) -> p.pft_logic_path)
         |> List.sort_uniq compare
         |> List.map (use ~import:false)

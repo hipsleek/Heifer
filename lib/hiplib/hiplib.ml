@@ -12,9 +12,10 @@ open Asttypes
 (* get rid of the alias *)
 type string = label
 (* open Rewriting *)
-open Pretty
+open Pretty_typed
 open Debug
 open Hiptypes
+open Typedhip
 open Normalize
 
 (** Re-export Env, since it gets shadowed by another declaration later on. *)
@@ -43,7 +44,6 @@ let rec shaffleZIP li1 li2 =
   | [] -> []
   | x ::xs -> List.append (aux x li2) (shaffleZIP xs li2)
 ;;
-
 
 assert ((List.length (shaffleZIP [1;2;3] [4;5;6])) = 9 );;
 
@@ -215,8 +215,8 @@ let rec lookUpFromPure p str : term option =
   match p with
   | True -> None
   | False -> None
-  | Atomic (EQ, Var name , Num i) ->
-      if String.compare str name == 0 then Some (Num i) else None
+  | Atomic (EQ, {term_desc = Var name; _} , ({term_desc = Const Num _; _} as num)) ->
+      if String.compare str name == 0 then Some num else None
   | And   (p1, p2) ->
       begin match lookUpFromPure p1 str with
       | None -> lookUpFromPure p2 str
@@ -231,17 +231,21 @@ let rec lookUpFromPure p str : term option =
 
 open Forward_rules
 
-let mergePredicates (preds : (string * term list) list) (slps : sl_pred_def SMap.t) : (string list * pi * kappa) =
+(** Given a list of predicates, unfold them and take their conjunction.
+    Returns a list of existentially quantified variables, and a state formula. *)
+let mergePredicates (preds : (string * term list) list) (slps : sl_pred_def SMap.t) : (binder list * pi * kappa) =
   List.fold_left (fun (accEx, accPi, accHeap) (str, actualArg) ->
     try
       let {p_sl_ex; p_sl_name; p_sl_params; p_sl_body} : sl_pred_def  = SMap.find str slps in
       assert (String.compare p_sl_name str == 0);
-      let (p_sl_ex, p_sl_body) = renamingexistientalVarState p_sl_ex p_sl_body in
+      let (p_sl_ex, p_sl_body) = renamingexistientalVarState (List.map ident_of_binder p_sl_ex) (Untypehip.untype_state p_sl_body) in
       let bindings = bindFormalNActual (p_sl_params) (actualArg) in
+      let bindings = List.map (fun (binder, term) -> ident_of_binder binder, Untypehip.untype_term term) bindings in
       let (pi, kappa) = p_sl_body in
       let p_sl_body' = (instantiatePure bindings pi, instantiateHeap bindings kappa) in
       let (pNew, heapNew) = p_sl_body' in
-      (p_sl_ex@accEx, And(accPi, pNew), SepConj(accHeap, heapNew))
+      (* TODO remove type re-annotation once Subst is rewritten to use Typedhip *)
+      ((List.map binder_of_ident p_sl_ex)@accEx, And(accPi, Fill_type.fill_untyped_pi pNew), SepConj(accHeap, Fill_type.fill_untyped_kappa heapNew))
     with Not_found ->
       raise (Failure (str ^ " not found"))
   ) ([], True, EmptyHeap) preds
@@ -286,9 +290,9 @@ let replaceSLPredicatesWithDef (specs:disj_spec) (slps:sl_pred_def SMap.t) =
     | Exists _
     | TryCatch _ -> [stage]
   in
-  normalise_spec_list (List.map (fun spec -> List.flatten (List.map helper spec)) specs)
+  normalise_spec_list ((List.map (fun spec -> List.flatten (List.map helper spec)) specs) |> List.map Untypehip.untype_spec)
 
-let retrieveSpecFromMs_Ps (fname: string) (ms:meth_def list) (ps:pred_def SMap.t) : (string list * spec list) option =
+let retrieveSpecFromMs_Ps (fname: string) (ms:meth_def list) (ps:pred_def SMap.t) : (binder list * spec list) option =
   match SMap.find_opt fname ps |> Option.map (fun p -> (p.p_params, p.p_body)) with
   | Some res -> Some res
   | None ->
@@ -317,10 +321,10 @@ let replacePredicatesWithDef (specs:disj_spec) (ms:meth_def list) (ps:pred_def S
       print_endline ("ret = " ^ string_of_term ret);
       *)
 
-      let bindings = bindFormalNActual (p_params) (actualArg) in
-
+      let bindings = bindFormalNActual p_params actualArg in
+      let bindings = List.map (fun (binder, term) -> ident_of_binder binder, Untypehip.untype_term term) bindings in
       (*print_endline (string_of_disj_spec p_body);*)
-      let p_body = renamingexistientalVar p_body in
+      let p_body = renamingexistientalVar (List.map Untypehip.untype_spec p_body) in
       (*print_endline (" ===> " ^ string_of_disj_spec p_body);*)
 
       let p_body' =  (instantiateSpecList bindings p_body)  in
@@ -333,12 +337,12 @@ let replacePredicatesWithDef (specs:disj_spec) (ms:meth_def list) (ps:pred_def S
                 match retriveLastRes a with
                 | Some (Var t) -> t
                 | Some t ->
-                  print_endline (string_of_term t);
+                  print_endline (Pretty.string_of_term t);
                   failwith "there was a res term but not a variable"
                 | None ->
                   failwith "there is no res value"
               in
-              instantiateSpec [(returnTerm, ret)] a
+              instantiateSpec [(returnTerm, Untypehip.untype_term ret)] a
             )
             p_body' )
       in
@@ -347,7 +351,7 @@ let replacePredicatesWithDef (specs:disj_spec) (ms:meth_def list) (ps:pred_def S
         List.map (
           fun p_b ->
             NormalReturn(pi, h) ::p_b  @ li
-        ) p_body'
+        ) (List.map Fill_type.fill_untyped_spec p_body')
       ) temp)
 
       )
@@ -512,11 +516,11 @@ let debug_tokens str =
   let s = tokens |> List.map string_of_token |> String.concat " " in
   debug ~at:3 ~title:"debug tokens" "%s" s
 
-let (exGlobal:(string list) ref) =  ref []
+let (exGlobal:(binder list) ref) =  ref []
 let (unifyGlobal: pi ref) = ref True
 
 let term_is_Extiatential t ctx =
-  match t with
+  match t.term_desc with
   | Var str -> if existStr str ctx then true else false
   | _ -> false
 
@@ -526,7 +530,9 @@ let normaliseKappa k =
   | SepConj ( EmptyHeap, sp2) -> sp2
   | _ -> k
 
-let rec speration_logic_ential (p1, h1) (p2, h2) : (bool) =
+(** Entry point for checking separation logic entailment.
+   *)
+let rec speration_logic_ential ((p1, h1) : state) ((p2, h2) : state) : (bool) =
 (*print_endline (string_of_state (p1, h1) ^" ==> "^  string_of_state (p2, h2)); *)
 let h1 = normaliseKappa h1 in
 let h2 = normaliseKappa h2 in
@@ -535,39 +541,40 @@ let res =
   | (_, EmptyHeap) -> true
   | (EmptyHeap, _) -> false
   | (PointsTo (v1, t1), PointsTo (v2, t2)) ->
-    if existStr v2 !exGlobal && stricTcompareTerm t1 t2 then
-      let () = unifyGlobal := And (!unifyGlobal, And (Atomic(EQ, Var v1, Var v2), p1)) in
-      (*print_string ("adding " ^ string_of_pi (And (Atomic(EQ, Var v1, Var v2), p1)) ^ "\n");*)
+      let v1_typed = {term_desc = Var v1; term_type = TConstr ("ref", [t1.term_type])} in
+      let v2_typed = {term_desc = Var v2; term_type = TConstr ("ref", [t2.term_type])} in
+    if existStr v2 (List.map ident_of_binder !exGlobal) && stricTcompareTerm t1 t2 then
+      let () = unifyGlobal := And (!unifyGlobal, And (Atomic(EQ, v1_typed, v2_typed), p1)) in
+      (*print_string ("adding " ^ string_of_pi (And (Atomic(EQ, Var v1, v2_typed), p1)) ^ "\n");*)
       true
-    else if existStr v2 !exGlobal then
-      if term_is_Extiatential t2 !exGlobal then
+    else if existStr v2 (List.map ident_of_binder !exGlobal) then
+      if term_is_Extiatential t2 (List.map ident_of_binder !exGlobal) then
         let () = unifyGlobal := And (!unifyGlobal, And (Atomic(EQ, t1, t2), p1)) in
         (*print_string ("adding " ^ string_of_pi (And (Atomic(EQ, t1, t2), p1)) ^ "\n");*)
         true
       else
-      let () = unifyGlobal := And (!unifyGlobal, And (Atomic(EQ, Var v1, Var v2), p1)) in
-      (*print_string ("adding " ^ string_of_pi (And (Atomic(EQ, Var v1, Var v2), p1)) ^ "\n");*)
-      let lhs = (And(p1,  Atomic(EQ, Var v1, t1) )) in
-      let rhs = (And(p2,  Atomic(EQ, Var v2, t2) )) in
+      let () = unifyGlobal := And (!unifyGlobal, And (Atomic(EQ, v1_typed, v2_typed), p1)) in
+      (*print_string ("adding " ^ string_of_pi (And (Atomic(EQ, v1_typed, v2_typed), p1)) ^ "\n");*)
+      let lhs = (And(p1,  Atomic(EQ, v1_typed, t1) )) in
+      let rhs = (And(p2,  Atomic(EQ, v2_typed, t2) )) in
       (*print_endline ( "yoyo1\n");
       print_endline (string_of_pi (!unifyGlobal));*)
-      (ProversEx.is_valid (And(lhs, !unifyGlobal)) rhs)
-
+      (ProversEx.is_valid (Untypehip.untype_pi (And(lhs, !unifyGlobal))) (Untypehip.untype_pi rhs))
     else
-      (match (t2) with
+      (match t2.term_desc with
       | Var t2Str ->
-        if existStr t2Str !exGlobal then
+        if existStr t2Str (List.map ident_of_binder !exGlobal) then
           let () = unifyGlobal := And (!unifyGlobal, And (Atomic(EQ, t1, t2), p1)) in
           (*print_string ("adding " ^ string_of_pi (And (Atomic(EQ, t1, t2), p1)) ^ "\n");*)
           true
         else
-          let lhs = (And(p1,  Atomic(EQ, Var v1, t1) )) in
-          let rhs = (And(p2,  Atomic(EQ, Var v2, t2) )) in
-          (ProversEx.is_valid (And(lhs, !unifyGlobal)) rhs)
+          let lhs = (And(p1,  Atomic(EQ, v1_typed, t1) )) in
+          let rhs = (And(p2,  Atomic(EQ, v2_typed, t2) )) in
+          (ProversEx.is_valid (Untypehip.untype_pi (And(lhs, !unifyGlobal))) (Untypehip.untype_pi rhs))
       | _ ->
-      let lhs = (And(p1,  Atomic(EQ, Var v1, t1) )) in
-      let rhs = (And(p2,  Atomic(EQ, Var v2, t2) )) in
-      (ProversEx.is_valid (And(lhs, !unifyGlobal)) rhs))
+      let lhs = (And(p1,  Atomic(EQ, v1_typed, t1) )) in
+      let rhs = (And(p2,  Atomic(EQ, v2_typed, t2) )) in
+      (ProversEx.is_valid (Untypehip.untype_pi (And(lhs, !unifyGlobal))) (Untypehip.untype_pi rhs)))
 
   | (SepConj ( sp1, sp2), SepConj ( sp3, sp4)) ->
     speration_logic_ential (p1, sp1) (p2, sp3) && speration_logic_ential (p1, sp2) (p2, sp4)
@@ -590,7 +597,7 @@ let rec compareEffectArgument unification v1 v2 =
   match (v1, v2) with
   | ([], []) -> true
   | (x::xs, y::ys) ->
-    let r1 = ProversEx.is_valid unification (Atomic(EQ, x, y)) in
+    let r1 = ProversEx.is_valid (Untypehip.untype_pi unification) (Untypehip.untype_pi (Atomic(EQ, x, y))) in
     r1 && (compareEffectArgument unification xs ys)
   | (_, _) -> false
 
@@ -650,7 +657,7 @@ let normal_report ?(kind="Function") ?(show_time=false) ?given_spec ?given_spec_
     in
     let normed_spec =
       match given_spec_n with
-      | Some s -> "[  Normed Spec  ] " ^ string_of_spec_list (normalise_spec_list_aux2 s) ^ "\n\n"
+      | Some s -> "[  Normed Spec  ] " ^ string_of_spec_list (normalise_spec_list_aux2 s |> List.map Fill_type.fill_untyped_spec) ^ "\n\n"
       | None -> ""
     in
     let normed_post =
@@ -662,7 +669,7 @@ let normal_report ?(kind="Function") ?(show_time=false) ?given_spec ?given_spec_
 
           print_endline (string_of_spec_list (normalise_spec_list_aux2 s));
           *)
-        "[  Normed Post  ] " ^ string_of_spec_list (normalise_spec_list (normalise_spec_list_aux2 s)) ^ "\n\n"
+        "[  Normed Post  ] " ^ string_of_spec_list (normalise_spec_list (normalise_spec_list_aux2 s) |> List.map Fill_type.fill_untyped_spec ) ^ "\n\n"
       | None -> ""
     in
     normed_spec, normed_post
@@ -723,7 +730,7 @@ let report_result ?kind ?show_time ?given_spec ?given_spec_n ?inferred_spec ?inf
 let rec check_remaining_obligations original_fname lems preds obligations =
   let open Search in
   all ~name:"subsumption obligation"
-    ~to_s:string_of_pobl
+    ~to_s:(fun obl -> string_of_pobl obl)
     obligations (fun (params, obl) ->
     let name =
       (* the name of the obligation appears in tests and should be deterministic *)
@@ -742,7 +749,7 @@ and check_obligation name params lemmas predicates (l, r) : bool =
   in
   let open Search in begin
   let res = Entail.check_staged_subsumption_disj name params [] lemmas predicates l r in
-  report_result ~kind:"Obligation" ~given_spec:r ~inferred_spec:l ~result:(Search.succeeded res) name;
+  report_result ~kind:"Obligation" ~given_spec:r ~inferred_spec:r ~result:(Search.succeeded res) name;
   let* res = res in
   check_remaining_obligations name lemmas predicates res.subsumption_obl
   end |> Search.succeeded
@@ -767,7 +774,7 @@ let infer_and_check_method prog meth given_spec =
       (* the env is looked up from the program every time, as it's updated as we go *)
       let method_env = prog.cp_methods
         (* within a method body, params/locals should shadow functions defined outside *)
-        |> List.filter (fun m -> not (List.mem m.m_name meth.m_params))
+        |> List.filter (fun m -> not (List.mem m.m_name (List.map ident_of_binder meth.m_params)))
         (* treat recursive calls as abstract, as recursive functions should be summarized using predicates *)
         |> List.filter (fun m -> not (String.equal m.m_name meth.m_name))
         |> List.map (fun m -> m.m_name, m)
@@ -775,21 +782,22 @@ let infer_and_check_method prog meth given_spec =
         |> SMap.of_seq
       in
       let pred_env = prog.cp_predicates in 
-      let env = create_fv_env method_env pred_env in
+      let env = create_fv_env (SMap.map Untypehip.untype_meth_def method_env) (SMap.map Untypehip.untype_pred_def pred_env) in
       let inf, env =
         let@ _ =
           Debug.span (fun _ -> debug ~at:2 ~title:"apply forward rules" "")
         in
         let@ _ = Globals.Timing.(time forward) in 
-        infer_of_expression env [freshNormalReturnSpec] meth.m_body
+        infer_of_expression env [freshNormalReturnSpec] (Untypehip.untype_core_lang meth.m_body)
       in
 
       (* make the new specs inferred for lambdas available to the entailment procedure as predicates *)
       let preds_with_lambdas =
         let lambda =
           env.fv_methods
+        |> SMap.map Fill_type.fill_untyped_meth_def
           |> SMap.filter (fun k _ -> not (SMap.mem k method_env))
-          |> SMap.map (fun meth -> Entail.derive_predicate meth.m_name meth.m_params (Option.get meth.m_spec)) (* these have to have specs as they did not occur earlier, indicating they are lambdask *)
+          |> SMap.map (fun meth -> Entail.derive_predicate meth.m_name meth.m_params (List.map Untypehip.untype_spec (Option.get meth.m_spec))) (* these have to have specs as they did not occur earlier, indicating they are lambdask *)
           |> SMap.to_seq
         in
         SMap.add_seq lambda prog.cp_predicates
@@ -797,8 +805,8 @@ let infer_and_check_method prog meth given_spec =
       inf, preds_with_lambdas, env
     in
     (* check misc obligations. don't stop on failure for now *)
-    fvenv.fv_lambda_obl |> List.iter (check_lambda_obligation_ meth.m_name meth.m_params prog.cp_lemmas predicates);
-    fvenv.fv_match_obl |> List.iter (check_obligation_ meth.m_name meth.m_params prog.cp_lemmas predicates);
+    fvenv.fv_lambda_obl |> List.map Fill_type.fill_untyped_lambda_obligation |> List.iter (check_lambda_obligation_ meth.m_name meth.m_params prog.cp_lemmas predicates);
+    fvenv.fv_match_obl |> List.map (fun (lhs, rhs) -> Fill_type.(fill_untyped_disj_spec lhs, fill_untyped_disj_spec rhs)) |> List.iter (check_obligation_ meth.m_name meth.m_params prog.cp_lemmas predicates);
 
   (* check the main spec *)
 
@@ -807,9 +815,9 @@ let infer_and_check_method prog meth given_spec =
     let inferred_spec_n = 
       let@ _ = Debug.span (fun _r -> debug ~at:2 ~title:"normalization" "") in
       try
-        normalise_disj_spec_aux1 inferred_spec
+        normalise_disj_spec_aux1 inferred_spec |> List.map Fill_type.fill_normalized_staged_spec 
       with Norm_failure ->
-        raise (Ret (inferred_spec, None, None, None, false))
+        raise (Ret (Fill_type.fill_untyped_disj_spec inferred_spec, None, None, None, false))
     in
 
     (* let res = *)
@@ -818,9 +826,9 @@ let infer_and_check_method prog meth given_spec =
       let given_spec_n =
         let@ _ = Debug.span (fun _r -> debug ~at:2 ~title:"normalization" "") in
         try
-          normalise_disj_spec_aux1 given_spec
+          normalise_disj_spec_aux1 (Untypehip.untype_disj_spec given_spec) |> List.map Fill_type.fill_normalized_staged_spec
         with Norm_failure ->
-          raise (Ret (inferred_spec, Some inferred_spec_n, Some given_spec, None, false))
+          raise (Ret (Fill_type.fill_untyped_disj_spec inferred_spec, Some inferred_spec_n, Some given_spec, None, false))
       in
       let res =
         try
@@ -832,7 +840,7 @@ let infer_and_check_method prog meth given_spec =
 
             let inferred_spec, given_spec  =
               let@ _ = Debug.span (fun _r -> debug ~at:2 ~title:"normalization" "") in
-              normalise_spec_list inferred_spec, normalise_spec_list given_spec
+              normalise_spec_list inferred_spec |> List.map Fill_type.fill_untyped_spec , normalise_spec_list (Untypehip.untype_disj_spec given_spec) |> List.map Fill_type.fill_untyped_spec
             in
 
             let@ _ = Globals.Timing.(time entail) in 
@@ -844,7 +852,8 @@ let infer_and_check_method prog meth given_spec =
             
             let open Search in begin
               let* res =
-                Entail.check_staged_subsumption_disj meth.m_name meth.m_params meth.m_tactics prog.cp_lemmas predicates inferred_spec given_spec
+                Entail.check_staged_subsumption_disj meth.m_name meth.m_params meth.m_tactics prog.cp_lemmas
+                predicates inferred_spec given_spec
               in 
               check_remaining_obligations meth.m_name prog.cp_lemmas predicates res.subsumption_obl
             end |> succeeded
@@ -853,9 +862,9 @@ let infer_and_check_method prog meth given_spec =
           (* norm failing all the way to the top level may prevent some branches from being explored during proof search. this does not happen in any tests yet, however, so keep error-handling simple. if it ever happens, return an option from norm entry points *)
           false
       in
-      inferred_spec, Some inferred_spec_n, Some given_spec, Some given_spec_n, res
+      Fill_type.fill_untyped_disj_spec inferred_spec, Some inferred_spec_n, Some given_spec, Some given_spec_n, res
     | None ->
-      raise (Ret (inferred_spec, Some inferred_spec_n, None, None, true))
+      raise (Ret (Fill_type.fill_untyped_disj_spec inferred_spec, Some inferred_spec_n, None, None, true))
   with Ret (a, b, c, d, e) ->
     (a, b, c, d, e)
 
@@ -877,7 +886,7 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) : core_program =
       let prog, pred =
         (* if the user has not provided a predicate for the given function,
           produce one from the inferred spec *)
-        let p = Entail.derive_predicate meth.m_name meth.m_params inferred_spec in
+        let p = Entail.derive_predicate meth.m_name meth.m_params (Untypehip.untype_disj_spec inferred_spec) in
         let cp_predicates = SMap.update meth.m_name (function
           | None -> Some p
           | Some _ -> None) prog.cp_predicates
@@ -891,8 +900,9 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) : core_program =
           (* using the predicate instead of the raw inferred spec makes the induction hypothesis possible with current heuristics. it costs one more unfold but that is taken care of by the current entailment procedure, which repeatedly unfolds *)
           let _mspec : disj_spec = inferred_spec in
           let mspec : disj_spec =
-            let prr, ret = unsnoc pred.p_params in
-            function_stage_to_disj_spec pred.p_name (List.map (fun v1 -> Var v1) prr) (Var ret)
+            let prr, (ret_name, ret_type) = unsnoc pred.p_params in
+            function_stage_to_disj_spec pred.p_name (List.map (fun (v1, v1_type) -> {term_desc = Var v1; term_type = v1_type}) prr) 
+            ({term_desc = Var ret_name; term_type = ret_type})
           in
           (*print_endline ("inferred spec for " ^ meth.m_name ^ " " ^  (string_of_disj_spec mspec)); *)
           debug ~at:1 ~title:(Format.asprintf "inferred spec for %s" meth.m_name) "%s" (string_of_disj_spec mspec);
@@ -904,7 +914,10 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) : core_program =
     end
   in
   let res = Option.map (fun _ -> res) given_spec in
-  report_result ~inferred_spec ?inferred_spec_n ?given_spec ?given_spec_n ?result:res ~show_time:true meth.m_name;
+  report_result ~inferred_spec:inferred_spec 
+    ?inferred_spec_n:(Option.map (List.map Untypehip.untype_normalized_staged_spec) inferred_spec_n)
+    ?given_spec:given_spec 
+    ?given_spec_n:(Option.map (List.map Untypehip.untype_normalized_staged_spec) given_spec_n) ?result:res ~show_time:true meth.m_name;
   prog
 
 let process_intermediates it prog =
@@ -940,7 +953,7 @@ let process_intermediates it prog =
       let p' : pred_def = {
         p_name = p.p_name;
         p_params = p.p_params;
-        p_body = body';
+        p_body = Fill_type.fill_untyped_disj_spec body';
         p_rec = p.p_rec
       }
       in
@@ -981,9 +994,9 @@ let process_intermediates it prog =
 
     let () =
       match pure_fn_info with
-      | Some (param_types, ret_type) ->
+      | Some (_param_types, ret_type) ->
         let pf =
-          { pf_name = m_name; pf_params = List.map2 pair m_params param_types; pf_ret_type = ret_type; pf_body = m_body; }
+          { pf_name = m_name; pf_params = m_params; pf_ret_type = ret_type; pf_body = m_body; }
         in
         Globals.define_pure_fn m_name pf;
       | None -> ()
@@ -1006,26 +1019,28 @@ let process_intermediates it prog =
 
 let process_ocaml_structure (strs: Ocaml_common.Typedtree.structure) : unit =
   let helper (bound_names, prog) s =
-    match Ocamlfrontend.Core_lang2.transform_str bound_names s with
+    match Ocamlfrontend.Core_lang_typed.transform_str bound_names s with
     | Some it ->
         let new_bound, prog = process_intermediates it prog in
         new_bound @ bound_names, prog
     | None ->
         bound_names, prog
   in
-  let strs = Ocaml_common.Untypeast.untype_structure strs in
-  List.fold_left helper ([], empty_program) strs |> ignore
+  List.fold_left helper ([], empty_program) strs.str_items |> ignore
 
 let run_ocaml_string_ line =
-  (* Parse and typecheck the code, before converting it into a core language program.
+  (** Parse and typecheck the code, before converting it into a core language program.
      This mirrors the flow of compilation used in ocamlc. *)
-  let items = Parse.implementation (Lexing.from_string line) in
-  let unit_info = Unit_info.(make ~source_file:"" Impl "") in
-  Compile_common.with_info ~native:false ~tool_name:"heifer" ~dump_ext:"" unit_info @@ begin fun info ->
-    let typed_implementation = Compile_common.typecheck_impl info items in
-    let@ _ = Globals.Timing.(time overall_all) in
-    process_ocaml_structure typed_implementation.structure
-  end
+  try
+    let items = Parse.implementation (Lexing.from_string line) in
+    let unit_info = Unit_info.(make ~source_file:"" Impl "") in
+    Compile_common.with_info ~native:false ~tool_name:"heifer" ~dump_ext:"" unit_info @@ begin fun info ->
+      let typed_implementation = Compile_common.typecheck_impl info items in
+      let@ _ = Globals.Timing.(time overall_all) in
+      process_ocaml_structure typed_implementation.structure
+    end
+  with
+    | exn -> Format.printf "%a\n" Location.report_exception exn
       
 
 let mergeTopLevelCodeIntoOneMain (prog : intermediate list) : intermediate list =
@@ -1046,10 +1061,12 @@ let mergeTopLevelCodeIntoOneMain (prog : intermediate list) : intermediate list 
   let nonMain, mainMeth = helper prog in
   let rec compose (main_segments: core_lang list) : core_lang =
     match main_segments with
-    | [] -> CValue UNIT
+    | [] -> {core_desc = CValue ({term_desc = Const ValUnit; term_type = Unit}); core_type = Unit}
     | [x] -> x
-    | x :: xs -> CLet ("_", x, compose xs)
-  in
+    | x :: xs -> 
+        let remaining = compose xs in
+        {core_desc = CLet ("_", x, compose xs); core_type = remaining.core_type}
+ in
   nonMain @ [(Meth ("main", [], None, compose mainMeth, [], None ))]
 
 
@@ -1058,7 +1075,7 @@ let run_racket_string_ line =
   let open Racketfrontend in
   (* DARIUS: parsing should return a list of intermediate *)
   let core_program : intermediate list =
-    Racket_parser.prog Racket_lexer.token (Lexing.from_string line)
+    Racket_parser.prog Racket_lexer.token (Lexing.from_string line) |> List.map Fill_type.fill_untyped_intermediate
   in
   let core_program : intermediate list = mergeTopLevelCodeIntoOneMain core_program in
   (* Format.printf "parsed racket program@.\n%s" (string_of_intermediate_list core_program); *)

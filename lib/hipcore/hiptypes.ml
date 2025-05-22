@@ -118,10 +118,12 @@ and disj_spec = spec list
 type typ =
   | Unit
   | List_int
+  | TConstr of string * typ list
   | Int
   | Bool
   | TyString
   | Lamb
+  (* TODO do we need a Poly variant for generics? *)
   | Arrow of typ * typ
   | TVar of string (* this is last, so > concrete types *)
 [@@deriving show { with_path = false }, ord]
@@ -167,8 +169,9 @@ module TEnv = struct
   type t = typ U.elem TMap.t ref
 
   let create () =
-    (* TMap.empty *)
-    TMap.of_seq (List.to_seq (List.map (fun t -> t, U.make t) concrete_types))
+    (* TODO this may break, since we now need to lazily create entries for concrete
+    types as they are added to the list. *)
+    TMap.empty
 
   let get_or_create m k =
     match TMap.find_opt k !m with

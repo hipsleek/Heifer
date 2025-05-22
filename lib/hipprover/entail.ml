@@ -1,6 +1,7 @@
 open Hipcore
 open Hiptypes
-open Pretty
+open Typedhip
+open Pretty_typed
 open Infer_types
 open Normalize
 open Subst
@@ -11,18 +12,18 @@ let unfolding_bound = 1
 type fvenv = Forward_rules.fvenv
 
 let with_pure pi ((p, h) : state) : state = (conj [p; pi], h)
-let rename_exists_spec sp = List.hd (Forward_rules.renamingexistientalVar [sp])
+let rename_exists_spec sp = List.hd (Forward_rules.renamingexistientalVar [Untypehip.untype_spec sp]) |> Fill_type.fill_untyped_spec
 
 let rename_exists_lemma (lem : lemma) : lemma =
   { lem with l_right = rename_exists_spec lem.l_right }
 
 let rename_exists_pred (pred : pred_def) : pred_def =
-  { pred with p_body = Forward_rules.renamingexistientalVar pred.p_body }
+  { pred with p_body = Forward_rules.renamingexistientalVar (Untypehip.untype_disj_spec pred.p_body) |> Fill_type.fill_untyped_disj_spec}
 
 (** Matches lemma args (which may be params) and concrete args in the expr to be rewritten. If an arg is a param, adds to the returned substitution, otherwise checks if they are equal. Returns None if unification fails and the lemma shouldn't be applied, otherwise returns bindings. *)
 let unify_lem_lhs_args params la a =
   debug ~at:4 ~title:"unify_lem_lhs_args" "%s\n%s\n%s"
-    (string_of_list Fun.id params)
+    (string_of_list string_of_binder params)
     (string_of_list string_of_term la)
     (string_of_list string_of_term a);
   let exception Unification_failure in
@@ -31,10 +32,10 @@ let unify_lem_lhs_args params la a =
       (List.map2 pair la a |> List.fold_left
          (fun t (la, a) ->
            let is_param =
-             match la with Var v when List.mem v params -> true | _ -> false
+             match la.term_desc with Var v when List.mem v (List.map ident_of_binder params) -> true | _ -> false
            in
-           match (is_param, la) with
-           | true, Var la -> (la, a) :: t
+           match (is_param, la.term_desc) with
+           | true, Var _ -> (binder_of_var la, a) :: t
            | false, _ when la = a -> t
            | false, _ -> raise_notrace Unification_failure
            | _, _ -> failwith "invalid state")
@@ -67,12 +68,12 @@ let apply_lemma : lemma -> spec -> spec option =
         when (not ok) (* only apply once *) && f = lf ->
         (match unify_lem_lhs_args lem.l_params largs (args @ [r]) with
         | Some bs ->
-          let inst_lem_rhs = List.map (instantiateStages bs) lem.l_right in
+          let inst_lem_rhs = List.map (instantiateStages (Untypehip.untype_bindings bs)) (Untypehip.untype_spec lem.l_right) |> Fill_type.fill_untyped_spec in
           let extra_ret_equality =
             (* TODO *)
             try
-              let rhs_ret = Forward_rules.retrieve_return_value inst_lem_rhs in
-              Atomic (EQ, r, rhs_ret)
+              let rhs_ret = Forward_rules.retrieve_return_value (Untypehip.untype_spec inst_lem_rhs) in
+              Atomic (EQ, r, Fill_type.fill_untyped_term rhs_ret)
             with _ -> True
           in
           loop true
@@ -103,15 +104,15 @@ let apply_one_lemma : lemma list -> spec -> spec * lemma option =
 module Heap = struct
   let normalize : state -> state =
    fun (p, h) ->
-    let h = simplify_heap h in
-    (simplify_pure p, h)
+    let h = simplify_heap (Untypehip.untype_kappa h) in
+    (simplify_pure (Untypehip.untype_pi p) |> Fill_type.fill_untyped_pi, h |> Fill_type.fill_untyped_kappa)
 
   (** given a nonempty heap formula, splits it into a points-to expression and another heap formula *)
-  let rec split_one : kappa -> ((string * term) * kappa) option =
+  let rec split_one : kappa -> ((binder * term) * kappa) option =
    fun h ->
     match h with
     | EmptyHeap -> None
-    | PointsTo (x, v) -> Some ((x, v), EmptyHeap)
+    | PointsTo (x, v) -> Some (((x, TConstr ("ref", [v.term_type])), v), EmptyHeap)
     | SepConj (a, b) -> begin
       match split_one a with
       | None -> split_one b
@@ -119,11 +120,11 @@ module Heap = struct
     end
 
   (** like split_one, but searches for a particular points-to *)
-  let rec split_find : string -> kappa -> (term * kappa) option =
+  let rec split_find : binder -> kappa -> (term * kappa) option =
    fun n h ->
     match h with
     | EmptyHeap -> None
-    | PointsTo (x, v) when x = n -> Some (v, EmptyHeap)
+    | PointsTo (x, v) when x = (ident_of_binder n) -> Some (v, EmptyHeap)
     | PointsTo _ -> None
     | SepConj (a, b) -> begin
       match split_find n a with
@@ -137,8 +138,8 @@ module Heap = struct
       (fun x ->
         List.filter_map
           (fun y ->
-            if String.equal x y then None
-            else Some (Not (Atomic (EQ, Var x, Var y))))
+            if x = y then None
+            else Some (Not (Atomic (EQ, var_from_binder x, var_from_binder y))))
           v2)
       v1
     |> conj
@@ -148,7 +149,7 @@ module Heap = struct
     let rec run h =
       match h with
       | EmptyHeap -> (True, [])
-      | PointsTo (x, _t) -> (Atomic (GT, Var x, Num 0), [x])
+      | PointsTo (x, _t) -> (Atomic (GT, {term_desc = Var x; term_type = Int}, {term_desc = Const (Num 0); term_type = Int}), [])
       | SepConj (a, b) ->
         let a, v1 = run a in
         let b, v2 = run b in
@@ -160,29 +161,31 @@ end
 
 let check_staged_entail : spec -> spec -> spec option =
  fun n1 n2 ->
-  let norm = normalize_spec (n1 @ n2) in
-  Some (normalisedStagedSpec2Spec norm)
+  let norm = normalize_spec (n1 @ n2 |> Untypehip.untype_spec) in
+  Some (normalisedStagedSpec2Spec norm) |> Option.map Fill_type.fill_untyped_spec
 
-let instantiate_state bindings (p, h) =
+let instantiate_state bindings state =
+  let bindings = Untypehip.untype_bindings bindings in
+  let (p, h) = Untypehip.untype_state state in
   (instantiatePure bindings p, instantiateHeap bindings h)
 
 let instantiate_existentials_effect_stage bindings =
   let names = List.map fst bindings in
   fun eff ->
-    {
+   {
       eff with
       e_evars = List.filter (fun v -> not (List.mem v names)) eff.e_evars;
-      e_pre = instantiate_state bindings eff.e_pre;
-      e_post = instantiate_state bindings eff.e_post;
+      e_pre = instantiate_state bindings eff.e_pre |> Fill_type.fill_untyped_state;
+      e_post = instantiate_state bindings eff.e_post |> Fill_type.fill_untyped_state;
       e_constr =
         ( fst eff.e_constr,
-          List.map (instantiateTerms bindings) (snd eff.e_constr) );
-      e_ret = instantiateTerms bindings eff.e_ret;
+          (List.map (instantiateTerms (Untypehip.untype_bindings bindings))) (snd eff.e_constr |> List.map Untypehip.untype_term) |> List.map Fill_type.fill_untyped_term);
+      e_ret = instantiateTerms (Untypehip.untype_bindings bindings) (Untypehip.untype_term eff.e_ret) |> Fill_type.fill_untyped_term;
     }
 
 (** actually instantiates existentials, vs what the forward rules version does *)
 let instantiate_existentials :
-    (string * term) list -> normalisedStagedSpec -> normalisedStagedSpec =
+    (binder * term) list -> normalisedStagedSpec -> normalisedStagedSpec =
  fun bindings (efs, ns) ->
   let names = List.map fst bindings in
   let (efs:effectStage list) = 
@@ -196,14 +199,14 @@ let instantiate_existentials :
   let efs1 = List.map (instantiate_existentials_effect_stage bindings) efs in
   let ns1 =
     let vs, pre, post = ns in
-    ( List.filter (fun v -> not (List.mem v names)) vs,
+    ( List.filter (fun v -> not (List.mem v names)) vs |> List.map ident_of_binder,
       instantiate_state bindings pre,
-      instantiate_state bindings post )
+      instantiate_state bindings post)
   in
-  (List.map (fun a -> EffHOStage a) efs1, ns1)
+  (List.map (fun a -> EffHOStage a) efs1, Fill_type.fill_untyped_normal_stage ns1)
 
 let freshen_existentials vs state =
-  let vars_fresh = List.map (fun v -> (v, Var (verifier_getAfreeVar v))) vs in
+  let vars_fresh = List.map (fun v -> (v, (verifier_getAfreeVar v |> var_from_binder))) vs in
   (vars_fresh, instantiate_state vars_fresh state)
 
 (** Given two heap formulae, matches points-to predicates.
@@ -216,7 +219,7 @@ let freshen_existentials vs state =
 *)
 let rec check_qf :
     string ->
-    string list ->
+    binder list ->
     state ->
     state ->
     (pi * pi * kappa -> 'a Search.t) ->
@@ -240,28 +243,28 @@ let rec check_qf :
     (* we know h2 is non-empty *)
     match Heap.split_one h2 with
     | Some ((x, v), h2') when List.mem x vs ->
-      debug ~at:4 ~title:(Format.asprintf "existential location %s" x) "";
-      let left_heap = list_of_heap h1 in
+      debug ~at:4 ~title:(Format.asprintf "existential location %s" (string_of_binder x)) "";
+      let left_heap = list_of_heap (Untypehip.untype_kappa h1) |> Fill_type.fill_untyped_bindings in
       (match left_heap with
       | [] -> fail
       | _ :: _ ->
         (* x is bound and could potentially be instantiated with anything on the right side, so try everything *)
         let r1 =
           any
-            ~to_s:(fun (a, _) -> string_of_pair Fun.id string_of_term a)
+            ~to_s:(fun (a, _) -> string_of_pair string_of_binder string_of_term a)
             ~name:"ent-match-any"
             (left_heap |> List.map (fun a -> (a, (x, v))))
             (fun ((x1, v1), _) ->
               let _v2, h1' = Heap.split_find x1 h1 |> Option.get in
               (* ptr equality *)
-              let _ptr_eq = Atomic (EQ, Var x1, Var x) in
+              let _ptr_eq = Atomic (EQ, var_from_binder x1, var_from_binder x) in
               let triv = Atomic (EQ, v, v1) in
               (* matching ptr values are added as an eq to the right side, since we don't have a term := term substitution function *)
               check_qf id vs (conj [p1], h1') (conj [p2; triv], h2') k)
         in
         r1)
     | Some ((x, v), h2') -> begin
-      debug ~at:4 ~title:(Format.asprintf "free location %s" x) "";
+      debug ~at:4 ~title:(Format.asprintf "free location %s" (string_of_binder x)) "";
       (* x is free. match against h1 exactly *)
       match Heap.split_find x h1 with
       | Some (v1, h1') -> begin
@@ -296,7 +299,7 @@ let instantiate_pred : pred_def -> term list -> term -> pred_def =
   let bs = (ret_param, ret) :: bindFormalNActual (*List.map2 (fun a b -> (a, b)) *) params args in
   let p_body =
     let bbody =
-      pred.p_body |> List.map (fun b -> List.map (instantiateStages bs) b)
+      (Untypehip.untype_disj_spec pred.p_body) |> List.map (fun b -> List.map (instantiateStages (Untypehip.untype_bindings bs)) b) |> Fill_type.fill_untyped_disj_spec
     in
     (* Format.printf "bs %s@."
          (string_of_list (string_of_pair Fun.id string_of_term) bs);
@@ -356,7 +359,8 @@ let unfold_predicate_norm :
     string -> pred_def -> normalisedStagedSpec -> normalisedStagedSpec list =
  fun which pred sp ->
   List.map normalize_spec
-    (unfold_predicate_spec which pred (normalisedStagedSpec2Spec sp))
+    (unfold_predicate_spec which pred (normalisedStagedSpec2Spec (Untypehip.untype_normalized_staged_spec sp) |> Fill_type.fill_untyped_spec) |> List.map Untypehip.untype_spec)
+  |> List.map Fill_type.fill_normalized_staged_spec
 
 (** proof context *)
 type pctx = {
@@ -366,13 +370,13 @@ type pctx = {
   (* additional predicates due to local lambda definitions *)
   lambda_preds : pred_def SMap.t;
   (* all quantified variables in this formula *)
-  q_vars : string list;
+  q_vars : binder list;
   (* predicates which have been unfolded, used as an approximation of progress (in the cyclic proof sense) *)
   unfolded : (string * [ `Left | `Right ]) list;
   (* lemmas applied *)
   applied : string list;
   (* subsumption proof obligations *)
-  subsumption_obl : (string list * (disj_spec * disj_spec)) list;
+  subsumption_obl : (binder list * (disj_spec * disj_spec)) list;
 }
 
 let string_of_pctx ctx =
@@ -387,7 +391,7 @@ let string_of_pctx ctx =
     (string_of_smap string_of_lemma ctx.lems)
     (string_of_smap string_of_pred ctx.preds)
     (string_of_smap string_of_pred ctx.lambda_preds)
-    (string_of_list Fun.id ctx.q_vars)
+    (string_of_list string_of_binder ctx.q_vars)
     (string_of_list
        (string_of_pair Fun.id (function `Left -> "L" | `Right -> "R"))
        ctx.unfolded)
@@ -419,16 +423,17 @@ let collect_local_lambda_definitions state ctx =
   res
 
 let extract_subsumption_proof_obligations ctx right =
-  let sub = find_subsumptions#visit_pi () right in
-  let right1 = (remove_subsumptions sub)#visit_pi () right in
+  let sub = find_subsumptions#visit_pi () right 
+    |> List.map (fun (lhs, rhs) -> Fill_type.(fill_untyped_term lhs, fill_untyped_term rhs)) in
+  let right1 = (remove_subsumptions (List.map (fun (lhs, rhs) -> Untypehip.(untype_term lhs, untype_term rhs)) sub))#visit_pi () right in
   let sub = List.map (fun (t1, t2) ->
-    match t1, t2 with
+    match t1.term_desc, t2.term_desc with
     | TLambda (_, ap, _, _), TLambda (_, bp, _, _) when List.length ap <> List.length bp ->
-      failwith (Format.asprintf "|%s| != |%s|" (string_of_list Fun.id ap) (string_of_list Fun.id bp));
+      failwith (Format.asprintf "|%s| != |%s|" (string_of_list string_of_binder ap) (string_of_list string_of_binder bp));
     | TLambda (_, ap, a, _), TLambda (_, bp, b, _) ->
       let fv = List.map (fun _ -> verifier_getAfreeVar "v") ap in
-      let a1 = instantiateSpecList (List.map2 (fun v x -> v, Var x) ap fv) a in
-      let b1 = instantiateSpecList (List.map2 (fun v x -> v, Var x) bp fv) b in
+      let a1 = instantiateSpecList (List.map2 (fun v x -> ident_of_binder v, Untypehip.untype_term (var_from_binder x)) ap fv) (Untypehip.untype_disj_spec a) |> Fill_type.fill_untyped_disj_spec in
+      let b1 = instantiateSpecList (List.map2 (fun v x -> ident_of_binder v, Untypehip.untype_term (var_from_binder x)) bp fv) (Untypehip.untype_disj_spec b) |> Fill_type.fill_untyped_disj_spec in
       fv, (a1, b1)
     | _ -> failwith (Format.asprintf "unable to check obligation %s <: %s" (string_of_term t1) (string_of_term t2))) sub
   in
@@ -514,8 +519,8 @@ let rec check_staged_subsumption_stagewise :
     let src1, _ = tc1.tc_constr in
     let src2, _ = tc2.tc_constr in
 
-    let es1, ns1 = normalize_spec src1 in
-    let es2, ns2 = normalize_spec src2 in
+    let es1, ns1 = normalize_spec (Untypehip.untype_spec src1) |> Fill_type.fill_normalized_staged_spec in
+    let es2, ns2 = normalize_spec (Untypehip.untype_spec src2) |> Fill_type.fill_normalized_staged_spec in
     check_staged_subsumption_stagewise ctx 0 True (es1, ns1) (es2, ns2) 
     (* Ask Darius *)
     
@@ -629,7 +634,7 @@ and try_other_measures :
           |> List.map snd
         in
         let s1_1, applied =
-          apply_one_lemma eligible (normalisedStagedSpec2Spec s1)
+          apply_one_lemma eligible (Fill_type.fill_untyped_spec (normalisedStagedSpec2Spec (Untypehip.untype_normalized_staged_spec s1)))
         in
         applied
         |> Option.iter (fun l ->
@@ -642,7 +647,7 @@ and try_other_measures :
         | Some app ->
           check_staged_subsumption_stagewise
             { ctx with applied = app.l_name :: ctx.applied }
-            i assump (normalize_spec s1_1) s2
+            i assump (normalize_spec (Untypehip.untype_spec s1_1) |> Fill_type.fill_normalized_staged_spec) s2
         | None ->
           (* no predicates to try unfolding *)
           let pp c =
@@ -685,8 +690,8 @@ and stage_subsumes :
   let* pre_residue, tenv, ctx =
     let left = conj [assump; pre_l] in
     let right = pre_r in
-    let left = Normalize.simplify_pure left in
-    let right = Normalize.simplify_pure right in
+    let left = Normalize.simplify_pure (Untypehip.untype_pi left) |> Fill_type.fill_untyped_pi in
+    let right = Normalize.simplify_pure (Untypehip.untype_pi right) |> Fill_type.fill_untyped_pi in
     let@ _ =
       Debug.span (fun r ->
           debug ~at:2
@@ -699,18 +704,18 @@ and stage_subsumes :
     let tenv =
       (* handle the environment manually as it's shared between both sides *)
       let env = create_abs_env () in
-      let env = infer_types_pi env left in
-      let env = infer_types_pi env right in
+      let env = infer_types_pi env (Untypehip.untype_pi left) in
+      let env = infer_types_pi env (Untypehip.untype_pi right) in
       env
     in
-    let right, ctx = extract_subsumption_proof_obligations ctx right in
+    let right, ctx = extract_subsumption_proof_obligations ctx (Untypehip.untype_pi right) in
     (* debug ~at:1
       ~title:(Format.asprintf "VC for precondition of %s" what)
       "%s => %s%s" (string_of_pi left)
       (string_of_existentials vs1)
       (string_of_pi right); *)
     let pre_res =
-      Provers.entails_exists (concrete_type_env tenv) left vs1 right
+      Provers.entails_exists (concrete_type_env tenv) (Untypehip.untype_pi left) (List.map ident_of_binder vs1) right
     in
     (* debug ~at:1 ~title:(Format.asprintf "valid?") "%s" (string_of_res pre_res); *)
     (* TODO why do we need pre_r here? as pre_l has just been proven to subsume pre_r *)
@@ -718,8 +723,8 @@ and stage_subsumes :
     else None
   in
   (* covariance *)
-  let new_univ = SSet.union (used_vars_pi pre_l) (used_vars_pi pre_r) in
-  let vs22 = List.filter (fun v -> not (SSet.mem v new_univ)) vs2 in
+  let new_univ = SSet.union (used_vars_pi (Untypehip.untype_pi pre_l)) (used_vars_pi (Untypehip.untype_pi pre_r)) in
+  let vs22 = List.filter (fun v -> not (SSet.mem v new_univ)) (List.map ident_of_binder vs2) |> List.map binder_of_ident in
   let conj_state (p1, h1) (p2, h2) = (And (p1, p2), SepConj (h1, h2)) in
   let pure_pre_residue = fst pre_residue in
   let@ post_l, post_r, _post_resi =
@@ -732,8 +737,8 @@ and stage_subsumes :
     (* let right = conj [post_r; r] in *)
     let left = conj [fst pre_residue; post_l] in
     let right = conj [post_r] in
-    let left = Normalize.simplify_pure left in
-    let right = Normalize.simplify_pure right in
+    let left = Normalize.simplify_pure (Untypehip.untype_pi left) |> Fill_type.fill_untyped_pi in
+    let right = Normalize.simplify_pure (Untypehip.untype_pi right) |> Fill_type.fill_untyped_pi in
     let@ _ =
       Debug.span (fun r ->
           debug ~at:2
@@ -747,7 +752,7 @@ and stage_subsumes :
       (* let env = infer_types_pi tenv left in *)
       (* let env = infer_types_pi env right in *)
       (* share things like res *)
-      let env = infer_types_pi tenv (And (left, right)) in
+      let env = infer_types_pi tenv (And ((Untypehip.untype_pi left), (Untypehip.untype_pi right))) in
       env
     in
     (* Format.printf "1@."; *)
@@ -768,14 +773,15 @@ and stage_subsumes :
           "%s => %s%s\n%s" (string_of_pi True) "" (string_of_pi left)
           (string_of_res false_not_derived)
     in *)
-    let right, ctx = extract_subsumption_proof_obligations ctx right in
+    let right, ctx = extract_subsumption_proof_obligations ctx (Untypehip.untype_pi right) in
+    let right = Fill_type.fill_untyped_pi right in
     (* debug ~at:1
       ~title:(Format.asprintf "VC for postcondition of %s" what)
       "%s => %s%s" (string_of_pi left)
       (string_of_existentials vs22)
       (string_of_pi right); *)
     let post_result =
-      Provers.entails_exists (concrete_type_env tenv) left vs22 right
+      Provers.entails_exists (concrete_type_env tenv) (Untypehip.untype_pi left) (List.map ident_of_binder vs22) (Untypehip.untype_pi right)
     in
     (*print_endline ((string_of_pi left) ^ " |- " ^ (string_of_pi right));
     print_endline ("post_result is done ");
@@ -783,9 +789,10 @@ and stage_subsumes :
     *)
 
     (* debug ~at:1 ~title:(Format.asprintf "valid?") "%s" (string_of_res post_result); *)
+    (* TODO ensure we are filling out f with the correct type *)
     let f = verifier_getAfreeVar "" in
-    let left = instantiatePure [("res", Var f)] left in
-    let right = instantiatePure [("res", Var f)] right in
+    let left = instantiatePure [("res", var_from_binder f |> Untypehip.untype_term)] (Untypehip.untype_pi left) |> Fill_type.fill_untyped_pi in
+    let right = instantiatePure [("res", var_from_binder f |> Untypehip.untype_term)] (Untypehip.untype_pi right) |> Fill_type.fill_untyped_pi in
     (* let left = fst (split_res left) in *)
     (* let right = fst (split_res left) in *)
     if post_result then Some (conj [left; right; pure_pre_residue], ctx) else None
@@ -846,10 +853,10 @@ let create_induction_hypothesis params ds1 ds2 =
   in
   match (ds1, ds2) with
   | [s1], [s2] ->
-    let ns1 = s1 |> normalize_spec in
-    let used_l = used_vars ns1 in
+    let ns1 = s1 |> normalize_spec |> Fill_type.fill_normalized_staged_spec in
+    let used_l = used_vars (Untypehip.untype_normalized_staged_spec ns1) in
     (* heuristic. all parameters must be used meaningfully, otherwise there's nothing to do induction on *)
-    (match List.for_all (fun p -> SSet.mem p used_l) params with
+    (match List.for_all (fun p -> SSet.mem (ident_of_binder p) used_l) params with
     | true ->
       (match ns1 with
       | [EffHOStage eff], (_, (True, EmptyHeap), (post, EmptyHeap))
@@ -857,11 +864,12 @@ let create_induction_hypothesis params ds1 ds2 =
         (* when r = eff.e_ret *)
         (* TODO existentials are ignored...? *)
         let f, a = eff.e_constr in
+        let res = binder_of_ident "res" in
         let ih =
           {
             l_name = "IH";
-            l_params = params @ ["res"];
-            l_left = (f, a @ [Var "res"]);
+            l_params = params @ [res];
+            l_left = (f, a @ [var_from_binder res]);
             l_right = s2;
           }
         in
@@ -871,7 +879,7 @@ let create_induction_hypothesis params ds1 ds2 =
       | _ -> fail "lhs not just a single stage")
     | false ->
       fail "not all params used by lhs of entailment: params %s, %s used"
-        (string_of_list Fun.id params)
+        (string_of_list string_of_binder params)
         (string_of_sset used_l))
   | _ -> fail "left side disjunctive"
 
@@ -881,7 +889,7 @@ let create_induction_hypothesis params ds1 ds2 =
 *)
 let check_staged_subsumption_disj :
     string ->
-    string list ->
+    binder list ->
     tactic list ->
     lemma SMap.t ->
     pred_def SMap.t ->
@@ -893,7 +901,7 @@ let check_staged_subsumption_disj :
   debug ~at:1
     ~title:(Format.asprintf "disj subsumption: %s" mname)
     "%s\n<:\n%s" (string_of_disj_spec ds1) (string_of_disj_spec ds2);
-  let ih = create_induction_hypothesis params ds1 ds2 in
+  let ih = create_induction_hypothesis params (Untypehip.untype_disj_spec ds1) ds2 in
   let lems =
     match ih with None -> lems | Some ih -> SMap.add ih.l_name ih lems
   in
@@ -902,22 +910,24 @@ let check_staged_subsumption_disj :
   let@ s1, ctx = Search.all_state ~name:"disj lhs" ~to_s:string_of_spec ~init:ctx ~pivot:(fun c -> { ctx with subsumption_obl = c.subsumption_obl }) ds1 in
   let@ s2 = Search.any ~name:"disj rhs" ~to_s:string_of_spec ds2 in
   (* S1 <: S3 *)
-  let es1, ns1 = normalize_spec s1 in
-  let es2, ns2 = normalize_spec s2 in
-  let q_vars = getExistentialVar (es1, ns1) @ getExistentialVar (es2, ns2) in
+  let es1, ns1 = normalize_spec (Untypehip.untype_spec s1) |> Fill_type.fill_normalized_staged_spec in
+  let es2, ns2 = normalize_spec (Untypehip.untype_spec s2) |> Fill_type.fill_normalized_staged_spec in
+  let q_vars = getExistentialVar (Untypehip.untype_normalized_staged_spec (es1, ns1)) @ getExistentialVar (Untypehip.untype_normalized_staged_spec (es2, ns2)) |> List.map binder_of_ident in
   let ctx = { ctx with q_vars } in
   check_staged_subsumption_stagewise ctx 0 True (es1, ns1) (es2, ns2)
 
 let derive_predicate m_name m_params disj =
-  let norm = List.map normalize_spec disj in
+  let norm = List.map normalize_spec disj |> List.map Fill_type.fill_normalized_staged_spec in
   (* change the last norm stage so it uses res and has an equality constraint *)
   let new_spec =
-    List.map (fun (effs, (vs, pre, (p, h))) -> (effs, (vs, pre, (p, h)))) norm
+    List.map (fun normed -> normed) norm
+    |> List.map Untypehip.untype_normalized_staged_spec
     |> List.map normalisedStagedSpec2Spec
+    |> List.map Fill_type.fill_untyped_spec
   in
   let res = {
     p_name = m_name;
-    p_params = m_params @ ["res"];
+    p_params = m_params @ [binder_of_ident "res"];
     p_body = new_spec;
     p_rec = (find_rec m_name)#visit_disj_spec () new_spec
   } (* ASK Darius *)

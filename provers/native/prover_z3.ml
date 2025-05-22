@@ -66,7 +66,8 @@ let rec term_to_expr env ctx t : Z3.Expr.expr =
         Z3.Expr.mk_const_s ctx v list_int
       | Bool -> Z3.Boolean.mk_const_s ctx v
       | TyString -> Z3.Expr.mk_const_s ctx v (Z3.Seq.mk_string_sort ctx)
-      | Arrow (_, _) -> failwith "arrow not implemented"))
+      | Arrow (_, _) -> failwith "arrow not implemented"
+      | TConstr _ -> failwith "general ADTs not implemented"))
   | UNIT ->
     let mk = Z3.Tuple.get_mk_decl (unit_sort ctx) in 
     Z3.Expr.mk_app ctx mk []
