@@ -1,4 +1,4 @@
-open Hipcore
+(* open Hipcore
 open Hiptypes
 open Pretty
 open Debug
@@ -218,4 +218,4 @@ let rec infer_types_pi env pi =
     env
   | Not a -> infer_types_pi env a
   | Predicate (_, _) -> env
-  | Subsumption (_, _) -> env
+  | Subsumption (_, _) -> env *)

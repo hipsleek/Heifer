@@ -1,4 +1,4 @@
-open Hipcore
+(* open Hipcore
 open Hiptypes
 open Pretty
 open Subst
@@ -1537,4 +1537,4 @@ let removeExist (specs : spec list) str : spec list =
     | _ -> stage
   in
   let helper (spec : spec) : spec = List.map (fun a -> aux a) spec in
-  List.map (fun a -> helper a) specs
+  List.map (fun a -> helper a) specs *)

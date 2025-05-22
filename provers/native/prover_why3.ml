@@ -1,4 +1,4 @@
-module Hipdebug = Debug
+(* module Hipdebug = Debug
 open Why3
 module Debug = Hipdebug
 
@@ -1030,4 +1030,4 @@ let entails_exists tenv left ex right =
           (* Term.t_exists_close *)
           (* (SMap.bindings env.exists |> List.map snd) *)
           (* [] () *)
-          pi_to_why3 env right ))
+          pi_to_why3 env right )) *)

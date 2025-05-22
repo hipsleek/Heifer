@@ -2,7 +2,7 @@
 ----------------------PRINTING------------------------
 ----------------------------------------------------*)
 
-open Hiptypes
+(* open Hiptypes
 
 let is_alpha = function 'a' .. 'z' | 'A' .. 'Z' -> true | _ -> false
 
@@ -707,4 +707,4 @@ let retriveFormalArg arg :string =
   | Var ret -> ret
   | _ -> 
         print_endline (string_of_term arg);
-        failwith "effect return is not var 1"
+        failwith "effect return is not var 1" *)

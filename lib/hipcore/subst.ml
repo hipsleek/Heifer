@@ -1,4 +1,4 @@
-open Hiptypes
+(* open Hiptypes
 open Pretty
 
 let rec findNewName str vb_li =
@@ -365,4 +365,4 @@ let needs_why3 =
 
     method! visit_TApp () _f _a =
       true
-  end
+  end *)

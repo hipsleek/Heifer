@@ -1,4 +1,4 @@
-
+(* 
 open Hipcore
 open Hiptypes
 open Pretty
@@ -1269,4 +1269,4 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
   in
   debug ~at:2 ~title:"forward rules" "{%s}\n%s\n{%s}" (string_of_disj_spec history) (string_of_core_lang expr) (string_of_disj_spec res);
   res, env
-
+ *)

@@ -1,4 +1,4 @@
-open Hipcore
+(* open Hipcore
 open Hiptypes
 open Infer_types
 open Pretty
@@ -21,4 +21,4 @@ let is_valid pi1 ?(ex=[]) pi2 =
           "%s => %s\n%s" (string_of_pi pi1) (string_of_pi pi2)
           (string_of_result string_of_res r))
   in
-  Provers.entails_exists env pi1 ex pi2
+  Provers.entails_exists env pi1 ex pi2 *)

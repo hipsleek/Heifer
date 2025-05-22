@@ -1,4 +1,4 @@
-open Hipcore
+(* open Hipcore
 open Debug
 open Hiptypes
 open Pretty
@@ -418,4 +418,4 @@ let counter : int ref = ref 0 *)
     let _ = counter := !counter + 1 in
     let re = check env pi in
     let () = historyTable := (hash_pi pi, re) :: !historyTable in
-    re *)
+    re *) *)

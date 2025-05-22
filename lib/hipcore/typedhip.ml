@@ -1,9 +1,10 @@
 
 [@@@warning "-17"]
-type bin_rel_op = [%import: Hiptypes.bin_op]
-and binder = string * typ
+(* can also appear in pi *)
+type bin_rel_op = [%import: Hiptypes.bin_rel_op]
+and binder = string * typ option
 and bin_term_op = Plus | Minus | SConcat | TAnd | TPower | TTimes | TDiv | TOr | TCons
-and const = 
+and const =
   | ValUnit
   | Num of int
   | TStr of string
@@ -13,55 +14,57 @@ and const =
 and term_desc =
   | Const of const
   | Var of string
-  | Rel of bin_rel_op * term * term 
+  | Rel of bin_rel_op * term * term
   | BinOp of bin_term_op * term * term
   | TNot of term
   | TApp of string * term list
   (* the string is just an identifier for uniqueness.
      the last param is the name of the result *)
-  | TLambda of string * binder list * disj_spec * core_lang option
+  (* The string seems to be redundant here and I think we should remove it if possible *)
+  | TLambda of string * binder list * staged_spec option * core_lang option
   (* unused *)
   | TList of term list
   | TTuple of term list
 and term =
   {
     term_desc: term_desc;
-    term_type: typ
+    term_type: typ option
   }
+
 (* (Label n) _k (*@ spec @*) -> e *)
-and core_handler_ops = (string * string option * disj_spec option * core_lang) list
-
+and core_handler_ops = (string * string option * staged_spec option * core_lang) list
 (* x :: xs -> e is represented as ("::", [x, xs], e) *)
+(* effect work; let's group them into a single blob *)
 and constr_cases = (string * binder list * core_lang) list
-
-and tryCatchLemma = (spec * disj_spec option * (*(handlingcases) **) disj_spec) (*tcl_head, tcl_handledCont, tcl_summary*)
-
+and tryCatchLemma = (staged_spec * staged_spec option * (*(handlingcases) **) staged_spec) (*tcl_head, tcl_handledCont, tcl_summary*)
 and handler_type = [%import : Hiptypes.handler_type]
 
+and core_value = term
 and core_lang_desc = 
-      | CValue of core_value 
-      | CLet of string * core_lang * core_lang
-      | CIfElse of (*core_value*) pi * core_lang * core_lang
-      | CFunCall of string * (core_value) list
-      | CWrite of string * core_value  
-      | CRef of core_value
-      | CRead of string 
-      | CAssert of pi * kappa 
-      | CPerform of string * core_value option
-      (* match e with | v -> e1 | eff case... | constr case... *)
-      | CMatch of handler_type * tryCatchLemma option * core_lang * (binder * core_lang) option * core_handler_ops * constr_cases
-      | CResume of core_value list
-      | CLambda of binder list * disj_spec option * core_lang
-      | CShift of bool * binder * core_lang (* bool=true is for shift, and bool=false for shift0 *)
-      | CReset of core_lang
+  | CValue of core_value 
+  | CLet of binder * core_lang * core_lang
+  | CIfElse of (*core_value*) pi * core_lang * core_lang
+  | CFunCall of string * (core_value) list
+  | CWrite of string * core_value  
+  | CRef of core_value
+  | CRead of string
+  | CAssert of pi * kappa
+  (* effect start *)
+  | CPerform of string * core_value option
+  (* match e with | v -> e1 | eff case... | constr case... *)
+  | CMatch of handler_type * tryCatchLemma option * core_lang * (binder * core_lang) option * core_handler_ops * constr_cases
+  | CResume of core_value list
+  (* effect end *)
+  | CLambda of binder list * staged_spec option * core_lang
+  | CShift of bool * binder * core_lang (* bool=true is for shift, and bool=false for shift0 *)
+  | CReset of core_lang
 
 and core_lang =
   {core_desc: core_lang_desc;
-   core_type: typ}
-and core_value = term
+   core_type: typ option}
 (* an occurrence of an effect *)
 and instant = string * term list
-and pi = 
+and pi =
   | True
   | False
   | Atomic of bin_rel_op * term * term
@@ -74,7 +77,7 @@ and pi =
 
 and kappa = 
   | EmptyHeap
-    (* x -> -   means x is allocated, and - is encoded as Var "_" *)
+  (* x -> -   means x is allocated, and - is encoded as Var "_" *)
   (* TODO should PointsTo use binders instead of strings...? *)
   | PointsTo of (string * term)
   | SepConj of kappa * kappa
@@ -83,30 +86,33 @@ and kappa =
 (* a formula which describes a program state *)
 and state = pi * kappa
 
+(* effect start *)
 (* v->phi and (Eff arg?-> phi)* *)
-and handlingcases = (string * disj_spec) * ((string * string option * disj_spec) list)
-and trycatch = (spec * handlingcases)
+and handlingcases = (string * staged_spec) * ((string * string option * staged_spec) list)
+and trycatch = (staged_spec * handlingcases)
+(* effect end *)
 
+and staged_spec = 
+  | Exists of string * staged_spec
+  | Require of pi * kappa
+  (* ens H /\ P, where P may contain contraints on res *)
+  | NormalReturn of pi * kappa
+  (* higher-order functions: H /\ P /\ f$(...args, term) *)
+  (* this constructor is also used for inductive predicate applications *)
+  (* f$(x, y) is HigherOrder(..., ..., (f, [x]), y) *)
+  | HigherOrder of string * term list
+  | Shift of bool * string * staged_spec (* see CShift for meaning of bool *)
+  | Reset of staged_spec
+  | Sequence of staged_spec * staged_spec
+  | Bind of string * staged_spec * staged_spec
+  | Disjunction of staged_spec * staged_spec
+  (* effects: H /\ P /\ E(...args, v), term is always a placeholder variable *)
+  | RaisingEff of (pi * kappa * instant * term)
+  (* | IndPred of { name : string; args: term list } *)
+  | TryCatch of (pi * kappa * trycatch * term)
 
-and stagedSpec = 
-      | Exists of binder list
-      | Require of (pi * kappa)
-      (* ens H /\ P, where P may contain contraints on res *)
-      | NormalReturn of (pi * kappa)
-      (* higher-order functions: H /\ P /\ f$(...args, term) *)
-      (* this constructor is also used for inductive predicate applications *)
-      (* f$(x, y) is HigherOrder(..., ..., (f, [x]), y) *)
-      | HigherOrder of (pi * kappa * instant * term)
-      | Shift of bool * binder * disj_spec * term (* see CShift for meaning of bool *)
-      | Reset of disj_spec * term
-      (* effects: H /\ P /\ E(...args, v), term is always a placeholder variable *)
-      | RaisingEff of (pi * kappa * instant * term)
-      (* | IndPred of { name : string; args: term list } *)
-      | TryCatch of (pi * kappa * trycatch * term)
-
-and spec = stagedSpec list
-
-and disj_spec = spec list
+(* and spec = stagedSpec list *)
+(* and disj_spec = spec list *)
 
 and typ = [%import : Hiptypes.typ]
 
@@ -116,9 +122,7 @@ and typ = [%import : Hiptypes.typ]
   ord]
 
 let min_typ a b = if compare_typ a b <= 0 then a else b
-
 let is_concrete_type = function TVar _ -> false | _ -> true
-
 let res_eq t = Atomic (EQ, {term_desc = Var "res"; term_type = t.term_type}, t)
 
 module TMap = Map.Make (struct
@@ -138,7 +142,7 @@ type tactic = Hiptypes.tactic
 type meth_def = {
   m_name : string;
   m_params : binder list;
-  m_spec : disj_spec option;
+  m_spec : staged_spec option;
   m_body : core_lang;
   m_tactics : tactic list;
 }
@@ -153,7 +157,7 @@ type sl_pred_def = {
 type pred_def = {
   p_name: string;
   p_params: binder list; (* list to ensure ordering. last param is typically a return value *)
-  p_body: disj_spec;
+  p_body: staged_spec;
   p_rec: bool;
 }
 
@@ -161,14 +165,14 @@ type lemma = {
   l_name: string;
   l_params: binder list; (* ordered, the last parameter is a result *)
   l_left: instant; (* for simplicity of rewriting *)
-  l_right: spec; (* could also be disj_spec but not needed *)
+  l_right: staged_spec; (* could also be disj_spec but not needed *)
 }
 
 type lambda_obligation = {
   lo_name: string;
   lo_preds: pred_def Common.SMap.t;
-  lo_left: disj_spec;
-  lo_right: disj_spec;
+  lo_left: staged_spec;
+  lo_right: staged_spec;
 }
 
 (** A pure function that can be imported directly into SMT *)
@@ -192,7 +196,7 @@ type intermediate =
   | Lem of lemma
   | LogicTypeDecl of string * typ list * typ * string list * string
   (* name, params, spec, body, tactics, pure_fn_info *)
-  | Meth of string * binder list * disj_spec option * core_lang * tactic list * (typ list * typ) option
+  | Meth of string * binder list * staged_spec option * core_lang * tactic list * (typ list * typ) option
   | Pred of pred_def
   | SLPred of sl_pred_def
 
@@ -212,6 +216,7 @@ let empty_program = {
   cp_lemmas = Common.SMap.empty
 }
 
+(*
 type normalStage =  (binder list* (pi * kappa ) * (pi * kappa))
 [@@deriving
   visitors { variety = "map"; name = "map_normal_stages_" },
@@ -300,6 +305,7 @@ class virtual ['self] reduce_normalised =
     inherit! [_] reduce_normal_stages_
     inherit! [_] reduce_normalised_
   end
+*)
 
 let new_type_var : ?name:string -> unit -> typ =
   (* let counter = ref 0 in begin *)
@@ -310,8 +316,8 @@ let new_type_var : ?name:string -> unit -> typ =
   (* FIXME temp fix to make anonymous/filled types irrelevant for equality checking *)
   fun ?(name="_") _ -> TVar name
 
-let binder_of_ident ?(typ=new_type_var ()) (ident : string) : binder =
-  (ident, typ)
+(* let binder_of_ident ?(typ=new_type_var ()) (ident : string) : binder =
+  (ident, typ) *)
 
 let ident_of_binder ((name, _) : binder) = name
 
@@ -326,7 +332,7 @@ let binder_of_var (var : term) =
    There may be interest in using an Untypeast-like API for this instead, to allow
    for extensibility. *)
 
-module Fill_type = struct
+(* module Fill_type = struct
   (** Module for transforming a Hiptypes AST element into a Typedhip element.
       All types are filled in with placeholders, to be populated during typechecking. Since
       there are utilities that take the Typedtree as input, most program types should be coming from
@@ -540,8 +546,8 @@ module Fill_type = struct
 
   let fill_untyped_bindings (bindings : (string * Hiptypes.term) list) : (binder * term) list =
     List.map (fun (b, t) -> (binder_of_ident b, fill_untyped_term t)) bindings
-end
-
+end *)
+(* 
 module Untypehip = struct
   let hiptypes_typ (t : typ) : Hiptypes.typ = t
 
@@ -790,4 +796,4 @@ module Untypehip = struct
   (*   ref (TMap.bindings !env) *)
 end
 
-type 'a quantified = binder list * 'a
+type 'a quantified = binder list * 'a *)

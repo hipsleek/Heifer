@@ -1,4 +1,4 @@
-(** Functions for printing the typed AST. *)
+(* * Functions for printing the typed AST.
 
 open Common
 open Typedhip
@@ -593,4 +593,4 @@ let retriveFormalArg arg :string =
   | Var ret -> ret
   | _ -> 
         print_endline (string_of_term arg);
-        failwith "effect return is not var 1"
+        failwith "effect return is not var 1" *)

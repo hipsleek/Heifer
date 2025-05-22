@@ -1,4 +1,4 @@
-open Hipcore
+(* open Hipcore
 open Hiptypes
 open Typedhip
 open Pretty_typed
@@ -937,4 +937,4 @@ let derive_predicate m_name m_params disj =
     "%s\n\n%s"
     (string_of_list string_of_normalisedStagedSpec norm)
     (string_of_pred res);
-  res
+  res *)

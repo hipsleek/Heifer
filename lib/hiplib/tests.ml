@@ -1,4 +1,4 @@
-open Ocaml_compiler.Ocaml_common
+(* open Ocaml_compiler.Ocaml_common
 open Hipcore
 open Hipprover
 open Pretty
@@ -395,4 +395,4 @@ let%expect_test "union find" =
         a: int
         b: int
         c: int
-    |}]
+    |}] *)

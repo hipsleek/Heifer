@@ -1,4 +1,4 @@
-open Hiptypes
+(* open Hiptypes
 open Typedhip
 open Pretty_typed
 
@@ -391,4 +391,4 @@ let needs_why3 =
 
     method! visit_TApp () _f _a =
       true
-  end
+  end *)

@@ -55,12 +55,12 @@
  (modules lexer)
  (mode fallback))
 
-(menhir
- (modules racket_parser))
+; (menhir
+;  (modules racket_parser))
 
-(ocamllex
-  (modules racket_lexer)
-  (mode fallback))
+; (ocamllex
+;   (modules racket_lexer)
+;   (mode fallback))
 
 (library
  (name ocamlfrontend)
@@ -72,12 +72,12 @@
  (libraries hipcore ocaml_compiler)
  (flags :standard -w -A))
 
-(library
- (name racketfrontend)
- (public_name heifer.racketfrontend)
- (modules racket_parser racket_lexer)
- (libraries hipcore)
- (flags :standard -w -A))
+; (library
+;  (name racketfrontend)
+;  (public_name heifer.racketfrontend)
+;  (modules racket_parser racket_lexer)
+;  (libraries hipcore)
+;  (flags :standard -w -A))
 
 ; (library
 ;  (name hiplib)

@@ -1,4 +1,4 @@
-
+(* 
 open Hipcore
 open Hiptypes
 
@@ -32,4 +32,4 @@ let entails_exists env left ex right =
     else
       Prover_z3.entails_exists env left ex right
 
-let handle f = f ()
+let handle f = f () *)
