@@ -52,7 +52,7 @@ and core_lang_desc =
       | CMatch of handler_type * tryCatchLemma option * core_lang * (binder * core_lang) option * core_handler_ops * constr_cases
       | CResume of core_value list
       | CLambda of binder list * disj_spec option * core_lang
-      | CShift of bool * string * core_lang (* bool=true is for shift, and bool=false for shift0 *)
+      | CShift of bool * binder * core_lang (* bool=true is for shift, and bool=false for shift0 *)
       | CReset of core_lang
 
 and core_lang =
@@ -97,7 +97,7 @@ and stagedSpec =
       (* this constructor is also used for inductive predicate applications *)
       (* f$(x, y) is HigherOrder(..., ..., (f, [x]), y) *)
       | HigherOrder of (pi * kappa * instant * term)
-      | Shift of bool * string * disj_spec * term (* see CShift for meaning of bool *)
+      | Shift of bool * binder * disj_spec * term (* see CShift for meaning of bool *)
       | Reset of disj_spec * term
       (* effects: H /\ P /\ E(...args, v), term is always a placeholder variable *)
       | RaisingEff of (pi * kappa * instant * term)
@@ -222,7 +222,7 @@ type shiftStage = {
   s_notzero : bool;
   s_pre : pi * kappa;
   s_post : pi * kappa;
-  s_cont : string;
+  s_cont : binder;
   s_body : disj_spec;
   s_ret : term;
 }
@@ -451,7 +451,7 @@ module Fill_type = struct
     s_notzero = s.s_notzero;
     s_pre = fill_untyped_state s.s_pre;
     s_post = fill_untyped_state s.s_post;
-    s_cont = s.s_cont;
+    s_cont = binder_of_ident s.s_cont;
     s_body = fill_untyped_disj_spec s.s_body;
     s_ret = fill_untyped_term s.s_ret;
   }
@@ -588,7 +588,7 @@ module Untypehip = struct
     | CLambda (params, spec, body) ->
         CLambda (List.map ident_of_binder params, Option.map untype_disj_spec spec, untype_core_lang body)
     | CShift (is_shift, x, body) ->
-        CShift (is_shift, x, untype_core_lang body)
+        CShift (is_shift, ident_of_binder x, untype_core_lang body)
     | CReset e -> CReset (untype_core_lang e)
   and untype_handler_ops (ops : core_handler_ops) : Hiptypes.core_handler_ops =
     List.map (fun (label, k_opt, spec, body) -> (label, k_opt, Option.map untype_disj_spec spec, untype_core_lang body)) ops
@@ -614,7 +614,7 @@ module Untypehip = struct
   | HigherOrder (phi, h, inst, t) ->
       Hiptypes.HigherOrder (untype_pi phi, untype_kappa h, untype_instant inst, untype_term t)
   | Shift (is_shift, x, spec, t) ->
-      Hiptypes.Shift (is_shift, x, untype_disj_spec spec, untype_term t)
+      Hiptypes.Shift (is_shift, ident_of_binder x, untype_disj_spec spec, untype_term t)
   | Reset (spec, t) ->
       Hiptypes.Reset (untype_disj_spec spec, untype_term t)
   | RaisingEff (phi, h, inst, t) ->
@@ -701,7 +701,7 @@ module Untypehip = struct
     s_notzero = s.s_notzero;
     s_pre = untype_state s.s_pre;
     s_post = untype_state s.s_post;
-    s_cont = s.s_cont;
+    s_cont = ident_of_binder s.s_cont;
     s_body = untype_disj_spec s.s_body;
     s_ret = untype_term s.s_ret;
   }
