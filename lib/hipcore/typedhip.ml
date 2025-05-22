@@ -277,6 +277,30 @@ type normalisedStagedSpec = effHOTryCatchStages list * normalStage
   visitors { variety = "map"; name = "map_normalised_" },
   visitors { variety = "reduce"; name = "reduce_normalised_" }]
 
+class virtual ['self] map_normalised =
+  object (_ : 'self)
+    inherit [_] map_spec
+    inherit! [_] map_effect_stage_
+    inherit! [_] map_shift_stage_
+    inherit! [_] map_try_catch_stage_
+    inherit! [_] map_reset_stage_
+    inherit! [_] map_eff_stages_
+    inherit! [_] map_normal_stages_
+    inherit! [_] map_normalised_
+  end
+
+class virtual ['self] reduce_normalised =
+  object (_ : 'self)
+    inherit [_] reduce_spec
+    inherit! [_] reduce_effect_stage_
+    inherit! [_] reduce_shift_stage_
+    inherit! [_] reduce_try_catch_stage_
+    inherit! [_] reduce_reset_stage_
+    inherit! [_] reduce_eff_stages_
+    inherit! [_] reduce_normal_stages_
+    inherit! [_] reduce_normalised_
+  end
+
 let new_type_var : ?name:string -> unit -> typ =
   (* let counter = ref 0 in begin *)
   (* fun ?(name="") () -> *)
