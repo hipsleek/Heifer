@@ -1,5 +1,5 @@
 
-let redirect_stdout f =
+let _redirect_stdout f =
   let name = "out.org" in
   Format.printf "%s@." name;
   let oldstdout = Unix.dup Unix.stdout in
@@ -12,6 +12,7 @@ let redirect_stdout f =
   close_out newstdout
 
 let () =
+  (*
   Hiplib.(test_mode :=
     (Option.bind (Sys.getenv_opt "TEST") int_of_string_opt
     |> Option.value ~default:0) > 0);
@@ -30,3 +31,5 @@ let () =
     redirect_stdout Hiplib.main
   else
     Hiplib.main ()
+    *)
+  print_string "Hello world"

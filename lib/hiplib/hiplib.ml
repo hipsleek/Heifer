@@ -1,5 +1,4 @@
-
-
+(*
 open Hipprover
 open Hipcore
 module Pretty = Pretty
@@ -1094,7 +1093,7 @@ let retriveComments (source : string) : string list =
   match partitions with
   | [] -> assert false
   | _ :: rest -> (*  SYH: Note that specification can't start from line 1 *)
-      let partitionEnd = List.map (fun a -> Str.split (Str.regexp "@\\*)") a) rest in
+      let partitionEnd = List.map (fun a -> Str.split (Str.regexp "@\\*\)") a) rest in
       let rec helper (li: string list list): string list =
         match li with
         | [] -> []
@@ -1161,3 +1160,7 @@ let main () =
   run_file inputfile;
   if !test_mode && not !tests_failed then Format.printf "ALL OK!@.";
   exit (if !tests_failed then 1 else 0)
+*)
+
+let main () =
+  print_string "Hello world"
