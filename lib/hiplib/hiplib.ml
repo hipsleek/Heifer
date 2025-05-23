@@ -1114,7 +1114,7 @@ let rec input_lines file =
   | [line] -> (String.trim line) :: input_lines file
   | _ -> failwith "Weird input_line return value"
 
-let run_file inputfile =
+let _run_file inputfile =
   let ic = open_in inputfile in
   try
     let lines = input_lines ic in
@@ -1153,6 +1153,15 @@ let run_file inputfile =
     | e ->                           (* 一些不可预见的异常发生 *)
         close_in_noerr ic;           (* 紧急关闭 *)
         raise e                      (* 以出错的形式退出: 文件已关闭,但通道没有写入东西 *)
+
+let run_file input_file =
+  let chan = open_in input_file in
+  let lines = input_lines chan in
+  let content = String.concat "\n" lines in
+  let open Parsing in
+  let lexbuf = Lexing.from_string content in
+  let staged_spec = Parser.parse_staged_spec Lexer.token lexbuf in
+  print_endline (Pretty.string_of_staged_spec staged_spec)
 
 let main () =
   if Array.length (Sys.argv) < 2 then begin

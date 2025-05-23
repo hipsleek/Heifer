@@ -34,10 +34,10 @@ open Hiptypes
 %nonassoc TILDE
 %right STAR
 %right CONJUNCTION
-%right DISJUNCTION
 
 %right SEMICOLON
 %nonassoc DOT
+%right DISJUNCTION
 %nonassoc IN
 
 %start parse_pi
@@ -128,6 +128,8 @@ staged_spec:
       { Bind (v, s1, s2) }
   | s1 = staged_spec DISJUNCTION s2 = staged_spec
       { Disjunction (s1, s2) }
+  | LPAREN s = staged_spec RPAREN
+      { s }
 ;
 parse_pi:
   | p = pi EOF
