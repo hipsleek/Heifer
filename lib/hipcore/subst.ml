@@ -1,4 +1,5 @@
-(* open Hiptypes
+open Hiptypes
+(*
 open Pretty
 
 let rec findNewName str vb_li =
@@ -336,6 +337,7 @@ let remove_subsumptions subs =
     method! visit_Subsumption () a b =
       if List.mem (a, b) subs then True else Subsumption (a, b)
   end
+*)
 
 let rec interpret_arrow_as_params t =
   match t with
@@ -344,6 +346,7 @@ let rec interpret_arrow_as_params t =
     t1 :: p, r
   | _ -> [], t
 
+(*
 let quantify_res p =
   let r, rez = split_res_fml p in
   let nv = verifier_getAfreeVar "split" in
@@ -365,4 +368,5 @@ let needs_why3 =
 
     method! visit_TApp () _f _a =
       true
-  end *)
+  end
+*)

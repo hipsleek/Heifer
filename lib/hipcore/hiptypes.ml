@@ -121,7 +121,7 @@ type typ =
 [@@deriving show { with_path = false }, ord]
 
 [@@@warning "+17"]
-
+(*
 let min_typ a b = if compare_typ a b <= 0 then a else b
 
 let is_concrete_type = function TVar _ -> false | _ -> true
@@ -302,6 +302,7 @@ let freshNormalStage : normalStage = ([], (True, EmptyHeap), (True, EmptyHeap))
 let freshNormStageRet r : normalStage = ([], (True, EmptyHeap), (res_eq r, EmptyHeap)) 
 
 let counter_4_inserting_let_bindings = ref 0  *)
+*)
 
 type tactic =
   | Unfold_right
@@ -309,11 +310,10 @@ type tactic =
   | Apply of string
   | Case of int * tactic
 
-(*
 type meth_def = {
   m_name : string;
   m_params : string list;
-  m_spec : disj_spec option;
+  m_spec : staged_spec option;
   m_body : core_lang;
   m_tactics : tactic list;
 }
@@ -323,7 +323,7 @@ type meth_def = {
 type pred_def = {
   p_name: string;
   p_params: string list; (* list to ensure ordering. last param is typically a return value *)
-  p_body: disj_spec;
+  p_body: staged_spec;
   p_rec: bool;
 }
 
@@ -355,21 +355,21 @@ type lemma = {
   l_name: string;
   l_params: string list; (* ordered, the last parameter is a result *)
   l_left: instant; (* for simplicity of rewriting *)
-  l_right: spec; (* could also be disj_spec but not needed *)
+  l_right: staged_spec; (* could also be disj_spec but not needed *)
 }
 
 type lambda_obligation = {
   lo_name: string;
   lo_preds: pred_def SMap.t;
-  lo_left: disj_spec;
-  lo_right: disj_spec;
+  lo_left: staged_spec;
+  lo_right: staged_spec;
 }
 type intermediate =
   | Eff of string
   | Lem of lemma
   | LogicTypeDecl of string * typ list * typ * string list * string
   (* name, params, spec, body, tactics, pure_fn_info *)
-  | Meth of string * string list * disj_spec option * core_lang * tactic list * (typ list * typ) option
+  | Meth of string * string list * staged_spec option * core_lang * tactic list * (typ list * typ) option
   | Pred of pred_def
   | SLPred of sl_pred_def
 
@@ -393,6 +393,6 @@ include Common
 
 type 'a quantified = string list * 'a
 
-type instantiations = (string * string) list *)
+type instantiations = (string * string) list
 
 let primitive_functions = ["+"; "-"; "="; "not"; "::"; "&&"; "||"; ">"; "<"; ">="; "<="; "^"; "string_of_int"]

@@ -120,7 +120,7 @@ and typ = [%import : Hiptypes.typ]
   visitors { variety = "map"; name = "map_spec" },
   visitors { variety = "reduce"; name = "reduce_spec" },
   ord]
-
+(*
 let min_typ a b = if compare_typ a b <= 0 then a else b
 let is_concrete_type = function TVar _ -> false | _ -> true
 let res_eq t = Atomic (EQ, {term_desc = Var "res"; term_type = t.term_type}, t)
@@ -216,7 +216,6 @@ let empty_program = {
   cp_lemmas = Common.SMap.empty
 }
 
-(*
 type normalStage =  (binder list* (pi * kappa ) * (pi * kappa))
 [@@deriving
   visitors { variety = "map"; name = "map_normal_stages_" },

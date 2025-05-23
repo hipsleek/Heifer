@@ -1,5 +1,5 @@
 
-let _redirect_stdout f =
+let redirect_stdout f =
   let name = "out.org" in
   Format.printf "%s@." name;
   let oldstdout = Unix.dup Unix.stdout in
@@ -12,7 +12,6 @@ let _redirect_stdout f =
   close_out newstdout
 
 let () =
-  (*
   Hiplib.(test_mode :=
     (Option.bind (Sys.getenv_opt "TEST") int_of_string_opt
     |> Option.value ~default:0) > 0);
@@ -25,11 +24,8 @@ let () =
   in
   if Unix.isatty Unix.stdout && not !Hiplib.file_mode && not ctf then
     Hiplib.Pretty.colours := `Ansi;
-    Hipcore.Pretty_typed.colours := `Ansi;
   Hiplib.Debug.init ~ctf ~org:!Hiplib.file_mode (Sys.getenv_opt "DEBUG");
   if !Hiplib.file_mode then
     redirect_stdout Hiplib.main
   else
     Hiplib.main ()
-    *)
-  print_string "Hello world"

@@ -1,0 +1,6 @@
+
+(library
+  (name ocamlfrontend)
+  (modules core_lang annotation)
+  (libraries hipcore ocaml_compiler)
+  (inline_tests))

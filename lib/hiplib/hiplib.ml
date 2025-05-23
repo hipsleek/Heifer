@@ -1,22 +1,16 @@
-(*
-open Hipprover
+(* open Hipprover *)
 open Hipcore
 module Pretty = Pretty
-module ProversEx = ProversEx
 module Debug = Debug
 module Common = Hiptypes
 open Ocaml_compiler
-open Parsetree
 open Asttypes
 (* get rid of the alias *)
 type string = label
 (* open Rewriting *)
-open Pretty_typed
 open Debug
 open Hiptypes
-open Typedhip
-open Normalize
-
+(* open Normalize *)
 (** Re-export Env, since it gets shadowed by another declaration later on. *)
 module Compiler_env = Env
 
@@ -24,6 +18,7 @@ let file_mode = ref false
 let test_mode = ref false
 let tests_failed = ref false
 
+(*
 let rec input_lines file =
   match try [input_line file] with End_of_file -> [] with
    [] -> []
@@ -918,9 +913,11 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) : core_program =
     ?given_spec:given_spec 
     ?given_spec_n:(Option.map (List.map Untypehip.untype_normalized_staged_spec) given_spec_n) ?result:res ~show_time:true meth.m_name;
   prog
-
-let process_intermediates it prog =
-  match it with
+*)
+let process_intermediates it prog = 
+  Format.printf "%s\n" (Pretty.string_of_intermediate it);
+  ([], prog)
+  (*match it with
   | LogicTypeDecl (name, params, ret, path, lname) ->
       let def = {
         pft_name = name;
@@ -1014,30 +1011,25 @@ let process_intermediates it prog =
     (* with Method_failure ->
       (* update program with method regardless of failure *)
       [], prog *)
-    end
+    end *)
 
-let process_ocaml_structure (strs: Ocaml_common.Typedtree.structure) : unit =
+let process_ocaml_structure (strs: Ocaml_common.Parsetree.structure) : unit =
   let helper (bound_names, prog) s =
-    match Ocamlfrontend.Core_lang_typed.transform_str bound_names s with
+    match Ocamlfrontend.Core_lang.transform_str bound_names s with
     | Some it ->
         let new_bound, prog = process_intermediates it prog in
         new_bound @ bound_names, prog
     | None ->
         bound_names, prog
   in
-  List.fold_left helper ([], empty_program) strs.str_items |> ignore
+  List.fold_left helper ([], empty_program) strs |> ignore
 
 let run_ocaml_string_ line =
   (** Parse and typecheck the code, before converting it into a core language program.
      This mirrors the flow of compilation used in ocamlc. *)
   try
     let items = Parse.implementation (Lexing.from_string line) in
-    let unit_info = Unit_info.(make ~source_file:"" Impl "") in
-    Compile_common.with_info ~native:false ~tool_name:"heifer" ~dump_ext:"" unit_info @@ begin fun info ->
-      let typed_implementation = Compile_common.typecheck_impl info items in
-      let@ _ = Globals.Timing.(time overall_all) in
-      process_ocaml_structure typed_implementation.structure
-    end
+    process_ocaml_structure items
   with
     | exn -> Format.printf "%a\n" Location.report_exception exn
       
@@ -1060,17 +1052,16 @@ let mergeTopLevelCodeIntoOneMain (prog : intermediate list) : intermediate list 
   let nonMain, mainMeth = helper prog in
   let rec compose (main_segments: core_lang list) : core_lang =
     match main_segments with
-    | [] -> {core_desc = CValue ({term_desc = Const ValUnit; term_type = Unit}); core_type = Unit}
+    | [] -> CValue (Const ValUnit)
     | [x] -> x
-    | x :: xs -> 
-        let remaining = compose xs in
-        {core_desc = CLet ("_", x, compose xs); core_type = remaining.core_type}
+    | x :: xs -> CLet ("_", x, compose xs)
  in
   nonMain @ [(Meth ("main", [], None, compose mainMeth, [], None ))]
 
 
 (* this is the entry of inputing the Racket file *)
-let run_racket_string_ line =
+let run_racket_string_ _line = ()
+(*
   let open Racketfrontend in
   (* DARIUS: parsing should return a list of intermediate *)
   let core_program : intermediate list =
@@ -1081,19 +1072,25 @@ let run_racket_string_ line =
   List.fold_left (fun t i ->
     let _bound, prog = process_intermediates i t in prog)
     empty_program core_program |> ignore
+*)
 
 let run_string kind s =
-  Provers.handle (fun () ->
-    match kind with
-    | `Ocaml -> run_ocaml_string_ s
-    | `Racket -> run_racket_string_ s)
+  (* disabled for now since prover backend is disabled as well *)
+  (* Provers.handle (fun () -> *)
+  (*   match kind with *)
+  (*   | `Ocaml -> run_ocaml_string_ s *)
+  (*   | `Racket -> run_racket_string_ s) *)
+  match kind with
+  | `Ocaml -> run_ocaml_string_ s
+  | `Racket -> run_racket_string_ s
+
 
 let retriveComments (source : string) : string list =
   let partitions = Str.split (Str.regexp "(\\*@") source in
   match partitions with
   | [] -> assert false
   | _ :: rest -> (*  SYH: Note that specification can't start from line 1 *)
-      let partitionEnd = List.map (fun a -> Str.split (Str.regexp "@\\*\)") a) rest in
+      let partitionEnd = List.map (fun a -> Str.split (Str.regexp "@\\*)") a) rest in
       let rec helper (li: string list list): string list =
         match li with
         | [] -> []
@@ -1111,13 +1108,19 @@ let get_file_type =
     let is_racket_file = Str.string_match racket_regex file_name 0 in
     if is_racket_file then `Racket else `Ocaml
 
+let rec input_lines file =
+  match try [input_line file] with End_of_file -> [] with
+   [] -> []
+  | [line] -> (String.trim line) :: input_lines file
+  | _ -> failwith "Weird input_line return value"
+
 let run_file inputfile =
   let ic = open_in inputfile in
   try
     let lines = input_lines ic in
     (* TODO : fold_left instead? *)
     let line = List.fold_right (fun x acc -> acc ^ "\n" ^ x) (List.rev lines) "" in
-    debug_tokens line;
+    (* debug_tokens line; *)
     let file_kind = get_file_type inputfile in
     run_string file_kind line;
     let line_of_spec =
@@ -1160,7 +1163,3 @@ let main () =
   run_file inputfile;
   if !test_mode && not !tests_failed then Format.printf "ALL OK!@.";
   exit (if !tests_failed then 1 else 0)
-*)
-
-let main () =
-  print_string "Hello world"

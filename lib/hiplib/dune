@@ -1,7 +1,6 @@
 (library
  (name hiplib)
  (modules hiplib)
- (libraries hipprover ocaml_compiler)
- ; (libraries racketfrontend)
+ (libraries ocamlfrontend ocaml_compiler)
  (inline_tests)
  (preprocess (pps ppx_expect)))
