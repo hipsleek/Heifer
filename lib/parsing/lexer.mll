@@ -17,6 +17,20 @@ rule token = parse
       { token lexbuf }
   | "="
       { EQUAL }
+  | ">"
+      { GREATER }
+  | "<"
+      { LESS }
+  | "+"
+      { PLUS }
+  | "-"
+      { MINUS }
+  | "*"
+      { STAR }
+  | "->"
+      { MINUSGREATER }
+  | "."
+      { DOT }
   | "~"
       { TILDE }
   | "/\\"
@@ -27,12 +41,16 @@ rule token = parse
       { LPAREN }
   | ")"
       { RPAREN }
-  | "*"
-      { STAR }
-  | "."
-      { DOT }
   | ";"
-      { SEMICOLON }
+      { SEMI }
+  | ","
+      { COMMA }
+  | "true"
+      { TRUE }
+  | "false"
+      { FALSE }
+  | "emp"
+      { EMP }
   | int_literal as n
       { INT (int_of_string n) }
   | "ex"
@@ -51,11 +69,5 @@ rule token = parse
       { RESET }
   | eof
       { EOF }
-  | "true"
-      { TRUE }
-  | "false"
-      { FALSE }
-  | "emp"
-      { EMP }
   | identchar + as v
       { IDENT v }

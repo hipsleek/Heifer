@@ -1108,13 +1108,8 @@ let get_file_type =
     let is_racket_file = Str.string_match racket_regex file_name 0 in
     if is_racket_file then `Racket else `Ocaml
 
-let rec input_lines file =
-  match try [input_line file] with End_of_file -> [] with
-   [] -> []
-  | [line] -> (String.trim line) :: input_lines file
-  | _ -> failwith "Weird input_line return value"
-
 let _run_file inputfile =
+  let open Utils.Io in
   let ic = open_in inputfile in
   try
     let lines = input_lines ic in
@@ -1155,9 +1150,11 @@ let _run_file inputfile =
         raise e                      (* 以出错的形式退出: 文件已关闭,但通道没有写入东西 *)
 
 let run_file input_file =
+  let open Utils.Io in
   let chan = open_in input_file in
   let lines = input_lines chan in
   let content = String.concat "\n" lines in
+  print_endline content;
   let open Parsing in
   let lexbuf = Lexing.from_string content in
   let staged_spec = Parser.parse_staged_spec Lexer.token lexbuf in
