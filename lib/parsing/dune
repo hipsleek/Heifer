@@ -1,0 +1,23 @@
+(rule
+ (targets camlinternalMenhirLib.ml)
+ (mode    fallback)
+ (action  (copy# ../../boot/menhir/menhirLib.ml %{targets})))
+
+(rule
+ (targets camlinternalMenhirLib.mli)
+ (mode    fallback)
+ (action  (copy# ../../boot/menhir/menhirLib.mli %{targets})))
+
+(ocamllex
+ (modules lexer)
+ (mode fallback))
+
+(menhir
+ (modules parser)
+ (flags (--explain)))
+
+(library
+ (name parsing)
+ (public_name heifer.parsing)
+ (modules parser lexer)
+ (libraries hipcore))
