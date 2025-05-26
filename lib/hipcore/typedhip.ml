@@ -120,15 +120,7 @@ and typ = [%import : Hiptypes.typ]
   visitors { variety = "reduce"; name = "reduce_spec" },
   ord]
 
-type type_decl_kind =
-  (* Inductive data type; each element of the list corresponds to a constructor. *)
-  Tdecl_inductive of (string * typ list) list
-
-type type_decl = {
-  typ_name: string; (* name of type *)
-  typ_params: typ list; (* list of type variables used in the declaration *)
-  typ_kind: type_decl_kind
-}
+type type_decl = Types.type_decl
 
 let min_typ a b = if compare_typ a b <= 0 then a else b
 

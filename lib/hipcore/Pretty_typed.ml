@@ -1,6 +1,7 @@
 (** Functions for printing the typed AST. *)
 
 open Common
+open Types
 open Typedhip
 
 let is_alpha = function 'a' .. 'z' | 'A' .. 'Z' -> true | _ -> false

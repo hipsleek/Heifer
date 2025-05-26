@@ -4,6 +4,9 @@
    *)
 
 open Ocaml_compiler.Ocaml_common
+
+module Compiler_types = Types
+
 open Typedtree
 open Asttypes
 (* get rid of the alias *)
@@ -86,8 +89,8 @@ let rec string_of_pattern (p) : string =
     (* ^ string_of_pattern p1 *)
   | pat -> Format.asprintf "string_of_pattern: %a\n" Pprintast.pattern (Untypeast.untype_pattern p)
 
-let rec hip_type_of_type_expr (texpr: Types.type_expr) =
-  match (Types.get_desc texpr) with
+let rec hip_type_of_type_expr (texpr: Compiler_types.type_expr) =
+  match (Compiler_types.get_desc texpr) with
   | Tvar (Some var) -> TVar var
   | Tvar (None) -> Typedhip.new_type_var ()
   (* TODO: This does not preserve argument labels, because Heifer's type system does not model them. *)
@@ -183,7 +186,7 @@ let rec expr_to_formula (expr : expression) : pi * kappa =
 let collect_param_info rhs =
     let rec return_of_arrow_type typ =
       let open Types in
-      match (get_desc typ) with
+      match (Compiler_types.get_desc typ) with
       | Tarrow (_, _, ret, _) -> return_of_arrow_type ret
       | _ -> typ
     in
@@ -490,7 +493,7 @@ let transform_str bound_names (s : structure_item) =
       in
       let constructors = match typ_type.type_kind with
         | Type_variant (variants, _) ->
-          let open Types in
+          let open Compiler_types in
           variants
             |> List.filter_map (fun variant -> match variant.cd_args with
               | Cstr_tuple args -> Some (Ident.name variant.cd_id, List.map hip_type_of_type_expr args)
