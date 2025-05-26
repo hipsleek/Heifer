@@ -32,7 +32,12 @@ and term =
 and core_handler_ops = (string * string option * disj_spec option * core_lang) list
 
 (* x :: xs -> e is represented as ("::", [x, xs], e) *)
-and constr_cases = (string * binder list * core_lang) list
+and constr_case = (pattern * core_lang)
+and constr_cases = constr_case list
+
+and pattern =
+  | PVar of binder
+  | PConstr of (string * pattern list)
 
 and tryCatchLemma = (spec * disj_spec option * (*(handlingcases) **) disj_spec) (*tcl_head, tcl_handledCont, tcl_summary*)
 
@@ -48,8 +53,8 @@ and core_lang_desc =
       | CRead of string 
       | CAssert of pi * kappa 
       | CPerform of string * core_value option
-      (* match e with | v -> e1 | eff case... | constr case... *)
-      | CMatch of handler_type * tryCatchLemma option * core_lang * (binder * core_lang) option * core_handler_ops * constr_cases
+      (* match e with | eff case... | pattern case... *)
+      | CMatch of handler_type * tryCatchLemma option * core_lang * core_handler_ops * constr_cases
       | CResume of core_value list
       | CLambda of binder list * disj_spec option * core_lang
       | CShift of bool * binder * core_lang (* bool=true is for shift, and bool=false for shift0 *)
@@ -406,7 +411,11 @@ module Fill_type = struct
   and fill_untyped_spec (spec : Hiptypes.spec) : spec = List.map fill_untyped_spec_stage spec
   and fill_untyped_disj_spec (disj_spec : Hiptypes.disj_spec) : disj_spec = List.map fill_untyped_spec disj_spec
   and fill_untyped_constr_cases (cases : Hiptypes.constr_cases) : constr_cases =
-    List.map (fun (name, args, expr) -> (name, List.map binder_of_ident args, fill_untyped_core_lang expr)) cases
+    List.map (fun (pat, value) -> (fill_untyped_pattern pat, fill_untyped_core_lang value)) cases
+  and fill_untyped_pattern (pat : Hiptypes.pattern) : pattern =
+    match pat with
+    | PVar var -> PVar (binder_of_ident var)
+    | PConstr (name, args) -> PConstr (name, List.map fill_untyped_pattern args)
   and fill_untyped_try_catch_lemma ((spec, cont, summary) : Hiptypes.tryCatchLemma) : tryCatchLemma =
     (fill_untyped_spec spec, Option.map fill_untyped_disj_spec cont, fill_untyped_disj_spec summary)
   and fill_untyped_core_handler_ops (handlers : Hiptypes.core_handler_ops) : core_handler_ops =
@@ -422,9 +431,8 @@ module Fill_type = struct
     | Hiptypes.CRead loc -> CRead loc
     | Hiptypes.CAssert (p, k) -> CAssert (fill_untyped_pi p, fill_untyped_kappa k)
     | Hiptypes.CPerform (eff, args) -> CPerform (eff, Option.map fill_untyped_term args)
-    | Hiptypes.CMatch (handler_type, lemma, scrutinee, fallback, computation_cases, value_cases) ->
+    | Hiptypes.CMatch (handler_type, lemma, scrutinee, computation_cases, value_cases) ->
         CMatch (handler_type, Option.map fill_untyped_try_catch_lemma lemma, fill_untyped_core_lang scrutinee,
-        Option.map (fun (v, expr) -> (binder_of_ident v, fill_untyped_core_lang expr)) fallback,
         fill_untyped_core_handler_ops computation_cases, fill_untyped_constr_cases value_cases)
     | Hiptypes.CResume args -> CResume (List.map fill_untyped_term args)
     | Hiptypes.CLambda (args, spec, body) -> CLambda (List.map binder_of_ident args, Option.map fill_untyped_disj_spec spec, fill_untyped_core_lang body)
@@ -602,12 +610,11 @@ module Untypehip = struct
         CAssert (untype_pi phi, untype_kappa kappa)
     | CPerform (eff, arg_opt) ->
         CPerform (eff, Option.map untype_term arg_opt)
-    | CMatch (ht, trycatch_opt, scrutinee, value_case, handler_cases, constr_cases) ->
+    | CMatch (ht, trycatch_opt, scrutinee, handler_cases, constr_cases) ->
         let trycatch_opt' = Option.map untype_tryCatchLemma trycatch_opt in
-        let value_case' = Option.map (fun (v, e) -> (ident_of_binder v, untype_core_lang e)) value_case in
         let handler_cases' = untype_handler_ops handler_cases in
         let constr_cases' = untype_constr_cases constr_cases in
-        CMatch (ht, trycatch_opt', untype_core_lang scrutinee, value_case', handler_cases', constr_cases')
+        CMatch (ht, trycatch_opt', untype_core_lang scrutinee, handler_cases', constr_cases')
     | CResume vs -> CResume (List.map untype_term vs)
     | CLambda (params, spec, body) ->
         CLambda (List.map ident_of_binder params, Option.map untype_disj_spec spec, untype_core_lang body)
@@ -617,7 +624,11 @@ module Untypehip = struct
   and untype_handler_ops (ops : core_handler_ops) : Hiptypes.core_handler_ops =
     List.map (fun (label, k_opt, spec, body) -> (label, k_opt, Option.map untype_disj_spec spec, untype_core_lang body)) ops
   and untype_constr_cases (cases : constr_cases) : Hiptypes.constr_cases =
-    List.map (fun (name, args, body) -> (name, List.map ident_of_binder args, untype_core_lang body)) cases
+    List.map (fun (pat, value) -> (untype_pattern pat, untype_core_lang value)) cases
+  and untype_pattern (pat : pattern) : Hiptypes.pattern =
+    match pat with
+    | PVar binder -> PVar (ident_of_binder binder)
+    | PConstr (name, args) -> PConstr (name, List.map untype_pattern args)
   and untype_tryCatchLemma (tcl : tryCatchLemma) : Hiptypes.tryCatchLemma =
     let (head, handled_cont, summary) = tcl in
     (untype_spec head, Option.map untype_disj_spec handled_cont, untype_disj_spec summary)

@@ -358,15 +358,6 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
       CLet (v, expr, rest_Expr) |> clang_with_expr_type
     )
   | Texp_match (e, computation_cases, value_cases, _) ->
-    let catch_all_case =
-      (* may be none for non-effect pattern matches *)
-      value_cases |> List.find_map (fun c ->
-        match c.c_lhs.pat_desc with
-        | Tpat_var (ident, _, _) -> 
-            let pat_typ = c.c_lhs.pat_type in
-            Some ((Ident.name ident, hip_type_of_type_expr pat_typ), transformation bound_names c.c_rhs)
-        | _ -> None)
-    in
     let effs =
       value_cases |> List.filter_map (fun c ->
         begin match c.c_lhs.pat_desc with
@@ -390,20 +381,18 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
         match c.c_lhs.pat_desc with
         | Tpat_value value_arg ->
             let pat = (value_arg :> value general_pattern) in 
-            begin match pat.pat_desc with
-            | Tpat_construct ({txt=constr; _}, _, [], None) ->
-              Some (Longident.last constr, [], transformation bound_names c.c_rhs)
-            | Tpat_construct ({txt=constr; _}, _, ps, _) ->
-              let args = List.filter_map (fun p ->
-                match p.pat_desc with
-                | Tpat_var (ident, _, _) -> Some (Ident.name ident, hip_type_of_type_expr p.pat_type)
-                | _ -> None) ps
-              in
-              Some (Longident.last constr, args, transformation bound_names c.c_rhs)
-            end
+            let rec transform_pattern pat = match pat.pat_desc with
+              | Tpat_construct ({txt=constr; _}, _, args, _) ->
+                  let subpatterns = List.map transform_pattern args in
+                  if List.exists Option.is_none subpatterns then None
+                  else Some (PConstr (String.concat "." (Longident.flatten constr), List.map Option.get subpatterns))
+              | Tpat_var (ident, _, _) -> Some (PVar (Ident.name ident, hip_type_of_type_expr pat.pat_type))
+              | _ -> None
+            in
+            Option.map (fun pat -> (pat, transformation bound_names c.c_rhs)) (transform_pattern pat)
         | _ -> None)
     in
-    {core_desc = CMatch (Deep, None, transformation bound_names e, catch_all_case, effs, pattern_cases); core_type = exp_hip_type}
+    {core_desc = CMatch (Deep, None, transformation bound_names e, effs, pattern_cases); core_type = exp_hip_type}
   | _ -> 
     (*if String.compare (Pprintast.string_of_expression (Untypeast.untype_expression expr)) "Obj.clone_continuation k" == 0 then (* ASK Darius*)*)
     (*CValue (Var "k")*)

@@ -343,13 +343,6 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
     )
       
   | Pexp_match (e, cases) ->
-    let norm =
-      (* may be none for non-effect pattern matches *)
-      cases |> List.find_map (fun c ->
-        match c.pc_lhs.ppat_desc with
-        | Ppat_var {txt=v; _} -> Some (v, transformation bound_names c.pc_rhs)
-        | _ -> None)
-    in
     let effs =
       (* may be empty for non-effect pattern matches *)
       cases |> List.filter_map (fun c ->
@@ -370,22 +363,26 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
         | _ -> None)
     in
     let pattern_cases =
+      let rec transform_pattern pat =
+        let flatten_longident {txt=constr; _} =  String.concat "." (Longident.flatten constr) in
+        match pat.ppat_desc with
+        | Ppat_construct (ident, None) -> Some (PConstr (flatten_longident ident, []))
+        | Ppat_construct (ident, Some ([], {ppat_desc = Ppat_tuple args; _})) -> 
+            let subpatterns = List.map transform_pattern args in
+            if List.exists Option.is_none subpatterns then None
+            else Some (PConstr (flatten_longident ident, List.map Option.get subpatterns))
+        | Ppat_construct (ident, Some ([], subpat)) -> 
+            Option.map (fun subpat -> (PConstr (flatten_longident ident, [subpat]))) (transform_pattern subpat)
+        | Ppat_var {txt = ident; _} -> Some (PVar ident)
+        | _ -> None
+      in
       (* may be empty for non-effect pattern matches *)
       cases |> List.filter_map (fun c ->
-        match c.pc_lhs.ppat_desc with
-        | Ppat_construct ({txt=constr; _}, None) ->
-          Some (Longident.last constr, [], transformation bound_names c.pc_rhs)
-        | Ppat_construct ({txt=constr; _}, Some (_, {ppat_desc = Ppat_tuple ps; _})) ->
-          let args = List.filter_map (fun p ->
-            match p.ppat_desc with
-            | Ppat_var {txt=v; _} -> Some v
-            | _ -> None) ps
-          in
-          Some (Longident.last constr, args, transformation bound_names c.pc_rhs)
-        | _ -> None)
+        Option.map
+          (fun pat -> (pat, transformation bound_names c.pc_rhs)) (transform_pattern c.pc_lhs))
     in
     (* FIXME properly fill in the handler type and handler specification *)
-    CMatch (Deep, None, transformation bound_names e, norm, effs, pattern_cases)
+    CMatch (Deep, None, transformation bound_names e, effs, pattern_cases)
   | _ -> 
     if String.compare (Pprintast.string_of_expression expr) "Obj.clone_continuation k" == 0 then (* ASK Darius*)
     CValue (Var "k")

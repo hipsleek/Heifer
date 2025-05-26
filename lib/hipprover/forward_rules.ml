@@ -1156,7 +1156,7 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
       concatenateSpecsWithEvent history [event], env
 
 
-    | CMatch (typ, match_summary, scr, Some val_case, eff_cases, []) -> (* effects *)
+    | CMatch (typ, match_summary, scr, eff_cases, [(PVar val_name, body)]) -> (* effects *)
       (* infer specs for branches of the form (Constr param -> spec), which also updates the env with obligations *)
 
       
@@ -1185,7 +1185,6 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
       in
 
       let inferred_val_case, env =
-        let (param, body)  = val_case in
         let inf_val_spec, env = infer_of_expression env [[]] body in
         let inf_val_spec = normalise_spec_list inf_val_spec in 
 
@@ -1194,7 +1193,7 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
 *)
 
 
-        (param, inf_val_spec), env
+        (val_name, inf_val_spec), env
       in
       (* for each disjunct of the scrutinee's behaviour, reason using the handler *)
       (*
@@ -1227,16 +1226,17 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
       concatenateSpecsWithSpec history afterHandling, env 
       
 
-    | CMatch (_, _, discr, None, _, cases) -> (* pattern matching *)
+    | CMatch (_, _, discr, [], cases) -> (* pattern matching *)
 
       (* this is quite similar to if-else. generate a disjunct for each branch with variables bound to the result of destructuring *)
       let dsp, env = infer_of_expression env history discr in
       let dsp, env = dsp |> concat_map_state env (fun sp env ->
         let ret = retrieve_return_value sp in
-        cases |> concat_map_state env (fun (constr, vars, body) env -> 
+        cases |> concat_map_state env (fun (pat, body) env -> 
           (* TODO this is hardcoded for lists for now *)
-          match constr, vars with
-          | "[]", [] ->
+          
+          match pat with
+          | PConstr ("[]", []) ->
             let nil_case =
               (* let c = conj [Atomic (EQ, TApp ("is_nil", [ret]), TTrue)] in *)
               (* [NormalReturn (c, EmptyHeap)] *)
@@ -1244,7 +1244,7 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
               [NormalReturn (Atomic (EQ, ret, Nil), EmptyHeap)]
             in 
             infer_of_expression env (concatenateSpecsWithEvent history nil_case) body
-          | "::", [v1; v2] ->
+          | PConstr ("::", [PVar v1; PVar v2]) ->
             let cons_case =
               let c = conj [
                 (* Atomic (EQ, TApp ("is_cons", [ret]), TTrue);
@@ -1260,10 +1260,10 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
               (* [] *)
             in
             infer_of_expression env (concatenateSpecsWithEvent history cons_case) body
-          | _ -> failwith (Format.asprintf "unknown constructor: %s" constr)))
+          | pat -> failwith (Format.asprintf "unknown constructor: %s" (string_of_pattern pat))))
       in
       dsp, env
-    | CMatch (_, _, _, Some _, _, _ :: _) -> 
+    | CMatch (_, _, _,  _, _) -> 
       (* TODO *)
       failwith "combining effect handlers and pattern matching not yet implemented"
   in

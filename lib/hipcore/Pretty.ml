@@ -282,6 +282,11 @@ and string_of_handler_type (h:handler_type) : string =
     | Deep -> "d"
     | Shallow -> "s"
 
+and string_of_pattern (pat : pattern) : string =
+  match pat with
+  | PVar v -> v
+  | PConstr (name, args) -> Format.sprintf "%s (%s)" name (List.map string_of_pattern args |> String.concat ", ")
+
 and string_of_core_lang (e:core_lang) :string =
   match e with
   | CValue v -> string_of_term v
@@ -295,8 +300,12 @@ and string_of_core_lang (e:core_lang) :string =
   | CAssert (p, h) -> Format.sprintf "assert (%s && %s)" (string_of_pi p) (string_of_kappa h)
   | CPerform (eff, Some arg) -> Format.sprintf "perform %s %s" eff (string_of_term arg)
   | CPerform (eff, None) -> Format.sprintf "perform %s" eff
-  | CMatch (typ, None, e, vs, hs, cs) -> Format.sprintf "match[%s] %s with\n%s%s%s" (string_of_handler_type typ) (string_of_core_lang e) (match vs with | Some (v, norm) -> Format.asprintf "| %s -> %s\n" v (string_of_core_lang norm) | _ -> "") (match hs with | [] -> "" | _ :: _ -> string_of_core_handler_ops hs ^ "\n") (match cs with [] -> "" | _ :: _ -> string_of_constr_cases cs)
-  | CMatch (typ, Some spec, e, vs, hs, cs) -> Format.sprintf "match[%s] %s%s with\n%s%s\n%s" (string_of_handler_type typ) (string_of_try_catch_lemma spec) (string_of_core_lang e) (match vs with | Some (v, norm) -> Format.asprintf "| %s -> %s\n" v (string_of_core_lang norm) | _ -> "") (string_of_core_handler_ops hs) (string_of_constr_cases cs)
+  | CMatch (typ, spec, e, hs, cs) -> Format.sprintf "match [%s] %s%s with\n%s\n%s"
+    (string_of_handler_type typ)
+    (string_of_core_lang e)
+    (Option.map string_of_try_catch_lemma spec |> Option.value ~default:"")
+    (string_of_core_handler_ops hs)
+    (string_of_constr_cases cs)
   | CResume tList -> Format.sprintf "continue %s" (List.map string_of_term tList |> String.concat " ")
   | CLambda (xs, spec, e) -> Format.sprintf "fun %s%s -> %s" (String.concat " " xs) (match spec with None -> "" | Some ds -> Format.asprintf " (*@@ %s @@*)" (string_of_disj_spec ds)) (string_of_core_lang e)
   | CShift (b, k, e) -> Format.sprintf "Shift%s %s -> %s" (if b then "" else "0") k (string_of_core_lang e)
@@ -305,7 +314,7 @@ and string_of_core_lang (e:core_lang) :string =
 
 
 and string_of_constr_cases cs =
-  cs |> List.map (fun (n, args, body) -> Format.asprintf "| %s -> %s" (string_of_constr_call n args) (string_of_core_lang body)) |> String.concat "\n"
+  cs |> List.map (fun (pattern, value) -> Format.asprintf "| %s -> %s" (string_of_pattern pattern) (string_of_core_lang value)) |> String.concat "\n"
 
 and string_of_core_handler_ops hs =
   List.map (fun (name, v, spec, body) ->

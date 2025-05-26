@@ -35,7 +35,12 @@ and term =
 and core_handler_ops = (string * string option * disj_spec option * core_lang) list
 
 (* x :: xs -> e is represented as ("::", [x, xs], e) *)
-and constr_cases = (string * string list * core_lang) list
+and constr_case = (pattern * core_lang)
+and constr_cases = constr_case list
+
+and pattern =
+  | PVar of string
+  | PConstr of (string * pattern list)
 
 and tryCatchLemma = (spec * disj_spec option * (*(handlingcases) **) disj_spec) (*tcl_head, tcl_handledCont, tcl_summary*)
 
@@ -51,8 +56,8 @@ and core_lang =
       | CRead of string 
       | CAssert of pi * kappa 
       | CPerform of string * core_value option
-      (* match e with | v -> e1 | eff case... | constr case... *)
-      | CMatch of handler_type * tryCatchLemma option * core_lang * (string * core_lang) option * core_handler_ops * constr_cases
+      (* match e with | eff case... | pattern case... *)
+      | CMatch of handler_type * tryCatchLemma option * core_lang * core_handler_ops * constr_cases
       | CResume of core_value list
       | CLambda of string list * disj_spec option * core_lang
       | CShift of bool * string * core_lang (* bool=true is for shift, and bool=false for shift0 *)
