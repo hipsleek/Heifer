@@ -481,7 +481,24 @@ let transform_str bound_names (s : structure_item) =
     | whatever ->
       failwith (Format.asprintf "not a function binding: %a" Pprintast.expression (Untypeast.untype_expression fn))
     end
-  | Tstr_type _ 
+  | Tstr_type (_, {typ_name = {txt = name; _}; typ_params; typ_kind = Ttype_variant _; typ_type}::_) ->
+      let params = typ_params
+        |> List.filter_map (fun (core_type, _) -> match core_type.ctyp_desc with
+          | Ttyp_var s -> Some (TVar s)
+          | _ -> None
+        )
+      in
+      let constructors = match typ_type.type_kind with
+        | Type_variant (variants, _) ->
+          let open Types in
+          variants
+            |> List.filter_map (fun variant -> match variant.cd_args with
+              | Cstr_tuple args -> Some (Ident.name variant.cd_id, List.map hip_type_of_type_expr args)
+              | _ -> None)
+          
+        | _ -> []
+      in
+      Some (Typedef {typ_name = name; typ_params = params; typ_kind = Tdecl_inductive constructors})
   | Tstr_typext _ -> None 
   | Tstr_primitive { val_name; val_desc; val_prim = [ext_name]; _ } ->
     Globals.using_pure_fns := true;

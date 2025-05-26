@@ -934,6 +934,11 @@ let process_intermediates it prog =
       Globals.global_environment.pure_fn_types <-
         SMap.add name def Globals.global_environment.pure_fn_types;
       [], prog
+  | Typedef decl ->
+       debug ~at:1 ~title:(Format.asprintf "type %s declared" decl.typ_name) "%s" (string_of_type_decl decl);
+       Globals.global_environment.type_decls <-
+         SMap.add decl.typ_name decl Globals.global_environment.type_decls;
+       [], prog
   | Lem l ->
       debug ~at:4 ~title:(Format.asprintf "lemma %s" l.l_name) "%s" (string_of_lemma l);
       let left =

@@ -120,6 +120,16 @@ and typ = [%import : Hiptypes.typ]
   visitors { variety = "reduce"; name = "reduce_spec" },
   ord]
 
+type type_decl_kind =
+  (* Inductive data type; each element of the list corresponds to a constructor. *)
+  Tdecl_inductive of (string * typ list) list
+
+type type_decl = {
+  typ_name: string; (* name of type *)
+  typ_params: typ list; (* list of type variables used in the declaration *)
+  typ_kind: type_decl_kind
+}
+
 let min_typ a b = if compare_typ a b <= 0 then a else b
 
 let is_concrete_type = function TVar _ -> false | _ -> true
@@ -200,6 +210,7 @@ type intermediate =
   | Meth of string * binder list * disj_spec option * core_lang * tactic list * (typ list * typ) option
   | Pred of pred_def
   | SLPred of sl_pred_def
+  | Typedef of type_decl
 
 type core_program = {
   cp_effs: string list;
@@ -700,24 +711,6 @@ module Untypehip = struct
       Hiptypes.l_left = untype_instant l.l_left;
       Hiptypes.l_right = untype_spec l.l_right;
     }
-
-  let untype_intermediate (i : intermediate) : Hiptypes.intermediate =
-    match i with
-    | Eff name -> Hiptypes.Eff name
-    | Lem lemma -> Hiptypes.Lem (untype_lemma lemma)
-    | LogicTypeDecl (name, typs, ret_typ, path, lname) ->
-        Hiptypes.LogicTypeDecl (name, List.map hiptypes_typ typs, hiptypes_typ ret_typ, path, lname)
-    | Meth (name, params, spec, body, tactics, pure_fn_info) ->
-        Hiptypes.Meth (
-          name,
-          List.map ident_of_binder params,
-          Option.map untype_disj_spec spec,
-          untype_core_lang body,
-          tactics,
-          Option.map (fun (ts, t) -> (List.map hiptypes_typ ts, hiptypes_typ t)) pure_fn_info
-        )
-    | Pred def -> Hiptypes.Pred (untype_pred_def def)
-    | SLPred def -> Hiptypes.SLPred (untype_sl_pred_def def)
 
   let untype_core_program (prog : core_program) : Hiptypes.core_program = {
     cp_effs = prog.cp_effs;

@@ -65,6 +65,22 @@ let verifier_getAfreeVar ?(typ= new_type_var ()) _from : binder  =
 
 let string_of_type = Pretty.string_of_type
 
+let string_of_type_list = Pretty.string_of_type_list
+
+let string_of_type_decl decl =
+  let decl_body = match decl.typ_kind with
+    | Tdecl_inductive constructors -> 
+        constructors
+    |> List.map (fun (name, args) -> 
+      Format.sprintf "| %s%s" name
+      (if List.length args = 0 then "" else " of " ^ (string_of_type_list args)))
+    |> String.concat " "
+  in
+  Format.sprintf "type %s = %s" 
+    (string_of_type (TConstr (decl.typ_name, decl.typ_params)))
+    decl_body
+
+
 let string_of_binder ((ident, typ) : binder) =
   Format.sprintf "(%s : %s)" ident (string_of_type typ)
 

@@ -6,9 +6,10 @@ let using_pure_fns = ref false
 type t = {
   mutable pure_fns : pure_fn_def SMap.t;
   mutable pure_fn_types : pure_fn_type_def SMap.t;
+  mutable type_decls: type_decl SMap.t
 }
 
-let create () = { pure_fns = SMap.empty; pure_fn_types = SMap.empty }
+let create () = { pure_fns = SMap.empty; pure_fn_types = SMap.empty; type_decls = SMap.empty}
 let global_environment : t = create ()
 
 (* we don't want to thread the type definitions through every single normalization call, since normalization invokes the prover. this part of the state grows monotonically, so it should be harmless... *)

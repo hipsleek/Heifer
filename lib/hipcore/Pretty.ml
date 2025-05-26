@@ -533,12 +533,17 @@ let rec string_of_type t =
   | TyString -> "string"
   | Int -> "int"
   | Unit -> "unit"
-  | TConstr (name, args) -> Format.asprintf "(%s) %s" (List.map string_of_type args |> String.concat ",") name
+  | TConstr (name, args) -> Format.asprintf "%s %s" (string_of_type_list args) name
   | List_int -> "intlist"
   | Bool -> "bool"
   | Lamb -> "lambda"
   | TVar v -> Format.asprintf "'%s" v
   | Arrow (t1, t2) -> Format.asprintf "%s->%s" (string_of_type t1) (string_of_type t2)
+and string_of_type_list l =
+  match l with
+  | [] -> ""
+  | [t] -> string_of_type t
+  | _ -> Format.sprintf "(%s)" (List.map string_of_type l |> String.concat ", ")
 
 let string_of_pure_fn ({ pf_name; pf_params; pf_ret_type; pf_body } : pure_fn_def) : string =
   Format.asprintf "let %s %s : %s = %s" pf_name (String.concat " " (List.map (fun (p, t) -> Format.asprintf "(%s:%s)" p (string_of_type t)) pf_params)) (string_of_type pf_ret_type) (string_of_core_lang pf_body)
