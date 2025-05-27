@@ -1,4 +1,4 @@
 (library
  (name utils)
  (public_name heifer.utils)
- (modules io))
+ (modules io misc))

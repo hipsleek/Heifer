@@ -128,15 +128,11 @@ let is_concrete_type = function TVar _ -> false | _ -> true
 
 let concrete_types = [Unit; List_int; Int; Bool; Lamb]
 
-let res_v = Var "res"
-
 let z3_consumption = ref 0.0
 let summary_forward = ref 0.0
 let summary_entail = ref 0.0
 let summary_storing_spec = ref 0.0
 let summary_askZ3 = ref 0.0
-
-let res_eq t = Atomic (EQ, res_v, t)
 
 module U = struct
   include UnionFind
