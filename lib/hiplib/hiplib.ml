@@ -7,7 +7,6 @@ open Ocaml_compiler
 open Asttypes
 (* get rid of the alias *)
 type string = label
-(* open Rewriting *)
 open Debug
 open Hiptypes
 (* open Normalize *)
@@ -19,13 +18,6 @@ let test_mode = ref false
 let tests_failed = ref false
 
 (*
-let rec input_lines file =
-  match try [input_line file] with End_of_file -> [] with
-   [] -> []
-  | [line] -> (String.trim line) :: input_lines file
-  | _ -> failwith "Weird input_line return value"
-;;
-
 
 
 let rec shaffleZIP li1 li2 =
@@ -1024,15 +1016,14 @@ let process_ocaml_structure (strs: Ocaml_common.Parsetree.structure) : unit =
   in
   List.fold_left helper ([], empty_program) strs |> ignore
 
-let run_ocaml_string_ line =
+let run_ocaml_string s =
   (** Parse and typecheck the code, before converting it into a core language program.
      This mirrors the flow of compilation used in ocamlc. *)
   try
-    let items = Parse.implementation (Lexing.from_string line) in
+    let items = Parse.implementation (Lexing.from_string s) in
     process_ocaml_structure items
   with
-    | exn -> Format.printf "%a\n" Location.report_exception exn
-      
+    | e -> Format.printf "%a\n" Location.report_exception e
 
 let mergeTopLevelCodeIntoOneMain (prog : intermediate list) : intermediate list =
   let rec helper li: (intermediate list  * core_lang list )=
@@ -1060,7 +1051,7 @@ let mergeTopLevelCodeIntoOneMain (prog : intermediate list) : intermediate list 
 
 
 (* this is the entry of inputing the Racket file *)
-let run_racket_string_ _line = ()
+let run_racket_string _s = ()
 (*
   let open Racketfrontend in
   (* DARIUS: parsing should return a list of intermediate *)
@@ -1081,9 +1072,8 @@ let run_string kind s =
   (*   | `Ocaml -> run_ocaml_string_ s *)
   (*   | `Racket -> run_racket_string_ s) *)
   match kind with
-  | `Ocaml -> run_ocaml_string_ s
-  | `Racket -> run_racket_string_ s
-
+  | `Ocaml -> run_ocaml_string s
+  | `Racket -> run_racket_string s
 
 let retriveComments (source : string) : string list =
   let partitions = Str.split (Str.regexp "(\\*@") source in
@@ -1101,12 +1091,6 @@ let retriveComments (source : string) : string list =
             else let ele = ("/*@" ^ head ^ "@*/") in ele :: helper xs
       in
       helper partitionEnd
-
-let get_file_type =
-  let racket_regex = Str.regexp ".*\\.rkt$" in
-  fun file_name ->
-    let is_racket_file = Str.string_match racket_regex file_name 0 in
-    if is_racket_file then `Racket else `Ocaml
 
 let _run_file inputfile =
   let open Utils.Io in
