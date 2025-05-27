@@ -12,8 +12,8 @@ let assert_var_has_type v t env =
       TEnv.has_concrete_type env.equalities t
       && TEnv.has_concrete_type env.equalities t1
     then (
-      let t' = TEnv.concretize env.equalities t in
-      let t1' = TEnv.concretize env.equalities t1 in
+      let t' = TEnv.concretize env.equalities t |> Option.get in
+      let t1' = TEnv.concretize env.equalities t1 |> Option.get in
       match t1 with       (* ASK Darius *)
       | TVar _ -> ()      (* ASK Darius *)
       | _ ->              (* ASK Darius *)
@@ -24,34 +24,46 @@ let assert_var_has_type v t env =
     else TEnv.equate env.equalities t1 t;
     env
 
+(** Exception raised when solver cannot unify the two types. *)
+exception Unification_failure of typ * typ
+
+(** [Cyclic_type t1 t2] is raised when, during type unification, t1's value
+    is found to rely on t2. *)
+exception Cyclic_type of typ * typ
+
+let () =
+  Printexc.register_printer begin function
+    | Unification_failure (t1, t2) -> Some (Printf.sprintf "Unification_failure(%s, %s)" (string_of_type t1) (string_of_type t2))
+    | Cyclic_type (t1, t2) -> Some (Printf.sprintf "Cyclic_type(%s, %s)" (string_of_type t1) (string_of_type t2))
+    | _ -> None
+  end
+
 (* record a (nontrivial) equality in the environment *)
-let unify_types t1 t2 env =
+let rec unify_types t1 t2 env =
   debug ~at:5 ~title:"unify" "%s ~ %s" (string_of_type t1) (string_of_type t2);
-  if compare_typ t1 t2 = 0 then env
-  else (
-    if
-      TEnv.has_concrete_type env.equalities t1
-      && TEnv.has_concrete_type env.equalities t2
-    then (
-      let t1 = TEnv.concretize env.equalities t1 in
-      let t2 = TEnv.concretize env.equalities t1 in
-      if compare_typ t1 t2 <> 0 then
-        failwith
-          (Format.asprintf "%s ~/~ %s"
-             (string_of_type (TEnv.concretize env.equalities t1))
-             (string_of_type (TEnv.concretize env.equalities t2))))
-    else TEnv.equate env.equalities t1 t2;
-    env)
+  match TEnv.(simplify env.equalities t1, simplify env.equalities t2) with
+  (* case where one of t1, t2 is a type variable: *)
+  | TVar _ as var, _ | _, (TVar _ as var) -> 
+      TEnv.equate env.equalities t1 t2;
+      (* check for cycles in the equality map *)
+      let var_simplified = TEnv.simplify env.equalities var in
+      if (compare_typ var var_simplified <> 0) && List.mem var (type_vars_used var_simplified)
+      then raise (Cyclic_type (var, var_simplified))
+      else env
+  (* case where t1 and t2 are both type constructors: *)
+  | TConstr (name1, args1) as simp_t1, (TConstr (name2, args2) as simp_t2) -> 
+      if name1 = name2
+      then List.fold_left2 (fun env p1 p2 -> unify_types p1 p2 env) env args1 args2
+      else raise (Unification_failure (simp_t1, simp_t2))
+  (* case where t1 and t2 are the same type: *)
+  | t1, t2 when compare_typ t1 t2 = 0 -> env
+  (* as of now, unification is not possible in all other cases *)
+  | t1, t2 -> raise (Unification_failure (t1, t2))
 
 let find_concrete_type = TEnv.concretize
 
 let concrete_type_env abs : typ_env =
-  SMap.map
-    (fun v ->
-      match v with TVar _ ->
-        (* Format.printf "%s@." (string_of_type v); *)
-        find_concrete_type abs.equalities v | _ -> v)
-    abs.vartypes
+  SMap.map (TEnv.simplify abs.equalities) abs.vartypes
 
 let get_primitive_type f =
   let untype = Typedhip.Untypehip.hiptypes_typ in
@@ -188,7 +200,7 @@ and infer_types_term ?hint (env : abs_typ_env) term : typ * abs_typ_env =
           env
     in
     (ret, env)
-  | TList _, _ | TTupple _, _ -> failwith "list/tuple unimplemented"
+  | Construct _, _ | TList _, _ | TTupple _, _ -> failwith "constructor/list/tuple unimplemented"
 
 let rec infer_types_pi env pi =
   (* let@ _ =
@@ -219,3 +231,62 @@ let rec infer_types_pi env pi =
   | Not a -> infer_types_pi env a
   | Predicate (_, _) -> env
   | Subsumption (_, _) -> env
+
+(** Output a list of types after being unified in some environment. Mainly
+    used for testing. *)
+let output_simplified_types env ts =
+  ts |> List.iteri (fun i t ->
+    Printf.printf "t%d: %s\n" i (string_of_type (TEnv.simplify env.equalities t)))
+
+let%expect_test "test inference" =
+  let env = create_abs_env () in
+  let t1 = TConstr ("list", [TVar "a"]) in
+  let t2 = TConstr ("list", [TVar "c"]) in
+  let t3 = TVar "c" in
+  let t4 = TConstr ("list", [Int]) in
+  let env = unify_types t1 t2 env in
+  let env = unify_types t3 t4 env in
+  output_simplified_types env [t1; t2; t3; t4];
+  [%expect {|
+    t0: int list list
+    t1: int list list
+    t2: int list
+    t3: int list
+    |}]
+
+let%expect_test "test inference" =
+  let env = create_abs_env () in
+  let t1 = TVar "a" in
+  let t2 = TVar "b" in
+  let t3 = TVar "c" in
+  let t4 = TConstr ("list", [Int]) in
+  let t5 = Unit in
+  let env = unify_types t1 t2 env in
+  let env = unify_types t1 t4 env in
+  let env = unify_types t5 t3 env in
+  output_simplified_types env [t1; t2; t3; t4; t5];
+  [%expect {|
+    t0: int list
+    t1: int list
+    t2: unit
+    t3: int list
+    t4: unit
+    |}]
+
+let%expect_test "unsolvable unification: cyclic solution" =
+  Printexc.record_backtrace false;
+  let env = create_abs_env () in
+  let t1 = TConstr ("list", [TConstr ("list", [TVar "a"])]) in
+  let t2 = TConstr ("list", [TVar "a"]) in
+  let _ = unify_types t1 t2 env in
+  output_simplified_types env [t1; t2];
+  [@@expect.uncaught_exn {| ("Cyclic_type('a, 'a list)") |}]
+
+let%expect_test "unsolvable unification: incompatible types" =
+  Printexc.record_backtrace false;
+  let env = create_abs_env () in
+  let t1 = Int in
+  let t2 = Bool in
+  let _ = unify_types t1 t2 env in
+  output_simplified_types env [t1; t2];
+  [@@expect.uncaught_exn {| ("Unification_failure(int, bool)") |}]

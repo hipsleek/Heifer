@@ -11,7 +11,8 @@ type typ =
   | Lamb
   (* TODO do we need a Poly variant for generics? *)
   | Arrow of typ * typ
-  | TVar of string (* this is last, so > concrete types *)
+  | TVar of string (* this is last, so > concrete types. this is needed
+    so that type unification "prioritizes" concrete representations over non-concrete ones *)
 [@@deriving show { with_path = false }, ord]
 
 type type_decl_kind =
@@ -27,6 +28,13 @@ type type_decl = {
 let min_typ a b = if compare_typ a b <= 0 then a else b
 
 let is_concrete_type = function TVar _ -> false | _ -> true
+
+let rec type_vars_used t =
+  match t with
+  | TVar _ -> [t]
+  | TConstr (_, args) -> (List.concat_map type_vars_used args)
+  | Arrow (t1, t2) -> (type_vars_used t1) @ (type_vars_used t2)
+  | _ -> []
 
 let concrete_types = [Unit; List_int; Int; Bool; Lamb]
 
@@ -67,12 +75,45 @@ module TEnv = struct
     let t2r = get_or_create m t2 in
     U.merge min_typ t1r t2r
 
-  let concretize m t = TMap.find t !m |> U.get
+  (** Attempt to resolve all type variables in t. (i.e. performs all
+   unifications possible.) *)
+  let rec simplify (m : t) t : typ =
+    
+    match t with
+    | TVar _ ->
+      TMap.find_opt t !m
+      |> Option.map U.get
+      |> Option.value ~default:t
+    | TConstr (constr, args) -> 
+        (* recurse into the constructor's arguments *)
+        TConstr (constr, List.map (simplify m) args)
+    | _ -> t
 
-  let has_concrete_type m t =
-    match TMap.find_opt t !m with
-    | None -> false
-    | Some r -> is_concrete_type (U.get r)
+  (** Fully resolve all type variables in t. Returns None
+    if some variables cannot be resolved.*)
+  let rec concretize (m : t) t = 
+    match t with
+    | TVar _ -> 
+      let equality = TMap.find_opt t !m |> Option.map U.get in
+      Option.bind equality (fun equality ->
+        match equality with
+        (* If this is still a type variable, we have no concrete type for this variable. *)
+        | TVar _ -> None
+        (* Otherwise, this may still be, e.g. a constructor with type variables inside, so
+           recursively concretize this type. *)
+        | _ -> (concretize m equality))
+    | TConstr (constr, args) -> 
+        (* recurse into the constructor's arguments *)
+        let concrete_args = List.map (concretize m) args in
+        let concrete_args = List.fold_right (fun arg acc -> match arg, acc with
+            | _, None | None, _ -> None
+            | Some arg, Some acc -> Some (arg::acc)) concrete_args (Some [])
+        in
+        concrete_args |> Option.map (fun args -> TConstr (constr, args))
+    | _ -> Some t
+
+  (** Check if t is a fully concrete type. *)
+  let has_concrete_type m t = concretize m t |> Option.is_some
 
 end
 
