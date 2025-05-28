@@ -1,13 +1,14 @@
 open Hipcore
 open Hiptypes
-open Pretty
+open Typedhip
+open Pretty_typed
 open Debug
 
 (* record the type (or constraints on) of a program variable in the environment *)
 let assert_var_has_type v t env =
   match SMap.find_opt v env.vartypes with
   | None -> { env with vartypes = SMap.add v t env.vartypes }
-  | Some t1 ->
+  | Some t1 -> (* unify_types t t1 env (* this probably also works*) *)
     if
       TEnv.has_concrete_type env.equalities t
       && TEnv.has_concrete_type env.equalities t1
@@ -89,24 +90,28 @@ let get_primitive_fn_type f =
   | "=" -> ([Int; Int], Bool)
   | _ -> failwith (Format.asprintf "unknown function: %s" f)
 
-let rec infer_types_core_lang env e =
-  match e with
-  | CValue t -> infer_types_term env t
+let rec infer_types_core_lang env e : core_lang * abs_typ_env =
+  match e.core_desc with
+  | CValue t -> 
+      let term, env = infer_types_term env t in
+      {core_desc = CValue term; core_type = term.term_type}, env
   | CFunCall (f, args) ->
     let ex_args, ex_ret = get_primitive_fn_type f in
-    let _arg_types, env =
+    let args, env =
     List.fold_right2 (fun arg ex_arg (t, env) ->
       let inf_arg, env = infer_types_term env arg in
-      let env = unify_types inf_arg ex_arg env in
+      let env = unify_types inf_arg.term_type ex_arg env in
       inf_arg :: t, env
       ) args ex_args ([], env)
     in
-    ex_ret, env
+    {core_desc = CFunCall (f, args); core_type = ex_ret}, env
   | CLet (x, e1, e2) ->
     let t1, env = infer_types_core_lang env e1 in
-    let env = assert_var_has_type x t1 env in
-    infer_types_core_lang env e2
-  | CIfELse (_, _, _) -> failwith "CIfELse"
+    (* let-polymorphism would be nice to have here *)
+    let env = assert_var_has_type x t1.core_type env in
+    let t2, env = infer_types_core_lang env e2 in
+    {core_desc = CLet (x, t1, t2); core_type = t2.core_type}, env
+  | CIfElse (_, _, _) -> failwith "CIfELse"
   | CWrite (_, _) -> failwith "CWrite"
   | CRef _ -> failwith "CRef"
   | CRead _ -> failwith "CRead"
@@ -118,41 +123,41 @@ let rec infer_types_core_lang env e =
   | CLambda (_, _, _) ->
     failwith "not implemented"
 
-and infer_types_term ?hint (env : abs_typ_env) term : typ * abs_typ_env =
+and infer_types_term ?hint (env : abs_typ_env) term : term * abs_typ_env =
   let@ _ =
     Debug.span (fun r ->
         debug ~at:5 ~title:"infer_types" "%s : %s -| %s" (string_of_term term)
-          (string_of_result string_of_type (map_presult fst r))
+          (string_of_result string_of_term (map_presult fst r))
           (string_of_result string_of_abs_env (map_presult snd r)))
   in
-  match (term, hint) with
-  | UNIT, _ -> (Unit, env)
-  | TTrue, _ | TFalse, _ -> (Bool, env)
-  | TStr _, _ -> (TyString, env)
+  match (term.term_desc, hint) with
+  | Const c, _ -> let term_type = match c with
+    | TStr _ -> TyString
+    | TTrue | TFalse -> Bool
+    | ValUnit -> Unit
+    | Num _ -> Int
+    | Nil -> List_int (* TODO use TConstr here, substitute appropriate type var for list contents *)
+    in ({term_desc = Const c; term_type}, env)
   | TNot a, _ ->
-    let _at, env1 = infer_types_term ~hint:Bool env a in
-    (Bool, env1)
-  | TAnd (a, b), _ ->
-    let _at, env = infer_types_term ~hint:Bool env a in
-    let _bt, env = infer_types_term ~hint:Bool env b in
-    (Bool, env)
-  | TOr (a, b), _ ->
-    let _at, env = infer_types_term ~hint:Bool env a in
-    let _bt, env = infer_types_term ~hint:Bool env b in
-    (Bool, env)
-  | Nil, _ -> (List_int, env)
-  | TCons (a, b), _ ->
-    let _at, env1 = infer_types_term ~hint:Int env a in
-    let _bt, env2 = infer_types_term ~hint:List_int env1 b in
-    (List_int, env2)
-  | Num _, _ -> (Int, env)
+    let a, env1 = infer_types_term ~hint:Bool env a in
+    ({term_desc = TNot a; term_type = Bool}, env1)
+  | BinOp (op, a, b), _ ->
+    let a_hint, b_hint, term_type = match op with
+      | TOr | TAnd -> Bool, Bool, Bool
+      | TCons -> Int, List_int, List_int
+      | Plus | Minus | TTimes | TDiv | TPower -> Int, Int, Int
+      | SConcat -> TyString, TyString, TyString
+    in
+    let a, env = infer_types_term ~hint:a_hint env a in
+    let b, env = infer_types_term ~hint:b_hint env b in
+    ({term_desc = BinOp(op, a, b); term_type}, env)
   (* possibly add syntactic heuristics for types, such as names *)
-  | Var v, Some t -> (t, assert_var_has_type v t env)
+  | Var v, Some t -> ({term_desc = Var v; term_type = t}, assert_var_has_type v t env)
   | Var v, None ->
-    let t = TVar (verifier_getAfreeVar v) in
-    (t, assert_var_has_type v t env)
+    let t = TVar (ident_of_binder (verifier_getAfreeVar v)) in
+    ({term with term_type = t}, assert_var_has_type v t env)
   | TLambda (_, _, _, Some _), _
-  | TLambda (_, _, _, None), _ -> (Lamb, env)
+  | TLambda (_, _, _, None), _ -> ({term with term_type = Lamb}, env)
   (* | TLambda (_, params, _, Some b), _ ->
     (* TODO use the spec? *)
     (try
@@ -166,42 +171,30 @@ and infer_types_term ?hint (env : abs_typ_env) term : typ * abs_typ_env =
       (* if inferring types for the body fails (likely due to the types of impure stuff not being representable), fall back to old behavior for now *)
       Lamb, env) *)
   | Rel (EQ, a, b), _ -> begin
-    try
-      let at, env1 = infer_types_term ~hint:Int env a in
-      let bt, env2 = infer_types_term ~hint:Int env1 b in
-      let env3 = unify_types at bt env2 in
-      (Bool, env3)
-    with _ ->
-      let _bt, env1 = infer_types_term ~hint:Int env b in
-      let _at, env2 = infer_types_term ~hint:Int env1 a in
-      (Bool, env2)
+      let a, env1 = infer_types_term ?hint env a in
+      let b, env2 = infer_types_term ?hint env1 b in
+      let env3 = unify_types a.term_type b.term_type env2 in
+      {term_desc = Rel(EQ, a, b); term_type = Bool}, env3
   end
   | Rel ((GT | LT | GTEQ | LTEQ), a, b), _ ->
-    let _at, env1 = infer_types_term ~hint:Int env a in
-    let _bt, env2 = infer_types_term ~hint:Int env1 b in
-    (Bool, env2)
-  | SConcat (a, b), _ ->
-    let _at, env1 = infer_types_term ~hint:TyString env a in
-    let _bt, env2 = infer_types_term ~hint:TyString env1 b in
-    (TyString, env2)
-  | Plus (a, b), _ | Minus (a, b), _ | TPower (a, b), _ | TTimes (a, b), _ | TDiv (a, b), _ ->
-    let _at, env1 = infer_types_term ~hint:Int env a in
-    let _bt, env2 = infer_types_term ~hint:Int env1 b in
-    (Int, env2)
+    let a, env1 = infer_types_term ~hint:Int env a in
+    let b, env2 = infer_types_term ~hint:Int env1 b in
+    {term_desc = Rel(EQ, a, b); term_type = Bool}, env2
   | TApp (f, args), _ ->
     let argtypes, ret = get_primitive_type f in
-    let env =
+    let args, env =
       List.map2 pair args argtypes |>
         (* infer from right to left *)
         List.fold_left
-          (fun env (a, at) ->
-            let _, env = infer_types_term ~hint:at env a in
-            env)
-          env
+          (fun (typed_args, env) (a, at) ->
+            let typed_arg, env = infer_types_term ~hint:at env a in
+            typed_args @ [typed_arg], env)
+          ([], env)
     in
-    (ret, env)
-  | Construct _, _ | TList _, _ | TTupple _, _ -> failwith "constructor/list/tuple unimplemented"
+    {term_desc = TApp(f, args); term_type = ret}, env
+  | Construct _, _ | TList _, _ | TTuple _, _ -> failwith "constructor/list/tuple unimplemented"
 
+(* Given a typed term, fill in the needed missing type information. *)
 let rec infer_types_pi env pi =
   (* let@ _ =
        Debug.span (fun r ->
@@ -209,28 +202,55 @@ let rec infer_types_pi env pi =
              (string_of_result string_of_abs_env r))
      in *)
   match pi with
-  | True | False -> env
+  | True | False -> pi, env
   | Atomic (EQ, a, b) ->
     let t1, env = infer_types_term env a in
     let t2, env = infer_types_term env b in
     (* Format.printf "EQ %s = %s@." (string_of_term a) (string_of_term b); *)
-    let env = unify_types t1 t2 env in
-    env
-  | Atomic (GT, a, b)
-  | Atomic (LT, a, b)
-  | Atomic (GTEQ, a, b)
-  | Atomic (LTEQ, a, b) -> begin
-    let _t, env = infer_types_term ~hint:Int env a in
-    let _t, env = infer_types_term ~hint:Int env b in
-    env
+    let env = unify_types t1.term_type t2.term_type env in
+    Atomic(EQ, t1, t2), env
+  | Atomic (GT as op, a, b)
+  | Atomic (LT as op, a, b)
+  | Atomic (GTEQ as op, a, b)
+  | Atomic (LTEQ as op, a, b) -> begin
+    let t1, env = infer_types_term ~hint:Int env a in
+    let t2, env = infer_types_term ~hint:Int env b in
+    Atomic(op, t1, t2), env
   end
-  | And (a, b) | Or (a, b) | Imply (a, b) ->
-    let env = infer_types_pi env a in
-    let env = infer_types_pi env b in
-    env
-  | Not a -> infer_types_pi env a
-  | Predicate (_, _) -> env
-  | Subsumption (_, _) -> env
+  | And (a, b) ->
+    let t1, env = infer_types_pi env a in
+    let t2, env = infer_types_pi env b in
+    And (t1, t2), env
+  | Or (a, b) -> 
+    let t1, env = infer_types_pi env a in
+    let t2, env = infer_types_pi env b in
+    Or (t1, t2), env
+  | Imply (a, b) ->
+    let t1, env = infer_types_pi env a in
+    let t2, env = infer_types_pi env b in
+    Imply (t1, t2), env
+  | Not a -> 
+      let t, env = infer_types_pi env a in
+      Not t, env
+  | Predicate (_, _) -> pi, env
+  | Subsumption (_, _) -> pi, env
+
+(** Given an environment, and a typed term, perform simplifications
+    on the types in the term based on the environment. *)
+let simplify_types_pi env pi =
+  let go = object
+    inherit [_] map_spec as super
+
+    method! visit_term env term =
+      {term_desc = super#visit_term_desc env term.term_desc;
+      term_type = TEnv.simplify env.equalities term.term_type}
+  end in
+  go#visit_pi env pi
+
+(** Given an untyped term, fill it with type information. *)
+let infer_untyped_pi ?(env = create_abs_env ()) pi =
+  let pi, env = infer_types_pi env (Fill_type.fill_untyped_pi pi) in
+  simplify_types_pi env pi, env
 
 (** Output a list of types after being unified in some environment. Mainly
     used for testing. *)
@@ -238,7 +258,7 @@ let output_simplified_types env ts =
   ts |> List.iteri (fun i t ->
     Printf.printf "t%d: %s\n" i (string_of_type (TEnv.simplify env.equalities t)))
 
-let%expect_test "test inference" =
+let%expect_test "unification with type constructors" =
   let env = create_abs_env () in
   let t1 = TConstr ("list", [TVar "a"]) in
   let t2 = TConstr ("list", [TVar "c"]) in
@@ -254,7 +274,7 @@ let%expect_test "test inference" =
     t3: int list
     |}]
 
-let%expect_test "test inference" =
+let%expect_test "unification" =
   let env = create_abs_env () in
   let t1 = TVar "a" in
   let t2 = TVar "b" in
@@ -290,3 +310,18 @@ let%expect_test "unsolvable unification: incompatible types" =
   let _ = unify_types t1 t2 env in
   output_simplified_types env [t1; t2];
   [@@expect.uncaught_exn {| ("Unification_failure(int, bool)") |}]
+
+let%expect_test "term inference" =
+  let env = create_abs_env () in
+  let p1 = Hiptypes.(And (Atomic(GT, Var "a", Var "b"), Atomic(EQ, Var "c", TCons (Var "b", Nil)))) in
+  let p1_typed, _ = infer_untyped_pi p1 ~env in
+  begin match p1_typed with
+  | And (Atomic(GT, {term_type = a_type; _}, {term_type = b_type; _}),
+    Atomic(EQ, {term_type = c_type; _}, {term_type = ls_type; term_desc = BinOp (TCons, _, {term_type = nil_type; _})})) ->
+      Printf.printf "types: %s %s %s %s %s\n" (string_of_type a_type) (string_of_type b_type) (string_of_type c_type)
+      (string_of_type ls_type) (string_of_type nil_type)
+  | _ -> Printf.printf "INVALID"
+  end;
+  [%expect {|
+    types: int int intlist intlist intlist
+    |}]

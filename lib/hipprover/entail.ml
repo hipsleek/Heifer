@@ -704,8 +704,9 @@ and stage_subsumes :
     let tenv =
       (* handle the environment manually as it's shared between both sides *)
       let env = create_abs_env () in
-      let env = infer_types_pi env (Untypehip.untype_pi left) in
-      let env = infer_types_pi env (Untypehip.untype_pi right) in
+      let _, env = infer_types_pi env left in
+      let _, env = infer_types_pi env right in
+      Printf.printf "!! inferred types %s from %s |- %s\n" (string_of_abs_env env) (string_of_pi left) (string_of_pi right);
       env
     in
     let right, ctx = extract_subsumption_proof_obligations ctx (Untypehip.untype_pi right) in
@@ -752,7 +753,7 @@ and stage_subsumes :
       (* let env = infer_types_pi tenv left in *)
       (* let env = infer_types_pi env right in *)
       (* share things like res *)
-      let env = infer_types_pi tenv (And ((Untypehip.untype_pi left), (Untypehip.untype_pi right))) in
+      let _, env = infer_types_pi tenv (And (left, right)) in
       env
     in
     (* Format.printf "1@."; *)

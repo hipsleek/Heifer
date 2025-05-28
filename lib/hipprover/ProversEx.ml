@@ -10,8 +10,8 @@ open Debug
 let is_valid pi1 ?(ex=[]) pi2 =
   let env =
     let env = create_abs_env () in
-    let env = infer_types_pi env pi1 in
-    let env = infer_types_pi env pi2 in
+    let _, env = infer_untyped_pi ~env pi1 in
+    let _, env = infer_untyped_pi ~env pi2 in
     concrete_type_env env
   in
   let@ _ =
