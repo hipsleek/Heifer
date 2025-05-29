@@ -2,7 +2,7 @@
 open Hipcore
 open Hiptypes
 
-let cache : (pi * string list * pi, bool) Hashtbl.t = Hashtbl.create 10
+let cache : (Typedhip.pi * Typedhip.binder list * Typedhip.pi, bool) Hashtbl.t = Hashtbl.create 10
 
 let memo k f =
   match Hashtbl.find_opt cache k with
@@ -15,8 +15,9 @@ let memo k f =
 
 let entails_exists env left ex right =
   let@ _ = memo (left, ex, right) in
+  let open Typedhip in
   match Sys.getenv_opt "PROVER" with
-  | Some "WHY3" -> Prover_why3.entails_exists env left ex right
+  | Some "WHY3" -> Prover_why3.entails_exists env (Untypehip.untype_pi left) (List.map ident_of_binder ex) (Untypehip.untype_pi right)
   | Some "Z3" -> Prover_z3.entails_exists env left ex right
   | Some _
   | None ->
@@ -24,11 +25,11 @@ let entails_exists env left ex right =
       (* if no pure functions are used, short circuit immediately.
          otherwise, switch only if some part of the formula needs why3 *)
       !Globals.using_pure_fns &&
-        (Subst.needs_why3#visit_pi () left ||
-        Subst.needs_why3#visit_pi () right)
+        (Subst_typed.needs_why3#visit_pi () left ||
+        Subst_typed.needs_why3#visit_pi () right)
     in
     if needs_why3 then
-      Prover_why3.entails_exists env left ex right
+      Prover_why3.entails_exists env (Untypehip.untype_pi left) (List.map ident_of_binder ex) (Untypehip.untype_pi right)
     else
       Prover_z3.entails_exists env left ex right
 

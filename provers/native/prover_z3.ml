@@ -1,9 +1,11 @@
 open Hipcore
 open Debug
 open Hiptypes
-open Pretty
+open Typedhip
+open Pretty_typed
+open Subst_typed
 
-(* open Types *)
+open Types
 open Z3
 
 let list_int_sort ctx =
@@ -29,8 +31,8 @@ let get_fun_decl ctx s =
     else failwith (Format.asprintf "unknown function 1: %s" s)
 
 let rec term_to_expr env ctx t : Z3.Expr.expr =
-  match t with
-  | Num n -> Z3.Arithmetic.Integer.mk_numeral_i ctx n
+  match t.term_desc with
+  | Const (Num n) -> Z3.Arithmetic.Integer.mk_numeral_i ctx n
   | Var v ->
     (match SMap.find_opt v env with
     | None ->
@@ -68,24 +70,24 @@ let rec term_to_expr env ctx t : Z3.Expr.expr =
       | TyString -> Z3.Expr.mk_const_s ctx v (Z3.Seq.mk_string_sort ctx)
       | Arrow (_, _) -> failwith "arrow not implemented"
       | TConstr _ -> failwith "general ADTs not implemented"))
-  | UNIT ->
+  | Const ValUnit ->
     let mk = Z3.Tuple.get_mk_decl (unit_sort ctx) in 
     Z3.Expr.mk_app ctx mk []
   | TLambda _ ->
     (* Format.printf "z3 %s %d@." (string_of_term t) (hash_lambda t); *)
-    Z3.Arithmetic.Integer.mk_numeral_i ctx (Subst.hash_lambda t)
-  | Nil ->
+    Z3.Arithmetic.Integer.mk_numeral_i ctx (hash_lambda t)
+  | Const Nil ->
     let list_int = list_int_sort ctx in
     Z3.Z3List.nil list_int
   (*
   | Gen i          -> Z3.Arithmetic.Real.mk_const_s ctx ("t" ^ string_of_int i ^ "'")
   *)
-  | SConcat (t1, t2) ->
+  | BinOp (SConcat, t1, t2) ->
     let t1' = term_to_expr env ctx t1 in 
     let t2' = term_to_expr env ctx t2 in 
     let res = Z3.Seq.mk_seq_concat ctx [t1'; t2'] in 
     res
-  | Plus (t1, t2) ->
+  | BinOp (Plus, t1, t2) ->
     (*print_endline ("\n-------\nPlus " ^ string_of_term t);*)
     let t1' = term_to_expr env ctx t1 in 
     let t2' = term_to_expr env ctx t2 in 
@@ -105,7 +107,7 @@ let rec term_to_expr env ctx t : Z3.Expr.expr =
     *)
 
     res
-  | Minus (t1, t2) ->
+  | BinOp (Minus, t1, t2) ->
     Z3.Arithmetic.mk_sub ctx [term_to_expr env ctx t1; term_to_expr env ctx t2]
 
   | Rel (bop, t1, t2) ->
@@ -124,27 +126,27 @@ let rec term_to_expr env ctx t : Z3.Expr.expr =
     | LTEQ ->
       Z3.Arithmetic.mk_le ctx (term_to_expr env ctx t1)
         (term_to_expr env ctx t2))
-  | TTrue -> Z3.Boolean.mk_true ctx
-  | TFalse -> Z3.Boolean.mk_false ctx
-  | TStr s -> Z3.Seq.mk_string ctx s
+  | Const TTrue -> Z3.Boolean.mk_true ctx
+  | Const TFalse -> Z3.Boolean.mk_false ctx
+  | Const (TStr s) -> Z3.Seq.mk_string ctx s
   | TNot a -> Z3.Boolean.mk_not ctx (term_to_expr env ctx a)
-  | TAnd (a, b) ->
+  | BinOp (TAnd, a, b) ->
     Z3.Boolean.mk_and ctx [term_to_expr env ctx a; term_to_expr env ctx b]
-  | TOr (a, b) ->
+  | BinOp (TOr, a, b) ->
     Z3.Boolean.mk_or ctx [term_to_expr env ctx a; term_to_expr env ctx b]
-  | TCons (a, b) ->
+  | BinOp (TCons, a, b) ->
     Z3.Expr.mk_app ctx (get_fun_decl ctx "cons")
       (List.map (term_to_expr env ctx) [a; b])
   | TApp ("string_of_int" , [x]) ->
     Z3.Seq.mk_int_to_str ctx (term_to_expr env ctx x)
   | TApp (f, a) ->
     Z3.Expr.mk_app ctx (get_fun_decl ctx f) (List.map (term_to_expr env ctx) a)
-  | TPower (Num 2, Var "n") -> 
+  | BinOp (TPower, {term_desc = Const Num 2; _}, {term_desc = Var "n"; _}) -> 
       Z3.Arithmetic.Integer.mk_const_s ctx "v2N"
-  | TPower (Num 2, Plus(Var "n", Num 1)) -> 
+  | BinOp (TPower, {term_desc = Const Num 2; _}, {term_desc = BinOp(Plus, {term_desc = Var "n"; _}, {term_desc = Const Num 1; _}); _}) -> 
       Z3.Arithmetic.Integer.mk_const_s ctx "v2Nplus1"
 
-  | TPower (Num n, Plus (Num n1, Num n2)) -> 
+  | BinOp (TPower, {term_desc = Const Num n; _}, {term_desc = BinOp (Plus, {term_desc = Const Num n1; _}, {term_desc = Const Num n2; _}); _}) -> 
       let rec power base exp = 
         match exp with 
         | 0 -> 1 
@@ -153,7 +155,7 @@ let rec term_to_expr env ctx t : Z3.Expr.expr =
       Z3.Arithmetic.Integer.mk_numeral_i ctx (power n (n1+ n2))
 
 
-  | TPower (t1, t2) -> 
+  | BinOp (TPower, t1, t2) -> 
     print_endline ("TPower "^ string_of_term t);
     
     let res = Z3.Arithmetic.mk_power ctx (term_to_expr env ctx t1) (term_to_expr env ctx t2) in 
@@ -161,10 +163,10 @@ let rec term_to_expr env ctx t : Z3.Expr.expr =
     res
   
   
-  | TTimes (t1, t2) -> Z3.Arithmetic.mk_mul ctx [term_to_expr env ctx t1; term_to_expr env ctx t2]
-  | TDiv (t1, t2) -> Z3.Arithmetic.mk_div ctx (term_to_expr env ctx t1) (term_to_expr env ctx t2)
+  | BinOp (TTimes, t1, t2) -> Z3.Arithmetic.mk_mul ctx [term_to_expr env ctx t1; term_to_expr env ctx t2]
+  | BinOp (TDiv, t1, t2) -> Z3.Arithmetic.mk_div ctx (term_to_expr env ctx t1) (term_to_expr env ctx t2)
 
-  | TList _ | TTupple _ -> failwith "term_to_expr"
+  | Construct _ | TList _ | TTuple _ -> failwith "term_to_expr"
 
 let rec pi_to_expr env ctx pi: Expr.expr = 
   match pi with 
@@ -332,14 +334,14 @@ let ex_quantify_expr env vars ctx e =
     Z3.Quantifier.(
       expr_of_quantifier
         (mk_exists_const ctx
-           (List.map (fun v -> term_to_expr env ctx (Var v)) vars)
+           (List.map (fun v -> term_to_expr env ctx (var_from_binder v)) vars)
            e None [] [] None None))
 
 
 (* this is a separate function which doesn't cache results because exists isn't in pi *)
 let entails_exists_inner env p1 vs p2 =
   debug ~at:4 ~title:"z3 valid" "%s => ex %s. %s\n%s" (string_of_pi p1)
-    (String.concat " " vs) (string_of_pi p2) (string_of_typ_env env);
+    (String.concat " " (List.map string_of_binder vs)) (string_of_pi p2) (string_of_typ_env env);
   let f ctx =
     let r =
       Z3.Boolean.mk_not ctx

@@ -325,6 +325,11 @@ let ident_of_binder ((name, _) : binder) = name
 
 let var_from_binder ((name, typ) : binder) = {term_desc = Var name; term_type = typ}
 
+(** Removes the types from the binders of a list of bindings. 
+    Useful because the Subst interface only accepts strings. *)
+let string_pair_of_bindings (bindings : (binder * 'a) list) =
+  List.map (fun ((ident, _), value) -> (ident, value)) bindings
+
 let binder_of_var (var : term) =
   match var with
   | {term_desc = Var name; term_type} -> (name, term_type)

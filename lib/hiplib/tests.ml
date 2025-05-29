@@ -1,9 +1,10 @@
-open Ocaml_compiler.Ocaml_common
 open Hipcore
 open Hipprover
 open Pretty
 open Hiptypes
 open Normalize
+
+open Ocamlfrontend
 
 let parse_spec s = Parser.only_effect_spec Lexer.token (Lexing.from_string s)
 let parse_pi s = Parser.only_pure_formula Lexer.token (Lexing.from_string s)
@@ -56,13 +57,13 @@ let%expect_test "apply lemma" =
       }
     in
     let original = parse_spec applied_to in
-    let spec = Entail.apply_lemma lem original in
+    let spec = Typedhip.Fill_type.(Entail.apply_lemma (fill_untyped_lemma lem) (fill_untyped_spec original)) in
     Format.printf "%s\n%s\noriginal: %s\nresult: %s\nnorm: %s\n---@." what
       (string_of_lemma lem)
       (string_of_normalisedStagedSpec (normalize_spec original))
-      (string_of_option string_of_spec spec)
+      (string_of_option Pretty_typed.string_of_spec spec)
       (string_of_option string_of_spec
-         (spec |> Option.map normalize_spec
+         (spec |> Option.map Typedhip.Untypehip.untype_spec |> Option.map normalize_spec
          |> Option.map normalisedStagedSpec2Spec))
   in
   let l_succ = (["x"; "res"], {|f(x, res)|}, {|ens res=x+1|}) in
@@ -362,11 +363,12 @@ let entails_pure env_a s1 vars s2 =
   let s1 = parse_pi s1 in
   let s2 = parse_pi s2 in
   let env = create_abs_env () in
-  let env = Infer_types.infer_types_pi env s1 in
-  let env = Infer_types.infer_types_pi env s2 in
+  let s1, env = Infer_types.infer_untyped_pi ~env s1 in
+  let s2, env = Infer_types.infer_untyped_pi ~env s2 in
   let env = Infer_types.concrete_type_env env in
   let env = SMap.add_seq (List.to_seq env_a) env in
-  Provers.entails_exists env s1 vars s2
+  let typed_vars = List.map (fun v -> (v, SMap.find_opt v env |> Option.value ~default:(Typedhip.new_type_var ()))) vars in
+  Provers.entails_exists env s1 typed_vars s2
 
 let%expect_test _ =
   Format.printf "%b@."

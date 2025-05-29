@@ -8,17 +8,17 @@ open Debug
 
 
 let is_valid pi1 ?(ex=[]) pi2 =
-  let env =
-    let env = create_abs_env () in
-    let _, env = infer_untyped_pi ~env pi1 in
-    let _, env = infer_untyped_pi ~env pi2 in
-    concrete_type_env env
+  let env = create_abs_env () in
+  let pi1, env = infer_untyped_pi ~env pi1 in
+  let pi2, env = infer_untyped_pi ~env pi2 in
+  let concrete_env = concrete_type_env env
   in
   let@ _ =
     Debug.span (fun r ->
         debug ~at:4
           ~title:"is_valid"
-          "%s => %s\n%s" (string_of_pi pi1) (string_of_pi pi2)
+          "%s => %s\n%s" (Pretty_typed.string_of_pi pi1) (Pretty_typed.string_of_pi pi2)
           (string_of_result string_of_res r))
   in
-  Provers.entails_exists env pi1 ex pi2
+  let typed_ex = List.map (fun v -> (v, SMap.find_opt v concrete_env |> Option.value ~default:(Typedhip.new_type_var ()))) ex in
+  Provers.entails_exists concrete_env pi1 typed_ex pi2

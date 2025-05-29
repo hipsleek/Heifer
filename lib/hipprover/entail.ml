@@ -4,7 +4,7 @@ open Typedhip
 open Pretty_typed
 open Infer_types
 open Normalize
-open Subst
+open Subst_typed
 open Debug
 
 let unfolding_bound = 1
@@ -68,7 +68,7 @@ let apply_lemma : lemma -> spec -> spec option =
         when (not ok) (* only apply once *) && f = lf ->
         (match unify_lem_lhs_args lem.l_params largs (args @ [r]) with
         | Some bs ->
-          let inst_lem_rhs = List.map (instantiateStages (Untypehip.untype_bindings bs)) (Untypehip.untype_spec lem.l_right) |> Fill_type.fill_untyped_spec in
+          let inst_lem_rhs = List.map (instantiateStages (string_pair_of_bindings bs)) lem.l_right in
           let extra_ret_equality =
             (* TODO *)
             try
@@ -165,22 +165,22 @@ let check_staged_entail : spec -> spec -> spec option =
   Some (normalisedStagedSpec2Spec norm) |> Option.map Fill_type.fill_untyped_spec
 
 let instantiate_state bindings state =
-  let bindings = Untypehip.untype_bindings bindings in
-  let (p, h) = Untypehip.untype_state state in
+  let (p, h) = state in
   (instantiatePure bindings p, instantiateHeap bindings h)
 
 let instantiate_existentials_effect_stage bindings =
   let names = List.map fst bindings in
   fun eff ->
+    let bindings = List.map (fun ((s, _), t) -> s, t) bindings in
    {
       eff with
       e_evars = List.filter (fun v -> not (List.mem v names)) eff.e_evars;
-      e_pre = instantiate_state bindings eff.e_pre |> Fill_type.fill_untyped_state;
-      e_post = instantiate_state bindings eff.e_post |> Fill_type.fill_untyped_state;
+      e_pre = instantiate_state bindings eff.e_pre;
+      e_post = instantiate_state bindings eff.e_post;
       e_constr =
         ( fst eff.e_constr,
-          (List.map (instantiateTerms (Untypehip.untype_bindings bindings))) (snd eff.e_constr |> List.map Untypehip.untype_term) |> List.map Fill_type.fill_untyped_term);
-      e_ret = instantiateTerms (Untypehip.untype_bindings bindings) (Untypehip.untype_term eff.e_ret) |> Fill_type.fill_untyped_term;
+          (List.map (instantiateTerms bindings)) (snd eff.e_constr));
+      e_ret = instantiateTerms bindings eff.e_ret
     }
 
 (** actually instantiates existentials, vs what the forward rules version does *)
@@ -199,11 +199,12 @@ let instantiate_existentials :
   let efs1 = List.map (instantiate_existentials_effect_stage bindings) efs in
   let ns1 =
     let vs, pre, post = ns in
-    ( List.filter (fun v -> not (List.mem v names)) vs |> List.map ident_of_binder,
+    let bindings = string_pair_of_bindings bindings in
+    ( List.filter (fun v -> not (List.mem v names)) vs,
       instantiate_state bindings pre,
       instantiate_state bindings post)
   in
-  (List.map (fun a -> EffHOStage a) efs1, Fill_type.fill_untyped_normal_stage ns1)
+  (List.map (fun a -> EffHOStage a) efs1, ns1)
 
 let freshen_existentials vs state =
   let vars_fresh = List.map (fun v -> (v, (verifier_getAfreeVar v |> var_from_binder))) vs in
@@ -299,7 +300,7 @@ let instantiate_pred : pred_def -> term list -> term -> pred_def =
   let bs = (ret_param, ret) :: bindFormalNActual (*List.map2 (fun a b -> (a, b)) *) params args in
   let p_body =
     let bbody =
-      (Untypehip.untype_disj_spec pred.p_body) |> List.map (fun b -> List.map (instantiateStages (Untypehip.untype_bindings bs)) b) |> Fill_type.fill_untyped_disj_spec
+      pred.p_body |> List.map (fun b -> List.map (instantiateStages (string_pair_of_bindings bs)) b)
     in
     (* Format.printf "bs %s@."
          (string_of_list (string_of_pair Fun.id string_of_term) bs);
@@ -423,17 +424,16 @@ let collect_local_lambda_definitions state ctx =
   res
 
 let extract_subsumption_proof_obligations ctx right =
-  let sub = find_subsumptions#visit_pi () right 
-    |> List.map (fun (lhs, rhs) -> Fill_type.(fill_untyped_term lhs, fill_untyped_term rhs)) in
-  let right1 = (remove_subsumptions (List.map (fun (lhs, rhs) -> Untypehip.(untype_term lhs, untype_term rhs)) sub))#visit_pi () right in
+  let sub = find_subsumptions#visit_pi () right in
+  let right1 = (remove_subsumptions sub)#visit_pi () right in
   let sub = List.map (fun (t1, t2) ->
     match t1.term_desc, t2.term_desc with
     | TLambda (_, ap, _, _), TLambda (_, bp, _, _) when List.length ap <> List.length bp ->
       failwith (Format.asprintf "|%s| != |%s|" (string_of_list string_of_binder ap) (string_of_list string_of_binder bp));
     | TLambda (_, ap, a, _), TLambda (_, bp, b, _) ->
       let fv = List.map (fun _ -> verifier_getAfreeVar "v") ap in
-      let a1 = instantiateSpecList (List.map2 (fun v x -> ident_of_binder v, Untypehip.untype_term (var_from_binder x)) ap fv) (Untypehip.untype_disj_spec a) |> Fill_type.fill_untyped_disj_spec in
-      let b1 = instantiateSpecList (List.map2 (fun v x -> ident_of_binder v, Untypehip.untype_term (var_from_binder x)) bp fv) (Untypehip.untype_disj_spec b) |> Fill_type.fill_untyped_disj_spec in
+      let a1 = instantiateSpecList (List.map2 (fun v x -> ident_of_binder v, var_from_binder x) ap fv) a in
+      let b1 = instantiateSpecList (List.map2 (fun v x -> ident_of_binder v, var_from_binder x) bp fv) b in
       fv, (a1, b1)
     | _ -> failwith (Format.asprintf "unable to check obligation %s <: %s" (string_of_term t1) (string_of_term t2))) sub
   in
@@ -709,14 +709,14 @@ and stage_subsumes :
       Printf.printf "!! inferred types %s from %s |- %s\n" (string_of_abs_env env) (string_of_pi left) (string_of_pi right);
       env
     in
-    let right, ctx = extract_subsumption_proof_obligations ctx (Untypehip.untype_pi right) in
+    let right, ctx = extract_subsumption_proof_obligations ctx right in
     (* debug ~at:1
       ~title:(Format.asprintf "VC for precondition of %s" what)
       "%s => %s%s" (string_of_pi left)
       (string_of_existentials vs1)
       (string_of_pi right); *)
     let pre_res =
-      Provers.entails_exists (concrete_type_env tenv) (Untypehip.untype_pi left) (List.map ident_of_binder vs1) right
+      Provers.entails_exists (concrete_type_env tenv) left vs1 right
     in
     (* debug ~at:1 ~title:(Format.asprintf "valid?") "%s" (string_of_res pre_res); *)
     (* TODO why do we need pre_r here? as pre_l has just been proven to subsume pre_r *)
@@ -724,7 +724,7 @@ and stage_subsumes :
     else None
   in
   (* covariance *)
-  let new_univ = SSet.union (used_vars_pi (Untypehip.untype_pi pre_l)) (used_vars_pi (Untypehip.untype_pi pre_r)) in
+  let new_univ = SSet.union (used_vars_pi pre_l) (used_vars_pi pre_r) in
   let vs22 = List.filter (fun v -> not (SSet.mem v new_univ)) (List.map ident_of_binder vs2) |> List.map binder_of_ident in
   let conj_state (p1, h1) (p2, h2) = (And (p1, p2), SepConj (h1, h2)) in
   let pure_pre_residue = fst pre_residue in
@@ -774,15 +774,14 @@ and stage_subsumes :
           "%s => %s%s\n%s" (string_of_pi True) "" (string_of_pi left)
           (string_of_res false_not_derived)
     in *)
-    let right, ctx = extract_subsumption_proof_obligations ctx (Untypehip.untype_pi right) in
-    let right = Fill_type.fill_untyped_pi right in
+    let right, ctx = extract_subsumption_proof_obligations ctx right in
     (* debug ~at:1
       ~title:(Format.asprintf "VC for postcondition of %s" what)
       "%s => %s%s" (string_of_pi left)
       (string_of_existentials vs22)
       (string_of_pi right); *)
     let post_result =
-      Provers.entails_exists (concrete_type_env tenv) (Untypehip.untype_pi left) (List.map ident_of_binder vs22) (Untypehip.untype_pi right)
+      Provers.entails_exists (concrete_type_env tenv) left vs22 right
     in
     (*print_endline ((string_of_pi left) ^ " |- " ^ (string_of_pi right));
     print_endline ("post_result is done ");
@@ -792,8 +791,8 @@ and stage_subsumes :
     (* debug ~at:1 ~title:(Format.asprintf "valid?") "%s" (string_of_res post_result); *)
     (* TODO ensure we are filling out f with the correct type *)
     let f = verifier_getAfreeVar "" in
-    let left = instantiatePure [("res", var_from_binder f |> Untypehip.untype_term)] (Untypehip.untype_pi left) |> Fill_type.fill_untyped_pi in
-    let right = instantiatePure [("res", var_from_binder f |> Untypehip.untype_term)] (Untypehip.untype_pi right) |> Fill_type.fill_untyped_pi in
+    let left = instantiatePure [("res", var_from_binder f)] left in
+    let right = instantiatePure [("res", var_from_binder f)] right in
     (* let left = fst (split_res left) in *)
     (* let right = fst (split_res left) in *)
     if post_result then Some (conj [left; right; pure_pre_residue], ctx) else None
@@ -855,7 +854,7 @@ let create_induction_hypothesis params ds1 ds2 =
   match (ds1, ds2) with
   | [s1], [s2] ->
     let ns1 = s1 |> normalize_spec |> Fill_type.fill_normalized_staged_spec in
-    let used_l = used_vars (Untypehip.untype_normalized_staged_spec ns1) in
+    let used_l = used_vars ns1 in
     (* heuristic. all parameters must be used meaningfully, otherwise there's nothing to do induction on *)
     (match List.for_all (fun p -> SSet.mem (ident_of_binder p) used_l) params with
     | true ->
@@ -913,7 +912,7 @@ let check_staged_subsumption_disj :
   (* S1 <: S3 *)
   let es1, ns1 = normalize_spec (Untypehip.untype_spec s1) |> Fill_type.fill_normalized_staged_spec in
   let es2, ns2 = normalize_spec (Untypehip.untype_spec s2) |> Fill_type.fill_normalized_staged_spec in
-  let q_vars = getExistentialVar (Untypehip.untype_normalized_staged_spec (es1, ns1)) @ getExistentialVar (Untypehip.untype_normalized_staged_spec (es2, ns2)) |> List.map binder_of_ident in
+  let q_vars = getExistentialVar (es1, ns1) @ getExistentialVar (es2, ns2) in
   let ctx = { ctx with q_vars } in
   check_staged_subsumption_stagewise ctx 0 True (es1, ns1) (es2, ns2)
 
