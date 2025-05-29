@@ -77,17 +77,23 @@ module TEnv = struct
 
   (** Attempt to resolve all type variables in t. (i.e. performs all
    unifications possible.) *)
-  let rec simplify (m : t) t : typ =
-    
-    match t with
-    | TVar _ ->
-      TMap.find_opt t !m
-      |> Option.map U.get
-      |> Option.value ~default:t
-    | TConstr (constr, args) -> 
-        (* recurse into the constructor's arguments *)
-        TConstr (constr, List.map (simplify m) args)
-    | _ -> t
+  let simplify (m : t) t : typ =
+    let rec inner ?(do_not_expand = []) t =
+      match t with
+      | TVar s ->
+        let simplified = TMap.find_opt t !m
+        |> Option.map U.get
+        |> Option.value ~default:t in
+        if simplified = t || List.mem s do_not_expand
+        then simplified
+        (* Add s to the do-not-expand list, to prevent a cyclic expansion of s. *)
+        else inner ~do_not_expand:(s::do_not_expand) simplified
+      | TConstr (constr, args) -> 
+          (* recurse into the constructor's arguments *)
+          TConstr (constr, List.map (inner ~do_not_expand) args)
+      | _ -> t
+    in
+    inner t
 
   (** Fully resolve all type variables in t. Returns None
     if some variables cannot be resolved.*)
