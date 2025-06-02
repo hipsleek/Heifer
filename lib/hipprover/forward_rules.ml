@@ -269,7 +269,7 @@ let call_primitive env history fname actualArgs =
     let event = NormalReturn (res_eq (Rel (LTEQ, x1, x2)), EmptyHeap) in
     concatenateSpecsWithEvent history [event], env
   | "::", [x1; x2] ->
-    let event = NormalReturn (res_eq (TCons (x1, x2)), EmptyHeap) in
+    let event = NormalReturn (res_eq (Construct ("::", [x1; x2])), EmptyHeap) in
     concatenateSpecsWithEvent history [event], env
   | "^", [x1; x2] ->
     let event = NormalReturn (res_eq (SConcat (x1, x2)), EmptyHeap) in
@@ -1250,7 +1250,7 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
                 (* Atomic (EQ, TApp ("is_cons", [ret]), TTrue);
                 Atomic (EQ, TApp ("head", [ret]), Var v1);
                 Atomic (EQ, TApp ("tail", [ret]), Var v2); *)
-                Atomic (EQ, ret, TCons (Var v1, Var v2))
+                Atomic (EQ, ret, Construct ("::", [Var v1; Var v2]))
                 (* IsDatatype (ret, "list", "cons", [Var v1; Var v2]) *)
               ]
               (* [] *)

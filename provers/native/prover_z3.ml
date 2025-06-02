@@ -206,7 +206,11 @@ let rec term_to_expr env z3_ctx t : Z3.Expr.expr =
   | BinOp (TTimes, t1, t2) -> Z3.Arithmetic.mk_mul ctx [term_to_expr env z3_ctx t1; term_to_expr env z3_ctx t2]
   | BinOp (TDiv, t1, t2) -> Z3.Arithmetic.mk_div ctx (term_to_expr env z3_ctx t1) (term_to_expr env z3_ctx t2)
 
-  | Construct _ | TList _ | TTuple _ -> failwith "term_to_expr"
+  | Construct (name, args) -> 
+      let type_constructors = Z3.Datatype.get_constructors (z3_sort_of_typ z3_ctx t.term_type) in
+      let constr_func = List.find (fun decl -> Z3.Symbol.get_string (Z3.FuncDecl.get_name decl) = name) type_constructors in
+      Z3.Expr.mk_app ctx constr_func (List.map (term_to_expr env z3_ctx ) args)
+  | TList _ | TTuple _ -> failwith "term_to_expr"
 
 let rec pi_to_expr env z3_ctx pi: Expr.expr = 
   let@ _ = Debug.span (fun r -> debug ~at:5 ~title:"pi_to_expr" "%s ==> %s" (string_of_pi pi) (string_of_result Expr.to_string r)) in

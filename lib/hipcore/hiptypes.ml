@@ -27,8 +27,9 @@ and term =
     (* the string is just an identifier for uniqueness.
        the last param is the name of the result *)
     | TLambda of string * string list * disj_spec * core_lang option
-    (* unused *)
+    (* Constructors of ADTs *)
     | Construct of string * term list
+    (* unused *)
     | TList of term list
     | TTupple of term list
 

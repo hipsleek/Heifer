@@ -2576,7 +2576,7 @@ pure_formula_term:
   | elts=delimited(LBRACKET, separated_list(SEMI, effect_trace_value), RBRACKET)
     //{TList (List.map (fun a -> Num a) n)}
     // turn this into a cascade of conses, like ocaml does, for simplicity
-    { List.fold_right (fun c t -> TCons (c, t)) elts Nil }
+    { List.fold_right (fun c t -> Construct ("::", [c; t])) elts Nil }
 
   | LPAREN RPAREN {UNIT}
   // | LPAREN n = list_of_TupleTerms RPAREN {TTupple n}
@@ -2596,7 +2596,7 @@ pure_formula_term:
   | s=STRING { let s, _, _ = s in TStr s }
 
   // | LBRACKET RBRACKET { Nil }
-  // | pure_formula_term COLONCOLON pure_formula_term { TCons ($1, $3) }
+  // | pure_formula_term COLONCOLON pure_formula_term { Construct ("::", [$1; $3]) }
   // TODO [1; ...]
 
   | pure_formula_term PLUS pure_formula_term { Plus ($1, $3) }

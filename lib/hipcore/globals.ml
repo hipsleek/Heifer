@@ -32,6 +32,18 @@ let pure_fns () = SMap.bindings global_environment.pure_fns
 
 let decl_of_type_name name = SMap.find name global_environment.type_decls
 
+(** Given a type constructor's name, return its type declaration, and
+    the types of its arguments.
+
+    Raises Not_found if no such constructor is found. *)
+let type_constructor_decl name =
+  let decls = SMap.bindings global_environment.type_decls
+  |> List.filter_map (fun (_, type_decl) -> Types.constructor_of_type_decl name type_decl |> Option.map (fun constr_decl -> (type_decl, constr_decl)))
+  in
+  if List.is_empty decls
+  then raise Not_found
+  else List.hd decls
+
 module Timing = struct
   let overall_all = ref 0.
   let overall = ref 0.

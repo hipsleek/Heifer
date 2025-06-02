@@ -202,7 +202,18 @@ and infer_types_term ?hint (env : abs_typ_env) term : term * abs_typ_env =
           ([], env)
     in
     {term_desc = TApp(f, args); term_type = ret}, env
-  | Construct _, _ | TList _, _ | TTuple _, _ -> failwith "constructor/list/tuple unimplemented"
+  | Construct (name, args), _ ->
+      let type_decl, (constr_params, constr_arg_types) = Globals.type_constructor_decl name in
+      let concrete_bindings = List.map (fun param -> (param, fresh_type_var ())) constr_params in
+      let concrete_vars = List.map (fun (_, var) -> var) concrete_bindings in
+      let args, env = List.map2 pair args constr_arg_types
+      |> List.fold_left
+      (fun (typed_args, env) (arg, arg_type) ->
+        let expected_arg_type = Types.instantiate_type_variables concrete_bindings arg_type in
+        let typed_arg, env = infer_types_term ~hint:expected_arg_type env arg in
+        typed_args @ [typed_arg], env) ([], env) in
+      {term_desc = Construct (name, args); term_type = TConstr (type_decl.typ_name, concrete_vars)}, env
+  | TList _, _ | TTuple _, _ -> failwith "constructor/list/tuple unimplemented"
   in
   (* After checking this term, we may still need to unify its type with a hint received from above in the AST. *)
   let term, env = match hint with
@@ -338,11 +349,11 @@ let%expect_test "unsolvable unification: incompatible types" =
 
 let%expect_test "term inference" =
   let env = create_abs_env () in
-  let p1 = Hiptypes.(And (Atomic(GT, Var "a", Var "b"), Atomic(EQ, Var "c", TCons (Var "b", Nil)))) in
+  let p1 = Hiptypes.(And (Atomic(GT, Var "a", Var "b"), Atomic(EQ, Var "c", Construct ("::", [Var "b"; Nil])))) in
   let p1_typed, _ = infer_untyped_pi p1 ~env in
   begin match p1_typed with
   | And (Atomic(GT, {term_type = a_type; _}, {term_type = b_type; _}),
-    Atomic(EQ, {term_type = c_type; _}, {term_type = ls_type; term_desc = BinOp (TCons, _, {term_type = nil_type; _})})) ->
+    Atomic(EQ, {term_type = c_type; _}, {term_type = ls_type; term_desc = Construct ("::", [_; {term_type = nil_type; _}])})) ->
       Printf.printf "types: (%s) (%s) (%s) (%s) (%s)\n" (string_of_type a_type) (string_of_type b_type) (string_of_type c_type)
       (string_of_type ls_type) (string_of_type nil_type)
   | _ -> Printf.printf "INVALID"
@@ -350,4 +361,16 @@ let%expect_test "term inference" =
   [%expect {|
     types: (int) (int) (int list) (int list) (int list)
     |}]
-    |}]
+
+let%expect_test "term inference 2" =
+  let env = create_abs_env () in
+  let p1 = Hiptypes.(And (Atomic(EQ, Var "a", Plus (Var "b", Num 1)), Atomic(EQ, Var "c", Construct ("::", [Var "a"; Var "d"])))) in
+  let p1_typed, _ = infer_untyped_pi p1 ~env in
+  begin match p1_typed with
+  | And (Atomic(EQ, {term_type = a_type; _}, {term_desc = BinOp(Plus, {term_type = b_type; _}, _); _}),
+    Atomic(EQ, {term_type = c_type; _}, {term_type = ls_type; term_desc = Construct("::", [_; {term_type = d_type; _}])})) ->
+      Printf.printf "types: (%s) (%s) (%s) (%s) (%s)\n" (string_of_type a_type) (string_of_type b_type) (string_of_type c_type)
+      (string_of_type ls_type) (string_of_type d_type)
+  | _ -> Printf.printf "INVALID"
+  end;
+  [%expect {| types: (int) (int) (int list) (int list) (int list) |}]

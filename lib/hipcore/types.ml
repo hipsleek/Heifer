@@ -25,6 +25,15 @@ type type_decl = {
   typ_kind: type_decl_kind
 }
 
+(** Given a type declaration, and a constructor name, return
+    the constructor's type as a pair of type parameters, and argument types.
+    Return None if the constructor is not found, or if the type is not inductive. *)
+let constructor_of_type_decl constr_name type_decl =
+  match type_decl.typ_kind with
+  | Tdecl_inductive constructors -> List.find_opt (fun (name, _) -> name = constr_name) constructors
+    |> Option.map (fun (_name, args) -> (type_decl.typ_params, args))
+  (* | _ -> None *)
+
 (** Given a list of substitutions [(TVar s, t)], make these substitutions
     in another type t. *)
 let rec instantiate_type_variables (vars: (typ * typ) list) (t : typ) : typ =
