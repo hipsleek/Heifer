@@ -104,47 +104,11 @@ let get_fun_decl ctx s =
     else failwith (Format.asprintf "unknown function 1: %s" s)
 
 let rec term_to_expr env z3_ctx t : Z3.Expr.expr =
-  debug ~at:5 ~title:"term_to_expr" "%s : %s" (string_of_term t) (string_of_type t.term_type);
+  let@ _ = Debug.span (fun r -> debug ~at:5 ~title:"term_to_expr" "%s : %s ==> %s" (string_of_term t) (string_of_type t.term_type) (string_of_result Expr.to_string r)) in
   let {ctx; _} = z3_ctx in
   match t.term_desc with
   | Const (Num n) -> Z3.Arithmetic.Integer.mk_numeral_i ctx n
-  | Var v ->
-    (match SMap.find_opt v env with
-    | None ->
-      (* failwith (Format.asprintf "could not infer type for variable: %s" v) *)
-      (* default to int *)
-      Z3.Arithmetic.Integer.mk_const_s ctx v
-    | Some t1 ->
-      (* Format.printf "%s : %s@." v
-         (match t1 with
-         | Int -> "Int"
-         | List_int -> "List_int"
-         | Unit -> "unit"
-         | Bool -> "Bool"
-         | TVar _ -> "tvar"); *)
-      (match t1 with
-      | TVar _ ->
-        (* failwith (Format.asprintf "could not infer type for variable: %s" v) *)
-        (* default to int *)
-
-        Z3.Arithmetic.Integer.mk_const_s ctx v
-      | Int | Lamb ->
-        (* Format.printf "%s is int@." v; *)
-
-
-        let res = Z3.Arithmetic.Integer.mk_const_s ctx v in 
-
-        res
-      | Unit ->
-        Z3.Expr.mk_const_s ctx "unit" (unit_sort ctx)
-      | List_int ->
-        (* Format.printf "%s is list@." v; *)
-        let list_int = list_int_sort ctx in
-        Z3.Expr.mk_const_s ctx v list_int
-      | Bool -> Z3.Boolean.mk_const_s ctx v
-      | TyString -> Z3.Expr.mk_const_s ctx v (Z3.Seq.mk_string_sort ctx)
-      | Arrow (_, _) -> failwith "arrow not implemented"
-      | TConstr _ -> failwith "general ADTs not implemented"))
+  | Var v -> Z3.Expr.mk_const_s ctx v (z3_sort_of_typ z3_ctx t.term_type)
   | Const ValUnit ->
     let mk = Z3.Tuple.get_mk_decl (unit_sort ctx) in 
     Z3.Expr.mk_app ctx mk []
@@ -245,6 +209,7 @@ let rec term_to_expr env z3_ctx t : Z3.Expr.expr =
   | Construct _ | TList _ | TTuple _ -> failwith "term_to_expr"
 
 let rec pi_to_expr env z3_ctx pi: Expr.expr = 
+  let@ _ = Debug.span (fun r -> debug ~at:5 ~title:"pi_to_expr" "%s ==> %s" (string_of_pi pi) (string_of_result Expr.to_string r)) in
   let {ctx; _} = z3_ctx in
   match pi with 
   | True -> Z3.Boolean.mk_true ctx
@@ -416,7 +381,10 @@ let ex_quantify_expr env vars ctx e =
     Z3.Quantifier.(
       expr_of_quantifier
         (mk_exists_const ctx.ctx
-           (List.map (fun v -> term_to_expr env ctx (var_from_binder v)) vars)
+           (List.map (fun ((var_name, var_type) as binder) -> 
+             let ex_var = var_from_binder binder in
+             term_to_expr env ctx {ex_var with term_type = SMap.find_opt var_name env |> Option.value ~default:var_type})
+           vars)
            e None [] [] None None))
 
 

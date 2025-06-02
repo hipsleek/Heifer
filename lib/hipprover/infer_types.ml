@@ -66,14 +66,8 @@ let rec unify_types t1 t2 env =
 let find_concrete_type = TEnv.concretize
 
 let concrete_type_env abs : typ_env =
-  (* FIXME Temporary workaround while the prover backends do not support arbitrary ADTs. *)
-  (* SMap.map (TEnv.simplify abs.equalities) abs.vartypes *)
   let simpl t = 
-    (* TEnv.simplify abs.equalities t in *)
-    match TEnv.simplify abs.equalities t with
-    | TConstr ("list", [_]) -> List_int
-    | t -> t
-    in
+    TEnv.simplify abs.equalities t in
   SMap.map simpl abs.vartypes
 
 let get_primitive_type f =
@@ -331,7 +325,7 @@ let%expect_test "unsolvable unification: cyclic solution" =
   let t2 = TConstr ("list", [TVar "a"]) in
   let _ = unify_types t1 t2 env in
   output_simplified_types env [t1; t2];
-  [@@expect.uncaught_exn {| ("Cyclic_type('a, 'a list)") |}]
+  [@@expect.uncaught_exn {| ("Cyclic_type('a, 'a list list)") |}]
 
 let%expect_test "unsolvable unification: incompatible types" =
   Printexc.record_backtrace false;
@@ -349,10 +343,11 @@ let%expect_test "term inference" =
   begin match p1_typed with
   | And (Atomic(GT, {term_type = a_type; _}, {term_type = b_type; _}),
     Atomic(EQ, {term_type = c_type; _}, {term_type = ls_type; term_desc = BinOp (TCons, _, {term_type = nil_type; _})})) ->
-      Printf.printf "types: %s %s %s %s %s\n" (string_of_type a_type) (string_of_type b_type) (string_of_type c_type)
+      Printf.printf "types: (%s) (%s) (%s) (%s) (%s)\n" (string_of_type a_type) (string_of_type b_type) (string_of_type c_type)
       (string_of_type ls_type) (string_of_type nil_type)
   | _ -> Printf.printf "INVALID"
   end;
   [%expect {|
-    types: int int intlist intlist intlist
+    types: (int) (int) (int list) (int list) (int list)
+    |}]
     |}]
