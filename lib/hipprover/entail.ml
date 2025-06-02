@@ -701,13 +701,13 @@ and stage_subsumes :
             (string_of_pi right)
             (string_of_result (fun o -> string_of_bool (Option.is_some o)) r))
     in
-    let tenv =
+    let left, right, tenv =
       (* handle the environment manually as it's shared between both sides *)
       let env = create_abs_env () in
-      let _, env = infer_types_pi env left in
-      let _, env = infer_types_pi env right in
-      Printf.printf "!! inferred types %s from %s |- %s\n" (string_of_abs_env env) (string_of_pi left) (string_of_pi right);
-      env
+      let left, env = infer_types_pi env left in
+      let right, env = infer_types_pi env right in
+      (* Printf.printf "!! inferred types %s from %s |- %s\n" (string_of_abs_env env) (string_of_pi left) (string_of_pi right); *)
+      simplify_types_pi env left, simplify_types_pi env right, env
     in
     let right, ctx = extract_subsumption_proof_obligations ctx right in
     (* debug ~at:1
@@ -749,12 +749,10 @@ and stage_subsumes :
             (string_of_pi right)
             (string_of_result (fun o -> string_of_bool (Option.is_some o)) r))
     in
-    let tenv =
-      (* let env = infer_types_pi tenv left in *)
-      (* let env = infer_types_pi env right in *)
-      (* share things like res *)
-      let _, env = infer_types_pi tenv (And (left, right)) in
-      env
+    let left, right, tenv =
+      match infer_types_pi tenv (And (left, right)) with
+      | And (left, right), tenv -> left, right, tenv
+      | _ -> assert false (* typechecking should not change shape of pi *)
     in
     (* Format.printf "1@."; *)
     (* Format.printf "left %s@." (string_of_pi left); *)

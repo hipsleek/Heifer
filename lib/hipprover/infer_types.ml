@@ -4,6 +4,8 @@ open Typedhip
 open Pretty_typed
 open Debug
 
+let fresh_type_var () = TVar (ident_of_binder (verifier_getAfreeVar "v"))
+
 (* record the type (or constraints on) of a program variable in the environment *)
 let assert_var_has_type v t env =
   match SMap.find_opt v env.vartypes with
@@ -44,8 +46,8 @@ let rec unify_types t1 t2 env =
   debug ~at:5 ~title:"unify" "%s ~ %s" (string_of_type t1) (string_of_type t2);
   match TEnv.(simplify env.equalities t1, simplify env.equalities t2) with
   (* case where one of t1, t2 is a type variable: *)
-  | TVar _ as var, _ | _, (TVar _ as var) -> 
-      TEnv.equate env.equalities t1 t2;
+  | TVar _ as var, simp | simp, (TVar _ as var) -> 
+      TEnv.equate env.equalities var simp;
       (* check for cycles in the equality map *)
       let var_simplified = TEnv.simplify env.equalities var in
       if (compare_typ var var_simplified <> 0) && List.mem var (type_vars_used var_simplified)
@@ -64,15 +66,24 @@ let rec unify_types t1 t2 env =
 let find_concrete_type = TEnv.concretize
 
 let concrete_type_env abs : typ_env =
-  SMap.map (TEnv.simplify abs.equalities) abs.vartypes
+  (* FIXME Temporary workaround while the prover backends do not support arbitrary ADTs. *)
+  (* SMap.map (TEnv.simplify abs.equalities) abs.vartypes *)
+  let simpl t = 
+    (* TEnv.simplify abs.equalities t in *)
+    match TEnv.simplify abs.equalities t with
+    | TConstr ("list", [_]) -> List_int
+    | t -> t
+    in
+  SMap.map simpl abs.vartypes
 
 let get_primitive_type f =
   let untype = Typedhip.Untypehip.hiptypes_typ in
+  let list_int = TConstr ("list", [Int]) in
   match f with
-  | "cons" -> ([Int; List_int], List_int)
-  | "head" -> ([List_int], Int)
-  | "tail" -> ([List_int], List_int)
-  | "is_nil" | "is_cons" -> ([List_int], Bool)
+  | "cons" -> ([Int; ], list_int)
+  | "head" -> ([list_int], Int)
+  | "tail" -> ([list_int], list_int)
+  | "is_nil" | "is_cons" -> ([list_int], Bool)
   | "+" | "-" -> ([Int; Int], Int)
   | "string_of_int" -> ([Int], TyString)
   | _ when String.compare f "effNo" == 0 -> ([Int] , Int)
@@ -127,16 +138,19 @@ and infer_types_term ?hint (env : abs_typ_env) term : term * abs_typ_env =
   let@ _ =
     Debug.span (fun r ->
         debug ~at:5 ~title:"infer_types" "%s : %s -| %s" (string_of_term term)
-          (string_of_result string_of_term (map_presult fst r))
+          (string_of_result string_of_type (map_presult (fun (t, _) -> t.term_type) r))
           (string_of_result string_of_abs_env (map_presult snd r)))
   in
-  match (term.term_desc, hint) with
+  let term, env = match (term.term_desc, hint) with
   | Const c, _ -> let term_type = match c with
     | TStr _ -> TyString
     | TTrue | TFalse -> Bool
     | ValUnit -> Unit
     | Num _ -> Int
-    | Nil -> List_int (* TODO use TConstr here, substitute appropriate type var for list contents *)
+    | Nil -> begin match hint with 
+        | Some ((TConstr ("list", [_])) as list_type) -> list_type
+        | _ -> TConstr ("list", [fresh_type_var ()])
+      end
     in ({term_desc = Const c; term_type}, env)
   | TNot a, _ ->
     let a, env1 = infer_types_term ~hint:Bool env a in
@@ -144,7 +158,9 @@ and infer_types_term ?hint (env : abs_typ_env) term : term * abs_typ_env =
   | BinOp (op, a, b), _ ->
     let a_hint, b_hint, term_type = match op with
       | TOr | TAnd -> Bool, Bool, Bool
-      | TCons -> Int, List_int, List_int
+      | TCons -> 
+          let element_type = fresh_type_var () in
+          element_type, TConstr ("list", [element_type]), TConstr ("list", [element_type])
       | Plus | Minus | TTimes | TDiv | TPower -> Int, Int, Int
       | SConcat -> TyString, TyString, TyString
     in
@@ -193,6 +209,30 @@ and infer_types_term ?hint (env : abs_typ_env) term : term * abs_typ_env =
     in
     {term_desc = TApp(f, args); term_type = ret}, env
   | Construct _, _ | TList _, _ | TTuple _, _ -> failwith "constructor/list/tuple unimplemented"
+  in
+  (* After checking this term, we may still need to unify its type with a hint received from above in the AST. *)
+  let term, env = match hint with
+  | Some typ -> term, unify_types typ term.term_type env
+  | None -> term, env
+  in
+  (* Update the variable type mapping with any unifications done so far. This is repetitive;
+     it's probably better to store typ U.elems in the mapping instead. *)
+  term, { env with vartypes = SMap.map (TEnv.simplify env.equalities) env.vartypes }
+
+(** Given an environment, and a typed term, perform simplifications
+    on the types in the term based on the environment. *)
+let simplify_types_pi env pi =
+  let go = object (self)
+    inherit [_] map_spec
+
+    method! visit_term env term =
+      let result = {term_desc = self#visit_term_desc env term.term_desc;
+      term_type = 
+        TEnv.simplify env.equalities term.term_type} in
+      debug ~at:5 ~title:"inference result" "%s : %s\n" (string_of_term result) (string_of_type result.term_type);
+      result
+  end in
+  go#visit_pi env pi
 
 (* Given a typed term, fill in the needed missing type information. *)
 let rec infer_types_pi env pi =
@@ -235,22 +275,13 @@ let rec infer_types_pi env pi =
   | Predicate (_, _) -> pi, env
   | Subsumption (_, _) -> pi, env
 
-(** Given an environment, and a typed term, perform simplifications
-    on the types in the term based on the environment. *)
-let simplify_types_pi env pi =
-  let go = object
-    inherit [_] map_spec as super
-
-    method! visit_term env term =
-      {term_desc = super#visit_term_desc env term.term_desc;
-      term_type = TEnv.simplify env.equalities term.term_type}
-  end in
-  go#visit_pi env pi
+let infer_types_pi env pi =
+  let pi, env = infer_types_pi env pi in (* referring to the previous declaration *)
+  simplify_types_pi env pi, env
 
 (** Given an untyped term, fill it with type information. *)
 let infer_untyped_pi ?(env = create_abs_env ()) pi =
-  let pi, env = infer_types_pi env (Fill_type.fill_untyped_pi pi) in
-  simplify_types_pi env pi, env
+  infer_types_pi env (Fill_type.fill_untyped_pi pi)
 
 (** Output a list of types after being unified in some environment. Mainly
     used for testing. *)

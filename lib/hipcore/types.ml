@@ -25,6 +25,14 @@ type type_decl = {
   typ_kind: type_decl_kind
 }
 
+(** Given a list of substitutions [(TVar s, t)], make these substitutions
+    in another type t. *)
+let rec instantiate_type_variables (vars: (typ * typ) list) (t : typ) : typ =
+  match t with
+  | TVar _ -> List.assoc_opt t vars |> Option.value ~default:t
+  | TConstr (name, args) -> TConstr (name, List.map (instantiate_type_variables vars) args)
+  | t -> t
+
 let min_typ a b = if compare_typ a b <= 0 then a else b
 
 let is_concrete_type = function TVar _ -> false | _ -> true

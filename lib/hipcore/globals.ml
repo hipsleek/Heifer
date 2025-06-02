@@ -9,8 +9,17 @@ type t = {
   mutable type_decls: type_decl SMap.t
 }
 
-let create () = { pure_fns = SMap.empty; pure_fn_types = SMap.empty; type_decls = SMap.empty}
-let global_environment : t = create ()
+let create_empty () = { pure_fns = SMap.empty; pure_fn_types = SMap.empty; type_decls = SMap.empty}
+let global_environment : t = 
+  let open Types in
+  let empty = create_empty () in
+  { empty with
+    type_decls = empty.type_decls |> SMap.add "list" {
+      typ_name = "list"; 
+      typ_params = [TVar "a"];
+      typ_kind = Tdecl_inductive [("::", [TVar "a"; TConstr ("list", [TVar "a"])]); ("[]", [])]
+    }
+  }
 
 (* we don't want to thread the type definitions through every single normalization call, since normalization invokes the prover. this part of the state grows monotonically, so it should be harmless... *)
 let define_pure_fn name typ =
@@ -20,6 +29,8 @@ let define_pure_fn name typ =
 let is_pure_fn_defined f = SMap.mem f global_environment.pure_fns
 let pure_fn f = SMap.find f global_environment.pure_fns
 let pure_fns () = SMap.bindings global_environment.pure_fns
+
+let decl_of_type_name name = SMap.find name global_environment.type_decls
 
 module Timing = struct
   let overall_all = ref 0.
