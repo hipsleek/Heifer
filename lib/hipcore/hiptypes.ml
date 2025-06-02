@@ -28,6 +28,7 @@ and term =
        the last param is the name of the result *)
     | TLambda of string * string list * disj_spec * core_lang option
     (* unused *)
+    | Construct of string * term list
     | TList of term list
     | TTupple of term list
 

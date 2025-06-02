@@ -85,6 +85,7 @@ let rec simplify_term t : term  =
   | TOr (a, b) -> TOr (simplify_term a, simplify_term b)
   | TPower(a, b) -> TPower (simplify_term a, simplify_term b)
   | TCons(a, b) -> TCons (simplify_term a, simplify_term b)
+  | Construct (name, args) -> Construct (name, List.map simplify_term args)
 
 let rec simplify_heap h : kappa =
   let once h =
@@ -215,6 +216,7 @@ let rec accumulateTheSumTerm (p:pi) (t:term) : term =
   | TPower (t1, t2) -> TPower (accumulateTheSumTerm p t1, accumulateTheSumTerm p t2) 
   | TTimes (t1, t2) -> TTimes (accumulateTheSumTerm p t1, accumulateTheSumTerm p t2) 
   | TDiv (t1, t2) -> TDiv (accumulateTheSumTerm p t1, accumulateTheSumTerm p t2) 
+  | Construct (name, args) -> Construct (name, List.map (accumulateTheSumTerm p) args)
 ;; 
 
 
@@ -674,7 +676,7 @@ let (*rec*) normalise_spec_ (acc : normalisedStagedSpec) (spec : spec) :
 let rec collect_lambdas_term (t : term) =
   match t with
   | Nil | TTrue | TFalse | UNIT | Num _ -> SSet.empty
-  | TList ts | TTupple ts -> SSet.concat (List.map collect_lambdas_term ts)
+  | Construct (_, ts) | TList ts | TTupple ts -> SSet.concat (List.map collect_lambdas_term ts)
   | Var _ -> SSet.empty
   | Rel (_, a, b) | Plus (a, b) | Minus (a, b) | TAnd (a, b) | TOr (a, b) | TPower(a, b) | TTimes (a, b) | TDiv (a, b) | SConcat (a, b)
     ->
@@ -856,7 +858,7 @@ let remove_noncontributing_existentials :
     | Plus (a, b) | Minus (a, b) | TAnd (a, b) | TOr (a, b) | TPower(a, b) | TTimes(a, b) | TDiv(a, b) | SConcat (a, b) ->
       SSet.union (collect_related_vars_term a) (collect_related_vars_term b)
     | TNot t -> collect_related_vars_term t
-    | TApp (_, ts) -> SSet.concat (List.map collect_related_vars_term ts)
+    | Construct (_, ts) | TApp (_, ts) -> SSet.concat (List.map collect_related_vars_term ts)
     | Rel (_, _, _) -> failwith (Format.asprintf "NYI rel")
     | TLambda (_, _, spec, _body) -> collect_related_vars_disj_spec spec
     | TList _ -> failwith (Format.asprintf "NYI list")

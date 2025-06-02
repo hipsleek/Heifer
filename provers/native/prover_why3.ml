@@ -412,6 +412,7 @@ module LowLevel = struct
     | TList _ -> failwith "TList nyi"
     | TTupple _ -> failwith "TTupple nyi"
     | TStr _ -> failwith "TStr nyi"
+    | Construct  _ -> failwith "Construct not yet implemented"
 
   let rec pi_to_why3 env (pi : pi) =
     (* Format.printf "pi %s@." (Pretty.string_of_pi pi); *)
@@ -782,7 +783,7 @@ let rec term_to_whyml tenv t =
      let params, _ret = unsnoc params in
      let binders = vars_to_params tenv params in
      term (Tquant (Dterm.DTlambda, binders, [], core_lang_to_whyml tenv body)) *)
-  | TList _ | TTupple _ | TPower (_, _) | TTimes (_, _) | TDiv (_, _) | TStr _
+  | Construct _ | TList _ | TTupple _ | TPower (_, _) | TTimes (_, _) | TDiv (_, _) | TStr _
     ->
     failwith "nyi"
 

@@ -124,7 +124,7 @@ let rec string_of_term t : string =
   | TPower (t1, t2) -> "(" ^string_of_term t1 ^ "^(" ^ string_of_term t2 ^ "))"
   | TTimes (t1, t2) -> "(" ^string_of_term t1 ^ "*" ^ string_of_term t2 ^ ")"
   | TDiv (t1, t2) -> "(" ^string_of_term t1 ^ "/" ^ string_of_term t2 ^ ")"
-
+  | Construct (op, args)
   | TApp (op, args) -> Format.asprintf "%s%s" op (string_of_args string_of_term args)
   | TLambda (_name, params, sp, body) ->
     let body =

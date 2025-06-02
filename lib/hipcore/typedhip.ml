@@ -21,6 +21,7 @@ and term_desc =
      the last param is the name of the result *)
   | TLambda of string * binder list * disj_spec * core_lang option
   (* unused *)
+  | Construct of string * term list
   | TList of term list
   | TTuple of term list
 and term =
@@ -382,6 +383,7 @@ module Fill_type = struct
         TLambda (id, List.map binder_of_ident params,
                  fill_untyped_disj_spec spec,
                  Option.map fill_untyped_core_lang body)
+    | Hiptypes.Construct (name, args) -> Construct (name, List.map fill_untyped_term args)
     | Hiptypes.TList ts -> TList (List.map fill_untyped_term ts)
     | Hiptypes.TTupple ts -> TTuple (List.map fill_untyped_term ts)
     in
@@ -585,6 +587,7 @@ module Untypehip = struct
     | TLambda (id, params, spec, body) ->
         TLambda (id, List.map ident_of_binder params, untype_disj_spec spec,
                  Option.map untype_core_lang body)
+    | Construct (name, args) -> Construct (name, List.map untype_term args)
     | TList ts -> TList (List.map untype_term ts)
     | TTuple ts -> TTupple (List.map untype_term ts)
   and untype_pi (p : pi) : Hiptypes.pi =
