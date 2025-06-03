@@ -834,9 +834,9 @@ and core_lang_to_whyml tenv e =
            List.map
              (fun (pattern, b) ->
                let real_constr, args =
-                 match pattern with
+                 match pattern.pattern_desc with
                  | PConstr ("[]", _) -> qualid ["List"; "Nil"], []
-                 | PConstr ("::", args) -> qualid ["List"; "Cons"], (List.filter_map (fun arg -> match arg with PVar s -> Some s | _ -> None) args)
+                 | PConstr ("::", args) -> qualid ["List"; "Cons"], (List.filter_map (fun arg -> match arg.pattern_desc with PVar s -> Some s | _ -> None) args)
                  | PConstr (s, _) | PVar (s, _) -> failwith (Format.asprintf "unknown pattern %s" s)
                in
                ( pat

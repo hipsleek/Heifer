@@ -251,7 +251,7 @@ and string_of_core_lang (e:core_lang) :string =
   | CReset (e) -> Format.sprintf "<%s>" (string_of_core_lang e)
 
 and string_of_pattern (pat : pattern) : string =
-  match pat with
+  match pat.pattern_desc with
   | PVar v -> string_of_binder v
   | PConstr (name, args) -> Format.sprintf "%s (%s)" name (List.map string_of_pattern args |> String.concat ", ")
 

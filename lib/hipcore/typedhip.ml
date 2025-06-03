@@ -36,9 +36,15 @@ and core_handler_ops = (string * string option * disj_spec option * core_lang) l
 and constr_case = (pattern * core_lang)
 and constr_cases = constr_case list
 
-and pattern =
+and pattern_desc =
   | PVar of binder
   | PConstr of (string * pattern list)
+
+and pattern =
+  {
+    pattern_desc: pattern_desc;
+    pattern_type: typ
+  }
 
 and tryCatchLemma = (spec * disj_spec option * (*(handlingcases) **) disj_spec) (*tcl_head, tcl_handledCont, tcl_summary*)
 
@@ -423,9 +429,10 @@ module Fill_type = struct
   and fill_untyped_constr_cases (cases : Hiptypes.constr_cases) : constr_cases =
     List.map (fun (pat, value) -> (fill_untyped_pattern pat, fill_untyped_core_lang value)) cases
   and fill_untyped_pattern (pat : Hiptypes.pattern) : pattern =
-    match pat with
+    let pattern_desc = match pat with
     | PVar var -> PVar (binder_of_ident var)
-    | PConstr (name, args) -> PConstr (name, List.map fill_untyped_pattern args)
+    | PConstr (name, args) -> PConstr (name, List.map fill_untyped_pattern args) in
+    {pattern_desc; pattern_type = new_type_var ()}
   and fill_untyped_try_catch_lemma ((spec, cont, summary) : Hiptypes.tryCatchLemma) : tryCatchLemma =
     (fill_untyped_spec spec, Option.map fill_untyped_disj_spec cont, fill_untyped_disj_spec summary)
   and fill_untyped_core_handler_ops (handlers : Hiptypes.core_handler_ops) : core_handler_ops =
@@ -637,7 +644,7 @@ module Untypehip = struct
   and untype_constr_cases (cases : constr_cases) : Hiptypes.constr_cases =
     List.map (fun (pat, value) -> (untype_pattern pat, untype_core_lang value)) cases
   and untype_pattern (pat : pattern) : Hiptypes.pattern =
-    match pat with
+    match pat.pattern_desc with
     | PVar binder -> PVar (ident_of_binder binder)
     | PConstr (name, args) -> PConstr (name, List.map untype_pattern args)
   and untype_tryCatchLemma (tcl : tryCatchLemma) : Hiptypes.tryCatchLemma =

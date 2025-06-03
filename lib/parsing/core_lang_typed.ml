@@ -102,7 +102,7 @@ let rec hip_type_of_type_expr (texpr: Compiler_types.type_expr) =
       | "bool" -> Bool
       | "string" -> TyString
       | "unit" -> Unit
-      | unknown -> failwith ("Unknown type constructor: " ^ unknown)
+      | other -> TConstr (other, [])
     end
   | Tconstr (path, args, _) -> begin
     TConstr (Path.name path, List.map hip_type_of_type_expr args)
@@ -384,13 +384,16 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
         match c.c_lhs.pat_desc with
         | Tpat_value value_arg ->
             let pat = (value_arg :> value general_pattern) in 
-            let rec transform_pattern pat = match pat.pat_desc with
+            let rec transform_pattern pat = 
+              let pattern_desc = match pat.pat_desc with
               | Tpat_construct ({txt=constr; _}, _, args, _) ->
                   let subpatterns = List.map transform_pattern args in
                   if List.exists Option.is_none subpatterns then None
                   else Some (PConstr (String.concat "." (Longident.flatten constr), List.map Option.get subpatterns))
               | Tpat_var (ident, _, _) -> Some (PVar (Ident.name ident, hip_type_of_type_expr pat.pat_type))
               | _ -> None
+              in
+              Option.map (fun pattern_desc -> {pattern_desc; pattern_type = hip_type_of_type_expr pat.pat_type}) pattern_desc
             in
             Option.map (fun pat -> (pat, transformation bound_names c.c_rhs)) (transform_pattern pat)
         | _ -> None)
