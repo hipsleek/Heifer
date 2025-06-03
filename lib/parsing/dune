@@ -68,8 +68,10 @@
  (modules parser lexer Syntaxerr Pprintast Printast Asttypes Ast_helper
           Longident Parsetree Location Warnings Misc Terminfo Docstrings
           Build_path_prefix_map Clflags Profile Numbers Identifiable
-          Arg_helper CamlinternalMenhirLib annotation core_lang_typed core_lang2 core_lang) ; the only module we own
+          Arg_helper CamlinternalMenhirLib annotation core_lang_typed core_lang2 core_lang spec_comments) ; the only module we own
  (libraries hipcore ocaml_compiler)
+ (inline_tests)
+ (preprocess (per_module ((pps ppx_expect) spec_comments)))
  (flags :standard -w -A))
 
 (library

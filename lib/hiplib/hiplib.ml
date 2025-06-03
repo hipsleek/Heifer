@@ -1036,6 +1036,7 @@ let process_ocaml_structure (strs: Ocaml_common.Typedtree.structure) : unit =
 let run_ocaml_string_ line =
   (** Parse and typecheck the code, before converting it into a core language program.
      This mirrors the flow of compilation used in ocamlc. *)
+  let line = Ocamlfrontend.Spec_comments.parse_spec_comments line in
   try
     let items = Parse.implementation (Lexing.from_string line) in
     let unit_info = Unit_info.(make ~source_file:"" Impl "") in
