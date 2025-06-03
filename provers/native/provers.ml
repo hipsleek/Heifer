@@ -15,9 +15,8 @@ let memo k f =
 
 let entails_exists env left ex right =
   let@ _ = memo (left, ex, right) in
-  let open Typedhip in
   match Sys.getenv_opt "PROVER" with
-  | Some "WHY3" -> Prover_why3.entails_exists env (Untypehip.untype_pi left) (List.map ident_of_binder ex) (Untypehip.untype_pi right)
+  | Some "WHY3" -> Prover_why3.entails_exists env left ex right
   | Some "Z3" -> Prover_z3.entails_exists env left ex right
   | Some _
   | None ->
@@ -29,7 +28,7 @@ let entails_exists env left ex right =
         Subst_typed.needs_why3#visit_pi () right)
     in
     if needs_why3 then
-      Prover_why3.entails_exists env (Untypehip.untype_pi left) (List.map ident_of_binder ex) (Untypehip.untype_pi right)
+      Prover_why3.entails_exists env left ex right
     else
       Prover_z3.entails_exists env left ex right
 

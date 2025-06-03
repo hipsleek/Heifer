@@ -5,6 +5,7 @@ module Debug = Hipdebug
 (* open this second, so it gets precedence for shadowed modules *)
 open Hipcore
 open Hiptypes
+open Typedhip
 
 let prover_configs : (Whyconf.config_prover * Why3.Driver.driver) SMap.t ref =
   ref SMap.empty
@@ -161,6 +162,9 @@ let attempt_proof task1 =
    would us to type our source language.
 *)
 module LowLevel = struct
+  open Hipcore
+  open Hiptypes
+
   (** theory identifier *)
   module Tid = struct
     type t = string list * string
@@ -726,21 +730,21 @@ let rec type_to_whyml t =
   | TConstr _ -> failwith "general ADTs not implemented"
 
 let rec term_to_whyml tenv t =
-  match t with
-  | UNIT -> term (Ttuple [])
-  | TTrue -> term Ttrue
-  | TFalse -> term Tfalse
-  | Num i -> tconst i
+  match Typedhip.(t.term_desc) with
+  | Const ValUnit -> term (Ttuple [])
+  | Const TTrue -> term Ttrue
+  | Const TFalse -> term Tfalse
+  | Const (Num i) -> tconst i
   | Var v -> tvar (qualid [v])
-  | SConcat (a, b) ->
+  | BinOp (SConcat, a, b) ->
     tapp
       (qualid ["String"; "concat"])
       [term_to_whyml tenv a; term_to_whyml tenv b]
-  | Plus (a, b) ->
+  | BinOp (Plus, a, b) ->
     tapp
       (qualid ["Int"; Ident.op_infix "+"])
       [term_to_whyml tenv a; term_to_whyml tenv b]
-  | Minus (a, b) ->
+  | BinOp (Minus, a, b) ->
     tapp
       (qualid ["Int"; Ident.op_infix "-"])
       [term_to_whyml tenv a; term_to_whyml tenv b]
@@ -764,26 +768,26 @@ let rec term_to_whyml tenv t =
     tapp
       (qualid ["Int"; Ident.op_infix "<="])
       [term_to_whyml tenv a; term_to_whyml tenv b]
-  | TAnd (a, b) ->
+  | BinOp (TAnd, a, b) ->
     tapp (qualid ["Bool"; "andb"]) [term_to_whyml tenv a; term_to_whyml tenv b]
-  | TOr (a, b) ->
+  | BinOp (TOr, a, b) ->
     tapp (qualid ["Bool"; "orb"]) [term_to_whyml tenv a; term_to_whyml tenv b]
   | TNot a -> tapp (qualid ["Bool"; "notb"]) [term_to_whyml tenv a]
   | TApp (f, args) -> tapp (qualid [f]) (List.map (term_to_whyml tenv) args)
-  | Nil -> tapp (qualid ["List"; "Nil"]) []
-  | TCons (h, t) ->
+  | Const Nil -> tapp (qualid ["List"; "Nil"]) []
+  | Construct ("::", [h; t]) ->
     tapp (qualid ["List"; "Cons"]) [term_to_whyml tenv h; term_to_whyml tenv t]
   | TLambda (_name, _, _sp, Some _) | TLambda (_name, _, _sp, None) ->
     (* if there is no body, generate something that only respects alpha equivalence *)
     (* this probably doesn't always work *)
-    tconst (Subst.hash_lambda t)
+    tconst (Subst_typed.hash_lambda t)
   (* failwith "no body" *)
   (* disabled temporarily *)
   (* | TLambda (_name, params, _sp, Some body) ->
      let params, _ret = unsnoc params in
      let binders = vars_to_params tenv params in
      term (Tquant (Dterm.DTlambda, binders, [], core_lang_to_whyml tenv body)) *)
-  | Construct _ | TList _ | TTupple _ | TPower (_, _) | TTimes (_, _) | TDiv (_, _) | TStr _
+  | Construct _ | TList _ | TTuple _ | BinOp _ | Const (TStr _)
     ->
     failwith "nyi"
 
@@ -801,12 +805,12 @@ and vars_to_params tenv vars =
     vars
 
 and core_lang_to_whyml tenv e =
-  match e with
+  match e.core_desc with
   | CValue t -> term_to_whyml tenv t
   | CLet (v, e1, e2) ->
     term
       (Tlet (ident v, core_lang_to_whyml tenv e1, core_lang_to_whyml tenv e2))
-  | CIfELse (c, t, e) ->
+  | CIfElse (c, t, e) ->
     term
       (Tif
          ( pi_to_whyml tenv c,
@@ -833,11 +837,11 @@ and core_lang_to_whyml tenv e =
                  match pattern with
                  | PConstr ("[]", _) -> qualid ["List"; "Nil"], []
                  | PConstr ("::", args) -> qualid ["List"; "Cons"], (List.filter_map (fun arg -> match arg with PVar s -> Some s | _ -> None) args)
-                 | PConstr (s, _) | PVar s -> failwith (Format.asprintf "unknown pattern %s" s)
+                 | PConstr (s, _) | PVar (s, _) -> failwith (Format.asprintf "unknown pattern %s" s)
                in
                ( pat
                    (Papp
-                      (real_constr, List.map (fun a -> pat_var (ident a)) args)),
+                      (real_constr, List.map (fun a -> pat_var (ident (ident_of_binder a))) args)),
                  core_lang_to_whyml tenv b ))
              cases ))
   | CMatch (_, _, _, _, _) -> failwith "unsupported kind of match"
@@ -854,7 +858,7 @@ and pi_to_whyml tenv p =
     tapp
       (qualid [Ident.op_infix "="])
       [term_to_whyml tenv a; term_to_whyml tenv b]
-  | Atomic (op, a, b) -> term_to_whyml tenv (Rel (op, a, b))
+  | Atomic (op, a, b) -> term_to_whyml tenv {term_desc = Rel (op, a, b); term_type = Bool}
   | And (a, b) ->
     term (Tbinop (pi_to_whyml tenv a, Dterm.DTand, pi_to_whyml tenv b))
   | Or (a, b) ->
@@ -901,7 +905,7 @@ let prove tenv qtf f =
     let statement =
       let assumptions = pi_to_whyml tenv ass in
       let goal1 =
-        let binders = vars_to_params tenv qtf in
+        let binders = vars_to_params tenv (List.map ident_of_binder qtf) in
         match binders with
         | [] -> pi_to_whyml tenv goal
         | _ :: _ ->
@@ -925,7 +929,7 @@ let prove tenv qtf f =
     in
 
     let fns =
-      match (Globals.pure_fns () |> List.map (fun (name, fn) -> (name, Hipcore.Typedhip.Untypehip.untype_pure_fn_def fn))) with
+      match Globals.pure_fns () with
       | [] -> []
       | f ->
         let ff =
@@ -971,7 +975,7 @@ let prove tenv qtf f =
 
     let imports =
       let extra =
-        Globals.global_environment.pure_fn_types |> SMap.map Hipcore.Typedhip.Untypehip.untype_pure_fn_type_def |> SMap.bindings
+        Globals.global_environment.pure_fn_types |> SMap.bindings
         |> List.map (fun (_, p) -> p.pft_logic_path)
         |> List.sort_uniq compare
         |> List.map (use ~import:false)
@@ -1030,9 +1034,9 @@ let entails_exists tenv left ex right =
   | true ->
     (* keep this around for a while before we commit to the other approach *)
     let open LowLevel in
-    prove tenv ex (fun env ->
-        ( pi_to_why3 env left,
+    prove tenv (List.map ident_of_binder ex) (fun env ->
+        ( pi_to_why3 env (Untypehip.untype_pi left),
           (* Term.t_exists_close *)
           (* (SMap.bindings env.exists |> List.map snd) *)
           (* [] () *)
-          pi_to_why3 env right ))
+          pi_to_why3 env (Untypehip.untype_pi right)))
