@@ -506,136 +506,6 @@ let debug_tokens str =
 let (exGlobal:(binder list) ref) =  ref []
 let (unifyGlobal: pi ref) = ref True
 
-let term_is_Extiatential t ctx =
-  match t.term_desc with
-  | Var str -> if existStr str ctx then true else false
-  | _ -> false
-
-let normaliseKappa k =
-  match k with
-  | SepConj ( sp1, EmptyHeap) -> sp1
-  | SepConj ( EmptyHeap, sp2) -> sp2
-  | _ -> k
-
-(** Entry point for checking separation logic entailment.
-   *)
-let rec speration_logic_ential ((p1, h1) : state) ((p2, h2) : state) : (bool) =
-(*print_endline (string_of_state (p1, h1) ^" ==> "^  string_of_state (p2, h2)); *)
-let h1 = normaliseKappa h1 in
-let h2 = normaliseKappa h2 in
-let res =
-  match (h1, h2) with
-  | (_, EmptyHeap) -> true
-  | (EmptyHeap, _) -> false
-  | (PointsTo (v1, t1), PointsTo (v2, t2)) ->
-      let v1_typed = {term_desc = Var v1; term_type = TConstr ("ref", [t1.term_type])} in
-      let v2_typed = {term_desc = Var v2; term_type = TConstr ("ref", [t2.term_type])} in
-    if existStr v2 (List.map ident_of_binder !exGlobal) && stricTcompareTerm t1 t2 then
-      let () = unifyGlobal := And (!unifyGlobal, And (Atomic(EQ, v1_typed, v2_typed), p1)) in
-      (*print_string ("adding " ^ string_of_pi (And (Atomic(EQ, Var v1, v2_typed), p1)) ^ "\n");*)
-      true
-    else if existStr v2 (List.map ident_of_binder !exGlobal) then
-      if term_is_Extiatential t2 (List.map ident_of_binder !exGlobal) then
-        let () = unifyGlobal := And (!unifyGlobal, And (Atomic(EQ, t1, t2), p1)) in
-        (*print_string ("adding " ^ string_of_pi (And (Atomic(EQ, t1, t2), p1)) ^ "\n");*)
-        true
-      else
-      let () = unifyGlobal := And (!unifyGlobal, And (Atomic(EQ, v1_typed, v2_typed), p1)) in
-      (*print_string ("adding " ^ string_of_pi (And (Atomic(EQ, v1_typed, v2_typed), p1)) ^ "\n");*)
-      let lhs = (And(p1,  Atomic(EQ, v1_typed, t1) )) in
-      let rhs = (And(p2,  Atomic(EQ, v2_typed, t2) )) in
-      (*print_endline ( "yoyo1\n");
-      print_endline (string_of_pi (!unifyGlobal));*)
-      (ProversEx.is_valid (Untypehip.untype_pi (And(lhs, !unifyGlobal))) (Untypehip.untype_pi rhs))
-    else
-      (match t2.term_desc with
-      | Var t2Str ->
-        if existStr t2Str (List.map ident_of_binder !exGlobal) then
-          let () = unifyGlobal := And (!unifyGlobal, And (Atomic(EQ, t1, t2), p1)) in
-          (*print_string ("adding " ^ string_of_pi (And (Atomic(EQ, t1, t2), p1)) ^ "\n");*)
-          true
-        else
-          let lhs = (And(p1,  Atomic(EQ, v1_typed, t1) )) in
-          let rhs = (And(p2,  Atomic(EQ, v2_typed, t2) )) in
-          (ProversEx.is_valid (Untypehip.untype_pi (And(lhs, !unifyGlobal))) (Untypehip.untype_pi rhs))
-      | _ ->
-      let lhs = (And(p1,  Atomic(EQ, v1_typed, t1) )) in
-      let rhs = (And(p2,  Atomic(EQ, v2_typed, t2) )) in
-      (ProversEx.is_valid (Untypehip.untype_pi (And(lhs, !unifyGlobal))) (Untypehip.untype_pi rhs)))
-
-  | (SepConj ( sp1, sp2), SepConj ( sp3, sp4)) ->
-    speration_logic_ential (p1, sp1) (p2, sp3) && speration_logic_ential (p1, sp2) (p2, sp4)
-
-  | _ -> failwith ("not supporting other heap")
-in (*print_string (string_of_bool res ^ "\n\n");*) res
-
-
-
-let checkEntailmentForNormalFlow (lhs:normalStage) (rhs:normalStage) : bool =
-  let (ex1, (pi1, heap1), (pi2, heap2)) = lhs in
-  let (ex2, (pi3, heap3), (pi4, heap4)) = rhs in
-  let () = exGlobal := !exGlobal @ ex1 @ ex2 in
-  let (contravariant) = speration_logic_ential (pi3, heap3) (pi1, heap1) in
-  let (covariant)     = speration_logic_ential (pi2, heap2) (pi4, heap4) in
-  covariant && contravariant
-
-
-let rec compareEffectArgument unification v1 v2 =
-  match (v1, v2) with
-  | ([], []) -> true
-  | (x::xs, y::ys) ->
-    let r1 = ProversEx.is_valid (Untypehip.untype_pi unification) (Untypehip.untype_pi (Atomic(EQ, x, y))) in
-    r1 && (compareEffectArgument unification xs ys)
-  | (_, _) -> false
-
-let checkEntailMentForEffFlow (lhs:effectStage) (rhs:effectStage) : (bool) =
-  let {e_evars=ex1; e_pre=(pi1, heap1); e_post=(pi2, heap2); e_constr=(eff1, v1); e_ret=r1; _} = lhs in
-  let {e_evars=ex2; e_pre=(pi3, heap3); e_post=(pi4, heap4); e_constr=(eff2, v2); e_ret=r2; _} = rhs in
-  let () = exGlobal := !exGlobal @ ex1 @ ex2 in
-  let (contravariant) = speration_logic_ential (pi3, heap3) (pi1, heap1) in
-  let (covariant)     = speration_logic_ential (pi2, heap2) (pi4, heap4) in
-  let effectName    = String.compare eff1 eff2 == 0  in
-  let effArgument   = compareEffectArgument !unifyGlobal v1 v2 in
-  let () =  unifyGlobal := And (!unifyGlobal, (Atomic(EQ, r1, r2))) in
-  (covariant && contravariant && effectName && effArgument)
-
-let rec entailmentchecking_aux (lhs:normalisedStagedSpec) (rhs:normalisedStagedSpec) : (bool) =
-  (*print_endline (string_of_pi (!unifyGlobal));
-  print_endline (string_of_normalisedStagedSpec lhs ^" |===> "^ string_of_normalisedStagedSpec rhs);
-  *)
-  let (effSLHS, normalSLHS)  =  lhs  in
-  let (effSRHS, normalSRHS)  =  rhs  in
-  match (effSLHS, effSRHS) with
-  | ([], []) -> checkEntailmentForNormalFlow normalSLHS normalSRHS
-  | (EffHOStage x::xs, EffHOStage y::ys) ->
-    let (r1) = checkEntailMentForEffFlow x y in
-    let r2 = entailmentchecking_aux (xs, normalSLHS) (ys, normalSRHS) in
-    r1 && r2
-  | (_, _) -> false
-
-
-let rec entailmentchecking_helper (lhs:normalisedStagedSpec) (rhs:normalisedStagedSpec list) : (bool) =
-  match rhs with
-  | [] -> false
-  | y::ys ->
-
-    let () = exGlobal := [] in
-    let () = unifyGlobal := True in
-
-    let r1 = entailmentchecking_aux lhs y in
-
-    let r2 = entailmentchecking_helper lhs ys in
-    r1 || r2
-
-
-let rec entailmentchecking (lhs:normalisedStagedSpec list) (rhs:normalisedStagedSpec list) : (bool) =
-  match (lhs) with
-  | [] -> true
-  | x :: xs ->
-    let r1 = entailmentchecking_helper x rhs in
-    let r2 = entailmentchecking xs rhs in
-    r1 && r2
-
 let normal_report ?(kind="Function") ?(show_time=false) ?given_spec ?given_spec_n ?inferred_spec ?inferred_spec_n ?result name =
   let normed_spec, normed_post =
     let@ _ = Globals.Timing.(time overall) in
@@ -751,35 +621,35 @@ let check_lambda_obligation_ name params lemmas predicates obl =
 
 let infer_method () = todo ()
 
-let check_method () = todo ()
+let check_method _inferred_spec _given_spec = todo ()
 
 let infer_and_check_method (prog : core_program) (meth : meth_def) (given_spec : staged_spec option) =
-  (* let open Hipprover.Forward_rules in *)
-  ignore (prog, meth, given_spec);
-  todo ()
+  let open Hipprover.Forward_rules in
+  let method_env = prog.cp_methods
+    (* within a method body, params/locals should shadow functions defined outside *)
+    |> List.filter (fun m -> not (List.mem m.m_name meth.m_params))
+    (* treat recursive calls as abstract, as recursive functions should be summarized using predicates *)
+    (* |> List.filter (fun m -> not (String.equal m.m_name meth.m_name)) *)
+    |> List.map (fun m -> m.m_name, m)
+    |> SMap.of_list
+  in
+  let pred_env = prog.cp_predicates in
+  let fv_env = create_fv_env method_env pred_env in
+  let inferred_spec, fv_env =
+    let@ _ =
+      Debug.span (fun _ -> debug ~at:2 ~title:"apply forward rules" "")
+    in
+    let@ _ = Globals.Timing.(time forward) in
+    infer_of_expression fv_env meth.m_body
+  in
+  (* after inference, fv contains a bunch of lambda obligations, we may check it *)
+  ignore fv_env;
+  ignore (check_method inferred_spec given_spec);
+  let ok = todo () in
+  inferred_spec, ok
 (*
   try
     let inferred_spec, predicates, fvenv =
-      (* the env is looked up from the program every time, as it's updated as we go *)
-      let method_env = prog.cp_methods
-        (* within a method body, params/locals should shadow functions defined outside *)
-        |> List.filter (fun m -> not (List.mem m.m_name (List.map ident_of_binder meth.m_params)))
-        (* treat recursive calls as abstract, as recursive functions should be summarized using predicates *)
-        |> List.filter (fun m -> not (String.equal m.m_name meth.m_name))
-        |> List.map (fun m -> m.m_name, m)
-        |> List.to_seq
-        |> SMap.of_seq
-      in
-      let pred_env = prog.cp_predicates in 
-      let env = create_fv_env (SMap.map Untypehip.untype_meth_def method_env) (SMap.map Untypehip.untype_pred_def pred_env) in
-      let inf, env =
-        let@ _ =
-          Debug.span (fun _ -> debug ~at:2 ~title:"apply forward rules" "")
-        in
-        let@ _ = Globals.Timing.(time forward) in 
-        infer_of_expression env [freshNormalReturnSpec] (Untypehip.untype_core_lang meth.m_body)
-      in
-
       (* make the new specs inferred for lambdas available to the entailment procedure as predicates *)
       let preds_with_lambdas =
         let lambda =
@@ -795,8 +665,6 @@ let infer_and_check_method (prog : core_program) (meth : meth_def) (given_spec :
     in
     (* check misc obligations. don't stop on failure for now *)
     fvenv.fv_lambda_obl |> List.map Fill_type.fill_untyped_lambda_obligation |> List.iter (check_lambda_obligation_ meth.m_name meth.m_params prog.cp_lemmas predicates);
-    fvenv.fv_match_obl |> List.map (fun (lhs, rhs) -> Fill_type.(fill_untyped_disj_spec lhs, fill_untyped_disj_spec rhs)) |> List.iter (check_obligation_ meth.m_name meth.m_params prog.cp_lemmas predicates);
-    (* let res = *)
     match given_spec with
     | Some given_spec ->
       let given_spec_n =
@@ -808,10 +676,6 @@ let infer_and_check_method (prog : core_program) (meth : meth_def) (given_spec :
       in
       let res =
         try
-          let syh_old_entailment = false in
-          match syh_old_entailment with
-          | true -> entailmentchecking inferred_spec_n given_spec_n
-          | false ->
             (*normalization occurs after unfolding in entailment *)
 
             let inferred_spec, given_spec  =
@@ -833,9 +697,6 @@ let infer_and_check_method (prog : core_program) (meth : meth_def) (given_spec :
               in 
               check_remaining_obligations meth.m_name prog.cp_lemmas predicates res.subsumption_obl
             end |> succeeded
-      in
-    | None ->
-      raise (Ret (Fill_type.fill_untyped_disj_spec inferred_spec, Some inferred_spec_n, None, None, true))
 *)
 
 let choose_spec (inferred_spec : staged_spec) (given_spec : staged_spec option) =
@@ -843,7 +704,7 @@ let choose_spec (inferred_spec : staged_spec) (given_spec : staged_spec option) 
 
 let analyze_method (prog : core_program) (meth : meth_def) : core_program =
   let given_spec = meth.m_spec in
-  let inferred_spec, given_spec, ok =
+  let inferred_spec, ok =
     let@ _ = Globals.Timing.(time overall) in
     infer_and_check_method prog meth given_spec
   in
