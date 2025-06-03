@@ -1234,33 +1234,25 @@ let rec infer_of_expression (env:fvenv) (history:disj_spec) (expr:core_lang): di
         let ret = retrieve_return_value sp in
         cases |> concat_map_state env (fun (pat, body) env -> 
           (* TODO this is hardcoded for lists for now *)
+         
+          let rec term_of_pattern pat =
+            match pat with
+            | PConstr ("[]", []) -> Nil
+            | PVar v -> Var v
+            | PConstr (constr, args) -> Construct (constr, List.map term_of_pattern args)
+          in
+          let value_stage_of_pattern pat = 
+            let value_returned = term_of_pattern pat in
+            let existential_stages =
+              let names_captured = Subst.bound_names_of_pattern pat in
+              if List.is_empty names_captured
+              then []
+              else [Exists names_captured]
+            in
+            existential_stages @ [NormalReturn (Atomic (EQ, ret, value_returned), EmptyHeap)]
+          in
           
-          match pat with
-          | PConstr ("[]", []) ->
-            let nil_case =
-              (* let c = conj [Atomic (EQ, TApp ("is_nil", [ret]), TTrue)] in *)
-              (* [NormalReturn (c, EmptyHeap)] *)
-              (* [] *)
-              [NormalReturn (Atomic (EQ, ret, Nil), EmptyHeap)]
-            in 
-            infer_of_expression env (concatenateSpecsWithEvent history nil_case) body
-          | PConstr ("::", [PVar v1; PVar v2]) ->
-            let cons_case =
-              let c = conj [
-                (* Atomic (EQ, TApp ("is_cons", [ret]), TTrue);
-                Atomic (EQ, TApp ("head", [ret]), Var v1);
-                Atomic (EQ, TApp ("tail", [ret]), Var v2); *)
-                Atomic (EQ, ret, Construct ("::", [Var v1; Var v2]))
-                (* IsDatatype (ret, "list", "cons", [Var v1; Var v2]) *)
-              ]
-              (* [] *)
-            in
-              [Exists [v1; v2]; NormalReturn (c, EmptyHeap)]
-              (* [Exists [v1; v2]; NormalReturn (, EmptyHeap)] *)
-              (* [] *)
-            in
-            infer_of_expression env (concatenateSpecsWithEvent history cons_case) body
-          | pat -> failwith (Format.asprintf "unknown constructor: %s" (string_of_pattern pat))))
+          infer_of_expression env (concatenateSpecsWithEvent history (value_stage_of_pattern pat)) body))
       in
       dsp, env
     | CMatch (_, _, _,  _, _) -> 

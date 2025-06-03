@@ -392,3 +392,14 @@ let needs_why3 =
     method! visit_TApp () _f _a =
       true
   end
+
+(** List all the variable names bound by this pattern. *)
+let bound_names_of_pattern pat =
+  let visitor = object
+    inherit [_] reduce_spec
+    method zero = []
+    method plus = (@)
+
+    method! visit_PVar _ binder = [binder]
+  end in
+  visitor#visit_pattern () pat
