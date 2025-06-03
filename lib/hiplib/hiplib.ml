@@ -16,6 +16,7 @@ module Compiler_env = Env
 let file_mode = ref false
 let test_mode = ref false
 let tests_failed = ref false
+open Utils.Misc
 
 (*
 
@@ -746,15 +747,17 @@ let check_obligation_ name params lemmas predicates sub =
 let check_lambda_obligation_ name params lemmas predicates obl =
   let preds = SMap.merge_right_priority predicates obl.lo_preds in
   check_obligation_ name params lemmas preds (obl.lo_left, obl.lo_right)
+*)
 
-let infer_and_check_method prog meth given_spec =
-  let exception Ret of
-    disj_spec *
-    normalisedStagedSpec list option *
-    disj_spec option *
-    normalisedStagedSpec list option *
-    bool
-  in
+let infer_method () = todo ()
+
+let check_method () = todo ()
+
+let infer_and_check_method (prog : core_program) (meth : meth_def) (given_spec : staged_spec option) =
+  (* let open Hipprover.Forward_rules in *)
+  ignore (prog, meth, given_spec);
+  todo ()
+(*
   try
     let inferred_spec, predicates, fvenv =
       (* the env is looked up from the program every time, as it's updated as we go *)
@@ -793,19 +796,6 @@ let infer_and_check_method prog meth given_spec =
     (* check misc obligations. don't stop on failure for now *)
     fvenv.fv_lambda_obl |> List.map Fill_type.fill_untyped_lambda_obligation |> List.iter (check_lambda_obligation_ meth.m_name meth.m_params prog.cp_lemmas predicates);
     fvenv.fv_match_obl |> List.map (fun (lhs, rhs) -> Fill_type.(fill_untyped_disj_spec lhs, fill_untyped_disj_spec rhs)) |> List.iter (check_obligation_ meth.m_name meth.m_params prog.cp_lemmas predicates);
-
-  (* check the main spec *)
-
-    (*print_endline ("\n----------------\ninferred_spec: \n" ^ string_of_spec_list inferred_spec);*)
-
-    let inferred_spec_n = 
-      let@ _ = Debug.span (fun _r -> debug ~at:2 ~title:"normalization" "") in
-      try
-        normalise_disj_spec_aux1 inferred_spec |> List.map Fill_type.fill_normalized_staged_spec 
-      with Norm_failure ->
-        raise (Ret (Fill_type.fill_untyped_disj_spec inferred_spec, None, None, None, false))
-    in
-
     (* let res = *)
     match given_spec with
     | Some given_spec ->
@@ -843,62 +833,42 @@ let infer_and_check_method prog meth given_spec =
               in 
               check_remaining_obligations meth.m_name prog.cp_lemmas predicates res.subsumption_obl
             end |> succeeded
-
-        with Norm_failure ->
-          (* norm failing all the way to the top level may prevent some branches from being explored during proof search. this does not happen in any tests yet, however, so keep error-handling simple. if it ever happens, return an option from norm entry points *)
-          false
       in
-      Fill_type.fill_untyped_disj_spec inferred_spec, Some inferred_spec_n, Some given_spec, Some given_spec_n, res
     | None ->
       raise (Ret (Fill_type.fill_untyped_disj_spec inferred_spec, Some inferred_spec_n, None, None, true))
-  with Ret (a, b, c, d, e) ->
-    (a, b, c, d, e)
+*)
 
-let analyze_method prog ({m_spec = given_spec; _} as meth) : core_program =
-  let inferred_spec, inferred_spec_n, given_spec, given_spec_n, res =
+let choose_spec (inferred_spec : staged_spec) (given_spec : staged_spec option) =
+  Option.fold ~none:inferred_spec ~some:(fun spec -> spec) given_spec
+
+let analyze_method (prog : core_program) (meth : meth_def) : core_program =
+  let given_spec = meth.m_spec in
+  let inferred_spec, given_spec, ok =
     let@ _ = Globals.Timing.(time overall) in
     infer_and_check_method prog meth given_spec
   in
+  (* after infference, if the method does not have a spec, then add
+     the inferred spec into the method? *)
+  (* how about failure? *)
+  let choosen_spec = choose_spec inferred_spec given_spec in
+  let updated_meth = {meth with m_spec = Some choosen_spec} in
+  (* we always add the method into the program, regardless of whether it is verified or not? *)
+  let prog = {prog with cp_methods = updated_meth :: prog.cp_methods} in
   let prog =
-    let@ _ = Globals.Timing.(time overall) in
-    (* only save these specs for use by later functions if verification succeeds *)
-    if not res then prog
+    (* let@ _ = Globals.Timing.(time overall) in *)
+    if not ok then prog
     else begin
       let@ _ = Debug.span (fun _ -> debug
         ~at:2
         ~title:(Format.asprintf "remembering predicate for %s" meth.m_name)
         "")
       in
-      let prog, pred =
-        (* if the user has not provided a predicate for the given function,
-          produce one from the inferred spec *)
-        let p = Entail.derive_predicate meth.m_name meth.m_params (Untypehip.untype_disj_spec inferred_spec) in
-        let cp_predicates = SMap.update meth.m_name (function
-          | None -> Some p
-          | Some _ -> None) prog.cp_predicates
-        in
-        { prog with cp_predicates }, p
-      in
-      let prog =
-        (* if the user has not provided a spec for the given function, remember the inferred method spec for future use *)
-        match given_spec with
-        | None ->
-          (* using the predicate instead of the raw inferred spec makes the induction hypothesis possible with current heuristics. it costs one more unfold but that is taken care of by the current entailment procedure, which repeatedly unfolds *)
-          let _mspec : disj_spec = inferred_spec in
-          let mspec : disj_spec =
-            let prr, (ret_name, ret_type) = unsnoc pred.p_params in
-            function_stage_to_disj_spec pred.p_name (List.map (fun (v1, v1_type) -> {term_desc = Var v1; term_type = v1_type}) prr) 
-            ({term_desc = Var ret_name; term_type = ret_type})
-          in
-          (*print_endline ("inferred spec for " ^ meth.m_name ^ " " ^  (string_of_disj_spec mspec)); *)
-          debug ~at:1 ~title:(Format.asprintf "inferred spec for %s" meth.m_name) "%s" (string_of_disj_spec mspec);
-          let cp_methods = List.map (fun m -> if String.equal m.m_name meth.m_name then { m with m_spec = Some mspec } else m ) prog.cp_methods in
-          { prog with cp_methods }
-        | Some _ -> prog
-      in
-      prog
+      (* let pred = Entail.derive_predicate meth.m_name meth.m_params inferred_spec in *)
+      let pred = todo () in
+      {prog with cp_predicates = SMap.add meth.m_name pred prog.cp_predicates}
     end
   in
+(*
   let res = Option.map (fun _ -> res) given_spec in
   report_result ~inferred_spec:inferred_spec 
     ?inferred_spec_n:(Option.map (List.map Untypehip.untype_normalized_staged_spec) inferred_spec_n)
@@ -906,11 +876,30 @@ let analyze_method prog ({m_spec = given_spec; _} as meth) : core_program =
     ?given_spec_n:(Option.map (List.map Untypehip.untype_normalized_staged_spec) given_spec_n) ?result:res ~show_time:true meth.m_name;
   prog
 *)
-let process_intermediates it prog = 
-  Format.printf "%s\n" (Pretty.string_of_intermediate it);
-  ([], prog)
-  (*match it with
-  | LogicTypeDecl (name, params, ret, path, lname) ->
+  prog
+
+let process_lemma () = todo ()
+
+let process_method () = todo ()
+
+let process_predicate () = todo ()
+
+let process_pure_fn_info ({m_name; m_params; m_body; _}) = function
+  | None -> ()
+  | Some (param_types, ret_type) ->
+      let pf : pure_fn_def =
+      { pf_name = m_name;
+        pf_params = List.map2 (fun x y -> (x, y)) m_params param_types;
+        pf_ret_type = ret_type;
+        pf_body = m_body; }
+      in
+      Globals.define_pure_fn m_name pf
+
+let process_intermediates (it : intermediate) prog : string list * core_program = 
+  (* Format.printf "%s\n" (Pretty.string_of_intermediate it);
+  ([], prog) *)
+  match it with
+  (* | LogicTypeDecl (name, params, ret, path, lname) ->
       let def = {
         pft_name = name;
         pft_params = params;
@@ -921,81 +910,47 @@ let process_intermediates it prog =
       in
       Globals.global_environment.pure_fn_types <-
         SMap.add name def Globals.global_environment.pure_fn_types;
-      [], prog
-  | Lem l ->
-      debug ~at:4 ~title:(Format.asprintf "lemma %s" l.l_name) "%s" (string_of_lemma l);
-      let left =
+      [], prog *)
+  | Eff _ ->
+      todo ()
+  | Lem _l ->
+      (* TODO: add obligation *)
+      (* debug ~at:4 ~title:(Format.asprintf "lemma %s" l.l_name) "%s" (string_of_lemma l); *)
+      (* let left =
         let (f, ps) = l.l_left in
         let args, ret = unsnoc ps in
         function_stage_to_disj_spec f args ret
       in
       check_obligation_ l.l_name l.l_params prog.cp_lemmas prog.cp_predicates (left, [l.l_right]);
-      debug ~at:4 ~title:(Format.asprintf "added lemma %s" l.l_name) "%s" (string_of_lemma l);
+      debug ~at:4 ~title:(Format.asprintf "added lemma %s" l.l_name) "%s" (string_of_lemma l); *)
       (* add to environment regardless of failure *)
-      [], { prog with cp_lemmas = SMap.add l.l_name l prog.cp_lemmas }
-  | Pred p ->
+      (* [], { prog with cp_lemmas = SMap.add l.l_name l prog.cp_lemmas } *)
+      process_lemma ()
+  | LogicTypeDecl _ ->
+      todo ()
+  | Pred _p ->
     (*print_endline ("\n"^ p.p_name ^  Format.asprintf "(%s)" (String.concat ", " p.p_params) ^ ": ");
     print_endline (string_of_disj_spec p.p_body);
     *)
-      let body' = replaceSLPredicatesWithDef p.p_body prog.cp_sl_predicates in
+      (* let body' = replaceSLPredicatesWithDef p.p_body prog.cp_sl_predicates in
       let p' : pred_def = {
         p_name = p.p_name;
         p_params = p.p_params;
         p_body = Fill_type.fill_untyped_disj_spec body';
         p_rec = p.p_rec
-      }
-      in
-      [], { prog with cp_predicates = SMap.add p'.p_name p' prog.cp_predicates }
-
-  | SLPred p ->
-    (*
-    print_endline ("\n"^ p.p_sl_name^  Format.asprintf "(%s)" (String.concat ", " p.p_sl_params) ^ ": " ^ Format.asprintf "ex %s; " (String.concat " " p.p_sl_ex) ^ string_of_state p.p_sl_body);
-    *)
-      [], { prog with cp_sl_predicates = SMap.add p.p_sl_name p prog.cp_sl_predicates }
-  | Eff _ ->
-    (* ignore *)
-      [], prog
+      } *)
+      (* in
+      [], { prog with cp_predicates = SMap.add p'.p_name p' prog.cp_predicates } *)
+      process_predicate ()
+  | SLPred _p ->
+      (* [], { prog with cp_sl_predicates = SMap.add p.p_sl_name p prog.cp_sl_predicates } *)
+      todo ()
   | Meth (m_name, m_params, m_spec, m_body, m_tactics, pure_fn_info) ->
-    (* ASK YAHUI *)
-    (* let _m_spec' =
-      (match m_spec with
-      | None -> None
-      | Some spec ->
-      (*print_endline ("\n"^ m_name ^  Format.asprintf "(%s)" (String.concat ", " m_params) ^ ": ");
-      print_endline (string_of_disj_spec spec);*)
-      let spec' = replacePredicatesWithDef spec prog.cp_methods prog.cp_predicates in
-      (*print_endline ("~~~> " ^ string_of_disj_spec spec');*)
-      let spec'' = (replaceSLPredicatesWithDef spec' prog.cp_sl_predicates) in
-      (*print_endline ("~~~> " ^ string_of_disj_spec spec'' ^"\n");*)
-      Some spec''
-      )
-    in *)
-    (* the right fix is likely to unfold all non-recursive predicates internally before entailment *)
-    let m_spec' = m_spec in
-    let meth = { m_name=m_name; m_params=m_params; m_spec=m_spec'; m_body=m_body; m_tactics=m_tactics } in
-
-    (* as we handle methods, predicates are inferred and are used in place of absent specifications, so we have to keep updating the program as we go *)
-    let prog = { prog with cp_methods = meth :: prog.cp_methods } in
-
-    debug ~at:2 ~title:"parsed" "%s" (string_of_program prog);
-    debug ~at:2 ~title:"user-specified predicates" "%s" (string_of_smap string_of_pred prog.cp_predicates);
-
-    let () =
-      match pure_fn_info with
-      | Some (_param_types, ret_type) ->
-        let pf =
-          { pf_name = m_name; pf_params = m_params; pf_ret_type = ret_type; pf_body = m_body; }
-        in
-        Globals.define_pure_fn m_name pf;
-      | None -> ()
-    in
-    (* begin try *)
-    begin
+      let meth : meth_def = {m_name; m_params; m_spec; m_body; m_tactics } in
+      process_pure_fn_info meth pure_fn_info;
       let prog =
-        let@ _ =
-          Debug.span (fun _r ->
-              debug ~at:1
-                ~title:(Format.asprintf "verifying function: %s" meth.m_name) "")
+        let@ _ = Debug.span (fun _r ->
+          debug ~at:1 ~title:(Format.asprintf "verifying function: %s" meth.m_name) "")
         in
         analyze_method prog meth
       in
@@ -1003,7 +958,6 @@ let process_intermediates it prog =
     (* with Method_failure ->
       (* update program with method regardless of failure *)
       [], prog *)
-    end *)
 
 let process_ocaml_structure (strs: Ocaml_common.Parsetree.structure) : unit =
   let helper (bound_names, prog) s =
@@ -1025,6 +979,7 @@ let run_ocaml_string s =
   with
     | e -> Format.printf "%a\n" Location.report_exception e
 
+(*
 let mergeTopLevelCodeIntoOneMain (prog : intermediate list) : intermediate list =
   let rec helper li: (intermediate list  * core_lang list )=
     match li with
@@ -1048,7 +1003,7 @@ let mergeTopLevelCodeIntoOneMain (prog : intermediate list) : intermediate list 
     | x :: xs -> CLet ("_", x, compose xs)
  in
   nonMain @ [(Meth ("main", [], None, compose mainMeth, [], None ))]
-
+*)
 
 (* this is the entry of inputing the Racket file *)
 let run_racket_string _s = ()

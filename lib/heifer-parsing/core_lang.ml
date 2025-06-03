@@ -442,7 +442,7 @@ let string_of_expression_kind (expr:Parsetree.expression_desc) : string =
   | Pexp_unreachable -> "Pexp_unreachable"
 
 (** env just keeps track of all the bound names *)
-let transform_str bound_names (s : structure_item) =
+let transform_str bound_names (s : structure_item) : intermediate option =
   match s.pstr_desc with
   | Pstr_value (_rec_flag, vb::_vbs_) ->
     let tactics = collect_annotations vb.pvb_attributes in
