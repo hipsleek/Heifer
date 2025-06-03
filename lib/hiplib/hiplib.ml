@@ -12,351 +12,13 @@ open Hiptypes
 (* open Normalize *)
 (** Re-export Env, since it gets shadowed by another declaration later on. *)
 module Compiler_env = Env
+open Utils.Misc
 
 let file_mode = ref false
 let test_mode = ref false
 let tests_failed = ref false
-open Utils.Misc
 
 (*
-
-
-let rec shaffleZIP li1 li2 =
-  let rec aux a li =
-    match li with
-    | []-> []
-    | y :: ys -> (a, y) :: (aux a ys)
-  in
-  match li1 with
-  | [] -> []
-  | x ::xs -> List.append (aux x li2) (shaffleZIP xs li2)
-;;
-
-assert ((List.length (shaffleZIP [1;2;3] [4;5;6])) = 9 );;
-
-(*
-let string_of_effect_constructor x :string =
-  match x.peff_kind with
-  | Peff_decl(_, _) -> ""
-
-  | _ -> ""
-;;
-type rec_flag = Nonrecursive | Recursive
-*)
-
-let string_of_payload p =
-  match p with
-  | PStr str -> Pprintast.string_of_structure str
-  | PSig _ -> "sig"
-  | PTyp _ -> "typ"
-  | PPat _ -> "pattern"
-
-
-let string_of_attribute (a:attribute) : string =
-  let name = a.attr_name.txt in
-  let payload = a.attr_payload in
-  Format.sprintf "name: %s, payload: %s" name (string_of_payload payload)
-
-let string_of_attributes (a_l:attributes): string =
-  List.fold_left (fun acc a -> acc ^ string_of_attribute a ) "" a_l;;
-
-let debug_string_of_core_type t =
-  Format.asprintf "type %a@." Pprintast.core_type t
-
-
-let rec string_of_effectList (specs:spec list):string =
-  match specs with
-  | [] -> ""
-  | x :: xs -> string_of_spec x ^ " /\\ "^  string_of_effectList xs
-
-
-let string_of_effectspec spec:string =
-    match spec with
-    | None -> "<no spec given>"
-    (* | Some (pr, po) ->
-      Format.sprintf "requires %s ensures %s" (string_of_spec pr) (string_of_effectList po) *)
-    | Some p -> string_of_spec p
-
-
-let debug_string_of_expression e =
-  Format.asprintf "%a" (Printast.expression 0) e
-
-let string_of_longident l =
-  l |> Longident.flatten |> String.concat "."
-
-
-let rec getIndentName (l:Longident.t): string =
-  (match l with
-        | Lident str -> str
-        | Ldot (t, str) -> getIndentName t ^ "." ^ str
-        | _ -> "getIndentName: dont know " ^ string_of_longident l
-        )
-        ;;
-
-(* information we record after seeing a function *)
-type fn_spec = {
-  pre: spec;
-  post: spec list;
-  formals: string list;
-}
-
-
-(* at a given program point, this captures specs for all local bindings *)
-type fn_specs = fn_spec SMap.t
-
-
-(* effect Foo : int -> (int -> int) *)
-type effect_def = {
-  params: typ list; (* [TInt] *)
-  res: typ list * typ (* ([TInt], TInt) *)
-}
-
-type env = {
-  (* module name -> a bunch of function specs *)
-  modules : fn_specs SMap.t;
-  current : fn_specs;
-  (* the stack stores higher-order functions which may produce effects.
-     an entry like a -> Foo(1) means that the variable a in scope has been applied to
-     the single argument 1. nothing is said about how many arguments are remaining,
-     (though that can be figured out from effect_defs) *)
-  effect_defs : effect_def SMap.t;
-}
-
-type function_without_spec = (string * expression * string list)
-let (env_function_without_spec: ((function_without_spec list)ref)) = ref []
-
-let rec retrieveFuntionWithoutSpecDefinition str li =
-  match li with
-  | [] ->  None
-  | (s, b, f) :: xs  -> if String.compare s str == 0 then (Some (s, b, f))
-  else retrieveFuntionWithoutSpecDefinition str xs
-
-
-let rec string_of_basic_v li: string =
-  match li with
-  | [] -> ""
-  | (str, bt) :: xs ->(str ^ "=" ^ string_of_term bt  ^ ", ") ^ string_of_basic_v xs
-
-
-module Env = struct
-  let empty = {
-    modules = SMap.empty;
-    current = SMap.empty;
-    effect_defs = SMap.empty
-  }
-
-  let add_fn f spec env =
-    { env with current = SMap.add f spec env.current }
-
-  let add_effect name def env =
-    { env with effect_defs = SMap.add name def env.effect_defs }
-
-  let find_fn f env =
-    SMap.find_opt f env.current
-
-
-  let find_effect_arg_length name env =
-    match SMap.find_opt name env.effect_defs with
-    | None -> None
-    | Some def ->
-      let n1 = List.length (def.params)  in
-      let (a, _) = def.res in
-      let n2 = List.length a in
-      Some (n1 + n2)
-
-
-  let add_module name menv env =
-    { env with modules = SMap.add name menv.current env.modules }
-
-  (* dump all the bindings for a given module into the current environment *)
-  let open_module name env =
-    let m = SMap.find name env.modules in
-    let fns = SMap.bindings m |> List.to_seq in
-    { env with current = SMap.add_seq fns env.current }
-end
-
-let string_of_fn_specs specs =
-  Format.sprintf "{%s}"
-    (SMap.bindings specs
-    |> List.map (fun (n, s) ->
-      Format.sprintf "%s -> %s/%s/%s" n
-        (string_of_spec s.pre)
-        (string_of_spec (List.hd s.post))
-        (s.formals |> String.concat ","))
-    |> String.concat "; ")
-
-let string_of_env env =
-  Format.sprintf "%s\n%s"
-    (env.current |> string_of_fn_specs)
-    (env.modules
-      |> SMap.bindings
-      |> List.map (fun (n, s) -> Format.sprintf "%s: %s" n (string_of_fn_specs s))
-      |> String.concat "\n")
-
-type experiemntal_data = (float list * float list)
-
-(* let entailmentHeapAssertion k1 pi : bool =
-  let (re, _) = check_pure (kappaToPure k1) pi in re *)
-
-let rec lookUpFromPure p str : term option =
-  match p with
-  | True -> None
-  | False -> None
-  | Atomic (EQ, {term_desc = Var name; _} , ({term_desc = Const Num _; _} as num)) ->
-      if String.compare str name == 0 then Some num else None
-  | And   (p1, p2) ->
-      begin match lookUpFromPure p1 str with
-      | None -> lookUpFromPure p2 str
-      | Some n -> Some n
-      end
-  | Atomic _
-  | Or _
-  | Imply _
-  | Not _
-  | Subsumption _
-  | Predicate _ -> None (*raise (Foo "lookUpFromPure error")*)
-
-open Forward_rules
-
-(** Given a list of predicates, unfold them and take their conjunction.
-    Returns a list of existentially quantified variables, and a state formula. *)
-let mergePredicates (preds : (string * term list) list) (slps : sl_pred_def SMap.t) : (binder list * pi * kappa) =
-  List.fold_left (fun (accEx, accPi, accHeap) (str, actualArg) ->
-    try
-      let {p_sl_ex; p_sl_name; p_sl_params; p_sl_body} : sl_pred_def  = SMap.find str slps in
-      assert (String.compare p_sl_name str == 0);
-      let (p_sl_ex, p_sl_body) = renamingexistientalVarState (List.map ident_of_binder p_sl_ex) (Untypehip.untype_state p_sl_body) in
-      let bindings = bindFormalNActual (p_sl_params) (actualArg) in
-      let bindings = List.map (fun (binder, term) -> ident_of_binder binder, Untypehip.untype_term term) bindings in
-      let (pi, kappa) = p_sl_body in
-      let p_sl_body' = (instantiatePure bindings pi, instantiateHeap bindings kappa) in
-      let (pNew, heapNew) = p_sl_body' in
-      (* TODO remove type re-annotation once Subst is rewritten to use Typedhip *)
-      ((List.map binder_of_ident p_sl_ex)@accEx, And(accPi, Fill_type.fill_untyped_pi pNew), SepConj(accHeap, Fill_type.fill_untyped_kappa heapNew))
-    with Not_found ->
-      raise (Failure (str ^ " not found"))
-  ) ([], True, EmptyHeap) preds
-
-let rec decomposeStateForPredicate p : (((string * term list ) list) * pi) =
-  match p with
-  | Predicate (str, actualArg) -> ([(str, actualArg)], True)
-  | And   (p1, p2) ->
-    (*print_endline ("AND!   " ^ string_of_pi p1 ^ ",   " ^ string_of_pi p2);*)
-      let (pred1, pi1) = decomposeStateForPredicate p1 in
-      let (pred2, pi2) = decomposeStateForPredicate p2 in
-      (pred1 @ pred2, And (pi1, pi2))
-  | Atomic _
-  | Subsumption _
-  | True
-  | Not _
-  | False -> ([], p)
-  | Or _
-  | Imply  _ -> failwith "decomposePredicate nor and or and imply"
-
-let replaceSLPredicatesWithDef (specs:disj_spec) (slps:sl_pred_def SMap.t) =
-  let helper (stage : stagedSpec) : spec =
-    match stage with
-    | Shift _ -> failwith "todo"
-    | Reset _ -> failwith "todo"
-    | Require (p, h) ->
-        let (preds, p') = decomposeStateForPredicate p in
-        let (ex, p_pred, h_pred) = mergePredicates preds slps in
-        [Exists ex; Require (p_pred, h_pred); Require (p', h)]
-    | HigherOrder (p, h, (f, args), ret) ->
-        let (preds, p') = decomposeStateForPredicate p in
-        let (ex, p_pred, h_pred) = mergePredicates preds slps in
-        [Exists ex; NormalReturn (p_pred, h_pred);  HigherOrder (p', h, (f, args), ret)]
-    | NormalReturn (p, heap) ->
-        let (preds, p') = decomposeStateForPredicate p in
-        let (ex, p_pred, h_pred) = mergePredicates preds slps in
-        [Exists ex; NormalReturn (p_pred, h_pred);  NormalReturn (p', heap)]
-    | RaisingEff (p, h, (f, args), ret) ->
-        let (preds, p') = decomposeStateForPredicate p in
-        let (ex, p_pred, h_pred) = mergePredicates preds slps in
-        [Exists ex; NormalReturn (p_pred, h_pred);  RaisingEff (p', h, (f, args), ret)]
-    | Exists _
-    | TryCatch _ -> [stage]
-  in
-  normalise_spec_list ((List.map (fun spec -> List.flatten (List.map helper spec)) specs) |> List.map Untypehip.untype_spec)
-
-let retrieveSpecFromMs_Ps (fname: string) (ms:meth_def list) (ps:pred_def SMap.t) : (binder list * spec list) option =
-  match SMap.find_opt fname ps |> Option.map (fun p -> (p.p_params, p.p_body)) with
-  | Some res -> Some res
-  | None ->
-    let (>>=) = Option.bind in
-    SMap.find_opt fname
-      (ms |> List.map (fun m -> m.m_name, m)
-      |> List.to_seq
-      |> SMap.of_seq)
-    >>= (fun m -> Option.map (fun sp -> (m.m_params, sp)) m.m_spec)
-
-let replacePredicatesWithDef (specs:disj_spec) (ms:meth_def list) (ps:pred_def SMap.t) : disj_spec =
-  let rec helper (spec:spec) : disj_spec =
-    match spec with
-    | [] -> [[]]
-    | HigherOrder (pi, h, (f, actualArg), ret) :: xs  ->
-      (match retrieveSpecFromMs_Ps f ms ps with
-      | None -> let temp = helper xs in
-                List.map (fun li -> HigherOrder (pi, h, (f, actualArg), ret) :: li) temp
-
-      | Some (p_params, p_body) ->
-      (*print_endline ("\n replacePredicates for " ^ p_name);
-      print_endline ("p_params: " ^ (List.map (fun a-> a) p_params |> String.concat ", "));
-      print_endline ("actualArg: " ^ (List.map (fun a-> string_of_term a) actualArg |> String.concat ", "));
-
-
-      print_endline ("ret = " ^ string_of_term ret);
-      *)
-
-      let bindings = bindFormalNActual p_params actualArg in
-      let bindings = List.map (fun (binder, term) -> ident_of_binder binder, Untypehip.untype_term term) bindings in
-      (*print_endline (string_of_disj_spec p_body);*)
-      let p_body = renamingexistientalVar (List.map Untypehip.untype_spec p_body) in
-      (*print_endline (" ===> " ^ string_of_disj_spec p_body);*)
-
-      let p_body' =  (instantiateSpecList bindings p_body)  in
-
-
-
-
-      let p_body' = normalise_spec_list (List.map (fun a ->
-              let returnTerm =
-                match retriveLastRes a with
-                | Some (Var t) -> t
-                | Some t ->
-                  print_endline (Pretty.string_of_term t);
-                  failwith "there was a res term but not a variable"
-                | None ->
-                  failwith "there is no res value"
-              in
-              instantiateSpec [(returnTerm, Untypehip.untype_term ret)] a
-            )
-            p_body' )
-      in
-      let temp = helper xs in
-      List.flatten (List.map (fun li ->
-        List.map (
-          fun p_b ->
-            NormalReturn(pi, h) ::p_b  @ li
-        ) (List.map Fill_type.fill_untyped_spec p_body')
-      ) temp)
-
-      )
-
-
-
-
-
-
-    | x :: xs  ->
-      let temp = helper xs in
-      List.map (fun li -> x :: li) temp
-
-
-
-
-  in  List.flatten (List.map (fun spec -> helper spec) specs)
-
 let string_of_token =
   let open Parser in
   function
@@ -490,7 +152,6 @@ let string_of_token =
 | METAOCAML_BRACKET_CLOSE -> "METAOCAML_BRACKET_CLOSE"
 (* | IMPLICATION -> "IMPLICATION" *)
 
-
 let debug_tokens str =
   let lb = Lexing.from_string str in
   let rec loop tokens =
@@ -505,85 +166,9 @@ let debug_tokens str =
 
 let (exGlobal:(binder list) ref) =  ref []
 let (unifyGlobal: pi ref) = ref True
+*)
 
-let normal_report ?(kind="Function") ?(show_time=false) ?given_spec ?given_spec_n ?inferred_spec ?inferred_spec_n ?result name =
-  let normed_spec, normed_post =
-    let@ _ = Globals.Timing.(time overall) in
-    let@ _ =
-      Debug.span (fun _r -> debug ~at:2 ~title:"final normalization" "")
-    in
-    let normed_spec =
-      match given_spec_n with
-      | Some s -> "[  Normed Spec  ] " ^ string_of_spec_list (normalise_spec_list_aux2 s |> List.map Fill_type.fill_untyped_spec) ^ "\n\n"
-      | None -> ""
-    in
-    let normed_post =
-      match inferred_spec_n with
-      | Some s ->
-          (*print_endline ("\ninferred_spec_n:");
-          let _ = List.iter (fun spec -> print_endline (string_of_normalisedStagedSpec spec) ) s in
-          print_endline("\n----------------");
-
-          print_endline (string_of_spec_list (normalise_spec_list_aux2 s));
-          *)
-        "[  Normed Post  ] " ^ string_of_spec_list (normalise_spec_list (normalise_spec_list_aux2 s) |> List.map Fill_type.fill_untyped_spec ) ^ "\n\n"
-      | None -> ""
-    in
-    normed_spec, normed_post
-  in
-  debug ~at:2 ~title:"verification result" "";
-  let header =
-    "\n========== " ^ kind ^ ": "^ name ^" ==========\n" ^
-    (match given_spec with
-    | Some s -> "[ Specification ] " ^ string_of_spec_list s ^ "\n\n"
-    | None -> "") ^
-    normed_spec ^
-    (match inferred_spec with
-    | Some s -> "[ Raw Post Spec ] " ^ string_of_spec_list s ^ "\n\n"
-    | None -> "") ^
-    normed_post ^
-    (match result with
-    | Some r ->
-      let don't_worry = if not r && String.ends_with ~suffix:"_false" name then " (expected)" else "" in
-      "[  Entail Check ] " ^ (string_of_res r) ^ don't_worry ^ "\n\n"
-    | None -> "") ^
-    (match show_time with
-    | true -> String.concat "\n" [
-        "[  Forward Time ] " ^ string_of_time !Globals.Timing.forward ^ " ms";
-        "[   Norm Time   ] " ^ string_of_time !Globals.Timing.norm ^ " ms";
-        "[  Entail Time  ] " ^ string_of_time !Globals.Timing.entail ^ " ms";
-        "[    Z3 Time    ] " ^ string_of_time !Globals.Timing.z3 ^ " ms";
-        "[   Why3 Time   ] " ^ string_of_time !Globals.Timing.why3 ^ " ms";
-        "[  Overall Time ] " ^ string_of_time !Globals.Timing.overall ^ " ms";
-      ]
-    | false -> "") ^ "\n" ^
-    (String.init (String.length name + 32) (fun _ -> '=')) ^ "\n"
-  in
-  Format.printf "%s@." header
-
-let test_report ?kind:_ ?show_time:_ ?given_spec:_ ?given_spec_n:_ ?inferred_spec:_ ?inferred_spec_n:_ ?result name =
-  let false_expected = String.ends_with ~suffix:"_false" name in
-  match result with
-  | Some true when false_expected ->
-    tests_failed := true;
-    Format.printf "FAILED: %s@." name
-  | Some false when not false_expected ->
-    tests_failed := true;
-    Format.printf "FAILED: %s@." name
-  | _ -> ()
-
-let report_result ?kind ?show_time ?given_spec ?given_spec_n ?inferred_spec ?inferred_spec_n ?result name =
-  let f =
-    if !test_mode then test_report else normal_report
-  in
-  let r =
-    f ?kind ?show_time ?given_spec ?given_spec_n ?inferred_spec ?inferred_spec_n ?result name
-  in
-  (* do this after reporting *)
-  Globals.Timing.update_totals ();
-  r
-
-
+(*
 let rec check_remaining_obligations original_fname lems preds obligations =
   let open Search in
   all ~name:"subsumption obligation"
@@ -619,9 +204,21 @@ let check_lambda_obligation_ name params lemmas predicates obl =
   check_obligation_ name params lemmas preds (obl.lo_left, obl.lo_right)
 *)
 
+let test_report _ = todo ()
+
+let normal_report _ = todo ()
+
+let report_result ?inferred_spec ?given_spec ok name =
+  ignore (inferred_spec, given_spec, ok, name);
+  let f = if !test_mode then test_report else normal_report in
+  ignore f
+
 let infer_method () = todo ()
 
-let check_method _inferred_spec _given_spec = todo ()
+let check_method_aux _inferred_spec _given_spec = todo ()
+let check_method inferred_spec = function
+  | None -> true
+  | Some given_spec -> check_method_aux inferred_spec given_spec
 
 let infer_and_check_method (prog : core_program) (meth : meth_def) (given_spec : staged_spec option) =
   let open Hipprover.Forward_rules in
@@ -635,7 +232,7 @@ let infer_and_check_method (prog : core_program) (meth : meth_def) (given_spec :
   in
   let pred_env = prog.cp_predicates in
   let fv_env = create_fv_env method_env pred_env in
-  let inferred_spec, fv_env =
+  let inferred_spec, _fv_env =
     let@ _ =
       Debug.span (fun _ -> debug ~at:2 ~title:"apply forward rules" "")
     in
@@ -643,61 +240,8 @@ let infer_and_check_method (prog : core_program) (meth : meth_def) (given_spec :
     infer_of_expression fv_env meth.m_body
   in
   (* after inference, fv contains a bunch of lambda obligations, we may check it *)
-  ignore fv_env;
-  ignore (check_method inferred_spec given_spec);
-  let ok = todo () in
+  let ok = check_method inferred_spec given_spec in
   inferred_spec, ok
-(*
-  try
-    let inferred_spec, predicates, fvenv =
-      (* make the new specs inferred for lambdas available to the entailment procedure as predicates *)
-      let preds_with_lambdas =
-        let lambda =
-          env.fv_methods
-        |> SMap.map Fill_type.fill_untyped_meth_def
-          |> SMap.filter (fun k _ -> not (SMap.mem k method_env))
-          |> SMap.map (fun meth -> Entail.derive_predicate meth.m_name meth.m_params (List.map Untypehip.untype_spec (Option.get meth.m_spec))) (* these have to have specs as they did not occur earlier, indicating they are lambdask *)
-          |> SMap.to_seq
-        in
-        SMap.add_seq lambda prog.cp_predicates
-      in
-      inf, preds_with_lambdas, env
-    in
-    (* check misc obligations. don't stop on failure for now *)
-    fvenv.fv_lambda_obl |> List.map Fill_type.fill_untyped_lambda_obligation |> List.iter (check_lambda_obligation_ meth.m_name meth.m_params prog.cp_lemmas predicates);
-    match given_spec with
-    | Some given_spec ->
-      let given_spec_n =
-        let@ _ = Debug.span (fun _r -> debug ~at:2 ~title:"normalization" "") in
-        try
-          normalise_disj_spec_aux1 (Untypehip.untype_disj_spec given_spec) |> List.map Fill_type.fill_normalized_staged_spec
-        with Norm_failure ->
-          raise (Ret (Fill_type.fill_untyped_disj_spec inferred_spec, Some inferred_spec_n, Some given_spec, None, false))
-      in
-      let res =
-        try
-            (*normalization occurs after unfolding in entailment *)
-
-            let inferred_spec, given_spec  =
-              let@ _ = Debug.span (fun _r -> debug ~at:2 ~title:"normalization" "") in
-              normalise_spec_list inferred_spec |> List.map Fill_type.fill_untyped_spec , normalise_spec_list (Untypehip.untype_disj_spec given_spec) |> List.map Fill_type.fill_untyped_spec
-            in
-
-            let@ _ = Globals.Timing.(time entail) in 
-
-            (* print_endline ("proving!!!==================================") ;
-            print_endline ("inferred_spec " ^ string_of_disj_spec inferred_spec);
-            print_endline (" |= ") ;
-            print_endline ("given_spec " ^ string_of_disj_spec given_spec); *)
-            
-            let open Search in begin
-              let* res =
-                Entail.check_staged_subsumption_disj meth.m_name meth.m_params meth.m_tactics prog.cp_lemmas
-                predicates inferred_spec given_spec
-              in 
-              check_remaining_obligations meth.m_name prog.cp_lemmas predicates res.subsumption_obl
-            end |> succeeded
-*)
 
 let choose_spec (inferred_spec : staged_spec) (given_spec : staged_spec option) =
   Option.fold ~none:inferred_spec ~some:(fun spec -> spec) given_spec
@@ -729,14 +273,7 @@ let analyze_method (prog : core_program) (meth : meth_def) : core_program =
       {prog with cp_predicates = SMap.add meth.m_name pred prog.cp_predicates}
     end
   in
-(*
-  let res = Option.map (fun _ -> res) given_spec in
-  report_result ~inferred_spec:inferred_spec 
-    ?inferred_spec_n:(Option.map (List.map Untypehip.untype_normalized_staged_spec) inferred_spec_n)
-    ?given_spec:given_spec 
-    ?given_spec_n:(Option.map (List.map Untypehip.untype_normalized_staged_spec) given_spec_n) ?result:res ~show_time:true meth.m_name;
-  prog
-*)
+  report_result ~inferred_spec ?given_spec ok meth.m_name;
   prog
 
 let process_lemma () = todo ()
@@ -907,7 +444,7 @@ let retriveComments (source : string) : string list =
             else let ele = ("/*@" ^ head ^ "@*/") in ele :: helper xs
       in
       helper partitionEnd
-
+(*
 let _run_file inputfile =
   let open Utils.Io in
   let ic = open_in inputfile in
@@ -948,7 +485,7 @@ let _run_file inputfile =
     | e ->                           (* 一些不可预见的异常发生 *)
         close_in_noerr ic;           (* 紧急关闭 *)
         raise e                      (* 以出错的形式退出: 文件已关闭,但通道没有写入东西 *)
-
+*)
 let run_file input_file =
   let open Utils.Io in
   let chan = open_in input_file in
