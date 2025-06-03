@@ -296,13 +296,13 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
     transformation bound_names a
   (* nil *)
   | Texp_construct ({txt=Lident "[]"; _}, _, []) ->
-      {core_desc = CValue {term_desc = Const Nil; term_type = exp_hip_type}; core_type = exp_hip_type}
+      {core_desc = CValue {term_desc = Construct ("[]", []); term_type = exp_hip_type}; core_type = exp_hip_type}
   (* cons *)
-  | Texp_construct ({txt = Lident ("::" as name); _}, _, args) ->
+  | Texp_construct ({txt = Lident name; _}, _, args) ->
     (* this is almost the same as the next case. can't be unified because the pattern has a different type *)
     let rec loop vars args =
       match args with
-      | [] -> CFunCall (name, List.rev vars) |> clang_with_expr_type
+      | [] -> CValue (Construct (name, List.rev vars) |> term_with_expr_type) |> clang_with_expr_type
       |  a :: args1 ->
         transformation bound_names a |> maybe_var (fun v -> loop (v :: vars) args1)
     in
