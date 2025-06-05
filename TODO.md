@@ -5,3 +5,4 @@
 - Fix forward verifier rules.
 - Call to entails/normalization.
 - Check the translation in `core_lang`.
+- Import the pretty printing for inspection.

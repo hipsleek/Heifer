@@ -1,12 +1,5 @@
 let ( let@ ) f x = f x
 
-let rec replace_nth n y xs =
-  match (n, xs) with
-  | 0, [] -> []
-  | 0, _ :: xs -> y :: xs
-  | _, [] -> []
-  | _, x :: xs1 -> x :: replace_nth (n - 1) y xs1
-
 (** A write-only list that supports efficient accumulation from the back *)
 module Acc : sig
   type 'a t
@@ -72,23 +65,6 @@ module SMap = struct
   let of_list xs = of_seq (List.to_seq xs)
 end
 
-let rec unsnoc xs =
-  match xs with
-  | [] -> failwith "unsnoc"
-  | [x] -> ([], x)
-  | x :: xs ->
-    let xs1, last = unsnoc xs in
-    (x :: xs1, last)
-
-let foldr1 f xs =
-  match xs with
-  | [] -> failwith "foldr1"
-  | _ ->
-    let xs, last = unsnoc xs in
-    List.fold_right f xs last
-
-let pair a b = (a, b)
-
 let map_state env f xs =
   let r, env =
     List.fold_right (fun c (t, env) ->
@@ -102,18 +78,5 @@ let map_state env f xs =
 let concat_map_state env f xs =
   let r, env = map_state env f xs in
   List.concat r, env
-
-let%expect_test _ =
-  let r, e = (concat_map_state 0 (fun x e -> [x; x * 3], e + 1) [1; 2; 3]) in
-  Format.printf "%s %d@." (string_of_list string_of_int r) e;
-  [%expect
-    {| [1; 3; 2; 6; 3; 9] 3 |}]
-
-let foldl1 f xs =
-  match xs with
-  | [] -> failwith "foldl1"
-  | x :: xs1 ->
-    List.fold_left f x xs1
-
 
 let protected f finally = Fun.protect ~finally f

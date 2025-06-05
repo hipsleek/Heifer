@@ -444,27 +444,28 @@ let string_of_expression_kind (expr:Parsetree.expression_desc) : string =
 
 (** env just keeps track of all the bound names *)
 let transform_str bound_names (s : structure_item) : intermediate option =
+  let open Utils in
   match s.pstr_desc with
   | Pstr_value (_rec_flag, vb::_vbs_) ->
-    let tactics = collect_annotations vb.pvb_attributes in
-    let fn_name = string_of_pattern vb.pvb_pat in
-    let fn = vb.pvb_expr in
-    begin match fn.pexp_desc with
-    | Pexp_function (_, _, _tlbody) ->
-      (* see also: CLambda case *)
-      let spec = Annotation.extract_spec_attribute vb.pvb_attributes in
-      let formals, body, types = collect_param_info fn in
-      let pure_fn_info =
-        let has_pure_annotation =
-          List.exists (fun a -> String.equal a.attr_name.txt "pure") vb.pvb_attributes
+      let tactics = collect_annotations vb.pvb_attributes in
+      let fn_name = string_of_pattern vb.pvb_pat in
+      let fn = vb.pvb_expr in
+      begin match fn.pexp_desc with
+      | Pexp_function (_, _, _tlbody) ->
+        (* see also: CLambda case *)
+        let spec = Annotation.extract_spec_attribute vb.pvb_attributes in
+        let formals, body, types = collect_param_info fn in
+        let pure_fn_info =
+          let has_pure_annotation =
+            List.exists (fun a -> String.equal a.attr_name.txt "pure") vb.pvb_attributes
+          in
+          match has_pure_annotation, types with
+          | true, None -> failwith (Format.asprintf "%s has pure annotation but no type information given" fn_name)
+          | true, Some _ -> types
+          | false, _ -> None
         in
-        match has_pure_annotation, types with
-        | true, None -> failwith (Format.asprintf "%s has pure annotation but no type information given" fn_name)
-        | true, Some _ -> types
-        | false, _ -> None
-      in
-      let e = transformation (fn_name :: formals @ bound_names) body in
-      Some (Meth (fn_name, formals, spec, e, tactics, pure_fn_info))
+        let e = transformation (fn_name :: formals @ bound_names) body in
+        Some (Meth (fn_name, formals, spec, e, tactics, pure_fn_info))
     | Pexp_apply _ -> None 
     | whatever ->
       print_endline (string_of_expression_kind whatever); 
@@ -475,7 +476,7 @@ let transform_str bound_names (s : structure_item) : intermediate option =
   | Pstr_primitive { pval_name; pval_type; pval_prim = [ext_name]; _ } ->
     Globals.using_pure_fns := true;
     let path, name =
-      Str.split (Str.regexp "\\.") ext_name |> Common.unsnoc
+      Str.split (Str.regexp "\\.") ext_name |> Lists.unsnoc
     in
     let params, ret =
       core_type_to_simple_type pval_type |> Subst.interpret_arrow_as_params

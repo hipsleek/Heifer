@@ -122,17 +122,19 @@ let infer_spec (prog : core_program) (meth : meth_def) =
   let@ _ = Globals.Timing.(time forward) in
   infer_of_expression fv_env meth.m_body
 
-let normalize_spec _ = todo ()
+let normalize_spec inferred_spec =
+  ignore inferred_spec
 
-let check_method_aux _inferred_spec _given_spec = todo ()
+let check_method_aux _inferred_spec _given_spec = false
 let check_method inferred_spec = function
   | None -> true
   | Some given_spec -> check_method_aux inferred_spec given_spec
 
 let infer_and_check_method (prog : core_program) (meth : meth_def) (given_spec : staged_spec option) =
   let inferred_spec, _ = infer_spec prog meth in
-  (* let normalized_spec = normalize_spec () in *)
+  let normalized_spec = normalize_spec () in
   let result = check_method inferred_spec given_spec in
+  ignore normalized_spec;
   inferred_spec, result
 
 let choose_spec (inferred_spec : staged_spec) (given_spec : staged_spec option) =
@@ -364,7 +366,8 @@ let run_file input_file =
     if not !test_mode then print_endline finalSummary;
     flush stdout;                 *)
 
-(* let run_file input_file =
+(*
+let run_file input_file =
   let open Utils.Io in
   let chan = open_in input_file in
   let lines = input_lines chan in

@@ -106,9 +106,11 @@ pi:
       { True }
   | FALSE
       { False }
-  // | a = pure_formula_term LESS b = pure_formula_term { Atomic (LT, a, b) }
+  | t1 = term op = bin_rel_op t2 = term
+      { Atomic (op, t1, t2) }
+    // | a = pure_formula_term LESS b = pure_formula_term { Atomic (LT, a, b) }
   // | a = pure_formula_term GREATER b = pure_formula_term { Atomic (GT, a, b) }
-  // | a = pure_formula_term EQUAL b = pure_formula_term { Atomic (EQ, a, b) }
+
   // | a = pure_formula_term SUBSUMES b = pure_formula_term { Subsumption (a, b) }
 
   // | a = pure_formula_term op = INFIXOP0 b = pure_formula_term

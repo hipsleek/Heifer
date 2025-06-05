@@ -2,5 +2,5 @@
 (library
   (name ocamlfrontend)
   (modules core_lang annotation)
-  (libraries hipcore ocaml_compiler parsing)
+  (libraries hipcore ocaml_compiler parsing utils)
   (inline_tests))

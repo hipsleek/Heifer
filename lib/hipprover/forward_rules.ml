@@ -310,10 +310,10 @@ let rec infer_of_expression (env: 'a) (expr : core_lang): staged_spec * 'a =
   match expr with
   | CValue v ->
       NormalReturn (res_eq v, EmptyHeap), env
-  | CLet (v, expr1, expr2) ->
+  | CLet (x, expr1, expr2) ->
       let spec1, env = infer_of_expression env expr1 in
       let spec2, env = infer_of_expression env expr2 in
-      Bind (v, spec1, spec2), env
+      Bind (x, spec1, spec2), env
   | CIfELse (p, expr1, expr2) ->
       let spec1, env = infer_of_expression env expr1 in
       let spec2, env = infer_of_expression env expr2 in
@@ -323,12 +323,20 @@ let rec infer_of_expression (env: 'a) (expr : core_lang): staged_spec * 'a =
   | CFunCall (name, args) ->
       HigherOrder (name, args), env
   | CRef t ->
+      let x = fresh_variable () in
+      Exists (x, NormalReturn (res_eq_var x, PointsTo (x, t))), env
+  | CWrite (x, t) ->
       let v = fresh_variable () in
-      Exists (v, NormalReturn (res_eq_var v, PointsTo (v, t))), env
-  | CWrite _ ->
-      NormalReturn (True, EmptyHeap), env (* todo *)
-  | CRead _ ->
-      NormalReturn (True, EmptyHeap), env (* todo *)
+      let req = Require (True, PointsTo (x, Var v)) in
+      let ens = NormalReturn (True, PointsTo (x, t)) in
+      Exists (v, Sequence (req, ens)), env
+  | CRead x ->
+      let v = fresh_variable () in
+      let t = Var v in
+      let kappa = PointsTo (x, t) in
+      let req = Require (True, kappa) in
+      let ens = NormalReturn (res_eq t, kappa) in
+      Exists (v, (Sequence (req, ens))), env
   | CAssert (p, h) ->
       Sequence (Require (p, h), NormalReturn (True, h)), env
   | CPerform _ ->
