@@ -19,139 +19,6 @@ let test_mode = ref false
 let tests_failed = ref false
 
 (*
-let string_of_token =
-  let open Parser in
-  function
-| AMPERAMPER -> "AMPERAMPER"
-| AMPERSAND -> "AMPERSAND"
-| AND -> "AND"
-| AS -> "AS"
-| ASSERT -> "ASSERT"
-| BACKQUOTE -> "BACKQUOTE"
-| BANG -> "BANG"
-| BAR -> "BAR"
-| BARBAR -> "BARBAR"
-| BARRBRACKET -> "BARRBRACKET"
-| BEGIN -> "BEGIN"
-| CHAR _ -> "CHAR"
-| CLASS -> "CLASS"
-| COLON -> "COLON"
-| COLONCOLON -> "COLONCOLON"
-| COLONEQUAL -> "COLONEQUAL"
-| COLONGREATER -> "COLONGREATER"
-| COMMA -> "COMMA"
-| CONSTRAINT -> "CONSTRAINT"
-| DO -> "DO"
-| DONE -> "DONE"
-| DOT -> "DOT"
-| DOTDOT -> "DOTDOT"
-| DOWNTO -> "DOWNTO"
-| EFFECT -> "EFFECT"
-| ELSE -> "ELSE"
-| END -> "END"
-| EOF -> "EOF"
-| EQUAL -> "EQUAL"
-| EXCEPTION -> "EXCEPTION"
-| EXTERNAL -> "EXTERNAL"
-| FALSE -> "FALSE"
-| FLOAT _ -> "FLOAT"
-| FOR -> "FOR"
-| FUN -> "FUN"
-| FUNCTION -> "FUNCTION"
-| FUNCTOR -> "FUNCTOR"
-| GREATER -> "GREATER"
-| GREATERRBRACE -> "GREATERRBRACE"
-| GREATERRBRACKET -> "GREATERRBRACKET"
-| IF -> "IF"
-| IN -> "IN"
-| INCLUDE -> "INCLUDE"
-| INFIXOP0 _ -> "INFIXOP0"
-| INFIXOP1 _ -> "INFIXOP1"
-| INFIXOP2 _ -> "INFIXOP2"
-| INFIXOP3 _ -> "INFIXOP3"
-| INFIXOP4 _ -> "INFIXOP4"
-| DOTOP _ -> "DOTOP"
-| LETOP _ -> "LETOP"
-| ANDOP _ -> "ANDOP"
-| INHERIT -> "INHERIT"
-| INITIALIZER -> "INITIALIZER"
-| INT _ -> "INT"
-| LABEL _ -> "LABEL"
-| LAZY -> "LAZY"
-| LBRACE -> "LBRACE"
-| LBRACELESS -> "LBRACELESS"
-| LBRACKET -> "LBRACKET"
-| LBRACKETBAR -> "LBRACKETBAR"
-| LBRACKETLESS -> "LBRACKETLESS"
-| LBRACKETGREATER -> "LBRACKETGREATER"
-| LBRACKETPERCENT -> "LBRACKETPERCENT"
-| LBRACKETPERCENTPERCENT -> "LBRACKETPERCENTPERCENT"
-| LESS -> "LESS"
-| LESSMINUS -> "LESSMINUS"
-| LET -> "LET"
-| LIDENT _ -> "LIDENT"
-| LPAREN -> "LPAREN"
-| LBRACKETAT -> "LBRACKETAT"
-| LBRACKETATAT -> "LBRACKETATAT"
-| LBRACKETATATAT -> "LBRACKETATATAT"
-| MATCH -> "MATCH"
-| METHOD -> "METHOD"
-| MINUS -> "MINUS"
-| MINUSDOT -> "MINUSDOT"
-| MINUSGREATER -> "MINUSGREATER"
-| MODULE -> "MODULE"
-| MUTABLE -> "MUTABLE"
-| NEW -> "NEW"
-| NONREC -> "NONREC"
-| OBJECT -> "OBJECT"
-| OF -> "OF"
-| OPEN -> "OPEN"
-| OPTLABEL _ -> "OPTLABEL"
-| OR -> "OR"
-| PERCENT -> "PERCENT"
-| PLUS -> "PLUS"
-| PLUSDOT -> "PLUSDOT"
-| PLUSEQ -> "PLUSEQ"
-| PREFIXOP _ -> "PREFIXOP"
-| PRIVATE -> "PRIVATE"
-| QUESTION -> "QUESTION"
-| QUOTE -> "QUOTE"
-| RBRACE -> "RBRACE"
-| RBRACKET -> "RBRACKET"
-| REC -> "REC"
-| RPAREN -> "RPAREN"
-| SEMI -> "SEMI"
-| SEMISEMI -> "SEMISEMI"
-| HASH -> "HASH"
-| HASHOP _ -> "HASHOP"
-| SIG -> "SIG"
-| STAR -> "STAR"
-| STRING _ -> "STRING"
-| STRUCT -> "STRUCT"
-| THEN -> "THEN"
-| TILDE -> "TILDE"
-| TO -> "TO"
-| TRUE -> "TRUE"
-| TRY -> "TRY"
-| TYPE -> "TYPE"
-| UIDENT _ -> "UIDENT"
-| UNDERSCORE -> "UNDERSCORE"
-| VAL -> "VAL"
-| VIRTUAL -> "VIRTUAL"
-| WHEN -> "WHEN"
-| WHILE -> "WHILE"
-| WITH -> "WITH"
-| COMMENT _ -> "COMMENT"
-(* | PURE -> "PURE" *)
-| DOCSTRING _ -> "DOCSTRING"
-| EOL -> "EOL"
-| QUOTED_STRING_EXPR _ -> "QUOTED_STRING_EXPR"
-| QUOTED_STRING_ITEM _ -> "QUOTED_STRING_ITEM"
-| METAOCAML_ESCAPE  -> "METAOCAML_ESCAPE"
-| METAOCAML_BRACKET_OPEN -> "METAOCAML_BRACKET_OPEN"
-| METAOCAML_BRACKET_CLOSE -> "METAOCAML_BRACKET_CLOSE"
-(* | IMPLICATION -> "IMPLICATION" *)
-
 let debug_tokens str =
   let lb = Lexing.from_string str in
   let rec loop tokens =
@@ -163,9 +30,6 @@ let debug_tokens str =
   let tokens = loop [] in
   let s = tokens |> List.map string_of_token |> String.concat " " in
   debug ~at:3 ~title:"debug tokens" "%s" s
-
-let (exGlobal:(binder list) ref) =  ref []
-let (unifyGlobal: pi ref) = ref True
 *)
 
 (*
@@ -242,7 +106,7 @@ let report_result ~kind ~name ~inferred_spec ~given_spec ~result =
   report ~kind ~name ~inferred_spec ~given_spec ~result;
   Globals.Timing.update_totals ()
 
-let infer_method (prog : core_program) (meth : meth_def) =
+let infer_spec (prog : core_program) (meth : meth_def) =
   let open Hipprover.Forward_rules in
   let method_env = prog.cp_methods
     (* within a method body, params/locals should shadow functions defined outside *)
@@ -258,13 +122,16 @@ let infer_method (prog : core_program) (meth : meth_def) =
   let@ _ = Globals.Timing.(time forward) in
   infer_of_expression fv_env meth.m_body
 
+let normalize_spec _ = todo ()
+
 let check_method_aux _inferred_spec _given_spec = todo ()
 let check_method inferred_spec = function
   | None -> true
   | Some given_spec -> check_method_aux inferred_spec given_spec
 
 let infer_and_check_method (prog : core_program) (meth : meth_def) (given_spec : staged_spec option) =
-  let inferred_spec, _ = infer_method prog meth in
+  let inferred_spec, _ = infer_spec prog meth in
+  (* let normalized_spec = normalize_spec () in *)
   let result = check_method inferred_spec given_spec in
   inferred_spec, result
 
@@ -279,7 +146,6 @@ let analyze_method (prog : core_program) (meth : meth_def) : core_program =
   in
   (* after infference, if the method does not have a spec, then add
      the inferred spec into the method? *)
-  (* how about failure? *)
   let choosen_spec = choose_spec inferred_spec given_spec in
   let updated_meth = {meth with m_spec = Some choosen_spec} in
   (* we always add the method into the program, regardless of whether it is verified or not? *)
@@ -299,6 +165,7 @@ let analyze_method (prog : core_program) (meth : meth_def) : core_program =
       prog
     end
   in
+  (* potentially report the normalized spec as well. Refactor *)
   report_result
     ~kind:"Function"
     ~name:meth.m_name
