@@ -1,11 +1,10 @@
-(* open Hipcore
+open Hipcore
 open Hiptypes
-open Pretty
-open Subst
 open Debug
 
 exception Norm_failure
 
+(*
 let rec existStr str li =
   match li with
   | [] -> false
@@ -1319,14 +1318,14 @@ let rec simplify_spec n sp =
   in
 
   if sp = sp1 || n < 0 then sp1 else simplify_spec (n - 1) sp1
-
+*)
 
 (* the main entry point *)
-let normalize_spec sp =
-  let@ _ = Globals.Timing.(time norm) in 
-  (*print_endline("\nnormalize_spec:\n "^ (string_of_spec sp));*)
-
-  let@ _ =
+let normalize_spec (spec : staged_spec) : staged_spec =
+  let@ _ = Globals.Timing.(time norm) in
+  spec
+(*
+  (* let@ _ =
     Debug.span (fun r ->
         debug ~at:3 ~title:"normalize_spec" "%s\n==>\n%s" (string_of_spec sp)
           (string_of_result string_of_normalisedStagedSpec r))
@@ -1356,9 +1355,9 @@ let normalize_spec sp =
     in
     check_for_false sp
   in
-  sp
+  sp *)
 
-
+(*
 let rec effectStage2Spec (effectStages : effHOTryCatchStages list) : spec =
   match effectStages with
   | [] -> []
@@ -1538,3 +1537,4 @@ let removeExist (specs : spec list) str : spec list =
   in
   let helper (spec : spec) : spec = List.map (fun a -> aux a) spec in
   List.map (fun a -> helper a) specs *)
+*)

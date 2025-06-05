@@ -1,4 +1,5 @@
 (* open Hipprover *)
+(* we need to clean up the imports here *)
 open Hipcore
 module Pretty = Pretty
 module Debug = Debug
@@ -122,17 +123,15 @@ let infer_spec (prog : core_program) (meth : meth_def) =
   let@ _ = Globals.Timing.(time forward) in
   infer_of_expression fv_env meth.m_body
 
-let normalize_spec inferred_spec =
-  ignore inferred_spec
-
 let check_method_aux _inferred_spec _given_spec = false
 let check_method inferred_spec = function
   | None -> true
   | Some given_spec -> check_method_aux inferred_spec given_spec
 
 let infer_and_check_method (prog : core_program) (meth : meth_def) (given_spec : staged_spec option) =
+  let open Hipprover.Normalize in
   let inferred_spec, _ = infer_spec prog meth in
-  let normalized_spec = normalize_spec () in
+  let normalized_spec = normalize_spec inferred_spec in
   let result = check_method inferred_spec given_spec in
   ignore normalized_spec;
   inferred_spec, result
