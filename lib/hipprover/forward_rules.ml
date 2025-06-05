@@ -1,6 +1,7 @@
 
 open Hipcore
 open Hiptypes
+open Variables
 (*
 open Pretty
 open Normalize
@@ -301,8 +302,9 @@ let findTheActualArg4Acc_x_e_ret (arg:term) (specs:disj_spec): term =
 *)
 open Utils.Misc
 
-let res_v = Var "res"
-let res_eq t = Atomic (EQ, res_v, t)
+let res_var = Var "res"
+let res_eq t = Atomic (EQ, res_var, t)
+let res_eq_var v = Atomic (EQ, res_var, Var v)
 
 let rec infer_of_expression (env: 'a) (expr : core_lang): staged_spec * 'a =
   match expr with
@@ -320,10 +322,13 @@ let rec infer_of_expression (env: 'a) (expr : core_lang): staged_spec * 'a =
       Disjunction (lhs, rhs), env
   | CFunCall (name, args) ->
       HigherOrder (name, args), env
-  | CWrite _
-  | CRef _
+  | CRef t ->
+      let v = fresh_variable () in
+      Exists (v, NormalReturn (res_eq_var v, PointsTo (v, t))), env
+  | CWrite _ ->
+      NormalReturn (True, EmptyHeap), env (* todo *)
   | CRead _ ->
-      todo ()
+      NormalReturn (True, EmptyHeap), env (* todo *)
   | CAssert (p, h) ->
       Sequence (Require (p, h), NormalReturn (True, h)), env
   | CPerform _ ->

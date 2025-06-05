@@ -360,6 +360,7 @@ type lambda_obligation = {
   lo_left: staged_spec;
   lo_right: staged_spec;
 }
+
 type intermediate =
   | Eff of string
   | Lem of lemma

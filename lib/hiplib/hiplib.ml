@@ -204,23 +204,45 @@ let check_lambda_obligation_ name params lemmas predicates obl =
   check_obligation_ name params lemmas preds (obl.lo_left, obl.lo_right)
 *)
 
-let test_report _ = todo ()
+let expected_false result name =
+  if not result && String.ends_with ~suffix:"_false" name then " (expected)" else ""
 
-let normal_report _ = todo ()
+let normal_report ~kind ~name ~inferred_spec ~given_spec ~result =
+  let open Pretty in
+  let open Format in
+  let header = sprintf "\n========== %s: %s ==========\n" kind name in
+  let inferred_spec_string =
+    sprintf "[ Inferred specification ] %s\n" (string_of_staged_spec inferred_spec)
+  in
+  let given_spec_string = match given_spec with
+    | Some given_spec ->
+        sprintf "[ Given specification ] %s\n" (string_of_staged_spec given_spec)
+    | None ->
+        ""
+  in
+  let result_string = match result with
+    | Some result ->
+        sprintf "[ Entail Check ] %s%s\n" (string_of_bool result) (expected_false result name)
+    | None ->
+        ""
+  in
+  let report = String.concat "" [
+    header;
+    inferred_spec_string;
+    given_spec_string;
+    result_string;
+  ] in
+  Format.printf "%s@." report
 
-let report_result ?inferred_spec ?given_spec ok name =
-  ignore (inferred_spec, given_spec, ok, name);
-  let f = if !test_mode then test_report else normal_report in
-  ignore f
+let test_report ~kind ~name ~inferred_spec ~given_spec ~result =
+  ignore (kind, inferred_spec, given_spec, result, name)
 
-let infer_method () = todo ()
+let report_result ~kind ~name ~inferred_spec ~given_spec ~result =
+  let report = if !test_mode then test_report else normal_report in
+  report ~kind ~name ~inferred_spec ~given_spec ~result;
+  Globals.Timing.update_totals ()
 
-let check_method_aux _inferred_spec _given_spec = todo ()
-let check_method inferred_spec = function
-  | None -> true
-  | Some given_spec -> check_method_aux inferred_spec given_spec
-
-let infer_and_check_method (prog : core_program) (meth : meth_def) (given_spec : staged_spec option) =
+let infer_method (prog : core_program) (meth : meth_def) =
   let open Hipprover.Forward_rules in
   let method_env = prog.cp_methods
     (* within a method body, params/locals should shadow functions defined outside *)
@@ -232,23 +254,26 @@ let infer_and_check_method (prog : core_program) (meth : meth_def) (given_spec :
   in
   let pred_env = prog.cp_predicates in
   let fv_env = create_fv_env method_env pred_env in
-  let inferred_spec, _fv_env =
-    let@ _ =
-      Debug.span (fun _ -> debug ~at:2 ~title:"apply forward rules" "")
-    in
-    let@ _ = Globals.Timing.(time forward) in
-    infer_of_expression fv_env meth.m_body
-  in
-  (* after inference, fv contains a bunch of lambda obligations, we may check it *)
-  let ok = check_method inferred_spec given_spec in
-  inferred_spec, ok
+  let@ _ = Debug.span (fun _ -> debug ~at:2 ~title:"apply forward rules" "") in
+  let@ _ = Globals.Timing.(time forward) in
+  infer_of_expression fv_env meth.m_body
+
+let check_method_aux _inferred_spec _given_spec = todo ()
+let check_method inferred_spec = function
+  | None -> true
+  | Some given_spec -> check_method_aux inferred_spec given_spec
+
+let infer_and_check_method (prog : core_program) (meth : meth_def) (given_spec : staged_spec option) =
+  let inferred_spec, _ = infer_method prog meth in
+  let result = check_method inferred_spec given_spec in
+  inferred_spec, result
 
 let choose_spec (inferred_spec : staged_spec) (given_spec : staged_spec option) =
   Option.fold ~none:inferred_spec ~some:(fun spec -> spec) given_spec
 
 let analyze_method (prog : core_program) (meth : meth_def) : core_program =
   let given_spec = meth.m_spec in
-  let inferred_spec, ok =
+  let inferred_spec, result =
     let@ _ = Globals.Timing.(time overall) in
     infer_and_check_method prog meth given_spec
   in
@@ -261,7 +286,7 @@ let analyze_method (prog : core_program) (meth : meth_def) : core_program =
   let prog = {prog with cp_methods = updated_meth :: prog.cp_methods} in
   let prog =
     (* let@ _ = Globals.Timing.(time overall) in *)
-    if not ok then prog
+    if not result then prog
     else begin
       let@ _ = Debug.span (fun _ -> debug
         ~at:2
@@ -269,12 +294,20 @@ let analyze_method (prog : core_program) (meth : meth_def) : core_program =
         "")
       in
       (* let pred = Entail.derive_predicate meth.m_name meth.m_params inferred_spec in *)
-      let pred = todo () in
-      {prog with cp_predicates = SMap.add meth.m_name pred prog.cp_predicates}
+      (* let pred = todo () in *)
+      (* {prog with cp_predicates = SMap.add meth.m_name pred prog.cp_predicates} *)
+      prog
     end
   in
-  report_result ~inferred_spec ?given_spec ok meth.m_name;
+  report_result
+    ~kind:"Function"
+    ~name:meth.m_name
+    ~inferred_spec
+    ~given_spec
+    ~result:(Some result);
   prog
+
+let process_logic_type_decl () = todo ()
 
 let process_lemma () = todo ()
 
@@ -325,7 +358,7 @@ let process_intermediates (it : intermediate) prog : string list * core_program 
       (* [], { prog with cp_lemmas = SMap.add l.l_name l prog.cp_lemmas } *)
       process_lemma ()
   | LogicTypeDecl _ ->
-      todo ()
+      process_logic_type_decl ()
   | Pred _p ->
     (*print_endline ("\n"^ p.p_name ^  Format.asprintf "(%s)" (String.concat ", " p.p_params) ^ ": ");
     print_endline (string_of_disj_spec p.p_body);
@@ -353,20 +386,17 @@ let process_intermediates (it : intermediate) prog : string list * core_program 
         analyze_method prog meth
       in
       [m_name], prog
-    (* with Method_failure ->
-      (* update program with method regardless of failure *)
-      [], prog *)
 
-let process_ocaml_structure (strs: Ocaml_common.Parsetree.structure) : unit =
-  let helper (bound_names, prog) s =
-    match Ocamlfrontend.Core_lang.transform_str bound_names s with
+let process_ocaml_structure (items: Ocaml_common.Parsetree.structure) : unit =
+  let process_ocaml_item (bound_names, prog) item =
+    match Ocamlfrontend.Core_lang.transform_str bound_names item with
     | Some it ->
         let new_bound, prog = process_intermediates it prog in
         new_bound @ bound_names, prog
     | None ->
         bound_names, prog
   in
-  List.fold_left helper ([], empty_program) strs |> ignore
+  ignore (List.fold_left process_ocaml_item ([], empty_program) items)
 
 let run_ocaml_string s =
   (** Parse and typecheck the code, before converting it into a core language program.
@@ -428,7 +458,7 @@ let run_string kind s =
   | `Ocaml -> run_ocaml_string s
   | `Racket -> run_racket_string s
 
-let retriveComments (source : string) : string list =
+(* let retriveComments (source : string) : string list =
   let partitions = Str.split (Str.regexp "(\\*@") source in
   match partitions with
   | [] -> assert false
@@ -443,29 +473,18 @@ let retriveComments (source : string) : string list =
             then helper xs
             else let ele = ("/*@" ^ head ^ "@*/") in ele :: helper xs
       in
-      helper partitionEnd
-(*
-let _run_file inputfile =
+      helper partitionEnd *)
+
+let run_file input_file =
   let open Utils.Io in
-  let ic = open_in inputfile in
-  try
-    let lines = input_lines ic in
-    (* TODO : fold_left instead? *)
-    let line = List.fold_right (fun x acc -> acc ^ "\n" ^ x) (List.rev lines) "" in
-    (* debug_tokens line; *)
-    let file_kind = get_file_type inputfile in
-    run_string file_kind line;
-    let line_of_spec =
-      match file_kind with
-      | `Ocaml ->
-          let partitions = retriveComments line in
-          List.fold_left (fun acc a -> acc + (List.length (Str.split (Str.regexp "\n") a))) 0 partitions
-      | `Racket ->
-          (* TODO *)
-          0
-    in
-    debug ~at:2 ~title:"final summary" "";
-    let finalSummary =
+  let chan = open_in input_file in
+  let content = String.concat "\n" (input_lines chan) in
+  let file_kind = get_file_type input_file in
+  run_string file_kind content;
+  debug ~at:2 ~title:"final summary" "";
+  close_in chan
+
+    (* let finalSummary =
       let loc = (List.length lines) in
       let los_loc_ratio = Format.asprintf "%.2f" ((float_of_int line_of_spec) /. (float_of_int loc)) in
       "\n========== FINAL SUMMARY ==========\n"
@@ -476,17 +495,9 @@ let _run_file inputfile =
       ^ "[  Total  ] " ^ Format.asprintf "%.2f" (!Globals.Timing.overall_all/.1000.0) ^ " s\n"
     in
     if not !test_mode then print_endline finalSummary;
-    flush stdout;                (* 现在写入默认设备 *)
-    close_in ic                  (* 关闭输入通道 *)
-  with
-    | Pretty.Foo s ->
-        print_endline "\nERROR:\n";
-        print_endline s
-    | e ->                           (* 一些不可预见的异常发生 *)
-        close_in_noerr ic;           (* 紧急关闭 *)
-        raise e                      (* 以出错的形式退出: 文件已关闭,但通道没有写入东西 *)
-*)
-let run_file input_file =
+    flush stdout;                 *)
+
+(* let run_file input_file =
   let open Utils.Io in
   let chan = open_in input_file in
   let lines = input_lines chan in
@@ -496,6 +507,7 @@ let run_file input_file =
   let lexbuf = Lexing.from_string content in
   let staged_spec = Parser.parse_staged_spec Lexer.token lexbuf in
   print_endline (Pretty.string_of_staged_spec staged_spec)
+*)
 
 let main () =
   if Array.length (Sys.argv) < 2 then begin

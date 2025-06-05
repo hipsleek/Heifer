@@ -25,43 +25,7 @@ let red text = col ~ansi:"\u{001b}[31m" ~html:"<span class=\"output-error\">" te
 let green text = col ~ansi:"\u{001b}[32m" ~html:"<span class=\"output-ok\">" text
 let yellow text = col ~ansi:"\u{001b}[33m" ~html:"<span class=\"output-emph\">" text
 
-let verifier_counter: int ref = ref 0;;
-
-(* only for testing! to make tests deterministic *)
-let verifier_counter_reset () = verifier_counter := 0
-let verifier_counter_reset_to n = verifier_counter := n
-
 let end_of_var = Str.regexp "_?[0-9]+$"
-let verifier_getAfreeVar _from :string  =
-  (* this prefix shows provenance, but that turned out to be useless *)
-  (* let prefix = from |> Option.map (fun v -> v ^ "_") |> Option.value ~default:"_f" in *)
-  let prefix =
-    (* match from with *)
-    (* | None -> "_f" *)
-    (* | Some f -> *)
-      (* Str.global_replace end_of_var "" from *)
-      "v"
-  in
-  let x = prefix ^ string_of_int (!verifier_counter) in
-  incr verifier_counter;
-  x
-(* let%expect_test _ =
-  let p = print_endline in
-  verifier_counter_reset ();
-  p (verifier_getAfreeVar "v");
-  p (verifier_getAfreeVar "v");
-  p (verifier_getAfreeVar "a");
-  let v = verifier_getAfreeVar "a" in
-  p v;
-  p (verifier_getAfreeVar v);
-  [%expect
-  {|
-    v0
-    v1
-    v2
-    v3
-    v4
-  |}] *)
 
 let string_of_args pp args =
   match args with
@@ -276,7 +240,6 @@ and string_of_core_lang (e:core_lang) :string =
   | CResume tList -> Format.sprintf "continue %s" (List.map string_of_term tList |> String.concat " ")
   | CLambda (xs, spec, e) -> Format.sprintf "fun %s%s -> %s" (String.concat " " xs) (match spec with None -> "" | Some ds -> Format.asprintf " (*@@ %s @@*)" (string_of_staged_spec ds)) (string_of_core_lang e)
   | CShift (b, k, e) -> Format.sprintf "Shift%s %s -> %s" (if b then "" else "0") k (string_of_core_lang e)
-
   | CReset (e) -> Format.sprintf "<%s>" (string_of_core_lang e)
 
 and string_of_intermediate (i : intermediate) =
@@ -288,11 +251,10 @@ and string_of_intermediate (i : intermediate) =
       Format.sprintf "let %s %s (*@@ %s @@*) = %s"
       name
       (String.concat ", " params)
-      (Option.map string_of_staged_spec spec |> Option.value ~default:"")
+      (Option.fold ~none:"" ~some:string_of_staged_spec spec)
       (string_of_core_lang body)
   | Pred _ -> "[predicate]"
   | SLPred _ -> "[sl predicate]"
-
 
 and string_of_constr_cases cs =
   cs |> List.map (fun (n, args, body) -> Format.asprintf "| %s -> %s" (string_of_constr_call n args) (string_of_core_lang body)) |> String.concat "\n"
@@ -304,47 +266,6 @@ and string_of_core_handler_ops hs =
       (match v with None -> name | Some v -> Format.asprintf "(%s %s)" name v) spec (string_of_core_lang body)) hs |> String.concat "\n"
 
 (*
-let rec stricTcompareTerm (term1:term) (term2:term) : bool =
-  match (term1, term2) with
-    (Var s1, Var s2) -> String.compare s1 s2 == 0
-  | (Num n1, Num n2) -> n1 == n2
-  | (Plus (tIn1, num1), Plus (tIn2, num2)) -> stricTcompareTerm tIn1 tIn2 && stricTcompareTerm num1  num2
-  | (Minus (tIn1, num1), Minus (tIn2, num2)) -> stricTcompareTerm tIn1 tIn2 && stricTcompareTerm num1  num2
-  | (UNIT, UNIT) -> true
-  | _ -> false
-  ;;
-
-
-let rec comparePure (pi1:pi) (pi2:pi):bool =
-  match (pi1 , pi2) with
-    (True, True) -> true
-  | (False, False) -> true
-  | (Atomic(GT, t1, t11),  Atomic(GT, t2, t22)) -> stricTcompareTerm t1 t2 && stricTcompareTerm t11  t22
-  | (Atomic (LT, t1, t11),  Atomic(LT, t2, t22)) -> stricTcompareTerm t1 t2 && stricTcompareTerm t11  t22
-  | (Atomic (GTEQ, t1, t11),  Atomic(GTEQ, t2, t22)) -> stricTcompareTerm t1 t2 && stricTcompareTerm t11  t22
-  | (Atomic (LTEQ, t1, t11),  Atomic(LTEQ, t2, t22)) -> stricTcompareTerm t1 t2 && stricTcompareTerm t11  t22
-  | (Atomic (EQ, t1, t11),  Atomic(EQ, t2, t22)) -> stricTcompareTerm t1 t2 && stricTcompareTerm t11  t22
-  | (Or (p1, p2), Or (p3, p4)) ->
-      (comparePure p1 p3 && comparePure p2 p4) || (comparePure p1 p4 && comparePure p2 p3)
-  | (And (p1, p2), And (p3, p4)) ->
-      (comparePure p1 p3 && comparePure p2 p4) || (comparePure p1 p4 && comparePure p2 p3)
-  | (Not p1, Not p2) -> comparePure p1 p2
-  | _ -> false
-  ;;
-
-let rec getAllPi piIn acc=
-    (match piIn with
-      And (pi1, pi2) -> (getAllPi pi1 acc ) @ (getAllPi pi2 acc )
-    | _ -> acc  @[piIn]
-    )
-    ;;
-
-let rec existPi pi li =
-    (match li with
-      [] -> false
-    | x :: xs -> if comparePure pi x then true else existPi pi xs
-    )
-    ;;
 
 let find_rec p_name =
   object(self)
@@ -379,99 +300,11 @@ let rec getAllVarFromTerm (t:term) (acc:string list):string list =
 | _ -> acc
 ;;
 
-
-
-
-
-let addAssert (str:string) :string =
-  "(assert " ^ str ^ " ) \n (check-sat) \n"
-  ;;
-
-
-
-
-
-
-
-
-
-
-let rec kappaToPure kappa : pi =
-  match kappa with
-  | EmptyHeap -> True
-  | PointsTo (str, t) -> Atomic(EQ, Var str, t)
-  | SepConj (k1, k2) -> And (kappaToPure k1, kappaToPure k2)
-
-  (* | Implication (k1, k2) -> Imply (kappaToPure k1, kappaToPure k2) *)
-
-
-
-
-
-
-
 let string_of_pred ({ p_name; p_params; p_body; _ } : pred_def) : string =
   Format.asprintf "%s(%s) == %s" p_name (String.concat "," p_params) (string_of_spec_list p_body)
 
 let string_of_inclusion (lhs:spec list) (rhs:spec list) :string =
   string_of_spec_list lhs ^" |- " ^string_of_spec_list rhs
-
-let string_of_effHOTryCatchStages s =
-  match s with
-  | (EffHOStage x) ->
-    (let {e_pre = (p1, h1); e_post = (p2, h2); _} = x in
-    let ex = match x.e_evars with [] -> [] | _ -> [Exists x.e_evars] in
-    let current = ex @ [Require(p1, h1);
-    (match x.e_typ with
-    | `Eff -> RaisingEff(p2, h2, x.e_constr, x.e_ret)
-    | `Fn -> HigherOrder(p2, h2, x.e_constr, x.e_ret))] in
-    string_of_spec current )
-
-  | ShiftStage x ->
-    let ex = match x.s_evars with [] -> [] | _ -> [Exists x.s_evars] in
-    let current = ex @ [Shift (x.s_notzero, x.s_cont, x.s_body, x.s_ret)] in
-    string_of_spec current
-
-  | (TryCatchStage ct) -> 
-    (let {tc_pre = (p1, h1); tc_post = (p2, h2); _} = ct in
-    let ex = match ct.tc_evars with [] -> [] | _ -> [Exists ct.tc_evars] in
-    let current = ex @ 
-    [Require(p1, h1);
-    (TryCatch(p2, h2, ct.tc_constr ,ct.tc_ret)
-    )
-    ] in
-    string_of_spec current )
-  
-  | (ResetStage ct) -> 
-    (let {rs_pre = (p1, h1); rs_post = (p2, h2); _} = ct in
-    let ex = match ct.rs_evars with [] -> [] | _ -> [Exists ct.rs_evars] in
-    let current = ex @ 
-    [Require(p1, h1); NormalReturn (p2, h2);
-    (Reset(ct.rs_body, ct.rs_ret)
-    )
-    ] in
-    string_of_spec current )
-
-let rec string_of_normalisedStagedSpec (spec:normalisedStagedSpec) : string =
-  let (effS, normalS) = spec in
-  match effS with
-  | [] ->
-    let (existiental, (p1, h1), (p2, h2)) = normalS in
-    let ex = match existiental with [] -> [] | _ -> [Exists existiental] in
-    let current = ex @ [Require(p1, h1); NormalReturn(p2, h2)] in
-    string_of_spec current
-  | x :: xs  ->
-    string_of_effHOTryCatchStages x
-    ^ "; " ^ string_of_normalisedStagedSpec (xs, normalS)
-
-
-let string_of_normalisedStagedSpecList (specs:normalisedStagedSpec list) : string =
-  match specs with
-  | [] -> "<empty disj>"
-  | _ :: _ -> List.map string_of_normalisedStagedSpec specs |> String.concat " \\/ "
-
-
-
 
 let string_of_effect_stage1 (vs, pre, post, eff, ret) =
   Format.asprintf "ex %s. req %s; ens %s /\\ %s /\\ res=%s" (String.concat " " vs) (string_of_state pre) (string_of_state post) (string_of_instant eff) (string_of_term ret)
@@ -487,7 +320,7 @@ let string_of_existentials vs =
   | [] -> ""
   | _ :: _ -> Format.asprintf "ex %s. " (String.concat "," vs)
 
-let string_of_res b = if b then green "true" else red "false"
+let string_of_result b = if b then green "true" else red "false"
 
 let string_of_option to_s o : string =
   match o with Some a -> "Some " ^ to_s a | None -> "None"
@@ -500,11 +333,6 @@ let string_of_sset s =
 
 let string_of_smap pp s =
   Format.asprintf "{%s}" (String.concat ", " (List.map (fun (k, v) -> Format.asprintf "%s -> %s" k (pp v)) (SMap.bindings s)))
-
-let conj xs =
-  match xs with
-  | [] -> True
-  | x :: xs -> List.fold_right (fun c t -> And (c, t)) xs x
 
 let rec string_of_type t =
   match t with
@@ -531,7 +359,6 @@ let string_of_pure_fn ({ pf_name; pf_params; pf_ret_type; pf_body } : pure_fn_de
 
 let string_of_typ_env t =
   Format.asprintf "%s" (string_of_smap string_of_type t)
-
 
 let string_of_quantified to_s (vs, e) =
   match vs with
@@ -651,48 +478,4 @@ let local_lambda_defs =
         SMap.singleton v (lambda_to_pred_def v l)
       | _ -> SMap.empty
   end
-
-
-let bindFormalNActual (formal: string list) (actual: core_value list) : ((string * core_value) list)= 
-  try List.map2 pair formal actual
-  with 
-  | Invalid_argument _ -> 
-    print_endline ("formal: " ^ (List.map (fun a-> a) formal |> String.concat ", "));
-    print_endline ("actual: " ^ (List.map (fun a-> string_of_term a) actual |> String.concat ", "));
-    print_endline ("bindFormalNActual length not equle");
-    []
-  
-
-  (*
-  match (formal, actual) with 
-  | (x::xs, y::ys) -> (x, y)::bindFormalNActual xs ys 
-  | ([], []) -> [] 
-  | _ -> []   
-  *)
-
-let bindNewNames (formal: string list) (actual: string list) : ((string * string) list)= 
-  try List.map2 pair formal actual
-  with 
-  | Invalid_argument _ -> 
-    print_endline ("formal: " ^ (List.map (fun a-> a) formal |> String.concat ", "));
-    print_endline ("actual: " ^ (List.map (fun a-> a) actual |> String.concat ", "));
-    failwith ("bindNewNames length not equle")
-  
-let function_stage_to_disj_spec constr args ret =
-  (* TODO for some reason this version isn't handled by normalization *)
-  (* [[HigherOrder (True, EmptyHeap, l.l_left, res_v)]] *)
-  let v = verifier_getAfreeVar "v" in
-  [[Exists [v]; HigherOrder (True, EmptyHeap, (constr, args), Var v); NormalReturn (Atomic (EQ, ret, Var v), EmptyHeap)]]
-
-
-let startingFromALowerCase (label:string) : bool = 
-  let c = label.[0] in 
-  if Char.code c >= 97 then true else false 
-
-
-let retriveFormalArg arg :string = 
-  match arg  with 
-  | Var ret -> ret
-  | _ -> 
-        print_endline (string_of_term arg);
-        failwith "effect return is not var 1" *)
+ *)

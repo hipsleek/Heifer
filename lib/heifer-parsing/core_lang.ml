@@ -10,7 +10,6 @@ open Asttypes
 type string = label
 open Hipcore
 open Hiptypes
-open Pretty
 
 exception Foo of string
 
@@ -206,6 +205,7 @@ let collect_param_info rhs =
     names, body, types
 
 let rec transformation (bound_names:string list) (expr:expression) : core_lang =
+  let open Variables in
   match expr.pexp_desc with 
   | Pexp_ident {txt=Lident i; _} ->
     CValue (Var i)
@@ -331,13 +331,13 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
         CIfELse ((Atomic (EQ, a, b)), transformation bound_names then_, transformation bound_names else_)
         
       else 
-        let v = verifier_getAfreeVar "let" in
+        let v = fresh_variable "let" in
         let rest_Expr =  CIfELse ((Atomic (EQ, Var v, Const TTrue)), transformation bound_names then_, transformation bound_names else_) in 
         CLet (v, expr, rest_Expr)
 
         
     | _ -> 
-      let v = verifier_getAfreeVar "let" in
+      let v = fresh_variable "let" in
       let rest_Expr =  CIfELse ((Atomic (EQ,Var v, Const TTrue)), transformation bound_names then_, transformation bound_names else_) in 
       CLet (v, expr, rest_Expr)
     )
@@ -396,10 +396,11 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
 
 and maybe_var f e =
   (* generate fewer unnecessary variables *)
+  let open Variables in
   match e with
   | CValue v -> f v
   | _ ->
-    let v = verifier_getAfreeVar "let" in
+    let v = fresh_variable "let" in
     CLet (v, e, f (Var v))
 
 let string_of_expression_kind (expr:Parsetree.expression_desc) : string = 
