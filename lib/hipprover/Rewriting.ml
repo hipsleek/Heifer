@@ -6,7 +6,7 @@ let ( let* ) = Option.bind
 let ( let+ ) a f = Option.map f a
 
 (* currently there can only be variables at the staged_spec level *)
-type term = staged_spec
+type uterm = staged_spec
 
 module UF : sig
   type t
@@ -14,16 +14,16 @@ module UF : sig
 
   val new_store : unit -> store
   val copy : store -> store
-  val make : store -> term option -> t
-  val get : store -> t -> term option
-  val set : store -> t -> term option -> unit
+  val make : store -> uterm option -> t
+  val get : store -> t -> uterm option
+  val set : store -> t -> uterm option -> unit
   val eq : store -> t -> t -> bool
   val union : store -> t -> t -> unit
 end = struct
   module Store = UnionFind.StoreMap
   include UnionFind.Make (Store)
 
-  type c = term option
+  type c = uterm option
   type t = c rref
   type nonrec store = c store
 
@@ -39,7 +39,7 @@ let get_meta_var = function
   | HigherOrder (f, _) when is_meta_var_name f -> Some f
   | _ -> None
 
-(* to avoid having UF.t constructors in the AST, use a layer of indirection *)
+(* to avoid having a constructor for UF.t in the AST, use a layer of indirection *)
 type unifiable = staged_spec * UF.t SMap.t
 
 let to_unifiable st f : unifiable =
@@ -49,7 +49,7 @@ let to_unifiable st f : unifiable =
       method zero = SMap.empty
       method plus = SMap.merge_disjoint
 
-      method! visit_HigherOrder _ f v =
+      method! visit_HigherOrder () f v =
         if is_meta_var_name f then
           (HigherOrder (f, v), SMap.singleton f (UF.make st None))
         else (HigherOrder (f, v), SMap.empty)
@@ -121,8 +121,18 @@ let rec unify_aux : UF.store -> unifiable -> unifiable -> unit option =
       let* _ = unify_aux st (f1, e1) (f3, e2) in
       let* _ = unify_aux st (f2, e1) (f4, e2) in
       Some ()
-    (* | HigherOrder _, HigherOrder _ -> failwith "todo" *)
-    | _, _ -> failwith "unimplemented")
+    | Exists (_, _), Exists (_, _) -> failwith "unimplemented Exists"
+    | Require (_, _), Require (_, _) -> failwith "unimplemented Require"
+    | HigherOrder (_, _), HigherOrder (_, _) ->
+      failwith "unimplemented HigherOrder"
+    | Shift (_, _, _), Shift (_, _, _) -> failwith "unimplemented Shift"
+    | Reset _, Reset _ -> failwith "unimplemented Reset"
+    | Bind (_, _, _), Bind (_, _, _) -> failwith "unimplemented Bind"
+    | Disjunction (_, _), Disjunction (_, _) ->
+      failwith "unimplemented Disjunction"
+    | RaisingEff _, RaisingEff _ -> failwith "unimplemented RaisingEff"
+    | TryCatch _, TryCatch _ -> failwith "unimplemented TryCatch"
+    | _, _ -> None)
 
 and unify_pure : UF.store -> pi -> pi -> unit option =
  fun _st p1 p2 ->
@@ -145,8 +155,40 @@ let unify store t1 t2 =
   let+ _ = unify_aux s t1 t2 in
   s
 
-let%expect_test "hello world" =
-  let a = Sequence (HigherOrder ("_f", []), NormalReturn (True, EmptyHeap)) in
+type rule = {
+  lhs : staged_spec;
+  rhs : staged_spec;
+}
+
+let string_of_rule { lhs; rhs } =
+  Format.asprintf "%s ==> %s"
+    (string_of_staged_spec lhs)
+    (string_of_staged_spec rhs)
+
+let rewrite_rooted rule target =
+  let st = UF.new_store () in
+  let lhs, e = to_unifiable st rule.lhs in
+  let target = to_unifiable st target in
+  let+ s = unify st (lhs, e) target in
+  let inst_rhs = subst_meta_vars s (rule.rhs, e) |> of_unifiable in
+  inst_rhs
+
+let rewrite_all rule target =
+  let visitor =
+    object (_self)
+      inherit [_] map_spec as super
+
+      method! visit_staged_spec () s =
+        let s1 = super#visit_staged_spec () s in
+        s1 |> rewrite_rooted rule |> Option.value ~default:s1
+    end
+  in
+  visitor#visit_staged_spec () target
+
+let mvar_spec n = HigherOrder ("_" ^ n, [])
+
+let%expect_test "unification and substitution" =
+  let a = Sequence (mvar_spec "n", NormalReturn (True, EmptyHeap)) in
   let b =
     Sequence
       ( NormalReturn (And (True, False), EmptyHeap),
@@ -155,9 +197,37 @@ let%expect_test "hello world" =
   let st = UF.new_store () in
   let a = to_unifiable st a in
   let b = to_unifiable st b in
-  match unify st a b with
+  (match unify st a b with
   | None -> Format.printf "failed@."
   | Some s ->
     let a = subst_meta_vars s a |> of_unifiable in
-    Format.printf "%s@." (string_of_staged_spec a);
-    [%expect {| ens T/\F; ens emp |}]
+    Format.printf "%s@." (string_of_staged_spec a));
+  [%expect {| ens T/\F; ens emp |}]
+
+let%expect_test "rewriting" =
+  let rule =
+    {
+      lhs = Sequence (mvar_spec "n", NormalReturn (True, EmptyHeap));
+      rhs =
+        Sequence
+          ( mvar_spec "n",
+            Sequence (mvar_spec "n", NormalReturn (False, EmptyHeap)) );
+    }
+  in
+  let b =
+    Sequence
+      ( NormalReturn (Not True, EmptyHeap),
+        Sequence
+          ( NormalReturn (And (True, False), EmptyHeap),
+            NormalReturn (True, EmptyHeap) ) )
+  in
+  let b1 = rewrite_all rule b in
+  Format.printf "rewrite %s@." (string_of_staged_spec b);
+  Format.printf "with %s@." (string_of_rule rule);
+  Format.printf "result: %s@." (string_of_staged_spec b1);
+  [%expect
+    {|
+    rewrite ens not(T); ens T/\F; ens emp
+    with _n(); ens emp ==> _n(); _n(); ens F
+    result: ens not(T); ens T/\F; ens T/\F; ens F
+    |}]
