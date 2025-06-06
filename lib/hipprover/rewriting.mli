@@ -6,7 +6,7 @@ open Hiptypes
 
 (** A term which a unification variable may be instantiated with,
   and which may contain encoded unification variables. *)
-type uterm = staged_spec
+type uterm
 
 (** A [UF.t] is an efficient unification variable which may be instantiated to a [uterm].
   [UF.t]s are given values by a [UF.store], which is destructively updated on [set]/[union].
@@ -32,8 +32,8 @@ val is_uvar_name : string -> bool
 (** Checks if the topmost constructor of a structure is an encoded unification varibale *)
 val get_uvar : uterm -> string option
 
-(** Inject a unification variable into a uterm *)
-val uvar_spec : string -> uterm
+(** Inject unification variables *)
+val uvar_spec : string -> staged_spec
 
 (** {1 Unification} *)
 
@@ -47,7 +47,7 @@ val unify : UF.store -> unifiable -> unifiable -> UF.store option
 
 (** {1 Substitution} *)
 
-val subst_uvars : UF.store -> unifiable -> unifiable
+val subst_uvars : UF.store -> unifiable -> uterm
 
 (** {1 Rewriting} *)
 
