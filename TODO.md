@@ -6,3 +6,9 @@
 - Call to entails/normalization.
 - Check the translation in `core_lang`.
 - Import the pretty printing for inspection.
+
+
+- Implement `rewrite_rules` and the rewriting infrastructure.
+   + Refactor `unification` (union-find).
+   + Refactor `subst`.
+- Implement `unfold`, `normalization`, `entail` using `rewrite`.

@@ -18,16 +18,16 @@ let rec to_fixed_point_ptr_eq f spec =
   let spec1 = f spec in
   if spec == spec1 then spec else to_fixed_point_ptr_eq f spec
 
-let rec simplify_term t : term  = 
-  match t with 
+let rec simplify_term t : term  =
+  match t with
   | Nil | TTrue | TFalse | UNIT | Num _ | TList _ | TTupple _ | Var _ | TApp _ | TLambda _ | TStr _ -> t
   | TNot a -> TNot (simplify_term a)
   | Rel (op, a, b) -> Rel (op, simplify_term a, simplify_term b)
   | SConcat (TStr a, TStr b) ->  TStr (a ^ b)
   | SConcat _ ->  t
-  | Plus (Minus(t, Num n1), Num n2) -> 
-    if n1 == n2 then t 
-    else if n1>= n2 then Minus(t, Num (n1-n2)) 
+  | Plus (Minus(t, Num n1), Num n2) ->
+    if n1 == n2 then t
+    else if n1>= n2 then Minus(t, Num (n1-n2))
     else Plus(t, Num (n2-n1))
 
 
@@ -37,48 +37,48 @@ let rec simplify_term t : term  =
 
   | Plus (Plus(a, Num n1), Num n2)  -> Plus(a, Num (n1+n2))
 
-  | Plus (a, Num n)  -> if n < 0 then Minus (a, Num (-1 * n)) else t 
+  | Plus (a, Num n)  -> if n < 0 then Minus (a, Num (-1 * n)) else t
 
 
-  | Plus (Plus(Plus(a, TPower(Num 2, Var v1)), Num(n1)), TPower(Num 2, Var v2))  -> 
+  | Plus (Plus(Plus(a, TPower(Num 2, Var v1)), Num(n1)), TPower(Num 2, Var v2))  ->
     if String.compare v1 v2 == 0 then Plus (Plus(a, TPower(Num 2, Plus(Var v1, Num 1))), Num(n1) )
-    else t 
+    else t
 
-  | Plus (a, b)  -> 
-    let a' = simplify_term a in 
-    let b' = simplify_term b in 
+  | Plus (a, b)  ->
+    let a' = simplify_term a in
+    let b' = simplify_term b in
     (*print_endline (string_of_term t);
     print_endline ("===>" ^ string_of_term a' ^ "+" ^ string_of_term b');
     *)
-    (match a', b' with 
+    (match a', b' with
     | Num n1, Num n2 -> Num(n1 + n2)
     | _, _ -> Plus (a', b')
     )
-  
-  | TTimes (a, b)  ->   
-    let a' = simplify_term a in 
-    let b' = simplify_term b in 
-    (match a', b' with 
+
+  | TTimes (a, b)  ->
+    let a' = simplify_term a in
+    let b' = simplify_term b in
+    (match a', b' with
     | Num n1, Num n2 -> Num(n1*n2)
     | _, _ -> TTimes (a', b')
     )
 
-  | TDiv (a, b)  -> 
-    let a' = simplify_term a in 
-    let b' = simplify_term b in 
-    (match a', b' with 
+  | TDiv (a, b)  ->
+    let a' = simplify_term a in
+    let b' = simplify_term b in
+    (match a', b' with
     | Num n1, Num n2 -> Num(n1/n2)
     | _, _ -> TDiv (a', b')
     )
-  
-  | Minus (a, b) -> 
-    let a' = simplify_term a in 
-    let b' = simplify_term b in 
-    (match a', b' with 
+
+  | Minus (a, b) ->
+    let a' = simplify_term a in
+    let b' = simplify_term b in
+    (match a', b' with
     | Num n1, Num n2 -> Num(n1 - n2)
     | _, _ -> Minus (a', b')
     )
-  
+
 
   | TAnd (a, b) -> TAnd (simplify_term a, simplify_term b)
   | TOr (a, b) -> TOr (simplify_term a, simplify_term b)
@@ -89,51 +89,51 @@ let rec simplify_heap h : kappa =
   let once h =
     match h with
     (*
-  | SepConj (PointsTo (s1, t1), PointsTo (s2, t2)) -> 
+  | SepConj (PointsTo (s1, t1), PointsTo (s2, t2)) ->
     if String.compare s1 s2 == 0 then (PointsTo (s1, t1), Atomic(EQ, t1, t2))
     else (h, True)
   *)
     | SepConj (EmptyHeap, h1) -> (simplify_heap h1, true)
     | SepConj (h1, EmptyHeap) -> (simplify_heap h1, true)
-    | PointsTo (str, t) -> 
+    | PointsTo (str, t) ->
       (*print_endline (string_of_term t); *)
       (PointsTo (str, simplify_term t), false)
     | _ -> (h, false)
   in
   to_fixed_point once h
 
-let compareTerms (t1:term) (t2:term) : bool = 
-  let str1= string_of_term t1 in 
-  let str2= string_of_term t2 in 
-  if String.compare str1 str2 == 0 then true else false 
+let compareTerms (t1:term) (t2:term) : bool =
+  let str1= string_of_term t1 in
+  let str2= string_of_term t2 in
+  if String.compare str1 str2 == 0 then true else false
 
 
 let simplify_pure (p : pi) : pi =
   let rec once p =
     match p with
     | Not (Atomic (EQ, a, TTrue)) -> (Atomic (EQ, a, TFalse), true)
-    | (Atomic (EQ, t1, t2 )) -> 
-      let t1 = simplify_term t1 in 
-      let t2 = simplify_term t2 in 
+    | (Atomic (EQ, t1, t2 )) ->
+      let t1 = simplify_term t1 in
+      let t2 = simplify_term t2 in
       (match t1, t2 with
       | Var "res", Var "res" -> (True, true)
       | TFalse, TFalse -> (True, true)
       | TTrue, TTrue -> (True, true)
-      | Num n1, Num n2 -> 
+      | Num n1, Num n2 ->
         if n1==n2 then (True, true)
         else (p, true)
 
       | TAnd(TTrue, TTrue), TTrue -> (True, true)
       | TAnd(TFalse, TTrue), TFalse -> (True, true)
       | t1, Plus(Num n1, Num n2) -> (Atomic (EQ, t1, Num (n1+n2)), true)
-      | _, _ -> 
-        if compareTerms t1 t2 then 
+      | _, _ ->
+        if compareTerms t1 t2 then
         (
         (True, true))
-        else 
+        else
         (
         (Atomic (EQ, t1, t2 )), false )
-      
+
       )
 
 
@@ -168,66 +168,66 @@ let simplify_pure (p : pi) : pi =
 
 let rec lookforEqualityinPure (str : string) (p:pi) : term option =
   match p with
-  | Atomic (EQ, Var v, t) -> 
-    if String.compare v str == 0 then Some t 
-    else None 
+  | Atomic (EQ, Var v, t) ->
+    if String.compare v str == 0 then Some t
+    else None
   | True
-  | False 
-  | Imply  _ 
-  | Not   _ 
-  | Predicate _ 
+  | False
+  | Imply  _
+  | Not   _
+  | Predicate _
   | Subsumption _
   | Or _
-  | Atomic _ -> None 
-  | And (p1, p2) -> 
-    (match lookforEqualityinPure str p1 with 
-    | Some t -> Some t 
+  | Atomic _ -> None
+  | And (p1, p2) ->
+    (match lookforEqualityinPure str p1 with
+    | Some t -> Some t
     | None -> lookforEqualityinPure str p2
     )
 
 
 
-let rec accumulateTheSumTerm (p:pi) (t:term) : term = 
+let rec accumulateTheSumTerm (p:pi) (t:term) : term =
   match t with
-  | Var str -> 
-    (match lookforEqualityinPure str p with 
-    | None -> t 
-    | Some t' -> 
-      if String.compare (string_of_term t) (string_of_term t') == 0 then  t' 
+  | Var str ->
+    (match lookforEqualityinPure str p with
+    | None -> t
+    | Some t' ->
+      if String.compare (string_of_term t) (string_of_term t') == 0 then  t'
       else accumulateTheSumTerm p (t')
     )
-  | Num _ 
-  | UNIT 
-  | Nil 
-  | TTrue 
-  | TFalse 
+  | Num _
+  | UNIT
+  | Nil
+  | TTrue
+  | TFalse
   | TApp _
   | TStr _
   | TLambda _  | TTupple _ | TList _ | SConcat _ -> t
   | TNot t1 -> TNot (accumulateTheSumTerm p t1)
-  | TCons (t1, t2) -> TCons (accumulateTheSumTerm p t1, accumulateTheSumTerm p t2) 
-  | TAnd (t1, t2) -> TAnd (accumulateTheSumTerm p t1, accumulateTheSumTerm p t2) 
-  | TOr (t1, t2) -> TOr (accumulateTheSumTerm p t1, accumulateTheSumTerm p t2) 
-  | Rel (bop, t1, t2) -> Rel (bop, accumulateTheSumTerm p t1, accumulateTheSumTerm p t2) 
-  | Plus (t1, t2) -> Plus (accumulateTheSumTerm p t1, accumulateTheSumTerm p t2) 
-  | Minus (t1, t2) -> Minus (accumulateTheSumTerm p t1, accumulateTheSumTerm p t2) 
-  | TPower (t1, t2) -> TPower (accumulateTheSumTerm p t1, accumulateTheSumTerm p t2) 
-  | TTimes (t1, t2) -> TTimes (accumulateTheSumTerm p t1, accumulateTheSumTerm p t2) 
-  | TDiv (t1, t2) -> TDiv (accumulateTheSumTerm p t1, accumulateTheSumTerm p t2) 
-;; 
+  | TCons (t1, t2) -> TCons (accumulateTheSumTerm p t1, accumulateTheSumTerm p t2)
+  | TAnd (t1, t2) -> TAnd (accumulateTheSumTerm p t1, accumulateTheSumTerm p t2)
+  | TOr (t1, t2) -> TOr (accumulateTheSumTerm p t1, accumulateTheSumTerm p t2)
+  | Rel (bop, t1, t2) -> Rel (bop, accumulateTheSumTerm p t1, accumulateTheSumTerm p t2)
+  | Plus (t1, t2) -> Plus (accumulateTheSumTerm p t1, accumulateTheSumTerm p t2)
+  | Minus (t1, t2) -> Minus (accumulateTheSumTerm p t1, accumulateTheSumTerm p t2)
+  | TPower (t1, t2) -> TPower (accumulateTheSumTerm p t1, accumulateTheSumTerm p t2)
+  | TTimes (t1, t2) -> TTimes (accumulateTheSumTerm p t1, accumulateTheSumTerm p t2)
+  | TDiv (t1, t2) -> TDiv (accumulateTheSumTerm p t1, accumulateTheSumTerm p t2)
+;;
 
 
-let rec accumulateTheSum (p:pi) (h:kappa) : kappa = 
-  match h with 
-  | EmptyHeap -> h 
-  | PointsTo (pointer, term) -> 
-    let term' = accumulateTheSumTerm p term in 
+let rec accumulateTheSum (p:pi) (h:kappa) : kappa =
+  match h with
+  | EmptyHeap -> h
+  | PointsTo (pointer, term) ->
+    let term' = accumulateTheSumTerm p term in
     PointsTo (pointer, term')
-  | SepConj (h1, h2) -> SepConj (accumulateTheSum p h1, accumulateTheSum p h2) 
+  | SepConj (h1, h2) -> SepConj (accumulateTheSum p h1, accumulateTheSum p h2)
 
-let simplify_state (p, h) = 
-  let (p, h) = (simplify_pure p, simplify_heap h) in 
-  let h' = accumulateTheSum p h in 
+let simplify_state (p, h) =
+  let (p, h) = (simplify_pure p, simplify_heap h) in
+  let h' = accumulateTheSum p h in
   (p, h')
 
 let mergeState (pi1, h1) (pi2, h2) =
@@ -244,26 +244,26 @@ let rec list_of_heap h =
   | SepConj (h1, h2) -> list_of_heap h1 @ list_of_heap h2
 
 (*
-let rec deleteFromHeapList li (x, t1)  = 
-  match li with 
+let rec deleteFromHeapList li (x, t1)  =
+  match li with
   | [] -> failwith "deleteFromHeapList not found"
   | (y, t2)::ys -> if String.compare x y == 0 && stricTcompareTerm t1 t2 then ys
     else (y, t2):: (deleteFromHeapList ys (x, t1))
 
 
 (* the accumption is h1 |- h2 ~~~~> r, and return r *)
-let getheapResidue h1 h2 : kappa =  
-  let listOfHeap1 = list_of_heap h1 in 
-  let listOfHeap2 = list_of_heap h2 in 
-  let rec helper acc li = 
-    match li with 
-    | [] -> acc 
-    | (x, v) :: xs  -> 
-      let acc' = deleteFromHeapList acc (x, v) in 
+let getheapResidue h1 h2 : kappa =
+  let listOfHeap1 = list_of_heap h1 in
+  let listOfHeap2 = list_of_heap h2 in
+  let rec helper acc li =
+    match li with
+    | [] -> acc
+    | (x, v) :: xs  ->
+      let acc' = deleteFromHeapList acc (x, v) in
       helper acc' xs
-  in 
-  let temp = helper listOfHeap1 listOfHeap2  in 
-  kappa_of_list temp 
+  in
+  let temp = helper listOfHeap1 listOfHeap2  in
+  kappa_of_list temp
 
 *)
 
@@ -316,7 +316,7 @@ let rec deleteFromHeapListIfHas li (x, t1) existential flag assumptions :
     Debug.span (fun r ->
         debug ~at:6
           ~title:"deleteFromHeapListIfHas"
-          "(%s, %s) -* %s = %s\nex %s\nflag %b\nassumptions %s" 
+          "(%s, %s) -* %s = %s\nex %s\nflag %b\nassumptions %s"
           x (string_of_term t1)
           (string_of_list (string_of_pair Fun.id string_of_term) li)
           (string_of_result (string_of_pair (string_of_list (string_of_pair Fun.id string_of_term)) string_of_pi) r)
@@ -409,7 +409,7 @@ let normaliseMagicWand h1 h2 existential flag assumptions : kappa * pi =
     Debug.span (fun r ->
         debug ~at:6
           ~title:"normaliseMagicWand"
-          "%s * ?%s |- %s * ?%s\nex %s\nflag %b\nassumptions %s" 
+          "%s * ?%s |- %s * ?%s\nex %s\nflag %b\nassumptions %s"
           (string_of_kappa h1)
           (string_of_result string_of_kappa (map_presult fst r))
           (string_of_kappa h2)
@@ -517,7 +517,7 @@ let normalize_step (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
       in
       (effectStages, normalStage')
     | NormalReturn (pi, heap) ->
-      let pi = simplify_pure pi in 
+      let pi = simplify_pure pi in
       (* pi may contain a res, so split the res out of the previous post *)
       (* if both sides contain res, remove from the left side *)
       let ens1, nex =
@@ -609,7 +609,7 @@ let normalize_step (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
             };
           ],
         freshNormStageRet r )
-    | TryCatch (pi, heap, (a, b), ret') -> 
+    | TryCatch (pi, heap, (a, b), ret') ->
       let ens1, nex =
         if contains_res_state ens then
           let e, n = quantify_res_state ens in
@@ -639,19 +639,19 @@ let normalize_step (acc : normalisedStagedSpec) (stagedSpec : stagedSpec)
 (* failwith (Format.asprintf "cannot normalise predicate %s" name) *)
 
 let getherPureFromSpec_step (acc:pi) (stagedSpec : stagedSpec) : pi =
-  match stagedSpec with 
+  match stagedSpec with
   | Shift _ -> failwith "todo"
   | Reset _ -> failwith "todo"
-  | Exists _ -> acc 
-  | Require (pi, _) 
-  | NormalReturn (pi, _) 
-  | RaisingEff (pi, _, _, _) 
-  | HigherOrder (pi, _, _, _) 
-  | TryCatch (pi, _, _, _) -> 
+  | Exists _ -> acc
+  | Require (pi, _)
+  | NormalReturn (pi, _)
+  | RaisingEff (pi, _, _, _)
+  | HigherOrder (pi, _, _, _)
+  | TryCatch (pi, _, _, _) ->
     And(acc, pi)
 
 
-let getherPureFromSpec (spec : spec) :pi = 
+let getherPureFromSpec (spec : spec) :pi =
   List.fold_left getherPureFromSpec_step (True) spec
 
 let (*rec*) normalise_spec_ (acc : normalisedStagedSpec) (spec : spec) :
@@ -694,7 +694,7 @@ let rec collect_lambdas_pi (p : pi) =
   | And (a, b) | Or (a, b) | Imply (a, b) ->
     SSet.union (collect_lambdas_pi a) (collect_lambdas_pi b)
   | Not a -> collect_lambdas_pi a
-  | Predicate (_, t) -> 
+  | Predicate (_, t) ->
     List.fold_left (fun acc a -> SSet.union acc (collect_lambdas_term a)) SSet.empty t
 
 
@@ -710,15 +710,15 @@ let collect_lambdas_state (p, h) =
   SSet.union (collect_lambdas_pi p) (collect_lambdas_heap h)
 
 let collect_lambdas_eff eff =
-  match eff with 
-  | EffHOStage eff -> 
+  match eff with
+  | EffHOStage eff ->
   SSet.concat
     [
       collect_lambdas_state eff.e_pre;
       collect_lambdas_state eff.e_post;
       SSet.concat (List.map collect_lambdas_term (snd eff.e_constr));
       collect_lambdas_term eff.e_ret;
-    ] 
+    ]
   | _ -> SSet.empty
 
 let collect_lambdas_norm (_vs, pre, post) =
@@ -739,8 +739,8 @@ let rec collect_locations_heap (h : kappa) =
 let collect_locations_vars_state (_, h) = collect_locations_heap h
 
 let collect_locations_eff (eff:effHOTryCatchStages) =
-  match eff with 
-  | EffHOStage eff  -> 
+  match eff with
+  | EffHOStage eff  ->
   SSet.concat
     [
       collect_locations_vars_state eff.e_pre;
@@ -886,7 +886,7 @@ let remove_noncontributing_existentials :
       let b1 = collect_related_vars_pi b in
       merge_classes a1 b1
     | Not a -> collect_related_vars_pi a
-    | Predicate (_, tLi) -> 
+    | Predicate (_, tLi) ->
       [List.fold_left (fun acc t -> SSet.union acc (collect_related_vars_term t)) SSet.empty tLi]
   and collect_related_vars_heap h =
     match h with
@@ -951,14 +951,14 @@ let remove_noncontributing_existentials :
     (ex1, pre1, post1)
   in
   fun (ess, norm) ->(ess, norm) (* ASK Darius*)
-    (*let (ess:effectStage list) = 
-      List.fold_left (fun acc a -> 
-      let temp = match a with 
+    (*let (ess:effectStage list) =
+      List.fold_left (fun acc a ->
+      let temp = match a with
       | EffHOStage ele -> [ele]
       | _ -> []
-      in 
-      acc @ temp) [] ess 
-    in 
+      in
+      acc @ temp) [] ess
+    in
     let fn_stages =
       List.map (fun efs -> fst efs.e_constr) ess |> SSet.of_list
     in
@@ -1022,8 +1022,8 @@ let simplify_existential_locations sp =
         | HigherOrder (p, _, _, _)
         | RaisingEff (p, _, _, _) ->
           pure_to_equalities p
-        
-          
+
+
       )
 
       sp
@@ -1320,6 +1320,28 @@ let rec simplify_spec n sp =
   if sp = sp1 || n < 0 then sp1 else simplify_spec (n - 1) sp1
 *)
 
+(*
+type rule = (staged_spec, staged_spec)
+
+type database = rule list
+
+type rewriting_function = rule -> staged_spec -> staged_spec
+
+heuristic: how to instatiate qualifier, how to use lemma
+(list monad)
+iterating function
+(unfolding)
+
+entail = norm
+
+norm -> entail -> norm -> entail
+norm -> entail
+
+let unification : staged_spec -> staged_spec -> substitute
+
+apply unification
+*)
+
 (* the main entry point *)
 let normalize_spec (spec : staged_spec) : staged_spec =
   let@ _ = Globals.Timing.(time norm) in
@@ -1393,7 +1415,7 @@ let rec effectStage2Spec (effectStages : effHOTryCatchStages list) : spec =
         | `Fn -> HigherOrder (p2, h2, eff.e_constr, eff.e_ret));
       ]
     @ effectStage2Spec xs
-  | (TryCatchStage tc):: xs -> 
+  | (TryCatchStage tc):: xs ->
     let p2, h2 = tc.tc_post in
     (match tc.tc_evars with [] -> [] | _ -> [Exists tc.tc_evars])
     @ (match tc.tc_pre with
@@ -1408,8 +1430,8 @@ let rec effectStage2Spec (effectStages : effHOTryCatchStages list) : spec =
 
 let normalStage2Spec (normalStage : normalStage) : spec =
   let existiental, (p1, h1), (p2, h2) = normalStage in
-  let p1 = simplify_pure p1 in 
-  let p2 = simplify_pure p2 in 
+  let p1 = simplify_pure p1 in
+  let p2 = simplify_pure p2 in
 
   (match existiental with [] -> [] | _ -> [Exists existiental])
   @ (match (p1, h1) with True, EmptyHeap -> [] | _ -> [Require (p1, h1)])
@@ -1421,14 +1443,14 @@ let normalStage2Spec (normalStage : normalStage) : spec =
 
 let checkTheSourceOfFalse _ = ()
   (*
-  match pi' with 
-  | And (pi1, pi2) -> 
+  match pi' with
+  | And (pi1, pi2) ->
     (match ProversEx.entailConstrains pi False with
-    | true -> 
+    | true ->
       checkTheSourceOfFalse pi1;
       checkTheSourceOfFalse pi2;
     | _ -> ())
-  | 
+  |
   *)
 
 let rec detectfailedAssertions (spec : spec) : spec =
@@ -1437,7 +1459,7 @@ let rec detectfailedAssertions (spec : spec) : spec =
   | Require (pi, heap) :: xs ->
     let pi' = simplify_pure pi in
     (match ProversEx.is_valid pi' False with
-    | true -> 
+    | true ->
       checkTheSourceOfFalse pi';
       (* print_endline ("\nentail False " ^ string_of_pi pi'); *)
       [Require (False, heap)]
@@ -1469,30 +1491,30 @@ let rec existControdictionSpec (spec : spec) : bool =
     let pi' = simplify_pure (And(pi1, pi)) in
     (match ProversEx.is_valid pi' False with
     | true ->  true
-    | _ -> 
+    | _ ->
       existControdictionSpec xs)
 
   | Require (pi1, _) ::xs ->
     (match ProversEx.is_valid pi1 False with
     | true ->  true
-    | _ -> 
+    | _ ->
       existControdictionSpec xs)
 
-  | NormalReturn (pi, _)::xs 
+  | NormalReturn (pi, _)::xs
   | RaisingEff (pi, _, _, _) :: xs
-  | HigherOrder (pi, _, _, _) ::xs -> 
+  | HigherOrder (pi, _, _, _) ::xs ->
     let pi' = simplify_pure pi in
     (match ProversEx.is_valid pi' False with
     | true ->  true
-    | _ -> 
+    | _ ->
       existControdictionSpec xs)
 
   | _ :: xs -> existControdictionSpec xs
 
-    
+
 
 let normalise_spec_list_aux2 (specLi : normalisedStagedSpec list) : spec list =
-  let raw = List.map (fun a -> normalisedStagedSpec2Spec a) specLi in 
+  let raw = List.map (fun a -> normalisedStagedSpec2Spec a) specLi in
   List.filter (fun a-> not (existControdictionSpec a)) raw
 
 let normalise_spec_list (specLi : spec list) : spec list =
@@ -1500,7 +1522,7 @@ let normalise_spec_list (specLi : spec list) : spec list =
     (fun a ->
       let normalisedStagedSpec = normalize_spec a in
       (normalisedStagedSpec2Spec normalisedStagedSpec))
-    specLi in 
+    specLi in
 
   let temp =
     let@ _ =
@@ -1510,11 +1532,11 @@ let normalise_spec_list (specLi : spec list) : spec list =
             "%s\n==>\n%s" (string_of_disj_spec raw)
             (string_of_result string_of_disj_spec r))
     in
-    List.filter (fun a-> 
-    let temp = existControdictionSpec a in 
+    List.filter (fun a->
+    let temp = existControdictionSpec a in
     not (temp)) raw
-  in 
-  temp 
+  in
+  temp
 
 
 let normalise_disj_spec_aux1 (specLi : disj_spec) : normalisedStagedSpec list =
