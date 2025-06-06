@@ -47,7 +47,7 @@ let to_unifiable st f : unifiable =
     object (_)
       inherit [_] mapreduce_spec
       method zero = SMap.empty
-      method plus = SMap.merge_disjoint
+      method plus = SMap.merge_arbitrary
 
       method! visit_HigherOrder () f v =
         if is_meta_var_name f then
@@ -188,21 +188,38 @@ let rewrite_all rule target =
 let mvar_spec n = HigherOrder ("_" ^ n, [])
 
 let%expect_test "unification and substitution" =
+  let test a b =
+    let st = UF.new_store () in
+    let a = to_unifiable st a in
+    let b = to_unifiable st b in
+    match unify st a b with
+    | None -> Format.printf "failed@."
+    | Some s ->
+      let a = subst_meta_vars s a |> of_unifiable in
+      Format.printf "%s@." (string_of_staged_spec a)
+  in
   let a = Sequence (mvar_spec "n", NormalReturn (True, EmptyHeap)) in
   let b =
     Sequence
       ( NormalReturn (And (True, False), EmptyHeap),
         NormalReturn (True, EmptyHeap) )
   in
-  let st = UF.new_store () in
-  let a = to_unifiable st a in
-  let b = to_unifiable st b in
-  (match unify st a b with
-  | None -> Format.printf "failed@."
-  | Some s ->
-    let a = subst_meta_vars s a |> of_unifiable in
-    Format.printf "%s@." (string_of_staged_spec a));
-  [%expect {| ens T/\F; ens emp |}]
+  test a b;
+  [%expect {| ens T/\F; ens emp |}];
+
+  let a =
+    Sequence
+      (mvar_spec "n", Sequence (mvar_spec "n", NormalReturn (True, EmptyHeap)))
+  in
+  let b =
+    Sequence
+      ( NormalReturn (And (True, False), EmptyHeap),
+        Sequence
+          ( NormalReturn (And (True, False), EmptyHeap),
+            NormalReturn (True, EmptyHeap) ) )
+  in
+  test a b;
+  [%expect {| ens T/\F; ens T/\F; ens emp |}]
 
 let%expect_test "rewriting" =
   let rule =
