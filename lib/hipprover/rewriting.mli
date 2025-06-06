@@ -1,0 +1,63 @@
+
+open Hipcore
+open Hiptypes
+
+(** {1 Unification variables} *)
+
+(** A term which a unification variable may be instantiated with,
+  and which may contain encoded unification variables. *)
+type uterm = staged_spec
+
+(** A [UF.t] is an efficient unification variable which may be instantiated to a [uterm].
+  [UF.t]s are given values by a [UF.store], which is destructively updated on [set]/[union].
+  Use [UF.copy] for persistence. *)
+module UF :
+  sig
+    type t
+    type store
+    val new_store : unit -> store
+    val copy : store -> store
+    val make : store -> uterm option -> t
+    val get : store -> t -> uterm option
+    val set : store -> t -> uterm option -> unit
+    val eq : store -> t -> t -> bool
+    val union : store -> t -> t -> unit
+  end
+
+(** {1 Encoded unification variables} *)
+
+(** Defines how unification variables are encoded in a particular structure *)
+val is_uvar_name : string -> bool
+
+(** Checks if the topmost constructor of a structure is an encoded unification varibale *)
+val get_uvar : uterm -> string option
+
+(** Inject a unification variable into a uterm *)
+val uvar_spec : string -> uterm
+
+(** {1 Unification} *)
+
+(** A unifiable is just a [uterm], but with encoded unification variables replaced by [UF.t]s. *)
+type unifiable
+
+val to_unifiable : UF.store -> uterm -> unifiable
+val of_unifiable : unifiable -> uterm
+
+val unify : UF.store -> unifiable -> unifiable -> UF.store option
+
+(** {1 Substitution} *)
+
+val subst_uvars : UF.store -> unifiable -> unifiable
+
+(** {1 Rewriting} *)
+
+(** A rewrite rule. May contain unification variables (e.g. using [uvar_spec]). *)
+type rule = { lhs : uterm; rhs : uterm; }
+
+val string_of_rule : rule -> string
+
+(** [rewrite_rooted rule target] rewrites using [rule] at the top level of [target]. *)
+val rewrite_rooted : rule -> uterm -> uterm option
+
+(** [rewrite_all rule target] rewrites at all places [rule] may apply in [target]. *)
+val rewrite_all : rule -> uterm -> uterm

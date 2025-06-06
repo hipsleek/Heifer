@@ -32,11 +32,11 @@ end = struct
   let union s a b = ignore (union s a b)
 end
 
-(* unification (meta) variables are encoded in the AST with string names *)
-let is_meta_var_name f = String.starts_with ~prefix:"_" f
+(* unification variables are encoded in the AST with string names *)
+let is_uvar_name f = String.starts_with ~prefix:"$" f
 
-let get_meta_var = function
-  | HigherOrder (f, _) when is_meta_var_name f -> Some f
+let get_uvar = function
+  | HigherOrder (f, _) when is_uvar_name f -> Some f
   | _ -> None
 
 (* to avoid having a constructor for UF.t in the AST, use a layer of indirection *)
@@ -50,7 +50,7 @@ let to_unifiable st f : unifiable =
       method plus = SMap.merge_arbitrary
 
       method! visit_HigherOrder () f v =
-        if is_meta_var_name f then
+        if is_uvar_name f then
           (HigherOrder (f, v), SMap.singleton f (UF.make st None))
         else (HigherOrder (f, v), SMap.empty)
     end
@@ -59,13 +59,13 @@ let to_unifiable st f : unifiable =
 
 let of_unifiable (f, _) = f
 
-let subst_meta_vars st (f, e) : unifiable =
+let subst_uvars st (f, e) : unifiable =
   let visitor =
     object (_)
       inherit [_] map_spec
 
       method! visit_HigherOrder () f v =
-        if is_meta_var_name f then UF.get st (SMap.find f e) |> Option.get
+        if is_uvar_name f then UF.get st (SMap.find f e) |> Option.get
         else HigherOrder (f, v)
     end
   in
@@ -82,7 +82,7 @@ let rec unify_aux : UF.store -> unifiable -> unifiable -> unit option =
              (fun r1 -> if Option.is_some r1 then "ok" else "failed")
              r))
   in *)
-  match (get_meta_var t1, get_meta_var t2) with
+  match (get_uvar t1, get_uvar t2) with
   | Some x1, Some x2 ->
     let u1 = SMap.find x1 e1 in
     let u2 = SMap.find x2 e2 in
@@ -170,7 +170,7 @@ let rewrite_rooted rule target =
   let lhs, e = to_unifiable st rule.lhs in
   let target = to_unifiable st target in
   let+ s = unify st (lhs, e) target in
-  let inst_rhs = subst_meta_vars s (rule.rhs, e) |> of_unifiable in
+  let inst_rhs = subst_uvars s (rule.rhs, e) |> of_unifiable in
   inst_rhs
 
 let rewrite_all rule target =
@@ -185,7 +185,7 @@ let rewrite_all rule target =
   in
   visitor#visit_staged_spec () target
 
-let mvar_spec n = HigherOrder ("_" ^ n, [])
+let uvar_spec n = HigherOrder ("$" ^ n, [])
 
 let%expect_test "unification and substitution" =
   let test a b =
@@ -195,10 +195,10 @@ let%expect_test "unification and substitution" =
     match unify st a b with
     | None -> Format.printf "failed@."
     | Some s ->
-      let a = subst_meta_vars s a |> of_unifiable in
+      let a = subst_uvars s a |> of_unifiable in
       Format.printf "%s@." (string_of_staged_spec a)
   in
-  let a = Sequence (mvar_spec "n", NormalReturn (True, EmptyHeap)) in
+  let a = Sequence (uvar_spec "n", NormalReturn (True, EmptyHeap)) in
   let b =
     Sequence
       ( NormalReturn (And (True, False), EmptyHeap),
@@ -209,7 +209,7 @@ let%expect_test "unification and substitution" =
 
   let a =
     Sequence
-      (mvar_spec "n", Sequence (mvar_spec "n", NormalReturn (True, EmptyHeap)))
+      (uvar_spec "n", Sequence (uvar_spec "n", NormalReturn (True, EmptyHeap)))
   in
   let b =
     Sequence
@@ -224,11 +224,11 @@ let%expect_test "unification and substitution" =
 let%expect_test "rewriting" =
   let rule =
     {
-      lhs = Sequence (mvar_spec "n", NormalReturn (True, EmptyHeap));
+      lhs = Sequence (uvar_spec "n", NormalReturn (True, EmptyHeap));
       rhs =
         Sequence
-          ( mvar_spec "n",
-            Sequence (mvar_spec "n", NormalReturn (False, EmptyHeap)) );
+          ( uvar_spec "n",
+            Sequence (uvar_spec "n", NormalReturn (False, EmptyHeap)) );
     }
   in
   let b =
@@ -245,6 +245,6 @@ let%expect_test "rewriting" =
   [%expect
     {|
     rewrite ens not(T); ens T/\F; ens emp
-    with _n(); ens emp ==> _n(); _n(); ens F
+    with $n(); ens emp ==> $n(); $n(); ens F
     result: ens not(T); ens T/\F; ens T/\F; ens F
     |}]
