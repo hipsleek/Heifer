@@ -194,7 +194,7 @@ let process_pure_fn_info ({m_name; m_params; m_body; _}) = function
       in
       Globals.define_pure_fn m_name pf
 
-let process_intermediates (it : intermediate) prog : string list * core_program = 
+let process_intermediates (it : intermediate) prog : string list * core_program =
   (* Format.printf "%s\n" (Pretty.string_of_intermediate it);
   ([], prog) *)
   match it with

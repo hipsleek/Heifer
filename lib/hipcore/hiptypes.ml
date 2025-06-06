@@ -33,18 +33,18 @@ and core_handler_ops = (string * string option * staged_spec option * core_lang)
 (* effect work; let's group them into a single blob *)
 and constr_cases = (string * string list * core_lang) list
 and tryCatchLemma = (staged_spec * staged_spec option * (*(handlingcases) **) staged_spec) (*tcl_head, tcl_handledCont, tcl_summary*)
-and handler_type = Shallow | Deep 
+and handler_type = Shallow | Deep
 
 and core_value = term
-and core_lang = 
-  | CValue of core_value 
+and core_lang =
+  | CValue of core_value
   | CLet of string * core_lang * core_lang
   | CIfELse of (*core_value*) pi * core_lang * core_lang
   | CFunCall of string * (core_value) list
-  | CWrite of string * core_value  
+  | CWrite of string * core_value
   | CRef of core_value
-  | CRead of string 
-  | CAssert of pi * kappa 
+  | CRead of string
+  | CAssert of pi * kappa
   | CPerform of string * core_value option
   (* match e with | v -> e1 | eff case... | constr case... *)
   | CMatch of handler_type * tryCatchLemma option * core_lang * (string * core_lang) option * core_handler_ops * constr_cases
@@ -55,18 +55,18 @@ and core_lang =
 
 (* an occurrence of an effect *)
 and instant = string * term list
-and pi = 
+and pi =
   | True
   | False
   | Atomic of bin_rel_op * term * term
   | And    of pi * pi
   | Or     of pi * pi
   | Imply  of pi * pi
-  | Not    of pi 
-  | Predicate of string * term list 
+  | Not    of pi
+  | Predicate of string * term list
   | Subsumption of term * term
 
-and kappa = 
+and kappa =
   | EmptyHeap
     (* x -> -   means x is allocated, and - is encoded as Var "_" *)
   | PointsTo of (string * term)
@@ -80,7 +80,7 @@ and state = pi * kappa
 and handlingcases = (string * staged_spec) * ((string * string option * staged_spec) list)
 and trycatch = (staged_spec * handlingcases)
 
-and staged_spec = 
+and staged_spec =
   | Exists of string * staged_spec
   | Require of pi * kappa
   (* ens H /\ P, where P may contain contraints on res *)
@@ -104,7 +104,8 @@ and disj_spec = spec list *)
 
 [@@deriving
   visitors { variety = "map"; name = "map_spec" },
-  visitors { variety = "reduce"; name = "reduce_spec" } ]
+  visitors { variety = "reduce"; name = "reduce_spec" },
+  visitors { variety = "mapreduce"; name = "mapreduce_spec" } ]
 
 (* not part of the visitor because this doesn't occur recursively *)
 type typ =
@@ -293,9 +294,9 @@ class virtual ['self] map_normalised =
   end
 
 let freshNormalReturnSpec = [NormalReturn (True, EmptyHeap)]
-let freshNormalStage : normalStage = ([], (True, EmptyHeap), (True, EmptyHeap)) 
+let freshNormalStage : normalStage = ([], (True, EmptyHeap), (True, EmptyHeap))
 
-let freshNormStageRet r : normalStage = ([], (True, EmptyHeap), (res_eq r, EmptyHeap)) 
+let freshNormStageRet r : normalStage = ([], (True, EmptyHeap), (res_eq r, EmptyHeap))
 
 let counter_4_inserting_let_bindings = ref 0  *)
 *)

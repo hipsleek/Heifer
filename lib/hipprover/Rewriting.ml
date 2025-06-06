@@ -1,141 +1,163 @@
-(* 
 open Hipcore
-open List
 open Hiptypes
 open Pretty
-(* open Z3 *)
 
-(* 
-let rec term_to_expr ctx : term -> Expr.expr = function
-  | Num n        -> Arithmetic.Integer.mk_numeral_i ctx n
-  | Var v          -> Arithmetic.Integer.mk_const_s ctx v
-  | Plus (t1, t2)  -> Arithmetic.mk_add ctx [ term_to_expr ctx t1; term_to_expr ctx t2 ]
-  | Minus (t1, t2) -> Arithmetic.mk_sub ctx [ term_to_expr ctx t1; term_to_expr ctx t2 ]
-  | TTupple _ | TList _ | UNIT -> raise (Foo "Rewriting.ml->term_to_expr") 
+let ( let* ) = Option.bind
+let ( let+ ) a f = Option.map f a
 
-let rec pi_to_expr ctx : pi -> Expr.expr = function
-  | True                -> Boolean.mk_true ctx
-  | False               -> Boolean.mk_false ctx
-  | Atomic (op, t1, t2) -> (
-      let t1 = term_to_expr ctx t1 in
-      let t2 = term_to_expr ctx t2 in
-      match op with
-      | EQ -> Boolean.mk_eq ctx t1 t2
-      | LT -> Arithmetic.mk_lt ctx t1 t2
-      | LTEQ -> Arithmetic.mk_le ctx t1 t2
-      | GT -> Arithmetic.mk_gt ctx t1 t2
-      | GTEQ -> Arithmetic.mk_ge ctx t1 t2)
-  | And (pi1, pi2)      -> Boolean.mk_and ctx [ pi_to_expr ctx pi1; pi_to_expr ctx pi2 ]
-  | Or (pi1, pi2)       -> Boolean.mk_or ctx [ pi_to_expr ctx pi1; pi_to_expr ctx pi2 ]
-  | Imply (pi1, pi2)    -> Boolean.mk_implies ctx (pi_to_expr ctx pi1) (pi_to_expr ctx pi2)
-  | Not pi              -> Boolean.mk_not ctx (pi_to_expr ctx pi)
-  | Predicate _ -> raise (Foo "Rewriting.ml->pi_to_expr")
+(* currently there can only be variables at the staged_spec level *)
+type term = staged_spec
 
+module UF : sig
+  type t
+  type store
 
-let check p1 p2 : bool =
-  let pi =   (Not (Or (Not p1, p2))) in
-  let cfg = [ ("model", "false"); ("proof", "false") ] in
-  let ctx = mk_context cfg in
-  let expr = pi_to_expr ctx pi in
-  (* print_endline (Expr.to_string expr); *)
+  val new_store : unit -> store
+  val copy : store -> store
+  val make : store -> term option -> t
+  val get : store -> t -> term option
+  val set : store -> t -> term option -> unit
+  val eq : store -> t -> t -> bool
+  val union : store -> t -> t -> unit
+end = struct
+  module Store = UnionFind.StoreMap
+  include UnionFind.Make (Store)
 
-  let solver = Solver.mk_simple_solver ctx in
-  Solver.add solver [ expr ];
-  let sat = not (Solver.check solver [] == Solver.SATISFIABLE) in
-  (*print_endline (Solver.to_string solver); *)
-  sat *)
+  type c = term option
+  type t = c rref
+  type nonrec store = c store
 
-(* let check_pure p1 p2 : (bool * string) = 
-  let sat = check  p1 p2 in
-  let _ = string_of_pi p1 ^" => " ^ string_of_pi p2 in 
-  let buffur = ("[PURE]"(*^(pure)*)^ " " ^(if sat then "Succeed\n" else "Fail\n")  )
-  in (sat, buffur) *)
+  let new_store () = Store.new_store ()
+  let copy = Store.copy
+  let union s a b = ignore (union s a b)
+end
 
+(* unification (meta) variables are encoded in the AST with string names *)
+let is_meta_var_name f = String.starts_with ~prefix:"_" f
 
+let get_meta_var = function
+  | HigherOrder (f, _) when is_meta_var_name f -> Some f
+  | _ -> None
 
-let rec checkexist lst super: bool = 
-  match lst with
-  | [] -> true
-  | x::rest  -> if List.mem x super then checkexist rest super
-  else false 
-  ;;
+(* to avoid having UF.t constructors in the AST, use a layer of indirection *)
+type unifiable = staged_spec * UF.t SMap.t
 
+let to_unifiable st f : unifiable =
+  let visitor =
+    object (_)
+      inherit [_] mapreduce_spec
+      method zero = SMap.empty
+      method plus = SMap.merge_disjoint
 
-let comparePointsTo (s1, t1) (s2, t2) : bool = 
-  let rec helper t1 t2 : bool = 
-    match (t1, t2) with 
-    | ([], []) -> true 
-    | (x::xs, y::ys)  -> x == y && helper xs ys
-    | _ -> false 
-  in 
-  (String.compare s1 s2 == 0) && helper t1 t2
+      method! visit_HigherOrder _ f v =
+        if is_meta_var_name f then
+          (HigherOrder (f, v), SMap.singleton f (UF.make st None))
+        else (HigherOrder (f, v), SMap.empty)
+    end
+  in
+  visitor#visit_staged_spec () f
 
+let of_unifiable (f, _) = f
 
-let compareKappa (k1:kappa) (k2:kappa) : bool = 
-  match (k1, k2) with 
-  | (EmptyHeap, EmptyHeap) -> true 
-  | (PointsTo pt1, PointsTo pt2) -> 
-    (*print_string ("compayring " ^ string_of_kappa k1 ^ " and " ^  
-    string_of_kappa k2 ^ " = " ^ string_of_bool (pt1 = pt2) ^"\n");*)
-    pt1 = pt2
-    (*comparePointsTo pt1 == pt2*)
-  | (SepConj _, SepConj _)
-  (* | (Implication _, Implication _) -> raise (Foo "compareKappa TBD") *)
-  | _ -> false
+let subst_meta_vars st (f, e) : unifiable =
+  let visitor =
+    object (_)
+      inherit [_] map_spec
 
+      method! visit_HigherOrder () f v =
+        if is_meta_var_name f then UF.get st (SMap.find f e) |> Option.get
+        else HigherOrder (f, v)
+    end
+  in
+  (visitor#visit_staged_spec () f, e)
 
-let comparePure (p1:pi) (p2:pi) : bool = 
-  match (p1, p2) with 
-  | (True, True)
-  | (False, False) -> true 
-  | (Atomic (op1, t1, t2), Atomic (op2, t3, t4)) -> 
-     op1 == op2 && t1 == t3 && t2 == t4 
-  | (And _, And _) 
-  | (Or _, Or _) 
-  | (Imply _, Imply _) 
-  | (Not _, Not _) -> raise (Foo "comparePure TBD")
-  | _ -> false
+let rec unify_aux : UF.store -> unifiable -> unifiable -> unit option =
+ fun st (t1, e1) (t2, e2) ->
+  (* let@ _ =
+    Debug.span (fun m r ->
+        m
+          ~title:(if matching then "unify-match" else "unify")
+          "%a ~ %a? %a" pretty_term t1 pretty_term t2 (Fmt.res Fmt.string)
+          (Option.map
+             (fun r1 -> if Option.is_some r1 then "ok" else "failed")
+             r))
+  in *)
+  match (get_meta_var t1, get_meta_var t2) with
+  | Some x1, Some x2 ->
+    let u1 = SMap.find x1 e1 in
+    let u2 = SMap.find x2 e2 in
+    (match (UF.get st u1, UF.get st u2) with
+    | None, None ->
+      UF.union st u1 u2;
+      Some ()
+    | Some a, None ->
+      UF.set st u2 (Some a);
+      Some ()
+    | None, Some a ->
+      UF.set st u1 (Some a);
+      Some ()
+    | Some a1, Some a2 -> unify_aux st (a1, e1) (a2, e2))
+  | None, Some x2 ->
+    let u2 = SMap.find x2 e2 in
+    (match UF.get st u2 with
+    | None ->
+      UF.set st u2 (Some t1);
+      Some ()
+    | Some v2 -> unify_aux st (t1, e1) (v2, e2))
+  | Some x1, None ->
+    let u1 = SMap.find x1 e1 in
+    (match UF.get st u1 with
+    | None ->
+      UF.set st u1 (Some t2);
+      Some ()
+    | Some v1 -> unify_aux st (v1, e1) (t2, e2))
+  | None, None ->
+    (match (t1, t2) with
+    | NormalReturn (p1, h1), NormalReturn (p2, h2) ->
+      let* _ = unify_pure st p1 p2 in
+      let* _ = unify_heap st h1 h2 in
+      Some ()
+    | Sequence (f1, f2), Sequence (f3, f4) ->
+      let* _ = unify_aux st (f1, e1) (f3, e2) in
+      let* _ = unify_aux st (f2, e1) (f4, e2) in
+      Some ()
+    (* | HigherOrder _, HigherOrder _ -> failwith "todo" *)
+    | _, _ -> failwith "unimplemented")
 
+and unify_pure : UF.store -> pi -> pi -> unit option =
+ fun _st p1 p2 ->
+  match (p1, p2) with
+  | _, _ ->
+    (* TODO no variables yet *)
+    if p1 = p2 then Some () else None
 
+and unify_heap : UF.store -> kappa -> kappa -> unit option =
+ fun _st p1 p2 ->
+  match (p1, p2) with
+  | _, _ ->
+    (* TODO no variables yet *)
+    if p1 = p2 then Some () else None
 
+let unify store t1 t2 =
+  (* copy here to avoid clobbering the old state, as unification may fail.
+    the new state is only made visible if it succeeds *)
+  let s = UF.copy store in
+  let+ _ = unify_aux s t1 t2 in
+  s
 
-
-(* let  check_containment (_:spec) (_:spec) :(bool * binary_tree) = failwith "TBD check_containment" *)
-
-;;
-
-
-let printReport (_:spec) (_:spec) :(bool * float * string) =  failwith "TBD printReport"
-(*
-  let startTimeStamp = Sys.time() in
-  let (tLHS, cLHS) = partionTraceAndCOncrteTrace lhs in 
-  let (tRHS, cRHS) = partionTraceAndCOncrteTrace rhs in 
-
-  let (re, tree) = check_containment tLHS tRHS in 
-  let (re1, tree1) = check_concreteEntaill cLHS cRHS in 
-  let computtaion_time = ((Sys.time() -. startTimeStamp) *. 1000.0) in 
-  let verification_time = "[TRS Time: " ^ string_of_float (computtaion_time) ^ " ms]" in
-  let result = printTree ~line_prefix:"* " ~get_name ~get_children (Node ("root", [tree;tree1])) in
-
-  let whole = "[TRS Result: " ^ (if re && re1 then "Succeed" else "Fail" ) in 
-  (re, computtaion_time, "~~~~~~~~~~~~~~~~~~~~~\n" ^
-  verification_time  ^"\n"^
-  whole  ^"\n"^
-  "- - - - - - - - - - - - - -"^"\n" ^
-  result)
-  *)
-  ;;
-
-
-let n_GT_0 : pi =
-  Atomic (LT, Var "n", Num 0)
-
-let n_GT_1 : pi =
-  Atomic (LT, Var "n", Num 5)
-
-
-
-
-
-
- *)
+let%expect_test "hello world" =
+  let a = Sequence (HigherOrder ("_f", []), NormalReturn (True, EmptyHeap)) in
+  let b =
+    Sequence
+      ( NormalReturn (And (True, False), EmptyHeap),
+        NormalReturn (True, EmptyHeap) )
+  in
+  let st = UF.new_store () in
+  let a = to_unifiable st a in
+  let b = to_unifiable st b in
+  match unify st a b with
+  | None -> Format.printf "failed@."
+  | Some s ->
+    let a = subst_meta_vars s a |> of_unifiable in
+    Format.printf "%s@." (string_of_staged_spec a);
+    [%expect {| ens T/\F; ens emp |}]
