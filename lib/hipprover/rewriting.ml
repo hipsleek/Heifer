@@ -248,3 +248,9 @@ let%expect_test "rewriting" =
     with $n(); ens emp ==> $n(); $n(); ens F
     result: ens not(T); ens T/\F; ens T/\F; ens F
     |}]
+
+type database = rule list
+
+(** Rewrites until no more rules in the database apply *)
+let autorewrite : database -> uterm -> uterm =
+ fun _db _target -> failwith "todo"

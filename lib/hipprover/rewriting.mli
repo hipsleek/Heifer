@@ -61,3 +61,8 @@ val rewrite_rooted : rule -> uterm -> uterm option
 
 (** [rewrite_all rule target] rewrites at all places [rule] may apply in [target]. *)
 val rewrite_all : rule -> uterm -> uterm
+
+type database = rule list
+
+(** Rewrites until no more rules in the database apply *)
+val autorewrite : database -> uterm -> uterm
