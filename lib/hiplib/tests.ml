@@ -3,9 +3,47 @@ open Hipcore
 open Hipprover
 open Pretty
 open Hiptypes
-open Normalize
+open Normalize*)
 
-let parse_spec s = Parser.only_effect_spec Lexer.token (Lexing.from_string s)
+(* TODO should this module be moved to Rewriting? then the prover would depend on the parser *)
+module Rewrite = struct
+  open Ocamlfrontend.Annotation
+  open Hipprover.Rewriting
+
+  module Staged = struct
+    let (==>) lhs rhs =
+      {lhs = Staged (parse_staged_spec lhs); rhs = Staged (parse_staged_spec rhs)}
+  end
+
+  module Pure = struct
+    let (==>) lhs rhs =
+      {lhs = Pure (parse_pi lhs); rhs = Pure (parse_pi rhs)}
+  end
+end
+open Rewrite
+
+let%expect_test "rewriting using DSL" =
+  let open Hipprover.Rewriting in
+  let spec = Ocamlfrontend.Annotation.parse_staged_spec in
+  let test rule target =
+    let b1 = rewrite_all rule target in
+    Format.printf "rewrite %s@." (string_of_uterm target);
+    Format.printf "with %s@." (string_of_rule rule);
+    Format.printf "result: %s@." (string_of_uterm b1)
+  in
+
+  test Staged.("ens emp" ==> "ens false") (Staged (spec "ens emp; ens emp"));
+  [%expect
+  {|
+    rewrite ens emp; ens emp
+    with ens emp ==> ens F
+    result: ens F; ens F
+    |}]
+
+
+(* Lexer.token (Lexing.from_string s) *)
+
+(*
 let parse_pi s = Parser.only_pure_formula Lexer.token (Lexing.from_string s)
 
 let parse_disj_spec s =

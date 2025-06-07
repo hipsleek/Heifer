@@ -6,7 +6,13 @@ open Hiptypes
 
 (** A term which a unification variable may be instantiated with,
   and which may contain encoded unification variables. *)
-type uterm
+type uterm =
+  | Staged of staged_spec
+  | Pure of pi
+  | Heap of kappa
+  | Term of term
+
+val string_of_uterm : uterm -> string
 
 (** A [UF.t] is an efficient unification variable which may be instantiated to a [uterm].
   [UF.t]s are given values by a [UF.store], which is destructively updated on [set]/[union].

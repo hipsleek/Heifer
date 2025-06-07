@@ -59,6 +59,8 @@ open Hiptypes
 %type <Hiptypes.kappa> parse_kappa
 %start parse_staged_spec
 %type <Hiptypes.staged_spec> parse_staged_spec
+%start parse_term
+%type <Hiptypes.term> parse_term
 %%
 
 %inline bin_rel_op:
@@ -174,3 +176,7 @@ parse_kappa:
 parse_staged_spec:
   | s = staged_spec EOF
       { s }
+
+parse_term:
+  | t = term EOF
+      { t }

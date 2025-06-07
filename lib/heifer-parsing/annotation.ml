@@ -3,6 +3,12 @@ open Parsing
 
 let parse_staged_spec spec = Parser.parse_staged_spec Lexer.token (Lexing.from_string spec)
 
+let parse_pi spec = Parser.parse_pi Lexer.token (Lexing.from_string spec)
+
+let parse_kappa spec = Parser.parse_kappa Lexer.token (Lexing.from_string spec)
+
+let parse_term spec = Parser.parse_term Lexer.token (Lexing.from_string spec)
+
 let parse_spec_attribute (attr : Parsetree.attribute) : Hipcore.Hiptypes.staged_spec option =
   let spec_attribute_name = "spec" in
   let open Ocaml_compiler.Ocaml_common.Parsetree in
