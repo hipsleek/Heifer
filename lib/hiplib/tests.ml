@@ -38,7 +38,16 @@ let%expect_test "rewriting using DSL" =
     rewrite ens emp; ens emp
     with ens emp ==> ens F
     result: ens F; ens F
-    |}]
+    |}];
+
+  test Pure.("true" ==> "false") (Staged (spec "ens emp; ens emp"));
+  [%expect
+  {|
+    rewrite ens emp; ens emp
+    with T ==> F
+    result: ens F; ens F
+    |}];
+
 
 
 (* Lexer.token (Lexing.from_string s) *)
