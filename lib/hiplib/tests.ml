@@ -19,6 +19,16 @@ module Rewrite = struct
     let (==>) lhs rhs =
       {lhs = Pure (parse_pi lhs); rhs = Pure (parse_pi rhs)}
   end
+
+  module Heap = struct
+    let (==>) lhs rhs =
+      {lhs = Heap (parse_kappa lhs); rhs = Heap (parse_kappa rhs)}
+  end
+
+  module Term = struct
+    let (==>) lhs rhs =
+      {lhs = Term (parse_term lhs); rhs = Term (parse_term rhs)}
+  end
 end
 open Rewrite
 
@@ -48,16 +58,23 @@ let%expect_test "rewriting using DSL" =
     result: ens F; ens F
     |}];
 
+  test Heap.("x->1" ==> "x->2") (Staged (spec "ens x->1; ens emp"));
+ [%expect
+  {|
+   rewrite ens x->1; ens emp
+   with x->1 ==> x->2
+   result: ens x->2; ens emp
+   |}];
 
-
-(* Lexer.token (Lexing.from_string s) *)
+  test Term.("1" ==> "2") (Staged (spec "ens x->1; ens emp"));
+ [%expect
+  {|
+   rewrite ens x->1; ens emp
+   with 1 ==> 2
+   result: ens x->2; ens emp
+   |}];
 
 (*
-let parse_pi s = Parser.only_pure_formula Lexer.token (Lexing.from_string s)
-
-let parse_disj_spec s =
-  Parser.only_disj_effect_spec Lexer.token (Lexing.from_string s)
-
 let%expect_test "instantiation/renaming of existentials" =
   let show a = a |> string_of_disj_spec |> print_endline in
 

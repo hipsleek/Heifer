@@ -5,6 +5,16 @@ open Pretty
 let ( let* ) = Option.bind
 let ( let+ ) a f = Option.map f a
 
+let rec sequence f xs =
+  match xs with
+  | [] -> Some []
+  | x :: xs1 ->
+    let* x1 = f x in
+    let* xs2 = sequence f xs1 in
+    Some (x1 :: xs2)
+
+let sequence2 f xs ys = List.map2 (fun x y -> (x, y)) xs ys |> sequence f
+
 (* currently there can only be variables at the staged_spec level *)
 type uterm =
   | Staged of staged_spec
@@ -210,28 +220,52 @@ and unify_pure : UF.store -> pi unif -> pi unif -> unit option =
   | Not p1, Not p2 ->
     let* _ = unify_var st (Pure p1, e1) (Pure p2, e2) in
     Some ()
-  | Atomic (_, _, _), Atomic (_, _, _) -> failwith "Atomic"
-  | Predicate (_, _), Predicate (_, _) -> failwith "Predicate"
-  | Subsumption (_, _), Subsumption (_, _) -> failwith "Subsumption"
+  | Atomic (o1, t1, t2), Atomic (o2, t3, t4) when o1 = o2 ->
+    let* _ = unify_var st (Term t1, e1) (Term t3, e2) in
+    let* _ = unify_var st (Term t2, e1) (Term t4, e2) in
+    Some ()
+  | Predicate (f1, a1), Predicate (f2, a2) when f1 = f2 ->
+    let* _ =
+      sequence2 (fun (v1, v2) -> unify_var st (Term v1, e1) (Term v2, e2)) a1 a2
+    in
+    Some ()
+  | Subsumption (t1, t2), Subsumption (t3, t4) ->
+    let* _ = unify_var st (Term t1, e1) (Term t3, e2) in
+    let* _ = unify_var st (Term t2, e1) (Term t4, e2) in
+    Some ()
   | _, _ -> None
 
 and unify_heap : UF.store -> kappa unif -> kappa unif -> unit option =
  fun st (p1, e1) (p2, e2) ->
   match (p1, p2) with
   | EmptyHeap, EmptyHeap -> Some ()
-  | PointsTo (_, _), PointsTo (_, _) -> failwith "points"
-  | SepConj (_, _), SepConj (_, _) -> failwith "sepconj"
+  | PointsTo (x1, v1), PointsTo (x2, v2) when x1 = x2 ->
+    let* _ = unify_var st (Term v1, e1) (Term v2, e2) in
+    Some ()
+  | SepConj (h1, h2), SepConj (h3, h4) ->
+    let* _ = unify_var st (Heap h1, e1) (Heap h3, e2) in
+    let* _ = unify_var st (Heap h2, e1) (Heap h4, e2) in
+    Some ()
   | _, _ -> None
 
 and unify_term : UF.store -> term unif -> term unif -> unit option =
  fun st (t1, e1) (t2, e2) ->
   match (t1, t2) with
-  | Const _, Const _ -> failwith "Const"
-  | Var _, Var _ -> failwith "Var"
+  | Const c1, Const c2 when c1 = c2 -> Some ()
+  | Var x1, Var x2 when x1 = x2 -> Some ()
   | Rel (_, _, _), Rel (_, _, _) -> failwith "Rel"
-  | BinOp (_, _, _), BinOp (_, _, _) -> failwith "BinOp"
-  | TNot _, TNot _ -> failwith "TNot"
-  | TApp (_, _), TApp (_, _) -> failwith "TApp"
+  | BinOp (o1, t1, t2), BinOp (o2, t3, t4) when o1 = o2 ->
+    let* _ = unify_var st (Term t1, e1) (Term t3, e2) in
+    let* _ = unify_var st (Term t2, e1) (Term t4, e2) in
+    Some ()
+  | TNot t1, TNot t2 ->
+    let* _ = unify_var st (Term t1, e1) (Term t2, e2) in
+    Some ()
+  | TApp (f1, a1), TApp (f2, a2) when f1 = f2 ->
+    let* _ =
+      sequence2 (fun (v1, v2) -> unify_var st (Term v1, e1) (Term v2, e2)) a1 a2
+    in
+    Some ()
   | TLambda (_, _, _, _), TLambda (_, _, _, _) -> failwith "TLambda"
   | TList _, TList _ -> failwith "TList"
   | TTuple _, TTuple _ -> failwith "TTuple"
@@ -241,6 +275,7 @@ and unify_staged :
     UF.store -> staged_spec unif -> staged_spec unif -> unit option =
  fun st (t1, e1) (t2, e2) ->
   match (t1, t2) with
+  | Require (p1, h1), Require (p2, h2)
   | NormalReturn (p1, h1), NormalReturn (p2, h2) ->
     let* _ = unify_var st (Pure p1, e1) (Pure p2, e2) in
     let* _ = unify_var st (Heap h1, e1) (Heap h2, e2) in
@@ -249,15 +284,29 @@ and unify_staged :
     let* _ = unify_var st (Staged f1, e1) (Staged f3, e2) in
     let* _ = unify_var st (Staged f2, e1) (Staged f4, e2) in
     Some ()
-  | Exists (_, _), Exists (_, _) -> failwith "unimplemented Exists"
-  | Require (_, _), Require (_, _) -> failwith "unimplemented Require"
-  | HigherOrder (_, _), HigherOrder (_, _) ->
-    failwith "unimplemented HigherOrder"
-  | Shift (_, _, _), Shift (_, _, _) -> failwith "unimplemented Shift"
-  | Reset _, Reset _ -> failwith "unimplemented Reset"
-  | Bind (_, _, _), Bind (_, _, _) -> failwith "unimplemented Bind"
-  | Disjunction (_, _), Disjunction (_, _) ->
-    failwith "unimplemented Disjunction"
+  | Exists (x1, b1), Exists (x2, b2) when x1 = x2 ->
+    (* TODO binders probably need to be handled as variables too... *)
+    let* _ = unify_var st (Staged b1, e1) (Staged b2, e2) in
+    Some ()
+  | HigherOrder (f1, a1), HigherOrder (f2, a2) when f1 = f2 ->
+    let* _ =
+      sequence2 (fun (v1, v2) -> unify_var st (Term v1, e1) (Term v2, e2)) a1 a2
+    in
+    Some ()
+  | Shift (z1, k1, f1), Shift (z2, k2, f2) when z1 = z2 && k1 = k2 ->
+    let* _ = unify_var st (Staged f1, e1) (Staged f2, e2) in
+    Some ()
+  | Reset b1, Reset b2 ->
+    let* _ = unify_var st (Staged b1, e1) (Staged b2, e2) in
+    Some ()
+  | Bind (x1, f1, f2), Bind (x2, f3, f4) when x1 = x2 ->
+    let* _ = unify_var st (Staged f1, e1) (Staged f3, e2) in
+    let* _ = unify_var st (Staged f2, e1) (Staged f4, e2) in
+    Some ()
+  | Disjunction (f1, f2), Disjunction (f3, f4) ->
+    let* _ = unify_var st (Staged f1, e1) (Staged f3, e2) in
+    let* _ = unify_var st (Staged f2, e1) (Staged f4, e2) in
+    Some ()
   | RaisingEff _, RaisingEff _ -> failwith "unimplemented RaisingEff"
   | TryCatch _, TryCatch _ -> failwith "unimplemented TryCatch"
   | _, _ -> None
