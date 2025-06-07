@@ -123,7 +123,8 @@ pi:
   // | pure_formula IMPLICATION pure_formula { Imply ($1, $3) }
   | TILDE p = pi
       { Not p }
-  // | v = IDENT args=delimited(LPAREN, separated_nonempty_list(COMMA, pure_formula_term), RPAREN) { Predicate (v, args) }
+//   | v = IDENT args=delimited(LPAREN, separated_nonempty_list(COMMA, pure_formula_term), RPAREN) { Predicate (v, args) }
+  | t=delimited(LPAREN, pi, RPAREN) { t }
 ;
 kappa:
   | EMP

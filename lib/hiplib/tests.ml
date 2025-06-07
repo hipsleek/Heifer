@@ -32,7 +32,7 @@ module Rewrite = struct
 end
 open Rewrite
 
-let%expect_test "rewriting using DSL" =
+let%expect_test "rewriting" =
   let open Hipprover.Rewriting in
   let spec = Ocamlfrontend.Annotation.parse_staged_spec in
   let test rule target =
@@ -72,7 +72,24 @@ let%expect_test "rewriting using DSL" =
    rewrite ens x->1; ens emp
    with 1 ==> 2
    result: ens x->2; ens emp
-   |}];
+   |}]
+
+let%expect_test "autorewrite" =
+  let open Hipprover.Rewriting in
+  let spec = Ocamlfrontend.Annotation.parse_staged_spec in
+  let test db target =
+    let b1 = autorewrite db target in
+    Format.printf "start: %s@." (string_of_uterm target);
+    Format.printf "result: %s@." (string_of_uterm b1)
+  in
+
+  let db = Pure.["true /\\ true" ==> "true"] in
+  test db (Staged (spec "ens x=true/\\true/\\true/\\true"));
+ [%expect
+  {|
+   start: ens x=true/\T/\T/\T
+   result: ens x=true/\T
+   |}]
 
 (*
 let%expect_test "instantiation/renaming of existentials" =

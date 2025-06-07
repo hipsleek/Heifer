@@ -59,7 +59,11 @@ end = struct
 end
 
 (* unification variables are encoded in the AST with string names *)
-let is_uvar_name f = String.starts_with ~prefix:"$" f
+
+(* a string that we can lex, but not something likely to appear in programs or generated code *)
+let var_prefix = "__"
+let is_uvar_name f = String.starts_with ~prefix:var_prefix f
+let uvar_spec n = HigherOrder (var_prefix ^ n, [])
 
 let get_uvar = function
   | Staged (HigherOrder (f, _)) when is_uvar_name f -> Some f
@@ -378,8 +382,6 @@ let rewrite_all rule target =
   | Heap h -> Heap (visitor#visit_kappa () h)
   | Term t -> Term (visitor#visit_term () t)
 
-let uvar_spec n = HigherOrder ("$" ^ n, [])
-
 let%expect_test "unification and substitution" =
   let test a b =
     let st = UF.new_store () in
@@ -446,12 +448,23 @@ let%expect_test "rewriting" =
   [%expect
     {|
     rewrite ens not(T); ens T/\F; ens emp
-    with $n(); ens emp ==> $n(); $n(); ens F
+    with __n(); ens emp ==> __n(); __n(); ens F
     result: ens not(T); ens T/\F; ens T/\F; ens F
     |}]
+(* see tests.ml for more *)
 
 type database = rule list
 
+let rec rewrite_until_no_change rule target =
+  let target1 = rewrite_all rule target in
+  (* TODO does the map visitor allow us to exploit ==? *)
+  if target1 = target then target else rewrite_until_no_change rule target1
+
 (** Rewrites until no more rules in the database apply *)
-let autorewrite : database -> uterm -> uterm =
- fun _db _target -> failwith "todo"
+let rec autorewrite : database -> uterm -> uterm =
+ fun db target ->
+  let target1 =
+    List.fold_left (fun t c -> rewrite_until_no_change c t) target db
+  in
+  (* TODO does the map visitor allow us to exploit ==? *)
+  if target1 = target then target else autorewrite db target1

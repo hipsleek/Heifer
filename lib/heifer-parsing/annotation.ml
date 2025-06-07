@@ -1,9 +1,26 @@
 
 open Parsing
 
-let parse_staged_spec spec = Parser.parse_staged_spec Lexer.token (Lexing.from_string spec)
+let handle_error parser lexbuf =
+  try parser Lexer.token lexbuf with
+    (* | Lexer.Lexing_error msg ->
+      Printf.eprintf "Lexing error: %s\n" msg;
+      [] *)
+    | Parser.Error ->
+      let pos = Lexing.lexeme_start_p lexbuf in
+      let line = pos.Lexing.pos_lnum in
+      let column = pos.Lexing.pos_cnum - pos.Lexing.pos_bol + 1 in
+      let token = Lexing.lexeme lexbuf in
+      Printf.eprintf
+        "Parse error at line %d, column %d: unexpected token '%s'\n" line column
+        token;
+      failwith "parse error"
 
-let parse_pi spec = Parser.parse_pi Lexer.token (Lexing.from_string spec)
+let parse_staged_spec spec =
+  handle_error Parser.parse_staged_spec (Lexing.from_string spec)
+
+let parse_pi spec =
+  handle_error Parser.parse_pi (Lexing.from_string spec)
 
 let parse_kappa spec = Parser.parse_kappa Lexer.token (Lexing.from_string spec)
 
