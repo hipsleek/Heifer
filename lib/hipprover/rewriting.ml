@@ -382,7 +382,13 @@ let rewrite_all rule target =
   | Heap h -> Heap (visitor#visit_kappa () h)
   | Term t -> Term (visitor#visit_term () t)
 
+module Syntax = struct
+  let seq fs = Utils.Lists.foldr1 (fun c t -> Sequence (c, t)) fs
+  let ens ?(h = EmptyHeap) ?(p = True) () = NormalReturn (p, h)
+end
+
 let%expect_test "unification and substitution" =
+  let open Syntax in
   let test a b =
     let st = UF.new_store () in
     let a1 = to_unifiable st a in
@@ -395,51 +401,32 @@ let%expect_test "unification and substitution" =
       let a = subst_uvars s a1 in
       Format.printf "%s@." (string_of_uterm a)
   in
-  let a = Staged (Sequence (uvar_spec "n", NormalReturn (True, EmptyHeap))) in
-  let b =
-    Staged
-      (Sequence
-         ( NormalReturn (And (True, False), EmptyHeap),
-           NormalReturn (True, EmptyHeap) ))
-  in
+  let a = Staged (seq [uvar_spec "n"; ens ()]) in
+  let b = Staged (seq [ens ~p:(And (True, False)) (); ens ()]) in
   test a b;
   [%expect {| ens T/\F; ens emp |}];
 
-  let a =
-    Staged
-      (Sequence
-         ( uvar_spec "n",
-           Sequence (uvar_spec "n", NormalReturn (True, EmptyHeap)) ))
-  in
+  let a = Staged (seq [uvar_spec "n"; uvar_spec "n"; ens ()]) in
   let b =
     Staged
-      (Sequence
-         ( NormalReturn (And (True, False), EmptyHeap),
-           Sequence
-             ( NormalReturn (And (True, False), EmptyHeap),
-               NormalReturn (True, EmptyHeap) ) ))
+      (seq
+         [ens ~p:(And (True, False)) (); ens ~p:(And (True, False)) (); ens ()])
   in
   test a b;
   [%expect {| ens T/\F; ens T/\F; ens emp |}]
 
 let%expect_test "rewriting" =
+  let open Syntax in
   let rule =
     {
-      lhs = Staged (Sequence (uvar_spec "n", NormalReturn (True, EmptyHeap)));
+      lhs = Staged (seq [uvar_spec "n"; ens ()]);
       rhs =
         Staged
-          (Sequence
-             ( uvar_spec "n",
-               Sequence (uvar_spec "n", NormalReturn (False, EmptyHeap)) ));
+          (Sequence (uvar_spec "n", Sequence (uvar_spec "n", ens ~p:False ())));
     }
   in
   let b =
-    Staged
-      (Sequence
-         ( NormalReturn (Not True, EmptyHeap),
-           Sequence
-             ( NormalReturn (And (True, False), EmptyHeap),
-               NormalReturn (True, EmptyHeap) ) ))
+    Staged (seq [ens ~p:(Not True) (); ens ~p:(And (True, False)) (); ens ()])
   in
   let b1 = rewrite_all rule b in
   Format.printf "rewrite %s@." (string_of_uterm b);
