@@ -390,10 +390,37 @@ let rewrite_all rule target =
 module Syntax = struct
   let seq fs = Utils.Lists.foldr1 (fun c t -> Sequence (c, t)) fs
   let ens ?(h = EmptyHeap) ?(p = True) () = NormalReturn (p, h)
+  let conj fs = Utils.Lists.foldr1 (fun c t -> And (c, t)) fs
+  let eq a b = Atomic (EQ, a, b)
+  let ( = ) a b = eq a b
+  let v a = Var a
+end
+
+module Rules = struct
+  module Staged = struct
+    let uvar = uvar_staged
+    let rule lhs rhs = { lhs = Staged lhs; rhs = Staged rhs }
+  end
+
+  module Pure = struct
+    let uvar = uvar_pure
+    let rule lhs rhs = { lhs = Pure lhs; rhs = Pure rhs }
+  end
+
+  module Heap = struct
+    let uvar = uvar_heap
+    let rule lhs rhs = { lhs = Heap lhs; rhs = Heap rhs }
+  end
+
+  module Term = struct
+    let uvar = uvar_term
+    let rule lhs rhs = { lhs = Term lhs; rhs = Term rhs }
+  end
 end
 
 let%expect_test "unification and substitution" =
   let open Syntax in
+  let open Rules in
   let test a b =
     let st = UF.new_store () in
     let a1 = to_unifiable st a in
@@ -406,12 +433,13 @@ let%expect_test "unification and substitution" =
       let a = subst_uvars s a1 in
       Format.printf "%s@." (string_of_uterm a)
   in
-  let a = Staged (seq [uvar_staged "n"; ens ()]) in
+  let open Staged in
+  let a = Staged (seq [uvar "n"; ens ()]) in
   let b = Staged (seq [ens ~p:(And (True, False)) (); ens ()]) in
   test a b;
   [%expect {| ens T/\F; ens emp |}];
 
-  let a = Staged (seq [uvar_staged "n"; uvar_staged "n"; ens ()]) in
+  let a = Staged (seq [uvar "n"; uvar "n"; ens ()]) in
   let b =
     Staged
       (seq
@@ -422,27 +450,58 @@ let%expect_test "unification and substitution" =
 
 let%expect_test "rewriting" =
   let open Syntax in
-  let rule =
-    {
-      lhs = Staged (seq [uvar_staged "n"; ens ()]);
-      rhs =
-        Staged
-          (Sequence
-             (uvar_staged "n", Sequence (uvar_staged "n", ens ~p:False ())));
-    }
+  let open Rules in
+  let test rule b =
+    let b1 = rewrite_all rule b in
+    Format.printf "rewrite %s@." (string_of_uterm b);
+    Format.printf "with %s@." (string_of_rule rule);
+    Format.printf "result: %s@." (string_of_uterm b1)
   in
-  let b =
-    Staged (seq [ens ~p:(Not True) (); ens ~p:(And (True, False)) (); ens ()])
-  in
-  let b1 = rewrite_all rule b in
-  Format.printf "rewrite %s@." (string_of_uterm b);
-  Format.printf "with %s@." (string_of_rule rule);
-  Format.printf "result: %s@." (string_of_uterm b1);
+  test
+    Staged.(
+      rule (seq [uvar "n"; ens ()]) (seq [uvar "n"; uvar "n"; ens ~p:False ()]))
+    (Staged (seq [ens ~p:(Not True) (); ens ~p:(And (True, False)) (); ens ()]));
   [%expect
     {|
     rewrite ens not(T); ens T/\F; ens emp
     with __n(); ens emp ==> __n(); __n(); ens F
     result: ens not(T); ens T/\F; ens T/\F; ens F
+    |}];
+
+  test (Staged.rule (ens ()) (ens ~p:False ())) (Staged (seq [ens (); ens ()]));
+  [%expect
+    {|
+    rewrite ens emp; ens emp
+    with ens emp ==> ens F
+    result: ens F; ens F
+    |}];
+
+  test (Pure.rule True False) (Staged (seq [ens (); ens ()]));
+  [%expect
+    {|
+    rewrite ens emp; ens emp
+    with T ==> F
+    result: ens F; ens F
+    |}];
+
+  test
+    (Heap.rule (PointsTo ("x", Const (Num 1))) (PointsTo ("x", Const (Num 2))))
+    (Staged (seq [ens ~h:(PointsTo ("x", Const (Num 1))) (); ens ()]));
+  [%expect
+    {|
+    rewrite ens x->1; ens emp
+    with x->1 ==> x->2
+    result: ens x->2; ens emp
+    |}];
+
+  test
+    (Term.rule (Const (Num 1)) (Const (Num 2)))
+    (Staged (seq [ens ~h:(PointsTo ("x", Const (Num 1))) (); ens ()]));
+  [%expect
+    {|
+    rewrite ens x->1; ens emp
+    with 1 ==> 2
+    result: ens x->2; ens emp
     |}]
 (* see tests.ml for more *)
 
@@ -461,3 +520,24 @@ let rec autorewrite : database -> uterm -> uterm =
   in
   (* TODO does the map visitor allow us to exploit ==? *)
   if target1 = target then target else autorewrite db target1
+
+let%expect_test "autorewrite" =
+  let test db target =
+    let b1 = autorewrite db target in
+    Format.printf "start: %s@." (string_of_uterm target);
+    Format.printf "result: %s@." (string_of_uterm b1)
+  in
+  let open Syntax in
+  let open Rules in
+  let db =
+    Pure.
+      [
+        rule (And (uvar "a", True)) (uvar "a");
+        rule (And (True, uvar "a")) (uvar "a");
+      ]
+  in
+  test db (Staged (ens ~p:(conj [v "x" = Const TTrue; True; True; True]) ()));
+  [%expect {|
+    start: ens x=true/\T/\T/\T
+    result: ens x=true
+    |}]
