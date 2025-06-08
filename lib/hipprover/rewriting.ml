@@ -63,11 +63,16 @@ end
 (* a string that we can lex, but not something likely to appear in programs or generated code *)
 let var_prefix = "__"
 let is_uvar_name f = String.starts_with ~prefix:var_prefix f
-let uvar_spec n = HigherOrder (var_prefix ^ n, [])
+let uvar_staged n = HigherOrder (var_prefix ^ n, [])
+let uvar_heap n = PointsTo (var_prefix ^ n, Const ValUnit)
+let uvar_pure n = Predicate (var_prefix ^ n, [])
+let uvar_term n = Var (var_prefix ^ n)
 
 let get_uvar = function
   | Staged (HigherOrder (f, _)) when is_uvar_name f -> Some f
   | Pure (Predicate (f, _)) when is_uvar_name f -> Some f
+  | Heap (PointsTo (f, _)) when is_uvar_name f -> Some f
+  | Term (Var f) when is_uvar_name f -> Some f
   | _ -> None
 
 (* to avoid having a constructor for UF.t in the AST, use a layer of indirection *)
@@ -401,12 +406,12 @@ let%expect_test "unification and substitution" =
       let a = subst_uvars s a1 in
       Format.printf "%s@." (string_of_uterm a)
   in
-  let a = Staged (seq [uvar_spec "n"; ens ()]) in
+  let a = Staged (seq [uvar_staged "n"; ens ()]) in
   let b = Staged (seq [ens ~p:(And (True, False)) (); ens ()]) in
   test a b;
   [%expect {| ens T/\F; ens emp |}];
 
-  let a = Staged (seq [uvar_spec "n"; uvar_spec "n"; ens ()]) in
+  let a = Staged (seq [uvar_staged "n"; uvar_staged "n"; ens ()]) in
   let b =
     Staged
       (seq
@@ -419,10 +424,11 @@ let%expect_test "rewriting" =
   let open Syntax in
   let rule =
     {
-      lhs = Staged (seq [uvar_spec "n"; ens ()]);
+      lhs = Staged (seq [uvar_staged "n"; ens ()]);
       rhs =
         Staged
-          (Sequence (uvar_spec "n", Sequence (uvar_spec "n", ens ~p:False ())));
+          (Sequence
+             (uvar_staged "n", Sequence (uvar_staged "n", ens ~p:False ())));
     }
   in
   let b =

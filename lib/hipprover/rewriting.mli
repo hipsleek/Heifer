@@ -39,7 +39,10 @@ val is_uvar_name : string -> bool
 val get_uvar : uterm -> string option
 
 (** Inject unification variables *)
-val uvar_spec : string -> staged_spec
+val uvar_staged : string -> staged_spec
+val uvar_heap : string -> kappa
+val uvar_pure : string -> pi
+val uvar_term : string -> term
 
 (** {1 Unification} *)
 
@@ -57,7 +60,7 @@ val subst_uvars : UF.store -> unifiable -> uterm
 
 (** {1 Rewriting} *)
 
-(** A rewrite rule. May contain unification variables (e.g. using [uvar_spec]). *)
+(** A rewrite rule. May contain unification variables (e.g. using [uvar_staged]). *)
 type rule = { lhs : uterm; rhs : uterm; }
 
 val string_of_rule : rule -> string
