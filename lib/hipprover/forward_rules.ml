@@ -366,8 +366,28 @@ let rec infer_of_expression (env: 'a) (expr : core_lang): staged_spec * 'a =
       Bind (v, discriminant_spec, disj_spec), env
   | CResume _ ->
       failwith "CResume"
-  | CLambda _ ->
-      failwith "CLambda"
+  | CLambda (params, given_spec, body) ->
+      let inferred_spec, env = infer_of_expression env body in
+      let lambda_id = fresh_variable "lambda" in
+      let spec_to_use = match given_spec with
+        | None -> Some inferred_spec
+        | Some _ -> given_spec
+      in
+      let lambda_term = TLambda (lambda_id, params, spec_to_use, Some body) in
+      let env = match given_spec with
+        (* TODO: refactor into a function *)
+        | None -> env
+        | Some given_spec ->
+            let obl : lambda_obligation = {
+              lo_name = "lambda"; (* TODO: better name *)
+              lo_preds = env.fv_predicates;
+              lo_left = inferred_spec;
+              lo_right = given_spec;
+            }
+            in
+            {env with fv_lambda_obl = obl :: env.fv_lambda_obl}
+      in
+      NormalReturn (Atomic (EQ, res_var, lambda_term), EmptyHeap), env
   | CShift (nz, k, expr_body) ->
       let spec_body, env = infer_of_expression env expr_body in
       Shift (nz, k, spec_body), env
