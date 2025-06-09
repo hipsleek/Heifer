@@ -32,40 +32,35 @@ let string_of_pctx ctx =
 
 let create_pctx () = { assumptions = [] }
 
+(* proof state *)
 type pstate = pctx * staged_spec * staged_spec
 
-let check_heap_obligation left right =
+let check_pure_obligation left right =
+  let open Infer_types in
   let tenv =
     (* handle the environment manually as it's shared between both sides *)
     let env = create_abs_env () in
-    (* let env = infer_types_pi env (Untypehip.untype_pi left) in *)
-    (* let env = infer_types_pi env (Untypehip.untype_pi right) in *)
+    let env = infer_types_pi env left in
+    let env = infer_types_pi env right in
     env
   in
-  (* let env = Infer_types.concrete_type_env tenv in *)
-  let res =
-    true
-    (* Provers.entails_exists (concrete_type_env tenv) (Untypehip.untype_pi left)
-      (List.map ident_of_binder vs1)
-      right *)
-  in
+  let res = Provers.entails_exists (concrete_type_env tenv) left [] right in
   res
 
 let apply_ent_rule (pctx, f1, f2) k =
   match (f1, f2) with
   | NormalReturn (p1, h1), NormalReturn (p2, h2) ->
     (* let pre_res = *)
-    (* check_pure_obligation p1 *)
-    Format.printf "%s => %s@."
+    Format.printf "OBLIGATION %s => %s@."
       (string_of_state (p1, h1))
-      (string_of_state (p1, h1));
+      (string_of_state (p2, h2));
     (* in *)
-    (* let res = Provers.entails_exists in *)
-    (* let pctx =
+    if check_pure_obligation p1 p2 then
+      (* let pctx =
       { pctx with obligations = ((p1, h1), (p2, h2)) :: pctx.obligations }
     in *)
-    let t = NormalReturn (True, EmptyHeap) in
-    k (pctx, t, t)
+      let t = NormalReturn (True, EmptyHeap) in
+      k (pctx, t, t)
   | Sequence (NormalReturn (p1, EmptyHeap), f1), f2 ->
     let pctx = { pctx with assumptions = p1 :: pctx.assumptions } in
     k (pctx, f1, f2)
