@@ -20,6 +20,8 @@ type pctx = {
   (* applied : string list; *)
   (* subsumption proof obligations *)
   (* subsumption_obl : (binder list * (disj_spec * disj_spec)) list; *)
+  definitions_nonrec : Rewriting.database;
+  definitions_rec : Rewriting.database;
   assumptions : pi list; (* obligations : (state * state) list; *)
 }
 
@@ -31,7 +33,30 @@ let string_of_pctx ctx =
     (string_of_list string_of_pi ctx.assumptions)
 (* (string_of_list string_of_obligation ctx.obligations) *)
 
-let create_pctx () = { assumptions = [] }
+let new_pctx () =
+  { assumptions = []; definitions_nonrec = []; definitions_rec = [] }
+
+let create_pctx cp =
+  let pred_to_rule =
+   fun pred ->
+    let params =
+      Utils.Lists.init pred.p_params |> List.map Rewriting.Rules.Term.uvar
+    in
+    let lhs = HigherOrder (pred.p_name, params) in
+    let rhs = pred.p_body in
+    Rewriting.Rules.Staged.rule lhs rhs
+  in
+  let definitions_nonrec =
+    SMap.values cp.cp_predicates
+    |> List.filter (fun p -> not p.p_rec)
+    |> List.map pred_to_rule
+  in
+  let definitions_rec =
+    SMap.values cp.cp_predicates
+    |> List.filter (fun p -> p.p_rec)
+    |> List.map pred_to_rule
+  in
+  { assumptions = []; definitions_nonrec; definitions_rec }
 
 (* proof state *)
 type pstate = pctx * staged_spec * staged_spec
@@ -62,15 +87,7 @@ let apply_ent_rule (pctx, f1, f2) k =
   in
   match (f1, f2) with
   | NormalReturn (p1, h1), NormalReturn (p2, h2) ->
-    (* let pre_res = *)
-    (* Format.printf "OBLIGATION %s => %s@."
-      (string_of_state (p1, h1))
-      (string_of_state (p2, h2)); *)
-    (* in *)
     if check_pure_obligation p1 p2 then
-      (* let pctx =
-      { pctx with obligations = ((p1, h1), (p2, h2)) :: pctx.obligations }
-    in *)
       let t = NormalReturn (True, EmptyHeap) in
       k (pctx, t, t)
   | Sequence (NormalReturn (p1, EmptyHeap), f1), f2 ->
@@ -97,18 +114,15 @@ let entailment_search : ?name:string -> pstate -> pstate Iter.t =
   let@ pctx, f1, f2 = apply_ent_rule (pctx, f1, f2) in
   k (pctx, f1, f2)
 
-let check_staged_spec_entailment ?name (inferred_spec : staged_spec)
-    (given_spec : staged_spec) : bool =
+let check_staged_spec_entailment ?name pctx inferred given =
   let@ _ =
     span (fun r ->
         debug ~at:2 ~title:"entailment" "%s ⊑ %s? %s"
-          (string_of_staged_spec inferred_spec)
-          (string_of_staged_spec given_spec)
+          (string_of_staged_spec inferred)
+          (string_of_staged_spec given)
           (string_of_result string_of_bool r))
   in
-  let search =
-    entailment_search ?name (create_pctx (), inferred_spec, given_spec)
-  in
+  let search = entailment_search ?name (pctx, inferred, given) in
   match Iter.head search with
   | None -> false
   | Some (pctx, _f1, _f2) ->

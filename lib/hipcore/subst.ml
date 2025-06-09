@@ -1,6 +1,95 @@
 open Hiptypes
+
+
+let subst_free_vars =
+  let rec findbinding str vb_li =
+    match vb_li with
+    | [] -> Var str
+    | (name, v) :: xs ->
+      if String.compare name str == 0 then v else findbinding str xs
+  in
+  let subst_visitor =
+    object (self)
+      inherit [_] map_spec
+
+      method! visit_Shift bindings nz k body =
+        (* shift binds k *)
+        let bs = List.filter (fun (b, _) -> (b <> k)) bindings in
+        Shift (nz, k, self#visit_staged_spec bs body)
+
+      method! visit_Exists bindings x f =
+        let bs = List.filter (fun (b, _) -> (b <> x)) bindings in
+        Exists (x, self#visit_staged_spec bs f)
+
+      (* not full capture-avoiding, we just stop substituting a name when it is bound *)
+      method! visit_TLambda bindings name params sp body =
+        let bs = List.filter (fun (b, _) -> not (List.mem b params)) bindings in
+        TLambda (name, params, (Option.map (self#visit_staged_spec bs) sp), (self#visit_option self#visit_core_lang bs body))
+
+      method! visit_CLambda bindings params sp body =
+        let bs = List.filter (fun (b, _) -> not (List.mem b params)) bindings in
+        (* Format.printf "bs: %s@." (string_of_list (string_of_pair Fun.id string_of_term) bs); *)
+        CLambda (params, (self#visit_option self#visit_staged_spec bs sp), (self#visit_core_lang bs body))
+
+      method! visit_Var bindings v =
+        let binding = findbinding v bindings in
+        (* Format.printf "replacing %s with %s under %s.@." v (string_of_term binding) (string_of_list (string_of_pair Fun.id string_of_term) bindings); *)
+        binding
+      end
+    in fun bs f-> subst_visitor#visit_staged_spec bs f
+
+    (* method! visit_PointsTo bindings (str, t1) =
+      let binding = findbinding str bindings in
+      let newName = match binding with Var str1 -> str1 | _ -> str in
+      PointsTo (newName, self#visit_term bindings t1) *)
+
+    (* method! visit_HigherOrder bindings (pi, kappa, (str, basic_t_list), ret) =
+      let constr =
+        match List.assoc_opt str bindings with Some (Var s) -> s | _ -> str
+      in
+      HigherOrder
+        ( self#visit_pi bindings pi,
+          self#visit_kappa bindings kappa,
+          (constr, List.map (fun bt -> self#visit_term bindings bt) basic_t_list),
+          self#visit_term bindings ret ) *)
+
+    (* method! visit_effectStage bindings effectStage =
+      match effectStage.e_typ with
+      | `Eff ->
+        {
+          effectStage with
+          e_constr =
+            (let (e, a) = effectStage.e_constr in
+            (e, List.map (self#visit_term bindings) a));
+          e_pre = self#visit_state bindings effectStage.e_pre;
+          e_post = self#visit_state bindings effectStage.e_post;
+          e_ret = self#visit_term bindings effectStage.e_ret
+        }
+      | `Fn ->
+        let f =
+          let f = fst effectStage.e_constr in
+          match List.assoc_opt f bindings with Some (Var s) -> s | _ -> f
+        in
+        { effectStage with
+          e_pre = self#visit_state bindings effectStage.e_pre;
+          e_post = self#visit_state bindings effectStage.e_post;
+          e_constr = (f, List.map (fun bt -> self#visit_term bindings bt) (snd effectStage.e_constr));
+          e_ret = self#visit_term bindings effectStage.e_ret
+        } *)
+
+    (* TODO some other expressions like assign and perform need to be implemented *)
+
+    (* method! visit_CFunCall bindings f args =
+      let f1 = findbinding f bindings in
+      match f1 with
+      | Var s -> CFunCall (s, args)
+      | _ ->
+        let s = verifier_getAfreeVar "x" in
+        CLet (s, CValue f1, CFunCall (s, args)) *)
+
+  (* end *)
+
 (*
-open Pretty
 
 let rec findNewName str vb_li =
   match vb_li with
@@ -37,100 +126,19 @@ let rec instantiateExistientalVar (spec : normalisedStagedSpec)
       :: rest,
       norm' )
 
-  | (TryCatchStage tc) :: xs -> 
+  | (TryCatchStage tc) :: xs ->
     let rest, norm' = instantiateExistientalVar (xs, normalS) bindings in
     ( TryCatchStage { tc with tc_evars = instantiateExistientalVar_aux tc.tc_evars bindings }
       :: rest,
       norm' )
-  
-  | (ResetStage rs) :: xs -> 
+
+  | (ResetStage rs) :: xs ->
     let rest, norm' = instantiateExistientalVar (xs, normalS) bindings in
     ( ResetStage { rs with rs_evars = instantiateExistientalVar_aux rs.rs_evars bindings }
       :: rest,
       norm' )
 
 
-let rec findbinding str vb_li =
-  match vb_li with
-  | [] -> Var str
-  | (name, v) :: xs ->
-    if String.compare name str == 0 then v else findbinding str xs
-
-  let subst_visitor =
-    object (self)
-      inherit [_] map_normalised
-
-      method! visit_Shift bindings nz k body ret =
-        (* shift binds res and k *)
-        let bs = List.filter (fun (b, _) -> not (List.mem b [k; "res"])) bindings in
-        Shift (nz, k, self#visit_disj_spec bs body, self#visit_term bs ret)
-
-      (* not full capture-avoiding, we just stop substituting a name when it is bound *)
-      method! visit_TLambda bindings name params sp body =
-        let bs = List.filter (fun (b, _) -> not (List.mem b params)) bindings in
-        TLambda (name, params, (self#visit_disj_spec bs sp), (self#visit_option self#visit_core_lang bs body))
-
-      method! visit_CLambda bindings params sp body =
-        let bs = List.filter (fun (b, _) -> not (List.mem b params)) bindings in
-        Format.printf "bs: %s@." (string_of_list (string_of_pair Fun.id string_of_term) bs);
-        CLambda (params, (self#visit_option self#visit_disj_spec bs sp), (self#visit_core_lang bs body))
-
-      method! visit_Exists _ v = Exists v
-
-      method! visit_PointsTo bindings (str, t1) =
-        let binding = findbinding str bindings in
-        let newName = match binding with Var str1 -> str1 | _ -> str in
-        PointsTo (newName, self#visit_term bindings t1)
-
-      method! visit_HigherOrder bindings (pi, kappa, (str, basic_t_list), ret) =
-        let constr =
-          match List.assoc_opt str bindings with Some (Var s) -> s | _ -> str
-        in
-        HigherOrder
-          ( self#visit_pi bindings pi,
-            self#visit_kappa bindings kappa,
-            (constr, List.map (fun bt -> self#visit_term bindings bt) basic_t_list),
-            self#visit_term bindings ret )
-
-      method! visit_effectStage bindings effectStage =
-        match effectStage.e_typ with
-        | `Eff ->
-          {
-            effectStage with
-            e_constr =
-              (let (e, a) = effectStage.e_constr in
-              (e, List.map (self#visit_term bindings) a));
-            e_pre = self#visit_state bindings effectStage.e_pre;
-            e_post = self#visit_state bindings effectStage.e_post;
-            e_ret = self#visit_term bindings effectStage.e_ret
-          }
-        | `Fn ->
-          let f =
-            let f = fst effectStage.e_constr in
-            match List.assoc_opt f bindings with Some (Var s) -> s | _ -> f
-          in
-          { effectStage with
-            e_pre = self#visit_state bindings effectStage.e_pre;
-            e_post = self#visit_state bindings effectStage.e_post;
-            e_constr = (f, List.map (fun bt -> self#visit_term bindings bt) (snd effectStage.e_constr));
-            e_ret = self#visit_term bindings effectStage.e_ret
-          }
-
-      (* TODO some other expressions like assign and perform need to be implemented *)
-
-      method! visit_CFunCall bindings f args =
-        let f1 = findbinding f bindings in
-        match f1 with
-        | Var s -> CFunCall (s, args)
-        | _ ->
-          let s = verifier_getAfreeVar "x" in
-          CLet (s, CValue f1, CFunCall (s, args))
-
-      method! visit_Var bindings v =
-        let binding = findbinding v bindings in
-        (* Format.printf "replacing %s with %s under %s.@." v (string_of_term binding) (string_of_list (string_of_pair Fun.id string_of_term) bindings); *)
-        binding
-    end
 
   let subst_visitor_subsumptions_only bindings =
     object

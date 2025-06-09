@@ -23,3 +23,6 @@ let foldl1 f = function
 let rec replace_nth n y = function
   | [] -> []
   | x :: xs -> if n = 0 then y :: xs else x :: replace_nth (n - 1) y xs
+
+let init xs =
+  fst (unsnoc xs)

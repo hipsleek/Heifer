@@ -39,6 +39,7 @@ module SMap = struct
   include Map.Make (String)
 
   let keys m = bindings m |> List.map fst
+  let values m = bindings m |> List.map snd
 
   let key_set m = bindings m |> List.map fst |> SSet.of_list
 

@@ -75,3 +75,27 @@ type database = rule list
 
 (** Rewrites until no more rules in the database apply *)
 val autorewrite : database -> uterm -> uterm
+
+(** Combinators for building rules *)
+module Rules :
+  sig
+    module Staged : sig
+      val uvar : string -> staged_spec
+      val rule : staged_spec -> staged_spec -> rule
+    end
+
+    module Pure : sig
+      val uvar : string -> pi
+      val rule : pi -> pi -> rule
+    end
+
+    module Heap : sig
+      val uvar : string -> kappa
+      val rule : kappa -> kappa -> rule
+    end
+
+    module Term : sig
+      val uvar : string -> term
+      val rule : term -> term -> rule
+    end
+  end
