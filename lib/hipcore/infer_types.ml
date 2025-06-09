@@ -1,4 +1,3 @@
-open Hipcore
 open Hiptypes
 open Typedhip
 open Pretty_typed
@@ -123,13 +122,26 @@ let rec infer_types_core_lang env e : core_lang * abs_typ_env =
     let env = assert_var_has_type x t1.core_type env in
     let t2, env = infer_types_core_lang env e2 in
     {core_desc = CLet (x, t1, t2); core_type = t2.core_type}, env
-  | CIfElse (_, _, _) -> failwith "CIfELse"
-  | CWrite (_, _) -> failwith "CWrite"
-  | CRef _ -> failwith "CRef"
-  | CRead _ -> failwith "CRead"
-  | CAssert (_, _) -> failwith "CAssert"
-  | CPerform (_, _) -> failwith "CPerform"
+  | CIfElse (cond, if_, else_) ->
+      let cond, env = infer_types_pi env cond in
+      let if_, env = infer_types_core_lang env if_ in
+      let else_, env = infer_types_core_lang env else_ in
+      let env = unify_types if_.core_type else_.core_type env in
+      {core_desc = CIfElse (cond, if_, else_); core_type = if_.core_type}, env
+  | CWrite (loc, v) ->
+      let v, env = infer_types_term env v in
+      {core_desc = CWrite (loc, v); core_type = Unit}, env
+  | CRef v ->
+      let v, env = infer_types_term env v in
+      {core_desc = CRef v; core_type = TConstr ("ref", [v.term_type])}, env
+  | CRead loc ->
+      let result_type = fresh_type_var () in
+      (* assert the equality so we can also typecheck the uses *)
+      let env = assert_var_has_type loc result_type env in
+      {core_desc = CRead loc; core_type = result_type}, env
   | CMatch (_, _, _, _, _) -> failwith "CMatch"
+  | CPerform (_, _) -> failwith "CPerform"
+  | CAssert (_, _) -> failwith "CAssert"
   | CResume _ -> failwith "CResume"
   | CShift (_, _, _) | CReset _
   | CLambda (_, _, _) ->
@@ -245,7 +257,7 @@ and infer_types_kappa env k = match k with
 
 (** Given an environment, and a typed term, perform simplifications
     on the types in the term based on the environment. *)
-let simplify_types_pi env pi =
+and simplify_types_pi env pi =
   let go = object (self)
     inherit [_] map_spec
 
@@ -258,8 +270,8 @@ let simplify_types_pi env pi =
   end in
   go#visit_pi env pi
 
-(* Given a typed term, fill in the needed missing type information. *)
-let rec infer_types_pi env pi =
+(* Given a typed pure formula, fill in the needed missing type information. *)
+and infer_types_pi env pi : pi * abs_typ_env =
   (* let@ _ =
        Debug.span (fun r ->
            debug ~at:5 ~title:"infer_types_pi" "%s -| %s" (string_of_pi pi)
@@ -299,11 +311,7 @@ let rec infer_types_pi env pi =
   | Predicate (_, _) -> pi, env
   | Subsumption (_, _) -> pi, env
 
-let infer_types_pi env pi =
-  let pi, env = infer_types_pi env pi in (* referring to the previous declaration *)
-  simplify_types_pi env pi, env
-
-let rec infer_types_staged_spec env spec =
+and infer_types_staged_spec env spec =
   match spec with
   | Require (pi, kappa) ->
     let pi, env = infer_types_pi env pi in
@@ -361,6 +369,12 @@ let rec infer_types_staged_spec env spec =
 and infer_types_spec env spec = infer_types_list infer_types_staged_spec env spec
 
 and infer_types_disj_spec env spec = infer_types_list infer_types_spec env spec
+
+
+let infer_types_pi env pi =
+  (* shadow the previous declaration so we can run one last simplification pass over the types *)
+  let pi, env = infer_types_pi env pi in (* referring to the previous declaration *)
+  simplify_types_pi env pi, env
 
 (** Given an untyped term, fill it with type information. *)
 let infer_untyped_pi ?(env = create_abs_env ()) pi =
