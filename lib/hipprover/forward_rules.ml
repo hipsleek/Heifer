@@ -300,7 +300,6 @@ let findTheActualArg4Acc_x_e_ret (arg:term) (specs:disj_spec): term =
   | _ -> failwith ("findTheTermAssocatiedWith_x_e_ret empty spec")
 
 *)
-open Utils.Misc
 
 let res_var = Var "res"
 let res_eq t = Atomic (EQ, res_var, t)
@@ -340,13 +339,13 @@ let rec infer_of_expression (env: 'a) (expr : core_lang): staged_spec * 'a =
   | CAssert (p, h) ->
       Sequence (Require (p, h), NormalReturn (True, h)), env
   | CPerform _ ->
-      todo ()
+      failwith "CPerform"
   | CMatch _ ->
-      todo ()
+      failwith "CMatch"
   | CResume _ ->
-      todo ()
+      failwith "CResume"
   | CLambda _ ->
-      todo ()
+      failwith "CLambda"
   | CShift (nz, k, expr_body) ->
       let spec_body, env = infer_of_expression env expr_body in
       Shift (nz, k, spec_body), env

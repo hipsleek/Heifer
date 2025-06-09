@@ -123,7 +123,11 @@ let infer_spec (prog : core_program) (meth : meth_def) =
   let@ _ = Globals.Timing.(time forward) in
   infer_of_expression fv_env meth.m_body
 
-let check_method_aux _inferred_spec _given_spec = false
+let check_method_aux inferred_spec given_spec =
+  let open Hipprover.Entail in
+  (* likely that we need some env or extra setup later *)
+  check_staged_spec_entailment inferred_spec given_spec
+
 let check_method inferred_spec = function
   | None -> true
   | Some given_spec -> check_method_aux inferred_spec given_spec
