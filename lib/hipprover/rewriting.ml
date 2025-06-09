@@ -526,6 +526,7 @@ let norm_db =
   let open Rules in
   Pure.
     [
+      rule (eq (Term.uvar "a") (Term.uvar "a")) True;
       rule (And (uvar "a", True)) (uvar "a");
       rule (And (True, uvar "a")) (uvar "a");
     ]
@@ -544,6 +545,12 @@ let%expect_test "autorewrite" =
   let open Syntax in
   test norm_db
     (Staged (ens ~p:(conj [True; v "x" = Const TTrue; True; True]) ()));
+  [%expect {|
+    start: ens T/\x=true/\T/\T
+    result: ens x=true
+    |}];
+
+  test norm_db (Staged (ens ~p:(conj [True; v "x" = v "x"; True; True]) ()));
   [%expect {|
     start: ens T/\x=true/\T/\T
     result: ens x=true
