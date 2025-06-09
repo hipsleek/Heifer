@@ -1,7 +1,7 @@
 
 [@@@warning "-17"]
 (* can also appear in pi *)
-type bin_rel_op = [%import: Hiptypes.bin_rel_op]
+type bin_rel_op = GT | LT | EQ | GTEQ | LTEQ
 and binder = string * typ option
 and bin_term_op = Plus | Minus | SConcat | TAnd | TPower | TTimes | TDiv | TOr | TCons
 and const =
@@ -37,15 +37,15 @@ and core_handler_ops = (string * string option * staged_spec option * core_lang)
 (* effect work; let's group them into a single blob *)
 and constr_cases = (string * binder list * core_lang) list
 and tryCatchLemma = (staged_spec * staged_spec option * (*(handlingcases) **) staged_spec) (*tcl_head, tcl_handledCont, tcl_summary*)
-and handler_type = [%import : Hiptypes.handler_type]
+and handler_type = Shallow | Deep
 
 and core_value = term
-and core_lang_desc = 
-  | CValue of core_value 
+and core_lang_desc =
+  | CValue of core_value
   | CLet of binder * core_lang * core_lang
   | CIfElse of (*core_value*) pi * core_lang * core_lang
   | CFunCall of string * (core_value) list
-  | CWrite of string * core_value  
+  | CWrite of string * core_value
   | CRef of core_value
   | CRead of string
   | CAssert of pi * kappa
@@ -71,11 +71,11 @@ and pi =
   | And    of pi * pi
   | Or     of pi * pi
   | Imply  of pi * pi
-  | Not    of pi 
-  | Predicate of string * term list 
+  | Not    of pi
+  | Predicate of string * term list
   | Subsumption of term * term
 
-and kappa = 
+and kappa =
   | EmptyHeap
   (* x -> -   means x is allocated, and - is encoded as Var "_" *)
   (* TODO should PointsTo use binders instead of strings...? *)
@@ -92,7 +92,7 @@ and handlingcases = (string * staged_spec) * ((string * string option * staged_s
 and trycatch = (staged_spec * handlingcases)
 (* effect end *)
 
-and staged_spec = 
+and staged_spec =
   | Exists of string * staged_spec
   | Require of pi * kappa
   (* ens H /\ P, where P may contain contraints on res *)
@@ -114,7 +114,17 @@ and staged_spec =
 (* and spec = stagedSpec list *)
 (* and disj_spec = spec list *)
 
-and typ = [%import : Hiptypes.typ]
+and typ =
+  | Unit
+  | List_int
+  | TConstr of string * typ list
+  | Int
+  | Bool
+  | TyString
+  | Lamb
+  (* TODO do we need a Poly variant for generics? *)
+  | Arrow of typ * typ
+  | TVar of string (* this is last, so > concrete types *)
 
 [@@deriving
   visitors { variety = "map"; name = "map_spec" },
@@ -387,7 +397,7 @@ let binder_of_var (var : term) =
     | Hiptypes.Or (lhs, rhs) -> Or (fill_untyped_pi lhs, fill_untyped_pi rhs)
     | Hiptypes.Imply (lhs, rhs) -> Imply (fill_untyped_pi lhs, fill_untyped_pi rhs)
     | Hiptypes.Not p -> Not (fill_untyped_pi p)
-    | Hiptypes.Predicate (name, args) -> Predicate (name, List.map fill_untyped_term args) 
+    | Hiptypes.Predicate (name, args) -> Predicate (name, List.map fill_untyped_term args)
     | Hiptypes.Subsumption (lhs, rhs) -> Subsumption (fill_untyped_term lhs, fill_untyped_term rhs)
   and fill_untyped_kappa (kappa : Hiptypes.kappa) =
     match kappa with
@@ -540,47 +550,68 @@ let binder_of_var (var : term) =
     | Meth (name, params, spec, body, tactics, pure_fn_info) ->
         Meth (name, List.map binder_of_ident params, Option.map fill_untyped_disj_spec spec, fill_untyped_core_lang body,
         tactics, Option.map (fun (typs, ret) -> (List.map from_hiptypes_typ typs, from_hiptypes_typ ret)) pure_fn_info)
-    | Pred pred_def -> Pred (fill_untyped_pred_def pred_def) 
+    | Pred pred_def -> Pred (fill_untyped_pred_def pred_def)
     | SLPred sl_pred_def -> SLPred (fill_untyped_sl_pred_def sl_pred_def)
 
   let fill_untyped_bindings (bindings : (string * Hiptypes.term) list) : (binder * term) list =
     List.map (fun (b, t) -> (binder_of_ident b, fill_untyped_term t)) bindings
 end *)
-(* 
+
 module Untypehip = struct
-  let hiptypes_typ (t : typ) : Hiptypes.typ = t
+  let rec hiptypes_typ (t : typ) : Hiptypes.typ =
+    match t with
+    | Unit -> Unit
+    | List_int -> List_int
+    | TConstr (f, a) -> TConstr (f, List.map hiptypes_typ a)
+    | Int -> Int
+    | Bool -> Bool
+    | TyString -> TyString
+    | Lamb -> Lamb
+    | Arrow (a, b) -> Arrow (hiptypes_typ a, hiptypes_typ b)
+    | TVar x -> TVar x
+
+  let hiptypes_bin_rel_op (t : bin_rel_op) : Hiptypes.bin_rel_op =
+    match t with
+    | GT -> GT
+    | LT -> LT
+    | EQ -> EQ
+    | GTEQ -> GTEQ
+    | LTEQ -> LTEQ
+
+  let hiptypes_handler_type (t : handler_type) : Hiptypes.handler_type =
+    match t with Shallow -> Shallow | Deep -> Deep
 
   let rec untype_term (t : term) : Hiptypes.term =
     match t.term_desc with
-    | Const ValUnit -> UNIT
-    | Const (Num n) -> Num n
-    | Const (TStr s) -> TStr s
-    | Const TTrue -> TTrue
-    | Const TFalse -> TFalse
-    | Const Nil -> Nil
+    | Const ValUnit -> Const ValUnit
+    | Const (Num n) -> Const (Num n)
+    | Const (TStr s) -> Const (TStr s)
+    | Const TTrue -> Const TTrue
+    | Const TFalse -> Const TFalse
+    | Const Nil -> Const Nil
     | Var v -> Var v
-    | BinOp (Plus, lhs, rhs) -> Plus (untype_term lhs, untype_term rhs)
-    | BinOp (Minus, lhs, rhs) -> Minus (untype_term lhs, untype_term rhs)
-    | BinOp (SConcat, lhs, rhs) -> SConcat (untype_term lhs, untype_term rhs)
-    | BinOp (TAnd, lhs, rhs) -> TAnd (untype_term lhs, untype_term rhs)
-    | BinOp (TPower, lhs, rhs) -> TPower (untype_term lhs, untype_term rhs)
-    | BinOp (TTimes, lhs, rhs) -> TTimes (untype_term lhs, untype_term rhs)
-    | BinOp (TDiv, lhs, rhs) -> TDiv (untype_term lhs, untype_term rhs)
-    | BinOp (TOr, lhs, rhs) -> TOr (untype_term lhs, untype_term rhs)
-    | BinOp (TCons, lhs, rhs) -> TCons (untype_term lhs, untype_term rhs)
-    | Rel (op, lhs, rhs) -> Rel (op, untype_term lhs, untype_term rhs)
+    | BinOp (Plus, lhs, rhs) -> BinOp (Plus, untype_term lhs, untype_term rhs)
+    | BinOp (Minus, lhs, rhs) -> BinOp (Minus, untype_term lhs, untype_term rhs)
+    | BinOp (SConcat, lhs, rhs) -> BinOp (SConcat, untype_term lhs, untype_term rhs)
+    | BinOp (TAnd, lhs, rhs) -> BinOp (TAnd, untype_term lhs, untype_term rhs)
+    | BinOp (TPower, lhs, rhs) -> BinOp (TPower, untype_term lhs, untype_term rhs)
+    | BinOp (TTimes, lhs, rhs) -> BinOp (TTimes, untype_term lhs, untype_term rhs)
+    | BinOp (TDiv, lhs, rhs) -> BinOp (TDiv, untype_term lhs, untype_term rhs)
+    | BinOp (TOr, lhs, rhs) -> BinOp (TOr, untype_term lhs, untype_term rhs)
+    | BinOp (TCons, lhs, rhs) -> BinOp (TCons, untype_term lhs, untype_term rhs)
+    | Rel (op, lhs, rhs) -> Rel (hiptypes_bin_rel_op op, untype_term lhs, untype_term rhs)
     | TNot t -> TNot (untype_term t)
     | TApp (f, args) -> TApp (f, List.map untype_term args)
     | TLambda (id, params, spec, body) ->
-        TLambda (id, List.map ident_of_binder params, untype_disj_spec spec,
+        TLambda (id, List.map ident_of_binder params, Option.map untype_staged_spec spec,
                  Option.map untype_core_lang body)
     | TList ts -> TList (List.map untype_term ts)
-    | TTuple ts -> TTupple (List.map untype_term ts)
+    | TTuple ts -> TTuple (List.map untype_term ts)
   and untype_pi (p : pi) : Hiptypes.pi =
     match p with
     | True -> Hiptypes.True
     | False -> Hiptypes.False
-    | Atomic (op, t1, t2) -> Hiptypes.Atomic (op, untype_term t1, untype_term t2)
+    | Atomic (op, t1, t2) -> Hiptypes.Atomic (hiptypes_bin_rel_op op, untype_term t1, untype_term t2)
     | And (p1, p2) -> Hiptypes.And (untype_pi p1, untype_pi p2)
     | Or (p1, p2) -> Hiptypes.Or (untype_pi p1, untype_pi p2)
     | Imply (p1, p2) -> Hiptypes.Imply (untype_pi p1, untype_pi p2)
@@ -595,7 +626,7 @@ module Untypehip = struct
   and untype_core_lang (c : core_lang) : Hiptypes.core_lang =
     match c.core_desc with
     | CValue v -> CValue (untype_term v)
-    | CLet (x, e1, e2) -> CLet (x, untype_core_lang e1, untype_core_lang e2)
+    | CLet (x, e1, e2) -> CLet (ident_of_binder x, untype_core_lang e1, untype_core_lang e2)
     | CIfElse (cond, then_e, else_e) ->
         CIfELse (untype_pi cond, untype_core_lang then_e, untype_core_lang else_e)
     | CFunCall (fn, args) ->
@@ -612,57 +643,61 @@ module Untypehip = struct
         let value_case' = Option.map (fun (v, e) -> (ident_of_binder v, untype_core_lang e)) value_case in
         let handler_cases' = untype_handler_ops handler_cases in
         let constr_cases' = untype_constr_cases constr_cases in
-        CMatch (ht, trycatch_opt', untype_core_lang scrutinee, value_case', handler_cases', constr_cases')
+        CMatch (hiptypes_handler_type ht, trycatch_opt', untype_core_lang scrutinee, value_case', handler_cases', constr_cases')
     | CResume vs -> CResume (List.map untype_term vs)
     | CLambda (params, spec, body) ->
-        CLambda (List.map ident_of_binder params, Option.map untype_disj_spec spec, untype_core_lang body)
+        CLambda (List.map ident_of_binder params, Option.map untype_staged_spec spec, untype_core_lang body)
     | CShift (is_shift, x, body) ->
         CShift (is_shift, ident_of_binder x, untype_core_lang body)
     | CReset e -> CReset (untype_core_lang e)
   and untype_handler_ops (ops : core_handler_ops) : Hiptypes.core_handler_ops =
-    List.map (fun (label, k_opt, spec, body) -> (label, k_opt, Option.map untype_disj_spec spec, untype_core_lang body)) ops
+    List.map (fun (label, k_opt, spec, body) -> (label, k_opt, Option.map untype_staged_spec spec, untype_core_lang body)) ops
   and untype_constr_cases (cases : constr_cases) : Hiptypes.constr_cases =
     List.map (fun (name, args, body) -> (name, List.map ident_of_binder args, untype_core_lang body)) cases
   and untype_tryCatchLemma (tcl : tryCatchLemma) : Hiptypes.tryCatchLemma =
     let (head, handled_cont, summary) = tcl in
-    (untype_spec head, Option.map untype_disj_spec handled_cont, untype_disj_spec summary)
+    (untype_staged_spec head, Option.map untype_staged_spec handled_cont, untype_staged_spec summary)
   and untype_handlingcases (((placeholder, disj_spec), effs) : handlingcases) : Hiptypes.handlingcases =
-    ((placeholder, untype_disj_spec disj_spec), List.map (fun (name, arg, disj_spec) ->
-      (name, arg, untype_disj_spec disj_spec)) effs)
+    ((placeholder, untype_staged_spec disj_spec), List.map (fun (name, arg, disj_spec) ->
+      (name, arg, untype_staged_spec disj_spec)) effs)
   and untype_trycatch ((spec, cases) : trycatch) : Hiptypes.trycatch =
-    (untype_spec spec, untype_handlingcases cases)
+    (untype_staged_spec spec, untype_handlingcases cases)
   and untype_instant ((eff_name, args) : instant) : Hiptypes.instant =
     (eff_name, List.map untype_term args)
-  and untype_staged_spec (s : stagedSpec) : Hiptypes.stagedSpec =
+  and untype_staged_spec (s : staged_spec) : Hiptypes.staged_spec =
   match s with
-  | Exists xs -> Hiptypes.Exists (List.map ident_of_binder xs)
+  | Exists (xs, f) -> Hiptypes.Exists (xs, untype_staged_spec f)
   | Require (phi, h) ->
       Hiptypes.Require (untype_pi phi, untype_kappa h)
   | NormalReturn (phi, h) ->
       Hiptypes.NormalReturn (untype_pi phi, untype_kappa h)
-  | HigherOrder (phi, h, inst, t) ->
-      Hiptypes.HigherOrder (untype_pi phi, untype_kappa h, untype_instant inst, untype_term t)
-  | Shift (is_shift, x, spec, t) ->
-      Hiptypes.Shift (is_shift, ident_of_binder x, untype_disj_spec spec, untype_term t)
-  | Reset (spec, t) ->
-      Hiptypes.Reset (untype_disj_spec spec, untype_term t)
+  | HigherOrder (f, t) ->
+      Hiptypes.HigherOrder (f, List.map untype_term t)
+  | Shift (is_shift, x, spec) ->
+      Hiptypes.Shift (is_shift, x, untype_staged_spec spec)
+  | Disjunction (f1, f2) ->
+      Hiptypes.Disjunction (untype_staged_spec f1, untype_staged_spec f2)
+  | Sequence (f1, f2) ->
+      Hiptypes.Sequence (untype_staged_spec f1, untype_staged_spec f2)
+  | Bind (x, f1, f2) ->
+      Hiptypes.Bind (x, untype_staged_spec f1, untype_staged_spec f2)
+  | Reset (spec) ->
+      Hiptypes.Reset (untype_staged_spec spec)
   | RaisingEff (phi, h, inst, t) ->
       Hiptypes.RaisingEff (untype_pi phi, untype_kappa h, untype_instant inst, untype_term t)
   | TryCatch (phi, h, tc, t) ->
       Hiptypes.TryCatch (untype_pi phi, untype_kappa h, untype_trycatch tc, untype_term t)
-  and untype_spec spec = List.map untype_staged_spec spec
-  and untype_disj_spec spec = List.map untype_spec spec
 
   let untype_state ((p, k) : state) : Hiptypes.state  =
     (untype_pi p, untype_kappa k)
 
   let untype_single_subsumption_obligation (vars, (l, r)) =
-    (vars, (untype_disj_spec l, untype_disj_spec r))
+    (vars, (untype_staged_spec l, untype_staged_spec r))
 
   let untype_subsumption_obligation ls =
     List.map untype_single_subsumption_obligation ls
 
-  let untype_sl_pred_def (d : sl_pred_def) : Hiptypes.sl_pred_def =
+  (* let untype_sl_pred_def (d : sl_pred_def) : Hiptypes.sl_pred_def =
     let (phi, h) = d.p_sl_body in
     {
       Hiptypes.p_sl_ex = List.map ident_of_binder d.p_sl_ex;
@@ -723,7 +758,7 @@ module Untypehip = struct
 
   let untype_normal_stage ((evars, pre, post) : normalStage) : Hiptypes.normalStage =
     (List.map ident_of_binder evars, untype_state pre, untype_state post)
-    
+
   let untype_shift_stage (s : shiftStage) : Hiptypes.shiftStage =
   {
     s_evars = List.map ident_of_binder s.s_evars;
@@ -734,7 +769,7 @@ module Untypehip = struct
     s_body = untype_disj_spec s.s_body;
     s_ret = untype_term s.s_ret;
   }
-  
+
   let untype_reset_stage (r : resetStage) : Hiptypes.resetStage =
   {
     rs_evars = List.map ident_of_binder r.rs_evars;
@@ -786,7 +821,7 @@ module Untypehip = struct
     pft_logic_name = d.pft_logic_name;
     pft_params = List.map hiptypes_typ d.pft_params;
     pft_ret_type = hiptypes_typ d.pft_ret_type;
-  }
+  } *)
 
   let untype_bindings (bindings : (binder * term) list) : (string * Hiptypes.term) list =
     List.map (fun (b, t) -> (ident_of_binder b, untype_term t)) bindings
@@ -795,4 +830,4 @@ module Untypehip = struct
   (*   ref (TMap.bindings !env) *)
 end
 
-type 'a quantified = binder list * 'a *)
+type 'a quantified = binder list * 'a

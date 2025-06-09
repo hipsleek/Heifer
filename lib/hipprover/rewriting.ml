@@ -1,6 +1,7 @@
 open Hipcore
 open Hiptypes
 open Pretty
+open Debug
 
 let ( let* ) = Option.bind
 let ( let+ ) a f = Option.map f a
@@ -15,7 +16,6 @@ let rec sequence f xs =
 
 let sequence2 f xs ys = List.map2 (fun x y -> (x, y)) xs ys |> sequence f
 
-(* currently there can only be variables at the staged_spec level *)
 type uterm =
   | Staged of staged_spec
   | Pure of pi
@@ -60,8 +60,10 @@ end
 
 (* unification variables are encoded in the AST with string names *)
 
-(* a string that we can lex, but not something likely to appear in programs or generated code *)
+(** a string that we can tokenise, but not something likely to appear in
+    programs or generated code *)
 let var_prefix = "__"
+
 let is_uvar_name f = String.starts_with ~prefix:var_prefix f
 let uvar_staged n = HigherOrder (var_prefix ^ n, [])
 let uvar_heap n = PointsTo (var_prefix ^ n, Const ValUnit)
@@ -80,26 +82,37 @@ type 'a unif = 'a * UF.t SMap.t
 type unifiable = uterm unif
 
 let to_unifiable st f : unifiable =
+  let@ _ =
+    span (fun r ->
+        debug ~at:4 ~title:"to_unifiable" "%s"
+          (string_of_result
+             (fun (ut, e) ->
+               Format.asprintf "%s & %s" (string_of_uterm ut)
+                 (string_of_list Fun.id (SMap.keys e)))
+             r))
+  in
   let visitor =
-    object (_)
+    object (self)
       inherit [_] mapreduce_spec
       method zero = SMap.empty
       method plus = SMap.merge_arbitrary
 
       method! visit_HigherOrder () f v =
+        let v1, e = self#visit_list self#visit_term () v in
         if is_uvar_name f then
-          (HigherOrder (f, v), SMap.singleton f (UF.make st None))
-        else (HigherOrder (f, v), SMap.empty)
+          (HigherOrder (f, v1), SMap.add f (UF.make st None) e)
+        else (HigherOrder (f, v1), e)
 
       method! visit_Predicate () f v =
+        let v1, e = self#visit_list self#visit_term () v in
         if is_uvar_name f then
-          (Predicate (f, v), SMap.singleton f (UF.make st None))
-        else (Predicate (f, v), SMap.empty)
+          (Predicate (f, v1), SMap.add f (UF.make st None) e)
+        else (Predicate (f, v1), e)
 
       method! visit_PointsTo () l v =
-        if is_uvar_name l then
-          (PointsTo (l, v), SMap.singleton l (UF.make st None))
-        else (PointsTo (l, v), SMap.empty)
+        let v1, e = self#visit_term () v in
+        if is_uvar_name l then (PointsTo (l, v1), SMap.add l (UF.make st None) e)
+        else (PointsTo (l, v1), e)
 
       method! visit_Var () x =
         if is_uvar_name x then (Var x, SMap.singleton x (UF.make st None))
@@ -114,11 +127,11 @@ let to_unifiable st f : unifiable =
     let p, e = visitor#visit_pi () p in
     (Pure p, e)
   | Heap h ->
-    let p, e = visitor#visit_kappa () h in
-    (Heap p, e)
+    let h, e = visitor#visit_kappa () h in
+    (Heap h, e)
   | Term t ->
-    let p, e = visitor#visit_term () t in
-    (Term p, e)
+    let t, e = visitor#visit_term () t in
+    (Term t, e)
 
 let of_unifiable (f, _) = f
 
@@ -162,18 +175,17 @@ let subst_uvars st (f, e) : uterm =
     let t = visitor#visit_term () t in
     Term t
 
+let string_of_outcome r = match r with None -> "fail" | Some _ -> "ok"
+
 (* variables at the top level are handled in here. otherwise it delegates to the others *)
 let rec unify_var : UF.store -> unifiable -> unifiable -> unit option =
  fun st (t1, e1) (t2, e2) ->
-  (* let@ _ =
-    Debug.span (fun m r ->
-        m
-          ~title:(if matching then "unify-match" else "unify")
-          "%a ~ %a? %a" pretty_term t1 pretty_term t2 (Fmt.res Fmt.string)
-          (Option.map
-             (fun r1 -> if Option.is_some r1 then "ok" else "failed")
-             r))
-  in *)
+  let@ _ =
+    span (fun r ->
+        debug ~at:4 ~title:"unify_var" "%s ~ %s? %s" (string_of_uterm t1)
+          (string_of_uterm t2)
+          (string_of_result string_of_outcome r))
+  in
   match (get_uvar t1, get_uvar t2) with
   | Some x1, Some x2 ->
     let u1 = SMap.find x1 e1 in
@@ -392,21 +404,25 @@ module Rules = struct
   module Staged = struct
     let uvar = uvar_staged
     let rule lhs rhs = { lhs = Staged lhs; rhs = Staged rhs }
+    let of_uterm = uterm_to_staged
   end
 
   module Pure = struct
     let uvar = uvar_pure
     let rule lhs rhs = { lhs = Pure lhs; rhs = Pure rhs }
+    let of_uterm = uterm_to_pure
   end
 
   module Heap = struct
     let uvar = uvar_heap
     let rule lhs rhs = { lhs = Heap lhs; rhs = Heap rhs }
+    let of_uterm = uterm_to_heap
   end
 
   module Term = struct
     let uvar = uvar_term
     let rule lhs rhs = { lhs = Term lhs; rhs = Term rhs }
+    let of_uterm = uterm_to_term
   end
 end
 
@@ -498,6 +514,8 @@ let%expect_test "rewriting" =
 (* see tests.ml for more *)
 
 type database = rule list
+
+let string_of_database = string_of_list string_of_rule
 
 let rec rewrite_until_no_change rule target =
   let target1 = rewrite_all rule target in

@@ -1,4 +1,4 @@
-(* open Hipcore
+open Hipcore
 open Hiptypes
 open Pretty
 open Debug
@@ -54,7 +54,8 @@ let concrete_type_env abs : typ_env =
     abs.vartypes
 
 let get_primitive_type f =
-  let untype = Typedhip.Untypehip.hiptypes_typ in
+  (* let untype = Typedhip.Untypehip.hiptypes_typ in *)
+  let untype = Fun.id in
   match f with
   | "cons" -> ([Int; List_int], List_int)
   | "head" -> ([List_int], Int)
@@ -114,30 +115,30 @@ and infer_types_term ?hint (env : abs_typ_env) term : typ * abs_typ_env =
           (string_of_result string_of_abs_env (map_presult snd r)))
   in
   match (term, hint) with
-  | UNIT, _ -> (Unit, env)
-  | TTrue, _ | TFalse, _ -> (Bool, env)
-  | TStr _, _ -> (TyString, env)
+  | Const ValUnit, _ -> (Unit, env)
+  | Const TTrue, _ | Const TFalse, _ -> (Bool, env)
+  | Const (TStr _), _ -> (TyString, env)
   | TNot a, _ ->
     let _at, env1 = infer_types_term ~hint:Bool env a in
     (Bool, env1)
-  | TAnd (a, b), _ ->
+  | BinOp (TAnd, a, b), _ ->
     let _at, env = infer_types_term ~hint:Bool env a in
     let _bt, env = infer_types_term ~hint:Bool env b in
     (Bool, env)
-  | TOr (a, b), _ ->
+  | BinOp (TOr, a, b), _ ->
     let _at, env = infer_types_term ~hint:Bool env a in
     let _bt, env = infer_types_term ~hint:Bool env b in
     (Bool, env)
-  | Nil, _ -> (List_int, env)
-  | TCons (a, b), _ ->
+  | Const Nil, _ -> (List_int, env)
+  | BinOp (TCons, a, b), _ ->
     let _at, env1 = infer_types_term ~hint:Int env a in
     let _bt, env2 = infer_types_term ~hint:List_int env1 b in
     (List_int, env2)
-  | Num _, _ -> (Int, env)
+  | Const (Num _), _ -> (Int, env)
   (* possibly add syntactic heuristics for types, such as names *)
   | Var v, Some t -> (t, assert_var_has_type v t env)
   | Var v, None ->
-    let t = TVar (verifier_getAfreeVar v) in
+    let t = TVar (Variables.fresh_variable v) in
     (t, assert_var_has_type v t env)
   | TLambda (_, _, _, Some _), _
   | TLambda (_, _, _, None), _ -> (Lamb, env)
@@ -168,18 +169,18 @@ and infer_types_term ?hint (env : abs_typ_env) term : typ * abs_typ_env =
     let _at, env1 = infer_types_term ~hint:Int env a in
     let _bt, env2 = infer_types_term ~hint:Int env1 b in
     (Bool, env2)
-  | SConcat (a, b), _ ->
+  | BinOp (SConcat, a, b), _ ->
     let _at, env1 = infer_types_term ~hint:TyString env a in
     let _bt, env2 = infer_types_term ~hint:TyString env1 b in
     (TyString, env2)
-  | Plus (a, b), _ | Minus (a, b), _ | TPower (a, b), _ | TTimes (a, b), _ | TDiv (a, b), _ ->
+  | BinOp (Plus, a, b), _ | BinOp (Minus, a, b), _ | BinOp (TPower, a, b), _ | BinOp (TTimes, a, b), _ | BinOp (TDiv, a, b), _ ->
     let _at, env1 = infer_types_term ~hint:Int env a in
     let _bt, env2 = infer_types_term ~hint:Int env1 b in
     (Int, env2)
   | TApp (f, args), _ ->
     let argtypes, ret = get_primitive_type f in
     let env =
-      List.map2 pair args argtypes |>
+      List.map2 (fun x y -> x, y) args argtypes |>
         (* infer from right to left *)
         List.fold_left
           (fun env (a, at) ->
@@ -188,7 +189,7 @@ and infer_types_term ?hint (env : abs_typ_env) term : typ * abs_typ_env =
           env
     in
     (ret, env)
-  | TList _, _ | TTupple _, _ -> failwith "list/tuple unimplemented"
+  | TList _, _ | TTuple _, _ -> failwith "list/tuple unimplemented"
 
 let rec infer_types_pi env pi =
   (* let@ _ =
@@ -218,4 +219,4 @@ let rec infer_types_pi env pi =
     env
   | Not a -> infer_types_pi env a
   | Predicate (_, _) -> env
-  | Subsumption (_, _) -> env *)
+  | Subsumption (_, _) -> env

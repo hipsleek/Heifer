@@ -2,18 +2,150 @@ open Hipcore
 open Hiptypes
 open Pretty
 open Debug
+open Normalize
 
-let check_staged_spec_entailment (inferred_spec : staged_spec)
-    (given_spec : staged_spec) : bool =
+(** proof context *)
+type pctx = {
+  (* hi : string; *)
+  (* lemmas and predicates defined before (and usable by) the current function being verified *)
+  (* lems : lemma SMap.t; *)
+  (* preds : pred_def SMap.t; *)
+  (* additional predicates due to local lambda definitions *)
+  (* lambda_preds : pred_def SMap.t; *)
+  (* all quantified variables in this formula *)
+  (* q_vars : binder list; *)
+  (* predicates which have been unfolded, used as an approximation of progress (in the cyclic proof sense) *)
+  (* unfolded : (string * [ `Left | `Right ]) list; *)
+  (* lemmas applied *)
+  (* applied : string list; *)
+  (* subsumption proof obligations *)
+  (* subsumption_obl : (binder list * (disj_spec * disj_spec)) list; *)
+  definitions_nonrec : Rewriting.database;
+  definitions_rec : Rewriting.database;
+  assumptions : pi list; (* obligations : (state * state) list; *)
+}
+
+let string_of_obligation (l, r) =
+  Format.asprintf "%s ==> %s" (string_of_state l) (string_of_state r)
+
+let string_of_pctx ctx =
+  Format.asprintf "assumptions: %s\ndefinitions_nonrec: %s\ndefinitions_rec: %s"
+    (string_of_list string_of_pi ctx.assumptions)
+    (Rewriting.string_of_database ctx.definitions_nonrec)
+    (Rewriting.string_of_database ctx.definitions_rec)
+(* (string_of_list string_of_obligation ctx.obligations) *)
+
+let new_pctx () =
+  { assumptions = []; definitions_nonrec = []; definitions_rec = [] }
+
+let create_pctx cp =
+  let pred_to_rule pred =
+    let params = pred.p_params |> List.map Rewriting.Rules.Term.uvar in
+    let lhs = HigherOrder (pred.p_name, params) in
+    let rhs =
+      let bs =
+        List.map (fun p -> (p, Rewriting.Rules.Term.uvar p)) pred.p_params
+      in
+      Subst.subst_free_vars bs pred.p_body
+    in
+    Rewriting.Rules.Staged.rule lhs rhs
+  in
+  let definitions_nonrec =
+    SMap.values cp.cp_predicates
+    |> List.filter (fun p -> not p.p_rec)
+    |> List.map pred_to_rule
+  in
+  let definitions_rec =
+    SMap.values cp.cp_predicates
+    |> List.filter (fun p -> p.p_rec)
+    |> List.map pred_to_rule
+  in
+  { assumptions = []; definitions_nonrec; definitions_rec }
+
+(* proof state *)
+type pstate = pctx * staged_spec * staged_spec
+
+let string_of_pstate (ctx, left, right) =
+  Format.asprintf "%s\n%s\n%s\n⊑\n%s@." (string_of_pctx ctx)
+    (String.make 20 '-')
+    (string_of_staged_spec left)
+    (string_of_staged_spec right)
+
+let check_pure_obligation left right =
+  let open Infer_types in
+  let tenv =
+    (* handle the environment manually as it's shared between both sides *)
+    let env = create_abs_env () in
+    let env = infer_types_pi env left in
+    let env = infer_types_pi env right in
+    env
+  in
+  let res = Provers.entails_exists (concrete_type_env tenv) left [] right in
+  res
+
+let apply_ent_rule (pctx, f1, f2) =
+  let@ _ =
+    span (fun _r ->
+        debug ~at:4 ~title:"apply_ent_rule" "%s"
+          (string_of_pstate (pctx, f1, f2)))
+  in
+  match (f1, f2) with
+  | NormalReturn (p1, h1), NormalReturn (p2, h2) ->
+    if check_pure_obligation p1 p2 then
+      let t = NormalReturn (True, EmptyHeap) in
+      (pctx, t, t)
+    else (pctx, f1, f2)
+  | Sequence (NormalReturn (p1, EmptyHeap), f1), f2 ->
+    let pctx = { pctx with assumptions = p1 :: pctx.assumptions } in
+    (pctx, f1, f2)
+  | f1, Sequence (Require (p2, EmptyHeap), f2) ->
+    let pctx = { pctx with assumptions = p2 :: pctx.assumptions } in
+    (pctx, f1, f2)
+  | _, _ -> (pctx, f1, f2)
+
+let unfold_definitions (pctx, f1, f2) =
+  let@ _ =
+    span (fun _r ->
+        debug ~at:4 ~title:"unfold_definitions" "%s"
+          (string_of_pstate (pctx, f1, f2)))
+  in
+  let open Rewriting in
+  let open Rules.Staged in
+  let f1 = autorewrite pctx.definitions_nonrec (Staged f1) |> of_uterm in
+  let f2 = autorewrite pctx.definitions_nonrec (Staged f2) |> of_uterm in
+  (pctx, f1, f2)
+
+let entailment_search : ?name:string -> pstate -> pstate Iter.t =
+ fun ?name (pctx, f1, f2) k ->
+  Search.reset ();
+  let@ _ =
+    span (fun _r ->
+        debug ~at:4
+          ~title:
+            (match name with
+            | None -> "search"
+            | Some n -> Format.asprintf "search: %s" n)
+          "%s"
+          (string_of_pstate (pctx, f1, f2)))
+  in
+  let pctx, f1, f2 = apply_ent_rule (pctx, f1, f2) in
+  let pctx, f1, f2 = unfold_definitions (pctx, f1, f2) in
+  k (pctx, f1, f2)
+
+let check_staged_spec_entailment ?name pctx inferred given =
   let@ _ =
     span (fun r ->
-        debug ~at:2 ~title:"entailment" "%s <= %s? %s"
-          (string_of_staged_spec inferred_spec)
-          (string_of_staged_spec given_spec)
+        debug ~at:2 ~title:"entailment" "%s ⊑ %s? %s"
+          (string_of_staged_spec inferred)
+          (string_of_staged_spec given)
           (string_of_result string_of_bool r))
   in
-  ignore (inferred_spec, given_spec);
-  true
+  let search = entailment_search ?name (pctx, inferred, given) in
+  match Iter.head search with
+  | None -> false
+  | Some (pctx, _f1, _f2) ->
+    debug ~at:2 ~title:"proof" "%s" (string_of_pctx pctx);
+    true
 
 (*
 let unfolding_bound = 1
@@ -844,26 +976,31 @@ let create_induction_hypothesis params ds1 ds2 =
   check_staged_subsumption_stagewise ctx 0 True (es1, ns1) (es2, ns2)
 *)
 
-(* will be used for remembering predicate? Not sure whether it should be put here
-let derive_predicate m_name m_params disj =
-  let norm = List.map normalize_spec disj |> List.map Fill_type.fill_normalized_staged_spec in
+(* will be used for remembering predicate? Not sure whether it should be put here *)
+let derive_predicate m_name m_params f =
+  (* let norm = *)
+  (* normalize_spec f *)
+  (* |> Fill_type.fill_normalized_staged_spec *)
+  (* in *)
   (* change the last norm stage so it uses res and has an equality constraint *)
-  let new_spec =
+  (* let new_spec =
     List.map (fun normed -> normed) norm
     |> List.map Untypehip.untype_normalized_staged_spec
     |> List.map normalisedStagedSpec2Spec
     |> List.map Fill_type.fill_untyped_spec
-  in
-  let res = {
-    p_name = m_name;
-    p_params = m_params @ [binder_of_ident "res"];
-    p_body = new_spec;
-    p_rec = (find_rec m_name)#visit_disj_spec () new_spec
-  } (* ASK Darius *)
+  in *)
+  let new_spec = normalize_spec f in
+  let res =
+    {
+      p_name = m_name;
+      p_params = m_params;
+      p_body = new_spec;
+      p_rec = (find_rec m_name)#visit_staged_spec () new_spec;
+    }
   in
   debug ~at:2
     ~title:(Format.asprintf "derive predicate %s" m_name)
     "%s\n\n%s"
-    (string_of_list string_of_normalisedStagedSpec norm)
+    (string_of_staged_spec new_spec)
     (string_of_pred res);
-  res *)
+  res

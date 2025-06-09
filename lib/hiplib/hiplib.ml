@@ -123,20 +123,20 @@ let infer_spec (prog : core_program) (meth : meth_def) =
   let@ _ = Globals.Timing.(time forward) in
   infer_of_expression fv_env meth.m_body
 
-let check_method_aux inferred_spec given_spec =
-  let open Hipprover.Entail in
-  (* likely that we need some env or extra setup later *)
-  check_staged_spec_entailment inferred_spec given_spec
-
-let check_method inferred_spec = function
+let check_method prog inferred given =
+  match given with
   | None -> true
-  | Some given_spec -> check_method_aux inferred_spec given_spec
+  | Some given_spec ->
+    let open Hipprover.Entail in
+    (* likely that we need some env or extra setup later *)
+    let pctx = create_pctx prog in
+    check_staged_spec_entailment pctx inferred given_spec
 
 let infer_and_check_method (prog : core_program) (meth : meth_def) (given_spec : staged_spec option) =
   let open Hipprover.Normalize in
   let inferred_spec, _ = infer_spec prog meth in
   let normalized_spec = normalize_spec inferred_spec in
-  let result = check_method inferred_spec given_spec in
+  let result = check_method prog inferred_spec given_spec in
   ignore normalized_spec;
   inferred_spec, result
 
@@ -164,10 +164,10 @@ let analyze_method (prog : core_program) (meth : meth_def) : core_program =
         ~title:(Format.asprintf "remembering predicate for %s" meth.m_name)
         "")
       in
-      (* let pred = Entail.derive_predicate meth.m_name meth.m_params inferred_spec in *)
+      let pred = Hipprover.Entail.derive_predicate meth.m_name meth.m_params inferred_spec in
       (* let pred = todo () in *)
-      (* {prog with cp_predicates = SMap.add meth.m_name pred prog.cp_predicates} *)
-      prog
+      {prog with cp_predicates = SMap.add meth.m_name pred prog.cp_predicates}
+      (* prog *)
     end
   in
   (* potentially report the normalized spec as well. Refactor *)

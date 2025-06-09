@@ -263,11 +263,11 @@ and string_of_staged_spec (st:staged_spec) : string =
     Format.asprintf "ex %s. (%s)" vs (string_of_staged_spec spec)
   (* | IndPred {name; args} -> *)
     (* Format.asprintf "%s(%s)" name (String.concat " " (List.map string_of_term args)) *)
-  | TryCatch (pi, h, ( src, ((normP, normSpec), ops)), ret) -> 
-    let string_of_normal_case = normP ^ ": " ^ string_of_staged_spec (normSpec) in 
-    let string_of_eff_case (eName, param, eSpec)=  eName  ^  
-      (match param with | None -> " " | Some p -> "("^ p ^ ") ")^ ": " ^ string_of_staged_spec eSpec   in 
-    let string_of_eff_cases ops =  List.fold_left (fun acc a -> acc ^ ";\n" ^string_of_eff_case a) "" ops in 
+  | TryCatch (pi, h, ( src, ((normP, normSpec), ops)), ret) ->
+    let string_of_normal_case = normP ^ ": " ^ string_of_staged_spec (normSpec) in
+    let string_of_eff_case (eName, param, eSpec)=  eName  ^
+      (match param with | None -> " " | Some p -> "("^ p ^ ") ")^ ": " ^ string_of_staged_spec eSpec   in
+    let string_of_eff_cases ops =  List.fold_left (fun acc a -> acc ^ ";\n" ^string_of_eff_case a) "" ops in
     Format.asprintf "ens %s; \n(TRY \n(%s)\nCATCH \n{%s%s}[%s])\n" (string_of_state (pi, h)) (string_of_staged_spec src) (string_of_normal_case) (string_of_eff_cases ops) (string_of_term ret)
   | Sequence (s1, s2) -> Format.sprintf "%s; %s" (string_of_staged_spec s1) (string_of_staged_spec s2)
   | Bind (v, expr, body) -> Format.sprintf "bind %s=%s. (%s)" v (string_of_staged_spec expr) (string_of_staged_spec body)
@@ -313,43 +313,43 @@ and string_of_pi pi : string =
   | Subsumption (a, b) -> Format.asprintf "%s <: %s" (string_of_term a) (string_of_term b)
 
 
-and  string_of_effect_cases_specs (h_ops:(string * string option * staged_spec) list): string = 
-  match h_ops with 
+and  string_of_effect_cases_specs (h_ops:(string * string option * staged_spec) list): string =
+  match h_ops with
   | [] -> ""
-  | [(effname, param, spec)] -> 
-    (effname  ^  (match param with | None -> " " | Some p -> "("^ p ^ ") ")^ ": " ^ 
+  | [(effname, param, spec)] ->
+    (effname  ^  (match param with | None -> " " | Some p -> "("^ p ^ ") ")^ ": " ^
     string_of_staged_spec spec)
-  | (effname, param, spec) ::xs -> 
-    (effname  ^  (match param with | None -> " " | Some p -> "("^ p ^ ") ")^ ": " ^ 
+  | (effname, param, spec) ::xs ->
+    (effname  ^  (match param with | None -> " " | Some p -> "("^ p ^ ") ")^ ": " ^
     string_of_staged_spec spec ^ "\n"
-    ) ^ string_of_effect_cases_specs xs 
+    ) ^ string_of_effect_cases_specs xs
 
 
-and string_of_normal_case_specs ((param, h_norm):(string * staged_spec)): string = 
-  ((match param with | p -> p ^ "")^ ": " ^ string_of_staged_spec (h_norm)); 
+and string_of_normal_case_specs ((param, h_norm):(string * staged_spec)): string =
+  ((match param with | p -> p ^ "")^ ": " ^ string_of_staged_spec (h_norm));
 
-and string_of_handlingcases ((h_normal, h_ops):handlingcases) : string = 
-    "{\n" ^ 
-    string_of_normal_case_specs h_normal ^ "\n" ^ 
-    string_of_effect_cases_specs h_ops 
+and string_of_handlingcases ((h_normal, h_ops):handlingcases) : string =
+    "{\n" ^
+    string_of_normal_case_specs h_normal ^ "\n" ^
+    string_of_effect_cases_specs h_ops
     ^ "\n}\n"
 
 
 
-and string_of_try_catch_lemma (x:tryCatchLemma) : string = 
-  let (tcl_head, tcl_handledCont, (*(h_normal, h_ops),*) tcl_summary) = x in 
-  "TRY " 
-  ^ 
-  string_of_staged_spec tcl_head 
+and string_of_try_catch_lemma (x:tryCatchLemma) : string =
+  let (tcl_head, tcl_handledCont, (*(h_normal, h_ops),*) tcl_summary) = x in
+  "TRY "
+  ^
+  string_of_staged_spec tcl_head
 
-  ^ (match tcl_handledCont with 
+  ^ (match tcl_handledCont with
   | None -> "" | Some conti -> " # " ^ string_of_staged_spec conti)
 
-  
+
   ^ " CATCH \n" (*^ string_of_handlingcases (h_normal, h_ops ) *)
   ^ "=> " ^ string_of_staged_spec tcl_summary
 
-and string_of_handler_type (h:handler_type) : string = 
+and string_of_handler_type (h:handler_type) : string =
     match h with
     | Deep -> "d"
     | Shallow -> "s"
@@ -400,7 +400,6 @@ and string_of_core_handler_ops hs =
     Format.asprintf "| effect %s k%s -> %s"
       (match v with None -> name | Some v -> Format.asprintf "(%s %s)" name v) spec (string_of_core_lang body)) hs |> String.concat "\n"
 
-(*
 
 let find_rec p_name =
   object(self)
@@ -408,8 +407,8 @@ let find_rec p_name =
     method zero = false
     method plus = (||)
 
-    method! visit_HigherOrder _ ((_p, _h, (f, _a), _r) as fn) =
-      self#plus (f = p_name) (super#visit_HigherOrder () fn)
+    method! visit_HigherOrder _ f a =
+      self#plus (f = p_name) (super#visit_HigherOrder () f a)
 
     method! visit_Atomic () op a b =
       match op with
@@ -418,6 +417,13 @@ let find_rec p_name =
         | _ -> false)
       | _ -> false
   end
+
+let string_of_pred ({ p_name; p_params; p_body; _ } : pred_def) : string =
+  Format.asprintf "%s(%s) == %s" p_name (String.concat "," p_params) (string_of_staged_spec p_body)
+
+(*
+
+
 (**********************************************)
 exception FooAskz3 of string
 
@@ -435,8 +441,6 @@ let rec getAllVarFromTerm (t:term) (acc:string list):string list =
 | _ -> acc
 ;;
 
-let string_of_pred ({ p_name; p_params; p_body; _ } : pred_def) : string =
-  Format.asprintf "%s(%s) == %s" p_name (String.concat "," p_params) (string_of_spec_list p_body)
 
 let string_of_inclusion (lhs:spec list) (rhs:spec list) :string =
   string_of_spec_list lhs ^" |- " ^string_of_spec_list rhs
@@ -484,12 +488,12 @@ let rec string_of_type t =
 let string_of_pure_fn ({ pf_name; pf_params; pf_ret_type; pf_body } : pure_fn_def) : string =
   Format.asprintf "let %s %s : %s = %s" pf_name (String.concat " " (List.map (fun (p, t) -> Format.asprintf "(%s:%s)" p (string_of_type t)) pf_params)) (string_of_type pf_ret_type) (string_of_core_lang pf_body)
 
-(* let string_of_tmap pp s = *)
-(*   Format.asprintf "{%s}" (String.concat ", " (List.map (fun (k, v) -> Format.asprintf "%s -> %s" (string_of_type k) (pp v)) (TMap.bindings s))) *)
-(**)
-(* let string_of_abs_env t = *)
-(*   Format.asprintf "%s, %s" (string_of_smap string_of_type t.vartypes)  *)
-(*   (* "<opaque>" *) *)
+let string_of_tmap pp s =
+  Format.asprintf "{%s}" (String.concat ", " (List.map (fun (k, v) -> Format.asprintf "%s -> %s" (string_of_type k) (pp v)) (TMap.bindings s)))
+
+let string_of_abs_env t =
+  Format.asprintf "%s, %s" (string_of_smap string_of_type t.vartypes)
+  "<opaque>"
 (* (string_of_tmap string_of_type (TMap.map (fun t -> U.get t) !(t.equalities))) *)
 
 let string_of_typ_env t =
@@ -598,7 +602,7 @@ let local_lambda_defs =
     inherit [_] reduce_spec
     method zero = SMap.empty
     method plus = SMap.merge_disjoint
-    
+
     method! visit_TLambda _ _ _ _ _ = SMap.empty
 
     method! visit_Subsumption () a b =

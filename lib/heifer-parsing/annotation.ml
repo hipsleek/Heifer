@@ -36,7 +36,7 @@ let parse_spec_attribute (attr : Parsetree.attribute) : Hipcore.Hiptypes.staged_
         pstr_desc = Pstr_eval ({
           pexp_desc = Pexp_constant {
             pconst_desc = Pconst_string (annotation, _, _); _}; _}, _); _}]; _} ->
-      print_string attr_name;
+      (* print_string attr_name; *)
       (* when String.equal attr_name spec_attribute_name -> *)
       if String.equal attr_name spec_attribute_name
       then Some (parse_staged_spec annotation)
