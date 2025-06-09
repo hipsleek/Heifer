@@ -33,25 +33,33 @@ let string_of_pctx ctx =
 
 let create_pctx () = { assumptions = []; obligations = [] }
 
-let apply_ent_rule pctx f1 f2 k =
+type pstate = pctx * staged_spec * staged_spec
+
+let apply_ent_rule (pctx, f1, f2) k =
   match (f1, f2) with
   | NormalReturn (p1, h1), NormalReturn (p2, h2) ->
     (* let res = Provers.askZ3 in *)
     let pctx =
       { pctx with obligations = ((p1, h1), (p2, h2)) :: pctx.obligations }
     in
-    k pctx
+    let t = NormalReturn (True, EmptyHeap) in
+    k (pctx, t, t)
+  | Sequence (NormalReturn (p1, EmptyHeap), f1), f2 ->
+    let pctx = { pctx with assumptions = p1 :: pctx.assumptions } in
+    k (pctx, f1, f2)
+  | f1, Sequence (Require (p2, EmptyHeap), f2) ->
+    let pctx = { pctx with assumptions = p2 :: pctx.assumptions } in
+    k (pctx, f1, f2)
   | _, _ -> ()
 
-let entailment_search :
-    name:string -> pctx -> staged_spec -> staged_spec -> pctx Iter.t =
- fun ~name pctx f1 f2 k ->
+let entailment_search : name:string -> pstate -> pstate Iter.t =
+ fun ~name (pctx, f1, f2) k ->
   Search.reset ();
   debug ~at:1
     ~title:(Format.asprintf "subsumption: %s" name)
     "%s\n<:\n%s" (string_of_staged_spec f1) (string_of_staged_spec f2);
-  let@ pctx1 = apply_ent_rule pctx f1 f2 in
-  k pctx1
+  let@ pctx, f1, f2 = apply_ent_rule (pctx, f1, f2) in
+  k (pctx, f1, f2)
 
 let check_staged_spec_entailment (inferred_spec : staged_spec)
     (given_spec : staged_spec) : bool =
@@ -63,11 +71,11 @@ let check_staged_spec_entailment (inferred_spec : staged_spec)
           (string_of_result string_of_bool r))
   in
   let search =
-    entailment_search ~name:"hi" (create_pctx ()) inferred_spec given_spec
+    entailment_search ~name:"hi" (create_pctx (), inferred_spec, given_spec)
   in
   match Iter.head search with
   | None -> false
-  | Some pctx ->
+  | Some (pctx, _f1, _f2) ->
     debug ~at:2 ~title:"proof" "%s" (string_of_pctx pctx);
     true
 
