@@ -1,6 +1,12 @@
 open Hipcore
 open Hiptypes
 
+val split_one : kappa -> ((string * term) * kappa) option
+
+val split_find : string -> kappa -> (term * kappa) option
+
+val xpure : kappa -> pi
+
 (** [check id vars h1 h2 k] solves the heap entailment {m H_1 \vdash H_2 * F}.
   It may backtrack given existentially quantified locations on the right.
 
@@ -18,6 +24,9 @@ open Hiptypes
 
   [k] may continue to backtrack (and fail).
 *)
-val check : string -> string list ->
-  state -> state ->
-  (pi * pi * kappa -> 'a Search.t) -> 'a Search.t
+(* val check :
+  string ->
+  string list ->
+  state ->
+  state ->
+  (pi * pi * kappa -> 'a Search.t) -> 'a Search.t *)

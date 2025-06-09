@@ -387,15 +387,7 @@ let rewrite_all rule target =
   | Heap h -> Heap (visitor#visit_kappa () h)
   | Term t -> Term (visitor#visit_term () t)
 
-module Syntax = struct
-  let seq fs = Utils.Lists.foldr1 (fun c t -> Sequence (c, t)) fs
-  let ens ?(h = EmptyHeap) ?(p = True) () = NormalReturn (p, h)
-  let conj fs = Utils.Lists.foldr1 (fun c t -> And (c, t)) fs
-  let eq a b = Atomic (EQ, a, b)
-  let ( = ) a b = eq a b
-  let v a = Var a
-end
-
+(* put this into some other places *)
 module Rules = struct
   module Staged = struct
     let uvar = uvar_staged

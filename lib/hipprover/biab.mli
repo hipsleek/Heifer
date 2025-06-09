@@ -6,4 +6,4 @@ open Hiptypes
   Returns {m A}, {m F}, and extra conditions for {m F}.
   Throws [Norm_failure] if there is no solution.
 *)
-val solve : string list -> state -> state -> pi * kappa * pi * kappa * pi
+(* val solve : string list -> state -> state -> pi * kappa * pi * kappa * pi *)

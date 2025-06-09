@@ -1,17 +1,13 @@
+(*
 open Hipcore
 open Hiptypes
 open Pretty
 open Subst
 open Debug
-open Norm
-
-let rec kappa_of_list li =
-  match li with
-  | [] -> EmptyHeap
-  | (x, v) :: xs -> SepConj (PointsTo (x, v), kappa_of_list xs)
+open Utils.Misc
 
 let pure_abduction left right =
-  let@ _ =
+  (* let@ _ =
     Debug.span (fun r ->
         debug ~at:5
           ~title:"pure_abduction"
@@ -20,7 +16,7 @@ let pure_abduction left right =
           (string_of_result string_of_pi (map_presult (fun (a, _, _) -> a) r))
           (string_of_result string_of_pi (map_presult (fun (_, a, _) -> a) r))
           (string_of_result string_of_pi (map_presult (fun (_, _, a) -> a) r)))
-  in
+  in *)
   (* woefully incomplete *)
   (* https://www.cs.utexas.edu/~isil/fmcad-tutorial.pdf *)
   (*
@@ -30,6 +26,7 @@ let pure_abduction left right =
     ens a=b; req a<:c
     req b<:c; ens true
   *)
+  (*
   let eqs = find_equalities#visit_pi () left in
   let subs = find_subsumptions#visit_pi () right in
   let asmp =
@@ -57,6 +54,8 @@ let pure_abduction left right =
     req 1=2; ens true
   *)
   abduced, left1, right1
+  *)
+  todo ()
 
 (** check if x=y is not invalid (i.e. sat) under the given assumptions *)
 let may_be_equal _assumptions _x _y =
@@ -81,6 +80,7 @@ let may_be_equal _assumptions _x _y =
 (* (x, t1) -* (y, t2), where li is a heap containing y *)
 (* flag true => add to precondition *)
 (* flag false => add to postcondition *)
+(*
 let rec deleteFromHeapListIfHas li (x, t1) existential flag assumptions :
     (string * term) list * pi =
   let@ _ =
@@ -168,7 +168,9 @@ let rec deleteFromHeapListIfHas li (x, t1) existential flag assumptions :
       (string_of_list Fun.id existential)
   in
   res
+*)
 
+(*
 (* h1 * h |- h2, returns h and unificiation
    x -> 3 |- x -> z   -> (emp, true )
    x -> z |- x -> 3   -> (emp, z = 3)
@@ -251,3 +253,5 @@ let%expect_test _ =
 
   one (True, PointsTo ("x", Num 1)) (True, PointsTo ("x", Num 2));
   [%expect {| failed |}];
+*)
+*)

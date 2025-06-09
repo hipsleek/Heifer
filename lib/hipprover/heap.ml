@@ -1,66 +1,62 @@
 
 open Hipcore
 open Hiptypes
-open Pretty
-open Normalize
-open Debug
 
-let normalize : state -> state =
+(* let normalize : state -> state =
   fun (p, h) ->
   let h = simplify_heap h in
-  (simplify_pure p, h)
+  (simplify_pure p, h) *)
 
 (** given a nonempty heap formula, splits it into a points-to expression and another heap formula *)
-let rec split_one : kappa -> ((string * term) * kappa) option =
-  fun h ->
+let rec split_one (h : kappa) : ((string * term) * kappa) option =
   match h with
   | EmptyHeap -> None
-  | PointsTo (x, v) -> Some ((x, v), EmptyHeap)
-  | SepConj (a, b) -> begin
-    match split_one a with
-    | None -> split_one b
-    | Some (c, r) -> Some (c, SepConj (r, b))
-  end
+  | PointsTo (x, t) -> Some ((x, t), EmptyHeap)
+  | SepConj (a, b) ->
+      match split_one a with
+      | None -> split_one b
+      | Some (c, r) -> Some (c, SepConj (r, b))
 
 (** like split_one, but searches for a particular points-to *)
-let rec split_find : string -> kappa -> (term * kappa) option =
-  fun n h ->
+let rec split_find (n : string) (h : kappa) : (term * kappa) option =
   match h with
   | EmptyHeap -> None
-  | PointsTo (x, v) when x = n -> Some (v, EmptyHeap)
-  | PointsTo _ -> None
-  | SepConj (a, b) -> begin
-    match split_find n a with
-    | None ->
-      split_find n b |> Option.map (fun (t, b1) -> (t, SepConj (a, b1)))
-    | Some (t, a1) -> Some (t, SepConj (a1, b))
-  end
+  | PointsTo (x, t) ->
+      if x = n then Some (t, EmptyHeap) else None
+  | SepConj (a, b) ->
+      match split_find n a with
+      | Some (t, r) -> Some (t, SepConj (r, b))
+      | None ->
+          match split_find n b with
+          | None -> None
+          | Some (t, r) -> Some (t, SepConj (a, r))
 
-let pairwise_var_inequality v1 v2 =
-  List.concat_map
-    (fun x ->
-      List.filter_map
-        (fun y ->
-          if String.equal x y then None
-          else Some (Not (Atomic (EQ, Var x, Var y))))
-        v2)
-    v1
-  |> conj
+let pairwise_var_inequality xs ys =
+  let inequalities =
+    List.concat_map
+      (fun x ->
+        List.filter_map
+          (fun y ->
+            if String.equal x y then None
+            else Some (Not (Atomic (EQ, Var x, Var y))))
+          ys)
+      xs
+  in
+  Syntax.conj inequalities
 
-let xpure : kappa -> pi =
-  fun h ->
+let xpure (h : kappa) : pi =
   let rec run h =
     match h with
     | EmptyHeap -> (True, [])
-    | PointsTo (x, _t) -> (Atomic (GT, Var x, Num 0), [x])
+    | PointsTo (x, _) -> (Atomic (GT, Var x, Const (Num 0)), [x])
     | SepConj (a, b) ->
-      let a, v1 = run a in
-      let b, v2 = run b in
-      (And (a, And (b, pairwise_var_inequality v1 v2)), [])
+        let a, xs = run a in
+        let b, ys = run b in
+        (And (a, And (b, pairwise_var_inequality xs ys)), xs @ ys)
   in
-  let p, _vs = run h in
-  p
+  fst (run h)
 
+(*
 let rec check :
   string ->
   string list ->
@@ -73,9 +69,9 @@ let open Search in
 (* TODO ptr equalities? *)
 let a = normalize ante in
 let c = normalize conseq in
-debug ~at:1
+(* debug ~at:1
   ~title:(Format.asprintf "SL entailment (%s)" id)
-  "%s |- %s" (string_of_state ante) (string_of_state conseq);
+  "%s |- %s" (string_of_state ante) (string_of_state conseq); *)
 (* TODO frame and spans *)
 match (a, c) with
 | (p1, h1), (p2, EmptyHeap) ->
@@ -124,11 +120,12 @@ match (a, c) with
   end
   | None -> failwith (Format.asprintf "could not split LHS, bug?")
 end
+*)
 
-let%expect_test _ =
+(* let%expect_test _ =
   let one ?ex h1 h2 =
     let on_ans (a, o, f) =
-      Format.printf "%s |- %s * %s@.assumptions: %s@.obligations: %s@." (string_of_state h1) (string_of_state h2) (string_of_kappa f) (string_of_pi (Normalize.simplify_pure a)) (string_of_pi (Normalize.simplify_pure o)) 
+      Format.printf "%s |- %s * %s@.assumptions: %s@.obligations: %s@." (string_of_state h1) (string_of_state h2) (string_of_kappa f) (string_of_pi (Normalize.simplify_pure a)) (string_of_pi (Normalize.simplify_pure o))
     in
     (* TODO factor out this code which processes all answers *)
     let at_least_one = ref false in
@@ -138,7 +135,7 @@ let%expect_test _ =
       (* continue to backtrack *)
       None) |> ignore;
     if not !at_least_one then
-      Format.printf "%s |/- %s@." (string_of_state h1) (string_of_state h2)    
+      Format.printf "%s |/- %s@." (string_of_state h1) (string_of_state h2)
   in
   one (True, PointsTo ("x", Num 1)) (True, PointsTo ("x", Num 1));
   [%expect {|
@@ -176,4 +173,4 @@ let%expect_test _ =
     x->1*y->1 |- z->1 * x->1
     assumptions: x>0
     obligations: T
-    |}]
+    |}] *)
