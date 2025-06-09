@@ -1,4 +1,3 @@
-(*
 open Hipcore
 open Hiptypes
 open Pretty
@@ -26,8 +25,8 @@ let pure_abduction left right =
     ens a=b; req a<:c
     req b<:c; ens true
   *)
+  let _eqs = find_equalities#visit_pi () left in
   (*
-  let eqs = find_equalities#visit_pi () left in
   let subs = find_subsumptions#visit_pi () right in
   let asmp =
     subs |> List.concat_map (fun (a, f) ->
@@ -205,30 +204,31 @@ let normaliseMagicWand h1 h2 existential flag assumptions : kappa * pi =
   in
   let temp, unification = helper (listOfHeap2, True) listOfHeap1 in
   (simplify_heap (kappa_of_list temp), unification)
+*)
 
+let solve existential (p2, h2) (p3, h3) =
+  ignore (existential, p2, h2, p3, h3);
+  todo ()
+(*
+  let magicWandHeap, unification =
+    normaliseMagicWand h2 h3 existential true (And (p2, p3))
+  in
+  (* not only need to get the magic wand, but also need to delete the common part from h2 *)
+  let h2', unification1 =
+    (* TODO equalities? *)
+    normaliseMagicWand h3 h2 existential false (And (p2, p3))
+    (* (pure_to_equalities p2) *)
+  in
+  let p4, p2, p3 = pure_abduction p2 p3 in
+  debug ~at:5 ~title:"biabduction" "%s * %s |- %s * %s"
+    (string_of_state (unification, magicWandHeap))
+    (string_of_state (p2, h2))
+    (string_of_state (p3, h3))
+    (string_of_state (unification1, h2'));
+  unification, magicWandHeap, unification1, h2', p4
+*)
 
-  let solve existential (p2, h2) (p3, h3) =
-    let magicWandHeap, unification =
-      normaliseMagicWand h2 h3 existential true (And (p2, p3))
-    in
-
-    (* not only need to get the magic wand, but also need to delete the common part from h2 *)
-    let h2', unification1 =
-      (* TODO equalities? *)
-      normaliseMagicWand h3 h2 existential false (And (p2, p3))
-      (* (pure_to_equalities p2) *)
-    in
-
-    let p4, p2, p3 = pure_abduction p2 p3 in
-
-    debug ~at:5 ~title:"biabduction" "%s * %s |- %s * %s"
-      (string_of_state (unification, magicWandHeap))
-      (string_of_state (p2, h2))
-      (string_of_state (p3, h3))
-      (string_of_state (unification1, h2'));
-    
-    unification, magicWandHeap, unification1, h2', p4
-
+(*
 (* see Tests for more e2e tests, which would be nice to port here *)
 let%expect_test _ =
   let one ?uq h1 h2 =
@@ -253,5 +253,4 @@ let%expect_test _ =
 
   one (True, PointsTo ("x", Num 1)) (True, PointsTo ("x", Num 2));
   [%expect {| failed |}];
-*)
 *)

@@ -317,18 +317,20 @@ let rec getExistentialVar (spec : normalisedStagedSpec) : string list =
       method plus = (@)
       method! visit_Subsumption () a b = [(a, b)]
     end
+*)
 
-  let find_equalities =
-    object
-      inherit [_] reduce_normalised
-      method zero = []
-      method plus = (@)
-      method! visit_Atomic () op a b =
-        match op with
-        | EQ -> [(a, b)]
-        | _ -> []
-    end
+let find_equalities =
+  object
+    inherit [_] reduce_spec
+    method zero = []
+    method plus = (@)
+    method! visit_Atomic () op a b =
+      match op with
+      | EQ -> [(a, b)]
+      | _ -> []
+  end
 
+(*
 let remove_equalities eqs =
   object
     inherit [_] map_spec
