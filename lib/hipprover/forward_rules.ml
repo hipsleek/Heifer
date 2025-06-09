@@ -302,13 +302,13 @@ let findTheActualArg4Acc_x_e_ret (arg:term) (specs:disj_spec): term =
 *)
 
 let res_var = Var "res"
-let res_eq t = Atomic (EQ, res_var, t)
-let res_eq_var v = Atomic (EQ, res_var, Var v)
+(* let res_eq t = Atomic (EQ, res_var, t) *)
+(* let res_eq_var v = Atomic (EQ, res_var, Var v) *)
 
 let rec infer_of_expression (env: 'a) (expr : core_lang): staged_spec * 'a =
   match expr with
   | CValue v ->
-      NormalReturn (res_eq v, EmptyHeap), env
+      NormalReturn (Atomic (EQ, res_var, v), EmptyHeap), env
   | CLet (x, expr1, expr2) ->
       let spec1, env = infer_of_expression env expr1 in
       let spec2, env = infer_of_expression env expr2 in
@@ -323,7 +323,7 @@ let rec infer_of_expression (env: 'a) (expr : core_lang): staged_spec * 'a =
       HigherOrder (name, args), env
   | CRef t ->
       let x = fresh_variable () in
-      Exists (x, NormalReturn (res_eq_var x, PointsTo (x, t))), env
+      Exists (x, NormalReturn (Atomic (EQ, res_var, Var x), PointsTo (x, t))), env
   | CWrite (x, t) ->
       let v = fresh_variable () in
       let req = Require (True, PointsTo (x, Var v)) in
@@ -334,14 +334,36 @@ let rec infer_of_expression (env: 'a) (expr : core_lang): staged_spec * 'a =
       let t = Var v in
       let kappa = PointsTo (x, t) in
       let req = Require (True, kappa) in
-      let ens = NormalReturn (res_eq t, kappa) in
+      let ens = NormalReturn (Atomic (EQ, res_var, t), kappa) in
       Exists (v, (Sequence (req, ens))), env
   | CAssert (p, h) ->
       Sequence (Require (p, h), NormalReturn (True, h)), env
   | CPerform _ ->
       failwith "CPerform"
-  | CMatch _ ->
-      failwith "CMatch"
+  | CMatch (_, _, discriminant, _, _, cases) ->
+      let v = fresh_variable () in
+      let t = Var v in
+      let discriminant_spec, env = infer_of_expression env discriminant in
+      let handle_case (constr, vars, body) env =
+        (* TODO: hard-coded for list now *)
+        let body_spec, env = infer_of_expression env body in
+        let case_spec = match constr, vars with
+          | "[]", [] ->
+              let nil_term = Const Nil in
+              let nil_spec = NormalReturn (Atomic (EQ, t, nil_term), EmptyHeap) in
+              Sequence (nil_spec, body_spec)
+          | "::", [v1; v2] ->
+              let cons_term = BinOp (TCons, Var v1, Var v2) in
+              let cons_spec = NormalReturn (Atomic (EQ, t, cons_term), EmptyHeap) in
+              Exists (v1, Exists (v2, Sequence (cons_spec, body_spec)))
+          | _ ->
+              failwith (Format.asprintf "unknown constructor: %s" constr)
+        in
+        case_spec, env
+      in
+      let cases_spec, env = map_state env handle_case cases in
+      let disj_spec = Utils.Lists.foldr1 (fun l r -> Disjunction (l, r)) cases_spec in
+      Bind (v, discriminant_spec, disj_spec), env
   | CResume _ ->
       failwith "CResume"
   | CLambda _ ->
