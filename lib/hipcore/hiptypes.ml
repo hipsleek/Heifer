@@ -122,18 +122,22 @@ type typ =
 [@@deriving show { with_path = false }, ord]
 
 [@@@warning "+17"]
-(*
+
 let min_typ a b = if compare_typ a b <= 0 then a else b
 
 let is_concrete_type = function TVar _ -> false | _ -> true
 
 let concrete_types = [Unit; List_int; Int; Bool; Lamb]
 
+(*
+
 let z3_consumption = ref 0.0
 let summary_forward = ref 0.0
 let summary_entail = ref 0.0
 let summary_storing_spec = ref 0.0
 let summary_askZ3 = ref 0.0
+
+*)
 
 module U = struct
   include UnionFind
@@ -196,6 +200,8 @@ let create_abs_env () =
 
 (* concrete type environment, where every variable has a concrete type *)
 type typ_env = typ SMap.t
+
+(*
 
 (* [@@@warning "-17"]
 

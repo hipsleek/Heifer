@@ -19,29 +19,51 @@ type pctx = {
   (* applied : string list; *)
   (* subsumption proof obligations *)
   (* subsumption_obl : (binder list * (disj_spec * disj_spec)) list; *)
-  assumptions : pi list;
-  obligations : (state * state) list;
+  assumptions : pi list; (* obligations : (state * state) list; *)
 }
 
 let string_of_obligation (l, r) =
   Format.asprintf "%s ==> %s" (string_of_state l) (string_of_state r)
 
 let string_of_pctx ctx =
-  Format.asprintf "assumptions: %s\nobligations: %s@."
+  Format.asprintf "assumptions: %s@."
     (string_of_list string_of_pi ctx.assumptions)
-    (string_of_list string_of_obligation ctx.obligations)
+(* (string_of_list string_of_obligation ctx.obligations) *)
 
-let create_pctx () = { assumptions = []; obligations = [] }
+let create_pctx () = { assumptions = [] }
 
 type pstate = pctx * staged_spec * staged_spec
+
+let check_heap_obligation left right =
+  let tenv =
+    (* handle the environment manually as it's shared between both sides *)
+    let env = create_abs_env () in
+    (* let env = infer_types_pi env (Untypehip.untype_pi left) in *)
+    (* let env = infer_types_pi env (Untypehip.untype_pi right) in *)
+    env
+  in
+  (* let env = Infer_types.concrete_type_env tenv in *)
+  let res =
+    true
+    (* Provers.entails_exists (concrete_type_env tenv) (Untypehip.untype_pi left)
+      (List.map ident_of_binder vs1)
+      right *)
+  in
+  res
 
 let apply_ent_rule (pctx, f1, f2) k =
   match (f1, f2) with
   | NormalReturn (p1, h1), NormalReturn (p2, h2) ->
-    (* let res = Provers.askZ3 in *)
-    let pctx =
+    (* let pre_res = *)
+    (* check_pure_obligation p1 *)
+    Format.printf "%s => %s@."
+      (string_of_state (p1, h1))
+      (string_of_state (p1, h1));
+    (* in *)
+    (* let res = Provers.entails_exists in *)
+    (* let pctx =
       { pctx with obligations = ((p1, h1), (p2, h2)) :: pctx.obligations }
-    in
+    in *)
     let t = NormalReturn (True, EmptyHeap) in
     k (pctx, t, t)
   | Sequence (NormalReturn (p1, EmptyHeap), f1), f2 ->
