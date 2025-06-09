@@ -1,5 +1,19 @@
 open Hipcore
 open Hiptypes
+open Pretty
+open Debug
+
+let check_staged_spec_entailment (inferred_spec : staged_spec)
+    (given_spec : staged_spec) : bool =
+  let@ _ =
+    span (fun r ->
+        debug ~at:2 ~title:"entailment" "%s <= %s? %s"
+          (string_of_staged_spec inferred_spec)
+          (string_of_staged_spec given_spec)
+          (string_of_result string_of_bool r))
+  in
+  ignore (inferred_spec, given_spec);
+  true
 
 (*
 let unfolding_bound = 1
@@ -16,24 +30,25 @@ let rename_exists_pred (pred : pred_def) : pred_def =
   { pred with p_body = Forward_rules.renamingexistientalVar (Untypehip.untype_disj_spec pred.p_body) |> Fill_type.fill_untyped_disj_spec}
 *)
 
-module Heap = struct
+(* module Heap = struct
   (*
   let normalize : state -> state =
    fun (p, h) ->
     let h = simplify_heap (Untypehip.untype_kappa h) in
     (simplify_pure (Untypehip.untype_pi p) |> Fill_type.fill_untyped_pi, h |> Fill_type.fill_untyped_kappa)
   *)
-  (** given a nonempty heap formula, splits it into a points-to expression and another heap formula *)
-  
+  (** given a nonempty heap formula, splits it into a points-to expression and
+      another heap formula *)
+
   let rec split_one (h : kappa) : (kappa * kappa) option =
     match h with
     | EmptyHeap -> None
     | PointsTo _ -> Some (h, EmptyHeap)
-    | SepConj (a, b) ->
-        begin match split_one a with
-        | None -> split_one b
-        | Some (c, r) -> Some (c, SepConj (r, b))
-        end
+    | SepConj (a, b) -> begin
+      match split_one a with
+      | None -> split_one b
+      | Some (c, r) -> Some (c, SepConj (r, b))
+    end
 
   (*
   (** like split_one, but searches for a particular points-to *)
@@ -77,7 +92,7 @@ module Heap = struct
     let p, _vs = run h in
     p
   *)
-end
+end *)
 
 (*
 let check_staged_entail : spec -> spec -> spec option =
@@ -109,14 +124,14 @@ let instantiate_existentials :
     (binder * term) list -> normalisedStagedSpec -> normalisedStagedSpec =
  fun bindings (efs, ns) ->
   let names = List.map fst bindings in
-  let (efs:effectStage list) = 
-    List.fold_left (fun acc a -> 
-    let temp = match a with 
+  let (efs:effectStage list) =
+    List.fold_left (fun acc a ->
+    let temp = match a with
     | EffHOStage ele -> [ele]
     | _ -> []
-    in 
-    acc @ temp) [] efs 
-  in 
+    in
+    acc @ temp) [] efs
+  in
   let efs1 = List.map (instantiate_existentials_effect_stage bindings) efs in
   let ns1 =
     let vs, pre, post = ns in
@@ -352,7 +367,7 @@ let collect_local_lambda_definitions state ctx =
   res
 
 let extract_subsumption_proof_obligations ctx right =
-  let sub = find_subsumptions#visit_pi () right 
+  let sub = find_subsumptions#visit_pi () right
     |> List.map (fun (lhs, rhs) -> Fill_type.(fill_untyped_term lhs, fill_untyped_term rhs)) in
   let right1 = (remove_subsumptions (List.map (fun (lhs, rhs) -> Untypehip.(untype_term lhs, untype_term rhs)) sub))#visit_pi () right in
   let sub = List.map (fun (t1, t2) ->
@@ -435,8 +450,8 @@ let rec check_staged_subsumption_stagewise :
           ( es2.e_evars,
             (es2.e_pre, with_pure (And (arg_eqs, res_eq es2.e_ret)) es2.e_post)
           )
-        in 
-        temp 
+        in
+        temp
       in
       (*print_endline ("check_staged_subsumption_stagewise recursive");*)
       check_staged_subsumption_stagewise ctx (i + 1)
@@ -450,10 +465,10 @@ let rec check_staged_subsumption_stagewise :
 
     let es1, ns1 = normalize_spec (Untypehip.untype_spec src1) |> Fill_type.fill_normalized_staged_spec in
     let es2, ns2 = normalize_spec (Untypehip.untype_spec src2) |> Fill_type.fill_normalized_staged_spec in
-    check_staged_subsumption_stagewise ctx 0 True (es1, ns1) (es2, ns2) 
+    check_staged_subsumption_stagewise ctx 0 True (es1, ns1) (es2, ns2)
     (* Ask Darius *)
-    
-      
+
+
   | ([], ns1), ([], ns2) ->
     (* base case: check the normal stage at the end *)
     let (vs1, (p1, h1), (qp1, qh1 as post1)) = ns1 in
@@ -499,7 +514,7 @@ let rec check_staged_subsumption_stagewise :
     fail
 
   | _  ->fail
-  
+
 
 and try_other_measures :
     pctx ->
@@ -805,16 +820,8 @@ let create_induction_hypothesis params ds1 ds2 =
         (string_of_list string_of_binder params)
         (string_of_sset used_l))
   | _ -> fail "left side disjunctive"
-
-(**
-  Subsumption between disjunctive specs.
-  S1 \/ S2 |= S3 \/ S4
-*)
 *)
 
-let check_staged_spec_entailment (inferred_spec : staged_spec) (given_spec : staged_spec) : bool =
-  ignore (inferred_spec, given_spec);
-  true
 (*
  fun mname params _ts lems preds ds1 ds2 ->
   Search.reset ();
