@@ -29,21 +29,25 @@ let string_of_obligation (l, r) =
   Format.asprintf "%s ==> %s" (string_of_state l) (string_of_state r)
 
 let string_of_pctx ctx =
-  Format.asprintf "assumptions: %s"
+  Format.asprintf "assumptions: %s\ndefinitions_nonrec: %s\ndefinitions_rec: %s"
     (string_of_list string_of_pi ctx.assumptions)
+    (Rewriting.string_of_database ctx.definitions_nonrec)
+    (Rewriting.string_of_database ctx.definitions_rec)
 (* (string_of_list string_of_obligation ctx.obligations) *)
 
 let new_pctx () =
   { assumptions = []; definitions_nonrec = []; definitions_rec = [] }
 
 let create_pctx cp =
-  let pred_to_rule =
-   fun pred ->
-    let params =
-      Utils.Lists.init pred.p_params |> List.map Rewriting.Rules.Term.uvar
-    in
+  let pred_to_rule pred =
+    let params = pred.p_params |> List.map Rewriting.Rules.Term.uvar in
     let lhs = HigherOrder (pred.p_name, params) in
-    let rhs = pred.p_body in
+    let rhs =
+      let bs =
+        List.map (fun p -> (p, Rewriting.Rules.Term.uvar p)) pred.p_params
+      in
+      Subst.subst_free_vars bs pred.p_body
+    in
     Rewriting.Rules.Staged.rule lhs rhs
   in
   let definitions_nonrec =
@@ -79,7 +83,7 @@ let check_pure_obligation left right =
   let res = Provers.entails_exists (concrete_type_env tenv) left [] right in
   res
 
-let apply_ent_rule (pctx, f1, f2) k =
+let apply_ent_rule (pctx, f1, f2) =
   let@ _ =
     span (fun _r ->
         debug ~at:4 ~title:"apply_ent_rule" "%s"
@@ -89,14 +93,27 @@ let apply_ent_rule (pctx, f1, f2) k =
   | NormalReturn (p1, h1), NormalReturn (p2, h2) ->
     if check_pure_obligation p1 p2 then
       let t = NormalReturn (True, EmptyHeap) in
-      k (pctx, t, t)
+      (pctx, t, t)
+    else (pctx, f1, f2)
   | Sequence (NormalReturn (p1, EmptyHeap), f1), f2 ->
     let pctx = { pctx with assumptions = p1 :: pctx.assumptions } in
-    k (pctx, f1, f2)
+    (pctx, f1, f2)
   | f1, Sequence (Require (p2, EmptyHeap), f2) ->
     let pctx = { pctx with assumptions = p2 :: pctx.assumptions } in
-    k (pctx, f1, f2)
-  | _, _ -> ()
+    (pctx, f1, f2)
+  | _, _ -> (pctx, f1, f2)
+
+let unfold_definitions (pctx, f1, f2) =
+  let@ _ =
+    span (fun _r ->
+        debug ~at:4 ~title:"unfold_definitions" "%s"
+          (string_of_pstate (pctx, f1, f2)))
+  in
+  let open Rewriting in
+  let open Rules.Staged in
+  let f1 = autorewrite pctx.definitions_nonrec (Staged f1) |> of_uterm in
+  let f2 = autorewrite pctx.definitions_nonrec (Staged f2) |> of_uterm in
+  (pctx, f1, f2)
 
 let entailment_search : ?name:string -> pstate -> pstate Iter.t =
  fun ?name (pctx, f1, f2) k ->
@@ -111,7 +128,8 @@ let entailment_search : ?name:string -> pstate -> pstate Iter.t =
           "%s"
           (string_of_pstate (pctx, f1, f2)))
   in
-  let@ pctx, f1, f2 = apply_ent_rule (pctx, f1, f2) in
+  let pctx, f1, f2 = apply_ent_rule (pctx, f1, f2) in
+  let pctx, f1, f2 = unfold_definitions (pctx, f1, f2) in
   k (pctx, f1, f2)
 
 let check_staged_spec_entailment ?name pctx inferred given =
@@ -975,11 +993,10 @@ let derive_predicate m_name m_params f =
   let res =
     {
       p_name = m_name;
-      p_params = m_params @ ["res"];
+      p_params = m_params;
       p_body = new_spec;
       p_rec = (find_rec m_name)#visit_staged_spec () new_spec;
     }
-    (* ASK Darius *)
   in
   debug ~at:2
     ~title:(Format.asprintf "derive predicate %s" m_name)

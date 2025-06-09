@@ -73,6 +73,8 @@ val rewrite_all : rule -> uterm -> uterm
 
 type database = rule list
 
+val string_of_database : database -> string
+
 (** Rewrites until no more rules in the database apply *)
 val autorewrite : database -> uterm -> uterm
 
@@ -82,20 +84,24 @@ module Rules :
     module Staged : sig
       val uvar : string -> staged_spec
       val rule : staged_spec -> staged_spec -> rule
+      val of_uterm : uterm -> staged_spec
     end
 
     module Pure : sig
       val uvar : string -> pi
       val rule : pi -> pi -> rule
+      val of_uterm : uterm -> pi
     end
 
     module Heap : sig
       val uvar : string -> kappa
       val rule : kappa -> kappa -> rule
+      val of_uterm : uterm -> kappa
     end
 
     module Term : sig
       val uvar : string -> term
       val rule : term -> term -> rule
+      val of_uterm : uterm -> term
     end
   end
