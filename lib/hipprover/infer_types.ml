@@ -95,6 +95,13 @@ let get_primitive_fn_type f =
   | "=" -> ([Int; Int], Bool)
   | _ -> failwith (Format.asprintf "unknown function: %s" f)
 
+(** Given a function to infer the types of elements of a list,
+infer types in the list, threading the environment through. *)
+let infer_types_list f env ls =
+    List.fold_right (fun t (acc, env) ->
+      let t, env = f env t in
+      (t::acc, env)) ls ([], env)
+
 let rec infer_types_core_lang env e : core_lang * abs_typ_env =
   match e.core_desc with
   | CValue t -> 
@@ -224,6 +231,18 @@ and infer_types_term ?hint (env : abs_typ_env) term : term * abs_typ_env =
      it's probably better to store typ U.elems in the mapping instead. *)
   term, { env with vartypes = SMap.map (TEnv.simplify env.equalities) env.vartypes }
 
+and infer_types_kappa env k = match k with
+  | EmptyHeap -> EmptyHeap, env
+  | SepConj (k1, k2) ->
+      let k1, env = infer_types_kappa env k1 in
+      let k2, env = infer_types_kappa env k2 in
+      SepConj(k1, k2), env
+  | PointsTo(l, v) ->
+    let term_type = fresh_type_var () in
+    let v, env = infer_types_term env v ~hint:term_type in
+    PointsTo(l, v), env
+
+
 (** Given an environment, and a typed term, perform simplifications
     on the types in the term based on the environment. *)
 let simplify_types_pi env pi =
@@ -283,6 +302,65 @@ let rec infer_types_pi env pi =
 let infer_types_pi env pi =
   let pi, env = infer_types_pi env pi in (* referring to the previous declaration *)
   simplify_types_pi env pi, env
+
+let rec infer_types_staged_spec env spec =
+  match spec with
+  | Require (pi, kappa) ->
+    let pi, env = infer_types_pi env pi in
+    let kappa, env = infer_types_kappa env kappa in
+    Require(pi, kappa), env
+  | NormalReturn (pi, kappa) ->
+    let pi, env = infer_types_pi env pi in
+    let kappa, env = infer_types_kappa env kappa in
+    NormalReturn(pi, kappa), env
+  | HigherOrder (pi, kappa, (name, args), term) ->
+    let pi, env = infer_types_pi env pi in
+    let kappa, env = infer_types_kappa env kappa in
+    let args, env = List.fold_right (fun t (acc, env) ->
+      let t, env = infer_types_term env t in
+      (t::acc, env)) args ([], env) in
+    let term, env = infer_types_term env term in
+    HigherOrder(pi, kappa, (name, args), term), env
+  | RaisingEff (pi, kappa, (name, args), term) -> 
+    let pi, env = infer_types_pi env pi in
+    let kappa, env = infer_types_kappa env kappa in
+    let args, env = infer_types_list infer_types_term env args in
+    let term, env = infer_types_term env term in
+    RaisingEff (pi, kappa, (name, args), term), env
+  | TryCatch (pi, kappa, trycatch, term) ->
+    let pi, env = infer_types_pi env pi in
+    let kappa, env = infer_types_kappa env kappa in
+    let trycatch, env = 
+      let (spec, (var_case, eff_specs)) = trycatch in
+      let spec, env = infer_types_spec env spec in
+      let var_case, env =
+        let (var_name, var_spec) = var_case in
+        let env = assert_var_has_type var_name (fresh_type_var ()) env in
+        let var_spec, env = infer_types_disj_spec env var_spec in
+        (var_name, var_spec), env
+      in
+      let infer_eff_case env eff =
+        let (eff_name, eff_arg, eff_spec) = eff in
+        let env = match eff_arg with
+          | Some arg -> assert_var_has_type arg (fresh_type_var ()) env
+          | None -> env
+        in
+        let eff_spec, env = infer_types_disj_spec env eff_spec in
+        (eff_name, eff_arg, eff_spec), env
+      in
+      let eff_specs, env = infer_types_list infer_eff_case env eff_specs in
+      (spec, (var_case, eff_specs)), env
+    in 
+    let term, env = infer_types_term env term in
+    TryCatch(pi, kappa, trycatch, term), env
+  (* skip on typing shift/reset specs for now *)
+  | Shift (kind, k, spec, term)  -> Shift (kind, k, spec, term), env
+  | Reset (spec, term) -> Reset (spec, term), env
+  | _ -> failwith "todo"
+
+and infer_types_spec env spec = infer_types_list infer_types_staged_spec env spec
+
+and infer_types_disj_spec env spec = infer_types_list infer_types_spec env spec
 
 (** Given an untyped term, fill it with type information. *)
 let infer_untyped_pi ?(env = create_abs_env ()) pi =
