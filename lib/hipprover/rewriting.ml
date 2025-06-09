@@ -521,6 +521,20 @@ let rec autorewrite : database -> uterm -> uterm =
   (* TODO does the map visitor allow us to exploit ==? *)
   if target1 = target then target else autorewrite db target1
 
+let norm_db =
+  let open Syntax in
+  let open Rules in
+  Pure.
+    [
+      rule (And (uvar "a", True)) (uvar "a");
+      rule (And (True, uvar "a")) (uvar "a");
+    ]
+  @ Heap.
+      [
+        rule (SepConj (uvar "a", EmptyHeap)) (uvar "a");
+        rule (SepConj (EmptyHeap, uvar "a")) (uvar "a");
+      ]
+
 let%expect_test "autorewrite" =
   let test db target =
     let b1 = autorewrite db target in
@@ -528,16 +542,9 @@ let%expect_test "autorewrite" =
     Format.printf "result: %s@." (string_of_uterm b1)
   in
   let open Syntax in
-  let open Rules in
-  let db =
-    Pure.
-      [
-        rule (And (uvar "a", True)) (uvar "a");
-        rule (And (True, uvar "a")) (uvar "a");
-      ]
-  in
-  test db (Staged (ens ~p:(conj [v "x" = Const TTrue; True; True; True]) ()));
+  test norm_db
+    (Staged (ens ~p:(conj [True; v "x" = Const TTrue; True; True]) ()));
   [%expect {|
-    start: ens x=true/\T/\T/\T
+    start: ens T/\x=true/\T/\T
     result: ens x=true
     |}]
