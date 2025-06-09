@@ -54,7 +54,8 @@ let concrete_type_env abs : typ_env =
     abs.vartypes
 
 let get_primitive_type f =
-  let untype = Typedhip.Untypehip.hiptypes_typ in
+  (* let untype = Typedhip.Untypehip.hiptypes_typ in *)
+  let untype = Fun.id in
   match f with
   | "cons" -> ([Int; List_int], List_int)
   | "head" -> ([List_int], Int)

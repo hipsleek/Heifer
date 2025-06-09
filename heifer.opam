@@ -20,7 +20,6 @@ depends: [
   "js_of_ocaml" {>= "5.4.0"}
   "unionFind" {>= "20220122"}
   "visitors" {>= "20210608"}
-  "ppx_import" {>= "1.11.0"}
   "odoc" {with-doc}
 ]
 build: [

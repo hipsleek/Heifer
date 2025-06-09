@@ -1,7 +1,7 @@
 
 [@@@warning "-17"]
 (* can also appear in pi *)
-type bin_rel_op = [%import: Hiptypes.bin_rel_op]
+type bin_rel_op = GT | LT | EQ | GTEQ | LTEQ
 and binder = string * typ option
 and bin_term_op = Plus | Minus | SConcat | TAnd | TPower | TTimes | TDiv | TOr | TCons
 and const =
@@ -37,7 +37,7 @@ and core_handler_ops = (string * string option * staged_spec option * core_lang)
 (* effect work; let's group them into a single blob *)
 and constr_cases = (string * binder list * core_lang) list
 and tryCatchLemma = (staged_spec * staged_spec option * (*(handlingcases) **) staged_spec) (*tcl_head, tcl_handledCont, tcl_summary*)
-and handler_type = [%import : Hiptypes.handler_type]
+and handler_type = Shallow | Deep
 
 and core_value = term
 and core_lang_desc =
@@ -114,7 +114,17 @@ and staged_spec =
 (* and spec = stagedSpec list *)
 (* and disj_spec = spec list *)
 
-and typ = [%import : Hiptypes.typ]
+and typ =
+  | Unit
+  | List_int
+  | TConstr of string * typ list
+  | Int
+  | Bool
+  | TyString
+  | Lamb
+  (* TODO do we need a Poly variant for generics? *)
+  | Arrow of typ * typ
+  | TVar of string (* this is last, so > concrete types *)
 
 [@@deriving
   visitors { variety = "map"; name = "map_spec" },
@@ -548,7 +558,28 @@ let binder_of_var (var : term) =
 end *)
 
 module Untypehip = struct
-  let hiptypes_typ (t : typ) : Hiptypes.typ = t
+  let rec hiptypes_typ (t : typ) : Hiptypes.typ =
+    match t with
+    | Unit -> Unit
+    | List_int -> List_int
+    | TConstr (f, a) -> TConstr (f, List.map hiptypes_typ a)
+    | Int -> Int
+    | Bool -> Bool
+    | TyString -> TyString
+    | Lamb -> Lamb
+    | Arrow (a, b) -> Arrow (hiptypes_typ a, hiptypes_typ b)
+    | TVar x -> TVar x
+
+  let hiptypes_bin_rel_op (t : bin_rel_op) : Hiptypes.bin_rel_op =
+    match t with
+    | GT -> GT
+    | LT -> LT
+    | EQ -> EQ
+    | GTEQ -> GTEQ
+    | LTEQ -> LTEQ
+
+  let hiptypes_handler_type (t : handler_type) : Hiptypes.handler_type =
+    match t with Shallow -> Shallow | Deep -> Deep
 
   let rec untype_term (t : term) : Hiptypes.term =
     match t.term_desc with
@@ -568,7 +599,7 @@ module Untypehip = struct
     | BinOp (TDiv, lhs, rhs) -> BinOp (TDiv, untype_term lhs, untype_term rhs)
     | BinOp (TOr, lhs, rhs) -> BinOp (TOr, untype_term lhs, untype_term rhs)
     | BinOp (TCons, lhs, rhs) -> BinOp (TCons, untype_term lhs, untype_term rhs)
-    | Rel (op, lhs, rhs) -> Rel (op, untype_term lhs, untype_term rhs)
+    | Rel (op, lhs, rhs) -> Rel (hiptypes_bin_rel_op op, untype_term lhs, untype_term rhs)
     | TNot t -> TNot (untype_term t)
     | TApp (f, args) -> TApp (f, List.map untype_term args)
     | TLambda (id, params, spec, body) ->
@@ -580,7 +611,7 @@ module Untypehip = struct
     match p with
     | True -> Hiptypes.True
     | False -> Hiptypes.False
-    | Atomic (op, t1, t2) -> Hiptypes.Atomic (op, untype_term t1, untype_term t2)
+    | Atomic (op, t1, t2) -> Hiptypes.Atomic (hiptypes_bin_rel_op op, untype_term t1, untype_term t2)
     | And (p1, p2) -> Hiptypes.And (untype_pi p1, untype_pi p2)
     | Or (p1, p2) -> Hiptypes.Or (untype_pi p1, untype_pi p2)
     | Imply (p1, p2) -> Hiptypes.Imply (untype_pi p1, untype_pi p2)
@@ -612,7 +643,7 @@ module Untypehip = struct
         let value_case' = Option.map (fun (v, e) -> (ident_of_binder v, untype_core_lang e)) value_case in
         let handler_cases' = untype_handler_ops handler_cases in
         let constr_cases' = untype_constr_cases constr_cases in
-        CMatch (ht, trycatch_opt', untype_core_lang scrutinee, value_case', handler_cases', constr_cases')
+        CMatch (hiptypes_handler_type ht, trycatch_opt', untype_core_lang scrutinee, value_case', handler_cases', constr_cases')
     | CResume vs -> CResume (List.map untype_term vs)
     | CLambda (params, spec, body) ->
         CLambda (List.map ident_of_binder params, Option.map untype_staged_spec spec, untype_core_lang body)
