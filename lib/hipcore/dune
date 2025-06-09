@@ -4,4 +4,4 @@
  (modules subst Pretty Pretty_typed common hiptypes globals typedhip subst_typed types rewriter)
  (libraries debug unionFind str ocaml_compiler)
  (inline_tests)
- (preprocess (staged_pps ppx_expect ppx_deriving.std ppx_import visitors.ppx)))
+ (preprocess (pps ppx_expect ppx_deriving.std visitors.ppx)))

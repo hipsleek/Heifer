@@ -1,6 +1,6 @@
 
 [@@@warning "-17"]
-type bin_rel_op = [%import: Hiptypes.bin_op]
+type bin_rel_op = Hiptypes.bin_op = GT | LT | EQ | GTEQ | LTEQ
 and binder = string * typ
 and bin_term_op = Plus | Minus | SConcat | TAnd | TPower | TTimes | TDiv | TOr | TCons
 and const = 
@@ -48,7 +48,7 @@ and pattern =
 
 and tryCatchLemma = (spec * disj_spec option * (*(handlingcases) **) disj_spec) (*tcl_head, tcl_handledCont, tcl_summary*)
 
-and handler_type = [%import : Hiptypes.handler_type]
+and handler_type = Hiptypes.handler_type = Shallow | Deep
 
 and core_lang_desc = 
       | CValue of core_value 
@@ -120,8 +120,17 @@ and spec = stagedSpec list
 
 and disj_spec = spec list
 
-and typ = [%import : Hiptypes.typ]
-
+and typ = Types.typ = 
+  | Unit
+  | List_int
+  | TConstr of string * typ list
+  | Int
+  | Bool
+  | TyString
+  | Lamb
+  (* TODO do we need a Poly variant for generics? *)
+  | Arrow of typ * typ
+  | TVar of string (* this is last, so > concrete types. this is needed *)
 [@@deriving
   visitors { variety = "map"; name = "map_spec" },
   visitors { variety = "reduce"; name = "reduce_spec" },
