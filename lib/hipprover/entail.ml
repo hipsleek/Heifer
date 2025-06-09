@@ -1,12 +1,7 @@
-(* open Hipcore
+open Hipcore
 open Hiptypes
-open Typedhip
-open Pretty_typed
-open Infer_types
-open Normalize
-open Subst
-open Debug
 
+(*
 let unfolding_bound = 1
 
 type fvenv = Forward_rules.fvenv
@@ -19,106 +14,28 @@ let rename_exists_lemma (lem : lemma) : lemma =
 
 let rename_exists_pred (pred : pred_def) : pred_def =
   { pred with p_body = Forward_rules.renamingexistientalVar (Untypehip.untype_disj_spec pred.p_body) |> Fill_type.fill_untyped_disj_spec}
-
-(** Matches lemma args (which may be params) and concrete args in the expr to be rewritten. If an arg is a param, adds to the returned substitution, otherwise checks if they are equal. Returns None if unification fails and the lemma shouldn't be applied, otherwise returns bindings. *)
-let unify_lem_lhs_args params la a =
-  debug ~at:4 ~title:"unify_lem_lhs_args" "%s\n%s\n%s"
-    (string_of_list string_of_binder params)
-    (string_of_list string_of_term la)
-    (string_of_list string_of_term a);
-  let exception Unification_failure in
-  try
-    Some
-      (List.map2 pair la a |> List.fold_left
-         (fun t (la, a) ->
-           let is_param =
-             match la.term_desc with Var v when List.mem v (List.map ident_of_binder params) -> true | _ -> false
-           in
-           match (is_param, la.term_desc) with
-           | true, Var _ -> (binder_of_var la, a) :: t
-           | false, _ when la = a -> t
-           | false, _ -> raise_notrace Unification_failure
-           | _, _ -> failwith "invalid state")
-         [])
-  with Unification_failure -> None
-
-(** goes down the given spec trying to match the lemma's left side, and rewriting on match. may fail *)
-let apply_lemma : lemma -> spec -> spec option =
- fun lem sp ->
-  let@ _ =
-    Debug.span (fun r ->
-        debug ~at:3
-          ~title:"apply_lemma"
-          "lemma: %s\nspec: %s\nres: %s"
-          (string_of_lemma lem)
-          (string_of_spec sp)
-          (string_of_result (string_of_option string_of_spec) r))
-  in
-  let lem = rename_exists_lemma lem in
-  let rec loop ok acc sp =
-    match sp with
-    | [] -> (Acc.to_list acc, ok)
-    | (st) :: sp1 ->
-      let lf, largs = lem.l_left in
-      (match st with
-      | TryCatch _ -> failwith "unimplemented"
-      | Reset _ -> failwith "unimplemented"
-      | Shift _ -> failwith "unimplemented"
-      | HigherOrder (p, h, (f, args), r)
-        when (not ok) (* only apply once *) && f = lf ->
-        (match unify_lem_lhs_args lem.l_params largs (args @ [r]) with
-        | Some bs ->
-          let inst_lem_rhs = List.map (instantiateStages (Untypehip.untype_bindings bs)) (Untypehip.untype_spec lem.l_right) |> Fill_type.fill_untyped_spec in
-          let extra_ret_equality =
-            (* TODO *)
-            try
-              let rhs_ret = Forward_rules.retrieve_return_value (Untypehip.untype_spec inst_lem_rhs) in
-              Atomic (EQ, r, Fill_type.fill_untyped_term rhs_ret)
-            with _ -> True
-          in
-          loop true
-            (Acc.add_all
-               (NormalReturn (And (p, extra_ret_equality), h) :: inst_lem_rhs)
-               acc)
-            sp1
-        | None -> loop ok (Acc.add st acc) sp1)
-      | HigherOrder _ | NormalReturn _ | Exists _
-      | Require (_, _)
-      | RaisingEff _ ->
-        loop ok (Acc.add st acc) sp1)
-  in
-  let r, ok = loop false Acc.empty sp in
-  if ok then Some r else None
-
-let apply_one_lemma : lemma list -> spec -> spec * lemma option =
- fun lems sp ->
-  List.fold_left
-    (fun (sp, app) l ->
-      match app with
-      | Some _ -> (sp, app)
-      | None ->
-        let sp1 = apply_lemma l sp in
-        (match sp1 with None -> (sp, app) | Some sp1 -> (sp1, Some l)))
-    (sp, None) lems
+*)
 
 module Heap = struct
+  (*
   let normalize : state -> state =
    fun (p, h) ->
     let h = simplify_heap (Untypehip.untype_kappa h) in
     (simplify_pure (Untypehip.untype_pi p) |> Fill_type.fill_untyped_pi, h |> Fill_type.fill_untyped_kappa)
-
+  *)
   (** given a nonempty heap formula, splits it into a points-to expression and another heap formula *)
-  let rec split_one : kappa -> ((binder * term) * kappa) option =
-   fun h ->
+  
+  let rec split_one (h : kappa) : (kappa * kappa) option =
     match h with
     | EmptyHeap -> None
-    | PointsTo (x, v) -> Some (((x, TConstr ("ref", [v.term_type])), v), EmptyHeap)
-    | SepConj (a, b) -> begin
-      match split_one a with
-      | None -> split_one b
-      | Some (c, r) -> Some (c, SepConj (r, b))
-    end
+    | PointsTo _ -> Some (h, EmptyHeap)
+    | SepConj (a, b) ->
+        begin match split_one a with
+        | None -> split_one b
+        | Some (c, r) -> Some (c, SepConj (r, b))
+        end
 
+  (*
   (** like split_one, but searches for a particular points-to *)
   let rec split_find : binder -> kappa -> (term * kappa) option =
    fun n h ->
@@ -143,7 +60,9 @@ module Heap = struct
           v2)
       v1
     |> conj
+  *)
 
+  (* this is utility, should we moved outside this module
   let xpure : kappa -> pi =
    fun h ->
     let rec run h =
@@ -157,8 +76,10 @@ module Heap = struct
     in
     let p, _vs = run h in
     p
+  *)
 end
 
+(*
 let check_staged_entail : spec -> spec -> spec option =
  fun n1 n2 ->
   let norm = normalize_spec (n1 @ n2 |> Untypehip.untype_spec) in
@@ -217,6 +138,7 @@ let freshen_existentials vs state =
   vs: quantified variables
   k: continuation
 *)
+(* biabduction, should refactor *)
 let rec check_qf :
     string ->
     binder list ->
@@ -280,7 +202,12 @@ let rec check_qf :
     end
     | None -> failwith (Format.asprintf "could not split LHS, bug?")
   end
+*)
+module Biabduction = struct
+  (* put biabduction stuffs here *)
+end
 
+(*
 let instantiate_pred : pred_def -> term list -> term -> pred_def =
  fun pred args ret ->
   let@ _ =
@@ -310,6 +237,7 @@ let instantiate_pred : pred_def -> term list -> term -> pred_def =
   in
   { pred with p_body }
 
+(* unfolding, should be moved to unfold.ml *)
 let rec unfold_predicate_aux pred prefix (s : spec) : disj_spec =
   match s with
   | [] ->
@@ -361,6 +289,7 @@ let unfold_predicate_norm :
   List.map normalize_spec
     (unfold_predicate_spec which pred (normalisedStagedSpec2Spec (Untypehip.untype_normalized_staged_spec sp) |> Fill_type.fill_untyped_spec) |> List.map Untypehip.untype_spec)
   |> List.map Fill_type.fill_normalized_staged_spec
+(* end unfolding *)
 
 (** proof context *)
 type pctx = {
@@ -800,12 +729,6 @@ and stage_subsumes :
 
   ok (conj [pure_pre_residue; post_residue], ctx)
 
-let extract_binders spec =
-  let binders, rest =
-    List.partition_map (function Exists vs -> Left vs | s -> Right s) spec
-  in
-  (List.concat binders, rest)
-
 let rec apply_tactics ts lems preds (ds1 : disj_spec) (ds2 : disj_spec) =
   List.fold_left
     (fun t c ->
@@ -887,15 +810,12 @@ let create_induction_hypothesis params ds1 ds2 =
   Subsumption between disjunctive specs.
   S1 \/ S2 |= S3 \/ S4
 *)
-let check_staged_subsumption_disj :
-    string ->
-    binder list ->
-    tactic list ->
-    lemma SMap.t ->
-    pred_def SMap.t ->
-    disj_spec ->
-    disj_spec ->
-    pctx Search.t =
+*)
+
+let check_staged_spec_entailment (inferred_spec : staged_spec) (given_spec : staged_spec) : bool =
+  ignore (inferred_spec, given_spec);
+  true
+(*
  fun mname params _ts lems preds ds1 ds2 ->
   Search.reset ();
   debug ~at:1
@@ -915,7 +835,9 @@ let check_staged_subsumption_disj :
   let q_vars = getExistentialVar (Untypehip.untype_normalized_staged_spec (es1, ns1)) @ getExistentialVar (Untypehip.untype_normalized_staged_spec (es2, ns2)) |> List.map binder_of_ident in
   let ctx = { ctx with q_vars } in
   check_staged_subsumption_stagewise ctx 0 True (es1, ns1) (es2, ns2)
+*)
 
+(* will be used for remembering predicate? Not sure whether it should be put here
 let derive_predicate m_name m_params disj =
   let norm = List.map normalize_spec disj |> List.map Fill_type.fill_normalized_staged_spec in
   (* change the last norm stage so it uses res and has an equality constraint *)
