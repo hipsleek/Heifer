@@ -244,7 +244,12 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
     let e = transformation (formals @ bound_names) body in
     let bound_vars = List.combine formals param_types
       |> List.map (fun (name, typ) -> binder_of_ident ~typ name) in
-    CLambda (bound_vars, Option.map Fill_type.fill_untyped_disj_spec spec, e) |> clang_with_expr_type
+
+    (* typecheck the specifications *)
+    let typecheck_env = create_abs_env () |> add_local_vars (SMap.of_list ["res", return_type]) in
+    let spec = Option.map (fun spec ->
+      let spec, _ = spec |> Fill_type.fill_untyped_disj_spec |> Infer_types.infer_types_disj_spec typecheck_env in spec) spec in
+    CLambda (bound_vars, spec, e) |> clang_with_expr_type
 
   (* shift and shift0 *)
   (*| Texp_apply ({exp_desc = Texp_ident (_, {txt = Lident name; _}, _); _}, args) when List.mem name ["shift"; "shift0"] ->*)
@@ -368,13 +373,23 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
           let label, arg_binder =
             let arg =
               match eff_args with
-              | a::_ -> Some (string_of_pattern a)
+              | a::_ -> Some (string_of_pattern a, hip_type_of_type_expr a.pat_type)
               | _ -> None
             in
          eff_name, arg
           in
-          let spec = Annotation.extract_spec_attribute c.c_lhs.pat_attributes |> Option.map Fill_type.fill_untyped_disj_spec in
-          Some (label, arg_binder, spec, transformation bound_names c.c_rhs)
+          let spec = Annotation.extract_spec_attribute c.c_lhs.pat_attributes 
+              |> Option.map (fun spec ->
+                  let spec = Fill_type.fill_untyped_disj_spec spec in
+                  let typecheck_env = match arg_binder with
+                    | Some (arg, arg_type) -> create_abs_env () |> add_local_vars (SMap.of_list [arg, arg_type])
+                    | None -> create_abs_env ()
+                  in
+                  let spec, _ = Infer_types.infer_types_disj_spec typecheck_env spec in
+                  spec
+                  )
+          in
+          Some (label, Option.map ident_of_binder arg_binder, spec, transformation bound_names c.c_rhs)
         | _ -> failwith (Format.asprintf "unknown kind of effect constructor pattern: %a" Pprintast.pattern (Untypeast.untype_pattern c.c_lhs))
         end
       )
@@ -470,7 +485,7 @@ let transform_str bound_names (s : structure_item) =
     | Texp_function (_, tlbody) ->
       (* see also: CLambda case *)
       let spec = Annotation.extract_spec_attribute vb.vb_attributes |> Option.map Fill_type.fill_untyped_disj_spec in
-      let formals, body, types = collect_param_info fn in
+      let formals, body, ((_, return_type) as types) = collect_param_info fn in
       let pure_fn_info =
         let has_pure_annotation =
           List.exists Parsetree.(fun a -> String.equal a.attr_name.txt "pure") vb.vb_attributes
@@ -482,6 +497,9 @@ let transform_str bound_names (s : structure_item) =
         List.combine formals types
       in
       let e = transformation (fn_name :: formals @ bound_names) body in
+      let typecheck_env = create_abs_env () |> add_local_vars (SMap.of_list ["res", return_type]) in
+      let spec = Option.map (fun spec ->
+        let spec, _ = spec |> Infer_types.infer_types_disj_spec typecheck_env in spec) spec in
       Some (Meth (fn_name, typed_formals, spec, e, tactics, pure_fn_info))
     | Texp_apply _ -> None 
     | whatever ->

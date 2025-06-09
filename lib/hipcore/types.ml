@@ -153,6 +153,12 @@ let create_abs_env () =
     equalities = ref (TEnv.create ()) ;
   }
 
+(** Create a new environment, with the same equality table, and some added
+    variable bindings. *)
+let add_local_vars vars env = 
+  let f _ v1 _ = Some v1 in
+  { env with vartypes = Common.SMap.union f vars env.vartypes }
+
 (* concrete type environment, where every variable has a concrete type *)
 type typ_env = typ Common.SMap.t
 

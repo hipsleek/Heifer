@@ -364,7 +364,11 @@ and infer_types_staged_spec env spec =
   (* skip on typing shift/reset specs for now *)
   | Shift (kind, k, spec, term)  -> Shift (kind, k, spec, term), env
   | Reset (spec, term) -> Reset (spec, term), env
-  | _ -> failwith "todo"
+  | Exists vars ->
+      (* add the specified types to the bindings *)
+      let _, env = infer_types_list (fun env (var, var_type) ->
+        var, assert_var_has_type var var_type env) env vars in
+      Exists vars, env
 
 and infer_types_spec env spec = infer_types_list infer_types_staged_spec env spec
 
