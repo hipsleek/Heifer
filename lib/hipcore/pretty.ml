@@ -484,12 +484,12 @@ let rec string_of_type t =
 let string_of_pure_fn ({ pf_name; pf_params; pf_ret_type; pf_body } : pure_fn_def) : string =
   Format.asprintf "let %s %s : %s = %s" pf_name (String.concat " " (List.map (fun (p, t) -> Format.asprintf "(%s:%s)" p (string_of_type t)) pf_params)) (string_of_type pf_ret_type) (string_of_core_lang pf_body)
 
-(* let string_of_tmap pp s = *)
-(*   Format.asprintf "{%s}" (String.concat ", " (List.map (fun (k, v) -> Format.asprintf "%s -> %s" (string_of_type k) (pp v)) (TMap.bindings s))) *)
-(**)
-(* let string_of_abs_env t = *)
-(*   Format.asprintf "%s, %s" (string_of_smap string_of_type t.vartypes)  *)
-(*   (* "<opaque>" *) *)
+let string_of_tmap pp s =
+  Format.asprintf "{%s}" (String.concat ", " (List.map (fun (k, v) -> Format.asprintf "%s -> %s" (string_of_type k) (pp v)) (TMap.bindings s)))
+
+let string_of_abs_env t =
+  Format.asprintf "%s, %s" (string_of_smap string_of_type t.vartypes)
+  "<opaque>"
 (* (string_of_tmap string_of_type (TMap.map (fun t -> U.get t) !(t.equalities))) *)
 
 let string_of_typ_env t =
