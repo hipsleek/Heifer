@@ -3,17 +3,73 @@ open Hiptypes
 open Pretty
 open Debug
 
+(** proof context *)
+type pctx = {
+  (* hi : string; *)
+  (* lemmas and predicates defined before (and usable by) the current function being verified *)
+  (* lems : lemma SMap.t; *)
+  (* preds : pred_def SMap.t; *)
+  (* additional predicates due to local lambda definitions *)
+  (* lambda_preds : pred_def SMap.t; *)
+  (* all quantified variables in this formula *)
+  (* q_vars : binder list; *)
+  (* predicates which have been unfolded, used as an approximation of progress (in the cyclic proof sense) *)
+  (* unfolded : (string * [ `Left | `Right ]) list; *)
+  (* lemmas applied *)
+  (* applied : string list; *)
+  (* subsumption proof obligations *)
+  (* subsumption_obl : (binder list * (disj_spec * disj_spec)) list; *)
+  assumptions : pi list;
+  obligations : (state * state) list;
+}
+
+let string_of_obligation (l, r) =
+  Format.asprintf "%s ==> %s" (string_of_state l) (string_of_state r)
+
+let string_of_pctx ctx =
+  Format.asprintf "assumptions: %s\nobligations: %s@."
+    (string_of_list string_of_pi ctx.assumptions)
+    (string_of_list string_of_obligation ctx.obligations)
+
+let create_pctx () = { assumptions = []; obligations = [] }
+
+let apply_ent_rule pctx f1 f2 k =
+  match (f1, f2) with
+  | NormalReturn (p1, h1), NormalReturn (p2, h2) ->
+    (* let res = Provers.askZ3 in *)
+    let pctx =
+      { pctx with obligations = ((p1, h1), (p2, h2)) :: pctx.obligations }
+    in
+    k pctx
+  | _, _ -> ()
+
+let entailment_search :
+    name:string -> pctx -> staged_spec -> staged_spec -> pctx Iter.t =
+ fun ~name pctx f1 f2 k ->
+  Search.reset ();
+  debug ~at:1
+    ~title:(Format.asprintf "subsumption: %s" name)
+    "%s\n<:\n%s" (string_of_staged_spec f1) (string_of_staged_spec f2);
+  let@ pctx1 = apply_ent_rule pctx f1 f2 in
+  k pctx1
+
 let check_staged_spec_entailment (inferred_spec : staged_spec)
     (given_spec : staged_spec) : bool =
   let@ _ =
     span (fun r ->
-        debug ~at:2 ~title:"entailment" "%s <= %s? %s"
+        debug ~at:2 ~title:"entailment" "%s ⊑ %s? %s"
           (string_of_staged_spec inferred_spec)
           (string_of_staged_spec given_spec)
           (string_of_result string_of_bool r))
   in
-  ignore (inferred_spec, given_spec);
-  true
+  let search =
+    entailment_search ~name:"hi" (create_pctx ()) inferred_spec given_spec
+  in
+  match Iter.head search with
+  | None -> false
+  | Some pctx ->
+    debug ~at:2 ~title:"proof" "%s" (string_of_pctx pctx);
+    true
 
 (*
 let unfolding_bound = 1

@@ -1,6 +1,7 @@
 open Hipcore
 open Hiptypes
 open Pretty
+open Debug
 
 let ( let* ) = Option.bind
 let ( let+ ) a f = Option.map f a
@@ -162,18 +163,17 @@ let subst_uvars st (f, e) : uterm =
     let t = visitor#visit_term () t in
     Term t
 
+let string_of_outcome r = match r with None -> "fail" | Some _ -> "ok"
+
 (* variables at the top level are handled in here. otherwise it delegates to the others *)
 let rec unify_var : UF.store -> unifiable -> unifiable -> unit option =
  fun st (t1, e1) (t2, e2) ->
-  (* let@ _ =
-    Debug.span (fun m r ->
-        m
-          ~title:(if matching then "unify-match" else "unify")
-          "%a ~ %a? %a" pretty_term t1 pretty_term t2 (Fmt.res Fmt.string)
-          (Option.map
-             (fun r1 -> if Option.is_some r1 then "ok" else "failed")
-             r))
-  in *)
+  let@ _ =
+    span (fun r ->
+        debug ~at:4 ~title:"unify_var" "%s ~ %s? %s" (string_of_uterm t1)
+          (string_of_uterm t2)
+          (string_of_result string_of_outcome r))
+  in
   match (get_uvar t1, get_uvar t2) with
   | Some x1, Some x2 ->
     let u1 = SMap.find x1 e1 in

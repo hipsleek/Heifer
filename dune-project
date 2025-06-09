@@ -23,6 +23,7 @@
   (ocaml (>= 5))
   (z3 (>= 4.12.2))
   (menhir (>= 20220210))
+  (iter (>= 1.9))
   (dune (>= 3.8.0))
   (ppx_deriving (>= 5.2.1))
   (ppx_expect (>= v0.15.1))
