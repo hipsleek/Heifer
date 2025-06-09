@@ -2,6 +2,7 @@ open Hipcore
 open Hiptypes
 open Pretty
 open Debug
+open Normalize
 
 (** proof context *)
 type pctx = {
@@ -26,7 +27,7 @@ let string_of_obligation (l, r) =
   Format.asprintf "%s ==> %s" (string_of_state l) (string_of_state r)
 
 let string_of_pctx ctx =
-  Format.asprintf "assumptions: %s@."
+  Format.asprintf "assumptions: %s"
     (string_of_list string_of_pi ctx.assumptions)
 (* (string_of_list string_of_obligation ctx.obligations) *)
 
@@ -34,6 +35,12 @@ let create_pctx () = { assumptions = [] }
 
 (* proof state *)
 type pstate = pctx * staged_spec * staged_spec
+
+let string_of_pstate (ctx, left, right) =
+  Format.asprintf "%s\n%s\n%s\n⊑\n%s@." (string_of_pctx ctx)
+    (String.make 20 '-')
+    (string_of_staged_spec left)
+    (string_of_staged_spec right)
 
 let check_pure_obligation left right =
   let open Infer_types in
@@ -48,12 +55,17 @@ let check_pure_obligation left right =
   res
 
 let apply_ent_rule (pctx, f1, f2) k =
+  let@ _ =
+    span (fun _r ->
+        debug ~at:4 ~title:"apply_ent_rule" "%s"
+          (string_of_pstate (pctx, f1, f2)))
+  in
   match (f1, f2) with
   | NormalReturn (p1, h1), NormalReturn (p2, h2) ->
     (* let pre_res = *)
-    Format.printf "OBLIGATION %s => %s@."
+    (* Format.printf "OBLIGATION %s => %s@."
       (string_of_state (p1, h1))
-      (string_of_state (p2, h2));
+      (string_of_state (p2, h2)); *)
     (* in *)
     if check_pure_obligation p1 p2 then
       (* let pctx =
@@ -69,16 +81,23 @@ let apply_ent_rule (pctx, f1, f2) k =
     k (pctx, f1, f2)
   | _, _ -> ()
 
-let entailment_search : name:string -> pstate -> pstate Iter.t =
- fun ~name (pctx, f1, f2) k ->
+let entailment_search : ?name:string -> pstate -> pstate Iter.t =
+ fun ?name (pctx, f1, f2) k ->
   Search.reset ();
-  debug ~at:1
-    ~title:(Format.asprintf "subsumption: %s" name)
-    "%s\n<:\n%s" (string_of_staged_spec f1) (string_of_staged_spec f2);
+  let@ _ =
+    span (fun _r ->
+        debug ~at:4
+          ~title:
+            (match name with
+            | None -> "search"
+            | Some n -> Format.asprintf "search: %s" n)
+          "%s"
+          (string_of_pstate (pctx, f1, f2)))
+  in
   let@ pctx, f1, f2 = apply_ent_rule (pctx, f1, f2) in
   k (pctx, f1, f2)
 
-let check_staged_spec_entailment (inferred_spec : staged_spec)
+let check_staged_spec_entailment ?name (inferred_spec : staged_spec)
     (given_spec : staged_spec) : bool =
   let@ _ =
     span (fun r ->
@@ -88,7 +107,7 @@ let check_staged_spec_entailment (inferred_spec : staged_spec)
           (string_of_result string_of_bool r))
   in
   let search =
-    entailment_search ~name:"hi" (create_pctx (), inferred_spec, given_spec)
+    entailment_search ?name (create_pctx (), inferred_spec, given_spec)
   in
   match Iter.head search with
   | None -> false
@@ -925,26 +944,32 @@ let create_induction_hypothesis params ds1 ds2 =
   check_staged_subsumption_stagewise ctx 0 True (es1, ns1) (es2, ns2)
 *)
 
-(* will be used for remembering predicate? Not sure whether it should be put here
-let derive_predicate m_name m_params disj =
-  let norm = List.map normalize_spec disj |> List.map Fill_type.fill_normalized_staged_spec in
+(* will be used for remembering predicate? Not sure whether it should be put here *)
+let derive_predicate m_name m_params f =
+  (* let norm = *)
+  (* normalize_spec f *)
+  (* |> Fill_type.fill_normalized_staged_spec *)
+  (* in *)
   (* change the last norm stage so it uses res and has an equality constraint *)
-  let new_spec =
+  (* let new_spec =
     List.map (fun normed -> normed) norm
     |> List.map Untypehip.untype_normalized_staged_spec
     |> List.map normalisedStagedSpec2Spec
     |> List.map Fill_type.fill_untyped_spec
-  in
-  let res = {
-    p_name = m_name;
-    p_params = m_params @ [binder_of_ident "res"];
-    p_body = new_spec;
-    p_rec = (find_rec m_name)#visit_disj_spec () new_spec
-  } (* ASK Darius *)
+  in *)
+  let new_spec = normalize_spec f in
+  let res =
+    {
+      p_name = m_name;
+      p_params = m_params @ ["res"];
+      p_body = new_spec;
+      p_rec = (find_rec m_name)#visit_staged_spec () new_spec;
+    }
+    (* ASK Darius *)
   in
   debug ~at:2
     ~title:(Format.asprintf "derive predicate %s" m_name)
     "%s\n\n%s"
-    (string_of_list string_of_normalisedStagedSpec norm)
+    (string_of_staged_spec new_spec)
     (string_of_pred res);
-  res *)
+  res

@@ -400,7 +400,6 @@ and string_of_core_handler_ops hs =
     Format.asprintf "| effect %s k%s -> %s"
       (match v with None -> name | Some v -> Format.asprintf "(%s %s)" name v) spec (string_of_core_lang body)) hs |> String.concat "\n"
 
-(*
 
 let find_rec p_name =
   object(self)
@@ -408,8 +407,8 @@ let find_rec p_name =
     method zero = false
     method plus = (||)
 
-    method! visit_HigherOrder _ ((_p, _h, (f, _a), _r) as fn) =
-      self#plus (f = p_name) (super#visit_HigherOrder () fn)
+    method! visit_HigherOrder _ f a =
+      self#plus (f = p_name) (super#visit_HigherOrder () f a)
 
     method! visit_Atomic () op a b =
       match op with
@@ -418,6 +417,13 @@ let find_rec p_name =
         | _ -> false)
       | _ -> false
   end
+
+let string_of_pred ({ p_name; p_params; p_body; _ } : pred_def) : string =
+  Format.asprintf "%s(%s) == %s" p_name (String.concat "," p_params) (string_of_staged_spec p_body)
+
+(*
+
+
 (**********************************************)
 exception FooAskz3 of string
 
@@ -435,8 +441,6 @@ let rec getAllVarFromTerm (t:term) (acc:string list):string list =
 | _ -> acc
 ;;
 
-let string_of_pred ({ p_name; p_params; p_body; _ } : pred_def) : string =
-  Format.asprintf "%s(%s) == %s" p_name (String.concat "," p_params) (string_of_spec_list p_body)
 
 let string_of_inclusion (lhs:spec list) (rhs:spec list) :string =
   string_of_spec_list lhs ^" |- " ^string_of_spec_list rhs

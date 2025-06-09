@@ -164,10 +164,10 @@ let analyze_method (prog : core_program) (meth : meth_def) : core_program =
         ~title:(Format.asprintf "remembering predicate for %s" meth.m_name)
         "")
       in
-      (* let pred = Entail.derive_predicate meth.m_name meth.m_params inferred_spec in *)
+      let pred = Hipprover.Entail.derive_predicate meth.m_name meth.m_params inferred_spec in
       (* let pred = todo () in *)
-      (* {prog with cp_predicates = SMap.add meth.m_name pred prog.cp_predicates} *)
-      prog
+      {prog with cp_predicates = SMap.add meth.m_name pred prog.cp_predicates}
+      (* prog *)
     end
   in
   (* potentially report the normalized spec as well. Refactor *)
