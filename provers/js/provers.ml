@@ -22,34 +22,34 @@ r = await s.check()
 let rec build_term : Jv.t -> term -> Jv.t =
  fun ctx t ->
   match t with
-    | TStr _ -> failwith "nyi"
-    | SConcat _ -> failwith "nyi"
+    | Const (TStr _) -> failwith "nyi"
+    | BinOp (SConcat, _, _) -> failwith "nyi"
     | Rel (bop, a, b) ->
     (match bop with
     | EQ -> Jv.call (build_term ctx a) "eq" [| build_term ctx b |]
     | _ -> failwith "TODO")
-  | Plus (a, b) ->
+  | BinOp (Plus, a, b) ->
     Jv.call (build_term ctx a) "add" [| build_term ctx b |]
     (* Jv.call ctx "Add" [| build_term ctx a; build_term ctx b |] *)
-  | Minus (a, b) -> Jv.call (build_term ctx a) "sub" [| build_term ctx b |]
-  | Num n ->
+  | BinOp (Minus, a, b) -> Jv.call (build_term ctx a) "sub" [| build_term ctx b |]
+  | Const (Num n) ->
     (* Jv.of_int n *)
     Jv.call (Jv.get ctx "Int") "val" [| Jv.of_int n |]
   | Var s -> Jv.call (Jv.get ctx "Int") "const" [| Jv.of_string s |]
-  | UNIT -> build_term ctx (Var "unit")
-  | Nil -> build_term ctx (Var "nil")
-  | TTrue -> Jv.call (Jv.get ctx "Bool") "val" [| Jv.of_bool true |]
-  | TFalse -> Jv.call (Jv.get ctx "Bool") "val" [| Jv.of_bool false |]
+  | Const ValUnit -> build_term ctx (Var "unit")
+  | Const Nil -> build_term ctx (Var "nil")
+  | Const TTrue -> Jv.call (Jv.get ctx "Bool") "val" [| Jv.of_bool true |]
+  | Const TFalse -> Jv.call (Jv.get ctx "Bool") "val" [| Jv.of_bool false |]
   | TNot a -> Jv.apply (Jv.get ctx "Not") [| build_term ctx a |]
-  | TAnd (a, b) ->
+  | BinOp (TAnd, a, b) ->
     Jv.apply (Jv.get ctx "And") [| build_term ctx a; build_term ctx b |]
-  | TOr (a, b) ->
+  | BinOp (TOr, a, b) ->
     Jv.apply (Jv.get ctx "Or") [| build_term ctx a; build_term ctx b |]
   | TApp _ -> failwith "?"
   | TLambda _ -> failwith "?"
-  | TCons _ | TPower _ | TTimes _ | TDiv _ | TList _ | TTupple _ -> failwith "not yet implemented"
+  | BinOp (TCons, _, _) | BinOp (TPower, _, _) | BinOp (TTimes, _, _) | BinOp (TDiv, _, _) | TList _ | TTuple _ -> failwith "not yet implemented"
 
-let build_op : Jv.t -> bin_op -> term -> term -> Jv.t =
+let build_op : Jv.t -> bin_rel_op -> term -> term -> Jv.t =
  fun ctx op a b ->
   match op with
   | EQ -> Jv.call (build_term ctx a) "eq" [| build_term ctx b |]

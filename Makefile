@@ -1,8 +1,8 @@
 export OCAMLRUNPARAM=b
 
-# all:
-# 	dune build @doc-private
-# 	dune build main/hip.exe
+all: test
+	dune build @doc-private
+	dune build main/hip.exe
 
 .PHONY: test
 test:

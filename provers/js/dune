@@ -3,3 +3,5 @@
  (name provers_js)
  (libraries brr)
  (implements provers))
+
+(env (dev (flags (:standard -warn-error -A))))
