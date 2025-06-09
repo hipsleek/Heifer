@@ -552,6 +552,6 @@ let%expect_test "autorewrite" =
 
   test norm_db (Staged (ens ~p:(conj [True; v "x" = v "x"; True; True]) ()));
   [%expect {|
-    start: ens T/\x=true/\T/\T
-    result: ens x=true
+    start: ens T/\x=x/\T/\T
+    result: ens emp
     |}]
