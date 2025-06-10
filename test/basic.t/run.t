@@ -4,11 +4,11 @@
   $ check test_new_entail.ml
   ALL OK!
 
-$ check test_ho.ml
-ALL OK!
+  $ check test_ho.ml
+  ALL OK!
 
-$ check test_lists.ml
-ALL OK!
+  $ check test_lists.ml
+  ALL OK!
 
 $ check test_match.ml
 ALL OK!
