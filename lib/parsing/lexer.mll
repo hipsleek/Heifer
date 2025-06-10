@@ -50,6 +50,10 @@ rule token = parse
       { LPAREN }
   | ")"
       { RPAREN }
+  | "["
+      { LBRACKET }
+  | "]"
+      { RBRACKET }
   | ";"
       { SEMI }
   | ","

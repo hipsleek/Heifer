@@ -16,6 +16,8 @@ open Hiptypes
 %token DISJUNCTION
 %token LPAREN
 %token RPAREN
+%token LBRACKET
+%token RBRACKET
 %token SEMI
 %token COMMA
 
@@ -106,6 +108,8 @@ term:
       { BinOp (op, t1, t2) }
   | v = IDENT LPAREN args = separated_list(COMMA, term) RPAREN
       { TApp (v, args) }
+  | LBRACKET items = separated_list(SEMI, term) RBRACKET
+      { TList items }
 ;
 pi:
   | TRUE
