@@ -347,10 +347,27 @@ let run_string kind s =
       in
       helper partitionEnd *)
 
+(* naive means of turning spec comments into attributes *)
+let preprocess_spec_comments =
+  let pattern = {|let \(.+\)\([
+ ]*\)(\*@\([^@]+\)@\*)|} in
+  let regex = Str.regexp pattern in
+  fun text ->
+    let@ _ =
+      span (fun r ->
+          debug ~at:3
+            ~title:"preprocess_spec_comments"
+            "%s\n---\n%s" text
+            (string_of_result Fun.id r))
+    in
+    let output = Str.global_replace regex "let [@spec {|\\3|}] \\1\\2" text in
+    output
+
 let run_file input_file =
   let open Utils.Io in
   let chan = open_in input_file in
   let content = String.concat "\n" (input_lines chan) in
+  let content = preprocess_spec_comments content in
   let file_kind = get_file_type input_file in
   run_string file_kind content;
   debug ~at:2 ~title:"final summary" "";
