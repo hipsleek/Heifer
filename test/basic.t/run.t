@@ -13,8 +13,8 @@
 $ check_why3_only test_lambda.ml
 ALL OK!
 
-$ check test_unfolding.ml
-ALL OK!
+  $ check test_unfolding.ml
+  ALL OK!
 
-$ check test_closures.ml
-ALL OK!
+  $ check test_closures.ml
+  ALL OK!
