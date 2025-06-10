@@ -10,9 +10,6 @@
   $ check test_lists.ml
   ALL OK!
 
-$ check test_match.ml
-ALL OK!
-
 $ check_why3_only test_lambda.ml
 ALL OK!
 

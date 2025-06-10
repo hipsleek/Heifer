@@ -1,7 +1,10 @@
 
 $ . ../utility.sh
 
-$ check ../evaluation/effect_basics.ml
+$ check effect_basics.ml
+ALL OK!
+
+$ check test_match.ml
 ALL OK!
 
 $ check ../evaluation/0_heap_zero_once_twice.ml
