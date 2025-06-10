@@ -9,8 +9,29 @@ let raise_error lexbuf msg =
   let c = pos.pos_cnum - pos.pos_bol + 1 in
   raise (Lexing_error (Printf.sprintf "Line %d, character %d: %s" l c msg))
 
+let string_buffer = Buffer.create 256
+let reset_string_buffer () = Buffer.reset string_buffer
+let get_stored_string () = Buffer.contents string_buffer
+
+let store_string_char c = Buffer.add_char string_buffer c
+let store_string s = Buffer.add_string string_buffer s
+let store_substring s ~pos ~len = Buffer.add_substring string_buffer s pos len
+
+let store_lexeme lexbuf = store_string (Lexing.lexeme lexbuf)
+
+let wrap_string_lexer lexer lexbuf =
+  reset_string_buffer ();
+  lexer lexbuf;
+  get_stored_string ()
+
+let store_normalized_newline nl =
+  let len = String.length nl in
+  if len = 1
+  then store_string_char '\n'
+  else store_substring nl ~pos:1 ~len:(len - 1)
 }
 
+let newline = '\r'* '\n'
 let blank = [' ' '\t']
 let lowercase = ['a'-'z' '_']
 let uppercase = ['A'-'Z']
@@ -22,8 +43,8 @@ let int_literal = decimal_literal
 rule token = parse
   | blank +
       { token lexbuf }
-  | '\n' | '\r' | "\r\n"
-    { Lexing.new_line lexbuf; token lexbuf }
+  | newline
+      { Lexing.new_line lexbuf; token lexbuf }
   | "="
       { EQUAL }
   | ">"
@@ -82,7 +103,22 @@ rule token = parse
       { RESET }
   | eof
       { EOF }
+  | '"'
+      { let s = wrap_string_lexer string lexbuf in
+        STRING (s) }
   | identchar + as v
       { IDENT v }
   | _ as c
-    { raise_error lexbuf (Printf.sprintf "Unexpected character: '%c'" c) }
+      { raise_error lexbuf (Printf.sprintf "Unexpected character: '%c'" c) }
+
+and string = parse
+  | '"'
+      { () }
+  | newline as nl
+      { Lexing.new_line lexbuf;
+        store_normalized_newline nl;
+        string lexbuf }
+  | eof
+      { raise_error lexbuf "Unterminated string" }
+  | (_ as c)
+      { store_string_char c; string lexbuf }

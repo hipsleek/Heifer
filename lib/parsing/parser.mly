@@ -27,6 +27,7 @@ open Hiptypes
 
 %token <int> INT
 %token <string> IDENT
+%token <string> STRING
 
 %token EXISTS
 %token REQUIRES
@@ -78,6 +79,8 @@ open Hiptypes
       { EQ }
 ;
 %inline bin_term_op:
+  | PLUS PLUS
+      { SConcat }
   | PLUS
       { Plus }
   | MINUS
@@ -94,6 +97,8 @@ const:
       { TTrue }
   | FALSE
       { TFalse }
+  | s = STRING
+      { TStr s }
 ;
 term:
   | c = const
@@ -128,7 +133,8 @@ pi:
   | TILDE p = pi
       { Not p }
 //   | v = IDENT args=delimited(LPAREN, separated_nonempty_list(COMMA, pure_formula_term), RPAREN) { Predicate (v, args) }
-  | t=delimited(LPAREN, pi, RPAREN) { t }
+  | p = delimited(LPAREN, pi, RPAREN)
+      { p }
 ;
 kappa:
   | EMP
@@ -137,6 +143,8 @@ kappa:
       { PointsTo (v, t) }
   | k1 = kappa STAR k2 = kappa
       { SepConj (k1, k2) }
+  | k = delimited(LPAREN, kappa, RPAREN)
+      { k }
 ;
 state:
   | p = pi
@@ -146,13 +154,11 @@ state:
   | p = pi CONJUNCTION k = kappa
       { (p, k) }
   | k = kappa CONJUNCTION p = pi
-      { (p, k) }
+      { (p, k) }     
 ;
 staged_spec:
   | EXISTS vs = IDENT* DOT s = staged_spec
-      {
-        List.fold_right (fun c t -> Exists (c, t)) vs s
-        }
+      { List.fold_right (fun v t -> Exists (v, t)) vs s }
   | s1 = staged_spec DISJUNCTION s2 = staged_spec
       { Disjunction (s1, s2) }
   | REQUIRES s = state
