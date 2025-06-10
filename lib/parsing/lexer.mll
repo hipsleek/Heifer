@@ -4,7 +4,7 @@ open Parser
 
 }
 
-let blank = [' ']
+let blank = [' ' '\t']
 let lowercase = ['a'-'z' '_']
 let uppercase = ['A'-'Z']
 let identchar = ['A'-'Z' 'a'-'z' '_' '\'' '0'-'9']
@@ -15,6 +15,8 @@ let int_literal = decimal_literal
 rule token = parse
   | blank +
       { token lexbuf }
+  | '\n' | '\r' | "\r\n"
+    { Lexing.new_line lexbuf; token lexbuf }
   | "="
       { EQUAL }
   | ">"
