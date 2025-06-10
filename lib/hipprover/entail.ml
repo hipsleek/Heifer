@@ -65,11 +65,21 @@ let create_pctx cp =
 (* proof state *)
 type pstate = pctx * staged_spec * staged_spec
 
+(* prints the proof state like an inference rule *)
 let string_of_pstate (ctx, left, right) =
   Format.asprintf "%s\n%s\n%s\n⊑\n%s@." (string_of_pctx ctx)
     (String.make 60 '-')
     (string_of_staged_spec left)
     (string_of_staged_spec right)
+
+(* this version is more usable for seeing the goal *)
+let string_of_pstate =
+  let backarrow = "<" ^ String.make 60 '=' in
+  fun (ctx, left, right) ->
+    Format.asprintf "%s\n⊑\n%s\n%s\n%s@."
+      (string_of_staged_spec left)
+      (string_of_staged_spec right)
+      backarrow (string_of_pctx ctx)
 
 let check_pure_obligation left right =
   let open Infer_types in
