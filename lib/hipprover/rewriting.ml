@@ -366,6 +366,12 @@ let rewrite_applicable rule target =
   | _, _ -> false
 
 let rewrite_rooted rule target =
+  let@ _ =
+    span (fun r ->
+        debug ~at:4 ~title:"rewrite_rooted" "rule: %s\ntarget: %s\n==>\n%s"
+          (string_of_rule rule) (string_of_uterm target)
+          (string_of_result (string_of_option string_of_uterm) r))
+  in
   if rewrite_applicable rule target then
     let st = UF.new_store () in
     let lhs, e = to_unifiable st rule.lhs in
@@ -404,6 +410,12 @@ let rewrite_all rule target =
          uterm_to_term s2)
         |> Option.value ~default:s1
     end
+  in
+  let@ _ =
+    span (fun r ->
+        debug ~at:4 ~title:"rewrite_all" "rule: %s\ntarget: %s\n==>\n%s"
+          (string_of_rule rule) (string_of_uterm target)
+          (string_of_result string_of_uterm r))
   in
   match target with
   | Staged s -> Staged (visitor#visit_staged_spec () s)
