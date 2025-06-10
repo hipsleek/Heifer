@@ -25,9 +25,6 @@ type pctx = {
   assumptions : pi list; (* obligations : (state * state) list; *)
 }
 
-let string_of_obligation (l, r) =
-  Format.asprintf "%s ==> %s" (string_of_state l) (string_of_state r)
-
 let string_of_pctx ctx =
   Format.asprintf
     "assumptions:\n%s\n\ndefinitions_nonrec:\n%s\n\ndefinitions_rec:\n%s"
@@ -65,11 +62,21 @@ let create_pctx cp =
 (* proof state *)
 type pstate = pctx * staged_spec * staged_spec
 
+(* prints the proof state like an inference rule *)
 let string_of_pstate (ctx, left, right) =
   Format.asprintf "%s\n%s\n%s\n⊑\n%s@." (string_of_pctx ctx)
     (String.make 60 '-')
     (string_of_staged_spec left)
     (string_of_staged_spec right)
+
+(* this version is more usable for seeing the goal *)
+let string_of_pstate =
+  let backarrow = "<" ^ String.make 60 '=' in
+  fun (ctx, left, right) ->
+    Format.asprintf "%s\n⊑\n%s\n%s\n%s@."
+      (string_of_staged_spec left)
+      (string_of_staged_spec right)
+      backarrow (string_of_pctx ctx)
 
 let check_pure_obligation left right =
   let open Infer_types in
@@ -83,7 +90,28 @@ let check_pure_obligation left right =
   let res = Provers.entails_exists (concrete_type_env tenv) left [] right in
   res
 
-let apply_ent_rule (pctx, f1, f2) =
+(** Tactics combine the state and list monads *)
+module Tactic : sig
+  type 'a t = pstate -> ('a * pstate) Iter.t
+
+  val return : 'a -> 'a t
+  val bind : 'a t -> ('a -> 'b t) -> 'b t
+  val ( >>= ) : 'a t -> ('a -> 'b t) -> 'b t
+  val ( let* ) : ('a -> 'b t) -> 'a t -> 'b t
+end = struct
+  type 'a t = pstate -> ('a * pstate) Iter.t
+
+  let return x = fun s -> Iter.return (x, s)
+  let bind m f = fun s -> Iter.flat_map (fun (x, s') -> f x s') (m s)
+  let ( >>= ) = bind
+  let ( let* ) f a = bind a f
+end
+
+(* a total tactic, which does not fail or backtrack *)
+type total = pstate -> pstate
+
+let apply_ent_rule : total =
+ fun (pctx, f1, f2) ->
   let@ _ =
     span (fun _r ->
         debug ~at:4 ~title:"apply_ent_rule" "%s"
@@ -103,7 +131,8 @@ let apply_ent_rule (pctx, f1, f2) =
     (pctx, f1, f2)
   | _, _ -> (pctx, f1, f2)
 
-let unfold_definitions (pctx, f1, f2) =
+let unfold_definitions : total =
+ fun (pctx, f1, f2) ->
   let@ _ =
     span (fun _r ->
         debug ~at:4 ~title:"unfold_definitions" "%s"
@@ -115,7 +144,7 @@ let unfold_definitions (pctx, f1, f2) =
   let f2 = autorewrite pctx.definitions_nonrec (Staged f2) |> of_uterm in
   (pctx, f1, f2)
 
-let entailment_search : ?name:string -> pstate -> pstate Iter.t =
+let entailment_search : ?name:string -> unit Tactic.t =
  fun ?name (pctx, f1, f2) k ->
   Search.reset ();
   let@ _ =
@@ -130,7 +159,7 @@ let entailment_search : ?name:string -> pstate -> pstate Iter.t =
   in
   let pctx, f1, f2 = apply_ent_rule (pctx, f1, f2) in
   let pctx, f1, f2 = unfold_definitions (pctx, f1, f2) in
-  k (pctx, f1, f2)
+  k ((), (pctx, f1, f2))
 
 let check_staged_spec_entailment ?name pctx inferred given =
   let@ _ =
@@ -143,7 +172,7 @@ let check_staged_spec_entailment ?name pctx inferred given =
   let search = entailment_search ?name (pctx, inferred, given) in
   match Iter.head search with
   | None -> false
-  | Some (pctx, _f1, _f2) ->
+  | Some (_, (pctx, _f1, _f2)) ->
     debug ~at:2 ~title:"proof found" "%s" (string_of_pctx pctx);
     true
 
