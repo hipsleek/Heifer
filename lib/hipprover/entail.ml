@@ -29,11 +29,11 @@ let string_of_obligation (l, r) =
   Format.asprintf "%s ==> %s" (string_of_state l) (string_of_state r)
 
 let string_of_pctx ctx =
-  Format.asprintf "assumptions: %s\ndefinitions_nonrec: %s\ndefinitions_rec: %s"
-    (string_of_list string_of_pi ctx.assumptions)
-    (Rewriting.string_of_database ctx.definitions_nonrec)
-    (Rewriting.string_of_database ctx.definitions_rec)
-(* (string_of_list string_of_obligation ctx.obligations) *)
+  Format.asprintf
+    "assumptions:\n%s\n\ndefinitions_nonrec:\n%s\n\ndefinitions_rec:\n%s"
+    (string_of_list_ind_lines string_of_pi ctx.assumptions)
+    (string_of_list_ind_lines Rewriting.string_of_rule ctx.definitions_nonrec)
+    (string_of_list_ind_lines Rewriting.string_of_rule ctx.definitions_rec)
 
 let new_pctx () =
   { assumptions = []; definitions_nonrec = []; definitions_rec = [] }
@@ -67,7 +67,7 @@ type pstate = pctx * staged_spec * staged_spec
 
 let string_of_pstate (ctx, left, right) =
   Format.asprintf "%s\n%s\n%s\n⊑\n%s@." (string_of_pctx ctx)
-    (String.make 20 '-')
+    (String.make 60 '-')
     (string_of_staged_spec left)
     (string_of_staged_spec right)
 
@@ -144,7 +144,7 @@ let check_staged_spec_entailment ?name pctx inferred given =
   match Iter.head search with
   | None -> false
   | Some (pctx, _f1, _f2) ->
-    debug ~at:2 ~title:"proof" "%s" (string_of_pctx pctx);
+    debug ~at:2 ~title:"proof found" "%s" (string_of_pctx pctx);
     true
 
 (*
@@ -350,9 +350,9 @@ let rec check_qf :
     | None -> failwith (Format.asprintf "could not split LHS, bug?")
   end
 *)
-module Biabduction = struct
-  (* put biabduction stuffs here *)
-end
+(* module Biabduction = struct *)
+(* put biabduction stuffs here *)
+(* end *)
 
 (*
 let instantiate_pred : pred_def -> term list -> term -> pred_def =

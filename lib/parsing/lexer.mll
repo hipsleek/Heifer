@@ -1,10 +1,17 @@
 {
-(* open Lexing *)
 open Parser
+
+exception Lexing_error of string
+
+let raise_error lexbuf msg =
+  let pos = Lexing.lexeme_start_p lexbuf in
+  let l = pos.pos_lnum in
+  let c = pos.pos_cnum - pos.pos_bol + 1 in
+  raise (Lexing_error (Printf.sprintf "Line %d, character %d: %s" l c msg))
 
 }
 
-let blank = [' ']
+let blank = [' ' '\t']
 let lowercase = ['a'-'z' '_']
 let uppercase = ['A'-'Z']
 let identchar = ['A'-'Z' 'a'-'z' '_' '\'' '0'-'9']
@@ -15,6 +22,8 @@ let int_literal = decimal_literal
 rule token = parse
   | blank +
       { token lexbuf }
+  | '\n' | '\r' | "\r\n"
+    { Lexing.new_line lexbuf; token lexbuf }
   | "="
       { EQUAL }
   | ">"
@@ -41,6 +50,10 @@ rule token = parse
       { LPAREN }
   | ")"
       { RPAREN }
+  | "["
+      { LBRACKET }
+  | "]"
+      { RBRACKET }
   | ";"
       { SEMI }
   | ","
@@ -71,3 +84,5 @@ rule token = parse
       { EOF }
   | identchar + as v
       { IDENT v }
+  | _ as c
+    { raise_error lexbuf (Printf.sprintf "Unexpected character: '%c'" c) }

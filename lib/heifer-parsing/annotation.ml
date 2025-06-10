@@ -3,9 +3,9 @@ open Parsing
 
 let handle_error parser lexbuf =
   try parser Lexer.token lexbuf with
-    (* | Lexer.Lexing_error msg ->
+    | Lexer.Lexing_error msg ->
       Printf.eprintf "Lexing error: %s\n" msg;
-      [] *)
+      failwith "lexer error"
     | Parser.Error ->
       let pos = Lexing.lexeme_start_p lexbuf in
       let line = pos.Lexing.pos_lnum in

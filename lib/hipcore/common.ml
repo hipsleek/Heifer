@@ -17,6 +17,7 @@ end = struct
   let to_list = List.rev
 end
 
+let pair a b = (a, b)
 let string_of_pair pa pb (a, b) = Format.asprintf "(%s, %s)" (pa a) (pb b)
 
 let string_of_list p xs =
@@ -25,6 +26,20 @@ let string_of_list p xs =
   | _ ->
     let a = List.map p xs |> String.concat "; " in
     Format.asprintf "[%s]" a
+
+let string_of_list_lines p xs =
+  match xs with
+  | [] -> ""
+  | _ ->
+    List.map p xs |> String.concat "\n"
+
+let indent s =
+  String.split_on_char '\n' s
+  |> List.map (fun l -> "  " ^ l)
+  |> String.concat "\n"
+
+let string_of_list_ind_lines p xs =
+  indent (string_of_list_lines p xs)
 
 let quote = Format.asprintf "\"%s\""
 

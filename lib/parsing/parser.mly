@@ -16,6 +16,8 @@ open Hiptypes
 %token DISJUNCTION
 %token LPAREN
 %token RPAREN
+%token LBRACKET
+%token RBRACKET
 %token SEMI
 %token COMMA
 
@@ -106,6 +108,8 @@ term:
       { BinOp (op, t1, t2) }
   | v = IDENT LPAREN args = separated_list(COMMA, term) RPAREN
       { TApp (v, args) }
+  | LBRACKET items = separated_list(SEMI, term) RBRACKET
+      { TList items }
 ;
 pi:
   | TRUE
@@ -145,8 +149,10 @@ state:
       { (p, k) }
 ;
 staged_spec:
-  | EXISTS v = IDENT DOT s = staged_spec
-      { Exists (v, s) }
+  | EXISTS vs = IDENT* DOT s = staged_spec
+      {
+        List.fold_right (fun c t -> Exists (c, t)) vs s
+        }
   | s1 = staged_spec DISJUNCTION s2 = staged_spec
       { Disjunction (s1, s2) }
   | REQUIRES s = state

@@ -246,10 +246,14 @@ and unify_pure : UF.store -> pi unif -> pi unif -> unit option =
     let* _ = unify_var st (Term t2, e1) (Term t4, e2) in
     Some ()
   | Predicate (f1, a1), Predicate (f2, a2) when f1 = f2 ->
-    let* _ =
-      sequence2 (fun (v1, v2) -> unify_var st (Term v1, e1) (Term v2, e2)) a1 a2
-    in
-    Some ()
+    if List.length a1 <> List.length a2 then None
+    else
+      let* _ =
+        sequence2
+          (fun (v1, v2) -> unify_var st (Term v1, e1) (Term v2, e2))
+          a1 a2
+      in
+      Some ()
   | Subsumption (t1, t2), Subsumption (t3, t4) ->
     let* _ = unify_var st (Term t1, e1) (Term t3, e2) in
     let* _ = unify_var st (Term t2, e1) (Term t4, e2) in
@@ -283,10 +287,14 @@ and unify_term : UF.store -> term unif -> term unif -> unit option =
     let* _ = unify_var st (Term t1, e1) (Term t2, e2) in
     Some ()
   | TApp (f1, a1), TApp (f2, a2) when f1 = f2 ->
-    let* _ =
-      sequence2 (fun (v1, v2) -> unify_var st (Term v1, e1) (Term v2, e2)) a1 a2
-    in
-    Some ()
+    if List.length a1 <> List.length a2 then None
+    else
+      let* _ =
+        sequence2
+          (fun (v1, v2) -> unify_var st (Term v1, e1) (Term v2, e2))
+          a1 a2
+      in
+      Some ()
   | TLambda (_, _, _, _), TLambda (_, _, _, _) -> failwith "TLambda"
   | TList _, TList _ -> failwith "TList"
   | TTuple _, TTuple _ -> failwith "TTuple"
@@ -310,10 +318,14 @@ and unify_staged :
     let* _ = unify_var st (Staged b1, e1) (Staged b2, e2) in
     Some ()
   | HigherOrder (f1, a1), HigherOrder (f2, a2) when f1 = f2 ->
-    let* _ =
-      sequence2 (fun (v1, v2) -> unify_var st (Term v1, e1) (Term v2, e2)) a1 a2
-    in
-    Some ()
+    if List.length a1 <> List.length a2 then None
+    else
+      let* _ =
+        sequence2
+          (fun (v1, v2) -> unify_var st (Term v1, e1) (Term v2, e2))
+          a1 a2
+      in
+      Some ()
   | Shift (z1, k1, f1), Shift (z2, k2, f2) when z1 = z2 && k1 = k2 ->
     let* _ = unify_var st (Staged f1, e1) (Staged f2, e2) in
     Some ()
@@ -354,6 +366,12 @@ let rewrite_applicable rule target =
   | _, _ -> false
 
 let rewrite_rooted rule target =
+  let@ _ =
+    span (fun r ->
+        debug ~at:4 ~title:"rewrite_rooted" "rule: %s\ntarget: %s\n==>\n%s"
+          (string_of_rule rule) (string_of_uterm target)
+          (string_of_result (string_of_option string_of_uterm) r))
+  in
   if rewrite_applicable rule target then
     let st = UF.new_store () in
     let lhs, e = to_unifiable st rule.lhs in
@@ -392,6 +410,12 @@ let rewrite_all rule target =
          uterm_to_term s2)
         |> Option.value ~default:s1
     end
+  in
+  let@ _ =
+    span (fun r ->
+        debug ~at:4 ~title:"rewrite_all" "rule: %s\ntarget: %s\n==>\n%s"
+          (string_of_rule rule) (string_of_uterm target)
+          (string_of_result string_of_uterm r))
   in
   match target with
   | Staged s -> Staged (visitor#visit_staged_spec () s)
