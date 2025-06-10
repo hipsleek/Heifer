@@ -145,8 +145,10 @@ state:
       { (p, k) }
 ;
 staged_spec:
-  | EXISTS v = IDENT DOT s = staged_spec
-      { Exists (v, s) }
+  | EXISTS vs = IDENT* DOT s = staged_spec
+      {
+        List.fold_right (fun c t -> Exists (c, t)) vs s
+        }
   | s1 = staged_spec DISJUNCTION s2 = staged_spec
       { Disjunction (s1, s2) }
   | REQUIRES s = state
