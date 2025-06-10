@@ -1,6 +1,13 @@
 {
-(* open Lexing *)
 open Parser
+
+exception Lexing_error of string
+
+let raise_error lexbuf msg =
+  let pos = Lexing.lexeme_start_p lexbuf in
+  let l = pos.pos_lnum in
+  let c = pos.pos_cnum - pos.pos_bol + 1 in
+  raise (Lexing_error (Printf.sprintf "Line %d, character %d: %s" l c msg))
 
 }
 
@@ -73,3 +80,5 @@ rule token = parse
       { EOF }
   | identchar + as v
       { IDENT v }
+  | _ as c
+    { raise_error lexbuf (Printf.sprintf "Unexpected character: '%c'" c) }
