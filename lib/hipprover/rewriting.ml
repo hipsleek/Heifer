@@ -246,10 +246,14 @@ and unify_pure : UF.store -> pi unif -> pi unif -> unit option =
     let* _ = unify_var st (Term t2, e1) (Term t4, e2) in
     Some ()
   | Predicate (f1, a1), Predicate (f2, a2) when f1 = f2 ->
-    let* _ =
-      sequence2 (fun (v1, v2) -> unify_var st (Term v1, e1) (Term v2, e2)) a1 a2
-    in
-    Some ()
+    if List.length a1 <> List.length a2 then None
+    else
+      let* _ =
+        sequence2
+          (fun (v1, v2) -> unify_var st (Term v1, e1) (Term v2, e2))
+          a1 a2
+      in
+      Some ()
   | Subsumption (t1, t2), Subsumption (t3, t4) ->
     let* _ = unify_var st (Term t1, e1) (Term t3, e2) in
     let* _ = unify_var st (Term t2, e1) (Term t4, e2) in
@@ -283,10 +287,14 @@ and unify_term : UF.store -> term unif -> term unif -> unit option =
     let* _ = unify_var st (Term t1, e1) (Term t2, e2) in
     Some ()
   | TApp (f1, a1), TApp (f2, a2) when f1 = f2 ->
-    let* _ =
-      sequence2 (fun (v1, v2) -> unify_var st (Term v1, e1) (Term v2, e2)) a1 a2
-    in
-    Some ()
+    if List.length a1 <> List.length a2 then None
+    else
+      let* _ =
+        sequence2
+          (fun (v1, v2) -> unify_var st (Term v1, e1) (Term v2, e2))
+          a1 a2
+      in
+      Some ()
   | TLambda (_, _, _, _), TLambda (_, _, _, _) -> failwith "TLambda"
   | TList _, TList _ -> failwith "TList"
   | TTuple _, TTuple _ -> failwith "TTuple"
@@ -310,10 +318,14 @@ and unify_staged :
     let* _ = unify_var st (Staged b1, e1) (Staged b2, e2) in
     Some ()
   | HigherOrder (f1, a1), HigherOrder (f2, a2) when f1 = f2 ->
-    let* _ =
-      sequence2 (fun (v1, v2) -> unify_var st (Term v1, e1) (Term v2, e2)) a1 a2
-    in
-    Some ()
+    if List.length a1 <> List.length a2 then None
+    else
+      let* _ =
+        sequence2
+          (fun (v1, v2) -> unify_var st (Term v1, e1) (Term v2, e2))
+          a1 a2
+      in
+      Some ()
   | Shift (z1, k1, f1), Shift (z2, k2, f2) when z1 = z2 && k1 = k2 ->
     let* _ = unify_var st (Staged f1, e1) (Staged f2, e2) in
     Some ()
