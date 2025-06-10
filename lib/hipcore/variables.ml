@@ -1,3 +1,7 @@
+open Hiptypes
+
+let res_var = Var "res"
+
 let counter : int ref = ref 0
 
 let reset_counter (i : int) : unit = counter := i

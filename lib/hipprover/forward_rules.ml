@@ -301,10 +301,6 @@ let findTheActualArg4Acc_x_e_ret (arg:term) (specs:disj_spec): term =
 
 *)
 
-let res_var = Var "res"
-(* let res_eq t = Atomic (EQ, res_var, t) *)
-(* let res_eq_var v = Atomic (EQ, res_var, Var v) *)
-
 let rec infer_of_expression (env: 'a) (expr : core_lang): staged_spec * 'a =
   match expr with
   | CValue v ->
