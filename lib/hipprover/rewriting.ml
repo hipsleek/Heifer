@@ -157,22 +157,25 @@ let of_unifiable (f, _) = f
 let subst_uvars st (f, e) : uterm =
   let visitor =
     object (_)
-      inherit [_] map_spec
+      inherit [_] map_spec as super
 
       method! visit_HigherOrder () f v =
+        let f1 = super#visit_HigherOrder () f v in
         if is_uvar_name f then
           UF.get st (SMap.find f e) |> Option.get |> uterm_to_staged
-        else HigherOrder (f, v)
+        else f1
 
       method! visit_Predicate () f v =
+        let p = super#visit_Predicate () f v in
         if is_uvar_name f then
           UF.get st (SMap.find f e) |> Option.get |> uterm_to_pure
-        else Predicate (f, v)
+        else p
 
       method! visit_PointsTo () l v =
+        let p = super#visit_PointsTo () l v in
         if is_uvar_name l then
           UF.get st (SMap.find l e) |> Option.get |> uterm_to_heap
-        else PointsTo (l, v)
+        else p
 
       method! visit_Var () x =
         if is_uvar_name x then
