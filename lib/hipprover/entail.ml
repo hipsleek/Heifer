@@ -313,7 +313,9 @@ and entailment_search : ?name:string -> tactic =
 let create_induction_hypothesis ps =
   let pctx, f1, f2 = ps in
   let free =
-    SSet.union (Subst.free_vars f1) (Subst.free_vars f2) |> SSet.to_list
+    SSet.union (Subst.free_vars f1) (Subst.free_vars f2)
+    |> SSet.remove "res" (* this isn't a free var; it's bound by ens *)
+    |> SSet.to_list
   in
   (* assume they are of term type *)
   let bs = List.map (fun f -> (f, Rewriting.Rules.Term.uvar f)) free in
