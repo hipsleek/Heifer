@@ -486,6 +486,7 @@ module Rules = struct
   module Term = struct
     let uvar = uvar_term
     let rule lhs rhs = { lhs = Term lhs; rhs = `Replace (Term rhs) }
+    let dynamic_rule lhs rhs = { lhs = Term lhs; rhs = `Dynamic (fun sub -> Term (rhs sub)) }
     let of_uterm = uterm_to_term
   end
 

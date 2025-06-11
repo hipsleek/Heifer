@@ -104,6 +104,7 @@ module Rules :
     module Term : sig
       val uvar : string -> term
       val rule : term -> term -> rule
+      val dynamic_rule : term -> ((string -> uterm) -> term) -> rule
       val of_uterm : uterm -> term
     end
 
