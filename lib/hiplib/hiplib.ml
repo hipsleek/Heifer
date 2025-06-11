@@ -121,7 +121,7 @@ let infer_spec (prog : core_program) (meth : meth_def) =
   let fv_env = create_fv_env method_env pred_env in
   let@ _ = Debug.span (fun _ -> debug ~at:2 ~title:"apply forward rules" "") in
   let@ _ = Globals.Timing.(time forward) in
-  infer_of_expression fv_env meth.m_body
+  forward fv_env meth.m_body
 
 let check_method prog inferred given =
   match given with

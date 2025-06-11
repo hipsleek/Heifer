@@ -301,17 +301,17 @@ let findTheActualArg4Acc_x_e_ret (arg:term) (specs:disj_spec): term =
 
 *)
 
-let rec infer_of_expression (env: 'a) (expr : core_lang): staged_spec * 'a =
+let rec forward (env: 'a) (expr : core_lang): staged_spec * 'a =
   match expr with
   | CValue v ->
       NormalReturn (Atomic (EQ, res_var, v), EmptyHeap), env
   | CLet (x, expr1, expr2) ->
-      let spec1, env = infer_of_expression env expr1 in
-      let spec2, env = infer_of_expression env expr2 in
+      let spec1, env = forward env expr1 in
+      let spec2, env = forward env expr2 in
       Bind (x, spec1, spec2), env
   | CIfELse (p, expr1, expr2) ->
-      let spec1, env = infer_of_expression env expr1 in
-      let spec2, env = infer_of_expression env expr2 in
+      let spec1, env = forward env expr1 in
+      let spec2, env = forward env expr2 in
       let lhs = Sequence (NormalReturn (p, EmptyHeap), spec1) in
       let rhs = Sequence (NormalReturn (Not p, EmptyHeap), spec2) in
       Disjunction (lhs, rhs), env
@@ -339,10 +339,10 @@ let rec infer_of_expression (env: 'a) (expr : core_lang): staged_spec * 'a =
   | CMatch (_, _, discriminant, _, _, cases) ->
       let v = fresh_variable () in
       let t = Var v in
-      let discriminant_spec, env = infer_of_expression env discriminant in
+      let discriminant_spec, env = forward env discriminant in
       let handle_case (constr, vars, body) env =
         (* TODO: hard-coded for list now *)
-        let body_spec, env = infer_of_expression env body in
+        let body_spec, env = forward env body in
         let case_spec = match constr, vars with
           | "[]", [] ->
               let nil_term = Const Nil in
@@ -363,7 +363,7 @@ let rec infer_of_expression (env: 'a) (expr : core_lang): staged_spec * 'a =
   | CResume _ ->
       failwith "CResume"
   | CLambda (params, given_spec, body) ->
-      let inferred_spec, env = infer_of_expression env body in
+      let inferred_spec, env = forward env body in
       let lambda_id = fresh_variable "lambda" in
       let spec_to_use = match given_spec with
         | None -> Some inferred_spec
@@ -385,8 +385,8 @@ let rec infer_of_expression (env: 'a) (expr : core_lang): staged_spec * 'a =
       in
       NormalReturn (Atomic (EQ, res_var, lambda_term), EmptyHeap), env
   | CShift (nz, k, expr_body) ->
-      let spec_body, env = infer_of_expression env expr_body in
+      let spec_body, env = forward env expr_body in
       Shift (nz, k, spec_body), env
   | CReset expr_body ->
-      let spec_body, env = infer_of_expression env expr_body in
+      let spec_body, env = forward env expr_body in
       Reset spec_body, env
