@@ -27,141 +27,6 @@ let yellow text = col ~ansi:"\u{001b}[33m" ~html:"<span class=\"output-emph\">" 
 
 let end_of_var = Str.regexp "_?[0-9]+$"
 
-(*
-let string_of_token =
-  let open Parser in
-  function
-| AMPERAMPER -> "AMPERAMPER"
-| AMPERSAND -> "AMPERSAND"
-| AND -> "AND"
-| AS -> "AS"
-| ASSERT -> "ASSERT"
-| BACKQUOTE -> "BACKQUOTE"
-| BANG -> "BANG"
-| BAR -> "BAR"
-| BARBAR -> "BARBAR"
-| BARRBRACKET -> "BARRBRACKET"
-| BEGIN -> "BEGIN"
-| CHAR _ -> "CHAR"
-| CLASS -> "CLASS"
-| COLON -> "COLON"
-| COLONCOLON -> "COLONCOLON"
-| COLONEQUAL -> "COLONEQUAL"
-| COLONGREATER -> "COLONGREATER"
-| COMMA -> "COMMA"
-| CONSTRAINT -> "CONSTRAINT"
-| DO -> "DO"
-| DONE -> "DONE"
-| DOT -> "DOT"
-| DOTDOT -> "DOTDOT"
-| DOWNTO -> "DOWNTO"
-| EFFECT -> "EFFECT"
-| ELSE -> "ELSE"
-| END -> "END"
-| EOF -> "EOF"
-| EQUAL -> "EQUAL"
-| EXCEPTION -> "EXCEPTION"
-| EXTERNAL -> "EXTERNAL"
-| FALSE -> "FALSE"
-| FLOAT _ -> "FLOAT"
-| FOR -> "FOR"
-| FUN -> "FUN"
-| FUNCTION -> "FUNCTION"
-| FUNCTOR -> "FUNCTOR"
-| GREATER -> "GREATER"
-| GREATERRBRACE -> "GREATERRBRACE"
-| GREATERRBRACKET -> "GREATERRBRACKET"
-| IF -> "IF"
-| IN -> "IN"
-| INCLUDE -> "INCLUDE"
-| INFIXOP0 _ -> "INFIXOP0"
-| INFIXOP1 _ -> "INFIXOP1"
-| INFIXOP2 _ -> "INFIXOP2"
-| INFIXOP3 _ -> "INFIXOP3"
-| INFIXOP4 _ -> "INFIXOP4"
-| DOTOP _ -> "DOTOP"
-| LETOP _ -> "LETOP"
-| ANDOP _ -> "ANDOP"
-| INHERIT -> "INHERIT"
-| INITIALIZER -> "INITIALIZER"
-| INT _ -> "INT"
-| LABEL _ -> "LABEL"
-| LAZY -> "LAZY"
-| LBRACE -> "LBRACE"
-| LBRACELESS -> "LBRACELESS"
-| LBRACKET -> "LBRACKET"
-| LBRACKETBAR -> "LBRACKETBAR"
-| LBRACKETLESS -> "LBRACKETLESS"
-| LBRACKETGREATER -> "LBRACKETGREATER"
-| LBRACKETPERCENT -> "LBRACKETPERCENT"
-| LBRACKETPERCENTPERCENT -> "LBRACKETPERCENTPERCENT"
-| LESS -> "LESS"
-| LESSMINUS -> "LESSMINUS"
-| LET -> "LET"
-| LIDENT _ -> "LIDENT"
-| LPAREN -> "LPAREN"
-| LBRACKETAT -> "LBRACKETAT"
-| LBRACKETATAT -> "LBRACKETATAT"
-| LBRACKETATATAT -> "LBRACKETATATAT"
-| MATCH -> "MATCH"
-| METHOD -> "METHOD"
-| MINUS -> "MINUS"
-| MINUSDOT -> "MINUSDOT"
-| MINUSGREATER -> "MINUSGREATER"
-| MODULE -> "MODULE"
-| MUTABLE -> "MUTABLE"
-| NEW -> "NEW"
-| NONREC -> "NONREC"
-| OBJECT -> "OBJECT"
-| OF -> "OF"
-| OPEN -> "OPEN"
-| OPTLABEL _ -> "OPTLABEL"
-| OR -> "OR"
-| PERCENT -> "PERCENT"
-| PLUS -> "PLUS"
-| PLUSDOT -> "PLUSDOT"
-| PLUSEQ -> "PLUSEQ"
-| PREFIXOP _ -> "PREFIXOP"
-| PRIVATE -> "PRIVATE"
-| QUESTION -> "QUESTION"
-| QUOTE -> "QUOTE"
-| RBRACE -> "RBRACE"
-| RBRACKET -> "RBRACKET"
-| REC -> "REC"
-| RPAREN -> "RPAREN"
-| SEMI -> "SEMI"
-| SEMISEMI -> "SEMISEMI"
-| HASH -> "HASH"
-| HASHOP _ -> "HASHOP"
-| SIG -> "SIG"
-| STAR -> "STAR"
-| STRING _ -> "STRING"
-| STRUCT -> "STRUCT"
-| THEN -> "THEN"
-| TILDE -> "TILDE"
-| TO -> "TO"
-| TRUE -> "TRUE"
-| TRY -> "TRY"
-| TYPE -> "TYPE"
-| UIDENT _ -> "UIDENT"
-| UNDERSCORE -> "UNDERSCORE"
-| VAL -> "VAL"
-| VIRTUAL -> "VIRTUAL"
-| WHEN -> "WHEN"
-| WHILE -> "WHILE"
-| WITH -> "WITH"
-| COMMENT _ -> "COMMENT"
-(* | PURE -> "PURE" *)
-| DOCSTRING _ -> "DOCSTRING"
-| EOL -> "EOL"
-| QUOTED_STRING_EXPR _ -> "QUOTED_STRING_EXPR"
-| QUOTED_STRING_ITEM _ -> "QUOTED_STRING_ITEM"
-| METAOCAML_ESCAPE  -> "METAOCAML_ESCAPE"
-| METAOCAML_BRACKET_OPEN -> "METAOCAML_BRACKET_OPEN"
-| METAOCAML_BRACKET_CLOSE -> "METAOCAML_BRACKET_CLOSE"
-(* | IMPLICATION -> "IMPLICATION" *)
-*)
-
 let string_of_args pp args =
   match args with
   | [] -> "()"
@@ -206,7 +71,7 @@ let string_of_constant c : string =
   match c with
   | ValUnit -> "()"
   | Num i -> if i >= 0 then string_of_int i else "(" ^ string_of_int i ^ ")"
-  | TStr s -> s
+  | TStr s -> "\"" ^ s ^ "\""
   | Nil -> "[]"
   | TTrue -> "true"
   | TFalse -> "false"
@@ -618,3 +483,171 @@ let local_lambda_defs =
       | _ -> SMap.empty
   end
  *)
+
+(* These pretty-printers use Format's spacing and indentation rules, which might make
+   them easier to read compared to the above printers. *)
+
+let pp_bin_op ppf op =
+  Format.fprintf ppf "%s" (string_of_bin_op op)
+
+let pp_bin_term_op ppf op =
+  Format.fprintf ppf "%s" (string_of_bin_term_op op)
+
+let pp_constant ppf c =
+  Format.fprintf ppf "%s" (string_of_constant c)
+
+let rec pp_term ppf t =
+  let open Format in
+  match t with
+  | Const c -> fprintf ppf "%a" pp_constant c
+  | BinOp (op, lhs, rhs) -> fprintf ppf "@[<hov 1>(%a@ %a@ @%a)@]"
+    pp_term lhs pp_bin_term_op op pp_term rhs
+  | Rel (op, lhs, rhs) -> fprintf ppf "@[<hov 1>(%a@ %a@ %a)@]"
+    pp_term lhs pp_bin_op op pp_term rhs
+  | TNot t -> fprintf ppf "@[<hov 1>~(%a)@]" pp_term t
+  | Var v -> fprintf ppf "%s" v
+  | TApp (op, args) -> pp_call_like ppf (op, args)
+  | TLambda (_name, params, sp, body) -> pp_lambda_like ppf (params, sp, body)
+  | TList args ->
+      fprintf ppf "[@[<hov 1>%a@]]"
+      (pp_print_list ~pp_sep:(fun ppf () -> fprintf ppf ";@ ") pp_term) args
+  | TTuple args ->
+      fprintf ppf "(@[<hov 1>%a@])"
+      (pp_print_list ~pp_sep:(fun ppf () -> fprintf ppf ",@ ") pp_term) args
+and pp_call_like ppf (f, args) = 
+  let open Format in
+  fprintf ppf "@[<hov 1>%s(@[<hov>%a@])@]" f
+  (pp_print_list ~pp_sep:(fun ppf () -> fprintf ppf ",@ ") pp_term) args
+and pp_lambda_like ppf (params, spec, body) =
+  let open Format in
+  fprintf ppf "@[(fun@ %a@ @[<hov 1>@ (*@@@ %a@ @@*)@ %a@])@]"
+    (pp_print_list ~pp_sep:(fun ppf () -> fprintf ppf ",@ ") pp_print_string) params
+    (pp_print_option pp_staged_spec) spec
+    (pp_print_option (fun ppf body -> fprintf ppf "@ ->@ %a" pp_core_lang body)) body
+and pp_pi ppf p =
+  let open Format in
+  match p with
+  | True -> fprintf ppf "true"
+  | False -> fprintf ppf "false"
+  | And (p1, p2) -> fprintf ppf "@[<hov 1>%a@ /\\@ %a@]"
+      pp_pi p1 pp_pi p2
+  | Or (p1, p2) -> fprintf ppf "@[<hov 1>%a@ \\/@ %a@]"
+      pp_pi p1 pp_pi p2
+  | Not p -> fprintf ppf "@[<hov 1>~(%a)@]"
+      pp_pi p
+  | Imply (p1, p2) -> fprintf ppf "@[<hov 1>(%a)@]@ =>@ @[<hov>(%a)@]"
+      pp_pi p1 pp_pi p2
+  | Predicate (name, args) -> pp_call_like ppf (name, args)
+  | Subsumption (t1, t2) -> fprintf ppf "@[<hov 1>(%a)@]@ <:@ @[<hov>(%a)@]"
+      pp_term t1 pp_term t2
+  | Atomic (rel, t1, t2) -> fprintf ppf "@[<hov 1>(%a@ %a@ %a)@]"
+    pp_term t1 pp_bin_op rel pp_term t2
+and pp_kappa ppf k =
+  let open Format in
+  match k with
+  | EmptyHeap -> fprintf ppf "emp"
+  | PointsTo (loc, t) -> fprintf ppf "@[%s@ ->@ @[<hov 1>(%a)@]@]" loc pp_term t
+  | SepConj (k1, k2) -> fprintf ppf "@[<hov 1>(%a)@]@ *@ @[<hov>(%a)@]"
+    pp_kappa k1 pp_kappa k2
+and pp_staged_spec ppf spec =
+  let open Format in
+  match spec with
+  | Exists (v, spec) ->
+    fprintf ppf "@[<hov 1>ex@ %s.@ @[<hov 1>%a@]@]"
+    v
+    pp_staged_spec spec
+  | Require (p, k) ->
+    fprintf ppf "@[req@ (@[<hov 1>%a@ /\\@ %a@])@]"
+    pp_pi p pp_kappa k
+  | NormalReturn (p, k) ->
+    fprintf ppf "@[ens@ (@[<hov 1>%a@ /\\@ %a@])@]"
+    pp_pi p pp_kappa k
+  | HigherOrder (f, args) -> pp_call_like ppf (f, args)
+  | Shift (z, k, spec) ->
+      fprintf ppf "@[%s(@[<hov 1>%s.@ %a@])@]"
+      (if z then "sh" else "sh0")
+      k
+      pp_staged_spec spec
+  | Reset spec ->
+      fprintf ppf "@[%s(@[<hov 1>%a@])@]"
+      "rs"
+      pp_staged_spec spec
+  | Sequence (s1, s2) ->
+      fprintf ppf "@[<hov 1>(%a;@ %a)@]"
+      pp_staged_spec s1
+      pp_staged_spec s2
+  | Bind (v, s1, s2) ->
+      fprintf ppf "@[<hov 1>let@ %s@ =@ @[<hov 1>%a@]@ in@ @[<hov 1>(%a)@]@]"
+      v
+      pp_staged_spec s1
+      pp_staged_spec s2
+  | Disjunction (s1, s2) ->
+      fprintf ppf "@[(%a@ \\/@ %a@]"
+      pp_staged_spec s1
+      pp_staged_spec s2
+  (* the remaining cases are effect-related, no need to prettify for now *)
+  | s -> pp_print_string ppf (string_of_staged_spec s)
+and pp_try_catch_lemma ppf (head, cont, summary) =
+  Format.(fprintf ppf "@[TRY@ %a@ %a@ =>@ %a@]"
+    pp_staged_spec head
+    (pp_print_option (fun ppf spec -> fprintf ppf "#@ %a" pp_staged_spec spec)) cont
+    pp_staged_spec summary)
+and pp_core_lang ppf core =
+  let open Format in
+  match core with
+  | CValue v -> fprintf ppf "@[%a@]" pp_term v
+  | CLet (v, e1, e2) ->
+      fprintf ppf "@[let@ %s@ =@ @[<hov 1>%a@]@;in@ @[<hov 1>(%a)@]@]"
+      v
+      pp_core_lang e1
+      pp_core_lang e2
+  | CIfELse (pi, t, e) -> fprintf ppf "@[if@ %a@ then@ @[<hov>%a@]@ else@ @[<hov>%a@]@]"
+      pp_pi pi pp_core_lang t pp_core_lang e
+  | CFunCall (f, xs) -> pp_call_like ppf (f, xs)
+  | CWrite (v, e) -> fprintf ppf "@[%s@ :=@ %a@]" v pp_term e
+  | CRef v -> fprintf ppf "@[ref@ %a@]" pp_term v
+  | CRead v -> fprintf ppf "@[!%s]" v
+  | CAssert (p, h) -> fprintf ppf "@[assert@ (@[<hov>%a@ /\\@ %a@])@]"
+    pp_pi p pp_kappa h
+  | CPerform (eff, arg) ->
+      fprintf ppf "@[perform@ %s@ %a@]" eff (pp_print_option pp_term) arg
+  | CMatch (typ, spec, e, vs, hs, cs) ->
+      let pp_core_handler_ops = 
+        let pp_handler ppf (name, v, spec, body) =
+          fprintf ppf "|@ %a@ k@ %a@ ->@ %a@]"
+          (fun ppf (name, v) -> match v with 
+            | None -> pp_print_string ppf name
+            | Some v -> fprintf ppf "(%s@ %s)" name v) (name, v)
+          (pp_print_option pp_staged_spec) spec
+          pp_core_lang body
+        in
+        pp_print_list pp_handler
+      in
+      let pp_constr_cases =
+        let pp_constr_pattern ppf (const, args) =
+          match const, args with
+          | const, [] -> fprintf ppf "%s" const
+          | "::", [v1; v2] -> fprintf ppf "(%s@ ::@ %s)" v1 v2
+          | const, args ->
+              fprintf ppf "@[<hov 1>%s(@[<hov>%a@])@]" const
+              (pp_print_list ~pp_sep:(fun ppf () -> fprintf ppf ",@ ") pp_print_string) args
+        in
+        let pp_constr_case ppf (const, args, result) =
+          fprintf ppf "@[|@ %a@ ->@ %a@]" pp_constr_pattern (const, args) pp_core_lang result in
+        pp_print_list pp_constr_case
+      in
+      fprintf ppf "@[match[%s]@ (%a)@ with@,%a@,%a@,%a@,%a@]"
+      (string_of_handler_type typ)
+      (pp_print_option pp_try_catch_lemma) spec
+      pp_core_lang e
+      (pp_print_option (fun ppf (v, res) -> fprintf ppf "@[|@ %s@ ->@ %a@]" v pp_core_lang res)) vs
+      pp_core_handler_ops hs
+      pp_constr_cases cs
+  | CResume args -> fprintf ppf "@[continue@ %a@]" (pp_print_list pp_term) args
+  | CLambda (xs, spec, e) -> pp_lambda_like ppf (xs, spec, Some e)
+  | CShift (b, k, e) -> fprintf ppf "@[%s@ %s@ ->@ %a@]"
+    (if b then "Shift" else "Shift0")
+    k
+    pp_core_lang e
+  | CReset e -> fprintf ppf "@[<%a>@]" pp_core_lang e
+

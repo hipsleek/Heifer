@@ -77,11 +77,11 @@ let normal_report ~kind ~name ~inferred_spec ~given_spec ~result =
   let open Format in
   let header = sprintf "\n========== %s: %s ==========\n" kind name in
   let inferred_spec_string =
-    sprintf "[ Inferred specification ] %s\n" (string_of_staged_spec inferred_spec)
+    sprintf "[ Inferred specification ]\n%s\n" (Format.asprintf "%a@." pp_staged_spec inferred_spec)
   in
   let given_spec_string = match given_spec with
     | Some given_spec ->
-        sprintf "[ Given specification ] %s\n" (string_of_staged_spec given_spec)
+        sprintf "[ Given specification ]\n%s\n" (Format.asprintf "%a@." pp_staged_spec given_spec)
     | None ->
         ""
   in
