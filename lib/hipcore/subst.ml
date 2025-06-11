@@ -38,6 +38,31 @@ let subst_free_vars =
       end
     in fun bs f-> subst_visitor#visit_staged_spec bs f
 
+
+let free_vars =
+  let subst_visitor =
+    object (_)
+      inherit [_] reduce_spec as super
+      method zero = SSet.empty
+      method plus = SSet.union
+
+      method! visit_Exists () x f =
+        let b = super#visit_Exists () x f in
+        SSet.remove x b
+
+      method! visit_TLambda () h ps sp b =
+        let b = super#visit_TLambda () h ps sp b in
+        List.fold_right (fun c t -> SSet.remove c t) ps b
+
+      method! visit_Bind () x f1 f2 =
+        let b = super#visit_Bind () x f1 f2 in
+        SSet.remove x b
+
+      method! visit_Var () x =
+        SSet.singleton x
+      end
+    in fun f -> subst_visitor#visit_staged_spec () f
+
     (* method! visit_PointsTo bindings (str, t1) =
       let binding = findbinding str bindings in
       let newName = match binding with Var str1 -> str1 | _ -> str in

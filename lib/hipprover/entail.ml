@@ -192,7 +192,9 @@ let unfold_recursive_defns pctx f lr =
   ({ pctx with unfolded = used @ pctx.unfolded }, f)
 
 let simplify : total =
- fun (pctx, f1, f2) -> (pctx, normalize_spec f1, normalize_spec f2)
+ fun (pctx, f1, f2) ->
+  let@ _ = span (fun _r -> log_proof_state ~title:"simplify" (pctx, f1, f2)) in
+  (pctx, normalize_spec f1, normalize_spec f2)
 
 let unfold_definitions : total =
   let open Rewriting in
@@ -308,6 +310,18 @@ and entailment_search : ?name:string -> tactic =
   let ps = unfold_definitions ps in
   apply_ent_rule ps k
 
+let create_induction_hypothesis ps =
+  let pctx, f1, f2 = ps in
+  let free =
+    SSet.union (Subst.free_vars f1) (Subst.free_vars f2) |> SSet.to_list
+  in
+  (* assume they are of term type *)
+  let bs = List.map (fun f -> (f, Rewriting.Rules.Term.uvar f)) free in
+  let f3 = Subst.subst_free_vars bs f1 in
+  let f4 = Subst.subst_free_vars bs f2 in
+  let ih = Rewriting.Rules.Staged.rule f3 f4 in
+  { pctx with definitions_nonrec = ("IH", ih) :: pctx.definitions_nonrec }
+
 let check_staged_spec_entailment ?name pctx inferred given =
   let@ _ =
     span (fun r ->
@@ -317,9 +331,9 @@ let check_staged_spec_entailment ?name pctx inferred given =
           (string_of_result string_of_bool r))
   in
   let ps = (pctx, inferred, given) in
-  let ps = simplify ps in
-
-  let search = entailment_search ?name ps in
+  let pctx, f1, f2 = simplify ps in
+  let pctx = create_induction_hypothesis (pctx, f1, f2) in
+  let search = entailment_search ?name (pctx, f1, f2) in
   match Iter.head search with
   | None -> false
   | Some ps ->
