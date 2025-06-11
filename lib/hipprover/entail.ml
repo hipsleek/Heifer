@@ -122,11 +122,24 @@ let pctx_to_supp ctx =
         unfolded );
   ]
 
-let pctx_to_supp ctx = [("proof context", string_of_pctx ctx)]
+let pctx_to_supp ?(title = "proof context") ctx = [(title, string_of_pctx ctx)]
 
 let log_proof_state ~title (pctx, f1, f2) =
   debug ~at:4 ~title ~supp:(pctx_to_supp pctx) "%s\n⊑\n%s"
     (string_of_staged_spec f1) (string_of_staged_spec f2)
+
+let log_proof_state_total ~title (pctx, f1, f2) ps1 =
+  let supp, res =
+    match ps1 with
+    | Value (pctx1, f3, f4) ->
+      ( pctx_to_supp ~title:"proof context before" pctx
+        @ pctx_to_supp ~title:"proof context after" pctx1,
+        Format.asprintf "%s\n⊑\n%s" (string_of_staged_spec f3)
+          (string_of_staged_spec f4) )
+    | _ -> (pctx_to_supp pctx, string_of_result (fun _ -> "") ps1)
+  in
+  debug ~at:4 ~title ~supp "%s\n⊑\n%s\n==>\n%s" (string_of_staged_spec f1)
+    (string_of_staged_spec f2) res
 
 let check_pure_obligation left right =
   let open Infer_types in
@@ -193,14 +206,18 @@ let unfold_recursive_defns pctx f lr =
 
 let simplify : total =
  fun (pctx, f1, f2) ->
-  let@ _ = span (fun _r -> log_proof_state ~title:"simplify" (pctx, f1, f2)) in
+  let@ _ =
+    span (fun r -> log_proof_state_total ~title:"simplify" (pctx, f1, f2) r)
+  in
   (pctx, normalize_spec f1, normalize_spec f2)
 
 let unfold_definitions : total =
   let open Rewriting in
   let open Rules.Staged in
   fun ps ->
-    let@ _ = span (fun _r -> log_proof_state ~title:"unfold_definitions" ps) in
+    let@ _ =
+      span (fun r -> log_proof_state_total ~title:"unfold_definitions" ps r)
+    in
     let pctx, f1, f2 = ps in
     (* unfold nonrecursive *)
     let db = List.map snd pctx.definitions_nonrec in
