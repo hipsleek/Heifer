@@ -26,6 +26,11 @@ type pctx = {
   assumptions : pi list; (* obligations : (state * state) list; *)
 }
 
+let string_of_used (f, lr) =
+  match lr with
+  | `Left -> Format.asprintf "%s, L" f
+  | `Right -> Format.asprintf "%s, R" f
+
 let string_of_pctx ctx =
   let { assumptions; definitions_nonrec; definitions_rec; unfolded } = ctx in
   Format.asprintf
@@ -40,12 +45,7 @@ let string_of_pctx ctx =
     (string_of_list_ind_lines string_of_pi assumptions)
     (string_of_list_ind_lines Rewriting.string_of_rule definitions_nonrec)
     (string_of_list_ind_lines Rewriting.string_of_rule definitions_rec)
-    (string_of_list_ind_lines
-       (fun (f, lr) ->
-         match lr with
-         | `Left -> Format.asprintf "%s, L" f
-         | `Right -> Format.asprintf "%s, R" f)
-       unfolded)
+    (string_of_list_ind_lines string_of_used unfolded)
 
 let new_pctx () =
   {
@@ -114,6 +114,8 @@ let pctx_to_supp ctx =
         unfolded );
   ]
 
+let pctx_to_supp ctx = [("proof context", string_of_pctx ctx)]
+
 let log_proof_state ~title (pctx, f1, f2) =
   debug ~at:4 ~title ~supp:(pctx_to_supp pctx) "%s\n⊑\n%s"
     (string_of_staged_spec f1) (string_of_staged_spec f2)
@@ -172,6 +174,7 @@ let apply_ent_rule : total =
 let unfold_recursive_defns pctx f lr =
   let open Rewriting in
   let open Rules.Staged in
+  let@ _ = span (fun _r -> debug ~at:4 ~title:"unfold_recursive_defns" "") in
   let rule_name rule =
     match rule.lhs with Staged (HigherOrder (n, _)) -> Some n | _ -> None
   in
@@ -192,6 +195,7 @@ let unfold_recursive_defns pctx f lr =
         (f1, u @ used))
       usable_defns (f, [])
   in
+  debug ~at:2 ~title:"used rules" "%s" (string_of_list string_of_used used);
   ({ pctx with unfolded = used @ pctx.unfolded }, f)
 
 let unfold_definitions : total =
