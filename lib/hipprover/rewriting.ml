@@ -602,8 +602,8 @@ let%expect_test "rewriting" =
           ]));
   [%expect
     {|
-    rewrite ens emp; bind y=ens res=1. (ens res=y)
-    with bind __x=ens res=__r. (__f()) ==> <dynamic>
+    rewrite ens emp; let y = (ens res=1) in (ens res=y)
+    with let __x = (ens res=__r) in (__f()) ==> <dynamic>
     result: ens emp; ens res=1
     |}]
 (* see tests.ml for more *)

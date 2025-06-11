@@ -564,9 +564,7 @@ let%expect_test "rules" =
     (* let output = disj [bind "x" f1 fk; bind "x" f2 fk] in *)
     test norm_bind_disj input;
     [%expect
-      {|
-      (bind x=ens res=1. (ens res=(x + 1))) \/ (bind x=ens res=2. (ens res=(x + 1)))
-      |}]
+      {| (let x = (ens res=1) in (ens res=(x + 1))) \/ (let x = (ens res=2) in (ens res=(x + 1))) |}]
   in
   let _ =
     let f = ens ~p:(eq res_var (num 1)) () in
@@ -574,8 +572,6 @@ let%expect_test "rules" =
     let input = bind "x" (seq [f; f]) fk in
     test norm_bind_seq_ens input;
     [%expect
-      {|
-      ens res=1; bind x=ens res=1. (ens res=(x + 1))
-      |}]
+      {| ens res=1; let x = (ens res=1) in (ens res=(x + 1)) |}]
   in
   ()

@@ -270,7 +270,7 @@ and string_of_staged_spec (st:staged_spec) : string =
     let string_of_eff_cases ops =  List.fold_left (fun acc a -> acc ^ ";\n" ^string_of_eff_case a) "" ops in
     Format.asprintf "ens %s; \n(TRY \n(%s)\nCATCH \n{%s%s}[%s])\n" (string_of_state (pi, h)) (string_of_staged_spec src) (string_of_normal_case) (string_of_eff_cases ops) (string_of_term ret)
   | Sequence (s1, s2) -> Format.sprintf "%s; %s" (string_of_staged_spec s1) (string_of_staged_spec s2)
-  | Bind (v, expr, body) -> Format.sprintf "bind %s=%s. (%s)" v (string_of_staged_spec expr) (string_of_staged_spec body)
+  | Bind (v, expr, body) -> Format.sprintf "let %s = (%s) in (%s)" v (string_of_staged_spec expr) (string_of_staged_spec body)
   | Disjunction (lhs, rhs) -> Format.sprintf "(%s) \\/ (%s)" (string_of_staged_spec lhs) (string_of_staged_spec rhs)
 
 and string_of_instant (str, ar_Li): string =

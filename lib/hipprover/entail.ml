@@ -316,7 +316,10 @@ let check_staged_spec_entailment ?name pctx inferred given =
           (string_of_staged_spec given)
           (string_of_result string_of_bool r))
   in
-  let search = entailment_search ?name (pctx, inferred, given) in
+  let ps = (pctx, inferred, given) in
+  let ps = simplify ps in
+
+  let search = entailment_search ?name ps in
   match Iter.head search with
   | None -> false
   | Some ps ->
