@@ -1,5 +1,6 @@
 open Hipcore
 open Hiptypes
+open Debug
 open Variables
 
 
@@ -752,6 +753,14 @@ let normalization_rules = [
 (* the main entry point *)
 let normalize_spec (spec : staged_spec) : staged_spec =
   let@ _ = Globals.Timing.(time norm) in
+  let@ _ =
+    span (fun r -> debug
+      ~at:1
+      ~title:"normalize_spec"
+      "%s\n==>\n%s"
+      (Pretty.string_of_staged_spec spec)
+      (string_of_result Pretty.string_of_staged_spec r))
+  in
   let spec = Staged.of_uterm (autorewrite normalization_rules (Staged spec)) in
   spec
 
