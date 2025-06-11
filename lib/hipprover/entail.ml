@@ -152,24 +152,21 @@ end
 (* a total tactic, which does not fail or backtrack *)
 type total = pstate -> pstate
 
-let apply_ent_rule : total =
- fun (pctx, f1, f2) ->
-  let@ _ =
-    span (fun _r -> log_proof_state ~title:"apply_ent_rule" (pctx, f1, f2))
-  in
+let apply_ent_rule : unit Tactic.t =
+ fun ps k ->
+  let@ _ = span (fun _r -> log_proof_state ~title:"apply_ent_rule" ps) in
+  let pctx, f1, f2 = ps in
   match (f1, f2) with
   | NormalReturn (p1, h1), NormalReturn (p2, h2) ->
-    if check_pure_obligation p1 p2 then
-      let t = NormalReturn (True, EmptyHeap) in
-      (pctx, t, t)
-    else (pctx, f1, f2)
+    let valid = check_pure_obligation p1 p2 in
+    if valid then k ((), Syntax.(pctx, ens (), ens ()))
   | Sequence (NormalReturn (p1, EmptyHeap), f1), f2 ->
     let pctx = { pctx with assumptions = p1 :: pctx.assumptions } in
-    (pctx, f1, f2)
+    k ((), (pctx, f1, f2))
   | f1, Sequence (Require (p2, EmptyHeap), f2) ->
     let pctx = { pctx with assumptions = p2 :: pctx.assumptions } in
-    (pctx, f1, f2)
-  | _, _ -> (pctx, f1, f2)
+    k ((), (pctx, f1, f2))
+  | _, _ -> ()
 
 let unfold_recursive_defns pctx f lr =
   let open Rewriting in
@@ -198,6 +195,9 @@ let unfold_recursive_defns pctx f lr =
   debug ~at:2 ~title:"used rules" "%s" (string_of_list string_of_used used);
   ({ pctx with unfolded = used @ pctx.unfolded }, f)
 
+let simplify : total =
+ fun (pctx, f1, f2) -> (pctx, normalize_spec f1, normalize_spec f2)
+
 let unfold_definitions : total =
   let open Rewriting in
   let open Rules.Staged in
@@ -213,7 +213,7 @@ let unfold_definitions : total =
     (pctx, f1, f2)
 
 let entailment_search : ?name:string -> unit Tactic.t =
- fun ?name (pctx, f1, f2) k ->
+ fun ?name ps k ->
   (* TODO *)
   Search.reset ();
   let@ _ =
@@ -223,11 +223,11 @@ let entailment_search : ?name:string -> unit Tactic.t =
           | None -> "search"
           | Some n -> Format.asprintf "search: %s" n
         in
-        log_proof_state ~title (pctx, f1, f2))
+        log_proof_state ~title ps)
   in
-  let pctx, f1, f2 = apply_ent_rule (pctx, f1, f2) in
-  let pctx, f1, f2 = unfold_definitions (pctx, f1, f2) in
-  k ((), (pctx, f1, f2))
+  let ps = simplify ps in
+  let ps = unfold_definitions ps in
+  apply_ent_rule ps k
 
 let check_staged_spec_entailment ?name pctx inferred given =
   let@ _ =
