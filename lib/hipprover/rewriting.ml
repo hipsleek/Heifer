@@ -353,14 +353,19 @@ let unify store t1 t2 =
 
 type rule = {
   lhs : uterm;
-  rhs : uterm;
+  rhs : [ `Replace of uterm | `Dynamic of (string -> uterm) -> uterm ];
 }
 
-let string_of_rule { lhs; rhs } =
-  Format.asprintf "%s ==> %s" (string_of_uterm lhs) (string_of_uterm rhs)
+let string_of_rule r =
+  let rhs =
+    match r.rhs with
+    | `Replace u -> string_of_uterm u
+    | `Dynamic _ -> "<dynamic>"
+  in
+  Format.asprintf "%s ==> %s" (string_of_uterm r.lhs) rhs
 
-let rewrite_applicable rule target =
-  match (rule.lhs, target) with
+let rewrite_well_typed lhs target =
+  match (lhs, target) with
   | Staged _, Staged _ | Pure _, Pure _ -> true
   | Heap _, Heap _ | Term _, Term _ -> true
   | _, _ -> false
@@ -372,12 +377,18 @@ let rewrite_rooted rule target =
           (string_of_rule rule) (string_of_uterm target)
           (string_of_result (string_of_option string_of_uterm) r))
   in
-  if rewrite_applicable rule target then
+  if rewrite_well_typed rule.lhs target then
     let st = UF.new_store () in
-    let lhs, e = to_unifiable st rule.lhs in
+    let lhs1, e = to_unifiable st rule.lhs in
     let target = to_unifiable st target in
-    let+ s = unify st (lhs, e) target in
-    let inst_rhs = subst_uvars s (rule.rhs, e) in
+    let+ s = unify st (lhs1, e) target in
+    let inst_rhs =
+      match rule.rhs with
+      | `Replace rhs -> subst_uvars s (rhs, e)
+      | `Dynamic f ->
+        let mapping x = UF.get s (SMap.find x e) |> Option.get in
+        f mapping
+    in
     inst_rhs
   else Some target
 
@@ -427,25 +438,25 @@ let rewrite_all rule target =
 module Rules = struct
   module Staged = struct
     let uvar = uvar_staged
-    let rule lhs rhs = { lhs = Staged lhs; rhs = Staged rhs }
+    let rule lhs rhs = { lhs = Staged lhs; rhs = `Replace (Staged rhs) }
     let of_uterm = uterm_to_staged
   end
 
   module Pure = struct
     let uvar = uvar_pure
-    let rule lhs rhs = { lhs = Pure lhs; rhs = Pure rhs }
+    let rule lhs rhs = { lhs = Pure lhs; rhs = `Replace (Pure rhs) }
     let of_uterm = uterm_to_pure
   end
 
   module Heap = struct
     let uvar = uvar_heap
-    let rule lhs rhs = { lhs = Heap lhs; rhs = Heap rhs }
+    let rule lhs rhs = { lhs = Heap lhs; rhs = `Replace (Heap rhs) }
     let of_uterm = uterm_to_heap
   end
 
   module Term = struct
     let uvar = uvar_term
-    let rule lhs rhs = { lhs = Term lhs; rhs = Term rhs }
+    let rule lhs rhs = { lhs = Term lhs; rhs = `Replace (Term rhs) }
     let of_uterm = uterm_to_term
   end
 end

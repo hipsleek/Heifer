@@ -10,24 +10,25 @@ module Rewrite = struct
   open Ocamlfrontend.Annotation
   open Hipprover.Rewriting
 
+
   module Staged = struct
     let (==>) lhs rhs =
-      {lhs = Staged (parse_staged_spec lhs); rhs = Staged (parse_staged_spec rhs)}
+      Rules.Staged.rule (parse_staged_spec lhs) (parse_staged_spec rhs)
   end
 
   module Pure = struct
     let (==>) lhs rhs =
-      {lhs = Pure (parse_pi lhs); rhs = Pure (parse_pi rhs)}
+      Rules.Pure.rule (parse_pi lhs) (parse_pi rhs)
   end
 
   module Heap = struct
     let (==>) lhs rhs =
-      {lhs = Heap (parse_kappa lhs); rhs = Heap (parse_kappa rhs)}
+      Rules.Heap.rule (parse_kappa lhs) (parse_kappa rhs)
   end
 
   module Term = struct
     let (==>) lhs rhs =
-      {lhs = Term (parse_term lhs); rhs = Term (parse_term rhs)}
+      Rules.Term.rule (parse_term lhs) (parse_term rhs)
   end
 end
 open Rewrite

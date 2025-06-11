@@ -61,7 +61,7 @@ val subst_uvars : UF.store -> unifiable -> uterm
 (** {1 Rewriting} *)
 
 (** A rewrite rule. May contain unification variables (e.g. using [uvar_staged]). *)
-type rule = { lhs : uterm; rhs : uterm; }
+type rule
 
 val string_of_rule : rule -> string
 

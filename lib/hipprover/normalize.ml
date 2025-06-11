@@ -1342,6 +1342,12 @@ let unification : staged_spec -> staged_spec -> substitute
 apply unification
 *)
 
+(* let norm_trivial_bind f =
+  match f with
+  | Bind (x, NormalReturn (), f2) ->
+  Subst.subst_free_vars
+  | _ -> f *)
+
 (* the main entry point *)
 let normalize_spec (spec : staged_spec) : staged_spec =
   let@ _ = Globals.Timing.(time norm) in

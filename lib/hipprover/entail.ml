@@ -20,8 +20,8 @@ type pctx = {
   (* applied : string list; *)
   (* subsumption proof obligations *)
   (* subsumption_obl : (binder list * (disj_spec * disj_spec)) list; *)
-  definitions_nonrec : Rewriting.database;
-  definitions_rec : Rewriting.database;
+  definitions_nonrec : (string * Rewriting.rule) list;
+  definitions_rec : (string * Rewriting.rule) list;
   unfolded : (string * [ `Left | `Right ]) list;
   assumptions : pi list; (* obligations : (state * state) list; *)
 }
@@ -43,8 +43,12 @@ let string_of_pctx ctx =
      unfolded:\n\
      %s"
     (string_of_list_ind_lines string_of_pi assumptions)
-    (string_of_list_ind_lines Rewriting.string_of_rule definitions_nonrec)
-    (string_of_list_ind_lines Rewriting.string_of_rule definitions_rec)
+    (string_of_list_ind_lines
+       (string_of_pair Fun.id Rewriting.string_of_rule)
+       definitions_nonrec)
+    (string_of_list_ind_lines
+       (string_of_pair Fun.id Rewriting.string_of_rule)
+       definitions_rec)
     (string_of_list_ind_lines string_of_used unfolded)
 
 let new_pctx () =
@@ -65,7 +69,7 @@ let create_pctx cp =
       in
       Subst.subst_free_vars bs pred.p_body
     in
-    Rewriting.Rules.Staged.rule lhs rhs
+    (pred.p_name, Rewriting.Rules.Staged.rule lhs rhs)
   in
   let definitions_nonrec =
     SMap.values cp.cp_predicates
@@ -102,9 +106,13 @@ let pctx_to_supp ctx =
   [
     ("assumptions", string_of_list_lines string_of_pi assumptions);
     ( "definitions_nonrec",
-      string_of_list_lines Rewriting.string_of_rule definitions_nonrec );
+      string_of_list_lines
+        (string_of_pair Fun.id Rewriting.string_of_rule)
+        definitions_nonrec );
     ( "definitions_rec",
-      string_of_list_lines Rewriting.string_of_rule definitions_rec );
+      string_of_list_lines
+        (string_of_pair Fun.id Rewriting.string_of_rule)
+        definitions_rec );
     ( "unfolded",
       string_of_list_lines
         (fun (f, lr) ->
@@ -172,21 +180,17 @@ let unfold_recursive_defns pctx f lr =
   let open Rewriting in
   let open Rules.Staged in
   let@ _ = span (fun _r -> debug ~at:4 ~title:"unfold_recursive_defns" "") in
-  let rule_name rule =
-    match rule.lhs with Staged (HigherOrder (n, _)) -> Some n | _ -> None
-  in
   let usable_defns =
     pctx.definitions_rec
-    |> List.filter (fun rule ->
+    |> List.filter (fun (rule_name, rule) ->
            List.find_opt
-             (fun (u, lr1) -> Some u = rule_name rule && lr = lr1)
+             (fun (u, lr1) -> u = rule_name && lr = lr1)
              pctx.unfolded
            |> Option.is_none)
   in
   let f, used =
     List.fold_right
-      (fun rule (f, used) ->
-        let name = rule_name rule |> Option.get in
+      (fun (name, rule) (f, used) ->
         let f1 = rewrite_all rule (Staged f) |> of_uterm in
         let u = if f = f1 then [] else [(name, lr)] in
         (f1, u @ used))
@@ -205,8 +209,9 @@ let unfold_definitions : total =
     let@ _ = span (fun _r -> log_proof_state ~title:"unfold_definitions" ps) in
     let pctx, f1, f2 = ps in
     (* unfold nonrecursive *)
-    let f1 = autorewrite pctx.definitions_nonrec (Staged f1) |> of_uterm in
-    let f2 = autorewrite pctx.definitions_nonrec (Staged f2) |> of_uterm in
+    let db = List.map snd pctx.definitions_nonrec in
+    let f1 = autorewrite db (Staged f1) |> of_uterm in
+    let f2 = autorewrite db (Staged f2) |> of_uterm in
     (* unfold recursive *)
     let pctx, f1 = unfold_recursive_defns pctx f1 `Left in
     let pctx, f2 = unfold_recursive_defns pctx f2 `Right in
