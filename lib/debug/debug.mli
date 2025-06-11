@@ -32,9 +32,9 @@ v}
     [org] is true for org-mode output and false for more human-readable output. *)
 val init : ctf:bool -> org:bool -> string option -> unit
 
-(** [debug ~at:log_level ~title fmt] outputs an instantaneous event. *)
+(** [debug ~at:log_level ~title ?supp fmt] outputs an instantaneous event. *)
 val debug :
-  at:int -> title:string -> ('a, Format.formatter, unit, unit) format4 -> 'a
+  at:int -> title:string -> ?supp:(string * string) list -> ('a, Format.formatter, unit, unit) format4 -> 'a
 
 val ( let@ ) : ('a -> 'b) -> 'a -> 'b
 
@@ -84,6 +84,6 @@ module Query : sig
     | Show
 
   type query = (query_action * query_on * bool) list
-  
+
   val user_query : query ref
 end

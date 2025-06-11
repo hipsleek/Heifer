@@ -18,13 +18,16 @@ let yellow text =
   | false -> "\u{001b}[33m" ^ text ^ "\u{001b}[0m"
   | true -> text
 
+let append_if_not_blank body supp =
+  match String.trim supp with "" -> body | _ -> body ^ "\n" ^ supp
+
 module Buffered = struct
   let buffered_event : (string * string * int) option ref = ref None
 
-  let write_line title s =
+  let write_line title body =
     print_endline (yellow title);
-    print_endline s;
-    if not (String.equal "" s) then print_endline ""
+    print_endline body;
+    if not (String.equal "" body) then print_endline ""
 
   let buffer_event title s n = buffered_event := Some (title, s, n)
   let clear_buffer () = buffered_event := None
@@ -32,26 +35,26 @@ module Buffered = struct
   let flush_buffer () =
     match !buffered_event with
     | None -> ()
-    | Some (title, s, _) ->
+    | Some (title, body, _) ->
       clear_buffer ();
-      write_line title s
+      write_line title body
 
-  let collapse_empty_spans title s =
+  let collapse_empty_spans title body supp =
     match !buffered_event with
     | Some (_, _, _) when !is_closing ->
       (* we assume events are well-bracketed.
          on closing a span, if there's something in the buffer, we must have left it there. *)
       clear_buffer ();
-      write_line (title (-1)) s
+      write_line (title (-1)) (append_if_not_blank body (supp (-1)))
     | None when !is_closing ->
       (* something must have occurred which cleared the buffer before us, so output normally *)
-      write_line (title 0) s
+      write_line (title 0) (append_if_not_blank body (supp 0))
     | _ when !is_opening ->
       flush_buffer ();
-      buffer_event (title 0) s !debug_event_n
+      buffer_event (title 0) (append_if_not_blank body (supp 0)) !debug_event_n
     | _ ->
       flush_buffer ();
-      write_line (title 0) s
+      write_line (title 0) (append_if_not_blank body (supp 0))
 end
 
 let may_fail f = try Some (f ()) with _ -> None
@@ -190,18 +193,20 @@ let trace_out = ref None
 let summarize_stack () =
   (* String.concat "@"
      (!stack |> List.rev |> List.map (fun i -> Format.asprintf "%a" pp_event i)) *)
-  match !stack with [] -> "" | (_t, e) :: _ -> Format.asprintf "%a" pp_event e
+  match !stack with
+  | [] -> ""
+  | (_t, e) :: _ -> Format.asprintf "%a" pp_event e
 
-let debug_print at title s =
+let debug_print at title body supp =
   last_title := title;
   (* the query can filter ctf output, but only one of ctf or trace output is shown *)
-  let show = interpret at title !debug_event_n !user_query in
-  match show with
+  let shown = interpret at title !debug_event_n !user_query in
+  match shown with
   | false -> ()
   | true ->
     (match !ctf_output with
     | false ->
-      let title =
+      let title_text =
         let stack =
           if not !is_closing then ""
           else Format.asprintf " <-%s" (summarize_stack ())
@@ -210,18 +215,35 @@ let debug_print at title s =
       in
       let title =
         match !file_mode with
-        | false -> fun _ -> Format.asprintf "==== %s ====" title
+        | false -> fun _ -> Format.asprintf "==== %s ====" title_text
         | true ->
           fun n ->
             Format.asprintf "%s %s"
               (String.init (List.length !stack + 1 + n) (fun _ -> '*'))
-              title
+              title_text
+      in
+      let supp =
+        match !file_mode with
+        | false ->
+          fun _ ->
+            List.map (fun (k, v) -> Format.asprintf "%s: %s" k v) supp
+            |> String.concat "\n"
+        | true ->
+          fun n ->
+            List.map
+              (fun (k, v) ->
+                Format.asprintf "%s %s\n%s"
+                  (String.init (List.length !stack + 1 + n + 1) (fun _ -> '*'))
+                  k v)
+              supp
+            |> String.concat "\n"
       in
       begin
         let should_buffer = true in
         match should_buffer with
-        | true -> Buffered.collapse_empty_spans title s
-        | false -> Buffered.write_line (title 0) s
+        | true -> Buffered.collapse_empty_spans title body supp
+        | false ->
+          Buffered.write_line (title 0) (append_if_not_blank body (supp 0))
       end
     | true ->
       let typ = if !is_closing then "E" else if !is_opening then "B" else "i" in
@@ -231,7 +253,7 @@ let debug_print at title s =
         |> Str.global_replace (Str.regexp "\n") " "
         |> Str.global_replace (Str.regexp {|\\|}) {|\\\\|}
       in
-      let s = json_scrub s in
+      let s = json_scrub body in
       let title = json_scrub title in
       Format.fprintf (!trace_out |> Option.get)
         {|{"name": "%s", "tid": 1, "ts": %f, "ph": "%s", "args": {"txt": "%s"}%s},@.|}
@@ -240,11 +262,11 @@ let debug_print at title s =
         typ s scope)
 
 (* someday https://github.com/ocaml/ocaml/pull/126 *)
-let debug ~at ~title fmt =
+let debug ~at ~title ?(supp = []) fmt =
   Format.kasprintf
     (fun s ->
       (* if !debug_level >= at then *)
-      debug_print at title s;
+      debug_print at title s supp;
       incr debug_event_n)
     fmt
 
@@ -441,9 +463,7 @@ let%expect_test "collapsing" =
   let f g x =
     let@ _ =
       span (fun r ->
-          debug ~at:2
-            ~title:"f"
-            "%s ==> %s" (string_of_int x)
+          debug ~at:2 ~title:"f" "%s ==> %s" (string_of_int x)
             (string_of_result string_of_int r))
     in
     g ();
@@ -473,25 +493,18 @@ let%expect_test "exceptions" =
   let f x =
     let@ _ =
       span (fun r ->
-          debug ~at:2
-            ~title:"f"
-            "%s ==> %s" (string_of_int x)
+          debug ~at:2 ~title:"f" "%s ==> %s" (string_of_int x)
             (string_of_result string_of_int r))
     in
-    if x > 3 then
-      debug ~at:2 ~title:"f is running" "";
+    if x > 3 then debug ~at:2 ~title:"f is running" "";
     failwith "this function never returns"
   in
-  begin try
-  f 4 |> ignore;
-  with Failure _ ->
-    debug ~at:2 ~title:"f failed" "why?"
+  begin
+    try f 4 |> ignore with Failure _ -> debug ~at:2 ~title:"f failed" "why?"
   end;
   (* test collapsing *)
-  begin try
-  f 2 |> ignore;
-  with Failure _ ->
-    debug ~at:2 ~title:"f failed" "why?"
+  begin
+    try f 2 |> ignore with Failure _ -> debug ~at:2 ~title:"f failed" "why?"
   end;
   [%expect
     {|
@@ -511,4 +524,39 @@ let%expect_test "exceptions" =
 
       * f failed | _6
       why?
+    |}]
+
+let%expect_test "supplementary information" =
+  debug_event_n := 0;
+  user_query := [(Show, All, false)];
+  file_mode := true;
+  let f x =
+    let@ _ =
+      span (fun r ->
+          debug ~at:2 ~title:"f"
+            ~supp:
+              [("extra info", Format.asprintf "is the input large? %b" (x > 2))]
+            "%s ==> %s" (string_of_int x)
+            (string_of_result string_of_int r))
+    in
+    x + 1
+  in
+  begin
+    try f 4 |> ignore with Failure _ -> debug ~at:2 ~title:"f failed" "why?"
+  end;
+  (* test collapsing *)
+  begin
+    try f 2 |> ignore with Failure _ -> debug ~at:2 ~title:"f failed" "why?"
+  end;
+  [%expect
+    {|
+    * f | _1 <-_0
+    4 ==> 5
+    ** extra info
+    is the input large? true
+
+    * f | _3 <-_2
+    2 ==> 3
+    ** extra info
+    is the input large? false
     |}]
