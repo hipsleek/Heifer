@@ -178,13 +178,19 @@ end
 
 type tactic = pstate -> pstate Iter.t
 
+let fail = ()
+
 (* a total tactic, which does not fail or backtrack *)
 type total = pstate -> pstate
 
 let unfold_recursive_defns pctx f lr =
   let open Rewriting in
   let open Rules.Staged in
-  let@ _ = span (fun _r -> debug ~at:4 ~title:"unfold_recursive_defns" "") in
+  let@ _ =
+    span (fun r ->
+        debug ~at:4 ~title:"unfold_recursive_defns" "used: %s"
+          (string_of_result (fun (_, _, u) -> string_of_used u) r))
+  in
   let usable_defns =
     pctx.definitions_rec
     |> List.filter (fun (rule_name, _rule) ->
@@ -202,14 +208,7 @@ let unfold_recursive_defns pctx f lr =
       usable_defns (f, [])
   in
   debug ~at:2 ~title:"used rules" "%s" (string_of_list string_of_used used);
-  ({ pctx with unfolded = used @ pctx.unfolded }, f)
-
-let simplify : total =
- fun (pctx, f1, f2) ->
-  let@ _ =
-    span (fun r -> log_proof_state_total ~title:"simplify" (pctx, f1, f2) r)
-  in
-  (pctx, normalize_spec f1, normalize_spec f2)
+  ({ pctx with unfolded = used @ pctx.unfolded }, f, used)
 
 let unfold_definitions : total =
   let open Rewriting in
@@ -220,73 +219,24 @@ let unfold_definitions : total =
     in
     let pctx, f1, f2 = ps in
     (* unfold nonrecursive *)
-    let db = List.map snd pctx.definitions_nonrec in
-    let f1 = autorewrite db (Staged f1) |> of_uterm in
-    let f2 = autorewrite db (Staged f2) |> of_uterm in
+    let f1, f2 =
+      let@ _ = span (fun _r -> debug ~at:5 ~title:"nonrecursive" "") in
+      let db = List.map snd pctx.definitions_nonrec in
+      let f1 = autorewrite db (Staged f1) |> of_uterm in
+      let f2 = autorewrite db (Staged f2) |> of_uterm in
+      (f1, f2)
+    in
     (* unfold recursive *)
-    let pctx, f1 = unfold_recursive_defns pctx f1 `Left in
-    let pctx, f2 = unfold_recursive_defns pctx f2 `Right in
+    let pctx, f1, _ = unfold_recursive_defns pctx f1 `Left in
+    let pctx, f2, _ = unfold_recursive_defns pctx f2 `Right in
     (pctx, f1, f2)
 
-(* let rec apply_ent_rule : unit Tactic.t =
- fun ps k ->
-  let@ _ = span (fun _r -> log_proof_state ~title:"apply_ent_rule" ps) in
-  let pctx, f1, f2 = ps in
-  match (f1, f2) with
-  | NormalReturn (p1, h1), NormalReturn (p2, h2) ->
-    let valid = check_pure_obligation p1 p2 in
-    if valid then k ((), Syntax.(pctx, ens (), ens ()))
-  | Sequence (NormalReturn (p1, EmptyHeap), f1), f2 ->
-    let pctx = { pctx with assumptions = p1 :: pctx.assumptions } in
-    k ((), (pctx, f1, f2))
-  | f1, Sequence (Require (p2, EmptyHeap), f2) ->
-    let pctx = { pctx with assumptions = p2 :: pctx.assumptions } in
-    k ((), (pctx, f1, f2))
-  | Disjunction (f1, f2), f3 -> k ((), (pctx, f1, f2))
-  | _, _ -> () *)
-
-(* let f : int Tactic.t =
-  let open Tactic in
-  let* pctx, f1, f2 = get in
-  return 1 *)
-
-(* let rec apply_ent_rule : unit Tactic.t =
-  let open Tactic in
-  let open Syntax in
-  let* pctx, f1, f2 = get in
-  (* let@ _ = span (fun _r -> log_proof_state ~title:"apply_ent_rule" ps) in *)
-  match (f1, f2) with
-  | NormalReturn (p1, h1), NormalReturn (p2, h2) ->
-    let valid = check_pure_obligation p1 p2 in
-    let* _ = put (pctx, ens (), ens ()) in
-    if valid then return () else fail
-  (* | Sequence (NormalReturn (p1, EmptyHeap), f1), f2 ->
-    let pctx = { pctx with assumptions = p1 :: pctx.assumptions } in
-    k ((), (pctx, f1, f2))
-  | f1, Sequence (Require (p2, EmptyHeap), f2) ->
-    let pctx = { pctx with assumptions = p2 :: pctx.assumptions } in
-    k ((), (pctx, f1, f2)) *)
-  | Disjunction (f1, f2), f3 -> k ((), (pctx, f1, f2))
-  | _, _ -> fail
-
-and entailment_search : ?name:string -> unit Tactic.t =
- fun ?name ps k ->
-  (* TODO *)
-  Search.reset ();
+let simplify : total =
+ fun (pctx, f1, f2) ->
   let@ _ =
-    span (fun _r ->
-        let title =
-          match name with
-          | None -> "search"
-          | Some n -> Format.asprintf "search: %s" n
-        in
-        log_proof_state ~title ps)
+    span (fun r -> log_proof_state_total ~title:"simplify" (pctx, f1, f2) r)
   in
-  let ps = simplify ps in
-  let ps = unfold_definitions ps in
-  apply_ent_rule ps k *)
-
-let fail = ()
+  (pctx, normalize_spec f1, normalize_spec f2)
 
 let rec apply_ent_rule : tactic =
  fun ps k ->
@@ -308,7 +258,9 @@ let rec apply_ent_rule : tactic =
   | Disjunction (f1, f2), f3 ->
     k (pctx, f1, f3);
     k (pctx, f2, f3)
-  | _, _ -> fail
+  | _, _ ->
+    log_proof_state ~title:"STUCK" ps;
+    fail
 
 and entailment_search : ?name:string -> tactic =
  fun ?name ps k ->
