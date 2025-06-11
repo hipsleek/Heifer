@@ -477,7 +477,10 @@ module Rules = struct
   module Staged = struct
     let uvar = uvar_staged
     let rule lhs rhs = { lhs = Staged lhs; rhs = `Replace (Staged rhs) }
-    let dynamic_rule lhs rhs = { lhs = Staged lhs; rhs = `Dynamic (fun sub -> Staged (rhs sub)) }
+
+    let dynamic_rule lhs rhs =
+      { lhs = Staged lhs; rhs = `Dynamic (fun sub -> Staged (rhs sub)) }
+
     let of_uterm = uterm_to_staged
   end
 
