@@ -185,38 +185,6 @@ let rec lookforEqualityinPure (str : string) (p:pi) : term option =
     | None -> lookforEqualityinPure str p2
     )
 
-
-
-let rec accumulateTheSumTerm (p:pi) (t:term) : term =
-  match t with
-  | Var str ->
-    (match lookforEqualityinPure str p with
-    | None -> t
-    | Some t' ->
-      if String.compare (string_of_term t) (string_of_term t') == 0 then  t'
-      else accumulateTheSumTerm p (t')
-    )
-  | Num _
-  | UNIT
-  | Nil
-  | TTrue
-  | TFalse
-  | TApp _
-  | TStr _
-  | TLambda _  | TTupple _ | TList _ | SConcat _ -> t
-  | TNot t1 -> TNot (accumulateTheSumTerm p t1)
-  | TCons (t1, t2) -> TCons (accumulateTheSumTerm p t1, accumulateTheSumTerm p t2)
-  | TAnd (t1, t2) -> TAnd (accumulateTheSumTerm p t1, accumulateTheSumTerm p t2)
-  | TOr (t1, t2) -> TOr (accumulateTheSumTerm p t1, accumulateTheSumTerm p t2)
-  | Rel (bop, t1, t2) -> Rel (bop, accumulateTheSumTerm p t1, accumulateTheSumTerm p t2)
-  | Plus (t1, t2) -> Plus (accumulateTheSumTerm p t1, accumulateTheSumTerm p t2)
-  | Minus (t1, t2) -> Minus (accumulateTheSumTerm p t1, accumulateTheSumTerm p t2)
-  | TPower (t1, t2) -> TPower (accumulateTheSumTerm p t1, accumulateTheSumTerm p t2)
-  | TTimes (t1, t2) -> TTimes (accumulateTheSumTerm p t1, accumulateTheSumTerm p t2)
-  | TDiv (t1, t2) -> TDiv (accumulateTheSumTerm p t1, accumulateTheSumTerm p t2)
-;;
-
-
 let rec accumulateTheSum (p:pi) (h:kappa) : kappa =
   match h with
   | EmptyHeap -> h
@@ -513,206 +481,8 @@ let remove_existentials vs =
   ==>
   ens res=2
 *)
-let remove_noncontributing_existentials :
-    normalisedStagedSpec -> normalisedStagedSpec =
-  (* merge equivalence classes of variables.
-     probably better done using union find repr *)
-  let merge_classes a1 b1 =
-    let merged =
-      List.fold_right
-        (fun a t ->
-          let added = ref false in
-          let b2 =
-            List.map
-              (fun b ->
-                if SSet.disjoint a b then b
-                else (
-                  added := true;
-                  SSet.union a b))
-              t
-          in
-          if !added then b2 else a :: b2)
-        a1 b1
-    in
-    merged
-  in
-  let rec collect_related_vars_term t =
-    match t with
-    | Var v -> SSet.singleton v
-    | UNIT | TTrue | TFalse | Nil | Num _ -> SSet.empty
-    | Plus (a, b) | Minus (a, b) | TAnd (a, b) | TOr (a, b) | TPower(a, b) | TTimes(a, b) | TDiv(a, b) | SConcat (a, b) ->
-      SSet.union (collect_related_vars_term a) (collect_related_vars_term b)
-    | TNot t -> collect_related_vars_term t
-    | TApp (_, ts) -> SSet.concat (List.map collect_related_vars_term ts)
-    | Rel (_, _, _) -> failwith (Format.asprintf "NYI rel")
-    | TLambda (_, _, spec, _body) -> collect_related_vars_disj_spec spec
-    | TList _ -> failwith (Format.asprintf "NYI list")
-    | TTupple _ -> failwith (Format.asprintf "NYI tuple")
-    | TCons _ -> failwith (Format.asprintf "NYI tcons")
-    | TStr _ -> failwith (Format.asprintf "NYI tStr")
-
-  (*
-    collect(a=b) = [{a, b}]
-    collect(a=b /\ c<b) = [{a, b,}, {c, b}] = [{a, b, c}]
-    collect(a=b /\ c=d) = [{a, b}, {c, d}]
-  *)
-  and collect_related_vars_pi p =
-    match p with
-    | True | False -> []
-    | Subsumption (a, b)
-    | Atomic (_, a, b) ->
-      let a1 = collect_related_vars_term a in
-      let b1 = collect_related_vars_term b in
-      (* Format.printf "a1: %s@." (string_of_sset a1); *)
-      (* Format.printf "b1: %s@." (string_of_sset b1); *)
-      (* let r = merge_classes a1 b1 in *)
-      let r = [SSet.union a1 b1] in
-      (* Format.printf "r: %s@." (string_of_list string_of_sset r); *)
-      r
-    | And (a, b) | Or (a, b) | Imply (a, b) ->
-      let a1 = collect_related_vars_pi a in
-      let b1 = collect_related_vars_pi b in
-      merge_classes a1 b1
-    | Not a -> collect_related_vars_pi a
-    | Predicate (_, tLi) ->
-      [List.fold_left (fun acc t -> SSet.union acc (collect_related_vars_term t)) SSet.empty tLi]
-  and collect_related_vars_heap h =
-    match h with
-    | EmptyHeap -> []
-    | PointsTo (x, y) -> [SSet.add x (collect_related_vars_term y)]
-    | SepConj (a, b) ->
-      let a1 = collect_related_vars_heap a in
-      let b1 = collect_related_vars_heap b in
-      merge_classes a1 b1
-  and collect_related_vars_state (p, h) =
-    let h1 = collect_related_vars_heap h in
-    let p1 = collect_related_vars_pi p in
-    merge_classes h1 p1
-  and collect_related_vars_stage st =
-    match st with
-    | Shift _ | Reset _ -> failwith "todo"
-    | Require (p, h) | NormalReturn (p, h) -> collect_related_vars_state (p, h)
-    | Exists _ -> []
-    | HigherOrder (p, h, _constr, _ret) | RaisingEff (p, h, _constr, _ret) ->
-      collect_related_vars_state (p, h)
-    | TryCatch _ -> failwith "unimplemented"
-  and collect_related_vars_spec s =
-    SSet.concat (List.concat_map collect_related_vars_stage s)
-  and collect_related_vars_disj_spec ss =
-    SSet.concat (List.map collect_related_vars_spec ss)
-  in
-  let _handle fns ex pre post =
-    let classes =
-      merge_classes
-        (collect_related_vars_state pre)
-        (collect_related_vars_state post)
-    in
-    debug ~at:5 ~title:"classes" "%s" (string_of_list string_of_sset classes);
-    (* heuristic: important variables (overapproximate) are:
-        1. those related to universally quantified variables
-        2. those which may be outputs (related to res or locations)
-        3. those related to function stages *)
-    let needed =
-      SSet.concat
-        [
-          SSet.singleton "res";
-          fns;
-          SSet.union
-            (collect_locations_vars_state pre)
-            (collect_locations_vars_state post);
-          SSet.diff
-            (SSet.union (used_vars_state pre) (used_vars_state post))
-            (SSet.of_list ex);
-        ]
-    in
-    debug ~at:5 ~title:"needed" "%s" (string_of_sset needed);
-    let do_not_contribute =
-      List.filter
-        (fun c -> not (SSet.exists (fun c -> SSet.mem c needed) c))
-        classes
-      |> SSet.concat
-    in
-    (* Format.printf "do_not_contribute: %s@." (string_of_sset do_not_contribute); *)
-    let ex1 = List.filter (fun e -> not (SSet.mem e do_not_contribute)) ex in
-    let pre1 = (remove_conjunct_with_variable_rel do_not_contribute)#visit_state () pre in
-    let post1 = (remove_conjunct_with_variable_rel do_not_contribute)#visit_state () post in
-    (ex1, pre1, post1)
-  in
-  fun (ess, norm) ->(ess, norm) (* ASK Darius*)
-    (*let (ess:effectStage list) =
-      List.fold_left (fun acc a ->
-      let temp = match a with
-      | EffHOStage ele -> [ele]
-      | _ -> []
-      in
-      acc @ temp) [] ess
-    in
-    let fn_stages =
-      List.map (fun efs -> fst efs.e_constr) ess |> SSet.of_list
-    in
-    let ess1 =
-      List.map
-        (fun efs ->
-          let ex, pre, post =
-            handle fn_stages efs.e_evars efs.e_pre efs.e_post
-          in
-          { efs with e_evars = ex; e_pre = pre; e_post = post })
-        ess
-    in
-    let norm1 =
-      let ex, pre, post = norm in
-      let ex1, (p11, h1), (p21, h2) = handle fn_stages ex pre post in
-      (ex1, (p11, h1), (p21, h2))
-    in
-    (ess1, norm1)
-    *)
-
-(* b=(fun ...)/\a=b; a(...) ==> b=(fun ...); b(...) *)
-let propagate_function_stage_equalities : normalisedStagedSpec -> normalisedStagedSpec =
-  fun (eff, norm) ->
-    let fn_stages =
-      find_function_stages#visit_normalisedStagedSpec () (eff, norm)
-    in
-    debug ~at:5 ~title:"fn stages" "%s" (string_of_list Fun.id fn_stages);
-    let eqs =
-      find_equalities#visit_normalisedStagedSpec () (eff, norm)
-    in
-    debug ~at:5 ~title:"equalities" "%s" (string_of_list (string_of_pair string_of_term string_of_term) eqs);
-    let use =
-      List.filter_map (fun (a, b) ->
-        match a, b with
-        | Var x, Var y when List.mem y fn_stages || List.mem x fn_stages ->
-          Some (x, Var y)
-        | _ -> None) eqs
-    in
-    debug ~at:5 ~title:"interesting" "%s" (string_of_list (string_of_pair Fun.id string_of_term) use);
-    let norm1 = subst_visitor#visit_normalisedStagedSpec use (eff, norm) in
-    (* let now-trivial equalities be removed by a subsequent phase *)
-    norm1
-
 *)
 
-(*
-type rule = (staged_spec, staged_spec)
-
-type database = rule list
-
-type rewriting_function = rule -> staged_spec -> staged_spec
-
-heuristic: how to instatiate qualifier, how to use lemma
-(list monad)
-iterating function
-(unfolding)
-
-entail = norm
-
-norm -> entail -> norm -> entail
-norm -> entail
-
-let unification : staged_spec -> staged_spec -> substitute
-
-apply unification
-*)
 open Rewriting
 open Rules
 open Syntax
@@ -731,7 +501,7 @@ let norm_bind_disj = Staged.dynamic_rule
     let x = Binder.of_uterm (sub "x") in
     let f1 = Staged.of_uterm (sub "f1") in
     let f2 = Staged.of_uterm (sub "f2") in
-    let fk = Staged.of_uterm (sub "f3") in
+    let fk = Staged.of_uterm (sub "fk") in
     Disjunction (Bind (x, f1, fk), Bind (x, f2, fk)))
 
 let norm_bind_req = Staged.dynamic_rule
@@ -769,16 +539,19 @@ let%expect_test "rules" =
   let test rule input =
     let input = Staged input in
     let output = rewrite_all rule input in
-    Format.printf "rewrite: %s@." (string_of_uterm input);
-    Format.printf "result: %s@." (string_of_uterm output)
+    let output = Staged.of_uterm output in
+    Format.printf "%s@." (Pretty.string_of_staged_spec output)
   in
-  let input = Bind ("x",
-    disj [ens ~p:(eq res_var (num 1)) (); ens ~p:(eq res_var (num 2)) ()],
-    ens ~p:(eq res_var (plus (Var "x") (num 1))) ())
+  let _ =
+    let f1 = ens ~p:(eq res_var (num 1)) () in
+    let f2 = ens ~p:(eq res_var (num 2)) () in
+    let fk = ens ~p:(eq res_var (plus (var "x") (num 1))) () in
+    let input = bind "x" (disj [f1; f2]) fk in
+    (* let output = disj [bind "x" f1 fk; bind "x" f2 fk] in *)
+    test norm_bind_disj input;
+    [%expect
+      {|
+      (bind x=ens res=1. (ens res=(x + 1))) \/ (bind x=ens res=2. (ens res=(x + 1)))
+      |}]
   in
-  test norm_bind_disj input;
-  [%expect
-    {|
-    rewrite: bind x=(ens res=1 \/ ens res=2). ens res=x+1
-    result: (bind x=ens res=1. ens res=x+1) \/ (bind x=ens res=2. ens res=x+1)
-    |}]
+  ()
