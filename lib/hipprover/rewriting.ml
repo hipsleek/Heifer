@@ -323,7 +323,14 @@ and unify_term : UF.store -> term unif -> term unif -> unit option =
           a1 a2
       in
       Some ()
-  | TLambda (_, _, _, _), TLambda (_, _, _, _) -> failwith "TLambda"
+  | TLambda (h1, ps1, sp1, b1), TLambda (h2, ps2, sp2, b2)
+    when h1 = h2 && ps1 = ps2 && b1 = b2 ->
+    (match (sp1, sp2) with
+    | None, None -> Some ()
+    | Some sp1, Some sp2 ->
+      let* _ = unify_var st (Staged sp1, e1) (Staged sp2, e2) in
+      Some ()
+    | _, _ -> None)
   | TList _, TList _ -> failwith "TList"
   | TTuple _, TTuple _ -> failwith "TTuple"
   | _, _ -> None
