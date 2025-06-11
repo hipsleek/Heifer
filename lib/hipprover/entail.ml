@@ -84,8 +84,7 @@ type pstate = pctx * staged_spec * staged_spec
 
 (* prints the proof state like an inference rule *)
 let string_of_pstate (ctx, left, right) =
-  Format.asprintf "%s\n%s\n%s\n⊑\n%s@." (string_of_pctx ctx)
-    (String.make 60 '-')
+  Format.asprintf "%s\n%s\n%s\n⊑\n%s" (string_of_pctx ctx) (String.make 60 '-')
     (string_of_staged_spec left)
     (string_of_staged_spec right)
 
@@ -93,10 +92,31 @@ let string_of_pstate (ctx, left, right) =
 let string_of_pstate =
   let backarrow = "<" ^ String.make 60 '=' in
   fun (ctx, left, right) ->
-    Format.asprintf "%s\n⊑\n%s\n%s\n%s@."
+    Format.asprintf "%s\n⊑\n%s\n%s\n%s"
       (string_of_staged_spec left)
       (string_of_staged_spec right)
       backarrow (string_of_pctx ctx)
+
+let pctx_to_supp ctx =
+  let { assumptions; definitions_nonrec; definitions_rec; unfolded } = ctx in
+  [
+    ("assumptions", string_of_list_lines string_of_pi assumptions);
+    ( "definitions_nonrec",
+      string_of_list_lines Rewriting.string_of_rule definitions_nonrec );
+    ( "definitions_rec",
+      string_of_list_lines Rewriting.string_of_rule definitions_rec );
+    ( "unfolded",
+      string_of_list_lines
+        (fun (f, lr) ->
+          match lr with
+          | `Left -> Format.asprintf "%s, L" f
+          | `Right -> Format.asprintf "%s, R" f)
+        unfolded );
+  ]
+
+let log_proof_state ~title (pctx, f1, f2) =
+  debug ~at:4 ~title ~supp:(pctx_to_supp pctx) "%s\n⊑\n%s"
+    (string_of_staged_spec f1) (string_of_staged_spec f2)
 
 let check_pure_obligation left right =
   let open Infer_types in
@@ -133,9 +153,7 @@ type total = pstate -> pstate
 let apply_ent_rule : total =
  fun (pctx, f1, f2) ->
   let@ _ =
-    span (fun _r ->
-        debug ~at:4 ~title:"apply_ent_rule" "%s"
-          (string_of_pstate (pctx, f1, f2)))
+    span (fun _r -> log_proof_state ~title:"apply_ent_rule" (pctx, f1, f2))
   in
   match (f1, f2) with
   | NormalReturn (p1, h1), NormalReturn (p2, h2) ->
@@ -180,10 +198,7 @@ let unfold_definitions : total =
   let open Rewriting in
   let open Rules.Staged in
   fun ps ->
-    let@ _ =
-      span (fun _r ->
-          debug ~at:4 ~title:"unfold_definitions" "%s" (string_of_pstate ps))
-    in
+    let@ _ = span (fun _r -> log_proof_state ~title:"unfold_definitions" ps) in
     let pctx, f1, f2 = ps in
     (* unfold nonrecursive *)
     let f1 = autorewrite pctx.definitions_nonrec (Staged f1) |> of_uterm in
@@ -195,16 +210,16 @@ let unfold_definitions : total =
 
 let entailment_search : ?name:string -> unit Tactic.t =
  fun ?name (pctx, f1, f2) k ->
+  (* TODO *)
   Search.reset ();
   let@ _ =
     span (fun _r ->
-        debug ~at:4
-          ~title:
-            (match name with
-            | None -> "search"
-            | Some n -> Format.asprintf "search: %s" n)
-          "%s"
-          (string_of_pstate (pctx, f1, f2)))
+        let title =
+          match name with
+          | None -> "search"
+          | Some n -> Format.asprintf "search: %s" n
+        in
+        log_proof_state ~title (pctx, f1, f2))
   in
   let pctx, f1, f2 = apply_ent_rule (pctx, f1, f2) in
   let pctx, f1, f2 = unfold_definitions (pctx, f1, f2) in
@@ -221,8 +236,8 @@ let check_staged_spec_entailment ?name pctx inferred given =
   let search = entailment_search ?name (pctx, inferred, given) in
   match Iter.head search with
   | None -> false
-  | Some (_, (pctx, _f1, _f2)) ->
-    debug ~at:2 ~title:"proof found" "%s" (string_of_pctx pctx);
+  | Some (_, ps) ->
+    debug ~at:2 ~title:"proof found" "%s" (string_of_pstate ps);
     true
 
 (*
