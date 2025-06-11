@@ -530,7 +530,8 @@ let norm_bind_seq_ens = Staged.dynamic_rule
 let normalization_rules = [
   norm_bind_val;
   norm_bind_disj;
-  norm_bind_req
+  norm_bind_req;
+  norm_bind_seq_ens;
 ]
 
 (* the main entry point *)
