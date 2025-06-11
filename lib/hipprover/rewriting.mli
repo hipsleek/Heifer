@@ -11,6 +11,7 @@ type uterm =
   | Pure of pi
   | Heap of kappa
   | Term of term
+  | Binder of string
 
 val string_of_uterm : uterm -> string
 
@@ -84,6 +85,7 @@ module Rules :
     module Staged : sig
       val uvar : string -> staged_spec
       val rule : staged_spec -> staged_spec -> rule
+      val dynamic_rule : staged_spec -> ((string -> uterm) -> uterm) -> rule
       val of_uterm : uterm -> staged_spec
     end
 

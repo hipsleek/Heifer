@@ -21,6 +21,7 @@ type uterm =
   | Pure of pi
   | Heap of kappa
   | Term of term
+  | Binder of string
 
 let string_of_uterm t =
   match t with
@@ -28,11 +29,21 @@ let string_of_uterm t =
   | Pure p -> string_of_pi p
   | Heap h -> string_of_kappa h
   | Term t -> string_of_term t
+  | Binder s -> s
+
+(* let string_of_uterm t =
+  match t with
+  | Staged s -> "Staged " ^ string_of_staged_spec s
+  | Pure p -> "Pure " ^ string_of_pi p
+  | Heap h -> "Heap " ^ string_of_kappa h
+  | Term t -> "Term " ^ string_of_term t
+  | Binder s -> "Binder " ^ s *)
 
 let uterm_to_staged = function Staged s -> s | _ -> failwith "not staged"
 let uterm_to_pure = function Pure p -> p | _ -> failwith "not pure"
 let uterm_to_heap = function Heap h -> h | _ -> failwith "not heap"
 let uterm_to_term = function Term t -> t | _ -> failwith "not term"
+let uterm_to_binder = function Binder s -> s | _ -> failwith "not term"
 
 module UF : sig
   type t
@@ -69,12 +80,14 @@ let uvar_staged n = HigherOrder (var_prefix ^ n, [])
 let uvar_heap n = PointsTo (var_prefix ^ n, Const ValUnit)
 let uvar_pure n = Predicate (var_prefix ^ n, [])
 let uvar_term n = Var (var_prefix ^ n)
+let uvar_binder n = var_prefix ^ n
 
 let get_uvar = function
   | Staged (HigherOrder (f, _)) when is_uvar_name f -> Some f
   | Pure (Predicate (f, _)) when is_uvar_name f -> Some f
   | Heap (PointsTo (f, _)) when is_uvar_name f -> Some f
   | Term (Var f) when is_uvar_name f -> Some f
+  | Binder f when is_uvar_name f -> Some f
   | _ -> None
 
 (* to avoid having a constructor for UF.t in the AST, use a layer of indirection *)
@@ -93,7 +106,7 @@ let to_unifiable st f : unifiable =
   in
   let visitor =
     object (self)
-      inherit [_] mapreduce_spec
+      inherit [_] mapreduce_spec as super
       method zero = SMap.empty
       method plus = SMap.merge_arbitrary
 
@@ -117,6 +130,11 @@ let to_unifiable st f : unifiable =
       method! visit_Var () x =
         if is_uvar_name x then (Var x, SMap.singleton x (UF.make st None))
         else (Var x, SMap.empty)
+
+      (* binders *)
+      method! visit_Bind () x f1 f2 =
+        let v1, e = super#visit_Bind () x f1 f2 in
+        if is_uvar_name x then (v1, SMap.add x (UF.make st None) e) else (v1, e)
     end
   in
   match f with
@@ -132,6 +150,7 @@ let to_unifiable st f : unifiable =
   | Term t ->
     let t, e = visitor#visit_term () t in
     (Term t, e)
+  | Binder s -> (Binder s, SMap.singleton s (UF.make st None))
 
 let of_unifiable (f, _) = f
 
@@ -174,6 +193,8 @@ let subst_uvars st (f, e) : uterm =
   | Term t ->
     let t = visitor#visit_term () t in
     Term t
+  | Binder x ->
+    if is_uvar_name x then UF.get st (SMap.find x e) |> Option.get else Binder x
 
 let string_of_outcome r = match r with None -> "fail" | Some _ -> "ok"
 
@@ -223,6 +244,7 @@ let rec unify_var : UF.store -> unifiable -> unifiable -> unit option =
     | Pure p1, Pure p2 -> unify_pure st (p1, e1) (p2, e2)
     | Heap h1, Heap h2 -> unify_heap st (h1, e1) (h2, e2)
     | Term t1, Term t2 -> unify_term st (t1, e1) (t2, e2)
+    | Binder s1, Binder s2 when s1 = s2 -> Some ()
     | _, _ ->
       failwith
         (Format.sprintf "cannot unify values of different types: %s, %s"
@@ -278,7 +300,10 @@ and unify_term : UF.store -> term unif -> term unif -> unit option =
   match (t1, t2) with
   | Const c1, Const c2 when c1 = c2 -> Some ()
   | Var x1, Var x2 when x1 = x2 -> Some ()
-  | Rel (_, _, _), Rel (_, _, _) -> failwith "Rel"
+  | Rel (o1, t1, t2), Rel (o2, t3, t4) when o1 = o2 ->
+    let* _ = unify_var st (Term t1, e1) (Term t3, e2) in
+    let* _ = unify_var st (Term t2, e1) (Term t4, e2) in
+    Some ()
   | BinOp (o1, t1, t2), BinOp (o2, t3, t4) when o1 = o2 ->
     let* _ = unify_var st (Term t1, e1) (Term t3, e2) in
     let* _ = unify_var st (Term t2, e1) (Term t4, e2) in
@@ -332,7 +357,8 @@ and unify_staged :
   | Reset b1, Reset b2 ->
     let* _ = unify_var st (Staged b1, e1) (Staged b2, e2) in
     Some ()
-  | Bind (x1, f1, f2), Bind (x2, f3, f4) when x1 = x2 ->
+  | Bind (x1, f1, f2), Bind (x2, f3, f4) ->
+    let* _ = unify_var st (Binder x1, e1) (Binder x2, e2) in
     let* _ = unify_var st (Staged f1, e1) (Staged f3, e2) in
     let* _ = unify_var st (Staged f2, e1) (Staged f4, e2) in
     Some ()
@@ -386,7 +412,7 @@ let rewrite_rooted rule target =
       match rule.rhs with
       | `Replace rhs -> subst_uvars s (rhs, e)
       | `Dynamic f ->
-        let mapping x = UF.get s (SMap.find x e) |> Option.get in
+        let mapping x = UF.get s (SMap.find (var_prefix ^ x) e) |> Option.get in
         f mapping
     in
     inst_rhs
@@ -433,12 +459,15 @@ let rewrite_all rule target =
   | Pure p -> Pure (visitor#visit_pi () p)
   | Heap h -> Heap (visitor#visit_kappa () h)
   | Term t -> Term (visitor#visit_term () t)
+  | Binder _ ->
+    (match rewrite_rooted rule target with None -> target | Some t -> t)
 
 (* put this into some other places *)
 module Rules = struct
   module Staged = struct
     let uvar = uvar_staged
     let rule lhs rhs = { lhs = Staged lhs; rhs = `Replace (Staged rhs) }
+    let dynamic_rule lhs rhs = { lhs = Staged lhs; rhs = `Dynamic rhs }
     let of_uterm = uterm_to_staged
   end
 
@@ -458,6 +487,11 @@ module Rules = struct
     let uvar = uvar_term
     let rule lhs rhs = { lhs = Term lhs; rhs = `Replace (Term rhs) }
     let of_uterm = uterm_to_term
+  end
+
+  module Binder = struct
+    let uvar = uvar_binder
+    let of_uterm = uterm_to_binder
   end
 end
 
@@ -545,6 +579,32 @@ let%expect_test "rewriting" =
     rewrite ens x->1; ens emp
     with 1 ==> 2
     result: ens x->2; ens emp
+    |}];
+
+  test
+    Staged.(
+      dynamic_rule
+        (Bind
+           (Binder.uvar "x", ens ~p:(eq (v "res") (Term.uvar "r")) (), uvar "f"))
+        (fun sub ->
+          let x = sub "x" |> Binder.of_uterm in
+          let r = sub "r" |> Term.of_uterm in
+          let f = sub "f" |> Staged.of_uterm in
+          Staged (Subst.subst_free_vars [(x, r)] f)))
+    (Staged
+       (seq
+          [
+            ens ();
+            Bind
+              ( "y",
+                ens ~p:(eq (v "res") (Const (Num 1))) (),
+                ens ~p:(eq (v "res") (Var "y")) () );
+          ]));
+  [%expect
+    {|
+    rewrite ens emp; bind y=ens res=1. (ens res=y)
+    with bind __x=ens res=__r. (__f()) ==> <dynamic>
+    result: ens emp; ens res=1
     |}]
 (* see tests.ml for more *)
 
@@ -571,7 +631,7 @@ let norm_db =
   let open Rules in
   Pure.
     [
-      rule (eq (Term.uvar "a") (Term.uvar "a")) True;
+      rule Term.(eq (uvar "a") (uvar "a")) True;
       rule (And (uvar "a", True)) (uvar "a");
       rule (And (True, uvar "a")) (uvar "a");
     ]
