@@ -85,7 +85,7 @@ module Rules :
     module Staged : sig
       val uvar : string -> staged_spec
       val rule : staged_spec -> staged_spec -> rule
-      val dynamic_rule : staged_spec -> ((string -> uterm) -> uterm) -> rule
+      val dynamic_rule : staged_spec -> ((string -> uterm) -> staged_spec) -> rule
       val of_uterm : uterm -> staged_spec
     end
 
@@ -105,5 +105,10 @@ module Rules :
       val uvar : string -> term
       val rule : term -> term -> rule
       val of_uterm : uterm -> term
+    end
+
+    module Binder : sig
+      val uvar : string -> string
+      val of_uterm : uterm -> string
     end
   end

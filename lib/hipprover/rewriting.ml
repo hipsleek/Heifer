@@ -467,7 +467,7 @@ module Rules = struct
   module Staged = struct
     let uvar = uvar_staged
     let rule lhs rhs = { lhs = Staged lhs; rhs = `Replace (Staged rhs) }
-    let dynamic_rule lhs rhs = { lhs = Staged lhs; rhs = `Dynamic rhs }
+    let dynamic_rule lhs rhs = { lhs = Staged lhs; rhs = `Dynamic (fun sub -> Staged (rhs sub)) }
     let of_uterm = uterm_to_staged
   end
 
@@ -590,7 +590,7 @@ let%expect_test "rewriting" =
           let x = sub "x" |> Binder.of_uterm in
           let r = sub "r" |> Term.of_uterm in
           let f = sub "f" |> Staged.of_uterm in
-          Staged (Subst.subst_free_vars [(x, r)] f)))
+          Subst.subst_free_vars [(x, r)] f))
     (Staged
        (seq
           [
