@@ -488,7 +488,7 @@ open Rules
 open Syntax
 
 let norm_bind_val = Staged.dynamic_rule
-  (Bind (Binder.uvar "x", NormalReturn (eq res_var (Term.uvar "r"), EmptyHeap), Staged.uvar "f"))
+  (Bind (Binder.uvar "x", NormalReturn (eq res_var (Term.uvar "r"), emp), Staged.uvar "f"))
   (fun sub ->
     let x = sub "x" |> Binder.of_uterm in
     let r = sub "r" |> Term.of_uterm in
@@ -504,6 +504,7 @@ let norm_bind_disj = Staged.dynamic_rule
     let fk = Staged.of_uterm (sub "fk") in
     Disjunction (Bind (x, f1, fk), Bind (x, f2, fk)))
 
+(* we can push req outside of bind *)
 let norm_bind_req = Staged.dynamic_rule
   (Bind (Binder.uvar "x", Sequence (Require (Pure.uvar "p", Heap.uvar "h"), Staged.uvar "f"), Staged.uvar "fk"))
   (fun sub ->
@@ -513,6 +514,18 @@ let norm_bind_req = Staged.dynamic_rule
     let f = Staged.of_uterm (sub "f") in
     let fk = Staged.of_uterm (sub "fk") in
     Sequence (Require (p, h), Bind (x, f, fk)))
+
+(* bind (seq (ens Q) f) fk `entails` seq (ens Q) (bind f fk) *)
+(* we can push ens outside of bind; if the result of ens is not used *)
+let norm_bind_seq_ens = Staged.dynamic_rule
+  (Bind (Binder.uvar "x", Sequence (NormalReturn (Pure.uvar "p", Heap.uvar "h"), Staged.uvar "f"), Staged.uvar "fk"))
+  (fun sub ->
+    let x = Binder.of_uterm (sub "x") in
+    let p = Pure.of_uterm (sub "p") in
+    let h = Heap.of_uterm (sub "h") in
+    let f = Staged.of_uterm (sub "f") in
+    let fk = Staged.of_uterm (sub "fk") in
+    Sequence (NormalReturn (p, h), Bind (x, f, fk)))
 
 let normalization_rules = [
   norm_bind_val;
@@ -552,6 +565,16 @@ let%expect_test "rules" =
     [%expect
       {|
       (bind x=ens res=1. (ens res=(x + 1))) \/ (bind x=ens res=2. (ens res=(x + 1)))
+      |}]
+  in
+  let _ =
+    let f = ens ~p:(eq res_var (num 1)) () in
+    let fk = ens ~p:(eq res_var (plus (var "x") (num 1))) () in
+    let input = bind "x" (seq [f; f]) fk in
+    test norm_bind_seq_ens input;
+    [%expect
+      {|
+      ens res=1; bind x=ens res=1. (ens res=(x + 1))
       |}]
   in
   ()
