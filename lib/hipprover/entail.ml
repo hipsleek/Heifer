@@ -147,34 +147,26 @@ module Tactic : sig
   val return : 'a -> 'a t
   val bind : 'a t -> ('a -> 'b t) -> 'b t
   val ( >>= ) : 'a t -> ('a -> 'b t) -> 'b t
-  val ( let* ) : ('a -> 'b t) -> 'a t -> 'b t
+  val ( let* ) : 'a t -> ('a -> 'b t) -> 'b t
+  val get : pstate t
+  val put : pstate -> unit t
+  val fail : 'a t
 end = struct
   type 'a t = pstate -> ('a * pstate) Iter.t
 
   let return x = fun s -> Iter.return (x, s)
   let bind m f = fun s -> Iter.flat_map (fun (x, s') -> f x s') (m s)
+  let get = fun s -> Iter.return (s, s)
+  let put s = fun _ -> Iter.return ((), s)
+  let fail = fun _ -> Iter.empty
   let ( >>= ) = bind
-  let ( let* ) f a = bind a f
+  let ( let* ) = bind
 end
+
+type tactic = pstate -> pstate Iter.t
 
 (* a total tactic, which does not fail or backtrack *)
 type total = pstate -> pstate
-
-let apply_ent_rule : unit Tactic.t =
- fun ps k ->
-  let@ _ = span (fun _r -> log_proof_state ~title:"apply_ent_rule" ps) in
-  let pctx, f1, f2 = ps in
-  match (f1, f2) with
-  | NormalReturn (p1, h1), NormalReturn (p2, h2) ->
-    let valid = check_pure_obligation p1 p2 in
-    if valid then k ((), Syntax.(pctx, ens (), ens ()))
-  | Sequence (NormalReturn (p1, EmptyHeap), f1), f2 ->
-    let pctx = { pctx with assumptions = p1 :: pctx.assumptions } in
-    k ((), (pctx, f1, f2))
-  | f1, Sequence (Require (p2, EmptyHeap), f2) ->
-    let pctx = { pctx with assumptions = p2 :: pctx.assumptions } in
-    k ((), (pctx, f1, f2))
-  | _, _ -> ()
 
 let unfold_recursive_defns pctx f lr =
   let open Rewriting in
@@ -182,7 +174,7 @@ let unfold_recursive_defns pctx f lr =
   let@ _ = span (fun _r -> debug ~at:4 ~title:"unfold_recursive_defns" "") in
   let usable_defns =
     pctx.definitions_rec
-    |> List.filter (fun (rule_name, rule) ->
+    |> List.filter (fun (rule_name, _rule) ->
            List.find_opt
              (fun (u, lr1) -> u = rule_name && lr = lr1)
              pctx.unfolded
@@ -217,7 +209,89 @@ let unfold_definitions : total =
     let pctx, f2 = unfold_recursive_defns pctx f2 `Right in
     (pctx, f1, f2)
 
-let entailment_search : ?name:string -> unit Tactic.t =
+(* let rec apply_ent_rule : unit Tactic.t =
+ fun ps k ->
+  let@ _ = span (fun _r -> log_proof_state ~title:"apply_ent_rule" ps) in
+  let pctx, f1, f2 = ps in
+  match (f1, f2) with
+  | NormalReturn (p1, h1), NormalReturn (p2, h2) ->
+    let valid = check_pure_obligation p1 p2 in
+    if valid then k ((), Syntax.(pctx, ens (), ens ()))
+  | Sequence (NormalReturn (p1, EmptyHeap), f1), f2 ->
+    let pctx = { pctx with assumptions = p1 :: pctx.assumptions } in
+    k ((), (pctx, f1, f2))
+  | f1, Sequence (Require (p2, EmptyHeap), f2) ->
+    let pctx = { pctx with assumptions = p2 :: pctx.assumptions } in
+    k ((), (pctx, f1, f2))
+  | Disjunction (f1, f2), f3 -> k ((), (pctx, f1, f2))
+  | _, _ -> () *)
+
+(* let f : int Tactic.t =
+  let open Tactic in
+  let* pctx, f1, f2 = get in
+  return 1 *)
+
+(* let rec apply_ent_rule : unit Tactic.t =
+  let open Tactic in
+  let open Syntax in
+  let* pctx, f1, f2 = get in
+  (* let@ _ = span (fun _r -> log_proof_state ~title:"apply_ent_rule" ps) in *)
+  match (f1, f2) with
+  | NormalReturn (p1, h1), NormalReturn (p2, h2) ->
+    let valid = check_pure_obligation p1 p2 in
+    let* _ = put (pctx, ens (), ens ()) in
+    if valid then return () else fail
+  (* | Sequence (NormalReturn (p1, EmptyHeap), f1), f2 ->
+    let pctx = { pctx with assumptions = p1 :: pctx.assumptions } in
+    k ((), (pctx, f1, f2))
+  | f1, Sequence (Require (p2, EmptyHeap), f2) ->
+    let pctx = { pctx with assumptions = p2 :: pctx.assumptions } in
+    k ((), (pctx, f1, f2)) *)
+  | Disjunction (f1, f2), f3 -> k ((), (pctx, f1, f2))
+  | _, _ -> fail
+
+and entailment_search : ?name:string -> unit Tactic.t =
+ fun ?name ps k ->
+  (* TODO *)
+  Search.reset ();
+  let@ _ =
+    span (fun _r ->
+        let title =
+          match name with
+          | None -> "search"
+          | Some n -> Format.asprintf "search: %s" n
+        in
+        log_proof_state ~title ps)
+  in
+  let ps = simplify ps in
+  let ps = unfold_definitions ps in
+  apply_ent_rule ps k *)
+
+let fail = ()
+
+let rec apply_ent_rule : tactic =
+ fun ps k ->
+  let open Syntax in
+  let pctx, f1, f2 = ps in
+  (* let@ _ = span (fun _r -> log_proof_state ~title:"apply_ent_rule" ps) in *)
+  match (f1, f2) with
+  | NormalReturn (p1, h1), NormalReturn (p2, h2) ->
+    let valid = check_pure_obligation p1 p2 in
+    (* let* _ = put () in *)
+    if valid then k (pctx, ens (), ens ()) else fail
+  (* if valid then return () else fail *)
+  (* | Sequence (NormalReturn (p1, EmptyHeap), f1), f2 ->
+    let pctx = { pctx with assumptions = p1 :: pctx.assumptions } in
+    k ((), (pctx, f1, f2))
+  | f1, Sequence (Require (p2, EmptyHeap), f2) ->
+    let pctx = { pctx with assumptions = p2 :: pctx.assumptions } in
+    k ((), (pctx, f1, f2)) *)
+  | Disjunction (f1, f2), f3 ->
+    k (pctx, f1, f3);
+    k (pctx, f2, f3)
+  | _, _ -> fail
+
+and entailment_search : ?name:string -> tactic =
  fun ?name ps k ->
   (* TODO *)
   Search.reset ();
@@ -245,7 +319,7 @@ let check_staged_spec_entailment ?name pctx inferred given =
   let search = entailment_search ?name (pctx, inferred, given) in
   match Iter.head search with
   | None -> false
-  | Some (_, ps) ->
+  | Some ps ->
     debug ~at:2 ~title:"proof found" "%s" (string_of_pstate ps);
     true
 
