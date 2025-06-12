@@ -4,7 +4,13 @@
   | x :: xs -> 1 + length xs
 *)
 
-let rec sum li =
+let [@pure] hello (x:int) : int = x + 1
+
+let pure_hello ()
+(*@ ens res=hello(2) @*)
+= 3
+
+let [@pure] rec sum (li: int list) : int =
   match li with
   | [] -> 0
   | x :: xs -> x + sum xs
@@ -34,7 +40,7 @@ let rec foldr f li acc =
     f x (foldr f xs acc)
 
 let foldr_sum xs k
-(*@ let r = sum(xs) in ens res=r+k @*)
+(*@ ens res=sum(xs)+k @*)
 = let g c t = c + t in
   foldr g xs k
 
