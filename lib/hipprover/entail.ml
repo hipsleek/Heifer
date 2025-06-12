@@ -335,16 +335,14 @@ let rec apply_ent_rule ?name : tactic =
   let@ _ = span (fun _r -> log_proof_state ~title:"apply_ent_rule" ps) in
   match (f1, f2) with
   | NormalReturn (p1, h1), NormalReturn (p2, h2) ->
-    let valid = check_pure_obligation p1 p2 in
-    (* let* _ = put () in *)
+    let valid = check_pure_obligation (And (conj pctx.assumptions, p1)) p2 in
     if valid then k (pctx, ens (), ens ()) else fail
-  (* if valid then return () else fail *)
-  (* | Sequence (NormalReturn (p1, EmptyHeap), f1), f2 ->
+  | Sequence (NormalReturn (p1, EmptyHeap), f1), f2 ->
     let pctx = { pctx with assumptions = p1 :: pctx.assumptions } in
-    k ((), (pctx, f1, f2))
+    entailment_search ?name (pctx, f1, f2) k
   | f1, Sequence (Require (p2, EmptyHeap), f2) ->
     let pctx = { pctx with assumptions = p2 :: pctx.assumptions } in
-    k ((), (pctx, f1, f2)) *)
+    entailment_search ?name (pctx, f1, f2) k
   | Exists (x, f1), f2 ->
     let@ _ = span (fun _r -> debug ~at:4 ~title:"exists on the left" "") in
     let pctx = { pctx with constants = Var x :: pctx.constants } in
