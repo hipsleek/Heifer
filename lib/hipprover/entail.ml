@@ -217,6 +217,13 @@ type tactic = pstate -> pstate Iter.t
 
 let fail = ()
 
+let or_ f g k =
+  let elt = ref false in
+  f (fun a ->
+      elt := true;
+      k a);
+  if not !elt then g k
+
 (* a total tactic, which does not fail or backtrack *)
 type total = pstate -> pstate
 
@@ -305,11 +312,11 @@ let apply_lemmas : total =
     let f1 = autorewrite pctx.lemmas (Staged f1) |> of_uterm in
     (pctx, f1, f2)
 
-let rec apply_ent_rule : tactic =
+let rec apply_ent_rule ?name : tactic =
  fun ps k ->
   let open Syntax in
   let pctx, f1, f2 = ps in
-  (* let@ _ = span (fun _r -> log_proof_state ~title:"apply_ent_rule" ps) in *)
+  let@ _ = span (fun _r -> log_proof_state ~title:"apply_ent_rule" ps) in
   match (f1, f2) with
   | NormalReturn (p1, h1), NormalReturn (p2, h2) ->
     let valid = check_pure_obligation p1 p2 in
@@ -323,8 +330,17 @@ let rec apply_ent_rule : tactic =
     let pctx = { pctx with assumptions = p2 :: pctx.assumptions } in
     k ((), (pctx, f1, f2)) *)
   | Disjunction (f1, f2), f3 ->
-    k (pctx, f1, f3);
-    k (pctx, f2, f3)
+    let@ _ = span (fun _r -> debug ~at:4 ~title:"disj on the left" "") in
+    entailment_search ?name (pctx, f1, f3) k;
+    entailment_search ?name (pctx, f2, f3) k
+  | f1, Disjunction (f2, f3) ->
+    let@ _ = span (fun _r -> debug ~at:4 ~title:"disj on the right" "") in
+    or_
+      (entailment_search ?name (pctx, f1, f3))
+      (entailment_search ?name (pctx, f1, f2))
+      k
+    (* k (pctx, f1, f3);
+    k (pctx, f2, f3) *)
   | _, _ ->
     log_proof_state ~title:"STUCK" ps;
     fail
@@ -346,21 +362,25 @@ and entailment_search : ?name:string -> tactic =
   let ps = unfold_definitions ps in
   let ps = apply_induction_hypotheses ps in
   let ps = apply_lemmas ps in
-  apply_ent_rule ps k
+  apply_ent_rule ?name ps k
 
 let create_induction_hypothesis ps =
   let pctx, f1, f2 = ps in
-  let free =
-    SSet.union (Subst.free_vars f1) (Subst.free_vars f2)
-    |> SSet.remove "res" (* this isn't a free var; it's bound by ens *)
-    |> SSet.to_list
-  in
-  (* assume they are of term type *)
-  let bs = List.map (fun f -> (f, Rewriting.Rules.Term.uvar f)) free in
-  let f3 = Subst.subst_free_vars bs f1 in
-  let f4 = Subst.subst_free_vars bs f2 in
-  let ih = Rewriting.Rules.Staged.rule f3 f4 in
-  { pctx with definitions_nonrec = ("IH", ih) :: pctx.definitions_nonrec }
+  let name = match f1 with HigherOrder (f, _) -> Some f | _ -> None in
+  match name with
+  | None -> pctx
+  | Some name ->
+    let free =
+      SSet.union (Subst.free_vars f1) (Subst.free_vars f2)
+      |> SSet.remove "res" (* this isn't a free var; it's bound by ens *)
+      |> SSet.to_list
+    in
+    (* assume they are of term type *)
+    let bs = List.map (fun f -> (f, Rewriting.Rules.Term.uvar f)) free in
+    let f3 = Subst.subst_free_vars bs f1 in
+    let f4 = Subst.subst_free_vars bs f2 in
+    let ih = Rewriting.Rules.Staged.rule f3 f4 in
+    { pctx with induction_hypotheses = (name, ih) :: pctx.induction_hypotheses }
 
 let check_staged_spec_entailment ?name pctx inferred given =
   let@ _ =
