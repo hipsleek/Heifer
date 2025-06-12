@@ -336,6 +336,62 @@ let ex_quantify_expr env vars ctx e =
            (List.map (fun v -> term_to_expr env ctx (Var v)) vars)
            e None [] [] None None))
 
+  let type_to_sort ctx (t:typ) : Sort.sort =
+    match t with
+    | Unit -> unit_sort ctx
+    | List_int -> list_int_sort ctx
+    (* | TConstr of string * typ list *)
+    | Int -> Z3.Arithmetic.Integer.mk_sort ctx
+    | TConstr (_, _) -> failwith "TConstr"
+    | Bool -> failwith "Bool"
+    | TyString -> failwith "TyString"
+    | Lamb -> failwith "Lamb"
+    | Arrow (_, _) -> failwith "Arrow"
+    | TVar _ -> failwith "TVar"
+
+  let rec core_lang_to_expr : core_lang -> Expr.expr = fun e ->
+    (* Format.printf "expr %s@." (Pretty.string_of_core_lang e); *)
+    match e with
+    | CLet _ ->
+      failwith "let"
+    | CValue _ ->
+      failwith "value"
+    | CIfELse (_, _, _) -> failwith "unimplemented CIfELse"
+    | CMatch (_, _, _scr, None, [], _cases) ->
+      (* x :: xs -> e is represented as ("::", [x, xs], e) *)
+      (* and constr_cases = (string * string list * core_lang) list *)
+      failwith "match"
+    | CFunCall (s, _args) when Globals.is_pure_fn_defined s ->
+      failwith "unimplemented CFunCall"
+    | CFunCall (s, _) -> failwith (Format.asprintf "unknown function %s" s)
+    | CWrite (_, _) -> failwith "unimplemented CWrite"
+    | CRef _ -> failwith "unimplemented CRef"
+    | CRead _ -> failwith "unimplemented CRead"
+    | CAssert (_, _) -> failwith "unimplemented CAssert"
+    | CPerform (_, _) -> failwith "unimplemented CPerform"
+    | CMatch (_, _, _, _, _, _) -> failwith "unimplemented effect CMatch"
+    | CResume _ -> failwith "unimplemented CResume"
+    | CLambda (_, _, _) -> failwith "unimplemented CLambda"
+    | CShift _ | CReset _ -> failwith "TODO shift and reset expr_to_why3 "
+
+  let pure_fn_to_logic_fn ctx (pure_fn: pure_fn_def) =
+    let decl =
+      let param_types =
+        pure_fn.pf_params
+          |> List.map snd
+          |> List.map (type_to_sort ctx)
+      in
+      let ret_type = pure_fn.pf_ret_type |> type_to_sort ctx in
+      FuncDecl.mk_rec_func_decl_s ctx
+        pure_fn.pf_name param_types ret_type
+    in
+    let params =
+      pure_fn.pf_params
+      (* TODO handle other types *)
+      |> List.map (fun (n, _ty) -> Z3.Arithmetic.Integer.mk_const_s ctx n)
+    in
+    let body = core_lang_to_expr pure_fn.pf_body in
+    FuncDecl.add_rec_def ctx decl params body
 
 (* this is a separate function which doesn't cache results because exists isn't in pi *)
 let entails_exists_inner env p1 vs p2 =

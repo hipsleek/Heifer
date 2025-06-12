@@ -12,8 +12,11 @@ let rec foldr1_aux f y = function
   | [] -> y
   | x :: xs -> f y (foldr1_aux f x xs)
 
-let foldr1 f = function
-  | [] -> failwith "foldr1"
+let foldr1 ?default f = function
+  | [] ->
+    (match default with
+    | None -> failwith "foldr1: empty"
+    | Some a -> a)
   | x :: xs -> foldr1_aux f x xs
 
 let foldl1 f = function
