@@ -366,11 +366,48 @@ let norm_bind_seq_ens = Staged.dynamic_rule
     let fk = Staged.of_uterm (sub "fk") in
     Sequence (NormalReturn (p, h), Bind (x, f, fk)))
 
-let normalization_rules = [
+
+let norm_ens_heap_ens_pure = Staged.dynamic_rule
+  (seq [NormalReturn (True, Heap.uvar "h"); NormalReturn (Pure.uvar "p", emp)])
+  (fun sub ->
+    let p = Pure.of_uterm (sub "p") in
+    let h = Heap.of_uterm (sub "h") in
+    if is_eq_res p then
+      seq [NormalReturn (True, h); NormalReturn (p, emp)]
+    else
+      seq [NormalReturn (p, emp); NormalReturn (True, h)])
+
+let norm_seq_ens_heap_ens_pure = Staged.dynamic_rule
+  (seq [NormalReturn (True, Heap.uvar "h"); NormalReturn (Pure.uvar "p", emp); Staged.uvar "f"])
+  (fun sub ->
+    let p = Pure.of_uterm (sub "p") in
+    let h = Heap.of_uterm (sub "h") in
+    let f = Staged.of_uterm (sub "f") in
+    if is_eq_res p then
+      seq [NormalReturn (True, h); NormalReturn (p, emp); f]
+    else
+      seq [NormalReturn (p, emp); NormalReturn (True, h); f])
+
+(* this rule is not proven in Coq formulization yet *)
+let norm_seq_assoc = Staged.rule
+  (seq [seq [Staged.uvar "f1"; Staged.uvar "f2"]; Staged.uvar "f3"])
+  (seq [Staged.uvar "f1"; Staged.uvar "f2"; Staged.uvar "f3"])
+
+let normalization_rules_bind = [
   norm_bind_val;
   norm_bind_disj;
   norm_bind_req;
   norm_bind_seq_ens;
+]
+
+let normalization_rules_permute_ens = [
+  norm_ens_heap_ens_pure;
+  norm_seq_ens_heap_ens_pure;
+]
+
+let normalization_rules = List.concat [
+  normalization_rules_bind;
+  normalization_rules_permute_ens;
 ]
 
 (* the main entry point *)
@@ -392,7 +429,7 @@ let normalize_spec (spec : staged_spec) : staged_spec =
 let%expect_test "rules" =
   let test rule input =
     let input = Staged input in
-    let output = rewrite_all rule input in
+    let output = autorewrite [rule] input in
     let output = Staged.of_uterm output in
     Format.printf "%s@." (Pretty.string_of_staged_spec output)
   in
@@ -413,5 +450,36 @@ let%expect_test "rules" =
     test norm_bind_seq_ens input;
     [%expect
       {| ens res=1; let x = (ens res=1) in (ens res=(x + 1)) |}]
+  in
+  let _ =
+    let ens_heap = NormalReturn (True, PointsTo ("x", num 1)) in
+    let ens_pure = NormalReturn (eq (Var "x") (num 1), emp) in
+    let input = seq [ens_heap; ens_pure] in
+    test norm_ens_heap_ens_pure input;
+    [%expect
+      {|
+      ens x=1; ens x->1
+      |}]
+  in
+  let _ =
+    let ens_heap = NormalReturn (True, PointsTo ("x", num 1)) in
+    let ens_res = NormalReturn (eq_res (num 69), emp) in
+    let input = seq [ens_heap; ens_res] in
+    test norm_ens_heap_ens_pure input;
+    [%expect
+      {|
+      ens x->1; ens res=69
+      |}]
+  in
+  let _ =
+    let ens_heap = NormalReturn (True, PointsTo ("x", num 1)) in
+    let ens_res = NormalReturn (eq_res (num 69), emp) in
+    let f = NormalReturn (eq_res (num 42), emp) in
+    let input = seq [ens_heap; ens_res; f] in
+    test norm_seq_ens_heap_ens_pure input;
+    [%expect
+      {|
+      ens x->1; ens res=69; ens res=42
+      |}]
   in
   ()
