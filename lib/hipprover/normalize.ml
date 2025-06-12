@@ -4,6 +4,8 @@ open Debug
 open Variables
 open Utils
 open Syntax
+open Rewriting
+open Rules
 
 (*
 let rec existStr str li =
@@ -316,12 +318,13 @@ let split_ens_aux (p : pi) (k : kappa) : staged_spec =
   in
   seq (Options.concat_option [ens_pure_opt; ens_heap_opt; ens_eq_res_opt])
 
-let split_ens = function
-  | NormalReturn (p, k) -> split_ens_aux p k
-  | _ -> failwith "split_ens"
+let split_ens_visitor =
+  object
+    inherit [_] map_spec
+    method! visit_NormalReturn _ p k = split_ens_aux p k
+  end
 
-open Rewriting
-open Rules
+let split_ens = split_ens_visitor#visit_staged_spec ()
 
 let norm_bind_val = Staged.dynamic_rule
   (Bind (Binder.uvar "x", NormalReturn (eq res_var (Term.uvar "r"), emp), Staged.uvar "f"))
@@ -381,6 +384,7 @@ let normalize_spec (spec : staged_spec) : staged_spec =
       (Pretty.string_of_staged_spec spec)
       (string_of_result Pretty.string_of_staged_spec r))
   in
+  let spec = split_ens spec in
   let spec = Staged.of_uterm (autorewrite normalization_rules (Staged spec)) in
   spec
 

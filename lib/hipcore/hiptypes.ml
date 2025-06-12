@@ -84,6 +84,9 @@ and staged_spec =
   | Exists of string * staged_spec
   | Require of pi * kappa
   (* ens H /\ P, where P may contain contraints on res *)
+  (* | Ens_Pure of pi
+  | Ens_Heap of kappa
+  | Ens_Result of term *)
   | NormalReturn of pi * kappa
   (* higher-order functions: H /\ P /\ f$(...args, term) *)
   (* this constructor is also used for inductive predicate applications *)
