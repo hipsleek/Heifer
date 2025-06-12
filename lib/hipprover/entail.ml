@@ -20,6 +20,7 @@ type pctx = {
   (* applied : string list; *)
   (* subsumption proof obligations *)
   (* subsumption_obl : (binder list * (disj_spec * disj_spec)) list; *)
+  constants : term list;
   definitions_nonrec : (string * Rewriting.rule) list;
   definitions_rec : (string * Rewriting.rule) list;
   induction_hypotheses : (string * Rewriting.rule) list;
@@ -35,6 +36,7 @@ let string_of_used (f, lr) =
 
 let string_of_pctx ctx =
   let {
+    constants;
     assumptions;
     definitions_nonrec;
     definitions_rec;
@@ -46,7 +48,9 @@ let string_of_pctx ctx =
   in
   let open Rewriting in
   Format.asprintf
-    "induction_hypotheses:\n\
+    "constants:\n\
+     %s\n\n\
+     induction_hypotheses:\n\
      %s\n\n\
      lemmas:\n\
      %s\n\n\
@@ -58,6 +62,7 @@ let string_of_pctx ctx =
      %s\n\n\
      unfolded:\n\
      %s"
+    (string_of_list string_of_term constants)
     (string_of_list_ind_lines
        (string_of_pair Fun.id string_of_rule)
        induction_hypotheses)
@@ -73,6 +78,7 @@ let string_of_pctx ctx =
 
 let new_pctx () =
   {
+    constants = [];
     assumptions = [];
     definitions_nonrec = [];
     definitions_rec = [];
@@ -224,6 +230,16 @@ let or_ f g k =
       k a);
   if not !elt then g k
 
+let rec disj_ fs k =
+  match fs with
+  | [] -> fail
+  | f :: fs1 ->
+    let elt = ref false in
+    f (fun a ->
+        elt := true;
+        k a);
+    if not !elt then disj_ fs1 k
+
 (* a total tactic, which does not fail or backtrack *)
 type total = pstate -> pstate
 
@@ -329,6 +345,19 @@ let rec apply_ent_rule ?name : tactic =
   | f1, Sequence (Require (p2, EmptyHeap), f2) ->
     let pctx = { pctx with assumptions = p2 :: pctx.assumptions } in
     k ((), (pctx, f1, f2)) *)
+  | Exists (x, f1), f2 ->
+    let@ _ = span (fun _r -> debug ~at:4 ~title:"exists on the left" "") in
+    let pctx = { pctx with constants = Var x :: pctx.constants } in
+    entailment_search ?name (pctx, f1, f2) k
+  | f1, Exists (x, f2) ->
+    let@ _ = span (fun _r -> debug ~at:4 ~title:"exists on the right" "") in
+    let choices =
+      pctx.constants
+      |> List.map (fun c ->
+             let f2 = Subst.subst_free_vars [(x, c)] f2 in
+             entailment_search ?name (pctx, f1, f2))
+    in
+    disj_ choices k
   | Disjunction (f1, f2), f3 ->
     let@ _ = span (fun _r -> debug ~at:4 ~title:"disj on the left" "") in
     entailment_search ?name (pctx, f1, f3) k;
