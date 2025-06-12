@@ -1,5 +1,5 @@
 (library
  (name utils)
  (public_name heifer.utils)
- (modules io misc lists)
+ (modules io misc lists options)
  (libraries str))

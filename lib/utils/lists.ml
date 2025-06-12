@@ -26,3 +26,12 @@ let rec replace_nth n y = function
 
 let init xs =
   fst (unsnoc xs)
+
+let rec find_delete_opt (f : 'a -> bool) (xs : 'a list) : ('a * 'a list) option =
+  match xs with
+  | [] -> None
+  | x :: xs when f x -> Some (x, xs)
+  | x :: xs ->
+      match find_delete_opt f xs with
+      | None -> None
+      | Some (x', xs') -> Some (x', x :: xs')

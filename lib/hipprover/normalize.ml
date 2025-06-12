@@ -2,7 +2,8 @@ open Hipcore
 open Hiptypes
 open Debug
 open Variables
-
+open Utils
+open Syntax
 
 (*
 let rec existStr str li =
@@ -193,136 +194,6 @@ let rec accumulateTheSum (p:pi) (h:kappa) : kappa =
     PointsTo (pointer, term')
   | SepConj (h1, h2) -> SepConj (accumulateTheSum p h1, accumulateTheSum p h2)
 
-let simplify_state (p, h) =
-  let (p, h) = (simplify_pure p, simplify_heap h) in
-  let h' = accumulateTheSum p h in
-  (p, h')
-
-let mergeState (pi1, h1) (pi2, h2) =
-  let heap = simplify_heap (SepConj (h1, h2)) in
-  (*print_endline (string_of_kappa (SepConj (h1, h2)) ^ " =====> ");
-    print_endline (string_of_kappa heap ^ "   and    " ^ string_of_pi unification);
-  *)
-  (simplify_pure (And (pi1, pi2)), heap)
-
-let pure_to_eq_state (p, _) = pure_to_equalities p
-
-(** check if x=y is not invalid (i.e. sat) under the given assumptions *)
-let may_be_equal _assumptions _x _y =
-  (* let@ _ =
-       Debug.span (fun r ->
-           debug ~at:4 ~title:"may be equal" "%s => %s = %s\n%s"
-             (string_of_pi assumptions) (string_of_term x) (string_of_term y)
-             (string_of_result string_of_bool r))
-     in
-     let tenv =
-       Infer_types.infer_types_pi (create_abs_env ())
-         (And (assumptions, Atomic (EQ, x, y)))
-       |> Infer_types.concrete_type_env
-     in
-     let right = Atomic (EQ, x, y) in
-     (* let eq = Provers.entails_exists tenv assumptions [] right in *)
-     let eq = Provers.askZ3 tenv (Imply (assumptions, right)) in
-     eq *)
-  (* proving at this point is not effective as we may not be able to prove unsat, but later the constraints may be violated, resulting in false anyway. returning true here is just the worst case version of that *)
-  true
-
-(* (x, t1) -* (y, t2), where li is a heap containing y *)
-(* flag true => add to precondition *)
-(* flag false => add to postcondition *)
-let rec deleteFromHeapListIfHas li (x, t1) existential flag assumptions :
-    (string * term) list * pi =
-  let@ _ =
-    Debug.span (fun r ->
-        debug ~at:6
-          ~title:"deleteFromHeapListIfHas"
-          "(%s, %s) -* %s = %s\nex %s\nflag %b\nassumptions %s"
-          x (string_of_term t1)
-          (string_of_list (string_of_pair Fun.id string_of_term) li)
-          (string_of_result (string_of_pair (string_of_list (string_of_pair Fun.id string_of_term)) string_of_pi) r)
-          (string_of_list Fun.id existential)
-          flag
-          (string_of_pi assumptions))
-  in
-  let res =
-    match li with
-    | [] -> ([], True)
-    | (y, t2) :: ys ->
-      let same_loc =
-        let exists_eq =
-          List.mem x existential && List.mem y existential
-          && may_be_equal True (Var x) (Var y)
-        in
-        String.equal x y || exists_eq
-      in
-      if same_loc then
-        (* toggles whether or not z3 is used for equality checks. not using z3 is about 3x faster but causes unsoundness due to normalization not producing [req F]s if misses the fact that two values are not equal *)
-        let fast_equality = false in
-        begin
-          match fast_equality with
-          | true ->
-            if stricTcompareTerm t2 (Var "_") then (ys, True)
-            else (
-              (* TODO these cases could be organised better... a few classes:
-                 - one side is a variable
-                 - both sides are variables
-                 - both sides are obviously (un)equal
-                 - both sides are not obviously equal (requiring z3 to check)
-              *)
-              match (t1, t2) with
-              (* x-> z -* x-> 11   ~~~>  (emp, z=11) *)
-              | Var t2Str, (Num _ | UNIT | TTrue | TFalse | Nil) ->
-                if String.compare t2Str "_" == 0 then (ys, True)
-                else (ys, Atomic (EQ, t1, t2))
-              (* x->11 -* x-> z   ~~~>   (emp, true) *)
-              | (Num _ | UNIT | TTrue | TFalse | Nil), Var t2Str ->
-                if existStr t2Str existential then (ys, True)
-                else (ys, Atomic (EQ, t1, t2))
-              | Num a, Num b -> (ys, if a = b then True else raise Norm_failure)
-              | UNIT, UNIT | TTrue, TTrue | TFalse, TFalse | Nil, Nil ->
-                (ys, True)
-              | _, _ ->
-                if stricTcompareTerm t1 t2 || stricTcompareTerm t1 (Var "_")
-                then (ys, True)
-                else if flag then
-                  (* ex a. x->a |- ex b. req x->b *)
-                  (* a=b should be added in the result's postcondition.
-                     this should be req (emp, true); ens emp, a=b *)
-                  (ys, True)
-                else (ys, Atomic (EQ, t1, t2))
-                  (* | _, _ -> if flag then (ys, Atomic (EQ, t1, t2)) else (ys, True) *))
-          | false ->
-            (* handling the simple cases like this speeds things up by about 27% *)
-            (match (t1, t2) with
-            | Num a, Num b -> (ys, if a = b then True else raise Norm_failure)
-            | Var a, Var b when a = b -> (ys, True)
-            | UNIT, UNIT | TTrue, TTrue | TFalse, TFalse | Nil, Nil -> (ys, True)
-            | _, _ ->
-              ( ys,
-                if may_be_equal assumptions t1 t2 then Atomic (EQ, t1, t2)
-                else raise Norm_failure ))
-        end
-      else
-        let res, uni =
-          deleteFromHeapListIfHas ys (x, t1) existential flag assumptions
-        in
-        ((y, t2) :: res, uni)
-  in
-  let () =
-    let sof = string_of_list (string_of_pair Fun.id string_of_term) in
-    debug ~at:5 ~title:"delete from heap list" "%s -* %s = %s\nex %s"
-      (string_of_pair Fun.id string_of_term (x, t1))
-      (sof li)
-      (string_of_pair sof string_of_pi res)
-      (string_of_list Fun.id existential)
-  in
-  res
-
-(* h1 * h |- h2, returns h and unificiation
-   x -> 3 |- x -> z   -> (emp, true )
-   x -> z |- x -> 3   -> (emp, z = 3)
-*)
-
 (* | IndPred {name; _} -> *)
 (* failwith (Format.asprintf "cannot normalise predicate %s" name) *)
 
@@ -412,80 +283,45 @@ let collect_locations (sp : normalisedStagedSpec) =
   let effs, norm = sp in
   SSet.concat
     (collect_locations_norm norm :: List.map collect_locations_eff effs)
-
-(** this moves existentials inward and removes unused ones *)
-let optimize_existentials : normalisedStagedSpec -> normalisedStagedSpec =
- fun (ess, norm) ->
-  let@ _ =
-    Debug.span (fun r ->
-        debug ~at:4
-          ~title:"optimize_existentials result"
-          "%s\n==>\n%s" (string_of_normalisedStagedSpec (ess, norm))
-          (string_of_result string_of_normalisedStagedSpec r))
-  in
-  let rec loop already_used unused acc es =
-    debug ~at:4 ~title:"optimize_existentials loop"
-    "already used: %s\nunused: %s\nacc: %s\nes: %s"
-       (string_of_sset already_used)
-       (string_of_sset unused)
-       (string_of_list string_of_effHOTryCatchStages acc)
-       (string_of_list string_of_effHOTryCatchStages es);
-    match es with
-    | [] -> (unused, List.rev acc)
-    | e :: rest ->
-      let available_to_use =
-        SSet.diff (SSet.union (SSet.of_list (get_existentials_eff e)) unused) already_used
-      in
-      let needed = SSet.diff (used_vars_eff e) already_used in
-      let used_ex, unused_ex =
-        SSet.partition (fun v -> SSet.mem v needed) available_to_use
-      in
-      loop
-        (SSet.union already_used used_ex)
-        unused_ex
-        (set_existentials_eff e (SSet.elements used_ex) :: acc)
-        rest
-  in
-  let unused, es1 = loop SSet.empty SSet.empty [] ess in
-  let norm1 =
-    let used = used_vars_norm norm in
-    let evars, h, p = norm in
-    let may_be_used = SSet.union (SSet.of_list evars) unused in
-    (* unused ones are dropped *)
-    let used_ex, _unused_ex =
-      SSet.partition (fun v -> SSet.mem v used) may_be_used
-    in
-    (SSet.elements used_ex, h, p)
-  in
-  (es1, norm1)
-
-let remove_conjunct_with_variable_rel included =
-  object
-    inherit [_] map_normalised
-    method! visit_Atomic _ op a b =
-      match a, b with
-      | Var v, _ when SSet.mem v included -> True
-      | _, Var v when SSet.mem v included -> True
-      | _ ->
-        Atomic (op, a, b)
-  end
-
-let remove_existentials vs =
-  object
-    inherit [_] map_normalised
-    method! visit_Exists _ xs = Exists (List.filter (fun x -> not (SSet.mem x vs)) xs)
-  end
-
-(** remove existentials which don't contribute to the result, e.g.
-  ex v1 v2. ens v1=v2; ens res=2
-  ==>
-  ens res=2
 *)
-*)
+
+let rec conjuncts_of_pi (p : pi) : pi list =
+  match p with
+  | And (p1, p2) -> p1 :: conjuncts_of_pi p2
+  | _ -> [p]
+
+let split_eq_res_pi (p : pi) : pi option * pi =
+  match Lists.find_delete_opt is_eq_res (conjuncts_of_pi p) with
+  | None -> None, p
+  | Some (eq_res, pure) ->
+      let pure = match pure with
+        | [] -> True
+        | _ :: _ -> conj pure
+      in
+      Some eq_res, pure
+
+let split_ens_aux (p : pi) (k : kappa) : staged_spec =
+  let eq_res, pure = split_eq_res_pi p in
+  let ens_eq_res_opt = match eq_res with
+    | None -> None
+    | Some eq_res -> Some (NormalReturn (eq_res, EmptyHeap))
+  in
+  let ens_pure_opt = match pure with
+    | True -> None
+    | _ -> Some (NormalReturn (pure, EmptyHeap))
+  in
+  let ens_heap_opt = match k with
+    | EmptyHeap -> None
+    | _ -> Some (NormalReturn (True, k))
+  in
+  seq (Options.concat_option [ens_pure_opt; ens_heap_opt; ens_eq_res_opt])
+
+let split_ens = function
+  | NormalReturn (p, k) -> split_ens_aux p k
+  | _ -> failwith "split_ens"
 
 open Rewriting
 open Rules
-open Syntax
 
 let norm_bind_val = Staged.dynamic_rule
   (Bind (Binder.uvar "x", NormalReturn (eq res_var (Term.uvar "r"), emp), Staged.uvar "f"))

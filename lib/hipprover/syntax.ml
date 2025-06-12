@@ -11,7 +11,6 @@ let disj = Lists.foldr1 (fun c t -> Disjunction (c, t))
 let conj = Lists.foldr1 (fun c t -> And (c, t))
 let sep_conj = Lists.foldr1 (fun c t -> SepConj (c, t))
 let eq x y = Atomic (EQ, x, y)
-let ( = ) = eq
 let v x = Var x
 let var v = Var v
 let num n = Const (Num n)
