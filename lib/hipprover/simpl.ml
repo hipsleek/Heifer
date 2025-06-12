@@ -1,8 +1,9 @@
+(** Apply mechanical simplification rules to the given elements.*)
 open Hipcore
 open Hiptypes
 open Rewriting
 
-let term_add_folding_rules = 
+let term_num_folding_rules = 
   let num_constant_folding_rule op f =
     (* currently, directly matching on the contents of a term is not supported,
        so we use this workaround for now *)
@@ -22,11 +23,10 @@ let term_add_folding_rules =
   num_constant_folding_rule TDiv (/);
 ]
 
+let term_rewrites = term_num_folding_rules
+
 let simplify_term (t : term) = 
-  let database =
-    term_add_folding_rules
-  in
-  autorewrite database (Term t) |> Rules.Term.of_uterm
+  autorewrite term_rewrites (Term t) |> Rules.Term.of_uterm
 
 let pure_and_folding_rules = Rules.Pure.[
   rule (And (True, uvar "p")) (uvar "p");
@@ -47,26 +47,28 @@ let pure_not_folding_rules = Rules.Pure.[
   rule (Not True) False
 ]
 
-let pure_eq_not_distribute_rules = Rules.(Pure.[
-  rule (Not (Atomic (EQ, Term.uvar "t", Const TTrue))) (Atomic (EQ, Term.uvar "t", Const TFalse));
-  rule (Not (Atomic (EQ, Term.uvar "t", Const TFalse))) (Atomic (EQ, Term.uvar "t", Const TTrue));
-])
-
-let simplify_pure (p : pi) =
-  let database = 
+let pure_rewrites = 
     pure_and_folding_rules
     @ pure_or_folding_rules
     @ pure_not_folding_rules
-    @ pure_eq_not_distribute_rules
-  in
+
+let simplify_pure (p : pi) =
+  let database = pure_rewrites @ term_rewrites in
   autorewrite database (Pure p) |> Rules.Pure.of_uterm
 
 let kappa_emp_folding_rules = Rules.Heap.[
   rule (SepConj (EmptyHeap, (uvar "k"))) (uvar "k");
   rule (SepConj (uvar "k", EmptyHeap)) (uvar "k")]
 
+let kappa_rewrites = kappa_emp_folding_rules
+
 let simplify_kappa (h : kappa) =
-  autorewrite kappa_emp_folding_rules (Heap h) |> Rules.Heap.of_uterm
+  let database = kappa_rewrites @ term_rewrites in
+  autorewrite database (Heap h) |> Rules.Heap.of_uterm
+
+let simplify_spec (s : staged_spec) =
+  let database = pure_rewrites @ kappa_rewrites @ term_rewrites in
+  autorewrite database (Staged s) |> Rules.Staged.of_uterm
 
 let%expect_test "simplify tests" =
   let test simpl printer v =
