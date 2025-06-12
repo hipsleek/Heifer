@@ -365,7 +365,7 @@ let rec apply_ent_rule ?name : tactic =
     disj_ choices k
   | Disjunction (f1, f2), f3 ->
     let@ _ = span (fun _r -> debug ~at:4 ~title:"disj on the left" "") in
-    entailment_search ?name (pctx, f1, f3) k;
+    let@ _ = entailment_search ?name (pctx, f1, f3) in
     entailment_search ?name (pctx, f2, f3) k
   | f1, Disjunction (f2, f3) ->
     let@ _ = span (fun _r -> debug ~at:4 ~title:"disj on the right" "") in
