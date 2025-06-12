@@ -72,39 +72,50 @@ let check_lambda_obligation_ name params lemmas predicates obl =
 let expected_false result name =
   if not result && String.ends_with ~suffix:"_false" name then " (expected)" else ""
 
-let normal_report ~kind ~name ~inferred_spec ~given_spec ~result =
+let normal_report ~kind ~name ~inferred_spec ~normalized_spec ~given_spec ~result =
   let open Pretty in
-  let open Format in
-  let header = sprintf "\n========== %s: %s ==========\n" kind name in
+  let header = Format.sprintf "\n========== %s: %s ==========\n" kind name in
   let inferred_spec_string =
-    sprintf "[ Inferred specification ]\n%s\n" (Format.asprintf "%a@." pp_staged_spec inferred_spec)
+    Format.asprintf
+      "[ Inferred specification ]\n%a\n"
+      pp_staged_spec inferred_spec
+  in
+  let normalized_spec_string =
+    Format.asprintf
+      "[ Normalized specification ]\n%a\n"
+      pp_staged_spec normalized_spec
   in
   let given_spec_string = match given_spec with
     | Some given_spec ->
-        sprintf "[ Given specification ]\n%s\n" (Format.asprintf "%a@." pp_staged_spec given_spec)
+        Format.asprintf
+          "[ Given specification ]\n%a\n"
+          pp_staged_spec given_spec
     | None ->
         ""
   in
   let result_string = match result with
     | Some result ->
-        sprintf "[ Entail Check ] %s%s\n" (string_of_bool result) (expected_false result name)
+        Format.sprintf "[ Entail Check ] %s%s\n"
+          (string_of_bool result)
+          (expected_false result name)
     | None ->
         ""
   in
   let report = String.concat "" [
     header;
     inferred_spec_string;
+    normalized_spec_string;
     given_spec_string;
     result_string;
   ] in
   Format.printf "%s@." report
 
-let test_report ~kind ~name ~inferred_spec ~given_spec ~result =
-  ignore (kind, inferred_spec, given_spec, result, name)
+let test_report ~kind ~name ~inferred_spec ~normalized_spec ~given_spec ~result =
+  ignore (kind, inferred_spec, normalized_spec, given_spec, result, name)
 
-let report_result ~kind ~name ~inferred_spec ~given_spec ~result =
+let report_result ~kind ~name ~inferred_spec ~normalized_spec ~given_spec ~result =
   let report = if !test_mode then test_report else normal_report in
-  report ~kind ~name ~inferred_spec ~given_spec ~result;
+  report ~kind ~name ~inferred_spec ~normalized_spec ~given_spec ~result;
   Globals.Timing.update_totals ()
 
 let infer_spec (prog : core_program) (meth : meth_def) =
@@ -137,15 +148,14 @@ let infer_and_check_method (prog : core_program) (meth : meth_def) (given_spec :
   let inferred_spec, _ = infer_spec prog meth in
   let normalized_spec = normalize_spec inferred_spec in
   let result = check_method prog inferred_spec given_spec in
-  ignore normalized_spec;
-  inferred_spec, result
+  inferred_spec, normalized_spec, result
 
 let choose_spec (inferred_spec : staged_spec) (given_spec : staged_spec option) =
   Option.fold ~none:inferred_spec ~some:(fun spec -> spec) given_spec
 
 let analyze_method (prog : core_program) (meth : meth_def) : core_program =
   let given_spec = meth.m_spec in
-  let inferred_spec, result =
+  let inferred_spec, normalized_spec, result =
     let@ _ = Globals.Timing.(time overall) in
     infer_and_check_method prog meth given_spec
   in
@@ -175,6 +185,7 @@ let analyze_method (prog : core_program) (meth : meth_def) : core_program =
     ~kind:"Function"
     ~name:meth.m_name
     ~inferred_spec
+    ~normalized_spec
     ~given_spec
     ~result:(Some result);
   prog
