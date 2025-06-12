@@ -4,6 +4,17 @@ open Pretty
 open Debug
 open Normalize
 
+(* type use = string * [ `Left | `Right ]
+
+let string_of_use (f, lr) =
+  match lr with
+  | `Left -> Format.asprintf "%s, L" f
+  | `Right -> Format.asprintf "%s, R" f *)
+
+type use = string
+
+let string_of_use f = f
+
 (** proof context *)
 type pctx = {
   (* hi : string; *)
@@ -25,14 +36,9 @@ type pctx = {
   definitions_rec : (string * Rewriting.rule) list;
   induction_hypotheses : (string * Rewriting.rule) list;
   lemmas : Rewriting.rule list;
-  unfolded : (string * [ `Left | `Right ]) list;
+  unfolded : use list;
   assumptions : pi list; (* obligations : (state * state) list; *)
 }
-
-let string_of_used (f, lr) =
-  match lr with
-  | `Left -> Format.asprintf "%s, L" f
-  | `Right -> Format.asprintf "%s, R" f
 
 let string_of_pctx ctx =
   let {
@@ -74,7 +80,7 @@ let string_of_pctx ctx =
     (string_of_list_ind_lines
        (string_of_pair Fun.id string_of_rule)
        definitions_rec)
-    (string_of_list_ind_lines string_of_used unfolded)
+    (string_of_list_ind_lines string_of_use unfolded)
 
 let new_pctx () =
   {
@@ -86,6 +92,13 @@ let new_pctx () =
     induction_hypotheses = [];
     lemmas = [];
   }
+
+let has_been_unfolded pctx name _lr =
+  List.find_opt
+    (* (fun (u, lr1) -> u = name && lr = lr1) *)
+    (fun u -> u = name)
+    pctx.unfolded
+  |> Option.is_some
 
 let create_pctx cp =
   let pred_to_rule pred =
@@ -250,27 +263,22 @@ let unfold_recursive_defns pctx f lr =
   let@ _ =
     span (fun r ->
         debug ~at:4 ~title:"unfold_recursive_defns" "used: %s"
-          (string_of_result
-             (fun (_, _, u) -> string_of_list string_of_used u)
-             r))
+          (string_of_result (fun (_, _, u) -> string_of_list string_of_use u) r))
   in
   let usable_defns =
     pctx.definitions_rec
     |> List.filter (fun (rule_name, _rule) ->
-           List.find_opt
-             (fun (u, lr1) -> u = rule_name && lr = lr1)
-             pctx.unfolded
-           |> Option.is_none)
+           not (has_been_unfolded pctx rule_name lr))
   in
   let f, used =
     List.fold_right
       (fun (name, rule) (f, used) ->
         let f1 = rewrite_all rule (Staged f) |> of_uterm in
-        let u = if f = f1 then [] else [(name, lr)] in
+        let u = if f = f1 then [] else [name] in
         (f1, u @ used))
       usable_defns (f, [])
   in
-  debug ~at:2 ~title:"used rules" "%s" (string_of_list string_of_used used);
+  debug ~at:2 ~title:"used rules" "%s" (string_of_list string_of_use used);
   ({ pctx with unfolded = used @ pctx.unfolded }, f, used)
 
 let unfold_definitions : total =
@@ -312,9 +320,7 @@ let apply_induction_hypotheses : total =
     let pctx, f1, f2 = ps in
     let db =
       pctx.induction_hypotheses
-      |> List.filter (fun (n, _) ->
-             List.find_opt (fun (r, lr) -> r = n && lr = `Left) pctx.unfolded
-             |> Option.is_some)
+      |> List.filter (fun (n, _) -> has_been_unfolded pctx n `Left)
       |> List.map snd
     in
     let f1 = autorewrite db (Staged f1) |> of_uterm in
