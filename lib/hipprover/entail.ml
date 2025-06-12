@@ -22,6 +22,8 @@ type pctx = {
   (* subsumption_obl : (binder list * (disj_spec * disj_spec)) list; *)
   definitions_nonrec : (string * Rewriting.rule) list;
   definitions_rec : (string * Rewriting.rule) list;
+  induction_hypotheses : (string * Rewriting.rule) list;
+  lemmas : Rewriting.rule list;
   unfolded : (string * [ `Left | `Right ]) list;
   assumptions : pi list; (* obligations : (state * state) list; *)
 }
@@ -32,9 +34,23 @@ let string_of_used (f, lr) =
   | `Right -> Format.asprintf "%s, R" f
 
 let string_of_pctx ctx =
-  let { assumptions; definitions_nonrec; definitions_rec; unfolded } = ctx in
+  let {
+    assumptions;
+    definitions_nonrec;
+    definitions_rec;
+    unfolded;
+    induction_hypotheses;
+    lemmas;
+  } =
+    ctx
+  in
+  let open Rewriting in
   Format.asprintf
-    "assumptions:\n\
+    "induction_hypotheses:\n\
+     %s\n\n\
+     lemmas:\n\
+     %s\n\n\
+     assumptions:\n\
      %s\n\n\
      definitions_nonrec:\n\
      %s\n\n\
@@ -42,12 +58,16 @@ let string_of_pctx ctx =
      %s\n\n\
      unfolded:\n\
      %s"
+    (string_of_list_ind_lines
+       (string_of_pair Fun.id string_of_rule)
+       induction_hypotheses)
+    (string_of_list_ind_lines string_of_rule lemmas)
     (string_of_list_ind_lines string_of_pi assumptions)
     (string_of_list_ind_lines
-       (string_of_pair Fun.id Rewriting.string_of_rule)
+       (string_of_pair Fun.id string_of_rule)
        definitions_nonrec)
     (string_of_list_ind_lines
-       (string_of_pair Fun.id Rewriting.string_of_rule)
+       (string_of_pair Fun.id string_of_rule)
        definitions_rec)
     (string_of_list_ind_lines string_of_used unfolded)
 
@@ -57,6 +77,8 @@ let new_pctx () =
     definitions_nonrec = [];
     definitions_rec = [];
     unfolded = [];
+    induction_hypotheses = [];
+    lemmas = [];
   }
 
 let create_pctx cp =
@@ -87,10 +109,10 @@ let create_pctx cp =
 type pstate = pctx * staged_spec * staged_spec
 
 (* prints the proof state like an inference rule *)
-let string_of_pstate (ctx, left, right) =
+(* let string_of_pstate (ctx, left, right) =
   Format.asprintf "%s\n%s\n%s\n⊑\n%s" (string_of_pctx ctx) (String.make 60 '-')
     (string_of_staged_spec left)
-    (string_of_staged_spec right)
+    (string_of_staged_spec right) *)
 
 (* this version is more usable for seeing the goal *)
 let string_of_pstate =
@@ -101,17 +123,32 @@ let string_of_pstate =
       (string_of_staged_spec right)
       backarrow (string_of_pctx ctx)
 
-let pctx_to_supp ctx =
-  let { assumptions; definitions_nonrec; definitions_rec; unfolded } = ctx in
+(* let pctx_to_supp ctx =
+  let open Rewriting in
+  let {
+    assumptions;
+    definitions_nonrec;
+    definitions_rec;
+    unfolded;
+    induction_hypotheses;
+    lemmas;
+  } =
+    ctx
+  in
   [
     ("assumptions", string_of_list_lines string_of_pi assumptions);
+    ( "induction hypotheses",
+      string_of_list_lines
+        (string_of_pair Fun.id string_of_rule)
+        induction_hypotheses );
+    ("lemmas", string_of_list_lines string_of_rule lemmas);
     ( "definitions_nonrec",
       string_of_list_lines
-        (string_of_pair Fun.id Rewriting.string_of_rule)
+        (string_of_pair Fun.id string_of_rule)
         definitions_nonrec );
     ( "definitions_rec",
       string_of_list_lines
-        (string_of_pair Fun.id Rewriting.string_of_rule)
+        (string_of_pair Fun.id string_of_rule)
         definitions_rec );
     ( "unfolded",
       string_of_list_lines
@@ -120,7 +157,7 @@ let pctx_to_supp ctx =
           | `Left -> Format.asprintf "%s, L" f
           | `Right -> Format.asprintf "%s, R" f)
         unfolded );
-  ]
+  ] *)
 
 let pctx_to_supp ?(title = "proof context") ctx = [(title, string_of_pctx ctx)]
 
@@ -240,6 +277,34 @@ let simplify : total =
   in
   (pctx, normalize_spec f1, normalize_spec f2)
 
+let apply_induction_hypotheses : total =
+  let open Rewriting in
+  let open Rules.Staged in
+  fun ps ->
+    let@ _ =
+      span (fun r ->
+          log_proof_state_total ~title:"apply_induction_hypotheses" ps r)
+    in
+    let pctx, f1, f2 = ps in
+    let db =
+      pctx.induction_hypotheses
+      |> List.filter (fun (n, _) ->
+             List.find_opt (fun (r, lr) -> r = n && lr = `Left) pctx.unfolded
+             |> Option.is_some)
+      |> List.map snd
+    in
+    let f1 = autorewrite db (Staged f1) |> of_uterm in
+    (pctx, f1, f2)
+
+let apply_lemmas : total =
+  let open Rewriting in
+  let open Rules.Staged in
+  fun ps ->
+    let@ _ = span (fun r -> log_proof_state_total ~title:"apply_lemmas" ps r) in
+    let pctx, f1, f2 = ps in
+    let f1 = autorewrite pctx.lemmas (Staged f1) |> of_uterm in
+    (pctx, f1, f2)
+
 let rec apply_ent_rule : tactic =
  fun ps k ->
   let open Syntax in
@@ -279,6 +344,8 @@ and entailment_search : ?name:string -> tactic =
   in
   let ps = simplify ps in
   let ps = unfold_definitions ps in
+  let ps = apply_induction_hypotheses ps in
+  let ps = apply_lemmas ps in
   apply_ent_rule ps k
 
 let create_induction_hypothesis ps =
