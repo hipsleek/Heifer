@@ -24,8 +24,13 @@ let rec replace_nth n y = function
   | [] -> []
   | x :: xs -> if n = 0 then y :: xs else x :: replace_nth (n - 1) y xs
 
-let init xs =
-  fst (unsnoc xs)
+let rec init_aux y = function
+  | [] -> []
+  | x :: xs -> y :: init_aux x xs
+
+let init = function
+  | [] -> failwith "init"
+  | x :: xs -> init_aux x xs
 
 let rec find_delete_opt (f : 'a -> bool) (xs : 'a list) : ('a * 'a list) option =
   match xs with
