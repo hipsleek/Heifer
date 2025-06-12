@@ -1,4 +1,4 @@
-(* module Hipdebug = Debug
+module Hipdebug = Debug
 open Why3
 module Debug = Hipdebug
 
@@ -255,8 +255,8 @@ module LowLevel = struct
   let rec term_to_why3 env (t : term) =
     (* Format.printf "term %s@." (Pretty.string_of_term t); *)
     match t with
-    | UNIT -> (Term.t_tuple [], Unit)
-    | Num i ->
+    | Const ValUnit -> (Term.t_tuple [], Unit)
+    | Const (Num i) ->
       Theories.(needed int env.theories);
       (Term.t_nat_const i, Int)
     | TLambda (_, _, _, _) ->
@@ -286,21 +286,21 @@ module LowLevel = struct
            string_of_option string_of_type (SMap.find_opt v env.tenv)); *)
       (name, ty1)
     | Var v -> failwith (Format.asprintf "variable %s has no type" v)
-    | SConcat (a, b) ->
+    | BinOp (SConcat, a, b) ->
       let a1, _ = term_to_why3 env a in
       let b1, _ = term_to_why3 env b in
       ( Term.t_app_infer
           Theories.(get_symbol string "concat" env.theories)
           [a1; b1],
         Int )
-    | Plus (a, b) ->
+    | BinOp (Plus, a, b) ->
       let a1, _ = term_to_why3 env a in
       let b1, _ = term_to_why3 env b in
       ( Term.t_app_infer
           Theories.(get_symbol int "infix +" env.theories)
           [a1; b1],
         Int )
-    | Minus (a, b) ->
+    | BinOp (Minus, a, b) ->
       let a1, _ = term_to_why3 env a in
       let b1, _ = term_to_why3 env b in
       ( Term.t_app_infer
@@ -353,20 +353,20 @@ module LowLevel = struct
           Theories.(get_symbol int "infix <=" env.theories)
           [a1; b1],
         Bool )
-    | TTrue ->
+    | Const TTrue ->
       Theories.(needed bool env.theories);
       (Term.t_bool_true, Bool)
-    | TFalse ->
+    | Const TFalse ->
       Theories.(needed bool env.theories);
       (Term.t_bool_false, Bool)
-    | TAnd (a, b) ->
+    | BinOp (TAnd, a, b) ->
       let a1, _ = term_to_why3 env a in
       let b1, _ = term_to_why3 env b in
       ( Term.t_app_infer Theories.(get_symbol bool "andb" env.theories) [a1; b1],
         Bool )
       (* Term.fs_app  [] Ty.ty_bool *)
       (* Term.t_and (term_to_why3 env a) (term_to_why3 env b) *)
-    | TOr (a, b) ->
+    | BinOp (TOr, a, b) ->
       (* Term.t_and (term_to_why3 env a) (term_to_why3 env b) *)
       let a1, _ = term_to_why3 env a in
       let b1, _ = term_to_why3 env b in
@@ -377,7 +377,7 @@ module LowLevel = struct
       let a1, _ = term_to_why3 env a in
       ( Term.t_app_infer Theories.(get_symbol bool "notb" env.theories) [a1],
         Bool )
-    | TCons (a, b) ->
+    | BinOp (TCons, a, b) ->
       let a1, _ = term_to_why3 env a in
       let b1, _ = term_to_why3 env b in
       (* let open Pretty in *)
@@ -391,7 +391,7 @@ module LowLevel = struct
       (* Term.t_app_infer
          (get_theory_symbol env.list_theory "Cons")
          [term_to_why3 env a; term_to_why3 env b] *)
-    | Nil ->
+    | Const Nil ->
       (* Term.t_app_infer (get_theory_symbol env.list_theory "Nil") [] *)
       ( Term.t_app
           Theories.(get_symbol list "Nil" env.theories)
@@ -400,18 +400,20 @@ module LowLevel = struct
         List_int )
     | TApp (s, args) when Globals.is_pure_fn_defined s ->
       let args1 = List.map (term_to_why3 env) args |> List.map fst in
-      let defn = Globals.pure_fn s |> Hipcore.Typedhip.Untypehip.untype_pure_fn_def in
+      let defn = Globals.pure_fn s
+      (* |> Hipcore.Typedhip.Untypehip.untype_pure_fn_def *)
+      in
       let ret_typ = type_to_why3 env defn.pf_ret_type in
       (* Format.printf "app %s@." s; *)
       ( Term.t_app (SMap.find s env.fn_names) args1 (Some ret_typ),
         defn.pf_ret_type )
     | TApp (s, _) -> failwith (Format.asprintf "unknown function term %s" s)
-    | TPower (_, _) -> failwith "TPower nyi"
-    | TTimes (_, _) -> failwith "TTimes nyi"
-    | TDiv (_, _) -> failwith "TDiv nyi"
+    | BinOp (TPower, _, _) -> failwith "TPower nyi"
+    | BinOp (TTimes, _, _) -> failwith "TTimes nyi"
+    | BinOp (TDiv, _, _) -> failwith "TDiv nyi"
     | TList _ -> failwith "TList nyi"
-    | TTupple _ -> failwith "TTupple nyi"
-    | TStr _ -> failwith "TStr nyi"
+    | TTuple _ -> failwith "TTupple nyi"
+    | Const (TStr _) -> failwith "TStr nyi"
 
   let rec pi_to_why3 env (pi : pi) =
     (* Format.printf "pi %s@." (Pretty.string_of_pi pi); *)
@@ -475,7 +477,9 @@ module LowLevel = struct
     | CFunCall (s, args) when Globals.is_pure_fn_defined s ->
       (* SMap.mem s env.names *)
       let args1 = List.map (term_to_why3 env) args |> List.map fst in
-      let fn = Globals.pure_fn s |> Hipcore.Typedhip.Untypehip.untype_pure_fn_def in
+      let fn = Globals.pure_fn s
+      (* |> Hipcore.Typedhip.Untypehip.untype_pure_fn_def *)
+      in
       (* Format.printf "%s@." s; *)
       Term.t_app (SMap.find s env.fn_names) args1
         (Some (type_to_why3 env fn.pf_ret_type))
@@ -652,7 +656,9 @@ module LowLevel = struct
             (fun (_k, v) ->
               (* Format.printf "translating %s@." _k; *)
               pure_fn_to_logic_fn env v)
-            (Globals.pure_fns () |> List.map (fun (name, fn) -> (name, Hipcore.Typedhip.Untypehip.untype_pure_fn_def fn)))
+            (Globals.pure_fns ()
+            (* |> List.map (fun (name, fn) -> (name, Hipcore.Typedhip.Untypehip.untype_pure_fn_def fn)) *)
+            )
         in
         match fns with [] -> task1 | _ :: _ -> Task.add_logic_decl task1 fns
       in
@@ -722,20 +728,20 @@ let rec type_to_whyml t =
 
 let rec term_to_whyml tenv t =
   match t with
-  | UNIT -> term (Ttuple [])
-  | TTrue -> term Ttrue
-  | TFalse -> term Tfalse
-  | Num i -> tconst i
+  | Const ValUnit -> term (Ttuple [])
+  | Const TTrue -> term Ttrue
+  | Const TFalse -> term Tfalse
+  | Const (Num i) -> tconst i
   | Var v -> tvar (qualid [v])
-  | SConcat (a, b) ->
+  | BinOp (SConcat, a, b) ->
     tapp
       (qualid ["String"; "concat"])
       [term_to_whyml tenv a; term_to_whyml tenv b]
-  | Plus (a, b) ->
+  | BinOp (Plus, a, b) ->
     tapp
       (qualid ["Int"; Ident.op_infix "+"])
       [term_to_whyml tenv a; term_to_whyml tenv b]
-  | Minus (a, b) ->
+  | BinOp (Minus, a, b) ->
     tapp
       (qualid ["Int"; Ident.op_infix "-"])
       [term_to_whyml tenv a; term_to_whyml tenv b]
@@ -759,26 +765,27 @@ let rec term_to_whyml tenv t =
     tapp
       (qualid ["Int"; Ident.op_infix "<="])
       [term_to_whyml tenv a; term_to_whyml tenv b]
-  | TAnd (a, b) ->
+  | BinOp (TAnd, a, b) ->
     tapp (qualid ["Bool"; "andb"]) [term_to_whyml tenv a; term_to_whyml tenv b]
-  | TOr (a, b) ->
+  | BinOp (TOr, a, b) ->
     tapp (qualid ["Bool"; "orb"]) [term_to_whyml tenv a; term_to_whyml tenv b]
   | TNot a -> tapp (qualid ["Bool"; "notb"]) [term_to_whyml tenv a]
   | TApp (f, args) -> tapp (qualid [f]) (List.map (term_to_whyml tenv) args)
-  | Nil -> tapp (qualid ["List"; "Nil"]) []
-  | TCons (h, t) ->
+  | Const Nil -> tapp (qualid ["List"; "Nil"]) []
+  | BinOp (TCons, h, t) ->
     tapp (qualid ["List"; "Cons"]) [term_to_whyml tenv h; term_to_whyml tenv t]
   | TLambda (_name, _, _sp, Some _) | TLambda (_name, _, _sp, None) ->
     (* if there is no body, generate something that only respects alpha equivalence *)
     (* this probably doesn't always work *)
-    tconst (Subst.hash_lambda t)
+    (* tconst (Subst.hash_lambda t) *)
+    failwith "lambda"
   (* failwith "no body" *)
   (* disabled temporarily *)
   (* | TLambda (_name, params, _sp, Some body) ->
      let params, _ret = unsnoc params in
      let binders = vars_to_params tenv params in
      term (Tquant (Dterm.DTlambda, binders, [], core_lang_to_whyml tenv body)) *)
-  | TList _ | TTupple _ | TPower (_, _) | TTimes (_, _) | TDiv (_, _) | TStr _
+  | TList _ | TTuple _ | BinOp (TPower, _, _) | BinOp (TTimes, _, _) | BinOp (TDiv, _, _) | Const (TStr _)
     ->
     failwith "nyi"
 
@@ -920,7 +927,9 @@ let prove tenv qtf f =
     in
 
     let fns =
-      match (Globals.pure_fns () |> List.map (fun (name, fn) -> (name, Hipcore.Typedhip.Untypehip.untype_pure_fn_def fn))) with
+      match (Globals.pure_fns ()
+      (* |> List.map (fun (name, fn) -> (name, Hipcore.Typedhip.Untypehip.untype_pure_fn_def fn)) *)
+      ) with
       | [] -> []
       | f ->
         let ff =
@@ -966,7 +975,9 @@ let prove tenv qtf f =
 
     let imports =
       let extra =
-        Globals.global_environment.pure_fn_types |> SMap.map Hipcore.Typedhip.Untypehip.untype_pure_fn_type_def |> SMap.bindings
+        Globals.global_environment.pure_fn_types
+        (* |> SMap.map Hipcore.Typedhip.Untypehip.untype_pure_fn_type_def *)
+        |> SMap.bindings
         |> List.map (fun (_, p) -> p.pft_logic_path)
         |> List.sort_uniq compare
         |> List.map (use ~import:false)
@@ -1030,4 +1041,4 @@ let entails_exists tenv left ex right =
           (* Term.t_exists_close *)
           (* (SMap.bindings env.exists |> List.map snd) *)
           (* [] () *)
-          pi_to_why3 env right )) *)
+          pi_to_why3 env right ))
