@@ -4,40 +4,26 @@ open Pretty
 open Debug
 open Normalize
 
-(* type use = string * [ `Left | `Right ]
+(* type use = Use of string * [ `Left | `Right ] [@unboxed] *)
 
-let string_of_use (f, lr) =
+(* let string_of_use (f, lr) =
   match lr with
   | `Left -> Format.asprintf "%s, L" f
   | `Right -> Format.asprintf "%s, R" f *)
 
-type use = string
+type use = Use of string [@@unboxed]
 
-let string_of_use f = f
+let string_of_use (Use f) = f
 
 (** proof context *)
 type pctx = {
-  (* hi : string; *)
-  (* lemmas and predicates defined before (and usable by) the current function being verified *)
-  (* lems : lemma SMap.t; *)
-  (* preds : pred_def SMap.t; *)
-  (* additional predicates due to local lambda definitions *)
-  (* lambda_preds : pred_def SMap.t; *)
-  (* all quantified variables in this formula *)
-  (* q_vars : binder list; *)
-  (* predicates which have been unfolded, used as an approximation of progress (in the cyclic proof sense) *)
-  (* unfolded : (string * [ `Left | `Right ]) list; *)
-  (* lemmas applied *)
-  (* applied : string list; *)
-  (* subsumption proof obligations *)
-  (* subsumption_obl : (binder list * (disj_spec * disj_spec)) list; *)
   constants : term list;
   definitions_nonrec : (string * Rewriting.rule) list;
   definitions_rec : (string * Rewriting.rule) list;
   induction_hypotheses : (string * Rewriting.rule) list;
   lemmas : Rewriting.rule list;
   unfolded : use list;
-  assumptions : pi list; (* obligations : (state * state) list; *)
+  assumptions : pi list;
 }
 
 let string_of_pctx ctx =
@@ -96,22 +82,22 @@ let new_pctx () =
 let has_been_unfolded pctx name _lr =
   List.find_opt
     (* (fun (u, lr1) -> u = name && lr = lr1) *)
-    (fun u -> u = name)
+    (fun (Use u) -> u = name)
     pctx.unfolded
   |> Option.is_some
 
-let create_pctx cp =
-  let pred_to_rule pred =
-    let params = pred.p_params |> List.map Rewriting.Rules.Term.uvar in
-    let lhs = HigherOrder (pred.p_name, params) in
-    let rhs =
-      let bs =
-        List.map (fun p -> (p, Rewriting.Rules.Term.uvar p)) pred.p_params
-      in
-      Subst.subst_free_vars bs pred.p_body
+let pred_to_rule pred =
+  let params = pred.p_params |> List.map Rewriting.Rules.Term.uvar in
+  let lhs = HigherOrder (pred.p_name, params) in
+  let rhs =
+    let bs =
+      List.map (fun p -> (p, Rewriting.Rules.Term.uvar p)) pred.p_params
     in
-    (pred.p_name, Rewriting.Rules.Staged.rule lhs rhs)
+    Subst.subst_free_vars bs pred.p_body
   in
+  (pred.p_name, Rewriting.Rules.Staged.rule lhs rhs)
+
+let create_pctx cp =
   let definitions_nonrec =
     SMap.values cp.cp_predicates
     |> List.filter (fun p -> not p.p_rec)
@@ -210,6 +196,27 @@ let check_pure_obligation left right =
   let res = Provers.entails_exists (concrete_type_env tenv) left [] right in
   res
 
+(* will be used for remembering predicate? Not sure whether it should be put here *)
+let derive_predicate m_name m_params f =
+  let new_spec = normalize_spec f in
+  let res =
+    {
+      p_name = m_name;
+      p_params = m_params;
+      p_body = new_spec;
+      p_rec = (find_rec m_name)#visit_staged_spec () new_spec;
+    }
+  in
+  debug ~at:2
+    ~title:(Format.asprintf "derive predicate %s" m_name)
+    "%s\n\n%s"
+    (string_of_staged_spec new_spec)
+    (string_of_pred res);
+  res
+
+let lambda_to_rule m_name m_params f =
+  derive_predicate m_name m_params f |> pred_to_rule
+
 (** Tactics combine the state and list monads *)
 module Tactic : sig
   type 'a t = pstate -> ('a * pstate) Iter.t
@@ -274,7 +281,7 @@ let unfold_recursive_defns pctx f lr =
     List.fold_right
       (fun (name, rule) (f, used) ->
         let f1 = rewrite_all rule (Staged f) |> of_uterm in
-        let u = if f = f1 then [] else [name] in
+        let u = if f = f1 then [] else [Use name] in
         (f1, u @ used))
       usable_defns (f, [])
   in
@@ -341,15 +348,28 @@ let rec apply_ent_rule ?name : tactic =
   let pctx, f1, f2 = ps in
   let@ _ = span (fun _r -> log_proof_state ~title:"apply_ent_rule" ps) in
   match (f1, f2) with
+  (* base case *)
   | NormalReturn (p1, h1), NormalReturn (p2, h2) ->
     let valid = check_pure_obligation (And (conj pctx.assumptions, p1)) p2 in
     if valid then k (pctx, ens (), ens ()) else fail
+  (* moving pure things into the context *)
+  | ( Sequence
+        ( NormalReturn
+            (Atomic (EQ, Var lname, TLambda (_h, ps, Some sp, _body)), EmptyHeap),
+          f1 ),
+      f2 ) ->
+    let rule = lambda_to_rule lname ps sp in
+    let pctx =
+      { pctx with definitions_nonrec = rule :: pctx.definitions_nonrec }
+    in
+    entailment_search ?name (pctx, f1, f2) k
   | Sequence (NormalReturn (p1, EmptyHeap), f1), f2 ->
     let pctx = { pctx with assumptions = p1 :: pctx.assumptions } in
     entailment_search ?name (pctx, f1, f2) k
   | f1, Sequence (Require (p2, EmptyHeap), f2) ->
     let pctx = { pctx with assumptions = p2 :: pctx.assumptions } in
     entailment_search ?name (pctx, f1, f2) k
+  (* quantifiers *)
   | Exists (x, f1), f2 ->
     let@ _ = span (fun _r -> debug ~at:4 ~title:"exists on the left" "") in
     let pctx = { pctx with constants = Var x :: pctx.constants } in
@@ -363,6 +383,7 @@ let rec apply_ent_rule ?name : tactic =
              entailment_search ?name (pctx, f1, f2))
     in
     disj_ choices k
+  (* disjunction *)
   | Disjunction (f1, f2), f3 ->
     let@ _ = span (fun _r -> debug ~at:4 ~title:"disj on the left" "") in
     let@ _ = entailment_search ?name (pctx, f1, f3) in
@@ -373,8 +394,6 @@ let rec apply_ent_rule ?name : tactic =
       (entailment_search ?name (pctx, f1, f3))
       (entailment_search ?name (pctx, f1, f2))
       k
-    (* k (pctx, f1, f3);
-    k (pctx, f2, f3) *)
   | _, _ ->
     log_proof_state ~title:"STUCK" ps;
     fail
@@ -1262,32 +1281,3 @@ let create_induction_hypothesis params ds1 ds2 =
   let ctx = { ctx with q_vars } in
   check_staged_subsumption_stagewise ctx 0 True (es1, ns1) (es2, ns2)
 *)
-
-(* will be used for remembering predicate? Not sure whether it should be put here *)
-let derive_predicate m_name m_params f =
-  (* let norm = *)
-  (* normalize_spec f *)
-  (* |> Fill_type.fill_normalized_staged_spec *)
-  (* in *)
-  (* change the last norm stage so it uses res and has an equality constraint *)
-  (* let new_spec =
-    List.map (fun normed -> normed) norm
-    |> List.map Untypehip.untype_normalized_staged_spec
-    |> List.map normalisedStagedSpec2Spec
-    |> List.map Fill_type.fill_untyped_spec
-  in *)
-  let new_spec = normalize_spec f in
-  let res =
-    {
-      p_name = m_name;
-      p_params = m_params;
-      p_body = new_spec;
-      p_rec = (find_rec m_name)#visit_staged_spec () new_spec;
-    }
-  in
-  debug ~at:2
-    ~title:(Format.asprintf "derive predicate %s" m_name)
-    "%s\n\n%s"
-    (string_of_staged_spec new_spec)
-    (string_of_pred res);
-  res
