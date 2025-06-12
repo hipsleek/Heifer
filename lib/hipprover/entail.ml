@@ -168,8 +168,9 @@ let string_of_pstate =
 let pctx_to_supp ?(title = "proof context") ctx = [(title, string_of_pctx ctx)]
 
 let log_proof_state ~title (pctx, f1, f2) =
-  debug ~at:4 ~title ~supp:(pctx_to_supp pctx) "%s\n⊑\n%s"
-    (string_of_staged_spec f1) (string_of_staged_spec f2)
+  let supp = pctx_to_supp pctx in
+  debug ~at:4 ~title ~supp "%s\n⊑\n%s" (string_of_staged_spec f1)
+    (string_of_staged_spec f2)
 
 let log_proof_state_total ~title (pctx, f1, f2) ps1 =
   let supp, res =

@@ -95,7 +95,7 @@ type 'a unif = 'a * UF.t SMap.t
 type unifiable = uterm unif
 
 let to_unifiable st f : unifiable =
-  let@ _ =
+  (* let@ _ =
     span (fun r ->
         debug ~at:4 ~title:"to_unifiable" "%s"
           (string_of_result
@@ -103,7 +103,7 @@ let to_unifiable st f : unifiable =
                Format.asprintf "%s & %s" (string_of_uterm ut)
                  (string_of_list Fun.id (SMap.keys e)))
              r))
-  in
+  in *)
   let visitor =
     object (self)
       inherit [_] mapreduce_spec as super
@@ -204,12 +204,12 @@ let string_of_outcome r = match r with None -> "fail" | Some _ -> "ok"
 (* variables at the top level are handled in here. otherwise it delegates to the others *)
 let rec unify_var : UF.store -> unifiable -> unifiable -> unit option =
  fun st (t1, e1) (t2, e2) ->
-  let@ _ =
+  (* let@ _ =
     span (fun r ->
         debug ~at:4 ~title:"unify_var" "%s ~ %s? %s" (string_of_uterm t1)
           (string_of_uterm t2)
           (string_of_result string_of_outcome r))
-  in
+  in *)
   match (get_uvar t1, get_uvar t2) with
   | Some x1, Some x2 ->
     let u1 = SMap.find x1 e1 in
@@ -407,12 +407,12 @@ let rewrite_well_typed lhs target =
   | _, _ -> false
 
 let rewrite_rooted rule target =
-  let@ _ =
+  (* let@ _ =
     span (fun r ->
         debug ~at:4 ~title:"rewrite_rooted" "rule: %s\ntarget: %s\n==>\n%s"
           (string_of_rule rule) (string_of_uterm target)
           (string_of_result (string_of_option string_of_uterm) r))
-  in
+  in *)
   if rewrite_well_typed rule.lhs target then
     let st = UF.new_store () in
     let lhs1, e = to_unifiable st rule.lhs in
@@ -458,12 +458,12 @@ let rewrite_all rule target =
         |> Option.value ~default:s1
     end
   in
-  let@ _ =
+  (* let@ _ =
     span (fun r ->
         debug ~at:4 ~title:"rewrite_all" "rule: %s\ntarget: %s\n==>\n%s"
           (string_of_rule rule) (string_of_uterm target)
           (string_of_result string_of_uterm r))
-  in
+  in *)
   match target with
   | Staged s -> Staged (visitor#visit_staged_spec () s)
   | Pure p -> Pure (visitor#visit_pi () p)
@@ -499,7 +499,10 @@ module Rules = struct
   module Term = struct
     let uvar = uvar_term
     let rule lhs rhs = { lhs = Term lhs; rhs = `Replace (Term rhs) }
-    let dynamic_rule lhs rhs = { lhs = Term lhs; rhs = `Dynamic (fun sub -> Term (rhs sub)) }
+
+    let dynamic_rule lhs rhs =
+      { lhs = Term lhs; rhs = `Dynamic (fun sub -> Term (rhs sub)) }
+
     let of_uterm = uterm_to_term
   end
 
