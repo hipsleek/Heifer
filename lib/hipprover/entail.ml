@@ -189,7 +189,9 @@ let unfold_recursive_defns pctx f lr =
   let@ _ =
     span (fun r ->
         debug ~at:4 ~title:"unfold_recursive_defns" "used: %s"
-          (string_of_result (fun (_, _, u) -> string_of_used u) r))
+          (string_of_result
+             (fun (_, _, u) -> string_of_list string_of_used u)
+             r))
   in
   let usable_defns =
     pctx.definitions_rec
