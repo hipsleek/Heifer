@@ -289,7 +289,7 @@ let collect_locations (sp : normalisedStagedSpec) =
 
 let rec conjuncts_of_pi (p : pi) : pi list =
   match p with
-  | And (p1, p2) -> p1 :: conjuncts_of_pi p2
+  | And (p1, p2) -> conjuncts_of_pi p1 @ conjuncts_of_pi p2
   | _ -> [p]
 
 let split_eq_res_pi (p : pi) : pi option * pi =
@@ -332,7 +332,10 @@ let norm_bind_val = Staged.dynamic_rule
     let x = sub "x" |> Binder.of_uterm in
     let r = sub "r" |> Term.of_uterm in
     let f = sub "f" |> Staged.of_uterm in
-    Subst.subst_free_vars [(x, r)] f)
+    if is_lambda_term r then
+      Bind (x, NormalReturn (eq res_var r, emp), f)
+    else
+      Subst.subst_free_vars [(x, r)] f)
 
 let norm_bind_disj = Staged.dynamic_rule
   (Bind (Binder.uvar "x", Disjunction (Staged.uvar "f1", Staged.uvar "f2"), Staged.uvar "fk"))

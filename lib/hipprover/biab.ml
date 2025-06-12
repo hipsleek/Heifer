@@ -3,8 +3,19 @@ open Hiptypes
 open Pretty
 open Subst
 open Debug
-open Utils.Misc
+open Syntax
+open Utils
+open Misc
 
+type biab_ctx = {
+  equivalance_class: unit list (* some kind of union-find structure *);
+}
+
+let emp_biab_ctx = {
+  equivalance_class = []
+}
+
+(*
 let pure_abduction left right =
   (* let@ _ =
     Debug.span (fun r ->
@@ -55,8 +66,10 @@ let pure_abduction left right =
   abduced, left1, right1
   *)
   todo ()
+*)
 
 (** check if x=y is not invalid (i.e. sat) under the given assumptions *)
+(*
 let may_be_equal _assumptions _x _y =
   (* let@ _ =
        Debug.span (fun r ->
@@ -75,6 +88,7 @@ let may_be_equal _assumptions _x _y =
      eq *)
   (* proving at this point is not effective as we may not be able to prove unsat, but later the constraints may be violated, resulting in false anyway. returning true here is just the worst case version of that *)
   true
+*)
 
 (* (x, t1) -* (y, t2), where li is a heap containing y *)
 (* flag true => add to precondition *)
@@ -86,7 +100,7 @@ let rec deleteFromHeapListIfHas li (x, t1) existential flag assumptions :
     Debug.span (fun r ->
         debug ~at:6
           ~title:"deleteFromHeapListIfHas"
-          "(%s, %s) -* %s = %s\nex %s\nflag %b\nassumptions %s" 
+          "(%s, %s) -* %s = %s\nex %s\nflag %b\nassumptions %s"
           x (string_of_term t1)
           (string_of_list (string_of_pair Fun.id string_of_term) li)
           (string_of_result (string_of_pair (string_of_list (string_of_pair Fun.id string_of_term)) string_of_pi) r)
@@ -181,7 +195,7 @@ let normaliseMagicWand h1 h2 existential flag assumptions : kappa * pi =
     Debug.span (fun r ->
         debug ~at:6
           ~title:"normaliseMagicWand"
-          "%s * ?%s |- %s * ?%s\nex %s\nflag %b\nassumptions %s" 
+          "%s * ?%s |- %s * ?%s\nex %s\nflag %b\nassumptions %s"
           (string_of_kappa h1)
           (string_of_result string_of_kappa (map_presult fst r))
           (string_of_kappa h2)
@@ -206,9 +220,59 @@ let normaliseMagicWand h1 h2 existential flag assumptions : kappa * pi =
   (simplify_heap (kappa_of_list temp), unification)
 *)
 
-let solve existential (p2, h2) (p3, h3) =
-  ignore (existential, p2, h2, p3, h3);
-  todo ()
+let rec conjuncts_of_kappa (k : kappa) : kappa list =
+  match k with
+  | SepConj (k1, k2) -> conjuncts_of_kappa k1 @ conjuncts_of_kappa k2
+  | _ -> [k]
+
+(* precondition: all separation conjuctions are flatten into a list of conjucts *)
+let rec match_points_to (ctx : biab_ctx) (ks1 : kappa list) (ks2 : kappa list) : kappa list * kappa list * biab_ctx =
+  match ks1 with
+  | [] -> ks2, [], ctx
+  | (PointsTo (x, _t) as k) :: ks1 ->
+      (* we try to match on the location *)
+      let match_loc = function
+        | PointsTo (x', _) -> x = x'
+        | _ -> false
+      in
+      begin match Lists.find_delete_opt match_loc ks2 with
+      | None ->
+          (* the location does not exists in the rhs *)
+          (* therefore we add it into the rhs residue *)
+          let anti_frame, frame, ctx = match_points_to ctx ks1 ks2 in
+          anti_frame, k :: frame, ctx
+      | Some (_k', ks2) ->
+        (* generate an equality here *)
+          let ctx = ctx in
+          let anti_frame, frame, ctx = match_points_to ctx ks1 ks2 in
+          anti_frame, frame, ctx
+      end
+  | EmptyHeap :: _
+  | SepConj _ :: _ -> failwith "match points to"
+
+(* A * H1 |- H2 * D *)
+(* the caller has h1 and h2 and therefore we don't need to return that *)
+(* because we may have many solutions, that's why we need to use Iter.t.
+   but I am not going to use it now *)
+let solve (ctx : biab_ctx) (h1 : kappa) (h2 : kappa) : kappa list * kappa list * biab_ctx =
+  ignore (ctx, h1, h2);
+  let heap1 = conjuncts_of_kappa h1 in
+  let heap2 = conjuncts_of_kappa h2 in
+  (* now match h1 and h2 together. *)
+  (* we need to match heap1 and heap2 together *)
+  (* this is O(n^2) but do we do not care about efficiency atm *)
+  (* if we can sort the conjucts and then do something like "merge"
+     then the complexity of O(n log n) *)
+  match_points_to ctx heap1 heap2
+  (* if h1 = h2 then
+    emp, emp, ctx
+  else if h2 = emp then
+    emp, h1, ctx
+  else if (* b_ptr_match *) false then
+    todo ()
+  else
+    match h1, h2 with
+    | SepConj (h1_left, h1_right), SepConj (h2_left, h2_right) *)
 (*
   let magicWandHeap, unification =
     normaliseMagicWand h2 h3 existential true (And (p2, p3))
@@ -232,25 +296,22 @@ let solve existential (p2, h2) (p3, h3) =
 (* see Tests for more e2e tests, which would be nice to port here *)
 let%expect_test _ =
   let one ?uq h1 h2 =
-    try
-      let unification, magicWandHeap, unification1, h2', p4 = solve (Option.value ~default:[] uq) h1 h2 in
-      Format.printf "%s * %s |- %s * %s@."
-        (string_of_state (Norm.simplify_pure unification, magicWandHeap))
-        (string_of_state h1)
-        (string_of_state h2)
-        (string_of_state (Norm.simplify_pure (And (p4, unification1)), h2'));
-    with Norm_failure ->
-      Format.printf "failed@."
+    let unification, magicWandHeap, unification1, h2', p4 = solve (Option.value ~default:[] uq) h1 h2 in
+    Format.printf "%s * %s |- %s * %s@."
+      (string_of_state (Simpl.simplify_pure unification, magicWandHeap))
+      (string_of_state h1)
+      (string_of_state h2)
+      (string_of_state (Simpl.simplify_pure (And (p4, unification1)), h2'));
   in
-  one (True, PointsTo ("x", Num 1)) (True, PointsTo ("x", Num 1));
+  one (True, PointsTo ("x", Const (Num 1))) (True, PointsTo ("x", Const (Num 1)));
   [%expect {| emp * x->1 |- x->1 * emp |}];
 
-  one (True, PointsTo ("x", Num 1)) (True, PointsTo ("y", Num 2));
+  one (True, PointsTo ("x", Const (Num 1))) (True, PointsTo ("y", Const (Num 2)));
   [%expect {| y->2 * x->1 |- y->2 * x->1 |}];
 
-  one (True, PointsTo ("x", Var "a")) (True, PointsTo ("x", Num 1));
+  one (True, PointsTo ("x", Var "a")) (True, PointsTo ("x", Const (Num 1)));
   [%expect {| a=1 * x->a |- x->1 * 1=a |}];
 
-  one (True, PointsTo ("x", Num 1)) (True, PointsTo ("x", Num 2));
+  one (True, PointsTo ("x", Const (Num 1))) (True, PointsTo ("x", Const (Num 2)));
   [%expect {| failed |}];
 *)

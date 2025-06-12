@@ -2,6 +2,9 @@ open Hipcore
 open Hiptypes
 open Utils
 
+let is_lambda_term = function
+  | TLambda _ -> true
+  | _ -> false
 let emp = EmptyHeap
 let seq = Lists.foldr1 (fun c t -> Sequence (c, t))
 let req ?(p = True) ?(h = EmptyHeap) () = Require (p, h)
