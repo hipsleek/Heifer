@@ -1,7 +1,7 @@
 open Hipcore
 open Hiptypes
 open Pretty
-open Debug
+(* open Debug *)
 
 let ( let* ) = Option.bind
 let ( let+ ) a f = Option.map f a
@@ -111,10 +111,17 @@ let to_unifiable st f : unifiable =
       method plus = SMap.merge_arbitrary
 
       method! visit_HigherOrder () f v =
-        let v1, e = self#visit_list self#visit_term () v in
-        if is_uvar_name f then
-          (HigherOrder (f, v1), SMap.add f (UF.make st None) e)
-        else (HigherOrder (f, v1), e)
+        (* both a variable and something which may contain binder variables... *)
+        match v with
+        | [] ->
+          let v1, e = self#visit_list self#visit_term () v in
+          if is_uvar_name f then
+            (HigherOrder (f, v1), SMap.add f (UF.make st None) e)
+          else (HigherOrder (f, v1), e)
+        | _ :: _ ->
+          let v1, e = super#visit_HigherOrder () f v in
+          if is_uvar_name f then (v1, SMap.add f (UF.make st None) e)
+          else (v1, e)
 
       method! visit_Predicate () f v =
         let v1, e = self#visit_list self#visit_term () v in
@@ -160,10 +167,22 @@ let subst_uvars st (f, e) : uterm =
       inherit [_] map_spec as super
 
       method! visit_HigherOrder () f v =
-        let f1 = super#visit_HigherOrder () f v in
-        if is_uvar_name f then
-          UF.get st (SMap.find f e) |> Option.get |> uterm_to_staged
-        else f1
+        match v with
+        | [] ->
+          let f1 = super#visit_HigherOrder () f v in
+          if is_uvar_name f then
+            UF.get st (SMap.find f e) |> Option.get |> uterm_to_staged
+          else f1
+        | _ :: _ ->
+          let f1 = super#visit_HigherOrder () f v in
+          if is_uvar_name f then
+            match UF.get st (SMap.find f e) |> Option.get |> uterm_to_term with
+            | Var f2 ->
+              (match f1 with
+              | HigherOrder (_, v1) -> HigherOrder (f2, v1)
+              | _ -> failwith "unreachable")
+            | _ -> failwith "not a var"
+          else f1
 
       method! visit_Predicate () f v =
         let p = super#visit_Predicate () f v in
@@ -199,7 +218,7 @@ let subst_uvars st (f, e) : uterm =
   | Binder x ->
     if is_uvar_name x then UF.get st (SMap.find x e) |> Option.get else Binder x
 
-let string_of_outcome r = match r with None -> "fail" | Some _ -> "ok"
+(* let string_of_outcome r = match r with None -> "fail" | Some _ -> "ok" *)
 
 (* variables at the top level are handled in here. otherwise it delegates to the others *)
 let rec unify_var : UF.store -> unifiable -> unifiable -> unit option =
@@ -622,7 +641,20 @@ let%expect_test "rewriting" =
     rewrite ens emp; let y = (ens res=1) in (ens res=y)
     with let __x = (ens res=__r) in (__f()) ==> <dynamic>
     result: ens emp; ens res=1
+    |}];
+
+  test
+    (Staged.rule
+       (HigherOrder ("f", [Term.uvar "x"]))
+       (HigherOrder ("__x", [Const ValUnit])))
+    (Staged (HigherOrder ("f", [Var "g"])));
+  [%expect
+    {|
+    rewrite f(g)
+    with f(__x) ==> __x(())
+    result: g(())
     |}]
+
 (* see tests.ml for more *)
 
 type database = rule list
@@ -672,7 +704,8 @@ let%expect_test "autorewrite" =
     result: ens x=true
     |}];
 
-  test norm_db (Staged (ens ~p:(conj [True; eq (v "x") (v "x"); True; True]) ()));
+  test norm_db
+    (Staged (ens ~p:(conj [True; eq (v "x") (v "x"); True; True]) ()));
   [%expect {|
     start: ens T/\x=x/\T/\T
     result: ens emp
