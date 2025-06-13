@@ -80,10 +80,10 @@ let new_pctx () =
   }
 
 let has_been_unfolded pctx name _lr =
-  List.find_opt
-    (* (fun (u, lr1) -> u = name && lr = lr1) *)
-    (fun (Use u) -> u = name)
-    pctx.unfolded
+  pctx.unfolded
+  |> List.find_opt
+       (* (fun (u, lr1) -> u = name && lr = lr1) *)
+       (fun (Use u) -> u = name)
   |> Option.is_some
 
 let pred_to_rule pred =
@@ -328,8 +328,10 @@ let apply_induction_hypotheses : total =
     let db =
       pctx.induction_hypotheses
       |> List.filter (fun (n, _) -> has_been_unfolded pctx n `Left)
-      |> List.map snd
     in
+    debug ~at:4 ~title:"can be unfolded?" "%s"
+      (string_of_list Fun.id (List.map fst db));
+    let db = db |> List.map snd in
     let f1 = autorewrite db (Staged f1) |> of_uterm in
     (pctx, f1, f2)
 
@@ -352,10 +354,20 @@ let rec apply_ent_rule ?name : tactic =
   | NormalReturn (p1, h1), NormalReturn (p2, h2) ->
     let valid = check_pure_obligation (And (conj pctx.assumptions, p1)) p2 in
     if valid then k (pctx, ens (), ens ()) else fail
+  | HigherOrder _, f2 ->
+    let ps = unfold_definitions ps in
+    (* TODO unfold left side *)
+    entailment_search ?name (pctx, f1, f2) k
   (* moving pure things into the context *)
   | ( Sequence
         ( NormalReturn
             (Atomic (EQ, Var lname, TLambda (_h, ps, Some sp, _body)), EmptyHeap),
+          f1 ),
+      f2 )
+  | ( Bind
+        ( lname,
+          NormalReturn
+            (Atomic (EQ, Var "res", TLambda (_h, ps, Some sp, _body)), EmptyHeap),
           f1 ),
       f2 ) ->
     let rule = lambda_to_rule lname ps sp in
@@ -395,6 +407,9 @@ let rec apply_ent_rule ?name : tactic =
       (entailment_search ?name (pctx, f1, f2))
       k
   | _, _ ->
+    (* unfold *)
+    (* if no change, apply iH and lemmas *)
+    (* if no change, stuck *)
     log_proof_state ~title:"STUCK" ps;
     fail
 
@@ -412,9 +427,9 @@ and entailment_search : ?name:string -> tactic =
         log_proof_state ~title ps)
   in
   let ps = simplify ps in
-  let ps = unfold_definitions ps in
+  (* let ps = unfold_definitions ps in
   let ps = apply_induction_hypotheses ps in
-  let ps = apply_lemmas ps in
+  let ps = apply_lemmas ps in *)
   apply_ent_rule ?name ps k
 
 let create_induction_hypothesis ps =
@@ -443,11 +458,7 @@ let check_staged_spec_entailment ?name pctx inferred given =
           (string_of_staged_spec given)
           (string_of_result string_of_bool r))
   in
-  let ps = (pctx, inferred, given) in
-  let pctx, f1, f2 = simplify ps in
-  let pctx = create_induction_hypothesis (pctx, f1, f2) in
-  let search = entailment_search ?name (pctx, f1, f2) in
-  match Iter.head search with
+  match Iter.head (entailment_search ?name (pctx, inferred, given)) with
   | None -> false
   | Some ps ->
     debug ~at:2 ~title:"proof found" "%s" (string_of_pstate ps);
