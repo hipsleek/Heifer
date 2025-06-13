@@ -108,6 +108,9 @@ module Rules :
       val of_uterm : uterm -> term
     end
 
+    (** Binders and terms are unrelated, so binders always have to be handled with
+      dynamic rules. There are no context patterns or higher-order unification.
+      A pattern like (bind x x _) will not unify due to (a dynamic) type mismatch. *)
     module Binder : sig
       val uvar : string -> string
       val of_uterm : uterm -> string

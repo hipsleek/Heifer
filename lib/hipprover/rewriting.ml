@@ -43,7 +43,7 @@ let uterm_to_staged = function Staged s -> s | _ -> failwith "not staged"
 let uterm_to_pure = function Pure p -> p | _ -> failwith "not pure"
 let uterm_to_heap = function Heap h -> h | _ -> failwith "not heap"
 let uterm_to_term = function Term t -> t | _ -> failwith "not term"
-let uterm_to_binder = function Binder s -> s | _ -> failwith "not term"
+let uterm_to_binder = function Binder s -> s | _ -> failwith "not binder"
 
 module UF : sig
   type t
