@@ -31,6 +31,12 @@ let subst_free_vars =
         (* Format.printf "bs: %s@." (string_of_list (string_of_pair Fun.id string_of_term) bs); *)
         CLambda (params, (self#visit_option self#visit_staged_spec bs sp), (self#visit_core_lang bs body))
 
+      method! visit_HigherOrder bindings f v =
+        let v1 = self#visit_list self#visit_term bindings v in
+        match findbinding f bindings with
+        | Var f1 -> HigherOrder (f1, v1)
+        | _ -> failwith "invalid"
+
       method! visit_Var bindings v =
         let binding = findbinding v bindings in
         (* Format.printf "replacing %s with %s under %s.@." v (string_of_term binding) (string_of_list (string_of_pair Fun.id string_of_term) bindings); *)
