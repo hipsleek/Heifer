@@ -374,13 +374,6 @@ let remove_subsumptions subs =
   end
 *)
 
-let rec interpret_arrow_as_params t =
-  match t with
-  | Arrow (t1, t2) ->
-    let p, r = interpret_arrow_as_params t2 in
-    t1 :: p, r
-  | _ -> [], t
-
 let needs_why3 =
   object
     inherit [_] reduce_spec

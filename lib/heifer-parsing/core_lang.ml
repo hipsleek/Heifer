@@ -442,6 +442,13 @@ let string_of_expression_kind (expr:Parsetree.expression_desc) : string =
   | Pexp_extension _ -> "Pexp_extension"
   | Pexp_unreachable -> "Pexp_unreachable"
 
+let rec interpret_arrow_as_params t =
+  match t with
+  | Arrow (t1, t2) ->
+    let p, r = interpret_arrow_as_params t2 in
+    t1 :: p, r
+  | _ -> [], t
+
 (** env just keeps track of all the bound names *)
 let transform_str bound_names (s : structure_item) : intermediate option =
   let open Utils in
@@ -479,7 +486,7 @@ let transform_str bound_names (s : structure_item) : intermediate option =
       Str.split (Str.regexp "\\.") ext_name |> Lists.unsnoc
     in
     let params, ret =
-      core_type_to_simple_type pval_type |> Subst.interpret_arrow_as_params
+      core_type_to_simple_type pval_type |> interpret_arrow_as_params
     in
     Some (LogicTypeDecl (pval_name.txt, params, ret, path, name))
   | _ -> failwith (Format.asprintf "unknown program element: %a" Pprintast.structure [s])
