@@ -369,6 +369,9 @@ let create_induction_hypothesis (ps : pstate) : pctx =
     let ih = Rewriting.Rules.Staged.rule f3 f4 in
     { pctx with induction_hypotheses = (name, ih) :: pctx.induction_hypotheses }
 
+let is_recursive pctx f =
+  List.find_opt (fun (g, _) -> g = f) pctx.definitions_rec |> Option.is_some
+
 let rec apply_ent_rule ?name : tactic =
  fun (pctx, f1, f2) k ->
   let open Syntax in
@@ -380,7 +383,8 @@ let rec apply_ent_rule ?name : tactic =
   | NormalReturn (p1, h1), NormalReturn (p2, h2) ->
     let valid = check_pure_obligation (And (conj pctx.assumptions, p1)) p2 in
     if valid then k (pctx, ens (), ens ()) else fail
-  | HigherOrder _, f2 ->
+  (* create induction hypothesis *)
+  | HigherOrder (f, _), f2 when is_recursive pctx f ->
     let pctx = create_induction_hypothesis (pctx, f1, f2) in
     let f1 = unfold_nonrecursive_defns pctx f1 in
     let pctx, f1, _ = unfold_recursive_defns pctx f1 `Left in
