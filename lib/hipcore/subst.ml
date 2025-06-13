@@ -64,6 +64,10 @@ let free_vars =
         let b = super#visit_Bind () x f1 f2 in
         SSet.remove x b
 
+      method! visit_HigherOrder () f v =
+        let b = super#visit_HigherOrder () f v in
+        SSet.add f b
+
       method! visit_Var () x =
         SSet.singleton x
       end

@@ -360,6 +360,7 @@ let create_induction_hypothesis (ps : pstate) : pctx =
     let free =
       SSet.union (Subst.free_vars f1) (Subst.free_vars f2)
       |> SSet.remove "res" (* this isn't a free var; it's bound by ens *)
+      |> SSet.remove name (* the function itself isn't free *)
       |> SSet.to_list
     in
     (* assume they are of term type *)
