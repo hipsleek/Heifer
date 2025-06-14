@@ -389,8 +389,7 @@ let rec apply_ent_rule ?name : tactic =
   (* base case *)
   | NormalReturn (p1, h1), NormalReturn (p2, h2) ->
     let@ _ =
-      span (fun _r ->
-          log_proof_state ~title:"apply_ent_rule: ens ens" (pctx, f1, f2))
+      span (fun _r -> log_proof_state ~title:"ent: ens ens" (pctx, f1, f2))
     in
     let valid = check_pure_obligation (And (conj pctx.assumptions, p1)) p2 in
     if valid then k (pctx, ens (), ens ()) else fail
@@ -398,8 +397,7 @@ let rec apply_ent_rule ?name : tactic =
   | HigherOrder (f, _), f2 when is_recursive pctx f ->
     let ps =
       let@ _ =
-        span (fun _r ->
-            log_proof_state ~title:"apply_ent_rule: create IH" (pctx, f1, f2))
+        span (fun _r -> log_proof_state ~title:"ent: create IH" (pctx, f1, f2))
       in
       let pctx = create_induction_hypothesis (pctx, f1, f2) in
       let f1 = unfold_nonrecursive_defns pctx f1 in
@@ -422,8 +420,7 @@ let rec apply_ent_rule ?name : tactic =
     let pctx =
       let@ _ =
         span (fun _r ->
-            log_proof_state ~title:"apply_ent_rule: lambda binding"
-              (pctx, f1, f2))
+            log_proof_state ~title:"ent: lambda binding" (pctx, f1, f2))
       in
       let rule = lambda_to_rule lname ps sp in
       { pctx with definitions_nonrec = rule :: pctx.definitions_nonrec }
@@ -433,8 +430,7 @@ let rec apply_ent_rule ?name : tactic =
     let pctx =
       let@ _ =
         span (fun _r ->
-            log_proof_state ~title:"apply_ent_rule: pure assumption"
-              (pctx, f1, f2))
+            log_proof_state ~title:"ent: pure assumption" (pctx, f1, f2))
       in
       { pctx with assumptions = p1 :: pctx.assumptions }
     in
@@ -443,8 +439,7 @@ let rec apply_ent_rule ?name : tactic =
     let pctx =
       let@ _ =
         span (fun _r ->
-            log_proof_state ~title:"apply_ent_rule: pure assumption"
-              (pctx, f1, f2))
+            log_proof_state ~title:"ent: pure assumption" (pctx, f1, f2))
       in
       { pctx with assumptions = p2 :: pctx.assumptions }
     in
@@ -455,8 +450,7 @@ let rec apply_ent_rule ?name : tactic =
       (* let@ _ = span (fun _r -> debug ~at:4 ~title:"exists on the left" "") in *)
       let@ _ =
         span (fun _r ->
-            log_proof_state ~title:"apply_ent_rule: exists on the left"
-              (pctx, f1, f2))
+            log_proof_state ~title:"ent: exists on the left" (pctx, f1, f2))
       in
       { pctx with constants = Var x :: pctx.constants }
     in
@@ -466,8 +460,7 @@ let rec apply_ent_rule ?name : tactic =
     let choices =
       let@ _ =
         span (fun _r ->
-            log_proof_state ~title:"apply_ent_rule: exists on the right"
-              (pctx, f1, f2))
+            log_proof_state ~title:"ent: exists on the right" (pctx, f1, f2))
       in
       pctx.constants
       |> List.map (fun c ->
@@ -477,12 +470,16 @@ let rec apply_ent_rule ?name : tactic =
     disj_ choices k
   (* disjunction *)
   | Disjunction (f1, f2), f3 ->
-    debug ~at:4 ~title:"disj on the left" "";
+    let tag = Variables.fresh_variable () in
     let@ _ =
-      let@ _ = span (fun _r -> debug ~at:4 ~title:"left disjunct" "") in
-      entailment_search ?name (pctx, f1, f3)
+      span (fun _r ->
+          debug ~at:4 ~title:(Format.asprintf "disj on the left [[%s]]" tag) "")
     in
-    let@ _ = span (fun _r -> debug ~at:4 ~title:"right disjunct" "") in
+    let@ _ = entailment_search ?name (pctx, f1, f3) in
+    let@ _ =
+      span (fun _r ->
+          debug ~at:4 ~title:(Format.asprintf "right disjunct <<%s>>" tag) "")
+    in
     entailment_search ?name (pctx, f2, f3) k
   | f1, Disjunction (f2, f3) ->
     debug ~at:4 ~title:"disj on the right" "";
@@ -541,7 +538,7 @@ and entailment_search : ?name:string -> tactic =
 let check_staged_spec_entailment ?name pctx inferred given =
   let@ _ =
     span (fun r ->
-        debug ~at:2 ~title:"entailment" "%s ⊑ %s? %s"
+        debug ~at:2 ~title:"entailment" "%s\n⊑\n%s\n%s"
           (string_of_staged_spec inferred)
           (string_of_staged_spec given)
           (string_of_result string_of_bool r))
