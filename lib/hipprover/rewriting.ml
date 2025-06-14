@@ -207,7 +207,7 @@ let subst_uvars st (f, e) : uterm =
       method! visit_Exists () x f =
         let x1, f1 =
           if SSet.mem x free then
-            let y = Variables.fresh_variable () in
+            let y = Variables.fresh_variable ~v:x () in
             (y, Subst.subst_free_vars [(x, Var y)] f)
           else (x, f)
         in
@@ -252,6 +252,7 @@ let subst_uvars st (f, e) : uterm =
     if is_uvar_name x then UF.get st (SMap.find x e) |> Option.get else Binder x
 
 let%expect_test _ =
+  Variables.reset_counter 0;
   let open Syntax in
   let st = UF.new_store () in
   (* let xs = Subst.free_vars (ens ~p:(eq (v "x") (num 1)) ()) in
@@ -262,7 +263,7 @@ let%expect_test _ =
       (Staged (Exists ("x", HigherOrder ("__a", []))), SMap.singleton "__a" v)
   in
   Format.printf "%s@." (string_of_uterm ut);
-  [%expect {| ex $v0. (ens x=1) |}]
+  [%expect {| ex x0. (ens x=1) |}]
 
 let string_of_outcome r = match r with None -> "fail" | Some _ -> "ok"
 

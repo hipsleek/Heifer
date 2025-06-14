@@ -67,7 +67,7 @@ let subst_free_vars bs staged =
       method! visit_Shift bindings nz k body =
         let k1, body1 =
           if SSet.mem k free then
-            let y = Variables.fresh_variable () in
+            let y = Variables.fresh_variable ~v:k () in
             (y, self#visit_staged_spec [(k, Var y)] body)
           else (k, body)
         in
@@ -77,7 +77,7 @@ let subst_free_vars bs staged =
       method! visit_Exists bindings x f =
         let x1, f1 =
           if SSet.mem x free then
-            let y = Variables.fresh_variable () in
+            let y = Variables.fresh_variable ~v:x () in
             (y, self#visit_staged_spec [(x, Var y)] f)
           else (x, f)
         in
@@ -89,7 +89,7 @@ let subst_free_vars bs staged =
           List.fold_right
             (fun p (ps, sp, body) ->
               if SSet.mem p free then
-                let y = Variables.fresh_variable () in
+                let y = Variables.fresh_variable ~v:p () in
                 ( p :: ps,
                   self#visit_option self#visit_staged_spec [(p, Var y)] sp,
                   self#visit_option self#visit_core_lang [(p, Var y)] body )
@@ -110,7 +110,7 @@ let subst_free_vars bs staged =
           List.fold_right
             (fun p (ps, sp, body) ->
               if SSet.mem p free then
-                let y = Variables.fresh_variable () in
+                let y = Variables.fresh_variable ~v:p () in
                 ( p :: ps,
                   self#visit_option self#visit_staged_spec [(p, Var y)] sp,
                   self#visit_core_lang [(p, Var y)] body )
@@ -130,6 +130,7 @@ let subst_free_vars bs staged =
   (subst_visitor free)#visit_staged_spec bs staged
 
 let%expect_test "subst" =
+  Variables.reset_counter 0;
   let test bs f1 =
     let f2 = subst_free_vars bs f1 in
     Format.printf "(%s)%s = %s@." (string_of_staged_spec f1)
@@ -156,4 +157,4 @@ let%expect_test "subst" =
   [%expect {| (ens x=x; ex x. (ens x=1))[y/x] = ens y=y; ex x. (ens x=1) |}];
 
   test [("x", v "z")] (Exists ("z", ens ~p:(eq (v "z") (v "x")) ()));
-  [%expect {| (ex z. (ens z=x))[z/x] = ex $v0. (ens $v0=z) |}]
+  [%expect {| (ex z. (ens z=x))[z/x] = ex z0. (ens z0=z) |}]
