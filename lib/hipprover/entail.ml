@@ -185,6 +185,12 @@ let log_proof_state_total ~title (pctx, f1, f2) ps1 =
     (string_of_staged_spec f2) res
 
 let check_pure_obligation left right =
+  let@ _ =
+    span (fun r ->
+        debug ~at:4 ~title:"check_pure_obligation" "%s => %s ? %s"
+          (string_of_pi left) (string_of_pi right)
+          (string_of_result string_of_bool r))
+  in
   let open Infer_types in
   let tenv =
     (* handle the environment manually as it's shared between both sides *)
@@ -376,20 +382,30 @@ let is_recursive pctx f =
 let rec apply_ent_rule ?name : tactic =
  fun (pctx, f1, f2) k ->
   let open Syntax in
-  let@ _ =
+  (* let@ _ =
     span (fun _r -> log_proof_state ~title:"apply_ent_rule" (pctx, f1, f2))
-  in
+  in *)
   match (f1, f2) with
   (* base case *)
   | NormalReturn (p1, h1), NormalReturn (p2, h2) ->
+    let@ _ =
+      span (fun _r ->
+          log_proof_state ~title:"apply_ent_rule: ens ens" (pctx, f1, f2))
+    in
     let valid = check_pure_obligation (And (conj pctx.assumptions, p1)) p2 in
     if valid then k (pctx, ens (), ens ()) else fail
   (* create induction hypothesis *)
   | HigherOrder (f, _), f2 when is_recursive pctx f ->
-    let pctx = create_induction_hypothesis (pctx, f1, f2) in
-    let f1 = unfold_nonrecursive_defns pctx f1 in
-    let pctx, f1, _ = unfold_recursive_defns pctx f1 `Left in
-    let ps = simplify (pctx, f1, f2) in
+    let ps =
+      let@ _ =
+        span (fun _r ->
+            log_proof_state ~title:"apply_ent_rule: create IH" (pctx, f1, f2))
+      in
+      let pctx = create_induction_hypothesis (pctx, f1, f2) in
+      let f1 = unfold_nonrecursive_defns pctx f1 in
+      let pctx, f1, _ = unfold_recursive_defns pctx f1 `Left in
+      simplify (pctx, f1, f2)
+    in
     entailment_search ?name ps k
   (* moving pure things into the context *)
   | ( Sequence
@@ -403,25 +419,56 @@ let rec apply_ent_rule ?name : tactic =
             (Atomic (EQ, Var "res", TLambda (_h, ps, Some sp, _body)), EmptyHeap),
           f1 ),
       f2 ) ->
-    let rule = lambda_to_rule lname ps sp in
     let pctx =
+      let@ _ =
+        span (fun _r ->
+            log_proof_state ~title:"apply_ent_rule: lambda binding"
+              (pctx, f1, f2))
+      in
+      let rule = lambda_to_rule lname ps sp in
       { pctx with definitions_nonrec = rule :: pctx.definitions_nonrec }
     in
     entailment_search ?name (pctx, f1, f2) k
   | Sequence (NormalReturn (p1, EmptyHeap), f1), f2 ->
-    let pctx = { pctx with assumptions = p1 :: pctx.assumptions } in
+    let pctx =
+      let@ _ =
+        span (fun _r ->
+            log_proof_state ~title:"apply_ent_rule: pure assumption"
+              (pctx, f1, f2))
+      in
+      { pctx with assumptions = p1 :: pctx.assumptions }
+    in
     entailment_search ?name (pctx, f1, f2) k
   | f1, Sequence (Require (p2, EmptyHeap), f2) ->
-    let pctx = { pctx with assumptions = p2 :: pctx.assumptions } in
+    let pctx =
+      let@ _ =
+        span (fun _r ->
+            log_proof_state ~title:"apply_ent_rule: pure assumption"
+              (pctx, f1, f2))
+      in
+      { pctx with assumptions = p2 :: pctx.assumptions }
+    in
     entailment_search ?name (pctx, f1, f2) k
   (* quantifiers *)
   | Exists (x, f1), f2 ->
-    let@ _ = span (fun _r -> debug ~at:4 ~title:"exists on the left" "") in
-    let pctx = { pctx with constants = Var x :: pctx.constants } in
+    let pctx =
+      (* let@ _ = span (fun _r -> debug ~at:4 ~title:"exists on the left" "") in *)
+      let@ _ =
+        span (fun _r ->
+            log_proof_state ~title:"apply_ent_rule: exists on the left"
+              (pctx, f1, f2))
+      in
+      { pctx with constants = Var x :: pctx.constants }
+    in
     entailment_search ?name (pctx, f1, f2) k
   | f1, Exists (x, f2) ->
-    let@ _ = span (fun _r -> debug ~at:4 ~title:"exists on the right" "") in
+    (* let@ _ = span (fun _r -> debug ~at:4 ~title:"exists on the right" "") in *)
     let choices =
+      let@ _ =
+        span (fun _r ->
+            log_proof_state ~title:"apply_ent_rule: exists on the right"
+              (pctx, f1, f2))
+      in
       pctx.constants
       |> List.map (fun c ->
              let f2 = Subst.subst_free_vars [(x, c)] f2 in
@@ -430,24 +477,43 @@ let rec apply_ent_rule ?name : tactic =
     disj_ choices k
   (* disjunction *)
   | Disjunction (f1, f2), f3 ->
-    let@ _ = span (fun _r -> debug ~at:4 ~title:"disj on the left" "") in
-    let@ _ = entailment_search ?name (pctx, f1, f3) in
+    debug ~at:4 ~title:"disj on the left" "";
+    let@ _ =
+      let@ _ = span (fun _r -> debug ~at:4 ~title:"left disjunct" "") in
+      entailment_search ?name (pctx, f1, f3)
+    in
+    let@ _ = span (fun _r -> debug ~at:4 ~title:"right disjunct" "") in
     entailment_search ?name (pctx, f2, f3) k
   | f1, Disjunction (f2, f3) ->
-    let@ _ = span (fun _r -> debug ~at:4 ~title:"disj on the right" "") in
+    debug ~at:4 ~title:"disj on the right" "";
     or_
-      (entailment_search ?name (pctx, f1, f3))
-      (entailment_search ?name (pctx, f1, f2))
+      (let@ _ = span (fun _r -> debug ~at:4 ~title:"left disjunct" "") in
+       entailment_search ?name (pctx, f1, f3))
+      (let@ _ = span (fun _r -> debug ~at:4 ~title:"right disjunct" "") in
+       entailment_search ?name (pctx, f1, f2))
       k
   | _, _ ->
     let ps = (pctx, f1, f2) in
-    let ps1 = unfold_definitions (pctx, f1, f2) in
+    let ps1 =
+      let@ _ =
+        span (fun _r -> debug ~at:4 ~title:"try to unfold definitions" "")
+      in
+      unfold_definitions (pctx, f1, f2)
+    in
     if ps <> ps1 then entailment_search ?name ps1 k
     else
-      let ps1 = apply_induction_hypotheses ps in
+      let ps1 =
+        let@ _ = span (fun _r -> debug ~at:4 ~title:"try to apply IH" "") in
+        apply_induction_hypotheses ps
+      in
       if ps <> ps1 then entailment_search ?name ps1 k
       else
-        let ps1 = apply_lemmas ps in
+        let ps1 =
+          let@ _ =
+            span (fun _r -> debug ~at:4 ~title:"try to apply other lemmas" "")
+          in
+          apply_lemmas ps
+        in
         if ps <> ps1 then entailment_search ?name ps1 k
         else (
           log_proof_state ~title:"STUCK" ps;
@@ -457,7 +523,7 @@ and entailment_search : ?name:string -> tactic =
  fun ?name ps k ->
   (* TODO *)
   Search.reset ();
-  let@ _ =
+  (* let@ _ =
     span (fun _r ->
         let title =
           match name with
@@ -465,7 +531,7 @@ and entailment_search : ?name:string -> tactic =
           | Some n -> Format.asprintf "search: %s" n
         in
         log_proof_state ~title ps)
-  in
+  in *)
   let ps = simplify ps in
   (* let ps = unfold_definitions ps in
   let ps = apply_induction_hypotheses ps in
