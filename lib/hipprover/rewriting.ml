@@ -1,7 +1,7 @@
 open Hipcore
 open Hiptypes
 open Pretty
-(* open Debug *)
+open Debug
 
 let ( let* ) = Option.bind
 let ( let+ ) a f = Option.map f a
@@ -95,15 +95,15 @@ type 'a unif = 'a * UF.t SMap.t
 type unifiable = uterm unif
 
 let to_unifiable st f : unifiable =
-  (* let@ _ =
+  let@ _ =
     span (fun r ->
-        debug ~at:4 ~title:"to_unifiable" "%s"
+        debug ~at:99 ~title:"to_unifiable" "%s"
           (string_of_result
              (fun (ut, e) ->
                Format.asprintf "%s & %s" (string_of_uterm ut)
                  (string_of_list Fun.id (SMap.keys e)))
              r))
-  in *)
+  in
   let visitor =
     object (self)
       inherit [_] mapreduce_spec as super
@@ -162,9 +162,11 @@ let to_unifiable st f : unifiable =
 let of_unifiable (f, _) = f
 
 let subst_uvars st (f, e) : uterm =
-  let visitor =
-    object (_)
+  let visitor free =
+    object (self)
       inherit [_] map_spec as super
+
+      (* most of the work is done in these encoded-variable cases *)
 
       method! visit_HigherOrder () f v =
         match v with
@@ -200,35 +202,79 @@ let subst_uvars st (f, e) : uterm =
         if is_uvar_name x then
           UF.get st (SMap.find x e) |> Option.get |> uterm_to_term
         else Var x
+
+      (* the remaining cases handle capture-avoidance *)
+      method! visit_Exists () x f =
+        let x1, f1 =
+          if SSet.mem x free then
+            let y = Variables.fresh_variable () in
+            (y, Subst.subst_free_vars [(x, Var y)] f)
+          else (x, f)
+        in
+        (* let bs = List.filter (fun (b, _) -> b <> x1) bindings in *)
+        Exists (x1, self#visit_staged_spec () f1)
+
+      (* TODO other binders *)
     end
+  in
+  (* because we're dealing with unifiables, we need to go through the
+    environment to find terms, then look inside those for free variables *)
+  let find_free_vars uvars =
+    uvars |> SSet.filter is_uvar_name |> SSet.to_list
+    |> List.map (fun uv -> SMap.find uv e |> UF.get st |> Option.get)
+    |> List.map (fun u ->
+           match u with
+           | Staged s -> Subst.free_vars s
+           | Heap h -> Subst.free_vars_heap h
+           | Pure p -> Subst.free_vars_pure p
+           | Term t -> Subst.free_vars_term t
+           | Binder _ -> SSet.empty)
+    |> SSet.concat
   in
   match f with
   | Staged s ->
-    let s = visitor#visit_staged_spec () s in
+    let free = Subst.free_vars s |> find_free_vars in
+    let s = (visitor free)#visit_staged_spec () s in
     Staged s
   | Pure p ->
-    let p = visitor#visit_pi () p in
+    let free = Subst.free_vars_pure p |> find_free_vars in
+    let p = (visitor free)#visit_pi () p in
     Pure p
   | Heap h ->
-    let h = visitor#visit_kappa () h in
+    let free = Subst.free_vars_heap h |> find_free_vars in
+    let h = (visitor free)#visit_kappa () h in
     Heap h
   | Term t ->
-    let t = visitor#visit_term () t in
+    let free = Subst.free_vars_term t |> find_free_vars in
+    let t = (visitor free)#visit_term () t in
     Term t
   | Binder x ->
     if is_uvar_name x then UF.get st (SMap.find x e) |> Option.get else Binder x
 
-(* let string_of_outcome r = match r with None -> "fail" | Some _ -> "ok" *)
+let%expect_test _ =
+  let open Syntax in
+  let st = UF.new_store () in
+  (* let xs = Subst.free_vars (ens ~p:(eq (v "x") (num 1)) ()) in
+  Format.printf "%s@." (string_of_sset xs); *)
+  let v = UF.make st (Some (Staged (ens ~p:(eq (v "x") (num 1)) ()))) in
+  let ut =
+    subst_uvars st
+      (Staged (Exists ("x", HigherOrder ("__a", []))), SMap.singleton "__a" v)
+  in
+  Format.printf "%s@." (string_of_uterm ut);
+  [%expect {| ex $v0. (ens x=1) |}]
+
+let string_of_outcome r = match r with None -> "fail" | Some _ -> "ok"
 
 (* variables at the top level are handled in here. otherwise it delegates to the others *)
 let rec unify_var : UF.store -> unifiable -> unifiable -> unit option =
  fun st (t1, e1) (t2, e2) ->
-  (* let@ _ =
+  let@ _ =
     span (fun r ->
-        debug ~at:4 ~title:"unify_var" "%s ~ %s? %s" (string_of_uterm t1)
+        debug ~at:99 ~title:"unify_var" "%s ~ %s? %s" (string_of_uterm t1)
           (string_of_uterm t2)
           (string_of_result string_of_outcome r))
-  in *)
+  in
   match (get_uvar t1, get_uvar t2) with
   | Some x1, Some x2 ->
     let u1 = SMap.find x1 e1 in
@@ -426,12 +472,12 @@ let rewrite_well_typed lhs target =
   | _, _ -> false
 
 let rewrite_rooted rule target =
-  (* let@ _ =
+  let@ _ =
     span (fun r ->
         debug ~at:4 ~title:"rewrite_rooted" "rule: %s\ntarget: %s\n==>\n%s"
           (string_of_rule rule) (string_of_uterm target)
           (string_of_result (string_of_option string_of_uterm) r))
-  in *)
+  in
   if rewrite_well_typed rule.lhs target then
     let st = UF.new_store () in
     let lhs1, e = to_unifiable st rule.lhs in
@@ -477,12 +523,12 @@ let rewrite_all rule target =
         |> Option.value ~default:s1
     end
   in
-  (* let@ _ =
+  let@ _ =
     span (fun r ->
         debug ~at:4 ~title:"rewrite_all" "rule: %s\ntarget: %s\n==>\n%s"
           (string_of_rule rule) (string_of_uterm target)
           (string_of_result string_of_uterm r))
-  in *)
+  in
   match target with
   | Staged s -> Staged (visitor#visit_staged_spec () s)
   | Pure p -> Pure (visitor#visit_pi () p)

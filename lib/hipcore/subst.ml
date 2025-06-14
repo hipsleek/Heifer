@@ -2,7 +2,7 @@ open Hiptypes
 open Syntax
 open Pretty
 
-let free_vars, free_vars_term =
+let free_vars, free_vars_term, free_vars_heap, free_vars_pure =
   let visitor =
     object (_)
       inherit [_] reduce_spec as super
@@ -28,7 +28,10 @@ let free_vars, free_vars_term =
       method! visit_Var () x = SSet.singleton x
     end
   in
-  ((fun f -> visitor#visit_staged_spec () f), fun t -> visitor#visit_term () t)
+  ( (fun f -> visitor#visit_staged_spec () f),
+    (fun t -> visitor#visit_term () t),
+    (fun h -> visitor#visit_kappa () h),
+    fun p -> visitor#visit_pi () p )
 
 let%expect_test "free vars" =
   let test s = Format.printf "%s@." (Pretty.string_of_sset s) in
