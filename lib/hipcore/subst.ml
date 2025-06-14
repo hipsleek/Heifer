@@ -1,55 +1,74 @@
 open Hiptypes
 open Syntax
+open Pretty
 
-let subst_free_vars =
-  let rec findbinding str vb_li =
-    match vb_li with
-    | [] -> Var str
-    | (name, v) :: xs ->
-      if String.compare name str == 0 then v else findbinding str xs
-  in
-  let subst_visitor =
-    object (self)
-      inherit [_] map_spec
+let rec find_binding x bindings =
+  match bindings with
+  | [] -> Var x
+  | (name, v) :: xs ->
+    if String.equal name x then v else find_binding x xs
 
-      method! visit_Shift bindings nz k body =
-        (* shift binds k *)
-        let bs = List.filter (fun (b, _) -> (b <> k)) bindings in
-        Shift (nz, k, self#visit_staged_spec bs body)
+(* replaces free variables *)
+let subst_visitor =
+  object (self)
+    inherit [_] map_spec
 
-      method! visit_Exists bindings x f =
-        let bs = List.filter (fun (b, _) -> (b <> x)) bindings in
-        Exists (x, self#visit_staged_spec bs f)
+    method! visit_Shift bindings nz k body =
+      (* shift binds k *)
+      let bs = List.filter (fun (b, _) -> (b <> k)) bindings in
+      Shift (nz, k, self#visit_staged_spec bs body)
 
-      (* not full capture-avoiding, we just stop substituting a name when it is bound *)
-      method! visit_TLambda bindings name params sp body =
-        let bs = List.filter (fun (b, _) -> not (List.mem b params)) bindings in
-        TLambda (name, params, (Option.map (self#visit_staged_spec bs) sp), (self#visit_option self#visit_core_lang bs body))
+    method! visit_Exists bindings x f =
+      let bs = List.filter (fun (b, _) -> (b <> x)) bindings in
+      Exists (x, self#visit_staged_spec bs f)
 
-      method! visit_CLambda bindings params sp body =
-        let bs = List.filter (fun (b, _) -> not (List.mem b params)) bindings in
-        (* Format.printf "bs: %s@." (string_of_list (string_of_pair Fun.id string_of_term) bs); *)
-        CLambda (params, (self#visit_option self#visit_staged_spec bs sp), (self#visit_core_lang bs body))
+    (* not full capture-avoiding, we just stop substituting a name when it is bound *)
+    method! visit_TLambda bindings name params sp body =
+      let bs = List.filter (fun (b, _) -> not (List.mem b params)) bindings in
+      TLambda (name, params, (Option.map (self#visit_staged_spec bs) sp), (self#visit_option self#visit_core_lang bs body))
 
-      method! visit_HigherOrder bindings f v =
-        let v1 = self#visit_list self#visit_term bindings v in
-        match findbinding f bindings with
-        | Var f1 -> HigherOrder (f1, v1)
-        | _ -> failwith "invalid"
+    method! visit_CLambda bindings params sp body =
+      let bs = List.filter (fun (b, _) -> not (List.mem b params)) bindings in
+      (* Format.printf "bs: %s@." (string_of_list (string_of_pair Fun.id string_of_term) bs); *)
+      CLambda (params, (self#visit_option self#visit_staged_spec bs sp), (self#visit_core_lang bs body))
 
-      method! visit_Var bindings v =
-        let binding = findbinding v bindings in
-        (* Format.printf "replacing %s with %s under %s.@." v (string_of_term binding) (string_of_list (string_of_pair Fun.id string_of_term) bindings); *)
-        binding
-      end
-    in fun bs f-> subst_visitor#visit_staged_spec bs f
+    method! visit_HigherOrder bindings f v =
+      let v1 = self#visit_list self#visit_term bindings v in
+      match find_binding f bindings with
+      | Var f1 -> HigherOrder (f1, v1)
+      | _ -> failwith "invalid"
+
+    method! visit_Var bindings v =
+      let binding = find_binding v bindings in
+      (* Format.printf "replacing %s with %s under %s.@." v (string_of_term binding) (string_of_list (string_of_pair Fun.id string_of_term) bindings); *)
+      binding
+    end
+
+let subst_free_vars bs f = subst_visitor#visit_staged_spec bs f
 
 let%expect_test "subst" =
-  let test s = Format.printf "%s@." (Pretty.string_of_staged_spec s) in
-  subst_free_vars ["z", v "a"] (HigherOrder ("x", [v "z"])) |> test;
-  [%expect {| x(a) |}];
-  subst_free_vars ["x", v "y"] (HigherOrder ("x", [v "z"])) |> test;
-  [%expect {| y(z) |}]
+  let test bs f1 =
+    let f2 = subst_free_vars bs f1 in
+    Format.printf "(%s)%s = %s@." (string_of_staged_spec f1)
+      (string_of_list (fun (x, t) -> Format.asprintf "%s/%s" (string_of_term t) x) bs)
+    (string_of_staged_spec f2)
+  in
+
+  test ["z", v "a"] (HigherOrder ("x", [v "z"]));
+  [%expect {| (x(z))[a/z] = x(a) |}];
+
+  test ["x", v "y"] (HigherOrder ("x", [v "z"]));
+  [%expect {| (x(z))[y/x] = y(z) |}];
+
+  (* capture-avoidance *)
+  test ["x", v "y"] (seq [
+    ens ~p:(eq (v "x") (v "x")) ();
+    Exists ("x", ens ~p:(eq (v "x") (v "x")) ())
+  ]);
+  [%expect {| (ens x=x; ex x. (ens x=x))[y/x] = ens y=y; ex x. (ens x=x) |}];
+
+  test ["x", v "z"] (Exists ("z", ens ~p:(eq (v "z") (v "x")) ()));
+  [%expect {| (ex z. (ens z=x))[z/x] = ex z. (ens z=z) |}]
 
 let free_vars =
   let subst_visitor =
@@ -366,7 +385,7 @@ let rec getExistentialVar (spec : normalisedStagedSpec) : string list =
     end
 *)
 
-let find_equalities =
+(* let find_equalities =
   object
     inherit [_] reduce_spec
     method zero = []
@@ -375,7 +394,7 @@ let find_equalities =
       match op with
       | EQ -> [(a, b)]
       | _ -> []
-  end
+  end *)
 
 (*
 let remove_equalities eqs =
@@ -395,16 +414,6 @@ let remove_subsumptions subs =
       if List.mem (a, b) subs then True else Subsumption (a, b)
   end
 *)
-
-let needs_why3 =
-  object
-    inherit [_] reduce_spec
-    method zero = false
-    method plus = (||)
-
-    method! visit_TApp () _f _a =
-      true
-  end
 
 (*
 let quantify_res p =

@@ -12,6 +12,15 @@ let memo k f =
     r
   | Some r -> r
 
+let needs_why3 =
+  object
+    inherit [_] reduce_spec
+    method zero = false
+    method plus = (||)
+
+    method! visit_TApp () _f _a =
+      true
+  end
 
 let entails_exists env left ex right =
   let@ _ = memo (left, ex, right) in
@@ -24,8 +33,8 @@ let entails_exists env left ex right =
       (* if no pure functions are used, short circuit immediately.
          otherwise, switch only if some part of the formula needs why3 *)
       !Globals.using_pure_fns &&
-        (Subst.needs_why3#visit_pi () left ||
-        Subst.needs_why3#visit_pi () right)
+        (needs_why3#visit_pi () left ||
+        needs_why3#visit_pi () right)
     in
     if needs_why3 then
       Prover_why3.entails_exists env left ex right
