@@ -2,11 +2,12 @@
 open Hipcore
 open Hiptypes
 open Variables
-(*
 open Pretty
+open Debug
+
+(*
 open Normalize
 include Subst
-open Debug
 
 let concatenateSpecsWithEvent (current:disj_spec) (event:spec) : disj_spec =
   List.map (fun a -> List.append a event) current
@@ -301,7 +302,13 @@ let findTheActualArg4Acc_x_e_ret (arg:term) (specs:disj_spec): term =
 
 *)
 
-let rec forward (env: 'a) (expr : core_lang): staged_spec * 'a =
+let rec forward (env: fvenv) (expr : core_lang): staged_spec * fvenv =
+  let@ _ =
+    span (fun r ->
+      debug ~at:4 ~title:"forward" "%s\n==>\n%s"
+      (string_of_core_lang expr)
+      (string_of_result (fun (r, _) -> string_of_staged_spec r) r))
+  in
   match expr with
   | CValue v ->
       NormalReturn (Atomic (EQ, res_var, v), EmptyHeap), env

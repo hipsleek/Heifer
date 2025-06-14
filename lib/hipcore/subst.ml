@@ -1,5 +1,5 @@
 open Hiptypes
-
+open Syntax
 
 let subst_free_vars =
   let rec findbinding str vb_li =
@@ -44,6 +44,12 @@ let subst_free_vars =
       end
     in fun bs f-> subst_visitor#visit_staged_spec bs f
 
+let%expect_test "subst" =
+  let test s = Format.printf "%s@." (Pretty.string_of_staged_spec s) in
+  subst_free_vars ["z", v "a"] (HigherOrder ("x", [v "z"])) |> test;
+  [%expect {| x(a) |}];
+  subst_free_vars ["x", v "y"] (HigherOrder ("x", [v "z"])) |> test;
+  [%expect {| y(z) |}]
 
 let free_vars =
   let subst_visitor =
@@ -72,6 +78,12 @@ let free_vars =
         SSet.singleton x
       end
     in fun f -> subst_visitor#visit_staged_spec () f
+
+let%expect_test "free vars" =
+  let test s = Format.printf "%s@." (Pretty.string_of_sset s) in
+  free_vars (HigherOrder ("x", [Var "z"])) |> test;
+  [%expect
+  {| {x, z} |}]
 
     (* method! visit_PointsTo bindings (str, t1) =
       let binding = findbinding str bindings in

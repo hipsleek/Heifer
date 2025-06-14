@@ -130,7 +130,6 @@ let infer_spec (prog : core_program) (meth : meth_def) =
   in
   let pred_env = prog.cp_predicates in
   let fv_env = create_fv_env method_env pred_env in
-  let@ _ = Debug.span (fun _ -> debug ~at:2 ~title:"apply forward rules" "") in
   let@ _ = Globals.Timing.(time forward) in
   forward fv_env meth.m_body
 
