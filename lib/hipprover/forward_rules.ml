@@ -151,50 +151,6 @@ let lookforHandlingCases ops (label:string) =
 
 (* let (continueationCxt: ((spec list * string * (string * core_lang) * core_handler_ops) list) ref)  = ref []  *)
 
-let call_primitive env history fname actualArgs =
-  match fname, actualArgs with
-  | "+", [x1; x2] ->
-    let event = NormalReturn (res_eq (Plus(x1, x2)), EmptyHeap) in
-    concatenateSpecsWithEvent history [event], env
-  | "-", [x1; x2] ->
-    let event = NormalReturn (res_eq (Minus(x1, x2)), EmptyHeap) in
-    concatenateSpecsWithEvent history [event], env
-  | "=", [x1; x2] ->
-    (* let event = NormalReturn (Atomic (EQ, x1, x2), EmptyHeap, Eq (x1, x2)) in *)
-    let event = NormalReturn (res_eq (Rel (EQ, x1, x2)), EmptyHeap) in
-    concatenateSpecsWithEvent history [event], env
-  | "not", [x1] ->
-    let event = NormalReturn (res_eq (TNot (x1)), EmptyHeap) in
-    concatenateSpecsWithEvent history [event], env
-  | "&&", [x1; x2] ->
-    let event = NormalReturn (res_eq (TAnd (x1, x2)), EmptyHeap) in
-    concatenateSpecsWithEvent history [event], env
-  | "||", [x1; x2] ->
-    let event = NormalReturn (res_eq (TOr (x1, x2)), EmptyHeap) in
-    concatenateSpecsWithEvent history [event], env
-  | ">", [x1; x2] ->
-    let event = NormalReturn (res_eq (Rel (GT, x1, x2)), EmptyHeap) in
-    concatenateSpecsWithEvent history [event], env
-  | "<", [x1; x2] ->
-    let event = NormalReturn (res_eq (Rel (LT, x1, x2)), EmptyHeap) in
-    concatenateSpecsWithEvent history [event], env
-  | ">=", [x1; x2] ->
-    let event = NormalReturn (res_eq (Rel (GTEQ, x1, x2)), EmptyHeap) in
-    concatenateSpecsWithEvent history [event], env
-  | "<=", [x1; x2] ->
-    let event = NormalReturn (res_eq (Rel (LTEQ, x1, x2)), EmptyHeap) in
-    concatenateSpecsWithEvent history [event], env
-  | "::", [x1; x2] ->
-    let event = NormalReturn (res_eq (TCons (x1, x2)), EmptyHeap) in
-    concatenateSpecsWithEvent history [event], env
-  | "^", [x1; x2] ->
-    let event = NormalReturn (res_eq (SConcat (x1, x2)), EmptyHeap) in
-    concatenateSpecsWithEvent history [event], env
-  | "string_of_int", [x1] ->
-    let event = NormalReturn (res_eq (TApp ("string_of_int", [x1])), EmptyHeap) in
-    concatenateSpecsWithEvent history [event], env
-  | _ -> failwith (Format.asprintf "unknown primitive: %s, args: %s" fname (string_of_list string_of_term actualArgs))
-
 (* Given the specs of the scrutinee, symbolically execute it against the handler's spec to produce a single flow, e.g.
 
     match A(a,r); ens res=c with
@@ -302,6 +258,41 @@ let findTheActualArg4Acc_x_e_ret (arg:term) (specs:disj_spec): term =
 
 *)
 
+
+let res_eq t = Atomic (EQ, Var "res", t)
+
+let call_primitive fname actualArgs =
+  match fname, actualArgs with
+  | "+", [x1; x2] ->
+    NormalReturn (res_eq (BinOp (Plus, x1, x2)), EmptyHeap)
+  | "-", [x1; x2] ->
+    NormalReturn (res_eq (BinOp (Minus, x1, x2)), EmptyHeap)
+  | "=", [x1; x2] ->
+    (* let event = NormalReturn (Atomic (EQ, x1, x2), EmptyHeap, Eq (x1, x2)) in *)
+    NormalReturn (res_eq (Rel (EQ, x1, x2)), EmptyHeap)
+  | "not", [x1] ->
+    NormalReturn (res_eq (TNot x1), EmptyHeap)
+  | "&&", [x1; x2] ->
+    NormalReturn (res_eq (BinOp (TAnd, x1, x2)), EmptyHeap)
+  | "||", [x1; x2] ->
+    NormalReturn (res_eq (BinOp (TOr, x1, x2)), EmptyHeap)
+  | ">", [x1; x2] ->
+    NormalReturn (res_eq (Rel (GT, x1, x2)), EmptyHeap)
+  | "<", [x1; x2] ->
+    NormalReturn (res_eq (Rel (LT, x1, x2)), EmptyHeap)
+  | ">=", [x1; x2] ->
+    NormalReturn (res_eq (Rel (GTEQ, x1, x2)), EmptyHeap)
+  | "<=", [x1; x2] ->
+    NormalReturn (res_eq (Rel (LTEQ, x1, x2)), EmptyHeap)
+  | "::", [x1; x2] ->
+    NormalReturn (res_eq (BinOp (TCons, x1, x2)), EmptyHeap)
+  | "^", [x1; x2] ->
+    NormalReturn (res_eq (BinOp (SConcat, x1, x2)), EmptyHeap)
+  | "string_of_int", [x1] ->
+    NormalReturn (res_eq (TApp ("string_of_int", [x1])), EmptyHeap)
+  | _ ->
+    failwith (Format.asprintf "unknown primitive: %s, args: %s" fname (string_of_list string_of_term actualArgs))
+
 let rec forward (env: fvenv) (expr : core_lang): staged_spec * fvenv =
   let@ _ =
     span (fun r ->
@@ -322,6 +313,8 @@ let rec forward (env: fvenv) (expr : core_lang): staged_spec * fvenv =
       let lhs = Sequence (NormalReturn (p, EmptyHeap), spec1) in
       let rhs = Sequence (NormalReturn (Not p, EmptyHeap), spec2) in
       Disjunction (lhs, rhs), env
+  | CFunCall (name, args) when List.mem name primitive_functions ->
+      call_primitive name args, env
   | CFunCall (name, args) ->
       HigherOrder (name, args), env
   | CRef t ->
