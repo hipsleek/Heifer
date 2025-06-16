@@ -331,7 +331,7 @@ let rec forward (env: fvenv) (expr : core_lang): staged_spec * fvenv =
       let kappa = PointsTo (x, t) in
       let req = Require (True, kappa) in
       let ens = NormalReturn (Atomic (EQ, res_var, t), kappa) in
-      Exists (v, (Sequence (req, ens))), env
+      ForAll (v, (Sequence (req, ens))), env
   | CAssert (p, h) ->
       Sequence (Require (p, h), NormalReturn (True, h)), env
   | CPerform _ ->
