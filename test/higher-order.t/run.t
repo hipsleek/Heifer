@@ -1,5 +1,5 @@
 
-$ . ../utility.sh
+  $ . ../utility.sh
 
 $ check ../examples/calls.ml
 ALL OK!
@@ -19,8 +19,11 @@ ALL OK!
 $ check ../examples/closure.ml
 ALL OK!
 
-$ check ../examples/fold.ml
-ALL OK!
+  $ check ../examples/pure.ml
+  ALL OK!
+
+  $ check ../examples/fold.ml
+  ALL OK!
 
 $ check ../examples/iter.ml
 ALL OK!
