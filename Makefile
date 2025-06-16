@@ -6,6 +6,7 @@ all: test
 
 .PHONY: test
 test:
+	@echo 'NB: unit tests only; use make test-all to run integration tests'
 	dune test
 
 .PHONY: test-all

@@ -93,13 +93,10 @@ let normal_report ~kind ~name ~inferred_spec ~normalized_spec ~given_spec ~resul
     | None ->
         ""
   in
-  let result_string = match result with
-    | Some result ->
-        Format.sprintf "[ Entail Check ] %s%s\n"
-          (string_of_bool result)
-          (expected_false result name)
-    | None ->
-        ""
+  let result_string =
+    Format.sprintf "[ Entail Check ] %s%s\n"
+      (string_of_bool result)
+      (expected_false result name)
   in
   let report = String.concat "" [
     header;
@@ -112,7 +109,14 @@ let normal_report ~kind ~name ~inferred_spec ~normalized_spec ~given_spec ~resul
   Format.printf "%s@." report
 
 let test_report ~kind ~name ~inferred_spec ~normalized_spec ~given_spec ~result =
-  ignore (kind, inferred_spec, normalized_spec, given_spec, result, name)
+  ignore (kind, inferred_spec, normalized_spec, given_spec, result, name);
+  let truncate s =
+    let l = String.length s in
+    if l > 20 then
+      String.sub s 0 7 ^ "..." ^ String.sub s (l-10) 10
+    else s
+  in
+  Format.printf "%20s: %s%s@." (truncate name) (string_of_bool result) (expected_false result name)
 
 let report_result ~kind ~name ~inferred_spec ~normalized_spec ~given_spec ~result =
   let report = if !test_mode then test_report else normal_report in
@@ -187,7 +191,7 @@ let analyze_method (prog : core_program) (meth : meth_def) : core_program =
     ~inferred_spec
     ~normalized_spec
     ~given_spec
-    ~result:(Some result);
+    ~result;
   prog
 
 let process_logic_type_decl () = todo ()
