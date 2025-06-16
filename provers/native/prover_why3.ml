@@ -117,7 +117,8 @@ let attempt_proof task1 =
   let provers =
     (* ["Alt-Ergo"; "CVC4"; "Z3"] *)
     (* ["Alt-Ergo"] *)
-    ["Z3"]
+    (* ["Z3"] *)
+    ["CVC4"; "Z3"]
     |> List.filter_map (fun prover ->
         try
           ensure_prover_loaded prover;

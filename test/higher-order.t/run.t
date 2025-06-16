@@ -10,8 +10,8 @@ ALL OK!
 $ check ../examples/applyN.ml
 ALL OK!
 
-$ check ../examples/map.ml
-ALL OK!
+  $ check ../examples/map.ml
+  ALL OK!
 
 $ check ../examples/length.ml
 ALL OK!
