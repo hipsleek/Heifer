@@ -453,7 +453,8 @@ let rec apply_ent_rule ?name : tactic =
     let pctx =
       let@ _ =
         span (fun _r ->
-            log_proof_state ~title:"ent: exists on the left" (pctx, f1, f2))
+            log_proof_state ~title:"ent: exists on the left"
+              (pctx, Exists (x, f1), f2))
       in
       { pctx with constants = Var x :: pctx.constants }
     in
@@ -462,32 +463,41 @@ let rec apply_ent_rule ?name : tactic =
     let pctx =
       let@ _ =
         span (fun _r ->
-            log_proof_state ~title:"ent: forall on the right" (pctx, f1, f2))
+            log_proof_state ~title:"ent: forall on the right"
+              (pctx, f1, ForAll (x, f2)))
       in
       { pctx with constants = Var x :: pctx.constants }
     in
     entailment_search ?name (pctx, f1, f2) k
   | f1, Exists (x, f2) ->
     let choices =
-      let@ _ =
-        span (fun _r ->
-            log_proof_state ~title:"ent: exists on the right" (pctx, f1, f2))
-      in
       pctx.constants
       |> List.map (fun c ->
+             let@ _ =
+               span (fun _r ->
+                   log_proof_state
+                     ~title:
+                       (Format.asprintf "ent: exists on the right; %s"
+                          (string_of_term c))
+                     (pctx, f1, Exists (x, f2)))
+             in
              let f2 = Subst.subst_free_vars [(x, c)] f2 in
              entailment_search ?name (pctx, f1, f2))
     in
     disj_ choices k
   | ForAll (x, f1), f2 ->
     let choices =
-      let@ _ =
-        span (fun _r ->
-            log_proof_state ~title:"ent: forall on the left" (pctx, f1, f2))
-      in
       pctx.constants
       |> List.map (fun c ->
-             let f2 = Subst.subst_free_vars [(x, c)] f2 in
+             let@ _ =
+               span (fun _r ->
+                   log_proof_state
+                     ~title:
+                       (Format.asprintf "ent: forall on the left; %s"
+                          (string_of_term c))
+                     (pctx, ForAll (x, f1), f2))
+             in
+             let f1 = Subst.subst_free_vars [(x, c)] f1 in
              entailment_search ?name (pctx, f1, f2))
     in
     disj_ choices k
