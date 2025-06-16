@@ -13,6 +13,10 @@ let free_vars, free_vars_term, free_vars_heap, free_vars_pure =
         let b = super#visit_Exists () x f in
         SSet.remove x b
 
+      method! visit_ForAll () x f =
+        let b = super#visit_ForAll () x f in
+        SSet.remove x b
+
       method! visit_TLambda () h ps sp b =
         let b = super#visit_TLambda () h ps sp b in
         List.fold_right (fun c t -> SSet.remove c t) ps b
@@ -83,6 +87,16 @@ let subst_free_vars bs staged =
         in
         let bs = List.filter (fun (b, _) -> b <> x1) bindings in
         Exists (x1, self#visit_staged_spec bs f1)
+
+      method! visit_ForAll bindings x f =
+        let x1, f1 =
+          if SSet.mem x free then
+            let y = Variables.fresh_variable ~v:x () in
+            (y, self#visit_staged_spec [(x, Var y)] f)
+          else (x, f)
+        in
+        let bs = List.filter (fun (b, _) -> b <> x1) bindings in
+        ForAll (x1, self#visit_staged_spec bs f1)
 
       method! visit_TLambda bindings name params sp body =
         let params1, sp1, body1 =

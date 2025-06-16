@@ -211,8 +211,16 @@ let subst_uvars st (f, e) : uterm =
             (y, Subst.subst_free_vars [(x, Var y)] f)
           else (x, f)
         in
-        (* let bs = List.filter (fun (b, _) -> b <> x1) bindings in *)
         Exists (x1, self#visit_staged_spec () f1)
+
+      method! visit_ForAll () x f =
+        let x1, f1 =
+          if SSet.mem x free then
+            let y = Variables.fresh_variable ~v:x () in
+            (y, Subst.subst_free_vars [(x, Var y)] f)
+          else (x, f)
+        in
+        ForAll (x1, self#visit_staged_spec () f1)
 
       (* TODO other binders *)
     end
@@ -415,7 +423,9 @@ and unify_staged :
     let* _ = unify_var st (Staged f2, e1) (Staged f4, e2) in
     Some ()
   | Exists (x1, b1), Exists (x2, b2) when x1 = x2 ->
-    (* TODO binders probably need to be handled as variables too... *)
+    let* _ = unify_var st (Staged b1, e1) (Staged b2, e2) in
+    Some ()
+  | ForAll (x1, b1), ForAll (x2, b2) when x1 = x2 ->
     let* _ = unify_var st (Staged b1, e1) (Staged b2, e2) in
     Some ()
   | HigherOrder (f1, a1), HigherOrder (f2, a2) when f1 = f2 ->

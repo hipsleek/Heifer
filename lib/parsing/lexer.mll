@@ -87,8 +87,10 @@ rule token = parse
       { EMP }
   | int_literal as n
       { INT (int_of_string n) }
-  | "ex"
+  | "ex" | "exists"
       { EXISTS }
+  | "all" | "forall"
+      { FORALL }
   | "req"
       { REQUIRES }
   | "ens"

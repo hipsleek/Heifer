@@ -82,6 +82,7 @@ and trycatch = (staged_spec * handlingcases)
 
 and staged_spec =
   | Exists of string * staged_spec
+  | ForAll of string * staged_spec
   | Require of pi * kappa
   (* ens H /\ P, where P may contain contraints on res *)
   (* | Ens_Pure of pi

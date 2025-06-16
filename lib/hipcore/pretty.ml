@@ -126,6 +126,8 @@ and string_of_staged_spec (st:staged_spec) : string =
     Format.asprintf "%s(%s, %s, %s)" name (string_of_state (pi, heap)) (string_of_args string_of_term args) (string_of_term ret)
   | Exists (vs, spec) ->
     Format.asprintf "ex %s. (%s)" vs (string_of_staged_spec spec)
+  | ForAll (vs, spec) ->
+    Format.asprintf "forall %s. (%s)" vs (string_of_staged_spec spec)
   (* | IndPred {name; args} -> *)
     (* Format.asprintf "%s(%s)" name (String.concat " " (List.map string_of_term args)) *)
   | TryCatch (pi, h, ( src, ((normP, normSpec), ops)), ret) ->
@@ -514,7 +516,7 @@ let rec pp_term ppf t =
   | TTuple args ->
       fprintf ppf "(@[<hov 1>%a@])"
       (pp_print_list ~pp_sep:(fun ppf () -> fprintf ppf ",@ ") pp_term) args
-and pp_call_like ppf (f, args) = 
+and pp_call_like ppf (f, args) =
   let open Format in
   fprintf ppf "@[<hov 1>%s(@[<hov>%a@])@]" f
   (pp_print_list ~pp_sep:(fun ppf () -> fprintf ppf ",@ ") pp_term) args
@@ -612,10 +614,10 @@ and pp_core_lang ppf core =
   | CPerform (eff, arg) ->
       fprintf ppf "@[perform@ %s@ %a@]" eff (pp_print_option pp_term) arg
   | CMatch (typ, spec, e, vs, hs, cs) ->
-      let pp_core_handler_ops = 
+      let pp_core_handler_ops =
         let pp_handler ppf (name, v, spec, body) =
           fprintf ppf "|@ %a@ k@ %a@ ->@ %a@]"
-          (fun ppf (name, v) -> match v with 
+          (fun ppf (name, v) -> match v with
             | None -> pp_print_string ppf name
             | Some v -> fprintf ppf "(%s@ %s)" name v) (name, v)
           (pp_print_option pp_staged_spec) spec
@@ -650,4 +652,3 @@ and pp_core_lang ppf core =
     k
     pp_core_lang e
   | CReset e -> fprintf ppf "@[<%a>@]" pp_core_lang e
-

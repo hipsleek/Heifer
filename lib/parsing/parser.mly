@@ -30,6 +30,7 @@ open Hiptypes
 %token <string> STRING
 
 %token EXISTS
+%token FORALL
 %token REQUIRES
 %token ENSURES
 %token LET
@@ -154,11 +155,13 @@ state:
   | p = pi CONJUNCTION k = kappa
       { (p, k) }
   | k = kappa CONJUNCTION p = pi
-      { (p, k) }     
+      { (p, k) }
 ;
 staged_spec:
   | EXISTS vs = IDENT* DOT s = staged_spec
       { List.fold_right (fun v t -> Exists (v, t)) vs s }
+  | FORALL vs = IDENT* DOT s = staged_spec
+      { List.fold_right (fun v t -> ForAll (v, t)) vs s }
   | s1 = staged_spec DISJUNCTION s2 = staged_spec
       { Disjunction (s1, s2) }
   | REQUIRES s = state
