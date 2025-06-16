@@ -1,8 +1,8 @@
 
   $ . ../utility.sh
 
-  $ check test_new_entail.ml
-  ALL OK!
+$ check test_new_entail.ml
+ALL OK!
 
   $ check test_ho.ml
   ALL OK!
@@ -16,5 +16,5 @@ ALL OK!
   $ check test_unfolding.ml
   ALL OK!
 
-  $ check test_closures.ml
-  ALL OK!
+$ check test_closures.ml
+ALL OK!
