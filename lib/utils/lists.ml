@@ -38,8 +38,21 @@ let init = function
 let rec find_delete_opt (f : 'a -> bool) (xs : 'a list) : ('a * 'a list) option =
   match xs with
   | [] -> None
-  | x :: xs when f x -> Some (x, xs)
   | x :: xs ->
-      match find_delete_opt f xs with
-      | None -> None
-      | Some (x', xs') -> Some (x', x :: xs')
+      if f x then
+        Some (x, xs)
+      else
+        match find_delete_opt f xs with
+        | None -> None
+        | Some (x', xs') -> Some (x', x :: xs')
+
+let rec find_delete_map (f : 'a -> 'b option) (xs : 'a list) : ('b * 'a list) option =
+  match xs with
+  | [] -> None
+  | x :: xs ->
+      match f x with
+      | Some y -> Some (y, xs)
+      | None ->
+          match find_delete_map f xs with
+          | None -> None
+          | Some (y, xs') -> Some (y, xs')

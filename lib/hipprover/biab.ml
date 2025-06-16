@@ -19,33 +19,31 @@ let string_of_biab_ctx ({equalities} : biab_ctx) : string =
 
 let rec conjuncts_of_kappa (k : kappa) : kappa list =
   match k with
+  | EmptyHeap -> []
+  | PointsTo _ -> [k]
   | SepConj (k1, k2) -> conjuncts_of_kappa k1 @ conjuncts_of_kappa k2
-  | _ -> [k]
 
 (* precondition: all separation conjuctions are flatten into a list of conjucts *)
-let rec match_points_to (ctx : biab_ctx) (ks1 : kappa list) (ks2 : kappa list) :
-  kappa list * kappa list * kappa list * biab_ctx =
+let rec match_points_to (ctx : biab_ctx) (ks1 : kappa list) (ks2 : kappa list) : kappa list * kappa list * kappa list * biab_ctx =
   match ks1 with
   | [] -> [], ks2, [], ctx
   | PointsTo (x, t) as k :: ks1 ->
       (* we try to match on the location *)
       let match_loc = function
-        | PointsTo (x', _) -> x = x'
-        | _ -> false
+        | PointsTo (x', t') when x = x' -> Some t'
+        | _ -> None
       in
-      begin match Lists.find_delete_opt match_loc ks2 with
+      begin match Lists.find_delete_map match_loc ks2 with
       | None ->
           (* the location does not exists in the rhs *)
           (* therefore we add it into the rhs residue *)
           let common, anti_frame, frame, ctx = match_points_to ctx ks1 ks2 in
           common, anti_frame, k :: frame, ctx
-      | Some (PointsTo (_, t'), ks2) ->
+      | Some (t', ks2) ->
           (* generate an equality here *)
           let ctx = if t = t' then ctx else {equalities = eq t t' :: ctx.equalities} in
           let common, anti_frame, frame, ctx = match_points_to ctx ks1 ks2 in
           k :: common, anti_frame, frame, ctx
-      | _ ->
-          failwith "unreachable" (* TODO: rewrite this *)
       end
   | EmptyHeap :: _
   | SepConj _ :: _ -> failwith "match_points_to"
@@ -63,24 +61,6 @@ let solve (ctx : biab_ctx) (h1 : kappa) (h2 : kappa) : kappa list * kappa list *
   (* if we can sort the conjucts and then do something like "merge"
      then the complexity of O(n log n) *)
   match_points_to ctx heap1 heap2
-(*
-  let magicWandHeap, unification =
-    normaliseMagicWand h2 h3 existential true (And (p2, p3))
-  in
-  (* not only need to get the magic wand, but also need to delete the common part from h2 *)
-  let h2', unification1 =
-    (* TODO equalities? *)
-    normaliseMagicWand h3 h2 existential false (And (p2, p3))
-    (* (pure_to_equalities p2) *)
-  in
-  let p4, p2, p3 = pure_abduction p2 p3 in
-  debug ~at:5 ~title:"biabduction" "%s * %s |- %s * %s"
-    (string_of_state (unification, magicWandHeap))
-    (string_of_state (p2, h2))
-    (string_of_state (p3, h3))
-    (string_of_state (unification1, h2'));
-  unification, magicWandHeap, unification1, h2', p4
-*)
 
 (* see Tests for more e2e tests, which would be nice to port here *)
 let%expect_test _ =
@@ -116,10 +96,14 @@ let%expect_test _ =
       {equalities = []}
       |}]
   in
+  let _ =
+    let h1 = points_to "x" (var "a") in
+    let h2 = points_to "x" (num 1) in
+    test emp_biab_ctx h1 h2;
+    [%expect
+      {|
+      emp * x->a |- x->a * emp
+      {equalities = [a=1]}
+      |}]
+  in
   ()
-(*
-  one (True, PointsTo ("x", Var "a")) (True, PointsTo ("x", Const (Num 1)));
-  [%expect {| a=1 * x->a |- x->1 * 1=a |}];
-
-  one (True, PointsTo ("x", Const (Num 1))) (True, PointsTo ("x", Const (Num 2)));
-  [%expect {| failed |}]; *)
