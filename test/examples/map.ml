@@ -9,34 +9,29 @@ let id y = y
 let map_id ys
 (*@ ens res=ys @*)
 = map id ys
-[@@spec {|ens res=ys|}]
 
-let succ x = x + 1
+let [@pure] succ (x:int) : int = x + 1
 
 let map_not_id_false ys
 (*@ ens res=ys @*)
 = map succ ys
-[@@spec {|ens res=ys|}]
 
-(* ghost function that specifies what mapping succ should return *)
-let rec succ_list xs =
+let [@pure] rec succ_list (xs:int list) : int list =
   match xs with
   | [] -> []
   | x :: xs1 -> succ x :: succ_list xs1
 
 (* we use succ_list in the statement of this lemma *)
 let map_succ ys
-(*@ ex r; succ_list(ys, r); ens res=r @*)
+(*@ ens res=succ_list(ys) @*)
 = map succ ys
-[@@spec {|ex r; succ_list(ys, r); ens res=r|}]
 
-let rec thrice_list xs =
+let [@pure] rec thrice_list (xs:int list) : int list =
   match xs with
   | [] -> []
   | x :: xs' -> (x + x + x) :: thrice_list xs'
 
 let map_thrice xs
-(*@ ex ys; thrice_list(xs, ys); ens res=ys @*)
+(*@ ens res=thrice_list(xs) @*)
 = let cl i = i + i + i in
   map cl xs
-[@@spec {|ex ys; thrice_list(xs, ys); ens res=ys|}]

@@ -400,7 +400,8 @@ let rec apply_ent_rule ?name : tactic =
   | HigherOrder (f, _), f2 when is_recursive pctx f ->
     let ps =
       let@ _ =
-        span (fun _r -> log_proof_state ~title:"ent: create IH" (pctx, f1, f2))
+        span (fun _r ->
+            log_proof_state ~title:"ent: create IH, unfold" (pctx, f1, f2))
       in
       let pctx = create_induction_hypothesis (pctx, f1, f2) in
       let f1 = unfold_nonrecursive_defns pctx f1 in

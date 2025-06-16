@@ -117,7 +117,8 @@ let attempt_proof task1 =
   let provers =
     (* ["Alt-Ergo"; "CVC4"; "Z3"] *)
     (* ["Alt-Ergo"] *)
-    ["Z3"]
+    (* ["Z3"] *)
+    ["CVC4"; "Z3"]
     |> List.filter_map (fun prover ->
         try
           ensure_prover_loaded prover;
@@ -818,6 +819,7 @@ and core_lang_to_whyml tenv e =
     let fn =
       match s with
       | "+" | "-" | ">" | "<" | ">=" | "<=" -> qualid ["Int"; Ident.op_infix s]
+      | "::" -> qualid ["List"; "Cons"]
       | "=" -> qualid ["Int"; Ident.op_infix s] (* for now *)
       | "||" -> qualid ["Bool"; "orb"]
       | "&&" -> qualid ["Bool"; "andb"]
