@@ -433,7 +433,7 @@ let rec apply_ent_rule ?name : tactic =
       span (fun _r -> log_proof_state ~title:"ent: req req" (pctx, f1, f2))
     in
     apply_ent_rule ?name (pctx, NormalReturn (p2, h2), NormalReturn (p1, h1)) k
-  | Sequence (NormalReturn (p1, h1), f1), Sequence (NormalReturn (p2, h2), f2)
+  | Sequence (NormalReturn (p1, h1), f3), Sequence (NormalReturn (p2, h2), f4)
     ->
     let@ _ =
       span (fun _r -> log_proof_state ~title:"ent: ens ens f" (pctx, f1, f2))
@@ -444,14 +444,14 @@ let rec apply_ent_rule ?name : tactic =
     in
     if valid then
       entailment_search ?name
-        (pctx, seq [req ~h:ah (); f1], seq [req ~h:fh (); f2])
+        (pctx, seq [req ~h:ah (); f3], seq [req ~h:fh (); f4])
         k
-  | Sequence (Require (p1, h1), f1), Sequence (Require (p2, h2), f2) ->
+  | Sequence (Require (p1, h1), f3), Sequence (Require (p2, h2), f4) ->
     let@ _ =
       span (fun _r -> log_proof_state ~title:"ent: req req f" (pctx, f1, f2))
     in
     apply_ent_rule ?name
-      (pctx, seq [NormalReturn (p2, h2); f1], seq [NormalReturn (p1, h1); f2])
+      (pctx, seq [NormalReturn (p2, h2); f3], seq [NormalReturn (p1, h1); f4])
       k
   (* create induction hypothesis *)
   | HigherOrder (f, _), f2 when is_recursive pctx f ->
@@ -470,14 +470,14 @@ let rec apply_ent_rule ?name : tactic =
   | ( Sequence
         ( NormalReturn
             (Atomic (EQ, Var lname, TLambda (_h, ps, Some sp, _body)), EmptyHeap),
-          f1 ),
-      f2 )
+          f3 ),
+      f4 )
   | ( Bind
         ( lname,
           NormalReturn
             (Atomic (EQ, Var "res", TLambda (_h, ps, Some sp, _body)), EmptyHeap),
-          f1 ),
-      f2 ) ->
+          f3 ),
+      f4 ) ->
     let pctx =
       let@ _ =
         span (fun _r ->
@@ -486,8 +486,8 @@ let rec apply_ent_rule ?name : tactic =
       let rule = lambda_to_rule lname ps sp in
       { pctx with definitions_nonrec = rule :: pctx.definitions_nonrec }
     in
-    entailment_search ?name (pctx, f1, f2) k
-  | Sequence (NormalReturn (p1, EmptyHeap), f1), f2 ->
+    entailment_search ?name (pctx, f3, f4) k
+  | Sequence (NormalReturn (p1, EmptyHeap), f3), f2 ->
     let pctx =
       let@ _ =
         span (fun _r ->
@@ -495,8 +495,8 @@ let rec apply_ent_rule ?name : tactic =
       in
       { pctx with assumptions = p1 :: pctx.assumptions }
     in
-    entailment_search ?name (pctx, f1, f2) k
-  | f1, Sequence (Require (p2, EmptyHeap), f2) ->
+    entailment_search ?name (pctx, f3, f2) k
+  | f1, Sequence (Require (p2, EmptyHeap), f4) ->
     let pctx =
       let@ _ =
         span (fun _r ->
@@ -504,29 +504,27 @@ let rec apply_ent_rule ?name : tactic =
       in
       { pctx with assumptions = p2 :: pctx.assumptions }
     in
-    entailment_search ?name (pctx, f1, f2) k
+    entailment_search ?name (pctx, f1, f4) k
   (* quantifiers. intro before trying to instantiate *)
-  | Exists (x, f1), f2 ->
+  | Exists (x, f3), f2 ->
     let pctx =
       let@ _ =
         span (fun _r ->
-            log_proof_state ~title:"ent: exists on the left"
-              (pctx, Exists (x, f1), f2))
+            log_proof_state ~title:"ent: exists on the left" (pctx, f1, f2))
       in
       { pctx with constants = Var x :: pctx.constants }
     in
-    entailment_search ?name (pctx, f1, f2) k
-  | f1, ForAll (x, f2) ->
+    entailment_search ?name (pctx, f3, f2) k
+  | f1, ForAll (x, f4) ->
     let pctx =
       let@ _ =
         span (fun _r ->
-            log_proof_state ~title:"ent: forall on the right"
-              (pctx, f1, ForAll (x, f2)))
+            log_proof_state ~title:"ent: forall on the right" (pctx, f1, f2))
       in
       { pctx with constants = Var x :: pctx.constants }
     in
-    entailment_search ?name (pctx, f1, f2) k
-  | f1, Exists (x, f2) ->
+    entailment_search ?name (pctx, f1, f4) k
+  | f1, Exists (x, f4) ->
     let choices =
       pctx.constants
       |> List.map (fun c ->
@@ -534,15 +532,15 @@ let rec apply_ent_rule ?name : tactic =
                span (fun _r ->
                    log_proof_state
                      ~title:
-                       (Format.asprintf "ent: exists on the right; %s"
-                          (string_of_term c))
-                     (pctx, f1, Exists (x, f2)))
+                       (Format.asprintf "ent: exists on the right; [%s/%s]"
+                          (string_of_term c) x)
+                     (pctx, f1, f2))
              in
-             let f2 = Subst.subst_free_vars [(x, c)] f2 in
-             entailment_search ?name (pctx, f1, f2))
+             let f4 = Subst.subst_free_vars [(x, c)] f4 in
+             entailment_search ?name (pctx, f1, f4))
     in
     disj_ choices k
-  | ForAll (x, f1), f2 ->
+  | ForAll (x, f3), f2 ->
     let choices =
       pctx.constants
       |> List.map (fun c ->
@@ -550,34 +548,34 @@ let rec apply_ent_rule ?name : tactic =
                span (fun _r ->
                    log_proof_state
                      ~title:
-                       (Format.asprintf "ent: forall on the left; %s"
-                          (string_of_term c))
-                     (pctx, ForAll (x, f1), f2))
+                       (Format.asprintf "ent: forall on the left; [%s/%s]"
+                          (string_of_term c) x)
+                     (pctx, f1, f2))
              in
-             let f1 = Subst.subst_free_vars [(x, c)] f1 in
-             entailment_search ?name (pctx, f1, f2))
+             let f3 = Subst.subst_free_vars [(x, c)] f3 in
+             entailment_search ?name (pctx, f3, f2))
     in
     disj_ choices k
   (* disjunction *)
-  | Disjunction (f1, f2), f3 ->
+  | Disjunction (f3, f4), f2 ->
     let tag = Variables.fresh_variable () in
     let@ _ =
       span (fun _r ->
           debug ~at:4 ~title:(Format.asprintf "disj on the left [[%s]]" tag) "")
     in
-    let@ _ = entailment_search ?name (pctx, f1, f3) in
+    let@ _ = entailment_search ?name (pctx, f3, f2) in
     let@ _ =
       span (fun _r ->
           debug ~at:4 ~title:(Format.asprintf "right disjunct <<%s>>" tag) "")
     in
-    entailment_search ?name (pctx, f2, f3) k
-  | f1, Disjunction (f2, f3) ->
+    entailment_search ?name (pctx, f4, f2) k
+  | f1, Disjunction (f3, f4) ->
     debug ~at:4 ~title:"disj on the right" "";
     or_
       (let@ _ = span (fun _r -> debug ~at:4 ~title:"left disjunct" "") in
        entailment_search ?name (pctx, f1, f3))
       (let@ _ = span (fun _r -> debug ~at:4 ~title:"right disjunct" "") in
-       entailment_search ?name (pctx, f1, f2))
+       entailment_search ?name (pctx, f1, f4))
       k
   | _, _ ->
     let ps = (pctx, f1, f2) in
