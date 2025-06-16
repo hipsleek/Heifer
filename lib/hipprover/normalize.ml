@@ -375,6 +375,15 @@ let norm_bind_all = Staged.dynamic_rule
     let fk = Staged.of_uterm (sub "fk") in
     ForAll (x1, Bind (x, f, fk)))
 
+let norm_seq_ens_ex = Staged.dynamic_rule
+  (Sequence (NormalReturn (Pure.uvar "p", Heap.uvar "h"), Exists (Binder.uvar "x", (Staged.uvar "f"))))
+  (fun sub ->
+    let x = Binder.of_uterm (sub "x") in
+    let p = Pure.of_uterm (sub "p") in
+    let h = Heap.of_uterm (sub "h") in
+    let f = Staged.of_uterm (sub "f") in
+    Exists (x, Sequence (NormalReturn (p, h), f)))
+
 (* bind (seq (ens Q) f) fk `entails` seq (ens Q) (bind f fk) *)
 (* we can push ens outside of bind; if the result of ens is not used *)
 let norm_bind_seq_ens = Staged.dynamic_rule
@@ -421,6 +430,7 @@ let normalization_rules_bind = [
   norm_bind_ex;
   norm_bind_all;
   norm_bind_seq_ens;
+  norm_seq_ens_ex;
 ]
 
 let normalization_rules_permute_ens = [
