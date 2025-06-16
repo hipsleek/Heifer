@@ -11,6 +11,15 @@ $ check ../examples/applyN.ml
 ALL OK!
 
   $ check ../examples/map.ml
+                   map: true
+                    id: true
+                map_id: true
+                  succ: true
+      map_not_id_false: false (expected)
+             succ_list: true
+              map_succ: true
+           thrice_list: true
+            map_thrice: true
   ALL OK!
 
 $ check ../examples/length.ml
@@ -20,9 +29,19 @@ $ check ../examples/closure.ml
 ALL OK!
 
   $ check ../examples/pure.ml
+                 hello: true
+            pure_hello: true
   ALL OK!
 
   $ check ../examples/fold.ml
+                length: true
+                   sum: true
+                 foldr: true
+             foldr_sum: true
+          foldr_length: true
+                 foldl: true
+             foldl_sum: true
+          foldl_length: true
   ALL OK!
 
 $ check ../examples/iter.ml

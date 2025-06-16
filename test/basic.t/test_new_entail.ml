@@ -192,3 +192,8 @@ let test_non_rec_pred ()
   id 2;
 
   call_ret id
+
+let test_read x
+  (*@ forall a. req x->a; ens x->a/\res=a @*) =
+  let j = !x in
+  j
