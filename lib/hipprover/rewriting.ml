@@ -146,6 +146,10 @@ let to_unifiable st f : unifiable =
       method! visit_Exists () x f =
         let v1, e = super#visit_Exists () x f in
         if is_uvar_name x then (v1, SMap.add x (UF.make st None) e) else (v1, e)
+
+      method! visit_ForAll () x f =
+        let v1, e = super#visit_ForAll () x f in
+        if is_uvar_name x then (v1, SMap.add x (UF.make st None) e) else (v1, e)
     end
   in
   match f with
