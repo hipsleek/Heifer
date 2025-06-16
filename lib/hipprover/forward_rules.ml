@@ -4,6 +4,7 @@ open Hiptypes
 open Variables
 open Pretty
 open Debug
+open Utils
 
 (*
 open Normalize
@@ -340,7 +341,7 @@ let rec forward (env: fvenv) (expr : core_lang): staged_spec * fvenv =
       let v = fresh_variable () in
       let t = Var v in
       let discriminant_spec, env = forward env discriminant in
-      let handle_case (constr, vars, body) env =
+      let handle_case env (constr, vars, body) =
         (* TODO: hard-coded for list now *)
         let body_spec, env = forward env body in
         let case_spec = match constr, vars with
@@ -357,8 +358,8 @@ let rec forward (env: fvenv) (expr : core_lang): staged_spec * fvenv =
         in
         case_spec, env
       in
-      let cases_spec, env = map_state env handle_case cases in
-      let disj_spec = Utils.Lists.foldr1 (fun l r -> Disjunction (l, r)) cases_spec in
+      let cases_spec, env = Lists.map_state handle_case env cases in
+      let disj_spec = Syntax.disj cases_spec in
       Bind (v, discriminant_spec, disj_spec), env
   | CResume _ ->
       failwith "CResume"

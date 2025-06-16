@@ -56,3 +56,11 @@ let rec find_delete_map (f : 'a -> 'b option) (xs : 'a list) : ('b * 'a list) op
           match find_delete_map f xs with
           | None -> None
           | Some (y, xs') -> Some (y, xs')
+
+let rec map_state (f : 's -> 'a -> 'b * 's) (s : 's) (xs : 'a list) : 'b list * 's =
+  match xs with
+  | [] -> [], s
+  | x :: xs ->
+      let h, s = f s x in
+      let t, s = map_state f s xs in
+      h :: t, s

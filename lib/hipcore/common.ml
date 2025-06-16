@@ -83,18 +83,9 @@ module SMap = struct
   let of_list xs = of_seq (List.to_seq xs)
 end
 
-let map_state env f xs =
-  let r, env =
-    List.fold_right (fun c (t, env) ->
-      let r, e1 = f c env
-      in (r :: t, e1)
-    ) xs ([], env)
-  in
-  r, env
-
-(** Like concat_map, but threads an extra "environment" argument through which can be updated by the function *)
+(* * Like concat_map, but threads an extra "environment" argument through which can be updated by the function
 let concat_map_state env f xs =
   let r, env = map_state env f xs in
-  List.concat r, env
+  List.concat r, env *)
 
 let protected f finally = Fun.protect ~finally f
