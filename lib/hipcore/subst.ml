@@ -98,6 +98,16 @@ let subst_free_vars bs staged =
         let bs = List.filter (fun (b, _) -> b <> x1) bindings in
         ForAll (x1, self#visit_staged_spec bs f1)
 
+      method! visit_Bind bindings x f1 f2 =
+        let x1, f2 =
+          if SSet.mem x free then
+            let y = Variables.fresh_variable ~v:x () in
+            (y, self#visit_staged_spec [(x, Var y)] f2)
+          else (x, f2)
+        in
+        let bs = List.filter (fun (b, _) -> b <> x1) bindings in
+        Bind (x1, self#visit_staged_spec bs f1, self#visit_staged_spec bs f2)
+
       method! visit_TLambda bindings name params sp body =
         let params1, sp1, body1 =
           List.fold_right

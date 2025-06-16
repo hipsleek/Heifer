@@ -357,6 +357,15 @@ let norm_bind_req = Staged.dynamic_rule
     let fk = Staged.of_uterm (sub "fk") in
     Sequence (Require (p, h), Bind (x, f, fk)))
 
+let norm_bind_ex = Staged.dynamic_rule
+  (Bind (Binder.uvar "x", Exists (Binder.uvar "x1", (Staged.uvar "f")), Staged.uvar "fk"))
+  (fun sub ->
+    let x = Binder.of_uterm (sub "x") in
+    let x1 = Binder.of_uterm (sub "x1") in
+    let f = Staged.of_uterm (sub "f") in
+    let fk = Staged.of_uterm (sub "fk") in
+    Exists (x1, Bind (x, f, fk)))
+
 (* bind (seq (ens Q) f) fk `entails` seq (ens Q) (bind f fk) *)
 (* we can push ens outside of bind; if the result of ens is not used *)
 let norm_bind_seq_ens = Staged.dynamic_rule
@@ -392,7 +401,7 @@ let norm_seq_ens_heap_ens_pure = Staged.dynamic_rule
       seq [NormalReturn (p, emp); NormalReturn (True, h); f])
 
 (* this rule is not proven in Coq formulization yet *)
-let norm_seq_assoc = Staged.rule
+let _norm_seq_assoc = Staged.rule
   (seq [seq [Staged.uvar "f1"; Staged.uvar "f2"]; Staged.uvar "f3"])
   (seq [Staged.uvar "f1"; Staged.uvar "f2"; Staged.uvar "f3"])
 
@@ -400,6 +409,7 @@ let normalization_rules_bind = [
   norm_bind_val;
   norm_bind_disj;
   norm_bind_req;
+  norm_bind_ex;
   norm_bind_seq_ens;
 ]
 

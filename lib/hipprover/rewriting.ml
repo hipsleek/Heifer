@@ -142,6 +142,10 @@ let to_unifiable st f : unifiable =
       method! visit_Bind () x f1 f2 =
         let v1, e = super#visit_Bind () x f1 f2 in
         if is_uvar_name x then (v1, SMap.add x (UF.make st None) e) else (v1, e)
+
+      method! visit_Exists () x f =
+        let v1, e = super#visit_Exists () x f in
+        if is_uvar_name x then (v1, SMap.add x (UF.make st None) e) else (v1, e)
     end
   in
   match f with
@@ -162,7 +166,7 @@ let to_unifiable st f : unifiable =
 let of_unifiable (f, _) = f
 
 let subst_uvars st (f, e) : uterm =
-  let visitor free =
+  let visitor =
     object (self)
       inherit [_] map_spec as super
 
@@ -203,69 +207,98 @@ let subst_uvars st (f, e) : uterm =
           UF.get st (SMap.find x e) |> Option.get |> uterm_to_term
         else Var x
 
-      (* the remaining cases handle capture-avoidance *)
+      (* the remaining cases also handle capture-avoidance in addition to binder variables *)
+
       method! visit_Exists () x f =
-        let x1, f1 =
+        let x =
+          if is_uvar_name x then
+            UF.get st (SMap.find x e) |> Option.get |> uterm_to_binder
+          else x
+        in
+        (* avoid capture *)
+        let f1 = self#visit_staged_spec () f in
+        let x2, f2 =
+          let free = Subst.free_vars f1 in
           if SSet.mem x free then
             let y = Variables.fresh_variable ~v:x () in
-            (y, Subst.subst_free_vars [(x, Var y)] f)
-          else (x, f)
+            (* note the use of f, not f1 *)
+            let f2 = f |> Subst.subst_free_vars [(x, Var y)] in
+            let f2 = self#visit_staged_spec () f2 in
+            (y, f2)
+          else (x, f1)
         in
-        Exists (x1, self#visit_staged_spec () f1)
+        Exists (x2, f2)
+
+      (* other cases are copy-pasted *)
 
       method! visit_ForAll () x f =
-        let x1, f1 =
+        let x =
+          if is_uvar_name x then
+            UF.get st (SMap.find x e) |> Option.get |> uterm_to_binder
+          else x
+        in
+        let f1 = self#visit_staged_spec () f in
+        let x2, f2 =
+          let free = Subst.free_vars f1 in
           if SSet.mem x free then
             let y = Variables.fresh_variable ~v:x () in
-            (y, Subst.subst_free_vars [(x, Var y)] f)
-          else (x, f)
+            let f2 = f |> Subst.subst_free_vars [(x, Var y)] in
+            let f2 = self#visit_staged_spec () f2 in
+            (y, f2)
+          else (x, f1)
         in
-        ForAll (x1, self#visit_staged_spec () f1)
+        ForAll (x2, f2)
+
+      method! visit_Bind () x f1 f2 =
+        let x, f1, f2 =
+          if is_uvar_name x then
+            let b =
+              UF.get st (SMap.find x e) |> Option.get |> uterm_to_binder
+            in
+            ( b,
+              Subst.subst_free_vars [(x, Var b)] f1,
+              Subst.subst_free_vars [(x, Var b)] f2 )
+          else (x, f1, f2)
+        in
+        let f1 = self#visit_staged_spec () f1 in
+        let f3 = self#visit_staged_spec () f2 in
+        let x2, f2 =
+          let free = Subst.free_vars f3 in
+          if SSet.mem x free then
+            let y = Variables.fresh_variable ~v:x () in
+            (* note the use of f2, not f3 *)
+            let f2 = f2 |> Subst.subst_free_vars [(x, Var y)] in
+            let f2 = self#visit_staged_spec () f2 in
+            (y, f2)
+          else (x, f3)
+        in
+        Bind (x2, f1, f2)
 
       (* TODO other binders *)
     end
   in
-  (* because we're dealing with unifiables, we need to go through the
-    environment to find terms, then look inside those for free variables *)
-  let find_free_vars uvars =
-    uvars |> SSet.filter is_uvar_name |> SSet.to_list
-    |> List.map (fun uv -> SMap.find uv e |> UF.get st |> Option.get)
-    |> List.map (fun u ->
-           match u with
-           | Staged s -> Subst.free_vars s
-           | Heap h -> Subst.free_vars_heap h
-           | Pure p -> Subst.free_vars_pure p
-           | Term t -> Subst.free_vars_term t
-           | Binder _ -> SSet.empty)
-    |> SSet.concat
-  in
   match f with
   | Staged s ->
-    let free = Subst.free_vars s |> find_free_vars in
-    let s = (visitor free)#visit_staged_spec () s in
+    let s = visitor#visit_staged_spec () s in
     Staged s
   | Pure p ->
-    let free = Subst.free_vars_pure p |> find_free_vars in
-    let p = (visitor free)#visit_pi () p in
+    let p = visitor#visit_pi () p in
     Pure p
   | Heap h ->
-    let free = Subst.free_vars_heap h |> find_free_vars in
-    let h = (visitor free)#visit_kappa () h in
+    let h = visitor#visit_kappa () h in
     Heap h
   | Term t ->
-    let free = Subst.free_vars_term t |> find_free_vars in
-    let t = (visitor free)#visit_term () t in
+    let t = visitor#visit_term () t in
     Term t
   | Binder x ->
     if is_uvar_name x then UF.get st (SMap.find x e) |> Option.get else Binder x
 
-let%expect_test _ =
+let%expect_test "capture-avoidance" =
   Variables.reset_counter 0;
   let open Syntax in
   let st = UF.new_store () in
-  (* let xs = Subst.free_vars (ens ~p:(eq (v "x") (num 1)) ()) in
-  Format.printf "%s@." (string_of_sset xs); *)
   let v = UF.make st (Some (Staged (ens ~p:(eq (v "x") (num 1)) ()))) in
+  (* v has x free. sub it into a term which binds x. the binder needs to be renamed *)
   let ut =
     subst_uvars st
       (Staged (Exists ("x", HigherOrder ("__a", []))), SMap.singleton "__a" v)
@@ -422,10 +455,12 @@ and unify_staged :
     let* _ = unify_var st (Staged f1, e1) (Staged f3, e2) in
     let* _ = unify_var st (Staged f2, e1) (Staged f4, e2) in
     Some ()
-  | Exists (x1, b1), Exists (x2, b2) when x1 = x2 ->
+  | Exists (x1, b1), Exists (x2, b2) ->
+    let* _ = unify_var st (Binder x1, e1) (Binder x2, e2) in
     let* _ = unify_var st (Staged b1, e1) (Staged b2, e2) in
     Some ()
-  | ForAll (x1, b1), ForAll (x2, b2) when x1 = x2 ->
+  | ForAll (x1, b1), ForAll (x2, b2) ->
+    let* _ = unify_var st (Binder x1, e1) (Binder x2, e2) in
     let* _ = unify_var st (Staged b1, e1) (Staged b2, e2) in
     Some ()
   | HigherOrder (f1, a1), HigherOrder (f2, a2) when f1 = f2 ->
@@ -710,6 +745,33 @@ let%expect_test "rewriting" =
     rewrite f(g)
     with f(__x) ==> __x(())
     result: g(())
+    |}];
+
+  (* binders *)
+  let norm_bind_ex =
+    Staged.rule
+      (Bind
+         ( Binder.uvar "x",
+           Exists (Binder.uvar "x1", Staged.uvar "f"),
+           Staged.uvar "fk" ))
+      (Exists
+         ( Binder.uvar "x1",
+           Bind (Binder.uvar "x", Staged.uvar "f", Staged.uvar "fk") ))
+  in
+  test norm_bind_ex
+    (Staged
+       (Bind
+          ( "x",
+            Exists ("y", ens ~p:(eq (v "res") (v "y")) ()),
+            ens ~p:(eq (v "x") (num 1)) () )));
+  (* this is quite broken, so use dynamic rules for binders.
+    the problem is the lack of contextual patterns relating binders to uses,
+    so capture-avoidance doesn't work properly *)
+  [%expect
+    {|
+    rewrite let x = (ex y. (ens res=y)) in (ens x=1)
+    with let __x = (ex __x1. (__f())) in (__fk()) ==> ex __x1. (let __x = (__f()) in (__fk()))
+    result: ex y2. (let x3 = (ens res=y) in (ens x=1))
     |}]
 
 (* see tests.ml for more *)
