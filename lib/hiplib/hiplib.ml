@@ -108,6 +108,7 @@ let normal_report ~kind ~name ~inferred_spec ~normalized_spec ~given_spec ~resul
     given_spec_string;
     result_string;
   ] in
+  debug ~at:2 ~title:"verification result" "";
   Format.printf "%s@." report
 
 let test_report ~kind ~name ~inferred_spec ~normalized_spec ~given_spec ~result =
@@ -380,7 +381,6 @@ let run_file input_file =
   let content = preprocess_spec_comments content in
   let file_kind = get_file_type input_file in
   run_string file_kind content;
-  debug ~at:2 ~title:"final summary" "";
   close_in chan
 
     (* let finalSummary =

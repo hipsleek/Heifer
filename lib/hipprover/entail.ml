@@ -205,6 +205,14 @@ let check_pure_obligation left right =
 (* will be used for remembering predicate? Not sure whether it should be put here *)
 let derive_predicate m_name m_params f =
   let new_spec = normalize_spec f in
+  let@ _ =
+    Debug.span (fun res ->
+        debug ~at:2
+          ~title:(Format.asprintf "derive predicate %s" m_name)
+          "%s\n\n%s"
+          (string_of_staged_spec new_spec)
+          (string_of_result string_of_pred res))
+  in
   let res =
     {
       p_name = m_name;
@@ -213,11 +221,6 @@ let derive_predicate m_name m_params f =
       p_rec = (find_rec m_name)#visit_staged_spec () new_spec;
     }
   in
-  debug ~at:2
-    ~title:(Format.asprintf "derive predicate %s" m_name)
-    "%s\n\n%s"
-    (string_of_staged_spec new_spec)
-    (string_of_pred res);
   res
 
 let lambda_to_rule m_name m_params f =

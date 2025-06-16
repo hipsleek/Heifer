@@ -1,8 +1,8 @@
-(* let rec length li =
+let [@pure] rec length (li : int list) : int =
   match li with
   | [] -> 0
   | x :: xs -> 1 + length xs
-*)
+
 
 let [@pure] hello (x:int) : int = x + 1
 
@@ -44,7 +44,7 @@ let foldr_sum xs k
 = let g c t = c + t in
   foldr g xs k
 
-(* let foldr_length xs init
-(*@ ex r. length(xs, r); ens res=r+init @*)
+let foldr_length xs init
+(*@ ens res=length(xs)+init @*)
 = let g c t = 1 + t in
-  foldr g xs init *)
+  foldr g xs init
