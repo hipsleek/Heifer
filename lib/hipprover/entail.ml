@@ -528,32 +528,34 @@ let rec apply_ent_rule ?name : tactic =
     let choices =
       pctx.constants
       |> List.map (fun c ->
-             let@ _ =
-               span (fun _r ->
-                   log_proof_state
-                     ~title:
-                       (Format.asprintf "ent: exists on the right; [%s/%s]"
-                          (string_of_term c) x)
-                     (pctx, f1, f2))
-             in
              let f4 = Subst.subst_free_vars [(x, c)] f4 in
-             entailment_search ?name (pctx, f1, f4))
+             fun k1 ->
+               let@ _ =
+                 span (fun _r ->
+                     log_proof_state
+                       ~title:
+                         (Format.asprintf "ent: exists on the right; [%s/%s]"
+                            (string_of_term c) x)
+                       (pctx, f1, f2))
+               in
+               entailment_search ?name (pctx, f1, f4) k1)
     in
     disj_ choices k
   | ForAll (x, f3), f2 ->
     let choices =
       pctx.constants
       |> List.map (fun c ->
-             let@ _ =
-               span (fun _r ->
-                   log_proof_state
-                     ~title:
-                       (Format.asprintf "ent: forall on the left; [%s/%s]"
-                          (string_of_term c) x)
-                     (pctx, f1, f2))
-             in
              let f3 = Subst.subst_free_vars [(x, c)] f3 in
-             entailment_search ?name (pctx, f3, f2))
+             fun k1 ->
+               let@ _ =
+                 span (fun _r ->
+                     log_proof_state
+                       ~title:
+                         (Format.asprintf "ent: forall on the left; [%s/%s]"
+                            (string_of_term c) x)
+                       (pctx, f1, f2))
+               in
+               entailment_search ?name (pctx, f3, f2) k1)
     in
     disj_ choices k
   (* disjunction *)
