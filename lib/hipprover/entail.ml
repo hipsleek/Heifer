@@ -385,20 +385,29 @@ let is_recursive pctx f =
 let biab h1 h2 k =
   let open Biab in
   let open Syntax in
-  let a, _h, f, ctx = solve emp_biab_ctx h1 h2 in
+  let _h, a, f, ctx =
+    let@ _ =
+      span (fun r ->
+          debug ~at:4 ~title:"ent: biab" "%s * %s |- %s * %s"
+            (string_of_result
+               (fun (_h, a, _f, _ctx) -> string_of_kappa (sep_conj a))
+               r)
+            (string_of_kappa h1) (string_of_kappa h2)
+            (string_of_result
+               (fun (_h, _a, f, ctx) ->
+                 string_of_state (conj ctx.equalities, sep_conj f))
+               r))
+    in
+    solve emp_biab_ctx h1 h2
+  in
   let a = sep_conj a in
   let f = sep_conj f in
   let eqs = conj ctx.equalities in
   k ((True, a), (eqs, f))
 
-(* val solve : biab_ctx -> kappa -> kappa -> kappa list * kappa list * kappa list * biab_ctx *)
-
 let rec apply_ent_rule ?name : tactic =
  fun (pctx, f1, f2) k ->
   let open Syntax in
-  (* let@ _ =
-    span (fun _r -> log_proof_state ~title:"apply_ent_rule" (pctx, f1, f2))
-  in *)
   match (f1, f2) with
   (* base case *)
   | NormalReturn (True, EmptyHeap), NormalReturn (True, EmptyHeap)
@@ -414,38 +423,36 @@ let rec apply_ent_rule ?name : tactic =
     let@ _ =
       span (fun _r -> log_proof_state ~title:"ent: ens ens" (pctx, f1, f2))
     in
-    let@ anti, frame = biab h1 h2 in
-    let valid = check_pure_obligation (And (conj pctx.assumptions, p1)) p2 in
-    if valid then entailment_search ?name (pctx, req' anti, req' frame) k
+    let@ (ap, ah), (fp, fh) = biab h1 h2 in
+    let valid =
+      check_pure_obligation (conj (pctx.assumptions @ [p1; ap])) (conj [p2; fp])
+    in
+    if valid then entailment_search ?name (pctx, req ~h:ah (), req ~h:fh ()) k
   | Require (p1, h1), Require (p2, h2) ->
     let@ _ =
       span (fun _r -> log_proof_state ~title:"ent: req req" (pctx, f1, f2))
     in
-    let@ anti, frame = biab h2 h1 in
-    let valid = check_pure_obligation (And (conj pctx.assumptions, p2)) p1 in
-    if valid then k (pctx, req' anti, req' frame)
-    (* prove some obligations *)
+    apply_ent_rule ?name (pctx, NormalReturn (p2, h2), NormalReturn (p1, h1)) k
   | Sequence (NormalReturn (p1, h1), f1), Sequence (NormalReturn (p2, h2), f2)
     ->
     let@ _ =
       span (fun _r -> log_proof_state ~title:"ent: ens ens f" (pctx, f1, f2))
     in
-    let@ anti, frame = biab h1 h2 in
-    let valid = check_pure_obligation (And (conj pctx.assumptions, p1)) p2 in
+    let@ (ap, ah), (fp, fh) = biab h1 h2 in
+    let valid =
+      check_pure_obligation (conj (pctx.assumptions @ [p1; ap])) (conj [p2; fp])
+    in
     if valid then
       entailment_search ?name
-        (pctx, seq [req' anti; f1], seq [req' frame; f2])
+        (pctx, seq [req ~h:ah (); f1], seq [req ~h:fh (); f2])
         k
   | Sequence (Require (p1, h1), f1), Sequence (Require (p2, h2), f2) ->
     let@ _ =
       span (fun _r -> log_proof_state ~title:"ent: req req f" (pctx, f1, f2))
     in
-    let@ anti, frame = biab h2 h1 in
-    let valid = check_pure_obligation (And (conj pctx.assumptions, p2)) p1 in
-    if valid then
-      entailment_search ?name
-        (pctx, seq [req' anti; f1], seq [req' frame; f2])
-        k
+    apply_ent_rule ?name
+      (pctx, seq [NormalReturn (p2, h2); f1], seq [NormalReturn (p1, h1); f2])
+      k
   (* create induction hypothesis *)
   | HigherOrder (f, _), f2 when is_recursive pctx f ->
     let ps =

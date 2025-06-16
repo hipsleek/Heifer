@@ -60,11 +60,17 @@ let subst_free_vars bs staged =
       (* most of the work done by this visitor is done here *)
       method! visit_Var bindings v = find_binding v bindings
 
-      (* we allow substituting into function names too *)
+      (* a few other constructs contain implicit variables *)
       method! visit_HigherOrder bindings f v =
         let v1 = self#visit_list self#visit_term bindings v in
         match find_binding f bindings with
         | Var f1 -> HigherOrder (f1, v1)
+        | _ -> failwith "invalid"
+
+      method! visit_PointsTo bindings x v =
+        let v1 = self#visit_term bindings v in
+        match find_binding x bindings with
+        | Var f1 -> PointsTo (f1, v1)
         | _ -> failwith "invalid"
 
       (* the remaining cases handle capture-avoidance in binders *)
