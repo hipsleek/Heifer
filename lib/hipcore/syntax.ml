@@ -17,3 +17,4 @@ let v x = Var x
 let var v = Var v
 let num n = Const (Num n)
 let plus x y = BinOp (Plus, x, y)
+let points_to x y = PointsTo (x, y)
