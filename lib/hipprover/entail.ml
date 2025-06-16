@@ -448,24 +448,21 @@ let rec apply_ent_rule ?name : tactic =
       { pctx with assumptions = p2 :: pctx.assumptions }
     in
     entailment_search ?name (pctx, f1, f2) k
-  (* quantifiers *)
-  | ForAll (x, f1), f2 ->
-    let choices =
-      let@ _ =
-        span (fun _r ->
-            log_proof_state ~title:"ent: forall on the left" (pctx, f1, f2))
-      in
-      pctx.constants
-      |> List.map (fun c ->
-             let f2 = Subst.subst_free_vars [(x, c)] f2 in
-             entailment_search ?name (pctx, f1, f2))
-    in
-    disj_ choices k
+  (* quantifiers. intro before trying to instantiate *)
   | Exists (x, f1), f2 ->
     let pctx =
       let@ _ =
         span (fun _r ->
             log_proof_state ~title:"ent: exists on the left" (pctx, f1, f2))
+      in
+      { pctx with constants = Var x :: pctx.constants }
+    in
+    entailment_search ?name (pctx, f1, f2) k
+  | f1, ForAll (x, f2) ->
+    let pctx =
+      let@ _ =
+        span (fun _r ->
+            log_proof_state ~title:"ent: forall on the right" (pctx, f1, f2))
       in
       { pctx with constants = Var x :: pctx.constants }
     in
@@ -482,15 +479,18 @@ let rec apply_ent_rule ?name : tactic =
              entailment_search ?name (pctx, f1, f2))
     in
     disj_ choices k
-  | f1, ForAll (x, f2) ->
-    let pctx =
+  | ForAll (x, f1), f2 ->
+    let choices =
       let@ _ =
         span (fun _r ->
-            log_proof_state ~title:"ent: forall on the right" (pctx, f1, f2))
+            log_proof_state ~title:"ent: forall on the left" (pctx, f1, f2))
       in
-      { pctx with constants = Var x :: pctx.constants }
+      pctx.constants
+      |> List.map (fun c ->
+             let f2 = Subst.subst_free_vars [(x, c)] f2 in
+             entailment_search ?name (pctx, f1, f2))
     in
-    entailment_search ?name (pctx, f1, f2) k
+    disj_ choices k
   (* disjunction *)
   | Disjunction (f1, f2), f3 ->
     let tag = Variables.fresh_variable () in
