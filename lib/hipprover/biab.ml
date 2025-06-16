@@ -1,94 +1,15 @@
 open Hipcore
 open Hiptypes
-open Pretty
-open Subst
-open Debug
 open Syntax
 open Utils
-open Misc
 
 type biab_ctx = {
-  equivalance_class: unit list (* some kind of union-find structure *);
+  equalities: pi list;
 }
 
 let emp_biab_ctx = {
-  equivalance_class = []
+  equalities = []
 }
-
-(*
-let pure_abduction left right =
-  (* let@ _ =
-    Debug.span (fun r ->
-        debug ~at:5
-          ~title:"pure_abduction"
-          "%s /\\ ? |- %s\nabduced: %s\nnew left: %s\nnew right: %s" (string_of_pi left)
-          (string_of_pi right)
-          (string_of_result string_of_pi (map_presult (fun (a, _, _) -> a) r))
-          (string_of_result string_of_pi (map_presult (fun (_, a, _) -> a) r))
-          (string_of_result string_of_pi (map_presult (fun (_, _, a) -> a) r)))
-  in *)
-  (* woefully incomplete *)
-  (* https://www.cs.utexas.edu/~isil/fmcad-tutorial.pdf *)
-  (*
-    A /\ a=b |- a <: c /\ F
-    A: b <: c
-    F: true
-    ens a=b; req a<:c
-    req b<:c; ens true
-  *)
-  let _eqs = find_equalities#visit_pi () left in
-  (*
-  let subs = find_subsumptions#visit_pi () right in
-  let asmp =
-    subs |> List.concat_map (fun (a, f) ->
-      eqs |> List.concat_map (fun (b, c) ->
-          (if b = a then [Subsumption (c, f), (b, c), (a, f)] else []) @
-          (if c = a then [Subsumption (b, f), (b, c), (a, f)] else [])
-        ))
-  in
-  let abduced = List.map (fun (a, _, _) -> a) asmp |> conj in
-  let left1 =
-    let used = List.map (fun (_, b, _) -> b) asmp in
-    (remove_equalities used)#visit_pi () left
-  in
-  let right1 =
-    let used = List.map (fun (_, _, c) -> c) asmp in
-    (remove_subsumptions used)#visit_pi () right
-  in
-  (* more general case? *)
-  (*
-    A /\ a=1 |- a=2 /\ F
-    A: 1=2
-    F: true
-    ens a=1; req a=2
-    req 1=2; ens true
-  *)
-  abduced, left1, right1
-  *)
-  todo ()
-*)
-
-(** check if x=y is not invalid (i.e. sat) under the given assumptions *)
-(*
-let may_be_equal _assumptions _x _y =
-  (* let@ _ =
-       Debug.span (fun r ->
-           debug ~at:4 ~title:"may be equal" "%s => %s = %s\n%s"
-             (string_of_pi assumptions) (string_of_term x) (string_of_term y)
-             (string_of_result string_of_bool r))
-     in
-     let tenv =
-       Infer_types.infer_types_pi (create_abs_env ())
-         (And (assumptions, Atomic (EQ, x, y)))
-       |> Infer_types.concrete_type_env
-     in
-     let right = Atomic (EQ, x, y) in
-     (* let eq = Provers.entails_exists tenv assumptions [] right in *)
-     let eq = Provers.askZ3 tenv (Imply (assumptions, right)) in
-     eq *)
-  (* proving at this point is not effective as we may not be able to prove unsat, but later the constraints may be violated, resulting in false anyway. returning true here is just the worst case version of that *)
-  true
-*)
 
 (* (x, t1) -* (y, t2), where li is a heap containing y *)
 (* flag true => add to precondition *)
@@ -183,53 +104,17 @@ let rec deleteFromHeapListIfHas li (x, t1) existential flag assumptions :
   res
 *)
 
-(*
-(* h1 * h |- h2, returns h and unificiation
-   x -> 3 |- x -> z   -> (emp, true )
-   x -> z |- x -> 3   -> (emp, z = 3)
-*)
-(* flag true => ens h1; req h2 *)
-(* flag false => req h2; ens h1 *)
-let normaliseMagicWand h1 h2 existential flag assumptions : kappa * pi =
-  let@ _ =
-    Debug.span (fun r ->
-        debug ~at:6
-          ~title:"normaliseMagicWand"
-          "%s * ?%s |- %s * ?%s\nex %s\nflag %b\nassumptions %s"
-          (string_of_kappa h1)
-          (string_of_result string_of_kappa (map_presult fst r))
-          (string_of_kappa h2)
-          (string_of_result string_of_pi (map_presult snd r))
-          (string_of_list Fun.id existential)
-          flag
-          (string_of_pi assumptions))
-  in
-  let listOfHeap1 = list_of_heap h1 in
-  let listOfHeap2 = list_of_heap h2 in
-  let rec helper (acc : (string * term) list * pi) li =
-    let heapLi, unification = acc in
-    match li with
-    | [] -> acc
-    | (x, v) :: xs ->
-      let heapLi', unification' =
-        deleteFromHeapListIfHas heapLi (x, v) existential flag assumptions
-      in
-      helper (heapLi', And (unification, unification')) xs
-  in
-  let temp, unification = helper (listOfHeap2, True) listOfHeap1 in
-  (simplify_heap (kappa_of_list temp), unification)
-*)
-
 let rec conjuncts_of_kappa (k : kappa) : kappa list =
   match k with
   | SepConj (k1, k2) -> conjuncts_of_kappa k1 @ conjuncts_of_kappa k2
   | _ -> [k]
 
 (* precondition: all separation conjuctions are flatten into a list of conjucts *)
-let rec match_points_to (ctx : biab_ctx) (ks1 : kappa list) (ks2 : kappa list) : kappa list * kappa list * biab_ctx =
+let rec match_points_to (ctx : biab_ctx) (ks1 : kappa list) (ks2 : kappa list) :
+  kappa list * kappa list * kappa list * biab_ctx =
   match ks1 with
-  | [] -> ks2, [], ctx
-  | (PointsTo (x, _t) as k) :: ks1 ->
+  | [] -> [], ks2, [], ctx
+  | PointsTo (x, t) as k :: ks1 ->
       (* we try to match on the location *)
       let match_loc = function
         | PointsTo (x', _) -> x = x'
@@ -239,23 +124,24 @@ let rec match_points_to (ctx : biab_ctx) (ks1 : kappa list) (ks2 : kappa list) :
       | None ->
           (* the location does not exists in the rhs *)
           (* therefore we add it into the rhs residue *)
-          let anti_frame, frame, ctx = match_points_to ctx ks1 ks2 in
-          anti_frame, k :: frame, ctx
-      | Some (_k', ks2) ->
-        (* generate an equality here *)
-          let ctx = ctx in
-          let anti_frame, frame, ctx = match_points_to ctx ks1 ks2 in
-          anti_frame, frame, ctx
+          let common, anti_frame, frame, ctx = match_points_to ctx ks1 ks2 in
+          common, anti_frame, k :: frame, ctx
+      | Some (PointsTo (_, t'), ks2) ->
+          (* generate an equality here *)
+          let ctx = if t = t' then ctx else {equalities = eq t t' :: ctx.equalities} in
+          let common, anti_frame, frame, ctx = match_points_to ctx ks1 ks2 in
+          common, anti_frame, frame, ctx
+      | _ ->
+          failwith "unreachable" (* TODO: rewrite this *)
       end
   | EmptyHeap :: _
-  | SepConj _ :: _ -> failwith "match points to"
+  | SepConj _ :: _ -> failwith "match_points_to"
 
 (* A * H1 |- H2 * D *)
 (* the caller has h1 and h2 and therefore we don't need to return that *)
 (* because we may have many solutions, that's why we need to use Iter.t.
    but I am not going to use it now *)
-let solve (ctx : biab_ctx) (h1 : kappa) (h2 : kappa) : kappa list * kappa list * biab_ctx =
-  ignore (ctx, h1, h2);
+let solve (ctx : biab_ctx) (h1 : kappa) (h2 : kappa) : kappa list * kappa list * kappa list * biab_ctx =
   let heap1 = conjuncts_of_kappa h1 in
   let heap2 = conjuncts_of_kappa h2 in
   (* now match h1 and h2 together. *)
@@ -264,15 +150,6 @@ let solve (ctx : biab_ctx) (h1 : kappa) (h2 : kappa) : kappa list * kappa list *
   (* if we can sort the conjucts and then do something like "merge"
      then the complexity of O(n log n) *)
   match_points_to ctx heap1 heap2
-  (* if h1 = h2 then
-    emp, emp, ctx
-  else if h2 = emp then
-    emp, h1, ctx
-  else if (* b_ptr_match *) false then
-    todo ()
-  else
-    match h1, h2 with
-    | SepConj (h1_left, h1_right), SepConj (h2_left, h2_right) *)
 (*
   let magicWandHeap, unification =
     normaliseMagicWand h2 h3 existential true (And (p2, p3))

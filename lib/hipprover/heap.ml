@@ -56,7 +56,6 @@ let xpure (h : kappa) : pi =
   in
   fst (run h)
 
-(*
 let rec check :
   string ->
   string list ->
@@ -67,15 +66,17 @@ let rec check :
 fun id vs ante conseq k ->
 let open Search in
 (* TODO ptr equalities? *)
-let a = normalize ante in
-let c = normalize conseq in
+let a = (*normalize*) ante in
+let c = (*normalize*) conseq in
 (* debug ~at:1
   ~title:(Format.asprintf "SL entailment (%s)" id)
   "%s |- %s" (string_of_state ante) (string_of_state conseq); *)
 (* TODO frame and spans *)
 match (a, c) with
+  | _ -> failwith "check"
+(*
 | (p1, h1), (p2, EmptyHeap) ->
-  debug ~at:4 ~title:(Format.asprintf "right empty") "";
+  (* debug ~at:4 ~title:(Format.asprintf "right empty") ""; *)
   let left = And (xpure h1, p1) in
   (* TODO add more logging to surface what happens in these entailments *)
   k (left, p2, h1)
@@ -83,7 +84,7 @@ match (a, c) with
   (* we know h2 is non-empty *)
   match split_one h2 with
   | Some ((x, v), h2') when List.mem x vs ->
-    debug ~at:4 ~title:(Format.asprintf "existential location %s" x) "";
+    (* debug ~at:4 ~title:(Format.asprintf "existential location %s" x) ""; *)
     let left_heap = list_of_heap h1 in
     (match left_heap with
     | [] -> fail
@@ -104,7 +105,7 @@ match (a, c) with
       in
       r1)
   | Some ((x, v), h2') -> begin
-    debug ~at:4 ~title:(Format.asprintf "free location %s" x) "";
+    (* debug ~at:4 ~title:(Format.asprintf "free location %s" x) ""; *)
     (* x is free. match against h1 exactly *)
     match split_find x h1 with
     | Some (v1, h1') -> begin
@@ -115,7 +116,7 @@ match (a, c) with
     end
     | None ->
       (* TODO *)
-      debug ~at:4 ~title:(Format.asprintf "failed") "";
+      (* debug ~at:4 ~title:(Format.asprintf "failed") ""; *)
       fail
   end
   | None -> failwith (Format.asprintf "could not split LHS, bug?")
