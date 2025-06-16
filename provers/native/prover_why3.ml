@@ -818,6 +818,7 @@ and core_lang_to_whyml tenv e =
     let fn =
       match s with
       | "+" | "-" | ">" | "<" | ">=" | "<=" -> qualid ["Int"; Ident.op_infix s]
+      | "::" -> qualid ["List"; "Cons"]
       | "=" -> qualid ["Int"; Ident.op_infix s] (* for now *)
       | "||" -> qualid ["Bool"; "orb"]
       | "&&" -> qualid ["Bool"; "andb"]
