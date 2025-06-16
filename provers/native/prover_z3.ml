@@ -349,7 +349,7 @@ let ex_quantify_expr env vars ctx e =
     | Arrow (_, _) -> failwith "Arrow"
     | TVar _ -> failwith "TVar"
 
-  let rec core_lang_to_expr : core_lang -> Expr.expr = fun e ->
+  let core_lang_to_expr : core_lang -> Expr.expr = fun e ->
     (* Format.printf "expr %s@." (Pretty.string_of_core_lang e); *)
     match e with
     | CLet _ ->
