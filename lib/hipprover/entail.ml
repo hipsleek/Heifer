@@ -389,13 +389,33 @@ let rec apply_ent_rule ?name : tactic =
     span (fun _r -> log_proof_state ~title:"apply_ent_rule" (pctx, f1, f2))
   in *)
   match (f1, f2) with
-  (* base case *)
+  (* base cases *)
   | NormalReturn (p1, h1), NormalReturn (p2, h2) ->
     let@ _ =
       span (fun _r -> log_proof_state ~title:"ent: ens ens" (pctx, f1, f2))
     in
     let valid = check_pure_obligation (And (conj pctx.assumptions, p1)) p2 in
     if valid then k (pctx, ens (), ens ()) else fail
+  | Require (p1, h1), Require (p2, h2) ->
+    let@ _ =
+      span (fun _r -> log_proof_state ~title:"ent: req req" (pctx, f1, f2))
+    in
+    let valid = check_pure_obligation (And (conj pctx.assumptions, p2)) p1 in
+    if valid then k (pctx, ens (), ens ()) else fail
+    (* prove some obligations *)
+  | Sequence (NormalReturn (p1, h1), f1), Sequence (NormalReturn (p2, h2), f2)
+    ->
+    let@ _ =
+      span (fun _r -> log_proof_state ~title:"ent: ens ens f" (pctx, f1, f2))
+    in
+    let valid = check_pure_obligation (And (conj pctx.assumptions, p2)) p1 in
+    if valid then entailment_search ?name (pctx, f1, f2) k else fail
+  | Sequence (Require (p1, h1), f1), Sequence (Require (p2, h2), f2) ->
+    let@ _ =
+      span (fun _r -> log_proof_state ~title:"ent: req req f" (pctx, f1, f2))
+    in
+    let valid = check_pure_obligation (And (conj pctx.assumptions, p2)) p1 in
+    if valid then entailment_search ?name (pctx, f1, f2) k else fail
   (* create induction hypothesis *)
   | HigherOrder (f, _), f2 when is_recursive pctx f ->
     let ps =
