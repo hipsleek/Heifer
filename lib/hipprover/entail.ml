@@ -458,45 +458,6 @@ let rec apply_ent_rule ?name : tactic =
       { pctx with assumptions = p2 :: pctx.assumptions }
     in
     entailment_search ?name (pctx, f1, f4) k
-  (* proving *)
-  | NormalReturn (p1, h1), NormalReturn (p2, h2) ->
-    let@ _ =
-      span (fun _r -> log_proof_state ~title:"ent: ens ens" (pctx, f1, f2))
-    in
-    let@ (ap, ah), (fp, fh) = biab h1 h2 in
-    let valid =
-      check_pure_obligation
-        (conj (pctx.assumptions @ [p1; ap; Heap.xpure h1]))
-        (conj [p2; fp; Heap.xpure h2])
-    in
-    if valid then entailment_search ?name (pctx, req ~h:ah (), req ~h:fh ()) k
-  | Require (p1, h1), Require (p2, h2) ->
-    let@ _ =
-      span (fun _r -> log_proof_state ~title:"ent: req req" (pctx, f1, f2))
-    in
-    apply_ent_rule ?name (pctx, NormalReturn (p2, h2), NormalReturn (p1, h1)) k
-  | Sequence (NormalReturn (p1, h1), f3), Sequence (NormalReturn (p2, h2), f4)
-    ->
-    let@ _ =
-      span (fun _r -> log_proof_state ~title:"ent: ens ens f" (pctx, f1, f2))
-    in
-    let@ (ap, ah), (fp, fh) = biab h1 h2 in
-    let valid =
-      check_pure_obligation
-        (conj (pctx.assumptions @ [p1; ap; Heap.xpure h1]))
-        (conj [p2; fp; Heap.xpure h2])
-    in
-    if valid then
-      entailment_search ?name
-        (pctx, seq [req ~h:ah (); f3], seq [req ~h:fh (); f4])
-        k
-  | Sequence (Require (p1, h1), f3), Sequence (Require (p2, h2), f4) ->
-    let@ _ =
-      span (fun _r -> log_proof_state ~title:"ent: req req f" (pctx, f1, f2))
-    in
-    apply_ent_rule ?name
-      (pctx, seq [NormalReturn (p2, h2); f3], seq [NormalReturn (p1, h1); f4])
-      k
   (* biabduction *)
   | Sequence (NormalReturn (p1, h1), Require (p2, h2)), f2 ->
     let@ _ =
@@ -549,6 +510,45 @@ let rec apply_ent_rule ?name : tactic =
         ]
     in
     apply_ent_rule ?name (pctx, f1, f2) k
+  (* proving *)
+  | NormalReturn (p1, h1), NormalReturn (p2, h2) ->
+    let@ _ =
+      span (fun _r -> log_proof_state ~title:"ent: ens ens" (pctx, f1, f2))
+    in
+    let@ (ap, ah), (fp, fh) = biab h1 h2 in
+    let valid =
+      check_pure_obligation
+        (conj (pctx.assumptions @ [p1; ap; Heap.xpure h1]))
+        (conj [p2; fp; Heap.xpure h2])
+    in
+    if valid then entailment_search ?name (pctx, req ~h:ah (), req ~h:fh ()) k
+  | Require (p1, h1), Require (p2, h2) ->
+    let@ _ =
+      span (fun _r -> log_proof_state ~title:"ent: req req" (pctx, f1, f2))
+    in
+    apply_ent_rule ?name (pctx, NormalReturn (p2, h2), NormalReturn (p1, h1)) k
+  | Sequence (NormalReturn (p1, h1), f3), Sequence (NormalReturn (p2, h2), f4)
+    ->
+    let@ _ =
+      span (fun _r -> log_proof_state ~title:"ent: ens ens f" (pctx, f1, f2))
+    in
+    let@ (ap, ah), (fp, fh) = biab h1 h2 in
+    let valid =
+      check_pure_obligation
+        (conj (pctx.assumptions @ [p1; ap; Heap.xpure h1]))
+        (conj [p2; fp; Heap.xpure h2])
+    in
+    if valid then
+      entailment_search ?name
+        (pctx, seq [req ~h:ah (); f3], seq [req ~h:fh (); f4])
+        k
+  | Sequence (Require (p1, h1), f3), Sequence (Require (p2, h2), f4) ->
+    let@ _ =
+      span (fun _r -> log_proof_state ~title:"ent: req req f" (pctx, f1, f2))
+    in
+    apply_ent_rule ?name
+      (pctx, seq [NormalReturn (p2, h2); f3], seq [NormalReturn (p1, h1); f4])
+      k
   (* create induction hypothesis *)
   | HigherOrder (f, _), f2
     when is_recursive pctx f && not (has_been_unfolded pctx f `Left) ->
