@@ -297,10 +297,10 @@ let unfold_recursive_defns pctx f lr =
   debug ~at:2 ~title:"used rules" "%s" (string_of_list string_of_use used);
   ({ pctx with unfolded = used @ pctx.unfolded }, f, used)
 
-let unfold_nonrecursive_defns pctx f =
+let unfold_nonrecursive_defns defns f =
   let open Rewriting in
   let open Rules.Staged in
-  let db = List.map snd pctx.definitions_nonrec in
+  let db = List.map snd defns in
   let f = autorewrite db (Staged f) |> of_uterm in
   f
 
@@ -313,8 +313,8 @@ let unfold_definitions : total =
   (* unfold nonrecursive *)
   let f1, f2 =
     let@ _ = span (fun _r -> debug ~at:5 ~title:"nonrecursive" "") in
-    let f1 = unfold_nonrecursive_defns pctx f1 in
-    let f2 = unfold_nonrecursive_defns pctx f2 in
+    let f1 = unfold_nonrecursive_defns pctx.definitions_nonrec f1 in
+    let f2 = unfold_nonrecursive_defns pctx.definitions_nonrec f2 in
     (f1, f2)
   in
   (* unfold recursive *)
@@ -462,7 +462,7 @@ let rec apply_ent_rule ?name : tactic =
             log_proof_state ~title:"ent: create IH, unfold" (pctx, f1, f2))
       in
       let pctx = create_induction_hypothesis (pctx, f1, f2) in
-      let f1 = unfold_nonrecursive_defns pctx f1 in
+      let f1 = unfold_nonrecursive_defns pctx.definitions_nonrec f1 in
       let pctx, f1, _ = unfold_recursive_defns pctx f1 `Left in
       simplify (pctx, f1, f2)
     in
