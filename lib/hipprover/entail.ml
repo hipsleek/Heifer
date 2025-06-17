@@ -454,7 +454,8 @@ let rec apply_ent_rule ?name : tactic =
       (pctx, seq [NormalReturn (p2, h2); f3], seq [NormalReturn (p1, h1); f4])
       k
   (* create induction hypothesis *)
-  | HigherOrder (f, _), f2 when is_recursive pctx f ->
+  | HigherOrder (f, _), f2
+    when is_recursive pctx f && not (has_been_unfolded pctx f `Left) ->
     let ps =
       let@ _ =
         span (fun _r ->
