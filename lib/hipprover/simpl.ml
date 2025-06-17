@@ -2,6 +2,7 @@
 open Hipcore
 open Hiptypes
 open Rewriting
+open Syntax
 open Utils
 
 let term_num_folding_rules = 
@@ -68,8 +69,15 @@ let simplify_spec (s : staged_spec) =
   let database = pure_rewrites @ kappa_rewrites @ term_rewrites in
   autorewrite database (Staged s) |> Rules.Staged.of_uterm
 
-let detect_contradiction_kappa (_h : kappa) =
-  Misc.todo ()
+let detect_contradiction_kappa (h : kappa) =
+  let hs = conjuncts_of_kappa h in
+  let rec check ps = function
+    | [] -> true
+    | PointsTo (p, _) :: _ when SSet.mem p ps -> false
+    | PointsTo (p, _) :: hs -> check (SSet.add p ps) hs
+    | _ -> failwith "detect_contradiction_kappa.check"
+  in
+  check SSet.empty hs
 
 let detect_contradiction_pure (_p : pi) =
   Misc.todo ()

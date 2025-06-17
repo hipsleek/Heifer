@@ -385,24 +385,24 @@ let is_recursive pctx f =
 let biab h1 h2 k =
   let open Biab in
   let open Syntax in
-  let _h, a, f, ctx =
+  let _h, a, f, eqs =
     let@ _ =
       span (fun r ->
           debug ~at:4 ~title:"ent: biab" "%s * %s |- %s * %s"
             (string_of_result
-               (fun (_h, a, _f, _ctx) -> string_of_kappa (sep_conj a))
-               r)
-            (string_of_kappa h1) (string_of_kappa h2)
+              (fun (_h, a, _f, _eqs) -> string_of_kappa (sep_conj a))
+              r)
+            (string_of_kappa h1)
+            (string_of_kappa h2)
             (string_of_result
-               (fun (_h, _a, f, ctx) ->
-                 string_of_state (conj ctx.equalities, sep_conj f))
-               r))
+              (fun (_h, _a, f, eqs) -> string_of_state (conj eqs, sep_conj f))
+              r))
     in
     solve emp_biab_ctx h1 h2
   in
   let a = sep_conj a in
   let f = sep_conj f in
-  let eqs = conj ctx.equalities in
+  let eqs = conj eqs in
   k ((True, a), (eqs, f))
 
 let rec apply_ent_rule ?name : tactic =
