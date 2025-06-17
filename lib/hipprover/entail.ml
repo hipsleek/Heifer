@@ -473,7 +473,7 @@ let rec apply_ent_rule ?name : tactic =
           Require (p2, EmptyHeap);
         ]
     in
-    apply_ent_rule ?name (pctx, f1, f2) k
+    entailment_search ?name (pctx, f1, f2) k
   | Sequence (NormalReturn (p1, h1), Sequence (Require (p2, h2), f3)), f2 ->
     let@ _ =
       span (fun _r -> log_proof_state ~title:"ent: biab f" (pctx, f1, f2))
@@ -489,7 +489,7 @@ let rec apply_ent_rule ?name : tactic =
           f3;
         ]
     in
-    apply_ent_rule ?name (pctx, f1, f2) k
+    entailment_search ?name (pctx, f1, f2) k
   (* biabduction + instantiate forall *)
   | ( Sequence
         ( NormalReturn (p1, (PointsTo (_, v) as h1)),
@@ -509,7 +509,7 @@ let rec apply_ent_rule ?name : tactic =
           Subst.subst_free_vars [(y, v)] f3;
         ]
     in
-    apply_ent_rule ?name (pctx, f1, f2) k
+    entailment_search ?name (pctx, f1, f2) k
   (* proving *)
   | NormalReturn (p1, h1), NormalReturn (p2, h2) ->
     let@ _ =
