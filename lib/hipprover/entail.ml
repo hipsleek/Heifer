@@ -432,6 +432,15 @@ let rec apply_ent_rule ?name : tactic =
           NormalReturn
             (Atomic (EQ, Var "res", TLambda (_h, ps, Some sp, _body)), EmptyHeap),
           f3 ),
+      f4 )
+  | ( Sequence
+        ( NormalReturn (_, _),
+          Bind
+            ( lname,
+              NormalReturn
+                ( Atomic (EQ, Var "res", TLambda (_h, ps, Some sp, _body)),
+                  EmptyHeap ),
+              f3 ) ),
       f4 ) ->
     let pctx =
       let@ _ =
