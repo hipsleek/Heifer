@@ -95,6 +95,9 @@ let rec infer_types_core_lang env e =
     let t1, env = infer_types_core_lang env e1 in
     let env = assert_var_has_type x t1 env in
     infer_types_core_lang env e2
+  | CSequence (e1, e2) ->
+    let _t1, env = infer_types_core_lang env e1 in
+    infer_types_core_lang env e2
   | CIfELse (_, _, _) -> failwith "CIfELse"
   | CWrite (_, _) -> failwith "CWrite"
   | CRef _ -> failwith "CRef"
