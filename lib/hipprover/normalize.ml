@@ -311,7 +311,8 @@ let split_ens_aux (p : pi) (k : kappa) : staged_spec =
     | EmptyHeap -> None
     | _ -> Some (NormalReturn (True, k))
   in
-  seq (Options.concat_option [ens_pure_opt; ens_heap_opt; ens_eq_res_opt])
+  let ens_stages = Options.concat_option [ens_pure_opt; ens_heap_opt; ens_eq_res_opt] in
+  if List.is_empty ens_stages then ens () else seq ens_stages
 
 let split_ens_visitor =
   object
