@@ -392,13 +392,12 @@ let biab h1 h2 k =
       span (fun r ->
           debug ~at:4 ~title:"ent: biab" "%s * %s |- %s * %s"
             (string_of_result
-              (fun (_h, a, _f, _eqs) -> string_of_kappa (sep_conj a))
-              r)
-            (string_of_kappa h1)
-            (string_of_kappa h2)
+               (fun (_h, a, _f, _eqs) -> string_of_kappa (sep_conj a))
+               r)
+            (string_of_kappa h1) (string_of_kappa h2)
             (string_of_result
-              (fun (_h, _a, f, eqs) -> string_of_state (conj eqs, sep_conj f))
-              r))
+               (fun (_h, _a, f, eqs) -> string_of_state (conj eqs, sep_conj f))
+               r))
     in
     solve emp_biab_ctx h1 h2
   in
@@ -420,6 +419,45 @@ let rec apply_ent_rule ?name : tactic =
   | ( Sequence (Require (True, EmptyHeap), f1),
       Sequence (Require (True, EmptyHeap), f2) ) ->
     entailment_search ?name (pctx, f1, f2) k
+  (* move pure things into the context *)
+  | ( Sequence
+        ( NormalReturn
+            (Atomic (EQ, Var lname, TLambda (_h, ps, Some sp, _body)), EmptyHeap),
+          f3 ),
+      f4 )
+  | ( Bind
+        ( lname,
+          NormalReturn
+            (Atomic (EQ, Var "res", TLambda (_h, ps, Some sp, _body)), EmptyHeap),
+          f3 ),
+      f4 ) ->
+    let pctx =
+      let@ _ =
+        span (fun _r ->
+            log_proof_state ~title:"ent: lambda binding" (pctx, f1, f2))
+      in
+      let rule = lambda_to_rule lname ps sp in
+      { pctx with definitions_nonrec = rule :: pctx.definitions_nonrec }
+    in
+    entailment_search ?name (pctx, f3, f4) k
+  | Sequence (NormalReturn (p1, EmptyHeap), f3), f2 ->
+    let pctx =
+      let@ _ =
+        span (fun _r ->
+            log_proof_state ~title:"ent: pure assumption" (pctx, f1, f2))
+      in
+      { pctx with assumptions = p1 :: pctx.assumptions }
+    in
+    entailment_search ?name (pctx, f3, f2) k
+  | f1, Sequence (Require (p2, EmptyHeap), f4) ->
+    let pctx =
+      let@ _ =
+        span (fun _r ->
+            log_proof_state ~title:"ent: pure assumption" (pctx, f1, f2))
+      in
+      { pctx with assumptions = p2 :: pctx.assumptions }
+    in
+    entailment_search ?name (pctx, f1, f4) k
   (* proving *)
   | NormalReturn (p1, h1), NormalReturn (p2, h2) ->
     let@ _ =
@@ -525,45 +563,6 @@ let rec apply_ent_rule ?name : tactic =
       simplify (pctx, f1, f2)
     in
     entailment_search ?name ps k
-  (* moving pure things into the context *)
-  | ( Sequence
-        ( NormalReturn
-            (Atomic (EQ, Var lname, TLambda (_h, ps, Some sp, _body)), EmptyHeap),
-          f3 ),
-      f4 )
-  | ( Bind
-        ( lname,
-          NormalReturn
-            (Atomic (EQ, Var "res", TLambda (_h, ps, Some sp, _body)), EmptyHeap),
-          f3 ),
-      f4 ) ->
-    let pctx =
-      let@ _ =
-        span (fun _r ->
-            log_proof_state ~title:"ent: lambda binding" (pctx, f1, f2))
-      in
-      let rule = lambda_to_rule lname ps sp in
-      { pctx with definitions_nonrec = rule :: pctx.definitions_nonrec }
-    in
-    entailment_search ?name (pctx, f3, f4) k
-  | Sequence (NormalReturn (p1, EmptyHeap), f3), f2 ->
-    let pctx =
-      let@ _ =
-        span (fun _r ->
-            log_proof_state ~title:"ent: pure assumption" (pctx, f1, f2))
-      in
-      { pctx with assumptions = p1 :: pctx.assumptions }
-    in
-    entailment_search ?name (pctx, f3, f2) k
-  | f1, Sequence (Require (p2, EmptyHeap), f4) ->
-    let pctx =
-      let@ _ =
-        span (fun _r ->
-            log_proof_state ~title:"ent: pure assumption" (pctx, f1, f2))
-      in
-      { pctx with assumptions = p2 :: pctx.assumptions }
-    in
-    entailment_search ?name (pctx, f1, f4) k
   (* quantifiers. intro before trying to instantiate *)
   | Exists (x, f3), f2 ->
     let pctx =
