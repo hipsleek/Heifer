@@ -607,23 +607,13 @@ let rec apply_ent_rule ?name : tactic =
           fail)
 
 and entailment_search : ?name:string -> tactic =
- fun ?name ps k ->
-  (* TODO *)
-  Search.reset ();
-  (* let@ _ =
-    span (fun _r ->
-        let title =
-          match name with
-          | None -> "search"
-          | Some n -> Format.asprintf "search: %s" n
-        in
-        log_proof_state ~title ps)
-  in *)
-  let ps = simplify ps in
-  (* let ps = unfold_definitions ps in
-  let ps = apply_induction_hypotheses ps in
-  let ps = apply_lemmas ps in *)
-  apply_ent_rule ?name ps k
+  let prev_state = ref None in
+  fun ?name ps k ->
+    (* Search.reset (); *)
+    (* cycle detection for debugging *)
+    if !prev_state = Some ps then failwith "cycle!" else prev_state := Some ps;
+    let ps = simplify ps in
+    apply_ent_rule ?name ps k
 
 let check_staged_spec_entailment ?name pctx inferred given =
   let@ _ =
