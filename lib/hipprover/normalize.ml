@@ -380,6 +380,25 @@ let norm_seq_ens_ex = Staged.dynamic_rule
     let f = Staged.of_uterm (sub "f") in
     Exists (x, Sequence (NormalReturn (p, h), f)))
 
+let norm_seq_ens_all = Staged.dynamic_rule
+  (Sequence (NormalReturn (Pure.uvar "p", Heap.uvar "h"), ForAll (Binder.uvar "x", (Staged.uvar "f"))))
+  (fun sub ->
+    let x = Binder.of_uterm (sub "x") in
+    let p = Pure.of_uterm (sub "p") in
+    let h = Heap.of_uterm (sub "h") in
+    let f = Staged.of_uterm (sub "f") in
+    ForAll (x, Sequence (NormalReturn (p, h), f)))
+
+let norm_seq_ens_seq_all = Staged.dynamic_rule
+  (Sequence (NormalReturn (Pure.uvar "p", Heap.uvar "h"), Sequence (ForAll (Binder.uvar "x", (Staged.uvar "f")), Staged.uvar "fk")))
+  (fun sub ->
+    let x = Binder.of_uterm (sub "x") in
+    let p = Pure.of_uterm (sub "p") in
+    let h = Heap.of_uterm (sub "h") in
+    let f = Staged.of_uterm (sub "f") in
+    let fk = Staged.of_uterm (sub "fk") in
+    ForAll (x, seq [NormalReturn (p, h); f; fk]))
+
 (* bind (seq (ens Q) f) fk `entails` seq (ens Q) (bind f fk) *)
 (* we can push ens outside of bind; if the result of ens is not used *)
 let norm_bind_seq_ens = Staged.dynamic_rule
@@ -430,7 +449,7 @@ let norm_seq_ens_heap_ens_heap = Staged.rule
   (seq [NormalReturn (True, SepConj (Heap.uvar "h1", Heap.uvar "h2")); Staged.uvar "f"])
 
 (* this rule is not proven in Coq formulization yet *)
-let _norm_seq_assoc = Staged.rule
+let norm_seq_assoc = Staged.rule
   (seq [seq [Staged.uvar "f1"; Staged.uvar "f2"]; Staged.uvar "f3"])
   (seq [Staged.uvar "f1"; Staged.uvar "f2"; Staged.uvar "f3"])
 
@@ -456,6 +475,9 @@ let normalization_rules_bind = [
   norm_bind_all;
   norm_bind_seq_ens;
   norm_seq_ens_ex;
+  norm_seq_ens_all;
+  norm_seq_ens_seq_all;
+  norm_seq_assoc;
 ]
 
 let normalization_rules_permute_ens = [
