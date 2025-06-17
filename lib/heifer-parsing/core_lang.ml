@@ -310,7 +310,7 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
       | Var f2 -> loop f2 [] args
       | _ -> failwith "attempt to apply non-function?")
   | Pexp_sequence (a, b) ->
-    CLet ("_", transformation bound_names a, transformation bound_names b)
+    CSequence (transformation bound_names a, transformation bound_names b)
   | Pexp_assert e ->
     let p, k = expr_to_formula e in
     CAssert (p, k)
