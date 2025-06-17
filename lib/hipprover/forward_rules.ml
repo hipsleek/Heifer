@@ -329,7 +329,7 @@ let rec forward (env: fvenv) (expr : core_lang): staged_spec * fvenv =
       let v = fresh_variable () in
       let req = Require (True, PointsTo (x, Var v)) in
       let ens = NormalReturn (True, PointsTo (x, t)) in
-      Exists (v, Sequence (req, ens)), env
+      ForAll (v, Sequence (req, ens)), env
   | CRead x ->
       let v = fresh_variable () in
       let t = Var v in
