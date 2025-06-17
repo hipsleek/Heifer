@@ -459,6 +459,58 @@ let rec apply_ent_rule ?name : tactic =
     apply_ent_rule ?name
       (pctx, seq [NormalReturn (p2, h2); f3], seq [NormalReturn (p1, h1); f4])
       k
+  (* biabduction *)
+  | Sequence (NormalReturn (p1, h1), Require (p2, h2)), f2 ->
+    let@ _ =
+      span (fun _r -> log_proof_state ~title:"ent: biab" (pctx, f1, f2))
+    in
+    let@ (ap, ah), (fp, fh) = biab h1 h2 in
+    let f1 =
+      seq
+        [
+          Require (ap, ah);
+          NormalReturn (fp, fh);
+          NormalReturn (p1, EmptyHeap);
+          Require (p2, EmptyHeap);
+        ]
+    in
+    apply_ent_rule ?name (pctx, f1, f2) k
+  | Sequence (NormalReturn (p1, h1), Sequence (Require (p2, h2), f3)), f2 ->
+    let@ _ =
+      span (fun _r -> log_proof_state ~title:"ent: biab f" (pctx, f1, f2))
+    in
+    let@ (ap, ah), (fp, fh) = biab h1 h2 in
+    let f1 =
+      seq
+        [
+          Require (ap, ah);
+          NormalReturn (fp, fh);
+          NormalReturn (p1, EmptyHeap);
+          Require (p2, EmptyHeap);
+          f3;
+        ]
+    in
+    apply_ent_rule ?name (pctx, f1, f2) k
+  (* biabduction + instantiate forall *)
+  | ( Sequence
+        ( NormalReturn (p1, (PointsTo (_, v) as h1)),
+          ForAll (y, Sequence (Require (p2, h2), f3)) ),
+      f2 ) ->
+    let@ _ =
+      span (fun _r -> log_proof_state ~title:"ent: biab f inst" (pctx, f1, f2))
+    in
+    let@ (ap, ah), (fp, fh) = biab h1 h2 in
+    let f1 =
+      seq
+        [
+          Require (ap, ah);
+          NormalReturn (fp, fh);
+          NormalReturn (p1, EmptyHeap);
+          Require (p2, EmptyHeap);
+          Subst.subst_free_vars [(y, v)] f3;
+        ]
+    in
+    apply_ent_rule ?name (pctx, f1, f2) k
   (* create induction hypothesis *)
   | HigherOrder (f, _), f2
     when is_recursive pctx f && not (has_been_unfolded pctx f `Left) ->
