@@ -443,7 +443,7 @@ let norm_seq_req_emp = Staged.rule
   (Staged.uvar "f")
 
 (* added later, if we are sure that this is useful *)
-let _normalization_rules_empty = [
+let normalization_rules_empty = [
   norm_seq_ens_emp;
   norm_seq_req_emp;
 ]
@@ -468,6 +468,7 @@ let normalization_rules_permute_ens = [
 ]
 
 let normalization_rules = List.concat [
+  normalization_rules_empty;
   normalization_rules_bind;
   normalization_rules_permute_ens;
 ]
