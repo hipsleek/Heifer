@@ -434,6 +434,20 @@ let _norm_seq_assoc = Staged.rule
   (seq [seq [Staged.uvar "f1"; Staged.uvar "f2"]; Staged.uvar "f3"])
   (seq [Staged.uvar "f1"; Staged.uvar "f2"; Staged.uvar "f3"])
 
+let norm_seq_ens_emp = Staged.rule
+  (seq [ens (); Staged.uvar "f"])
+  (Staged.uvar "f")
+
+let norm_seq_req_emp = Staged.rule
+  (seq [req (); Staged.uvar "f"])
+  (Staged.uvar "f")
+
+(* added later, if we are sure that this is useful *)
+let _normalization_rules_empty = [
+  norm_seq_ens_emp;
+  norm_seq_req_emp;
+]
+
 let normalization_rules_bind = [
   norm_bind_val;
   norm_bind_disj;
