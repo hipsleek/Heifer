@@ -3,7 +3,6 @@ open Hipcore
 open Hiptypes
 open Rewriting
 open Syntax
-open Utils
 
 let term_num_folding_rules = 
   let num_constant_folding_rule op f =
@@ -69,18 +68,27 @@ let simplify_spec (s : staged_spec) =
   let database = pure_rewrites @ kappa_rewrites @ term_rewrites in
   autorewrite database (Staged s) |> Rules.Staged.of_uterm
 
-let detect_contradiction_kappa (h : kappa) =
+let is_contradiction_kappa (h : kappa) =
   let hs = conjuncts_of_kappa h in
   let rec check ps = function
-    | [] -> true
-    | PointsTo (p, _) :: _ when SSet.mem p ps -> false
+    | [] -> false
+    | PointsTo (p, _) :: _ when SSet.mem p ps -> true
     | PointsTo (p, _) :: hs -> check (SSet.add p ps) hs
-    | _ -> failwith "detect_contradiction_kappa.check"
+    | _ -> failwith "is_contradiction_kappa.check"
   in
   check SSet.empty hs
 
-let detect_contradiction_pure (_p : pi) =
-  Misc.todo ()
+let is_contradiction_pure (p : pi) =
+  let ps = conjuncts_of_pi p in
+  (* we only detect inequalities between two terms that are exactly equal at the moment. *)
+  (* there can be other contradictions in our formula, like 2 < 1. But we will not handle
+     it at the moment. *)
+  let rec check = function
+    | [] -> false
+    | Not (Atomic (EQ, t1, t2)) :: _ when t1 = t2 -> true
+    | _ :: ps -> check ps
+  in
+  check ps
 
 let%expect_test "simplify tests" =
   let test simpl printer v =
