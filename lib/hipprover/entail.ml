@@ -185,6 +185,8 @@ let log_proof_state_total ~title (pctx, f1, f2) ps1 =
     (string_of_staged_spec f2) res
 
 let check_pure_obligation left right =
+  let left = Simpl.simplify_pure left in
+  let right = Simpl.simplify_pure right in
   let@ _ =
     span (fun r ->
         debug ~at:4 ~title:"check_pure_obligation" "%s => %s ? %s"
