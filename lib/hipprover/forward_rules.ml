@@ -308,6 +308,10 @@ let rec forward (env: fvenv) (expr : core_lang): staged_spec * fvenv =
       let spec1, env = forward env expr1 in
       let spec2, env = forward env expr2 in
       Bind (x, spec1, spec2), env
+  | CSequence (expr1, expr2) ->
+      let spec1, env = forward env expr1 in
+      let spec2, env = forward env expr2 in
+      Sequence (spec1, spec2), env
   | CIfELse (p, expr1, expr2) ->
       let spec1, env = forward env expr1 in
       let spec2, env = forward env expr2 in

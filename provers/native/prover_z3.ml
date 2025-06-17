@@ -354,6 +354,8 @@ let ex_quantify_expr env vars ctx e =
     match e with
     | CLet _ ->
       failwith "let"
+    | CSequence _ ->
+      failwith "sequence"
     | CValue _ ->
       failwith "value"
     | CIfELse (_, _, _) -> failwith "unimplemented CIfELse"

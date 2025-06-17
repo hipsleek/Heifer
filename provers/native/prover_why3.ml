@@ -471,6 +471,8 @@ module LowLevel = struct
       (* a1 *)
       Term.t_let e2 (Term.t_close_bound h a1)
       (* failwith "sdasd" *)
+    | CSequence (_e1, _e2) ->
+        failwith "CSequence"
     | CValue t ->
       let t, _ty = term_to_why3 env t in
       t
@@ -809,6 +811,8 @@ and core_lang_to_whyml tenv e =
   | CLet (v, e1, e2) ->
     term
       (Tlet (ident v, core_lang_to_whyml tenv e1, core_lang_to_whyml tenv e2))
+  | CSequence (_e1, _e2) ->
+      failwith "CSequence"
   | CIfELse (c, t, e) ->
     term
       (Tif
