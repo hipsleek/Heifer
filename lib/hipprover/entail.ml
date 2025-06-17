@@ -425,7 +425,9 @@ let rec apply_ent_rule ?name : tactic =
     in
     let@ (ap, ah), (fp, fh) = biab h1 h2 in
     let valid =
-      check_pure_obligation (conj (pctx.assumptions @ [p1; ap])) (conj [p2; fp])
+      check_pure_obligation
+        (conj (pctx.assumptions @ [p1; ap; Heap.xpure h1]))
+        (conj [p2; fp; Heap.xpure h2])
     in
     if valid then entailment_search ?name (pctx, req ~h:ah (), req ~h:fh ()) k
   | Require (p1, h1), Require (p2, h2) ->
@@ -440,7 +442,9 @@ let rec apply_ent_rule ?name : tactic =
     in
     let@ (ap, ah), (fp, fh) = biab h1 h2 in
     let valid =
-      check_pure_obligation (conj (pctx.assumptions @ [p1; ap])) (conj [p2; fp])
+      check_pure_obligation
+        (conj (pctx.assumptions @ [p1; ap; Heap.xpure h1]))
+        (conj [p2; fp; Heap.xpure h2])
     in
     if valid then
       entailment_search ?name
