@@ -24,3 +24,14 @@ let num n = Const (Num n)
 let plus x y = BinOp (Plus, x, y)
 let points_to x y = PointsTo (x, y)
 let pts x y = PointsTo (x, y)
+
+let rec conjuncts_of_pi (p : pi) : pi list =
+  match p with
+  | And (p1, p2) -> conjuncts_of_pi p1 @ conjuncts_of_pi p2
+  | _ -> [p]
+
+let rec conjuncts_of_kappa (k : kappa) : kappa list =
+  match k with
+  | EmptyHeap -> []
+  | PointsTo _ -> [k]
+  | SepConj (k1, k2) -> conjuncts_of_kappa k1 @ conjuncts_of_kappa k2

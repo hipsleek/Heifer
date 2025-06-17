@@ -287,11 +287,6 @@ let collect_locations (sp : normalisedStagedSpec) =
     (collect_locations_norm norm :: List.map collect_locations_eff effs)
 *)
 
-let rec conjuncts_of_pi (p : pi) : pi list =
-  match p with
-  | And (p1, p2) -> conjuncts_of_pi p1 @ conjuncts_of_pi p2
-  | _ -> [p]
-
 let split_eq_res_pi (p : pi) : pi option * pi =
   match Lists.find_delete_opt is_eq_res (conjuncts_of_pi p) with
   | None -> None, p
@@ -418,6 +413,21 @@ let norm_seq_ens_heap_ens_pure = Staged.dynamic_rule
     else
       seq [NormalReturn (p, emp); NormalReturn (True, h); f])
 
+let norm_ens_pure_ens_pure = Staged.rule
+  (seq [NormalReturn (Pure.uvar "p1", emp); NormalReturn (Pure.uvar "p2", emp)])
+  (NormalReturn (And (Pure.uvar "p1", Pure.uvar "p2"), emp))
+
+let norm_seq_ens_pure_ens_pure = Staged.rule
+  (seq [NormalReturn (Pure.uvar "p1", emp); NormalReturn (Pure.uvar "p2", emp); Staged.uvar "f"])
+  (seq [NormalReturn (And (Pure.uvar "p1", Pure.uvar "p2"), emp); Staged.uvar "f"])
+
+let norm_ens_heap_ens_heap = Staged.rule
+  (seq [NormalReturn (True, Heap.uvar "h1"); NormalReturn (True, Heap.uvar "h2")])
+  (NormalReturn (True, SepConj (Heap.uvar "h1", Heap.uvar "h2")))
+let norm_seq_ens_heap_ens_heap = Staged.rule
+  (seq [NormalReturn (True, Heap.uvar "h1"); NormalReturn (True, Heap.uvar "h2"); Staged.uvar "f"])
+  (seq [NormalReturn (True, SepConj (Heap.uvar "h1", Heap.uvar "h2")); Staged.uvar "f"])
+
 (* this rule is not proven in Coq formulization yet *)
 let _norm_seq_assoc = Staged.rule
   (seq [seq [Staged.uvar "f1"; Staged.uvar "f2"]; Staged.uvar "f3"])
@@ -436,6 +446,10 @@ let normalization_rules_bind = [
 let normalization_rules_permute_ens = [
   norm_ens_heap_ens_pure;
   norm_seq_ens_heap_ens_pure;
+  norm_ens_pure_ens_pure;
+  norm_seq_ens_pure_ens_pure;
+  norm_ens_heap_ens_heap;
+  norm_seq_ens_heap_ens_heap;
 ]
 
 let normalization_rules = List.concat [

@@ -2,30 +2,27 @@
 open Hipcore
 open Hiptypes
 open Rewriting
+open Utils
 
 let term_num_folding_rules = 
   let num_constant_folding_rule op f =
-    (* currently, directly matching on the contents of a term is not supported,
-       so we use this workaround for now *)
     let open Rules.Term in
     dynamic_rule (BinOp (op, uvar "a", uvar "b"))
       (fun sub ->
-        let a, b = of_uterm (sub "a"), of_uterm (sub "b") in
+        let a = of_uterm (sub "a") in
+        let b = of_uterm (sub "b") in
         match a, b with
         | Const (Num a), Const (Num b) -> Const (Num (f a b))
-        | a, b -> BinOp (op, a, b)
-      )
+        | a, b -> BinOp (op, a, b))
   in
-  [ 
-  num_constant_folding_rule Plus (+);
-  num_constant_folding_rule Minus (-);
-  num_constant_folding_rule TTimes ( * );
-  num_constant_folding_rule TDiv (/);
-]
+  [ num_constant_folding_rule Plus (+);
+    num_constant_folding_rule Minus (-);
+    num_constant_folding_rule TTimes ( * );
+    num_constant_folding_rule TDiv (/); ]
 
 let term_rewrites = term_num_folding_rules
 
-let simplify_term (t : term) = 
+let simplify_term (t : term) =
   autorewrite term_rewrites (Term t) |> Rules.Term.of_uterm
 
 let pure_and_folding_rules = Rules.Pure.[
@@ -47,10 +44,11 @@ let pure_not_folding_rules = Rules.Pure.[
   rule (Not True) False
 ]
 
-let pure_rewrites = 
-    pure_and_folding_rules
-    @ pure_or_folding_rules
-    @ pure_not_folding_rules
+let pure_rewrites = List.concat [
+  pure_and_folding_rules;
+  pure_or_folding_rules;
+  pure_not_folding_rules;
+]
 
 let simplify_pure (p : pi) =
   let database = pure_rewrites @ term_rewrites in
@@ -69,6 +67,12 @@ let simplify_kappa (h : kappa) =
 let simplify_spec (s : staged_spec) =
   let database = pure_rewrites @ kappa_rewrites @ term_rewrites in
   autorewrite database (Staged s) |> Rules.Staged.of_uterm
+
+let detect_contradiction_kappa (_h : kappa) =
+  Misc.todo ()
+
+let detect_contradiction_pure (_p : pi) =
+  Misc.todo ()
 
 let%expect_test "simplify tests" =
   let test simpl printer v =

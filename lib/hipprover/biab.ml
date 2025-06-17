@@ -17,12 +17,6 @@ let string_of_biab_ctx ({equalities} : biab_ctx) : string =
     "{equalities = %s}"
     (string_of_list string_of_pi equalities)
 
-let rec conjuncts_of_kappa (k : kappa) : kappa list =
-  match k with
-  | EmptyHeap -> []
-  | PointsTo _ -> [k]
-  | SepConj (k1, k2) -> conjuncts_of_kappa k1 @ conjuncts_of_kappa k2
-
 (* precondition: all separation conjuctions are flatten into a list of conjucts *)
 let rec match_points_to (ctx : biab_ctx) (ks1 : kappa list) (ks2 : kappa list) : kappa list * kappa list * kappa list * biab_ctx =
   match ks1 with
