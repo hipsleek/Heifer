@@ -114,10 +114,9 @@ let to_unifiable st f : unifiable =
         (* both a variable and something which may contain binder variables... *)
         match v with
         | [] ->
-          let v1, e = self#visit_list self#visit_term () v in
           if is_uvar_name f then
-            (HigherOrder (f, v1), SMap.add f (UF.make st None) e)
-          else (HigherOrder (f, v1), e)
+            (HigherOrder (f, []), SMap.singleton f (UF.make st None))
+          else (HigherOrder (f, []), SMap.empty)
         | _ :: _ ->
           let v1, e = super#visit_HigherOrder () f v in
           if is_uvar_name f then (v1, SMap.add f (UF.make st None) e)
