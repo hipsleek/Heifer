@@ -48,7 +48,7 @@ let xpure (h : kappa) : pi =
   let rec run h =
     match h with
     | EmptyHeap -> (True, [])
-    | PointsTo (x, _) -> (True, [x])
+    | PointsTo (x, _) -> (Atomic (GT, Var x, Const (Num 0)), [x])
     | SepConj (a, b) ->
         let a, xs = run a in
         let b, ys = run b in

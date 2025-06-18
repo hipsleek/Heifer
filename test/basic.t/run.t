@@ -54,10 +54,10 @@
                    map: true
                   incr: true
          map_inc_false: false (expected)
-            test1_true: false
+            test1_true: true
            test2_false: false (expected)
-            test3_true: false
-            test4_true: false
+            test3_true: true
+            test4_true: true
   ALL OK!
 
   $ check_why3_only test_lambda.ml
