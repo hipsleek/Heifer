@@ -35,7 +35,7 @@
               call_ret: true
      test_non_rec_pred: true
              test_read: true
-  ALL OK!
+  [1]
 
   $ check test_ho.ml
             test1_true: false
@@ -48,16 +48,16 @@
            test7_false: false (expected)
           compose_true: false
    compose_exists_true: false
-  ALL OK!
+  [1]
 
   $ check test_lists.ml
                    map: true
                   incr: true
          map_inc_false: false (expected)
-            test1_true: false
+            test1_true: true
            test2_false: false (expected)
-            test3_true: false
-            test4_true: false
+            test3_true: true
+            test4_true: true
   ALL OK!
 
   $ check_why3_only test_lambda.ml
@@ -80,4 +80,4 @@
                     f7: false
                  apply: true
                     f8: false
-  ALL OK!
+  [1]

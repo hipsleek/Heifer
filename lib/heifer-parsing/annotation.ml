@@ -22,6 +22,9 @@ let parse_staged_spec spec =
 let parse_pi spec =
   handle_error Parser.parse_pi (Lexing.from_string spec)
 
+let parse_lemma spec =
+  handle_error Parser.parse_lemma (Lexing.from_string spec)
+
 let parse_kappa spec = Parser.parse_kappa Lexer.token (Lexing.from_string spec)
 
 let parse_term spec = Parser.parse_term Lexer.token (Lexing.from_string spec)

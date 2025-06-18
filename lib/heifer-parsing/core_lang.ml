@@ -39,33 +39,33 @@ let collect_annotations attrs =
     attrs []
 
 let string_of_p_constant con : string =
-  match con with 
+  match con with
   | Pconst_char i -> String.make 1 i
   | Pconst_string (i, _, None) -> i
   | Pconst_string (i, _, Some delim) -> i ^ delim
   | Pconst_integer (i, None) -> i
   | _ -> "string_of_p_constant"
 
-let string_of_arg_label a = 
-  match a with 
+let string_of_arg_label a =
+  match a with
   | Nolabel -> ""
   | Labelled str -> str (*  label:T -> ... *)
   | Optional str -> "?" ^ str (* ?label:T -> ... *)
 
 let rec string_of_core_type (p:core_type) :string =
-  match p.ptyp_desc with 
+  match p.ptyp_desc with
   | Ptyp_any -> "_"
   | Ptyp_var str -> str
   | Ptyp_arrow (a, c1, c2) -> string_of_arg_label a ^  string_of_core_type c1 ^ " -> " ^ string_of_core_type c2 ^"\n"
-  | Ptyp_constr (l, c_li) -> 
+  | Ptyp_constr (l, c_li) ->
     List.fold_left (fun acc a -> acc ^ a) "" (Longident.flatten l.txt)^
     List.fold_left (fun acc a -> acc ^ string_of_core_type a) "" c_li
   | Ptyp_tuple (ctLi) -> "(" ^
     (List.fold_left (fun acc a -> acc ^ "," ^ string_of_core_type a ) "" ctLi) ^ ")"
 
-  | Ptyp_poly (str_li, c) -> 
+  | Ptyp_poly (str_li, c) ->
     "type " ^ List.fold_left (fun acc a -> acc ^ a.txt) "" str_li ^ ". " ^
-    string_of_core_type c 
+    string_of_core_type c
 
 
   | _ -> "\nlsllsls\n"
@@ -212,7 +212,7 @@ let collect_param_info rhs =
 
 let rec transformation (bound_names:string list) (expr:expression) : core_lang =
   let open Variables in
-  match expr.pexp_desc with 
+  match expr.pexp_desc with
   | Pexp_ident {txt=Lident i; _} ->
     CValue (Var i)
   | Pexp_construct ({txt=Lident "true"; _}, None) ->
@@ -268,7 +268,7 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
         transformation bound_names a |> maybe_var (fun v -> loop (v :: vars) args1)
     in
     loop [] args
-  
+
   (* dereference *)
   | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, [_, {pexp_desc=Pexp_ident {txt=Lident v;_}; _}]) when name = "!" ->
     CRead v
@@ -321,33 +321,33 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
     let p, k = expr_to_formula e in
     CAssert (p, k)
   | Pexp_let (_rec, vb::_vbs, e) ->
-    let var_name = string_of_pattern (vb.pvb_pat) in 
-    let exprIn = vb.pvb_expr in 
+    let var_name = string_of_pattern (vb.pvb_pat) in
+    let exprIn = vb.pvb_expr in
     if String.equal var_name "res" then
       failwith (Format.asprintf "cannot name variable res");
     CLet (var_name, transformation bound_names exprIn, transformation bound_names e)
   | Pexp_ifthenelse (if_, then_, Some else_) ->
-    let expr = transformation bound_names if_ in 
-    
+    let expr = transformation bound_names if_ in
 
-    (match expr with 
+
+    (match expr with
     | CValue v -> CIfELse ((Atomic (EQ, v, Const TTrue)), transformation bound_names then_, transformation bound_names else_)
-    | CFunCall (name, [a;b]) -> 
-      if String.compare name "==" ==0 then 
+    | CFunCall (name, [a;b]) ->
+      if String.compare name "==" ==0 then
         CIfELse ((Atomic (EQ, a, b)), transformation bound_names then_, transformation bound_names else_)
-        
-      else 
+
+      else
         let v = fresh_variable "let" in
-        let rest_Expr =  CIfELse ((Atomic (EQ, Var v, Const TTrue)), transformation bound_names then_, transformation bound_names else_) in 
+        let rest_Expr =  CIfELse ((Atomic (EQ, Var v, Const TTrue)), transformation bound_names then_, transformation bound_names else_) in
         CLet (v, expr, rest_Expr)
 
-        
-    | _ -> 
+
+    | _ ->
       let v = fresh_variable "let" in
-      let rest_Expr =  CIfELse ((Atomic (EQ,Var v, Const TTrue)), transformation bound_names then_, transformation bound_names else_) in 
+      let rest_Expr =  CIfELse ((Atomic (EQ,Var v, Const TTrue)), transformation bound_names then_, transformation bound_names else_) in
       CLet (v, expr, rest_Expr)
     )
-      
+
   | Pexp_match (e, cases) ->
     let norm =
       (* may be none for non-effect pattern matches *)
@@ -392,10 +392,10 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
     in
     (* FIXME properly fill in the handler type and handler specification *)
     CMatch (Deep, None, transformation bound_names e, norm, effs, pattern_cases)
-  | _ -> 
+  | _ ->
     if String.compare (Pprintast.string_of_expression expr) "Obj.clone_continuation k" == 0 then (* ASK Darius*)
     CValue (Var "k")
-    else 
+    else
     CValue (Const (ValUnit))
     (* failwith (Format.asprintf "expression not in core language: %a" Pprintast.expression expr)  *)
     (* (Format.printf "expression not in core language: %a@." (Printast.expression 0) expr; failwith "failed") *)
@@ -409,8 +409,8 @@ and maybe_var f e =
     let v = fresh_variable "let" in
     CLet (v, e, f (Var v))
 
-let string_of_expression_kind (expr:Parsetree.expression_desc) : string = 
-  match expr with 
+let string_of_expression_kind (expr:Parsetree.expression_desc) : string =
+  match expr with
   | Pexp_ident _ -> "Pexp_ident"
   | Pexp_constant _ -> "Pexp_constant"
   | Pexp_let _ -> "Pexp_let"
@@ -479,13 +479,13 @@ let transform_str bound_names (s : structure_item) : intermediate option =
         in
         let e = transformation (fn_name :: formals @ bound_names) body in
         Some (Meth (fn_name, formals, spec, e, tactics, pure_fn_info))
-    | Pexp_apply _ -> None 
+    | Pexp_apply _ -> None
     | whatever ->
-      print_endline (string_of_expression_kind whatever); 
+      print_endline (string_of_expression_kind whatever);
       failwith (Format.asprintf "not a function binding: %a" Pprintast.expression fn)
     end
-  | Pstr_type _ 
-  | Pstr_typext _ -> None 
+  | Pstr_type _
+  | Pstr_typext _ -> None
   | Pstr_primitive { pval_name; pval_type; pval_prim = [ext_name]; _ } ->
     Globals.using_pure_fns := true;
     let path, name =
@@ -495,4 +495,9 @@ let transform_str bound_names (s : structure_item) : intermediate option =
       core_type_to_simple_type pval_type |> interpret_arrow_as_params
     in
     Some (LogicTypeDecl (pval_name.txt, params, ret, path, name))
+  | Pstr_extension (({txt="lemma"; _},
+      PStr [{ pstr_desc = Pstr_eval ({
+        pexp_desc = Pexp_constant {
+          pconst_desc = Pconst_string (lemma, _, _); _}; _}, _); _}]), _attrs) ->
+    Some (Lem (Annotation.parse_lemma lemma))
   | _ -> failwith (Format.asprintf "unknown program element: %a" Pprintast.structure [s])
