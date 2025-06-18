@@ -69,26 +69,25 @@ let rec string_of_core_type (p:core_type) :string =
 
 
   | _ -> "\nlsllsls\n"
-let rec string_of_pattern (p) : string = 
-  match p.ppat_desc with 
+let rec string_of_pattern_desc desc : string = 
+  match desc with
   | Ppat_any -> "_"
-  (* _ *)
   | Ppat_var str -> str.txt
-  (* x *)
-  | Ppat_constant {pconst_desc = con; _} -> string_of_p_constant con
-  | Ppat_type l -> List.fold_left (fun acc a -> acc ^ a) "" (Longident.flatten l.txt)
-  | Ppat_constraint (p1, c) -> string_of_pattern p1 ^ " : "^ string_of_core_type c
-  (* (P : T) *)
-  | Ppat_effect (p1, p2) -> string_of_pattern p1 ^ string_of_pattern p2 ^ "\n"
+  | Ppat_constant {pconst_desc = con; _} ->
+      string_of_p_constant con
+  | Ppat_type l ->
+      List.fold_left (fun acc a -> acc ^ a) "" (Longident.flatten l.txt)
+  | Ppat_constraint (p1, c) ->
+      string_of_pattern p1 ^ " : "^ string_of_core_type c
+  | Ppat_effect (p1, p2) ->
+      string_of_pattern p1 ^ string_of_pattern p2 ^ "\n"
+  | Ppat_construct (l, _) ->
+      List.fold_left (fun acc a -> acc ^ a) "" (Longident.flatten l.txt)
+  | _ ->
+      failwith "string_of_pattern_desc"
 
-  | Ppat_construct (l, None) -> List.fold_left (fun acc a -> acc ^ a) "" (Longident.flatten l.txt)
-  | Ppat_construct (l, Some _p1) ->  
-    List.fold_left (fun acc a -> acc ^ a) "" (Longident.flatten l.txt)
-    (* ^ string_of_pattern p1 *)
-  (* #tconst *)
+and string_of_pattern p : string = string_of_pattern_desc p.ppat_desc
 
-  
-  | _ -> Format.asprintf "string_of_pattern: %a\n" Pprintast.pattern p;;
 let rec expr_to_term (expr:expression) : term =
   match expr.pexp_desc with
   | Pexp_constant {pconst_desc = Pconst_integer (i, _); _} -> Const (Num (int_of_string i))
@@ -171,38 +170,45 @@ let rec core_type_to_simple_type t =
    This recurses down the funs non-tail-recursively to collect all variable names, their types, the return type, and the body.
 *)
 let collect_param_info rhs =
-    (* TODO allow let f : int -> string -> bool = fun a b -> c *)
-    let traverse_to_body e ret_type =
-      match e.pexp_desc with
-      | Pexp_function (params, ret_type, Pfunction_body body) ->
-        let params, types = params
-          |> List.map (fun param -> param.pparam_desc)
-          |> List.filter_map (function
-              | Pparam_val (_, _, pat) -> Some pat.ppat_desc
-              | _ -> None)
-          |> List.filter_map (function
-            | Ppat_constraint ({ppat_desc = Ppat_var {txt = name; _}; _}, t) -> Some (name, Some (core_type_to_simple_type t))
-            | Ppat_var {txt = name; _} -> Some (name, None)
+  let traverse_to_body e ret_type =
+    match e.pexp_desc with
+    | Pexp_function (params, ret_type, Pfunction_body body) ->
+      let params, types = params
+        |> List.filter_map (fun param -> match param.pparam_desc with
+            | Pparam_val (_, _, pat) -> Some pat
             | _ -> None)
-          |> List.split
-        in
-        let ret_type = ret_type |> Option.map (fun ret_type -> match ret_type with
-        | Pconstraint t 
-        | Pcoerce (_, t) -> core_type_to_simple_type t)
-        in
-        let func_type = 
-          if List.for_all Option.is_some types && Option.is_some ret_type
-          then
-            Some (types |> List.map Option.get, Option.get ret_type)
-          else None
-        in
-        (params, body, func_type)
-      | _ ->
-        (* we have reached the end *)
-        ([], e, ret_type)
-    in
-    let names, body, types = traverse_to_body rhs None in
-    names, body, types
+        |> List.filter_map (fun pat ->
+            match pat.ppat_desc with
+            | Ppat_constraint ({ppat_desc = Ppat_var {txt = name; _}; _}, t) ->
+                Some (name, Some (core_type_to_simple_type t))
+            | Ppat_var {txt = name; _} ->
+                Some (name, None)
+            | Ppat_construct _ ->
+                Some ("()", None)
+                (* TODO: this is a temporary fix for () pattern in the argument, for example:
+                   let f () = 1 in ...
+                 *)
+            | _ ->
+                None)
+        |> List.split
+      in
+      let ret_type = ret_type |> Option.map (fun ret_type -> match ret_type with
+      | Pconstraint t 
+      | Pcoerce (_, t) -> core_type_to_simple_type t)
+      in
+      let func_type =
+        if List.for_all Option.is_some types && Option.is_some ret_type
+        then
+          Some (types |> List.map Option.get, Option.get ret_type)
+        else None
+      in
+      (params, body, func_type)
+    | _ ->
+      (* we have reached the end *)
+      ([], e, ret_type)
+  in
+  let names, body, types = traverse_to_body rhs None in
+  names, body, types
 
 let rec transformation (bound_names:string list) (expr:expression) : core_lang =
   let open Variables in

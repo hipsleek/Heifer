@@ -432,9 +432,18 @@ let rec apply_ent_rule ?name : tactic =
           NormalReturn
             (Atomic (EQ, Var "res", TLambda (_h, ps, Some sp, _body)), EmptyHeap),
           f3 ),
-      f4 )
+      f4 ) ->
+    let pctx =
+      let@ _ =
+        span (fun _r ->
+          log_proof_state ~title:"ent: lambda binding" (pctx, f1, f2))
+      in
+      let rule = lambda_to_rule lname ps sp in
+      { pctx with definitions_nonrec = rule :: pctx.definitions_nonrec }
+    in
+    entailment_search ?name (pctx, f3, f4) k
   | ( Sequence
-        ( NormalReturn (_, _),
+        ( NormalReturn (_, _) as f_head,
           Bind
             ( lname,
               NormalReturn
@@ -442,15 +451,16 @@ let rec apply_ent_rule ?name : tactic =
                   EmptyHeap ),
               f3 ) ),
       f4 ) ->
+    (* TODO: do not copy code. Refactor this into a function *)
     let pctx =
       let@ _ =
         span (fun _r ->
-            log_proof_state ~title:"ent: lambda binding" (pctx, f1, f2))
+          log_proof_state ~title:"ent: lambda binding" (pctx, f1, f2))
       in
       let rule = lambda_to_rule lname ps sp in
       { pctx with definitions_nonrec = rule :: pctx.definitions_nonrec }
     in
-    entailment_search ?name (pctx, f3, f4) k
+    entailment_search ?name (pctx, Sequence (f_head, f3), f4) k
   | Sequence (NormalReturn (p1, EmptyHeap), f3), f2 ->
     let pctx =
       let@ _ =
