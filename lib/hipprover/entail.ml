@@ -724,6 +724,7 @@ and entailment_search : ?name:string -> tactic =
     (* cycle detection for debugging *)
     if !prev_state = Some ps then failwith "cycle!" else prev_state := Some ps;
     let ps = simplify ps in
+    let ps = apply_lemmas ps in
     apply_ent_rule ?name ps k
 
 let check_staged_spec_entailment ?name pctx inferred given =
