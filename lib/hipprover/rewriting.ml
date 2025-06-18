@@ -442,7 +442,6 @@ and unify_term : UF.store -> term unif -> term unif -> unit option =
       let* _ = unify_var st (Staged sp1, e1) (Staged sp2, e2) in
       Some ()
     | _, _ -> None)
-  | TList _, TList _ -> failwith "TList"
   | TTuple _, TTuple _ -> failwith "TTuple"
   | _, _ -> None
 

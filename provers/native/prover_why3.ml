@@ -412,7 +412,6 @@ module LowLevel = struct
     | BinOp (TPower, _, _) -> failwith "TPower nyi"
     | BinOp (TTimes, _, _) -> failwith "TTimes nyi"
     | BinOp (TDiv, _, _) -> failwith "TDiv nyi"
-    | TList _ -> failwith "TList nyi"
     | TTuple _ -> failwith "TTupple nyi"
     | Const (TStr _) -> failwith "TStr nyi"
 
@@ -788,7 +787,7 @@ let rec term_to_whyml tenv t =
      let params, _ret = unsnoc params in
      let binders = vars_to_params tenv params in
      term (Tquant (Dterm.DTlambda, binders, [], core_lang_to_whyml tenv body)) *)
-  | TList _ | TTuple _ | BinOp (TPower, _, _) | BinOp (TTimes, _, _) | BinOp (TDiv, _, _) | Const (TStr _)
+  | TTuple _ | BinOp (TPower, _, _) | BinOp (TTimes, _, _) | BinOp (TDiv, _, _) | Const (TStr _)
     ->
     failwith "nyi"
 

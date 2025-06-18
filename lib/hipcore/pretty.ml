@@ -100,13 +100,13 @@ let rec string_of_term t : string =
       | x:: xs -> string_of_term x ^","^ helper xs
     in "(" ^ helper nLi ^ ")"
 
-  | TList nLi ->
+  (* | TList nLi ->
     let rec helper li =
       match li with
       | [] -> ""
       | [x] -> string_of_term x
       | x:: xs -> string_of_term x ^";"^ helper xs
-    in "[" ^ helper nLi ^ "]"
+    in "[" ^ helper nLi ^ "]" *)
 
 and string_of_staged_spec (st:staged_spec) : string =
   match st with
@@ -511,9 +511,9 @@ let rec pp_term ppf t =
   | Var v -> fprintf ppf "%s" v
   | TApp (op, args) -> pp_call_like ppf (op, args)
   | TLambda (_name, params, sp, body) -> pp_lambda_like ppf (params, sp, body)
-  | TList args ->
+  (* | TList args ->
       fprintf ppf "[@[<hov 1>%a@]]"
-      (pp_print_list ~pp_sep:(fun ppf () -> fprintf ppf ";@ ") pp_term) args
+      (pp_print_list ~pp_sep:(fun ppf () -> fprintf ppf ";@ ") pp_term) args *)
   | TTuple args ->
       fprintf ppf "(@[<hov 1>%a@])"
       (pp_print_list ~pp_sep:(fun ppf () -> fprintf ppf ",@ ") pp_term) args

@@ -23,8 +23,6 @@ and term =
      the last param is the name of the result *)
   (* The string seems to be redundant here and I think we should remove it if possible *)
   | TLambda of string * string list * staged_spec option * core_lang option
-  (* unused *)
-  | TList of term list
   | TTuple of term list
 
 (* (Label n) _k (*@ spec @*) -> e *)

@@ -165,7 +165,7 @@ let rec term_to_expr env ctx t : Z3.Expr.expr =
   | BinOp (TTimes, t1, t2) -> Z3.Arithmetic.mk_mul ctx [term_to_expr env ctx t1; term_to_expr env ctx t2]
   | BinOp (TDiv, t1, t2) -> Z3.Arithmetic.mk_div ctx (term_to_expr env ctx t1) (term_to_expr env ctx t2)
 
-  | TList _ | TTuple _ -> failwith "term_to_expr"
+  | TTuple _ -> failwith "term_to_expr"
 
 let rec pi_to_expr env ctx pi: Expr.expr =
   match pi with

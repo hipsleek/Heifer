@@ -115,7 +115,7 @@ term:
   | v = IDENT LPAREN args = separated_list(COMMA, term) RPAREN
       { TApp (v, args) }
   | LBRACKET items = separated_list(SEMI, term) RBRACKET
-      { TList items }
+      { List.fold_right (fun v t -> BinOp (TCons, v, t)) items (Const Nil) }
 ;
 pi:
   | TRUE
