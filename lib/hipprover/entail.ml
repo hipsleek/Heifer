@@ -627,6 +627,28 @@ let rec apply_ent_rule ?name : tactic =
                entailment_search ?name (pctx, f3, f2) k1)
     in
     disj_ choices k
+  (* bind, which requires alpha equivalence *)
+  | Bind (x1, f3, f4), Bind (x2, f5, f6) ->
+    let tag = Variables.fresh_variable () in
+    let x3 = Variables.fresh_variable () in
+    let@ _ =
+      span (fun _r ->
+          debug ~at:4
+            ~title:(Format.asprintf "bind first expression [[%s]]" tag)
+            "")
+    in
+    let@ pctx, _, _ = entailment_search ?name (pctx, f3, f5) in
+    let@ _ =
+      span (fun _r ->
+          debug ~at:4
+            ~title:(Format.asprintf "bind second expression <<%s>>" tag)
+            "")
+    in
+    entailment_search ?name
+      ( pctx,
+        Subst.subst_free_vars [(x1, Var x3)] f4,
+        Subst.subst_free_vars [(x2, Var x3)] f6 )
+      k
   (* disjunction *)
   | Disjunction (f3, f4), f2 ->
     let tag = Variables.fresh_variable () in
