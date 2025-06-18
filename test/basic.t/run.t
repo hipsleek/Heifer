@@ -50,11 +50,18 @@
    compose_exists_true: false
   ALL OK!
 
-$ check test_lists.ml
-ALL OK!
+  $ check test_lists.ml
+                   map: true
+                  incr: true
+         map_inc_false: false (expected)
+            test1_true: false
+           test2_false: false (expected)
+            test3_true: false
+            test4_true: false
+  ALL OK!
 
-$ check_why3_only test_lambda.ml
-ALL OK!
+  $ check_why3_only test_lambda.ml
+  ALL OK!
 
   $ check test_unfolding.ml
                  test1: true
@@ -63,5 +70,14 @@ ALL OK!
                  test3: true
   ALL OK!
 
-$ check test_closures.ml
-ALL OK!
+  $ check test_closures.ml
+                    f1: false
+                    f2: false
+                    f3: false
+                    f4: false
+              f5_false: false (expected)
+                    f6: false
+                    f7: false
+                 apply: true
+                    f8: false
+  ALL OK!
