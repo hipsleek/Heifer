@@ -4,11 +4,20 @@
 $ check ../examples/calls.ml
 ALL OK!
 
-$ check ../examples/compose.ml
-ALL OK!
+  $ check ../examples/compose.ml
+               compose: true
+          compose_pure: true
+  ALL OK!
 
-$ check ../examples/applyN.ml
-ALL OK!
+  $ check ../examples/applyN.ml
+       applyN_unfolded: true
+                applyN: true
+                  incr: true
+         unsound_false: false (expected)
+               summary: true
+        summary1_false: false (expected)
+        summary2_false: false (expected)
+  ALL OK!
 
   $ check ../examples/map.ml
                    map: true

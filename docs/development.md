@@ -26,6 +26,7 @@ dune-deps -x benchmarks -x test/higher-order.t | sed 's/\}/\{rank = same; "lib:p
 
 `TEST_ALL=1 dune test` will run slower integration tests. These use [cram](https://dune.readthedocs.io/en/stable/reference/cram.html) and may be found in `test/*.t/run.t`.
 Individual suites of integration tests can be run using `TEST_ALL=1 dune build @higher-order`.
+To run one test, `TEST_ALL=1 dune build @higher-order`.
 
 Some of the environment variables Heifer interprets may be useful for testing.
 
