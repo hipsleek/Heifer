@@ -39,11 +39,11 @@ let string_of_uterm t =
   | Term t -> "Term " ^ string_of_term t
   | Binder s -> "Binder " ^ s *)
 
-let uterm_to_staged = function Staged s -> s | _ -> failwith "not staged"
-let uterm_to_pure = function Pure p -> p | _ -> failwith "not pure"
-let uterm_to_heap = function Heap h -> h | _ -> failwith "not heap"
-let uterm_to_term = function Term t -> t | _ -> failwith "not term"
-let uterm_to_binder = function Binder s -> s | _ -> failwith "not binder"
+let uterm_to_staged = function Staged s -> s | u -> failwith (Format.asprintf "not staged: %s" (string_of_uterm u))
+let uterm_to_pure = function Pure p -> p | u -> failwith (Format.asprintf "not pure: %s" (string_of_uterm u))
+let uterm_to_heap = function Heap h -> h | u -> failwith (Format.asprintf "not heap: %s" (string_of_uterm u))
+let uterm_to_term = function Term t -> t | u -> failwith (Format.asprintf "not term: %s" (string_of_uterm u))
+let uterm_to_binder = function Binder s -> s | u -> failwith (Format.asprintf "not binder: %s" (string_of_uterm u))
 
 module UF : sig
   type t
