@@ -49,6 +49,8 @@ rule token = parse
       { EQUAL }
   | ">"
       { GREATER }
+  | "==>"
+      { LONGARROW }
   | "<"
       { LESS }
   | "+"

@@ -231,7 +231,7 @@ let process_intermediates (it : intermediate) prog : string list * core_program 
       [], prog *)
   | Eff _ ->
       todo ()
-  | Lem _l ->
+  | Lem l ->
       (* TODO: add obligation *)
       (* debug ~at:4 ~title:(Format.asprintf "lemma %s" l.l_name) "%s" (string_of_lemma l); *)
       (* let left =
@@ -242,8 +242,8 @@ let process_intermediates (it : intermediate) prog : string list * core_program 
       check_obligation_ l.l_name l.l_params prog.cp_lemmas prog.cp_predicates (left, [l.l_right]);
       debug ~at:4 ~title:(Format.asprintf "added lemma %s" l.l_name) "%s" (string_of_lemma l); *)
       (* add to environment regardless of failure *)
-      (* [], { prog with cp_lemmas = SMap.add l.l_name l prog.cp_lemmas } *)
-      process_lemma ()
+      [], { prog with cp_lemmas = SMap.add l.l_name l prog.cp_lemmas }
+      (* process_lemma () *)
   | LogicTypeDecl _ ->
       process_logic_type_decl ()
   | Pred _p ->

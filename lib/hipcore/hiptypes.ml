@@ -359,9 +359,9 @@ type pure_fn_type_def = {
 (** A lemma is an entailment [f(x, ...) <: spec]. The left side is restricted to be a function stage (without loss of generality). Some of x, ... may be parameters, but some may not be. *)
 type lemma = {
   l_name: string;
-  l_params: string list; (* ordered, the last parameter is a result *)
-  l_left: instant; (* for simplicity of rewriting *)
-  l_right: staged_spec; (* could also be disj_spec but not needed *)
+  l_params: string list;
+  l_left: staged_spec;
+  l_right: staged_spec;
 }
 
 type lambda_obligation = {

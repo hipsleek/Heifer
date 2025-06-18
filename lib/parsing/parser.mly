@@ -37,6 +37,7 @@ open Hiptypes
 %token IN
 %token SHIFT
 %token RESET
+%token LONGARROW
 
 %token EOF
 
@@ -65,6 +66,8 @@ open Hiptypes
 %type <Hiptypes.staged_spec> parse_staged_spec
 %start parse_term
 %type <Hiptypes.term> parse_term
+%start parse_lemma
+%type <Hiptypes.lemma> parse_lemma
 %%
 
 %inline bin_rel_op:
@@ -79,6 +82,7 @@ open Hiptypes
   | EQUAL
       { EQ }
 ;
+
 %inline bin_term_op:
   | PLUS PLUS
       { SConcat }
@@ -89,6 +93,7 @@ open Hiptypes
 //   | STAR
 //       { TTimes }
 ;
+
 const:
   | LPAREN RPAREN
       { ValUnit }
@@ -101,6 +106,7 @@ const:
   | s = STRING
       { TStr s }
 ;
+
 term:
   | c = const
       { Const c }
@@ -117,6 +123,7 @@ term:
   | LBRACKET items = separated_list(SEMI, term) RBRACKET
       { List.fold_right (fun v t -> BinOp (TCons, v, t)) items (Const Nil) }
 ;
+
 pi:
   | TRUE
       { True }
@@ -137,6 +144,7 @@ pi:
   | p = delimited(LPAREN, pi, RPAREN)
       { p }
 ;
+
 kappa:
   | EMP
       { EmptyHeap }
@@ -147,6 +155,7 @@ kappa:
   | k = delimited(LPAREN, kappa, RPAREN)
       { k }
 ;
+
 state:
   | p = pi
       { (p, EmptyHeap) }
@@ -157,6 +166,12 @@ state:
   | k = kappa CONJUNCTION p = pi
       { (p, k) }
 ;
+
+fn:
+  | v = IDENT LPAREN args = separated_list(COMMA, term) RPAREN
+    { (v, args) }
+;
+
 staged_spec:
   | EXISTS vs = IDENT* DOT s = staged_spec
       { List.fold_right (fun v t -> Exists (v, t)) vs s }
@@ -168,8 +183,8 @@ staged_spec:
       { let (p, k) = s in Require (p, k) }
   | ENSURES s = state
       { let (p, k) = s in NormalReturn (p, k) }
-  | v = IDENT LPAREN args = separated_list(COMMA, term) RPAREN
-      { HigherOrder (v, args) }
+  | va = fn
+      { let (v, args) = va in HigherOrder (v, args) }
   | SHIFT LPAREN v = IDENT DOT s = staged_spec RPAREN
       { Shift (true, v, s) }
   | RESET LPAREN s = staged_spec RPAREN
@@ -181,18 +196,36 @@ staged_spec:
   | LPAREN s = staged_spec RPAREN
       { s }
 ;
+
+lemma:
+  | name_params=fn EQUAL lhs=staged_spec LONGARROW rhs=staged_spec
+    { let (f, params) = name_params in
+      let params =
+        List.map (function Var s -> s | _ -> failwith "invalid lemma") params
+      in
+      { l_name = f;
+        l_params = params;
+        l_left = lhs;
+        l_right = rhs }
+    }
+;
+
 parse_pi:
   | p = pi EOF
       { p }
-;
+
 parse_kappa:
   | k = kappa EOF
       { k }
-;
+
 parse_staged_spec:
   | s = staged_spec EOF
       { s }
 
 parse_term:
   | t = term EOF
+      { t }
+
+parse_lemma:
+  | t = lemma EOF
       { t }

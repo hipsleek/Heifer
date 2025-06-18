@@ -31,8 +31,12 @@ ALL OK!
             map_thrice: true
   ALL OK!
 
-$ check ../examples/length.ml
-ALL OK!
+  $ check ../examples/length.ml
+                length: true
+       length_positive: true
+                 foldr: true
+          foldr_length: true
+  ALL OK!
 
 $ check ../examples/closure.ml
 ALL OK!

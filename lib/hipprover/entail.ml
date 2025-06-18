@@ -21,7 +21,7 @@ type pctx = {
   definitions_nonrec : (string * Rewriting.rule) list;
   definitions_rec : (string * Rewriting.rule) list;
   induction_hypotheses : (string * Rewriting.rule) list;
-  lemmas : Rewriting.rule list;
+  lemmas : (string * Rewriting.rule) list;
   unfolded : use list;
   assumptions : pi list;
 }
@@ -58,7 +58,7 @@ let string_of_pctx ctx =
     (string_of_list_ind_lines
        (string_of_pair Fun.id string_of_rule)
        induction_hypotheses)
-    (string_of_list_ind_lines string_of_rule lemmas)
+    (string_of_list_ind_lines (string_of_pair Fun.id string_of_rule) lemmas)
     (string_of_list_ind_lines string_of_pi assumptions)
     (string_of_list_ind_lines
        (string_of_pair Fun.id string_of_rule)
@@ -97,18 +97,27 @@ let pred_to_rule pred =
   in
   (pred.p_name, Rewriting.Rules.Staged.rule lhs rhs)
 
+let lemma_to_rule lemma =
+  let bs =
+    List.map (fun p -> (p, Rewriting.Rules.Term.uvar p)) lemma.l_params
+  in
+  let lhs = Subst.subst_free_vars bs lemma.l_left in
+  let rhs = Subst.subst_free_vars bs lemma.l_right in
+  (lemma.l_name, Rewriting.Rules.Staged.rule lhs rhs)
+
 let create_pctx cp =
   let definitions_nonrec =
     SMap.values cp.cp_predicates
     |> List.filter (fun p -> not p.p_rec)
     |> List.map pred_to_rule
   in
+  let lemmas = SMap.values cp.cp_lemmas |> List.map lemma_to_rule in
   let definitions_rec =
     SMap.values cp.cp_predicates
     |> List.filter (fun p -> p.p_rec)
     |> List.map pred_to_rule
   in
-  { (new_pctx ()) with definitions_nonrec; definitions_rec }
+  { (new_pctx ()) with definitions_nonrec; definitions_rec; lemmas }
 
 (* proof state *)
 type pstate = pctx * staged_spec * staged_spec
@@ -358,7 +367,10 @@ let apply_lemmas : total =
   fun ps ->
     let@ _ = span (fun r -> log_proof_state_total ~title:"apply_lemmas" ps r) in
     let pctx, f1, f2 = ps in
-    let f1 = autorewrite pctx.lemmas (Staged f1) |> of_uterm in
+    let lemmas = List.map snd pctx.lemmas in
+    (* TODO nondet application, as multiple may apply.
+      currently only the first applies and may disable the others *)
+    let f1 = autorewrite lemmas (Staged f1) |> of_uterm in
     (pctx, f1, f2)
 
 let create_induction_hypothesis (ps : pstate) : pctx =
