@@ -560,6 +560,12 @@ let rec apply_ent_rule ?name : tactic =
     apply_ent_rule ?name
       (pctx, seq [NormalReturn (p2, h2); f3], seq [NormalReturn (p1, h1); f4])
       k
+  (* two functions with equal terms *)
+  | HigherOrder (f1, a1), HigherOrder (f2, a2)
+    when f1 = f2 && List.length a1 = List.length a2 ->
+    let eqs = List.map2 eq a1 a2 |> conj in
+    let valid = check_pure_obligation (conj pctx.assumptions) eqs in
+    if valid then k (pctx, ens (), ens ())
   (* create induction hypothesis *)
   | HigherOrder (f, _), f2
     when is_recursive pctx f && not (has_been_unfolded pctx f `Left) ->
