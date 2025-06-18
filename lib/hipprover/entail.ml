@@ -643,10 +643,12 @@ let rec apply_ent_rule ?name : tactic =
   | f1, Disjunction (f3, f4) ->
     debug ~at:4 ~title:"disj on the right" "";
     or_
-      (let@ _ = span (fun _r -> debug ~at:4 ~title:"left disjunct" "") in
-       entailment_search ?name (pctx, f1, f3))
-      (let@ _ = span (fun _r -> debug ~at:4 ~title:"right disjunct" "") in
-       entailment_search ?name (pctx, f1, f4))
+      (fun k1 ->
+        let@ _ = span (fun _r -> debug ~at:4 ~title:"left disjunct" "") in
+        entailment_search ?name (pctx, f1, f3) k1)
+      (fun k1 ->
+        let@ _ = span (fun _r -> debug ~at:4 ~title:"right disjunct" "") in
+        entailment_search ?name (pctx, f1, f4) k1)
       k
   | _, _ ->
     let ps = (pctx, f1, f2) in
