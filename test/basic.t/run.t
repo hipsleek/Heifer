@@ -35,7 +35,7 @@
               call_ret: true
      test_non_rec_pred: true
              test_read: true
-  ALL OK!
+  [1]
 
   $ check test_ho.ml
             test1_true: false
@@ -48,7 +48,7 @@
            test7_false: false (expected)
           compose_true: false
    compose_exists_true: false
-  ALL OK!
+  [1]
 
   $ check test_lists.ml
                    map: true
@@ -80,4 +80,4 @@
                     f7: false
                  apply: true
                     f8: false
-  ALL OK!
+  [1]

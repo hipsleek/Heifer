@@ -69,6 +69,12 @@ let check_lambda_obligation_ name params lemmas predicates obl =
   check_obligation_ name params lemmas preds (obl.lo_left, obl.lo_right)
 *)
 
+let test_failed result name =
+  not result && not (String.ends_with ~suffix:"_false" name)
+
+let indicate_if_test_failed result name =
+  if test_failed result name then tests_failed := true
+
 let expected_false result name =
   if not result && String.ends_with ~suffix:"_false" name then " (expected)" else ""
 
@@ -93,6 +99,7 @@ let normal_report ~kind ~name ~inferred_spec ~normalized_spec ~given_spec ~resul
     | None ->
         ""
   in
+  indicate_if_test_failed result name;
   let result_string =
     Format.sprintf "[ Entail Check ] %s%s\n"
       (string_of_bool result)
@@ -116,6 +123,7 @@ let test_report ~kind ~name ~inferred_spec ~normalized_spec ~given_spec ~result 
       String.sub s 0 7 ^ "..." ^ String.sub s (l-10) 10
     else s
   in
+  indicate_if_test_failed result name;
   Format.printf "%20s: %s%s@." (truncate name) (string_of_bool result) (expected_false result name)
 
 let report_result ~kind ~name ~inferred_spec ~normalized_spec ~given_spec ~result =
