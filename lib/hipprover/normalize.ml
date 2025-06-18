@@ -333,6 +333,16 @@ let norm_bind_val = Staged.dynamic_rule
     else
       Subst.subst_free_vars [(x, r)] f)
 
+let norm_bind_trivial = Staged.dynamic_rule
+  (Bind (Binder.uvar "x", Staged.uvar "f",
+    NormalReturn (eq res_var (Term.uvar "r"), emp)))
+  (fun sub ->
+    let x = sub "x" |> Binder.of_uterm in
+    let r = sub "r" |> Term.of_uterm in
+    let f = sub "f" |> Staged.of_uterm in
+    if Var x = r then f
+    else Bind (x, f, ens ~p:(eq res_var r) ()))
+
 let norm_bind_disj = Staged.dynamic_rule
   (Bind (Binder.uvar "x", Disjunction (Staged.uvar "f1", Staged.uvar "f2"), Staged.uvar "fk"))
   (fun sub ->
@@ -469,6 +479,7 @@ let normalization_rules_empty = [
 
 let normalization_rules_bind = [
   norm_bind_val;
+  norm_bind_trivial;
   norm_bind_disj;
   norm_bind_req;
   norm_bind_ex;
@@ -510,7 +521,6 @@ let normalize_spec (spec : staged_spec) : staged_spec =
   let spec = Staged.of_uterm (autorewrite normalization_rules (Staged spec)) in
   spec
 
-(* inline tests *)
 let%expect_test "rules" =
   let test rule input =
     let input = Staged input in
@@ -578,5 +588,16 @@ let%expect_test "rules" =
     test norm_bind_all input;
     [%expect
       {| forall y. (let x = (ens res=2) in (ens x=1)) |}]
+  in
+  let _ =
+    let input = Bind ("x", ens ~p:(eq (v "y") (num 2)) (), ens ~p:(eq (v "res") (v "x")) ()) in
+    test norm_bind_trivial input;
+    [%expect
+      {| ens y=2 |}];
+
+    let input = Bind ("z", ens ~p:(eq (v "y") (num 2)) (), ens ~p:(eq (v "res") (v "x")) ()) in
+    test norm_bind_trivial input;
+    [%expect
+      {| let z = (ens y=2) in (ens res=x) |}]
   in
   ()
