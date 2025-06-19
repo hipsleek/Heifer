@@ -1,6 +1,5 @@
 open Hipcore
 open Hiptypes
-open Syntax
 open Pretty
 
 type ('matched_value, 'k, 'k_result) pattern =
@@ -33,8 +32,37 @@ let fail fmt = Format.kasprintf (fun s -> raise (Match_failure s)) fmt
 (* weak type variables...? *)
 (* let true1 = const ~to_s:string_of_pi True *)
 
+let string s = T (fun x k -> if String.equal x s then k else fail "string")
+let binder = string
 let true_ = T (fun x k -> match x with True -> k | _ -> fail "true")
 let false_ = T (fun x k -> match x with False -> k | _ -> fail "false")
+let emp = T (fun x k -> match x with EmptyHeap -> k | _ -> fail "true")
+
+let var s =
+  T
+    (fun x k ->
+      match x with Var s1 when String.equal s s1 -> k | _ -> fail "false")
+
+let eq (T pt1) (T pt2) =
+  T
+    (fun x k ->
+      match x with
+      | Atomic (EQ, t1, t2) ->
+        let k = pt1 t1 k in
+        let k = pt2 t2 k in
+        k
+      | _ -> fail "false")
+
+let bind (T px1) (T pf1) (T pf2) =
+  T
+    (fun x k ->
+      match x with
+      | Bind (x1, f1, f2) ->
+        let k = px1 x1 k in
+        let k = pf1 f1 k in
+        let k = pf2 f2 k in
+        k
+      | _ -> fail "bind")
 
 let and_ (T pp1) (T pp2) =
   T
@@ -45,6 +73,17 @@ let and_ (T pp1) (T pp2) =
         let k = pp2 p2 k in
         k
       | _ -> fail "could not match And; got %s" (string_of_pi x))
+
+let ens (T pp) (T ph) =
+  T
+    (fun x k ->
+      match x with
+      | NormalReturn (p, h) ->
+        let k = pp p k in
+        let k = ph h k in
+        k
+      | _ ->
+        fail "could not match NormalReturn; got %s" (string_of_staged_spec x))
 
 let rewrite_rooted ~lhs:(T p) ~target ~rhs = p target rhs
 let match_ ~pat ~scr ~rhs = rewrite_rooted ~target:scr ~lhs:pat ~rhs
@@ -118,19 +157,13 @@ let rewrite_all_staged lhs krhs target =
   (staged_visitor lhs krhs)#visit_staged_spec () target
 
 let%expect_test "rewrite all" =
-  let target = ens ~p:(And (True, False)) () in
+  let target = Syntax.(ens ~p:(And (True, False)) ()) in
   let r = (rewrite_all_pi (and_ true_ __) (fun a -> And (a, True))) target in
   Format.printf "%s@." (string_of_staged_spec r);
   [%expect {| ens F/\T |}]
 
-(** A rule is a means of rewriting a subterm of type ['a] to another of the same
-    type within some larger data structure. It is a pair of a LHS pattern for
-    matching, and a continuation which allows generating a RHS. *)
 type ('a, 'k) rule = ('a, 'k, 'a) pattern * 'k
 
-(** A database of rewrite rules. The first parameter is the type of data rules
-    in this db act on, e.g. [pi]. The second is a sequence of continuation types
-    encoded as a function (as in typical heterogeneous lists). *)
 type (_, _) db =
   | [] : ('a, unit) db
   | ( :: ) : ('a, 'k) rule * ('a, 'elts) db -> ('a, 'k -> 'elts) db
@@ -144,17 +177,29 @@ let rec to_fixed_point2 f a b x =
   let x1 = f a b x in
   if x1 = x then x else to_fixed_point2 f a b x1
 
-let rec autorewrite_once : type k. ('a, k) db -> 'a -> 'a =
+let rec autorewrite_once_pi : type k. ('a, k) db -> 'a -> 'a =
  fun db target ->
   match db with
   | [] -> target
   | (pat, rhs) :: db1 ->
     let target = to_fixed_point2 rewrite_all_pi_in_pi pat rhs target in
+    autorewrite_once_pi db1 target
+
+(* TODO it may be possible to fix this duplication by parameterising rules and dbs over the type of term being rewritten *)
+let rec autorewrite_once : type k. ('a, k) db -> 'a -> 'a =
+ fun db target ->
+  match db with
+  | [] -> target
+  | (pat, rhs) :: db1 ->
+    let target = to_fixed_point2 rewrite_all_staged pat rhs target in
     autorewrite_once db1 target
 
 (** Given the rule db, use each rule until it no longer changes, finish all the
     rules (this is what [autorewrite_once] does), then repeat from the top if
     there was some change *)
+let autorewrite_pi : type k. ('a, k) db -> 'a -> 'a =
+ fun db target -> to_fixed_point autorewrite_once_pi db target
+
 let autorewrite : type k. ('a, k) db -> 'a -> 'a =
  fun db target -> to_fixed_point autorewrite_once db target
 
@@ -162,6 +207,6 @@ let%expect_test _ =
   let rule1 : (pi, _) rule = (and_ true_ __, fun a -> a) in
   let rule2 : (pi, _) rule = (and_ false_ __, fun _ -> False) in
   let db : _ db = [rule1; rule2] in
-  let r = autorewrite db (And (True, And (True, False))) in
+  let r = autorewrite_pi db (And (True, And (True, False))) in
   Format.printf "%s@." (string_of_pi r);
   [%expect {| F |}]

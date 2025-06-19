@@ -850,11 +850,11 @@ let%expect_test "autorewrite" =
     result: ens emp
     |}]
 
-(** Named after the ppxlib module, which this is based on
-    https://ocaml-ppx.github.io/ppxlib/ppxlib/matching-code.html
-    https://github.com/ocaml-ppx/ppxlib/blob/main/src/ast_pattern0.ml
-    https://github.com/ocaml-ppx/ppxlib/blob/main/src/ast_pattern.ml *)
+(** Named after the ppxlib module. See Rewriting2 for a full-scale
+    implementation. *)
 module Ast_pattern = struct
+  [@@@warning "-unused-value-declaration"]
+
   type ('matched_value, 'k, 'k_result) t =
     | T of ('matched_value -> 'k -> 'k_result)
 
