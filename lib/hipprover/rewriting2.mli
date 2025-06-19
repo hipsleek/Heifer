@@ -44,11 +44,11 @@ type ('a, 'k) rule = ('a, 'k, 'a) pattern * 'k
     rules in this database act on, e.g. [pi]. The second is a sequence of
     continuation types encoded as a function (as in typical heterogeneous
     lists). *)
-type (_, _) db =
-  | [] : ('a, unit) db
-  | ( :: ) : ('a, 'k) rule * ('a, 'elts) db -> ('a, 'k -> 'elts) db
+type (_, _) database =
+  | [] : ('a, unit) database
+  | ( :: ) : ('a, 'k) rule * ('a, 'elts) database -> ('a, 'k -> 'elts) database
 
-val autorewrite : ('l, 's) rewriter -> ('s, 'k) db -> 'l -> 'l
+val autorewrite : ('l, 's) rewriter -> ('s, 'k) database -> 'l -> 'l
 
 (** {1 Heifer's AST} *)
 

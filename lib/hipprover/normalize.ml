@@ -514,7 +514,7 @@ let norm_bind_val =
       if is_lambda_term r then Bind (x, NormalReturn (eq res_var r, emp), f)
       else Subst.subst_free_vars [(x, r)] f )
 
-let norm_db2 : _ Rewriting2.db =
+let norm_db2 : _ Rewriting2.database =
   Rewriting2.[
     norm_bind_val
   ]

@@ -180,9 +180,9 @@ let%expect_test "rewrite all" =
 
 type ('a, 'k) rule = ('a, 'k, 'a) pattern * 'k
 
-type (_, _) db =
-  | [] : ('a, unit) db
-  | ( :: ) : ('a, 'k) rule * ('a, 'elts) db -> ('a, 'k -> 'elts) db
+type (_, _) database =
+  | [] : ('a, unit) database
+  | ( :: ) : ('a, 'k) rule * ('a, 'elts) database -> ('a, 'k -> 'elts) database
 
 let rec to_fixed_point f ctx x =
   let x1 = f ctx x in
@@ -193,7 +193,8 @@ let rec to_fixed_point2_rew r a b x =
   let x1 = rewrite_all r a b x in
   if x1 = x then x else to_fixed_point2_rew r a b x1
 
-let rec autorewrite_once : type k. ('l, 's) rewriter -> ('s, k) db -> 'l -> 'l =
+let rec autorewrite_once : type k.
+    ('l, 's) rewriter -> ('s, k) database -> 'l -> 'l =
  fun rewrite_all db target ->
   match db with
   | [] -> target
@@ -205,14 +206,14 @@ let rec autorewrite_once : type k. ('l, 's) rewriter -> ('s, k) db -> 'l -> 'l =
 (** Given the rule db, use each rule until it no longer changes, finish all the
     rules (this is what [autorewrite_once] does), then repeat from the top if
     there was some change *)
-let autorewrite : type k. ('l, 's) rewriter -> ('s, k) db -> 'l -> 'l =
+let autorewrite : type k. ('l, 's) rewriter -> ('s, k) database -> 'l -> 'l =
  fun rewrite_all db target ->
   to_fixed_point (autorewrite_once rewrite_all) db target
 
 let%expect_test _ =
   let rule1 : (pi, _) rule = (and_ true_ __, fun a -> a) in
   let rule2 : (pi, _) rule = (and_ false_ __, fun _ -> False) in
-  let db : _ db = [rule1; rule2] in
+  let db : _ database = [rule1; rule2] in
   let r = autorewrite pi_in_pi db (And (True, And (True, False))) in
   Format.printf "%s@." (string_of_pi r);
   [%expect {| F |}];
