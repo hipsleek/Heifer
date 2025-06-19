@@ -322,17 +322,6 @@ let split_ens_visitor =
 
 let split_ens = split_ens_visitor#visit_staged_spec ()
 
-let norm_bind_val = Staged.dynamic_rule
-  (Bind (Binder.uvar "x", NormalReturn (eq res_var (Term.uvar "r"), emp), Staged.uvar "f"))
-  (fun sub ->
-    let x = sub "x" |> Binder.of_uterm in
-    let r = sub "r" |> Term.of_uterm in
-    let f = sub "f" |> Staged.of_uterm in
-    if is_lambda_term r then
-      Bind (x, NormalReturn (eq res_var r, emp), f)
-    else
-      Subst.subst_free_vars [(x, r)] f)
-
 let norm_bind_trivial = Staged.dynamic_rule
   (Bind (Binder.uvar "x", Staged.uvar "f",
     NormalReturn (eq res_var (Term.uvar "r"), emp)))
@@ -478,7 +467,7 @@ let normalization_rules_empty = [
 ]
 
 let normalization_rules_bind = [
-  norm_bind_val;
+  (* norm_bind_val; *)
   norm_bind_trivial;
   norm_bind_disj;
   norm_bind_req;
@@ -506,6 +495,30 @@ let normalization_rules = List.concat [
   normalization_rules_permute_ens;
 ]
 
+(* let norm_bind_val = Staged.dynamic_rule
+  (Bind (Binder.uvar "x", NormalReturn (eq res_var (Term.uvar "r"), emp), Staged.uvar "f"))
+  (fun sub ->
+    let x = sub "x" |> Binder.of_uterm in
+    let r = sub "r" |> Term.of_uterm in
+    let f = sub "f" |> Staged.of_uterm in
+    if is_lambda_term r then
+      Bind (x, NormalReturn (eq res_var r, emp), f)
+    else
+      Subst.subst_free_vars [(x, r)] f) *)
+
+let norm_bind_val =
+  let open Rewriting2 in
+  ( bind __ (ens (eq (var "res") __) emp) __,
+    fun x r f ->
+      let open Syntax in
+      if is_lambda_term r then Bind (x, NormalReturn (eq res_var r, emp), f)
+      else Subst.subst_free_vars [(x, r)] f )
+
+let norm_db2 : _ Rewriting2.database =
+  Rewriting2.[
+    norm_bind_val
+  ]
+
 (* the main entry point *)
 let normalize_spec (spec : staged_spec) : staged_spec =
   let@ _ = Globals.Timing.(time norm) in
@@ -519,6 +532,7 @@ let normalize_spec (spec : staged_spec) : staged_spec =
   in
   let spec = split_ens spec in
   let spec = Staged.of_uterm (autorewrite normalization_rules (Staged spec)) in
+  let spec = Rewriting2.(autorewrite staged norm_db2 spec) in
   spec
 
 let%expect_test "rules" =
