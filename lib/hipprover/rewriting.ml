@@ -904,18 +904,14 @@ module Ast_pattern = struct
   let rewrite_rooted (T p) u k = p u k
 
   let%expect_test "rewrite" =
-    (* let p2 = and_ __ true_ in *)
     let rule p k =
       let@ a = rewrite_rooted (and_ true_ __) p in
       k (And (a, True))
     in
-    (* (And (True, False)) *)
-    (* let r = rewrite_rooted p1 p2 (Pure (And (True, False))) in *)
     let r = Iter.head_exn (rule (And (True, False))) in
     Format.printf "%s@." (string_of_pi r);
     [%expect {| F/\T |}]
 
-  (* target  *)
   let rewrite_all_pure lhs krhs =
     let visitor =
       object (_self)
