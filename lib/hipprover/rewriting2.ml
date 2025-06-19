@@ -147,18 +147,34 @@ let staged_visitor lhs krhs =
       try rewrite_rooted ~lhs ~target:s1 ~rhs:krhs with Match_failure _ -> s1
   end
 
-let rewrite_all_pi lhs krhs target =
-  (pi_visitor lhs krhs)#visit_staged_spec () target
+(* aka the of "rewrite_all functions" *)
+type ('l, 's) rewriter = { rew : 'k. ('s, 'k, 's) pattern -> 'k -> 'l -> 'l }
+[@@unboxed]
 
-let rewrite_all_pi_in_pi lhs krhs target =
-  (pi_visitor lhs krhs)#visit_pi () target
+(* this just unboxes the single field *)
+let rewrite_all { rew } lhs rhs target = rew lhs rhs target
 
-let rewrite_all_staged lhs krhs target =
-  (staged_visitor lhs krhs)#visit_staged_spec () target
+let pi_in_staged : (staged_spec, pi) rewriter =
+  {
+    rew =
+      (fun lhs krhs target -> (pi_visitor lhs krhs)#visit_staged_spec () target);
+  }
+
+let pi_in_pi : (pi, pi) rewriter =
+  { rew = (fun lhs krhs target -> (pi_visitor lhs krhs)#visit_pi () target) }
+
+let staged : (staged_spec, staged_spec) rewriter =
+  {
+    rew =
+      (fun lhs krhs target ->
+        (staged_visitor lhs krhs)#visit_staged_spec () target);
+  }
 
 let%expect_test "rewrite all" =
   let target = Syntax.(ens ~p:(And (True, False)) ()) in
-  let r = (rewrite_all_pi (and_ true_ __) (fun a -> And (a, True))) target in
+  let r =
+    (rewrite_all pi_in_staged (and_ true_ __) (fun a -> And (a, True))) target
+  in
   Format.printf "%s@." (string_of_staged_spec r);
   [%expect {| ens F/\T |}]
 
@@ -173,40 +189,34 @@ let rec to_fixed_point f ctx x =
   (* TODO does the map visitor allow us to exploit ==? *)
   if x1 = x then x else to_fixed_point f ctx x1
 
-let rec to_fixed_point2 f a b x =
-  let x1 = f a b x in
-  if x1 = x then x else to_fixed_point2 f a b x1
+let rec to_fixed_point2_rew r a b x =
+  let x1 = rewrite_all r a b x in
+  if x1 = x then x else to_fixed_point2_rew r a b x1
 
-let rec autorewrite_once_pi : type k. ('a, k) db -> 'a -> 'a =
- fun db target ->
+let rec autorewrite_once : type k. ('l, 's) rewriter -> ('s, k) db -> 'l -> 'l =
+ fun rewrite_all db target ->
   match db with
   | [] -> target
   | (pat, rhs) :: db1 ->
-    let target = to_fixed_point2 rewrite_all_pi_in_pi pat rhs target in
-    autorewrite_once_pi db1 target
-
-(* TODO it may be possible to fix this duplication by parameterising rules and dbs over the type of term being rewritten *)
-let rec autorewrite_once : type k. ('a, k) db -> 'a -> 'a =
- fun db target ->
-  match db with
-  | [] -> target
-  | (pat, rhs) :: db1 ->
-    let target = to_fixed_point2 rewrite_all_staged pat rhs target in
-    autorewrite_once db1 target
+    (* the reason we need the rewriter to work for all 'k: we need to instantiate it with the k that is in scope here. *)
+    let target = to_fixed_point2_rew rewrite_all pat rhs target in
+    autorewrite_once rewrite_all db1 target
 
 (** Given the rule db, use each rule until it no longer changes, finish all the
     rules (this is what [autorewrite_once] does), then repeat from the top if
     there was some change *)
-let autorewrite_pi : type k. ('a, k) db -> 'a -> 'a =
- fun db target -> to_fixed_point autorewrite_once_pi db target
-
-let autorewrite : type k. ('a, k) db -> 'a -> 'a =
- fun db target -> to_fixed_point autorewrite_once db target
+let autorewrite : type k. ('l, 's) rewriter -> ('s, k) db -> 'l -> 'l =
+ fun rewrite_all db target ->
+  to_fixed_point (autorewrite_once rewrite_all) db target
 
 let%expect_test _ =
   let rule1 : (pi, _) rule = (and_ true_ __, fun a -> a) in
   let rule2 : (pi, _) rule = (and_ false_ __, fun _ -> False) in
   let db : _ db = [rule1; rule2] in
-  let r = autorewrite_pi db (And (True, And (True, False))) in
+  let r = autorewrite pi_in_pi db (And (True, And (True, False))) in
   Format.printf "%s@." (string_of_pi r);
-  [%expect {| F |}]
+  [%expect {| F |}];
+
+  let r = autorewrite pi_in_staged db Syntax.(ens ~p:(And (True, False)) ()) in
+  Format.printf "%s@." (string_of_staged_spec r);
+  [%expect {| ens F |}]

@@ -532,7 +532,7 @@ let normalize_spec (spec : staged_spec) : staged_spec =
   in
   let spec = split_ens spec in
   let spec = Staged.of_uterm (autorewrite normalization_rules (Staged spec)) in
-  let spec = Rewriting2.autorewrite norm_db2 spec in
+  let spec = Rewriting2.(autorewrite staged norm_db2 spec) in
   spec
 
 let%expect_test "rules" =

@@ -23,29 +23,32 @@ val match3 : ('a, 'b -> 'c -> 'd -> 'b * 'c * 'd, 'e) pattern -> 'a -> 'e
 (** {1 Rewriting} *)
 val rewrite_rooted : lhs:('a, 'b, 'c) pattern -> target:'a -> rhs:'b -> 'c
 
-val rewrite_all_pi : (pi, 'a, pi) pattern -> 'a -> staged_spec -> staged_spec
+(** A rewriter is means of transforming a "large" type ['l] by rewriting a
+    subterm of "small" type ['s] within it. It works for all ['k], which is the
+    continuation used for rewriting to create the small term. *)
+type ('l, 's) rewriter
 
-val rewrite_all_staged :
-  (staged_spec, 'a, staged_spec) pattern -> 'a -> staged_spec -> staged_spec
-
-val rewrite_all_pi_in_pi : (pi, 'a, pi) pattern -> 'a -> pi -> pi
+val rewrite_all : ('a, 'b) rewriter -> ('b, 'c, 'b) pattern -> 'c -> 'a -> 'a
+val pi_in_staged : (staged_spec, pi) rewriter
+val pi_in_pi : (pi, pi) rewriter
+val staged : (staged_spec, staged_spec) rewriter
 
 (** {1 Rules and databases} *)
 
 (** A rule is a means of rewriting a subterm of type ['a] to another of the same
-    type within some larger data structure. It is a pair of a LHS pattern for
-    matching, and a continuation which allows generating a RHS. *)
+    type within some larger data structure. It is a LHS pattern for matching and
+    a continuation which allows creating a RHS. *)
 type ('a, 'k) rule = ('a, 'k, 'a) pattern * 'k
 
-(** A database of rewrite rules. The first parameter is the type of data rules
-    in this db act on, e.g. [pi]. The second is a sequence of continuation types
-    encoded as a function (as in typical heterogeneous lists). *)
+(** A database of rewrite rules. The first parameter is the type of data that
+    rules in this database act on, e.g. [pi]. The second is a sequence of
+    continuation types encoded as a function (as in typical heterogeneous
+    lists). *)
 type (_, _) db =
   | [] : ('a, unit) db
   | ( :: ) : ('a, 'k) rule * ('a, 'elts) db -> ('a, 'k -> 'elts) db
 
-val autorewrite_pi : (pi, 'k) db -> pi -> pi
-val autorewrite : (staged_spec, 'k) db -> staged_spec -> staged_spec
+val autorewrite : ('l, 's) rewriter -> ('s, 'k) db -> 'l -> 'l
 
 (** {1 Heifer's AST} *)
 
