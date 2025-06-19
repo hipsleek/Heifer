@@ -172,7 +172,9 @@ let rec pi_to_expr env ctx pi: Expr.expr =
   | True -> Z3.Boolean.mk_true ctx
   | False -> Z3.Boolean.mk_false ctx
   | Atomic (GT, t1, t2) ->
-    let t1 = term_to_expr env ctx t1 in
+    (* Format.printf "pi_to_expr: %s, %s\n" (string_of_term t1) (string_of_term t2);
+    Format.printf "pi_to_expr env: %s\n" (string_of_typ_env env); *)
+    let t1 = term_to_expr env ctx t1 in 
     let t2 = term_to_expr env ctx t2 in
     Z3.Arithmetic.mk_gt ctx t1 t2
   | Atomic (GTEQ, t1, t2) ->

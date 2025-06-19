@@ -317,6 +317,11 @@ let unfold_nonrecursive_defns defns f =
   let f = autorewrite db (Staged f) |> of_uterm in
   f
 
+let unfold_nonrecursive_definitions (pctx, f1, f2 : pstate) : pstate =
+  let f1 = unfold_nonrecursive_defns pctx.definitions_nonrec f1 in
+  let f2 = unfold_nonrecursive_defns pctx.definitions_nonrec f2 in
+  pctx, f1, f2
+
 let unfold_definitions : total =
  fun ps ->
   let@ _ =
@@ -340,6 +345,7 @@ let simplify : total =
   let@ _ =
     span (fun r -> log_proof_state_total ~title:"simplify" (pctx, f1, f2) r)
   in
+  let pctx, f1, f2 = unfold_nonrecursive_definitions (pctx, f1, f2) in
   (pctx, normalize_spec f1, normalize_spec f2)
 
 let apply_induction_hypotheses : total =

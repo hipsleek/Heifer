@@ -56,6 +56,7 @@ let xpure (h : kappa) : pi =
   in
   fst (run h)
 
+(*
 let rec check :
   string ->
   string list ->
@@ -175,3 +176,4 @@ end
     assumptions: x>0
     obligations: T
     |}] *)
+*)
