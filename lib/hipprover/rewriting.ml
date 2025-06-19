@@ -39,11 +39,25 @@ let string_of_uterm t =
   | Term t -> "Term " ^ string_of_term t
   | Binder s -> "Binder " ^ s *)
 
-let uterm_to_staged = function Staged s -> s | u -> failwith (Format.asprintf "not staged: %s" (string_of_uterm u))
-let uterm_to_pure = function Pure p -> p | u -> failwith (Format.asprintf "not pure: %s" (string_of_uterm u))
-let uterm_to_heap = function Heap h -> h | u -> failwith (Format.asprintf "not heap: %s" (string_of_uterm u))
-let uterm_to_term = function Term t -> t | u -> failwith (Format.asprintf "not term: %s" (string_of_uterm u))
-let uterm_to_binder = function Binder s -> s | u -> failwith (Format.asprintf "not binder: %s" (string_of_uterm u))
+let uterm_to_staged = function
+  | Staged s -> s
+  | u -> failwith (Format.asprintf "not staged: %s" (string_of_uterm u))
+
+let uterm_to_pure = function
+  | Pure p -> p
+  | u -> failwith (Format.asprintf "not pure: %s" (string_of_uterm u))
+
+let uterm_to_heap = function
+  | Heap h -> h
+  | u -> failwith (Format.asprintf "not heap: %s" (string_of_uterm u))
+
+let uterm_to_term = function
+  | Term t -> t
+  | u -> failwith (Format.asprintf "not term: %s" (string_of_uterm u))
+
+let uterm_to_binder = function
+  | Binder s -> s
+  | u -> failwith (Format.asprintf "not binder: %s" (string_of_uterm u))
 
 module UF : sig
   type t
@@ -625,6 +639,10 @@ module Rules = struct
   end
 end
 
+exception Unification_failure of string
+
+let fail fmt = Format.kasprintf (fun s -> raise (Unification_failure s)) fmt
+
 let%expect_test "unification and substitution" =
   let open Syntax in
   let open Rules in
@@ -831,3 +849,199 @@ let%expect_test "autorewrite" =
     start: ens T/\x=x/\T/\T
     result: ens emp
     |}]
+
+(** Named after the ppxlib module, which this is based on
+    https://ocaml-ppx.github.io/ppxlib/ppxlib/matching-code.html
+    https://github.com/ocaml-ppx/ppxlib/blob/main/src/ast_pattern0.ml
+    https://github.com/ocaml-ppx/ppxlib/blob/main/src/ast_pattern.ml *)
+module Ast_pattern = struct
+  type ('matched_value, 'k, 'k_result) t =
+    | T of ('matched_value -> 'k -> 'k_result)
+
+  let __ = T (fun x k -> k x)
+  let drop = T (fun _ k -> k)
+
+  let as__ (T f1) =
+    T
+      (fun x k ->
+        let k = f1 x (k x) in
+        k)
+
+  let const ?to_s v =
+    T
+      (fun x k ->
+        if x = v then k
+        else
+          match to_s with
+          | None -> fail "could not match constant"
+          | Some to_s ->
+            fail "could not match constant; expected %s but got %s" (to_s v)
+              (to_s x))
+
+  let true_ = const True
+
+  let and_ (T pp1) (T pp2) =
+    T
+      (fun x k ->
+        match x with
+        | And (p1, p2) ->
+          let k = pp1 p1 k in
+          let k = pp2 p2 k in
+          k
+        | _ -> fail "could not match And; got %s" (string_of_pi x))
+
+  let match_ (T p) u =
+    let res = ref None in
+    p u (fun a -> res := Some a);
+    !res
+
+  let%expect_test "unify" =
+    let p1 = and_ true_ __ in
+    let r = match_ p1 (And (True, True)) in
+    Format.printf "%s@." (string_of_option string_of_pi r);
+    [%expect {| Some T |}]
+
+  let rewrite_rooted (T p) u k = p u k
+
+  let%expect_test "rewrite" =
+    (* let p2 = and_ __ true_ in *)
+    let rule p k =
+      let@ a = rewrite_rooted (and_ true_ __) p in
+      k (And (a, True))
+    in
+    (* (And (True, False)) *)
+    (* let r = rewrite_rooted p1 p2 (Pure (And (True, False))) in *)
+    let r = Iter.head_exn (rule (And (True, False))) in
+    Format.printf "%s@." (string_of_pi r);
+    [%expect {| F/\T |}]
+
+  (* target  *)
+  let rewrite_all_pure lhs krhs =
+    let visitor =
+      object (_self)
+        inherit [_] map_spec as super
+
+        method! visit_pi () s =
+          let s1 = super#visit_pi () s in
+          try
+            rewrite_rooted lhs s1 |> Iter.map krhs |> Iter.head
+            |> Option.value ~default:s1
+          with Unification_failure _ -> s1
+      end
+    in
+    visitor
+
+  let%expect_test "rewrite all" =
+    let open Syntax in
+    let target = ens ~p:(And (True, False)) () in
+    let r =
+      (rewrite_all_pure (and_ true_ __) (fun a -> And (a, True)))
+        #visit_staged_spec () target
+    in
+    Format.printf "%s@." (string_of_staged_spec r);
+    [%expect {| ens F/\T |}]
+end
+
+module Deep = struct
+  type pattern =
+    | Constr of string * pattern list
+    | Inst of UF.t
+    | Var of string
+
+  let rec string_of_pattern p =
+    match p with
+    | Var s -> s
+    | Inst _ -> "<inst>"
+    | Constr (f, a) ->
+      Format.asprintf "%s%s" f (string_of_args string_of_pattern a)
+
+  let v s = Var s
+  let and_ p1 p2 = Constr ("and", [p1; p2])
+  let true_ = Constr ("true", [])
+
+  let rec match_with st p u =
+    match p with
+    | Constr (f, a) ->
+      (match (f, a, u) with
+      | "true", [], Pure True -> ()
+      | "and", [a1; a2], Pure (And (p1, p2)) ->
+        match_with st a1 (Pure p1);
+        match_with st a2 (Pure p2)
+      | _, _, _ ->
+        fail "unification failure: %s and %s" (string_of_pattern p)
+          (string_of_uterm u))
+    | Var _ -> failwith "invalid"
+    | Inst x ->
+      (match UF.get st x with
+      | None -> UF.set st x (Some u)
+      | Some u1 when u = u1 -> ()
+      | Some u1 ->
+        fail "unification failure: %s and %s" (string_of_uterm u)
+          (string_of_uterm u1))
+
+  let rec subst st p =
+    match p with
+    | Constr (f, a) ->
+      (match (f, a) with
+      | "true", [] -> Pure True
+      | "and", [p1; p2] ->
+        let p1 = subst st p1 |> uterm_to_pure in
+        let p2 = subst st p2 |> uterm_to_pure in
+        Pure (And (p1, p2))
+      | _ -> failwith "unknown")
+    | Var _ -> failwith "invalid"
+    | Inst x -> UF.get st x |> Option.get
+
+  let make_unifiable ?(e = SMap.empty) st p =
+    let rec aux e p =
+      match p with
+      | Var s ->
+        let e =
+          SMap.update s
+            (function None -> Some (UF.make st None) | Some v -> Some v)
+            e
+        in
+        (Inst (SMap.find s e), e)
+      | Inst _ -> (p, e)
+      | Constr (f, a) ->
+        let a, e =
+          List.fold_right
+            (fun c (cs, e) ->
+              let c1, e = aux e c in
+              (c1 :: cs, e))
+            a ([], e)
+        in
+        (Constr (f, a), e)
+    in
+    aux e p
+
+  let match_ p u =
+    let st = UF.new_store () in
+    let p, _ = make_unifiable st p in
+    try
+      match_with st p u;
+      Some st
+    with Failure _ -> None
+
+  let rewrite_rooted lhs rhs u =
+    let st = UF.new_store () in
+    let lhs, e = make_unifiable st lhs in
+    let rhs, _ = make_unifiable ~e st rhs in
+    try
+      match_with st lhs u;
+      Some (subst st rhs)
+    with Failure _ -> None
+
+  let%expect_test "unify" =
+    let p1 = and_ true_ (v "a") in
+    let r = match_ p1 (Pure (And (True, True))) in
+    Format.printf "%b@." (Option.is_some r);
+    [%expect {| true |}]
+
+  let%expect_test "rewrite" =
+    let p1 = and_ true_ (v "a") in
+    let p2 = and_ (v "a") true_ in
+    let r = rewrite_rooted p1 p2 (Pure (And (True, False))) in
+    Format.printf "%s@." (string_of_option string_of_uterm r);
+    [%expect {| Some F/\T |}]
+end
