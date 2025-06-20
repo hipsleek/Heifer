@@ -428,21 +428,21 @@ let biab h1 h2 k =
   let a = sep_conj a in
   let f = sep_conj f in
   let eqs = conj eqs in
-  k ((True, a), (eqs, f))
+  k ((eqs, a), (True, f))
 
 let rec apply_ent_rule ?name : tactic =
  fun (pctx, f1, f2) k ->
   let open Syntax in
   match (f1, f2) with
   (* base case *)
-  | NormalReturn (True, EmptyHeap), NormalReturn (True, EmptyHeap)
-  | Require (True, EmptyHeap), Require (True, EmptyHeap) ->
+  | NormalReturn (True, EmptyHeap), NormalReturn (True, EmptyHeap) ->
+  (* | Require (True, EmptyHeap), Require (True, EmptyHeap) -> *)
     k (pctx, ens (), ens ())
-  | ( Sequence (NormalReturn (True, EmptyHeap), f1),
+  (* | ( Sequence (NormalReturn (True, EmptyHeap), f1),
       Sequence (NormalReturn (True, EmptyHeap), f2) )
   | ( Sequence (Require (True, EmptyHeap), f1),
       Sequence (Require (True, EmptyHeap), f2) ) ->
-    entailment_search ?name (pctx, f1, f2) k
+    entailment_search ?name (pctx, f1, f2) k *)
   (* move pure things into the context *)
   | ( Sequence
         ( NormalReturn

@@ -71,13 +71,13 @@
   ALL OK!
 
   $ check test_closures.ml
-                    f1: false
-                    f2: false
-                    f3: false
-                    f4: false
+                    f1: true
+                    f2: true
+                    f3: true
+                    f4: true
               f5_false: false (expected)
-                    f6: false
-                    f7: false
+                    f6: true
+                    f7: true
                  apply: true
-                    f8: false
+                    f8: true
   [1]
