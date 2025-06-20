@@ -239,6 +239,10 @@ let derive_predicate m_name m_params f =
 let lambda_to_rule m_name m_params f =
   derive_predicate m_name m_params f |> pred_to_rule
 
+
+let try_constants pctx =
+  [Const Nil] @ pctx.constants
+
 (** Tactics combine the state and list monads *)
 module Tactic : sig
   type 'a t = pstate -> ('a * pstate) Iter.t
@@ -346,7 +350,7 @@ let simplify : total =
     span (fun r -> log_proof_state_total ~title:"simplify" (pctx, f1, f2) r)
   in
   let pctx, f1, f2 = unfold_nonrecursive_definitions (pctx, f1, f2) in
-  (pctx, normalize_spec f1, normalize_spec f2)
+  (pctx, normalize_spec_lhs f1, normalize_spec f2)
 
 let apply_induction_hypotheses : total =
   let open Rewriting in
@@ -629,8 +633,9 @@ let rec apply_ent_rule ?name : tactic =
     entailment_search ?name (pctx, f1, f4) k
   | f1, Exists (x, f4) ->
     let choices =
-      pctx.constants
+      try_constants pctx
       |> List.map (fun c ->
+          try
              let f4 = Subst.subst_free_vars [(x, c)] f4 in
              fun k1 ->
                let@ _ =
@@ -641,13 +646,17 @@ let rec apply_ent_rule ?name : tactic =
                             (string_of_term c) x)
                        (pctx, f1, f2))
                in
-               entailment_search ?name (pctx, f1, f4) k1)
+               entailment_search ?name (pctx, f1, f4) k1
+              with _ ->
+                debug ~at:5 ~title:"ERROR" "";
+                fun _ -> fail)
     in
     disj_ choices k
   | ForAll (x, f3), f2 ->
     let choices =
-      pctx.constants
+      try_constants pctx
       |> List.map (fun c ->
+          try
              let f3 = Subst.subst_free_vars [(x, c)] f3 in
              fun k1 ->
                let@ _ =
@@ -658,7 +667,10 @@ let rec apply_ent_rule ?name : tactic =
                             (string_of_term c) x)
                        (pctx, f1, f2))
                in
-               entailment_search ?name (pctx, f3, f2) k1)
+               entailment_search ?name (pctx, f3, f2) k1
+          with _ ->
+            debug ~at:5 ~title:"ERROR" "";
+            fun _ -> fail)
     in
     disj_ choices k
   (* bind, which requires alpha equivalence *)

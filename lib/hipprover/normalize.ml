@@ -322,6 +322,17 @@ let split_ens_visitor =
 
 let split_ens = split_ens_visitor#visit_staged_spec ()
 
+let norm_bind_val = Staged.dynamic_rule
+  (Bind (Binder.uvar "x", NormalReturn (eq res_var (Term.uvar "r"), emp), Staged.uvar "f"))
+  (fun sub ->
+    let x = sub "x" |> Binder.of_uterm in
+    let r = sub "r" |> Term.of_uterm in
+    let f = sub "f" |> Staged.of_uterm in
+    if is_lambda_term r then
+      Bind (x, NormalReturn (eq res_var r, emp), f)
+    else
+      Subst.subst_free_vars [(x, r)] f)
+
 let norm_bind_trivial = Staged.dynamic_rule
   (Bind (Binder.uvar "x", Staged.uvar "f",
     NormalReturn (eq res_var (Term.uvar "r"), emp)))
@@ -410,7 +421,6 @@ let norm_bind_seq_ens = Staged.dynamic_rule
     let fk = Staged.of_uterm (sub "fk") in
     Sequence (NormalReturn (p, h), Bind (x, f, fk)))
 
-
 let norm_ens_heap_ens_pure = Staged.dynamic_rule
   (seq [NormalReturn (True, Heap.uvar "h"); NormalReturn (Pure.uvar "p", emp)])
   (fun sub ->
@@ -460,20 +470,38 @@ let norm_seq_req_emp = Staged.rule
   (seq [req (); Staged.uvar "f"])
   (Staged.uvar "f")
 
-(* added later, if we are sure that this is useful *)
+let norm_seq_all = Staged.dynamic_rule
+  (Sequence (ForAll (Binder.uvar "x", Staged.uvar "f"), Staged.uvar "fk"))
+  (fun sub ->
+    let x = Binder.of_uterm (sub "x") in
+    let f = Staged.of_uterm (sub "f") in
+    let fk = Staged.of_uterm (sub "fk") in
+    ForAll (x, Sequence (f, fk)))
+let norm_seq_ex = Staged.dynamic_rule
+  (Sequence (Exists (Binder.uvar "x", Staged.uvar "f"), Staged.uvar "fk"))
+  (fun sub ->
+    let x = Binder.of_uterm (sub "x") in
+    let f = Staged.of_uterm (sub "f") in
+    let fk = Staged.of_uterm (sub "fk") in
+    Exists (x, Sequence (f, fk)))
+
+(* this can be applied on both side *)
 let normalization_rules_empty = [
   norm_seq_ens_emp;
   norm_seq_req_emp;
 ]
 
 let normalization_rules_bind = [
-  (* norm_bind_val; *)
+  norm_bind_val;
   norm_bind_trivial;
   norm_bind_disj;
   norm_bind_req;
   norm_bind_ex;
   norm_bind_all;
   norm_bind_seq_ens;
+]
+
+let normalization_rules_seq = [
   norm_seq_ens_ex;
   norm_seq_ens_all;
   norm_seq_ens_seq_all;
@@ -492,19 +520,19 @@ let normalization_rules_permute_ens = [
 let normalization_rules = List.concat [
   normalization_rules_empty;
   normalization_rules_bind;
+  normalization_rules_seq;
   normalization_rules_permute_ens;
 ]
 
-(* let norm_bind_val = Staged.dynamic_rule
-  (Bind (Binder.uvar "x", NormalReturn (eq res_var (Term.uvar "r"), emp), Staged.uvar "f"))
-  (fun sub ->
-    let x = sub "x" |> Binder.of_uterm in
-    let r = sub "r" |> Term.of_uterm in
-    let f = sub "f" |> Staged.of_uterm in
-    if is_lambda_term r then
-      Bind (x, NormalReturn (eq res_var r, emp), f)
-    else
-      Subst.subst_free_vars [(x, r)] f) *)
+let normalization_rules_lhs_only = [
+  norm_seq_all;
+  norm_seq_ex;
+]
+
+let normalization_rules_rhs_only = []
+
+let normalization_rules_lhs = normalization_rules @ normalization_rules_lhs_only
+let normalization_rules_rhs = normalization_rules @ normalization_rules_rhs_only
 
 let norm_bind_val =
   let open Rewriting2 in
@@ -520,7 +548,7 @@ let norm_db2 : _ Rewriting2.database =
   ]
 
 (* the main entry point *)
-let normalize_spec (spec : staged_spec) : staged_spec =
+let normalize_spec_with (rules : rule list) (spec : staged_spec) : staged_spec =
   let@ _ = Globals.Timing.(time norm) in
   let@ _ =
     span (fun r -> debug
@@ -531,9 +559,13 @@ let normalize_spec (spec : staged_spec) : staged_spec =
       (string_of_result Pretty.string_of_staged_spec r))
   in
   let spec = split_ens spec in
-  let spec = Staged.of_uterm (autorewrite normalization_rules (Staged spec)) in
-  let spec = Rewriting2.(autorewrite staged norm_db2 spec) in
+  let spec = Staged.of_uterm (autorewrite rules (Staged spec)) in
+  (* let spec = Rewriting2.(autorewrite staged norm_db2 spec) in *)
   spec
+
+let normalize_spec = normalize_spec_with normalization_rules
+let normalize_spec_lhs = normalize_spec_with normalization_rules_lhs
+let normalize_spec_rhs = normalize_spec_with normalization_rules_rhs
 
 let%expect_test "rules" =
   let test rule input =
