@@ -12,6 +12,7 @@ let is_opening = ref false
 let last_title = ref ""
 let ctf_output = ref false
 let file_mode = ref false
+let should_buffer = ref true
 
 let yellow text =
   match !file_mode with
@@ -239,8 +240,7 @@ let debug_print at title body supp =
             |> String.concat "\n"
       in
       begin
-        let should_buffer = true in
-        match should_buffer with
+        match !should_buffer with
         | true -> Buffered.collapse_empty_spans title body supp
         | false ->
           Buffered.write_line (title 0) (append_if_not_blank body (supp 0))
@@ -330,8 +330,9 @@ let string_of_result f r =
   | Exn e -> Printexc.to_string e
   | Value r -> Format.asprintf "%s" (f r)
 
-let init ~ctf ~org query =
+let init ~ctf ~org ?(buffer = true) query =
   at_exit (fun () -> Buffered.flush_buffer ());
+  should_buffer := buffer;
   file_mode := org;
   if ctf then (
     ctf_output := true;
@@ -342,6 +343,9 @@ let init ~ctf ~org query =
     Format.fprintf (!trace_out |> Option.get) "[@.");
   user_query :=
     query |> (fun o -> Option.bind o parse_query) |> Option.value ~default:[]
+
+let test_init ?(ctf = false) ?(org = true) log_level =
+  init ~ctf ~org ~buffer:false (Some (string_of_int log_level))
 
 let%expect_test "queries" =
   file_mode := true;

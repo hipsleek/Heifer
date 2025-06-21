@@ -241,32 +241,260 @@ let derive_predicate m_name m_params f =
 let lambda_to_rule m_name m_params f =
   derive_predicate m_name m_params f |> pred_to_rule
 
-
-let try_constants pctx =
-  [Const Nil] @ pctx.constants
+let try_constants pctx = [Const Nil] @ pctx.constants
 
 (** Tactics combine the state and list monads *)
 module Tactic : sig
   type 'a t = pstate -> ('a * pstate) Iter.t
 
+  val run : 'a t -> pstate -> pctx option
   val return : 'a -> 'a t
   val bind : 'a t -> ('a -> 'b t) -> 'b t
-  val ( >>= ) : 'a t -> ('a -> 'b t) -> 'b t
   val ( let* ) : 'a t -> ('a -> 'b t) -> 'b t
-  val get : pstate t
-  val put : pstate -> unit t
-  val fail : 'a t
-end = struct
-  type 'a t = pstate -> ('a * pstate) Iter.t
+  val ctx : pctx t
 
+  type goal = staged_spec * staged_spec
+
+  val goal : goal t
+  val goal_lhs : staged_spec t
+  val goal_rhs : staged_spec t
+  val with_lhs : staged_spec -> (unit -> 'a t) -> 'a t
+  val with_rhs : staged_spec -> (unit -> 'a t) -> 'a t
+  val fail : 'a t
+  val choice : 'a t -> 'a t -> 'a t
+  val choices : 'a t list -> 'a t
+  val committed_choice : 'a t -> 'a t -> 'a t
+  val committed_choices : 'a t list -> 'a t
+
+  val failure :
+    title:string -> ('a, Format.formatter, unit, unit t) format4 -> 'a
+
+  val span :
+    'a t -> title:string -> ('b, Format.formatter, unit, 'a t) format4 -> 'b
+end = struct
+  (* [@@@warning "-unused-value-declaration"] *)
+
+  type 'a t = pstate -> ('a * pstate) Iter.t
+  type goal = staged_spec * staged_spec
+
+  let run t ps = Iter.head (t ps) |> Option.map (fun (_, (pctx, _, _)) -> pctx)
+  let fail = fun _ -> Iter.empty
   let return x = fun s -> Iter.return (x, s)
   let bind m f = fun s -> Iter.flat_map (fun (x, s') -> f x s') (m s)
-  let get = fun s -> Iter.return (s, s)
-  let put s = fun _ -> Iter.return ((), s)
-  let fail = fun _ -> Iter.empty
-  let ( >>= ) = bind
   let ( let* ) = bind
+  let get = fun s -> Iter.return (s, s)
+
+  let ctx =
+    let* r, _, _ = get in
+    return r
+
+  let goal =
+    let* _, f1, f2 = get in
+    return (f1, f2)
+
+  let goal_lhs =
+    let* _, f1, _ = get in
+    return f1
+
+  let goal_rhs =
+    let* _, _, f2 = get in
+    return f2
+
+  let put s = fun _ -> Iter.return ((), s)
+
+  let put_lhs f1 =
+    let* pctx, _, f2 = get in
+    put (pctx, f1, f2)
+
+  let put_rhs f2 =
+    let* pctx, f1, _ = get in
+    put (pctx, f1, f2)
+
+  let put_goal (f1, f2) =
+    let* pctx, _, _ = get in
+    put (pctx, f1, f2)
+
+  (* let with_ (pctx, f1, f2) t =
+    let* _ = put (pctx, f1, f2) in
+    t () *)
+
+  let with_lhs f1 t =
+    let* of1, of2 = goal in
+    let* () = put_lhs f1 in
+    let* r = t () in
+    let* () = put_goal (of1, of2) in
+    return r
+
+  let with_rhs f2 t =
+    let* of1, of2 = goal in
+    let* () = put_rhs f2 in
+    let* r = t () in
+    let* () = put_goal (of1, of2) in
+    return r
+
+  let choice t1 t2 = fun ps -> Iter.append (t1 ps) (t2 ps)
+  let choices ts = fun ps -> Iter.append_l (List.map (fun t -> t ps) ts)
+
+  (* like ltac's lazymatch. unsure if this is necessary as we only get one solution. also this may lead to incompleteness of search, as we cannot backtrack past this, like a cut? *)
+  let committed_choice (t1 : 'a t) (t2 : 'a t) : 'a t =
+   fun ps -> Iter.take 1 ((choice t1 t2) ps)
+
+  let committed_choices ts = fun ps -> Iter.take 1 ((choices ts) ps)
+
+  let failure ~title fmt =
+    Format.kasprintf
+      (fun msg ->
+        fun s k ->
+         Debug.debug ~at:4 ~title "%s" msg;
+         fail s k)
+      fmt
+
+  let span (t : 'a t) ~title fmt =
+    Format.kasprintf
+      (fun msg ->
+        fun s k ->
+         let@ _ = span (fun _r -> Debug.debug ~at:4 ~title "%s" msg) in
+         t s k)
+      fmt
 end
+
+let rec disj_left () : unit Tactic.t =
+  let open Tactic in
+  let* left = goal_lhs in
+  match left with
+  | Disjunction (f1, f2) ->
+    let* _ = span (with_lhs f1 search) ~title:"disj left" "left branch" in
+    span (with_lhs f2 search) ~title:"disj left" "right branch"
+  | _ -> fail
+
+and disj_right () : unit Tactic.t =
+  let open Tactic in
+  let* right = goal_rhs in
+  match right with
+  | Disjunction (f1, f2) ->
+    let goal2 = span (with_rhs f2 search) ~title:"disj right" "right branch" in
+    let goal1 = span (with_rhs f1 search) ~title:"disj right" "left branch" in
+    choice goal1 goal2
+  | _ -> fail
+
+and ens_ens () : unit Tactic.t =
+  let open Tactic in
+  let* left, right = goal in
+  match (left, right) with
+  | NormalReturn (True, EmptyHeap), NormalReturn (True, EmptyHeap) ->
+    debug ~at:4 ~title:"ens ens" "ok";
+    return ()
+  | _ -> fail
+
+and search () : unit Tactic.t =
+  let open Tactic in
+  let* left, right = goal in
+  debug ~at:4 ~title:"search" "%s |- %s"
+    (string_of_staged_spec left)
+    (string_of_staged_spec right);
+  choices [disj_left (); disj_right (); ens_ens (); failure ~title:"STUCK" ""]
+
+let%expect_test _ =
+  Debug.test_init 4;
+  let open Syntax in
+  let left = Disjunction (ens (), ens ()) in
+  let right = Disjunction (ens ~p:False (), ens ()) in
+  let r = Tactic.run (search ()) (new_pctx (), left, right) |> Option.get in
+  debug ~at:4 ~title:"done" "%s" (string_of_pstate (r, left, right));
+  [%expect
+    {|
+    * search | _1
+    (ens emp) \/ (ens emp) |- (ens F) \/ (ens emp)
+
+    * disj left | _2
+    left branch
+
+    ** search | _3
+    ens emp |- (ens F) \/ (ens emp)
+
+    ** disj right | _4
+    left branch
+
+    *** search | _5
+    ens emp |- ens F
+
+    *** STUCK | _6
+
+    *** disj right | _7 <-_4
+    left branch
+
+    ** disj right | _8
+    right branch
+
+    *** search | _9
+    ens emp |- ens emp
+
+    *** ens ens | _10
+    ok
+
+    *** disj left | _11
+    right branch
+
+    **** search | _12
+    ens emp |- (ens F) \/ (ens emp)
+
+    **** disj right | _13
+    left branch
+
+    ***** search | _14
+    ens emp |- ens F
+
+    ***** STUCK | _15
+
+    ***** disj right | _16 <-_13
+    left branch
+
+    **** disj right | _17
+    right branch
+
+    ***** search | _18
+    ens emp |- ens emp
+
+    ***** ens ens | _19
+    ok
+
+    ***** disj right | _20 <-_17
+    right branch
+
+    **** disj left | _21 <-_11
+    right branch
+
+    *** disj right | _22 <-_8
+    right branch
+
+    ** disj left | _23 <-_2
+    left branch
+
+    * done | _24
+    (ens emp) \/ (ens emp)
+    ⊑
+    (ens F) \/ (ens emp)
+    <============================================================
+    constants:
+    []
+
+    induction_hypotheses:
+
+
+    lemmas:
+
+
+    assumptions:
+
+
+    definitions_nonrec:
+
+
+    definitions_rec:
+
+
+    unfolded:
+    |}]
 
 type tactic = pstate -> pstate Iter.t
 
@@ -323,10 +551,10 @@ let unfold_nonrecursive_defns defns f =
   let f = autorewrite db (Staged f) |> of_uterm in
   f
 
-let unfold_nonrecursive_definitions (pctx, f1, f2 : pstate) : pstate =
+let unfold_nonrecursive_definitions ((pctx, f1, f2) : pstate) : pstate =
   let f1 = unfold_nonrecursive_defns pctx.definitions_nonrec f1 in
   let f2 = unfold_nonrecursive_defns pctx.definitions_nonrec f2 in
-  pctx, f1, f2
+  (pctx, f1, f2)
 
 let unfold_definitions : total =
  fun ps ->
@@ -457,7 +685,7 @@ let rec apply_ent_rule ?name : tactic =
   match (f1, f2) with
   (* base case *)
   | NormalReturn (True, EmptyHeap), NormalReturn (True, EmptyHeap) ->
-  (* | Require (True, EmptyHeap), Require (True, EmptyHeap) -> *)
+    (* | Require (True, EmptyHeap), Require (True, EmptyHeap) -> *)
     k (pctx, ens (), ens ())
   (* | ( Sequence (NormalReturn (True, EmptyHeap), f1),
       Sequence (NormalReturn (True, EmptyHeap), f2) )
@@ -479,14 +707,14 @@ let rec apply_ent_rule ?name : tactic =
     let pctx =
       let@ _ =
         span (fun _r ->
-          log_proof_state ~title:"ent: lambda binding" (pctx, f1, f2))
+            log_proof_state ~title:"ent: lambda binding" (pctx, f1, f2))
       in
       let rule = lambda_to_rule lname ps sp in
       { pctx with definitions_nonrec = rule :: pctx.definitions_nonrec }
     in
     entailment_search ?name (pctx, f3, f4) k
   | ( Sequence
-        ( NormalReturn (_, _) as f_head,
+        ( (NormalReturn (_, _) as f_head),
           Bind
             ( lname,
               NormalReturn
@@ -498,7 +726,7 @@ let rec apply_ent_rule ?name : tactic =
     let pctx =
       let@ _ =
         span (fun _r ->
-          log_proof_state ~title:"ent: lambda binding" (pctx, f1, f2))
+            log_proof_state ~title:"ent: lambda binding" (pctx, f1, f2))
       in
       let rule = lambda_to_rule lname ps sp in
       { pctx with definitions_nonrec = rule :: pctx.definitions_nonrec }
@@ -555,31 +783,38 @@ let rec apply_ent_rule ?name : tactic =
     in
     entailment_search ?name (pctx, f1, f2) k
   (* biabduction + instantiate forall *)
-  | ForAll (y, Sequence (NormalReturn (p1, h1), Sequence (Require (p2, h2), f3))), f2 ->
-      let@ _ =
-        span (fun _r -> log_proof_state ~title:"ent: biab f inst" (pctx, f1, f2))
-      in
-      let@ a, f, eqs = biab' h1 h2 in
-      let find_equality = function
-        | Atomic (EQ, t1, t2) when t1 = Var y -> Some t2
-        | Atomic (EQ, t1, t2) when t2 = Var y -> Some t1
-        | _ -> None
-      in
-      let f1 = match Lists.find_delete_map find_equality eqs with
-        | None ->
-            seq [
-              Require (conj (p2 :: eqs), sep_conj a);
-              NormalReturn (p1, sep_conj f); f3
-            ]
-        | Some (t, eqs) ->
-            debug ~at:5 ~title:"ent: biab f inst with" "[%s/%s]" (string_of_term t) y;
-            seq [
-              Require (conj (p2 :: eqs), sep_conj a);
-              NormalReturn (p1, sep_conj f);
-              Subst.subst_free_vars [(y, t)] f3;
-            ]
-      in
-      entailment_search ?name (pctx, f1, f2) k
+  | ( ForAll
+        (y, Sequence (NormalReturn (p1, h1), Sequence (Require (p2, h2), f3))),
+      f2 ) ->
+    let@ _ =
+      span (fun _r -> log_proof_state ~title:"ent: biab f inst" (pctx, f1, f2))
+    in
+    let@ a, f, eqs = biab' h1 h2 in
+    let find_equality = function
+      | Atomic (EQ, t1, t2) when t1 = Var y -> Some t2
+      | Atomic (EQ, t1, t2) when t2 = Var y -> Some t1
+      | _ -> None
+    in
+    let f1 =
+      match Lists.find_delete_map find_equality eqs with
+      | None ->
+        seq
+          [
+            Require (conj (p2 :: eqs), sep_conj a);
+            NormalReturn (p1, sep_conj f);
+            f3;
+          ]
+      | Some (t, eqs) ->
+        debug ~at:5 ~title:"ent: biab f inst with" "[%s/%s]" (string_of_term t)
+          y;
+        seq
+          [
+            Require (conj (p2 :: eqs), sep_conj a);
+            NormalReturn (p1, sep_conj f);
+            Subst.subst_free_vars [(y, t)] f3;
+          ]
+    in
+    entailment_search ?name (pctx, f1, f2) k
   (*
   | ( Sequence
         ( NormalReturn (p1, (PointsTo (_, v) as h1)),
@@ -682,42 +917,42 @@ let rec apply_ent_rule ?name : tactic =
     let choices =
       try_constants pctx
       |> List.map (fun c ->
-          try
-             let f4 = Subst.subst_free_vars [(x, c)] f4 in
-             fun k1 ->
-               let@ _ =
-                 span (fun _r ->
-                     log_proof_state
-                       ~title:
-                         (Format.asprintf "ent: exists on the right; [%s/%s]"
-                            (string_of_term c) x)
-                       (pctx, f1, f2))
-               in
-               entailment_search ?name (pctx, f1, f4) k1
-              with _ ->
-                debug ~at:5 ~title:"ERROR" "";
-                fun _ -> fail)
+             try
+               let f4 = Subst.subst_free_vars [(x, c)] f4 in
+               fun k1 ->
+                 let@ _ =
+                   span (fun _r ->
+                       log_proof_state
+                         ~title:
+                           (Format.asprintf "ent: exists on the right; [%s/%s]"
+                              (string_of_term c) x)
+                         (pctx, f1, f2))
+                 in
+                 entailment_search ?name (pctx, f1, f4) k1
+             with _ ->
+               debug ~at:5 ~title:"ERROR" "";
+               fun _ -> fail)
     in
     disj_ choices k
   | ForAll (x, f3), f2 ->
     let choices =
       try_constants pctx
       |> List.map (fun c ->
-          try
-             let f3 = Subst.subst_free_vars [(x, c)] f3 in
-             fun k1 ->
-               let@ _ =
-                 span (fun _r ->
-                     log_proof_state
-                       ~title:
-                         (Format.asprintf "ent: forall on the left; [%s/%s]"
-                            (string_of_term c) x)
-                       (pctx, f1, f2))
-               in
-               entailment_search ?name (pctx, f3, f2) k1
-          with _ ->
-            debug ~at:5 ~title:"ERROR" "";
-            fun _ -> fail)
+             try
+               let f3 = Subst.subst_free_vars [(x, c)] f3 in
+               fun k1 ->
+                 let@ _ =
+                   span (fun _r ->
+                       log_proof_state
+                         ~title:
+                           (Format.asprintf "ent: forall on the left; [%s/%s]"
+                              (string_of_term c) x)
+                         (pctx, f1, f2))
+                 in
+                 entailment_search ?name (pctx, f3, f2) k1
+             with _ ->
+               debug ~at:5 ~title:"ERROR" "";
+               fun _ -> fail)
     in
     disj_ choices k
   (* bind, which requires alpha equivalence *)

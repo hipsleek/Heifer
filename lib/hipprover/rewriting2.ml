@@ -85,6 +85,17 @@ let ens (T pp) (T ph) =
       | _ ->
         fail "could not match NormalReturn; got %s" (string_of_staged_spec x))
 
+let disj (T pf1) (T pf2) =
+  T
+    (fun x k ->
+      match x with
+      | Disjunction (f1, f2) ->
+        let k = pf1 f1 k in
+        let k = pf2 f2 k in
+        k
+      | _ ->
+        fail "could not match Disjunction; got %s" (string_of_staged_spec x))
+
 let rewrite_rooted ~lhs:(T p) ~target ~rhs = p target rhs
 let match_ ~pat ~scr ~rhs = rewrite_rooted ~target:scr ~lhs:pat ~rhs
 let match1 pat target = rewrite_rooted ~lhs:pat ~rhs:Fun.id ~target
@@ -147,7 +158,8 @@ let staged_visitor lhs krhs =
       try rewrite_rooted ~lhs ~target:s1 ~rhs:krhs with Match_failure _ -> s1
   end
 
-(* aka the of "rewrite_all functions" *)
+(** aka the of "rewrite_all functions". It works for all ['k], which is the
+    continuation used for rewriting to create the "small" ['s] terms. *)
 type ('l, 's) rewriter = { rew : 'k. ('s, 'k, 's) pattern -> 'k -> 'l -> 'l }
 [@@unboxed]
 

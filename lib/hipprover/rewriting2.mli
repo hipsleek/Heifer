@@ -24,8 +24,7 @@ val match3 : ('a, 'b -> 'c -> 'd -> 'b * 'c * 'd, 'e) pattern -> 'a -> 'e
 val rewrite_rooted : lhs:('a, 'b, 'c) pattern -> target:'a -> rhs:'b -> 'c
 
 (** A rewriter is means of transforming a "large" type ['l] by rewriting a
-    subterm of "small" type ['s] within it. It works for all ['k], which is the
-    continuation used for rewriting to create the small term. *)
+    subterm of "small" type ['s] within it. *)
 type ('l, 's) rewriter
 
 val rewrite_all : ('a, 'b) rewriter -> ('b, 'c, 'b) pattern -> 'c -> 'a -> 'a
@@ -62,6 +61,11 @@ val var : string -> (term, 'b, 'b) pattern
 val ens :
   (pi, 'a, 'b) pattern ->
   (kappa, 'b, 'c) pattern ->
+  (staged_spec, 'a, 'c) pattern
+
+val disj :
+  (staged_spec, 'a, 'b) pattern ->
+  (staged_spec, 'b, 'c) pattern ->
   (staged_spec, 'a, 'c) pattern
 
 val bind :

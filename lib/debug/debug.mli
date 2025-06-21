@@ -30,7 +30,10 @@ v}
     where [ctf] enables production of trace data in CTF,
     [query] is a query string for controlling what is logged, setting debug levels, etc., and
     [org] is true for org-mode output and false for more human-readable output. *)
-val init : ctf:bool -> org:bool -> string option -> unit
+val init : ctf:bool -> org:bool -> ?buffer:bool -> string option -> unit
+
+(* Like [init], but for a typical unit test *)
+val test_init : ?ctf:bool -> ?org:bool -> int -> unit
 
 (** [debug ~at:log_level ~title ?supp fmt] outputs an instantaneous event. *)
 val debug :
