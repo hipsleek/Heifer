@@ -11,7 +11,7 @@
                  test4: true
                  test5: true
                 test61: true
-          test23_false: true
+          test23_false: false (expected)
                 test13: true
                 test18: true
                 test20: false
@@ -22,7 +22,7 @@
                 test16: false
                 test17: false
                     f1: true
-                test24: false
+                test24: true
                     fa: true
                 test26: true
                if_disj: true
@@ -80,4 +80,4 @@
                     f7: true
                  apply: true
                     f8: true
-  [1]
+  ALL OK!

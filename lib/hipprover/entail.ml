@@ -3,6 +3,7 @@ open Hiptypes
 open Pretty
 open Debug
 open Normalize
+open Utils
 
 (* type use = Use of string * [ `Left | `Right ] [@unboxed] *)
 
@@ -430,6 +431,25 @@ let biab h1 h2 k =
   let eqs = conj eqs in
   k ((eqs, a), (True, f))
 
+let biab' h1 h2 k =
+  let open Biab in
+  let open Syntax in
+  let _h, a, f, eqs =
+    let@ _ =
+      span (fun r ->
+          debug ~at:4 ~title:"ent: biab" "%s * %s |- %s * %s"
+            (string_of_result
+               (fun (_h, a, _f, _eqs) -> string_of_kappa (sep_conj a))
+               r)
+            (string_of_kappa h1) (string_of_kappa h2)
+            (string_of_result
+               (fun (_h, _a, f, eqs) -> string_of_state (conj eqs, sep_conj f))
+               r))
+    in
+    solve emp_biab_ctx h1 h2
+  in
+  k (a, f, eqs)
+
 let rec apply_ent_rule ?name : tactic =
  fun (pctx, f1, f2) k ->
   let open Syntax in
@@ -534,6 +554,32 @@ let rec apply_ent_rule ?name : tactic =
     in
     entailment_search ?name (pctx, f1, f2) k
   (* biabduction + instantiate forall *)
+  | ForAll (y, Sequence (NormalReturn (p1, h1), Sequence (Require (p2, h2), f3))), f2 ->
+      let@ _ =
+        span (fun _r -> log_proof_state ~title:"ent: biab f inst" (pctx, f1, f2))
+      in
+      let@ a, f, eqs = biab' h1 h2 in
+      let find_equality = function
+        | Atomic (EQ, t1, t2) when t1 = Var y -> Some t2
+        | Atomic (EQ, t1, t2) when t2 = Var y -> Some t1
+        | _ -> None
+      in
+      let f1 = match Lists.find_delete_map find_equality eqs with
+        | None ->
+            seq [
+              Require (conj (p2 :: eqs), sep_conj a);
+              NormalReturn (p1, sep_conj f); f3
+            ]
+        | Some (t, eqs) ->
+            debug ~at:5 ~title:"ent: biab f inst with" "[%s/%s]" (string_of_term t) y;
+            seq [
+              Require (conj (p2 :: eqs), sep_conj a);
+              NormalReturn (p1, sep_conj f);
+              Subst.subst_free_vars [(y, t)] f3;
+            ]
+      in
+      entailment_search ?name (pctx, f1, f2) k
+  (*
   | ( Sequence
         ( NormalReturn (p1, (PointsTo (_, v) as h1)),
           ForAll (y, Sequence (Require (p2, h2), f3)) ),
@@ -552,7 +598,7 @@ let rec apply_ent_rule ?name : tactic =
           Subst.subst_free_vars [(y, v)] f3;
         ]
     in
-    entailment_search ?name (pctx, f1, f2) k
+    entailment_search ?name (pctx, f1, f2) k *)
   (* proving *)
   | NormalReturn (p1, h1), NormalReturn (p2, h2) ->
     let@ _ =
@@ -575,11 +621,11 @@ let rec apply_ent_rule ?name : tactic =
     let@ _ =
       span (fun _r -> log_proof_state ~title:"ent: ens ens f" (pctx, f1, f2))
     in
-    let@ (ap, ah), (fp, fh) = biab h1 h2 in
+    let@ (ap, ah), (_fp, fh) = biab h1 h2 in
     let valid =
       check_pure_obligation
-        (conj (pctx.assumptions @ [p1; ap; Heap.xpure h1]))
-        (conj [p2; fp; Heap.xpure h2])
+        (conj (pctx.assumptions @ [p1; Heap.xpure h1]))
+        (conj [p2; ap; Heap.xpure h2])
     in
     if valid then
       entailment_search ?name
