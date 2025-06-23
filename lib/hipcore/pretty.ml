@@ -503,7 +503,7 @@ let rec pp_term ppf t =
   let open Format in
   match t with
   | Const c -> fprintf ppf "%a" pp_constant c
-  | BinOp (op, lhs, rhs) -> fprintf ppf "@[<hov 1>(%a@ %a@ @%a)@]"
+  | BinOp (op, lhs, rhs) -> fprintf ppf "@[<hov 1>(%a@ %a@ %a)@]"
     pp_term lhs pp_bin_term_op op pp_term rhs
   | Rel (op, lhs, rhs) -> fprintf ppf "@[<hov 1>(%a@ %a@ %a)@]"
     pp_term lhs pp_bin_op op pp_term rhs
