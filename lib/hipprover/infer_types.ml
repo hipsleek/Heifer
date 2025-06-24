@@ -192,6 +192,7 @@ and infer_types_term ?(hint : typ option) (env : abs_typ_env) term : typ * abs_t
           env
     in
     (ret, env)
+  | Construct _, _ -> failwith "constructors unimplemented"
   | TTuple _, _ -> failwith "tuple unimplemented"
 
 let rec infer_types_pi env pi =

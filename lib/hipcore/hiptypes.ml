@@ -19,6 +19,8 @@ and term =
   | BinOp of bin_term_op * term * term
   | TNot of term
   | TApp of string * term list
+  (* constructor of an inductive datatype *)
+  | Construct of string * term list
   (* the string is just an identifier for uniqueness.
      the last param is the name of the result *)
   (* The string seems to be redundant here and I think we should remove it if possible *)

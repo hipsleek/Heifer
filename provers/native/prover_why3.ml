@@ -462,6 +462,7 @@ module LowLevel = struct
     | BinOp (TDiv, _, _) -> failwith "TDiv nyi"
     | TTuple _ -> failwith "TTupple nyi"
     | Const (TStr _) -> failwith "TStr nyi"
+    | Construct _ -> failwith "constructors not yet supported"
 
   let rec pi_to_why3 env (pi : pi) =
     (* Format.printf "pi %s@." (Pretty.string_of_pi pi); *)
@@ -840,6 +841,7 @@ let rec term_to_whyml tenv t =
      let params, _ret = unsnoc params in
      let binders = vars_to_params tenv params in
      term (Tquant (Dterm.DTlambda, binders, [], core_lang_to_whyml tenv body)) *)
+  | Construct -> failwith "constructors not yet supported"
   | TTuple _ | BinOp (TPower, _, _) | BinOp (TDiv, _, _) | Const (TStr _)
     ->
     failwith "nyi"

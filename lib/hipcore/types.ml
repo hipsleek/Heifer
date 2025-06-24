@@ -13,6 +13,20 @@ type typ =
 
 [@@deriving show { with_path = false }, ord]
 
+type type_constructor = string * typ list
+type record_field = {
+  field_name: string;
+  field_type: typ;
+}
+type type_decl_kind =
+  | Tdecl_inductive of type_constructor list
+  | Tdecl_record of record_field list
+type type_declaration = {
+  tdecl_name: string;
+  tdecl_params: typ list;
+  tdecl_kind: type_decl_kind
+}
+
 
 let min_typ a b = if compare_typ a b <= 0 then a else b
 

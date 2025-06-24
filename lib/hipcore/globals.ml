@@ -1,14 +1,28 @@
 open Hiptypes
+open Types
 
 let using_pure_fns = ref false
 
 type t = {
   mutable pure_fns : pure_fn_def SMap.t;
   mutable pure_fn_types : pure_fn_type_def SMap.t;
+  mutable type_declarations : type_declaration SMap.t
 }
 
-let create () = { pure_fns = SMap.empty; pure_fn_types = SMap.empty }
-let global_environment : t = create ()
+let create () = { pure_fns = SMap.empty; pure_fn_types = SMap.empty; type_declarations = SMap.empty }
+let global_environment : t = 
+  let empty = create () in
+  {empty with
+    type_declarations = empty.type_declarations |> SMap.add "list" {
+      tdecl_name = "list"; 
+      tdecl_params = [TVar "a"];
+      tdecl_kind = Tdecl_inductive [("::", [TVar "a"; TConstr ("list", [TVar "a"])]); ("[]", [])]
+    } |> SMap.add "ref" { (* not strictly needed; just a placeholder to let the frontend know that the 'a ref type constructor exists *)
+      tdecl_name = "ref";
+      tdecl_params  = [TVar "a"];
+      tdecl_kind = Tdecl_record [{field_name = "contents"; field_type = TVar "a"}]
+    }
+  }
 
 (* we don't want to thread the type definitions through every single normalization call, since normalization invokes the prover. this part of the state grows monotonically, so it should be harmless... *)
 let define_pure_fn name typ =

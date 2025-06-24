@@ -85,6 +85,7 @@ let rec string_of_term t : string =
   | Rel (bop, t1, t2) ->
     "(" ^ string_of_term t1 ^ (match bop with | EQ -> "==" | _ -> string_of_bin_op bop) ^ string_of_term t2 ^ ")"
   | TApp (op, args) -> Format.asprintf "%s%s" op (string_of_args string_of_term args)
+  | Construct (name, args) -> Format.asprintf "%s%s" name (string_of_args string_of_term args)
   | TLambda (_name, params, sp, body) ->
     let body =
       match body with
@@ -527,6 +528,7 @@ let rec pp_term ppf t =
   | TNot t -> fprintf ppf "@[<hov 1>~(%a)@]" pp_term t
   | Var v -> fprintf ppf "%s" v
   | TApp (op, args) -> pp_call_like pp_term ppf (op, args)
+  | Construct (name, args) -> pp_call_like pp_term ppf (name, args)
   | TLambda (_name, params, sp, body) -> pp_lambda_like ppf (params, sp, body)
   (* | TList args ->
       fprintf ppf "[@[<hov 1>%a@]]"
