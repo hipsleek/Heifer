@@ -1,5 +1,6 @@
 open Hipcore
 open Hiptypes
+open Types
 open Pretty
 open Debug
 open Normalize

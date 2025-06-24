@@ -10,6 +10,7 @@ open Asttypes
 type string = label
 open Hipcore
 open Hiptypes
+open Types
 
 exception Foo of string
 

@@ -1,5 +1,6 @@
 open Hipcore
 open Hiptypes
+open Types
 
 (** check if [p1 => ex vs. p2] is valid.
     background definitions are given using global state. *)

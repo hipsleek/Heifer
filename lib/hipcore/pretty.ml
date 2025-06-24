@@ -342,6 +342,7 @@ let string_of_smap pp s =
   Format.asprintf "{%s}" (String.concat ", " (List.map (fun (k, v) -> Format.asprintf "%s -> %s" k (pp v)) (SMap.bindings s)))
 
 let rec string_of_type t =
+  let open Types in
   match t with
   | TyString -> "string"
   | Int -> "int"
@@ -357,9 +358,11 @@ let string_of_pure_fn ({ pf_name; pf_params; pf_ret_type; pf_body } : pure_fn_de
   Format.asprintf "let %s %s : %s = %s" pf_name (String.concat " " (List.map (fun (p, t) -> Format.asprintf "(%s:%s)" p (string_of_type t)) pf_params)) (string_of_type pf_ret_type) (string_of_core_lang pf_body)
 
 let string_of_tmap pp s =
+  let open Types in
   Format.asprintf "{%s}" (String.concat ", " (List.map (fun (k, v) -> Format.asprintf "%s -> %s" (string_of_type k) (pp v)) (TMap.bindings s)))
 
 let string_of_abs_env t =
+  let open Types in
   Format.asprintf "%s, %s" (string_of_smap string_of_type t.vartypes)
   "<opaque>"
 (* (string_of_tmap string_of_type (TMap.map (fun t -> U.get t) !(t.equalities))) *)

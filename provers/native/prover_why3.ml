@@ -5,6 +5,7 @@ module Debug = Hipdebug
 (* open this second, so it gets precedence for shadowed modules *)
 open Hipcore
 open Hiptypes
+open Types
 
 let prover_configs : (Whyconf.config_prover * Why3.Driver.driver) SMap.t ref =
   ref SMap.empty
