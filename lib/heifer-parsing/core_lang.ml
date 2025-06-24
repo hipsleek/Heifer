@@ -350,13 +350,6 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
     )
 
   | Pexp_match (e, cases) ->
-    let norm =
-      (* may be none for non-effect pattern matches *)
-      cases |> List.find_map (fun c ->
-        match c.pc_lhs.ppat_desc with
-        | Ppat_var {txt=v; _} -> Some (v, transformation bound_names c.pc_rhs)
-        | _ -> None)
-    in
     let effs =
       (* may be empty for non-effect pattern matches *)
       cases |> List.filter_map (fun c ->
@@ -377,22 +370,18 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
         | _ -> None)
     in
     let pattern_cases =
+      let rec transform_pattern pat =
+        match pat.ppat_desc with
+        | Ppat_construct ({txt = c; _}, None) -> Some (PConstr (Longident.last c, []))
+        | Ppat_construct ({txt = c; _}, Some ([], {ppat_desc = Ppat_tuple args; _})) -> Some (PConstr (Longident.last c, List.filter_map transform_pattern args))
+        | Ppat_var {txt = v; _} -> Some (PVar v)
+        | _ -> None
+      in
       (* may be empty for non-effect pattern matches *)
-      cases |> List.filter_map (fun c ->
-        match c.pc_lhs.ppat_desc with
-        | Ppat_construct ({txt=constr; _}, None) ->
-          Some (Longident.last constr, [], transformation bound_names c.pc_rhs)
-        | Ppat_construct ({txt=constr; _}, Some (_, {ppat_desc = Ppat_tuple ps; _})) ->
-          let args = List.filter_map (fun p ->
-            match p.ppat_desc with
-            | Ppat_var {txt=v; _} -> Some v
-            | _ -> None) ps
-          in
-          Some (Longident.last constr, args, transformation bound_names c.pc_rhs)
-        | _ -> None)
+      cases |> List.filter_map (fun case -> Option.map (fun pat -> (pat, transformation bound_names case.pc_rhs)) (transform_pattern case.pc_lhs))
     in
     (* FIXME properly fill in the handler type and handler specification *)
-    CMatch (Deep, None, transformation bound_names e, norm, effs, pattern_cases)
+    CMatch (Deep, None, transformation bound_names e, effs, pattern_cases)
   | _ ->
     if String.compare (Pprintast.string_of_expression expr) "Obj.clone_continuation k" == 0 then (* ASK Darius*)
     CValue (Var "k")

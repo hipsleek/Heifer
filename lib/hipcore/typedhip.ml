@@ -35,7 +35,17 @@ and term =
 and core_handler_ops = (string * string option * staged_spec option * core_lang) list
 (* x :: xs -> e is represented as ("::", [x, xs], e) *)
 (* effect work; let's group them into a single blob *)
-and constr_cases = (string * binder list * core_lang) list
+and constr_cases = (pattern * core_lang) list
+
+and pattern_desc =
+  | PVar of binder
+  | PConstr of (string * pattern list)
+
+and pattern =
+  {
+    pattern_desc: pattern_desc;
+    pattern_type: typ
+  }
 and tryCatchLemma = (staged_spec * staged_spec option * (*(handlingcases) **) staged_spec) (*tcl_head, tcl_handledCont, tcl_summary*)
 and handler_type = Shallow | Deep
 
@@ -51,8 +61,8 @@ and core_lang_desc =
   | CAssert of pi * kappa
   (* effect start *)
   | CPerform of string * core_value option
-  (* match e with | v -> e1 | eff case... | constr case... *)
-  | CMatch of handler_type * tryCatchLemma option * core_lang * (binder * core_lang) option * core_handler_ops * constr_cases
+  (* match e with | eff case... | constr case... *)
+  | CMatch of handler_type * tryCatchLemma option * core_lang * core_handler_ops * constr_cases
   | CResume of core_value list
   (* effect end *)
   | CLambda of binder list * staged_spec option * core_lang

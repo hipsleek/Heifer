@@ -362,7 +362,7 @@ let ex_quantify_expr env vars ctx e =
     | CValue _ ->
       failwith "value"
     | CIfELse (_, _, _) -> failwith "unimplemented CIfELse"
-    | CMatch (_, _, _scr, None, [], _cases) ->
+    | CMatch (_, _, _scr, [], _cases) ->
       (* x :: xs -> e is represented as ("::", [x, xs], e) *)
       (* and constr_cases = (string * string list * core_lang) list *)
       failwith "match"
@@ -374,7 +374,7 @@ let ex_quantify_expr env vars ctx e =
     | CRead _ -> failwith "unimplemented CRead"
     | CAssert (_, _) -> failwith "unimplemented CAssert"
     | CPerform (_, _) -> failwith "unimplemented CPerform"
-    | CMatch (_, _, _, _, _, _) -> failwith "unimplemented effect CMatch"
+    | CMatch (_, _, _, _, _) -> failwith "unimplemented effect CMatch"
     | CResume _ -> failwith "unimplemented CResume"
     | CLambda (_, _, _) -> failwith "unimplemented CLambda"
     | CShift _ | CReset _ -> failwith "TODO shift and reset expr_to_why3 "

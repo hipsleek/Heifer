@@ -24,12 +24,14 @@ and term =
   (* The string seems to be redundant here and I think we should remove it if possible *)
   | TLambda of string * string list * staged_spec option * core_lang option
   | TTuple of term list
-
 (* (Label n) _k (*@ spec @*) -> e *)
 and core_handler_ops = (string * string option * staged_spec option * core_lang) list
 (* x :: xs -> e is represented as ("::", [x, xs], e) *)
 (* effect work; let's group them into a single blob *)
-and constr_cases = (string * string list * core_lang) list
+and constr_cases = (pattern * core_lang) list
+and pattern =
+  | PVar of string
+  | PConstr of (string * pattern list)
 and tryCatchLemma = (staged_spec * staged_spec option * (*(handlingcases) **) staged_spec) (*tcl_head, tcl_handledCont, tcl_summary*)
 and handler_type = Shallow | Deep
 
@@ -45,8 +47,8 @@ and core_lang =
   | CRead of string
   | CAssert of pi * kappa
   | CPerform of string * core_value option
-  (* match e with | v -> e1 | eff case... | constr case... *)
-  | CMatch of handler_type * tryCatchLemma option * core_lang * (string * core_lang) option * core_handler_ops * constr_cases
+  (* match e with | eff case... | constr case... *)
+  | CMatch of handler_type * tryCatchLemma option * core_lang * core_handler_ops * constr_cases
   | CResume of core_value list
   | CLambda of string list * staged_spec option * core_lang
   | CShift of bool * string * core_lang (* bool=true is for shift, and bool=false for shift0 *)

@@ -344,24 +344,24 @@ let rec forward (env: fvenv) (expr : core_lang): staged_spec * fvenv =
       Sequence (Require (p, h), NormalReturn (True, h)), env
   | CPerform _ ->
       failwith "CPerform"
-  | CMatch (_, _, discriminant, _, _, cases) ->
+  | CMatch (_, _, discriminant, _, cases) ->
       let v = fresh_variable () in
       let t = Var v in
       let discriminant_spec, env = forward env discriminant in
-      let handle_case env (constr, vars, body) =
+      let handle_case env (pat, body) =
         (* TODO: hard-coded for list now *)
         let body_spec, env = forward env body in
-        let case_spec = match constr, vars with
-          | "[]", [] ->
+        let case_spec = match pat with
+          | PConstr ("[]", []) ->
               let nil_term = Const Nil in
               let nil_spec = NormalReturn (Atomic (EQ, t, nil_term), EmptyHeap) in
               Sequence (nil_spec, body_spec)
-          | "::", [v1; v2] ->
+          | PConstr ("::", [PVar v1; PVar v2]) ->
               let cons_term = BinOp (TCons, Var v1, Var v2) in
               let cons_spec = NormalReturn (Atomic (EQ, t, cons_term), EmptyHeap) in
               Exists (v1, Exists (v2, Sequence (cons_spec, body_spec)))
           | _ ->
-              failwith (Format.asprintf "unknown constructor: %s" constr)
+              failwith (Format.asprintf "unknown pattern: %s" (string_of_pattern pat))
         in
         case_spec, env
       in

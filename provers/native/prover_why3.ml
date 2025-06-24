@@ -540,15 +540,15 @@ module LowLevel = struct
     | CRead _ -> failwith "unimplemented CRead"
     | CAssert (_, _) -> failwith "unimplemented CAssert"
     | CPerform (_, _) -> failwith "unimplemented CPerform"
-    | CMatch (_, _, scr, None, [], cases) ->
+    | CMatch (_, _, scr, [], cases) ->
       (* x :: xs -> e is represented as ("::", [x, xs], e) *)
       (* and constr_cases = (string * string list * core_lang) list *)
       Term.t_case (expr_to_why3 env scr)
         (List.map
-           (fun (constr, args, body) ->
+           (fun (pat, body) ->
              let pat =
-               match (constr, args) with
-               | "::", [x; y] ->
+               match pat with
+               | PConstr ("::", [PVar x; PVar y]) ->
                  let h =
                    Term.create_vsymbol (Ident.id_fresh x) (type_to_why3 env Int)
                  in
@@ -561,16 +561,17 @@ module LowLevel = struct
                    Theories.(get_symbol list "Cons" env.theories)
                    [Term.pat_var h; Term.pat_var t]
                    (type_to_why3 env List_int)
-               | "[]", [] ->
+               | PConstr ("[]", []) ->
                  Term.pat_app
                    Theories.(get_symbol list "Nil" env.theories)
                    []
                    (type_to_why3 env List_int)
-               | c, _ -> failwith (Format.asprintf "unhandled constr %s" c)
+               | PConstr (c, _) -> failwith (Format.asprintf "unhandled constr %s" c)
+               | _ -> failwith "unhandled pattern"
              in
              Term.t_close_branch pat (expr_to_why3 env body))
            cases)
-    | CMatch (_, _, _, _, _, _) -> failwith "unimplemented effect CMatch"
+    | CMatch (_, _, _, _, _) -> failwith "unimplemented effect CMatch"
     | CResume _ -> failwith "unimplemented CResume"
     | CLambda (_, _, _) -> failwith "unimplemented CLambda"
     | CShift _ | CReset _ -> failwith "TODO shift and reset expr_to_why3 "
@@ -882,24 +883,28 @@ and core_lang_to_whyml tenv e =
       | _ -> qualid [s]
     in
     tapp fn (List.map (term_to_whyml tenv) args)
-  | CMatch (_, None, scr, None, [], cases) ->
+  | CMatch (_, None, scr, [], cases) ->
     term
       (Tcase
          ( core_lang_to_whyml tenv scr,
            List.map
-             (fun (constr, args, b) ->
-               let real_constr =
-                 match constr with
-                 | "[]" -> qualid ["List"; "Nil"]
-                 | "::" -> qualid ["List"; "Cons"]
-                 | _ -> failwith (Format.asprintf "unknown constr %s" constr)
+           (* TODO change to properly model general patterns *)
+             (fun (pattern, body) ->
+               let real_constr, args =
+                 match pattern with
+                 | PConstr ("[]", args) -> qualid ["List"; "Nil"], args
+                 | PConstr ("::", args) -> qualid ["List"; "Cons"], args
+                 | PConstr (constr, _) -> failwith (Format.asprintf "unknown constr %s" constr)
+                 | _ -> failwith (Format.asprintf "unknown pattern")
+               in
+               let args = List.filter_map (function PVar v -> Some v | _ -> None) args
                in
                ( pat
                    (Papp
                       (real_constr, List.map (fun a -> pat_var (ident a)) args)),
-                 core_lang_to_whyml tenv b ))
+                 core_lang_to_whyml tenv body ))
              cases ))
-  | CMatch (_, _, _, _, _, _) -> failwith "unsupported kind of match"
+  | CMatch (_, _, _, _, _) -> failwith "unsupported kind of match"
   | CAssert (_, _) | CLambda (_, _, _) -> failwith "unimplemented"
   | CWrite (_, _) | CRef _ | CRead _ -> failwith "heap operations not allowed"
   | CResume _ | CPerform (_, _) -> failwith "effects not allowed"

@@ -70,12 +70,11 @@ and untype_core_lang (c : core_lang) : Hiptypes.core_lang =
       CAssert (untype_pi phi, untype_kappa kappa)
   | CPerform (eff, arg_opt) ->
       CPerform (eff, Option.map untype_term arg_opt)
-  | CMatch (ht, trycatch_opt, scrutinee, value_case, handler_cases, constr_cases) ->
+  | CMatch (ht, trycatch_opt, scrutinee, handler_cases, constr_cases) ->
       let trycatch_opt' = Option.map untype_tryCatchLemma trycatch_opt in
-      let value_case' = Option.map (fun (v, e) -> (ident_of_binder v, untype_core_lang e)) value_case in
       let handler_cases' = untype_handler_ops handler_cases in
       let constr_cases' = untype_constr_cases constr_cases in
-      CMatch (hiptypes_handler_type ht, trycatch_opt', untype_core_lang scrutinee, value_case', handler_cases', constr_cases')
+      CMatch (hiptypes_handler_type ht, trycatch_opt', untype_core_lang scrutinee, handler_cases', constr_cases')
   | CResume vs -> CResume (List.map untype_term vs)
   | CLambda (params, spec, body) ->
       CLambda (List.map ident_of_binder params, Option.map untype_staged_spec spec, untype_core_lang body)
@@ -84,8 +83,12 @@ and untype_core_lang (c : core_lang) : Hiptypes.core_lang =
   | CReset e -> CReset (untype_core_lang e)
 and untype_handler_ops (ops : core_handler_ops) : Hiptypes.core_handler_ops =
   List.map (fun (label, k_opt, spec, body) -> (label, k_opt, Option.map untype_staged_spec spec, untype_core_lang body)) ops
+and untype_pattern (pat : pattern) : Hiptypes.pattern =
+  match pat.pattern_desc with
+  | PVar (v, _) -> PVar v
+  | PConstr (name, args) -> PConstr (name, List.map untype_pattern args)
 and untype_constr_cases (cases : constr_cases) : Hiptypes.constr_cases =
-  List.map (fun (name, args, body) -> (name, List.map ident_of_binder args, untype_core_lang body)) cases
+  List.map (fun (pat, body) -> (untype_pattern pat, untype_core_lang body)) cases
 and untype_tryCatchLemma (tcl : tryCatchLemma) : Hiptypes.tryCatchLemma =
   let (head, handled_cont, summary) = tcl in
   (untype_staged_spec head, Option.map untype_staged_spec handled_cont, untype_staged_spec summary)

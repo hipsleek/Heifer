@@ -229,6 +229,11 @@ and string_of_handler_type (h:handler_type) : string =
 and string_of_lemma l =
   Format.asprintf "%s: forall %s, %s <: %s" l.l_name (string_of_list Fun.id l.l_params) (string_of_staged_spec l.l_left) (string_of_staged_spec l.l_right)
 
+and string_of_pattern (p : pattern) : string =
+  match p with
+  | PVar s -> s
+  | PConstr (name, args) -> Format.sprintf "%s(%s)" name (List.map string_of_pattern args |> String.concat ", ")
+
 and string_of_core_lang (e:core_lang) :string =
   match e with
   | CValue v -> string_of_term v
@@ -243,8 +248,12 @@ and string_of_core_lang (e:core_lang) :string =
   | CAssert (p, h) -> Format.sprintf "assert (%s && %s)" (string_of_pi p) (string_of_kappa h)
   | CPerform (eff, Some arg) -> Format.sprintf "perform %s %s" eff (string_of_term arg)
   | CPerform (eff, None) -> Format.sprintf "perform %s" eff
-  | CMatch (typ, None, e, vs, hs, cs) -> Format.sprintf "match[%s] %s with\n%s%s%s" (string_of_handler_type typ) (string_of_core_lang e) (match vs with | Some (v, norm) -> Format.asprintf "| %s -> %s\n" v (string_of_core_lang norm) | _ -> "") (match hs with | [] -> "" | _ :: _ -> string_of_core_handler_ops hs ^ "\n") (match cs with [] -> "" | _ :: _ -> string_of_constr_cases cs)
-  | CMatch (typ, Some spec, e, vs, hs, cs) -> Format.sprintf "match[%s] %s%s with\n%s%s\n%s" (string_of_handler_type typ) (string_of_try_catch_lemma spec) (string_of_core_lang e) (match vs with | Some (v, norm) -> Format.asprintf "| %s -> %s\n" v (string_of_core_lang norm) | _ -> "") (string_of_core_handler_ops hs) (string_of_constr_cases cs)
+  | CMatch (typ, spec, e, hs, cs) -> Format.sprintf "match[%s] %s%s with\n%s%s" 
+    (string_of_handler_type typ) 
+    (Option.map string_of_try_catch_lemma spec |> Option.value ~default:"")
+    (string_of_core_lang e) 
+    (match hs with | [] -> "" | _ :: _ -> string_of_core_handler_ops hs ^ "\n")
+    (match cs with [] -> "" | _ :: _ -> string_of_constr_cases cs)
   | CResume tList -> Format.sprintf "continue %s" (List.map string_of_term tList |> String.concat " ")
   | CLambda (xs, spec, e) -> Format.sprintf "fun %s%s -> %s" (String.concat " " xs) (match spec with None -> "" | Some ds -> Format.asprintf " (*@@ %s @@*)" (string_of_staged_spec ds)) (string_of_core_lang e)
   | CShift (b, k, e) -> Format.sprintf "Shift%s %s -> %s" (if b then "" else "0") k (string_of_core_lang e)
@@ -265,7 +274,7 @@ and string_of_intermediate (i : intermediate) =
   | SLPred _ -> "[sl predicate]"
 
 and string_of_constr_cases cs =
-  cs |> List.map (fun (n, args, body) -> Format.asprintf "| %s -> %s" (string_of_constr_call n args) (string_of_core_lang body)) |> String.concat "\n"
+  cs |> List.map (fun (pat, body) -> Format.asprintf "| %s -> %s" (string_of_pattern pat) (string_of_core_lang body)) |> String.concat "\n"
 
 and string_of_core_handler_ops hs =
   List.map (fun (name, v, spec, body) ->
@@ -517,7 +526,7 @@ let rec pp_term ppf t =
     pp_term lhs pp_bin_op op pp_term rhs
   | TNot t -> fprintf ppf "@[<hov 1>~(%a)@]" pp_term t
   | Var v -> fprintf ppf "%s" v
-  | TApp (op, args) -> pp_call_like ppf (op, args)
+  | TApp (op, args) -> pp_call_like pp_term ppf (op, args)
   | TLambda (_name, params, sp, body) -> pp_lambda_like ppf (params, sp, body)
   (* | TList args ->
       fprintf ppf "[@[<hov 1>%a@]]"
@@ -525,10 +534,11 @@ let rec pp_term ppf t =
   | TTuple args ->
       fprintf ppf "(@[<hov 1>%a@])"
       (pp_print_list ~pp_sep:(fun ppf () -> fprintf ppf ",@ ") pp_term) args
-and pp_call_like ppf (f, args) =
+and pp_call_like : 'a. (Format.formatter -> 'a -> unit) -> Format.formatter -> string * 'a list -> unit
+  = fun pp_arg ppf (f, args) ->
   let open Format in
-  fprintf ppf "@[<hov 1>%s(@[<hov>%a@])@]" f
-  (pp_print_list ~pp_sep:(fun ppf () -> fprintf ppf ",@ ") pp_term) args
+    fprintf ppf "@[<hov 1>%s(@[<hov>%a@])@]" f
+    (pp_print_list ~pp_sep:(fun ppf () -> fprintf ppf ",@ ") pp_arg) args
 and pp_lambda_like ppf (params, spec, body) =
   let open Format in
   fprintf ppf "@[(fun@ %a@ @[<hov 1>@ (*@@@ %a@ @@*)@ %a@])@]"
@@ -548,7 +558,7 @@ and pp_pi ppf p =
       pp_pi p
   | Imply (p1, p2) -> fprintf ppf "@[<hov 1>(%a)@]@ =>@ @[<hov>(%a)@]"
       pp_pi p1 pp_pi p2
-  | Predicate (name, args) -> pp_call_like ppf (name, args)
+  | Predicate (name, args) -> pp_call_like pp_term ppf (name, args)
   | Subsumption (t1, t2) -> fprintf ppf "@[<hov 1>(%a)@]@ <:@ @[<hov>(%a)@]"
       pp_term t1 pp_term t2
   | Atomic (rel, t1, t2) -> fprintf ppf "@[<hov 1>(%a@ %a@ %a)@]"
@@ -573,7 +583,7 @@ and pp_staged_spec ppf spec =
   | NormalReturn (p, k) ->
     fprintf ppf "@[ens@ (@[<hov 1>%a@ /\\@ %a@])@]"
     pp_pi p pp_kappa k
-  | HigherOrder (f, args) -> pp_call_like ppf (f, args)
+  | HigherOrder (f, args) -> pp_call_like pp_term ppf (f, args)
   | Shift (z, k, spec, _x, _cont) ->
       fprintf ppf "@[%s(@[<hov 1>%s.@ %a@])@]"
       (if z then "sh" else "sh0")
@@ -603,6 +613,16 @@ and pp_try_catch_lemma ppf (head, cont, summary) =
     pp_staged_spec head
     (pp_print_option (fun ppf spec -> fprintf ppf "#@ %a" pp_staged_spec spec)) cont
     pp_staged_spec summary)
+and pp_pattern ppf pat =
+  match pat with
+  | PVar v -> Format.fprintf ppf "@[%s@]" v
+  | PConstr (name, args) -> pp_call_like pp_pattern ppf (name, args)
+and pp_constr_cases ppf cases = 
+  let open Format in
+  let pp_constr_case ppf (pat, body) =
+    Format.(fprintf ppf "@[@ |@ %a@ ->@ %a@]" pp_pattern pat pp_core_lang body)
+  in
+  pp_print_list ~pp_sep:(fun ppf () -> Format.fprintf ppf "@,") pp_constr_case ppf cases
 and pp_core_lang ppf core =
   let open Format in
   match core with
@@ -618,7 +638,7 @@ and pp_core_lang ppf core =
         pp_core_lang e2
   | CIfELse (pi, t, e) -> fprintf ppf "@[if@ %a@ then@ @[<hov>%a@]@ else@ @[<hov>%a@]@]"
       pp_pi pi pp_core_lang t pp_core_lang e
-  | CFunCall (f, xs) -> pp_call_like ppf (f, xs)
+  | CFunCall (f, xs) -> pp_call_like pp_term ppf (f, xs)
   | CWrite (v, e) -> fprintf ppf "@[%s@ :=@ %a@]" v pp_term e
   | CRef v -> fprintf ppf "@[ref@ %a@]" pp_term v
   | CRead v -> fprintf ppf "@[!%s]" v
@@ -626,7 +646,7 @@ and pp_core_lang ppf core =
     pp_pi p pp_kappa h
   | CPerform (eff, arg) ->
       fprintf ppf "@[perform@ %s@ %a@]" eff (pp_print_option pp_term) arg
-  | CMatch (typ, spec, e, vs, hs, cs) ->
+  | CMatch (typ, spec, e, hs, cs) ->
       let pp_core_handler_ops =
         let pp_handler ppf (name, v, spec, body) =
           fprintf ppf "|@ %a@ k@ %a@ ->@ %a@]"
@@ -638,24 +658,10 @@ and pp_core_lang ppf core =
         in
         pp_print_list pp_handler
       in
-      let pp_constr_cases =
-        let pp_constr_pattern ppf (const, args) =
-          match const, args with
-          | const, [] -> fprintf ppf "%s" const
-          | "::", [v1; v2] -> fprintf ppf "(%s@ ::@ %s)" v1 v2
-          | const, args ->
-              fprintf ppf "@[<hov 1>%s(@[<hov>%a@])@]" const
-              (pp_print_list ~pp_sep:(fun ppf () -> fprintf ppf ",@ ") pp_print_string) args
-        in
-        let pp_constr_case ppf (const, args, result) =
-          fprintf ppf "@[|@ %a@ ->@ %a@]" pp_constr_pattern (const, args) pp_core_lang result in
-        pp_print_list pp_constr_case
-      in
-      fprintf ppf "@[match[%s]@ (%a)@ with@,%a@,%a@,%a@,%a@]"
+      fprintf ppf "@[match[%s]@ (%a)@ with@,%a@,%a@,%a@]"
       (string_of_handler_type typ)
       (pp_print_option pp_try_catch_lemma) spec
       pp_core_lang e
-      (pp_print_option (fun ppf (v, res) -> fprintf ppf "@[|@ %s@ ->@ %a@]" v pp_core_lang res)) vs
       pp_core_handler_ops hs
       pp_constr_cases cs
   | CResume args -> fprintf ppf "@[continue@ %a@]" (pp_print_list pp_term) args
