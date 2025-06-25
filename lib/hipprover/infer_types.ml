@@ -4,10 +4,50 @@ open Types
 open Pretty
 open Debug
 
+(* utility functions to help manage the environment via the state monad *)
+module State(SType : sig type t end) = struct
+  type 'a t = SType.t -> 'a * SType.t
+  let return v env = (v, env)
+  let bind (op : 'a t) (f : 'a -> 'b t) : 'b t =
+    fun env -> 
+      let v, env = op env in
+      f v env
+  let (let*) = bind
+
+  let rec map ~(f:'a -> 'b t) (ls : 'a list) : 'b list t =
+    match ls with
+    | [] -> return []
+    | x::xs -> 
+        let* x = f x in
+        let* xs = map ~f xs in
+        return (x::xs)
+
+  (* monad-aware wrapper around Debug's utilities *)
+  module Debug = struct
+    let span : (('a * SType.t) presult -> unit) -> (unit -> 'a t) -> 'a t =
+      fun show k env ->
+        let@ _ = Debug.span show in
+        k () env
+
+    let presult_value = map_presult fst
+    let presult_state = map_presult snd
+
+    let (let@) = Debug.(let@)
+  end
+  
+end
+
+module Env_state = State(struct type t = abs_typ_env end)
+type 'a using_env = 'a Env_state.t
+let span_env = Env_state.Debug.span
+let (let@) = Env_state.Debug.(let@)
+let return = Env_state.return
+let (let*) = Env_state.(let*)
+
 (* record the type (or constraints on) of a program variable in the environment *)
 let assert_var_has_type v t env =
   match SMap.find_opt v env.vartypes with
-  | None -> { env with vartypes = SMap.add v t env.vartypes }
+  | None -> (), { env with vartypes = SMap.add v t env.vartypes }
   | Some t1 ->
     if
       TEnv.has_concrete_type env.equalities t
@@ -23,12 +63,12 @@ let assert_var_has_type v t env =
           (Format.asprintf "%s already has type %s but was used as type %s" v
              (string_of_type t1) (string_of_type t)))
     else TEnv.equate env.equalities t1 t;
-    env
+    (), env
 
 (* record a (nontrivial) equality in the environment *)
 let unify_types t1 t2 env =
   debug ~at:5 ~title:"unify" "%s ~ %s" (string_of_type t1) (string_of_type t2);
-  if compare_typ t1 t2 = 0 then env
+  if compare_typ t1 t2 = 0 then (), env
   else (
     if
       TEnv.has_concrete_type env.equalities t1
@@ -42,7 +82,7 @@ let unify_types t1 t2 env =
              (string_of_type (TEnv.concretize env.equalities t1))
              (string_of_type (TEnv.concretize env.equalities t2))))
     else TEnv.equate env.equalities t1 t2;
-    env)
+    (), env)
 
 let find_concrete_type = TEnv.concretize
 
@@ -78,26 +118,27 @@ let get_primitive_fn_type f =
   | "=" -> ([Int; Int], Bool)
   | _ -> failwith (Format.asprintf "unknown function: %s" f)
 
-let rec infer_types_core_lang env e =
+let rec infer_types_core_lang e : typ using_env =
   match e with
-  | CValue t -> infer_types_term env t
+  | CValue t -> infer_types_term t
   | CFunCall (f, args) ->
-    let ex_args, ex_ret = get_primitive_fn_type f in
-    let _arg_types, env =
-    List.fold_right2 (fun arg ex_arg (t, env) ->
-      let inf_arg, env = infer_types_term env arg in
-      let env = unify_types inf_arg ex_arg env in
-      inf_arg :: t, env
-      ) args ex_args ([], env)
+    let arg_types, ret_type = get_primitive_fn_type f in
+    (* TODO check for length mismatch? *)
+    let* _actual_arg_types =
+      List.combine args arg_types
+      |> Env_state.map ~f:(fun (arg, expected_type) ->
+          let* actual_type = infer_types_term arg in
+          let* _ = unify_types actual_type expected_type in
+          return actual_type)
     in
-    ex_ret, env
+    return ret_type
   | CLet (x, e1, e2) ->
-    let t1, env = infer_types_core_lang env e1 in
-    let env = assert_var_has_type x t1 env in
-    infer_types_core_lang env e2
+    let* t1 = infer_types_core_lang e1 in
+    let* _ = assert_var_has_type x t1 in
+    infer_types_core_lang e2
   | CSequence (e1, e2) ->
-    let _t1, env = infer_types_core_lang env e1 in
-    infer_types_core_lang env e2
+    let* _ = infer_types_core_lang e1 in
+    infer_types_core_lang e2
   | CIfELse (_, _, _) -> failwith "CIfELse"
   | CWrite (_, _) -> failwith "CWrite"
   | CRef _ -> failwith "CRef"
@@ -110,41 +151,42 @@ let rec infer_types_core_lang env e =
   | CLambda (_, _, _) ->
     failwith "not implemented"
 
-and infer_types_term ?(hint : typ option) (env : abs_typ_env) term : typ * abs_typ_env =
+and infer_types_term ?(hint : typ option) term : typ using_env =
   let@ _ =
-    Debug.span (fun r ->
+    span_env (fun r ->
         debug ~at:5 ~title:"infer_types" "%s : %s -| %s" (string_of_term term)
-          (string_of_result string_of_type (map_presult fst r))
-          (string_of_result string_of_abs_env (map_presult snd r)))
+          (string_of_result string_of_type (Env_state.Debug.presult_value r))
+          (string_of_result string_of_abs_env (Env_state.Debug.presult_state r)))
   in
   match (term, hint) with
-  | Const ValUnit, _ -> (Unit, env)
-  | Const TTrue, _ | Const TFalse, _ -> (Bool, env)
-  | Const (TStr _), _ -> (TyString, env)
+  | Const ValUnit, _ -> return Unit
+  | Const TTrue, _ | Const TFalse, _ -> return Bool
+  | Const (TStr _), _ -> return TyString
+  | Const Nil, _ -> return List_int
+  | Const (Num _), _ -> return Int
   | TNot a, _ ->
-    let _at, env1 = infer_types_term ~hint:(Bool) env a in
-    (Bool, env1)
-  | BinOp (TAnd, a, b), _ ->
-    let _at, env = infer_types_term ~hint:(Bool) env a in
-    let _bt, env = infer_types_term ~hint:(Bool) env b in
-    (Bool, env)
-  | BinOp (TOr, a, b), _ ->
-    let _at, env = infer_types_term ~hint:(Bool) env a in
-    let _bt, env = infer_types_term ~hint:(Bool) env b in
-    (Bool, env)
-  | Const Nil, _ -> (List_int, env)
-  | BinOp (TCons, a, b), _ ->
-    let _at, env1 = infer_types_term ~hint:(Int) env a in
-    let _bt, env2 = infer_types_term ~hint:(List_int) env1 b in
-    (List_int, env2)
-  | Const (Num _), _ -> (Int, env)
+    let* _ = infer_types_term ~hint:Bool a in
+    return Bool
+  | BinOp (op, a, b), _ ->
+      let atype, btype, ret_type = match op with
+        | TCons -> Int, List_int, List_int
+        | TAnd| TOr -> Bool, Bool, Bool
+        | SConcat -> TyString, TyString, TyString
+        | Plus | Minus | TTimes | TDiv | TPower -> Int, Int, Int
+      in
+      let* _ = infer_types_term ~hint:atype a in
+      let* _ = infer_types_term ~hint:btype b in
+      return ret_type
   (* possibly add syntactic heuristics for types, such as names *)
-  | Var v, Some t -> (t, assert_var_has_type v t env)
+  | Var v, Some t -> 
+      let* _ = assert_var_has_type v t in
+      return t
   | Var v, None ->
     let t = (TVar (Variables.fresh_variable v)) in
-    (t, assert_var_has_type v t env)
+    let* _ = assert_var_has_type v t in
+    return t
   | TLambda (_, _, _, Some _), _
-  | TLambda (_, _, _, None), _ -> ((Lamb), env)
+  | TLambda (_, _, _, None), _ -> return Lamb
   (* | TLambda (_, params, _, Some b), _ ->
     (* TODO use the spec? *)
     (try
@@ -158,69 +200,52 @@ and infer_types_term ?(hint : typ option) (env : abs_typ_env) term : typ * abs_t
       (* if inferring types for the body fails (likely due to the types of impure stuff not being representable), fall back to old behavior for now *)
       Lamb, env) *)
   | Rel (EQ, a, b), _ -> begin
-    try
-      let at, env1 = infer_types_term ~hint:(Int) env a in
-      let bt, env2 = infer_types_term ~hint:(Int) env1 b in
-      let env3 = unify_types at bt env2 in
-      ((Bool), env3)
-    with _ ->
-      let _bt, env1 = infer_types_term ~hint:(Int) env b in
-      let _at, env2 = infer_types_term ~hint:(Int) env1 a in
-      ((Bool), env2)
+    let* at = infer_types_term ?hint a in
+    let* bt = infer_types_term ?hint b in
+    let* _ = unify_types at bt in
+    return Bool
   end
   | Rel ((GT | LT | GTEQ | LTEQ), a, b), _ ->
-    let _at, env1 = infer_types_term ~hint:(Int) env a in
-    let _bt, env2 = infer_types_term ~hint:(Int) env1 b in
-    ((Bool), env2)
-  | BinOp (SConcat, a, b), _ ->
-    let _at, env1 = infer_types_term ~hint:(TyString) env a in
-    let _bt, env2 = infer_types_term ~hint:(TyString) env1 b in
-    ((TyString), env2)
-  | BinOp (Plus, a, b), _ | BinOp (Minus, a, b), _ | BinOp (TPower, a, b), _ | BinOp (TTimes, a, b), _ | BinOp (TDiv, a, b), _ ->
-    let _at, env1 = infer_types_term ~hint:(Int) env a in
-    let _bt, env2 = infer_types_term ~hint:(Int) env1 b in
-    ((Int), env2)
+    let* _ = infer_types_term ~hint:Int a in
+    let* _ = infer_types_term ~hint:Int b in
+    return Bool
   | TApp (f, args), _ ->
-    let argtypes, ret = get_primitive_type f in
-    let env =
-      List.map2 (fun x y -> x, y) args argtypes |>
-        (* infer from right to left *)
-        List.fold_left
-          (fun env (a, at) ->
-            let _, env = infer_types_term ~hint:at env a in
-            env)
-          env
+    let arg_types, ret_type = get_primitive_type f in
+    let* _actual_arg_types =
+      List.combine args arg_types
+      |> Env_state.map ~f:(fun (arg, expected_type) ->
+          let* actual_type = infer_types_term arg in
+          let* _ = unify_types actual_type expected_type in
+          return actual_type)
     in
-    (ret, env)
+    return ret_type
   | Construct _, _ -> failwith "constructors unimplemented"
   | TTuple _, _ -> failwith "tuple unimplemented"
 
-let rec infer_types_pi env pi =
+let rec infer_types_pi pi : unit using_env =
   (* let@ _ =
        Debug.span (fun r ->
            debug ~at:5 ~title:"infer_types_pi" "%s -| %s" (string_of_pi pi)
              (string_of_result string_of_abs_env r))
      in *)
   match pi with
-  | True | False -> env
+  | True | False -> return ()
   | Atomic (EQ, a, b) ->
-    let t1, env = infer_types_term env a in
-    let t2, env = infer_types_term env b in
+    let* t1 = infer_types_term a in
+    let* t2 = infer_types_term b in
     (* Format.printf "EQ %s = %s@." (string_of_term a) (string_of_term b); *)
-    let env = unify_types t1 t2 env in
-    env
+    unify_types t1 t2
   | Atomic (GT, a, b)
   | Atomic (LT, a, b)
   | Atomic (GTEQ, a, b)
   | Atomic (LTEQ, a, b) -> begin
-    let _t, env = infer_types_term ~hint:(Int) env a in
-    let _t, env = infer_types_term ~hint:(Int) env b in
-    env
+    let* _ = infer_types_term ~hint:Int a in
+    let* _ = infer_types_term ~hint:Int b in
+    return ()
   end
   | And (a, b) | Or (a, b) | Imply (a, b) ->
-    let env = infer_types_pi env a in
-    let env = infer_types_pi env b in
-    env
-  | Not a -> infer_types_pi env a
-  | Predicate (_, _) -> env
-  | Subsumption (_, _) -> env
+    let* _ = infer_types_pi a in
+    infer_types_pi b
+  | Not a -> infer_types_pi a
+  | Predicate (_, _) -> return ()
+  | Subsumption (_, _) -> return ()

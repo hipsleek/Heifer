@@ -211,12 +211,13 @@ let check_pure_obligation left right =
           (string_of_result string_of_bool r))
   in
   let open Infer_types in
-  let tenv =
+  let _, tenv =
     (* handle the environment manually as it's shared between both sides *)
-    let env = create_abs_env () in
-    let env = infer_types_pi env left in
-    let env = infer_types_pi env right in
-    env
+    let open Infer_types.Env_state in
+    create_abs_env () |> begin
+      let* () = infer_types_pi left in
+      infer_types_pi right
+    end
   in
   let res = Provers.entails_exists (concrete_type_env tenv) left [] right in
   let open Provers_common in
