@@ -88,6 +88,11 @@ let has_been_unfolded pctx name _lr =
        (fun (Use u) -> u = name)
   |> Option.is_some
 
+let has_induction_hypothesis pctx name =
+  pctx.induction_hypotheses
+  |> List.find_opt (fun (u, _) -> u = name)
+  |> Option.is_some
+
 let pred_to_rule pred =
   let params = pred.p_params |> List.map Rewriting.Rules.Term.uvar in
   let lhs = HigherOrder (pred.p_name, params) in
@@ -942,7 +947,9 @@ let rec apply_ent_rule ?name : tactic =
     if valid then k (pctx, ens (), ens ())
   (* create induction hypothesis *)
   | HigherOrder (f, _), f2
-    when is_recursive pctx f && not (has_been_unfolded pctx f `Left) ->
+    when is_recursive pctx f
+         && (not (has_been_unfolded pctx f `Left))
+         && not (has_induction_hypothesis pctx f) ->
     let ps =
       let@ _ =
         span (fun _r ->
