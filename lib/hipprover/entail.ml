@@ -358,6 +358,66 @@ end = struct
       fmt
 end
 
+type coq_tactic =
+  | Rewrite of string
+  | SRReduction
+  | Simplify
+  | Biab
+  | EntDisjL
+  | EntDisjR
+  | Focus of coq_tactic list
+
+type coq_tactics = coq_tactic list
+
+let rec string_of_coq_tactic t =
+  match t with
+  | EntDisjL -> "apply ent_disj_l."
+  | EntDisjR -> "apply ent_disj_l."
+  | Focus [] -> ""
+  | Focus [a] -> Format.asprintf "{ %s }" (string_of_coq_tactic a)
+  | Focus (a :: rest) ->
+    Format.asprintf "{ %s\n%s }" (string_of_coq_tactic a)
+      (string_of_list_ind_lines string_of_coq_tactic rest)
+  | Simplify -> "fsimpl."
+  | Biab -> "fbiabduction."
+  | SRReduction -> "freduction."
+  | Rewrite r -> Format.asprintf "rewrite %s." r
+
+and string_of_coq_tactics ts =
+  ts |> List.map string_of_coq_tactic |> String.concat "\n"
+
+let%expect_test _ =
+  Format.printf "%s@."
+    (string_of_coq_tactics
+       [
+         EntDisjL;
+         Focus
+           [
+             EntDisjR;
+             EntDisjL;
+             EntDisjR;
+             EntDisjL;
+             EntDisjR;
+             EntDisjL;
+             EntDisjR;
+             EntDisjL;
+           ];
+         Focus [EntDisjR];
+       ]);
+  [%expect
+    {|
+    apply ent_disj_l.
+    { apply ent_disj_l.
+      apply ent_disj_l.
+      apply ent_disj_l.
+      apply ent_disj_l.
+      apply ent_disj_l.
+      apply ent_disj_l.
+      apply ent_disj_l.
+      apply ent_disj_l. }
+    { apply ent_disj_l. }
+    |}]
+
 let rec disj_left () : unit Tactic.t =
   let open Tactic in
   let* left = goal_lhs in
