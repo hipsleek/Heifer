@@ -70,7 +70,9 @@ let check_lambda_obligation_ name params lemmas predicates obl =
 *)
 
 let test_failed result name =
-  not result && not (String.ends_with ~suffix:"_false" name)
+  if String.ends_with ~suffix:"_false" name then
+    result
+  else not result
 
 let indicate_if_test_failed result name =
   if test_failed result name then tests_failed := true
