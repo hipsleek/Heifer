@@ -307,9 +307,12 @@ type lambda_obligation = {
 type intermediate =
   | Eff of string
   | Lem of lemma
+  (* type definition of pure logic function *)
   | LogicTypeDecl of string * typ list * typ * string list * string
   (* name, params, spec, body, tactics, pure_fn_info *)
   | Meth of string * string list * staged_spec option * core_lang * tactic list * (typ list * typ) option
+  (* user-provided type definition *)
+  | Typedef of type_declaration
   | Pred of pred_def
   | SLPred of sl_pred_def
 

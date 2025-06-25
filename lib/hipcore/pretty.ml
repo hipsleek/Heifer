@@ -273,6 +273,7 @@ and string_of_intermediate (i : intermediate) =
       (string_of_core_lang body)
   | Pred _ -> "[predicate]"
   | SLPred _ -> "[sl predicate]"
+  | Typedef _ -> "[type definition]"
 
 and string_of_constr_cases cs =
   cs |> List.map (fun (pat, body) -> Format.asprintf "| %s -> %s" (string_of_pattern pat) (string_of_core_lang body)) |> String.concat "\n"

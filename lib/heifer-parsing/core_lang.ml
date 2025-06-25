@@ -157,6 +157,8 @@ let rec core_type_to_simple_type t =
   | Ptyp_constr ({txt = Lident "list"; _}, [
     { ptyp_desc = Ptyp_constr ({txt = Lident "int"; _}, []) ; _}
   ]) -> List_int
+  | Ptyp_var v -> TVar v
+  | Ptyp_constr ({txt = Lident name; _}, args) -> TConstr (name, List.map core_type_to_simple_type args)
   | Ptyp_arrow (_, t1, t2) -> Arrow (core_type_to_simple_type t1, core_type_to_simple_type t2)
   | _ -> failwith (Format.asprintf "core_type_to_simple_type: not yet implemented %a" Pprintast.core_type t)
 
@@ -295,6 +297,15 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
         transformation bound_names a |> maybe_var (fun v -> loop (v :: vars) args1)
     in
     loop [] args
+  (* some other constructor; interpret as user-defined constructor *)
+  (* TODO subsume list into this case; need to check if the ADT implementation is robust enough for this *)
+  | Pexp_construct ({txt = Lident name; _}, exp) -> 
+      let constr_args = match exp with
+        | None -> []
+        | Some {pexp_desc = Pexp_tuple args; _} -> List.map expr_to_term args
+        | Some expr -> [expr_to_term expr]
+      in
+      CValue (Construct (name, constr_args))
   | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, args) when List.mem name bound_names || List.mem name primitive_functions ->
     (* TODO this doesn't model ocaml's right-to-left evaluation order *)
     let rec loop vars args =
@@ -375,6 +386,7 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
         | Ppat_construct ({txt = c; _}, None) -> Some (PConstr (Longident.last c, []))
         | Ppat_construct ({txt = c; _}, Some ([], {ppat_desc = Ppat_tuple args; _})) -> Some (PConstr (Longident.last c, List.filter_map transform_pattern args))
         | Ppat_var {txt = v; _} -> Some (PVar v)
+        | Ppat_any -> Some (PVar "_")
         | _ -> None
       in
       (* may be empty for non-effect pattern matches *)
@@ -474,6 +486,16 @@ let transform_str bound_names (s : structure_item) : intermediate option =
       print_endline (string_of_expression_kind whatever);
       failwith (Format.asprintf "not a function binding: %a" Pprintast.expression fn)
     end
+  (* TODO this only supports a single type declaration for now *)
+  | Pstr_type (_, [{ptype_kind = Ptype_variant constructors; ptype_name = {txt = name; _}; _}]) ->
+      let constructors = constructors |> List.map (fun constructor ->
+        let constr_args = match constructor.pcd_args with
+        | Pcstr_tuple args -> List.map core_type_to_simple_type args
+        | Pcstr_record _ -> failwith ("record as type constructor argument not supported") in
+        (constructor.pcd_name.txt, constr_args)
+      )
+      in
+      Some (Typedef {tdecl_name = name; tdecl_params = []; tdecl_kind = Tdecl_inductive constructors})
   | Pstr_type _
   | Pstr_typext _ -> None
   | Pstr_primitive { pval_name; pval_type; pval_prim = [ext_name]; _ } ->

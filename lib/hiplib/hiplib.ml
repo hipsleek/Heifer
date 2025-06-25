@@ -272,6 +272,9 @@ let process_intermediates (it : intermediate) prog : string list * core_program 
       Globals.global_environment.pure_fn_types <-
         SMap.add name def Globals.global_environment.pure_fn_types;
       [], prog *)
+  | Typedef tdecl -> 
+      Globals.define_type tdecl;
+      [], prog  
   | Eff _ ->
       todo ()
   | Lem l ->
