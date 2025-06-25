@@ -32,6 +32,7 @@ let define_pure_fn name typ =
 let is_pure_fn_defined f = SMap.mem f global_environment.pure_fns
 let pure_fn f = SMap.find f global_environment.pure_fns
 let pure_fns () = SMap.bindings global_environment.pure_fns
+let type_decls () = SMap.bindings global_environment.type_declarations
 
 module Timing = struct
   let overall_all = ref 0.

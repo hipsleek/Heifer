@@ -776,7 +776,7 @@ let rec type_to_whyml t =
   | Lamb -> PTtyapp (qualid ["Int"; "int"], [])
   | TVar _ -> PTtyapp (qualid ["Int"; "int"], [])
   | Arrow (t1, t2) -> PTarrow (type_to_whyml t1, type_to_whyml t2)
-  | TConstr _ -> failwith "general ADTs not implemented"
+  | TConstr (name, args) -> PTtyapp (qualid [name], List.map type_to_whyml args)
 
 let rec term_to_whyml tenv t =
   match t with
@@ -1018,6 +1018,32 @@ let prove tenv qtf f =
         [Dlogic ff]
     in
 
+    let types = 
+      let decls = Globals.type_decls () |>
+      List.filter_map begin fun (name, tdecl) ->
+        match tdecl.tdecl_kind with
+        | Tdecl_inductive constrs ->
+            let mlw_constrs = constrs |> List.map begin fun (name, args) ->
+              let constr_params = args |> List.map (fun typ -> (Loc.dummy_position, None, false, type_to_whyml typ)) in
+              (Loc.dummy_position, ident name, constr_params)
+            end in
+            let td_params = tdecl.tdecl_params |> List.filter_map (function TVar s -> Some (ident s) | _ -> None) in
+            Some {
+              td_ident = ident name;
+              td_params;
+              td_def = TDalgebraic mlw_constrs;
+              (* dummy fields *)
+              td_vis = Public;
+              td_loc = Loc.dummy_position;
+              td_inv = [];
+              td_mut = false;
+              td_wit = None;
+            }
+        | Tdecl_record _ -> None (* TODO, records not supported yet *)
+      end in
+      [Dtype decls]
+    in
+
     let parameters =
       match monolithic_goal with
       | true -> []
@@ -1053,7 +1079,7 @@ let prove tenv qtf f =
       ]
       @ extra
     in
-    (ident "M", List.concat [imports; fns; parameters; statement])
+    (ident "M", List.concat [imports; fns; types; parameters; statement])
   in
   let mlw_file = Modules [vc_mod] in
   Debug.debug ~at:4 ~title:"mlw file" "%a"
