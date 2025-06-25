@@ -841,7 +841,10 @@ let rec term_to_whyml tenv t =
      let params, _ret = unsnoc params in
      let binders = vars_to_params tenv params in
      term (Tquant (Dterm.DTlambda, binders, [], core_lang_to_whyml tenv body)) *)
-  | Construct -> failwith "constructors not yet supported"
+  | Construct (name, []) ->
+    term (Tident (qualid [name]))
+  | Construct (name, args) ->
+      tapp (qualid [name]) (List.map (term_to_whyml tenv) args)
   | TTuple _ | BinOp (TPower, _, _) | BinOp (TDiv, _, _) | Const (TStr _)
     ->
     failwith "nyi"
