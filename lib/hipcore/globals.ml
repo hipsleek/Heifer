@@ -29,6 +29,23 @@ let define_pure_fn name typ =
   using_pure_fns := true;
   global_environment.pure_fns <- SMap.add name typ global_environment.pure_fns
 
+let define_type tdecl =
+  global_environment.type_declarations <- SMap.add tdecl.tdecl_name tdecl global_environment.type_declarations
+
+let find_type_decl name = SMap.find name global_environment.type_declarations
+
+(** Given a type constructor's name, return its type declaration, and
+    the types of its arguments.
+
+    Raises Not_found if no such constructor is found. *)
+let type_constructor_decl name =
+  let decls = SMap.bindings global_environment.type_declarations
+  |> List.filter_map (fun (_, type_decl) -> Types.constructor_of_type_decl name type_decl |> Option.map (fun constr_decl -> (type_decl, constr_decl)))
+  in
+  if List.is_empty decls
+  then raise Not_found
+  else List.hd decls
+
 let is_pure_fn_defined f = SMap.mem f global_environment.pure_fns
 let pure_fn f = SMap.find f global_environment.pure_fns
 let pure_fns () = SMap.bindings global_environment.pure_fns
