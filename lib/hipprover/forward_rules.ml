@@ -360,6 +360,18 @@ let rec forward (env: fvenv) (expr : core_lang): staged_spec * fvenv =
               let cons_term = BinOp (TCons, Var v1, Var v2) in
               let cons_spec = NormalReturn (Atomic (EQ, t, cons_term), EmptyHeap) in
               Exists (v1, Exists (v2, Sequence (cons_spec, body_spec)))
+          (* general constructors *)
+          | PConstr _ | PVar _ ->
+              let rec term_of_pattern pat =
+                match pat with
+                | PVar v -> Var v
+                | PConstr (args, v) -> Construct (args, List.map term_of_pattern v)
+              in
+              let pattern_term = term_of_pattern pat in
+              let pattern_free_vars = Subst.free_vars_term pattern_term in
+              let pattern_spec = NormalReturn (Atomic (EQ, t, term_of_pattern pat), EmptyHeap) in
+              Sequence (pattern_spec, body_spec)
+                |> SSet.fold (fun var spec -> Exists (var, spec)) pattern_free_vars
           | _ ->
               failwith (Format.asprintf "unknown pattern: %s" (string_of_pattern pat))
         in
