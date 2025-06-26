@@ -117,11 +117,13 @@ let concrete_type_env abs : typ_env =
 
 let get_primitive_type f =
   (* let untype = Typedhip.Untypehip.hiptypes_typ in *)
+  let v = fresh_type_var () in
+  let list_of_v = TConstr ("list", [v]) in
   match f with
-  | "cons" -> ([Int; List_int], List_int)
-  | "head" -> ([List_int], Int)
-  | "tail" -> ([List_int], List_int)
-  | "is_nil" | "is_cons" -> ([List_int], Bool)
+  | "cons" -> ([v; list_of_v], list_of_v)
+  | "head" -> ([list_of_v], v)
+  | "tail" -> ([list_of_v], list_of_v)
+  | "is_nil" | "is_cons" -> ([list_of_v], Bool)
   | "+" | "-" -> ([Int; Int], Int)
   | "string_of_int" -> ([Int], TyString)
   | _ when String.compare f "effNo" == 0 -> ([Int] , Int)
@@ -183,14 +185,19 @@ and infer_types_term ?(hint : typ option) term : typ using_env =
   | Const ValUnit, _ -> return Unit
   | Const TTrue, _ | Const TFalse, _ -> return Bool
   | Const (TStr _), _ -> return TyString
-  | Const Nil, _ -> return List_int
+  | Const Nil, hint -> begin match hint with 
+        | Some ((TConstr ("list", [_])) as list_type) -> return list_type
+        | _ -> return (TConstr ("list", [fresh_type_var ()]))
+      end
   | Const (Num _), _ -> return Int
   | TNot a, _ ->
     let* _ = infer_types_term ~hint:Bool a in
     return Bool
   | BinOp (op, a, b), _ ->
       let atype, btype, ret_type = match op with
-        | TCons -> Int, List_int, List_int
+        | TCons ->
+            let element_type = fresh_type_var () in
+            element_type, TConstr ("list", [element_type]), TConstr ("list", [element_type])
         | TAnd| TOr -> Bool, Bool, Bool
         | SConcat -> TyString, TyString, TyString
         | Plus | Minus | TTimes | TDiv | TPower -> Int, Int, Int

@@ -280,9 +280,6 @@ module LowLevel = struct
   let rec type_to_why3 env (t : typ) =
     match t with
     | Unit -> Ty.ty_tuple []
-    | List_int ->
-      Theories.(needed int env.theories);
-      Ty.ty_app Theories.(get_type_symbol list "list" env.theories) [Ty.ty_int]
     | TyString ->
       Theories.(needed string env.theories);
       Ty.ty_str
@@ -427,26 +424,28 @@ module LowLevel = struct
       ( Term.t_app_infer Theories.(get_symbol bool "notb" env.theories) [a1],
         Bool )
     | BinOp (TCons, a, b) ->
-      let a1, _ = term_to_why3 env a in
-      let b1, _ = term_to_why3 env b in
+      (* let a1, _ = term_to_why3 env a in *)
+      (* let b1, _ = term_to_why3 env b in *)
       (* let open Pretty in *)
       (* Format.printf "cons %s %s @." (string_of_term a) (string_of_term b); *)
-      ( Term.t_app
-          Theories.(get_symbol list "Cons" env.theories)
-          [a1; b1]
-          (Some (type_to_why3 env List_int)),
-        List_int )
+      (* ( Term.t_app *)
+      (*     Theories.(get_symbol list "Cons" env.theories) *)
+      (*     [a1; b1] *)
+      (*     (Some (type_to_why3 env List_int)), *)
+      (*   List_int ) *)
       (* inferring types leads to issues reconciling types between systems *)
+        failwith "TODO type inference on cons symbol"
       (* Term.t_app_infer
          (get_theory_symbol env.list_theory "Cons")
          [term_to_why3 env a; term_to_why3 env b] *)
     | Const Nil ->
       (* Term.t_app_infer (get_theory_symbol env.list_theory "Nil") [] *)
-      ( Term.t_app
-          Theories.(get_symbol list "Nil" env.theories)
-          []
-          (Some (type_to_why3 env List_int)),
-        List_int )
+      (* ( Term.t_app *)
+      (*     Theories.(get_symbol list "Nil" env.theories) *)
+      (*     [] *)
+      (*     (Some (type_to_why3 env List_int)), *)
+      (*   List_int ) *)
+        failwith "TODO type inference on nil symbol"
     | TApp (s, args) when Globals.is_pure_fn_defined s ->
       let args1 = List.map (term_to_why3 env) args |> List.map fst in
       let defn = Globals.pure_fn s
@@ -549,24 +548,6 @@ module LowLevel = struct
            (fun (pat, body) ->
              let pat =
                match pat with
-               | PConstr ("::", [PVar x; PVar y]) ->
-                 let h =
-                   Term.create_vsymbol (Ident.id_fresh x) (type_to_why3 env Int)
-                 in
-                 let t =
-                   Term.create_vsymbol (Ident.id_fresh y)
-                     (type_to_why3 env List_int)
-                 in
-                 (* TODO nested patterns not supported *)
-                 Term.pat_app
-                   Theories.(get_symbol list "Cons" env.theories)
-                   [Term.pat_var h; Term.pat_var t]
-                   (type_to_why3 env List_int)
-               | PConstr ("[]", []) ->
-                 Term.pat_app
-                   Theories.(get_symbol list "Nil" env.theories)
-                   []
-                   (type_to_why3 env List_int)
                | PConstr (c, _) -> failwith (Format.asprintf "unhandled constr %s" c)
                | _ -> failwith "unhandled pattern"
              in
@@ -770,8 +751,6 @@ let rec type_to_whyml t =
   | TyString -> PTtyapp (qualid ["String"; "string"], [])
   | Int -> PTtyapp (qualid ["Int"; "int"], [])
   | Unit -> PTtyapp (qualid ["tuple0"], [])
-  | List_int ->
-    PTtyapp (qualid ["List"; "list"], [PTtyapp (qualid ["Int"; "int"], [])])
   | Bool -> PTtyapp (qualid ["Bool"; "bool"], [])
   | Lamb -> PTtyapp (qualid ["Int"; "int"], [])
   | TVar v -> PTtyvar (ident v)
@@ -827,9 +806,9 @@ let rec term_to_whyml tenv t =
     tapp (qualid ["Bool"; "orb"]) [term_to_whyml tenv a; term_to_whyml tenv b]
   | TNot a -> tapp (qualid ["Bool"; "notb"]) [term_to_whyml tenv a]
   | TApp (f, args) -> tapp (qualid [f]) (List.map (term_to_whyml tenv) args)
-  | Const Nil -> tapp (qualid ["List"; "Nil"]) []
+  | Const Nil -> tapp (qualid ["[]"]) []
   | BinOp (TCons, h, t) ->
-    tapp (qualid ["List"; "Cons"]) [term_to_whyml tenv h; term_to_whyml tenv t]
+    tapp (qualid ["::"]) [term_to_whyml tenv h; term_to_whyml tenv t]
   | TLambda (_name, _, _sp, Some _) | TLambda (_name, _, _sp, None) ->
     (* if there is no body, generate something that only respects alpha equivalence *)
     (* this probably doesn't always work *)
@@ -865,12 +844,7 @@ and vars_to_params tenv vars =
 and pattern_to_whyml tenv pattern =
   let p = match pattern with
   | PConstr (constr, args) ->
-      let constr_id = begin match constr with
-      | "[]" -> qualid ["List"; "Nil"]
-      | "::" -> qualid ["List"; "Cons"]
-      | constr -> qualid [constr]
-      end in
-      Papp (constr_id, (List.map (pattern_to_whyml tenv) args))
+      Papp (qualid [constr], (List.map (pattern_to_whyml tenv) args))
   | PVar v -> Pvar (ident v)
   | PConstant _ -> failwith "constant patterns not supported"
   in
@@ -894,7 +868,7 @@ and core_lang_to_whyml tenv e =
     let fn =
       match s with
       | "+" | "-" | "*" | ">" | "<" | ">=" | "<=" -> qualid ["Int"; Ident.op_infix s]
-      | "::" -> qualid ["List"; "Cons"]
+      | "::" -> qualid ["::"]
       | "=" -> qualid ["Int"; Ident.op_infix s] (* for now *)
       | "||" -> qualid ["Bool"; "orb"]
       | "&&" -> qualid ["Bool"; "andb"]

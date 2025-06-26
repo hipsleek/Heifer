@@ -42,7 +42,6 @@ let rec term_to_expr env ctx t : Z3.Expr.expr =
       (* Format.printf "%s : %s@." v
          (match t1 with
          | Int -> "Int"
-         | List_int -> "List_int"
          | Unit -> "unit"
          | Bool -> "Bool"
          | TVar _ -> "tvar"); *)
@@ -61,10 +60,6 @@ let rec term_to_expr env ctx t : Z3.Expr.expr =
         res
       | Unit ->
         Z3.Expr.mk_const_s ctx "unit" (unit_sort ctx)
-      | List_int ->
-        (* Format.printf "%s is list@." v; *)
-        let list_int = list_int_sort ctx in
-        Z3.Expr.mk_const_s ctx v list_int
       | Bool -> Z3.Boolean.mk_const_s ctx v
       | TyString -> Z3.Expr.mk_const_s ctx v (Z3.Seq.mk_string_sort ctx)
       | Arrow (_, _) -> failwith "arrow not implemented"
@@ -342,7 +337,6 @@ let ex_quantify_expr env vars ctx e =
   let type_to_sort ctx (t:typ) : Sort.sort =
     match t with
     | Unit -> unit_sort ctx
-    | List_int -> list_int_sort ctx
     (* | TConstr of string * typ list *)
     | Int -> Z3.Arithmetic.Integer.mk_sort ctx
     | TConstr (_, _) -> failwith "TConstr"

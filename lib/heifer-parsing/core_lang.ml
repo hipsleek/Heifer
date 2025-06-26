@@ -154,9 +154,6 @@ let rec core_type_to_simple_type t =
   match t.ptyp_desc with
   | Ptyp_constr ({txt = Lident "bool"; _}, []) -> Bool
   | Ptyp_constr ({txt = Lident "int"; _}, []) -> Int
-  | Ptyp_constr ({txt = Lident "list"; _}, [
-    { ptyp_desc = Ptyp_constr ({txt = Lident "int"; _}, []) ; _}
-  ]) -> List_int
   | Ptyp_var v -> TVar v
   | Ptyp_constr ({txt = Lident name; _}, args) -> TConstr (name, List.map core_type_to_simple_type args)
   | Ptyp_arrow (_, t1, t2) -> Arrow (core_type_to_simple_type t1, core_type_to_simple_type t2)

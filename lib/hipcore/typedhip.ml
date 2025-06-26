@@ -2,7 +2,7 @@
 [@@@warning "-17"]
 (* can also appear in pi *)
 type bin_rel_op = GT | LT | EQ | GTEQ | LTEQ
-and binder = string * typ option
+and binder = string * typ
 and bin_term_op = Plus | Minus | SConcat | TAnd | TPower | TTimes | TDiv | TOr | TCons
 and const =
   | ValUnit
@@ -28,7 +28,7 @@ and term_desc =
 and term =
   {
     term_desc: term_desc;
-    term_type: typ option
+    term_type: typ
   }
 
 (* (Label n) _k (*@ spec @*) -> e *)
@@ -123,13 +123,8 @@ and staged_spec =
 
 (* and spec = stagedSpec list *)
 (* and disj_spec = spec list *)
-and typ = {
-    typ_value: type_desc;
-    typ_shift: type_desc option
-  }
-and type_desc =
+and typ =
   | Unit
-  | List_int
   | TConstr of string * typ list
   | Int
   | Bool

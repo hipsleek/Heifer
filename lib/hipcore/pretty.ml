@@ -364,7 +364,6 @@ let rec string_of_type t =
   | Int -> "int"
   | Unit -> "unit"
   | TConstr (name, args) -> Format.asprintf "(%s) %s" (List.map string_of_type args |> String.concat ",") name
-  | List_int -> "intlist"
   | Bool -> "bool"
   | Lamb -> "lambda"
   | TVar v -> Format.asprintf "'%s" v

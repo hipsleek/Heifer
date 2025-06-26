@@ -1,7 +1,6 @@
 
 type typ =
   | Unit
-  | List_int
   | TConstr of string * typ list
   | Int
   | Bool
@@ -55,7 +54,7 @@ let rec free_type_vars t =
   | Arrow (t1, t2) -> (free_type_vars t1) @ (free_type_vars t2)
   | _ -> []
 
-let concrete_types = [Unit; List_int; Int; Bool; Lamb]
+let concrete_types = [Unit; Int; Bool; Lamb]
 
 let new_type_var : ?name:string -> unit -> typ =
   (* let counter = ref 0 in begin *)
