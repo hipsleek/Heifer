@@ -150,6 +150,26 @@ let reset_free () = Misc.todo ()
 (* do we need this tho? Seems redundant! *)
 let shift_reset_free () = Misc.todo ()
 
+(* reset (forall x. f) \entails forall x. reset f *)
+(* only on the left *)
+let norm_reset_all _ = Misc.todo ()
+
+(* reset (exists x. f) \bientails exists x. reset f *)
+(* bientails; both side of the proof *)
+let norm_reset_ex _ = Misc.todo ()
+
+(* reset (f1 \/ f2) \bientails reset f1 \/ reset f2 *)
+(* bientails; both side of the proof *)
+let norm_reset_disj _ = Misc.todo ()
+
+(* reset (ens Q; f) \bientails ens Q; reset f *)
+(* bientails; both side of the proof *)
+let norm_reset_seq_ens _ = Misc.todo ()
+
+(* reset (req H; f) \entails req H; reset f *)
+(* entails; only on the left *)
+let norm_reset_seq_req _ = Misc.todo ()
+
 (* can float stuffs out of reset if it is shift-free *)
 (* we can float seq. But can we also float bind? *)
 (* is float bind useful? *)
