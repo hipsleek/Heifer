@@ -160,6 +160,9 @@ let create_abs_env () =
     equalities = ref (TEnv.create ()) ;
   }
 
+let simplify_vartypes env =
+  {env with vartypes = SMap.map (TEnv.simplify env.equalities) env.vartypes}
+
 (* concrete type environment, where every variable has a concrete type *)
 type typ_env = typ SMap.t
 (* A map giving type variables possibly-concrete types *)

@@ -774,7 +774,7 @@ let rec type_to_whyml t =
     PTtyapp (qualid ["List"; "list"], [PTtyapp (qualid ["Int"; "int"], [])])
   | Bool -> PTtyapp (qualid ["Bool"; "bool"], [])
   | Lamb -> PTtyapp (qualid ["Int"; "int"], [])
-  | TVar _ -> PTtyapp (qualid ["Int"; "int"], [])
+  | TVar v -> PTtyvar (ident v)
   | Arrow (t1, t2) -> PTarrow (type_to_whyml t1, type_to_whyml t2)
   | TConstr (name, args) -> PTtyapp (qualid [name], List.map type_to_whyml args)
 
@@ -862,6 +862,20 @@ and vars_to_params tenv vars =
         Some (type_to_whyml type_of_existential) ))
     vars
 
+and pattern_to_whyml tenv pattern =
+  let p = match pattern with
+  | PConstr (constr, args) ->
+      let constr_id = begin match constr with
+      | "[]" -> qualid ["List"; "Nil"]
+      | "::" -> qualid ["List"; "Cons"]
+      | constr -> qualid [constr]
+      end in
+      Papp (constr_id, (List.map (pattern_to_whyml tenv) args))
+  | PVar v -> Pvar (ident v)
+  | PConstant _ -> failwith "constant patterns not supported"
+  in
+  pat p
+
 and core_lang_to_whyml tenv e =
   match e with
   | CValue t -> term_to_whyml tenv t
@@ -895,19 +909,7 @@ and core_lang_to_whyml tenv e =
            List.map
            (* TODO change to properly model general patterns *)
              (fun (pattern, body) ->
-               let real_constr, args =
-                 match pattern with
-                 | PConstr ("[]", args) -> qualid ["List"; "Nil"], args
-                 | PConstr ("::", args) -> qualid ["List"; "Cons"], args
-                 | PConstr (constr, _) -> failwith (Format.asprintf "unknown constr %s" constr)
-                 | _ -> failwith (Format.asprintf "unknown pattern")
-               in
-               let args = List.filter_map (function PVar v -> Some v | _ -> None) args
-               in
-               ( pat
-                   (Papp
-                      (real_constr, List.map (fun a -> pat_var (ident a)) args)),
-                 core_lang_to_whyml tenv body ))
+               (pattern_to_whyml tenv pattern, core_lang_to_whyml tenv body ))
              cases ))
   | CMatch (_, _, _, _, _) -> failwith "unsupported kind of match"
   | CAssert (_, _) | CLambda (_, _, _) -> failwith "unimplemented"
@@ -1082,7 +1084,7 @@ let prove tenv qtf f =
       ]
       @ extra
     in
-    (ident "M", List.concat [imports; fns; types; parameters; statement])
+    (ident "M", List.concat [imports; types; fns; parameters; statement])
   in
   let mlw_file = Modules [vc_mod] in
   Debug.debug ~at:4 ~title:"mlw file" "%a"

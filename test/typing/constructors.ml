@@ -29,25 +29,26 @@ let add_zero_2 n
 (*@ ens res=n @*)
 = plus n Zero
 
+type ball = Solid | Striped
+
+(* manual definition so terms are inferred as 'a llist instead of List_int *)
+type 'a llist = Cons of 'a * 'a llist | Nil
+
 let rec foldr f ls init =
   match ls with
-  | [] -> init
-  | x::xs -> f x (foldr f xs init)
+  | Nil -> init
+  | Cons (x, xs) -> f x (foldr f xs init)
 
 let rec exists ls f =
   foldr (fun v acc -> f v || acc) ls false
 
-let rec has_red ls =
+let[@pure] rec has_solid (ls : ball llist) : bool =
   match ls with
-  | [] -> false
-  | Red::_ -> true
-  | _::xs -> has_red xs
+  | Nil -> false
+  | Cons (Solid, xs) -> true
+  | Cons (Striped, xs) -> has_solid xs
 
-(* these currently doesn't work *)
-(* probably because the has_red spec isn't being unfolded *)
-
-let exists_red ls
-  (*@ ex ys. has_red(ls, ys); ens res=ys @*)
+let exists_solid ls
+  (*@ ens res = has_solid(ls) @*)
   =
-    exists ls (fun o -> match o with | Red -> true | _ -> false)
-
+    exists ls (fun o -> match o with | Solid -> true | Striped -> false)

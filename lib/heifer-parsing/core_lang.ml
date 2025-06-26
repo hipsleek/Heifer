@@ -487,7 +487,8 @@ let transform_str bound_names (s : structure_item) : intermediate option =
       failwith (Format.asprintf "not a function binding: %a" Pprintast.expression fn)
     end
   (* TODO this only supports a single type declaration for now *)
-  | Pstr_type (_, [{ptype_kind = Ptype_variant constructors; ptype_name = {txt = name; _}; _}]) ->
+  | Pstr_type (_, [{ptype_kind = Ptype_variant constructors; ptype_name = {txt = name; _}; ptype_params = params; _}]) ->
+      let params = params |> List.map (fun (core_type, _) -> core_type_to_simple_type core_type) in
       let constructors = constructors |> List.map (fun constructor ->
         let constr_args = match constructor.pcd_args with
         | Pcstr_tuple args -> List.map core_type_to_simple_type args
@@ -495,7 +496,7 @@ let transform_str bound_names (s : structure_item) : intermediate option =
         (constructor.pcd_name.txt, constr_args)
       )
       in
-      Some (Typedef {tdecl_name = name; tdecl_params = []; tdecl_kind = Tdecl_inductive constructors})
+      Some (Typedef {tdecl_name = name; tdecl_params = params; tdecl_kind = Tdecl_inductive constructors})
   | Pstr_type _
   | Pstr_typext _ -> None
   | Pstr_primitive { pval_name; pval_type; pval_prim = [ext_name]; _ } ->

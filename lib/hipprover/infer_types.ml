@@ -16,6 +16,9 @@ module State(SType : sig type t end) = struct
       f v env
   let (let*) = bind
 
+  let mutate (f : SType.t -> SType.t) : unit t =
+    fun st -> (), f st
+
   let rec map ~(f:'a -> 'b t) (ls : 'a list) : 'b list t =
     match ls with
     | [] -> return []
@@ -176,7 +179,7 @@ and infer_types_term ?(hint : typ option) term : typ using_env =
           (string_of_result string_of_type (Env_state.Debug.presult_value r))
           (string_of_result string_of_abs_env (Env_state.Debug.presult_state r)))
   in
-  match (term, hint) with
+  let* t = match (term, hint) with
   | Const ValUnit, _ -> return Unit
   | Const TTrue, _ | Const TFalse, _ -> return Bool
   | Const (TStr _), _ -> return TyString
@@ -218,8 +221,8 @@ and infer_types_term ?(hint : typ option) term : typ using_env =
       (* if inferring types for the body fails (likely due to the types of impure stuff not being representable), fall back to old behavior for now *)
       Lamb, env) *)
   | Rel (EQ, a, b), _ -> begin
-    let* at = infer_types_term ?hint a in
-    let* bt = infer_types_term ?hint b in
+    let* at = infer_types_term a in
+    let* bt = infer_types_term b in
     let* _ = unify_types at bt in
     return Bool
   end
@@ -253,6 +256,16 @@ and infer_types_term ?(hint : typ option) term : typ using_env =
           infer_types_term ~hint:expected_arg_type arg) in
       return (TConstr (type_decl.tdecl_name, concrete_vars))
   | TTuple _, _ -> failwith "tuple unimplemented"
+  in
+  (* After checking this term, we may still need to unify its type with a hint received from above in the AST. *)
+  let* _ = match hint with
+  | Some typ -> unify_types t typ
+  | None -> return ()
+  in
+  (* Update the variable type mapping with any unifications done so far. This is repetitive;
+     it's probably better to store typ U.elems in the mapping instead. *)
+  let* _ = Env_state.mutate simplify_vartypes in
+  return t
 
 let rec infer_types_pi pi : unit using_env =
   debug ~at:5 ~title:"infer_types_pi" "%s" (string_of_pi pi);
