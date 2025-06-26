@@ -145,6 +145,11 @@ and reduce_reset (predicates : pred_def SMap.t) (dsp : disj_spec) (res : term) :
 (* a visitor *)
 let shift_free () = Misc.todo ()
 
+let reset_free () = Misc.todo ()
+
+(* do we need this tho? Seems redundant! *)
+let shift_reset_free () = Misc.todo ()
+
 (* can float stuffs out of reset if it is shift-free *)
 (* we can float seq. But can we also float bind? *)
 (* is float bind useful? *)
@@ -163,3 +168,5 @@ let accumulate_shift_cont_bind () = Misc.todo ()
 
 (* require a small modification to the AST. *)
 (* we shall introduce `shift_c`: augment shift with an continuation *)
+
+(* in a nutshell, let's follow the coq version closely *)
