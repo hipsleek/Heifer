@@ -1,6 +1,6 @@
 (library
  (name hipprover)
- (modules ProversEx entail forward_rules infer_types normalize rewriting rewriting2 heap biab simpl)
+ (modules ProversEx entail forward_rules infer_types normalize rewriting rewriting2 heap biab simpl reduce_shift_reset)
  (libraries debug search hipcore provers utils iter)
  (inline_tests)
  (preprocess (pps ppx_expect)))

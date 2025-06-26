@@ -1,15 +1,20 @@
+(*
 open Hipcore
 open Hiptypes
 open Debug
 open Pretty
 open Subst
-open Utilities
-open Unfold
+*)
 
+open Utils
+
+(*
 exception CannotReduce
 
 let pred_filter pred = not pred.p_rec
+*)
 
+(*
 (* A hack, we should refactor the code base and make the logic more uniform instead *)
 let rec find_continuation_argv (r : string) (cont : spec) : string * spec =
   match cont with
@@ -19,7 +24,9 @@ let rec find_continuation_argv (r : string) (cont : spec) : string * spec =
       v1, cont'
   | _ ->
       r, cont
+*)
 
+(*
 let rec shift_reset_reduction (predicates : pred_def SMap.t) (dsp : disj_spec) : disj_spec =
   let@ _ =
     Debug.span
@@ -130,3 +137,29 @@ and reduce_reset (predicates : pred_def SMap.t) (dsp : disj_spec) (res : term) :
   let dsp = List.concat_map reduce_spec dsp in
   let dsp = instantiateSpecList ["res", res] dsp in
   dsp
+*)
+
+(* shift-reset reduction rules. Technically we can put this in normalize.ml; but
+   let's put this logic into a separate files for easy of understanding *)
+
+(* a visitor *)
+let shift_free () = Misc.todo ()
+
+(* can float stuffs out of reset if it is shift-free *)
+(* we can float seq. But can we also float bind? *)
+(* is float bind useful? *)
+let float_shift_free_reset () = Misc.todo ()
+
+(* shift, immediately surronded by reset, is eliminated *)
+let eliminate_shift_reset () = Misc.todo ()
+
+(* accumulate/build the continuation; with seq *)
+(* reset (shift body cont; f) -> reset (shift body (cont; f)) *)
+let accumulate_shift_cont_seq () = Misc.todo ()
+
+(* accumulate/build the continuation; with bind *)
+(* this a the most important rule, and the hardest to write *)
+let accumulate_shift_cont_bind () = Misc.todo ()
+
+(* require a small modification to the AST. *)
+(* we shall introduce `shift_c`: augment shift with an continuation *)
