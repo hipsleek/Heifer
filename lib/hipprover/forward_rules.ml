@@ -391,7 +391,9 @@ let rec forward (env: fvenv) (expr : core_lang): staged_spec * fvenv =
       NormalReturn (Atomic (EQ, res_var, lambda_term), EmptyHeap), env
   | CShift (nz, k, expr_body) ->
       let spec_body, env = forward env expr_body in
-      Shift (nz, k, spec_body), env
+      let x = Variables.fresh_variable ~v:"x" "continuation argument" in
+      let cont = NormalReturn (Atomic (EQ, Variables.res_var, Var x), EmptyHeap) in
+      Shift (nz, k, spec_body, x, cont), env
   | CReset expr_body ->
       let spec_body, env = forward env expr_body in
       Reset spec_body, env

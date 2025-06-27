@@ -105,8 +105,11 @@ match s with
     Hiptypes.NormalReturn (untype_pi phi, untype_kappa h)
 | HigherOrder (f, t) ->
     Hiptypes.HigherOrder (f, List.map untype_term t)
-| Shift (is_shift, x, spec) ->
-    Hiptypes.Shift (is_shift, x, untype_staged_spec spec)
+| Shift (is_shift, k, spec) ->
+    (* TODO: shiftc *)
+    let x = Variables.fresh_variable "x" in
+    let cont = Syntax.(ens ~p:(eq Variables.res_var (var x)) ()) in
+    Hiptypes.Shift (is_shift, k, untype_staged_spec spec, x, cont)
 | Disjunction (f1, f2) ->
     Hiptypes.Disjunction (untype_staged_spec f1, untype_staged_spec f2)
 | Sequence (f1, f2) ->

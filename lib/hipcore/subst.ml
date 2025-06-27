@@ -74,15 +74,24 @@ let subst_free_vars bs staged =
         | _ -> failwith "invalid"
 
       (* the remaining cases handle capture-avoidance in binders *)
-      method! visit_Shift bindings nz k body =
+      method! visit_Shift bindings nz k body x cont =
         let k1, body1 =
           if SSet.mem k free then
             let y = Variables.fresh_variable ~v:k () in
             (y, self#visit_staged_spec [(k, Var y)] body)
-          else (k, body)
+          else
+            (k, body)
         in
-        let bs = List.filter (fun (b, _) -> b <> k1) bindings in
-        Shift (nz, k1, self#visit_staged_spec bs body1)
+        let x1, cont1 =
+          if SSet.mem x free then
+            let y = Variables.fresh_variable ~v:x () in
+            (y, self#visit_staged_spec [(x, Var y)] body)
+          else
+            (x, cont)
+        in
+        let bs_k = List.filter (fun (b, _) -> b <> k1) bindings in
+        let bs_x = List.filter (fun (b, _) -> b <> x1) bindings in
+        Shift (nz, k1, self#visit_staged_spec bs_k body1, x1, self#visit_staged_spec bs_x cont1)
 
       method! visit_Exists bindings x f =
         let x1, f1 =

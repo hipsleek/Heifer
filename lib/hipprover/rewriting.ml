@@ -488,7 +488,8 @@ and unify_staged :
           a1 a2
       in
       Some ()
-  | Shift (z1, k1, f1), Shift (z2, k2, f2) when z1 = z2 && k1 = k2 ->
+  | Shift (z1, k1, f1, _x1, _cont1), Shift (z2, k2, f2, _x2, _cont2) when z1 = z2 && k1 = k2 ->
+    (* TODO: shiftc *)
     let* _ = unify_var st (Staged f1, e1) (Staged f2, e2) in
     Some ()
   | Reset b1, Reset b2 ->

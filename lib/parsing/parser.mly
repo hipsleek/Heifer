@@ -186,7 +186,9 @@ staged_spec:
   | va = fn
       { let (v, args) = va in HigherOrder (v, args) }
   | SHIFT LPAREN v = IDENT DOT s = staged_spec RPAREN
-      { Shift (true, v, s) }
+      { (* TODO: shiftc *)
+        let x = Variables.fresh_variable ~v:"x" "continuation argument" in
+        Shift (true, v, s, x, NormalReturn (Atomic (EQ, Variables.res_var, Var x), EmptyHeap)) }
   | RESET LPAREN s = staged_spec RPAREN
       { Reset s }
   | s1 = staged_spec SEMI s2 = staged_spec

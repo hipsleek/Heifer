@@ -185,18 +185,15 @@ let norm_reset_seq_req : _ Rewriting2.rule = Rewriting2.(
   fun p k f -> Sequence (Require (p, k), f)
 )
 
-(* shift, immediately surronded by reset, is eliminated *)
-let eliminate_shift_reset () = Misc.todo ()
+let red_init _ = Misc.todo ()
 
 (* accumulate/build the continuation; with seq *)
 (* reset (shift body cont; f) -> reset (shift body (cont; f)) *)
-let accumulate_shift_cont_seq () = Misc.todo ()
+let red_extend _ = Misc.todo ()
 
-(* accumulate/build the continuation; with bind *)
-(* this a the most important rule, and the hardest to write *)
-let accumulate_shift_cont_bind () = Misc.todo ()
+(* shift, immediately surronded by reset, is eliminated *)
+let red_rs_sh_elim _ = Misc.todo ()
 
 (* require a small modification to the AST. *)
 (* we shall introduce `shift_c`: augment shift with an continuation *)
-
 (* in a nutshell, let's follow the coq version closely *)

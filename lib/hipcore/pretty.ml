@@ -110,7 +110,8 @@ let rec string_of_term t : string =
 
 and string_of_staged_spec (st:staged_spec) : string =
   match st with
-  | Shift (nz, k, spec) ->
+  | Shift (nz, k, spec, _x, _cont) ->
+    (* TODO: shiftc *)
     let zero = if nz then "" else "0" in
     Format.asprintf "shift%s(%s. %s)" zero k (string_of_staged_spec spec)
   | Reset spec ->
@@ -569,7 +570,7 @@ and pp_staged_spec ppf spec =
     fprintf ppf "@[ens@ (@[<hov 1>%a@ /\\@ %a@])@]"
     pp_pi p pp_kappa k
   | HigherOrder (f, args) -> pp_call_like ppf (f, args)
-  | Shift (z, k, spec) ->
+  | Shift (z, k, spec, _x, _cont) ->
       fprintf ppf "@[%s(@[<hov 1>%s.@ %a@])@]"
       (if z then "sh" else "sh0")
       k
