@@ -234,6 +234,7 @@ and string_of_pattern (p : pattern) : string =
   match p with
   | PVar s -> s
   | PConstr (name, args) -> Format.sprintf "%s(%s)" name (List.map string_of_pattern args |> String.concat ", ")
+  | PConstant c -> Format.sprintf "%s" (string_of_constant c)
 
 and string_of_core_lang (e:core_lang) :string =
   match e with
@@ -360,6 +361,7 @@ let string_of_smap pp s =
 let rec string_of_type t =
   let open Types in
   match t with
+  | Any -> "<any>"
   | TyString -> "string"
   | Int -> "int"
   | Unit -> "unit"
@@ -619,6 +621,7 @@ and pp_pattern ppf pat =
   match pat with
   | PVar v -> Format.fprintf ppf "@[%s@]" v
   | PConstr (name, args) -> pp_call_like pp_pattern ppf (name, args)
+  | PConstant c -> pp_constant ppf c
 and pp_constr_cases ppf cases = 
   let open Format in
   let pp_constr_case ppf (pat, body) =

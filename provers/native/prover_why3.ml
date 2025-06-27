@@ -279,6 +279,7 @@ module LowLevel = struct
 
   let rec type_to_why3 env (t : typ) =
     match t with
+    | Any -> failwith "Formulas at the SMT level must be typed"
     | Unit -> Ty.ty_tuple []
     | TyString ->
       Theories.(needed string env.theories);
@@ -748,6 +749,7 @@ open Ptree_helpers
 
 let rec type_to_whyml t =
   match t with
+  | Any -> failwith "Formulas at the SMT level must be typed"
   | TyString -> PTtyapp (qualid ["String"; "string"], [])
   | Int -> PTtyapp (qualid ["Int"; "int"], [])
   | Unit -> PTtyapp (qualid ["tuple0"], [])

@@ -1,3 +1,4 @@
+
 open Hipcore
 open Hiptypes
 open Types
@@ -46,6 +47,7 @@ let rec term_to_expr env ctx t : Z3.Expr.expr =
          | Bool -> "Bool"
          | TVar _ -> "tvar"); *)
       (match t1 with
+      | Any -> failwith "Formulas at the SMT level must be typed"
       | TVar _ ->
         (* failwith (Format.asprintf "could not infer type for variable: %s" v) *)
         (* default to int *)
@@ -336,6 +338,7 @@ let ex_quantify_expr env vars ctx e =
 
   let type_to_sort ctx (t:typ) : Sort.sort =
     match t with
+    | Any -> failwith "Formulas at the SMT level must be typed"
     | Unit -> unit_sort ctx
     (* | TConstr of string * typ list *)
     | Int -> Z3.Arithmetic.Integer.mk_sort ctx

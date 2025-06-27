@@ -383,6 +383,8 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
         | Ppat_construct ({txt = c; _}, None) -> Some (PConstr (Longident.last c, []))
         | Ppat_construct ({txt = c; _}, Some ([], {ppat_desc = Ppat_tuple args; _})) -> Some (PConstr (Longident.last c, List.filter_map transform_pattern args))
         | Ppat_var {txt = v; _} -> Some (PVar v)
+        | Ppat_constant {pconst_desc = Pconst_string (s, _, _); _} -> Some (PConstant (TStr s))
+        | Ppat_constant {pconst_desc = Pconst_integer (i, _); _} -> Some (PConstant (Num (int_of_string i)))
         | Ppat_any -> Some (PVar "_")
         | _ -> None
       in

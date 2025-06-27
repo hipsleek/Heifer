@@ -366,6 +366,7 @@ let rec forward (env: fvenv) (expr : core_lang): staged_spec * fvenv =
                 match pat with
                 | PVar v -> Var v
                 | PConstr (args, v) -> Construct (args, List.map term_of_pattern v)
+                | PConstant c -> Const c
               in
               let pattern_term = term_of_pattern pat in
               let pattern_free_vars = Subst.free_vars_term pattern_term in
@@ -377,6 +378,9 @@ let rec forward (env: fvenv) (expr : core_lang): staged_spec * fvenv =
         in
         case_spec, env
       in
+      (* TODO in the presence of general patterns this is actually wrong, every pattern should exclude the possibility of the patterns preceding it
+         in the match statement
+         this needs some way to find the complement of a pattern, since spec doesn't allow for negative exists (whether expliclitly or via forall + conjunction) *)
       let cases_spec, env = Lists.map_state handle_case env cases in
       let disj_spec = Syntax.disj cases_spec in
       Bind (v, discriminant_spec, disj_spec), env

@@ -105,6 +105,8 @@ let rec unify_types t1 t2 : unit using_env =
         else raise (Unification_failure (simp_t1, simp_t2))
     (* case where t1 and t2 are the same type: *)
     | t1, t2 when compare_typ t1 t2 = 0 -> (), env
+    (* case where one of the types is Any *)
+    | Any, _ | _, Any -> (), env
     (* as of now, unification is not possible in all other cases *)
     | t1, t2 -> raise (Unification_failure (t1, t2))
 
