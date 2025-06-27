@@ -185,11 +185,19 @@ let norm_reset_seq_req : _ Rewriting2.rule = Rewriting2.(
   fun p k f -> Sequence (Require (p, k), f)
 )
 
+(* reset (ens Q) \bientails ens Q *)
+(* both side of the proof *)
+let norm_reset_ens : _ Rewriting2.rule = Rewriting2.(
+  reset (ens __ __),
+  fun p k -> NormalReturn (p, k)
+)
+
 (* both sides *)
 let shift_reset_normalization_rules_both : _ Rewriting2.database = [
   norm_reset_ex;
   norm_reset_disj;
   norm_reset_seq_ens;
+  norm_reset_ens;
 ]
 
 (* lhs only *)
@@ -217,9 +225,9 @@ let red_reset_shift_elim : _ Rewriting2.rule = Rewriting2.(
   reset (shift __ __ __ __ __),
   fun _ x_body f_body x_cont f_cont ->
     let cont_name = Variables.fresh_variable ~v:"cont" "refined continuation" in
-    let cont = TLambda (cont_name, [x_cont], Some f_cont, None) in
+    let cont = TLambda (cont_name, [x_cont], Some (Reset f_cont), None) in
     let defun = Syntax.(ens ~p:(eq Variables.res_var cont) ()) in
-    Bind (x_body, defun, f_body)
+    Bind (x_body, defun, Reset f_body)
 )
 
 (* only on lhs *)
@@ -247,6 +255,7 @@ let shift_reset_reduction_rules_lhs : _ Rewriting2.database = [
   norm_reset_ex;
   norm_reset_disj;
   norm_reset_seq_ens;
+  norm_reset_ens;
   norm_reset_all;
   norm_reset_seq_req;
   red_bind_shift_extend;

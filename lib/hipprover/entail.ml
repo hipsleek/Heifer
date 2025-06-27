@@ -645,7 +645,10 @@ let simplify : total =
     span (fun r -> log_proof_state_total ~title:"simplify" (pctx, f1, f2) r)
   in
   let pctx, f1, f2 = unfold_nonrecursive_definitions (pctx, f1, f2) in
-  (pctx, normalize_spec_lhs f1, normalize_spec f2)
+  let f1 = normalize_spec_lhs f1 in
+  let f1 = Reduce_shift_reset.shift_reset_reduce_spec_lhs f1 in
+  let f2 = normalize_spec f2 in
+  (pctx, f1, f2)
 
 let apply_induction_hypotheses : total =
   let open Rewriting in
