@@ -1,6 +1,6 @@
-(*
 open Hipcore
 open Hiptypes
+(*
 open Debug
 open Pretty
 open Subst
@@ -160,15 +160,24 @@ let norm_reset_ex _ = Misc.todo ()
 
 (* reset (f1 \/ f2) \bientails reset f1 \/ reset f2 *)
 (* bientails; both side of the proof *)
-let norm_reset_disj _ = Misc.todo ()
+let norm_reset_disj = Rewriting2.(
+  reset (disj __ __),
+  fun f1 f2 -> Disjunction (Reset f1, Reset f2)
+)
 
 (* reset (ens Q; f) \bientails ens Q; reset f *)
 (* bientails; both side of the proof *)
-let norm_reset_seq_ens _ = Misc.todo ()
+let norm_reset_seq_ens = Rewriting2.(
+  reset (seq (ens __ __) __),
+  fun p k f -> Sequence (NormalReturn (p, k), f)
+)
 
 (* reset (req H; f) \entails req H; reset f *)
 (* entails; only on the left *)
-let norm_reset_seq_req _ = Misc.todo ()
+let norm_reset_seq_req = Rewriting2.(
+  reset (seq (req __ __) __),
+  fun p k f -> Sequence (Require (p, k), f)
+)
 
 (* shift, immediately surronded by reset, is eliminated *)
 let eliminate_shift_reset () = Misc.todo ()
