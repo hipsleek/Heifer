@@ -73,6 +73,11 @@ val disj :
   (staged_spec, 'b, 'c) pattern ->
   (staged_spec, 'a, 'c) pattern
 
+val seq :
+  (staged_spec, 'a, 'b) pattern ->
+  (staged_spec, 'b, 'c) pattern ->
+  (staged_spec, 'a, 'c) pattern
+
 val bind :
   (string, 'a, 'b) pattern ->
   (staged_spec, 'b, 'c) pattern ->

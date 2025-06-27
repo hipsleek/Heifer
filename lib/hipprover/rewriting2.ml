@@ -53,6 +53,17 @@ let eq (T pt1) (T pt2) =
         k
       | _ -> fail "false")
 
+let seq (T pf1) (T pf2) =
+  T
+    (fun x k ->
+      match x with
+      | Sequence (f1, f2) ->
+        let k = pf1 f1 k in
+        let k = pf2 f2 k in
+        k
+      | _ ->
+        fail "could not match Sequence; got %s" (string_of_staged_spec x))
+
 let bind (T px1) (T pf1) (T pf2) =
   T
     (fun x k ->
