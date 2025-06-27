@@ -399,7 +399,7 @@ let ex_quantify_expr env vars ctx e =
     FuncDecl.add_rec_def ctx decl params body
 
 (* this is a separate function which doesn't cache results because exists isn't in pi *)
-let entails_exists_inner env p1 vs p2 =
+let entails_exists env p1 vs p2 =
   debug ~at:4 ~title:"z3 valid" "%s => ex %s. %s\n%s" (string_of_pi p1)
     (String.concat " " vs) (string_of_pi p2) (string_of_typ_env env);
   let f ctx =
@@ -412,72 +412,6 @@ let entails_exists_inner env p1 vs p2 =
     r
   in
   match check_sat f with
-  | UNSATISFIABLE -> true
-  |	UNKNOWN |	SATISFIABLE -> false
-
-let entails_exists1 env p1 vs p2 =
-  (*
-  print_endline (string_of_bool ( allDisjunctions p2));
-  print_endline (string_of_bool ( existPurePattern p2 p1));
-
-  (* this is a trick because z3 can not handle when there are power operators exist,
-     for cases that n>=0 => n>=0 /\ ... , it will right away return true *)
-  if allDisjunctions p2 && existPurePattern p2 p1 then true
-  else
-  *)
-
-  (* darius: temporarily disabled because this makes the new ens false; ... normalization very slow, the right way is prob to add an axiom declaration so we can declare these extra assumptions where they are needed *)
-  (* let p1 =
-    if entails_exists_inner env p1 vs (Atomic(EQ, Var "n", Num 0)) then
-      let retation_v2Nplus1_is_2 = (Atomic(EQ, Var "v2Nplus1", Num 2)) in
-      And (retation_v2Nplus1_is_2, p1)
-    else if entails_exists_inner  env p1 vs (Atomic(EQ, Var "n", Num 1)) then
-      let retation_v2Nplus1_is_4 = (Atomic(EQ, Var "v2Nplus1", Num 4)) in
-      And (retation_v2Nplus1_is_4, p1)
-    else
-      let retation_v2N_v2Nplus1 = Atomic (EQ, (Var "v2Nplus1"), Plus (Var "v2N", Var "v2N"))in
-      And (retation_v2N_v2Nplus1, p1)
-  in  *)
-
-  (*
-  Format.printf "entails_exists_inner, pi: %s => %s@." (string_of_pi p1) (string_of_pi p2);
-  *)
-  entails_exists_inner env p1 vs p2
-
-let entails_exists env p1 vs p2 =
-  if Debug.in_debug_mode () then
-    entails_exists1 env p1 vs p2
-  else
-    try
-      entails_exists1 env p1 vs p2
-    with e ->
-      (* the stack trace printed is not the same (and is much less helpful) if the exception is caught *)
-      Debug.debug ~at:1 ~title:"an error occurred, assuming proof failed"
-      "%s" (Printexc.to_string e);
-      (* Printexc.print_backtrace stdout; *)
-      false
-
-(* let _valid p =
-  let f ctx = Z3.Boolean.mk_not ctx (pi_to_expr SMap.empty ctx p) in
-  not (check_sat f) *)
-
-(* let (historyTable : (string * bool) list ref) = ref [] *)
-(* let hash_pi pi = string_of_int (Hashtbl.hash pi) *)
-
-(* let rec existInhistoryTable pi table =
-  match table with
-  | [] -> None
-  | (x, b) :: xs ->
-    if String.compare x (hash_pi pi) == 0 then Some b
-    else existInhistoryTable pi xs
-
-let counter : int ref = ref 0 *)
-
-(* let _askZ3 env pi =
-  match existInhistoryTable pi !historyTable with
-  | Some b -> b
-  | None ->
-    let _ = counter := !counter + 1 in
-    let re = check env pi in
-    let () = historyTable := (hash_pi pi, re) :: !historyTable in
-    re *)
+  | UNSATISFIABLE -> Provers_common.Valid
+  |	UNKNOWN -> Provers_common.Unknown "Z3 returned UNKNOWN"
+  |	SATISFIABLE -> Provers_common.Invalid

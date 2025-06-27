@@ -220,7 +220,11 @@ let check_pure_obligation left right =
     env
   in
   let res = Provers.entails_exists (concrete_type_env tenv) left [] right in
-  res
+  let open Provers_common in
+  debug ~at:4 ~title:"prover detailed result" "%s" (string_of_prover_result res);
+  match res with
+  | Valid -> true
+  | _ -> false
 
 (* will be used for remembering predicate? Not sure whether it should be put here *)
 let derive_predicate m_name m_params f =

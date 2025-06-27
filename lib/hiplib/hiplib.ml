@@ -80,9 +80,12 @@ let indicate_if_test_failed result name =
 let expected_false result name =
   if not result && String.ends_with ~suffix:"_false" name then " (expected)" else ""
 
+let report_header ~kind ~name =
+  Format.sprintf "\n========== %s: %s ==========\n" kind name
+
 let normal_report ~kind ~name ~inferred_spec ~normalized_spec ~given_spec ~result =
   let open Pretty in
-  let header = Format.sprintf "\n========== %s: %s ==========\n" kind name in
+  let header = report_header ~kind ~name in
   let inferred_spec_string =
     Format.asprintf
       "[ Inferred specification ]\n%a\n"
@@ -117,20 +120,31 @@ let normal_report ~kind ~name ~inferred_spec ~normalized_spec ~given_spec ~resul
   debug ~at:2 ~title:"verification result" "";
   Format.printf "%s@." report
 
+let truncate_name s =
+  let l = String.length s in
+  if l > 20 then
+    String.sub s 0 7 ^ "..." ^ String.sub s (l-10) 10
+  else s
+
 let test_report ~kind ~name ~inferred_spec ~normalized_spec ~given_spec ~result =
   ignore (kind, inferred_spec, normalized_spec, given_spec, result, name);
-  let truncate s =
-    let l = String.length s in
-    if l > 20 then
-      String.sub s 0 7 ^ "..." ^ String.sub s (l-10) 10
-    else s
-  in
   indicate_if_test_failed result name;
-  Format.printf "%20s: %s%s@." (truncate name) (string_of_bool result) (expected_false result name)
+  Format.printf "%20s: %s%s@." (truncate_name name) (string_of_bool result) (expected_false result name)
 
 let report_result ~kind ~name ~inferred_spec ~normalized_spec ~given_spec ~result =
   let report = if !test_mode then test_report else normal_report in
   report ~kind ~name ~inferred_spec ~normalized_spec ~given_spec ~result;
+  Globals.Timing.update_totals ()
+
+let report_error ~kind ~name ~error =
+  begin
+    if !test_mode
+    then
+      Format.printf "%20s: error" (truncate_name name) 
+    else
+      print_string (report_header ~kind ~name);
+      Format.printf "error occurred: %s (set DEBUG env var for details)\n" error;
+  end;
   Globals.Timing.update_totals ()
 
 let infer_spec (prog : core_program) (meth : meth_def) =
@@ -168,6 +182,18 @@ let choose_spec (inferred_spec : staged_spec) (given_spec : staged_spec option) 
   Option.fold ~none:inferred_spec ~some:(fun spec -> spec) given_spec
 
 let analyze_method (prog : core_program) (meth : meth_def) : core_program =
+  let suppress_error_if_not_debug ~on_error ~default f =
+    if Debug.in_debug_mode ()
+    then f ()
+    else
+      try f ()
+      with e ->
+        on_error e;
+        default
+  in
+  let@ _ = suppress_error_if_not_debug
+    ~on_error:(fun e -> report_error ~kind:"Function" ~name:meth.m_name ~error:(Printexc.to_string e))
+    ~default:prog in
   let given_spec = meth.m_spec in
   let inferred_spec, normalized_spec, result =
     let@ _ = Globals.Timing.(time overall) in

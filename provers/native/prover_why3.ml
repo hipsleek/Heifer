@@ -96,6 +96,20 @@ let silence_stderr
   close_out null;
   result
 
+let combine_task_results label task_results = 
+  let open Provers_common in
+  if List.for_all (function Valid -> true | _ -> false) task_results
+  then Valid
+  else if List.exists (function Invalid -> true | _ -> false) task_results
+  then Invalid
+  else
+    let explanation = 
+      task_results
+      |> List.mapi (fun i result -> (i, result))
+      |> List.filter_map (function (i, Unknown s) -> Some (Format.sprintf "%s %d: %s" label i s) | _ -> None)
+      |> String.concat "\n"
+    in
+    Unknown explanation
 let attempt_proof task1 =
   (* Format.printf "task: %a@." Why3.Pretty.print_task task1; *)
   let tasks = Trans.apply_transform "simplify_formula" why3_env task1 in
@@ -126,28 +140,61 @@ let attempt_proof task1 =
           Some (get_prover_config prover)
         with _ -> None)
   in
+  if List.is_empty provers
+  then raise (Provers_common.Prover_error "why3 prover: No provers found; check your configuration")
+  else
   (* try each task, on all possible provers *)
-  List.for_all
-    (fun task ->
-      List.exists
-        (fun (pconf, pdriver) ->
-          let result1 =
-            Call_provers.wait_on_call
-              (Driver.prove_task
-                 ~limits:
-                   {
-                     Call_provers.empty_limits with
-                     Call_provers.limit_time = 0.5;
-                   }
-                 ~config:why3_config_main ~command:pconf.Whyconf.command pdriver
-                 task)
-          in
-          (* Format.printf "%s: %a@." prover
-             (Call_provers.print_prover_result ?json:None)
-             result1; *)
-          match result1.pr_answer with Valid -> true | _ -> false)
-        provers)
-    tasks
+  let attempt_task (pconf, pdriver) task : Provers_common.prover_result =
+    let result1 =
+      Call_provers.wait_on_call
+        (Driver.prove_task
+           ~limits:
+             {
+               Call_provers.empty_limits with
+               Call_provers.limit_time = 0.5;
+             }
+           ~config:why3_config_main ~command:pconf.Whyconf.command pdriver
+           task)
+    in
+    let explain ctx = Format.sprintf "Prover %s: %s" pconf.prover.prover_name ctx
+    in
+    match result1.pr_answer with
+    | Valid -> Valid
+    | Invalid -> Invalid
+    | Timeout -> Unknown (explain "timeout")
+    | Unknown s -> Unknown (explain (Format.sprintf "unknown: %s" s))
+    | OutOfMemory -> Unknown (explain "out of memory")
+    | StepLimitExceeded -> Unknown (explain "step limit exceeded")
+    | Failure s | HighFailure s -> raise (Provers_common.Prover_error (explain (Format.sprintf "reported error: %s" s)))
+  in
+  let combine_prover_results (name1, r1) (name2, r2) =
+    let open Provers_common in
+    match (name1, r1), (name2, r2) with
+    | (_, Valid), (_, Unknown _) | (_, Valid), (_, Valid) -> name1, Valid
+    | (_, Unknown _), (_, Valid) -> name2, Valid
+    | (_, Invalid), (_, Unknown _) | (_, Invalid), (_, Invalid) -> name1, Invalid
+    | (_, Unknown _), (_, Invalid)  -> name2, Invalid
+    | (p1, (Valid as r1)), (p2, (Invalid as r2))
+    | (p2, (Invalid as r2)), (p1, (Valid as r1)) ->
+       let explanation = 
+          Format.sprintf "Provers %s (%s) and %s (%s) disagree on result"
+          p1 (string_of_prover_result r1)
+          p2 (string_of_prover_result r2)
+        in
+        raise (Provers_common.Prover_error explanation)
+    | (_, Unknown s1), (_, Unknown s2)-> (name1, Unknown (s1 ^ "\n" ^ s2))
+  in
+  let attempt_task_on_provers provers task =
+    let open Whyconf in
+    let prover_results = List.map (fun ((pconf, _) as prover) -> pconf.prover.prover_name, attempt_task prover task) provers
+    in
+    List.fold_left combine_prover_results ("dummy", Unknown "[no prover results found]") prover_results
+  in
+  let task_results = tasks 
+    |> List.map (attempt_task_on_provers provers)
+    |> List.map (fun (_, result) -> result)
+  in
+  combine_task_results "Task" task_results
 
 (* old approach which uses the low-level why3 (not whyml) API.
 
@@ -1015,27 +1062,17 @@ let prove tenv qtf f =
       failwith "failed due to type error"
   in
   (* there will be only one module *)
-  Wstdlib.Mstr.fold
-    (fun _ m acc ->
+  Wstdlib.Mstr.map
+    (fun m ->
       let tasks = Task.split_theory m.Pmodule.mod_theory None None in
-      List.for_all attempt_proof tasks && acc)
-    mods true
-
-let suppress_error_if_not_debug f =
-  if Debug.in_debug_mode () then f ()
-  else
-    try f ()
-    with e ->
-      (* the stack trace printed is not the same (and is much less helpful) if the exception is caught *)
-      Debug.debug ~at:1 ~title:"an error occurred, assuming proof failed" "%a"
-        Exn_printer.exn_printer e;
-      (* Printexc.print_backtrace stdout; *)
-      false
+      combine_task_results "Goal" (List.map attempt_proof tasks)) mods
+  |> Wstdlib.Mstr.bindings
+  |> List.map (fun (_, result) -> result)
+  |> combine_task_results "Module"
 
 (* Entry point to call why3 *)
 let entails_exists tenv left ex right =
   let@ _ = Globals.Timing.(time why3) in
-  let@ _ = suppress_error_if_not_debug in
   let use_low_level = false in
   match use_low_level with
   | false -> prove tenv ex (fun _env -> (left, right))
