@@ -2,7 +2,7 @@
 open Hipcore
 open Hiptypes
 
-let cache : (pi * string list * pi, bool) Hashtbl.t = Hashtbl.create 10
+let cache : (pi * string list * pi, Provers_common.prover_result) Hashtbl.t = Hashtbl.create 10
 
 let memo k f =
   match Hashtbl.find_opt cache k with
