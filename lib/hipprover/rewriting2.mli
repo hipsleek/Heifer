@@ -98,6 +98,14 @@ val reset :
   (staged_spec, 'a, 'b) pattern ->
   (staged_spec, 'a, 'b) pattern
 
+val shift :
+  (bool, 'z, 'a) pattern ->
+  (string, 'a, 'b) pattern ->
+  (staged_spec, 'b, 'c) pattern ->
+  (string, 'c, 'd) pattern ->
+  (staged_spec, 'd, 'e) pattern ->
+  (staged_spec, 'z, 'e) pattern
+
 val eq :
   (term, 'a, 'b) pattern -> (term, 'b, 'c) pattern -> (pi, 'a, 'c) pattern
 

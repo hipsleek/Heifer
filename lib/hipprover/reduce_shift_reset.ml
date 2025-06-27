@@ -1,7 +1,7 @@
 open Hipcore
 open Hiptypes
-(*
 open Debug
+(*
 open Pretty
 open Subst
 *)
@@ -185,14 +185,56 @@ let norm_reset_seq_req : _ Rewriting2.rule = Rewriting2.(
   fun p k f -> Sequence (Require (p, k), f)
 )
 
-let red_init _ = Misc.todo ()
+(* both sides *)
+let shift_reset_normalization_rules_both : _ Rewriting2.database = [
+  norm_reset_ex;
+  norm_reset_disj;
+  norm_reset_seq_ens;
+]
+
+let shift_reset_normalization_rules_lhs_only : _ Rewriting2.database = [
+  norm_reset_all;
+  norm_reset_seq_req;
+]
 
 (* accumulate/build the continuation; with seq *)
 (* reset (shift body cont; f) -> reset (shift body (cont; f)) *)
-let red_extend _ = Misc.todo ()
+let red_bind_shift_extend : _ Rewriting2.rule = Rewriting2.(
+  bind __ (shift __ __ __ __ __) __,
+  fun x_bind is_shift x_body f_body x_cont f_cont f ->
+    Shift (is_shift, x_body, f_body, x_cont, Bind (x_bind, f_cont, f))
+)
 
 (* shift, immediately surronded by reset, is eliminated *)
-let red_rs_sh_elim _ = Misc.todo ()
+let red_reset_shift_elim : _ Rewriting2.rule = Rewriting2.(
+  reset (shift __ __ __ __ __),
+  fun _ x_body f_body x_cont f_cont ->
+    let cont_name = Variables.fresh_variable ~v:"cont" "refined continuation" in
+    let cont = TLambda (cont_name, [x_cont], Some f_cont, None) in
+    let defun = Syntax.(ens ~p:(eq Variables.res_var cont) ()) in
+    Bind (x_body, defun, f_body)
+)
+
+(* only on lhs *)
+let shift_reset_red_rules : _ Rewriting2.database = [
+  red_bind_shift_extend;
+  red_reset_shift_elim;
+]
+
+let shift_reset_reduce_spec_with (rules : _ Rewriting2.database) (spec : staged_spec) : staged_spec =
+  let@ _ = Globals.Timing.(time norm) in
+  let@ _ =
+    span (fun r -> debug
+      ~at:1
+      ~title:"shift_reset_reduction"
+      "%s\n==>\n%s"
+      (Pretty.string_of_staged_spec spec)
+      (string_of_result Pretty.string_of_staged_spec r))
+  in
+  let spec = Rewriting2.(autorewrite staged rules spec) in
+  spec
+
+let shift_reset_reduce_spec_lhs = shift_reset_reduce_spec_with (Misc.todo ())
 
 (* require a small modification to the AST. *)
 (* we shall introduce `shift_c`: augment shift with an continuation *)

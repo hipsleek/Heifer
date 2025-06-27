@@ -150,6 +150,20 @@ let reset (T pf) =
       | _ ->
         fail "could not match Reset; got %s" (string_of_staged_spec x))
 
+let shift (T pshift) (T pxb) (T pfb) (T pxk) (T pfk) =
+  T
+    (fun x k ->
+      match x with
+      | Shift (is_shift, xb, fb, xk, fk) ->
+        let k = pshift is_shift k in
+        let k = pxb xb k in
+        let k = pfb fb k in
+        let k = pxk xk k in
+        let k = pfk fk k in
+        k
+      | _ ->
+        fail "cound not match Shift; got %s" (string_of_staged_spec x))
+
 let rewrite_rooted ~lhs:(T p) ~target ~rhs = p target rhs
 let match_ ~pat ~scr ~rhs = rewrite_rooted ~target:scr ~lhs:pat ~rhs
 let match1 pat target = rewrite_rooted ~lhs:pat ~rhs:Fun.id ~target
