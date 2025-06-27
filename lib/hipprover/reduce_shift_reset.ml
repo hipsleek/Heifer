@@ -192,6 +192,7 @@ let shift_reset_normalization_rules_both : _ Rewriting2.database = [
   norm_reset_seq_ens;
 ]
 
+(* lhs only *)
 let shift_reset_normalization_rules_lhs_only : _ Rewriting2.database = [
   norm_reset_all;
   norm_reset_seq_req;
@@ -203,6 +204,12 @@ let red_bind_shift_extend : _ Rewriting2.rule = Rewriting2.(
   bind __ (shift __ __ __ __ __) __,
   fun x_bind is_shift x_body f_body x_cont f_cont f ->
     Shift (is_shift, x_body, f_body, x_cont, Bind (x_bind, f_cont, f))
+)
+
+let red_seq_shift_extend : _ Rewriting2.rule = Rewriting2.(
+  seq (shift __ __ __ __ __) __,
+  fun is_shift x_body f_body x_cont f_cont f ->
+    Shift (is_shift, x_body, f_body, x_cont, Sequence (f_cont, f))
 )
 
 (* shift, immediately surronded by reset, is eliminated *)
@@ -218,10 +225,12 @@ let red_reset_shift_elim : _ Rewriting2.rule = Rewriting2.(
 (* only on lhs *)
 let shift_reset_red_rules : _ Rewriting2.database = [
   red_bind_shift_extend;
+  red_seq_shift_extend;
   red_reset_shift_elim;
 ]
 
-let shift_reset_reduce_spec_with (rules : _ Rewriting2.database) (spec : staged_spec) : staged_spec =
+let shift_reset_reduce_spec_with (type k)
+  (rules : (staged_spec, k) Rewriting2.database) (spec : staged_spec) : staged_spec =
   let@ _ = Globals.Timing.(time norm) in
   let@ _ =
     span (fun r -> debug
@@ -234,7 +243,23 @@ let shift_reset_reduce_spec_with (rules : _ Rewriting2.database) (spec : staged_
   let spec = Rewriting2.(autorewrite staged rules spec) in
   spec
 
-let shift_reset_reduce_spec_lhs = shift_reset_reduce_spec_with (Misc.todo ())
+let shift_reset_reduction_rules_lhs : _ Rewriting2.database = [
+  norm_reset_ex;
+  norm_reset_disj;
+  norm_reset_seq_ens;
+  norm_reset_all;
+  norm_reset_seq_req;
+  red_bind_shift_extend;
+  red_seq_shift_extend;
+  red_reset_shift_elim;
+]
+
+let shift_reset_reduction_rules_rhs : _ Rewriting2.database = [
+]
+
+let shift_reset_reduce_spec_lhs = shift_reset_reduce_spec_with shift_reset_reduction_rules_lhs
+
+let shift_reset_reduce_spec_rhs = shift_reset_reduce_spec_with shift_reset_reduction_rules_rhs
 
 (* require a small modification to the AST. *)
 (* we shall introduce `shift_c`: augment shift with an continuation *)
