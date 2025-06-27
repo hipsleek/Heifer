@@ -84,6 +84,16 @@ val bind :
   (staged_spec, 'c, 'd) pattern ->
   (staged_spec, 'a, 'd) pattern
 
+val forall :
+  (string, 'a, 'b) pattern ->
+  (staged_spec, 'b, 'c) pattern ->
+  (staged_spec, 'a, 'c) pattern
+
+val exists :
+  (string, 'a, 'b) pattern ->
+  (staged_spec, 'b, 'c) pattern ->
+  (staged_spec, 'a, 'c) pattern
+
 val reset :
   (staged_spec, 'a, 'b) pattern ->
   (staged_spec, 'a, 'b) pattern

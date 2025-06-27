@@ -75,6 +75,28 @@ let bind (T px1) (T pf1) (T pf2) =
         k
       | _ -> fail "bind")
 
+let forall (T pv) (T pf) =
+  T
+    (fun x k ->
+      match x with
+      | ForAll (v, f) ->
+        let k = pv v k in
+        let k = pf f k in
+        k
+      | _ ->
+        fail "could not match ForAll; got %s" (string_of_staged_spec x))
+
+let exists (T pv) (T pf) =
+  T
+    (fun x k ->
+      match x with
+      | Exists (v, f) ->
+        let k = pv v k in
+        let k = pf f k in
+        k
+      | _ ->
+        fail "could not match Exists; got %s" (string_of_staged_spec x))
+
 let and_ (T pp1) (T pp2) =
   T
     (fun x k ->
