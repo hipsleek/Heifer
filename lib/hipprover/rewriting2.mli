@@ -79,6 +79,10 @@ val bind :
   (staged_spec, 'c, 'd) pattern ->
   (staged_spec, 'a, 'd) pattern
 
+val reset :
+  (staged_spec, 'a, 'b) pattern ->
+  (staged_spec, 'a, 'b) pattern
+
 val eq :
   (term, 'a, 'b) pattern -> (term, 'b, 'c) pattern -> (pi, 'a, 'c) pattern
 

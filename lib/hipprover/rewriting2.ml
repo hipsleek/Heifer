@@ -107,6 +107,16 @@ let disj (T pf1) (T pf2) =
       | _ ->
         fail "could not match Disjunction; got %s" (string_of_staged_spec x))
 
+let reset (T pf) =
+  T
+    (fun x k ->
+      match x with
+      | Reset f ->
+        let k = pf f k in
+        k
+      | _ ->
+        fail "could not match Reset; got %s" (string_of_staged_spec x))
+
 let rewrite_rooted ~lhs:(T p) ~target ~rhs = p target rhs
 let match_ ~pat ~scr ~rhs = rewrite_rooted ~target:scr ~lhs:pat ~rhs
 let match1 pat target = rewrite_rooted ~lhs:pat ~rhs:Fun.id ~target
