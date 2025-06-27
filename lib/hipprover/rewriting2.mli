@@ -58,6 +58,11 @@ val string : string -> (string, 'b, 'b) pattern
 val binder : string -> (string, 'b, 'b) pattern
 val var : string -> (term, 'b, 'b) pattern
 
+val req :
+  (pi, 'a, 'b) pattern ->
+  (kappa, 'b, 'c) pattern ->
+  (staged_spec, 'a, 'c) pattern
+
 val ens :
   (pi, 'a, 'b) pattern ->
   (kappa, 'b, 'c) pattern ->

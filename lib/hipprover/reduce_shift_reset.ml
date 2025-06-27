@@ -170,11 +170,6 @@ let norm_reset_seq_ens _ = Misc.todo ()
 (* entails; only on the left *)
 let norm_reset_seq_req _ = Misc.todo ()
 
-(* can float stuffs out of reset if it is shift-free *)
-(* we can float seq. But can we also float bind? *)
-(* is float bind useful? *)
-let float_shift_free_reset () = Misc.todo ()
-
 (* shift, immediately surronded by reset, is eliminated *)
 let eliminate_shift_reset () = Misc.todo ()
 

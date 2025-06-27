@@ -74,6 +74,17 @@ let and_ (T pp1) (T pp2) =
         k
       | _ -> fail "could not match And; got %s" (string_of_pi x))
 
+let req (T pp) (T ph) =
+  T
+    (fun x k ->
+      match x with
+      | Require (p, h) ->
+        let k = pp p k in
+        let k = ph h k in
+        k
+      | _ ->
+        fail "could not match Require; got %s" (string_of_staged_spec x))
+
 let ens (T pp) (T ph) =
   T
     (fun x k ->
