@@ -1,7 +1,7 @@
 let either a b =
   shift k (k a; k b)
 
-let [@spec "ens res = 1"] main () =
+let [@spec "ex r. ens r -> 3; ens res = 3"] main () =
   let r = ref 0 in
   (reset (let x = either 1 2 in r := !r + x));
   (* (reset (let x = either 3 4 in r := !r + x)); *)
