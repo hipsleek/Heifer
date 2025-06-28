@@ -3,7 +3,6 @@ open Hiptypes
 open Types
 open Pretty
 open Debug
-open Normalize
 open Utils
 
 (* type use = Use of string * [ `Left | `Right ] [@unboxed] *)
@@ -228,7 +227,7 @@ let check_pure_obligation left right =
 
 (* will be used for remembering predicate? Not sure whether it should be put here *)
 let derive_predicate m_name m_params f =
-  let new_spec = normalize_spec f in
+  let new_spec = Normalize.normalize_spec f in
   let@ _ =
     Debug.span (fun res ->
         debug ~at:2
@@ -643,15 +642,19 @@ let unfold_definitions : total =
   let pctx, f2, _ = unfold_recursive_defns pctx f2 `Right in
   (pctx, f1, f2)
 
+let rec repeat_simplify_lhs (spec : staged_spec) : staged_spec =
+  let simple_spec = Reduce_shift_reset.shift_reset_reduce_spec_lhs spec in
+  let simple_spec = Normalize.normalize_spec_lhs simple_spec in
+  if simple_spec = spec then spec else repeat_simplify_lhs simple_spec
+
 let simplify : total =
  fun (pctx, f1, f2) ->
   let@ _ =
     span (fun r -> log_proof_state_total ~title:"simplify" (pctx, f1, f2) r)
   in
   let pctx, f1, f2 = unfold_nonrecursive_definitions (pctx, f1, f2) in
-  let f1 = normalize_spec_lhs f1 in
-  let f1 = Reduce_shift_reset.shift_reset_reduce_spec_lhs f1 in
-  let f2 = normalize_spec f2 in
+  let f1 = repeat_simplify_lhs f1 in
+  let f2 = Normalize.normalize_spec_rhs f2 in
   (pctx, f1, f2)
 
 let apply_induction_hypotheses : total =
