@@ -211,13 +211,14 @@ let check_pure_obligation left right =
           (string_of_result string_of_bool r))
   in
   let open Infer_types in
-  let _, tenv =
+  let (left, right), tenv =
     let left, right = Retypehip.(retype_pi left, retype_pi right) in
     (* handle the environment manually as it's shared between both sides *)
     let open Infer_types.Env_state in
     create_abs_env () |> begin
-      let* _ = infer_types_pi left in
-      infer_types_pi right
+      let* left = infer_types_pi left in
+      let* right = infer_types_pi right in
+      return (left, right)
     end
   in
   let res = Provers.entails_exists (concrete_type_env tenv) left [] right in

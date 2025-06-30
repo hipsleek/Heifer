@@ -128,6 +128,17 @@ and staged_spec =
   | RaisingEff of (pi * kappa * instant * term)
   (* | IndPred of { name : string; args: term list } *)
   | TryCatch of (pi * kappa * trycatch * term)
+(* copied here so visitors can be generated *)
+and typ = Types.typ = 
+  | Any
+  | Unit
+  | TConstr of string * typ list
+  | Int
+  | Bool
+  | TyString
+  | Lamb
+  | Arrow of typ * typ
+  | TVar of string
 
 [@@deriving
   visitors { variety = "map"; name = "map_spec" },
