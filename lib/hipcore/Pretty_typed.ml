@@ -62,9 +62,9 @@ let verifier_getAfreeVar ?(typ= new_type_var ()) _from : binder  =
     v3
     v4
   |}] *)
-
+*)
 let string_of_type = Pretty.string_of_type
-
+(*
 let string_of_binder ((ident, typ) : binder) =
   Format.sprintf "(%s : %s)" ident (string_of_type typ)
 
