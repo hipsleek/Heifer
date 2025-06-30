@@ -642,10 +642,11 @@ let unfold_definitions : total =
   let pctx, f2, _ = unfold_recursive_defns pctx f2 `Right in
   (pctx, f1, f2)
 
-let rec repeat_simplify_lhs (spec : staged_spec) : staged_spec =
+let rec repeat_simplify_lhs ?(limit = 5) (spec : staged_spec) : staged_spec =
+  if limit < 0 then failwith "repeat_simplify_lhs: loop?";
   let simple_spec = Reduce_shift_reset.shift_reset_reduce_spec_lhs spec in
   let simple_spec = Normalize.normalize_spec_lhs simple_spec in
-  if simple_spec = spec then spec else repeat_simplify_lhs simple_spec
+  if simple_spec = spec then spec else repeat_simplify_lhs ~limit:(limit - 1) simple_spec
 
 let simplify : total =
  fun (pctx, f1, f2) ->

@@ -453,13 +453,26 @@ let norm_seq_ens_heap_ens_pure = Staged.dynamic_rule
     else
       seq [NormalReturn (p, emp); NormalReturn (True, h); f])
 
-let norm_ens_pure_ens_pure = Staged.rule
+let norm_ens_pure_ens_pure = Staged.dynamic_rule
   (seq [NormalReturn (Pure.uvar "p1", emp); NormalReturn (Pure.uvar "p2", emp)])
-  (NormalReturn (And (Pure.uvar "p1", Pure.uvar "p2"), emp))
+  (fun sub ->
+    let p1 = Pure.of_uterm (sub "p1") in
+    let p2 = Pure.of_uterm (sub "p2") in
+    if is_eq_res p1 || is_eq_res p2 then
+      seq [NormalReturn (p1, emp); NormalReturn (p2, emp)]
+    else
+      NormalReturn (And (p1, p2), emp))
 
-let norm_seq_ens_pure_ens_pure = Staged.rule
+let norm_seq_ens_pure_ens_pure = Staged.dynamic_rule
   (seq [NormalReturn (Pure.uvar "p1", emp); NormalReturn (Pure.uvar "p2", emp); Staged.uvar "f"])
-  (seq [NormalReturn (And (Pure.uvar "p1", Pure.uvar "p2"), emp); Staged.uvar "f"])
+  (fun sub ->
+    let p1 = Pure.of_uterm (sub "p1") in
+    let p2 = Pure.of_uterm (sub "p2") in
+    let f = Staged.of_uterm (sub "f") in
+    if is_eq_res p1 || is_eq_res p2 then
+      seq [NormalReturn (p1, emp); NormalReturn (p2, emp); f]
+    else
+      seq [NormalReturn (And (p1, p2), emp); Staged.uvar "f"])
 
 let norm_ens_heap_ens_heap = Staged.rule
   (seq [NormalReturn (True, Heap.uvar "h1"); NormalReturn (True, Heap.uvar "h2")])
