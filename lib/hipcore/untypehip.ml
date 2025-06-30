@@ -1,5 +1,6 @@
 open Typedhip
 
+let ident_of_binder (name, _ : binder) : string = name
 let hiptypes_typ t = t
 
 let hiptypes_bin_rel_op (t : bin_rel_op) : Hiptypes.bin_rel_op =
@@ -22,18 +23,11 @@ let rec untype_term (t : term) : Hiptypes.term =
   | Const TFalse -> Const TFalse
   | Const Nil -> Const Nil
   | Var v -> Var v
-  | BinOp (Plus, lhs, rhs) -> BinOp (Plus, untype_term lhs, untype_term rhs)
-  | BinOp (Minus, lhs, rhs) -> BinOp (Minus, untype_term lhs, untype_term rhs)
-  | BinOp (SConcat, lhs, rhs) -> BinOp (SConcat, untype_term lhs, untype_term rhs)
-  | BinOp (TAnd, lhs, rhs) -> BinOp (TAnd, untype_term lhs, untype_term rhs)
-  | BinOp (TPower, lhs, rhs) -> BinOp (TPower, untype_term lhs, untype_term rhs)
-  | BinOp (TTimes, lhs, rhs) -> BinOp (TTimes, untype_term lhs, untype_term rhs)
-  | BinOp (TDiv, lhs, rhs) -> BinOp (TDiv, untype_term lhs, untype_term rhs)
-  | BinOp (TOr, lhs, rhs) -> BinOp (TOr, untype_term lhs, untype_term rhs)
-  | BinOp (TCons, lhs, rhs) -> BinOp (TCons, untype_term lhs, untype_term rhs)
+  | BinOp (op, lhs, rhs) -> BinOp (op, untype_term lhs, untype_term rhs)
   | Rel (op, lhs, rhs) -> Rel (hiptypes_bin_rel_op op, untype_term lhs, untype_term rhs)
   | TNot t -> TNot (untype_term t)
   | TApp (f, args) -> TApp (f, List.map untype_term args)
+  | Construct (name, args) -> Construct (name, List.map untype_term args)
   | TLambda (id, params, spec, body) ->
       TLambda (id, List.map ident_of_binder params, Option.map untype_staged_spec spec,
                Option.map untype_core_lang body)
@@ -81,12 +75,14 @@ and untype_core_lang (c : core_lang) : Hiptypes.core_lang =
   | CShift (is_shift, x, body) ->
       CShift (is_shift, ident_of_binder x, untype_core_lang body)
   | CReset e -> CReset (untype_core_lang e)
+  | CSequence (s1, s2) -> CSequence (untype_core_lang s1, untype_core_lang s2)
 and untype_handler_ops (ops : core_handler_ops) : Hiptypes.core_handler_ops =
   List.map (fun (label, k_opt, spec, body) -> (label, k_opt, Option.map untype_staged_spec spec, untype_core_lang body)) ops
 and untype_pattern (pat : pattern) : Hiptypes.pattern =
   match pat.pattern_desc with
   | PVar (v, _) -> PVar v
   | PConstr (name, args) -> PConstr (name, List.map untype_pattern args)
+  | PConstant c -> PConstant c
 and untype_constr_cases (cases : constr_cases) : Hiptypes.constr_cases =
   List.map (fun (pat, body) -> (untype_pattern pat, untype_core_lang body)) cases
 and untype_tryCatchLemma (tcl : tryCatchLemma) : Hiptypes.tryCatchLemma =
@@ -101,7 +97,8 @@ and untype_instant ((eff_name, args) : instant) : Hiptypes.instant =
   (eff_name, List.map untype_term args)
 and untype_staged_spec (s : staged_spec) : Hiptypes.staged_spec =
 match s with
-| Exists (xs, f) -> Hiptypes.Exists (xs, untype_staged_spec f)
+| Exists (xs, f) -> Hiptypes.Exists (ident_of_binder xs, untype_staged_spec f)
+| ForAll (xs, f) -> Hiptypes.ForAll (ident_of_binder xs, untype_staged_spec f)
 | Require (phi, h) ->
     Hiptypes.Require (untype_pi phi, untype_kappa h)
 | NormalReturn (phi, h) ->
