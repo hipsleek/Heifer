@@ -1,6 +1,7 @@
 
 open Hipcore
-open Hiptypes
+open Typedhip
+open Common
 open Types
 open Pretty
 open Debug
@@ -31,7 +32,7 @@ let get_fun_decl ctx s =
     else failwith (Format.asprintf "unknown function 1: %s" s)
 
 let rec term_to_expr env ctx t : Z3.Expr.expr =
-  match t with
+  match t.term_desc with
   | Const (Num n) -> Z3.Arithmetic.Integer.mk_numeral_i ctx n
   | Var v ->
     (match SMap.find_opt v env with
@@ -138,22 +139,8 @@ let rec term_to_expr env ctx t : Z3.Expr.expr =
     Z3.Seq.mk_int_to_str ctx (term_to_expr env ctx x)
   | TApp (f, a) ->
     Z3.Expr.mk_app ctx (get_fun_decl ctx f) (List.map (term_to_expr env ctx) a)
-  | BinOp (TPower, Const (Num 2), Var "n") ->
-      Z3.Arithmetic.Integer.mk_const_s ctx "v2N"
-  | BinOp (TPower, Const (Num 2), BinOp (Plus, Var "n", Const (Num 1))) ->
-      Z3.Arithmetic.Integer.mk_const_s ctx "v2Nplus1"
-
-  | BinOp (TPower, Const (Num n), BinOp (Plus, Const (Num n1), Const (Num n2))) ->
-      let rec power base exp =
-        match exp with
-        | 0 -> 1
-        | n -> base * (power base (n-1))
-      in
-      Z3.Arithmetic.Integer.mk_numeral_i ctx (power n (n1+ n2))
-
-
   | BinOp (TPower, t1, t2) ->
-    print_endline ("TPower "^ string_of_term t);
+    print_endline ("TPower "^ string_of_term (Untypehip.untype_term t));
 
     let res = Z3.Arithmetic.mk_power ctx (term_to_expr env ctx t1) (term_to_expr env ctx t2) in
     (*print_endline ("TPower " ^ Expr.to_string res);*)
@@ -327,13 +314,19 @@ let check_sat f =
 
 (* see https://discuss.ocaml.org/t/different-z3-outputs-when-using-the-api-vs-cli/9348/3 and https://github.com/Z3Prover/z3/issues/5841 *)
 let ex_quantify_expr env vars ctx e =
+  let binders = vars
+    |> List.map (fun var ->
+        let t = SMap.find_opt var env
+        |> Option.value ~default:Unit
+        in (var, t))
+  in
   match vars with
   | [] -> e
   | _ :: _ ->
     Z3.Quantifier.(
       expr_of_quantifier
         (mk_exists_const ctx
-           (List.map (fun v -> term_to_expr env ctx (Var v)) vars)
+           (List.map (fun v -> term_to_expr env ctx (var_of_binder v)) binders)
            e None [] [] None None))
 
   let type_to_sort ctx (t:typ) : Sort.sort =
@@ -351,14 +344,14 @@ let ex_quantify_expr env vars ctx e =
 
   let core_lang_to_expr : core_lang -> Expr.expr = fun e ->
     (* Format.printf "expr %s@." (Pretty.string_of_core_lang e); *)
-    match e with
+    match e.core_desc with
     | CLet _ ->
       failwith "let"
     | CSequence _ ->
       failwith "sequence"
     | CValue _ ->
       failwith "value"
-    | CIfELse (_, _, _) -> failwith "unimplemented CIfELse"
+    | CIfElse (_, _, _) -> failwith "unimplemented CIfELse"
     | CMatch (_, _, _scr, [], _cases) ->
       (* x :: xs -> e is represented as ("::", [x, xs], e) *)
       (* and constr_cases = (string * string list * core_lang) list *)
@@ -397,8 +390,8 @@ let ex_quantify_expr env vars ctx e =
 
 (* this is a separate function which doesn't cache results because exists isn't in pi *)
 let entails_exists env p1 vs p2 =
-  debug ~at:4 ~title:"z3 valid" "%s => ex %s. %s\n%s" (string_of_pi p1)
-    (String.concat " " vs) (string_of_pi p2) (string_of_typ_env env);
+  (* debug ~at:4 ~title:"z3 valid" "%s => ex %s. %s\n%s" (string_of_pi p1) *)
+  (*   (String.concat " " vs) (string_of_pi p2) (string_of_typ_env env); *)
   let f ctx =
     let r =
       Z3.Boolean.mk_not ctx

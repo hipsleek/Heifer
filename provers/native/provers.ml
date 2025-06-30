@@ -26,7 +26,7 @@ let needs_why3 =
 let entails_exists env left ex right =
   let@ _ = memo (left, ex, right) in
   let prove_why3 env left ex right = Prover_why3.entails_exists env (Untypehip.untype_pi left) ex (Untypehip.untype_pi right) in
-  let prove_z3 env left ex right = Prover_z3.entails_exists env (Untypehip.untype_pi left) ex (Untypehip.untype_pi right) in
+  let prove_z3 env left ex right = Prover_z3.entails_exists env left ex right in
   let prover = match Sys.getenv_opt "PROVER" with
   | Some "WHY3" -> prove_why3
   | Some "Z3" -> prove_z3

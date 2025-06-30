@@ -145,6 +145,8 @@ and typ = Types.typ =
   visitors { variety = "reduce"; name = "reduce_spec" },
   ord]
 
+let var_of_binder (v, t) = {term_desc = Var v; term_type = t}
+
 type tactic = Hiptypes.tactic
 
 type meth_def = {
