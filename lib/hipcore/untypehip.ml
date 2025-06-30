@@ -31,7 +31,6 @@ let rec untype_term (t : term) : Hiptypes.term =
   | TLambda (id, params, spec, body) ->
       TLambda (id, List.map ident_of_binder params, Option.map untype_staged_spec spec,
                Option.map untype_core_lang body)
-  | TList _ -> failwith "TList" (* TList (List.map untype_term ts) *)
   | TTuple ts -> TTuple (List.map untype_term ts)
 and untype_pi (p : pi) : Hiptypes.pi =
   match p with

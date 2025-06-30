@@ -212,10 +212,11 @@ let check_pure_obligation left right =
   in
   let open Infer_types in
   let _, tenv =
+    let left, right = Retypehip.(retype_pi left, retype_pi right) in
     (* handle the environment manually as it's shared between both sides *)
     let open Infer_types.Env_state in
     create_abs_env () |> begin
-      let* () = infer_types_pi left in
+      let* _ = infer_types_pi left in
       infer_types_pi right
     end
   in

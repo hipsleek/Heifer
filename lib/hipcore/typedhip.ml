@@ -26,7 +26,6 @@ and term_desc =
   (* The string seems to be redundant here and I think we should remove it if possible *)
   | TLambda of string * binder list * staged_spec option * core_lang option
   (* unused *)
-  | TList of term list
   | TTuple of term list
 and term =
   {
