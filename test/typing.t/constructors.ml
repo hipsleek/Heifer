@@ -14,6 +14,10 @@ let triple_step color
 (*@ ens res=color @*)
 = step (step (step color))
 
+let double_step_false color 
+(*@ ens res=color @*)
+= step (step color)
+
 type inductive_int = Zero | Succ of inductive_int
 
 let rec plus n m = match n with
@@ -31,7 +35,6 @@ let add_zero_2 n
 
 type ball = Solid | Striped
 
-(* manual definition so terms are inferred as 'a llist instead of List_int *)
 type 'a llist = Cons of 'a * 'a llist | Nil
 
 let rec foldr f ls init =
@@ -52,3 +55,8 @@ let exists_solid ls
   (*@ ens res = has_solid(ls) @*)
   =
     exists ls (fun o -> match o with | Solid -> true | Striped -> false)
+
+let exists_striped_false ls
+  (*@ ens res = has_solid(ls) @*)
+  =
+    exists ls (fun o -> match o with | Solid -> false | Striped -> true)
