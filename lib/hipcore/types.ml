@@ -59,13 +59,12 @@ let rec free_type_vars t =
 let concrete_types = [Unit; Int; Bool; Lamb]
 
 let new_type_var : ?name:string -> unit -> typ =
-  (* let counter = ref 0 in begin *)
-  (* fun ?(name="") () -> *)
-  (*   counter := !counter + 1; *)
-  (*   TVar (if name = "" then "[tvar " ^ string_of_int !counter ^ "]" else name) *)
-  (* end *)
-  (* FIXME temp fix to make anonymous/filled types irrelevant for equality checking *)
-  fun ?(name="_") _ -> TVar name
+  let counter = ref 0 in begin
+  fun ?(name="") () ->
+    counter := !counter + 1;
+    TVar (if name = "" then "tv" ^ string_of_int !counter else name)
+  end
+  (* fun ?(name=) _ -> TVar name *)
 
 module TMap = Map.Make (struct
   type t = typ
