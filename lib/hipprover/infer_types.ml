@@ -2,7 +2,7 @@ open Hipcore
 open Hiptypes
 open Typedhip
 open Types
-open Pretty
+open Pretty_typed
 open Debug
 
 (* TODO Restore all debug output once Pretty_typed has been ported over *)
@@ -190,12 +190,12 @@ let rec infer_types_core_lang e : core_lang using_env =
   return {core_desc; core_type}
 
 and infer_types_term ?(hint : typ option) term : term using_env =
-  (* let@ _ = *)
-  (*   span_env (fun r -> *)
-  (*       debug ~at:5 ~title:"infer_types" "%s : %s -| %s" (string_of_term term) *)
-  (*         (string_of_result string_of_term (Env_state.Debug.presult_value r)) *)
-  (*         (string_of_result string_of_abs_env (Env_state.Debug.presult_state r))) *)
-  (* in *)
+  let@ _ =
+    span_env (fun r ->
+        debug ~at:5 ~title:"infer_types" "%s : %s -| %s" (string_of_term term)
+          (string_of_result string_of_term (Env_state.Debug.presult_value r))
+          (string_of_result string_of_abs_env (Env_state.Debug.presult_state r)))
+  in
   let* (term_desc, term_type) = match (term.term_desc, hint) with
   | Const c, hint ->
       let term_type = match c with
@@ -293,23 +293,24 @@ and infer_types_term ?(hint : typ option) term : term using_env =
   return {term_desc; term_type}
 
 let rec infer_types_pi pi : pi using_env =
-  (* debug ~at:5 ~title:"infer_types_pi" "%s" (string_of_pi pi); *)
-  (* let@ _ = *)
-  (*      span_env (fun r -> *)
-  (*          debug ~at:5 ~title:"infer_types_pi" "%s -| %s" (string_of_pi pi) *)
-  (*            (string_of_result string_of_abs_env (Env_state.Debug.presult_state r))) *)
-  (*    in *)
+  debug ~at:5 ~title:"infer_types_pi" "%s" (string_of_pi pi);
+  let@ _ =
+       span_env (fun r ->
+           debug ~at:5 ~title:"infer_types_pi" "%s -| %s" (string_of_pi pi)
+             (string_of_result string_of_abs_env (Env_state.Debug.presult_state r)))
+     in
   match pi with
   | True | False -> return pi
-  | Atomic (op, a, b) -> begin
-    let hint = match op with
-      | EQ -> None
-      | _ -> Some Int
-    in
-    let* a = infer_types_term a ?hint in
-    let* b = infer_types_term b ?hint in
+  | Atomic (EQ, a, b) ->
+    let* a = infer_types_term a in
+    let* b = infer_types_term b in
+    let* _ = unify_types a.term_type b.term_type in
+    return (Atomic (EQ, a, b))
+  | Atomic (GT | LT | GTEQ | LTEQ as op, a, b) ->
+    let hint = Int in
+    let* a = infer_types_term a ~hint in
+    let* b = infer_types_term b ~hint in
     return (Atomic (op, a, b))
-  end
   | And (a, b) ->
     let* a = infer_types_pi a in
     let* b = infer_types_pi b in
