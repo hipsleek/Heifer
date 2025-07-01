@@ -328,24 +328,33 @@ let rec infer_types_pi pi : pi using_env =
       return (Not a)
   | pi -> return pi
 
-let infer_types_pi pi : pi using_env =
-  (** Given an environment, and a typed term, perform simplifications
-      on the types in the term based on the environment. *)
-  let simplify_types_pi pi env =
-    let go = object (self)
-      inherit [_] map_spec
+(* re-declare to insert one final type simplification pass *)
 
-      method! visit_term env term =
-        let result = {term_desc = self#visit_term_desc env term.term_desc;
-        term_type = 
-          TEnv.simplify env.equalities term.term_type} in
-        debug ~at:5 ~title:"inference result" "%s : %s\n" (string_of_term result) (string_of_type result.term_type);
-        result
-    end in
-    go#visit_pi env pi, env
-  in
+(** Given an environment, and a typed term, perform simplifications
+    on the types in the term based on the environment. *)
+let simplify_types_pi pi env =
+  let go = object (self)
+    inherit [_] map_spec
+
+    method! visit_term env term =
+      let result = {term_desc = self#visit_term_desc env term.term_desc;
+      term_type = 
+        TEnv.simplify env.equalities term.term_type} in
+      debug ~at:5 ~title:"inference result" "%s : %s\n" (string_of_term result) (string_of_type result.term_type);
+      result
+  end in
+  go#visit_pi env pi, env
+
+let infer_types_pi pi : pi using_env =
   let* pi = infer_types_pi pi in
   simplify_types_pi pi
+
+let infer_types_pair_pi (p1, p2) : (pi * pi) using_env =
+  let* p1 = infer_types_pi p1 in
+  let* p2 = infer_types_pi p2 in
+  (* we may have found new unifications while inferring p2, so simplify p1 *)
+  let* p1 = simplify_types_pi p1 in
+  return (p1, p2)
 
 (** Output a list of types after being unified in some environment. Mainly
     used for testing. *)
