@@ -374,7 +374,7 @@ let rec forward (env: fvenv) (expr : core_lang): staged_spec * fvenv =
         | None -> Some inferred_spec
         | Some _ -> given_spec
       in
-      let lambda_term = TLambda (lambda_id, params, spec_to_use, Some body) in
+      let lambda_term = TLambda (lambda_id, params, spec_to_use, None) in
       let env = match given_spec with
         (* TODO: refactor into a function *)
         | None -> env

@@ -291,7 +291,25 @@ let subst_uvars st (f, e) : uterm =
         in
         Bind (x2, f1, f2)
 
-      (* TODO other binders *)
+      method! visit_Shift () b x_body f_body x_cont f_cont =
+        (* we shall also rewrite in continuation I gues*)
+        let x_body, f_body =
+          let y = Variables.fresh_variable ~v:x_body () in
+          let f_body = Subst.subst_free_vars [(x_body, Var y)] f_body in
+          (y, f_body)
+        in
+        let x_cont, f_cont =
+          let y = Variables.fresh_variable ~v:x_cont () in
+          let f_cont = Subst.subst_free_vars [(x_cont, Var y)] f_cont in
+          (y, f_cont)
+        in
+        (* now we have x_body, f_body, x_cont and f_cont renamed to avoid accidental rewriting and any
+           free variables; now we can start to rewrite the terms *)
+        let f_body = self#visit_staged_spec () f_body in
+        let f_cont = self#visit_staged_spec () f_cont in
+        (* reconstruct the original expressoin *)
+        Shift (b, x_body, f_body, x_cont, f_cont)
+        (* TODO other binders *)
     end
   in
   match f with

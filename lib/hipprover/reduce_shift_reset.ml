@@ -175,14 +175,14 @@ let norm_reset_disj : _ Rewriting2.rule = Rewriting2.(
 (* bientails; both side of the proof *)
 let norm_reset_seq_ens : _ Rewriting2.rule = Rewriting2.(
   reset (seq (ens __ __) __),
-  fun p k f -> Sequence (NormalReturn (p, k), f)
+  fun p k f -> Sequence (NormalReturn (p, k), Reset f)
 )
 
 (* reset (req H; f) \entails req H; reset f *)
 (* entails; only on the left *)
 let norm_reset_seq_req : _ Rewriting2.rule = Rewriting2.(
   reset (seq (req __ __) __),
-  fun p k f -> Sequence (Require (p, k), f)
+  fun p k f -> Sequence (Require (p, k), Reset f)
 )
 
 (* reset (ens Q) \bientails ens Q *)

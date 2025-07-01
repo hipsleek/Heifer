@@ -110,10 +110,14 @@ let rec string_of_term t : string =
 
 and string_of_staged_spec (st:staged_spec) : string =
   match st with
-  | Shift (nz, k, spec, _x, _cont) ->
+  | Shift (nz, k, spec, x, cont) ->
     (* TODO: shiftc *)
     let zero = if nz then "" else "0" in
-    Format.asprintf "shift%s(%s. %s)" zero k (string_of_staged_spec spec)
+    let cont_s = match cont with
+      | NormalReturn (Atomic (EQ, Var "res", Var y), EmptyHeap) when x = y -> ""
+      | _ -> Format.asprintf ", %s. %s" x (string_of_staged_spec cont)
+    in
+    Format.asprintf "shift%s(%s. %s%s)" zero k (string_of_staged_spec spec) cont_s
   | Reset spec ->
     Format.asprintf "reset(%s)" (string_of_staged_spec spec)
   | Require (p, h) ->

@@ -392,6 +392,10 @@ let norm_bind_assoc_ens = Staged.dynamic_rule
     let f2 = Staged.of_uterm (sub "f2") in
     Bind (y, NormalReturn (p, h), Bind (x, f1, f2)))
 
+let norm_seq_val = Staged.rule
+  (Sequence (NormalReturn (eq res_var (Term.uvar "r"), emp), Staged.uvar "f"))
+  (Staged.uvar "f")
+
 let norm_seq_ens_ex = Staged.dynamic_rule
   (Sequence (NormalReturn (Pure.uvar "p", Heap.uvar "h"), Exists (Binder.uvar "x", (Staged.uvar "f"))))
   (fun sub ->
@@ -527,6 +531,7 @@ let normalization_rules_bind = [
 ]
 
 let normalization_rules_seq = [
+  norm_seq_val;
   norm_seq_ens_ex;
   norm_seq_ens_all;
   norm_seq_ens_seq_all;
