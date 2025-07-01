@@ -34,10 +34,9 @@ let entails_exists env left ex right =
     let needs_why3 =
       (* if no pure functions are used, short circuit immediately.
          otherwise, switch only if some part of the formula needs why3 *)
-      (* !Globals.using_pure_fns && *)
-      (*   (needs_why3#visit_pi () left || *)
-      (*   needs_why3#visit_pi () right) *)
-      true (* always set to true, since z3 needs the currently-incomplete typed AST to properly find sorts of all ADT constructors *)
+      !Globals.using_pure_fns &&
+        (needs_why3#visit_pi () left ||
+        needs_why3#visit_pi () right)
     in
     if needs_why3 then
       prove_why3
