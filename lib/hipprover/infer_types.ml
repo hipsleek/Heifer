@@ -345,7 +345,7 @@ let%expect_test "unification with type constructors" =
   [%expect {|
     t0: ((int) list) list
     t1: ((int) list) list
-   t2: (int) list
+    t2: (int) list
     t3: (int) list
     |}]
 

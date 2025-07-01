@@ -381,8 +381,7 @@ let string_of_tmap pp s =
 let string_of_abs_env t =
   let open Types in
   Format.asprintf "%s, %s" (string_of_smap string_of_type t.vartypes)
-  "<opaque>"
-(* (string_of_tmap string_of_type (TMap.map (fun t -> U.get t) !(t.equalities))) *)
+  (string_of_tmap string_of_type (TMap.map (fun t -> U.get t) !(t.equalities)))
 
 let string_of_typ_env t =
   Format.asprintf "%s" (string_of_smap string_of_type t)
