@@ -1122,9 +1122,14 @@ let rec apply_ent_rule ?name : tactic =
           apply_lemmas ps
         in
         if ps <> ps1 then entailment_search ?name ps1 k
-        else (
-          log_proof_state ~title:"STUCK" ps;
-          fail)
+        else 
+          let is_contradiction = 
+            let@ _ = span (fun _r -> debug ~at:4 ~title:"try to discharge via contradiction" "") in
+            check_pure_obligation (conj pctx.assumptions) False
+          in
+          if is_contradiction
+          then k (pctx, ens (), ens ())
+          else (log_proof_state ~title:"STUCK" ps; fail)
 
 and entailment_search : ?name:string -> tactic =
   let prev_state = ref None in
