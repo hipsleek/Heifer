@@ -291,6 +291,19 @@ let subst_uvars st (f, e) : uterm =
         in
         Bind (x2, f1, f2)
 
+      method! visit_TLambda () name args spec_opt prog_opt =
+        let renamed_args = List.map (fun arg -> Variables.fresh_variable ~v:arg ()) args in
+        let subst = List.map2 (fun arg new_arg -> (arg, Var new_arg)) args renamed_args in
+        let spec_opt = match spec_opt with
+          | None -> None
+          | Some spec ->
+              let spec = Subst.subst_free_vars subst spec in
+              let spec = self#visit_staged_spec () spec in
+              Some spec
+        in
+        (* TODO: rename core_lang component? *)
+        TLambda (name, renamed_args, spec_opt, prog_opt)
+
       method! visit_Shift () b x_body f_body x_cont f_cont =
         (* we shall also rewrite in continuation I gues*)
         let x_body, f_body =

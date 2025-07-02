@@ -1,8 +1,8 @@
 let get () =
-  shift k (fun state -> k state state)
+  shift k (fun state -> (k state) state)
 
 let tick () =
-  shift k (fun state -> k () (state + 1))
+  shift k (fun state -> (k ()) (state + 1))
 
 let run_state thunk =
   (reset (let result = thunk () in fun state -> result)) 0
