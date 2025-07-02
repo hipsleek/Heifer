@@ -214,9 +214,7 @@ let check_pure_obligation left right =
   let (left, right), tenv =
     let left, right = Retypehip.(retype_pi left, retype_pi right) in
     (* handle the environment manually as it's shared between both sides *)
-    create_abs_env () |> begin
-      infer_types_pair_pi (left, right)
-    end
+    with_empty_env (infer_types_pair_pi (left, right))
   in
   let res = Provers.entails_exists (concrete_type_env tenv) left [] right in
   let open Provers_common in

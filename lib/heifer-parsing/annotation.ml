@@ -47,9 +47,18 @@ let parse_spec_attribute (attr : Parsetree.attribute) : Hipcore.Hiptypes.staged_
   | _ ->
       None
 
+let parse_ignore_attribute (attr : Parsetree.attribute) : unit option =
+  let ignore_attribute_name = "ignore" in
+  let open Ocaml_compiler.Ocaml_common.Parsetree in
+  (* TODO use ppxlib to do this matching instead; it would be a lot cleaner... *)
+  if String.equal attr.attr_name.txt ignore_attribute_name
+  then Some ()
+  else None
+
 let extract_attribute parser attrs =
   match List.filter_map parser attrs with
   | item :: _ -> Some item
   | _ -> None
 
 let extract_spec_attribute attrs = extract_attribute parse_spec_attribute attrs
+let extract_ignore_attribute attrs = extract_attribute parse_ignore_attribute attrs

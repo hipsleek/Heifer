@@ -133,3 +133,10 @@ let untype_subsumption_obligation ls =
 
 let untype_bindings (bindings : (binder * term) list) : (string * Hiptypes.term) list =
   List.map (fun (b, t) -> (ident_of_binder b, untype_term t)) bindings
+
+let untype_lemma Typedhip.{ l_name; l_params; l_left; l_right } =
+  Hiptypes.{ l_name;
+    l_params = List.map ident_of_binder l_params;
+    l_left = untype_staged_spec l_left;
+    l_right = untype_staged_spec l_right;
+  }

@@ -19,6 +19,11 @@ module State(SType : sig type t end) = struct
       f v env
   let (let*) = bind
 
+  let scope (f : 'a t) : 'a t =
+    fun env ->
+      let result, _ = f env in
+      result, env
+
   let mutate (f : SType.t -> SType.t) : unit t =
     fun st -> (), f st
 
@@ -51,6 +56,23 @@ let span_env = Env_state.Debug.span
 let (let@) = Env_state.Debug.(let@)
 let return = Env_state.return
 let (let*) = Env_state.(let*)
+
+(** Run a type inference computation with an empty initial environment. *)
+let with_empty_env f = f (create_abs_env ())
+
+(** Add the following variable bindings to the inference environment. *)
+let add_vartypes vars env =
+  let f _ v1 _ = Some v1 in
+  (), { env with vartypes = Common.SMap.union f (SMap.of_seq vars) env.vartypes }
+
+(** Run a type inference computation with some added bindings.
+    The bindings are removed at the end. *)
+let with_vartypes vars f =
+  Env_state.scope begin
+    let* _ = add_vartypes vars in
+    f
+  end
+  
 
 (** Exception raised when solver cannot unify the two types. *)
 exception Unification_failure of typ * typ
@@ -355,6 +377,63 @@ let infer_types_pair_pi (p1, p2) : (pi * pi) using_env =
   (* we may have found new unifications while inferring p2, so simplify p1 *)
   let* p1 = simplify_types_pi p1 in
   return (p1, p2)
+
+let rec infer_types_kappa k : kappa using_env =
+  match k with
+  | EmptyHeap -> return EmptyHeap
+  | SepConj (k1, k2) ->
+      let* k1 = infer_types_kappa k1 in
+      let* k2 = infer_types_kappa k2 in
+      return (SepConj (k1, k2))
+  | PointsTo(l, v) ->
+    let* v = infer_types_term v in
+    return (PointsTo (l, v))
+
+let rec infer_types_staged_spec ss : staged_spec using_env =
+  let* typed_spec = match ss with
+  | Require (p, k) ->
+      let* p = infer_types_pi p in
+      let* k = infer_types_kappa k in
+      return (Require (p, k))
+  | NormalReturn (p, k) ->
+      let* p = infer_types_pi p in
+      let* k = infer_types_kappa k in
+      return (NormalReturn (p, k))
+  | HigherOrder (f, args) ->
+      let* args = Env_state.map ~f:infer_types_term args in
+      return (HigherOrder (f, args))
+  | Shift (b, k, spec) ->
+      let* spec = infer_types_staged_spec spec in
+      return (Shift (b, k, spec))
+  | Reset spec ->
+      let* spec = infer_types_staged_spec spec in
+      return (Reset spec)
+  | Sequence (s1, s2) ->
+      let* s1 = infer_types_staged_spec s1 in
+      let* s2 = infer_types_staged_spec s2 in
+      return (Sequence (s1, s2))
+  | Bind (f, s1, s2) ->
+      let* s1 = infer_types_staged_spec s1 in
+      let* s2 = infer_types_staged_spec s2 in
+      return (Bind (f, s1, s2))
+  | Disjunction (s1, s2) ->
+      let* s1 = infer_types_staged_spec s1 in
+      let* s2 = infer_types_staged_spec s2 in
+      return (Disjunction (s1, s2))
+  | Exists ((x, t), spec) ->
+      with_vartypes (List.to_seq [x, t]) begin
+        let* spec = infer_types_staged_spec spec in
+        return (Exists ((x, t), spec))
+      end
+  | ForAll ((x, t), spec) ->
+      with_vartypes (List.to_seq [x, t]) begin
+        let* spec = infer_types_staged_spec spec in
+        return (ForAll ((x, t), spec))
+      end
+  | RaisingEff _ | TryCatch _ -> failwith "infer_types_staged_spec: not implemented"
+  in
+  (* assert (Untypehip.untype_staged_spec typed_spec = Untypehip.untype_staged_spec ss); *)
+  return typed_spec
 
 (** Output a list of types after being unified in some environment. Mainly
     used for testing. *)

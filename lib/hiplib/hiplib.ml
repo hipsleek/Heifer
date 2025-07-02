@@ -19,6 +19,17 @@ let file_mode = ref false
 let test_mode = ref false
 let tests_failed = ref false
 
+(** List of definitions to insert before passing code to the OCaml frontend.
+    Mark declarations that should not be converted into intermediates with [@@ignore]. *)
+let ocaml_prelude = "
+  let shift _ = failwith \"placeholder\" [@@ignore]
+  let shift0 _ = failwith \"placeholder\" [@@ignore]
+  let reset _ = failwith \"placeholder\" [@@ignore]
+  let (-->) _ _ = failwith \"placeholder\" [@@ignore]
+  let ( * ) _ _ = failwith \"placeholder\" [@@ignore]
+
+"
+
 (*
 let debug_tokens str =
   let lb = Lexing.from_string str in
@@ -256,9 +267,10 @@ let process_pure_fn_info ({m_name; m_params; m_body; _}) = function
       in
       Globals.define_pure_fn m_name pf
 
-let process_intermediates (it : intermediate) prog : string list * core_program =
+let process_intermediates (it : Typedhip.intermediate) prog : string list * core_program =
   (* Format.printf "%s\n" (Pretty.string_of_intermediate it);
   ([], prog) *)
+  let open Typedhip in
   match it with
   (* | LogicTypeDecl (name, params, ret, path, lname) ->
       let def = {
@@ -293,7 +305,7 @@ let process_intermediates (it : intermediate) prog : string list * core_program 
       let@ _ = Debug.span (fun _ ->
         debug ~at:1 ~title:(Format.sprintf "verifying lemma: %s" l.l_name) "")
       in
-      let prog = analyze_lemma prog l in
+      let prog = analyze_lemma prog (Untypehip.untype_lemma l) in
       [], prog
   | LogicTypeDecl _ ->
       process_logic_type_decl ()
@@ -315,7 +327,9 @@ let process_intermediates (it : intermediate) prog : string list * core_program 
       (* [], { prog with cp_sl_predicates = SMap.add p.p_sl_name p prog.cp_sl_predicates } *)
       todo ()
   | Meth (m_name, m_params, m_spec, m_body, m_tactics, pure_fn_info) ->
-      let meth : meth_def = {m_name; m_params; m_spec; m_body; m_tactics } in
+      let meth : Hiptypes.meth_def = Untypehip.{m_name; m_params = List.map ident_of_binder m_params;
+        m_spec = Option.map untype_staged_spec m_spec;
+        m_body = untype_core_lang m_body; m_tactics } in
       process_pure_fn_info meth pure_fn_info;
       let@ _ = Debug.span (fun _ ->
         debug ~at:1 ~title:(Format.asprintf "verifying function: %s" meth.m_name) "")
@@ -323,25 +337,31 @@ let process_intermediates (it : intermediate) prog : string list * core_program 
       let prog = analyze_method prog meth in
       [m_name], prog
 
-let process_ocaml_structure (items: Ocaml_common.Parsetree.structure) : unit =
+let process_ocaml_structure (items: Ocaml_common.Typedtree.structure) : unit =
   let process_ocaml_item (bound_names, prog) item =
-    match Ocamlfrontend.Core_lang.transform_str bound_names item with
+    match Ocamlfrontend.Core_lang_typed.transform_str bound_names item with
     | Some it ->
         let new_bound, prog = process_intermediates it prog in
         new_bound @ bound_names, prog
     | None ->
         bound_names, prog
   in
-  ignore (List.fold_left process_ocaml_item ([], empty_program) items)
+  ignore (List.fold_left process_ocaml_item ([], empty_program) items.str_items)
 
 let run_ocaml_string s =
   (** Parse and typecheck the code, before converting it into a core language program.
      This mirrors the flow of compilation used in ocamlc. *)
+  let s = ocaml_prelude ^ s in
   try
     let items = Parse.implementation (Lexing.from_string s) in
-    process_ocaml_structure items
+    let unit_info = Unit_info.(make ~source_file:"" Impl "") in
+    Compile_common.with_info ~native:false ~tool_name:"heifer" ~dump_ext:"" unit_info @@ begin fun info ->
+      let typed_implementation = Compile_common.typecheck_impl info items in
+      let@ _ = Globals.Timing.(time overall_all) in
+      process_ocaml_structure typed_implementation.structure
+    end
   with
-    | e -> Format.printf "%a\n" Location.report_exception e
+    | exn -> Format.printf "%a\n" Location.report_exception exn
 
 (*
 let mergeTopLevelCodeIntoOneMain (prog : intermediate list) : intermediate list =
@@ -393,23 +413,6 @@ let run_string kind s =
   match kind with
   | `Ocaml -> run_ocaml_string s
   | `Racket -> run_racket_string s
-
-(* let retriveComments (source : string) : string list =
-  let partitions = Str.split (Str.regexp "(\\*@") source in
-  match partitions with
-  | [] -> assert false
-  | _ :: rest -> (*  SYH: Note that specification can't start from line 1 *)
-      let partitionEnd = List.map (fun a -> Str.split (Str.regexp "@\\*)") a) rest in
-      let rec helper (li: string list list): string list =
-        match li with
-        | [] -> []
-        | x :: xs  ->
-            let head = List.hd x in
-            if String.compare head "" == 0
-            then helper xs
-            else let ele = ("/*@" ^ head ^ "@*/") in ele :: helper xs
-      in
-      helper partitionEnd *)
 
 (* naive means of turning spec comments into attributes *)
 let preprocess_spec_comments =
