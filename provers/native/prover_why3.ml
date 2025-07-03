@@ -849,6 +849,7 @@ and pattern_to_whyml tenv pattern =
       Papp (qualid [constr], (List.map (pattern_to_whyml tenv) args))
   | PVar v -> Pvar (ident v)
   | PConstant _ -> failwith "constant patterns not supported"
+  | PAlias (p, s) -> Pas (pattern_to_whyml tenv p, ident s, false)
   in
   pat p
 

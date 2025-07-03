@@ -362,15 +362,23 @@ let rec forward (env: fvenv) (expr : core_lang): staged_spec * fvenv =
               Exists (v1, Exists (v2, Sequence (cons_spec, body_spec)))
           (* general constructors *)
           | PConstr _ | PVar _ ->
-              let rec term_of_pattern pat =
+              let rec pi_of_pattern pat = 
                 match pat with
-                | PVar v -> Var v
-                | PConstr (args, v) -> Construct (args, List.map term_of_pattern v)
-                | PConstant c -> Const c
+                | PVar v -> (v, True)
+                | PConstr (name, args) -> 
+                    let v = Variables.fresh_variable ~v:"pat" () in
+                    let subp_names, subp_pis = List.map pi_of_pattern args |> List.split in
+                    (v, And (Atomic (EQ, Var v, Construct (name, List.map (fun arg -> Var arg) subp_names)), Syntax.conj subp_pis))
+                | PConstant c ->
+                    let v = Variables.fresh_variable ~v:"pat" () in
+                    (v, Atomic (EQ, Var v, Const c))
+                | PAlias (subpat, name) ->
+                    let subp_name, subp_pi = pi_of_pattern subpat in
+                    (name, And (Atomic (EQ, Var subp_name, Var name), subp_pi))
               in
-              let pattern_term = term_of_pattern pat in
-              let pattern_free_vars = Subst.free_vars_term pattern_term in
-              let pattern_spec = NormalReturn (Atomic (EQ, t, term_of_pattern pat), EmptyHeap) in
+              let pattern_name, pattern_formula = pi_of_pattern pat in
+              let pattern_free_vars = Subst.free_vars_pure pattern_formula in
+              let pattern_spec = NormalReturn (And (Atomic (EQ, t, Var pattern_name), pattern_formula), EmptyHeap) in
               Sequence (pattern_spec, body_spec)
                 |> SSet.fold (fun var spec -> Exists (var, spec)) pattern_free_vars
           | _ ->

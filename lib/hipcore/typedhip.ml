@@ -43,6 +43,7 @@ and pattern_desc =
   | PVar of binder
   | PConstr of (string * pattern list)
   | PConstant of const
+  | PAlias of pattern * string
 
 and pattern =
   {

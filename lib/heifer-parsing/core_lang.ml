@@ -386,7 +386,7 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
         | Ppat_constant {pconst_desc = Pconst_string (s, _, _); _} -> Some (PConstant (TStr s))
         | Ppat_constant {pconst_desc = Pconst_integer (i, _); _} -> Some (PConstant (Num (int_of_string i)))
         | Ppat_any -> Some (PVar "_")
-        | _ -> None
+        | _ -> failwith (Format.asprintf "Unsupported pattern %a" Pprintast.pattern pat)
       in
       (* may be empty for non-effect pattern matches *)
       cases |> List.filter_map (fun case -> Option.map (fun pat -> (pat, transformation bound_names case.pc_rhs)) (transform_pattern case.pc_lhs))

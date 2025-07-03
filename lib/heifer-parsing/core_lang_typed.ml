@@ -413,23 +413,25 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
       )
     in
     let pattern_cases = 
-      computation_cases |> List.filter_map (fun c ->
+      computation_cases |> List.map (fun c ->
         match c.c_lhs.pat_desc with
         | Tpat_value value_arg ->
             let pat = (value_arg :> value general_pattern) in 
-            let rec transform_pattern pat = 
+            let rec transform_pattern pat : Typedhip.pattern = 
               let pattern_desc = match pat.pat_desc with
               | Tpat_construct ({txt=constr; _}, _, args, _) ->
                   let subpatterns = List.map transform_pattern args in
-                  if List.exists Option.is_none subpatterns then None
-                  else Some (PConstr (String.concat "." (Longident.flatten constr), List.map Option.get subpatterns))
-              | Tpat_var (ident, _, _) -> Some (PVar (Ident.name ident, hip_type_of_type_expr pat.pat_type))
-              | _ -> None
+                  PConstr (String.concat "." (Longident.flatten constr), subpatterns)
+              | Tpat_var (ident, _, _) -> (PVar (Ident.name ident, hip_type_of_type_expr pat.pat_type))
+              | Tpat_alias (pat, _, {txt = name; _}, _) -> PAlias (transform_pattern pat, name)
+              | Tpat_any -> PVar ("_", hip_type_of_type_expr pat.pat_type)
+              | _ -> failwith (Format.asprintf "Unsupported pattern %a" Pprintast.pattern (Untypeast.untype_pattern pat))
               in
-              Option.map (fun pattern_desc -> {pattern_desc; pattern_type = hip_type_of_type_expr pat.pat_type}) pattern_desc
+              let pat = {pattern_desc; pattern_type = hip_type_of_type_expr pat.pat_type} in
+              pat
             in
-            Option.map (fun pat -> (pat, transformation bound_names c.c_rhs)) (transform_pattern pat)
-        | _ -> None)
+            (fun pat -> (pat, transformation bound_names c.c_rhs)) (transform_pattern pat)
+        | _ -> failwith "Unknown pattern" )
     in
     {core_desc = CMatch (Deep, None, transformation bound_names e, effs, pattern_cases); core_type = exp_hip_type}
   | _ -> 

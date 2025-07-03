@@ -68,7 +68,9 @@ and retype_pattern (pat : Hiptypes.pattern) : pattern =
   let pattern_desc = match pat with
   | PVar var -> PVar (binder_of_ident var)
   | PConstr (name, args) -> PConstr (name, List.map retype_pattern args)
-  | PConstant c -> PConstant c in
+  | PConstant c -> PConstant c 
+  | PAlias (p, v) -> PAlias (retype_pattern p, v)
+  in
   {pattern_desc; pattern_type = Types.new_type_var ()}
 and retype_try_catch_lemma ((spec, cont, summary) : Hiptypes.tryCatchLemma) : tryCatchLemma =
   (retype_staged_spec spec, Option.map retype_staged_spec cont, retype_staged_spec summary)

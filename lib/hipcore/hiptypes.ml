@@ -35,6 +35,7 @@ and pattern =
   | PVar of string
   | PConstr of (string * pattern list)
   | PConstant of const
+  | PAlias of pattern * string
 and tryCatchLemma = (staged_spec * staged_spec option * (*(handlingcases) **) staged_spec) (*tcl_head, tcl_handledCont, tcl_summary*)
 and handler_type = Shallow | Deep
 

@@ -82,6 +82,7 @@ and untype_pattern (pat : pattern) : Hiptypes.pattern =
   | PVar (v, _) -> PVar v
   | PConstr (name, args) -> PConstr (name, List.map untype_pattern args)
   | PConstant c -> PConstant c
+  | PAlias (p, s) -> PAlias (untype_pattern p, s)
 and untype_constr_cases (cases : constr_cases) : Hiptypes.constr_cases =
   List.map (fun (pat, body) -> (untype_pattern pat, untype_core_lang body)) cases
 and untype_tryCatchLemma (tcl : tryCatchLemma) : Hiptypes.tryCatchLemma =
