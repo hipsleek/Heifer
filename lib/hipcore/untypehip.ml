@@ -79,6 +79,7 @@ and untype_handler_ops (ops : core_handler_ops) : Hiptypes.core_handler_ops =
   List.map (fun (label, k_opt, spec, body) -> (label, k_opt, Option.map untype_staged_spec spec, untype_core_lang body)) ops
 and untype_pattern (pat : pattern) : Hiptypes.pattern =
   match pat.pattern_desc with
+  | PAny -> PAny
   | PVar (v, _) -> PVar v
   | PConstr (name, args) -> PConstr (name, List.map untype_pattern args)
   | PConstant c -> PConstant c

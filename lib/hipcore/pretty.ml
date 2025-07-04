@@ -232,6 +232,7 @@ and string_of_lemma l =
 
 and string_of_pattern (p : pattern) : string =
   match p with
+  | PAny -> "_"
   | PVar s -> s
   | PConstr (name, args) -> Format.sprintf "%s(%s)" name (List.map string_of_pattern args |> String.concat ", ")
   | PConstant c -> Format.sprintf "%s" (string_of_constant c)
@@ -619,6 +620,7 @@ and pp_try_catch_lemma ppf (head, cont, summary) =
     pp_staged_spec summary)
 and pp_pattern ppf pat =
   match pat with
+  | PAny -> Format.pp_print_string ppf "_"
   | PVar v -> Format.fprintf ppf "@[%s@]" v
   | PConstr (name, args) -> pp_call_like pp_pattern ppf (name, args)
   | PConstant c -> pp_constant ppf c

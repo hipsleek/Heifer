@@ -845,6 +845,7 @@ and vars_to_params tenv vars =
 
 and pattern_to_whyml tenv pattern =
   let p = match pattern with
+  | PAny -> Pwild
   | PConstr (constr, args) ->
       Papp (qualid [constr], (List.map (pattern_to_whyml tenv) args))
   | PVar v -> Pvar (ident v)

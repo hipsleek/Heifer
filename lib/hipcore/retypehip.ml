@@ -66,6 +66,7 @@ and retype_constr_cases (cases : Hiptypes.constr_cases) : constr_cases =
   List.map (fun (pat, value) -> (retype_pattern pat, retype_core_lang value)) cases
 and retype_pattern (pat : Hiptypes.pattern) : pattern =
   let pattern_desc = match pat with
+  | PAny -> PAny
   | PVar var -> PVar (binder_of_ident var)
   | PConstr (name, args) -> PConstr (name, List.map retype_pattern args)
   | PConstant c -> PConstant c 

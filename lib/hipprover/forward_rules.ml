@@ -348,7 +348,7 @@ let rec forward (env: fvenv) (expr : core_lang): staged_spec * fvenv =
       let v = fresh_variable () in
       let t = Var v in
       let discriminant_spec, env = forward env discriminant in
-      let handle_case env (pat, body) =
+      let handle_case (env, past_cases) (pat, body) =
         (* TODO: hard-coded for list now *)
         let body_spec, env = forward env body in
         let case_spec = match pat with
@@ -362,8 +362,10 @@ let rec forward (env: fvenv) (expr : core_lang): staged_spec * fvenv =
               Exists (v1, Exists (v2, Sequence (cons_spec, body_spec)))
           (* general constructors *)
           | PConstr _ | PVar _ ->
+              let complement_of_past_cases = List.concat_map Patterns.complement past_cases in
               let rec pi_of_pattern pat = 
                 match pat with
+                | PAny -> (Variables.fresh_variable ~v:"pat" (), True)
                 | PVar v -> (v, True)
                 | PConstr (name, args) -> 
                     let v = Variables.fresh_variable ~v:"pat" () in
@@ -376,20 +378,25 @@ let rec forward (env: fvenv) (expr : core_lang): staged_spec * fvenv =
                     let subp_name, subp_pi = pi_of_pattern subpat in
                     (name, And (Atomic (EQ, Var subp_name, Var name), subp_pi))
               in
-              let pattern_name, pattern_formula = pi_of_pattern pat in
-              let pattern_free_vars = Subst.free_vars_pure pattern_formula in
-              let pattern_spec = NormalReturn (And (Atomic (EQ, t, Var pattern_name), pattern_formula), EmptyHeap) in
+              let spec_of_pattern pat = 
+                let pattern_name, pattern_formula = pi_of_pattern pat in
+                let pattern_spec = NormalReturn (And (Atomic (EQ, t, Var pattern_name), pattern_formula), EmptyHeap) in
+                pattern_spec
+              in
+              let pattern_spec = Syntax.disj (spec_of_pattern pat :: List.filter_map 
+                  (fun complement_of_past -> Option.map spec_of_pattern (Patterns.intersect pat complement_of_past))
+                complement_of_past_cases) in
+              let pattern_spec_free_vars = Subst.free_vars pattern_spec in
               Sequence (pattern_spec, body_spec)
-                |> SSet.fold (fun var spec -> Exists (var, spec)) pattern_free_vars
-          | _ ->
-              failwith (Format.asprintf "unknown pattern: %s" (string_of_pattern pat))
+                |> SSet.fold (fun var spec -> Exists (var, spec)) pattern_spec_free_vars
+          | _ -> failwith (Format.asprintf "unknown pattern: %s" (string_of_pattern pat))
         in
-        case_spec, env
+        case_spec, (env, pat :: past_cases)
       in
       (* TODO in the presence of general patterns this is actually wrong, every pattern should exclude the possibility of the patterns preceding it
          in the match statement
          this needs some way to find the complement of a pattern, since spec doesn't allow for negative exists (whether expliclitly or via forall + conjunction) *)
-      let cases_spec, env = Lists.map_state handle_case env cases in
+      let cases_spec, (env, _) = Lists.map_state handle_case (env, []) cases in
       let disj_spec = Syntax.disj cases_spec in
       Bind (v, discriminant_spec, disj_spec), env
   | CResume _ ->

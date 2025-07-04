@@ -44,6 +44,7 @@ and pattern_desc =
   | PConstr of (string * pattern list)
   | PConstant of const
   | PAlias of pattern * string
+  | PAny
 
 and pattern =
   {
