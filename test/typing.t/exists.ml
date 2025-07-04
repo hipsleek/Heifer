@@ -26,3 +26,16 @@ let exists_striped_false ls
   (*@ ens res = has_solid(ls) @*)
   =
     exists ls (fun o -> match o with | Solid -> false | Striped -> true)
+
+(* tests _ patterns, and previous pattern exclusion *)
+let rec no_solids_aux ls =
+match ls with
+  | Cons (Solid, _) -> false
+  | Cons (_, xs) -> no_solids_aux xs
+  | _ -> true
+
+(* split the verification condition out to a separate function since otherwise,
+   no recursive definition is created for no_solids at proof time *)
+let no_solids ls =
+  (*@ ens res = ~has_solid(ls) @*)
+  no_solids_aux ls

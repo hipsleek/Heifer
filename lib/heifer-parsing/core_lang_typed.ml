@@ -424,7 +424,7 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
                   PConstr (String.concat "." (Longident.flatten constr), subpatterns)
               | Tpat_var (ident, _, _) -> (PVar (Ident.name ident, hip_type_of_type_expr pat.pat_type))
               | Tpat_alias (pat, _, {txt = name; _}, _) -> PAlias (transform_pattern pat, name)
-              | Tpat_any -> PVar ("_", hip_type_of_type_expr pat.pat_type)
+              | Tpat_any -> PAny
               | _ -> failwith (Format.asprintf "Unsupported pattern %a" Pprintast.pattern (Untypeast.untype_pattern pat))
               in
               let pat = {pattern_desc; pattern_type = hip_type_of_type_expr pat.pat_type} in

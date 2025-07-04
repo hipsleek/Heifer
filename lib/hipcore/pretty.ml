@@ -367,11 +367,32 @@ let rec string_of_type t =
   | TyString -> "string"
   | Int -> "int"
   | Unit -> "unit"
-  | TConstr (name, args) -> Format.asprintf "(%s) %s" (List.map string_of_type args |> String.concat ",") name
+  | TConstr (name, args) -> 
+      if List.is_empty args
+      then name
+      else Format.asprintf "(%s) %s" (List.map string_of_type args |> String.concat ",") name
   | Bool -> "bool"
   | Lamb -> "lambda"
   | TVar v -> Format.asprintf "'%s" v
   | Arrow (t1, t2) -> Format.asprintf "%s->%s" (string_of_type t1) (string_of_type t2)
+
+let string_of_type_declaration tdecl =
+  let open Types in
+  let tdecl_body = match tdecl.tdecl_kind with
+    | Tdecl_inductive constrs ->
+        constrs
+        |> List.map (fun (name, types) ->
+            if List.is_empty types
+            then name
+            else Printf.sprintf "%s of %s" name (List.map string_of_type types |> String.concat " * "))
+        |> String.concat " | "
+    | Tdecl_record _ -> "<record>"
+  in
+  Printf.sprintf "type %s %s = %s"
+    (string_of_list string_of_type tdecl.tdecl_params)
+    tdecl.tdecl_name
+    tdecl_body
+    
 
 let string_of_pure_fn ({ pf_name; pf_params; pf_ret_type; pf_body } : pure_fn_def) : string =
   Format.asprintf "let %s %s : %s = %s" pf_name (String.concat " " (List.map (fun (p, t) -> Format.asprintf "(%s:%s)" p (string_of_type t)) pf_params)) (string_of_type pf_ret_type) (string_of_core_lang pf_body)

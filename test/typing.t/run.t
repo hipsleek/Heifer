@@ -5,11 +5,15 @@
              has_solid: true
           exists_solid: true
   exists_striped_false: false (expected)
+         no_solids_aux: true
+             no_solids: true
   ALL OK!
   $ check inductive_int.ml
                   plus: true
               add_zero: true
             add_zero_2: true
+                  pred: true
+                    id: true
   ALL OK!
   $ check traffic_light.ml
                   step: true

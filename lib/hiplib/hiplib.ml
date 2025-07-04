@@ -286,6 +286,7 @@ let process_intermediates (it : Typedhip.intermediate) prog : string list * core
       [], prog *)
   | Typedef tdecl -> 
       Globals.define_type tdecl;
+      debug ~at:1 ~title:"user type declaration" "%s" (Pretty.string_of_type_declaration tdecl);
       [], prog  
   | Eff _ ->
       todo ()

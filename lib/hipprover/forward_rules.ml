@@ -345,51 +345,20 @@ let rec forward (env: fvenv) (expr : core_lang): staged_spec * fvenv =
   | CPerform _ ->
       failwith "CPerform"
   | CMatch (_, _, discriminant, _, cases) ->
-      let v = fresh_variable () in
+      let v = fresh_variable ~v:"match" () in
       let t = Var v in
       let discriminant_spec, env = forward env discriminant in
       let handle_case (env, past_cases) (pat, body) =
         (* TODO: hard-coded for list now *)
         let body_spec, env = forward env body in
-        let case_spec = match pat with
-          | PConstr ("[]", []) ->
-              let nil_term = Const Nil in
-              let nil_spec = NormalReturn (Atomic (EQ, t, nil_term), EmptyHeap) in
-              Sequence (nil_spec, body_spec)
-          | PConstr ("::", [PVar v1; PVar v2]) ->
-              let cons_term = BinOp (TCons, Var v1, Var v2) in
-              let cons_spec = NormalReturn (Atomic (EQ, t, cons_term), EmptyHeap) in
-              Exists (v1, Exists (v2, Sequence (cons_spec, body_spec)))
-          (* general constructors *)
-          | PConstr _ | PVar _ ->
-              let complement_of_past_cases = List.concat_map Patterns.complement past_cases in
-              let rec pi_of_pattern pat = 
-                match pat with
-                | PAny -> (Variables.fresh_variable ~v:"pat" (), True)
-                | PVar v -> (v, True)
-                | PConstr (name, args) -> 
-                    let v = Variables.fresh_variable ~v:"pat" () in
-                    let subp_names, subp_pis = List.map pi_of_pattern args |> List.split in
-                    (v, And (Atomic (EQ, Var v, Construct (name, List.map (fun arg -> Var arg) subp_names)), Syntax.conj subp_pis))
-                | PConstant c ->
-                    let v = Variables.fresh_variable ~v:"pat" () in
-                    (v, Atomic (EQ, Var v, Const c))
-                | PAlias (subpat, name) ->
-                    let subp_name, subp_pi = pi_of_pattern subpat in
-                    (name, And (Atomic (EQ, Var subp_name, Var name), subp_pi))
-              in
-              let spec_of_pattern pat = 
-                let pattern_name, pattern_formula = pi_of_pattern pat in
-                let pattern_spec = NormalReturn (And (Atomic (EQ, t, Var pattern_name), pattern_formula), EmptyHeap) in
-                pattern_spec
-              in
-              let pattern_spec = Syntax.disj (spec_of_pattern pat :: List.filter_map 
-                  (fun complement_of_past -> Option.map spec_of_pattern (Patterns.intersect pat complement_of_past))
-                complement_of_past_cases) in
-              let pattern_spec_free_vars = Subst.free_vars pattern_spec in
-              Sequence (pattern_spec, body_spec)
-                |> SSet.fold (fun var spec -> Exists (var, spec)) pattern_spec_free_vars
-          | _ -> failwith (Format.asprintf "unknown pattern: %s" (string_of_pattern pat))
+        let case_spec =
+          let disjuncts = 
+            Patterns.exclude pat past_cases
+            |> List.map (Patterns.pi_of_pattern t)
+            |> List.map (fun (free_vars, disjunct) ->
+                List.fold_right (fun var spec -> Exists (var, spec)) free_vars
+                (Sequence ( NormalReturn ( disjunct, EmptyHeap ), body_spec))) in
+            Syntax.disj disjuncts
         in
         case_spec, (env, pat :: past_cases)
       in
