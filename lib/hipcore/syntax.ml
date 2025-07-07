@@ -22,6 +22,8 @@ let v x = Var x
 let var v = Var v
 let num n = Const (Num n)
 let plus x y = BinOp (Plus, x, y)
+let tand x y = BinOp (TAnd, x, y)
+let tnot t = TNot t
 let points_to x y = PointsTo (x, y)
 let pts x y = PointsTo (x, y)
 

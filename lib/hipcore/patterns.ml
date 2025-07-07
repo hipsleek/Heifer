@@ -1,7 +1,7 @@
 open Hiptypes
+open Syntax
 
 let (let*) xs f = List.concat_map f xs
-let (let+) xs f = List.map f xs
 let return x = [x]
 
 let cartesian_product (lists: 'a list list) : 'a list list =
@@ -10,12 +10,12 @@ let cartesian_product (lists: 'a list list) : 'a list list =
 let pattern_of_constr ((name, args) : Types.type_constructor) =
   PConstr (name, List.map (fun _ -> PAny) args)
 
-let strip_bound_names =
-  let visitor = object
-    inherit [_] map_spec
-    method! visit_PVar _ _ = PAny
-  end in
-  visitor#visit_pattern ()
+let rec free_vars_pat pat =
+  match pat with
+  | PAny | PConstant _ -> SSet.empty
+  | PVar v -> SSet.singleton v
+  | PConstr (_, args) -> List.fold_right SSet.union (List.map free_vars_pat args) SSet.empty
+  | PAlias (pat, p) -> SSet.add p (free_vars_pat pat)
 
 (** Return a set of patterns that match terms of the same type as [pat] such that
     - If a term does not match pat, it matches at least one pattern in this list.
@@ -52,30 +52,47 @@ let rec complement pat =
       end
     | PConstant _ -> failwith "constant patterns currently not implemented"
 
+let rec rename_bound_vars bindings pat =
+  let rename_one v = SMap.find_opt v bindings |> Option.value ~default:v in
+  match pat with
+  | PAny | PConstant _ -> pat
+  | PVar v -> PVar (rename_one v)
+  | PAlias (pat, p) -> PAlias (rename_bound_vars bindings pat, rename_one p)
+  | PConstr (name, args) -> PConstr (name, List.map (rename_bound_vars bindings) args)
+
+let rec intersect_two p1 p2 = match p1, p2 with
+  | PAny, other | other, PAny -> return other
+  | PVar name, other | other, PVar name -> return (PAlias (other, name))
+  | PAlias (p, s), other -> 
+      let* overlap = intersect_two p other in
+      return (PAlias (overlap, s))
+  | other, PAlias (p, _) -> intersect_two other p
+  | PConstr (name1, args1), PConstr (name2, args2) when name1 = name2 ->
+      let* args = 
+        List.combine args1 args2
+        |> List.map (fun (arg1, arg2) -> intersect_two arg1 arg2)
+        |> cartesian_product
+      in
+      return (PConstr (name1, args))
+  | _, _ -> []
 
 (** Find the intersection of all pairs of patterns in [pxs] and [pys]. 
-  Only the bound names from patterns in pxs are preserved. *)
-let rec intersect (pxs : pattern list) (pys : pattern list) : pattern list =
-  let rec intersect_two p1 p2 = match p1, p2 with
-    | PAny, other -> return (strip_bound_names other)
-    | PVar name, other -> return (PAlias (strip_bound_names other, name))
-    | other, (PVar _ | PAny) -> return other
-    | PAlias (p, s), other -> 
-        let* overlap = intersect_two p other in
-        return (PAlias (overlap, s))
-    | other, PAlias (p, _) -> intersect_two other p
-    | PConstr (name1, args1), PConstr (name2, args2) when name1 = name2 ->
-        let* args = 
-          List.combine args1 args2
-          |> List.map (fun (arg1, arg2) -> intersect [arg1] [arg2])
-          |> cartesian_product
-        in
-        return (PConstr (name1, args))
-    | _, _ -> []
-  in
+  Bound names from both patterns are preserved. *)
+let intersect (pxs : pattern list) (pys : pattern list) : pattern list =
   let* px = pxs in
   let* py = pys in
   intersect_two px py
+
+let deconflict_renames shared = 
+  shared
+    |> SSet.to_seq
+    |> Seq.map (fun var -> (var, Variables.fresh_variable ~v:"patd" ()))
+    |> SMap.of_seq
+
+(** Renames bound names in p2 as necessary to not conflict with bound names from p1. *)
+let deconflict p1 p2 =
+  let shared = SSet.inter (free_vars_pat p1) (free_vars_pat p2) in
+  rename_bound_vars (deconflict_renames shared) p2
 
 let exclude pat excluded =
   let open Pretty in
@@ -85,11 +102,9 @@ let exclude pat excluded =
     "excluded at inputs %s %s -> %s \n" (string_of_pattern pat) (string_of_list string_of_pattern excluded)
     (string_of_result (string_of_list string_of_pattern) r))
   in
-  List.fold_left intersect [pat] (List.map complement excluded)
+  let to_exclude = List.map (deconflict pat) excluded in
+  List.fold_left intersect [pat] (List.map complement to_exclude)
 
-  (** Generates a pure formula corresponding to [pat_term]
-  matching under the pattern. The corresponding list is
-  the free variables in the formula. *)
 let pi_of_pattern pat_term pat : string list * pi =
   let conjuncts = ref [] in
   let free_vars = ref [] in
@@ -117,6 +132,38 @@ let pi_of_pattern pat_term pat : string list * pi =
   in
   add_conjunct (Atomic (EQ, pat_term, inner pat));
   !free_vars, Syntax.conj !conjuncts
+
+
+module Guarded = struct
+  type t = pattern * term
+
+  let rename_bound_vars bindings ((pat : pattern), (guard : term)) =
+    let term_rebindings = SMap.map (fun dst -> Var dst) bindings |> SMap.to_list in
+    (* refers to the previous definition without guard clauses *)
+    (rename_bound_vars bindings pat, Subst.(subst_free_term_vars Term term_rebindings guard))
+
+  let intersect (p1s : (pattern * term) list) (p2s : (pattern * term) list) =
+    let* p1, g1 = p1s in
+    let* p2, g2 = p2s in
+    let* overlap = intersect_two p1 p2 in
+    return (overlap, tand g1 g2)
+
+  let complement (pat, guard) =
+    (pat, tnot guard) :: (complement pat |> List.map (fun pat -> (pat, Const TTrue)))
+
+  let deconflict (pat1, _) (pat2, guard2) =
+    let shared = SSet.inter (free_vars_pat pat1) (free_vars_pat pat2) in
+    let renames = deconflict_renames shared in
+    rename_bound_vars renames (pat2, guard2)
+
+  let exclude pat excluded =
+    let excluded = List.map (deconflict pat) excluded in
+    List.fold_left intersect [pat] (List.map complement excluded)
+
+  let pi_of_pattern pat_term (pat, guard) =
+    let (free_vars, pi) = pi_of_pattern pat_term pat in
+    (free_vars, And (pi, Atomic (EQ, guard, Const TTrue)))
+end
 
 let setup_tests () = 
   let open Globals in
@@ -157,14 +204,14 @@ let%expect_test "intersect" =
   let output pats = String.concat " | " (List.map Pretty.string_of_pattern pats) |> print_string in
 
   output (intersect [PConstr ("D", [PVar "a"; PVar "b"])] [PConstr ("B", [PVar "x"]); PConstr ("D", [PAny; PConstr ("D", [PAny; PVar "d"])])]);
-  [%expect{| D((_) as a, (D(_, _)) as b) |}];
+  [%expect{| D(a, (D(_, d)) as b) |}];
 
   output (intersect [PConstr ("B", [PAny])] [PConstr ("D", [PAny; PAny])]);
   [%expect{| |}];
 
   output (intersect [PConstr ("D", [PConstr ("D", [PVar "z"; PAny]); PAny])] 
     [PConstr ("D", [PAny; PConstr ("D", [PAny; PVar "y"])])]);
-  [%expect{| D(D(z, _), D(_, _)) |}];
+  [%expect{| D(D(z, _), D(_, y)) |}];
 ;;
 
 let%expect_test "exclude" =
