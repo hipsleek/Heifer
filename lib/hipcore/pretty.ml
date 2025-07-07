@@ -279,7 +279,14 @@ and string_of_intermediate (i : intermediate) =
   | Typedef _ -> "[type definition]"
 
 and string_of_constr_cases cs =
-  cs |> List.map (fun (pat, body) -> Format.asprintf "| %s -> %s" (string_of_pattern pat) (string_of_core_lang body)) |> String.concat "\n"
+  cs
+    |> List.map (fun case -> Format.asprintf "| %s%s -> %s" 
+      (string_of_pattern case.ccase_pat)
+      (match case.ccase_guard with
+        | None -> ""
+        | Some guard -> Format.asprintf " when %s" (string_of_term guard))
+      (string_of_core_lang case.ccase_expr))
+    |> String.concat "\n"
 
 and string_of_core_handler_ops hs =
   List.map (fun (name, v, spec, body) ->
@@ -646,11 +653,13 @@ and pp_pattern ppf pat =
   | PConstr (name, args) -> pp_call_like pp_pattern ppf (name, args)
   | PConstant c -> pp_constant ppf c
   | PAlias (p, s) -> Format.fprintf ppf "@[%a@ as@ %s@]" pp_pattern p s
+and pp_constr_case ppf case =
+  Format.(fprintf ppf "@[@ |@ %a%a@ ->@ %a@]" 
+    pp_pattern case.ccase_pat
+    (pp_print_option pp_term) case.ccase_guard
+    pp_core_lang case.ccase_expr)
 and pp_constr_cases ppf cases = 
   let open Format in
-  let pp_constr_case ppf (pat, body) =
-    Format.(fprintf ppf "@[@ |@ %a@ ->@ %a@]" pp_pattern pat pp_core_lang body)
-  in
   pp_print_list ~pp_sep:(fun ppf () -> Format.fprintf ppf "@,") pp_constr_case ppf cases
 and pp_core_lang ppf core =
   let open Format in

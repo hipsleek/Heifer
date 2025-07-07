@@ -30,7 +30,12 @@ and term =
 and core_handler_ops = (string * string option * staged_spec option * core_lang) list
 (* x :: xs -> e is represented as ("::", [x, xs], e) *)
 (* effect work; let's group them into a single blob *)
-and constr_cases = (pattern * core_lang) list
+and constr_case = {
+  ccase_pat : pattern;
+  ccase_guard : term option;
+  ccase_expr : core_lang
+}
+and constr_cases = constr_case list
 and pattern =
   | PVar of string
   | PConstr of (string * pattern list)

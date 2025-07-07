@@ -430,7 +430,9 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
               let pat = {pattern_desc; pattern_type = hip_type_of_type_expr pat.pat_type} in
               pat
             in
-            (fun pat -> (pat, transformation bound_names c.c_rhs)) (transform_pattern pat)
+            { ccase_pat = transform_pattern pat;
+              ccase_guard = Option.map expr_to_term c.c_guard;
+              ccase_expr = transformation bound_names c.c_rhs }
         | _ -> failwith "Unknown pattern" )
     in
     {core_desc = CMatch (Deep, None, transformation bound_names e, effs, pattern_cases); core_type = exp_hip_type}

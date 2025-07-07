@@ -389,7 +389,9 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
         | _ -> failwith (Format.asprintf "Unsupported pattern %a" Pprintast.pattern pat)
       in
       (* may be empty for non-effect pattern matches *)
-      cases |> List.filter_map (fun case -> Option.map (fun pat -> (pat, transformation bound_names case.pc_rhs)) (transform_pattern case.pc_lhs))
+      cases |> List.filter_map (fun case -> Option.map 
+        (fun pat -> { ccase_pat = pat; ccase_guard = Option.map expr_to_term case.pc_guard; ccase_expr = transformation bound_names case.pc_rhs })
+        (transform_pattern case.pc_lhs))
     in
     (* FIXME properly fill in the handler type and handler specification *)
     CMatch (Deep, None, transformation bound_names e, effs, pattern_cases)

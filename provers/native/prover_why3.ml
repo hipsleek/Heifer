@@ -546,13 +546,13 @@ module LowLevel = struct
       (* and constr_cases = (string * string list * core_lang) list *)
       Term.t_case (expr_to_why3 env scr)
         (List.map
-           (fun (pat, body) ->
+           (fun case ->
              let pat =
-               match pat with
+               match case.ccase_pat with
                | PConstr (c, _) -> failwith (Format.asprintf "unhandled constr %s" c)
                | _ -> failwith "unhandled pattern"
              in
-             Term.t_close_branch pat (expr_to_why3 env body))
+             Term.t_close_branch pat (expr_to_why3 env case.ccase_expr))
            cases)
     | CMatch (_, _, _, _, _) -> failwith "unimplemented effect CMatch"
     | CResume _ -> failwith "unimplemented CResume"
@@ -886,8 +886,10 @@ and core_lang_to_whyml tenv e =
          ( core_lang_to_whyml tenv scr,
            List.map
            (* TODO change to properly model general patterns *)
-             (fun (pattern, body) ->
-               (pattern_to_whyml tenv pattern, core_lang_to_whyml tenv body ))
+             (fun case ->
+               match case.ccase_guard with
+               | Some _ -> failwith "guard expressions not supported in why3"
+               | None -> (pattern_to_whyml tenv case.ccase_pat, core_lang_to_whyml tenv case.ccase_expr))
              cases ))
   | CMatch (_, _, _, _, _) -> failwith "unsupported kind of match"
   | CAssert (_, _) | CLambda (_, _, _) -> failwith "unimplemented"

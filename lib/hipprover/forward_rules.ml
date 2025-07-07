@@ -348,8 +348,9 @@ let rec forward (env: fvenv) (expr : core_lang): staged_spec * fvenv =
       let v = fresh_variable ~v:"match" () in
       let t = Var v in
       let discriminant_spec, env = forward env discriminant in
-      let handle_case (env, past_cases) (pat, body) =
-        (* TODO: hard-coded for list now *)
+      let handle_case (env, past_cases) case =
+        let pat = case.ccase_pat in
+        let body = case.ccase_expr in
         let body_spec, env = forward env body in
         let case_spec =
           let disjuncts = 

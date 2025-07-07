@@ -62,8 +62,13 @@ and retype_staged_spec (staged_spec : Hiptypes.staged_spec) : staged_spec =
   | Hiptypes.Shift _ | Hiptypes.Reset _ -> failwith "TODO: shift/reset not supported"
   | Hiptypes.RaisingEff (p, k, ins, t) -> RaisingEff (retype_pi p, retype_kappa k, retype_instant ins, retype_term t)
   | Hiptypes.TryCatch (p, k, trycatch, t) -> TryCatch (retype_pi p, retype_kappa k, retype_trycatch trycatch, retype_term t)
+and retype_constr_case ({ccase_pat; ccase_guard; ccase_expr} : Hiptypes.constr_case) : constr_case =
+  { ccase_pat = retype_pattern ccase_pat;
+    ccase_guard = Option.map retype_term ccase_guard;
+    ccase_expr = retype_core_lang ccase_expr
+  }
 and retype_constr_cases (cases : Hiptypes.constr_cases) : constr_cases =
-  List.map (fun (pat, value) -> (retype_pattern pat, retype_core_lang value)) cases
+  List.map retype_constr_case cases
 and retype_pattern (pat : Hiptypes.pattern) : pattern =
   let pattern_desc = match pat with
   | PAny -> PAny

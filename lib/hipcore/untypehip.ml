@@ -84,8 +84,13 @@ and untype_pattern (pat : pattern) : Hiptypes.pattern =
   | PConstr (name, args) -> PConstr (name, List.map untype_pattern args)
   | PConstant c -> PConstant c
   | PAlias (p, s) -> PAlias (untype_pattern p, s)
+and untype_constr_case ({ccase_pat; ccase_guard; ccase_expr} : constr_case) : Hiptypes.constr_case =
+  { ccase_pat = untype_pattern ccase_pat;
+    ccase_guard = Option.map untype_term ccase_guard;
+    ccase_expr = untype_core_lang ccase_expr
+  }
 and untype_constr_cases (cases : constr_cases) : Hiptypes.constr_cases =
-  List.map (fun (pat, body) -> (untype_pattern pat, untype_core_lang body)) cases
+  List.map untype_constr_case cases
 and untype_tryCatchLemma (tcl : tryCatchLemma) : Hiptypes.tryCatchLemma =
   let (head, handled_cont, summary) = tcl in
   (untype_staged_spec head, Option.map untype_staged_spec handled_cont, untype_staged_spec summary)
