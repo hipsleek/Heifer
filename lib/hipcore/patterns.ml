@@ -127,6 +127,7 @@ let pi_of_pattern pat_term pat : string list * pi =
         Var v
     | PAlias (p, v) ->
         let inner_term = inner p in
+        add_free_var v;
         add_conjunct (Atomic (EQ, Var v, inner_term));
         Var v
   in
@@ -149,7 +150,14 @@ module Guarded = struct
     return (overlap, tand g1 g2)
 
   let complement (pat, guard) =
-    (pat, tnot guard) :: (complement pat |> List.map (fun pat -> (pat, Const TTrue)))
+    let structural = (complement pat |> List.map (fun pat -> (pat, Const TTrue))) in
+    match guard with
+    (* the guard is always false, so this pattern is empty *)
+    | Const TFalse -> [(PAny, Const TTrue)] 
+    (* the guard is always true, so the pattern is always matched against *)
+    | Const TTrue -> structural
+    (* generally, add the negated guarded pattern to the complement list *)
+    | _ -> (pat, tnot guard)::structural
 
   let deconflict (pat1, _) (pat2, guard2) =
     let shared = SSet.inter (free_vars_pat pat1) (free_vars_pat pat2) in

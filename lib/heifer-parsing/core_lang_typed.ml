@@ -116,13 +116,19 @@ let rec expr_to_term (expr:expression) : term =
     | Texp_ident (_, ident, _) -> Var (String.concat "." (Longident.flatten ident.txt))
     | Texp_apply ({exp_desc = Texp_ident (_, {txt=Lident i; _}, _); _}, [(_, Some a); (_, Some b)]) ->
         let op = begin match i with
-        | "^" -> SConcat
-        | "+" -> Plus
-        | "-" -> Minus
+        | "^" -> fun lhs rhs -> BinOp (SConcat, lhs, rhs)
+        | "+" -> fun lhs rhs -> BinOp (Plus, lhs, rhs)
+        | "-" -> fun lhs rhs -> BinOp (Minus, lhs, rhs)
+        | "&&" -> fun lhs rhs -> BinOp (TAnd, lhs, rhs)
+        | "<=" -> fun lhs rhs -> Rel (LTEQ, lhs, rhs)
+        | ">=" -> fun lhs rhs -> Rel (GTEQ, lhs, rhs)
+        | ">" -> fun lhs rhs -> Rel (GT, lhs, rhs)
+        | "<" -> fun lhs rhs -> Rel (LT, lhs, rhs)
+        | "=" -> fun lhs rhs -> Rel (EQ, lhs, rhs)
         | _ -> failwith (Format.asprintf "unknown op %s" i)
         end
         in
-        BinOp (op, expr_to_term a, expr_to_term b)
+        op (expr_to_term a) (expr_to_term b)
     | _ -> failwith (Format.asprintf "unknown term %a" Pprintast.expression (Untypeast.untype_expression expr))
   in
   let term_type = hip_type_of_type_expr expr.exp_type in

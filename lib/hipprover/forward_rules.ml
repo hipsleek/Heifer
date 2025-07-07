@@ -350,23 +350,26 @@ let rec forward (env: fvenv) (expr : core_lang): staged_spec * fvenv =
       let discriminant_spec, env = forward env discriminant in
       let handle_case (env, past_cases) case =
         let pat = case.ccase_pat in
+        let guard = Option.value case.ccase_guard ~default:(Const TTrue) in
         let body = case.ccase_expr in
         let body_spec, env = forward env body in
+        let open Patterns.Guarded in
         let case_spec =
           let disjuncts = 
-            Patterns.exclude pat past_cases
-            |> List.map (Patterns.pi_of_pattern t)
+            exclude (pat, guard) past_cases
+            |> List.concat_map (fun pat -> exclude pat past_cases)
+            |> List.map (Patterns.Guarded.pi_of_pattern t)
             |> List.map (fun (free_vars, disjunct) ->
                 List.fold_right (fun var spec -> Exists (var, spec)) free_vars
                 (Sequence ( NormalReturn ( disjunct, EmptyHeap ), body_spec))) in
             Syntax.disj disjuncts
         in
-        case_spec, (env, pat :: past_cases)
+        case_spec, (env, (pat, guard)::past_cases)
       in
       (* TODO in the presence of general patterns this is actually wrong, every pattern should exclude the possibility of the patterns preceding it
          in the match statement
          this needs some way to find the complement of a pattern, since spec doesn't allow for negative exists (whether expliclitly or via forall + conjunction) *)
-      let cases_spec, (env, _) = Lists.map_state handle_case (env, []) cases in
+  let cases_spec, (env, _) = Lists.map_state handle_case (env, []) cases in
       let disj_spec = Syntax.disj cases_spec in
       Bind (v, discriminant_spec, disj_spec), env
   | CResume _ ->
