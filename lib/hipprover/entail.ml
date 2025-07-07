@@ -693,7 +693,7 @@ let create_induction_hypothesis (ps : pstate) name : pctx =
   in
   let pctx, f1, f2 = ps in
   let free =
-    SSet.union (Subst.free_vars f1) (Subst.free_vars f2)
+    SSet.union Subst.(free_vars Staged f1) Subst.(free_vars Staged f2)
     |> SSet.remove "res" (* this isn't a free var; it's bound by ens *)
     |> SSet.remove name (* the function itself isn't free *)
     |> SSet.to_list
