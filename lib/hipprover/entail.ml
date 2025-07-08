@@ -772,7 +772,8 @@ let rec handle_pure_ens_lhs (pctx : pctx) f =
   | NormalReturn (p, EmptyHeap) when not (Variables.is_eq_res p) ->
       add_assumption pctx p, NormalReturn (True, EmptyHeap)
   | Sequence (NormalReturn (p, EmptyHeap), f') when not (Variables.is_eq_res p) ->
-      add_assumption pctx p, f'
+      let pctx = add_assumption pctx p in
+      handle_pure_ens_lhs pctx f'
   | _ ->
       pctx, f
 
@@ -782,7 +783,7 @@ let rec handle_pure_ens_rhs (pctx : pctx) f =
   | NormalReturn (p, EmptyHeap) when not (Variables.is_eq_res p) ->
       if prove_pure_fact pctx p then Some (NormalReturn (True, EmptyHeap)) else None
   | Sequence (NormalReturn (p, EmptyHeap), f') when not (Variables.is_eq_res p) ->
-      if prove_pure_fact pctx p then Some f' else None
+      if prove_pure_fact pctx p then handle_pure_ens_rhs pctx f' else None
   | _ ->
       Some f
 
@@ -790,16 +791,32 @@ let rec handle_pure_req_rhs _ = Misc.todo ()
 
 let rec handle_pure_req_lhs _ = Misc.todo ()
 
+let suppress_exn ~title ~default (f : unit -> 'a) : 'a =
+  try
+    f ()
+  with e ->
+    debug ~at:5 ~title "%s" (Printexc.to_string e);
+    default
+
+let suppress_z3_exn ~title ~default (f : unit -> 'a) : 'a =
+  try
+    f ()
+  with Z3.Error _ as e ->
+    debug ~at:5 ~title "%s" (Printexc.to_string e);
+    default
+
 let rec apply_ent_rule ?name : tactic =
  fun (pctx, f1, f2) k ->
   let pctx, f1 = handle_pure_ens_lhs pctx f1 in
-  match handle_pure_ens_rhs pctx f2 with
-  | None -> fail
-  | Some f2 ->
+  let f2 = match handle_pure_ens_rhs pctx f2 with
+    | None -> f2
+    | Some f2 -> f2
+  in
   let open Syntax in
   match (f1, f2) with
   (* base case *)
-  | NormalReturn (True, EmptyHeap), NormalReturn (True, EmptyHeap) ->
+  | NormalReturn (True, EmptyHeap), NormalReturn (True, EmptyHeap)
+  | Require (True, EmptyHeap), Require (True, EmptyHeap) ->
     (* | Require (True, EmptyHeap), Require (True, EmptyHeap) -> *)
     k (pctx, ens (), ens ())
   (* | ( Sequence (NormalReturn (True, EmptyHeap), f1),
@@ -982,7 +999,11 @@ let rec apply_ent_rule ?name : tactic =
         (conj (pctx.assumptions @ [p1; ap; Heap.xpure h1]))
         (conj [p2; fp; Heap.xpure h2])
     in
-    if valid then entailment_search ?name (pctx, req ~h:ah (), req ~h:fh ()) k
+    if valid then begin
+      debug ~at:5 ~title:"ent: ens ens valid" "";
+      entailment_search ?name (pctx, req ~h:ah (), req ~h:fh ()) k
+    end else
+      debug ~at:5 ~title:"ent: ens ens not valid" ""
   | Require (p1, h1), Require (p2, h2) ->
     let@ _ =
       span (fun _r -> log_proof_state ~title:"ent: req req" (pctx, f1, f2))
@@ -1055,46 +1076,44 @@ let rec apply_ent_rule ?name : tactic =
     let choices =
       try_constants pctx
       |> List.map (fun c ->
-             try
-               let f4 = Subst.subst_free_vars [(x, c)] f4 in
-               fun k1 ->
-                 try
-                 let@ _ =
-                   span (fun _r ->
-                       log_proof_state
-                         ~title:
-                           (Format.asprintf "ent: exists on the right; [%s/%s]"
-                              (string_of_term c) x)
-                         (pctx, f1, f2))
-                 in
-                 entailment_search ?name (pctx, f1, f4) k1
-                with _ -> debug ~at:5 ~title:"ERROR" ""; fail
-             with _ ->
-               debug ~at:5 ~title:"ERROR" "";
-               fun _ -> fail)
+          let@ _ = suppress_exn
+            ~title:"ERROR: exists on the right, subst step"
+            ~default:(fun _ -> fail)
+          in
+          let f4 = Subst.subst_free_vars [(x, c)] f4 in
+          fun k1 ->
+            let@ _ = suppress_z3_exn
+              ~title:"ERROR: exists on the right, entailment step"
+              ~default:fail
+            in
+            let@ _ =
+              span (fun _r -> log_proof_state
+                ~title:(Format.asprintf "ent: exists on the right; [%s/%s]" (string_of_term c) x)
+                (pctx, f1, f2))
+            in
+            entailment_search ?name (pctx, f1, f4) k1)
     in
     disj_ choices k
   | ForAll (x, f3), f2 ->
     let choices =
       try_constants pctx
       |> List.map (fun c ->
-             try
-               let f3 = Subst.subst_free_vars [(x, c)] f3 in
-               fun k1 ->
-                 try
-                 let@ _ =
-                   span (fun _r ->
-                       log_proof_state
-                         ~title:
-                           (Format.asprintf "ent: forall on the left; [%s/%s]"
-                              (string_of_term c) x)
-                         (pctx, f1, f2))
-                 in
-                 entailment_search ?name (pctx, f3, f2) k1
-                 with _ -> debug ~at:5 ~title:"ERROR" ""; fail
-             with _ ->
-               debug ~at:5 ~title:"ERROR" "";
-               fun _ -> fail)
+          let@ _ = suppress_exn
+            ~title:"ERROR: forall on the left, subst step"
+            ~default:(fun _ -> fail)
+          in
+          let f3 = Subst.subst_free_vars [(x, c)] f3 in
+          fun k1 ->
+            let@ _ = suppress_z3_exn
+              ~title:"ERROR: forall on the left, entailment step"
+              ~default:fail
+            in
+            let@ _ =
+              span (fun _r -> log_proof_state
+                ~title:(Format.asprintf "ent: forall on the left; [%s/%s]" (string_of_term c) x)
+                (pctx, f1, f2))
+            in
+            entailment_search ?name (pctx, f3, f2) k1)
     in
     disj_ choices k
   (* bind, which requires alpha equivalence *)
