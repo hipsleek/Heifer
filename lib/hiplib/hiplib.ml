@@ -140,10 +140,11 @@ let report_error ~kind ~name ~error =
   begin
     if !test_mode
     then
-      Format.printf "%20s: error" (truncate_name name) 
-    else
+      Format.printf "%20s: error@." (truncate_name name)
+    else begin
       print_string (report_header ~kind ~name);
-      Format.printf "error occurred: %s (set DEBUG env var for details)\n" error;
+      Format.printf "error occurred: %s (set DEBUG env var for details)\n" error
+    end;
   end;
   Globals.Timing.update_totals ()
 
