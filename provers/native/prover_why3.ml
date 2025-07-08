@@ -691,7 +691,7 @@ module LowLevel = struct
               (* Format.printf "translating %s@." _k; *)
               pure_fn_to_logic_fn env v)
             (Globals.pure_fns ()
-            (* |> List.map (fun (name, fn) -> (name, Hipcore.Typedhip.Untypehip.untype_pure_fn_def fn)) *)
+            |> List.map (fun (name, fn) -> (name, Hipcore.Untypehip.untype_pure_fn_def fn))
             )
         in
         match fns with [] -> task1 | _ :: _ -> Task.add_logic_decl task1 fns
@@ -984,6 +984,7 @@ let prove tenv qtf f =
         let ff =
           List.map
             (fun (k, fn) ->
+              let fn = Untypehip.untype_pure_fn_def fn in
               {
                 ld_loc = Loc.dummy_position;
                 ld_ident = ident k;
@@ -1051,7 +1052,6 @@ let prove tenv qtf f =
     let imports =
       let extra =
         Globals.global_environment.pure_fn_types
-        (* |> SMap.map Hipcore.Typedhip.Untypehip.untype_pure_fn_type_def *)
         |> SMap.bindings
         |> List.map (fun (_, p) -> p.pft_logic_path)
         |> List.sort_uniq compare

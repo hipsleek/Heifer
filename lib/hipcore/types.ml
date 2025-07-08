@@ -166,3 +166,12 @@ let simplify_vartypes env =
 (* concrete type environment, where every variable has a concrete type *)
 type typ_env = typ SMap.t
 (* A map giving type variables possibly-concrete types *)
+
+(* Definitions of a pure function's type *)
+type pure_fn_type_def = {
+  pft_name: string;
+  pft_logic_path: string list;
+  pft_logic_name: string;
+  pft_params: typ list;
+  pft_ret_type: typ;
+}

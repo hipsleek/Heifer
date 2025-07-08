@@ -402,9 +402,10 @@ let rec infer_types_staged_spec ss : staged_spec using_env =
   | HigherOrder (f, args) ->
       let* args = Env_state.map ~f:infer_types_term args in
       return (HigherOrder (f, args))
-  | Shift (b, k, spec) ->
+  | Shift (b, k, spec, x, cont) ->
       let* spec = infer_types_staged_spec spec in
-      return (Shift (b, k, spec))
+      let* cont = infer_types_staged_spec cont in
+      return (Shift (b, k, spec, x, cont))
   | Reset spec ->
       let* spec = infer_types_staged_spec spec in
       return (Reset spec)

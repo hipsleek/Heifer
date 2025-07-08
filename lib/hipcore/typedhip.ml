@@ -126,7 +126,7 @@ and staged_spec =
   (* this constructor is also used for inductive predicate applications *)
   (* f$(x, y) is HigherOrder(..., ..., (f, [x]), y) *)
   | HigherOrder of string * term list
-  | Shift of bool * string * staged_spec (* see CShift for meaning of bool *)
+  | Shift of bool * string * staged_spec * string * staged_spec (* see CShift for meaning of bool *)
   | Reset of staged_spec
   | Sequence of staged_spec * staged_spec
   | Bind of string * staged_spec * staged_spec
@@ -200,13 +200,7 @@ type pure_fn_def = {
   pf_body: core_lang;
 }
 
-type pure_fn_type_def = {
-  pft_name: string;
-  pft_logic_path: string list;
-  pft_logic_name: string;
-  pft_params: typ list;
-  pft_ret_type: typ;
-}
+type pure_fn_type_def = Types.pure_fn_type_def
 
 type intermediate =
   | Eff of string

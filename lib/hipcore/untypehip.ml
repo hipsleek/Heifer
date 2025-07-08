@@ -1,4 +1,5 @@
 open Typedhip
+open Common
 
 let ident_of_binder (name, _ : binder) : string = name
 let hiptypes_typ t = t
@@ -111,11 +112,8 @@ match s with
     Hiptypes.NormalReturn (untype_pi phi, untype_kappa h)
 | HigherOrder (f, t) ->
     Hiptypes.HigherOrder (f, List.map untype_term t)
-| Shift (is_shift, k, spec) ->
-    (* TODO: shiftc *)
-    let x = Variables.fresh_variable "x" in
-    let cont = Syntax.(ens ~p:(eq Variables.res_var (var x)) ()) in
-    Hiptypes.Shift (is_shift, k, untype_staged_spec spec, x, cont)
+| Shift (is_shift, k, spec, x, cont) ->
+    Hiptypes.Shift (is_shift, k, untype_staged_spec spec, x, untype_staged_spec cont)
 | Disjunction (f1, f2) ->
     Hiptypes.Disjunction (untype_staged_spec f1, untype_staged_spec f2)
 | Sequence (f1, f2) ->
@@ -147,3 +145,35 @@ let untype_lemma Typedhip.{ l_name; l_params; l_left; l_right } =
     l_left = untype_staged_spec l_left;
     l_right = untype_staged_spec l_right;
   }
+
+let untype_pure_fn_def Typedhip.{ pf_name; pf_params; pf_ret_type; pf_body } : Hiptypes.pure_fn_def =
+  { pf_name;
+    pf_params;
+    pf_ret_type;
+    pf_body = untype_core_lang pf_body; }
+
+let untype_meth_def Typedhip.{ m_name; m_params; m_spec; m_body; m_tactics } : Hiptypes.meth_def =
+  { m_name;
+    m_params = List.map ident_of_binder m_params;
+    m_spec = Option.map untype_staged_spec m_spec;
+    m_body = untype_core_lang m_body;
+    m_tactics }
+
+let untype_pred_def Typedhip.{p_name; p_params; p_body; p_rec} : Hiptypes.pred_def =
+  { p_name;
+    p_params = List.map ident_of_binder p_params;
+    p_body = untype_staged_spec p_body;
+    p_rec }
+
+let untype_sl_pred_def Typedhip.{p_sl_ex; p_sl_name; p_sl_params; p_sl_body} : Hiptypes.sl_pred_def =
+  { p_sl_ex = List.map ident_of_binder p_sl_ex;
+    p_sl_name;
+    p_sl_params = List.map ident_of_binder p_sl_params;
+    p_sl_body = untype_state p_sl_body }
+
+let untype_core_program Typedhip.{ cp_effs; cp_predicates; cp_sl_predicates; cp_lemmas; cp_methods } : Hiptypes.core_program =
+  { cp_effs;
+    cp_predicates = SMap.map untype_pred_def cp_predicates;
+    cp_sl_predicates = SMap.map untype_sl_pred_def cp_sl_predicates;
+    cp_lemmas = SMap.map untype_lemma cp_lemmas;
+    cp_methods = List.map untype_meth_def cp_methods }

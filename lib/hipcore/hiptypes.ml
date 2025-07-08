@@ -289,13 +289,7 @@ type pure_fn_def = {
   pf_body: core_lang;
 }
 
-type pure_fn_type_def = {
-  pft_name: string;
-  pft_logic_path: string list;
-  pft_logic_name: string;
-  pft_params: typ list;
-  pft_ret_type: typ;
-}
+type pure_fn_type_def = Types.pure_fn_type_def
 
 (** A lemma is an entailment [f(x, ...) <: spec]. The left side is restricted to be a function stage (without loss of generality). Some of x, ... may be parameters, but some may not be. *)
 type lemma = {

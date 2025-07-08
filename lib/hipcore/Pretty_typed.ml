@@ -201,3 +201,178 @@ let string_of_meth_def m =
 let string_of_program (cp:core_program) :string =
   List.map string_of_meth_def cp.cp_methods |> String.concat "\n\n"
 
+open Pretty
+
+let pp_bin_op ppf op =
+  Format.fprintf ppf "%s" (string_of_bin_op op)
+
+let pp_binder ppf (str, typ) =
+  Format.fprintf ppf "%s@ :@ %s" str (string_of_type typ)
+
+let pp_bin_term_op ppf op =
+  Format.fprintf ppf "%s" (string_of_bin_term_op op)
+
+let pp_constant ppf c =
+  Format.fprintf ppf "%s" (string_of_constant c)
+
+let rec pp_term ppf t =
+  let open Format in
+  match t.term_desc with
+  | Const c -> fprintf ppf "%a" pp_constant c
+  | BinOp (op, lhs, rhs) -> fprintf ppf "@[<hov 1>(%a@ %a@ %a)@]"
+    pp_term lhs pp_bin_term_op op pp_term rhs
+  | Rel (op, lhs, rhs) -> fprintf ppf "@[<hov 1>(%a@ %a@ %a)@]"
+    pp_term lhs pp_bin_op op pp_term rhs
+  | TNot t -> fprintf ppf "@[<hov 1>~(%a)@]" pp_term t
+  | Var v -> fprintf ppf "%s" v
+  | TApp (op, args) -> pp_call_like pp_term ppf (op, args)
+  | Construct (name, args) -> pp_call_like pp_term ppf (name, args)
+  | TLambda (_name, params, sp, body) -> pp_lambda_like ppf (params, sp, body)
+  (* | TList args ->
+      fprintf ppf "[@[<hov 1>%a@]]"
+      (pp_print_list ~pp_sep:(fun ppf () -> fprintf ppf ";@ ") pp_term) args *)
+  | TTuple args ->
+      fprintf ppf "(@[<hov 1>%a@])"
+      (pp_print_list ~pp_sep:(fun ppf () -> fprintf ppf ",@ ") pp_term) args
+and pp_call_like : 'a. (Format.formatter -> 'a -> unit) -> Format.formatter -> string * 'a list -> unit
+  = fun pp_arg ppf (f, args) ->
+  let open Format in
+    fprintf ppf "@[<hov 1>%s(@[<hov>%a@])@]" f
+    (pp_print_list ~pp_sep:(fun ppf () -> fprintf ppf ",@ ") pp_arg) args
+and pp_lambda_like ppf (params, spec, body) =
+  let open Format in
+  fprintf ppf "@[(fun@ %a@ @[<hov 1>@ (*@@@ %a@ @@*)@ %a@])@]"
+    (pp_print_list ~pp_sep:(fun ppf () -> fprintf ppf ",@ ") pp_binder) params
+    (pp_print_option pp_staged_spec) spec
+    (pp_print_option (fun ppf body -> fprintf ppf "@ ->@ %a" pp_core_lang body)) body
+and pp_pi ppf p =
+  let open Format in
+  match p with
+  | True -> fprintf ppf "true"
+  | False -> fprintf ppf "false"
+  | And (p1, p2) -> fprintf ppf "@[<hov 1>%a@ /\\@ %a@]"
+      pp_pi p1 pp_pi p2
+  | Or (p1, p2) -> fprintf ppf "@[<hov 1>%a@ \\/@ %a@]"
+      pp_pi p1 pp_pi p2
+  | Not p -> fprintf ppf "@[<hov 1>~(%a)@]"
+      pp_pi p
+  | Imply (p1, p2) -> fprintf ppf "@[<hov 1>(%a)@]@ =>@ @[<hov>(%a)@]"
+      pp_pi p1 pp_pi p2
+  | Predicate (name, args) -> pp_call_like pp_term ppf (name, args)
+  | Subsumption (t1, t2) -> fprintf ppf "@[<hov 1>(%a)@]@ <:@ @[<hov>(%a)@]"
+      pp_term t1 pp_term t2
+  | Atomic (rel, t1, t2) -> fprintf ppf "@[<hov 1>(%a@ %a@ %a)@]"
+    pp_term t1 pp_bin_op rel pp_term t2
+and pp_kappa ppf k =
+  let open Format in
+  match k with
+  | EmptyHeap -> fprintf ppf "emp"
+  | PointsTo (loc, t) -> fprintf ppf "@[%s@ ->@ @[<hov 1>(%a)@]@]" loc pp_term t
+  | SepConj (k1, k2) -> fprintf ppf "@[<hov 1>(%a)@]@ *@ @[<hov>(%a)@]"
+    pp_kappa k1 pp_kappa k2
+and pp_staged_spec ppf spec =
+  let open Format in
+  match spec with
+  | Exists (v, spec) ->
+    fprintf ppf "@[<hov 1>ex@ %a.@ @[<hov 1>%a@]@]"
+    pp_binder v
+    pp_staged_spec spec
+  | Require (p, k) ->
+    fprintf ppf "@[req@ (@[<hov 1>%a@ /\\@ %a@])@]"
+    pp_pi p pp_kappa k
+  | NormalReturn (p, k) ->
+    fprintf ppf "@[ens@ (@[<hov 1>%a@ /\\@ %a@])@]"
+    pp_pi p pp_kappa k
+  | HigherOrder (f, args) -> pp_call_like pp_term ppf (f, args)
+  | Shift (z, k, spec, _x, _cont) ->
+      fprintf ppf "@[%s(@[<hov 1>%s.@ %a@])@]"
+      (if z then "sh" else "sh0")
+      k
+      pp_staged_spec spec
+  | Reset spec ->
+      fprintf ppf "@[%s(@[<hov 1>%a@])@]"
+      "rs"
+      pp_staged_spec spec
+  | Sequence (s1, s2) ->
+      fprintf ppf "@[<hov 1>(%a;@ %a)@]"
+      pp_staged_spec s1
+      pp_staged_spec s2
+  | Bind (v, s1, s2) ->
+      fprintf ppf "@[<hov 1>let@ %s@ =@ @[<hov 1>%a@]@ in@ @[<hov 1>(%a)@]@]"
+      v
+      pp_staged_spec s1
+      pp_staged_spec s2
+  | Disjunction (s1, s2) ->
+      fprintf ppf "@[(%a@ \\/@ %a@]"
+      pp_staged_spec s1
+      pp_staged_spec s2
+  (* the remaining cases are effect-related, no need to prettify for now *)
+  | s -> pp_print_string ppf (string_of_staged_spec (Untypehip.untype_staged_spec s))
+and pp_try_catch_lemma ppf (head, cont, summary) =
+  Format.(fprintf ppf "@[TRY@ %a@ %a@ =>@ %a@]"
+    pp_staged_spec head
+    (pp_print_option (fun ppf spec -> fprintf ppf "#@ %a" pp_staged_spec spec)) cont
+    pp_staged_spec summary)
+and pp_pattern ppf pat =
+  match pat.pattern_desc with
+  | PAny -> Format.pp_print_string ppf "_"
+  | PVar v -> Format.fprintf ppf "@[%s@]" (fst v)
+  | PConstr (name, args) -> pp_call_like pp_pattern ppf (name, args)
+  | PConstant c -> pp_constant ppf c
+  | PAlias (p, s) -> Format.fprintf ppf "@[%a@ as@ %s@]" pp_pattern p s
+and pp_constr_case ppf case =
+  Format.(fprintf ppf "@[@ |@ %a%a@ ->@ %a@]" 
+    pp_pattern case.ccase_pat
+    (pp_print_option pp_term) case.ccase_guard
+    pp_core_lang case.ccase_expr)
+and pp_constr_cases ppf cases = 
+  let open Format in
+  pp_print_list ~pp_sep:(fun ppf () -> Format.fprintf ppf "@,") pp_constr_case ppf cases
+and pp_core_lang ppf core =
+  let open Format in
+  match core.core_desc with
+  | CValue v -> fprintf ppf "@[%a@]" pp_term v
+  | CLet (v, e1, e2) ->
+      fprintf ppf "@[let@ %a@ =@ @[<hov 1>%a@]@;in@ @[<hov 1>(%a)@]@]"
+      pp_binder v 
+      pp_core_lang e1
+      pp_core_lang e2
+  | CSequence (e1, e2) ->
+      fprintf ppf "@[%a;@ %a@]"
+        pp_core_lang e1
+        pp_core_lang e2
+  | CIfElse (pi, t, e) -> fprintf ppf "@[if@ %a@ then@ @[<hov>%a@]@ else@ @[<hov>%a@]@]"
+      pp_pi pi pp_core_lang t pp_core_lang e
+  | CFunCall (f, xs) -> pp_call_like pp_term ppf (f, xs)
+  | CWrite (v, e) -> fprintf ppf "@[%s@ :=@ %a@]" v pp_term e
+  | CRef v -> fprintf ppf "@[ref@ %a@]" pp_term v
+  | CRead v -> fprintf ppf "@[!%s]" v
+  | CAssert (p, h) -> fprintf ppf "@[assert@ (@[<hov>%a@ /\\@ %a@])@]"
+    pp_pi p pp_kappa h
+  | CPerform (eff, arg) ->
+      fprintf ppf "@[perform@ %s@ %a@]" eff (pp_print_option pp_term) arg
+  | CMatch (typ, spec, e, hs, cs) ->
+      let pp_core_handler_ops =
+        let pp_handler ppf (name, v, spec, body) =
+          fprintf ppf "|@ %a@ k@ %a@ ->@ %a@]"
+          (fun ppf (name, v) -> match v with
+            | None -> pp_print_string ppf name
+            | Some v -> fprintf ppf "(%s@ %s)" name v) (name, v)
+          (pp_print_option pp_staged_spec) spec
+          pp_core_lang body
+        in
+        pp_print_list pp_handler
+      in
+      fprintf ppf "@[match[%s]@ (%a)@ with@,%a@,%a@,%a@]"
+      (string_of_handler_type typ)
+      (pp_print_option pp_try_catch_lemma) spec
+      pp_core_lang e
+      pp_core_handler_ops hs
+      pp_constr_cases cs
+  | CResume args -> fprintf ppf "@[continue@ %a@]" (pp_print_list pp_term) args
+  | CLambda (xs, spec, e) -> pp_lambda_like ppf (xs, spec, Some e)
+  | CShift (b, k, e) -> fprintf ppf "@[%s@ %a@ ->@ %a@]"
+    (if b then "Shift" else "Shift0")
+    pp_binder k
+    pp_core_lang e
+  | CReset e -> fprintf ppf "@[<%a>@]" pp_core_lang e

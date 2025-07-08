@@ -1,15 +1,15 @@
 (* open Hipprover *)
 (* we need to clean up the imports here *)
 open Hipcore
-module Pretty = Pretty
 module Debug = Debug
-module Common = Hiptypes
+open Typedhip
+open Common
+open Pretty_typed
 open Ocaml_compiler
 open Asttypes
 (* get rid of the alias *)
 type string = label
 open Debug
-open Hiptypes
 (* open Normalize *)
 (** Re-export Env, since it gets shadowed by another declaration later on. *)
 module Compiler_env = Env
@@ -95,7 +95,6 @@ let report_header ~kind ~name =
   Format.sprintf "\n========== %s: %s ==========\n" kind name
 
 let normal_report ~kind ~name ~inferred_spec ~given_spec ~result =
-  let open Pretty in
   let header = report_header ~kind ~name in
   let inferred_spec_string =
     Format.asprintf
@@ -157,15 +156,16 @@ let infer_spec (prog : core_program) (meth : meth_def) =
   let open Hipprover.Forward_rules in
   let method_env = prog.cp_methods
     (* within a method body, params/locals should shadow functions defined outside *)
-    |> List.filter (fun m -> not (List.mem m.m_name meth.m_params))
+    |> List.filter (fun m -> meth.m_params |> List.assoc_opt m.m_name |> Option.is_some)
     (* treat recursive calls as abstract, as recursive functions should be summarized using predicates *)
     (* |> List.filter (fun m -> not (String.equal m.m_name meth.m_name)) *)
     |> List.map (fun m -> m.m_name, m)
     |> SMap.of_list
   in
   let pred_env = prog.cp_predicates in
-  let fv_env = create_fv_env method_env pred_env in
-  forward fv_env meth.m_body
+  let fv_env = create_fv_env (SMap.map Untypehip.untype_meth_def method_env) (SMap.map Untypehip.untype_pred_def pred_env) in
+  let inferred, _ = forward fv_env (Untypehip.untype_core_lang meth.m_body) in
+  Retypehip.retype_staged_spec inferred
 
 let check_method prog inferred given =
   match given with
@@ -173,11 +173,11 @@ let check_method prog inferred given =
   | Some given_spec ->
     let open Hipprover.Entail in
     (* likely that we need some env or extra setup later *)
-    let pctx = create_pctx prog in
-    check_staged_spec_entailment pctx inferred given_spec
+    let pctx = create_pctx (Untypehip.untype_core_program prog) in
+    check_staged_spec_entailment pctx (Untypehip.untype_staged_spec inferred) (Untypehip.untype_staged_spec given_spec)
 
 let infer_and_check_method (prog : core_program) (meth : meth_def) (given_spec : staged_spec option) =
-  let inferred_spec, _ = infer_spec prog meth in
+  let inferred_spec = infer_spec prog meth in
   let result = check_method prog inferred_spec given_spec in
   inferred_spec, result
 
@@ -216,9 +216,13 @@ let analyze_method (prog : core_program) (meth : meth_def) : core_program =
         ~title:(Format.asprintf "remembering predicate for %s" meth.m_name)
         "")
       in
-      let pred = Hipprover.Entail.derive_predicate meth.m_name meth.m_params inferred_spec in
+      let pred = Hipprover.Entail.derive_predicate meth.m_name 
+        (List.map Untypehip.ident_of_binder meth.m_params)
+        (Untypehip.untype_staged_spec inferred_spec)
+        |> Retypehip.retype_pred_def in
       (* let pred = todo () in *)
-      {prog with cp_predicates = SMap.add meth.m_name pred prog.cp_predicates}
+      let cp_predicates = SMap.add meth.m_name pred prog.cp_predicates in
+      {prog with cp_predicates}
       (* prog *)
     end
   in
@@ -233,8 +237,8 @@ let analyze_method (prog : core_program) (meth : meth_def) : core_program =
 
 let check_lemma (prog : core_program) (l : lemma) : bool =
   let open Hipprover.Entail in
-  let pctx = create_pctx prog in
-  check_staged_spec_entailment pctx l.l_left l.l_right
+  let pctx = create_pctx (Untypehip.untype_core_program prog) in
+  check_staged_spec_entailment pctx (Untypehip.untype_staged_spec l.l_left) (Untypehip.untype_staged_spec l.l_right)
 
 let analyze_lemma (prog : core_program) (l : lemma) : core_program =
   let result = check_lemma prog l in
@@ -258,10 +262,10 @@ let process_predicate () = todo ()
 
 let process_pure_fn_info ({m_name; m_params; m_body; _}) = function
   | None -> ()
-  | Some (param_types, ret_type) ->
+  | Some (_, ret_type) ->
       let pf : pure_fn_def =
       { pf_name = m_name;
-        pf_params = List.map2 (fun x y -> (x, y)) m_params param_types;
+        pf_params = m_params;
         pf_ret_type = ret_type;
         pf_body = m_body; }
       in
@@ -306,7 +310,7 @@ let process_intermediates (it : Typedhip.intermediate) prog : string list * core
       let@ _ = Debug.span (fun _ ->
         debug ~at:1 ~title:(Format.sprintf "verifying lemma: %s" l.l_name) "")
       in
-      let prog = analyze_lemma prog (Untypehip.untype_lemma l) in
+      let prog = analyze_lemma prog l in
       [], prog
   | LogicTypeDecl _ ->
       process_logic_type_decl ()
@@ -328,9 +332,7 @@ let process_intermediates (it : Typedhip.intermediate) prog : string list * core
       (* [], { prog with cp_sl_predicates = SMap.add p.p_sl_name p prog.cp_sl_predicates } *)
       todo ()
   | Meth (m_name, m_params, m_spec, m_body, m_tactics, pure_fn_info) ->
-      let meth : Hiptypes.meth_def = Untypehip.{m_name; m_params = List.map ident_of_binder m_params;
-        m_spec = Option.map untype_staged_spec m_spec;
-        m_body = untype_core_lang m_body; m_tactics } in
+      let meth : meth_def = {m_name; m_params; m_spec; m_body; m_tactics} in
       process_pure_fn_info meth pure_fn_info;
       let@ _ = Debug.span (fun _ ->
         debug ~at:1 ~title:(Format.asprintf "verifying function: %s" meth.m_name) "")

@@ -1,4 +1,5 @@
-open Hiptypes
+open Typedhip
+open Common
 open Types
 
 let using_pure_fns = ref false
