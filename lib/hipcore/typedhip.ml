@@ -100,7 +100,7 @@ and kappa =
   | EmptyHeap
   (* x -> -   means x is allocated, and - is encoded as Var "_" *)
   (* TODO should PointsTo use binders instead of strings...? *)
-  | PointsTo of (string * term)
+  | PointsTo of string * term
   | SepConj of kappa * kappa
   (*| MagicWand of kappa * kappa*)
 
@@ -153,6 +153,10 @@ and typ = Types.typ =
   ord]
 
 let var_of_binder (v, t) = {term_desc = Var v; term_type = t}
+let binder_of_var {term_desc; term_type} =
+  match term_desc with
+  | Var v -> (v, term_type)
+  | _ -> raise (Invalid_argument "Term was not Var")
 
 type tactic = Hiptypes.tactic
 
@@ -230,3 +234,4 @@ let empty_program = {
 }
 
 type 'a quantified = binder list * 'a
+

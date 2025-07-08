@@ -1,10 +1,13 @@
 
 open Hipcore
 open Hiptypes
+open Typedhip
+open Untypehip
 open Variables
-open Pretty
+open Pretty_typed
 open Debug
 open Utils
+open Syntax.Typed
 
 (*
 open Normalize
@@ -260,39 +263,39 @@ let findTheActualArg4Acc_x_e_ret (arg:term) (specs:disj_spec): term =
 *)
 
 
-let res_eq t = Atomic (EQ, Var "res", t)
+let res_eq t = Atomic (EQ, var "res" ~typ:t.term_type, t)
 
 let call_primitive fname actualArgs =
   match fname, actualArgs with
   | "+", [x1; x2] ->
-    NormalReturn (res_eq (BinOp (Plus, x1, x2)), EmptyHeap)
+    NormalReturn (res_eq (binop Plus x1 x2), EmptyHeap)
   | "-", [x1; x2] ->
-    NormalReturn (res_eq (BinOp (Minus, x1, x2)), EmptyHeap)
+    NormalReturn (res_eq (binop Minus x1 x2), EmptyHeap)
   | "*", [x1; x2] ->
-    NormalReturn (res_eq (BinOp (TTimes, x1, x2)), EmptyHeap)
+    NormalReturn (res_eq (binop TTimes x1 x2), EmptyHeap)
   | "=", [x1; x2] ->
     (* let event = NormalReturn (Atomic (EQ, x1, x2), EmptyHeap, Eq (x1, x2)) in *)
-    NormalReturn (res_eq (Rel (EQ, x1, x2)), EmptyHeap)
+    NormalReturn (res_eq (rel EQ x1 x2), EmptyHeap)
   | "not", [x1] ->
-    NormalReturn (res_eq (TNot x1), EmptyHeap)
+    NormalReturn (res_eq (tnot x1), EmptyHeap)
   | "&&", [x1; x2] ->
-    NormalReturn (res_eq (BinOp (TAnd, x1, x2)), EmptyHeap)
+    NormalReturn (res_eq (binop TAnd x1 x2), EmptyHeap)
   | "||", [x1; x2] ->
-    NormalReturn (res_eq (BinOp (TOr, x1, x2)), EmptyHeap)
+    NormalReturn (res_eq (binop TOr x1 x2), EmptyHeap)
   | ">", [x1; x2] ->
-    NormalReturn (res_eq (Rel (GT, x1, x2)), EmptyHeap)
+    NormalReturn (res_eq (rel GT x1 x2), EmptyHeap)
   | "<", [x1; x2] ->
-    NormalReturn (res_eq (Rel (LT, x1, x2)), EmptyHeap)
+    NormalReturn (res_eq (rel LT x1 x2), EmptyHeap)
   | ">=", [x1; x2] ->
-    NormalReturn (res_eq (Rel (GTEQ, x1, x2)), EmptyHeap)
+    NormalReturn (res_eq (rel GTEQ x1 x2), EmptyHeap)
   | "<=", [x1; x2] ->
-    NormalReturn (res_eq (Rel (LTEQ, x1, x2)), EmptyHeap)
+    NormalReturn (res_eq (rel LTEQ x1 x2), EmptyHeap)
   | "::", [x1; x2] ->
-    NormalReturn (res_eq (BinOp (TCons, x1, x2)), EmptyHeap)
+    NormalReturn (res_eq (binop TCons x1 x2), EmptyHeap)
   | "^", [x1; x2] ->
-    NormalReturn (res_eq (BinOp (SConcat, x1, x2)), EmptyHeap)
+    NormalReturn (res_eq (binop SConcat x1 x2), EmptyHeap)
   | "string_of_int", [x1] ->
-    NormalReturn (res_eq (TApp ("string_of_int", [x1])), EmptyHeap)
+    NormalReturn (res_eq (term (TApp ("string_of_int", [x1])) TyString), EmptyHeap)
   | _ ->
     failwith (Format.asprintf "unknown primitive: %s, args: %s" fname (string_of_list string_of_term actualArgs))
 
@@ -304,18 +307,18 @@ let rec forward (env: fvenv) (expr : core_lang): staged_spec * fvenv =
       (string_of_core_lang expr)
       (string_of_result (fun (r, _) -> string_of_staged_spec r) r))
   in
-  match expr with
+  match expr.core_desc with
   | CValue v ->
-      NormalReturn (Atomic (EQ, res_var, v), EmptyHeap), env
+      NormalReturn (res_eq v, EmptyHeap), env
   | CLet (x, expr1, expr2) ->
       let spec1, env = forward env expr1 in
       let spec2, env = forward env expr2 in
-      Bind (x, spec1, spec2), env
+      Bind (ident_of_binder x, spec1, spec2), env
   | CSequence (expr1, expr2) ->
       let spec1, env = forward env expr1 in
       let spec2, env = forward env expr2 in
       Sequence (spec1, spec2), env
-  | CIfELse (p, expr1, expr2) ->
+  | CIfElse (p, expr1, expr2) ->
       let spec1, env = forward env expr1 in
       let spec2, env = forward env expr2 in
       let lhs = Sequence (NormalReturn (p, EmptyHeap), spec1) in
@@ -326,43 +329,43 @@ let rec forward (env: fvenv) (expr : core_lang): staged_spec * fvenv =
   | CFunCall (name, args) ->
       HigherOrder (name, args), env
   | CRef t ->
-      let x = fresh_variable () in
-      Exists (x, NormalReturn (Atomic (EQ, res_var, Var x), PointsTo (x, t))), env
+      let x = (fresh_variable (), t.term_type) in
+      Exists (x, NormalReturn (res_eq (var_of_binder x), PointsTo (ident_of_binder x, t))), env
   | CWrite (x, t) ->
-      let v = fresh_variable () in
-      let req = Require (True, PointsTo (x, Var v)) in
+      let v = (fresh_variable (), t.term_type) in
+      let req = Require (True, PointsTo (x, var_of_binder v)) in
       let ens = NormalReturn (True, PointsTo (x, t)) in
       ForAll (v, Sequence (req, ens)), env
   | CRead x ->
       let v = fresh_variable () in
-      let t = Var v in
+      let t = var ~typ:expr.core_type v in
       let kappa = PointsTo (x, t) in
       let req = Require (True, kappa) in
-      let ens = NormalReturn (Atomic (EQ, res_var, t), kappa) in
-      ForAll (v, (Sequence (req, ens))), env
+      let ens = NormalReturn (res_eq t, kappa) in
+      ForAll (binder_of_var t, (Sequence (req, ens))), env
   | CAssert (p, h) ->
       Sequence (Require (p, h), NormalReturn (True, h)), env
   | CPerform _ ->
       failwith "CPerform"
   | CMatch (_, _, discriminant, _, cases) ->
       let v = fresh_variable ~v:"match" () in
-      let t = Var v in
+      let t = var ~typ:expr.core_type v in
       let discriminant_spec, env = forward env discriminant in
       let handle_case (env, past_cases) case =
         let pat = case.ccase_pat in
-        let guard = Option.value case.ccase_guard ~default:(Const TTrue) in
+        let guard = Option.value case.ccase_guard ~default:ctrue in
         let body = case.ccase_expr in
         let body_spec, env = forward env body in
-        let open Patterns.Guarded in
+        let open Patterns in
         let case_spec =
           let disjuncts = 
             exclude (pat, guard) past_cases
             |> List.concat_map (fun pat -> exclude pat past_cases)
-            |> List.map (Patterns.Guarded.pi_of_pattern t)
+            |> List.map (pi_of_pattern t)
             |> List.map (fun (free_vars, disjunct) ->
                 List.fold_right (fun var spec -> Exists (var, spec)) free_vars
                 (Sequence ( NormalReturn ( disjunct, EmptyHeap ), body_spec))) in
-            Syntax.disj disjuncts
+            Syntax.Typed.disj disjuncts
         in
         case_spec, (env, (pat, guard)::past_cases)
       in
@@ -370,7 +373,7 @@ let rec forward (env: fvenv) (expr : core_lang): staged_spec * fvenv =
          in the match statement
          this needs some way to find the complement of a pattern, since spec doesn't allow for negative exists (whether expliclitly or via forall + conjunction) *)
   let cases_spec, (env, _) = Lists.map_state handle_case (env, []) cases in
-      let disj_spec = Syntax.disj cases_spec in
+      let disj_spec = Syntax.Typed.disj cases_spec in
       Bind (v, discriminant_spec, disj_spec), env
   | CResume _ ->
       failwith "CResume"
@@ -381,7 +384,7 @@ let rec forward (env: fvenv) (expr : core_lang): staged_spec * fvenv =
         | None -> Some inferred_spec
         | Some _ -> given_spec
       in
-      let lambda_term = TLambda (lambda_id, params, spec_to_use, None) in
+      let lambda_term = lambda ~id:lambda_id params ~spec:spec_to_use None in
       let env = match given_spec with
         (* TODO: refactor into a function *)
         | None -> env
@@ -395,12 +398,17 @@ let rec forward (env: fvenv) (expr : core_lang): staged_spec * fvenv =
             in
             {env with fv_lambda_obl = obl :: env.fv_lambda_obl}
       in
-      NormalReturn (Atomic (EQ, res_var, lambda_term), EmptyHeap), env
+      NormalReturn (res_eq lambda_term, EmptyHeap), env
   | CShift (nz, k, expr_body) ->
       let spec_body, env = forward env expr_body in
       let x = Variables.fresh_variable ~v:"x" "continuation argument" in
-      let cont = NormalReturn (Atomic (EQ, Variables.res_var, Var x), EmptyHeap) in
-      Shift (nz, k, spec_body, x, cont), env
+      let cont_arg_type = match k with
+        | _, Arrow (typ, _) -> typ
+        | _, TVar _ | _, Any -> TVar (Variables.fresh_variable ~v:"cont_typ" ())
+        | _ -> failwith "continuation argument does not have function type"
+      in
+      let cont = NormalReturn (res_eq (var ~typ:cont_arg_type x), EmptyHeap) in
+      Shift (nz, ident_of_binder k, spec_body, x, cont), env
   | CReset expr_body ->
       let spec_body, env = forward env expr_body in
       Reset spec_body, env

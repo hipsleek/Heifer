@@ -201,6 +201,8 @@ let string_of_meth_def m =
 let string_of_program (cp:core_program) :string =
   List.map string_of_meth_def cp.cp_methods |> String.concat "\n\n"
 
+let string_of_pattern p = Pretty.string_of_pattern (Untypehip.untype_pattern p)
+
 open Pretty
 
 let pp_bin_op ppf op =

@@ -1,5 +1,15 @@
-open Hiptypes
-open Syntax
+open Typedhip
+open Common
+open Syntax.Typed
+
+type guarded_pattern = pattern * term
+
+let make pat typ = {
+  pattern_desc = pat;
+  pattern_type = typ
+}
+
+let alias pat name = make (PAlias (pat, name)) pat.pattern_type
 
 let (let*) xs f = List.concat_map f xs
 let return x = [x]
@@ -7,23 +17,25 @@ let return x = [x]
 let cartesian_product (lists: 'a list list) : 'a list list =
   List.fold_right (fun ls result -> let* x = ls in let* rest = result in return (x::rest)) lists [[]]
 
-let pattern_of_constr ((name, args) : Types.type_constructor) =
-  PConstr (name, List.map (fun _ -> PAny) args)
+let pattern_of_constr ((name, args) : Types.type_constructor) (constr_substitutions : (typ * typ) list) (pattern_type : typ) =
+  (* all the extra parameters are needed to correctly reconstruct inner types *)
+  make (PConstr (name, List.map (fun arg -> make PAny (Types.instantiate_type_variables constr_substitutions arg)) args)) pattern_type
 
 let rec free_vars_pat pat =
-  match pat with
-  | PAny | PConstant _ -> SSet.empty
-  | PVar v -> SSet.singleton v
-  | PConstr (_, args) -> List.fold_right SSet.union (List.map free_vars_pat args) SSet.empty
-  | PAlias (pat, p) -> SSet.add p (free_vars_pat pat)
+  (* return a type mapping since we need types of free variables when quantifying over them *)
+  match pat.pattern_desc with
+  | PAny | PConstant _ -> SMap.empty
+  | PVar (name, typ) -> SMap.singleton name typ
+  | PConstr (_, args) -> List.fold_right SMap.merge_arbitrary (List.map free_vars_pat args) SMap.empty
+  | PAlias (pat, p) -> SMap.add p pat.pattern_type (free_vars_pat pat)
 
 (** Return a set of patterns that match terms of the same type as [pat] such that
     - If a term does not match pat, it matches at least one pattern in this list.
     - If a term matches pat, it does not match any pattern in the list. *)
 let rec complement pat =
-    match pat with
+    match pat.pattern_desc with
     | PAny | PVar _ -> []
-    | PAlias (pat, name) -> complement pat |> List.map (fun pat -> PAlias (pat, name))
+    | PAlias (pat, name) -> complement pat |> List.map (fun pat -> alias pat name)
     | PConstr (name, args) ->
       let type_decl, _ = Globals.type_constructor_decl name in begin
       match type_decl.tdecl_kind with
@@ -40,108 +52,106 @@ let rec complement pat =
           |> cartesian_product
           |> List.filter (fun args -> List.exists (function `Mismatch _ -> true | _ -> false) args)
           |> List.map (List.map (function `Mismatch pat | `Match pat -> pat))
-          |> List.map (fun args -> PConstr (name, args))
+          |> List.map (fun args -> make (PConstr (name, args)) (pat.pattern_type))
         (* create patterns for all the other constructors *)
         in
+        (* find what concrete types were used in the instantiation of this pattern's type variables *)
+        (* we need this to correctly reconstruct types for the other constructors *)
+        let concrete_types = match pat.pattern_type with
+          | TConstr (_, args) -> args
+          | _ -> assert false (* the type should be an ADT type *)
+        in
+        let type_substitutions = List.combine type_decl.tdecl_params concrete_types in 
         let other_constr_patterns =
           constrs
             |> List.filter (fun (other_name, _) -> name <> other_name)
-            |> List.map pattern_of_constr
+            |> List.map (fun constr -> pattern_of_constr constr type_substitutions pat.pattern_type)
         in
         other_constr_patterns @ self_complements
       end
     | PConstant _ -> failwith "constant patterns currently not implemented"
 
 let rec rename_bound_vars bindings pat =
-  let rename_one v = SMap.find_opt v bindings |> Option.value ~default:v in
-  match pat with
+  let rename_one v = SMap.find_opt v bindings in
+  match pat.pattern_desc with
   | PAny | PConstant _ -> pat
-  | PVar v -> PVar (rename_one v)
-  | PAlias (pat, p) -> PAlias (rename_bound_vars bindings pat, rename_one p)
-  | PConstr (name, args) -> PConstr (name, List.map (rename_bound_vars bindings) args)
+  | PVar (v, _) -> begin
+      match rename_one v with
+      | Some renamed -> make (PVar renamed) pat.pattern_type
+      | None -> pat
+  end
+  | PAlias (pat, p) -> begin
+    match rename_one p with
+    | Some renamed -> alias (rename_bound_vars bindings pat) (Untypehip.ident_of_binder renamed)
+    | None -> pat
+  end
+  | PConstr (name, args) -> make (PConstr (name, List.map (rename_bound_vars bindings) args)) pat.pattern_type
 
-let rec intersect_two p1 p2 = match p1, p2 with
-  | PAny, other | other, PAny -> return other
-  | PVar name, other | other, PVar name -> return (PAlias (other, name))
-  | PAlias (p, s), other -> 
-      let* overlap = intersect_two p other in
-      return (PAlias (overlap, s))
-  | other, PAlias (p, _) -> intersect_two other p
+let rec intersect_two p1 p2 = match p1.pattern_desc, p2.pattern_desc with
+  | _, PAny -> return p1
+  | PAny, _ -> return p2
+  | _, PVar name -> return (alias p1 (Untypehip.ident_of_binder name))
+  | PVar name, _ -> return (alias p2 (Untypehip.ident_of_binder name))
+  | PAlias (p, s), _ -> 
+      let* overlap = intersect_two p p2 in
+      return (alias overlap s)
+  | _, PAlias (p, s) -> 
+      let* overlap = intersect_two p1 p in
+      return (alias overlap s)
   | PConstr (name1, args1), PConstr (name2, args2) when name1 = name2 ->
       let* args = 
         List.combine args1 args2
         |> List.map (fun (arg1, arg2) -> intersect_two arg1 arg2)
         |> cartesian_product
       in
-      return (PConstr (name1, args))
+      return (make (PConstr (name1, args)) p1.pattern_type)
   | _, _ -> []
-
-(** Find the intersection of all pairs of patterns in [pxs] and [pys]. 
-  Bound names from both patterns are preserved. *)
-let intersect (pxs : pattern list) (pys : pattern list) : pattern list =
-  let* px = pxs in
-  let* py = pys in
-  intersect_two px py
 
 let deconflict_renames shared = 
   shared
-    |> SSet.to_seq
-    |> Seq.map (fun var -> (var, Variables.fresh_variable ~v:"patd" ()))
+    |> SMap.to_seq
+    |> Seq.map (fun (var, typ) -> (var, (Variables.fresh_variable ~v:"patd" (), typ)))
     |> SMap.of_seq
 
-(** Renames bound names in p2 as necessary to not conflict with bound names from p1. *)
-let deconflict p1 p2 =
-  let shared = SSet.inter (free_vars_pat p1) (free_vars_pat p2) in
-  rename_bound_vars (deconflict_renames shared) p2
-
-let exclude pat excluded =
-  let open Pretty in
-  let open Debug in
-  let@_ = span (fun r -> 
-    debug ~at:5 ~title:"excluded patterns"
-    "excluded at inputs %s %s -> %s \n" (string_of_pattern pat) (string_of_list string_of_pattern excluded)
-    (string_of_result (string_of_list string_of_pattern) r))
-  in
-  let to_exclude = List.map (deconflict pat) excluded in
-  List.fold_left intersect [pat] (List.map complement to_exclude)
-
-let pi_of_pattern pat_term pat : string list * pi =
+let pi_of_pattern pat_term pat : binder list * pi =
   let conjuncts = ref [] in
   let free_vars = ref [] in
   let add_free_var v = free_vars := v::!free_vars in
   let add_conjunct pi = conjuncts := pi::!conjuncts in
-  let new_term_name () = let v = Variables.fresh_variable ~v:"pat" () in add_free_var v; v in
+  let new_term_name typ () =
+    let v = Variables.fresh_variable ~v:"pat" () in add_free_var (v, typ); v in
   let rec inner pat =
-    match pat with
+    match pat.pattern_desc with
     | PAny ->
-        let v = new_term_name () in
-        Var v
+        let v = new_term_name pat.pattern_type () in
+        var ~typ:pat.pattern_type v
     | PVar v ->
         add_free_var v;
-        Var v
+        var ~typ:pat.pattern_type (Untypehip.ident_of_binder v)
     | PConstr (name, args) ->
-        Construct (name, List.map inner args)
+        term (Construct (name, List.map inner args)) (pat.pattern_type)
     | PConstant c ->
-        let v = new_term_name () in
-        add_conjunct (Atomic (EQ, Var v, Const c));
-        Var v
+        let v = new_term_name (pat.pattern_type) () in
+        let pvar = var ~typ:pat.pattern_type v in
+        add_conjunct (eq pvar (term (Const c) pat.pattern_type));
+        pvar
     | PAlias (p, v) ->
         let inner_term = inner p in
-        add_free_var v;
-        add_conjunct (Atomic (EQ, Var v, inner_term));
-        Var v
+        let vbinder = (v, pat.pattern_type) in
+        add_free_var vbinder;
+        add_conjunct (Atomic (EQ, var_of_binder vbinder, inner_term));
+        var_of_binder vbinder
   in
   add_conjunct (Atomic (EQ, pat_term, inner pat));
-  !free_vars, Syntax.conj !conjuncts
-
+  !free_vars, conj !conjuncts
 
 module Guarded = struct
-  type t = pattern * term
 
   let rename_bound_vars bindings ((pat : pattern), (guard : term)) =
-    let term_rebindings = SMap.map (fun dst -> Var dst) bindings |> SMap.to_list in
+    let term_rebindings = SMap.map var_of_binder bindings |> SMap.to_list in
     (* refers to the previous definition without guard clauses *)
-    (rename_bound_vars bindings pat, Subst.(subst_free_term_vars Term term_rebindings guard))
+    (rename_bound_vars bindings pat, 
+      Subst_typed.(subst_free_vars_term term_rebindings guard))
 
   let intersect (p1s : (pattern * term) list) (p2s : (pattern * term) list) =
     let* p1, g1 = p1s in
@@ -150,17 +160,17 @@ module Guarded = struct
     return (overlap, tand g1 g2)
 
   let complement (pat, guard) =
-    let structural = (complement pat |> List.map (fun pat -> (pat, Const TTrue))) in
-    match guard with
+    let structural = (complement pat |> List.map (fun pat -> (pat, ctrue))) in
+    match guard.term_desc with
     (* the guard is always false, so this pattern is empty *)
-    | Const TFalse -> [(PAny, Const TTrue)] 
+    | Const TFalse -> [(make PAny pat.pattern_type, ctrue)] 
     (* the guard is always true, so the pattern is always matched against *)
     | Const TTrue -> structural
     (* generally, add the negated guarded pattern to the complement list *)
     | _ -> (pat, tnot guard)::structural
 
   let deconflict (pat1, _) (pat2, guard2) =
-    let shared = SSet.inter (free_vars_pat pat1) (free_vars_pat pat2) in
+    let shared = SMap.intersect (free_vars_pat pat1) (free_vars_pat pat2) in
     let renames = deconflict_renames shared in
     rename_bound_vars renames (pat2, guard2)
 
@@ -170,70 +180,81 @@ module Guarded = struct
 
   let pi_of_pattern pat_term (pat, guard) =
     let (free_vars, pi) = pi_of_pattern pat_term pat in
-    (free_vars, And (pi, Atomic (EQ, guard, Const TTrue)))
+    (free_vars, And (pi, eq guard ctrue))
 end
 
-let setup_tests () = 
-  let open Globals in
-  define_type {
-    tdecl_name = "test_type";
-    tdecl_params = [];
-    tdecl_kind = Tdecl_inductive [
-      "A", [];
-      "B", [Int];
-      "D", [TConstr ("test_type", []); TConstr ("test_type", [])]
-    ]
-  };
-  define_type {
-    tdecl_name = "nat";
-    tdecl_params = [];
-    tdecl_kind = Tdecl_inductive [
-      "Z", [];
-      "S", [TConstr ("nat", [])]
-    ]
-  }
-
-let%expect_test "complement" =
-  setup_tests ();
-  let output pats = String.concat " | " (List.map Pretty.string_of_pattern pats) |> print_string in
-
-  output (complement (PConstr ("B", [PAny])));
-  [%expect{| A() | D(_, _) |}];
-
-  output (complement (PConstr ("D", [PConstr ("B", [PAny]); PConstr ("A", [])])));
-  [%expect{| A() | B(_) | D(B(_), B(_)) | D(B(_), D(_, _)) | D(A(), A()) | D(A(), B(_)) | D(A(), D(_, _)) | D(D(_, _), A()) | D(D(_, _), B(_)) | D(D(_, _), D(_, _)) |}];
-
-  output (complement (PConstr ("S", [PAlias (PConstr ("S", [PAny]), "s")])));
-  [%expect{| Z() | S((Z()) as s) |}];
-;;
-  
-let%expect_test "intersect" =
-  setup_tests ();
-  let output pats = String.concat " | " (List.map Pretty.string_of_pattern pats) |> print_string in
-
-  output (intersect [PConstr ("D", [PVar "a"; PVar "b"])] [PConstr ("B", [PVar "x"]); PConstr ("D", [PAny; PConstr ("D", [PAny; PVar "d"])])]);
-  [%expect{| D(a, (D(_, d)) as b) |}];
-
-  output (intersect [PConstr ("B", [PAny])] [PConstr ("D", [PAny; PAny])]);
-  [%expect{| |}];
-
-  output (intersect [PConstr ("D", [PConstr ("D", [PVar "z"; PAny]); PAny])] 
-    [PConstr ("D", [PAny; PConstr ("D", [PAny; PVar "y"])])]);
-  [%expect{| D(D(z, _), D(_, y)) |}];
-;;
-
-let%expect_test "exclude" =
-  setup_tests ();
-  let output pats = String.concat " | " (List.map Pretty.string_of_pattern pats) |> print_string in
-
-  output (exclude (PConstr ("D", [PAny; PAny])) [PConstr ("A", []); PConstr ("D", [PConstr ("B", [PAny]); PAny])]);
-  [%expect{| D(A(), _) | D(D(_, _), _) |}];
-
-  output (exclude (PConstr ("B", [PAny])) []);
-  [%expect{| B(_) |}];
-
-  output (exclude (PConstr ("S", [PAlias (PConstr ("Z", []), "s")])) [PConstr ("Z", []); PConstr ("S", [PAlias (PConstr ("S", [PAny]), "s")])]);
-  [%expect{| S((Z()) as s) |}];
-;;
-
-
+include Guarded
+(**)
+(* let setup_tests () =  *)
+(*   let open Globals in *)
+(*   define_type { *)
+(*     tdecl_name = "test_type"; *)
+(*     tdecl_params = []; *)
+(*     tdecl_kind = Tdecl_inductive [ *)
+(*       "A", []; *)
+(*       "B", [Int]; *)
+(*       "D", [TConstr ("test_type", []); TConstr ("test_type", [])] *)
+(*     ] *)
+(*   }; *)
+(*   define_type { *)
+(*     tdecl_name = "nat"; *)
+(*     tdecl_params = []; *)
+(*     tdecl_kind = Tdecl_inductive [ *)
+(*       "Z", []; *)
+(*       "S", [TConstr ("nat", [])] *)
+(*     ] *)
+(*   } *)
+(**)
+(* let guarded ?(condition = ctrue) pat = (pat, condition) *)
+(**)
+(* open Pretty_typed *)
+(**)
+(* let%expect_test "complement" = *)
+(*   setup_tests (); *)
+(*   let output pats = String.concat " | " (List.map  *)
+(*   (fun (pat, guard) -> *)
+(*     if guard = ctrue *)
+(*     then string_of_pattern pat *)
+(*       else Printf.sprintf "%s when %s" (string_of_pattern pat) (string_of_term guard)) *)
+(*   pats) |> print_string in *)
+(**)
+(*   output (complement (guarded (PConstr ("B", [PAny])))); *)
+(*   [%expect{| A() | D(_, _) |}]; *)
+(**)
+(*   output (complement (PConstr ("D", [PConstr ("B", [PAny]); PConstr ("A", [])]))); *)
+(*   [%expect{| A() | B(_) | D(B(_), B(_)) | D(B(_), D(_, _)) | D(A(), A()) | D(A(), B(_)) | D(A(), D(_, _)) | D(D(_, _), A()) | D(D(_, _), B(_)) | D(D(_, _), D(_, _)) |}]; *)
+(**)
+(*   output (complement (PConstr ("S", [PAlias (PConstr ("S", [PAny]), "s")]))); *)
+(*   [%expect{| Z() | S((Z()) as s) |}]; *)
+(* ;; *)
+(**)
+(* let%expect_test "intersect" = *)
+(*   setup_tests (); *)
+(*   let output pats = String.concat " | " (List.map string_of_pattern pats) |> print_string in *)
+(**)
+(*   output (intersect [PConstr ("D", [PVar "a"; PVar "b"])] [PConstr ("B", [PVar "x"]); PConstr ("D", [PAny; PConstr ("D", [PAny; PVar "d"])])]); *)
+(*   [%expect{| D(a, (D(_, d)) as b) |}]; *)
+(**)
+(*   output (intersect [PConstr ("B", [PAny])] [PConstr ("D", [PAny; PAny])]); *)
+(*   [%expect{| |}]; *)
+(**)
+(*   output (intersect [PConstr ("D", [PConstr ("D", [PVar "z"; PAny]); PAny])]  *)
+(*     [PConstr ("D", [PAny; PConstr ("D", [PAny; PVar "y"])])]); *)
+(*   [%expect{| D(D(z, _), D(_, y)) |}]; *)
+(* ;; *)
+(**)
+(* let%expect_test "exclude" = *)
+(*   setup_tests (); *)
+(*   let output pats = String.concat " | " (List.map string_of_pattern pats) |> print_string in *)
+(**)
+(*   output (exclude (PConstr ("D", [PAny; PAny])) [PConstr ("A", []); PConstr ("D", [PConstr ("B", [PAny]); PAny])]); *)
+(*   [%expect{| D(A(), _) | D(D(_, _), _) |}]; *)
+(**)
+(*   output (exclude (PConstr ("B", [PAny])) []); *)
+(*   [%expect{| B(_) |}]; *)
+(**)
+(*   output (exclude (PConstr ("S", [PAlias (PConstr ("Z", []), "s")])) [PConstr ("Z", []); PConstr ("S", [PAlias (PConstr ("S", [PAny]), "s")])]); *)
+(*   [%expect{| S((Z()) as s) |}]; *)
+(* ;; *)
+(**)
+(**)

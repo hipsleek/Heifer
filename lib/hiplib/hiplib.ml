@@ -163,9 +163,9 @@ let infer_spec (prog : core_program) (meth : meth_def) =
     |> SMap.of_list
   in
   let pred_env = prog.cp_predicates in
-  let fv_env = create_fv_env (SMap.map Untypehip.untype_meth_def method_env) (SMap.map Untypehip.untype_pred_def pred_env) in
-  let inferred, _ = forward fv_env (Untypehip.untype_core_lang meth.m_body) in
-  Retypehip.retype_staged_spec inferred
+  let fv_env = create_fv_env method_env pred_env in
+  let inferred, _ = forward fv_env meth.m_body in
+  inferred
 
 let check_method prog inferred given =
   match given with
