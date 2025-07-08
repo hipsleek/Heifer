@@ -90,8 +90,8 @@ open Hiptypes
       { Plus }
   | MINUS
       { Minus }
-//   | STAR
-//       { TTimes }
+  | STAR
+      { TTimes }
 ;
 
 const:

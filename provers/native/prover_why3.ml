@@ -795,6 +795,10 @@ let rec term_to_whyml tenv t =
     tapp
       (qualid ["Int"; Ident.op_infix "-"])
       [term_to_whyml tenv a; term_to_whyml tenv b]
+  | BinOp (TTimes, a, b) ->
+    tapp
+      (qualid ["Int"; Ident.op_infix "*"])
+      [term_to_whyml tenv a; term_to_whyml tenv b]
   | Rel (EQ, a, b) ->
     tapp
       (qualid [Ident.op_infix "="])
@@ -835,7 +839,7 @@ let rec term_to_whyml tenv t =
      let params, _ret = unsnoc params in
      let binders = vars_to_params tenv params in
      term (Tquant (Dterm.DTlambda, binders, [], core_lang_to_whyml tenv body)) *)
-  | TTuple _ | BinOp (TPower, _, _) | BinOp (TTimes, _, _) | BinOp (TDiv, _, _) | Const (TStr _)
+  | TTuple _ | BinOp (TPower, _, _) | BinOp (TDiv, _, _) | Const (TStr _)
     ->
     failwith "nyi"
 
@@ -869,7 +873,7 @@ and core_lang_to_whyml tenv e =
   | CFunCall (s, args) ->
     let fn =
       match s with
-      | "+" | "-" | ">" | "<" | ">=" | "<=" -> qualid ["Int"; Ident.op_infix s]
+      | "+" | "-" | "*" | ">" | "<" | ">=" | "<=" -> qualid ["Int"; Ident.op_infix s]
       | "::" -> qualid ["List"; "Cons"]
       | "=" -> qualid ["Int"; Ident.op_infix s] (* for now *)
       | "||" -> qualid ["Bool"; "orb"]

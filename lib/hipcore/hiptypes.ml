@@ -331,4 +331,4 @@ type 'a quantified = string list * 'a
 
 type instantiations = (string * string) list
 
-let primitive_functions = ["+"; "-"; "="; "not"; "::"; "&&"; "||"; ">"; "<"; ">="; "<="; "^"; "string_of_int"]
+let primitive_functions = ["+"; "-"; "*"; "="; "not"; "::"; "&&"; "||"; ">"; "<"; ">="; "<="; "^"; "string_of_int"]

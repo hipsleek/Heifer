@@ -269,6 +269,7 @@ let process_intermediates (it : intermediate) prog : string list * core_program 
       todo ()
   | Lem l ->
       (* TODO: add obligation *)
+      (* Format.printf "processing lemma\n"; *)
       (* debug ~at:4 ~title:(Format.asprintf "lemma %s" l.l_name) "%s" (string_of_lemma l); *)
       (* let left =
         let (f, ps) = l.l_left in

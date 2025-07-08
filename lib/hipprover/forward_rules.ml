@@ -268,6 +268,8 @@ let call_primitive fname actualArgs =
     NormalReturn (res_eq (BinOp (Plus, x1, x2)), EmptyHeap)
   | "-", [x1; x2] ->
     NormalReturn (res_eq (BinOp (Minus, x1, x2)), EmptyHeap)
+  | "*", [x1; x2] ->
+    NormalReturn (res_eq (BinOp (TTimes, x1, x2)), EmptyHeap)
   | "=", [x1; x2] ->
     (* let event = NormalReturn (Atomic (EQ, x1, x2), EmptyHeap, Eq (x1, x2)) in *)
     NormalReturn (res_eq (Rel (EQ, x1, x2)), EmptyHeap)
