@@ -1,5 +1,6 @@
 open Hipcore
 open Hiptypes
+open Provers_common
 
 (*
 https://github.com/Z3Prover/z3/blob/master/src/api/js/examples/high-level/miracle-sudoku.ts
@@ -113,7 +114,8 @@ let entails_exists _env p1 vs p2 =
           |];
       |]
   in
-  not (perform (Ask f))
+  let valid = not (perform (Ask f)) in
+  if valid then Valid else Invalid
 
 let handle f =
   try_with f ()
