@@ -3,6 +3,7 @@
   utility.sh
   (source_tree prusti)
   (source_tree examples)
+  (source_tree reset_shift_progs)
   (source_tree ../benchmarks/effects/ocaml412)
   (source_tree evaluation))
  (enabled_if (<> %{env:TEST_ALL=false} "false")))

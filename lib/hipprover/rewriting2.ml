@@ -61,8 +61,7 @@ let seq (T pf1) (T pf2) =
         let k = pf1 f1 k in
         let k = pf2 f2 k in
         k
-      | _ ->
-        fail "could not match Sequence; got %s" (string_of_staged_spec x))
+      | _ -> fail "could not match Sequence; got %s" (string_of_staged_spec x))
 
 let bind (T px1) (T pf1) (T pf2) =
   T
@@ -83,8 +82,7 @@ let forall (T pv) (T pf) =
         let k = pv v k in
         let k = pf f k in
         k
-      | _ ->
-        fail "could not match ForAll; got %s" (string_of_staged_spec x))
+      | _ -> fail "could not match ForAll; got %s" (string_of_staged_spec x))
 
 let exists (T pv) (T pf) =
   T
@@ -94,8 +92,7 @@ let exists (T pv) (T pf) =
         let k = pv v k in
         let k = pf f k in
         k
-      | _ ->
-        fail "could not match Exists; got %s" (string_of_staged_spec x))
+      | _ -> fail "could not match Exists; got %s" (string_of_staged_spec x))
 
 let and_ (T pp1) (T pp2) =
   T
@@ -115,8 +112,7 @@ let req (T pp) (T ph) =
         let k = pp p k in
         let k = ph h k in
         k
-      | _ ->
-        fail "could not match Require; got %s" (string_of_staged_spec x))
+      | _ -> fail "could not match Require; got %s" (string_of_staged_spec x))
 
 let ens (T pp) (T ph) =
   T
@@ -147,8 +143,7 @@ let reset (T pf) =
       | Reset f ->
         let k = pf f k in
         k
-      | _ ->
-        fail "could not match Reset; got %s" (string_of_staged_spec x))
+      | _ -> fail "could not match Reset; got %s" (string_of_staged_spec x))
 
 let shift (T pshift) (T pxb) (T pfb) (T pxk) (T pfk) =
   T
@@ -161,8 +156,7 @@ let shift (T pshift) (T pxb) (T pfb) (T pxk) (T pfk) =
         let k = pxk xk k in
         let k = pfk fk k in
         k
-      | _ ->
-        fail "cound not match Shift; got %s" (string_of_staged_spec x))
+      | _ -> fail "cound not match Shift; got %s" (string_of_staged_spec x))
 
 let rewrite_rooted ~lhs:(T p) ~target ~rhs = p target rhs
 let match_ ~pat ~scr ~rhs = rewrite_rooted ~target:scr ~lhs:pat ~rhs
@@ -226,7 +220,7 @@ let staged_visitor lhs krhs =
       try rewrite_rooted ~lhs ~target:s1 ~rhs:krhs with Match_failure _ -> s1
   end
 
-(** aka the of "rewrite_all functions". It works for all ['k], which is the
+(** aka the type of "rewrite_all functions". It works for all ['k], which is the
     continuation used for rewriting to create the "small" ['s] terms. *)
 type ('l, 's) rewriter = { rew : 'k. ('s, 'k, 's) pattern -> 'k -> 'l -> 'l }
 [@@unboxed]
