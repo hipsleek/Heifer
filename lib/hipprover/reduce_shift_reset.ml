@@ -185,6 +185,16 @@ let norm_reset_seq_req : _ Rewriting2.rule = Rewriting2.(
   fun p k f -> Sequence (Require (p, k), Reset f)
 )
 
+let norm_reset_bind_ens : _ Rewriting2.rule = Rewriting2.(
+  reset (bind __ (ens __ __) __),
+  fun x p k f -> Bind (x, NormalReturn (p, k), Reset f)
+)
+
+let norm_reset_bind_req : _ Rewriting2.rule = Rewriting2.(
+  reset (bind __ (req __ __) __),
+  fun x p k f -> Bind (x, Require (p, k), Reset f)
+)
+
 (* reset (ens Q) \bientails ens Q *)
 (* both side of the proof *)
 let norm_reset_ens : _ Rewriting2.rule = Rewriting2.(
@@ -197,6 +207,7 @@ let shift_reset_normalization_rules_both : _ Rewriting2.database = [
   norm_reset_ex;
   norm_reset_disj;
   norm_reset_seq_ens;
+  norm_reset_bind_ens;
   norm_reset_ens;
 ]
 
@@ -204,6 +215,7 @@ let shift_reset_normalization_rules_both : _ Rewriting2.database = [
 let shift_reset_normalization_rules_lhs_only : _ Rewriting2.database = [
   norm_reset_all;
   norm_reset_seq_req;
+  norm_reset_bind_req;
 ]
 
 (* accumulate/build the continuation; with seq *)
@@ -223,11 +235,12 @@ let red_seq_shift_extend : _ Rewriting2.rule = Rewriting2.(
 (* shift, immediately surronded by reset, is eliminated *)
 let red_reset_shift_elim : _ Rewriting2.rule = Rewriting2.(
   reset (shift __ __ __ __ __),
-  fun _ x_body f_body x_cont f_cont ->
+  fun is_shift x_body f_body x_cont f_cont ->
     let cont_name = Variables.fresh_variable ~v:"cont" "refined continuation" in
     let cont = TLambda (cont_name, [x_cont], Some (Reset f_cont), None) in
     let defun = Syntax.(ens ~p:(eq Variables.res_var cont) ()) in
-    Bind (x_body, defun, Reset f_body)
+    let body = if is_shift then Reset f_body else f_body in
+    Bind (x_body, defun, body)
 )
 
 (* only on lhs *)
@@ -255,9 +268,11 @@ let shift_reset_reduction_rules_lhs : _ Rewriting2.database = [
   norm_reset_ex;
   norm_reset_disj;
   norm_reset_seq_ens;
+  norm_reset_bind_ens;
   norm_reset_ens;
   norm_reset_all;
   norm_reset_seq_req;
+  norm_reset_bind_req;
   red_bind_shift_extend;
   red_seq_shift_extend;
   red_reset_shift_elim;
