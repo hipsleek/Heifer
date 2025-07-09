@@ -9,6 +9,7 @@ open Hiptypes
 %token PLUS
 %token MINUS
 %token STAR
+%token STARDOT
 %token MINUSGREATER
 %token DOT
 %token TILDE
@@ -46,6 +47,7 @@ open Hiptypes
 %nonassoc EQUAL
 %nonassoc GREATER
 %nonassoc LESS
+%left STARDOT
 %left PLUS
 %left MINUS
 %right STAR
@@ -90,8 +92,8 @@ open Hiptypes
       { Plus }
   | MINUS
       { Minus }
-//   | STAR
-//       { TTimes }
+  | STARDOT
+      { TTimes }
 ;
 
 const:
