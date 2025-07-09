@@ -689,27 +689,23 @@ let apply_lemmas : total =
     let f1 = autorewrite lemmas (Staged f1) |> of_uterm in
     (pctx, f1, f2)
 
-let create_induction_hypothesis (ps : pstate) : pctx =
+let create_induction_hypothesis (ps : pstate) name : pctx =
   let@ _ =
     span (fun _r -> log_proof_state ~title:"create_induction_hypothesis" ps)
   in
   let pctx, f1, f2 = ps in
-  let name = match f1 with HigherOrder (f, _) -> Some f | _ -> None in
-  match name with
-  | None -> pctx
-  | Some name ->
-    let free =
-      SSet.union (Subst.free_vars f1) (Subst.free_vars f2)
-      |> SSet.remove "res" (* this isn't a free var; it's bound by ens *)
-      |> SSet.remove name (* the function itself isn't free *)
-      |> SSet.to_list
-    in
-    (* assume they are of term type *)
-    let bs = List.map (fun f -> (f, Rewriting.Rules.Term.uvar f)) free in
-    let f3 = Subst.subst_free_vars bs f1 in
-    let f4 = Subst.subst_free_vars bs f2 in
-    let ih = Rewriting.Rules.Staged.rule f3 f4 in
-    { pctx with induction_hypotheses = (name, ih) :: pctx.induction_hypotheses }
+  let free =
+    SSet.union (Subst.free_vars f1) (Subst.free_vars f2)
+    |> SSet.remove "res" (* this isn't a free var; it's bound by ens *)
+    |> SSet.remove name (* the function itself isn't free *)
+    |> SSet.to_list
+  in
+  (* assume they are of term type *)
+  let bs = List.map (fun f -> (f, Rewriting.Rules.Term.uvar f)) free in
+  let f3 = Subst.subst_free_vars bs f1 in
+  let f4 = Subst.subst_free_vars bs f2 in
+  let ih = Rewriting.Rules.Staged.rule f3 f4 in
+  { pctx with induction_hypotheses = (name, ih) :: pctx.induction_hypotheses }
 
 let is_recursive pctx f =
   List.find_opt (fun (g, _) -> g = f) pctx.definitions_rec |> Option.is_some
@@ -1047,7 +1043,7 @@ let rec apply_ent_rule ?name : tactic =
         span (fun _r ->
             log_proof_state ~title:"ent: create IH, unfold" (pctx, f1, f2))
       in
-      let pctx = create_induction_hypothesis (pctx, f1, f2) in
+      let pctx = create_induction_hypothesis (pctx, f1, f2) f in
       let f1 = unfold_nonrecursive_defns pctx.definitions_nonrec f1 in
       let pctx, f1, _ = unfold_recursive_defns pctx f1 `Left in
       simplify (pctx, f1, f2)

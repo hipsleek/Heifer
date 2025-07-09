@@ -231,6 +231,27 @@ let analyze_method (prog : core_program) (meth : meth_def) : core_program =
     ~result;
   prog
 
+let check_lemma (prog : core_program) (l : lemma) : bool =
+  let open Hipprover.Entail in
+  let pctx = create_pctx prog in
+  check_staged_spec_entailment pctx l.l_left l.l_right
+
+let analyze_lemma (prog : core_program) (l : lemma) : core_program =
+  let result =
+    let@ _ = Globals.Timing.(time overall) in
+    check_lemma prog l
+  in
+  (* we store the lemma regardless of whether or not it is provable *)
+  let prog = {prog with cp_lemmas = SMap.add l.l_name l prog.cp_lemmas} in
+  report_result
+    ~kind:"Lemma"
+    ~name:l.l_name
+    ~inferred_spec:l.l_left
+    ~normalized_spec:l.l_left
+    ~given_spec:(Some l.l_right)
+    ~result;
+  prog
+
 let process_logic_type_decl () = todo ()
 
 let process_lemma () = todo ()
@@ -280,8 +301,12 @@ let process_intermediates (it : intermediate) prog : string list * core_program 
       check_obligation_ l.l_name l.l_params prog.cp_lemmas prog.cp_predicates (left, [l.l_right]);
       debug ~at:4 ~title:(Format.asprintf "added lemma %s" l.l_name) "%s" (string_of_lemma l); *)
       (* add to environment regardless of failure *)
-      [], { prog with cp_lemmas = SMap.add l.l_name l prog.cp_lemmas }
-      (* process_lemma () *)
+      (* we need to prove the lemma *)
+      let@ _ = Debug.span (fun _ ->
+        debug ~at:1 ~title:(Format.sprintf "verifying lemma: %s" l.l_name) "")
+      in
+      let prog = analyze_lemma prog l in
+      [], prog
   | LogicTypeDecl _ ->
       process_logic_type_decl ()
   | Pred _p ->
@@ -304,12 +329,10 @@ let process_intermediates (it : intermediate) prog : string list * core_program 
   | Meth (m_name, m_params, m_spec, m_body, m_tactics, pure_fn_info) ->
       let meth : meth_def = {m_name; m_params; m_spec; m_body; m_tactics } in
       process_pure_fn_info meth pure_fn_info;
-      let prog =
-        let@ _ = Debug.span (fun _r ->
-          debug ~at:1 ~title:(Format.asprintf "verifying function: %s" meth.m_name) "")
-        in
-        analyze_method prog meth
+      let@ _ = Debug.span (fun _ ->
+        debug ~at:1 ~title:(Format.asprintf "verifying function: %s" meth.m_name) "")
       in
+      let prog = analyze_method prog meth in
       [m_name], prog
 
 let process_ocaml_structure (items: Ocaml_common.Parsetree.structure) : unit =
