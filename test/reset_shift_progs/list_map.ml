@@ -4,7 +4,7 @@ let rec map f xs =
   | x :: xs' -> f x :: map f xs'
 
 let map_shift_reset_aux xs =
-  shift k (map k xs)
+  shift (fun k -> map k xs)
 
 let map_shift_reset f xs =
   reset (f (map_shift_reset_aux xs))

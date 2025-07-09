@@ -1,5 +1,5 @@
 let either a b =
-  shift k (k a; k b)
+  shift (fun k -> k a; k b)
 
 let [@spec "ex r. ens r -> 3; ens res = 3"] main () =
   let r = ref 0 in

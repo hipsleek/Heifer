@@ -1,8 +1,8 @@
 let get_int () =
-  shift k (fun x -> k (string_of_int x))
+  shift (fun k -> (fun x -> k (string_of_int x)))
 
 let get_string () =
-  shift k (fun x -> k x)
+  shift (fun k -> (fun x -> k x))
 
 
 let hello_printf_int ()

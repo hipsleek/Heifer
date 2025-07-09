@@ -44,7 +44,7 @@ let type_constructor_decl name =
   |> List.filter_map (fun (_, type_decl) -> Types.constructor_of_type_decl name type_decl |> Option.map (fun constr_decl -> (type_decl, constr_decl)))
   in
   if List.is_empty decls
-  then raise Not_found
+  then failwith ("Could not find constructor " ^ name)
   else List.hd decls
 
 let is_pure_fn_defined f = SMap.mem f global_environment.pure_fns

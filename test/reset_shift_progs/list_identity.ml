@@ -1,6 +1,6 @@
 let rec list_identity_aux lst =
   match lst with
-  | [] -> shift k k
+  | [] -> shift (fun k -> k)
   | x :: xs -> x :: list_identity_aux xs
 
 (* this cannot be proven atm *)

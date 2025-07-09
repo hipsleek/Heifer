@@ -265,19 +265,19 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
     CLambda (bound_vars, spec, e) |> clang_with_expr_type
 
   (* shift and shift0 *)
-  (*| Texp_apply ({exp_desc = Texp_ident (_, {txt = Lident name; _}, _); _}, args) when List.mem name ["shift"; "shift0"] ->*)
-  (*  begin match List.map snd args with*)
-  (*  | [{pexp_desc = Pexp_ident ({txt = Lident k; _}); _}; body] ->*)
-  (*    CShift (name = "shift", k, transformation bound_names body)*)
-  (*  | _ ->  failwith "invalid shift args"*)
-  (*  end*)
-  (*(* reset *)*)
-  (*| Texp_apply ({exp_desc = Texp_ident (_, {txt = Lident "reset"; _}, _); _}, args) ->*)
-  (*  begin match List.map snd args with*)
-  (*  | [body] ->*)
-  (*    CReset (transformation bound_names body)*)
-  (*  | _ ->  failwith "invalid reset args"*)
-  (*  end*)
+  | Texp_apply ({exp_desc = Texp_ident (_, {txt = Lident name; _}, _); _}, args) when List.mem name ["shift"; "shift0"] ->
+    begin match List.map snd args with
+    | [Some {exp_desc = Texp_function ([{ fp_param = k; fp_kind = Tparam_pat {pat_type; _}; _}], Tfunction_body body); _}] ->
+      CShift (name = "shift", (Ident.name k, hip_type_of_type_expr pat_type), transformation bound_names body) |> clang_with_expr_type
+    | _ ->  failwith "invalid shift args"
+    end
+  (* reset *)
+  | Texp_apply ({exp_desc = Texp_ident (_, {txt = Lident "reset"; _}, _); _}, args) ->
+    begin match args with
+    | [_, Some body] ->
+      CReset (transformation bound_names body) |> clang_with_expr_type
+    | _ ->  failwith "invalid reset args"
+    end
   (* perform *)
   | Texp_apply ({exp_desc = Texp_ident (_, {txt = Lident name; _}, _); _}, [_, Some {exp_desc=Texp_construct ({txt=Lident eff; _}, _, args); _}]) when name = "!" ->
       begin match args with
@@ -315,7 +315,10 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
   (* nil *)
   | Texp_construct ({txt=Lident "[]"; _}, _, []) ->
       {core_desc = CValue {term_desc = Construct ("[]", []); term_type = exp_hip_type}; core_type = exp_hip_type}
-  (* cons *)
+  (* unit *)
+  | Texp_construct ({txt=Lident "()"; _}, _, []) ->
+      {core_desc = CValue ({term_desc = Const ValUnit; term_type = Unit}); core_type = exp_hip_type}
+  (* arbitrary constructors *)
   | Texp_construct ({txt = Lident name; _}, _, args) ->
     (* this is almost the same as the next case. can't be unified because the pattern has a different type *)
     let rec loop vars args =
