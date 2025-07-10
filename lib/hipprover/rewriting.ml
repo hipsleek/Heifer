@@ -23,21 +23,21 @@ type uterm =
   | Term of term
   | Binder of string
 
-let string_of_uterm t =
+(* let string_of_uterm t =
   match t with
   | Staged s -> string_of_staged_spec s
   | Pure p -> string_of_pi p
   | Heap h -> string_of_kappa h
   | Term t -> string_of_term t
-  | Binder s -> s
+  | Binder s -> s *)
 
-(* let string_of_uterm t =
+let string_of_uterm t =
   match t with
   | Staged s -> "Staged " ^ string_of_staged_spec s
   | Pure p -> "Pure " ^ string_of_pi p
   | Heap h -> "Heap " ^ string_of_kappa h
   | Term t -> "Term " ^ string_of_term t
-  | Binder s -> "Binder " ^ s *)
+  | Binder s -> "Binder " ^ s
 
 let uterm_to_staged = function
   | Staged s -> s
@@ -99,7 +99,7 @@ let uvar_binder n = var_prefix ^ n
 let get_uvar = function
   | Staged (HigherOrder (f, _)) when is_uvar_name f -> Some f
   | Pure (Predicate (f, _)) when is_uvar_name f -> Some f
-  | Heap (PointsTo (f, _)) when is_uvar_name f -> Some f
+  | Heap (PointsTo (f, Const ValUnit)) when is_uvar_name f -> Some f
   | Term (Var f) when is_uvar_name f -> Some f
   | Binder f when is_uvar_name f -> Some f
   | _ -> None
@@ -144,8 +144,12 @@ let to_unifiable st f : unifiable =
 
       method! visit_PointsTo () l v =
         let v1, e = self#visit_term () v in
-        if is_uvar_name l then (PointsTo (l, v1), SMap.add l (UF.make st None) e)
-        else (PointsTo (l, v1), e)
+        if is_uvar_name l then begin
+          match v with
+          | Const ValUnit -> (PointsTo (l, v1), SMap.add l (UF.make st None) e)
+          | _ -> (PointsTo (l, v1), SMap.singleton l (UF.make st None))
+        end else
+          (PointsTo (l, v1), e)
 
       method! visit_Var () x =
         if is_uvar_name x then (Var x, SMap.singleton x (UF.make st None))
@@ -215,8 +219,20 @@ let subst_uvars st (f, e) : uterm =
 
       method! visit_PointsTo () l v =
         let p = super#visit_PointsTo () l v in
-        if is_uvar_name l then
-          UF.get st (SMap.find l e) |> Option.get |> uterm_to_heap
+        if is_uvar_name l then begin
+          match v with
+          (* ugly hack: match on v, and if v is Const ValUnit there unification variable
+             is the entire heap formula. Otherwise, it is just the variable `l` *)
+          | Const ValUnit -> UF.get st (SMap.find l e) |> Option.get |> uterm_to_heap
+          | _ ->
+              match UF.get st (SMap.find l e) |> Option.get |> uterm_to_term with
+              | Var l' ->
+                  begin match p with
+                  | PointsTo (_, v) -> PointsTo (l', v)
+                  | _ -> failwith "unreachable"
+                  end
+              | _ -> failwith "not a var"
+        end
         else p
 
       method! visit_Var () x =

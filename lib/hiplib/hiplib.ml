@@ -83,18 +83,13 @@ let expected_false result name =
 let report_header ~kind ~name =
   Format.sprintf "\n========== %s: %s ==========\n" kind name
 
-let normal_report ~kind ~name ~inferred_spec ~normalized_spec ~given_spec ~result =
+let normal_report ~kind ~name ~inferred_spec ~given_spec ~result =
   let open Pretty in
   let header = report_header ~kind ~name in
   let inferred_spec_string =
     Format.asprintf
       "[ Inferred specification ]\n%a\n"
       pp_staged_spec inferred_spec
-  in
-  let normalized_spec_string =
-    Format.asprintf
-      "[ Normalized specification ]\n%a\n"
-      pp_staged_spec normalized_spec
   in
   let given_spec_string = match given_spec with
     | Some given_spec ->
@@ -113,7 +108,6 @@ let normal_report ~kind ~name ~inferred_spec ~normalized_spec ~given_spec ~resul
   let report = String.concat "" [
     header;
     inferred_spec_string;
-    normalized_spec_string;
     given_spec_string;
     result_string;
   ] in
@@ -126,14 +120,14 @@ let truncate_name s =
     String.sub s 0 7 ^ "..." ^ String.sub s (l-10) 10
   else s
 
-let test_report ~kind ~name ~inferred_spec ~normalized_spec ~given_spec ~result =
-  ignore (kind, inferred_spec, normalized_spec, given_spec, result, name);
+let test_report ~kind ~name ~inferred_spec ~given_spec ~result =
+  ignore (kind, inferred_spec, given_spec);
   indicate_if_test_failed result name;
   Format.printf "%20s: %s%s@." (truncate_name name) (string_of_bool result) (expected_false result name)
 
-let report_result ~kind ~name ~inferred_spec ~normalized_spec ~given_spec ~result =
+let report_result ~kind ~name ~inferred_spec ~given_spec ~result =
   let report = if !test_mode then test_report else normal_report in
-  report ~kind ~name ~inferred_spec ~normalized_spec ~given_spec ~result;
+  report ~kind ~name ~inferred_spec ~given_spec ~result;
   Globals.Timing.update_totals ()
 
 let report_error ~kind ~name ~error =
@@ -160,7 +154,6 @@ let infer_spec (prog : core_program) (meth : meth_def) =
   in
   let pred_env = prog.cp_predicates in
   let fv_env = create_fv_env method_env pred_env in
-  let@ _ = Globals.Timing.(time forward) in
   forward fv_env meth.m_body
 
 let check_method prog inferred given =
@@ -175,9 +168,8 @@ let check_method prog inferred given =
 let infer_and_check_method (prog : core_program) (meth : meth_def) (given_spec : staged_spec option) =
   let open Hipprover.Normalize in
   let inferred_spec, _ = infer_spec prog meth in
-  let normalized_spec = normalize_spec inferred_spec in
   let result = check_method prog inferred_spec given_spec in
-  inferred_spec, normalized_spec, result
+  inferred_spec, result
 
 let choose_spec (inferred_spec : staged_spec) (given_spec : staged_spec option) =
   Option.fold ~none:inferred_spec ~some:(fun spec -> spec) given_spec
@@ -196,8 +188,7 @@ let analyze_method (prog : core_program) (meth : meth_def) : core_program =
     ~on_error:(fun e -> report_error ~kind:"Function" ~name:meth.m_name ~error:(Printexc.to_string e))
     ~default:prog in
   let given_spec = meth.m_spec in
-  let inferred_spec, normalized_spec, result =
-    let@ _ = Globals.Timing.(time overall) in
+  let inferred_spec, result =
     infer_and_check_method prog meth given_spec
   in
   (* after infference, if the method does not have a spec, then add
@@ -226,7 +217,6 @@ let analyze_method (prog : core_program) (meth : meth_def) : core_program =
     ~kind:"Function"
     ~name:meth.m_name
     ~inferred_spec
-    ~normalized_spec
     ~given_spec
     ~result;
   prog
@@ -237,17 +227,13 @@ let check_lemma (prog : core_program) (l : lemma) : bool =
   check_staged_spec_entailment pctx l.l_left l.l_right
 
 let analyze_lemma (prog : core_program) (l : lemma) : core_program =
-  let result =
-    let@ _ = Globals.Timing.(time overall) in
-    check_lemma prog l
-  in
+  let result = check_lemma prog l in
   (* we store the lemma regardless of whether or not it is provable *)
   let prog = {prog with cp_lemmas = SMap.add l.l_name l prog.cp_lemmas} in
   report_result
     ~kind:"Lemma"
     ~name:l.l_name
     ~inferred_spec:l.l_left
-    ~normalized_spec:l.l_left
     ~given_spec:(Some l.l_right)
     ~result;
   prog

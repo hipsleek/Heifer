@@ -21,7 +21,6 @@ let pure_fns () = SMap.bindings global_environment.pure_fns
 
 module Timing = struct
   let overall_all = ref 0.
-  let overall = ref 0.
   let provers_all = ref 0.
   let forward = ref 0.
   let entail = ref 0.
@@ -32,6 +31,7 @@ module Timing = struct
   let why3_all = ref 0.
 
   let update_totals () =
+    overall_all := !overall_all +. !z3 +. !why3 +. !forward +. !entail +. !norm;
     provers_all := !provers_all +. !z3 +. !why3;
     z3_all := !z3_all +. !z3;
     why3_all := !why3_all +. !why3;
@@ -39,8 +39,7 @@ module Timing = struct
     why3 := 0.;
     forward := 0.;
     entail := 0.;
-    norm := 0.;
-    overall := 0.
+    norm := 0.
 
   (* let time_sec () = Unix.gettimeofday () *)
   let time_sec () = Sys.time ()

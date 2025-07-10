@@ -297,6 +297,7 @@ let call_primitive fname actualArgs =
     failwith (Format.asprintf "unknown primitive: %s, args: %s" fname (string_of_list string_of_term actualArgs))
 
 let rec forward (env: fvenv) (expr : core_lang): staged_spec * fvenv =
+  let@ _ = Globals.Timing.(time forward) in
   let@ _ =
     span (fun r ->
       debug ~at:4 ~title:"forward" "%s\n==>\n%s"

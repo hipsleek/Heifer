@@ -192,6 +192,16 @@ let norm_bind_disj = Staged.dynamic_rule
     let fk = Staged.of_uterm (sub "fk") in
     Disjunction (Bind (x, f1, fk), Bind (x, f2, fk)))
 
+let norm_seq_ens_disj = Staged.dynamic_rule
+  (Sequence (NormalReturn (Pure.uvar "p", Heap.uvar "h"), Disjunction (Staged.uvar "f1", Staged.uvar "f2")))
+  (fun sub ->
+    let p = Pure.of_uterm (sub "p") in
+    let h = Heap.of_uterm (sub "h") in
+    let f1 = Staged.of_uterm (sub "f1") in
+    let f2 = Staged.of_uterm (sub "f2") in
+    let ens_stage = NormalReturn (p, h) in
+    Disjunction (Sequence (ens_stage, f1), Sequence (ens_stage, f2)))
+
 (* we can push req outside of bind *)
 let norm_bind_req = Staged.dynamic_rule
   (Bind (Binder.uvar "x", Sequence (Require (Pure.uvar "p", Heap.uvar "h"), Staged.uvar "f"), Staged.uvar "fk"))
@@ -376,6 +386,7 @@ let normalization_rules_seq = [
   norm_seq_ens_all;
   norm_seq_ens_seq_all;
   norm_seq_assoc;
+  norm_seq_ens_disj;
 ]
 
 let normalization_rules_permute_ens = [

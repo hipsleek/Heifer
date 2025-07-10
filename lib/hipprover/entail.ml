@@ -770,6 +770,10 @@ let rec handle_pure_ens_lhs (pctx : pctx) f =
   | Sequence (NormalReturn (p, EmptyHeap), f') when not (Variables.is_eq_res p) ->
       let pctx = add_assumption pctx p in
       handle_pure_ens_lhs pctx f'
+  | ForAll (x, Sequence (NormalReturn (p, EmptyHeap), f'))
+    when not (Variables.is_eq_res p) (* && x not in free(p) *) ->
+      let pctx = add_assumption pctx p in
+      handle_pure_ens_lhs pctx (ForAll (x, f'))
   | _ ->
       pctx, f
 
@@ -1027,6 +1031,28 @@ let rec apply_ent_rule ?name : tactic =
     apply_ent_rule ?name
       (pctx, seq [NormalReturn (p2, h2); f3], seq [NormalReturn (p1, h1); f4])
       k
+  | Disjunction (f3, f4), f2 ->
+    let tag = Variables.fresh_variable () in
+    let@ _ =
+      span (fun _r ->
+          debug ~at:4 ~title:(Format.asprintf "disj on the left [[%s]]" tag) "")
+    in
+    let@ _ = entailment_search ?name (pctx, f3, f2) in
+    let@ _ =
+      span (fun _r ->
+          debug ~at:4 ~title:(Format.asprintf "right disjunct <<%s>>" tag) "")
+    in
+    entailment_search ?name (pctx, f4, f2) k
+  | f1, Disjunction (f3, f4) ->
+    debug ~at:4 ~title:"disj on the right" "";
+    or_
+      (fun k1 ->
+        let@ _ = span (fun _r -> debug ~at:4 ~title:"left disjunct" "") in
+        entailment_search ?name (pctx, f1, f3) k1)
+      (fun k1 ->
+        let@ _ = span (fun _r -> debug ~at:4 ~title:"right disjunct" "") in
+        entailment_search ?name (pctx, f1, f4) k1)
+      k
   (* two functions with equal terms *)
   | HigherOrder (f1, a1), HigherOrder (f2, a2)
     when f1 = f2 && List.length a1 = List.length a2 ->
@@ -1135,28 +1161,6 @@ let rec apply_ent_rule ?name : tactic =
         Subst.subst_free_vars [(x2, Var x3)] f6 )
       k
   (* disjunction *)
-  | Disjunction (f3, f4), f2 ->
-    let tag = Variables.fresh_variable () in
-    let@ _ =
-      span (fun _r ->
-          debug ~at:4 ~title:(Format.asprintf "disj on the left [[%s]]" tag) "")
-    in
-    let@ _ = entailment_search ?name (pctx, f3, f2) in
-    let@ _ =
-      span (fun _r ->
-          debug ~at:4 ~title:(Format.asprintf "right disjunct <<%s>>" tag) "")
-    in
-    entailment_search ?name (pctx, f4, f2) k
-  | f1, Disjunction (f3, f4) ->
-    debug ~at:4 ~title:"disj on the right" "";
-    or_
-      (fun k1 ->
-        let@ _ = span (fun _r -> debug ~at:4 ~title:"left disjunct" "") in
-        entailment_search ?name (pctx, f1, f3) k1)
-      (fun k1 ->
-        let@ _ = span (fun _r -> debug ~at:4 ~title:"right disjunct" "") in
-        entailment_search ?name (pctx, f1, f4) k1)
-      k
   | _, _ ->
     let ps = (pctx, f1, f2) in
     let ps1 =
@@ -1200,6 +1204,7 @@ and entailment_search : ?name:string -> tactic =
     apply_ent_rule ?name ps k
 
 let check_staged_spec_entailment ?name pctx inferred given =
+  let@ _ = Globals.Timing.(time entail) in
   let@ _ =
     span (fun r ->
         debug ~at:2 ~title:"entailment" "%s\n⊑\n%s\n%s"
