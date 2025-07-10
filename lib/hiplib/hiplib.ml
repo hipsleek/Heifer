@@ -22,6 +22,8 @@ let tests_failed = ref false
 (** List of definitions to insert before passing code to the OCaml frontend.
     Mark declarations that should not be converted into intermediates with [@@ignore]. *)
 let ocaml_prelude = "
+  [@@@warning \"-20\"]
+  [@@@warning \"-21\"]
   let shift _ = failwith \"placeholder\" [@@ignore]
   let shift0 _ = failwith \"placeholder\" [@@ignore]
   let reset _ = failwith \"placeholder\" [@@ignore]

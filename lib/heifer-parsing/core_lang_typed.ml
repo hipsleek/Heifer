@@ -581,5 +581,5 @@ let transform_str bound_names (s : structure_item) =
     Some (LogicTypeDecl (val_name.txt, params, ret, path, name))
   (* TODO we need the full structure to convert s back to a Parsetree.structure via Untypeast *)
   (*| _ -> failwith (Format.asprintf "unknown program element: %a" Pprintast.structure (Untypeast.untype_structure [s]))*)
-  | Tstr_open _ -> None
+  | Tstr_open _ | Tstr_attribute _ -> None
   | _ -> failwith "unknown program element"
