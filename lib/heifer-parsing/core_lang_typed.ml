@@ -340,6 +340,18 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
       | _ :: args1 -> loop vars args1
     in
     loop [] args
+  (* assert with string argument *)
+  | Texp_apply ({exp_desc = Texp_ident (_, {txt = Lident name; _}, _); _}, [_, Some {exp_desc = Texp_constant (Const_string (s, _, _)); _}]) 
+  when name = "assertf" ->
+    let p, k = Annotation.parse_state s in
+    (* typecheck the formula *)
+    (* we may need information from bound names for this *)
+    let (p, k), _ = Hipprover.Infer_types.(
+        with_empty_env begin
+          infer_types_state (Hipcore.Retypehip.retype_state (p, k))
+        end
+      ) in
+    {core_desc = CAssert (p, k); core_type = Unit}
   | Texp_apply (f, args) ->
     let args = args |> List.filter_map (fun (label, expr) -> match expr with 
       | Some value -> Some (label, value) 
@@ -359,6 +371,7 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
       let a = transformation bound_names a in
       let b = transformation bound_names b in
       CSequence (a, b) |> clang_with_expr_type
+  (* assert with expr argument *)
   | Texp_assert (e, _) ->
     let p, k = expr_to_formula e in
     {core_desc = CAssert (p, k); core_type = Unit}

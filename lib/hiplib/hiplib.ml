@@ -22,8 +22,7 @@ let tests_failed = ref false
 (** List of definitions to insert before passing code to the OCaml frontend.
     Mark declarations that should not be converted into intermediates with [@@ignore]. *)
 let ocaml_prelude = "
-  [@@@warning \"-20\"]
-  [@@@warning \"-21\"]
+  let assertf _ = () [@@ignore]
   let shift _ = failwith \"placeholder\" [@@ignore]
   let shift0 _ = failwith \"placeholder\" [@@ignore]
   let reset _ = failwith \"placeholder\" [@@ignore]
@@ -361,6 +360,9 @@ let run_ocaml_string s =
     let items = Parse.implementation (Lexing.from_string s) in
     let unit_info = Unit_info.(make ~source_file:"" Impl "") in
     Compile_common.with_info ~native:false ~tool_name:"heifer" ~dump_ext:"" unit_info @@ begin fun info ->
+      (* suppress warnings, the workaround used to enable shift/reset in the typed frontend
+         causes a lot of spurious warning 20/21s *)
+      let@ _ = Warnings.without_warnings in
       let typed_implementation = Compile_common.typecheck_impl info items in
       let@ _ = Globals.Timing.(time overall_all) in
       process_ocaml_structure typed_implementation.structure

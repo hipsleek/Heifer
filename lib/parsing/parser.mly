@@ -64,6 +64,8 @@ open Hiptypes
 %type <Hiptypes.pi> parse_pi
 %start parse_kappa
 %type <Hiptypes.kappa> parse_kappa
+%start parse_state
+%type <Hiptypes.pi * Hiptypes.kappa> parse_state
 %start parse_staged_spec
 %type <Hiptypes.staged_spec> parse_staged_spec
 %start parse_term
@@ -232,4 +234,8 @@ parse_term:
 
 parse_lemma:
   | t = lemma EOF
+      { t }
+
+parse_state:
+  | t = state EOF
       { t }

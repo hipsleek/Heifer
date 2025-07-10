@@ -389,15 +389,18 @@ let rec infer_types_kappa k : kappa using_env =
     let* v = infer_types_term v in
     return (PointsTo (l, v))
 
+let rec infer_types_state (p, k) : state using_env =
+  let* p = infer_types_pi p in
+  let* k = infer_types_kappa k in
+  return (p, k)
+
 let rec infer_types_staged_spec ss : staged_spec using_env =
   let* typed_spec = match ss with
   | Require (p, k) ->
-      let* p = infer_types_pi p in
-      let* k = infer_types_kappa k in
+      let* (p, k) = infer_types_state (p, k) in
       return (Require (p, k))
   | NormalReturn (p, k) ->
-      let* p = infer_types_pi p in
-      let* k = infer_types_kappa k in
+      let* (p, k) = infer_types_state (p, k) in
       return (NormalReturn (p, k))
   | HigherOrder (f, args) ->
       let* args = Env_state.map ~f:infer_types_term args in
