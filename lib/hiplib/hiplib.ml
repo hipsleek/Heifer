@@ -166,7 +166,6 @@ let check_method prog inferred given =
     check_staged_spec_entailment pctx inferred given_spec
 
 let infer_and_check_method (prog : core_program) (meth : meth_def) (given_spec : staged_spec option) =
-  let open Hipprover.Normalize in
   let inferred_spec, _ = infer_spec prog meth in
   let result = check_method prog inferred_spec given_spec in
   inferred_spec, result
@@ -428,24 +427,24 @@ let preprocess_spec_comments =
 let run_file input_file =
   let open Utils.Io in
   let chan = open_in input_file in
-  let content = String.concat "\n" (input_lines chan) in
+  let lines = input_lines chan in
+  let content = String.concat "\n" lines in
   let content = preprocess_spec_comments content in
   let file_kind = get_file_type input_file in
   run_string file_kind content;
-  close_in chan
-
-    (* let finalSummary =
-      let loc = (List.length lines) in
-      let los_loc_ratio = Format.asprintf "%.2f" ((float_of_int line_of_spec) /. (float_of_int loc)) in
+  close_in chan;
+  if not !test_mode then begin
+    let loc = List.length lines in
+    let final_summary =
       "\n========== FINAL SUMMARY ==========\n"
       ^ "[   LoC   ] " ^ string_of_int loc ^ "\n"
-      ^ "[   LoS   ] " ^ string_of_int (line_of_spec) ^ " (" ^ los_loc_ratio ^ ")\n"
       ^ "[    Z3   ] " ^ Format.asprintf "%.2f" (!Globals.Timing.z3_all/.1000.0) ^ " s\n"
       ^ "[   Why3  ] " ^ Format.asprintf "%.2f" (!Globals.Timing.why3_all/.1000.0) ^ " s\n"
+      ^ "[   SMT   ] " ^ Format.asprintf "%.2f" (!Globals.Timing.provers_all/.1000.0) ^ " s\n"
       ^ "[  Total  ] " ^ Format.asprintf "%.2f" (!Globals.Timing.overall_all/.1000.0) ^ " s\n"
     in
-    if not !test_mode then print_endline finalSummary;
-    flush stdout;                 *)
+    print_endline final_summary
+  end
 
 (*
 let run_file input_file =
