@@ -787,10 +787,6 @@ let rec handle_pure_ens_rhs (pctx : pctx) f =
   | _ ->
       Some f
 
-let rec handle_pure_req_rhs _ = Misc.todo ()
-
-let rec handle_pure_req_lhs _ = Misc.todo ()
-
 let suppress_exn ~title ~default (f : unit -> 'a) : 'a =
   try
     f ()

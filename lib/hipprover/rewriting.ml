@@ -23,21 +23,21 @@ type uterm =
   | Term of term
   | Binder of string
 
-(* let string_of_uterm t =
+let string_of_uterm t =
   match t with
   | Staged s -> string_of_staged_spec s
   | Pure p -> string_of_pi p
   | Heap h -> string_of_kappa h
   | Term t -> string_of_term t
-  | Binder s -> s *)
+  | Binder s -> s
 
-let string_of_uterm t =
+(* let string_of_uterm t =
   match t with
   | Staged s -> "Staged " ^ string_of_staged_spec s
   | Pure p -> "Pure " ^ string_of_pi p
   | Heap h -> "Heap " ^ string_of_kappa h
   | Term t -> "Term " ^ string_of_term t
-  | Binder s -> "Binder " ^ s
+  | Binder s -> "Binder " ^ s *)
 
 let uterm_to_staged = function
   | Staged s -> s

@@ -33,10 +33,11 @@ ALL OK!
 
   $ check ../examples/length.ml
                 length: true
+     length_positive_l: false
        length_positive: true
                  foldr: true
           foldr_length: true
-  ALL OK!
+  [1]
 
 $ check ../examples/closure.ml
 ALL OK!

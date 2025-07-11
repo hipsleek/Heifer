@@ -5,6 +5,8 @@ type biab_ctx = {
   equalities: pi list;
 }
 
+val string_of_biab_ctx : biab_ctx -> string
+
 val emp_biab_ctx : biab_ctx
 
 (** [solve ctx h1 h2] solves the biabduction problem {m A * H_1 \vdash H_2 * F}.

@@ -416,6 +416,7 @@ let normalization_rules_rhs_only = []
 let normalization_rules_lhs = normalization_rules @ normalization_rules_lhs_only
 let normalization_rules_rhs = normalization_rules @ normalization_rules_rhs_only
 
+(*
 let norm_bind_val =
   let open Rewriting2 in
   ( bind __ (ens (eq (var "res") __) emp) __,
@@ -427,7 +428,7 @@ let norm_bind_val =
 let norm_db2 : _ Rewriting2.database =
   Rewriting2.[
     norm_bind_val
-  ]
+  ] *)
 
 (* the main entry point *)
 let normalize_spec_with (rules : rule list) (spec : staged_spec) : staged_spec =

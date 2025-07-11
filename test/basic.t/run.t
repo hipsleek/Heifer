@@ -86,5 +86,5 @@
                     f1: true
               f1_false: false (expected)
                     f2: true
-              f2_false: false
+              f2_false: true
   [1]

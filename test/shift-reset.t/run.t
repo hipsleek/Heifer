@@ -1,10 +1,49 @@
 
   $ . ../utility.sh
 
-  $ check ../reset_shift_progs/either.ml
+  $ check ../reset_shift_progs/state_monad.ml
+                   get: true
+                  tick: true
+             run_state: true
+                  main: true
+                 main1: true
+  ALL OK!
+
+  $ check ../reset_shift_progs/alice_cat.ml
+             alice_cat: true
+  ALL OK!
+
+  $ check ../reset_shift_progs/printf.ml
+          hello_printf: true
+          hello_shift0: true
+               get_int: true
+            get_string: true
+      hello_printf_int: true
+  hello_printf_string1: true
+          hello_printf: true
+    hello_printf_false: false (expected)
+  ALL OK!
+
+  $ check ../reset_shift_progs/amb.ml
                 either: true
                   main: true
   ALL OK!
+
+  $ check ../reset_shift_progs/toss.ml
+                  toss: true
+                   foo: true
+  ALL OK!
+
+  $ check ../reset_shift_progs/httcc-inc3.ml
+                  inc3: true
+  ALL OK!
+
+  $ check ../reset_shift_progs/times.ml
+                 times: true
+            times2_aux: true
+          times2_lemma: false
+                times2: true
+  [1]
 
   $ check ../reset_shift_progs/hello.ml
                  hello: true
@@ -47,13 +86,6 @@
      singleton_list_v1: false
   [1]
 
-  $ check ../reset_shift_progs/state_monad.ml
-                   get: true
-                  tick: true
-             run_state: true
-                  main: true
-                 main1: true
-  ALL OK!
 
   $ check ../reset_shift_progs/translate.ml
           hello_lambda: true
