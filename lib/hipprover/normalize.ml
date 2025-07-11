@@ -326,11 +326,12 @@ let norm_seq_ens_pure_ens_pure = Staged.dynamic_rule
     if is_eq_res p1 || is_eq_res p2 then
       seq [NormalReturn (p1, emp); NormalReturn (p2, emp); f]
     else
-      seq [NormalReturn (And (p1, p2), emp); Staged.uvar "f"])
+      seq [NormalReturn (And (p1, p2), emp); f])
 
 let norm_ens_heap_ens_heap = Staged.rule
   (seq [NormalReturn (True, Heap.uvar "h1"); NormalReturn (True, Heap.uvar "h2")])
   (NormalReturn (True, SepConj (Heap.uvar "h1", Heap.uvar "h2")))
+
 let norm_seq_ens_heap_ens_heap = Staged.rule
   (seq [NormalReturn (True, Heap.uvar "h1"); NormalReturn (True, Heap.uvar "h2"); Staged.uvar "f"])
   (seq [NormalReturn (True, SepConj (Heap.uvar "h1", Heap.uvar "h2")); Staged.uvar "f"])
