@@ -31,31 +31,25 @@ let parse_term spec = Parser.parse_term Lexer.token (Lexing.from_string spec)
 
 let parse_state spec = Parser.parse_state Lexer.token (Lexing.from_string spec)
 
-let parse_spec_attribute (attr : Parsetree.attribute) : Hipcore.Hiptypes.staged_spec option =
-  let spec_attribute_name = "spec" in
-  let open Ocaml_compiler.Ocaml_common.Parsetree in
-  (* TODO use ppxlib to do this matching instead; it would be a lot cleaner... *)
-  match attr with
-  | { attr_name = {txt = attr_name; _};
-      attr_payload = PStr [{
-        pstr_desc = Pstr_eval ({
-          pexp_desc = Pexp_constant {
-            pconst_desc = Pconst_string (annotation, _, _); _}; _}, _); _}]; _} ->
-      (* print_string attr_name; *)
-      (* when String.equal attr_name spec_attribute_name -> *)
-      if String.equal attr_name spec_attribute_name
-      then Some (parse_staged_spec annotation)
-      else None
-  | _ ->
-      None
+let string_of_payload (p : Parsetree.payload) =
+  match p with
+  | PStr [{
+      pstr_desc = Pstr_eval ({
+        pexp_desc = Pexp_constant {
+          pconst_desc = Pconst_string (annotation, _, _); _}; _}, _); _}] -> 
+            Some annotation
+  | _ -> None
 
-let parse_ignore_attribute (attr : Parsetree.attribute) : unit option =
-  let ignore_attribute_name = "ignore" in
+let attribute_parser (attr_name : string) (payload_parser : Parsetree.payload -> 'a option) attr =
   let open Ocaml_compiler.Ocaml_common.Parsetree in
   (* TODO use ppxlib to do this matching instead; it would be a lot cleaner... *)
-  if String.equal attr.attr_name.txt ignore_attribute_name
-  then Some ()
+  if String.equal attr.attr_name.txt attr_name
+  then payload_parser attr.attr_payload
   else None
+
+let parse_spec_attribute = attribute_parser "spec" (fun p -> Option.map parse_staged_spec (string_of_payload p))
+let parse_ignore_attribute = attribute_parser "ignore" (fun _ -> Some ())
+let parse_lemma_attribute = attribute_parser "lemma" (fun p -> Option.map parse_lemma (string_of_payload p))
 
 let extract_attribute parser attrs =
   match List.filter_map parser attrs with

@@ -423,9 +423,11 @@ let run_string kind s =
 
 (* naive means of turning spec comments into attributes *)
 let preprocess_spec_comments =
-  let pattern = {|let \(.+\)\([
+  let spec_attr_pattern = {|let \(.+\)\([
  ]*\)(\*@\([^@]+\)@\*)|} in
-  let regex = Str.regexp pattern in
+  let lemma_attr_pattern = {|%%lemma|} in
+  let spec_attr_regex = Str.regexp spec_attr_pattern in
+  let lemma_attr_regex = Str.regexp lemma_attr_pattern in
   fun text ->
     let@ _ =
       span (fun r ->
@@ -434,7 +436,8 @@ let preprocess_spec_comments =
             "%s\n---\n%s" text
             (string_of_result Fun.id r))
     in
-    let output = Str.global_replace regex "let [@spec {|\\3|}] \\1\\2" text in
+    let output = Str.global_replace spec_attr_regex "let [@spec {|\\3|}] \\1\\2" text in
+    let output = Str.global_replace lemma_attr_regex "@@@lemma" output in
     output
 
 let run_file input_file =

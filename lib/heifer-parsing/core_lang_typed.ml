@@ -594,5 +594,23 @@ let transform_str bound_names (s : structure_item) =
     Some (LogicTypeDecl (val_name.txt, params, ret, path, name))
   (* TODO we need the full structure to convert s back to a Parsetree.structure via Untypeast *)
   (*| _ -> failwith (Format.asprintf "unknown program element: %a" Pprintast.structure (Untypeast.untype_structure [s]))*)
-  | Tstr_open _ | Tstr_attribute _ -> None
+  | Tstr_attribute attr -> begin
+    match Annotation.parse_lemma_attribute attr with
+    | Some lemma ->
+        let lemma = Retypehip.retype_lemma lemma in
+        let open Hipprover.Infer_types in
+        let lemma, _ =
+          with_empty_env begin
+            with_vartypes (List.to_seq lemma.l_params) begin
+              let* lhs, rhs = infer_types_pair_staged_spec lemma.l_left lemma.l_right in
+              let* env = Env_state.get in
+              let params = List.map (fun (name, t) -> (name, Types.TEnv.simplify env.equalities t)) lemma.l_params in
+              return {lemma with l_params = params; l_left = lhs; l_right = rhs}
+            end
+          end
+        in 
+        Some (Lem lemma)
+    | None -> None
+  end
+  | Tstr_open _ -> None
   | _ -> failwith "unknown program element"

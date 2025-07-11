@@ -19,6 +19,8 @@ module State(SType : sig type t end) = struct
       f v env
   let (let*) = bind
 
+  let get env = env, env
+
   let scope (f : 'a t) : 'a t =
     fun env ->
       let result, _ = f env in
@@ -352,20 +354,23 @@ let rec infer_types_pi pi : pi using_env =
 
 (* re-declare to insert one final type simplification pass *)
 
+let simplify_type_visitor = object (self)
+  inherit [_] map_spec
+  method! visit_term env term =
+    let result = {term_desc = self#visit_term_desc env term.term_desc;
+    term_type = 
+      TEnv.simplify env.equalities term.term_type} in
+    debug ~at:5 ~title:"inference result" "%s : %s\n" (string_of_term result) (string_of_type result.term_type);
+    result
+end
+
 (** Given an environment, and a typed term, perform simplifications
     on the types in the term based on the environment. *)
 let simplify_types_pi pi env =
-  let go = object (self)
-    inherit [_] map_spec
+  simplify_type_visitor#visit_pi env pi, env
 
-    method! visit_term env term =
-      let result = {term_desc = self#visit_term_desc env term.term_desc;
-      term_type = 
-        TEnv.simplify env.equalities term.term_type} in
-      debug ~at:5 ~title:"inference result" "%s : %s\n" (string_of_term result) (string_of_type result.term_type);
-      result
-  end in
-  go#visit_pi env pi, env
+let simplify_types_staged_spec ss env =
+  simplify_type_visitor#visit_staged_spec env ss, env
 
 let infer_types_pi pi : pi using_env =
   let* pi = infer_types_pi pi in
@@ -377,6 +382,7 @@ let infer_types_pair_pi (p1, p2) : (pi * pi) using_env =
   (* we may have found new unifications while inferring p2, so simplify p1 *)
   let* p1 = simplify_types_pi p1 in
   return (p1, p2)
+
 
 let rec infer_types_kappa k : kappa using_env =
   match k with
@@ -438,6 +444,13 @@ let rec infer_types_staged_spec ss : staged_spec using_env =
   in
   (* assert (Untypehip.untype_staged_spec typed_spec = Untypehip.untype_staged_spec ss); *)
   return typed_spec
+
+let infer_types_pair_staged_spec p1 p2 : (staged_spec * staged_spec) using_env =
+  let* p1 = infer_types_staged_spec p1 in
+  let* p2 = infer_types_staged_spec p2 in
+  (* we may have found new unifications while inferring p2, so simplify p1 *)
+  let* p1 = simplify_types_staged_spec p1 in
+  return (p1, p2)
 
 (** Output a list of types after being unified in some environment. Mainly
     used for testing. *)
