@@ -127,9 +127,12 @@ let test ()
           >
             Hello world
           </option>
-          <option value=src/examples/applyN.ml data-text="let rec applyN_unfolded f x n
-(*@ Norm(n=0/\emp, x) \/
-  req n>0/\emp; ex r2; f(x, r2); ex r1; applyN_unfolded(f, r2, n-1, r1); Norm(emp, r1) @*)
+          <option value=test/examples/applyN.ml data-text="let rec applyN_unfolded f x n
+(*@ ens n=0/\res=x \/
+  req n>0;
+    let r2 = f(x) in
+    let r1 = applyN_unfolded(f, r2, n-1) in
+    ens res=r1 @*)
 = if n = 0 then x
   else let r = f x in applyN_unfolded f r (n-1)
 
@@ -140,32 +143,101 @@ let rec applyN f x n =
 let incr x = x + 1
 
 let unsound_false ()
-(*@ Norm(emp, 9) @*)
+(*@ ens res=9 @*)
 = applyN incr 0 10
 
 let summary x n
-(*@ Norm(emp, x+n) @*)
+(*@ ens res=x+n @*)
 = applyN incr x n
 
 let summary1_false x n
-(*@ ex r4; Norm(r4=x+n-1/\emp, r4) @*)
+(*@ ex r4. ens r4=x+n-1/\res=r4 @*)
 = applyN incr x n
 
 let summary2_false x n
-(*@ ex r4; Norm(r4=x+n+1/\emp, r4) @*)
-= applyN incr x n">src/examples/applyN.ml</option><option value=src/examples/closure.ml data-text="
-let closures ()
-(*@ ex i; Norm(i->[8;7;42], [8;7;42]) @*)
-= let l = ref [] in
-  l := 42 :: !l;
-  let f i = l := i :: !l in
-  let g h x = h x; l := (x+1) :: !l in
-  g f 7;
-  (* assert (!l = [8;7;42]); *)
-  !l
+(*@ ex r4. ens r4=x+n+1/\res=r4 @*)
+= applyN incr x n">test/examples/applyN.ml</option><option value=test/examples/calls.ml data-text="
+let call_ret f = 
+  f 100
+
+let main_false ()
+(*@ ens res=2 @*)
+= let x = ref 0 in
+  let swap i =
+    let r = !x in
+    x := i;
+    r
+  in
+  (* L1 *)
+  (* swap 2; *)
+
+  assert (!x = 2);
+  (* L2: the call here is only valid after L1*)
+  call_ret swap
+
+let main ()
+(*@ ens res=2 @*)
+= let x = ref 0 in
+  let swap i =
+    let r = !x in
+    x := i;
+    r
+  in
+  (* L1 *)
+  swap 2;
+
+  assert (!x = 2);
+  (* L2: the call here is only valid after L1*)
+  call_ret swap
+
+let main1 ()
+(*@ ens res=1 @*)
+= let x = ref 2 in
+
+  let swap i =
+    let r = !x in
+    x := r - i;
+    r
+  in
+
+  assert (!x=2);
+  call_ret swap;
+  assert (!x=3);
+  (* the function call is only valid at the first time *)
+  1
+
+let main3 ()
+(*@ ens res=1 @*)
+= let x = ref 2 in
+  assert (!x=2);
+  x := !x + 1;
+  assert (!x=4);
+  1
+
+let main4_false ()
+(*@ ens res=1 @*)
+= let x = ref 2 in
+  assert (!x=2);
+  x := 3;
+  assert (!x=4);
+  1">test/examples/calls.ml</option><option value=test/examples/closure.ml data-text="
+let closure_with_effects ()
+(*@ ex i j. ens i->2*j->3/\res=5 @*)
+= let i = ref 1 in
+  let j = ref 2 in
+  let cl x
+  (*@
+    ex a b. req x->a*j->b; ens j->b+a * x->a+1 /\ res=b+a+a+1
+    \/ ex a. req x->a /\ x=j; ens j->a+a+1 /\ res=a+a+1+a+1
+  @*)
+  = j := !j + !x;
+    x := !x + 1;
+    !j + !x
+  in
+  cl i
 
 let closures_with_local_state ()
-(*@ ex i j; Norm(i->1 * j->2, 3) @*)
+(*@ ex i j. ens i->1 * j->2/\res=3 @*)
 = let f =
     let x = ref 0 in
     fun () -> x := !x + 1; !x
@@ -176,86 +248,61 @@ let closures_with_local_state ()
   in
   f () + g ()
 
-let simple_closures ()
-(*@ Norm(emp, 4) @*)
+let private_aliased ()
+(*@ ens res=4 @*)
 = let counter =
     let x = ref 0 in
     fun () -> let r = !x in x := !x + 1; r
   in
   let x = ref 3 in
   counter ();
-  counter () + !x
+  counter () + !x">test/examples/closure.ml</option><option value=test/examples/closure_list.ml data-text="
+let closure_list ()
+(*@ ex i; ens i->[8;7;42]/\res=[8;7;42] @*)
+= let l = ref [] in
+  l := 42 :: !l;
+  let f i = l := i :: !l in
+  let g h x = h x; l := (x+1) :: !l in
+  g f 7;
+  (* assert (!l = [8;7;42]); *)
+  !l">test/examples/closure_list.ml</option><option value=test/examples/compose.ml data-text="
+let compose f g x = f (g x)
 
-(* Section 2.2.1 in Modular Specification and Verification of Closures in Rust *)
-let closure_with_effects ()
-(*@ ex i j; ens i->2*j->3/\res=5 @*)
-= let i = ref 1 in
-  let j = ref 2 in
-  let cl x
-  (*@
-    ex a b; req x->a*j->b; ens j->b+a * x->a+1 /\  res=b+a+a+1
-    \/ ex a; req x->a /\ x=j; ens j->a+a+1 /\ res=a+a+1+a+1
-  @*)
-  = j := !j + !x;
-    x := !x + 1;
-    !j + !x in
-  cl i
-
-(* Section 3.2 in Modular Specification and Verification of Closures in Rust *)
-let closure_with_history_invariant i j
-(*@ ex iv jv; req i->iv*j->jv; ens i->1*j->2 @*)
-= let count = ref 0 in
-  let cl ()
-  (*@ ex a; req count->a; ens count->a+1/\res=a+1 @*)
-  = count := !count + 1;
-    !count in
-  i := cl();
-  j := cl()
-
-(* Section 3.3 in Modular Specification and Verification of Closures in Rust *)
-let roll_dice () (*@ ens res>0 @*) = 4 (* FIXME: Should be random *)
-let call_ret f
-(*@ req f <: (fun v r (*@ req v>0; ens r>0 @*)) @*)
-= let x = roll_dice () in f x
-
-let closure_with_hof_false ()
-(*@ ens T @*)
-= let x = ref (-1) in
-  let cl i = let r = !x in x := !x + i; r in
-  (* x is still -1 *)
-  call_ret cl
-
-let closure_with_hof_ok ()
-= let x = ref (-1) in
-  let cl i = let r = !x in x := !x + i; r in
-  cl 2; (* x is now 1 *)
-  call_ret cl
-
-(* https://ilyasergey.net/CS6217/_static/slides/04-FunLog.pdf *)
-let min_max_plus x y min max
-(*@ ex a b; req min->a*max->b; ex i j; ens min->i*max->j/\i<=j/\res=x+y @*)
-= let min' = if x < y then x else y in
-  let max' = if x < y then y else x in
-  min := min';
-  max := max';
-  x + y">src/examples/closure.ml</option><option value=src/examples/compose.ml data-text="
+let compose_pure () 
+(*@ ens res=3 @*)
+= compose (fun y -> y + 1) (fun z -> z + 2) 0">test/examples/compose.ml</option><option value=test/examples/compose_closure.ml data-text="
 let compose f g x = f (g x)
 
 let f x = x := !x + 1; x
 
 let g x = x := !x + !x; x
 
-let caller1 () 
-(*@ ex w; Norm(w->3, 3) @*)
+let compose_state_1 () 
 = let x = ref 1 in
   let y1 = compose f g x in
   !y1
 
-let caller2 ()
-(*@ ex w; Norm(w->4, 4) @*)
-= let y = ref 1 in 
+let compose_state_2 ()
+(*@ ex w; ens w->4/\res=4 @*)
+= let y = ref 1 in
   let y1 = compose g f y in
-  !y1">src/examples/compose.ml</option><option value=src/examples/exception.ml data-text="
+  !y1
+
+let compose_shared_1 ()
+(*@ ex w; ens w->4/\res=4 @*)
+= let y = ref 1 in
+  let f x = y := !y + 1; x in
+  let g x = y := !y + !y; x in
+  let _ = compose g f 1 in
+  !y
+
+let compose_shared_2 ()
+(*@ ex w; ens w->3/\res=3 @*)
+= let y = ref 1 in
+  let f x = y := !y + 1; x in
+  let g x = y := !y + !y; x in
+  let _ = compose f g 1 in
+  !y">test/examples/compose_closure.ml</option><option value=test/examples/exception.ml data-text="
 let failing x
 (*@ ex i; req x->i; ex r; E(x->i+1 /\ i+1=3, r)
   \/
@@ -268,33 +315,79 @@ let main ()
 = let y = ref 2 in
   match failing y with
   | effect E k -> 1
-  | v -> v">src/examples/exception.ml</option><option value=src/examples/fold.ml data-text="
-let rec foldr f li acc =
-  match li with 
-  | [] -> acc 
-  | x :: xs -> 
-    let acc' = f x acc in 
-    foldr f xs acc'
+  | v -> v">test/examples/exception.ml</option><option value=test/examples/fold.ml data-text="let [@pure] rec length (li : int list) : int =
+  match li with
+  | [] -> 0
+  | x :: xs -> 1 + length xs
 
-let rec sum li = 
-  match li with 
+let [@pure] rec sum (li: int list) : int =
+  match li with
   | [] -> 0
   | x :: xs -> x + sum xs
 
+let rec foldr f li acc =
+  match li with
+  | [] -> acc
+  | x :: xs ->
+    f x (foldr f xs acc)
+
 let foldr_sum xs k
-(*@ ex r; sum(xs, r); ens res=r+k @*)
+(*@ ens res=sum(xs)+k @*)
 = let g c t = c + t in
   foldr g xs k
 
-let rec length li = 
-  match li with 
-  | [] -> 0
-  | x :: xs -> 1 + length xs  
-
 let foldr_length xs init
-(*@ ex r; length(xs, r); ens res=r+init @*)
+(*@ ens res=length(xs)+init @*)
 = let g c t = 1 + t in
   foldr g xs init
+
+let rec foldl f li acc =
+  match li with
+  | [] -> acc
+  | x :: xs ->
+    let acc' = f x acc in
+    foldl f xs acc'
+
+let foldl_sum xs k
+(*@ ens res=sum(xs)+k @*)
+= let g c t = c + t in
+  foldl g xs k
+
+let foldl_length xs init
+(*@ ens res=length(xs)+init @*)
+= let g c t = 1 + t in
+  foldl g xs init">test/examples/fold.ml</option><option value=test/examples/fold_closure.ml data-text="let rec length li =
+  match li with
+  | [] -> 0
+  | x :: xs -> 1 + length xs
+
+let rec sum li =
+  match li with
+  | [] -> 0
+  | x :: xs -> x + sum xs
+
+let rec foldl f li acc =
+  match li with
+  | [] -> acc
+  | x :: xs ->
+    let acc' = f x acc in
+    foldl f xs acc'
+
+let foldl_length_state x xs init
+(*@ ex i; req x->i; ex r; length(xs, r); ens x->i+r/\res=r+init @*)
+= let g c t = x := !x + 1; 1 + t in
+  foldl g xs init
+
+let foldl_sum_state x xs init
+(*@ ex i; req x->i; ex r; sum(xs, r); ens x->i+r/\res=r+init @*)
+= let g c t = x := !x + c; c + t in
+  foldl g xs init
+
+let rec foldr f li acc =
+  match li with
+  | [] -> acc
+  | x :: xs ->
+    f x (foldr f xs acc)
 
 let foldr_length_state x xs init
 (*@ ex i; req x->i; ex r; length(xs, r); ens x->i+r/\res=r+init @*)
@@ -304,7 +397,7 @@ let foldr_length_state x xs init
 let foldr_sum_state x xs init
 (*@ ex i; req x->i; ex r; sum(xs, r); ens x->i+r/\res=r+init @*)
 = let g c t = x := !x + c; c + t in
-  foldr g xs init">src/examples/fold.ml</option><option value=src/examples/iter.ml data-text="let rec integers x n =
+  foldr g xs init">test/examples/fold_closure.ml</option><option value=test/examples/iter.ml data-text="let rec integers x n =
   if n = 0 then []
   else x :: integers (x + 1) (n - 1)
 
@@ -336,25 +429,31 @@ let build_fill x n
       x := !x + 1;
       r
   in
-  fill_list counter n">src/examples/iter.ml</option><option value=src/examples/length.ml data-text="
-let rec length xs =
+  fill_list counter n">test/examples/iter.ml</option><option value=test/examples/length.ml data-text="
+let[@pure] rec length (xs:int list): int =
   match xs with
   | [] -> 0
   | x :: xs1 -> 1 + length xs1
 
-(*@
-  lemma length_positive_l xs res =
-    length(xs, res) ==> ens res>=0
-@*)
+[%%lemma {| length_positive_l(xs) = length(xs) ==> ens res>=0 |}]
 
-(*@
-  lemma length_empty res =
-    length([], res) ==> ens res=0
-@*)
+(* [%%lemma {| length_empty() = length([]) ==> ens res=0 |}] *)
 
 let length_positive xs
 (*@ ens res>=0 @*)
-= length xs">src/examples/length.ml</option><option value=src/examples/length_pure.ml data-text="
+= length xs
+
+let rec foldr f li acc =
+  match li with
+  | [] -> acc
+  | x :: xs ->
+    let acc' = f x acc in
+    foldr f xs acc'
+
+let foldr_length xs init
+(*@ ens res=length(xs)+init @*)
+= let g c t = 1 + t in
+  foldr g xs init">test/examples/length.ml</option><option value=test/examples/length_stage.ml data-text="
 let[@pure] rec length (li:int list) : int = 
   match li with 
   | [] -> 0
@@ -367,75 +466,7 @@ let[@pure] rec length (li:int list) : int =
 
 let length_length xs
 (*@ ens res=length(xs) @*)
-= length xs
-
-let rec foldr f li acc =
-  match li with 
-  | [] -> acc 
-  | x :: xs -> 
-    let acc' = f x acc in 
-    foldr f xs acc'
-
-let foldr_length xs init
-(*@ ex r; ens res=length(xs)+init @*)
-= let g c t = 1 + t in
-  foldr g xs init">src/examples/length_pure.ml</option><option value=src/examples/list.ml data-text="  
-let rec subsequence sub lst =
-  match sub with
-  | [] -> true
-  | y :: ys -> match lst with
-    | [] -> false
-    | x :: xs -> (x = y && subsequence ys xs) || subsequence sub xs
-
-let rec replace lst x y =
-  match lst with
-  | [] -> []
-  | h :: tail -> if h = x then y :: replace tail x y else h :: replace tail x y
-
-let rec interleave xs ys =
-  match xs with
-  | [] -> ys
-  | x :: xs' -> match ys with
-  | [] -> xs
-  | y :: ys' -> x :: (y :: interleave xs' ys')
-
-
-(* OCaml List Module: https://v2.ocaml.org/api/List.html *)
-
-(* https://v2.ocaml.org/api/List.html#VALfind_index *)
-let rec find_index lst y =
-  match lst with
-  | [] -> 0
-  | x :: xs -> if x = y then 0 else 1 + (find_index xs y)
-
-(* https://v2.ocaml.org/api/List.html#VALexists *)
-let rec exists lst f =
-  match lst with
-  | [] -> false
-  | x :: xs -> f x || exists xs f
-
-(* https://v2.ocaml.org/api/List.html#VALint *)
-let init len f =
-  if len < 0 then perform Invalid_argument;
-  let rec aux idx
-  = if idx = len then []
-    else let k = f idx in k :: aux (idx + 1)
-  in
-  aux 0
-
-(* https://v2.ocaml.org/api/List.html#VALequal *)
-let rec equal xs ys =
-  match xs with
-  | [] -> (
-    match ys with
-    | [] -> true
-    | y :: ys' -> false
-  )
-  | x :: xs' -> (
-    match ys with
-    | [] -> false
-    | y :: ys' -> x = y && equal xs' ys'
-  )">src/examples/list.ml</option><option value=src/examples/map.ml data-text="
+= length xs">test/examples/length_stage.ml</option><option value=test/examples/map.ml data-text="
 let rec map f xs =
   match xs with
   | [] -> []
@@ -447,22 +478,35 @@ let map_id ys
 (*@ ens res=ys @*)
 = map id ys
 
-let succ x = x + 1
+let [@pure] succ (x:int) : int = x + 1
 
 let map_not_id_false ys
 (*@ ens res=ys @*)
 = map succ ys
 
-(* ghost function that specifies what mapping succ should return *)
-let rec succ_list xs =
+let [@pure] rec succ_list (xs:int list) : int list =
   match xs with
   | [] -> []
   | x :: xs1 -> succ x :: succ_list xs1
 
 (* we use succ_list in the statement of this lemma *)
 let map_succ ys
-(*@ ex r; succ_list(ys, r); ens res=r @*)
+(*@ ens res=succ_list(ys) @*)
 = map succ ys
+
+let [@pure] rec thrice_list (xs:int list) : int list =
+  match xs with
+  | [] -> []
+  | x :: xs' -> (x + x + x) :: thrice_list xs'
+
+let map_thrice xs
+(*@ ens res=thrice_list(xs) @*)
+= let cl i = i + i + i in
+  map cl xs">test/examples/map.ml</option><option value=test/examples/map_closure.ml data-text="
+let rec map f xs =
+  match xs with
+  | [] -> []
+  | x :: xs1 -> f x :: map f xs1
 
 let rec length xs =
   match xs with
@@ -573,7 +617,6 @@ let rec incr_list init li =
   | x :: xs -> 
     init :: incr_list (init + 1) xs
 
-(* Adapted from https://github.com/FabianWolff/closure-examples/blob/master/map_vec.rs *)
 let cl_map_incr_l xs x
 (*@ ex i; req x->i; ex r; length(xs, r); ex r1; ens x->i+r/\res=r1 @*)
 = let f a = x := !x + 1; !x in
@@ -582,43 +625,20 @@ let cl_map_incr_l xs x
 let cl_map_incr_c xs x
 (*@ ex i; req x->i; ex ys; ex j; ens j=i+1; incr_list(j, xs, ys); ens res=ys @*)
 = let f a = x := !x + 1; !x in
-  map f xs
+  map f xs">test/examples/map_closure.ml</option><option value=test/examples/pure.ml data-text="
+let [@pure] hello (x:int) : int = x + 1
 
-(* Adapted from https://github.com/FabianWolff/closure-examples/blob/master/map_vec.rs *)
-let rec thrice_list xs =
-  match xs with
-  | [] -> []
-  | x :: xs' -> (x + x + x) :: thrice_list xs'
-
-let map_thrice xs
-(*@ ex ys; thrice_list(xs, ys); ens res=ys @*)
-= let cl i = i + i + i in
-  map cl xs">src/examples/map.ml</option><option value=src/examples/nth.ml data-text="
-(*
-   
-nth(xs,n,r) =
- ens xs=x:xs'/\n=0/\res=x
- \/ ens xs=x:xs'/\n>0;nth(xs',n-1,res))
- \/ ens n<0; Failure()
- \/ ens xs=[]/\n>0; Invalid_argument()
-
-*)
-
-(*
-
-ex v3; Invalid_argument((n<0)=true, (), v3); Norm(res=v3)
-\/
-ex v18 v20; ens (n<0)=false/\v20=lambda(\l n v17 -> ex v8; Failure(is_nil(l)=true, (), v8); Norm(v17=v8)); v20(l, n, v18); Norm(res=v18)
-
-   *)
-
-let nth l n =
-  if n < 0 then perform Invalid_argument else
-  let rec nth_aux l n =
-    match l with
-    | [] -> perform Failure
-    | a::l -> if n = 0 then a else nth_aux l (n-1)
-  in nth_aux l n">src/examples/nth.ml</option><option value=src/evaluation/0_heap_zero_once_twice.ml data-text="effect Zero : int 
+let pure_hello ()
+(*@ ens res=hello(2) @*)
+= 3">test/examples/pure.ml</option><option value=test/examples/state.ml data-text="
+(* https://ilyasergey.net/CS6217/_static/slides/04-FunLog.pdf *)
+let min_max_plus x y min max
+(*@ ex a b; req min->a*max->b; ex i j; ens min->i*max->j/\i<=j/\res=x+y @*)
+= let min' = if x < y then x else y in
+  let max' = if x < y then y else x in
+  min := min';
+  max := max';
+  x + y">test/examples/state.ml</option><option value=test/evaluation/0_heap_zero_once_twice.ml data-text="effect Zero : int 
 effect Once : int 
 effect Twice : int 
 
@@ -646,7 +666,7 @@ let main_aux ()
   | effect Once k ->
     (continue k 1); 
   | effect Twice k ->
-    let _ = (continue (Obj.clone_continuation k) 1) in (continue k 2)">src/evaluation/0_heap_zero_once_twice.ml</option><option value=src/evaluation/10_memory_cell_nested.ml data-text="effect Read : int 
+    let _ = (continue (Obj.clone_continuation k) 1) in (continue k 2)">test/evaluation/0_heap_zero_once_twice.ml</option><option value=test/evaluation/10_memory_cell_nested.ml data-text="effect Read : int 
 effect Write : int -> unit 
 
 let read () 
@@ -704,7 +724,7 @@ let read_handler  ()
   | v -> v 
   | effect Read k -> 
     let x = !i in
-    (continue k (x))">src/evaluation/10_memory_cell_nested.ml</option><option value=src/evaluation/11_exchange.ml data-text="effect Exchange: int -> int
+    (continue k (x))">test/evaluation/10_memory_cell_nested.ml</option><option value=test/evaluation/11_exchange.ml data-text="effect Exchange: int -> int
 
 let exchange (m:int)
 (*@  
@@ -738,7 +758,7 @@ let main ()
   let x = ref 11 in 
   let r = exc_hanlder x 5 in 
   (* print_endline (string_of_int r); *)
-  r">src/evaluation/11_exchange.ml</option><option value=src/evaluation/12_two_pointers.ml data-text="effect E: unit 
+  r">test/evaluation/11_exchange.ml</option><option value=test/evaluation/12_two_pointers.ml data-text="effect E: unit 
 
 let two_locations () 
 (*@ ex i j z1 z2 ret;
@@ -751,7 +771,35 @@ let two_locations ()
   let ret = perform (E) in 
   i := !i + 1;
   j := !j + 1;
-  ret">src/evaluation/12_two_pointers.ml</option><option value=src/evaluation/1_heap_zero_once_twice.ml data-text="effect Zero : int 
+  ret">test/evaluation/12_two_pointers.ml</option><option value=test/evaluation/13_times.ml data-text="effect Zero : int 
+
+let rec aux li =
+  match li with
+  | [] -> 1 
+  | x :: xs -> 
+    if x == 0 then perform Zero 
+    else x * aux xs 
+
+let times2 li = 
+  match aux li with 
+  | v -> v 
+  | effect Zero k -> 0 
+
+(*  
+aux(li, res) =  
+     ens[res] li = [] /\ res=1
+  \/ ens li = x :: xs /\ x =0 ; Zero(res)
+  \/ ens li = x :: xs /\ x!=0 ; aux(xs, r); ens[res] res = x * r 
+*)
+
+(*  
+times2(li, res) =  
+     ens[res] li = [] /\ res=1
+  \/ ens[res] li = x :: xs /\ x =0 ; res=0
+  \/ ens li = x :: xs /\ x!=0 ; aux(xs, r); ens[res] res = x * r 
+
+== times(li, res)
+*)">test/evaluation/13_times.ml</option><option value=test/evaluation/1_heap_zero_once_twice.ml data-text="effect Zero : int 
 effect Once : int 
 effect Twice : int 
 
@@ -779,7 +827,7 @@ let main_aux ()
   | effect Once k ->
     (continue k 1); 
   | effect Twice k ->
-    let _ = (continue (Obj.clone_continuation k) 1) in (continue k 2)">src/evaluation/1_heap_zero_once_twice.ml</option><option value=src/evaluation/2_heap_zero_once_twice.ml data-text="effect Zero : int 
+    let _ = (continue (Obj.clone_continuation k) 1) in (continue k 2)">test/evaluation/1_heap_zero_once_twice.ml</option><option value=test/evaluation/2_heap_zero_once_twice.ml data-text="effect Zero : int 
 effect Once : int 
 effect Twice : int 
 
@@ -807,7 +855,7 @@ let main_false ()
   | effect Once k ->
     (continue k 1); 
   | effect Twice k ->
-    let _ = (continue (Obj.clone_continuation k) 1) in (continue k 2)">src/evaluation/2_heap_zero_once_twice.ml</option><option value=src/evaluation/3_nestedHandlers.ml data-text="effect E : int 
+    let _ = (continue (Obj.clone_continuation k) 1) in (continue k 2)">test/evaluation/2_heap_zero_once_twice.ml</option><option value=test/evaluation/3_nestedHandlers.ml data-text="effect E : int 
 effect E1 : string 
 
 let foo () 
@@ -836,7 +884,7 @@ let baz ()
 =
   match bar () with 
   | x -> x 
-  | effect E1 k -> continue k 1">src/evaluation/3_nestedHandlers.ml</option><option value=src/evaluation/4_memory_cell.ml data-text="effect Read : int 
+  | effect E1 k -> continue k 1">test/evaluation/3_nestedHandlers.ml</option><option value=test/evaluation/4_memory_cell.ml data-text="effect Read : int 
 effect Write : int -> unit 
 
 (* let (i: int ref) = Sys.opaque_identity (ref 0) *)
@@ -879,7 +927,7 @@ let write_handler  ()
   let i = Sys.opaque_identity (ref 0) in 
   match write 10 with
   | v -> !i (*print_string (string_of_int !i) *)
-  | effect (Write x) k -> i := x; (continue k ())">src/evaluation/4_memory_cell.ml</option><option value=src/evaluation/5_memory_cell.ml data-text="effect Read : int 
+  | effect (Write x) k -> i := x; (continue k ())">test/evaluation/4_memory_cell.ml</option><option value=test/evaluation/5_memory_cell.ml data-text="effect Read : int 
 effect Write : int -> unit 
 
 (* let (i: int ref) = Sys.opaque_identity (ref 0) *)
@@ -922,7 +970,7 @@ let write_handler  ()
   let i = Sys.opaque_identity (ref 0) in 
   match write 10; write 20 with
   | v -> !i (*print_string (string_of_int !i) *)
-  | effect (Write x) k -> i := x; (continue k ())">src/evaluation/5_memory_cell.ml</option><option value=src/evaluation/6_memory_cell_mix_handler.ml data-text="effect Read : int 
+  | effect (Write x) k -> i := x; (continue k ())">test/evaluation/5_memory_cell.ml</option><option value=test/evaluation/6_memory_cell_mix_handler.ml data-text="effect Read : int 
 effect Write : int -> unit 
 
 (* let (i: int ref) = Sys.opaque_identity (ref 0) *)
@@ -993,7 +1041,7 @@ let handler1 ()
   match test1 () with 
   | v -> !i
   | effect Read k -> (continue k (!i)) 
-  | effect (Write x) k -> i := x; (continue k ())">src/evaluation/6_memory_cell_mix_handler.ml</option><option value=src/evaluation/7_memory_cell_mix_handler.ml data-text="effect Read : int 
+  | effect (Write x) k -> i := x; (continue k ())">test/evaluation/6_memory_cell_mix_handler.ml</option><option value=test/evaluation/7_memory_cell_mix_handler.ml data-text="effect Read : int 
 effect Write : int -> unit 
 
 (* let (i: int ref) = Sys.opaque_identity (ref 0) *)
@@ -1012,7 +1060,7 @@ let write n
    Write(emp, n,  ret);
    Norm(emp, ret)
 @*)
-= perform (Write n)">src/evaluation/7_memory_cell_mix_handler.ml</option><option value=src/evaluation/8_memory_cell_nested.ml data-text="effect Read : int 
+= perform (Write n)">test/evaluation/7_memory_cell_mix_handler.ml</option><option value=test/evaluation/8_memory_cell_nested.ml data-text="effect Read : int 
 effect Write : int -> unit 
 
 (* let (i: int ref) = Sys.opaque_identity (ref 0) *)
@@ -1067,7 +1115,7 @@ let handler2  ()
   let i = Sys.opaque_identity (ref 0) in 
   match handler1 i with
   | v -> () (*print_string (string_of_int !i) *)
-  | effect Read k -> (continue k (!i))">src/evaluation/8_memory_cell_nested.ml</option><option value=src/evaluation/9_memory_cell_nested.ml data-text="effect Read : int 
+  | effect Read k -> (continue k (!i))">test/evaluation/8_memory_cell_nested.ml</option><option value=test/evaluation/9_memory_cell_nested.ml data-text="effect Read : int 
 effect Write : int -> unit 
 
 (* let (i: int ref) = Sys.opaque_identity (ref 0) *)
@@ -1121,7 +1169,7 @@ let handler2  ()
   let i = Sys.opaque_identity (ref 0) in 
   match handler1 i with
   | v -> v (*print_string (string_of_int !i) *)
-  | effect Read k -> (continue k (!i))">src/evaluation/9_memory_cell_nested.ml</option><option value=src/evaluation/abort.ml data-text="effect Zero : unit
+  | effect Read k -> (continue k (!i))">test/evaluation/9_memory_cell_nested.ml</option><option value=test/evaluation/abort.ml data-text="effect Zero : unit
 
 let client () 
 (*@ ex r; Zero(emp, r); req F; ens F @*)
@@ -1141,7 +1189,7 @@ let invalid_false ()
 =
   match client () with
   | v -> 2
-  | effect Zero k -> continue k ()">src/evaluation/abort.ml</option><option value=src/evaluation/nqueens.ml data-text="open Effect
+  | effect Zero k -> continue k ()">test/evaluation/abort.ml</option><option value=test/evaluation/nqueens.ml data-text="open Effect
 open Effect.Deep
 
 (* Ported from: https://github.com/effect-handlers/effect-handlers-bench/blob/d4a32ec337b77859c328a1103e195d3e4b3dcb5b/benchmarks/ocaml/001_nqueens/001_nqueens_ocaml.ml *)
@@ -1219,7 +1267,7 @@ let print_all_solutions () =
 
 let _ =
   print_all_solutions ();
-  Printf.printf &quot;%d\n&quot; (queens_count n)">src/evaluation/nqueens.ml</option><option value=src/evaluation/toss.ml data-text="effect Flip : bool
+  Printf.printf &quot;%d\n&quot; (queens_count n)">test/evaluation/nqueens.ml</option><option value=test/evaluation/toss.ml data-text="effect Flip : bool
 
 let rec tossNtimeTail n 
 (* tossNtimeTail(n, res) = ens n=1; Flip(res)  \/ 
@@ -1303,7 +1351,7 @@ let _ =
    let counter1 = ref 0 in 
    let res = tossHandlerNonTail counter1 9 in 
    print_endline (string_of_int !counter1);
-   print_endline (string_of_int res)">src/evaluation/toss.ml</option>
+   print_endline (string_of_int res)">test/evaluation/toss.ml</option>
         </select>
         <button id="share-btn" disabled onclick="share()">Share</button>
         <span style="display: inline-block">
@@ -1348,7 +1396,7 @@ let _ =
     <script>
       // this is substituted at build time and is used in page.js
       function postExampleLoad() {
-        console.log("Built Mon Dec 16 11:40:25 +08 2024");
+        console.log("Built Tue Jul 15 11:19:42 +08 2025");
         console.log("loading z3...");
       }
     </script>

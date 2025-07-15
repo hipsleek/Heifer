@@ -827,7 +827,7 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.init = void 0;
+exports.init = init;
 const high_level_1 = require("./high-level");
 const low_level_1 = require("./low-level");
 __exportStar(require("./high-level/types"), exports);
@@ -841,14 +841,13 @@ async function init() {
     const highLevel = (0, high_level_1.createApi)(lowLevel.Z3);
     return { ...lowLevel, ...highLevel };
 }
-exports.init = init;
 
 }).call(this)}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
 },{"./high-level":11,"./high-level/types":12,"./low-level":14,"./low-level/types.__GENERATED__":15}],10:[function(require,module,exports){
 (function (global){(function (){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.createApi = void 0;
+exports.createApi = createApi;
 // TODO(ritave): Add typing for Context Options
 //               https://github.com/Z3Prover/z3/pull/6048#discussion_r883391669
 // TODO(ritave): Add an error handler
@@ -929,6 +928,10 @@ function createApi(Z3) {
         Z3.del_config(cfg);
         function _assertContext(...ctxs) {
             ctxs.forEach(other => (0, utils_1.assert)('ctx' in other ? ctx === other.ctx : ctx === other, 'Context mismatch'));
+        }
+        function _assertPtr(ptr) {
+            if (ptr == null)
+                throw new TypeError('Expected non-null pointer');
         }
         // call this after every nontrivial call to the underlying API
         function throwIfError() {
@@ -1441,6 +1444,31 @@ function createApi(Z3) {
                 return new ArrayImpl(check(Z3.mk_const_array(contextPtr, domain.ptr, value.ptr)));
             },
         };
+        const Set = {
+            // reference: https://z3prover.github.io/api/html/namespacez3py.html#a545f894afeb24caa1b88b7f2a324ee7e
+            sort(sort) {
+                return Array.sort(sort, Bool.sort());
+            },
+            const(name, sort) {
+                return new SetImpl(check(Z3.mk_const(contextPtr, _toSymbol(name), Array.sort(sort, Bool.sort()).ptr)));
+            },
+            consts(names, sort) {
+                if (typeof names === 'string') {
+                    names = names.split(' ');
+                }
+                return names.map(name => Set.const(name, sort));
+            },
+            empty(sort) {
+                return EmptySet(sort);
+            },
+            val(values, sort) {
+                var result = EmptySet(sort);
+                for (const value of values) {
+                    result = SetAdd(result, value);
+                }
+                return result;
+            }
+        };
         function If(condition, onTrue, onFalse) {
             if (isProbe(condition) && isTactic(onTrue) && isTactic(onFalse)) {
                 return Cond(condition, onTrue, onFalse);
@@ -1543,6 +1571,27 @@ function createApi(Z3) {
                 _assertContext(...castArgs);
                 return new BoolImpl(check(Z3.mk_or(contextPtr, castArgs.map(arg => arg.ptr))));
             }
+        }
+        function PbEq(args, coeffs, k) {
+            _assertContext(...args);
+            if (args.length !== coeffs.length) {
+                throw new Error('Number of arguments and coefficients must match');
+            }
+            return new BoolImpl(check(Z3.mk_pbeq(contextPtr, args.map(arg => arg.ast), coeffs, k)));
+        }
+        function PbGe(args, coeffs, k) {
+            _assertContext(...args);
+            if (args.length !== coeffs.length) {
+                throw new Error('Number of arguments and coefficients must match');
+            }
+            return new BoolImpl(check(Z3.mk_pbge(contextPtr, args.map(arg => arg.ast), coeffs, k)));
+        }
+        function PbLe(args, coeffs, k) {
+            _assertContext(...args);
+            if (args.length !== coeffs.length) {
+                throw new Error('Number of arguments and coefficients must match');
+            }
+            return new BoolImpl(check(Z3.mk_pble(contextPtr, args.map(arg => arg.ast), coeffs, k)));
         }
         function ForAll(quantifiers, body, weight = 1) {
             // Verify all quantifiers are constants
@@ -1689,13 +1738,50 @@ function createApi(Z3) {
             const _idxs = args.slice(0, args.length - 1).map(arg => arg.ast);
             return _toExpr(check(Z3.mk_store_n(contextPtr, array.ast, _idxs, args[args.length - 1].ast)));
         }
+        function SetUnion(...args) {
+            return new SetImpl(check(Z3.mk_set_union(contextPtr, args.map(arg => arg.ast))));
+        }
+        function SetIntersect(...args) {
+            return new SetImpl(check(Z3.mk_set_intersect(contextPtr, args.map(arg => arg.ast))));
+        }
+        function SetDifference(a, b) {
+            return new SetImpl(check(Z3.mk_set_difference(contextPtr, a.ast, b.ast)));
+        }
+        function SetHasSize(set, size) {
+            const a = typeof size === 'object' ? Int.sort().cast(size) : Int.sort().cast(size);
+            return new BoolImpl(check(Z3.mk_set_has_size(contextPtr, set.ast, a.ast)));
+        }
+        function SetAdd(set, elem) {
+            const arg = set.elemSort().cast(elem);
+            return new SetImpl(check(Z3.mk_set_add(contextPtr, set.ast, arg.ast)));
+        }
+        function SetDel(set, elem) {
+            const arg = set.elemSort().cast(elem);
+            return new SetImpl(check(Z3.mk_set_del(contextPtr, set.ast, arg.ast)));
+        }
+        function SetComplement(set) {
+            return new SetImpl(check(Z3.mk_set_complement(contextPtr, set.ast)));
+        }
+        function EmptySet(sort) {
+            return new SetImpl(check(Z3.mk_empty_set(contextPtr, sort.ptr)));
+        }
+        function FullSet(sort) {
+            return new SetImpl(check(Z3.mk_full_set(contextPtr, sort.ptr)));
+        }
+        function isMember(elem, set) {
+            const arg = set.elemSort().cast(elem);
+            return new BoolImpl(check(Z3.mk_set_member(contextPtr, arg.ast, set.ast)));
+        }
+        function isSubset(a, b) {
+            return new BoolImpl(check(Z3.mk_set_subset(contextPtr, a.ast, b.ast)));
+        }
         class AstImpl {
             constructor(ptr) {
                 this.ptr = ptr;
                 this.ctx = ctx;
                 const myAst = this.ast;
                 Z3.inc_ref(contextPtr, myAst);
-                cleanup.register(this, () => Z3.dec_ref(contextPtr, myAst));
+                cleanup.register(this, () => Z3.dec_ref(contextPtr, myAst), this);
             }
             get ast() {
                 return this.ptr;
@@ -1722,6 +1808,10 @@ function createApi(Z3) {
             }
         }
         class SolverImpl {
+            get ptr() {
+                _assertPtr(this._ptr);
+                return this._ptr;
+            }
             constructor(ptr = Z3.mk_solver(contextPtr)) {
                 this.ctx = ctx;
                 let myPtr;
@@ -1731,9 +1821,9 @@ function createApi(Z3) {
                 else {
                     myPtr = ptr;
                 }
-                this.ptr = myPtr;
+                this._ptr = myPtr;
                 Z3.solver_inc_ref(contextPtr, myPtr);
-                cleanup.register(this, () => Z3.solver_dec_ref(contextPtr, myPtr));
+                cleanup.register(this, () => Z3.solver_dec_ref(contextPtr, myPtr), this);
             }
             set(key, value) {
                 Z3.solver_set_params(contextPtr, this.ptr, _toParams(key, value));
@@ -1793,15 +1883,25 @@ function createApi(Z3) {
                 Z3.solver_from_string(contextPtr, this.ptr, s);
                 throwIfError();
             }
+            release() {
+                Z3.solver_dec_ref(contextPtr, this.ptr);
+                // Mark the ptr as null to prevent double free
+                this._ptr = null;
+                cleanup.unregister(this);
+            }
         }
         class OptimizeImpl {
+            get ptr() {
+                _assertPtr(this._ptr);
+                return this._ptr;
+            }
             constructor(ptr = Z3.mk_optimize(contextPtr)) {
                 this.ctx = ctx;
                 let myPtr;
                 myPtr = ptr;
-                this.ptr = myPtr;
+                this._ptr = myPtr;
                 Z3.optimize_inc_ref(contextPtr, myPtr);
-                cleanup.register(this, () => Z3.optimize_dec_ref(contextPtr, myPtr));
+                cleanup.register(this, () => Z3.optimize_dec_ref(contextPtr, myPtr), this);
             }
             set(key, value) {
                 Z3.optimize_set_params(contextPtr, this.ptr, _toParams(key, value));
@@ -1818,7 +1918,7 @@ function createApi(Z3) {
                     check(Z3.optimize_assert(contextPtr, this.ptr, expr.ast));
                 });
             }
-            addSoft(expr, weight, id = "") {
+            addSoft(expr, weight, id = '') {
                 if (isCoercibleRational(weight)) {
                     weight = `${weight.numerator}/${weight.denominator}`;
                 }
@@ -1867,13 +1967,22 @@ function createApi(Z3) {
                 Z3.optimize_from_string(contextPtr, this.ptr, s);
                 throwIfError();
             }
+            release() {
+                Z3.optimize_dec_ref(contextPtr, this.ptr);
+                this._ptr = null;
+                cleanup.unregister(this);
+            }
         }
         class ModelImpl {
+            get ptr() {
+                _assertPtr(this._ptr);
+                return this._ptr;
+            }
             constructor(ptr = Z3.mk_model(contextPtr)) {
-                this.ptr = ptr;
                 this.ctx = ctx;
+                this._ptr = ptr;
                 Z3.model_inc_ref(contextPtr, ptr);
-                cleanup.register(this, () => Z3.model_dec_ref(contextPtr, ptr));
+                cleanup.register(this, () => Z3.model_dec_ref(contextPtr, ptr), this);
             }
             length() {
                 return Z3.model_get_num_consts(contextPtr, this.ptr) + Z3.model_get_num_funcs(contextPtr, this.ptr);
@@ -2006,13 +2115,18 @@ function createApi(Z3) {
                 _assertContext(sort);
                 return new AstVectorImpl(check(Z3.model_get_sort_universe(contextPtr, this.ptr, sort.ptr)));
             }
+            release() {
+                Z3.model_dec_ref(contextPtr, this.ptr);
+                this._ptr = null;
+                cleanup.unregister(this);
+            }
         }
         class FuncEntryImpl {
             constructor(ptr) {
                 this.ptr = ptr;
                 this.ctx = ctx;
                 Z3.func_entry_inc_ref(contextPtr, ptr);
-                cleanup.register(this, () => Z3.func_entry_dec_ref(contextPtr, ptr));
+                cleanup.register(this, () => Z3.func_entry_dec_ref(contextPtr, ptr), this);
             }
             numArgs() {
                 return check(Z3.func_entry_get_num_args(contextPtr, this.ptr));
@@ -2029,7 +2143,7 @@ function createApi(Z3) {
                 this.ptr = ptr;
                 this.ctx = ctx;
                 Z3.func_interp_inc_ref(contextPtr, ptr);
-                cleanup.register(this, () => Z3.func_interp_dec_ref(contextPtr, ptr));
+                cleanup.register(this, () => Z3.func_interp_dec_ref(contextPtr, ptr), this);
             }
             elseValue() {
                 return _toExpr(check(Z3.func_interp_get_else(contextPtr, this.ptr)));
@@ -2127,6 +2241,10 @@ function createApi(Z3) {
                             break;
                         case low_level_1.Z3_parameter_kind.Z3_PARAMETER_FUNC_DECL:
                             result.push(new FuncDeclImpl(check(Z3.get_decl_func_decl_parameter(contextPtr, this.ptr, i))));
+                            break;
+                        case low_level_1.Z3_parameter_kind.Z3_PARAMETER_INTERNAL:
+                            break;
+                        case low_level_1.Z3_parameter_kind.Z3_PARAMETER_ZSTRING:
                             break;
                         default:
                             (0, utils_1.assertExhaustive)(kind);
@@ -2241,7 +2359,7 @@ function createApi(Z3) {
                 }
                 this.ptr = myPtr;
                 Z3.tactic_inc_ref(contextPtr, myPtr);
-                cleanup.register(this, () => Z3.tactic_dec_ref(contextPtr, myPtr));
+                cleanup.register(this, () => Z3.tactic_dec_ref(contextPtr, myPtr), this);
             }
         }
         class ArithSortImpl extends SortImpl {
@@ -2614,6 +2732,38 @@ function createApi(Z3) {
                 return Store(this, ...indicesAndValue);
             }
         }
+        class SetImpl extends ExprImpl {
+            elemSort() {
+                return this.sort.domain();
+            }
+            union(...args) {
+                return SetUnion(this, ...args);
+            }
+            intersect(...args) {
+                return SetIntersect(this, ...args);
+            }
+            diff(b) {
+                return SetDifference(this, b);
+            }
+            hasSize(size) {
+                return SetHasSize(this, size);
+            }
+            add(elem) {
+                return SetAdd(this, elem);
+            }
+            del(elem) {
+                return SetDel(this, elem);
+            }
+            complement() {
+                return SetComplement(this);
+            }
+            contains(elem) {
+                return isMember(elem, this);
+            }
+            subsetOf(b) {
+                return isSubset(this, b);
+            }
+        }
         class QuantifierImpl extends ExprImpl {
             is_forall() {
                 return Z3.is_quantifier_forall(contextPtr, this.ast);
@@ -2698,7 +2848,7 @@ function createApi(Z3) {
                 this.ptr = ptr;
                 this.ctx = ctx;
                 Z3.ast_vector_inc_ref(contextPtr, ptr);
-                cleanup.register(this, () => Z3.ast_vector_dec_ref(contextPtr, ptr));
+                cleanup.register(this, () => Z3.ast_vector_dec_ref(contextPtr, ptr), this);
             }
             length() {
                 return Z3.ast_vector_size(contextPtr, this.ptr);
@@ -2777,7 +2927,7 @@ function createApi(Z3) {
                 this.ptr = ptr;
                 this.ctx = ctx;
                 Z3.ast_map_inc_ref(contextPtr, ptr);
-                cleanup.register(this, () => Z3.ast_map_dec_ref(contextPtr, ptr));
+                cleanup.register(this, () => Z3.ast_map_dec_ref(contextPtr, ptr), this);
             }
             [Symbol.iterator]() {
                 return this.entries();
@@ -2886,7 +3036,7 @@ function createApi(Z3) {
             isRealSort,
             isBitVecSort,
             isBitVec,
-            isBitVecVal,
+            isBitVecVal, // TODO fix ordering
             isArraySort,
             isArray,
             isConstArray,
@@ -2908,6 +3058,7 @@ function createApi(Z3) {
             Real,
             BitVec,
             Array,
+            Set,
             ////////////////
             // Operations //
             ////////////////
@@ -2924,6 +3075,9 @@ function createApi(Z3) {
             Not,
             And,
             Or,
+            PbEq,
+            PbGe,
+            PbLe,
             ForAll,
             Exists,
             Lambda,
@@ -2964,6 +3118,17 @@ function createApi(Z3) {
             // Loading //
             /////////////
             ast_from_string,
+            SetUnion,
+            SetIntersect,
+            SetDifference,
+            SetHasSize,
+            SetAdd,
+            SetDel,
+            SetComplement,
+            EmptySet,
+            FullSet,
+            isMember,
+            isSubset,
         };
         cleanup.register(ctx, () => Z3.del_context(contextPtr));
         return ctx;
@@ -2982,7 +3147,6 @@ function createApi(Z3) {
         Context: createContext,
     };
 }
-exports.createApi = createApi;
 
 }).call(this)}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
 },{"../low-level":14,"./types":12,"./utils":13,"async-mutex":5}],11:[function(require,module,exports){
@@ -3037,7 +3201,9 @@ exports.Z3AssertionError = Z3AssertionError;
 },{}],13:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.allSatisfy = exports.assert = exports.assertExhaustive = void 0;
+exports.assertExhaustive = assertExhaustive;
+exports.assert = assert;
+exports.allSatisfy = allSatisfy;
 const types_1 = require("./types");
 function getAllProperties(obj) {
     const properties = new Set();
@@ -3073,13 +3239,11 @@ function getAllProperties(obj) {
 function assertExhaustive(x) {
     throw new Error('Unexpected code execution detected, should be caught at compile time');
 }
-exports.assertExhaustive = assertExhaustive;
 function assert(condition, reason) {
     if (!condition) {
         throw new types_1.Z3AssertionError(reason ?? 'Assertion failed');
     }
 }
-exports.assert = assert;
 /**
  * Check the all elements of a `collection` satisfy the `premise`.
  * If any of the items fail the `premise`, returns false;
@@ -3095,7 +3259,6 @@ function allSatisfy(collection, premise) {
     }
     return hasItems === true ? true : null;
 }
-exports.allSatisfy = allSatisfy;
 
 },{"./types":12}],14:[function(require,module,exports){
 "use strict";
@@ -3128,12 +3291,12 @@ var Z3_lbool;
     Z3_lbool[Z3_lbool["Z3_L_FALSE"] = -1] = "Z3_L_FALSE";
     Z3_lbool[Z3_lbool["Z3_L_UNDEF"] = 0] = "Z3_L_UNDEF";
     Z3_lbool[Z3_lbool["Z3_L_TRUE"] = 1] = "Z3_L_TRUE";
-})(Z3_lbool = exports.Z3_lbool || (exports.Z3_lbool = {}));
+})(Z3_lbool || (exports.Z3_lbool = Z3_lbool = {}));
 var Z3_symbol_kind;
 (function (Z3_symbol_kind) {
     Z3_symbol_kind[Z3_symbol_kind["Z3_INT_SYMBOL"] = 0] = "Z3_INT_SYMBOL";
     Z3_symbol_kind[Z3_symbol_kind["Z3_STRING_SYMBOL"] = 1] = "Z3_STRING_SYMBOL";
-})(Z3_symbol_kind = exports.Z3_symbol_kind || (exports.Z3_symbol_kind = {}));
+})(Z3_symbol_kind || (exports.Z3_symbol_kind = Z3_symbol_kind = {}));
 var Z3_parameter_kind;
 (function (Z3_parameter_kind) {
     Z3_parameter_kind[Z3_parameter_kind["Z3_PARAMETER_INT"] = 0] = "Z3_PARAMETER_INT";
@@ -3143,7 +3306,9 @@ var Z3_parameter_kind;
     Z3_parameter_kind[Z3_parameter_kind["Z3_PARAMETER_SORT"] = 4] = "Z3_PARAMETER_SORT";
     Z3_parameter_kind[Z3_parameter_kind["Z3_PARAMETER_AST"] = 5] = "Z3_PARAMETER_AST";
     Z3_parameter_kind[Z3_parameter_kind["Z3_PARAMETER_FUNC_DECL"] = 6] = "Z3_PARAMETER_FUNC_DECL";
-})(Z3_parameter_kind = exports.Z3_parameter_kind || (exports.Z3_parameter_kind = {}));
+    Z3_parameter_kind[Z3_parameter_kind["Z3_PARAMETER_INTERNAL"] = 7] = "Z3_PARAMETER_INTERNAL";
+    Z3_parameter_kind[Z3_parameter_kind["Z3_PARAMETER_ZSTRING"] = 8] = "Z3_PARAMETER_ZSTRING";
+})(Z3_parameter_kind || (exports.Z3_parameter_kind = Z3_parameter_kind = {}));
 var Z3_sort_kind;
 (function (Z3_sort_kind) {
     Z3_sort_kind[Z3_sort_kind["Z3_UNINTERPRETED_SORT"] = 0] = "Z3_UNINTERPRETED_SORT";
@@ -3162,7 +3327,7 @@ var Z3_sort_kind;
     Z3_sort_kind[Z3_sort_kind["Z3_CHAR_SORT"] = 13] = "Z3_CHAR_SORT";
     Z3_sort_kind[Z3_sort_kind["Z3_TYPE_VAR"] = 14] = "Z3_TYPE_VAR";
     Z3_sort_kind[Z3_sort_kind["Z3_UNKNOWN_SORT"] = 1000] = "Z3_UNKNOWN_SORT";
-})(Z3_sort_kind = exports.Z3_sort_kind || (exports.Z3_sort_kind = {}));
+})(Z3_sort_kind || (exports.Z3_sort_kind = Z3_sort_kind = {}));
 var Z3_ast_kind;
 (function (Z3_ast_kind) {
     Z3_ast_kind[Z3_ast_kind["Z3_NUMERAL_AST"] = 0] = "Z3_NUMERAL_AST";
@@ -3172,7 +3337,7 @@ var Z3_ast_kind;
     Z3_ast_kind[Z3_ast_kind["Z3_SORT_AST"] = 4] = "Z3_SORT_AST";
     Z3_ast_kind[Z3_ast_kind["Z3_FUNC_DECL_AST"] = 5] = "Z3_FUNC_DECL_AST";
     Z3_ast_kind[Z3_ast_kind["Z3_UNKNOWN_AST"] = 1000] = "Z3_UNKNOWN_AST";
-})(Z3_ast_kind = exports.Z3_ast_kind || (exports.Z3_ast_kind = {}));
+})(Z3_ast_kind || (exports.Z3_ast_kind = Z3_ast_kind = {}));
 var Z3_decl_kind;
 (function (Z3_decl_kind) {
     Z3_decl_kind[Z3_decl_kind["Z3_OP_TRUE"] = 256] = "Z3_OP_TRUE";
@@ -3270,16 +3435,17 @@ var Z3_decl_kind;
     Z3_decl_kind[Z3_decl_kind["Z3_OP_BIT2BOOL"] = 1071] = "Z3_OP_BIT2BOOL";
     Z3_decl_kind[Z3_decl_kind["Z3_OP_INT2BV"] = 1072] = "Z3_OP_INT2BV";
     Z3_decl_kind[Z3_decl_kind["Z3_OP_BV2INT"] = 1073] = "Z3_OP_BV2INT";
-    Z3_decl_kind[Z3_decl_kind["Z3_OP_CARRY"] = 1074] = "Z3_OP_CARRY";
-    Z3_decl_kind[Z3_decl_kind["Z3_OP_XOR3"] = 1075] = "Z3_OP_XOR3";
-    Z3_decl_kind[Z3_decl_kind["Z3_OP_BSMUL_NO_OVFL"] = 1076] = "Z3_OP_BSMUL_NO_OVFL";
-    Z3_decl_kind[Z3_decl_kind["Z3_OP_BUMUL_NO_OVFL"] = 1077] = "Z3_OP_BUMUL_NO_OVFL";
-    Z3_decl_kind[Z3_decl_kind["Z3_OP_BSMUL_NO_UDFL"] = 1078] = "Z3_OP_BSMUL_NO_UDFL";
-    Z3_decl_kind[Z3_decl_kind["Z3_OP_BSDIV_I"] = 1079] = "Z3_OP_BSDIV_I";
-    Z3_decl_kind[Z3_decl_kind["Z3_OP_BUDIV_I"] = 1080] = "Z3_OP_BUDIV_I";
-    Z3_decl_kind[Z3_decl_kind["Z3_OP_BSREM_I"] = 1081] = "Z3_OP_BSREM_I";
-    Z3_decl_kind[Z3_decl_kind["Z3_OP_BUREM_I"] = 1082] = "Z3_OP_BUREM_I";
-    Z3_decl_kind[Z3_decl_kind["Z3_OP_BSMOD_I"] = 1083] = "Z3_OP_BSMOD_I";
+    Z3_decl_kind[Z3_decl_kind["Z3_OP_SBV2INT"] = 1074] = "Z3_OP_SBV2INT";
+    Z3_decl_kind[Z3_decl_kind["Z3_OP_CARRY"] = 1075] = "Z3_OP_CARRY";
+    Z3_decl_kind[Z3_decl_kind["Z3_OP_XOR3"] = 1076] = "Z3_OP_XOR3";
+    Z3_decl_kind[Z3_decl_kind["Z3_OP_BSMUL_NO_OVFL"] = 1077] = "Z3_OP_BSMUL_NO_OVFL";
+    Z3_decl_kind[Z3_decl_kind["Z3_OP_BUMUL_NO_OVFL"] = 1078] = "Z3_OP_BUMUL_NO_OVFL";
+    Z3_decl_kind[Z3_decl_kind["Z3_OP_BSMUL_NO_UDFL"] = 1079] = "Z3_OP_BSMUL_NO_UDFL";
+    Z3_decl_kind[Z3_decl_kind["Z3_OP_BSDIV_I"] = 1080] = "Z3_OP_BSDIV_I";
+    Z3_decl_kind[Z3_decl_kind["Z3_OP_BUDIV_I"] = 1081] = "Z3_OP_BUDIV_I";
+    Z3_decl_kind[Z3_decl_kind["Z3_OP_BSREM_I"] = 1082] = "Z3_OP_BSREM_I";
+    Z3_decl_kind[Z3_decl_kind["Z3_OP_BUREM_I"] = 1083] = "Z3_OP_BUREM_I";
+    Z3_decl_kind[Z3_decl_kind["Z3_OP_BSMOD_I"] = 1084] = "Z3_OP_BSMOD_I";
     Z3_decl_kind[Z3_decl_kind["Z3_OP_PR_UNDEF"] = 1280] = "Z3_OP_PR_UNDEF";
     Z3_decl_kind[Z3_decl_kind["Z3_OP_PR_TRUE"] = 1281] = "Z3_OP_PR_TRUE";
     Z3_decl_kind[Z3_decl_kind["Z3_OP_PR_ASSERTED"] = 1282] = "Z3_OP_PR_ASSERTED";
@@ -3455,7 +3621,7 @@ var Z3_decl_kind;
     Z3_decl_kind[Z3_decl_kind["Z3_OP_INTERNAL"] = 45100] = "Z3_OP_INTERNAL";
     Z3_decl_kind[Z3_decl_kind["Z3_OP_RECURSIVE"] = 45101] = "Z3_OP_RECURSIVE";
     Z3_decl_kind[Z3_decl_kind["Z3_OP_UNINTERPRETED"] = 45102] = "Z3_OP_UNINTERPRETED";
-})(Z3_decl_kind = exports.Z3_decl_kind || (exports.Z3_decl_kind = {}));
+})(Z3_decl_kind || (exports.Z3_decl_kind = Z3_decl_kind = {}));
 var Z3_param_kind;
 (function (Z3_param_kind) {
     Z3_param_kind[Z3_param_kind["Z3_PK_UINT"] = 0] = "Z3_PK_UINT";
@@ -3465,13 +3631,13 @@ var Z3_param_kind;
     Z3_param_kind[Z3_param_kind["Z3_PK_STRING"] = 4] = "Z3_PK_STRING";
     Z3_param_kind[Z3_param_kind["Z3_PK_OTHER"] = 5] = "Z3_PK_OTHER";
     Z3_param_kind[Z3_param_kind["Z3_PK_INVALID"] = 6] = "Z3_PK_INVALID";
-})(Z3_param_kind = exports.Z3_param_kind || (exports.Z3_param_kind = {}));
+})(Z3_param_kind || (exports.Z3_param_kind = Z3_param_kind = {}));
 var Z3_ast_print_mode;
 (function (Z3_ast_print_mode) {
     Z3_ast_print_mode[Z3_ast_print_mode["Z3_PRINT_SMTLIB_FULL"] = 0] = "Z3_PRINT_SMTLIB_FULL";
     Z3_ast_print_mode[Z3_ast_print_mode["Z3_PRINT_LOW_LEVEL"] = 1] = "Z3_PRINT_LOW_LEVEL";
     Z3_ast_print_mode[Z3_ast_print_mode["Z3_PRINT_SMTLIB2_COMPLIANT"] = 2] = "Z3_PRINT_SMTLIB2_COMPLIANT";
-})(Z3_ast_print_mode = exports.Z3_ast_print_mode || (exports.Z3_ast_print_mode = {}));
+})(Z3_ast_print_mode || (exports.Z3_ast_print_mode = Z3_ast_print_mode = {}));
 var Z3_error_code;
 (function (Z3_error_code) {
     Z3_error_code[Z3_error_code["Z3_OK"] = 0] = "Z3_OK";
@@ -3487,21 +3653,21 @@ var Z3_error_code;
     Z3_error_code[Z3_error_code["Z3_INVALID_USAGE"] = 10] = "Z3_INVALID_USAGE";
     Z3_error_code[Z3_error_code["Z3_DEC_REF_ERROR"] = 11] = "Z3_DEC_REF_ERROR";
     Z3_error_code[Z3_error_code["Z3_EXCEPTION"] = 12] = "Z3_EXCEPTION";
-})(Z3_error_code = exports.Z3_error_code || (exports.Z3_error_code = {}));
+})(Z3_error_code || (exports.Z3_error_code = Z3_error_code = {}));
 var Z3_goal_prec;
 (function (Z3_goal_prec) {
     Z3_goal_prec[Z3_goal_prec["Z3_GOAL_PRECISE"] = 0] = "Z3_GOAL_PRECISE";
     Z3_goal_prec[Z3_goal_prec["Z3_GOAL_UNDER"] = 1] = "Z3_GOAL_UNDER";
     Z3_goal_prec[Z3_goal_prec["Z3_GOAL_OVER"] = 2] = "Z3_GOAL_OVER";
     Z3_goal_prec[Z3_goal_prec["Z3_GOAL_UNDER_OVER"] = 3] = "Z3_GOAL_UNDER_OVER";
-})(Z3_goal_prec = exports.Z3_goal_prec || (exports.Z3_goal_prec = {}));
+})(Z3_goal_prec || (exports.Z3_goal_prec = Z3_goal_prec = {}));
 
 },{}],16:[function(require,module,exports){
 "use strict";
 // THIS FILE IS AUTOMATICALLY GENERATED BY make-ts-wrapper.ts
 // DO NOT EDIT IT BY HAND
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.init = void 0;
+exports.init = init;
 async function init(initModule) {
     let Mod = await initModule();
     // this works for both signed and unsigned, because JS will wrap for you when constructing the Uint32Array
@@ -3917,7 +4083,13 @@ async function init(initModule) {
             },
             mk_store: Mod._Z3_mk_store,
             mk_store_n: function (c, a, idxs, v) {
-                return Mod.ccall('Z3_mk_store_n', 'number', ['number', 'number', 'number', 'array', 'number'], [c, a, idxs.length, intArrayToByteArr(idxs), v]);
+                return Mod.ccall('Z3_mk_store_n', 'number', ['number', 'number', 'number', 'array', 'number'], [
+                    c,
+                    a,
+                    idxs.length,
+                    intArrayToByteArr(idxs),
+                    v,
+                ]);
             },
             mk_const_array: Mod._Z3_mk_const_array,
             mk_map: function (c, f, args) {
@@ -4294,6 +4466,11 @@ async function init(initModule) {
                 }
                 return getOutUint64(0);
             },
+            get_array_arity: function (c, s) {
+                let ret = Mod.ccall('Z3_get_array_arity', 'number', ['number', 'number'], [c, s]);
+                ret = new Uint32Array([ret])[0];
+                return ret;
+            },
             get_array_sort_domain: Mod._Z3_get_array_sort_domain,
             get_array_sort_domain_n: Mod._Z3_get_array_sort_domain_n,
             get_array_sort_range: Mod._Z3_get_array_sort_range,
@@ -4304,6 +4481,9 @@ async function init(initModule) {
                 return ret;
             },
             get_tuple_sort_field_decl: Mod._Z3_get_tuple_sort_field_decl,
+            is_recursive_datatype_sort: function (c, s) {
+                return Mod.ccall('Z3_is_recursive_datatype_sort', 'boolean', ['number', 'number'], [c, s]);
+            },
             get_datatype_sort_num_constructors: function (c, t) {
                 let ret = Mod.ccall('Z3_get_datatype_sort_num_constructors', 'number', ['number', 'number'], [c, t]);
                 ret = new Uint32Array([ret])[0];
@@ -4428,6 +4608,14 @@ async function init(initModule) {
             get_ast_kind: Mod._Z3_get_ast_kind,
             is_app: function (c, a) {
                 return Mod.ccall('Z3_is_app', 'boolean', ['number', 'number'], [c, a]);
+            },
+            is_ground: function (c, a) {
+                return Mod.ccall('Z3_is_ground', 'boolean', ['number', 'number'], [c, a]);
+            },
+            get_depth: function (c, a) {
+                let ret = Mod.ccall('Z3_get_depth', 'number', ['number', 'number'], [c, a]);
+                ret = new Uint32Array([ret])[0];
+                return ret;
             },
             is_numeral_ast: function (c, a) {
                 return Mod.ccall('Z3_is_numeral_ast', 'boolean', ['number', 'number'], [c, a]);
@@ -4592,23 +4780,11 @@ async function init(initModule) {
                 }
                 return getOutUint(0);
             },
-            model_get_const_interp: function (c, m, a) {
-                let ret = Mod.ccall('Z3_model_get_const_interp', 'number', ['number', 'number', 'number'], [c, m, a]);
-                if (ret === 0) {
-                    return null;
-                }
-                return ret;
-            },
+            model_get_const_interp: Mod._Z3_model_get_const_interp,
             model_has_interp: function (c, m, a) {
                 return Mod.ccall('Z3_model_has_interp', 'boolean', ['number', 'number', 'number'], [c, m, a]);
             },
-            model_get_func_interp: function (c, m, f) {
-                let ret = Mod.ccall('Z3_model_get_func_interp', 'number', ['number', 'number', 'number'], [c, m, f]);
-                if (ret === 0) {
-                    return null;
-                }
-                return ret;
-            },
+            model_get_func_interp: Mod._Z3_model_get_func_interp,
             model_get_num_consts: function (c, m) {
                 let ret = Mod.ccall('Z3_model_get_num_consts', 'number', ['number', 'number'], [c, m]);
                 ret = new Uint32Array([ret])[0];
@@ -4760,7 +4936,7 @@ async function init(initModule) {
                 ]);
             },
             eval_smtlib2_string: async function (c, str) {
-                return await Mod.async_call(() => Mod.ccall('async_Z3_eval_smtlib2_string', 'string', ['number', 'string'], [c, str]));
+                return await Mod.async_call(() => Mod.ccall('async_Z3_eval_smtlib2_string', 'void', ['number', 'string'], [c, str]));
             },
             mk_parser_context: Mod._Z3_mk_parser_context,
             parser_context_inc_ref: Mod._Z3_parser_context_inc_ref,
@@ -4980,6 +5156,8 @@ async function init(initModule) {
             },
             solver_congruence_root: Mod._Z3_solver_congruence_root,
             solver_congruence_next: Mod._Z3_solver_congruence_next,
+            solver_congruence_explain: Mod._Z3_solver_congruence_explain,
+            solver_solve_for: Mod._Z3_solver_solve_for,
             solver_next_split: function (c, cb, t, idx, phase) {
                 return Mod.ccall('Z3_solver_next_split', 'boolean', ['number', 'number', 'number', 'number', 'number'], [c, cb, t, idx, phase]);
             },
@@ -5023,7 +5201,7 @@ async function init(initModule) {
                 return Mod.async_call(Mod._async_Z3_solver_check, c, s);
             },
             solver_check_assumptions: async function (c, s, assumptions) {
-                return await Mod.async_call(() => Mod.ccall('async_Z3_solver_check_assumptions', 'number', ['number', 'number', 'number', 'array'], [
+                return await Mod.async_call(() => Mod.ccall('async_Z3_solver_check_assumptions', 'void', ['number', 'number', 'number', 'array'], [
                     c,
                     s,
                     assumptions.length,
@@ -5132,10 +5310,10 @@ async function init(initModule) {
                 return Mod.ccall('Z3_algebraic_neq', 'boolean', ['number', 'number', 'number'], [c, a, b]);
             },
             algebraic_roots: async function (c, p, a) {
-                return await Mod.async_call(() => Mod.ccall('async_Z3_algebraic_roots', 'number', ['number', 'number', 'number', 'array'], [c, p, a.length, intArrayToByteArr(a)]));
+                return await Mod.async_call(() => Mod.ccall('async_Z3_algebraic_roots', 'void', ['number', 'number', 'number', 'array'], [c, p, a.length, intArrayToByteArr(a)]));
             },
             algebraic_eval: async function (c, p, a) {
-                return await Mod.async_call(() => Mod.ccall('async_Z3_algebraic_eval', 'number', ['number', 'number', 'number', 'array'], [c, p, a.length, intArrayToByteArr(a)]));
+                return await Mod.async_call(() => Mod.ccall('async_Z3_algebraic_eval', 'void', ['number', 'number', 'number', 'array'], [c, p, a.length, intArrayToByteArr(a)]));
             },
             algebraic_get_poly: Mod._Z3_algebraic_get_poly,
             algebraic_get_i: function (c, a) {
@@ -5183,14 +5361,20 @@ async function init(initModule) {
             fixedpoint_dec_ref: Mod._Z3_fixedpoint_dec_ref,
             fixedpoint_add_rule: Mod._Z3_fixedpoint_add_rule,
             fixedpoint_add_fact: function (c, d, r, args) {
-                return Mod.ccall('Z3_fixedpoint_add_fact', 'void', ['number', 'number', 'number', 'number', 'array'], [c, d, r, args.length, intArrayToByteArr(args)]);
+                return Mod.ccall('Z3_fixedpoint_add_fact', 'void', ['number', 'number', 'number', 'number', 'array'], [
+                    c,
+                    d,
+                    r,
+                    args.length,
+                    intArrayToByteArr(args),
+                ]);
             },
             fixedpoint_assert: Mod._Z3_fixedpoint_assert,
             fixedpoint_query: function (c, d, query) {
                 return Mod.async_call(Mod._async_Z3_fixedpoint_query, c, d, query);
             },
             fixedpoint_query_relations: async function (c, d, relations) {
-                return await Mod.async_call(() => Mod.ccall('async_Z3_fixedpoint_query_relations', 'number', ['number', 'number', 'number', 'array'], [
+                return await Mod.async_call(() => Mod.ccall('async_Z3_fixedpoint_query_relations', 'void', ['number', 'number', 'number', 'array'], [
                     c,
                     d,
                     relations.length,
@@ -5389,7 +5573,7 @@ async function init(initModule) {
             optimize_pop: Mod._Z3_optimize_pop,
             optimize_set_initial_value: Mod._Z3_optimize_set_initial_value,
             optimize_check: async function (c, o, assumptions) {
-                return await Mod.async_call(() => Mod.ccall('async_Z3_optimize_check', 'number', ['number', 'number', 'number', 'array'], [
+                return await Mod.async_call(() => Mod.ccall('async_Z3_optimize_check', 'void', ['number', 'number', 'number', 'array'], [
                     c,
                     o,
                     assumptions.length,
@@ -5554,12 +5738,21 @@ async function init(initModule) {
                     map,
                 ]);
             },
+            qe_model_project_with_witness: function (c, m, bound, body, map) {
+                return Mod.ccall('Z3_qe_model_project_with_witness', 'number', ['number', 'number', 'number', 'array', 'number', 'number'], [
+                    c,
+                    m,
+                    bound.length,
+                    intArrayToByteArr(bound),
+                    body,
+                    map,
+                ]);
+            },
             model_extrapolate: Mod._Z3_model_extrapolate,
             qe_lite: Mod._Z3_qe_lite,
         },
     };
 }
-exports.init = init;
 
 },{}]},{},[1])(1)
 });
