@@ -35,7 +35,18 @@ jobs:
           ocaml-compiler: ${{ matrix.ocaml-compiler }}
           opam-pin: false
 
+      - name: Cache opam dependencies
+        id: cache-opam
+        uses: actions/cache@v3
+        env:
+          cache-name: cache-opam
+        with:
+          path: |
+            /home/runner/work/Heifer/Heifer/_opam/
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/*.opam') }}
+
       - name: Install opam dependencies
+        if: steps.cache-opam.outputs.cache-hit != 'true'
         run: opam install . --deps-only
 
       - name: Install cvc4
