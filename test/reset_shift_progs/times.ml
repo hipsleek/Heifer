@@ -6,7 +6,7 @@ let [@pure] rec times (xs : int list) : int =
 let rec times2_aux xs =
   match xs with
   | [] -> 1
-  | x :: xs' -> if x = 0 then shift k 0 else x * times2_aux xs'
+  | x :: xs' -> if x = 0 then shift (fun k -> 0) else x * times2_aux xs'
 
 [%%lemma{|
   times2_lemma(x, xs) =

@@ -37,6 +37,8 @@ let lowercase = ['a'-'z' '_']
 let uppercase = ['A'-'Z']
 let identchar = ['A'-'Z' 'a'-'z' '_' '\'' '0'-'9']
 let ident = (lowercase | uppercase) identchar*
+let lowercase_ident = lowercase identchar*
+let uppercase_ident = uppercase identchar*
 let decimal_literal = ['0'-'9'] ['0'-'9' '_']*
 let int_literal = decimal_literal
 
@@ -112,8 +114,10 @@ rule token = parse
   | '"'
       { let s = wrap_string_lexer string lexbuf in
         STRING (s) }
-  | identchar + as v
-      { IDENT v }
+  | uppercase_ident as v
+      { CAPITAL_IDENT v}
+  | lowercase_ident as v
+      { LOWERCASE_IDENT v }
   | _ as c
       { raise_error lexbuf (Printf.sprintf "Unexpected character: '%c'" c) }
 

@@ -1,5 +1,5 @@
 open Hipcore
-open Hiptypes
+open Typedhip
 open Types
 
 open Provers_common

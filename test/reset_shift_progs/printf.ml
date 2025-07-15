@@ -1,16 +1,16 @@
 let hello_printf ()
 (*@ ens res="ab!" @*)
-= ((reset (shift k k ^ shift k k ^ "!")) "a") "b"
+= ((reset (shift (fun k -> k) ^ shift (fun k -> k) ^ "!")) "a") "b"
 
 let hello_shift0 ()
 (*@ ens res="A cat has Alice." @*)
-= reset ("Alice" ^ reset ("has " ^ shift0 k1 (shift0 k2 ("A cat " ^ k1 (k2 ".")))))
+= reset ("Alice" ^ reset ("has " ^ shift0 (fun k1 -> shift0 (fun k2 -> "A cat " ^ k1 (k2 ".")))))
 
 let get_int () =
-  shift k (fun x -> k (string_of_int x))
+  shift (fun k -> (fun x -> k (string_of_int x)))
 
 let get_string () =
-  shift k (fun x -> k x)
+  shift (fun k -> (fun x -> k x))
 
 let hello_printf_int ()
 (*@ ens res="3!" @*)

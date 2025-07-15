@@ -77,6 +77,11 @@ module SMap = struct
 
   let merge_arbitrary = merge_right_priority
 
+  let intersect a b =
+    merge (fun _ x y -> match x, y with
+      | Some x, Some y when x = y -> Some x
+      | _ -> None) a b
+
   let merge_all_disjoint xs =
     List.fold_right merge_disjoint xs empty
 

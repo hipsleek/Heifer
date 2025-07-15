@@ -251,7 +251,7 @@ let subst_uvars st (f, e) : uterm =
         (* avoid capture *)
         let f1 = self#visit_staged_spec () f in
         let x2, f2 =
-          let free = Subst.free_vars f1 in
+          let free = Subst.(free_vars Staged f1) in
           if SSet.mem x free then
             let y = Variables.fresh_variable ~v:x () in
             (* note the use of f, not f1 *)
@@ -272,7 +272,7 @@ let subst_uvars st (f, e) : uterm =
         in
         let f1 = self#visit_staged_spec () f in
         let x2, f2 =
-          let free = Subst.free_vars f1 in
+          let free = Subst.(free_vars Staged f1) in
           if SSet.mem x free then
             let y = Variables.fresh_variable ~v:x () in
             let f2 = f |> Subst.subst_free_vars [(x, Var y)] in
@@ -296,7 +296,7 @@ let subst_uvars st (f, e) : uterm =
         let f1 = self#visit_staged_spec () f1 in
         let f3 = self#visit_staged_spec () f2 in
         let x2, f2 =
-          let free = Subst.free_vars f3 in
+          let free = Subst.(free_vars Staged f3) in
           if SSet.mem x free then
             let y = Variables.fresh_variable ~v:x () in
             (* note the use of f2, not f3 *)

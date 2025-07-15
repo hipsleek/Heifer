@@ -1,5 +1,5 @@
 
 (library
   (name ocamlfrontend)
-  (modules core_lang annotation)
-  (libraries hipcore ocaml_compiler parsing utils))
+  (modules core_lang annotation core_lang_typed)
+  (libraries hipcore ocaml_compiler parsing utils hipprover))

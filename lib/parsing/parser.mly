@@ -27,8 +27,9 @@ open Hiptypes
 %token EMP
 
 %token <int> INT
-%token <string> IDENT
 %token <string> STRING
+%token <string> LOWERCASE_IDENT
+%token <string> CAPITAL_IDENT
 
 %token EXISTS
 %token FORALL
@@ -64,6 +65,8 @@ open Hiptypes
 %type <Hiptypes.pi> parse_pi
 %start parse_kappa
 %type <Hiptypes.kappa> parse_kappa
+%start parse_state
+%type <Hiptypes.pi * Hiptypes.kappa> parse_state
 %start parse_staged_spec
 %type <Hiptypes.staged_spec> parse_staged_spec
 %start parse_term
@@ -112,7 +115,7 @@ const:
 term:
   | c = const
       { Const c }
-  | v = IDENT
+  | v = LOWERCASE_IDENT
       { Var v }
   | TILDE t = term
       { TNot t }
@@ -120,8 +123,12 @@ term:
       { Rel (op, t1, t2) }
   | t1 = term op = bin_term_op t2 = term
       { BinOp (op, t1, t2) }
-  | v = IDENT LPAREN args = separated_list(COMMA, term) RPAREN
+  | v = LOWERCASE_IDENT LPAREN args = separated_list(COMMA, term) RPAREN
       { TApp (v, args) }
+  | v = CAPITAL_IDENT 
+      { Construct (v, []) }
+  | v = CAPITAL_IDENT LPAREN args = separated_list(COMMA, term) RPAREN
+      { Construct (v, args) }
   | LBRACKET items = separated_list(SEMI, term) RBRACKET
       { List.fold_right (fun v t -> BinOp (TCons, v, t)) items (Const Nil) }
 ;
@@ -142,7 +149,7 @@ pi:
   // | pure_formula IMPLICATION pure_formula { Imply ($1, $3) }
   | TILDE p = pi
       { Not p }
-//   | v = IDENT args=delimited(LPAREN, separated_nonempty_list(COMMA, pure_formula_term), RPAREN) { Predicate (v, args) }
+//   | v = LOWERCASE_IDENT args=delimited(LPAREN, separated_nonempty_list(COMMA, pure_formula_term), RPAREN) { Predicate (v, args) }
   | p = delimited(LPAREN, pi, RPAREN)
       { p }
 ;
@@ -150,7 +157,7 @@ pi:
 kappa:
   | EMP
       { EmptyHeap }
-  | v = IDENT MINUSGREATER t = term
+  | v = LOWERCASE_IDENT MINUSGREATER t = term
       { PointsTo (v, t) }
   | k1 = kappa STAR k2 = kappa
       { SepConj (k1, k2) }
@@ -170,14 +177,14 @@ state:
 ;
 
 fn:
-  | v = IDENT LPAREN args = separated_list(COMMA, term) RPAREN
+  | v = LOWERCASE_IDENT LPAREN args = separated_list(COMMA, term) RPAREN
     { (v, args) }
 ;
 
 staged_spec:
-  | EXISTS vs = IDENT* DOT s = staged_spec
+  | EXISTS vs = LOWERCASE_IDENT* DOT s = staged_spec
       { List.fold_right (fun v t -> Exists (v, t)) vs s }
-  | FORALL vs = IDENT* DOT s = staged_spec
+  | FORALL vs = LOWERCASE_IDENT* DOT s = staged_spec
       { List.fold_right (fun v t -> ForAll (v, t)) vs s }
   | s1 = staged_spec DISJUNCTION s2 = staged_spec
       { Disjunction (s1, s2) }
@@ -187,7 +194,7 @@ staged_spec:
       { let (p, k) = s in NormalReturn (p, k) }
   | va = fn
       { let (v, args) = va in HigherOrder (v, args) }
-  | SHIFT LPAREN v = IDENT DOT s = staged_spec RPAREN
+  | SHIFT LPAREN v = LOWERCASE_IDENT DOT s = staged_spec RPAREN
       { (* TODO: shiftc *)
         let x = Variables.fresh_variable ~v:"x" "continuation argument" in
         Shift (true, v, s, x, NormalReturn (Atomic (EQ, Variables.res_var, Var x), EmptyHeap)) }
@@ -195,7 +202,7 @@ staged_spec:
       { Reset s }
   | s1 = staged_spec SEMI s2 = staged_spec
       { Sequence (s1, s2) }
-  | LET v = IDENT EQUAL s1 = staged_spec IN s2 = staged_spec
+  | LET v = LOWERCASE_IDENT EQUAL s1 = staged_spec IN s2 = staged_spec
       { Bind (v, s1, s2) }
   | LPAREN s = staged_spec RPAREN
       { s }
@@ -232,4 +239,8 @@ parse_term:
 
 parse_lemma:
   | t = lemma EOF
+      { t }
+
+parse_state:
+  | t = state EOF
       { t }
