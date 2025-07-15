@@ -1,7 +1,7 @@
 name: Main workflow
 
 on:
-  # pull_request:
+  pull_request:
   push:
     branches:
       - master
@@ -51,7 +51,7 @@ jobs:
           set -e
           eval $(opam env)
           why3 config detect
-          TEST_ALL=1 dune test
+          TEST_ALL=1 dune test && echo tests passed!
           dune build @web --profile release
 
       - name: Deploy
