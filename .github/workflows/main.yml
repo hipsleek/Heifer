@@ -4,7 +4,7 @@ on:
   # pull_request:
   push:
     branches:
-      - master1
+      - master
   # schedule:
   #   # Prime the caches every Monday
   #   - cron: 0 1 * * MON
@@ -21,7 +21,7 @@ jobs:
           # - macos-latest
           - ubuntu-latest
         ocaml-compiler:
-          - 5.1.1
+          - 5.3.0
 
     runs-on: ${{ matrix.os }}
 
@@ -34,10 +34,12 @@ jobs:
         with:
           ocaml-compiler: ${{ matrix.ocaml-compiler }}
           opam-pin: false
-      - run: opam install . --deps-only
-      # z3 takes a long time to build and isn't needed for the web build
-      # - run: opam install menhir ppx_expect z3 brr js_of_ocaml-compiler
-      # - run: opam install dune menhir ppx_deriving ppx_expect brr js_of_ocaml-compiler unionFind visitors
+
+      - name: Install opam dependencies
+        run: opam install . --deps-only
+
+      - name: Install cvc4
+        run: sudo apt-get -y install cvc4
 
       - uses: actions/setup-node@v3
         with:
@@ -46,8 +48,11 @@ jobs:
       - run: npm install z3-solver
 
       - run: |
+          set -e
           eval $(opam env)
-          TEST_ALL=1 dune test && dune build @web --profile release
+          why3 config detect
+          TEST_ALL=1 dune test
+          dune build @web --profile release
 
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v3
