@@ -157,7 +157,13 @@ module Guarded = struct
     let* p1, g1 = p1s in
     let* p2, g2 = p2s in
     let* overlap = intersect_two p1 p2 in
-    return (overlap, tand g1 g2)
+    let guard_conj =
+      match g1.term_desc, g2.term_desc with
+      | _, Const TTrue -> g1
+      | Const TTrue, _ -> g2
+      | _, _ -> tand g1 g2
+    in
+    return (overlap, guard_conj)
 
   let complement (pat, guard) =
     let structural = (complement pat |> List.map (fun pat -> (pat, ctrue))) in
@@ -183,78 +189,99 @@ module Guarded = struct
     (free_vars, And (pi, eq guard ctrue))
 end
 
+(* shadow the unguarded definitions *)
 include Guarded
-(**)
-(* let setup_tests () =  *)
-(*   let open Globals in *)
-(*   define_type { *)
-(*     tdecl_name = "test_type"; *)
-(*     tdecl_params = []; *)
-(*     tdecl_kind = Tdecl_inductive [ *)
-(*       "A", []; *)
-(*       "B", [Int]; *)
-(*       "D", [TConstr ("test_type", []); TConstr ("test_type", [])] *)
-(*     ] *)
-(*   }; *)
-(*   define_type { *)
-(*     tdecl_name = "nat"; *)
-(*     tdecl_params = []; *)
-(*     tdecl_kind = Tdecl_inductive [ *)
-(*       "Z", []; *)
-(*       "S", [TConstr ("nat", [])] *)
-(*     ] *)
-(*   } *)
-(**)
-(* let guarded ?(condition = ctrue) pat = (pat, condition) *)
-(**)
-(* open Pretty_typed *)
-(**)
-(* let%expect_test "complement" = *)
-(*   setup_tests (); *)
-(*   let output pats = String.concat " | " (List.map  *)
-(*   (fun (pat, guard) -> *)
-(*     if guard = ctrue *)
-(*     then string_of_pattern pat *)
-(*       else Printf.sprintf "%s when %s" (string_of_pattern pat) (string_of_term guard)) *)
-(*   pats) |> print_string in *)
-(**)
-(*   output (complement (guarded (PConstr ("B", [PAny])))); *)
-(*   [%expect{| A() | D(_, _) |}]; *)
-(**)
-(*   output (complement (PConstr ("D", [PConstr ("B", [PAny]); PConstr ("A", [])]))); *)
-(*   [%expect{| A() | B(_) | D(B(_), B(_)) | D(B(_), D(_, _)) | D(A(), A()) | D(A(), B(_)) | D(A(), D(_, _)) | D(D(_, _), A()) | D(D(_, _), B(_)) | D(D(_, _), D(_, _)) |}]; *)
-(**)
-(*   output (complement (PConstr ("S", [PAlias (PConstr ("S", [PAny]), "s")]))); *)
-(*   [%expect{| Z() | S((Z()) as s) |}]; *)
-(* ;; *)
-(**)
-(* let%expect_test "intersect" = *)
-(*   setup_tests (); *)
-(*   let output pats = String.concat " | " (List.map string_of_pattern pats) |> print_string in *)
-(**)
-(*   output (intersect [PConstr ("D", [PVar "a"; PVar "b"])] [PConstr ("B", [PVar "x"]); PConstr ("D", [PAny; PConstr ("D", [PAny; PVar "d"])])]); *)
-(*   [%expect{| D(a, (D(_, d)) as b) |}]; *)
-(**)
-(*   output (intersect [PConstr ("B", [PAny])] [PConstr ("D", [PAny; PAny])]); *)
-(*   [%expect{| |}]; *)
-(**)
-(*   output (intersect [PConstr ("D", [PConstr ("D", [PVar "z"; PAny]); PAny])]  *)
-(*     [PConstr ("D", [PAny; PConstr ("D", [PAny; PVar "y"])])]); *)
-(*   [%expect{| D(D(z, _), D(_, y)) |}]; *)
-(* ;; *)
-(**)
-(* let%expect_test "exclude" = *)
-(*   setup_tests (); *)
-(*   let output pats = String.concat " | " (List.map string_of_pattern pats) |> print_string in *)
-(**)
-(*   output (exclude (PConstr ("D", [PAny; PAny])) [PConstr ("A", []); PConstr ("D", [PConstr ("B", [PAny]); PAny])]); *)
-(*   [%expect{| D(A(), _) | D(D(_, _), _) |}]; *)
-(**)
-(*   output (exclude (PConstr ("B", [PAny])) []); *)
-(*   [%expect{| B(_) |}]; *)
-(**)
-(*   output (exclude (PConstr ("S", [PAlias (PConstr ("Z", []), "s")])) [PConstr ("Z", []); PConstr ("S", [PAlias (PConstr ("S", [PAny]), "s")])]); *)
-(*   [%expect{| S((Z()) as s) |}]; *)
-(* ;; *)
-(**)
-(**)
+
+let guarded ?(condition = ctrue) pat = (pat, condition)
+
+module Testing = struct
+  let setup_tests () = 
+    let open Globals in
+    define_type {
+      tdecl_name = "test_type";
+      tdecl_params = [];
+      tdecl_kind = Tdecl_inductive [
+        "A", [];
+        "B", [Int];
+        "D", [TConstr ("test_type", []); TConstr ("test_type", [])]
+      ]
+    };
+    define_type {
+      tdecl_name = "nat";
+      tdecl_params = [];
+      tdecl_kind = Tdecl_inductive [
+        "Z", [];
+        "S", [TConstr ("nat", [])]
+      ]
+    }
+  open Pretty_typed
+  let output pats = String.concat " | " (List.map 
+  (fun (pat, guard) ->
+    if guard = ctrue
+    then string_of_pattern pat
+      else Printf.sprintf "%s when %s" (string_of_pattern pat) (string_of_term guard))
+  pats) |> print_string
+
+  let any typ = {pattern_desc = PAny; pattern_type = TConstr (typ, [])}
+  let constr ~typ ?(typ_args = []) ctr args  = {pattern_desc = PConstr (ctr, args); pattern_type = TConstr (typ, typ_args)}
+  let a = constr ~typ:"test_type" "A" []
+  let pvar ?(typ="test_type") name = 
+    let typ = TConstr (typ, []) in
+    {pattern_desc = PVar (name, typ); pattern_type = typ}
+  let b v = constr ~typ:"test_type" "B" [v]
+  let d (a1, a2) = constr ~typ:"test_type" "D" [a1; a2]
+  let as_ ~name pat = {pattern_desc = PAlias (pat, name); pattern_type = pat.pattern_type}
+
+  let z = constr ~typ:"nat" "Z" []
+  let s n = constr ~typ:"nat" "S" [n]
+
+end
+
+
+let%expect_test "complement" =
+  let open Testing in
+  setup_tests ();
+
+  let __ = Testing.any "test_type" in
+  output (complement (guarded (b __)));
+  [%expect{| A() | D(_, _) |}];
+
+  output (complement (guarded (d (b __, a))));
+  [%expect{| A() | B(_) | D(B(_), B(_)) | D(B(_), D(_, _)) | D(A(), A()) | D(A(), B(_)) | D(A(), D(_, _)) | D(D(_, _), A()) | D(D(_, _), B(_)) | D(D(_, _), D(_, _)) |}];
+
+  let __ = Testing.any "nat" in
+  output (complement (guarded (s (as_ ~name:"s" (s __)))));
+  [%expect{| Z() | S((Z()) as s) |}];
+;;
+
+let%expect_test "intersect" =
+  let open Testing in
+  setup_tests ();
+
+  let __ = Testing.any "test_type" in
+  output (intersect [guarded (d (pvar "a", pvar "b"))] [guarded (b (pvar "x")); guarded (d (__, d (__, pvar "d")))]);
+  [%expect{| D(a, (D(_, d)) as b) |}];
+
+  output (intersect [guarded (b __)] [guarded (d (__, __))]);
+  [%expect{| |}];
+
+  output (intersect [guarded (d (d (pvar "z", __), __))] [guarded (d (__, d (__, pvar "y")))]);
+  [%expect{| D(D(z, _), D(_, y)) |}];
+;;
+
+let%expect_test "exclude" =
+  let open Testing in
+
+  setup_tests ();
+
+  let __ = Testing.any "test_type" in
+  output (exclude (guarded (d (__, __))) [guarded a; guarded (d (b __, __))]);
+  [%expect{| D(A(), _) | D(D(_, _), _) |}];
+
+  output (exclude (guarded (b __)) []);
+  [%expect{| B(_) |}];
+
+  let __ = Testing.any "nat" in
+  output (exclude (guarded (s (as_ ~name:"s" z)) ~condition:(rel EQ (var "s") (var "t") )) [guarded z; guarded (s (as_ ~name:"s" (s __)))]);
+  [%expect{| S(((Z()) as patd2) as s) when (s==t) |}];
+;;
