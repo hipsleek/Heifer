@@ -4,10 +4,10 @@ open Hiptypes
 
 let ready () =
   Provers.handle (fun () ->
-      let r =
+      (* let r =
         Hiplib.ProversEx.is_valid True (Atomic (EQ, Num 3, Plus (Num 1, Num 1)))
       in
-      Console.(log [str (Format.asprintf "test z3: 1+1=3 valid? %b@." r)]);
+      Console.(log [str (Format.asprintf "test z3: 1+1=3 valid? %b@." r)]); *)
       ())
 
 let main () =
