@@ -329,6 +329,7 @@ let rec pp_term ppf t =
     pp_term lhs pp_bin_op op pp_term rhs
   | TNot t -> fprintf ppf "@[<hov 1>~(%a)@]" pp_term t
   | Var v -> fprintf ppf "%s" v
+  | EVar v -> fprintf ppf "?%s" v
   | TApp (op, args) -> pp_call_like pp_term ppf (op, args)
   | Construct (name, args) -> pp_call_like pp_term ppf (name, args)
   | TLambda (_name, params, sp, body) -> pp_lambda_like ppf (params, sp, body)

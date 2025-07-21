@@ -116,7 +116,7 @@ let rec term_to_expr z3_ctx t : Z3.Expr.expr =
   let {ctx; _} = z3_ctx in
   match t.term_desc with
   | Const (Num n) -> Z3.Arithmetic.Integer.mk_numeral_i ctx n
-  | Var v -> Z3.Expr.mk_const_s ctx v (z3_sort_of_typ z3_ctx t.term_type)
+  | Var v | EVar v -> Z3.Expr.mk_const_s ctx v (z3_sort_of_typ z3_ctx t.term_type)
   | Const ValUnit ->
     let mk = Z3.Tuple.get_mk_decl (unit_sort ctx) in 
     Z3.Expr.mk_app ctx mk []

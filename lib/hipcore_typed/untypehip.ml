@@ -25,6 +25,7 @@ let rec untype_term (t : term) : Hiptypes.term =
   | Const TFalse -> Const TFalse
   | Const Nil -> Const Nil
   | Var v -> Var v
+  | EVar v -> EVar v
   | BinOp (op, lhs, rhs) -> BinOp (op, untype_term lhs, untype_term rhs)
   | Rel (op, lhs, rhs) -> Rel (hiptypes_bin_rel_op op, untype_term lhs, untype_term rhs)
   | TNot t -> TNot (untype_term t)

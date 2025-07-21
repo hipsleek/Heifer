@@ -17,6 +17,7 @@ and const = Hiptypes.const =
 and term_desc =
   | Const of const
   | Var of string
+  | EVar of string
   | Rel of bin_rel_op * term * term
   | BinOp of bin_term_op * term * term
   | TNot of term

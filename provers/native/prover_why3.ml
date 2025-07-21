@@ -311,7 +311,7 @@ module LowLevel = struct
     | TLambda (_, _, _, _) ->
       Theories.(needed int env.theories);
       failwith "not updated" (* (Term.t_nat_const (Subst.hash_lambda t), Int) *)
-    | Var v when SMap.mem v env.tenv ->
+    | (Var v | EVar v) when SMap.mem v env.tenv ->
       let ty1 = SMap.find v env.tenv (* |> Option.value ~default:Int *) in
       let ty = type_to_why3 env ty1 in
       let name =
@@ -334,7 +334,8 @@ module LowLevel = struct
          Pretty.(
            string_of_option string_of_type (SMap.find_opt v env.tenv)); *)
       (name, ty1)
-    | Var v -> failwith (Format.asprintf "variable %s has no type" v)
+    | Var v -> failwith (Format.asprintf "variable %s has no type" v) 
+    | EVar v -> failwith (Format.asprintf "variable ?%s has no type" v)
     | BinOp (SConcat, a, b) ->
       let a1, _ = term_to_why3 env a in
       let b1, _ = term_to_why3 env b in
@@ -767,7 +768,7 @@ let rec term_to_whyml t =
   | Const TTrue -> term Ttrue
   | Const TFalse -> term Tfalse
   | Const (Num i) -> tconst i
-  | Var v -> tvar (qualid [v])
+  | Var v | EVar v -> tvar (qualid [v])
   | BinOp (SConcat, a, b) ->
     tapp
       (qualid ["String"; "concat"])

@@ -13,6 +13,7 @@ let rec retype_term (term : Hiptypes.term) =
   | Hiptypes.Const (ValUnit) -> Const ValUnit
   | Hiptypes.Const (Num n) -> Const (Num n)
   | Hiptypes.Var v -> Var v
+  | Hiptypes.EVar v -> EVar v
   | Hiptypes.Const (TStr s) -> Const (TStr s)
   | Hiptypes.BinOp (op, lhs, rhs) -> BinOp (op, retype_term lhs, retype_term rhs)
   | Hiptypes.Rel (op, lhs, rhs) -> Rel (op, retype_term lhs, retype_term rhs)
