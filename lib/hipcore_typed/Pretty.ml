@@ -176,6 +176,7 @@ module With_types = struct
     | BinOp (op, lhs, rhs) -> Format.asprintf "(%s %s %s)" (string_of_term lhs) (string_of_bin_term_op op) (string_of_term rhs)
     | TNot a -> Format.asprintf "not(%s)" (string_of_term a)
     | Var str -> str
+    | EVar str -> "?" ^ str
     | Rel (bop, t1, t2) ->
       "(" ^ string_of_term t1 ^ (match bop with | EQ -> "==" | _ -> string_of_bin_op bop) ^ string_of_term t2 ^ ")"
     | TApp (op, args) -> Format.asprintf "%s%s" op (string_of_args string_of_term args)

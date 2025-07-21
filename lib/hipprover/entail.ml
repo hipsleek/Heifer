@@ -16,11 +16,22 @@ open Utils
 
 type use = Use of string [@@unboxed]
 
+type constant =
+  | Fixed of binder
+  | Unifiable of binder
+
+let string_of_constant c =
+  match c with
+  | Fixed s -> (ident_of_binder s)
+  | Unifiable s -> "?" ^ (ident_of_binder s)
+
 let string_of_use (Use f) = f
 
 (** proof context *)
 type pctx = {
-  constants : term list;
+  (* current set of constants in the context, in order of innermost to outermost in terms of scope.
+     it is important to ensure that an evar is not instantiated using a variable outside of its scope *)
+  constants : constant list;
   definitions_nonrec : (string * Rewriting.rule) list;
   definitions_rec : (string * Rewriting.rule) list;
   induction_hypotheses : (string * Rewriting.rule) list;
@@ -57,7 +68,7 @@ let string_of_pctx ctx =
      %s\n\n\
      unfolded:\n\
      %s"
-    (string_of_list string_of_term constants)
+    (string_of_list string_of_constant constants)
     (string_of_list_ind_lines
        (string_of_pair Fun.id string_of_rule)
        induction_hypotheses)
@@ -272,8 +283,6 @@ let derive_predicate m_name m_params f =
 
 let lambda_to_rule m_name m_params f =
   derive_predicate m_name m_params f |> pred_to_rule
-
-let try_constants pctx = Syntax.[num 0; term (Const Nil) (TConstr ("list", [Any]))] @ pctx.constants
 
 (** Tactics combine the state and list monads *)
 module Tactic : sig
@@ -1106,7 +1115,7 @@ let rec apply_ent_rule ?name : tactic =
         span (fun _r ->
             log_proof_state ~title:"ent: exists on the left" (pctx, f1, f2))
       in
-      { pctx with constants = var_of_binder x :: pctx.constants }
+      { pctx with constants = Fixed x :: pctx.constants }
     in
     entailment_search ?name (pctx, f3, f2) k
   | f1, ForAll (x, f4) ->
@@ -1115,58 +1124,23 @@ let rec apply_ent_rule ?name : tactic =
         span (fun _r ->
             log_proof_state ~title:"ent: forall on the right" (pctx, f1, f2))
       in
-      { pctx with constants = var_of_binder x :: pctx.constants }
+      { pctx with constants = Fixed x :: pctx.constants }
     in
     entailment_search ?name (pctx, f1, f4) k
   | f1, Exists (x, f4) ->
-    let choices =
-      try_constants pctx
-      |> List.map (fun c ->
-          let@ _ = suppress_exn
-            ~title:"ERROR: exists on the right, subst step"
-            ~default:(fun _ -> fail)
-          in
-          if Hipcore.Types.can_unify_with c.term_type (type_of_binder x) then
-          (* copy the binder's type to allow for polymorphic constants in try_constants *)
-          let f4 = Subst.subst_free_vars [(ident_of_binder x, term c.term_desc (type_of_binder x))] f4 in
-          fun k1 ->
-            let@ _ = suppress_some_exn
-              ~title:"ERROR: exists on the right, entailment step"
-              ~default:fail
-            in
-            let@ _ =
-              span (fun _r -> log_proof_state
-                ~title:(Format.asprintf "ent: exists on the right; [%s/%s]" (string_of_term c) (string_of_binder x))
-                (pctx, f1, f2))
-            in
-            entailment_search ?name (pctx, f1, f4) k1
-          else (fun _ -> fail))
+    let pctx =
+      let@ _ = span (fun _r -> log_proof_state ~title:"ent: exists on the right" (pctx, f1, f2)) in
+      { pctx with constants = Unifiable x :: pctx.constants}
     in
-    disj_ choices k
+    let f4 = Subst.subst_free_vars [(ident_of_binder x, evar_of_binder x)] f4 in
+    entailment_search ?name (pctx, f1, f4) k
   | ForAll (x, f3), f2 ->
-    let choices =
-      try_constants pctx
-      |> List.map (fun c ->
-          let@ _ = suppress_exn
-            ~title:"ERROR: forall on the left, subst step"
-            ~default:(fun _ -> fail)
-          in
-          if Hipcore.Types.can_unify_with c.term_type (type_of_binder x) then
-          let f3 = Subst.subst_free_vars [((ident_of_binder x), term c.term_desc (type_of_binder x))] f3 in
-          fun k1 ->
-            let@ _ = suppress_some_exn
-              ~title:"ERROR: forall on the left, entailment step"
-              ~default:fail
-            in
-            let@ _ =
-              span (fun _r -> log_proof_state
-                ~title:(Format.asprintf "ent: forall on the left; [%s/%s]" (string_of_term c) (string_of_binder x))
-                (pctx, f1, f2))
-            in
-            entailment_search ?name (pctx, f3, f2) k1
-          else (fun _ -> fail))
+    let pctx =
+      let@ _ = span (fun _r -> log_proof_state ~title:"ent: forall on the right" (pctx, f1, f2)) in
+      { pctx with constants = Unifiable x :: pctx.constants}
     in
-    disj_ choices k
+    let f3 = Subst.subst_free_vars [(ident_of_binder x, evar_of_binder x)] f3 in
+    entailment_search ?name (pctx, f3, f2) k
   (* bind, which requires alpha equivalence *)
   | Bind (x1, f3, f4), Bind (x2, f5, f6) ->
     let tag = Variables.fresh_variable () in

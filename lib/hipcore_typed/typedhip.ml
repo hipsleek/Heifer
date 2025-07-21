@@ -157,6 +157,7 @@ and typ = Types.typ =
   ord]
 
 let var_of_binder (v, t) = {term_desc = Var v; term_type = t}
+let evar_of_binder (v, t) = {term_desc = EVar v; term_type = t}
 let binder_of_var {term_desc; term_type} =
   match term_desc with
   | Var v -> (v, term_type)
