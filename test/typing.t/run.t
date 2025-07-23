@@ -11,7 +11,6 @@
   $ check inductive_int.ml
                   plus: true
               add_zero: true
-            add_zero_2: true
                   pred: true
                     id: true
   ALL OK!

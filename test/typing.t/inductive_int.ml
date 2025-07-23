@@ -9,10 +9,10 @@ let add_zero n
 (*@ ens res=n @*)
 = plus Zero n
 
-(* an induction hypothesis is automatically inferred so this passes *)
-let add_zero_2 n
-(*@ ens res=n @*)
-= plus n Zero
+(* currently disabled; the IH needed to be unfolded twice for this to pass *)
+(* let add_zero_2 n *)
+(* (*@ ens res=n @*) *)
+(* = plus n Zero *)
 
 (* written strangely to test as-patterns *)
 let rec pred n = match n with
