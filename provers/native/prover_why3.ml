@@ -831,18 +831,19 @@ let rec term_to_whyml tenv t =
     ->
     failwith "nyi"
 
-and vars_to_params tenv vars =
-  List.map
-    (fun v ->
-      let type_of_existential =
-        (* warning if default? *)
-        SMap.find_opt v tenv |> Option.value ~default:Int
-      in
-      ( Loc.dummy_position,
-        Some (ident v),
-        false,
-        Some (type_to_whyml type_of_existential) ))
-    vars
+and var_to_params tenv v =
+  let open Provers_common in
+  let v = var_of_quantifier v in
+  let type_of_existential =
+    (* warning if default? *)
+    SMap.find_opt v tenv |> Option.value ~default:Int
+  in
+  ( Loc.dummy_position,
+    Some (ident v),
+    false,
+    Some (type_to_whyml type_of_existential))
+
+and vars_to_params tenv vars = List.map (var_to_params tenv) vars
 
 and pattern_to_whyml tenv pattern =
   let p = match pattern with
@@ -942,38 +943,32 @@ let prove tenv qtf f =
     *)
     let monolithic_goal = true in
 
-    (* start building goal *)
-    let universally_quantified =
-      SSet.union
-        (collect_variables#visit_pi () ass)
-        (collect_variables#visit_pi () goal)
-      |> SSet.to_list
+    let qtf =
+      let open Provers_common in
+      let universally_quantified =
+        SSet.union
+          (collect_variables#visit_pi () ass)
+          (collect_variables#visit_pi () goal)
+      in
+      let explicit_qtf = qtf |> List.map Provers_common.var_of_quantifier |> SSet.of_list in
+      let implicitly_quantified = SSet.diff universally_quantified explicit_qtf
+        |> SSet.to_list
+        |> List.map (fun v -> QForAll v) in
+      implicitly_quantified @ qtf 
     in
-
     let statement =
       let assumptions = pi_to_whyml tenv ass in
-      let goal1 =
-        let binders = vars_to_params tenv qtf in
-        match binders with
-        | [] -> pi_to_whyml tenv goal
-        | _ :: _ ->
-          term (Tquant (Dterm.DTexists, binders, [], pi_to_whyml tenv goal))
-      in
-      match monolithic_goal with
-      | false ->
-        [
-          Dprop (Decl.Paxiom, ident "ass1", pi_to_whyml tenv ass);
-          Dprop (Decl.Pgoal, ident "goal1", goal1);
-        ]
-      | true ->
-        let forall_binders = vars_to_params tenv universally_quantified in
-        let impl = term (Tbinop (assumptions, Dterm.DTimplies, goal1)) in
-        let goal2 =
-          match forall_binders with
-          | [] -> impl
-          | _ :: _ -> term (Tquant (Dterm.DTforall, forall_binders, [], impl))
+      let impl = term (Tbinop (assumptions, Dterm.DTimplies, pi_to_whyml tenv goal)) in
+      let goal = List.fold_right (fun binder goal -> 
+        let open Provers_common in
+        let param = var_to_params tenv binder in
+        let quantifier = match binder with
+          | QForAll _ -> Dterm.DTforall
+          | QExists _ -> Dterm.DTexists
         in
-        [Dprop (Decl.Pgoal, ident "goal1", goal2)]
+        term (Tquant (quantifier, [param], [], goal))) qtf impl
+      in
+      [Dprop (Decl.Pgoal, ident "goal1", goal)]
     in
 
     let fns =
@@ -1031,25 +1026,6 @@ let prove tenv qtf f =
       [Dtype decls]
     in
 
-    let parameters =
-      match monolithic_goal with
-      | true -> []
-      | false ->
-        [
-          Dlogic
-            (universally_quantified
-            |> List.map (fun v ->
-                   let type_of_parameter = SMap.find v tenv in
-                   {
-                     ld_loc = Loc.dummy_position;
-                     ld_ident = ident v;
-                     ld_params = [];
-                     ld_type = Some (type_to_whyml type_of_parameter);
-                     ld_def = None;
-                   }));
-        ]
-    in
-
     let imports =
       let extra =
         Globals.global_environment.pure_fn_types
@@ -1065,7 +1041,7 @@ let prove tenv qtf f =
       ]
       @ extra
     in
-    (ident "M", List.concat [imports; types; fns; parameters; statement])
+    (ident "M", List.concat [imports; types; fns; statement])
   in
   let mlw_file = Modules [vc_mod] in
   Debug.debug ~at:4 ~title:"mlw file" "%a"
@@ -1099,12 +1075,4 @@ let entails_exists tenv left ex right =
   let use_low_level = false in
   match use_low_level with
   | false -> prove tenv ex (fun _env -> (left, right))
-  | true ->
-    (* keep this around for a while before we commit to the other approach *)
-    let open LowLevel in
-    prove tenv ex (fun env ->
-        ( pi_to_why3 env left,
-          (* Term.t_exists_close *)
-          (* (SMap.bindings env.exists |> List.map snd) *)
-          (* [] () *)
-          pi_to_why3 env right ))
+  | true -> raise (Provers_common.Prover_error "why3 backend: low level approach disabled")

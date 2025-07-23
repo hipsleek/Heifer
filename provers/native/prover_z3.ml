@@ -365,18 +365,24 @@ let check_sat f =
 let ex_quantify_expr env vars ctx e =
   let binders = vars
     |> List.map (fun var ->
-        let t = SMap.find_opt var env
+        let var_name = Provers_common.var_of_quantifier var in
+        let t = SMap.find_opt var_name env
         |> Option.value ~default:Unit
         in (var, t))
   in
-  match vars with
-  | [] -> e
-  | _ :: _ ->
+  List.fold_right (fun binder e ->
     Z3.Quantifier.(
+      let open Provers_common in
+      let name, typ = binder in
+      let mk = match name with
+      | QExists _ -> mk_exists_const
+      | QForAll _ -> mk_forall_const
+      in
       expr_of_quantifier
-        (mk_exists_const ctx.ctx
-           (List.map (fun v -> term_to_expr env ctx (var_of_binder v)) binders)
-           e None [] [] None None))
+        (mk ctx.ctx
+           [(term_to_expr env ctx (var_of_binder (var_of_quantifier name, typ)))]
+           e None [] [] None None)))
+    binders e
 
   let type_to_sort ctx (t:typ) : Sort.sort =
     match t with

@@ -210,7 +210,7 @@ let log_proof_state_total ~title (pctx, f1, f2) ps1 =
   debug ~at:4 ~title ~supp "%s\n⊑\n%s\n==>\n%s" (string_of_staged_spec f1)
     (string_of_staged_spec f2) res
 
-let check_pure_obligation left right =
+let check_pure_obligation ?(pctx = new_pctx ()) left right =
   let left, right =
     let@ _ = span (fun _r -> debug ~at:4 ~title:"simplify before" "") in
     (Simpl.simplify_pure left, Simpl.simplify_pure right)
@@ -227,7 +227,14 @@ let check_pure_obligation left right =
     (* handle the environment manually as it's shared between both sides *)
     with_empty_env (infer_types_pair_pi (left, right))
   in
-  let res = Provers.entails_exists (concrete_type_env tenv) left [] right in
+  let quantified =
+    pctx.constants
+    |> List.map Provers_common.(fun c -> match c with
+      | Fixed v -> QForAll v
+      | Unifiable v -> QExists v)
+    |> List.rev
+  in
+  let res = Provers.entails_exists (concrete_type_env tenv) left quantified right in
   let open Provers_common in
   debug ~at:4 ~title:"prover detailed result" "%s" (string_of_prover_result res);
   match res with
@@ -767,7 +774,7 @@ let prove_pure_fact (pctx : pctx) (p : pi) =
   match p with
   | True -> true
   | False -> false
-  | _ -> check_pure_obligation (Syntax.conj pctx.assumptions) p
+  | _ -> check_pure_obligation ~pctx (Syntax.conj pctx.assumptions) p
 
 let rec handle_pure_ens_lhs (pctx : pctx) f =
   debug ~at:5 ~title:"handle_pure_ens_lhs" "";
@@ -999,6 +1006,7 @@ let rec apply_ent_rule ?name : tactic =
     let@ (ap, ah), (fp, fh) = biab h1 h2 in
     let valid =
       check_pure_obligation
+        ~pctx
         (conj (pctx.assumptions @ [p1; ap; Heap.xpure h1]))
         (conj [p2; fp; Heap.xpure h2])
     in
@@ -1020,6 +1028,7 @@ let rec apply_ent_rule ?name : tactic =
     let@ (ap, ah), (_fp, fh) = biab h1 h2 in
     let valid =
       check_pure_obligation
+        ~pctx
         (conj (pctx.assumptions @ [p1; Heap.xpure h1]))
         (conj [p2; ap; Heap.xpure h2])
     in
@@ -1160,7 +1169,7 @@ let rec apply_ent_rule ?name : tactic =
         else 
           let is_contradiction = 
             let@ _ = span (fun _r -> debug ~at:4 ~title:"try to discharge via contradiction" "") in
-            check_pure_obligation (conj pctx.assumptions) False
+            check_pure_obligation ~pctx (conj pctx.assumptions) False
           in
           if is_contradiction
           then k (pctx, ens (), ens ())

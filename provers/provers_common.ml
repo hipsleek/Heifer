@@ -4,6 +4,14 @@ type prover_result =
   | Invalid
   | Unknown of string
 
+type quantified_var =
+  | QExists of string
+  | QForAll of string
+
+let var_of_quantifier v =
+  match v with
+  | QExists s | QForAll s -> s
+
 exception Prover_error of string
 
 let string_of_prover_result = function
