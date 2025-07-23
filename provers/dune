@@ -10,4 +10,5 @@
 (library
  (name provers_common)
  (public_name heifer.provers_common)
+ (libraries hipcore_typed)
  (modules provers_common))

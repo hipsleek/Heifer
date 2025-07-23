@@ -833,18 +833,16 @@ let rec term_to_whyml t =
     ->
     failwith "nyi"
 
-and vars_to_params vars =
-  List.map
-    (fun v ->
-      let type_of_existential =
-        (* warning if default? *)
-        type_of_binder v
-      in
-      ( Loc.dummy_position,
-        Some (ident (ident_of_binder v)),
-        false,
-        Some (type_to_whyml type_of_existential) ))
-    vars
+  and var_to_params v =
+    let open Provers_common in
+    let b = binder_of_quantifier v in
+    let type_of_existential = type_of_binder b in
+    ( Loc.dummy_position,
+      Some (ident (ident_of_binder b)),
+      false,
+      Some (type_to_whyml type_of_existential))
+
+and vars_to_params vars = List.map var_to_params vars
 
 and pattern_to_whyml pattern =
   let p = match pattern.pattern_desc with
@@ -920,18 +918,20 @@ and pi_to_whyml p =
 let collect_variables =
   object
     inherit [_] reduce_spec as super
+
     method zero = SMap.empty
     method plus = SMap.merge_arbitrary
+
     method! visit_term env t =
       match t.term_desc with
       | Var v -> SMap.singleton v t.term_type
+      (* don't go inside lambda, as those variables don't get encoded *)
+      | TLambda (_, _, _, _) -> SMap.empty
       | _ -> super#visit_term env t
 
-    (* don't go inside lambda, as those variables don't get encoded *)
-    method! visit_TLambda _ _ _ _ _ = SMap.empty
   end
 
-let prove (qtf : Hipcore_typed.Typedhip.binder list) f =
+let prove qtf f =
   let ass, goal = f () in
 
   let vc_mod =
@@ -945,40 +945,34 @@ let prove (qtf : Hipcore_typed.Typedhip.binder list) f =
        axiom ass
        goal g : ex x*. goal
     *)
-    let monolithic_goal = true in
-
-    (* start building goal *)
-    let universally_quantified =
-      SMap.merge_arbitrary
-        (collect_variables#visit_pi () ass)
-        (collect_variables#visit_pi () goal)
-      |> SMap.to_list
+    let qtf =
+      let open Provers_common in
+      let universally_quantified =
+        SMap.merge_arbitrary
+          (collect_variables#visit_pi () ass)
+          (collect_variables#visit_pi () goal)
+      in
+      let explicitly_quantified = qtf in
+      let implicitly_quantified = 
+        universally_quantified
+        |> SMap.filter (fun v t -> not (List.mem (QForAll (v, t)) explicitly_quantified))
+        |> SMap.to_list
+        |> List.map (fun v -> QForAll v) in
+      implicitly_quantified @ explicitly_quantified
     in
-
     let statement =
       let assumptions = pi_to_whyml ass in
-      let goal1 =
-        let binders = vars_to_params qtf in
-        match binders with
-        | [] -> pi_to_whyml goal
-        | _ :: _ ->
-          term (Tquant (Dterm.DTexists, binders, [], pi_to_whyml goal))
-      in
-      match monolithic_goal with
-      | false ->
-        [
-          Dprop (Decl.Paxiom, ident "ass1", pi_to_whyml ass);
-          Dprop (Decl.Pgoal, ident "goal1", goal1);
-        ]
-      | true ->
-        let forall_binders = vars_to_params universally_quantified in
-        let impl = term (Tbinop (assumptions, Dterm.DTimplies, goal1)) in
-        let goal2 =
-          match forall_binders with
-          | [] -> impl
-          | _ :: _ -> term (Tquant (Dterm.DTforall, forall_binders, [], impl))
+      let impl = term (Tbinop (assumptions, Dterm.DTimplies, pi_to_whyml goal)) in
+      let goal = List.fold_right (fun qvar goal -> 
+        let open Provers_common in
+        let param = var_to_params qvar in
+        let quantifier = match qvar with
+          | QForAll _ -> Dterm.DTforall
+          | QExists _ -> Dterm.DTexists
         in
-        [Dprop (Decl.Pgoal, ident "goal1", goal2)]
+        term (Tquant (quantifier, [param], [], goal))) qtf impl
+      in
+      [Dprop (Decl.Pgoal, ident "goal1", goal)]
     in
 
     let fns =
@@ -1035,25 +1029,6 @@ let prove (qtf : Hipcore_typed.Typedhip.binder list) f =
       [Dtype decls]
     in
 
-    let parameters =
-      match monolithic_goal with
-      | true -> []
-      | false ->
-        [
-          Dlogic
-            (universally_quantified
-            |> List.map (fun v ->
-                   let type_of_parameter = type_of_binder v in
-                   {
-                     ld_loc = Loc.dummy_position;
-                     ld_ident = ident (ident_of_binder v);
-                     ld_params = [];
-                     ld_type = Some (type_to_whyml type_of_parameter);
-                     ld_def = None;
-                   }));
-        ]
-    in
-
     let imports =
       let extra =
         Globals.global_environment.pure_fn_types
@@ -1069,7 +1044,7 @@ let prove (qtf : Hipcore_typed.Typedhip.binder list) f =
       ]
       @ extra
     in
-    (ident "M", List.concat [imports; types; fns; parameters; statement])
+    (ident "M", List.concat [imports; types; fns; statement])
   in
   let mlw_file = Modules [vc_mod] in
   Debug.debug ~at:4 ~title:"mlw file" "%a"

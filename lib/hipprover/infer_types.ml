@@ -296,10 +296,10 @@ and infer_types_term ?(hint : typ option) term : term using_env =
       let* b = infer_types_term ~hint:btype b in
       return (BinOp (op, a, b), ret_type)
   (* possibly add syntactic heuristics for types, such as names *)
-  | Var v, Some t -> 
+  | Var v, Some t | EVar v, Some t -> 
       let* _ = assert_var_has_type (v, term.term_type) t in
       return (term.term_desc, t)
-  | Var v, None ->
+  | Var v, None | EVar v, None ->
     let t = (TVar (Variables.fresh_variable v)) in
     let* _ = assert_var_has_type (v, term.term_type) t in
     return (term.term_desc, t)

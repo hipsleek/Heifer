@@ -373,11 +373,18 @@ let ex_quantify_expr binders ctx e =
   match binders with
   | [] -> e
   | _ :: _ ->
+    List.fold_right (fun quantifier e ->
     Z3.Quantifier.(
+      let open Provers_common in
+      let mk = match quantifier with
+        | QExists _ -> mk_exists_const
+        | QForAll _ -> mk_forall_const
+      in
       expr_of_quantifier
-        (mk_exists_const ctx.ctx
-           (List.map (fun v -> term_to_expr ctx (var_of_binder v)) binders)
-           e None [] [] None None))
+        (mk ctx.ctx
+           [(term_to_expr ctx (var_of_binder (binder_of_quantifier quantifier)))]
+           e None [] [] None None)))
+    binders e
 
   let type_to_sort ctx (t:typ) : Sort.sort =
     match t with
