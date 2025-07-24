@@ -152,6 +152,7 @@ and typ = Types.typ =
 [@@deriving
   visitors { variety = "map"; name = "map_spec" },
   visitors { variety = "reduce"; name = "reduce_spec" },
+  visitors { variety = "mapreduce"; name = "mapreduce_spec" },
   ord]
 
 let var_of_binder (v, t) = {term_desc = Var v; term_type = t}
@@ -159,6 +160,8 @@ let binder_of_var {term_desc; term_type} =
   match term_desc with
   | Var v -> (v, term_type)
   | _ -> raise (Invalid_argument "Term was not Var")
+let ident_of_binder ((v, _) : binder) = v
+
 
 type tactic = Hiptypes.tactic
 
