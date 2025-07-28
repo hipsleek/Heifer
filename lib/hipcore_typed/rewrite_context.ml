@@ -26,10 +26,7 @@ let protect_capture mctx =
     |> SMap.of_seq) in
   { mctx_captured_renames = SMap.merge_right_priority mctx.mctx_captured_renames new_renames;
     mctx_bound = SSet.empty
-  }
-
-let is_bound mctx v = SSet.mem v mctx.mctx_bound
-
+  } let is_bound mctx v = SSet.mem v mctx.mctx_bound
 let rename_in_context mctx v =
   match SMap.find_opt v mctx.mctx_captured_renames with
   | Some (lazy v') -> v'
@@ -45,11 +42,13 @@ let with_capture_avoidance f (bind_ctx, env) = f (protect_capture bind_ctx, env)
   The environment type of this visitor is [map_context * 'a], where ['a] is inferred based on the subclass,
   and is analogous to the environment type of the original visitor [map_spec].
   
-  When overriding a method, always call the appropriate method of the superclass (i.e. this class)
-  on the result of your custom map method, instead of directly returning the value. This is so proper
+  When overriding a method, call the appropriate method of the superclass (i.e. this class)
+  instead of directly returning the value. This is so proper
   tracking of binders can be maintained.
+  
+  Further, be careful of the possiblity of infinite loops.
  *)
-class ['self] map_spec_with_binders = object
+class ['self] map_spec_with_binders = object (self)
   inherit ['self] map_spec as super
   
   (* AST nodes that can create free variables. these need to be checked against the captured renames *)
@@ -90,6 +89,12 @@ class ['self] map_spec_with_binders = object
      so that when the subclass calls their respective parent methods, the call is dispatched
      into our binder-aware methods instead of potentially calling the child class again,
      causing an infinite loop. *)
+
+  method! visit_term_desc (bind_ctx, env) td =
+    match td with
+    | Var v -> self#visit_Var (bind_ctx, env) v
+    | _ -> super#visit_term_desc (bind_ctx, env) td
+
 end
 
 (** Create an empty binder context, and use it to call a visitor function. *)
