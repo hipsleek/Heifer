@@ -5,11 +5,10 @@ open Typedhip
 
 let ready () =
   Provers.handle (fun () ->
-      let r =
-        let open Syntax in
-        Provers.entails_exists (SMap.empty) True [] (Atomic (EQ, num 3, plus (num 1) (num 1)))
+      (* let r =
+        Hiplib.ProversEx.is_valid True (Atomic (EQ, Num 3, Plus (Num 1, Num 1)))
       in
-      Console.(log [str (Format.asprintf "test z3: 1+1=3 valid? %s@." (Provers_common.string_of_prover_result r))]);
+      Console.(log [str (Format.asprintf "test z3: 1+1=3 valid? %b@." r)]); *)
       ())
 
 let main () =
