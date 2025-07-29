@@ -3,6 +3,7 @@
     there are utilities that take the Typedtree as input, most program types should be coming from
     the OCaml typechecker; this is used to typecheck annotations.*)
 
+open Hipcore
 open Typedhip
 
 let binder_of_ident ?(typ=Types.new_type_var ()) (ident : string) : binder = (ident, typ)

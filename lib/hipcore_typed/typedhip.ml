@@ -1,4 +1,6 @@
 
+open Hipcore
+
 open Types
 [@@@warning "-17"]
 (* can also appear in pi *)

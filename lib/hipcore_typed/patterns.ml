@@ -1,6 +1,8 @@
+open Syntax
+open Hipcore.Common
+open Hipcore.Types
+open Hipcore.Variables
 open Typedhip
-open Common
-open Syntax.Typed
 
 type guarded_pattern = pattern * term
 
@@ -17,9 +19,9 @@ let return x = [x]
 let cartesian_product (lists: 'a list list) : 'a list list =
   List.fold_right (fun ls result -> let* x = ls in let* rest = result in return (x::rest)) lists [[]]
 
-let pattern_of_constr ((name, args) : Types.type_constructor) (constr_substitutions : (typ * typ) list) (pattern_type : typ) =
+let pattern_of_constr ((name, args) : type_constructor) (constr_substitutions : (typ * typ) list) (pattern_type : typ) =
   (* all the extra parameters are needed to correctly reconstruct inner types *)
-  make (PConstr (name, List.map (fun arg -> make PAny (Types.instantiate_type_variables constr_substitutions arg)) args)) pattern_type
+  make (PConstr (name, List.map (fun arg -> make PAny (instantiate_type_variables constr_substitutions arg)) args)) pattern_type
 
 let rec free_vars_pat pat =
   (* return a type mapping since we need types of free variables when quantifying over them *)
@@ -110,7 +112,7 @@ let rec intersect_two p1 p2 = match p1.pattern_desc, p2.pattern_desc with
 let deconflict_renames shared = 
   shared
     |> SMap.to_seq
-    |> Seq.map (fun (var, typ) -> (var, (Variables.fresh_variable ~v:"patd" (), typ)))
+    |> Seq.map (fun (var, typ) -> (var, (fresh_variable ~v:"patd" (), typ)))
     |> SMap.of_seq
 
 let pi_of_pattern pat_term pat : binder list * pi =
@@ -119,7 +121,7 @@ let pi_of_pattern pat_term pat : binder list * pi =
   let add_free_var v = free_vars := v::!free_vars in
   let add_conjunct pi = conjuncts := pi::!conjuncts in
   let new_term_name typ () =
-    let v = Variables.fresh_variable ~v:"pat" () in add_free_var (v, typ); v in
+    let v = fresh_variable ~v:"pat" () in add_free_var (v, typ); v in
   let rec inner pat =
     match pat.pattern_desc with
     | PAny ->
@@ -151,7 +153,7 @@ module Guarded = struct
     let term_rebindings = SMap.map var_of_binder bindings |> SMap.to_list in
     (* refers to the previous definition without guard clauses *)
     (rename_bound_vars bindings pat, 
-      Subst_typed.(subst_free_vars_term term_rebindings guard))
+      Subst.(subst_free_vars_term term_rebindings guard))
 
   let intersect (p1s : (pattern * term) list) (p2s : (pattern * term) list) =
     let* p1, g1 = p1s in
@@ -214,7 +216,7 @@ module Testing = struct
         "S", [TConstr ("nat", [])]
       ]
     }
-  open Pretty_typed
+  open Pretty
   let output pats = String.concat " | " (List.map 
   (fun (pat, guard) ->
     if guard = ctrue

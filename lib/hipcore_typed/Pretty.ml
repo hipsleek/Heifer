@@ -1,5 +1,6 @@
 (* Functions for printing the typed AST. *)
 
+open Hipcore
 open Common
 open Typedhip
 open Types
@@ -204,6 +205,11 @@ let string_of_program (cp:core_program) :string =
 let string_of_pattern p = Pretty.string_of_pattern (Untypehip.untype_pattern p)
 
 open Pretty
+
+(* make these declarations available here as well *)
+let string_of_type t = string_of_type t
+
+let string_of_type_declaration tdecl = string_of_type_declaration tdecl
 
 let pp_bin_op ppf op =
   Format.fprintf ppf "%s" (string_of_bin_op op)

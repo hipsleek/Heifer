@@ -1,13 +1,14 @@
 
 open Hipcore
 open Hiptypes
+open Hipcore_typed
 open Typedhip
 open Untypehip
 open Variables
-open Pretty_typed
+open Pretty
 open Debug
 open Utils
-open Syntax.Typed
+open Syntax
 
 (*
 open Normalize
@@ -365,7 +366,7 @@ let rec forward (env: fvenv) (expr : core_lang): staged_spec * fvenv =
             |> List.map (fun (free_vars, disjunct) ->
                 List.fold_right (fun var spec -> Exists (var, spec)) free_vars
                 (Sequence ( NormalReturn ( disjunct, EmptyHeap ), body_spec))) in
-            Syntax.Typed.disj disjuncts
+            Syntax.disj disjuncts
         in
         case_spec, (env, (pat, guard)::past_cases)
       in
@@ -373,7 +374,7 @@ let rec forward (env: fvenv) (expr : core_lang): staged_spec * fvenv =
          in the match statement
          this needs some way to find the complement of a pattern, since spec doesn't allow for negative exists (whether expliclitly or via forall + conjunction) *)
   let cases_spec, (env, _) = Lists.map_state handle_case (env, []) cases in
-      let disj_spec = Syntax.Typed.disj cases_spec in
+      let disj_spec = Syntax.disj cases_spec in
       Bind (v, discriminant_spec, disj_spec), env
   | CResume _ ->
       failwith "CResume"

@@ -1,8 +1,8 @@
 open Hipcore
-open Hiptypes
-open Typedhip
-open Types
-open Pretty_typed
+open Hipcore.Common
+open Hipcore.Types
+open Hipcore_typed.Typedhip
+open Hipcore_typed.Pretty
 open Debug
 
 (* TODO Restore all debug output once Pretty_typed has been ported over *)
@@ -147,6 +147,7 @@ let concrete_type_env abs : typ_env =
   SMap.map simpl abs.vartypes
 
 let get_primitive_type f =
+  let open Hipcore_typed.Globals in
   (* let untype = Typedhip.Untypehip.hiptypes_typ in *)
   let v = fresh_type_var () in
   let list_of_v = TConstr ("list", [v]) in
@@ -158,11 +159,11 @@ let get_primitive_type f =
   | "+" | "-" -> ([Int; Int], Int)
   | "string_of_int" -> ([Int], TyString)
   | _ when String.compare f "effNo" == 0 -> ([Int] , Int)
-  | _ when Globals.is_pure_fn_defined f ->
-    let fn = Globals.pure_fn f in
+  | _ when is_pure_fn_defined f ->
+    let fn = pure_fn f in
     (List.map snd fn.pf_params, fn.pf_ret_type)
-  | _ when SMap.mem f Globals.global_environment.pure_fn_types ->
-    let fn = SMap.find f Globals.global_environment.pure_fn_types in
+  | _ when SMap.mem f global_environment.pure_fn_types ->
+    let fn = SMap.find f global_environment.pure_fn_types in
     (fn.pft_params, fn.pft_ret_type)
   | _ ->
       failwith (Format.asprintf "unknown function 2: %s" f)
@@ -290,7 +291,7 @@ and infer_types_term ?(hint : typ option) term : term using_env =
     in
     return (TApp (f, args), ret_type)
   | Construct (name, args), _ ->
-      let type_decl, (constr_params, constr_arg_types) = Globals.type_constructor_decl name in
+      let type_decl, (constr_params, constr_arg_types) = Hipcore_typed.Globals.type_constructor_decl name in
       let concrete_bindings = List.map (fun param -> (param, fresh_type_var ())) constr_params in
       let concrete_vars = List.map (fun (_, var) -> var) concrete_bindings in
       (* let args, env = List.map2 pair args constr_arg_types *)

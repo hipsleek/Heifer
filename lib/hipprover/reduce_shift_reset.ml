@@ -252,7 +252,7 @@ let shift_reset_red_rules : _ Rewriting2.database = [
 
 let shift_reset_reduce_spec_with (type k)
   (rules : (staged_spec, k) Rewriting2.database) (spec : staged_spec) : staged_spec =
-  let@ _ = Globals.Timing.(time norm) in
+  let@ _ = Hipcore_typed.Globals.Timing.(time norm) in
   let@ _ =
     span (fun r -> debug
       ~at:1

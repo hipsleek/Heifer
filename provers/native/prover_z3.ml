@@ -1,9 +1,10 @@
 open Hipcore
 open Debug
 open Hiptypes
+open Hipcore_typed
 open Typedhip
-open Pretty_typed
-open Subst_typed
+open Pretty
+open Subst
 
 open Types
 open Z3

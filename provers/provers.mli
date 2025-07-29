@@ -1,6 +1,5 @@
-open Hipcore
-open Typedhip
-open Types
+open Hipcore_typed.Typedhip
+open Hipcore.Types
 
 open Provers_common
 

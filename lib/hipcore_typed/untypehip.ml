@@ -1,5 +1,6 @@
+open Hipcore
 open Typedhip
-open Common
+open Hipcore.Common
 
 let ident_of_binder (name, _ : binder) : string = name
 let hiptypes_typ t = t

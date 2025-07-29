@@ -5,6 +5,7 @@ module Debug = Hipdebug
 (* open this second, so it gets precedence for shadowed modules *)
 open Hipcore
 open Hiptypes
+open Hipcore_typed
 open Types
 
 let prover_configs : (Whyconf.config_prover * Why3.Driver.driver) SMap.t ref =
@@ -690,8 +691,8 @@ module LowLevel = struct
             (fun (_k, v) ->
               (* Format.printf "translating %s@." _k; *)
               pure_fn_to_logic_fn env v)
-            (Globals.pure_fns ()
-            |> List.map (fun (name, fn) -> (name, Hipcore.Untypehip.untype_pure_fn_def fn))
+            (Hipcore_typed.Globals.pure_fns ()
+            |> List.map (fun (name, fn) -> (name, Hipcore_typed.Untypehip.untype_pure_fn_def fn))
             )
         in
         match fns with [] -> task1 | _ :: _ -> Task.add_logic_decl task1 fns
@@ -984,7 +985,7 @@ let prove tenv qtf f =
         let ff =
           List.map
             (fun (k, fn) ->
-              let fn = Untypehip.untype_pure_fn_def fn in
+              let fn = Hipcore_typed.Untypehip.untype_pure_fn_def fn in
               {
                 ld_loc = Loc.dummy_position;
                 ld_ident = ident k;

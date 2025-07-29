@@ -2,9 +2,10 @@
 (* we need to clean up the imports here *)
 open Hipcore
 module Debug = Debug
+open Hipcore_typed
 open Typedhip
+open Pretty
 open Common
-open Pretty_typed
 open Ocaml_compiler
 open Asttypes
 (* get rid of the alias *)

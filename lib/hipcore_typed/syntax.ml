@@ -1,4 +1,4 @@
-open Hiptypes
+open Typedhip
 open Utils
 
 let is_lambda_term = function
@@ -12,20 +12,40 @@ let ens ?(p = True) ?(h = EmptyHeap) () = NormalReturn (p, h)
 (* these take tuples, unlike the data constructors *)
 let req' (p,h) = Require (p, h)
 let ens' (p, h) =  NormalReturn (p, h)
-
 let bind v x y = Bind (v, x, y)
 let disj = Lists.foldr1 (fun c t -> Disjunction (c, t))
 let conj = Lists.foldr1 ~default:True (fun c t -> And (c, t))
 let sep_conj = Lists.foldr1 ~default:EmptyHeap (fun c t -> SepConj (c, t))
+
 let eq x y = Atomic (EQ, x, y)
-let v x = Var x
-let var v = Var v
-let num n = Const (Num n)
-let plus x y = BinOp (Plus, x, y)
-let tand x y = BinOp (TAnd, x, y)
-let tnot t = TNot t
+let v ?(typ = TVar (Hipcore.Variables.fresh_variable ~v:"v" ())) x = {term_desc = Var x; term_type = typ}
+let var = v
+let num n = {term_desc = Const (Num n); term_type = Int}
+let tnot t = {term_desc = TNot t; term_type = Bool}
 let points_to x y = PointsTo (x, y)
-let pts x y = PointsTo (x, y)
+let pts = points_to
+
+let term term_desc term_type = {term_desc; term_type}
+
+let binop op lhs rhs =
+  let output_type =
+    match op with
+    | Plus | Minus | TTimes | TDiv | TPower -> Int
+    | SConcat -> TyString
+    | TCons -> lhs.term_type
+    | TAnd | TOr -> Bool
+  in
+  term (BinOp (op, lhs, rhs)) output_type
+
+let ctrue = term (Const TTrue) Bool
+let lambda ?(id = "") params ?(spec = None) body =
+  (* TODO fill in the actual type if possible using Arrow *)
+  term (TLambda (id, params, spec, body)) Lamb
+
+let rel op lhs rhs = term (Rel (op, lhs, rhs)) Bool
+
+let plus = binop Plus
+let tand = binop TAnd
 
 let rec conjuncts_of_pi (p : pi) : pi list =
   match p with

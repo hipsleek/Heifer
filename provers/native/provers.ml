@@ -1,5 +1,6 @@
 
 open Hipcore
+open Hipcore_typed
 open Typedhip
 open Common
 

@@ -1,6 +1,6 @@
+open Hipcore.Common
 open Typedhip
-open Common
-open Types
+open Hipcore.Types
 
 let using_pure_fns = ref false
 
@@ -41,7 +41,7 @@ let find_type_decl name = SMap.find name global_environment.type_declarations
     Raises Not_found if no such constructor is found. *)
 let type_constructor_decl name =
   let decls = SMap.bindings global_environment.type_declarations
-  |> List.filter_map (fun (_, type_decl) -> Types.constructor_of_type_decl name type_decl |> Option.map (fun constr_decl -> (type_decl, constr_decl)))
+  |> List.filter_map (fun (_, type_decl) -> constructor_of_type_decl name type_decl |> Option.map (fun constr_decl -> (type_decl, constr_decl)))
   in
   if List.is_empty decls
   then failwith ("Could not find constructor " ^ name)

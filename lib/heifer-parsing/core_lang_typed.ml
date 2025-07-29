@@ -13,6 +13,7 @@ open Asttypes
 type string = label
 open Hipcore
 open Hiptypes
+open Hipcore_typed
 open Typedhip
 
 exception Foo of string
@@ -256,7 +257,7 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
       let spec, _ = Hipprover.Infer_types.(
         with_empty_env begin
           with_vartypes (List.to_seq ["res", return_type]) begin
-            infer_types_staged_spec (Hipcore.Retypehip.retype_staged_spec spec)
+            infer_types_staged_spec (Retypehip.retype_staged_spec spec)
           end
         end
       ) 
@@ -348,7 +349,7 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
     (* we may need information from bound names for this *)
     let (p, k), _ = Hipprover.Infer_types.(
         with_empty_env begin
-          infer_types_state (Hipcore.Retypehip.retype_state (p, k))
+          infer_types_state (Retypehip.retype_state (p, k))
         end
       ) in
     {core_desc = CAssert (p, k); core_type = Unit}

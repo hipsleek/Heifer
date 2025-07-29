@@ -212,7 +212,7 @@ let check_pure_obligation left right =
   in
   let open Infer_types in
   let (left, right), tenv =
-    let left, right = Retypehip.(retype_pi left, retype_pi right) in
+    let left, right = Hipcore_typed.Retypehip.(retype_pi left, retype_pi right) in
     (* handle the environment manually as it's shared between both sides *)
     with_empty_env (infer_types_pair_pi (left, right))
   in
@@ -1198,7 +1198,7 @@ and entailment_search : ?name:string -> tactic =
     apply_ent_rule ?name ps k
 
 let check_staged_spec_entailment ?name pctx inferred given =
-  let@ _ = Globals.Timing.(time entail) in
+  let@ _ = Hipcore_typed.Globals.Timing.(time entail) in
   let@ _ =
     span (fun r ->
         debug ~at:2 ~title:"entailment" "%s\n⊑\n%s\n%s"
