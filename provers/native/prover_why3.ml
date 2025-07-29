@@ -6,6 +6,7 @@ module Debug = Hipdebug
 open Hipcore
 open Hiptypes
 open Hipcore_typed
+open Typedhip
 open Types
 
 let prover_configs : (Whyconf.config_prover * Why3.Driver.driver) SMap.t ref =
@@ -302,7 +303,7 @@ module LowLevel = struct
 
   let rec term_to_why3 env (t : term) =
     (* Format.printf "term %s@." (Pretty.string_of_term t); *)
-    match t with
+    match t.term_desc with
     | Const ValUnit -> (Term.t_tuple [], Unit)
     | Const (Num i) ->
       Theories.(needed int env.theories);
@@ -425,7 +426,7 @@ module LowLevel = struct
       let a1, _ = term_to_why3 env a in
       ( Term.t_app_infer Theories.(get_symbol bool "notb" env.theories) [a1],
         Bool )
-    | BinOp (TCons, a, b) ->
+    | BinOp (TCons, _, _) ->
       (* let a1, _ = term_to_why3 env a in *)
       (* let b1, _ = term_to_why3 env b in *)
       (* let open Pretty in *)
@@ -509,13 +510,13 @@ module LowLevel = struct
 
   let rec expr_to_why3 env e =
     (* Format.printf "expr %s@." (Pretty.string_of_core_lang e); *)
-    match e with
+    match e.core_desc with
     | CLet (v, e1, a) ->
       (* Format.printf "??%s@." (Pretty.string_of_core_lang e); *)
-      let h = Term.create_vsymbol (Ident.id_fresh v) (type_to_why3 env Int) in
+      let h = Term.create_vsymbol (Ident.id_fresh (Untypehip.ident_of_binder v)) (type_to_why3 env Int) in
       let e2 = expr_to_why3 env e1 in
       let a1 =
-        expr_to_why3 { env with letbound = SMap.add v h env.letbound } a
+        expr_to_why3 { env with letbound = SMap.add (Untypehip.ident_of_binder v) h env.letbound } a
       in
       (* a1 *)
       Term.t_let e2 (Term.t_close_bound h a1)
@@ -525,7 +526,7 @@ module LowLevel = struct
     | CValue t ->
       let t, _ty = term_to_why3 env t in
       t
-    | CIfELse (_, _, _) -> failwith "unimplemented CIfELse"
+    | CIfElse (_, _, _) -> failwith "unimplemented CIfELse"
     | CFunCall (s, args) when Globals.is_pure_fn_defined s ->
       (* SMap.mem s env.names *)
       let args1 = List.map (term_to_why3 env) args |> List.map fst in
@@ -549,7 +550,7 @@ module LowLevel = struct
         (List.map
            (fun case ->
              let pat =
-               match case.ccase_pat with
+               match case.ccase_pat.pattern_desc with
                | PConstr (c, _) -> failwith (Format.asprintf "unhandled constr %s" c)
                | _ -> failwith "unhandled pattern"
              in
@@ -692,7 +693,7 @@ module LowLevel = struct
               (* Format.printf "translating %s@." _k; *)
               pure_fn_to_logic_fn env v)
             (Hipcore_typed.Globals.pure_fns ()
-            |> List.map (fun (name, fn) -> (name, Hipcore_typed.Untypehip.untype_pure_fn_def fn))
+            |> List.map (fun (name, fn) -> (name, fn))
             )
         in
         match fns with [] -> task1 | _ :: _ -> Task.add_logic_decl task1 fns
@@ -761,7 +762,7 @@ let rec type_to_whyml t =
   | TConstr (name, args) -> PTtyapp (qualid [name], List.map type_to_whyml args)
 
 let rec term_to_whyml tenv t =
-  match t with
+  match Typedhip.(t.term_desc) with
   | Const ValUnit -> term (Ttuple [])
   | Const TTrue -> term Ttrue
   | Const TFalse -> term Tfalse
@@ -845,25 +846,25 @@ and vars_to_params tenv vars =
     vars
 
 and pattern_to_whyml tenv pattern =
-  let p = match pattern with
+  let p = match pattern.pattern_desc with
   | PAny -> Pwild
   | PConstr (constr, args) ->
       Papp (qualid [constr], (List.map (pattern_to_whyml tenv) args))
-  | PVar v -> Pvar (ident v)
+  | PVar v -> Pvar (ident (Untypehip.ident_of_binder v))
   | PConstant _ -> failwith "constant patterns not supported"
   | PAlias (p, s) -> Pas (pattern_to_whyml tenv p, ident s, false)
   in
   pat p
 
 and core_lang_to_whyml tenv e =
-  match e with
+  match e.core_desc with
   | CValue t -> term_to_whyml tenv t
   | CLet (v, e1, e2) ->
     term
-      (Tlet (ident v, core_lang_to_whyml tenv e1, core_lang_to_whyml tenv e2))
+      (Tlet (ident (Untypehip.ident_of_binder v), core_lang_to_whyml tenv e1, core_lang_to_whyml tenv e2))
   | CSequence (_e1, _e2) ->
       failwith "CSequence"
-  | CIfELse (c, t, e) ->
+  | CIfElse (c, t, e) ->
     term
       (Tif
          ( pi_to_whyml tenv c,
@@ -906,7 +907,7 @@ and pi_to_whyml tenv p =
     tapp
       (qualid [Ident.op_infix "="])
       [term_to_whyml tenv a; term_to_whyml tenv b]
-  | Atomic (op, a, b) -> term_to_whyml tenv (Rel (op, a, b))
+  | Atomic (op, a, b) -> term_to_whyml tenv (Syntax.rel op a b)
   | And (a, b) ->
     term (Tbinop (pi_to_whyml tenv a, Dterm.DTand, pi_to_whyml tenv b))
   | Or (a, b) ->
@@ -985,7 +986,6 @@ let prove tenv qtf f =
         let ff =
           List.map
             (fun (k, fn) ->
-              let fn = Hipcore_typed.Untypehip.untype_pure_fn_def fn in
               {
                 ld_loc = Loc.dummy_position;
                 ld_ident = ident k;
