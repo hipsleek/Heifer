@@ -1,17 +1,19 @@
 open Brr
-open Hipcore
-open Hiptypes
+open Hipcore.Common
+open Hipcore_typed
+open Typedhip
 
 let ready () =
   Provers.handle (fun () ->
       let r =
-        Hiplib.ProversEx.is_valid True (Atomic (EQ, Num 3, Plus (Num 1, Num 1)))
+        let open Syntax in
+        Provers.entails_exists (SMap.empty) True [] (Atomic (EQ, num 3, plus (num 1) (num 1)))
       in
-      Console.(log [str (Format.asprintf "test z3: 1+1=3 valid? %b@." r)]);
+      Console.(log [str (Format.asprintf "test z3: 1+1=3 valid? %s@." (Provers_common.string_of_prover_result r))]);
       ())
 
 let main () =
-  Hiplib.Pretty.colours := `Html;
+  Hipcore_typed.Pretty.colours := `Html;
   (* Console.(log [str "DOM content loaded."]); *)
   Jv.set Jv.global "ocaml_ready" (Jv.callback ~arity:1 ready);
   Jv.set Jv.global "hip_run_string"

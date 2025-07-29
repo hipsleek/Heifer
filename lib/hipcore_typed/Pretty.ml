@@ -5,66 +5,17 @@ open Common
 open Typedhip
 open Types
 
-let is_alpha = function 'a' .. 'z' | 'A' .. 'Z' -> true | _ -> false
+(* Re-export names from the untyped Pretty, for convenience. *)
+include Pretty
 
 exception Foo of string
 
-
-let colours : [`Html|`Ansi|`None] ref = ref `None
-
-let col ~ansi ~html text =
-  (match !colours with
-  | `None -> ""
-  | `Ansi -> ansi
-  | `Html -> html) ^ text ^
-  (match !colours with
-  | `None -> ""
-  | `Ansi -> "\u{001b}[0m"
-  | `Html -> "</span>")
-
-let red text = col ~ansi:"\u{001b}[31m" ~html:"<span class=\"output-error\">" text
-let green text = col ~ansi:"\u{001b}[32m" ~html:"<span class=\"output-ok\">" text
-let yellow text = col ~ansi:"\u{001b}[33m" ~html:"<span class=\"output-emph\">" text
-
-let end_of_var = Str.regexp "_?[0-9]+$"
+let colours = Pretty.colours
 
 let string_of_type = Pretty.string_of_type
 
 let string_of_binder ((ident, typ) : binder) =
   Format.sprintf "(%s : %s)" ident (string_of_type typ)
-
-let string_of_args pp args =
-  match args with
-  | [] -> "()"
-  | _ ->
-    let a = String.concat ", " (List.map pp args) in
-    Format.asprintf "(%s)" a
-
-let rec input_lines file =
-  match try [input_line file] with End_of_file -> [] with
-   [] -> []
-  | [line] -> (String.trim line) :: input_lines file
-  | _ -> failwith "Weird input_line return value"
-
-  ;;
-
-let rec separate li f sep : string =
-  match li with
-  | [] -> ""
-  | [x] -> f x
-  | x ::xs -> f x ^ sep ^ separate xs f sep
-
-
-
-
-let string_of_bin_op op : string =
-  match op with
-  | GT -> ">"
-  | LT -> "<"
-  | EQ -> "="
-  | GTEQ -> ">="
-  | LTEQ -> "<="
-
 let string_of_constr_call n args =
   match n, args with
   | "[]", _ -> "[]"
