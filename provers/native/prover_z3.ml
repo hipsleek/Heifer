@@ -349,7 +349,7 @@ let check_sat f =
       Debug.span (fun r ->
           debug ~at:4
             ~title:"z3 sat check"
-            "%s" (string_of_result Solver.string_of_status r))
+            "%s" (Debug.string_of_result Solver.string_of_status r))
     in
     Solver.check solver []
   in 

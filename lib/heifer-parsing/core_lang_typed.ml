@@ -604,7 +604,8 @@ let transform_str bound_names (s : structure_item) =
           with_empty_env begin
             with_vartypes (List.to_seq lemma.l_params) begin
               let* lhs, rhs = infer_types_pair_staged_spec lemma.l_left lemma.l_right in
-              let* env = Env_state.get in
+              let* env = Utils.State.get in
+              let open Hipcore.Types in
               let params = List.map (fun (name, t) -> (name, Types.TEnv.simplify env.equalities t)) lemma.l_params in
               return {lemma with l_params = params; l_left = lhs; l_right = rhs}
             end

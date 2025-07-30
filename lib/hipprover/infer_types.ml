@@ -4,60 +4,14 @@ open Hipcore.Types
 open Hipcore_typed.Typedhip
 open Hipcore_typed.Pretty
 open Debug
-
-(* TODO Restore all debug output once Pretty_typed has been ported over *)
+open Utils
 
 let fresh_type_var () = TVar (Variables.fresh_variable ())
 
-(* utility functions to help manage the environment via the state monad *)
-module State(SType : sig type t end) = struct
-  type 'a t = SType.t -> 'a * SType.t
-  let return v env = (v, env)
-  let bind (op : 'a t) (f : 'a -> 'b t) : 'b t =
-    fun env -> 
-      let v, env = op env in
-      f v env
-  let (let*) = bind
-
-  let get env = env, env
-
-  let scope (f : 'a t) : 'a t =
-    fun env ->
-      let result, _ = f env in
-      result, env
-
-  let mutate (f : SType.t -> SType.t) : unit t =
-    fun st -> (), f st
-
-  let rec map ~(f:'a -> 'b t) (ls : 'a list) : 'b list t =
-    match ls with
-    | [] -> return []
-    | x::xs -> 
-        let* x = f x in
-        let* xs = map ~f xs in
-        return (x::xs)
-
-  (* monad-aware wrapper around Debug's utilities *)
-  module Debug = struct
-    let span : (('a * SType.t) presult -> unit) -> (unit -> 'a t) -> 'a t =
-      fun show k env ->
-        let@ _ = Debug.span show in
-        k () env
-
-    let presult_value r = map_presult fst r
-    let presult_state r = map_presult snd r
-
-    let (let@) = Debug.(let@)
-  end
-  
-end
-
-module Env_state = State(struct type t = abs_typ_env end)
-type 'a using_env = 'a Env_state.t
-let span_env = Env_state.Debug.span
-let (let@) = Env_state.Debug.(let@)
-let return = Env_state.return
-let (let*) = Env_state.(let*)
+type 'a using_env = ('a, abs_typ_env) State.state
+let span_env = State.Debug.span
+let return = State.return
+let (let*) = State.(let*)
 
 (** Run a type inference computation with an empty initial environment. *)
 let with_empty_env f = f (create_abs_env ())
@@ -70,7 +24,7 @@ let add_vartypes vars env =
 (** Run a type inference computation with some added bindings.
     The bindings are removed at the end. *)
 let with_vartypes vars f =
-  Env_state.scope begin
+  State.scope begin
     let* _ = add_vartypes vars in
     f
   end
@@ -183,7 +137,7 @@ let rec infer_types_core_lang e : core_lang using_env =
     (* TODO check for length mismatch? *)
     let* args =
       List.combine args arg_types
-      |> Env_state.map ~f:(fun (arg, expected_type) ->
+      |> State.map ~f:(fun (arg, expected_type) ->
           let* inferred_term = infer_types_term arg in
           let* _ = unify_types inferred_term.term_type expected_type in
           return inferred_term)
@@ -218,8 +172,8 @@ and infer_types_term ?(hint : typ option) term : term using_env =
   let@ _ =
     span_env (fun r ->
         debug ~at:5 ~title:"infer_types" "%s : %s -| %s" (string_of_term term)
-          (string_of_result string_of_term (Env_state.Debug.presult_value r))
-          (string_of_result string_of_abs_env (Env_state.Debug.presult_state r)))
+          (string_of_result string_of_term (State.Debug.presult_value r))
+          (string_of_result string_of_abs_env (State.Debug.presult_state r)))
   in
   let* (term_desc, term_type) = match (term.term_desc, hint) with
   | Const c, hint ->
@@ -284,7 +238,7 @@ and infer_types_term ?(hint : typ option) term : term using_env =
     let arg_types, ret_type = get_primitive_type f in
     let* args =
       List.combine args arg_types
-      |> Env_state.map ~f:(fun (arg, expected_type) ->
+      |> State.map ~f:(fun (arg, expected_type) ->
           let* arg = infer_types_term arg in
           let* _ = unify_types arg.term_type expected_type in
           return arg)
@@ -301,7 +255,7 @@ and infer_types_term ?(hint : typ option) term : term using_env =
       (*   let typed_arg, env = infer_types_term ~hint:expected_arg_type env arg in *)
       (*   typed_args @ [typed_arg], env) ([], env) in *)
       let* args = List.combine args constr_arg_types
-        |> Env_state.map ~f:(fun (arg, arg_type) ->
+        |> State.map ~f:(fun (arg, arg_type) ->
           let expected_arg_type = Types.instantiate_type_variables concrete_bindings arg_type in
           infer_types_term ~hint:expected_arg_type arg) in
       return (Construct (name, args), TConstr (type_decl.tdecl_name, concrete_vars))
@@ -314,7 +268,7 @@ and infer_types_term ?(hint : typ option) term : term using_env =
   in
   (* Update the variable type mapping with any unifications done so far. This is repetitive;
      it's probably better to store typ U.elems in the mapping instead. *)
-  let* _ = Env_state.mutate simplify_vartypes in
+  let* _ = State.mutate simplify_vartypes in
   return {term_desc; term_type}
 
 let rec infer_types_pi pi : pi using_env =
@@ -322,7 +276,7 @@ let rec infer_types_pi pi : pi using_env =
   let@ _ =
        span_env (fun r ->
            debug ~at:5 ~title:"infer_types_pi" "%s -| %s" (string_of_pi pi)
-             (string_of_result string_of_abs_env (Env_state.Debug.presult_state r)))
+             (string_of_result string_of_abs_env (State.Debug.presult_state r)))
      in
   match pi with
   | True | False -> return pi
@@ -410,7 +364,7 @@ let rec infer_types_staged_spec ss : staged_spec using_env =
       let* (p, k) = infer_types_state (p, k) in
       return (NormalReturn (p, k))
   | HigherOrder (f, args) ->
-      let* args = Env_state.map ~f:infer_types_term args in
+      let* args = State.map ~f:infer_types_term args in
       return (HigherOrder (f, args))
   | Shift (b, k, spec, x, cont) ->
       let* spec = infer_types_staged_spec spec in
