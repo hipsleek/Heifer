@@ -3,6 +3,8 @@ open Hipcore.Common
 open Hipcore.Types
 open Hipcore.Variables
 open Typedhip
+open Utils.Lists
+open Utils.Lists.Monadic
 
 type guarded_pattern = pattern * term
 
@@ -12,12 +14,6 @@ let make pat typ = {
 }
 
 let alias pat name = make (PAlias (pat, name)) pat.pattern_type
-
-let (let*) xs f = List.concat_map f xs
-let return x = [x]
-
-let cartesian_product (lists: 'a list list) : 'a list list =
-  List.fold_right (fun ls result -> let* x = ls in let* rest = result in return (x::rest)) lists [[]]
 
 let pattern_of_constr ((name, args) : type_constructor) (constr_substitutions : (typ * typ) list) (pattern_type : typ) =
   (* all the extra parameters are needed to correctly reconstruct inner types *)
@@ -51,7 +47,7 @@ let rec complement pat =
           |> List.map (fun arg ->
             let complements = complement arg in
             (`Match arg) :: (List.map (fun pat -> `Mismatch pat) complements))
-          |> cartesian_product
+          |> Utils.Lists.cartesian_product
           |> List.filter (fun args -> List.exists (function `Mismatch _ -> true | _ -> false) args)
           |> List.map (List.map (function `Mismatch pat | `Match pat -> pat))
           |> List.map (fun args -> make (PConstr (name, args)) (pat.pattern_type))
