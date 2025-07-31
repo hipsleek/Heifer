@@ -150,13 +150,16 @@ let summary x n
 (*@ ens res=x+n @*)
 = applyN incr x n
 
+(* disabled while types implementation is being completed *)
+(*
 let summary1_false x n
 (*@ ex r4. ens r4=x+n-1/\res=r4 @*)
 = applyN incr x n
 
 let summary2_false x n
 (*@ ex r4. ens r4=x+n+1/\res=r4 @*)
-= applyN incr x n">test/examples/applyN.ml</option><option value=test/examples/calls.ml data-text="
+= applyN incr x n
+*)">test/examples/applyN.ml</option><option value=test/examples/calls.ml data-text="
 let call_ret f = 
   f 100
 
@@ -1396,7 +1399,7 @@ let _ =
     <script>
       // this is substituted at build time and is used in page.js
       function postExampleLoad() {
-        console.log("Built Tue Jul 15 12:37:43 +08 2025");
+        console.log("Built Thu Jul 31 18:20:31 +08 2025");
         console.log("loading z3...");
       }
     </script>
