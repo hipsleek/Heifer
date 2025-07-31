@@ -175,8 +175,8 @@ let check_method prog inferred given =
   | Some given_spec ->
     let open Hipprover.Entail in
     (* likely that we need some env or extra setup later *)
-    let pctx = create_pctx (Untypehip.untype_core_program prog) in
-    check_staged_spec_entailment pctx (Untypehip.untype_staged_spec inferred) (Untypehip.untype_staged_spec given_spec)
+    let pctx = create_pctx prog in
+    check_staged_spec_entailment pctx inferred given_spec
 
 let infer_and_check_method (prog : core_program) (meth : meth_def) (given_spec : staged_spec option) =
   let inferred_spec = infer_spec prog meth in
@@ -219,9 +219,8 @@ let analyze_method (prog : core_program) (meth : meth_def) : core_program =
         "")
       in
       let pred = Hipprover.Entail.derive_predicate meth.m_name 
-        (List.map Untypehip.ident_of_binder meth.m_params)
-        (Untypehip.untype_staged_spec inferred_spec)
-        |> Retypehip.retype_pred_def in
+      meth.m_params
+      inferred_spec in
       (* let pred = todo () in *)
       let cp_predicates = SMap.add meth.m_name pred prog.cp_predicates in
       {prog with cp_predicates}
@@ -239,8 +238,8 @@ let analyze_method (prog : core_program) (meth : meth_def) : core_program =
 
 let check_lemma (prog : core_program) (l : lemma) : bool =
   let open Hipprover.Entail in
-  let pctx = create_pctx (Untypehip.untype_core_program prog) in
-  check_staged_spec_entailment pctx (Untypehip.untype_staged_spec l.l_left) (Untypehip.untype_staged_spec l.l_right)
+  let pctx = create_pctx prog in
+  check_staged_spec_entailment pctx l.l_left l.l_right
 
 let analyze_lemma (prog : core_program) (l : lemma) : core_program =
   let result = check_lemma prog l in

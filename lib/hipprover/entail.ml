@@ -1,7 +1,8 @@
-open Hipcore
-open Hiptypes
-open Types
+open Hipcore_typed
+open Typedhip
 open Pretty
+open Hipcore.Common
+open Hipcore.Types
 open Debug
 open Utils
 
@@ -92,12 +93,15 @@ let has_induction_hypothesis pctx name =
   |> List.find_opt (fun (u, _) -> u = name)
   |> Option.is_some
 
+let term_uvar_of_binder b =
+  Rewriting.Rules.Term.uvar (ident_of_binder b) ~typ:(type_of_binder b)
+
 let pred_to_rule pred =
-  let params = pred.p_params |> List.map Rewriting.Rules.Term.uvar in
+  let params = pred.p_params |> List.map term_uvar_of_binder in
   let lhs = HigherOrder (pred.p_name, params) in
   let rhs =
     let bs =
-      List.map (fun p -> (p, Rewriting.Rules.Term.uvar p)) pred.p_params
+      List.map (fun p -> (p, Rewriting.Rules.Term.uvar p)) (List.map ident_of_binder pred.p_params)
     in
     Subst.subst_free_vars bs pred.p_body
   in
@@ -105,7 +109,7 @@ let pred_to_rule pred =
 
 let lemma_to_rule lemma =
   let bs =
-    List.map (fun p -> (p, Rewriting.Rules.Term.uvar p)) lemma.l_params
+    List.map (fun p -> (ident_of_binder p, term_uvar_of_binder p)) lemma.l_params
   in
   let lhs = Subst.subst_free_vars bs lemma.l_left in
   let rhs = Subst.subst_free_vars bs lemma.l_right in
@@ -212,7 +216,6 @@ let check_pure_obligation left right =
   in
   let open Infer_types in
   let (left, right), tenv =
-    let left, right = Hipcore_typed.Retypehip.(retype_pi left, retype_pi right) in
     (* handle the environment manually as it's shared between both sides *)
     with_empty_env (infer_types_pair_pi (left, right))
   in
@@ -247,7 +250,7 @@ let derive_predicate m_name m_params f =
 let lambda_to_rule m_name m_params f =
   derive_predicate m_name m_params f |> pred_to_rule
 
-let try_constants pctx = [Const Nil] @ pctx.constants
+let try_constants pctx = [Syntax.term (Const Nil) (TConstr ("list", [Any]))] @ pctx.constants
 
 (** Tactics combine the state and list monads *)
 module Tactic : sig
@@ -693,7 +696,7 @@ let create_induction_hypothesis (ps : pstate) name : pctx =
   in
   let pctx, f1, f2 = ps in
   let free =
-    SSet.union Subst.(free_vars Staged f1) Subst.(free_vars Staged f2)
+    SSet.union Subst.(free_vars Sctx_staged f1) Subst.(free_vars Sctx_staged f2)
     |> SSet.remove "res" (* this isn't a free var; it's bound by ens *)
     |> SSet.remove name (* the function itself isn't free *)
     |> SSet.to_list
@@ -821,13 +824,13 @@ let rec apply_ent_rule ?name : tactic =
   (* move pure things into the context *)
   | ( Sequence
         ( NormalReturn
-            (Atomic (EQ, Var lname, TLambda (_h, ps, Some sp, _body)), EmptyHeap),
+            (Atomic (EQ, {term_desc = Var lname; _}, {term_desc = TLambda (_h, ps, Some sp, _body); _}), EmptyHeap),
           f3 ),
       f4 )
   | ( Bind
         ( lname,
           NormalReturn
-            (Atomic (EQ, Var "res", TLambda (_h, ps, Some sp, _body)), EmptyHeap),
+            (Atomic (EQ, {term_desc = Var "res"; _}, {term_desc = TLambda (_h, ps, Some sp, _body); _}), EmptyHeap),
           f3 ),
       f4 ) ->
     let pctx =
@@ -844,7 +847,7 @@ let rec apply_ent_rule ?name : tactic =
           Bind
             ( lname,
               NormalReturn
-                ( Atomic (EQ, Var "res", TLambda (_h, ps, Some sp, _body)),
+                ( Atomic (EQ, {term_desc = Var "res"; _}, {term_desc = TLambda (_h, ps, Some sp, _body); _}),
                   EmptyHeap ),
               f3 ) ),
       f4 ) ->
@@ -864,7 +867,7 @@ let rec apply_ent_rule ?name : tactic =
           Bind
             ( lname,
               NormalReturn
-                ( Atomic (EQ, Var "res", TLambda (_h, ps, Some sp, _body)),
+                ( Atomic (EQ, {term_desc = Var "res"; _}, {term_desc = TLambda (_h, ps, Some sp, _body); _}),
                   EmptyHeap ),
               f3 ),
           f4) ),
@@ -938,8 +941,8 @@ let rec apply_ent_rule ?name : tactic =
     in
     let@ a, f, eqs = biab' h1 h2 in
     let find_equality = function
-      | Atomic (EQ, t1, t2) when t1 = Var y -> Some t2
-      | Atomic (EQ, t1, t2) when t2 = Var y -> Some t1
+      | Atomic (EQ, t1, t2) when t1.term_desc = Var (ident_of_binder y) -> Some t2
+      | Atomic (EQ, t1, t2) when t2.term_desc = Var (ident_of_binder y) -> Some t1
       | _ -> None
     in
     let f1 =
@@ -952,13 +955,12 @@ let rec apply_ent_rule ?name : tactic =
             f3;
           ]
       | Some (t, eqs) ->
-        debug ~at:5 ~title:"ent: biab f inst with" "[%s/%s]" (string_of_term t)
-          y;
+        debug ~at:5 ~title:"ent: biab f inst with" "[%s/%s]" (string_of_term t) (string_of_binder y);
         seq
           [
             Require (conj (p2 :: eqs), sep_conj a);
             NormalReturn (p1, sep_conj f);
-            Subst.subst_free_vars [(y, t)] f3;
+            Subst.subst_free_vars [(ident_of_binder y, t)] f3;
           ]
     in
     entailment_search ?name (pctx, f1, f2) k
@@ -1076,7 +1078,7 @@ let rec apply_ent_rule ?name : tactic =
         span (fun _r ->
             log_proof_state ~title:"ent: exists on the left" (pctx, f1, f2))
       in
-      { pctx with constants = Var x :: pctx.constants }
+      { pctx with constants = var_of_binder x :: pctx.constants }
     in
     entailment_search ?name (pctx, f3, f2) k
   | f1, ForAll (x, f4) ->
@@ -1085,7 +1087,7 @@ let rec apply_ent_rule ?name : tactic =
         span (fun _r ->
             log_proof_state ~title:"ent: forall on the right" (pctx, f1, f2))
       in
-      { pctx with constants = Var x :: pctx.constants }
+      { pctx with constants = var_of_binder x :: pctx.constants }
     in
     entailment_search ?name (pctx, f1, f4) k
   | f1, Exists (x, f4) ->
@@ -1096,7 +1098,7 @@ let rec apply_ent_rule ?name : tactic =
             ~title:"ERROR: exists on the right, subst step"
             ~default:(fun _ -> fail)
           in
-          let f4 = Subst.subst_free_vars [(x, c)] f4 in
+          let f4 = Subst.subst_free_vars [(ident_of_binder x, c)] f4 in
           fun k1 ->
             let@ _ = suppress_z3_exn
               ~title:"ERROR: exists on the right, entailment step"
@@ -1104,7 +1106,7 @@ let rec apply_ent_rule ?name : tactic =
             in
             let@ _ =
               span (fun _r -> log_proof_state
-                ~title:(Format.asprintf "ent: exists on the right; [%s/%s]" (string_of_term c) x)
+                ~title:(Format.asprintf "ent: exists on the right; [%s/%s]" (string_of_term c) (string_of_binder x))
                 (pctx, f1, f2))
             in
             entailment_search ?name (pctx, f1, f4) k1)
@@ -1118,7 +1120,7 @@ let rec apply_ent_rule ?name : tactic =
             ~title:"ERROR: forall on the left, subst step"
             ~default:(fun _ -> fail)
           in
-          let f3 = Subst.subst_free_vars [(x, c)] f3 in
+          let f3 = Subst.subst_free_vars [((ident_of_binder x), c)] f3 in
           fun k1 ->
             let@ _ = suppress_z3_exn
               ~title:"ERROR: forall on the left, entailment step"
@@ -1126,7 +1128,7 @@ let rec apply_ent_rule ?name : tactic =
             in
             let@ _ =
               span (fun _r -> log_proof_state
-                ~title:(Format.asprintf "ent: forall on the left; [%s/%s]" (string_of_term c) x)
+                ~title:(Format.asprintf "ent: forall on the left; [%s/%s]" (string_of_term c) (string_of_binder x))
                 (pctx, f1, f2))
             in
             entailment_search ?name (pctx, f3, f2) k1)
@@ -1151,8 +1153,8 @@ let rec apply_ent_rule ?name : tactic =
     in
     entailment_search ?name
       ( pctx,
-        Subst.subst_free_vars [(x1, Var x3)] f4,
-        Subst.subst_free_vars [(x2, Var x3)] f6 )
+        Subst.subst_free_vars [(x1, var x3)] f4,
+        Subst.subst_free_vars [(x2, var x3)] f6 )
       k
   (* disjunction *)
   | _, _ ->

@@ -43,7 +43,7 @@ val get_uvar : uterm -> string option
 val uvar_staged : string -> staged_spec
 val uvar_heap : string -> kappa
 val uvar_pure : string -> pi
-val uvar_term : string -> term
+val uvar_term : ?typ:typ -> string -> term
 
 (** {1 Unification} *)
 
@@ -102,7 +102,7 @@ module Rules :
     end
 
     module Term : sig
-      val uvar : string -> term
+      val uvar : ?typ:typ -> string -> term
       val rule : term -> term -> rule
       val dynamic_rule : term -> ((string -> uterm) -> term) -> rule
       val of_uterm : uterm -> term
@@ -113,6 +113,7 @@ module Rules :
       A pattern like (bind x x _) will not unify due to (a dynamic) type mismatch. *)
     module Binder : sig
       val uvar : string -> binder
+      val uvar_untyped : string -> string
       val of_uterm : uterm -> binder
     end
   end

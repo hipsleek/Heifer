@@ -1,7 +1,7 @@
 open Typedhip
 open Utils
 
-let is_lambda_term = function
+let is_lambda_term t = match t.term_desc with
   | TLambda _ -> true
   | _ -> false
 let emp = EmptyHeap
@@ -17,15 +17,24 @@ let disj = Lists.foldr1 (fun c t -> Disjunction (c, t))
 let conj = Lists.foldr1 ~default:True (fun c t -> And (c, t))
 let sep_conj = Lists.foldr1 ~default:EmptyHeap (fun c t -> SepConj (c, t))
 
-let eq x y = Atomic (EQ, x, y)
+let term term_desc term_type = {term_desc; term_type}
+
+let eq x y =
+  let x, y = 
+    let value_type = match x.term_type, y.term_type with
+    | Any, t | t, Any -> t
+    (* anything else needs an inference context to unify, make a heuristic guess *)
+    | _, _ -> x.term_type
+    in
+    term x.term_desc value_type, term y.term_desc value_type
+  in
+  Atomic (EQ, x, y)
 let v ?(typ = TVar (Hipcore.Variables.fresh_variable ~v:"v" ())) x = {term_desc = Var x; term_type = typ}
 let var = v
 let num n = {term_desc = Const (Num n); term_type = Int}
 let tnot t = {term_desc = TNot t; term_type = Bool}
 let points_to x y = PointsTo (x, y)
 let pts = points_to
-
-let term term_desc term_type = {term_desc; term_type}
 
 let binop op lhs rhs =
   let output_type =
@@ -48,6 +57,10 @@ let rel op lhs rhs = term (Rel (op, lhs, rhs)) Bool
 
 let plus = binop Plus
 let tand = binop TAnd
+
+module Infix = struct
+  let ( =^ ) = eq
+end
 
 let rec conjuncts_of_pi (p : pi) : pi list =
   match p with

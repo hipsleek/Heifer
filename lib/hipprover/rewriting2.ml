@@ -1,5 +1,5 @@
-open Hipcore
-open Hiptypes
+open Hipcore_typed
+open Typedhip
 open Pretty
 
 type ('matched_value, 'k, 'k_result) pattern =
@@ -41,7 +41,7 @@ let emp = T (fun x k -> match x with EmptyHeap -> k | _ -> fail "true")
 let var s =
   T
     (fun x k ->
-      match x with Var s1 when String.equal s s1 -> k | _ -> fail "false")
+      match x.term_desc with Var s1 when String.equal s s1 -> k | _ -> fail "false")
 
 let eq (T pt1) (T pt2) =
   T

@@ -97,8 +97,9 @@ let binder_is_uvar b = is_uvar_name (ident_of_binder b)
 let uvar_staged n = HigherOrder (var_prefix ^ n, [])
 let uvar_heap n = PointsTo (var_prefix ^ n, cunit)
 let uvar_pure n = Predicate (var_prefix ^ n, [])
-let uvar_term n = v (var_prefix ^ n)
+let uvar_term ?(typ = Any) n = v (var_prefix ^ n) ~typ
 let uvar_binder n = (var_prefix ^ n, Unit)
+let uvar_binder_untyped n = var_prefix ^ n
 
 let get_uvar = function
   | Staged (HigherOrder (f, _)) when is_uvar_name f -> Some f
@@ -335,8 +336,8 @@ let subst_uvars st (f, e) : uterm =
           (y, f_body)
         in
         let x_cont, f_cont =
-          let y = fresh_variable ~v:x_cont () in
-          let f_cont = Subst.subst_free_vars [(x_cont, var y)] f_cont in
+          let y = (fresh_variable ~v:(ident_of_binder x_cont) (), type_of_binder x_cont) in
+          let f_cont = Subst.subst_free_vars [(ident_of_binder x_cont, var_of_binder y)] f_cont in
           (y, f_cont)
         in
         (* now we have x_body, f_body, x_cont and f_cont renamed to avoid accidental rewriting and any
@@ -690,6 +691,7 @@ module Rules = struct
 
   module Binder = struct
     let uvar = uvar_binder
+    let uvar_untyped = uvar_binder_untyped
     let of_uterm = uterm_to_binder
   end
 end

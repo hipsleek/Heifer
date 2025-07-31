@@ -10,32 +10,30 @@ module Rewrite = struct
   open Ocamlfrontend.Annotation
   open Hipprover.Rewriting
 
+  let as_typed retyper f =
+    fun a b -> f (retyper a) (retyper b)
 
   module Staged = struct
-    let (==>) lhs rhs =
-      Rules.Staged.rule (parse_staged_spec lhs) (parse_staged_spec rhs)
+    let (==>) = as_typed (fun s -> Hipcore_typed.Retypehip.retype_staged_spec (parse_staged_spec s)) Rules.Staged.rule
   end
 
   module Pure = struct
-    let (==>) lhs rhs =
-      Rules.Pure.rule (parse_pi lhs) (parse_pi rhs)
+    let (==>) = as_typed (fun s -> Hipcore_typed.Retypehip.retype_pi (parse_pi s)) Rules.Pure.rule
   end
 
   module Heap = struct
-    let (==>) lhs rhs =
-      Rules.Heap.rule (parse_kappa lhs) (parse_kappa rhs)
+    let (==>) = as_typed (fun s -> Hipcore_typed.Retypehip.retype_kappa (parse_kappa s)) Rules.Heap.rule
   end
 
   module Term = struct
-    let (==>) lhs rhs =
-      Rules.Term.rule (parse_term lhs) (parse_term rhs)
+    let (==>) = as_typed (fun s -> Hipcore_typed.Retypehip.retype_term (parse_term s)) Rules.Term.rule
   end
 end
 open Rewrite
 
 let%expect_test "rewriting" =
   let open Hipprover.Rewriting in
-  let spec = Ocamlfrontend.Annotation.parse_staged_spec in
+  let spec s = s |> Ocamlfrontend.Annotation.parse_staged_spec |> Hipcore_typed.Retypehip.retype_staged_spec in
   let test rule target =
     let b1 = rewrite_all rule target in
     Format.printf "rewrite %s@." (string_of_uterm target);
@@ -77,7 +75,7 @@ let%expect_test "rewriting" =
 
 let%expect_test "autorewrite" =
   let open Hipprover.Rewriting in
-  let spec = Ocamlfrontend.Annotation.parse_staged_spec in
+  let spec s = s |> Ocamlfrontend.Annotation.parse_staged_spec |> Hipcore_typed.Retypehip.retype_staged_spec in
   let test db target =
     let b1 = autorewrite db target in
     Format.printf "start: %s@." (string_of_uterm target);
