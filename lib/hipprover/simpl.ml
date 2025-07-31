@@ -1,19 +1,20 @@
 (** Apply mechanical simplification rules to the given elements.*)
-open Hipcore
-open Hiptypes
+open Hipcore.Common
+open Hipcore_typed
+open Typedhip
 open Rewriting
 open Syntax
 
 let term_num_folding_rules = 
   let num_constant_folding_rule op f =
     let open Rules.Term in
-    dynamic_rule (BinOp (op, uvar "a", uvar "b"))
+    dynamic_rule (binop op (uvar "a") (uvar "b"))
       (fun sub ->
         let a = of_uterm (sub "a") in
         let b = of_uterm (sub "b") in
-        match a, b with
-        | Const (Num a), Const (Num b) -> Const (Num (f a b))
-        | a, b -> BinOp (op, a, b))
+        match a.term_desc, b.term_desc with
+        | Const (Num a), Const (Num b) -> num (f a b)
+        | _, _ -> binop op a b)
   in
   [ num_constant_folding_rule Plus (+);
     num_constant_folding_rule Minus (-);
@@ -95,21 +96,24 @@ let%expect_test "simplify tests" =
     Format.printf "simplify: %s@." (printer v);
     Format.printf "result: %s@." (printer (simpl v))
   in
-  let h1 =  (SepConj (EmptyHeap, SepConj (PointsTo ("x", Const (Num 1)), EmptyHeap))) in
+  let h1 =  (SepConj (EmptyHeap, SepConj (PointsTo ("x", num 1), EmptyHeap))) in
   test simplify_kappa Pretty.string_of_kappa h1;
   [%expect {|
     simplify: emp*x->1*emp
     result: x->1
     |}];
-
-  let t = BinOp (TTimes, Const (Num 5), BinOp (Plus, Const (Num 6), BinOp (Minus, Const (Num 10), Const (Num 3)))) in
+  
+  let ( -@ ) = binop Minus in
+  let ( *@ ) = binop TTimes in
+  let ( +@ ) = binop Plus in
+  let t = (num 5) *@ ((num 6) +@ ((num 10) -@ (num 3))) in
   test simplify_term Pretty.string_of_term t;
   [%expect {|
     simplify: (5 * (6 + (10 - 3)))
     result: 65
     |}];
 
-  let p1 = And (True, Or ( And (False, Atomic (EQ, Var "a", Var "b")), Atomic (EQ, Var "x", Var "y"))) in
+  let p1 = And (True, Or ( And (False, eq (var "a") (var "b")), eq (var "x") (var "y"))) in
   test simplify_pure Pretty.string_of_pi p1;
   [%expect {|
     simplify: T/\F/\a=b\/x=y
