@@ -1,6 +1,6 @@
 
-open Hipcore
-open Hiptypes
+open Hipcore_typed
+open Typedhip
 
 (** {1 Unification variables} *)
 
@@ -11,7 +11,7 @@ type uterm =
   | Pure of pi
   | Heap of kappa
   | Term of term
-  | Binder of string
+  | Binder of binder
 
 val string_of_uterm : uterm -> string
 
@@ -112,7 +112,7 @@ module Rules :
       dynamic rules. There are no context patterns or higher-order unification.
       A pattern like (bind x x _) will not unify due to (a dynamic) type mismatch. *)
     module Binder : sig
-      val uvar : string -> string
-      val of_uterm : uterm -> string
+      val uvar : string -> binder
+      val of_uterm : uterm -> binder
     end
   end

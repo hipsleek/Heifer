@@ -161,6 +161,7 @@ let binder_of_var {term_desc; term_type} =
   | Var v -> (v, term_type)
   | _ -> raise (Invalid_argument "Term was not Var")
 let ident_of_binder ((v, _) : binder) = v
+let type_of_binder ((_, t) : binder) = t
 
 
 type tactic = Hiptypes.tactic

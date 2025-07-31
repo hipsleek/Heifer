@@ -38,6 +38,8 @@ let binop op lhs rhs =
   term (BinOp (op, lhs, rhs)) output_type
 
 let ctrue = term (Const TTrue) Bool
+let cunit = term (Const ValUnit) Unit
+
 let lambda ?(id = "") params ?(spec = None) body =
   (* TODO fill in the actual type if possible using Arrow *)
   term (TLambda (id, params, spec, body)) Lamb
