@@ -57,10 +57,15 @@ let rec find_delete_map (f : 'a -> 'b option) (xs : 'a list) : ('b * 'a list) op
           | None -> None
           | Some (y, xs') -> Some (y, x :: xs')
 
-let rec map_state (f : 's -> 'a -> 'b * 's) (s : 's) (xs : 'a list) : 'b list * 's =
-  match xs with
-  | [] -> [], s
-  | x :: xs ->
-      let h, s = f s x in
-      let t, s = map_state f s xs in
-      h :: t, s
+let map_state (f : 's -> 'a -> 'b * 's) (s : 's) (xs : 'a list) : 'b list * 's =
+  let open State in
+  map ~f:(fun a s -> f s a) xs s
+
+module Monadic = struct
+  let (let*) xs f = List.concat_map f xs
+  let return x = [x]
+end
+
+let cartesian_product (lists: 'a list list) : 'a list list =
+  let open Monadic in
+  List.fold_right (fun ls result -> let* x = ls in let* rest = result in return (x::rest)) lists [[]]

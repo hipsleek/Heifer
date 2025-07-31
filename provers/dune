@@ -2,7 +2,7 @@
 (library
  (name provers)
  (public_name heifer.provers)
- (libraries hipcore provers_common)
+ (libraries hipcore provers_common hipcore_typed)
  (modules provers)
  (virtual_modules provers)
  (default_implementation provers_native))

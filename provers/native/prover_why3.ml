@@ -5,6 +5,8 @@ module Debug = Hipdebug
 (* open this second, so it gets precedence for shadowed modules *)
 open Hipcore
 open Hiptypes
+open Hipcore_typed
+open Typedhip
 open Types
 
 let prover_configs : (Whyconf.config_prover * Why3.Driver.driver) SMap.t ref =
@@ -279,10 +281,8 @@ module LowLevel = struct
 
   let rec type_to_why3 env (t : typ) =
     match t with
+    | Any -> failwith "Formulas at the SMT level must be typed"
     | Unit -> Ty.ty_tuple []
-    | List_int ->
-      Theories.(needed int env.theories);
-      Ty.ty_app Theories.(get_type_symbol list "list" env.theories) [Ty.ty_int]
     | TyString ->
       Theories.(needed string env.theories);
       Ty.ty_str
@@ -303,7 +303,7 @@ module LowLevel = struct
 
   let rec term_to_why3 env (t : term) =
     (* Format.printf "term %s@." (Pretty.string_of_term t); *)
-    match t with
+    match t.term_desc with
     | Const ValUnit -> (Term.t_tuple [], Unit)
     | Const (Num i) ->
       Theories.(needed int env.theories);
@@ -426,27 +426,29 @@ module LowLevel = struct
       let a1, _ = term_to_why3 env a in
       ( Term.t_app_infer Theories.(get_symbol bool "notb" env.theories) [a1],
         Bool )
-    | BinOp (TCons, a, b) ->
-      let a1, _ = term_to_why3 env a in
-      let b1, _ = term_to_why3 env b in
+    | BinOp (TCons, _, _) ->
+      (* let a1, _ = term_to_why3 env a in *)
+      (* let b1, _ = term_to_why3 env b in *)
       (* let open Pretty in *)
       (* Format.printf "cons %s %s @." (string_of_term a) (string_of_term b); *)
-      ( Term.t_app
-          Theories.(get_symbol list "Cons" env.theories)
-          [a1; b1]
-          (Some (type_to_why3 env List_int)),
-        List_int )
+      (* ( Term.t_app *)
+      (*     Theories.(get_symbol list "Cons" env.theories) *)
+      (*     [a1; b1] *)
+      (*     (Some (type_to_why3 env List_int)), *)
+      (*   List_int ) *)
       (* inferring types leads to issues reconciling types between systems *)
+        failwith "TODO type inference on cons symbol"
       (* Term.t_app_infer
          (get_theory_symbol env.list_theory "Cons")
          [term_to_why3 env a; term_to_why3 env b] *)
     | Const Nil ->
       (* Term.t_app_infer (get_theory_symbol env.list_theory "Nil") [] *)
-      ( Term.t_app
-          Theories.(get_symbol list "Nil" env.theories)
-          []
-          (Some (type_to_why3 env List_int)),
-        List_int )
+      (* ( Term.t_app *)
+      (*     Theories.(get_symbol list "Nil" env.theories) *)
+      (*     [] *)
+      (*     (Some (type_to_why3 env List_int)), *)
+      (*   List_int ) *)
+        failwith "TODO type inference on nil symbol"
     | TApp (s, args) when Globals.is_pure_fn_defined s ->
       let args1 = List.map (term_to_why3 env) args |> List.map fst in
       let defn = Globals.pure_fn s
@@ -462,6 +464,7 @@ module LowLevel = struct
     | BinOp (TDiv, _, _) -> failwith "TDiv nyi"
     | TTuple _ -> failwith "TTupple nyi"
     | Const (TStr _) -> failwith "TStr nyi"
+    | Construct _ -> failwith "constructors not yet supported"
 
   let rec pi_to_why3 env (pi : pi) =
     (* Format.printf "pi %s@." (Pretty.string_of_pi pi); *)
@@ -507,13 +510,13 @@ module LowLevel = struct
 
   let rec expr_to_why3 env e =
     (* Format.printf "expr %s@." (Pretty.string_of_core_lang e); *)
-    match e with
+    match e.core_desc with
     | CLet (v, e1, a) ->
       (* Format.printf "??%s@." (Pretty.string_of_core_lang e); *)
-      let h = Term.create_vsymbol (Ident.id_fresh v) (type_to_why3 env Int) in
+      let h = Term.create_vsymbol (Ident.id_fresh (Untypehip.ident_of_binder v)) (type_to_why3 env Int) in
       let e2 = expr_to_why3 env e1 in
       let a1 =
-        expr_to_why3 { env with letbound = SMap.add v h env.letbound } a
+        expr_to_why3 { env with letbound = SMap.add (Untypehip.ident_of_binder v) h env.letbound } a
       in
       (* a1 *)
       Term.t_let e2 (Term.t_close_bound h a1)
@@ -523,7 +526,7 @@ module LowLevel = struct
     | CValue t ->
       let t, _ty = term_to_why3 env t in
       t
-    | CIfELse (_, _, _) -> failwith "unimplemented CIfELse"
+    | CIfElse (_, _, _) -> failwith "unimplemented CIfELse"
     | CFunCall (s, args) when Globals.is_pure_fn_defined s ->
       (* SMap.mem s env.names *)
       let args1 = List.map (term_to_why3 env) args |> List.map fst in
@@ -540,37 +543,20 @@ module LowLevel = struct
     | CRead _ -> failwith "unimplemented CRead"
     | CAssert (_, _) -> failwith "unimplemented CAssert"
     | CPerform (_, _) -> failwith "unimplemented CPerform"
-    | CMatch (_, _, scr, None, [], cases) ->
+    | CMatch (_, _, scr, [], cases) ->
       (* x :: xs -> e is represented as ("::", [x, xs], e) *)
       (* and constr_cases = (string * string list * core_lang) list *)
       Term.t_case (expr_to_why3 env scr)
         (List.map
-           (fun (constr, args, body) ->
+           (fun case ->
              let pat =
-               match (constr, args) with
-               | "::", [x; y] ->
-                 let h =
-                   Term.create_vsymbol (Ident.id_fresh x) (type_to_why3 env Int)
-                 in
-                 let t =
-                   Term.create_vsymbol (Ident.id_fresh y)
-                     (type_to_why3 env List_int)
-                 in
-                 (* TODO nested patterns not supported *)
-                 Term.pat_app
-                   Theories.(get_symbol list "Cons" env.theories)
-                   [Term.pat_var h; Term.pat_var t]
-                   (type_to_why3 env List_int)
-               | "[]", [] ->
-                 Term.pat_app
-                   Theories.(get_symbol list "Nil" env.theories)
-                   []
-                   (type_to_why3 env List_int)
-               | c, _ -> failwith (Format.asprintf "unhandled constr %s" c)
+               match case.ccase_pat.pattern_desc with
+               | PConstr (c, _) -> failwith (Format.asprintf "unhandled constr %s" c)
+               | _ -> failwith "unhandled pattern"
              in
-             Term.t_close_branch pat (expr_to_why3 env body))
+             Term.t_close_branch pat (expr_to_why3 env case.ccase_expr))
            cases)
-    | CMatch (_, _, _, _, _, _) -> failwith "unimplemented effect CMatch"
+    | CMatch (_, _, _, _, _) -> failwith "unimplemented effect CMatch"
     | CResume _ -> failwith "unimplemented CResume"
     | CLambda (_, _, _) -> failwith "unimplemented CLambda"
     | CShift _ | CReset _ -> failwith "TODO shift and reset expr_to_why3 "
@@ -706,8 +692,8 @@ module LowLevel = struct
             (fun (_k, v) ->
               (* Format.printf "translating %s@." _k; *)
               pure_fn_to_logic_fn env v)
-            (Globals.pure_fns ()
-            (* |> List.map (fun (name, fn) -> (name, Hipcore.Typedhip.Untypehip.untype_pure_fn_def fn)) *)
+            (Hipcore_typed.Globals.pure_fns ()
+            |> List.map (fun (name, fn) -> (name, fn))
             )
         in
         match fns with [] -> task1 | _ :: _ -> Task.add_logic_decl task1 fns
@@ -765,19 +751,18 @@ open Ptree_helpers
 
 let rec type_to_whyml t =
   match t with
+  | Any -> failwith "Formulas at the SMT level must be typed"
   | TyString -> PTtyapp (qualid ["String"; "string"], [])
   | Int -> PTtyapp (qualid ["Int"; "int"], [])
   | Unit -> PTtyapp (qualid ["tuple0"], [])
-  | List_int ->
-    PTtyapp (qualid ["List"; "list"], [PTtyapp (qualid ["Int"; "int"], [])])
   | Bool -> PTtyapp (qualid ["Bool"; "bool"], [])
   | Lamb -> PTtyapp (qualid ["Int"; "int"], [])
-  | TVar _ -> PTtyapp (qualid ["Int"; "int"], [])
+  | TVar v -> PTtyvar (ident v)
   | Arrow (t1, t2) -> PTarrow (type_to_whyml t1, type_to_whyml t2)
-  | TConstr _ -> failwith "general ADTs not implemented"
+  | TConstr (name, args) -> PTtyapp (qualid [name], List.map type_to_whyml args)
 
 let rec term_to_whyml tenv t =
-  match t with
+  match Typedhip.(t.term_desc) with
   | Const ValUnit -> term (Ttuple [])
   | Const TTrue -> term Ttrue
   | Const TFalse -> term Tfalse
@@ -825,9 +810,9 @@ let rec term_to_whyml tenv t =
     tapp (qualid ["Bool"; "orb"]) [term_to_whyml tenv a; term_to_whyml tenv b]
   | TNot a -> tapp (qualid ["Bool"; "notb"]) [term_to_whyml tenv a]
   | TApp (f, args) -> tapp (qualid [f]) (List.map (term_to_whyml tenv) args)
-  | Const Nil -> tapp (qualid ["List"; "Nil"]) []
+  | Const Nil -> tapp (qualid ["[]"]) []
   | BinOp (TCons, h, t) ->
-    tapp (qualid ["List"; "Cons"]) [term_to_whyml tenv h; term_to_whyml tenv t]
+    tapp (qualid ["::"]) [term_to_whyml tenv h; term_to_whyml tenv t]
   | TLambda (_name, _, _sp, Some _) | TLambda (_name, _, _sp, None) ->
     (* if there is no body, generate something that only respects alpha equivalence *)
     (* this probably doesn't always work *)
@@ -839,6 +824,10 @@ let rec term_to_whyml tenv t =
      let params, _ret = unsnoc params in
      let binders = vars_to_params tenv params in
      term (Tquant (Dterm.DTlambda, binders, [], core_lang_to_whyml tenv body)) *)
+  | Construct (name, []) ->
+    term (Tident (qualid [name]))
+  | Construct (name, args) ->
+      tapp (qualid [name]) (List.map (term_to_whyml tenv) args)
   | TTuple _ | BinOp (TPower, _, _) | BinOp (TDiv, _, _) | Const (TStr _)
     ->
     failwith "nyi"
@@ -856,15 +845,26 @@ and vars_to_params tenv vars =
         Some (type_to_whyml type_of_existential) ))
     vars
 
+and pattern_to_whyml tenv pattern =
+  let p = match pattern.pattern_desc with
+  | PAny -> Pwild
+  | PConstr (constr, args) ->
+      Papp (qualid [constr], (List.map (pattern_to_whyml tenv) args))
+  | PVar v -> Pvar (ident (Untypehip.ident_of_binder v))
+  | PConstant _ -> failwith "constant patterns not supported"
+  | PAlias (p, s) -> Pas (pattern_to_whyml tenv p, ident s, false)
+  in
+  pat p
+
 and core_lang_to_whyml tenv e =
-  match e with
+  match e.core_desc with
   | CValue t -> term_to_whyml tenv t
   | CLet (v, e1, e2) ->
     term
-      (Tlet (ident v, core_lang_to_whyml tenv e1, core_lang_to_whyml tenv e2))
+      (Tlet (ident (Untypehip.ident_of_binder v), core_lang_to_whyml tenv e1, core_lang_to_whyml tenv e2))
   | CSequence (_e1, _e2) ->
       failwith "CSequence"
-  | CIfELse (c, t, e) ->
+  | CIfElse (c, t, e) ->
     term
       (Tif
          ( pi_to_whyml tenv c,
@@ -874,7 +874,7 @@ and core_lang_to_whyml tenv e =
     let fn =
       match s with
       | "+" | "-" | "*" | ">" | "<" | ">=" | "<=" -> qualid ["Int"; Ident.op_infix s]
-      | "::" -> qualid ["List"; "Cons"]
+      | "::" -> qualid ["::"]
       | "=" -> qualid ["Int"; Ident.op_infix s] (* for now *)
       | "||" -> qualid ["Bool"; "orb"]
       | "&&" -> qualid ["Bool"; "andb"]
@@ -882,24 +882,18 @@ and core_lang_to_whyml tenv e =
       | _ -> qualid [s]
     in
     tapp fn (List.map (term_to_whyml tenv) args)
-  | CMatch (_, None, scr, None, [], cases) ->
+  | CMatch (_, None, scr, [], cases) ->
     term
       (Tcase
          ( core_lang_to_whyml tenv scr,
            List.map
-             (fun (constr, args, b) ->
-               let real_constr =
-                 match constr with
-                 | "[]" -> qualid ["List"; "Nil"]
-                 | "::" -> qualid ["List"; "Cons"]
-                 | _ -> failwith (Format.asprintf "unknown constr %s" constr)
-               in
-               ( pat
-                   (Papp
-                      (real_constr, List.map (fun a -> pat_var (ident a)) args)),
-                 core_lang_to_whyml tenv b ))
+           (* TODO change to properly model general patterns *)
+             (fun case ->
+               match case.ccase_guard with
+               | Some _ -> failwith "guard expressions not supported in why3"
+               | None -> (pattern_to_whyml tenv case.ccase_pat, core_lang_to_whyml tenv case.ccase_expr))
              cases ))
-  | CMatch (_, _, _, _, _, _) -> failwith "unsupported kind of match"
+  | CMatch (_, _, _, _, _) -> failwith "unsupported kind of match"
   | CAssert (_, _) | CLambda (_, _, _) -> failwith "unimplemented"
   | CWrite (_, _) | CRef _ | CRead _ -> failwith "heap operations not allowed"
   | CResume _ | CPerform (_, _) -> failwith "effects not allowed"
@@ -913,7 +907,7 @@ and pi_to_whyml tenv p =
     tapp
       (qualid [Ident.op_infix "="])
       [term_to_whyml tenv a; term_to_whyml tenv b]
-  | Atomic (op, a, b) -> term_to_whyml tenv (Rel (op, a, b))
+  | Atomic (op, a, b) -> term_to_whyml tenv (Syntax.rel op a b)
   | And (a, b) ->
     term (Tbinop (pi_to_whyml tenv a, Dterm.DTand, pi_to_whyml tenv b))
   | Or (a, b) ->
@@ -1011,6 +1005,32 @@ let prove tenv qtf f =
         [Dlogic ff]
     in
 
+    let types = 
+      let decls = Globals.type_decls () |>
+      List.filter_map begin fun (name, tdecl) ->
+        match tdecl.tdecl_kind with
+        | Tdecl_inductive constrs ->
+            let mlw_constrs = constrs |> List.map begin fun (name, args) ->
+              let constr_params = args |> List.map (fun typ -> (Loc.dummy_position, None, false, type_to_whyml typ)) in
+              (Loc.dummy_position, ident name, constr_params)
+            end in
+            let td_params = tdecl.tdecl_params |> List.filter_map (function TVar s -> Some (ident s) | _ -> None) in
+            Some {
+              td_ident = ident name;
+              td_params;
+              td_def = TDalgebraic mlw_constrs;
+              (* dummy fields *)
+              td_vis = Public;
+              td_loc = Loc.dummy_position;
+              td_inv = [];
+              td_mut = false;
+              td_wit = None;
+            }
+        | Tdecl_record _ -> None (* TODO, records not supported yet *)
+      end in
+      [Dtype decls]
+    in
+
     let parameters =
       match monolithic_goal with
       | true -> []
@@ -1033,7 +1053,6 @@ let prove tenv qtf f =
     let imports =
       let extra =
         Globals.global_environment.pure_fn_types
-        (* |> SMap.map Hipcore.Typedhip.Untypehip.untype_pure_fn_type_def *)
         |> SMap.bindings
         |> List.map (fun (_, p) -> p.pft_logic_path)
         |> List.sort_uniq compare
@@ -1046,7 +1065,7 @@ let prove tenv qtf f =
       ]
       @ extra
     in
-    (ident "M", List.concat [imports; fns; parameters; statement])
+    (ident "M", List.concat [imports; types; fns; parameters; statement])
   in
   let mlw_file = Modules [vc_mod] in
   Debug.debug ~at:4 ~title:"mlw file" "%a"

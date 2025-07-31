@@ -2,7 +2,13 @@ open Hiptypes
 open Syntax
 open Pretty
 
-let free_vars, free_vars_term, free_vars_heap, free_vars_pure =
+type 'a subst_context =
+  | Staged : staged_spec subst_context
+  | Term : term subst_context
+  | Pure : pi subst_context
+  | Heap : kappa subst_context
+
+let free_vars (type ctx_type) (ctx_type : ctx_type subst_context) (ctx : ctx_type)  =
   let visitor =
     object (_)
       inherit [_] reduce_spec as super
@@ -32,18 +38,20 @@ let free_vars, free_vars_term, free_vars_heap, free_vars_pure =
       method! visit_Var () x = SSet.singleton x
     end
   in
-  ( (fun f -> visitor#visit_staged_spec () f),
-    (fun t -> visitor#visit_term () t),
-    (fun h -> visitor#visit_kappa () h),
-    fun p -> visitor#visit_pi () p )
+  match ctx_type with
+  | Staged -> visitor#visit_staged_spec () ctx
+  | Term -> visitor#visit_term () ctx
+  | Heap -> visitor#visit_kappa () ctx
+  | Pure -> visitor#visit_pi () ctx
+
 
 let%expect_test "free vars" =
   let test s = Format.printf "%s@." (Pretty.string_of_sset s) in
 
-  free_vars (HigherOrder ("x", [Var "z"])) |> test;
+  free_vars Staged (HigherOrder ("x", [Var "z"])) |> test;
   [%expect {| {x, z} |}];
 
-  free_vars (ens ~p:(eq (v "res") (num 1)) ()) |> test;
+  free_vars Staged (ens ~p:(eq (v "res") (num 1)) ()) |> test;
   [%expect {| {res} |}]
 
 let rec find_binding x bindings =
@@ -52,7 +60,7 @@ let rec find_binding x bindings =
   | (name, v) :: xs -> if String.equal name x then v else find_binding x xs
 
 (* replaces free variables *)
-let subst_free_vars bs staged =
+let subst_free_term_vars (type ctx_type) (ctx_type : ctx_type subst_context) bs (ctx : ctx_type) =
   let subst_visitor free =
     object (self)
       inherit [_] map_spec
@@ -165,8 +173,15 @@ let subst_free_vars bs staged =
             self#visit_core_lang bs body1 )
     end
   in
-  let free = List.map snd bs |> List.map free_vars_term |> SSet.concat in
-  (subst_visitor free)#visit_staged_spec bs staged
+  let free = List.map snd bs |> List.map (free_vars Term) |> SSet.concat in
+  let result : ctx_type = match ctx_type with
+  | Staged -> (subst_visitor free)#visit_staged_spec bs ctx
+  | Term -> (subst_visitor free)#visit_term bs ctx
+  | Pure -> (subst_visitor free)#visit_pi bs ctx
+  | Heap -> (subst_visitor free)#visit_kappa bs ctx in
+  result
+
+let subst_free_vars = subst_free_term_vars Staged
 
 let%expect_test "subst" =
   Variables.reset_counter 0;

@@ -19,17 +19,29 @@ and term =
   | BinOp of bin_term_op * term * term
   | TNot of term
   | TApp of string * term list
+  (* constructor of an inductive datatype *)
+  | Construct of string * term list
   (* the string is just an identifier for uniqueness.
      the last param is the name of the result *)
   (* The string seems to be redundant here and I think we should remove it if possible *)
   | TLambda of string * string list * staged_spec option * core_lang option
   | TTuple of term list
-
 (* (Label n) _k (*@ spec @*) -> e *)
 and core_handler_ops = (string * string option * staged_spec option * core_lang) list
 (* x :: xs -> e is represented as ("::", [x, xs], e) *)
 (* effect work; let's group them into a single blob *)
-and constr_cases = (string * string list * core_lang) list
+and constr_case = {
+  ccase_pat : pattern;
+  ccase_guard : term option;
+  ccase_expr : core_lang
+}
+and constr_cases = constr_case list
+and pattern =
+  | PVar of string
+  | PConstr of (string * pattern list)
+  | PConstant of const
+  | PAlias of pattern * string
+  | PAny
 and tryCatchLemma = (staged_spec * staged_spec option * (*(handlingcases) **) staged_spec) (*tcl_head, tcl_handledCont, tcl_summary*)
 and handler_type = Shallow | Deep
 
@@ -45,8 +57,8 @@ and core_lang =
   | CRead of string
   | CAssert of pi * kappa
   | CPerform of string * core_value option
-  (* match e with | v -> e1 | eff case... | constr case... *)
-  | CMatch of handler_type * tryCatchLemma option * core_lang * (string * core_lang) option * core_handler_ops * constr_cases
+  (* match e with | eff case... | constr case... *)
+  | CMatch of handler_type * tryCatchLemma option * core_lang * core_handler_ops * constr_cases
   | CResume of core_value list
   | CLambda of string list * staged_spec option * core_lang
   | CShift of bool * string * core_lang (* bool=true is for shift, and bool=false for shift0 *)
@@ -277,13 +289,7 @@ type pure_fn_def = {
   pf_body: core_lang;
 }
 
-type pure_fn_type_def = {
-  pft_name: string;
-  pft_logic_path: string list;
-  pft_logic_name: string;
-  pft_params: typ list;
-  pft_ret_type: typ;
-}
+type pure_fn_type_def = Types.pure_fn_type_def
 
 (** A lemma is an entailment [f(x, ...) <: spec]. The left side is restricted to be a function stage (without loss of generality). Some of x, ... may be parameters, but some may not be. *)
 type lemma = {
@@ -303,9 +309,12 @@ type lambda_obligation = {
 type intermediate =
   | Eff of string
   | Lem of lemma
+  (* type definition of pure logic function *)
   | LogicTypeDecl of string * typ list * typ * string list * string
   (* name, params, spec, body, tactics, pure_fn_info *)
   | Meth of string * string list * staged_spec option * core_lang * tactic list * (typ list * typ) option
+  (* user-provided type definition *)
+  | Typedef of type_declaration
   | Pred of pred_def
   | SLPred of sl_pred_def
 

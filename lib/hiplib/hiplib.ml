@@ -1,15 +1,16 @@
 (* open Hipprover *)
 (* we need to clean up the imports here *)
 open Hipcore
-module Pretty = Pretty
 module Debug = Debug
-module Common = Hiptypes
+open Hipcore_typed
+open Typedhip
+open Pretty
+open Common
 open Ocaml_compiler
 open Asttypes
 (* get rid of the alias *)
 type string = label
 open Debug
-open Hiptypes
 (* open Normalize *)
 (** Re-export Env, since it gets shadowed by another declaration later on. *)
 module Compiler_env = Env
@@ -18,6 +19,18 @@ open Utils.Misc
 let file_mode = ref false
 let test_mode = ref false
 let tests_failed = ref false
+
+(** List of definitions to insert before passing code to the OCaml frontend.
+    Mark declarations that should not be converted into intermediates with [@@ignore]. *)
+let ocaml_prelude = "
+  let assertf _ = () [@@ignore]
+  let shift _ = failwith \"placeholder\" [@@ignore]
+  let shift0 _ = failwith \"placeholder\" [@@ignore]
+  let reset _ = failwith \"placeholder\" [@@ignore]
+  let (-->) _ _ = failwith \"placeholder\" [@@ignore]
+  let ( * ) _ _ = failwith \"placeholder\" [@@ignore]
+
+"
 
 (*
 let debug_tokens str =
@@ -84,7 +97,6 @@ let report_header ~kind ~name =
   Format.sprintf "\n========== %s: %s ==========\n" kind name
 
 let normal_report ~kind ~name ~inferred_spec ~given_spec ~result =
-  let open Pretty in
   let header = report_header ~kind ~name in
   let inferred_spec_string =
     Format.asprintf
@@ -146,7 +158,7 @@ let infer_spec (prog : core_program) (meth : meth_def) =
   let open Hipprover.Forward_rules in
   let method_env = prog.cp_methods
     (* within a method body, params/locals should shadow functions defined outside *)
-    |> List.filter (fun m -> not (List.mem m.m_name meth.m_params))
+    |> List.filter (fun m -> meth.m_params |> List.assoc_opt m.m_name |> Option.is_some)
     (* treat recursive calls as abstract, as recursive functions should be summarized using predicates *)
     (* |> List.filter (fun m -> not (String.equal m.m_name meth.m_name)) *)
     |> List.map (fun m -> m.m_name, m)
@@ -154,7 +166,8 @@ let infer_spec (prog : core_program) (meth : meth_def) =
   in
   let pred_env = prog.cp_predicates in
   let fv_env = create_fv_env method_env pred_env in
-  forward fv_env meth.m_body
+  let inferred, _ = forward fv_env meth.m_body in
+  inferred
 
 let check_method prog inferred given =
   match given with
@@ -162,11 +175,11 @@ let check_method prog inferred given =
   | Some given_spec ->
     let open Hipprover.Entail in
     (* likely that we need some env or extra setup later *)
-    let pctx = create_pctx prog in
-    check_staged_spec_entailment pctx inferred given_spec
+    let pctx = create_pctx (Untypehip.untype_core_program prog) in
+    check_staged_spec_entailment pctx (Untypehip.untype_staged_spec inferred) (Untypehip.untype_staged_spec given_spec)
 
 let infer_and_check_method (prog : core_program) (meth : meth_def) (given_spec : staged_spec option) =
-  let inferred_spec, _ = infer_spec prog meth in
+  let inferred_spec = infer_spec prog meth in
   let result = check_method prog inferred_spec given_spec in
   inferred_spec, result
 
@@ -205,9 +218,13 @@ let analyze_method (prog : core_program) (meth : meth_def) : core_program =
         ~title:(Format.asprintf "remembering predicate for %s" meth.m_name)
         "")
       in
-      let pred = Hipprover.Entail.derive_predicate meth.m_name meth.m_params inferred_spec in
+      let pred = Hipprover.Entail.derive_predicate meth.m_name 
+        (List.map Untypehip.ident_of_binder meth.m_params)
+        (Untypehip.untype_staged_spec inferred_spec)
+        |> Retypehip.retype_pred_def in
       (* let pred = todo () in *)
-      {prog with cp_predicates = SMap.add meth.m_name pred prog.cp_predicates}
+      let cp_predicates = SMap.add meth.m_name pred prog.cp_predicates in
+      {prog with cp_predicates}
       (* prog *)
     end
   in
@@ -222,8 +239,8 @@ let analyze_method (prog : core_program) (meth : meth_def) : core_program =
 
 let check_lemma (prog : core_program) (l : lemma) : bool =
   let open Hipprover.Entail in
-  let pctx = create_pctx prog in
-  check_staged_spec_entailment pctx l.l_left l.l_right
+  let pctx = create_pctx (Untypehip.untype_core_program prog) in
+  check_staged_spec_entailment pctx (Untypehip.untype_staged_spec l.l_left) (Untypehip.untype_staged_spec l.l_right)
 
 let analyze_lemma (prog : core_program) (l : lemma) : core_program =
   let result = check_lemma prog l in
@@ -247,18 +264,19 @@ let process_predicate () = todo ()
 
 let process_pure_fn_info ({m_name; m_params; m_body; _}) = function
   | None -> ()
-  | Some (param_types, ret_type) ->
+  | Some (_, ret_type) ->
       let pf : pure_fn_def =
       { pf_name = m_name;
-        pf_params = List.map2 (fun x y -> (x, y)) m_params param_types;
+        pf_params = m_params;
         pf_ret_type = ret_type;
         pf_body = m_body; }
       in
       Globals.define_pure_fn m_name pf
 
-let process_intermediates (it : intermediate) prog : string list * core_program =
+let process_intermediates (it : Typedhip.intermediate) prog : string list * core_program =
   (* Format.printf "%s\n" (Pretty.string_of_intermediate it);
   ([], prog) *)
+  let open Typedhip in
   match it with
   (* | LogicTypeDecl (name, params, ret, path, lname) ->
       let def = {
@@ -272,6 +290,10 @@ let process_intermediates (it : intermediate) prog : string list * core_program 
       Globals.global_environment.pure_fn_types <-
         SMap.add name def Globals.global_environment.pure_fn_types;
       [], prog *)
+  | Typedef tdecl -> 
+      Globals.define_type tdecl;
+      debug ~at:1 ~title:"user type declaration" "%s" (Pretty.string_of_type_declaration tdecl);
+      [], prog  
   | Eff _ ->
       todo ()
   | Lem l ->
@@ -312,7 +334,7 @@ let process_intermediates (it : intermediate) prog : string list * core_program 
       (* [], { prog with cp_sl_predicates = SMap.add p.p_sl_name p prog.cp_sl_predicates } *)
       todo ()
   | Meth (m_name, m_params, m_spec, m_body, m_tactics, pure_fn_info) ->
-      let meth : meth_def = {m_name; m_params; m_spec; m_body; m_tactics } in
+      let meth : meth_def = {m_name; m_params; m_spec; m_body; m_tactics} in
       process_pure_fn_info meth pure_fn_info;
       let@ _ = Debug.span (fun _ ->
         debug ~at:1 ~title:(Format.asprintf "verifying function: %s" meth.m_name) "")
@@ -320,25 +342,34 @@ let process_intermediates (it : intermediate) prog : string list * core_program 
       let prog = analyze_method prog meth in
       [m_name], prog
 
-let process_ocaml_structure (items: Ocaml_common.Parsetree.structure) : unit =
+let process_ocaml_structure (items: Ocaml_common.Typedtree.structure) : unit =
   let process_ocaml_item (bound_names, prog) item =
-    match Ocamlfrontend.Core_lang.transform_str bound_names item with
+    match Ocamlfrontend.Core_lang_typed.transform_str bound_names item with
     | Some it ->
         let new_bound, prog = process_intermediates it prog in
         new_bound @ bound_names, prog
     | None ->
         bound_names, prog
   in
-  ignore (List.fold_left process_ocaml_item ([], empty_program) items)
+  ignore (List.fold_left process_ocaml_item ([], empty_program) items.str_items)
 
 let run_ocaml_string s =
   (** Parse and typecheck the code, before converting it into a core language program.
      This mirrors the flow of compilation used in ocamlc. *)
   try
+    let prelude_items = Parse.implementation (Lexing.from_string ocaml_prelude) in
     let items = Parse.implementation (Lexing.from_string s) in
-    process_ocaml_structure items
+    let unit_info = Unit_info.(make ~source_file:"" Impl "") in
+    Compile_common.with_info ~native:false ~tool_name:"heifer" ~dump_ext:"" unit_info @@ begin fun info ->
+      (* suppress warnings, the workaround used to enable shift/reset in the typed frontend
+         causes a lot of spurious warning 20/21s *)
+      let@ _ = Warnings.without_warnings in
+      let typed_implementation = Compile_common.typecheck_impl info (prelude_items @ items) in
+      let@ _ = Globals.Timing.(time overall_all) in
+      process_ocaml_structure typed_implementation.structure
+    end
   with
-    | e -> Format.printf "%a\n" Location.report_exception e
+    | exn -> Format.printf "%a\n" Location.report_exception exn
 
 (*
 let mergeTopLevelCodeIntoOneMain (prog : intermediate list) : intermediate list =
@@ -391,28 +422,13 @@ let run_string kind s =
   | `Ocaml -> run_ocaml_string s
   | `Racket -> run_racket_string s
 
-(* let retriveComments (source : string) : string list =
-  let partitions = Str.split (Str.regexp "(\\*@") source in
-  match partitions with
-  | [] -> assert false
-  | _ :: rest -> (*  SYH: Note that specification can't start from line 1 *)
-      let partitionEnd = List.map (fun a -> Str.split (Str.regexp "@\\*)") a) rest in
-      let rec helper (li: string list list): string list =
-        match li with
-        | [] -> []
-        | x :: xs  ->
-            let head = List.hd x in
-            if String.compare head "" == 0
-            then helper xs
-            else let ele = ("/*@" ^ head ^ "@*/") in ele :: helper xs
-      in
-      helper partitionEnd *)
-
 (* naive means of turning spec comments into attributes *)
 let preprocess_spec_comments =
-  let pattern = {|let \(.+\)\([
+  let spec_attr_pattern = {|let \(.+\)\([
  ]*\)(\*@\([^@]+\)@\*)|} in
-  let regex = Str.regexp pattern in
+  let lemma_attr_pattern = {|%%lemma|} in
+  let spec_attr_regex = Str.regexp spec_attr_pattern in
+  let lemma_attr_regex = Str.regexp lemma_attr_pattern in
   fun text ->
     let@ _ =
       span (fun r ->
@@ -421,7 +437,8 @@ let preprocess_spec_comments =
             "%s\n---\n%s" text
             (string_of_result Fun.id r))
     in
-    let output = Str.global_replace regex "let [@spec {|\\3|}] \\1\\2" text in
+    let output = Str.global_replace spec_attr_regex "let [@spec {|\\3|}] \\1\\2" text in
+    let output = Str.global_replace lemma_attr_regex "@@@lemma" output in
     output
 
 let run_file input_file =

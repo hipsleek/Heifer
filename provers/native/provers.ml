@@ -1,6 +1,8 @@
 
 open Hipcore
-open Hiptypes
+open Hipcore_typed
+open Typedhip
+open Common
 
 let cache : (pi * string list * pi, Provers_common.prover_result) Hashtbl.t = Hashtbl.create 10
 
@@ -24,11 +26,12 @@ let needs_why3 =
 
 let entails_exists env left ex right =
   let@ _ = memo (left, ex, right) in
-  match Sys.getenv_opt "PROVER" with
-  | Some "WHY3" -> Prover_why3.entails_exists env left ex right
-  | Some "Z3" -> Prover_z3.entails_exists env left ex right
-  | Some _
-  | None ->
+  let prove_why3 env left ex right = Prover_why3.entails_exists env left ex right in
+  let prove_z3 env left ex right = Prover_z3.entails_exists env left ex right in
+  let prover = match Sys.getenv_opt "PROVER" with
+  | Some "WHY3" -> prove_why3
+  | Some "Z3" -> prove_z3
+  | Some _ | None ->
     let needs_why3 =
       (* if no pure functions are used, short circuit immediately.
          otherwise, switch only if some part of the formula needs why3 *)
@@ -37,8 +40,10 @@ let entails_exists env left ex right =
         needs_why3#visit_pi () right)
     in
     if needs_why3 then
-      Prover_why3.entails_exists env left ex right
+      prove_why3
     else
-      Prover_z3.entails_exists env left ex right
+      prove_z3
+  in
+  prover env left ex right
 
 let handle f = f ()

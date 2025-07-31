@@ -432,7 +432,7 @@ let norm_db2 : _ Rewriting2.database =
 
 (* the main entry point *)
 let normalize_spec_with (rules : rule list) (spec : staged_spec) : staged_spec =
-  let@ _ = Globals.Timing.(time norm) in
+  let@ _ = Hipcore_typed.Globals.Timing.(time norm) in
   let@ _ =
     span (fun r -> debug
       ~at:1

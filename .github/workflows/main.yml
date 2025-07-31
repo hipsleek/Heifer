@@ -26,6 +26,9 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
+      - name: Update apt database
+        run: sudo apt-get update
+
       - name: Checkout code
         uses: actions/checkout@v3
 

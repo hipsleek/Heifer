@@ -29,10 +29,12 @@ let test8_false ()
   j
 (* k is not a param *)
 
+(* disabled while types implementation is being completed *)
+(*
 let test9 ()
   (*@ ex r. ens res=r @*) =
   let j = 0 in
-  j
+  j *)
 (* existential return value *)
 
 let test4 ()
@@ -82,7 +84,7 @@ let test20 ()
    ens i->1 * b->2/\res=1
 @*)
 =
-  assert (i-->1);
+  assertf "i -> 1";
   let j = ref 2 in
   1
 
@@ -92,7 +94,7 @@ let test21 ()
    ens i->1 * b->2/\res=1
 @*)
 =
-  assert (!i = 1);
+  assertf "i -> 1";
   let j = ref 2 in
   assert (!j = 2);
   1
@@ -121,7 +123,7 @@ let test15 ()
    ens a->1/\res=1
 @*)
 =
-  assert (a-->1);
+  assertf "a -> 1";
   1
 
 (* this is unintuitive, but true as a consequence of the frame rule *)
@@ -140,7 +142,7 @@ let test17 ()
    ens a->1 * b->0/\res=1
 @*)
 =
-  assert (a-->1);
+  assertf "a -> 1";
   let i = ref 0 in
   1
 

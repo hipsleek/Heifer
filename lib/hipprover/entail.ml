@@ -211,12 +211,10 @@ let check_pure_obligation left right =
           (string_of_result string_of_bool r))
   in
   let open Infer_types in
-  let tenv =
+  let (left, right), tenv =
+    let left, right = Hipcore_typed.Retypehip.(retype_pi left, retype_pi right) in
     (* handle the environment manually as it's shared between both sides *)
-    let env = create_abs_env () in
-    let env = infer_types_pi env left in
-    let env = infer_types_pi env right in
-    env
+    with_empty_env (infer_types_pair_pi (left, right))
   in
   let res = Provers.entails_exists (concrete_type_env tenv) left [] right in
   let open Provers_common in
@@ -695,7 +693,7 @@ let create_induction_hypothesis (ps : pstate) name : pctx =
   in
   let pctx, f1, f2 = ps in
   let free =
-    SSet.union (Subst.free_vars f1) (Subst.free_vars f2)
+    SSet.union Subst.(free_vars Staged f1) Subst.(free_vars Staged f2)
     |> SSet.remove "res" (* this isn't a free var; it's bound by ens *)
     |> SSet.remove name (* the function itself isn't free *)
     |> SSet.to_list
@@ -1200,7 +1198,7 @@ and entailment_search : ?name:string -> tactic =
     apply_ent_rule ?name ps k
 
 let check_staged_spec_entailment ?name pctx inferred given =
-  let@ _ = Globals.Timing.(time entail) in
+  let@ _ = Hipcore_typed.Globals.Timing.(time entail) in
   let@ _ =
     span (fun r ->
         debug ~at:2 ~title:"entailment" "%s\n⊑\n%s\n%s"

@@ -1,5 +1,6 @@
-open Hipcore
-open Hiptypes
+open Hipcore_typed
+open Hipcore.Common
+open Typedhip
 open Provers_common
 
 (*
@@ -22,7 +23,7 @@ r = await s.check()
 
 let rec build_term : Jv.t -> term -> Jv.t =
  fun ctx t ->
-  match t with
+  match t.term_desc with
     | Const (TStr _) -> failwith "nyi"
     | BinOp (SConcat, _, _) -> failwith "nyi"
     | Rel (bop, a, b) ->
@@ -37,8 +38,8 @@ let rec build_term : Jv.t -> term -> Jv.t =
     (* Jv.of_int n *)
     Jv.call (Jv.get ctx "Int") "val" [| Jv.of_int n |]
   | Var s -> Jv.call (Jv.get ctx "Int") "const" [| Jv.of_string s |]
-  | Const ValUnit -> build_term ctx (Var "unit")
-  | Const Nil -> build_term ctx (Var "nil")
+  | Const ValUnit -> build_term ctx Syntax.(var "unit" ~typ:Unit)
+  | Const Nil -> build_term ctx Syntax.(var "nil" ~typ:(TConstr ("list", [Int])))
   | Const TTrue -> Jv.call (Jv.get ctx "Bool") "val" [| Jv.of_bool true |]
   | Const TFalse -> Jv.call (Jv.get ctx "Bool") "val" [| Jv.of_bool false |]
   | TNot a -> Jv.apply (Jv.get ctx "Not") [| build_term ctx a |]
@@ -48,7 +49,7 @@ let rec build_term : Jv.t -> term -> Jv.t =
     Jv.apply (Jv.get ctx "Or") [| build_term ctx a; build_term ctx b |]
   | TApp _ -> failwith "?"
   | TLambda _ -> failwith "?"
-  | BinOp (TCons, _, _) | BinOp (TPower, _, _) | BinOp (TTimes, _, _) | BinOp (TDiv, _, _) | TTuple _ -> failwith "not yet implemented"
+  | Construct (_, _) | BinOp (TCons, _, _) | BinOp (TPower, _, _) | BinOp (TTimes, _, _) | BinOp (TDiv, _, _) | TTuple _ -> failwith "not yet implemented"
 
 let build_op : Jv.t -> bin_rel_op -> term -> term -> Jv.t =
  fun ctx op a b ->

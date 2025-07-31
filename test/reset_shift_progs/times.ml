@@ -6,11 +6,11 @@ let [@pure] rec times (xs : int list) : int =
 let rec times2_aux xs =
   match xs with
   | [] -> 1
-  | x :: xs' -> if x = 0 then shift k 0 else x * times2_aux xs'
+  | x :: xs' -> if x = 0 then shift (fun k -> 0) else x * times2_aux xs'
 
 [%%lemma{|
   times2_lemma(x, xs) =
-    rs(let v46 = times2_aux(xs) in ens res = x *. v46) ==>
+    rs(let v64 = times2_aux(xs) in ens res = x *. v64) ==>
     ens res = x *. times(xs) |}]
 
 let [@spec "ens res = times(xs)"] times2 xs =

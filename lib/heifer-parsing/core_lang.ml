@@ -154,9 +154,8 @@ let rec core_type_to_simple_type t =
   match t.ptyp_desc with
   | Ptyp_constr ({txt = Lident "bool"; _}, []) -> Bool
   | Ptyp_constr ({txt = Lident "int"; _}, []) -> Int
-  | Ptyp_constr ({txt = Lident "list"; _}, [
-    { ptyp_desc = Ptyp_constr ({txt = Lident "int"; _}, []) ; _}
-  ]) -> List_int
+  | Ptyp_var v -> TVar v
+  | Ptyp_constr ({txt = Lident name; _}, args) -> TConstr (name, List.map core_type_to_simple_type args)
   | Ptyp_arrow (_, t1, t2) -> Arrow (core_type_to_simple_type t1, core_type_to_simple_type t2)
   | _ -> failwith (Format.asprintf "core_type_to_simple_type: not yet implemented %a" Pprintast.core_type t)
 
@@ -295,6 +294,15 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
         transformation bound_names a |> maybe_var (fun v -> loop (v :: vars) args1)
     in
     loop [] args
+  (* some other constructor; interpret as user-defined constructor *)
+  (* TODO subsume list into this case; need to check if the ADT implementation is robust enough for this *)
+  | Pexp_construct ({txt = Lident name; _}, exp) -> 
+      let constr_args = match exp with
+        | None -> []
+        | Some {pexp_desc = Pexp_tuple args; _} -> List.map expr_to_term args
+        | Some expr -> [expr_to_term expr]
+      in
+      CValue (Construct (name, constr_args))
   | Pexp_apply ({pexp_desc = Pexp_ident ({txt = Lident name; _}); _}, args) when List.mem name bound_names || List.mem name primitive_functions ->
     (* TODO this doesn't model ocaml's right-to-left evaluation order *)
     let rec loop vars args =
@@ -350,13 +358,6 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
     )
 
   | Pexp_match (e, cases) ->
-    let norm =
-      (* may be none for non-effect pattern matches *)
-      cases |> List.find_map (fun c ->
-        match c.pc_lhs.ppat_desc with
-        | Ppat_var {txt=v; _} -> Some (v, transformation bound_names c.pc_rhs)
-        | _ -> None)
-    in
     let effs =
       (* may be empty for non-effect pattern matches *)
       cases |> List.filter_map (fun c ->
@@ -377,22 +378,23 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
         | _ -> None)
     in
     let pattern_cases =
+      let rec transform_pattern pat =
+        match pat.ppat_desc with
+        | Ppat_construct ({txt = c; _}, None) -> Some (PConstr (Longident.last c, []))
+        | Ppat_construct ({txt = c; _}, Some ([], {ppat_desc = Ppat_tuple args; _})) -> Some (PConstr (Longident.last c, List.filter_map transform_pattern args))
+        | Ppat_var {txt = v; _} -> Some (PVar v)
+        | Ppat_constant {pconst_desc = Pconst_string (s, _, _); _} -> Some (PConstant (TStr s))
+        | Ppat_constant {pconst_desc = Pconst_integer (i, _); _} -> Some (PConstant (Num (int_of_string i)))
+        | Ppat_any -> Some (PVar "_")
+        | _ -> failwith (Format.asprintf "Unsupported pattern %a" Pprintast.pattern pat)
+      in
       (* may be empty for non-effect pattern matches *)
-      cases |> List.filter_map (fun c ->
-        match c.pc_lhs.ppat_desc with
-        | Ppat_construct ({txt=constr; _}, None) ->
-          Some (Longident.last constr, [], transformation bound_names c.pc_rhs)
-        | Ppat_construct ({txt=constr; _}, Some (_, {ppat_desc = Ppat_tuple ps; _})) ->
-          let args = List.filter_map (fun p ->
-            match p.ppat_desc with
-            | Ppat_var {txt=v; _} -> Some v
-            | _ -> None) ps
-          in
-          Some (Longident.last constr, args, transformation bound_names c.pc_rhs)
-        | _ -> None)
+      cases |> List.filter_map (fun case -> Option.map 
+        (fun pat -> { ccase_pat = pat; ccase_guard = Option.map expr_to_term case.pc_guard; ccase_expr = transformation bound_names case.pc_rhs })
+        (transform_pattern case.pc_lhs))
     in
     (* FIXME properly fill in the handler type and handler specification *)
-    CMatch (Deep, None, transformation bound_names e, norm, effs, pattern_cases)
+    CMatch (Deep, None, transformation bound_names e, effs, pattern_cases)
   | _ ->
     if String.compare (Pprintast.string_of_expression expr) "Obj.clone_continuation k" == 0 then (* ASK Darius*)
     CValue (Var "k")
@@ -485,10 +487,21 @@ let transform_str bound_names (s : structure_item) : intermediate option =
       print_endline (string_of_expression_kind whatever);
       failwith (Format.asprintf "not a function binding: %a" Pprintast.expression fn)
     end
+  (* TODO this only supports a single type declaration for now *)
+  | Pstr_type (_, [{ptype_kind = Ptype_variant constructors; ptype_name = {txt = name; _}; ptype_params = params; _}]) ->
+      let params = params |> List.map (fun (core_type, _) -> core_type_to_simple_type core_type) in
+      let constructors = constructors |> List.map (fun constructor ->
+        let constr_args = match constructor.pcd_args with
+        | Pcstr_tuple args -> List.map core_type_to_simple_type args
+        | Pcstr_record _ -> failwith ("record as type constructor argument not supported") in
+        (constructor.pcd_name.txt, constr_args)
+      )
+      in
+      Some (Typedef {tdecl_name = name; tdecl_params = params; tdecl_kind = Tdecl_inductive constructors})
   | Pstr_type _
   | Pstr_typext _ -> None
   | Pstr_primitive { pval_name; pval_type; pval_prim = [ext_name]; _ } ->
-    Globals.using_pure_fns := true;
+    Hipcore_typed.Globals.using_pure_fns := true;
     let path, name =
       Str.split (Str.regexp "\\.") ext_name |> Lists.unsnoc
     in
