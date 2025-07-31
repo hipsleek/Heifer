@@ -5,14 +5,15 @@ open Common
 open Typedhip
 open Types
 
-(* Re-export names from the untyped Pretty, for convenience. *)
-include Pretty
-
 exception Foo of string
 
 let colours = Pretty.colours
 
 let string_of_type = Pretty.string_of_type
+
+let red = Pretty.red
+let green = Pretty.green
+let yellow = Pretty.yellow
 
 let string_of_binder ((ident, typ) : binder) =
   Format.sprintf "(%s : %s)" ident (string_of_type typ)
@@ -42,6 +43,10 @@ and string_of_state (p, h) : string =
   | _ ->
     Format.asprintf "%s/\\%s" (string_of_kappa h) (string_of_pi p)
     (* Format.asprintf "%s*%s" (string_of_kappa h) (string_of_pi p) *)
+
+and string_of_bin_op op = Pretty.string_of_bin_op op
+
+and string_of_args : 'a. ('a -> string) -> 'a list -> string = Pretty.string_of_args
 
 and string_of_pi pi : string =
   match pi with
@@ -161,6 +166,8 @@ open Pretty
 let string_of_type t = string_of_type t
 
 let string_of_type_declaration tdecl = string_of_type_declaration tdecl
+
+let string_of_pred pred_def = Pretty.string_of_pred (Untypehip.untype_pred_def pred_def)
 
 let pp_bin_op ppf op =
   Format.fprintf ppf "%s" (string_of_bin_op op)

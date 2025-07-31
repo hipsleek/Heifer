@@ -1,5 +1,5 @@
-open Hipcore
-open Hiptypes
+open Hipcore_typed
+open Typedhip
 
 type biab_ctx = {
   equalities: pi list;
