@@ -82,7 +82,7 @@ class ['self] map_spec_with_binders = object (self)
 
   method! visit_Shift (bind_ctx, env) nz k body x cont =
     let body = super#visit_staged_spec (add_binder k bind_ctx, env) body in
-    let cont = super#visit_staged_spec (add_binder x bind_ctx, env) cont in
+    let cont = super#visit_staged_spec (add_binder (ident_of_binder x) bind_ctx, env) cont in
     Shift (nz, k, body, x, cont)
 
   (* TODO We also need to override visit_term_desc, visit_staged_spec, etc...

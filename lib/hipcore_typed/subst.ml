@@ -115,7 +115,7 @@ let subst_free_vars_in (type ctx_t) (ctx_type : ctx_t subst_context) (bindings :
 
     method! visit_Shift (env, bindings) nz k body x cont =
       let k, body = avoid_capture_untyped (SSet.mem k free_in_term) (fun bindings -> self#visit_staged_spec (env, bindings)) k body in
-      let x, cont = avoid_capture_untyped (SSet.mem k free_in_term) (fun bindings -> self#visit_staged_spec (env, bindings)) x cont in
+      let x, cont = avoid_capture (SSet.mem k free_in_term) (fun bindings -> self#visit_staged_spec (env, bindings)) x cont in
       super#visit_Shift (env, bindings) nz k body x cont
 
     method! visit_TLambda (env, bindings) name params spec body =

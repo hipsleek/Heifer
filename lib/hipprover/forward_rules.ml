@@ -409,7 +409,7 @@ let rec forward (env: fvenv) (expr : core_lang): staged_spec * fvenv =
         | _ -> failwith "continuation argument does not have function type"
       in
       let cont = NormalReturn (res_eq (var ~typ:cont_arg_type x), EmptyHeap) in
-      Shift (nz, ident_of_binder k, spec_body, x, cont), env
+      Shift (nz, ident_of_binder k, spec_body, (x, cont_arg_type), cont), env
   | CReset expr_body ->
       let spec_body, env = forward env expr_body in
       Reset spec_body, env
