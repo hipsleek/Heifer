@@ -92,7 +92,7 @@ let rec string_of_pattern (p) : string =
 let rec hip_type_of_type_expr (texpr: Compiler_types.type_expr) =
   match (Compiler_types.get_desc texpr) with
   | Tvar (Some var) -> TVar var
-  | Tvar (None) -> Types.new_type_var ()
+  | Tvar (None) -> TVar ("tv" ^ (string_of_int (Compiler_types.get_id texpr)))
   (* TODO: This does not preserve argument labels, because Heifer's type system does not model them. *)
   | Tarrow (_, t1, t2, _) -> Arrow (hip_type_of_type_expr t1, hip_type_of_type_expr t2)
   (* TODO implement ref types *)
