@@ -197,11 +197,11 @@ module Testing = struct
     let open Globals in
     define_type {
       tdecl_name = "test_type";
-      tdecl_params = [];
+      tdecl_params = [TVar "a"];
       tdecl_kind = Tdecl_inductive [
         "A", [];
-        "B", [Int];
-        "D", [TConstr ("test_type", []); TConstr ("test_type", [])]
+        "B", [TVar "a"];
+        "D", [TConstr ("test_type", [TVar "a"]); TConstr ("test_type", [TVar "a"])]
       ]
     };
     define_type {
@@ -220,14 +220,14 @@ module Testing = struct
       else Printf.sprintf "%s when %s" (string_of_pattern pat) (string_of_term guard))
   pats) |> print_string
 
-  let any typ = {pattern_desc = PAny; pattern_type = TConstr (typ, [])}
+  let any ?(args = []) typ = {pattern_desc = PAny; pattern_type = TConstr (typ, args)}
   let constr ~typ ?(typ_args = []) ctr args  = {pattern_desc = PConstr (ctr, args); pattern_type = TConstr (typ, typ_args)}
-  let a = constr ~typ:"test_type" "A" []
-  let pvar ?(typ="test_type") name = 
-    let typ = TConstr (typ, []) in
+  let a = constr ~typ:"test_type" ~typ_args:[Int] "A" []
+  let pvar ?(typ="test_type") ?(typ_args=[Int]) name = 
+    let typ = TConstr (typ, typ_args) in
     {pattern_desc = PVar (name, typ); pattern_type = typ}
-  let b v = constr ~typ:"test_type" "B" [v]
-  let d (a1, a2) = constr ~typ:"test_type" "D" [a1; a2]
+  let b v = constr ~typ:"test_type" ~typ_args:[Int] "B" [v]
+  let d (a1, a2) = constr ~typ:"test_type" ~typ_args:[Int] "D" [a1; a2]
   let as_ ~name pat = {pattern_desc = PAlias (pat, name); pattern_type = pat.pattern_type}
 
   let z = constr ~typ:"nat" "Z" []
@@ -240,7 +240,7 @@ let%expect_test "complement" =
   let open Testing in
   setup_tests ();
 
-  let __ = Testing.any "test_type" in
+  let __ = Testing.any ~args:[Int] "test_type" in
   output (complement (guarded (b __)));
   [%expect{| A() | D(_, _) |}];
 
@@ -256,7 +256,7 @@ let%expect_test "intersect" =
   let open Testing in
   setup_tests ();
 
-  let __ = Testing.any "test_type" in
+  let __ = Testing.any ~args:[Int] "test_type" in
   output (intersect [guarded (d (pvar "a", pvar "b"))] [guarded (b (pvar "x")); guarded (d (__, d (__, pvar "d")))]);
   [%expect{| D(a, (D(_, d)) as b) |}];
 
@@ -272,7 +272,7 @@ let%expect_test "exclude" =
 
   setup_tests ();
 
-  let __ = Testing.any "test_type" in
+  let __ = Testing.any ~args:[Int] "test_type" in
   output (exclude (guarded (d (__, __))) [guarded a; guarded (d (b __, __))]);
   [%expect{| D(A(), _) | D(D(_, _), _) |}];
 
