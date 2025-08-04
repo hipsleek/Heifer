@@ -160,14 +160,144 @@ let string_of_program (cp:core_program) :string =
 
 let string_of_pattern p = Pretty.string_of_pattern (Untypehip.untype_pattern p)
 
-open Pretty
-
 (* make these declarations available here as well *)
-let string_of_type t = string_of_type t
-
-let string_of_type_declaration tdecl = string_of_type_declaration tdecl
+let string_of_type_declaration tdecl = Pretty.string_of_type_declaration tdecl
 
 let string_of_pred pred_def = Pretty.string_of_pred (Untypehip.untype_pred_def pred_def)
+
+let string_of_bin_term_op = Pretty.string_of_bin_term_op
+
+let string_of_constant = Pretty.string_of_constant
+
+module With_types = struct
+  let rec string_of_term t : string =
+    let term_str = match t.term_desc with
+    | Const c -> string_of_constant c
+    | BinOp (op, lhs, rhs) -> Format.asprintf "(%s %s %s)" (string_of_term lhs) (string_of_bin_term_op op) (string_of_term rhs)
+    | TNot a -> Format.asprintf "not(%s)" (string_of_term a)
+    | Var str -> str
+    | Rel (bop, t1, t2) ->
+      "(" ^ string_of_term t1 ^ (match bop with | EQ -> "==" | _ -> string_of_bin_op bop) ^ string_of_term t2 ^ ")"
+    | TApp (op, args) -> Format.asprintf "%s%s" op (string_of_args string_of_term args)
+    | Construct (name, args) -> Format.asprintf "%s%s" name (string_of_args string_of_term args)
+    | TLambda (_name, params, sp, body) ->
+      let body =
+        match body with
+        | None -> ""
+        | Some b -> Format.asprintf "-> %s" (string_of_core_lang b)
+      in
+      let param_list = params |> List.map string_of_binder |> String.concat " " in
+      Format.asprintf "(fun %s (*@@ %s @@*) %s)" param_list (Option.map string_of_staged_spec sp |> Option.value ~default:"") body
+    | TTuple nLi ->
+      let rec helper li =
+        match li with
+        | [] -> ""
+        | [x] -> string_of_term x
+        | x:: xs -> string_of_term x ^","^ helper xs
+      in "(" ^ helper nLi ^ ")"
+    in
+    "(" ^ term_str ^ " : " ^ (string_of_type t.term_type) ^ ")"
+  and string_of_pi pi : string =
+    match pi with
+    | True -> "T"
+    | False -> "F"
+    | Atomic (op, t1, t2) -> string_of_term t1 ^ string_of_bin_op op ^ string_of_term t2
+    | And   (p1, p2) -> string_of_pi p1 ^ "/\\" ^ string_of_pi p2
+    | Or     (p1, p2) -> string_of_pi p1 ^ "\\/" ^ string_of_pi p2
+    | Imply  (p1, p2) -> string_of_pi p1 ^ "=>" ^ string_of_pi p2
+    | Not    p -> "not(" ^ string_of_pi p ^ ")"
+    | Predicate (str, t) -> str ^ "(" ^ (string_of_args string_of_term t) ^ ")"
+    | Subsumption (a, b) -> Format.asprintf "%s <: %s" (string_of_term a) (string_of_term b)
+  and string_of_kappa (k:kappa) : string =
+    match k with
+    | EmptyHeap -> "emp"
+    | PointsTo  (str, args) -> Format.sprintf "%s->%s" str (List.map string_of_term [args] |> String.concat ", ")
+    | SepConj (k1, k2) -> string_of_kappa k1 ^ "*" ^ string_of_kappa k2
+  and string_of_core_lang e =
+    match e.core_desc with
+    | CValue v -> string_of_term v
+    | CLet (v, e, e1) -> Format.sprintf "let %s = %s in\n%s" (string_of_binder v) (string_of_core_lang e) (string_of_core_lang e1) | CSequence (e1, e2) -> Format.sprintf "%s;\n%s" (string_of_core_lang e1) (string_of_core_lang e2)
+    | CIfElse (pi, t, e) -> Format.sprintf "if %s then %s else (%s)" (string_of_pi pi)  (string_of_core_lang t) (string_of_core_lang e)
+    | CFunCall (f, [a; b]) when not (Pretty.is_alpha (String.get f 0)) -> Format.sprintf "%s %s %s" (string_of_term a) f (string_of_term b)
+    | CFunCall (f, xs) -> Format.sprintf "%s %s" f (List.map string_of_term xs |> String.concat " ")
+    | CWrite (v, e) -> Format.sprintf "%s := %s" v (string_of_term e)
+    | CRef v -> Format.sprintf "ref %s" (string_of_term v)
+    | CRead v -> Format.sprintf "!%s" v
+    | CAssert (p, h) -> Format.sprintf "assert (%s && %s)" (string_of_pi p) (string_of_kappa h)
+    | CPerform (eff, Some arg) -> Format.sprintf "perform %s %s" eff (string_of_term arg)
+    | CPerform (eff, None) -> Format.sprintf "perform %s" eff
+    | CMatch (typ, spec, e, hs, cs) -> Format.sprintf "match[%s] %s%s with\n%s%s" 
+      (string_of_handler_type typ) 
+      (Option.map string_of_try_catch_lemma spec |> Option.value ~default:"")
+      (string_of_core_lang e) 
+      (match hs with | [] -> "" | _ :: _ -> string_of_core_handler_ops hs ^ "\n")
+      (match cs with [] -> "" | _ :: _ -> string_of_constr_cases cs)
+    | CResume tList -> Format.sprintf "continue %s" (List.map string_of_term tList |> String.concat " ")
+    | CLambda (xs, spec, e) -> Format.sprintf "fun %s%s -> %s" (xs |> List.map string_of_binder |> List.map (fun s -> "(" ^ s ^ ")") |> String.concat " ")
+      (match spec with None -> "" | Some ds -> Format.asprintf " (*@@ %s @@*)" (string_of_staged_spec ds)) (string_of_core_lang e)
+    | CShift (b, k, e) -> Format.sprintf "Shift%s %s -> %s" (if b then "" else "0") (string_of_binder k) (string_of_core_lang e)
+    | CReset (e) -> Format.sprintf "<%s>" (string_of_core_lang e)
+  and string_of_constr_cases cs =
+    cs
+      |> List.map (fun case -> Format.asprintf "| %s%s -> %s" 
+        (string_of_pattern case.ccase_pat)
+        (match case.ccase_guard with
+          | None -> ""
+          | Some guard -> Format.asprintf " when %s" (string_of_term guard))
+        (string_of_core_lang case.ccase_expr))
+      |> String.concat "\n"
+
+  and string_of_core_handler_ops hs =
+    List.map (fun (name, v, spec, body) ->
+      let spec = spec |> Option.map (fun s -> Format.asprintf " (*@@ %s @@*)" (string_of_staged_spec s)) |> Option.value ~default:"" in
+      Format.asprintf "| effect %s k%s -> %s"
+        (match v with None -> name | Some v -> Format.asprintf "(%s %s)" name v) spec (string_of_core_lang body)) hs |> String.concat "\n"
+  and string_of_state (p, h) : string =
+    match h, p with
+    | _, True -> string_of_kappa h
+    | EmptyHeap, _ -> string_of_pi p
+    | _ ->
+      Format.asprintf "%s/\\%s" (string_of_kappa h) (string_of_pi p)
+  and string_of_staged_spec (st:staged_spec) : string =
+    match st with
+    | Shift (nz, k, spec, x, cont) ->
+      (* TODO: shiftc *)
+      let zero = if nz then "" else "0" in
+      let cont_s = match cont with
+        | NormalReturn (Atomic (EQ, {term_desc = Var "res"; _}, {term_desc = Var y; _}), EmptyHeap) when (ident_of_binder x) = y -> ""
+        | _ -> Format.asprintf ", %s. %s" (string_of_binder x) (string_of_staged_spec cont)
+      in
+      Format.asprintf "shift%s(%s. %s%s)" zero k (string_of_staged_spec spec) cont_s
+    | Reset spec ->
+      Format.asprintf "reset(%s)" (string_of_staged_spec spec)
+    | Require (p, h) ->
+      Format.asprintf "req %s" (string_of_state (p, h))
+    | HigherOrder (f, args) ->
+        Format.asprintf "%s(%s)" f (String.concat ", " (List.map string_of_term args))
+    | NormalReturn (pi, heap) ->
+      Format.asprintf "ens %s" (string_of_state (pi, heap))
+    | RaisingEff (pi, heap, (name, args), ret) ->
+
+      Format.asprintf "%s(%s, %s, %s)" name (string_of_state (pi, heap)) (string_of_args string_of_term args) (string_of_term ret)
+    | Exists (vs, spec) ->
+      Format.asprintf "ex %s. (%s)" (string_of_binder vs) (string_of_staged_spec spec)
+    | ForAll (vs, spec) ->
+      Format.asprintf "forall %s. (%s)" (string_of_binder vs) (string_of_staged_spec spec)
+    (* | IndPred {name; args} -> *)
+      (* Format.asprintf "%s(%s)" name (String.concat " " (List.map string_of_term args)) *)
+    | TryCatch (pi, h, ( src, ((normP, normSpec), ops)), ret) ->
+      let string_of_normal_case = normP ^ ": " ^ string_of_staged_spec (normSpec) in
+      let string_of_eff_case (eName, param, eSpec)=  eName  ^
+        (match param with | None -> " " | Some p -> "("^ p ^ ") ")^ ": " ^ string_of_staged_spec eSpec   in
+      let string_of_eff_cases ops =  List.fold_left (fun acc a -> acc ^ ";\n" ^string_of_eff_case a) "" ops in
+      Format.asprintf "ens %s; \n(TRY \n(%s)\nCATCH \n{%s%s}[%s])\n" (string_of_state (pi, h)) (string_of_staged_spec src) (string_of_normal_case) (string_of_eff_cases ops) (string_of_term ret)
+    | Sequence (s1, s2) -> Format.sprintf "%s; %s" (string_of_staged_spec s1) (string_of_staged_spec s2)
+    | Bind (v, expr, body) -> Format.sprintf "let %s = (%s) in (%s)" v (string_of_staged_spec expr) (string_of_staged_spec body)
+    | Disjunction (lhs, rhs) -> Format.sprintf "(%s) \\/ (%s)" (string_of_staged_spec lhs) (string_of_staged_spec rhs)
+
+end
+
+(** formatters, more fit for external output *)
 
 let pp_bin_op ppf op =
   Format.fprintf ppf "%s" (string_of_bin_op op)
@@ -273,7 +403,7 @@ and pp_staged_spec ppf spec =
       pp_staged_spec s1
       pp_staged_spec s2
   (* the remaining cases are effect-related, no need to prettify for now *)
-  | s -> pp_print_string ppf (string_of_staged_spec (Untypehip.untype_staged_spec s))
+| s -> pp_print_string ppf (string_of_staged_spec s)
 and pp_try_catch_lemma ppf (head, cont, summary) =
   Format.(fprintf ppf "@[TRY@ %a@ %a@ =>@ %a@]"
     pp_staged_spec head

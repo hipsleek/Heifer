@@ -77,10 +77,12 @@ let rec z3_sort_of_typ ctx typ =
     | Unit -> unit_sort ctx
     | TVar _ (* Any type variables encountered at this point can be instantiated with anything, so just use Int for now. *)
     | Lamb (* case carried over from old term_to_expr *)
+    (* experimental fix, since lambda-typed terms still appear, even if they aren't used as functions *)
+    | Arrow _
     | Int -> Z3.Arithmetic.Integer.mk_sort ctx
     | Bool -> Z3.Boolean.mk_sort ctx
     | TyString -> Z3.Seq.mk_string_sort ctx
-    | Arrow _ -> raise (Invalid_argument (Printf.sprintf "z3_sort_of_typ: type %s not supported" (string_of_type typ)))
+    (* | Arrow _ -> raise (Invalid_argument (Printf.sprintf "z3_sort_of_typ: type %s not supported" (string_of_type typ))) *)
   end
 
 let get_datatype_func ctx typ s =

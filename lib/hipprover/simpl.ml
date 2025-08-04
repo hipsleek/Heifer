@@ -8,7 +8,7 @@ open Syntax
 let term_num_folding_rules = 
   let num_constant_folding_rule op f =
     let open Rules.Term in
-    dynamic_rule (binop op (uvar "a") (uvar "b"))
+    dynamic_rule (binop op (uvar "a" ~typ:Int) (uvar "b" ~typ:Int))
       (fun sub ->
         let a = of_uterm (sub "a") in
         let b = of_uterm (sub "b") in

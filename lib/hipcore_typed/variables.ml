@@ -3,7 +3,7 @@ open Syntax
 
 let res_var ~typ = var "res" ~typ
 
-let eq_res ?(typ = Any) t = Atomic (EQ, res_var ~typ, t)
+let eq_res ?(typ = Any) t = eq (res_var ~typ) t
 
 let is_eq_res = function
   | Atomic (EQ, {term_desc = Var "res"; _}, _)

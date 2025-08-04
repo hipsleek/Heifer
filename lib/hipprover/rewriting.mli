@@ -12,6 +12,7 @@ type uterm =
   | Heap of kappa
   | Term of term
   | Binder of binder
+  | Type of typ
 
 val string_of_uterm : uterm -> string
 
@@ -112,8 +113,13 @@ module Rules :
       dynamic rules. There are no context patterns or higher-order unification.
       A pattern like (bind x x _) will not unify due to (a dynamic) type mismatch. *)
     module Binder : sig
-      val uvar : string -> binder
+      val uvar : ?typ:typ -> string -> binder
       val uvar_untyped : string -> string
       val of_uterm : uterm -> binder
+    end
+
+    module Type : sig
+      val uvar : string -> typ
+      val of_uterm : uterm -> typ
     end
   end
