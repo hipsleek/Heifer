@@ -488,6 +488,10 @@ and unify_type : UF.store -> typ unif -> typ unif -> unit option =
       else
         let* _ = sequence2 (fun (t1, t2) -> unify_var st (Type t1, e1) (Type t2, e2)) args1 args2 in
         Some ()
+    | Arrow (src1, dst1), Arrow (src2, dst2) ->
+        let* _ = unify_var st (Type src1, e1) (Type src2, e2) in
+        let* _ = unify_var st (Type dst1, e1) (Type dst2, e2) in
+        Some ()
     (* case when there is nothing to unify *)
     | _, Any | Any, _ -> Some ()
     | t1, t2 when t1 = t2 -> Some ()

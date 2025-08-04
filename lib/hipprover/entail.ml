@@ -1,6 +1,7 @@
 open Hipcore_typed
 open Typedhip
 open Pretty
+open With_types
 open Hipcore.Common
 open Hipcore.Types
 open Debug
@@ -97,13 +98,22 @@ let term_uvar_of_binder b =
   Rewriting.Rules.Term.uvar (ident_of_binder b) ~typ:(type_of_binder b)
 
 let pred_to_rule pred =
-  let params = pred.p_params |> List.map term_uvar_of_binder in
+  (* Replace the type variables in the parameters with uvars. *)
+  let type_vars_in_pred = Subst.(pred.p_params |> List.map (fun p -> Hipcore.Types.free_type_vars (type_of_binder p) |> SSet.of_list))
+    |> SSet.concat in
+  let type_uvars = type_vars_in_pred
+    |> SSet.to_list
+    |> List.map (fun tv -> (tv, Rewriting.Rules.Type.uvar tv)) in
+  (* Replace the parameters of the predicate with uvars. *)
+  let params = pred.p_params |> List.map term_uvar_of_binder |> List.map (Subst.subst_types Sctx_term type_uvars) in
   let lhs = HigherOrder (pred.p_name, params) in
   let rhs =
     let bs =
       List.map (fun p -> (p, Rewriting.Rules.Term.uvar p)) (List.map ident_of_binder pred.p_params)
     in
-    Subst.subst_free_vars bs pred.p_body
+    pred.p_body
+    |> Subst.subst_free_vars bs
+    |> Subst.subst_types Sctx_staged type_uvars
   in
   (pred.p_name, Rewriting.Rules.Staged.rule lhs rhs)
 

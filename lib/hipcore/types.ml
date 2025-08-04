@@ -51,7 +51,7 @@ let is_concrete_type t = match t with TVar _ -> false | _ -> true
 
 let rec free_type_vars t =
   match t with
-  | TVar _ -> [t]
+  | TVar v -> [v]
   | TConstr (_, args) -> (List.concat_map free_type_vars args)
   | Arrow (t1, t2) -> (free_type_vars t1) @ (free_type_vars t2)
   | _ -> []
@@ -145,8 +145,8 @@ module TEnv = struct
 
   (** Check if t is a fully concrete type. *)
   let has_concrete_type m t = concretize m t |> Option.is_some
-
 end
+
 type abs_typ_env = {
   (* formula variable -> type, which may be a variable *)
   vartypes: typ SMap.t;

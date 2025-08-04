@@ -1,6 +1,7 @@
 open Typedhip
 open Syntax
 open Hipcore.Common
+open Hipcore.Types
 open Hipcore.Variables
 open Rewrite_context
 
@@ -145,6 +146,40 @@ let subst_free_vars_in (type ctx_t) (ctx_type : ctx_t subst_context) (bindings :
 
 let subst_free_vars_term = subst_free_vars_in Sctx_term
 let subst_free_vars = subst_free_vars_in Sctx_staged
+
+let subst_types (type ctx_t) (ctx_type : ctx_t subst_context) (bindings : (string * typ) list) (ctx : ctx_t) =
+  let subst_visitor = object
+    inherit [_] map_spec
+
+    method! visit_TVar bindings v =
+      match List.assoc_opt v bindings with
+      | Some t -> t
+      | None -> TVar v
+
+  end
+  in
+  let result : ctx_t = match ctx_type with
+  | Sctx_staged -> subst_visitor#visit_staged_spec bindings ctx
+  | Sctx_term -> subst_visitor#visit_term bindings ctx
+  | Sctx_pure -> subst_visitor#visit_pi bindings ctx
+  | Sctx_heap -> subst_visitor#visit_kappa bindings ctx in
+  result
+
+let free_type_vars (type ctx_type) (ctx_type : ctx_type subst_context) (ctx : ctx_type) =
+  let visitor =
+    object (_)
+      inherit [_] reduce_spec
+      method zero = SSet.empty
+      method plus = SSet.union
+
+      method! visit_TVar () x = SSet.singleton x
+    end
+  in
+  match ctx_type with
+  | Sctx_staged -> visitor#visit_staged_spec () ctx
+  | Sctx_term -> visitor#visit_term () ctx
+  | Sctx_heap -> visitor#visit_kappa () ctx
+  | Sctx_pure -> visitor#visit_pi () ctx
 
 let%expect_test "subst" =
   let open Pretty in
