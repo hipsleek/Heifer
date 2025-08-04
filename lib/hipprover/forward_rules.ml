@@ -350,7 +350,7 @@ let rec forward (env: fvenv) (expr : core_lang): staged_spec * fvenv =
       failwith "CPerform"
   | CMatch (_, _, discriminant, _, cases) ->
       let v = fresh_variable ~v:"match" () in
-      let t = var ~typ:expr.core_type v in
+      let t = var ~typ:discriminant.core_type v in
       let discriminant_spec, env = forward env discriminant in
       let handle_case (env, past_cases) case =
         let pat = case.ccase_pat in
@@ -370,9 +370,6 @@ let rec forward (env: fvenv) (expr : core_lang): staged_spec * fvenv =
         in
         case_spec, (env, (pat, guard)::past_cases)
       in
-      (* TODO in the presence of general patterns this is actually wrong, every pattern should exclude the possibility of the patterns preceding it
-         in the match statement
-         this needs some way to find the complement of a pattern, since spec doesn't allow for negative exists (whether expliclitly or via forall + conjunction) *)
   let cases_spec, (env, _) = Lists.map_state handle_case (env, []) cases in
       let disj_spec = Syntax.disj cases_spec in
       Bind (v, discriminant_spec, disj_spec), env
