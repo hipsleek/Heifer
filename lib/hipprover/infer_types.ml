@@ -328,6 +328,11 @@ let simplify_types_pi pi env =
 let simplify_types_staged_spec ss env =
   simplify_type_visitor#visit_staged_spec env ss, env
 
+let infer_types_term ?hint t : term using_env =
+  let* t = infer_types_term ?hint t in
+  let* env = State.get in
+  return (simplify_type_visitor#visit_term env t)
+
 let infer_types_pi pi : pi using_env =
   let* pi = infer_types_pi pi in
   simplify_types_pi pi

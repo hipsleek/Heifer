@@ -8,32 +8,52 @@ open Normalize*)
 (* TODO should this module be moved to Rewriting? then the prover would depend on the parser *)
 module Rewrite = struct
   open Ocamlfrontend.Annotation
+  open Hipcore_typed.Retypehip
+  open Hipprover.Infer_types
   open Hipprover.Rewriting
 
-  let as_typed retyper f =
-    fun a b -> f (retyper a) (retyper b)
+  let pipeline (parser, retyper, inferrer) =
+    let typed_parser s =
+      s
+      |> parser
+      |> retyper
+      |> (fun s ->
+          let typed, _ = Hipprover.Infer_types.with_empty_env begin
+            inferrer s
+          end in
+          typed)
+    in
+    typed_parser
 
   module Staged = struct
-    let (==>) = as_typed (fun s -> Hipcore_typed.Retypehip.retype_staged_spec (parse_staged_spec s)) Rules.Staged.rule
+    let (==>) lhs rhs = 
+      let p = pipeline (parse_staged_spec, retype_staged_spec, infer_types_staged_spec) in
+      Rules.Staged.rule (p lhs) (p rhs)
   end
 
   module Pure = struct
-    let (==>) = as_typed (fun s -> Hipcore_typed.Retypehip.retype_pi (parse_pi s)) Rules.Pure.rule
+    let (==>) lhs rhs = 
+      let p = pipeline (parse_pi, retype_pi, infer_types_pi) in
+      Rules.Pure.rule (p lhs) (p rhs)
   end
 
   module Heap = struct
-    let (==>) = as_typed (fun s -> Hipcore_typed.Retypehip.retype_kappa (parse_kappa s)) Rules.Heap.rule
+    let (==>) lhs rhs = 
+      let p = pipeline (parse_kappa, retype_kappa, infer_types_kappa) in
+      Rules.Heap.rule (p lhs) (p rhs)
   end
 
   module Term = struct
-    let (==>) = as_typed (fun s -> Hipcore_typed.Retypehip.retype_term (parse_term s)) Rules.Term.rule
+    let (==>) lhs rhs = 
+      let p = pipeline (parse_term, retype_term, infer_types_term ?hint:None) in
+      Rules.Term.rule (p lhs) (p rhs)
   end
 end
 open Rewrite
 
 let%expect_test "rewriting" =
   let open Hipprover.Rewriting in
-  let spec s = s |> Ocamlfrontend.Annotation.parse_staged_spec |> Hipcore_typed.Retypehip.retype_staged_spec in
+  let spec s = pipeline (Ocamlfrontend.Annotation.parse_staged_spec, Hipcore_typed.Retypehip.retype_staged_spec, Hipprover.Infer_types.infer_types_staged_spec) s in
   let test rule target =
     let b1 = rewrite_all rule target in
     Format.printf "rewrite %s@." (string_of_uterm target);
