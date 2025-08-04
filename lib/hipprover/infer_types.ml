@@ -50,11 +50,11 @@ let rec unify_types t1 t2 : unit using_env =
     debug ~at:5 ~title:"unify" "%s ~ %s" (string_of_type t1) (string_of_type t2);
     match TEnv.(simplify env.equalities t1, simplify env.equalities t2) with
     (* case where one of t1, t2 is a type variable: *)
-    | TVar _ as var, simp | simp, (TVar _ as var) -> 
+    | TVar var_name as var, simp | simp, (TVar var_name as var) -> 
         TEnv.equate env.equalities var simp;
         (* check for cycles in the equality map *)
         let var_simplified = TEnv.simplify env.equalities var in
-        if (compare_typ var var_simplified <> 0) && List.mem var (free_type_vars var_simplified)
+        if (compare_typ var var_simplified <> 0) && List.mem var_name (free_type_vars var_simplified)
         then raise (Cyclic_type (var, var_simplified))
         else (), env
     (* case where t1 and t2 are both type constructors: *)
@@ -75,6 +75,7 @@ let assert_var_has_type (v, v_typ : binder) t env =
   match SMap.find_opt v env.vartypes with
   | None -> (), { env with vartypes = SMap.add v t env.vartypes }
   | Some t1 -> (* unify_types t t1 env (* this probably also works*) *)
+    begin
     if
       TEnv.has_concrete_type env.equalities t
       && TEnv.has_concrete_type env.equalities t1
@@ -88,7 +89,8 @@ let assert_var_has_type (v, v_typ : binder) t env =
         failwith
           (Format.asprintf "%s already has type %s but was used as type %s" v
              (string_of_type t1) (string_of_type t)))
-    else TEnv.equate env.equalities t1 t;
+    else let (), _ = unify_types t1 t env in ()
+    end;
     (), env
   end
 
@@ -272,7 +274,6 @@ and infer_types_term ?(hint : typ option) term : term using_env =
   return {term_desc; term_type}
 
 let rec infer_types_pi pi : pi using_env =
-  debug ~at:5 ~title:"infer_types_pi" "%s" (string_of_pi pi);
   let@ _ =
        span_env (fun r ->
            debug ~at:5 ~title:"infer_types_pi" "%s -| %s" (string_of_pi pi)
