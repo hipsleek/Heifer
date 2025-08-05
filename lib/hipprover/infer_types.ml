@@ -88,7 +88,7 @@ let assert_var_has_type (v, v_typ : binder) t env =
       if compare_typ t' t1' <> 0 then
         failwith
           (Format.asprintf "%s already has type %s but was used as type %s" v
-             (string_of_type t1) (string_of_type t)))
+             (string_of_type t1') (string_of_type t')))
     else let (), _ = unify_types t1 t env in ()
     end;
     (), env

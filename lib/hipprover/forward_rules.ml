@@ -330,7 +330,7 @@ let rec forward (env: fvenv) (expr : core_lang): staged_spec * fvenv =
   | CFunCall (name, args) ->
       HigherOrder (name, args), env
   | CRef t ->
-      let x = (fresh_variable (), t.term_type) in
+      let x = (fresh_variable (), TConstr ("ref", [t.term_type])) in
       Exists (x, NormalReturn (res_eq (var_of_binder x), PointsTo (ident_of_binder x, t))), env
   | CWrite (x, t) ->
       let v = (fresh_variable (), t.term_type) in

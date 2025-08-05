@@ -97,7 +97,7 @@ let rec hip_type_of_type_expr (texpr: Compiler_types.type_expr) =
   | Tarrow (_, t1, t2, _) -> Arrow (hip_type_of_type_expr t1, hip_type_of_type_expr t2)
   (* TODO implement ref types *)
   | Tconstr (path, [], _) -> begin
-      match (Path.name path) with
+      match (Path.last path) with
       | "int" -> Int
       | "bool" -> Bool
       | "string" -> TyString
@@ -105,7 +105,7 @@ let rec hip_type_of_type_expr (texpr: Compiler_types.type_expr) =
       | other -> TConstr (other, [])
     end
   | Tconstr (path, args, _) -> begin
-    TConstr (Path.name path, List.map hip_type_of_type_expr args)
+    TConstr (Path.last path, List.map hip_type_of_type_expr args)
     end
   | _ -> failwith "Unknown type expression"
   

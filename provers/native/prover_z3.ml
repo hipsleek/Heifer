@@ -47,6 +47,10 @@ let rec z3_sort_of_typ ctx typ =
     let {ctx; _} = z3_ctx in
     match typ with
     | Any -> failwith "SMT formulas must be typed"
+    | TConstr ("ref", _) ->
+        (* at this level we should not be dealing with references as heap locations;
+           so just treat them as Ints *)
+        Z3.Arithmetic.Integer.mk_sort ctx
     | TConstr (type_name, args) ->
         let type_def = try Globals.find_type_decl type_name
           with
