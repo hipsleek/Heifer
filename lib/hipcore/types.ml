@@ -147,6 +147,21 @@ module TEnv = struct
   let has_concrete_type m t = concretize m t |> Option.is_some
 end
 
+(** Check if a value of type [src] can be coerced into a value
+  of type [dst]. *)
+let rec can_coerce_into src dst =
+  match src, dst with
+  | _, TVar _ | _, Any -> true
+  | t1, t2 when t1 = t2 -> true
+  | Arrow (a1, b1), Arrow (a2, b2) ->
+    (* codomain is intentionally contravariant *)
+    can_coerce_into a1 a2 && can_coerce_into b2 b1
+    (* assume all types are covariant for now *)
+  | TConstr (name1, args1), TConstr (name2, args2) when name1 = name2 ->
+      List.length args1 = List.length args2
+      && List.for_all2 can_coerce_into args1 args2
+  | _, _ -> false
+
 type abs_typ_env = {
   (* formula variable -> type, which may be a variable *)
   vartypes: typ SMap.t;

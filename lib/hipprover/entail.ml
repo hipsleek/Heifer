@@ -1116,7 +1116,9 @@ let rec apply_ent_rule ?name : tactic =
             ~title:"ERROR: exists on the right, subst step"
             ~default:(fun _ -> fail)
           in
-          let f4 = Subst.subst_free_vars [(ident_of_binder x, c)] f4 in
+          if Hipcore.Types.can_coerce_into c.term_type (type_of_binder x) then
+          (* copy the binder's type to allow for polymorphic constants in try_constants *)
+          let f4 = Subst.subst_free_vars [(ident_of_binder x, term c.term_desc (type_of_binder x))] f4 in
           fun k1 ->
             let@ _ = suppress_z3_exn
               ~title:"ERROR: exists on the right, entailment step"
@@ -1127,7 +1129,8 @@ let rec apply_ent_rule ?name : tactic =
                 ~title:(Format.asprintf "ent: exists on the right; [%s/%s]" (string_of_term c) (string_of_binder x))
                 (pctx, f1, f2))
             in
-            entailment_search ?name (pctx, f1, f4) k1)
+            entailment_search ?name (pctx, f1, f4) k1
+          else (fun _ -> fail))
     in
     disj_ choices k
   | ForAll (x, f3), f2 ->
@@ -1138,7 +1141,8 @@ let rec apply_ent_rule ?name : tactic =
             ~title:"ERROR: forall on the left, subst step"
             ~default:(fun _ -> fail)
           in
-          let f3 = Subst.subst_free_vars [((ident_of_binder x), c)] f3 in
+          if Hipcore.Types.can_coerce_into c.term_type (type_of_binder x) then
+          let f3 = Subst.subst_free_vars [((ident_of_binder x), term c.term_desc (type_of_binder x))] f3 in
           fun k1 ->
             let@ _ = suppress_z3_exn
               ~title:"ERROR: forall on the left, entailment step"
@@ -1149,7 +1153,8 @@ let rec apply_ent_rule ?name : tactic =
                 ~title:(Format.asprintf "ent: forall on the left; [%s/%s]" (string_of_term c) (string_of_binder x))
                 (pctx, f1, f2))
             in
-            entailment_search ?name (pctx, f3, f2) k1)
+            entailment_search ?name (pctx, f3, f2) k1
+          else (fun _ -> fail))
     in
     disj_ choices k
   (* bind, which requires alpha equivalence *)
