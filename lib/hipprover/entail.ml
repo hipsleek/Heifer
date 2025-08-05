@@ -268,7 +268,7 @@ let derive_predicate m_name m_params f =
 let lambda_to_rule m_name m_params f =
   derive_predicate m_name m_params f |> pred_to_rule
 
-let try_constants pctx = [Syntax.term (Const Nil) (TConstr ("list", [Any]))] @ pctx.constants
+let try_constants pctx = Syntax.[num 0; term (Const Nil) (TConstr ("list", [Any]))] @ pctx.constants
 
 (** Tactics combine the state and list monads *)
 module Tactic : sig
