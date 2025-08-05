@@ -97,19 +97,27 @@ let has_induction_hypothesis pctx name =
 let term_uvar_of_binder b =
   Rewriting.Rules.Term.uvar (ident_of_binder b) ~typ:(type_of_binder b)
 
+let type_vars_of_params params =
+  params
+  |> List.map (fun p -> Hipcore.Types.free_type_vars (type_of_binder p) |> SSet.of_list)
+  |> SSet.concat
+  |> SSet.to_list
+
+let uvar_bindings ?(type_subs = []) binders =
+    binders
+    |> List.map (fun p -> (ident_of_binder p,
+      Rewriting.Rules.Term.uvar (ident_of_binder p) ~typ:(type_of_binder p |> Subst.subst_types_in_type type_subs)))
+
 let pred_to_rule pred =
   (* Replace the type variables in the parameters with uvars. *)
-  let type_vars_in_pred = Subst.(pred.p_params |> List.map (fun p -> Hipcore.Types.free_type_vars (type_of_binder p) |> SSet.of_list))
-    |> SSet.concat in
+  let type_vars_in_pred = type_vars_of_params pred.p_params in
   let type_uvars = type_vars_in_pred
-    |> SSet.to_list
     |> List.map (fun tv -> (tv, Rewriting.Rules.Type.uvar tv)) in
   (* Replace the parameters of the predicate with uvars. *)
   let params = pred.p_params |> List.map term_uvar_of_binder |> List.map (Subst.subst_types Sctx_term type_uvars) in
   let lhs = HigherOrder (pred.p_name, params) in
   let rhs =
-    let bs =
-      List.map (fun p -> (p, Rewriting.Rules.Term.uvar p)) (List.map ident_of_binder pred.p_params)
+    let bs = uvar_bindings ~type_subs:type_uvars pred.p_params
     in
     pred.p_body
     |> Subst.subst_free_vars bs
@@ -118,11 +126,11 @@ let pred_to_rule pred =
   (pred.p_name, Rewriting.Rules.Staged.rule lhs rhs)
 
 let lemma_to_rule lemma =
-  let bs =
-    List.map (fun p -> (ident_of_binder p, term_uvar_of_binder p)) lemma.l_params
-  in
-  let lhs = Subst.subst_free_vars bs lemma.l_left in
-  let rhs = Subst.subst_free_vars bs lemma.l_right in
+  let type_vars = type_vars_of_params lemma.l_params in
+  let type_uvar_bindings = type_vars |> List.map (fun tv -> (tv, Rewriting.Rules.Type.uvar tv)) in
+  let bs = uvar_bindings ~type_subs:type_uvar_bindings lemma.l_params in
+  let lhs = Subst.subst_free_vars bs lemma.l_left |> Subst.subst_types Sctx_staged type_uvar_bindings in
+  let rhs = Subst.subst_free_vars bs lemma.l_right |> Subst.subst_types Sctx_staged type_uvar_bindings in
   (lemma.l_name, Rewriting.Rules.Staged.rule lhs rhs)
 
 let create_pctx cp =
