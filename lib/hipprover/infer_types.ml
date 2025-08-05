@@ -311,13 +311,25 @@ let rec infer_types_pi pi : pi using_env =
 (* re-declare to insert one final type simplification pass *)
 
 let simplify_type_visitor = object (self)
+  (* go over all types in the AST and simplify them. *)
   inherit [_] map_spec
+  (* the main ones *)
   method! visit_term env term =
     let result = {term_desc = self#visit_term_desc env term.term_desc;
     term_type = 
       TEnv.simplify env.equalities term.term_type} in
     debug ~at:5 ~title:"inference result" "%s : %s\n" (string_of_term result) (string_of_type result.term_type);
     result
+
+  method! visit_core_lang env core =
+    {core_desc = self#visit_core_lang_desc env core.core_desc; core_type = TEnv.simplify env.equalities core.core_type}
+
+  method! visit_pattern env pat =
+    {pattern_desc = self#visit_pattern_desc env pat.pattern_desc; pattern_type = TEnv.simplify env.equalities pat.pattern_type}
+
+  method! visit_binder env b =
+    (ident_of_binder b, TEnv.simplify env.equalities (type_of_binder b))
+
 end
 
 (** Given an environment, and a typed term, perform simplifications
@@ -354,6 +366,8 @@ let rec infer_types_kappa k : kappa using_env =
       return (SepConj (k1, k2))
   | PointsTo(l, v) ->
     let* v = infer_types_term v in
+    let ref_type = TConstr ("ref", [v.term_type]) in
+    let* _ = assert_var_has_type (l, ref_type) ref_type in
     return (PointsTo (l, v))
 
 let rec infer_types_state (p, k) : state using_env =
@@ -405,6 +419,11 @@ let rec infer_types_staged_spec ss : staged_spec using_env =
   in
   (* assert (Untypehip.untype_staged_spec typed_spec = Untypehip.untype_staged_spec ss); *)
   return typed_spec
+
+let infer_types_staged_spec ss : staged_spec using_env =
+  let* ss = infer_types_staged_spec ss in
+  let* env = State.get in
+  return (simplify_type_visitor#visit_staged_spec env ss)
 
 let infer_types_pair_staged_spec p1 p2 : (staged_spec * staged_spec) using_env =
   let* p1 = infer_types_staged_spec p1 in
