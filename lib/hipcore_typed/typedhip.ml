@@ -141,12 +141,12 @@ and staged_spec =
 and typ = Types.typ = 
   | Any
   | Unit
-  | TConstr of string * typ list
   | Int
   | Bool
   | TyString
   | Lamb
   | Arrow of typ * typ
+  | TConstr of string * typ list
   | TVar of string
 
 [@@deriving

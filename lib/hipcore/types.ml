@@ -1,15 +1,21 @@
 
 type typ =
+  (* The order of constructors is important:
+    - base types
+    - type constructors
+    - type variables
+    This is because type unification reduces a type to its "simplest form" given constraints,
+    and constructors earlier in the list are treated as "simpler". *)
   (* dynamic type that can unify with anything else. this is an escape hatch for extensions that cannot be typed under the standard ocaml type system *)
   | Any
   | Unit
-  | TConstr of string * typ list
   | Int
   | Bool
   | TyString
   | Lamb
   (* TODO do we need a Poly variant for generics? *)
   | Arrow of typ * typ
+  | TConstr of string * typ list
   | TVar of string (* this is last, so > concrete types *)
 
 [@@deriving show { with_path = false }, ord]
@@ -116,6 +122,8 @@ module TEnv = struct
       | TConstr (constr, args) -> 
           (* recurse into the constructor's arguments *)
           TConstr (constr, List.map (inner ~do_not_expand) args)
+      | Arrow (src, dst) ->
+          Arrow (inner ~do_not_expand src, inner ~do_not_expand dst)
       | _ -> t
     in
     inner t
@@ -141,6 +149,11 @@ module TEnv = struct
             | Some arg, Some acc -> Some (arg::acc)) concrete_args (Some [])
         in
         concrete_args |> Option.map (fun args -> TConstr (constr, args))
+    | Arrow (src, dst) ->
+        let (let*) f o = Option.bind f o in
+        let* src = concretize m src in
+        let* dst = concretize m dst in
+        Some (Arrow (src, dst))
     | _ -> Some t
 
   (** Check if t is a fully concrete type. *)
