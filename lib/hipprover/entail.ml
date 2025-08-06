@@ -232,6 +232,16 @@ let check_pure_obligation left right =
           (string_of_pi left) (string_of_pi right)
           (string_of_result string_of_bool r))
   in
+  (* There may be unifications not known to the type checker, due to things like
+     the untyped extensions. Perform another typechecking phase to perform these
+     unifications. *)
+  let (left, right), _ =
+    let open Infer_types in
+    with_empty_env begin
+      let* left, right = infer_types_pair_pi (left, right) in
+      return (left, right)
+    end
+  in
   let res = Provers.entails_exists left [] right in
   let open Provers_common in
   debug ~at:4 ~title:"prover detailed result" "%s" (string_of_prover_result res);

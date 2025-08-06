@@ -373,6 +373,7 @@ let infer_types_pair_pi (p1, p2) : (pi * pi) using_env =
   let* p2 = infer_types_pi p2 in
   (* we may have found new unifications while inferring p2, so simplify p1 *)
   let* p1 = simplify_types_pi p1 in
+  let* p2 = simplify_types_pi p2 in
   return (p1, p2)
 
 
@@ -449,6 +450,7 @@ let infer_types_pair_staged_spec p1 p2 : (staged_spec * staged_spec) using_env =
   let* p2 = infer_types_staged_spec p2 in
   (* we may have found new unifications while inferring p2, so simplify p1 *)
   let* p1 = simplify_types_staged_spec p1 in
+  let* p2 = simplify_types_staged_spec p2 in
   return (p1, p2)
 
 (** Output a list of types after being unified in some environment. Mainly
