@@ -232,12 +232,7 @@ let check_pure_obligation left right =
           (string_of_pi left) (string_of_pi right)
           (string_of_result string_of_bool r))
   in
-  let open Infer_types in
-  let (left, right), tenv =
-    (* handle the environment manually as it's shared between both sides *)
-    with_empty_env (infer_types_pair_pi (left, right))
-  in
-  let res = Provers.entails_exists (concrete_type_env tenv) left [] right in
+  let res = Provers.entails_exists left [] right in
   let open Provers_common in
   debug ~at:4 ~title:"prover detailed result" "%s" (string_of_prover_result res);
   match res with
