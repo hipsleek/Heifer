@@ -361,6 +361,9 @@ let infer_types_term ?hint t : term using_env =
   let* env = State.get in
   return (simplify_type_visitor#visit_term env t)
 
+let simplify_types_core_lang core env =
+  simplify_type_visitor#visit_core_lang env core, env
+
 let infer_types_pi pi : pi using_env =
   let* pi = infer_types_pi pi in
   simplify_types_pi pi

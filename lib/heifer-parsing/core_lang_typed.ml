@@ -253,17 +253,27 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
       |> List.map (fun (name, typ) -> Retypehip.binder_of_ident ~typ name) in
 
     (* typecheck the specifications *)
-    let spec = spec |> Option.map (fun spec ->
-      let spec, _ = Hipprover.Infer_types.(
-        with_empty_env begin
-          with_vartypes (List.to_seq ["res", return_type]) begin
-            infer_types_staged_spec (Retypehip.retype_staged_spec spec)
+    begin
+    match spec with
+    | None -> CLambda (bound_vars, None, e) |> clang_with_expr_type
+    | Some spec ->
+        let open Hipprover.Infer_types in
+        let result, _ =
+          with_empty_env begin
+            with_vartypes (List.to_seq ["res", return_type]) begin
+              let* spec = infer_types_staged_spec (Retypehip.retype_staged_spec spec) in
+              let simplify_type t env = Types.(TEnv.simplify env.equalities t), env in
+              let* _ = Utils.State.map ~f:(fun b -> assert_var_has_type b (type_of_binder b)) bound_vars in
+              let* bound_vars = Utils.State.map ~f:(fun b -> 
+                let* typ = simplify_type (type_of_binder b) in
+                return (ident_of_binder b, typ)) bound_vars in
+              let* e = simplify_types_core_lang e in
+              return (CLambda (bound_vars, Some spec, e) |> clang_with_expr_type)
+            end
           end
-        end
-      ) 
-      in spec)
-    in
-    CLambda (bound_vars, spec, e) |> clang_with_expr_type
+        in
+        result
+    end
 
   (* shift and shift0 *)
   | Texp_apply ({exp_desc = Texp_ident (_, {txt = Lident name; _}, _); _}, args) when List.mem name ["shift"; "shift0"] ->
@@ -545,17 +555,35 @@ let transform_str bound_names (s : structure_item) =
       in
       let e = transformation (fn_name :: formals @ bound_names) body in
       (* typecheck the specifications *)
-      let spec = spec |> Option.map (fun spec ->
-        let open Hipprover.Infer_types in
-        let spec, _ =
-          with_empty_env begin
-            with_vartypes (List.to_seq ["res", return_type]) begin
-              infer_types_staged_spec spec
+      begin
+        match spec with
+        | None -> Some (Meth (fn_name, typed_formals, None, e, tactics, pure_fn_info))
+        | Some spec ->
+          let open Hipprover.Infer_types in
+          let result, _ = with_empty_env begin
+              with_vartypes (List.to_seq (["res", return_type] @ typed_formals)) begin
+                let* spec = infer_types_staged_spec spec in
+                let simplify_type t env = Types.(TEnv.simplify env.equalities t), env in
+                (* unify the params with type information found in the spec *)
+                (* simplify to get the params' new types *)
+                let* params = Utils.State.map
+                  ~f:(fun param ->
+                      let* typ = simplify_type (type_of_binder param) in
+                      return (ident_of_binder param, typ))
+                typed_formals in
+                let* e = simplify_types_core_lang e in
+                let* typing_env = Utils.State.get in
+                let pure_fn_info = Option.map (fun pure_fn_info ->
+                  let params, ret = pure_fn_info in
+                  List.map (fun t -> simplify_type t typing_env |> fst) params, simplify_type ret typing_env |> fst)
+                pure_fn_info
+                in
+                return (Some (Meth (fn_name, params, Some spec, e, tactics, pure_fn_info)))
+              end
             end
-          end
-        in spec)
-      in
-      Some (Meth (fn_name, typed_formals, spec, e, tactics, pure_fn_info))
+          in
+          result
+      end
     | Texp_apply _ -> None 
     | _ -> failwith (Format.asprintf "not a function binding: %a" Pprintast.expression (Untypeast.untype_expression fn))
     end
