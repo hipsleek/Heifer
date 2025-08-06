@@ -129,6 +129,8 @@ let get_primitive_fn_type f =
   | "=" -> ([Int; Int], Bool)
   | _ -> failwith (Format.asprintf "unknown function: %s" f)
 
+let wrap_as_ref t = TConstr ("ref", [t])
+
 let rec infer_types_core_lang e : core_lang using_env =
   let* core_desc, core_type = match e.core_desc with
   | CValue t -> 
@@ -156,10 +158,24 @@ let rec infer_types_core_lang e : core_lang using_env =
     (* TODO should this be added? *)
     (* let* _ = unify_types e1.core_type Unit in *)
     return (CSequence (e1, e2), e2.core_type)
-  | CIfElse (_, _, _) -> failwith "CIfELse"
-  | CWrite (_, _) -> failwith "CWrite"
-  | CRef _ -> failwith "CRef"
-  | CRead _ -> failwith "CRead"
+  | CIfElse (cond, if_true, if_false) ->
+      let* cond = infer_types_pi cond in
+      let* if_true = infer_types_core_lang if_true in
+      let* if_false = infer_types_core_lang if_false in
+      let* _ = unify_types if_true.core_type if_false.core_type in
+      return (CIfElse (cond, if_true, if_false), if_true.core_type)
+  | CWrite (loc, value) ->
+      let* value = infer_types_term value in
+      let loc_type = wrap_as_ref value.term_type in
+      let* _ = assert_var_has_type (loc, loc_type) loc_type in
+      return (CWrite (loc, value), Unit)
+  | CRef value ->
+      let* value = infer_types_term value in
+      return (CRef value, wrap_as_ref value.term_type)
+  | CRead value ->
+      let val_type = fresh_type_var () in
+      let* _ = assert_var_has_type (value, wrap_as_ref val_type) (wrap_as_ref val_type) in
+      return (CRead value, val_type)
   | CAssert (_, _) -> failwith "CAssert"
   | CPerform (_, _) -> failwith "CPerform"
   | CMatch (_, _, _, _, _) -> failwith "CMatch"
@@ -273,7 +289,7 @@ and infer_types_term ?(hint : typ option) term : term using_env =
   let* _ = State.mutate simplify_vartypes in
   return {term_desc; term_type}
 
-let rec infer_types_pi pi : pi using_env =
+and infer_types_pi pi : pi using_env =
   let@ _ =
        span_env (fun r ->
            debug ~at:5 ~title:"infer_types_pi" "%s -| %s" (string_of_pi pi)
@@ -366,7 +382,7 @@ let rec infer_types_kappa k : kappa using_env =
       return (SepConj (k1, k2))
   | PointsTo(l, v) ->
     let* v = infer_types_term v in
-    let ref_type = TConstr ("ref", [v.term_type]) in
+    let ref_type = wrap_as_ref v.term_type in
     let* _ = assert_var_has_type (l, ref_type) ref_type in
     return (PointsTo (l, v))
 
