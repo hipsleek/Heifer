@@ -1,15 +1,21 @@
 
 type typ =
+  (* The order of constructors is important:
+    - base types
+    - type constructors
+    - type variables
+    This is because type unification reduces a type to its "simplest form" given constraints,
+    and constructors earlier in the list are treated as "simpler". *)
   (* dynamic type that can unify with anything else. this is an escape hatch for extensions that cannot be typed under the standard ocaml type system *)
   | Any
   | Unit
-  | TConstr of string * typ list
   | Int
   | Bool
   | TyString
   | Lamb
   (* TODO do we need a Poly variant for generics? *)
   | Arrow of typ * typ
+  | TConstr of string * typ list
   | TVar of string (* this is last, so > concrete types *)
 
 [@@deriving show { with_path = false }, ord]
@@ -51,7 +57,7 @@ let is_concrete_type t = match t with TVar _ -> false | _ -> true
 
 let rec free_type_vars t =
   match t with
-  | TVar _ -> [t]
+  | TVar v -> [v]
   | TConstr (_, args) -> (List.concat_map free_type_vars args)
   | Arrow (t1, t2) -> (free_type_vars t1) @ (free_type_vars t2)
   | _ -> []
@@ -116,6 +122,8 @@ module TEnv = struct
       | TConstr (constr, args) -> 
           (* recurse into the constructor's arguments *)
           TConstr (constr, List.map (inner ~do_not_expand) args)
+      | Arrow (src, dst) ->
+          Arrow (inner ~do_not_expand src, inner ~do_not_expand dst)
       | _ -> t
     in
     inner t
@@ -141,12 +149,32 @@ module TEnv = struct
             | Some arg, Some acc -> Some (arg::acc)) concrete_args (Some [])
         in
         concrete_args |> Option.map (fun args -> TConstr (constr, args))
+    | Arrow (src, dst) ->
+        let (let*) f o = Option.bind f o in
+        let* src = concretize m src in
+        let* dst = concretize m dst in
+        Some (Arrow (src, dst))
     | _ -> Some t
 
   (** Check if t is a fully concrete type. *)
   let has_concrete_type m t = concretize m t |> Option.is_some
-
 end
+
+(** Check if a value of type [src] can be coerced into a value
+  of type [dst]. *)
+let rec can_coerce_into src dst =
+  match src, dst with
+  | _, TVar _ | _, Any -> true
+  | t1, t2 when t1 = t2 -> true
+  | Arrow (a1, b1), Arrow (a2, b2) ->
+    (* codomain is intentionally contravariant *)
+    can_coerce_into a1 a2 && can_coerce_into b2 b1
+    (* assume all types are covariant for now *)
+  | TConstr (name1, args1), TConstr (name2, args2) when name1 = name2 ->
+      List.length args1 = List.length args2
+      && List.for_all2 can_coerce_into args1 args2
+  | _, _ -> false
+
 type abs_typ_env = {
   (* formula variable -> type, which may be a variable *)
   vartypes: typ SMap.t;

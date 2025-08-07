@@ -93,7 +93,7 @@ let _askZ3 _env p =
 let _valid p = not (_askZ3 SMap.empty (Not p))
 
 (* check if p1 => ex vs. p2 is valid *)
-let entails_exists _env p1 vs p2 =
+let entails_exists p1 vs p2 =
   (* TODO make use of the typing environment *)
   let f ctx =
     Jv.apply (Jv.get ctx "Not")
@@ -108,7 +108,7 @@ let entails_exists _env p1 vs p2 =
                 [|
                   Jv.of_list
                     (fun v ->
-                      Jv.call (Jv.get ctx "Int") "const" [| Jv.of_string v |])
+                      Jv.call (Jv.get ctx "Int") "const" [| Jv.of_string (ident_of_binder v) |])
                     vs;
                   build_fml p2 ctx;
                 |]);

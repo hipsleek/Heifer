@@ -7,6 +7,7 @@
                  test6: true
            test7_false: false (expected)
            test8_false: false (expected)
+                 test9: true
                  test4: true
                  test5: true
                 test61: true

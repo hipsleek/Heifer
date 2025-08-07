@@ -21,8 +21,6 @@ let summary x n
 (*@ ens res=x+n @*)
 = applyN incr x n
 
-(* disabled while types implementation is being completed *)
-(*
 let summary1_false x n
 (*@ ex r4. ens r4=x+n-1/\res=r4 @*)
 = applyN incr x n
@@ -30,4 +28,3 @@ let summary1_false x n
 let summary2_false x n
 (*@ ex r4. ens r4=x+n+1/\res=r4 @*)
 = applyN incr x n
-*)
