@@ -263,8 +263,8 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
             with_vartypes (List.to_seq ["res", return_type]) begin
               let* spec = infer_types_staged_spec (Retypehip.retype_staged_spec spec) in
               let simplify_type t env = Types.(TEnv.simplify env.equalities t), env in
-              let* _ = Utils.State.map ~f:(fun b -> assert_var_has_type b (type_of_binder b)) bound_vars in
-              let* bound_vars = Utils.State.map ~f:(fun b -> 
+              let* _ = Utils.State.map_list ~f:(fun b -> assert_var_has_type b (type_of_binder b)) bound_vars in
+              let* bound_vars = Utils.State.map_list ~f:(fun b -> 
                 let* typ = simplify_type (type_of_binder b) in
                 return (ident_of_binder b, typ)) bound_vars in
               let* e = simplify_types_core_lang e in
@@ -566,7 +566,7 @@ let transform_str bound_names (s : structure_item) =
                 let simplify_type t env = Types.(TEnv.simplify env.equalities t), env in
                 (* unify the params with type information found in the spec *)
                 (* simplify to get the params' new types *)
-                let* params = Utils.State.map
+                let* params = Utils.State.map_list
                   ~f:(fun param ->
                       let* typ = simplify_type (type_of_binder param) in
                       return (ident_of_binder param, typ))

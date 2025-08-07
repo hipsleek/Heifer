@@ -105,6 +105,13 @@ let rec intersect_two p1 p2 = match p1.pattern_desc, p2.pattern_desc with
       return (make (PConstr (name1, args)) p1.pattern_type)
   | _, _ -> []
 
+let rec pattern_bindings pat =
+  match pat.pattern_desc with
+  | PAny | PConstant _ -> []
+  | PConstr (_, args) -> List.concat_map pattern_bindings args
+  | PVar v -> [v]
+  | PAlias (pat, v) -> (v, pat.pattern_type)::(pattern_bindings pat)
+
 let deconflict_renames shared = 
   shared
     |> SMap.to_seq
@@ -185,6 +192,9 @@ module Guarded = struct
   let pi_of_pattern pat_term (pat, guard) =
     let (free_vars, pi) = pi_of_pattern pat_term pat in
     (free_vars, And (pi, eq guard ctrue))
+
+  let pattern_bindings (pat, _) =
+    pattern_bindings pat
 end
 
 (* shadow the unguarded definitions *)

@@ -15,8 +15,11 @@ val scope : ('a, 'state) state -> ('a, 'state) state
 (** Apply a function to the state. *)
 val mutate : ('state -> 'state) -> (unit, 'state) state
 
+(** Apply a pure computation to the value. *)
+val map : ('a -> 'b) -> ('a, 'state) state -> ('b, 'state) state
+
 (** Map through the elements of a list, threading state from left to right. *)
-val map : f:('a -> ('b, 'state) state) -> 'a list -> ('b list, 'state) state
+val map_list : f:('a -> ('b, 'state) state) -> 'a list -> ('b list, 'state) state
 
 (** A State-aware wrapper around Debug. *)
 module Debug : sig

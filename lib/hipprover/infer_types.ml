@@ -13,21 +13,13 @@ let span_env = State.Debug.span
 let return = State.return
 let (let*) = State.(let*)
 
-(** Run a type inference computation with an empty initial environment. *)
-let with_empty_env f = f (create_abs_env ())
-
-(** Add the following variable bindings to the inference environment. *)
-let add_vartypes vars env =
-  let f _ v1 _ = Some v1 in
-  (), { env with vartypes = Common.SMap.union f (SMap.of_seq vars) env.vartypes }
-
-(** Run a type inference computation with some added bindings.
-    The bindings are removed at the end. *)
-let with_vartypes vars f =
-  State.scope begin
-    let* _ = add_vartypes vars in
-    f
-  end
+(** Lift a stateful computation to be able to use options. *)
+let lift_opt (f : 'a -> 'b using_env) (a : 'a option) : 'b option using_env =
+  match a with
+  | Some a ->
+      let* b = f a in
+      return (Some b)
+  | None -> return None
   
 
 (** Exception raised when solver cannot unify the two types. *)
@@ -95,6 +87,22 @@ let assert_var_has_type (v, v_typ : binder) t env =
   end
 
 
+(** Add the following variable bindings to the inference environment. *)
+let add_vartypes vars = 
+  let* _ = Utils.State.map_list ~f:(fun b -> assert_var_has_type b (type_of_binder b)) (List.of_seq vars) in
+  return ()
+
+(** Run a type inference computation with an empty initial environment. *)
+let with_empty_env f = f (create_abs_env ())
+
+(** Run a type inference computation with some added bindings.
+    The bindings are removed at the end. *)
+let with_vartypes vars f =
+  State.scope begin
+    let* _ = add_vartypes vars in
+    f
+  end
+
 let find_concrete_type = TEnv.concretize
 
 let concrete_type_env abs : typ_env =
@@ -141,7 +149,7 @@ let rec infer_types_core_lang e : core_lang using_env =
     (* TODO check for length mismatch? *)
     let* args =
       List.combine args arg_types
-      |> State.map ~f:(fun (arg, expected_type) ->
+      |> State.map_list ~f:(fun (arg, expected_type) ->
           let* inferred_term = infer_types_term arg in
           let* _ = unify_types inferred_term.term_type expected_type in
           return inferred_term)
@@ -176,15 +184,81 @@ let rec infer_types_core_lang e : core_lang using_env =
       let val_type = fresh_type_var () in
       let* _ = assert_var_has_type (value, wrap_as_ref val_type) (wrap_as_ref val_type) in
       return (CRead value, val_type)
-  | CAssert (_, _) -> failwith "CAssert"
-  | CPerform (_, _) -> failwith "CPerform"
-  | CMatch (_, _, _, _, _) -> failwith "CMatch"
-  | CResume _ -> failwith "CResume"
-  | CShift (_, _, _) | CReset _
-  | CLambda (_, _, _) ->
-    failwith "not implemented"
+  | CAssert (p, k) ->
+      let* p, k = infer_types_state (p, k) in
+      return (CAssert (p, k), Unit)
+  | CMatch (handler_type, tcl, scrutinee, handlers, cases) ->
+      let* tcl =
+        tcl |>
+        lift_opt (fun (head, cont, summary) ->
+        let* head = infer_types_staged_spec head in
+        let* cont = lift_opt infer_types_staged_spec cont in
+        let* summary = infer_types_staged_spec summary in
+        return (head, cont, summary))
+      in
+      let* e = infer_types_core_lang scrutinee in
+      let* handlers =
+        if List.length handlers > 0
+        then failwith "effect typing not implemented"
+        else return []
+      in
+      let rec infer_types_pattern typ pat : pattern using_env =
+        let* _ = unify_types typ pat.pattern_type in
+        let* pattern_desc, pattern_type = begin match pat.pattern_desc with
+        | PVar v ->
+          let* _ = unify_types (type_of_binder v) typ in
+          return (PVar v, type_of_binder v)
+        | PAny ->
+          return (PAny, typ)
+        | PConstant c ->
+          let* _ = unify_types (infer_types_constant c) typ in
+          return (PConstant c, typ)
+        | PAlias (subpat, v) ->
+          let* _ = unify_types subpat.pattern_type typ in
+          return (PAlias (subpat, v), typ)
+        | PConstr (name, args) ->
+          let* ((name, args), constr_typ) = infer_types_constructor_like infer_types_pattern name args in
+          let* _ = unify_types typ constr_typ in
+          return (PConstr (name, args), typ)
+        end
+        in
+        return {pattern_desc; pattern_type}
+        (* let* ((name, args), typ) = infer_types_constructor_like infer_types_pattern name args in *)
+      in
+      let* cases =
+        cases |>
+        Utils.State.map_list ~f:(fun case ->
+          let* ccase_pat = infer_types_pattern scrutinee.core_type case.ccase_pat in
+          let* ccase_guard = lift_opt (infer_types_term ~hint:Bool) case.ccase_guard in
+          let pat_bindings = Hipcore_typed.Patterns.pattern_bindings (ccase_pat, Option.value ccase_guard ~default:Hipcore_typed.Syntax.ctrue) in
+          let* ccase_expr = with_vartypes (List.to_seq pat_bindings) (infer_types_core_lang case.ccase_expr) in
+          let* _ = unify_types e.core_type ccase_expr.core_type in
+          return {ccase_pat; ccase_guard; ccase_expr}
+        )
+      in
+      return (CMatch (handler_type, tcl, scrutinee, handlers, cases), e.core_type)
+
+  | CLambda (args, spec, core) ->
+    let* (args, spec, core), ftyp = infer_types_lambda_like (args, spec, core) in
+    return (CLambda (args, spec, core), ftyp)
+  (* the global type information needs information on effect names for this *) 
+  | CPerform (_, _) -> failwith "effect typing not implemented"
+  | CResume _ -> failwith "effect typing not implemented"
+  (* types need to be extended with answer type tracking to implement this *)
+  | CShift (_, _, _) | CReset _ -> failwith "shift/reset typing not implemented"
   in
   return {core_desc; core_type}
+
+and infer_types_constant ?(hint : typ option) const : typ =
+  match const with
+  | ValUnit -> Unit
+  | TTrue | TFalse -> Bool
+  | TStr _ -> TyString
+  | Num _ -> Int
+  | Nil -> begin match hint with 
+    | Some ((TConstr ("list", [_])) as list_type) -> list_type
+    | _ -> TConstr ("list", [fresh_type_var ()])
+  end
 
 and infer_types_term ?(hint : typ option) term : term using_env =
   let@ _ =
@@ -195,16 +269,7 @@ and infer_types_term ?(hint : typ option) term : term using_env =
   in
   let* (term_desc, term_type) = match (term.term_desc, hint) with
   | Const c, hint ->
-      let term_type = match c with
-      | ValUnit -> Unit
-      | TTrue | TFalse -> Bool
-      | TStr _ -> TyString
-      | Num _ -> Int
-      | Nil -> begin match hint with 
-        | Some ((TConstr ("list", [_])) as list_type) -> list_type
-        | _ -> TConstr ("list", [fresh_type_var ()])
-      end
-      in
+      let term_type = infer_types_constant ?hint c in
       return (term.term_desc, term_type)
   | TNot a, _ ->
     let* a = infer_types_term ~hint:Bool a in
@@ -229,7 +294,9 @@ and infer_types_term ?(hint : typ option) term : term using_env =
     let t = (TVar (Variables.fresh_variable v)) in
     let* _ = assert_var_has_type (v, term.term_type) t in
     return (term.term_desc, t)
-  | TLambda (_, _, _, Some _), _
+  | TLambda (name, args, spec, Some core), _ ->
+      let* (args, spec, core), ftyp = infer_types_lambda_like (args, spec, core) in
+      return (TLambda (name, args, spec, Some core), ftyp)
   | TLambda (_, _, _, None), _ -> return (term.term_desc, Lamb)
   (* | TLambda (_, params, _, Some b), _ ->
     (* TODO use the spec? *)
@@ -256,27 +323,15 @@ and infer_types_term ?(hint : typ option) term : term using_env =
     let arg_types, ret_type = get_primitive_type f in
     let* args =
       List.combine args arg_types
-      |> State.map ~f:(fun (arg, expected_type) ->
+      |> State.map_list ~f:(fun (arg, expected_type) ->
           let* arg = infer_types_term arg in
           let* _ = unify_types arg.term_type expected_type in
           return arg)
     in
     return (TApp (f, args), ret_type)
   | Construct (name, args), _ ->
-      let type_decl, (constr_params, constr_arg_types) = Hipcore_typed.Globals.type_constructor_decl name in
-      let concrete_bindings = List.map (fun param -> (param, fresh_type_var ())) constr_params in
-      let concrete_vars = List.map (fun (_, var) -> var) concrete_bindings in
-      (* let args, env = List.map2 pair args constr_arg_types *)
-      (* |> List.fold_left *)
-      (* (fun (typed_args, env) (arg, arg_type) -> *)
-      (*   let expected_arg_type = Types.instantiate_type_variables concrete_bindings arg_type in *)
-      (*   let typed_arg, env = infer_types_term ~hint:expected_arg_type env arg in *)
-      (*   typed_args @ [typed_arg], env) ([], env) in *)
-      let* args = List.combine args constr_arg_types
-        |> State.map ~f:(fun (arg, arg_type) ->
-          let expected_arg_type = Types.instantiate_type_variables concrete_bindings arg_type in
-          infer_types_term ~hint:expected_arg_type arg) in
-      return (Construct (name, args), TConstr (type_decl.tdecl_name, concrete_vars))
+      let* ((name, args), typ) = infer_types_constructor_like (fun hint t -> infer_types_term ~hint t) name args in
+      return (Construct (name, args), typ)
   | TTuple _, _ -> failwith "tuple unimplemented"
   in
   (* After checking this term, we may still need to unify its type with a hint received from above in the AST. *)
@@ -288,6 +343,26 @@ and infer_types_term ?(hint : typ option) term : term using_env =
      it's probably better to store typ U.elems in the mapping instead. *)
   let* _ = State.mutate simplify_vartypes in
   return {term_desc; term_type}
+
+and infer_types_lambda_like (args, spec, core) : ((binder list * staged_spec option * core_lang) * typ) using_env =
+  with_vartypes (List.to_seq args) begin
+    let* spec = lift_opt infer_types_staged_spec spec in
+    let* core = infer_types_core_lang core in
+    let function_type = List.fold_right (fun b func_typ -> Arrow (type_of_binder b, func_typ)) args core.core_type in
+    return ((args, spec, core), function_type)
+  end
+
+and infer_types_constructor_like :
+  'a. (typ -> 'a -> 'a using_env) -> string -> 'a list -> ((string * 'a list) * typ) using_env =
+  fun arg_typer name args ->
+  let type_decl, (constr_params, constr_arg_types) = Hipcore_typed.Globals.type_constructor_decl name in
+  let concrete_bindings = List.map (fun param -> (param, fresh_type_var ())) constr_params in
+  let concrete_vars = List.map (fun (_, var) -> var) concrete_bindings in
+  let* args = List.combine args constr_arg_types
+    |> State.map_list ~f:(fun (arg, arg_type) ->
+      let expected_arg_type = Types.instantiate_type_variables concrete_bindings arg_type in
+      arg_typer expected_arg_type arg) in
+  return ((name, args), TConstr (type_decl.tdecl_name, concrete_vars))
 
 and infer_types_pi pi : pi using_env =
   let@ _ =
@@ -324,60 +399,7 @@ and infer_types_pi pi : pi using_env =
       return (Not a)
   | pi -> return pi
 
-(* re-declare to insert one final type simplification pass *)
-
-let simplify_type_visitor = object (self)
-  (* go over all types in the AST and simplify them. *)
-  inherit [_] map_spec
-  (* the main ones *)
-  method! visit_term env term =
-    let result = {term_desc = self#visit_term_desc env term.term_desc;
-    term_type = 
-      TEnv.simplify env.equalities term.term_type} in
-    debug ~at:5 ~title:"inference result" "%s : %s\n" (string_of_term result) (string_of_type result.term_type);
-    result
-
-  method! visit_core_lang env core =
-    {core_desc = self#visit_core_lang_desc env core.core_desc; core_type = TEnv.simplify env.equalities core.core_type}
-
-  method! visit_pattern env pat =
-    {pattern_desc = self#visit_pattern_desc env pat.pattern_desc; pattern_type = TEnv.simplify env.equalities pat.pattern_type}
-
-  method! visit_binder env b =
-    (ident_of_binder b, TEnv.simplify env.equalities (type_of_binder b))
-
-end
-
-(** Given an environment, and a typed term, perform simplifications
-    on the types in the term based on the environment. *)
-let simplify_types_pi pi env =
-  simplify_type_visitor#visit_pi env pi, env
-
-let simplify_types_staged_spec ss env =
-  simplify_type_visitor#visit_staged_spec env ss, env
-
-let infer_types_term ?hint t : term using_env =
-  let* t = infer_types_term ?hint t in
-  let* env = State.get in
-  return (simplify_type_visitor#visit_term env t)
-
-let simplify_types_core_lang core env =
-  simplify_type_visitor#visit_core_lang env core, env
-
-let infer_types_pi pi : pi using_env =
-  let* pi = infer_types_pi pi in
-  simplify_types_pi pi
-
-let infer_types_pair_pi (p1, p2) : (pi * pi) using_env =
-  let* p1 = infer_types_pi p1 in
-  let* p2 = infer_types_pi p2 in
-  (* we may have found new unifications while inferring p2, so simplify p1 *)
-  let* p1 = simplify_types_pi p1 in
-  let* p2 = simplify_types_pi p2 in
-  return (p1, p2)
-
-
-let rec infer_types_kappa k : kappa using_env =
+and infer_types_kappa k : kappa using_env =
   match k with
   | EmptyHeap -> return EmptyHeap
   | SepConj (k1, k2) ->
@@ -390,12 +412,12 @@ let rec infer_types_kappa k : kappa using_env =
     let* _ = assert_var_has_type (l, ref_type) ref_type in
     return (PointsTo (l, v))
 
-let rec infer_types_state (p, k) : state using_env =
+and infer_types_state (p, k) : state using_env =
   let* p = infer_types_pi p in
   let* k = infer_types_kappa k in
   return (p, k)
 
-let rec infer_types_staged_spec ss : staged_spec using_env =
+and infer_types_staged_spec ss : staged_spec using_env =
   let* typed_spec = match ss with
   | Require (p, k) ->
       let* (p, k) = infer_types_state (p, k) in
@@ -404,7 +426,7 @@ let rec infer_types_staged_spec ss : staged_spec using_env =
       let* (p, k) = infer_types_state (p, k) in
       return (NormalReturn (p, k))
   | HigherOrder (f, args) ->
-      let* args = State.map ~f:infer_types_term args in
+      let* args = State.map_list ~f:infer_types_term args in
       return (HigherOrder (f, args))
   | Shift (b, k, spec, x, cont) ->
       let* spec = infer_types_staged_spec spec in
@@ -439,6 +461,46 @@ let rec infer_types_staged_spec ss : staged_spec using_env =
   in
   (* assert (Untypehip.untype_staged_spec typed_spec = Untypehip.untype_staged_spec ss); *)
   return typed_spec
+
+(* re-declare to insert one final type simplification pass *)
+
+let simplify_type_visitor = object
+  (* go over all types in the AST and simplify them. *)
+  inherit [_] map_spec
+
+  method! visit_typ env t =
+    TEnv.simplify env.equalities t
+
+end
+
+(** Given an environment, and a typed term, perform simplifications
+    on the types in the term based on the environment. *)
+let simplify_types_pi pi env =
+  simplify_type_visitor#visit_pi env pi, env
+
+let simplify_types_staged_spec ss env =
+  simplify_type_visitor#visit_staged_spec env ss, env
+
+let infer_types_term ?hint t : term using_env =
+  let* t = infer_types_term ?hint t in
+  let* env = State.get in
+  return (simplify_type_visitor#visit_term env t)
+
+let simplify_types_core_lang core env =
+  simplify_type_visitor#visit_core_lang env core, env
+
+let infer_types_pi pi : pi using_env =
+  let* pi = infer_types_pi pi in
+  simplify_types_pi pi
+
+let infer_types_pair_pi (p1, p2) : (pi * pi) using_env =
+  let* p1 = infer_types_pi p1 in
+  let* p2 = infer_types_pi p2 in
+  (* we may have found new unifications while inferring p2, so simplify p1 *)
+  let* p1 = simplify_types_pi p1 in
+  let* p2 = simplify_types_pi p2 in
+  return (p1, p2)
+
 
 let infer_types_staged_spec ss : staged_spec using_env =
   let* ss = infer_types_staged_spec ss in
