@@ -26,7 +26,9 @@ let protect_capture mctx =
     |> SMap.of_seq) in
   { mctx_captured_renames = SMap.merge_right_priority mctx.mctx_captured_renames new_renames;
     mctx_bound = SSet.empty
-  } let is_bound mctx v = SSet.mem v mctx.mctx_bound
+  }
+
+let is_bound mctx v = SSet.mem v mctx.mctx_bound
 let rename_in_context mctx v =
   match SMap.find_opt v mctx.mctx_captured_renames with
   | Some (lazy v') -> v'
@@ -43,8 +45,7 @@ let with_capture_avoidance f (bind_ctx, env) = f (protect_capture bind_ctx, env)
   and is analogous to the environment type of the original visitor [map_spec].
   
   When overriding a method, call the appropriate method of the superclass (i.e. this class)
-  instead of directly returning the value. This is so proper
-  tracking of binders can be maintained.
+  during the traversal. This is so proper tracking of binders can be maintained.
   
   Further, be careful of the possiblity of infinite loops.
  *)
