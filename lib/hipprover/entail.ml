@@ -1121,7 +1121,7 @@ let rec apply_ent_rule ?name : tactic =
             ~title:"ERROR: exists on the right, subst step"
             ~default:(fun _ -> fail)
           in
-          if Hipcore.Types.can_coerce_into c.term_type (type_of_binder x) then
+          if Hipcore.Types.can_unify_with c.term_type (type_of_binder x) then
           (* copy the binder's type to allow for polymorphic constants in try_constants *)
           let f4 = Subst.subst_free_vars [(ident_of_binder x, term c.term_desc (type_of_binder x))] f4 in
           fun k1 ->
@@ -1146,7 +1146,7 @@ let rec apply_ent_rule ?name : tactic =
             ~title:"ERROR: forall on the left, subst step"
             ~default:(fun _ -> fail)
           in
-          if Hipcore.Types.can_coerce_into c.term_type (type_of_binder x) then
+          if Hipcore.Types.can_unify_with c.term_type (type_of_binder x) then
           let f3 = Subst.subst_free_vars [((ident_of_binder x), term c.term_desc (type_of_binder x))] f3 in
           fun k1 ->
             let@ _ = suppress_z3_exn

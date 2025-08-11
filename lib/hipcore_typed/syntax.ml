@@ -19,16 +19,22 @@ let sep_conj = Lists.foldr1 ~default:EmptyHeap (fun c t -> SepConj (c, t))
 
 let term term_desc term_type = {term_desc; term_type}
 
+(** Unlike [eq], this does not check if it's possible for the two types to be the same. *)
+let eq_unchecked x y =
+  Atomic (EQ, x, y)
+
 let eq x y =
   let x, y = 
     let value_type = match x.term_type, y.term_type with
     | Any, t | t, Any -> t
     (* anything else needs an inference context to unify, make a heuristic guess *)
-    | _, _ -> x.term_type
+    | t1, t2 when Hipcore.Types.can_unify_with t1 t2 -> t1
+    | _, _ -> failwith "eq of types that cannot be unified"
     in
     term x.term_desc value_type, term y.term_desc value_type
   in
-  Atomic (EQ, x, y)
+  eq_unchecked x y
+
 let v ?(typ = TVar (Hipcore.Variables.fresh_variable ~v:"v" ())) x = {term_desc = Var x; term_type = typ}
 let var = v
 let num n = {term_desc = Const (Num n); term_type = Int}
