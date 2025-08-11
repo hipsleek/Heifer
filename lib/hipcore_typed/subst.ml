@@ -11,54 +11,87 @@ type 'a subst_context =
   | Sctx_pure : pi subst_context
   | Sctx_heap : kappa subst_context
 
+(* helpers to delegate visitor calls to the right method given a subst_context *)
+
+type 'env map_visitor_type = <
+  visit_staged_spec : 'mono. 'env -> staged_spec -> staged_spec;
+  visit_pi : 'mono. 'env -> pi -> pi;
+  visit_kappa : 'mono. 'env -> kappa -> kappa;
+  visit_term : 'mono. 'env -> term -> term;
+>
+
+let map_visitor_function (type ctx_type) map_visitor (ctx_type : ctx_type subst_context)
+  : 'env -> ctx_type -> ctx_type =
+  let visitor = (map_visitor :> 'env map_visitor_type) in
+  match ctx_type with
+  | Sctx_staged -> visitor#visit_staged_spec
+  | Sctx_term -> visitor#visit_term
+  | Sctx_heap -> visitor#visit_kappa
+  | Sctx_pure -> visitor#visit_pi
+
+type ('env, 'result) reduce_visitor_type = <
+  visit_staged_spec : 'mono. 'env -> staged_spec -> 'result;
+  visit_pi : 'mono. 'env -> pi -> 'result;
+  visit_kappa : 'mono. 'env -> kappa -> 'result;
+  visit_term : 'mono. 'env -> term -> 'result;
+>
+
+let reduce_visitor_function (type ctx_type) reduce_visitor (ctx_type : ctx_type subst_context)
+  : 'env -> ctx_type -> 'result =
+  let visitor = (reduce_visitor :> ('env, 'result) reduce_visitor_type) in
+  match ctx_type with
+  | Sctx_staged -> visitor#visit_staged_spec
+  | Sctx_term -> visitor#visit_term
+  | Sctx_heap -> visitor#visit_kappa
+  | Sctx_pure -> visitor#visit_pi
+
 (* TODO is it possible to instead use an API that doesn't mix term substitutions with
    heap location/HOF substitutions? *)
-
-let find_term_binding ~typ x bindings =
-  match List.assoc_opt x bindings with
-  | None -> term (Var x) typ
-  | Some t -> t
 
 let find_non_term_binding x bindings =
   match List.assoc_opt x bindings with
   | Some {term_desc = Var name; _} -> name
   | _ -> x
 
-let free_vars (type ctx_type) (ctx_type : ctx_type subst_context) (ctx : ctx_type) =
+let types_of_free_vars (type ctx_type) (ctx_type : ctx_type subst_context) (ctx : ctx_type) =
   let visitor =
     object (_)
       inherit [_] reduce_spec as super
-      method zero = SSet.empty
-      method plus = SSet.union
+      method zero = SMap.empty
+      method plus = SMap.merge_right_priority
 
       method! visit_Exists () x f =
         let b = super#visit_Exists () x f in
-        SSet.remove (ident_of_binder x) b
+        SMap.remove (ident_of_binder x) b
 
       method! visit_ForAll () x f =
         let b = super#visit_ForAll () x f in
-        SSet.remove (ident_of_binder x) b
+        SMap.remove (ident_of_binder x) b
 
       method! visit_TLambda () h ps sp b =
         let b = super#visit_TLambda () h ps sp b in
-        List.fold_right (fun c t -> SSet.remove (ident_of_binder c) t) ps b
+        List.fold_right (fun c t -> SMap.remove (ident_of_binder c) t) ps b
 
       method! visit_Bind () x f1 f2 =
         let b = super#visit_Bind () x f1 f2 in
-        SSet.remove x b
+        SMap.remove x b
 
       method! visit_HigherOrder () f v =
         let b = super#visit_HigherOrder () f v in
-        SSet.add f b
+        SMap.add f None b
 
-      method! visit_Var () x = SSet.singleton x
+      method! visit_term () t =
+        match t.term_desc with
+        | Var v -> SMap.singleton v (Some t.term_type)
+        | _ -> super#visit_term () t
+
     end
   in
-  match ctx_type with
-  | Sctx_staged -> visitor#visit_staged_spec () ctx
-  | Sctx_term -> visitor#visit_term () ctx
-  | Sctx_heap -> visitor#visit_kappa () ctx
-  | Sctx_pure -> visitor#visit_pi () ctx
+  reduce_visitor_function visitor ctx_type () ctx
+
+let free_vars (type ctx_type) (ctx_type : ctx_type subst_context) (ctx : ctx_type) =
+  let types_of_vars = types_of_free_vars ctx_type ctx in
+  types_of_vars |> SMap.to_seq |> Seq.map fst |> SSet.of_seq
 
 let subst_free_vars_in (type ctx_t) (ctx_type : ctx_t subst_context) (bindings : (string * term) list) (ctx : ctx_t) =
   let free_in_term =
@@ -136,13 +169,7 @@ let subst_free_vars_in (type ctx_t) (ctx_type : ctx_t subst_context) (bindings :
 
   end
   in
-  let result : ctx_t = match ctx_type with
-  | Sctx_staged -> visit_using_env subst_visitor#visit_staged_spec bindings ctx
-  | Sctx_term -> 
-      visit_using_env subst_visitor#visit_term bindings ctx
-  | Sctx_pure -> visit_using_env subst_visitor#visit_pi bindings ctx
-  | Sctx_heap -> visit_using_env subst_visitor#visit_kappa bindings ctx in
-  result
+  visit_using_env (map_visitor_function subst_visitor ctx_type) bindings ctx
 
 let subst_free_vars_term = subst_free_vars_in Sctx_term
 let subst_free_vars = subst_free_vars_in Sctx_staged
@@ -158,12 +185,7 @@ let type_subst_visitor = object
 end
 
 let subst_types (type ctx_t) (ctx_type : ctx_t subst_context) (bindings : (string * typ) list) (ctx : ctx_t) =
-  let result : ctx_t = match ctx_type with
-  | Sctx_staged -> type_subst_visitor#visit_staged_spec bindings ctx
-  | Sctx_term -> type_subst_visitor#visit_term bindings ctx
-  | Sctx_pure -> type_subst_visitor#visit_pi bindings ctx
-  | Sctx_heap -> type_subst_visitor#visit_kappa bindings ctx in
-  result
+  map_visitor_function type_subst_visitor ctx_type bindings ctx
 
 let subst_types_in_type (bindings : (string * typ) list) (ctx : typ) =
   type_subst_visitor#visit_typ bindings ctx
@@ -178,11 +200,7 @@ let free_type_vars (type ctx_type) (ctx_type : ctx_type subst_context) (ctx : ct
       method! visit_TVar () x = SSet.singleton x
     end
   in
-  match ctx_type with
-  | Sctx_staged -> visitor#visit_staged_spec () ctx
-  | Sctx_term -> visitor#visit_term () ctx
-  | Sctx_heap -> visitor#visit_kappa () ctx
-  | Sctx_pure -> visitor#visit_pi () ctx
+  reduce_visitor_function visitor ctx_type () ctx
 
 let%expect_test "subst" =
   let open Pretty in
