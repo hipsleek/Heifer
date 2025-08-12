@@ -272,7 +272,7 @@ let process_pure_fn_info ({m_name; m_params; m_body; _}) = function
       in
       Globals.define_pure_fn m_name pf
 
-let process_intermediates (it : Typedhip.intermediate) prog : string list * core_program =
+let process_intermediates (it : Typedhip.intermediate) prog : binder list * core_program =
   (* Format.printf "%s\n" (Pretty.string_of_intermediate it);
   ([], prog) *)
   let open Typedhip in
@@ -339,7 +339,8 @@ let process_intermediates (it : Typedhip.intermediate) prog : string list * core
         debug ~at:1 ~title:(Format.asprintf "verifying function: %s" meth.m_name) "")
       in
       let prog = analyze_method prog meth in
-      [m_name], prog
+      let function_type = List.fold_right (fun e acc -> Arrow (e, acc)) (List.map type_of_binder m_params) m_body.core_type in
+      [m_name, function_type], prog
 
 let process_ocaml_structure (items: Ocaml_common.Typedtree.structure) : unit =
   let process_ocaml_item (bound_names, prog) item =

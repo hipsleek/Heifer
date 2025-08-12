@@ -787,7 +787,7 @@ let prove_pure_fact (pctx : pctx) (p : pi) =
   | _ -> check_pure_obligation (Syntax.conj pctx.assumptions) p
 
 let rec handle_pure_ens_lhs (pctx : pctx) f =
-  debug ~at:5 ~title:"handle_pure_ens_lhs" "";
+  debug ~at:5 ~title:"handle_pure_ens_lhs" "%s " (string_of_staged_spec f);
   match f with
   | NormalReturn (p, EmptyHeap) when not (Variables.is_eq_res p) ->
       add_assumption pctx p, NormalReturn (True, EmptyHeap)
