@@ -3,9 +3,10 @@ let test1_true f
   (*@ ex r. f(1, r); ens emp/\res=r @*) =
   f 1
 
-let test1_false f
-  (*@ ex r. g(1, r); ens emp/\res=r @*) =
-  f 1
+(* disabled because this now raises an error due to g being undefined in the spec *)
+(* let test1_false f *)
+(*   (*@ ex r. g(1, r); ens emp/\res=r @*) = *)
+(*   f 1 *)
 
 let test2_true f g
   (*@ ex r s. f(1, r); g(1, s); ens emp/\res=s @*) =
