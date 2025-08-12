@@ -238,7 +238,7 @@ let check_pure_obligation left right =
   let (left, right), _ =
     let open Infer_types in
     with_empty_env begin
-      let* left, right = infer_types_pair_pi (left, right) in
+      let* left, right = infer_types_pair_pi left right in
       return (left, right)
     end
   in

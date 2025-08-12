@@ -23,7 +23,6 @@ let lift_opt (f : 'a -> 'b using_env) (a : 'a option) : 'b option using_env =
   | None -> return None
   
 
-(** Exception raised when solver cannot unify the two types. *)
 exception Unification_failure of typ * typ
 
 exception Cyclic_type = TEnv.Cyclic_type
@@ -35,7 +34,6 @@ let () =
     | _ -> None
   end
 
-(* record a (nontrivial) equality in the environment *)
 let rec unify_types t1 t2 : unit using_env =
   fun env ->
     debug ~at:5 ~title:"unify" "%s ~ %s" (string_of_type t1) (string_of_type t2);
@@ -65,7 +63,6 @@ let rec unify_types t1 t2 : unit using_env =
     (* as of now, unification is not possible in all other cases *)
     | t1, t2 -> raise (Unification_failure (t1, t2))
 
-(* record the type (or constraints on) of a program variable in the environment *)
 let assert_var_has_type (v, v_typ : binder) t env =
   let (), env = unify_types v_typ t env in begin
   match SMap.find_opt v env.vartypes with
@@ -435,6 +432,9 @@ and infer_types_state (p, k) : state using_env =
   let* k = infer_types_kappa k in
   return (p, k)
 
+(* The extra argument here (that is hidden in the exposed version)
+  is the type, if any, returned by the computations satisfying this spec. *)
+
 and infer_types_staged_spec ss : (staged_spec * typ option) using_env =
   let type_of_result_of_pi p =
     let pi_free_vars = Subst.(types_of_free_vars Sctx_pure p) in
@@ -548,7 +548,7 @@ let infer_types_pi pi : pi using_env =
   let* pi = infer_types_pi pi in
   simplify_types_pi pi
 
-let infer_types_pair_pi (p1, p2) : (pi * pi) using_env =
+let infer_types_pair_pi p1 p2 : (pi * pi) using_env =
   let* p1 = infer_types_pi p1 in
   let* p2 = infer_types_pi p2 in
   (* we may have found new unifications while inferring p2, so simplify p1 *)
