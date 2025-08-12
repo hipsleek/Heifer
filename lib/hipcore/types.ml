@@ -62,6 +62,13 @@ let rec free_type_vars t =
   | Arrow (t1, t2) -> (free_type_vars t1) @ (free_type_vars t2)
   | _ -> []
 
+let rec params_of_arrow_type t =
+  match t with
+  | Arrow (t1, t2) ->
+      let params, result = params_of_arrow_type t2 in
+      t1 :: params, result
+  | _ -> [], t
+
 let concrete_types = [Unit; Int; Bool; Lamb]
 
 let new_type_var : ?name:string -> unit -> typ =

@@ -1,6 +1,7 @@
 open Hipcore
-open Hipcore.Common
 open Hipcore.Types
+open Hipcore_typed
+open Hipcore.Common
 open Hipcore_typed.Typedhip
 open Hipcore_typed.Pretty
 open Debug
@@ -13,7 +14,7 @@ let span_env = State.Debug.span
 let return = State.return
 let (let*) = State.(let*)
 
-(** Lift a stateful computation to be able to use options. *)
+(** Lift a stateful computation to operate on options. *)
 let lift_opt (f : 'a -> 'b using_env) (a : 'a option) : 'b option using_env =
   match a with
   | Some a ->
@@ -106,6 +107,10 @@ let with_vartypes vars f =
     f
   end
 
+let type_of_var_opt s : typ option using_env =
+  let* env = State.get in
+  return (SMap.find_opt s env.vartypes |> Option.map (TEnv.simplify env.equalities))
+
 let find_concrete_type = TEnv.concretize
 
 let concrete_type_env abs : typ_env =
@@ -113,27 +118,31 @@ let concrete_type_env abs : typ_env =
     TEnv.simplify abs.equalities t in
   SMap.map simpl abs.vartypes
 
-let get_primitive_type f =
+let get_primitive_type_opt f =
   let open Hipcore_typed.Globals in
-  (* let untype = Typedhip.Untypehip.hiptypes_typ in *)
-  let v = fresh_type_var () in
-  let list_of_v = TConstr ("list", [v]) in
+  (* this is a lazy value to avoid generating the type variable when it is not needed *)
+  let v = lazy (fresh_type_var ()) in
+  let list_of_v = Lazy.map (fun v -> TConstr ("list", [v])) v in
   match f with
-  | "cons" -> ([v; list_of_v], list_of_v)
-  | "head" -> ([list_of_v], v)
-  | "tail" -> ([list_of_v], list_of_v)
-  | "is_nil" | "is_cons" -> ([list_of_v], Bool)
-  | "+" | "-" -> ([Int; Int], Int)
-  | "string_of_int" -> ([Int], TyString)
-  | _ when String.compare f "effNo" == 0 -> ([Int] , Int)
+  | "cons" -> Some ([Lazy.force v; Lazy.force list_of_v], Lazy.force list_of_v)
+  | "head" -> Some ([Lazy.force list_of_v], Lazy.force v)
+  | "tail" -> Some ([Lazy.force list_of_v], Lazy.force list_of_v)
+  | "is_nil" | "is_cons" -> Some ([Lazy.force list_of_v], Bool)
+  | "+" | "-" -> Some ([Int; Int], Int)
+  | "string_of_int" -> Some ([Int], TyString)
+  | _ when String.compare f "effNo" == 0 -> Some ([Int] , Int)
   | _ when is_pure_fn_defined f ->
     let fn = pure_fn f in
-    (List.map snd fn.pf_params, fn.pf_ret_type)
+    Some (List.map snd fn.pf_params, fn.pf_ret_type)
   | _ when SMap.mem f global_environment.pure_fn_types ->
     let fn = SMap.find f global_environment.pure_fn_types in
-    (fn.pft_params, fn.pft_ret_type)
-  | _ ->
-      failwith (Format.asprintf "unknown function 2: %s" f)
+    Some (fn.pft_params, fn.pft_ret_type)
+  | _ -> None
+
+let get_primitive_type f =
+  match get_primitive_type_opt f with
+  | Some typ -> typ
+  | None -> failwith (Format.asprintf "unknown function 2: %s" f)
 
 let get_primitive_fn_type f =
   match f with
@@ -194,9 +203,9 @@ let rec infer_types_core_lang e : core_lang using_env =
       let* tcl =
         tcl |>
         lift_opt (fun (head, cont, summary) ->
-        let* head = infer_types_staged_spec head in
-        let* cont = lift_opt infer_types_staged_spec cont in
-        let* summary = infer_types_staged_spec summary in
+        let* head, _ = infer_types_staged_spec head in
+        let* cont = lift_opt (fun opt -> State.map fst (infer_types_staged_spec opt)) cont in
+        let* summary, _ = infer_types_staged_spec summary in
         return (head, cont, summary))
       in
       let* e = infer_types_core_lang scrutinee in
@@ -352,7 +361,13 @@ and infer_types_lambda_like (args, spec, core) : ((binder list * staged_spec opt
     let* spec = lift_opt infer_types_staged_spec spec in
     let* core = infer_types_core_lang core in
     let function_type = List.fold_right (fun b func_typ -> Arrow (type_of_binder b, func_typ)) args core.core_type in
-    return ((args, spec, core), function_type)
+    match spec with
+    | None -> return ((args, None, core), function_type)
+    | Some (spec, Some spec_type) ->
+      let* () = unify_types core.core_type spec_type in
+      return ((args, Some spec, core), function_type)
+    | Some (spec, None) ->
+      return ((args, Some spec, core), function_type)
   end
 
 and infer_types_constructor_like :
@@ -420,50 +435,87 @@ and infer_types_state (p, k) : state using_env =
   let* k = infer_types_kappa k in
   return (p, k)
 
-and infer_types_staged_spec ss : staged_spec using_env =
-  let* typed_spec = match ss with
+and infer_types_staged_spec ss : (staged_spec * typ option) using_env =
+  let type_of_result_of_pi p =
+    let pi_free_vars = Subst.(types_of_free_vars Sctx_pure p) in
+    SMap.find_opt "res" pi_free_vars |> Option.join
+  in
+  let type_of_result_of_kappa k =
+    let kappa_free_vars = Subst.(types_of_free_vars Sctx_heap k) in
+    SMap.find_opt "res" kappa_free_vars |> Option.join
+  in
+  let unify_opt_types t1 t2 =
+    match t1, t2 with
+    | Some t1, Some t2 ->
+        let* () = unify_types t1 t2 in
+        return (Some t1)
+    | Some t, None | None, Some t -> return (Some t)
+    | None, None -> return None
+  in
+  let type_of_result_of_state (p, k) =
+    unify_opt_types (type_of_result_of_pi p) (type_of_result_of_kappa k)
+  in
+  match ss with
   | Require (p, k) ->
       let* (p, k) = infer_types_state (p, k) in
-      return (Require (p, k))
+      return (Require (p, k), None)
   | NormalReturn (p, k) ->
       let* (p, k) = infer_types_state (p, k) in
-      return (NormalReturn (p, k))
+      let* result_type = type_of_result_of_state (p, k) in
+      return (NormalReturn (p, k), result_type)
   | HigherOrder (f, args) ->
       let* args = State.map_list ~f:infer_types_term args in
-      return (HigherOrder (f, args))
+      let* result_type =
+        match get_primitive_type_opt f with
+        | Some (_, result_type) -> return result_type
+        | None -> begin
+          let* f_type = type_of_var_opt f in
+          match f_type with
+          | Some typ -> 
+              let _, result_type = params_of_arrow_type typ in
+              return result_type
+          | None ->
+              failwith (Format.sprintf "Infer_types: unknown function name %s" f)
+        end
+      in
+      return (HigherOrder (f, args), Some result_type)
   | Shift (b, k, spec, x, cont) ->
-      let* spec = infer_types_staged_spec spec in
-      let* cont = infer_types_staged_spec cont in
-      return (Shift (b, k, spec, x, cont))
+      let* spec, _ = infer_types_staged_spec spec in
+      let* cont, _ = infer_types_staged_spec cont in
+      return (Shift (b, k, spec, x, cont), None)
   | Reset spec ->
-      let* spec = infer_types_staged_spec spec in
-      return (Reset spec)
+      let* spec, _ = infer_types_staged_spec spec in
+      return (Reset spec, None)
   | Sequence (s1, s2) ->
-      let* s1 = infer_types_staged_spec s1 in
-      let* s2 = infer_types_staged_spec s2 in
-      return (Sequence (s1, s2))
+      let* s1, _ = infer_types_staged_spec s1 in
+      let* s2, result_type = infer_types_staged_spec s2 in
+      return (Sequence (s1, s2), result_type)
   | Bind (f, s1, s2) ->
-      let* s1 = infer_types_staged_spec s1 in
-      let* s2 = infer_types_staged_spec s2 in
-      return (Bind (f, s1, s2))
+      let* s1, result_type = infer_types_staged_spec s1 in
+      let bindings = match result_type with
+        | Some result_type -> [f, result_type]
+        | None -> []
+      in
+      with_vartypes (List.to_seq bindings) begin
+        let* s2, result_type = infer_types_staged_spec s2 in
+        return (Bind (f, s1, s2), result_type)
+      end
   | Disjunction (s1, s2) ->
-      let* s1 = infer_types_staged_spec s1 in
-      let* s2 = infer_types_staged_spec s2 in
-      return (Disjunction (s1, s2))
+      let* s1, s1_result = infer_types_staged_spec s1 in
+      let* s2, s2_result = infer_types_staged_spec s2 in
+      let* result_type = unify_opt_types s1_result s2_result in
+      return (Disjunction (s1, s2), result_type)
   | Exists ((x, t), spec) ->
       with_vartypes (List.to_seq [x, t]) begin
-        let* spec = infer_types_staged_spec spec in
-        return (Exists ((x, t), spec))
+        let* spec, result_type = infer_types_staged_spec spec in
+        return (Exists ((x, t), spec), result_type)
       end
   | ForAll ((x, t), spec) ->
       with_vartypes (List.to_seq [x, t]) begin
-        let* spec = infer_types_staged_spec spec in
-        return (ForAll ((x, t), spec))
+        let* spec, result_type = infer_types_staged_spec spec in
+        return (ForAll ((x, t), spec), result_type)
       end
   | RaisingEff _ | TryCatch _ -> failwith "infer_types_staged_spec: not implemented"
-  in
-  (* assert (Untypehip.untype_staged_spec typed_spec = Untypehip.untype_staged_spec ss); *)
-  return typed_spec
 
 (* re-declare to insert one final type simplification pass *)
 
@@ -506,7 +558,7 @@ let infer_types_pair_pi (p1, p2) : (pi * pi) using_env =
 
 
 let infer_types_staged_spec ss : staged_spec using_env =
-  let* ss = infer_types_staged_spec ss in
+  let* ss, _ = infer_types_staged_spec ss in
   let* env = State.get in
   return (simplify_type_visitor#visit_staged_spec env ss)
 
