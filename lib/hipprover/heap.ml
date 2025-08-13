@@ -1,6 +1,6 @@
 
-open Hipcore
-open Hiptypes
+open Hipcore_typed
+open Typedhip
 
 (* let normalize : state -> state =
   fun (p, h) ->
@@ -37,8 +37,8 @@ let pairwise_var_inequality xs ys =
       (fun x ->
         List.filter_map
           (fun y ->
-            if String.equal x y then None
-            else Some (Not (Atomic (EQ, Var x, Var y))))
+            if x = y then None
+            else Some (Not (Atomic (EQ, var_of_binder x, var_of_binder y))))
           ys)
       xs
   in
@@ -48,7 +48,7 @@ let xpure (h : kappa) : pi =
   let rec run h =
     match h with
     | EmptyHeap -> (True, [])
-    | PointsTo (x, _) -> (Atomic (GT, Var x, Const (Num 0)), [x])
+    | PointsTo (x, t) -> Syntax.(Atomic (GT, var x ~typ:Int, num 0), [(x, t.term_type)])
     | SepConj (a, b) ->
         let a, xs = run a in
         let b, ys = run b in

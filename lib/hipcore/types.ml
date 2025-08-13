@@ -1,15 +1,21 @@
 
 type typ =
+  (* The order of constructors is important:
+    - base types
+    - type constructors
+    - type variables
+    This is because type unification reduces a type to its "simplest form" given constraints,
+    and constructors earlier in the list are treated as "simpler". *)
   (* dynamic type that can unify with anything else. this is an escape hatch for extensions that cannot be typed under the standard ocaml type system *)
   | Any
   | Unit
-  | TConstr of string * typ list
   | Int
   | Bool
   | TyString
   | Lamb
   (* TODO do we need a Poly variant for generics? *)
   | Arrow of typ * typ
+  | TConstr of string * typ list
   | TVar of string (* this is last, so > concrete types *)
 
 [@@deriving show { with_path = false }, ord]
@@ -51,10 +57,17 @@ let is_concrete_type t = match t with TVar _ -> false | _ -> true
 
 let rec free_type_vars t =
   match t with
-  | TVar _ -> [t]
+  | TVar v -> [v]
   | TConstr (_, args) -> (List.concat_map free_type_vars args)
   | Arrow (t1, t2) -> (free_type_vars t1) @ (free_type_vars t2)
   | _ -> []
+
+let rec params_of_arrow_type t =
+  match t with
+  | Arrow (t1, t2) ->
+      let params, result = params_of_arrow_type t2 in
+      t1 :: params, result
+  | _ -> [], t
 
 let concrete_types = [Unit; Int; Bool; Lamb]
 
@@ -81,6 +94,10 @@ module U = Utils.Union_find
 module TEnv = struct
   type t = typ U.elem TMap.t ref
 
+  (** [Cyclic_type t1 t2] is raised when, during type unification, t1's value
+      is found to rely on t2. *)
+  exception Cyclic_type of typ * typ
+
   let create () =
     (* TODO this may break, since we now need to lazily create entries for concrete
     types as they are added to the list. *)
@@ -103,19 +120,23 @@ module TEnv = struct
   (** Attempt to resolve all type variables in t. (i.e. performs all
    unifications possible.) *)
   let simplify (m : t) t : typ =
-    let rec inner ?(do_not_expand = []) t =
+    let rec inner ?(expanded = SMap.empty) t =
       match t with
       | TVar s ->
         let simplified = TMap.find_opt t !m
         |> Option.map U.get
         |> Option.value ~default:t in
-        if simplified = t || List.mem s do_not_expand
+        if simplified = t
         then simplified
+        else if SMap.mem s expanded
+        then raise (Cyclic_type (t, simplified))
         (* Add s to the do-not-expand list, to prevent a cyclic expansion of s. *)
-        else inner ~do_not_expand:(s::do_not_expand) simplified
+        else inner ~expanded:(SMap.add s t expanded) simplified
       | TConstr (constr, args) -> 
           (* recurse into the constructor's arguments *)
-          TConstr (constr, List.map (inner ~do_not_expand) args)
+          TConstr (constr, List.map (inner ~expanded:expanded) args)
+      | Arrow (src, dst) ->
+          Arrow (inner ~expanded:expanded src, inner ~expanded:expanded dst)
       | _ -> t
     in
     inner t
@@ -141,12 +162,30 @@ module TEnv = struct
             | Some arg, Some acc -> Some (arg::acc)) concrete_args (Some [])
         in
         concrete_args |> Option.map (fun args -> TConstr (constr, args))
+    | Arrow (src, dst) ->
+        let (let*) f o = Option.bind f o in
+        let* src = concretize m src in
+        let* dst = concretize m dst in
+        Some (Arrow (src, dst))
     | _ -> Some t
 
   (** Check if t is a fully concrete type. *)
   let has_concrete_type m t = concretize m t |> Option.is_some
-
 end
+
+(** Check if a type [src] can unify with type [dst]. *)
+let rec can_unify_with src dst =
+  match src, dst with
+  | _, TVar _ | _, Any
+  | TVar _, _ | Any, _ -> true
+  | t1, t2 when t1 = t2 -> true
+  | Arrow (a1, b1), Arrow (a2, b2) ->
+    can_unify_with a1 a2 && can_unify_with b2 b1
+  | TConstr (name1, args1), TConstr (name2, args2) when name1 = name2 ->
+      List.length args1 = List.length args2
+      && List.for_all2 can_unify_with args1 args2
+  | _, _ -> false
+
 type abs_typ_env = {
   (* formula variable -> type, which may be a variable *)
   vartypes: typ SMap.t;

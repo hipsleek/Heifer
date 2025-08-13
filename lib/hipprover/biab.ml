@@ -1,8 +1,9 @@
-open Hipcore
-open Hiptypes
+open Hipcore_typed
+open Typedhip
 open Syntax
 open Utils
 open Pretty
+open Hipcore.Common
 
 type biab_ctx = {
   equalities: pi list;

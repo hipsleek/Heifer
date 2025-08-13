@@ -37,6 +37,7 @@ open Hiptypes
 %token ENSURES
 %token LET
 %token IN
+%token FUN
 %token SHIFT
 %token RESET
 %token LONGARROW
@@ -125,12 +126,16 @@ term:
       { BinOp (op, t1, t2) }
   | v = LOWERCASE_IDENT LPAREN args = separated_list(COMMA, term) RPAREN
       { TApp (v, args) }
-  | v = CAPITAL_IDENT 
+  | v = CAPITAL_IDENT
       { Construct (v, []) }
   | v = CAPITAL_IDENT LPAREN args = separated_list(COMMA, term) RPAREN
       { Construct (v, args) }
   | LBRACKET items = separated_list(SEMI, term) RBRACKET
       { List.fold_right (fun v t -> BinOp (TCons, v, t)) items (Const Nil) }
+  (* intended: function body spans maximally *)
+  (* todo: remove the parens around function body *)
+  | FUN LPAREN args = separated_list(COMMA, LOWERCASE_IDENT) RPAREN MINUSGREATER LPAREN body=staged_spec RPAREN
+      { TLambda ("", args, Some body, None) }
 ;
 
 pi:

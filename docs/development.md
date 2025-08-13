@@ -4,10 +4,13 @@
 ## Project structure
 
 **Libraries**
+- Debug: Helpers for debug logging
 - Hipcore: core language and spec AST and pure functions for manipulating it
+- Hipcore_typed: core language and spec AST with type annotations
 - Provers: prover back ends which translate Hipcore types into SMT
 - Hipprover: code which depends on calls to an external prover, e.g. normalization
 - Ocamlfrontend: OCaml parser
+- Parsing: parsing for specifications
 
 **Executables**
 - Hiplib: interface for all the above modules
@@ -19,6 +22,41 @@ To see the structure of the project graphically:
 opam install dune-deps
 dune-deps -x benchmarks -x test/higher-order.t | sed 's/\}/\{rank = same; "lib:provers_js"; "lib:provers_native";\} \}/' | tred | dot -Tpng > deps.png
 ```
+
+## Pipeline
+
+### Parsing and typechecking
+
+`Core_lang_typed` does most of the work in converting the OCaml typedtree into the core language. The translation process also carries over types.
+A type inference engine in `Hipprover.Infer_types` is used to fill in the remaining types, e.g. of terms found in specifications.
+
+### Entailment checking
+
+Forward verification is first performed on the core language expression to obtain a specification that describes the code as written. The logic for doing so
+can be found in `Hipprover.Forward_rules`. This specification is then checked to see if it entails the user-provided specification, if present.
+
+The main entry point for the entailment checking procedure is `Entail.check_staged_spec_entailment`, which attempts to prove that one specification entails another. It attempts to apply a list of tactics one by one,
+repeatedly, in order to match up the stages in both specifications.
+
+After applying each tactic, normalization rules are applied to the specification; the set of rules can be found in `Normalize`. Normalization rules specific to handling shift/reset-related stages
+can be found in `Reduce_shift_reset`.
+
+Most formula manipulation tasks (e.g. applying a rewriting rule, unfolding a predicate) are handled by one of two rewriting systems:
+
+- `Rewriting` is based on _unification variables_, which can be matched with and substituted for by other AST nodes representing actual values, stages, etc. This
+is currently used to implement lemma and predicate instantiation.
+- `Rewriting2` is based on `Ppxlib`'s `Ast_pattern`, and is suited for rules that are statically known (i.e. the pattern to match
+does not depend on the program being proved).
+
+### Discharging to SMT
+
+Before discharging pure logic formulas to SMT, some simplification of terms is performed. The simplification rules can be found in `Simpl`.
+
+Currently, the web frontend uses Z3, while the CLI backend uses either Why3 or Z3. (See the Tests section for
+how the specific backend is chosen.)
+
+The entailment checker can be found in `Provers`. It accepts queries of the form `A => ex x1, x2, .., xn. B`, and returns either `Valid`,
+`Invalid`, or `Unknown` (with an explanation in case of the last case).
 
 ## Tests
 

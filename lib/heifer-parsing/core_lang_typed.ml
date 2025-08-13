@@ -92,12 +92,12 @@ let rec string_of_pattern (p) : string =
 let rec hip_type_of_type_expr (texpr: Compiler_types.type_expr) =
   match (Compiler_types.get_desc texpr) with
   | Tvar (Some var) -> TVar var
-  | Tvar (None) -> Types.new_type_var ()
+  | Tvar (None) -> TVar ("tv" ^ (string_of_int (Compiler_types.get_id texpr)))
   (* TODO: This does not preserve argument labels, because Heifer's type system does not model them. *)
   | Tarrow (_, t1, t2, _) -> Arrow (hip_type_of_type_expr t1, hip_type_of_type_expr t2)
   (* TODO implement ref types *)
   | Tconstr (path, [], _) -> begin
-      match (Path.name path) with
+      match (Path.last path) with
       | "int" -> Int
       | "bool" -> Bool
       | "string" -> TyString
@@ -105,7 +105,7 @@ let rec hip_type_of_type_expr (texpr: Compiler_types.type_expr) =
       | other -> TConstr (other, [])
     end
   | Tconstr (path, args, _) -> begin
-    TConstr (Path.name path, List.map hip_type_of_type_expr args)
+    TConstr (Path.last path, List.map hip_type_of_type_expr args)
     end
   | _ -> failwith "Unknown type expression"
   
@@ -223,7 +223,7 @@ let collect_param_info rhs =
 (* Given a list of currently bound names, and a Typedtree expression, convert it to a
    core language statement. *)
 (* TODO handle missing cases *)
-let rec transformation (bound_names:string list) (expr:expression) : core_lang =
+let rec transformation (bound_names:binder list) (expr:expression) : core_lang =
   let exp_hip_type = hip_type_of_type_expr expr.exp_type in
   let clang_with_expr_type core_desc = {core_desc; core_type = exp_hip_type} in
   let term_with_expr_type term_desc = {term_desc; term_type = exp_hip_type} in
@@ -246,24 +246,35 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
   | Texp_function (_params, _) ->
     (* see also: Pexp_fun case below in transform_str *)
     let spec = Annotation.extract_spec_attribute expr.exp_attributes in
-    (* types aren't used because lambdas cannot be translated to pure functions *)
     let formals, body, (param_types, return_type) = collect_param_info expr in
-    let e = transformation (formals @ bound_names) body in
+      let typed_formals =
+        List.combine formals param_types
+      in
+    let e = transformation (typed_formals @ bound_names) body in
     let bound_vars = List.combine formals param_types
       |> List.map (fun (name, typ) -> Retypehip.binder_of_ident ~typ name) in
-
     (* typecheck the specifications *)
-    let spec = spec |> Option.map (fun spec ->
-      let spec, _ = Hipprover.Infer_types.(
-        with_empty_env begin
-          with_vartypes (List.to_seq ["res", return_type]) begin
-            infer_types_staged_spec (Retypehip.retype_staged_spec spec)
+    begin
+    match spec with
+    | None -> CLambda (bound_vars, None, e) |> clang_with_expr_type
+    | Some spec ->
+        let open Hipprover.Infer_types in
+        let result, _ =
+          with_empty_env begin
+            with_vartypes (List.to_seq (["res", return_type] @ typed_formals @ bound_names)) begin
+              let* spec = infer_types_staged_spec (Retypehip.retype_staged_spec spec) in
+              let simplify_type t env = Types.(TEnv.simplify env.equalities t), env in
+              let* _ = Utils.State.map_list ~f:(fun b -> assert_var_has_type b (type_of_binder b)) bound_vars in
+              let* bound_vars = Utils.State.map_list ~f:(fun b -> 
+                let* typ = simplify_type (type_of_binder b) in
+                return (ident_of_binder b, typ)) bound_vars in
+              let* e = simplify_types_core_lang e in
+              return (CLambda (bound_vars, Some spec, e) |> clang_with_expr_type)
+            end
           end
-        end
-      ) 
-      in spec)
-    in
-    CLambda (bound_vars, spec, e) |> clang_with_expr_type
+        in
+        result
+    end
 
   (* shift and shift0 *)
   | Texp_apply ({exp_desc = Texp_ident (_, {txt = Lident name; _}, _); _}, args) when List.mem name ["shift"; "shift0"] ->
@@ -330,7 +341,7 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
     in
     loop [] args
   (* primitive or invocation of higher-order function passed as argument *)
-  | Texp_apply ({exp_desc = Texp_ident (_, {txt = Lident name; _}, _); _}, args) when List.mem name bound_names || List.mem name primitive_functions ->
+  | Texp_apply ({exp_desc = Texp_ident (_, {txt = Lident name; _}, _); _}, args) when List.exists (fun b -> ident_of_binder b = name) bound_names || List.mem name primitive_functions ->
     (* TODO this doesn't model ocaml's right-to-left evaluation order *)
     let rec loop vars args =
       match args with
@@ -349,7 +360,9 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
     (* we may need information from bound names for this *)
     let (p, k), _ = Hipprover.Infer_types.(
         with_empty_env begin
-          infer_types_state (Retypehip.retype_state (p, k))
+          with_vartypes (List.to_seq bound_names) begin
+            infer_types_state (Retypehip.retype_state (p, k))
+          end
         end
       ) in
     {core_desc = CAssert (p, k); core_type = Unit}
@@ -422,7 +435,7 @@ let rec transformation (bound_names:string list) (expr:expression) : core_lang =
                   in
                   let spec, _ =
                     with_empty_env begin
-                      with_vartypes (List.to_seq new_types) begin
+                      with_vartypes (List.to_seq (new_types @ bound_names)) begin
                         infer_types_staged_spec spec
                       end
                     end
@@ -520,9 +533,9 @@ let string_of_expression_kind (expr:Parsetree.expression_desc) : string =
   | Pexp_unreachable -> "Pexp_unreachable"
 
 (** env just keeps track of all the bound names *)
-let transform_str bound_names (s : structure_item) =
+let transform_str (bound_names : binder list) (s : structure_item) =
   match s.str_desc with
-  | Tstr_value (_rec_flag, vb::_vbs_) ->
+  | Tstr_value (rec_flag, vb::_vbs_) ->
     if Option.is_some (Annotation.extract_ignore_attribute vb.vb_attributes) then None
     else
     let tactics = collect_annotations vb.vb_attributes in
@@ -532,7 +545,8 @@ let transform_str bound_names (s : structure_item) =
     | Texp_function (_, _tlbody) ->
       (* see also: CLambda case *)
       let spec = Annotation.extract_spec_attribute vb.vb_attributes |> Option.map Retypehip.retype_staged_spec in
-      let formals, body, ((_param_type, return_type) as types) = collect_param_info fn in
+      let formals, body, ((param_types, return_type) as types) = collect_param_info fn in
+      let function_type = List.fold_right (fun e acc -> Arrow (e, acc)) param_types return_type in
       let pure_fn_info =
         let has_pure_annotation =
           List.exists Parsetree.(fun a -> String.equal a.attr_name.txt "pure") vb.vb_attributes
@@ -543,19 +557,41 @@ let transform_str bound_names (s : structure_item) =
         let (types, _) = types in
         List.combine formals types
       in
-      let e = transformation (fn_name :: formals @ bound_names) body in
-      (* typecheck the specifications *)
-      let spec = spec |> Option.map (fun spec ->
-        let open Hipprover.Infer_types in
-        let spec, _ =
-          with_empty_env begin
-            with_vartypes (List.to_seq ["res", return_type]) begin
-              infer_types_staged_spec spec
-            end
-          end
-        in spec)
+      let bound_in_body = match rec_flag with
+        | Nonrecursive -> typed_formals @ bound_names
+        | Recursive -> (fn_name, function_type) :: typed_formals @ bound_names
       in
-      Some (Meth (fn_name, typed_formals, spec, e, tactics, pure_fn_info))
+      let e = transformation bound_in_body body in
+      (* typecheck the specifications *)
+      begin
+        match spec with
+        | None -> Some (Meth (fn_name, typed_formals, None, e, tactics, pure_fn_info))
+        | Some spec ->
+          let open Hipprover.Infer_types in
+          let result, _ = with_empty_env begin
+              with_vartypes (List.to_seq (["res", return_type] @ bound_in_body)) begin
+                let* spec = infer_types_staged_spec spec in
+                let simplify_type t env = Types.(TEnv.simplify env.equalities t), env in
+                (* unify the params with type information found in the spec *)
+                (* simplify to get the params' new types *)
+                let* params = Utils.State.map_list
+                  ~f:(fun param ->
+                      let* typ = simplify_type (type_of_binder param) in
+                      return (ident_of_binder param, typ))
+                typed_formals in
+                let* e = simplify_types_core_lang e in
+                let* typing_env = Utils.State.get in
+                let pure_fn_info = Option.map (fun pure_fn_info ->
+                  let params, ret = pure_fn_info in
+                  List.map (fun t -> simplify_type t typing_env |> fst) params, simplify_type ret typing_env |> fst)
+                pure_fn_info
+                in
+                return (Some (Meth (fn_name, params, Some spec, e, tactics, pure_fn_info)))
+              end
+            end
+          in
+          result
+      end
     | Texp_apply _ -> None 
     | _ -> failwith (Format.asprintf "not a function binding: %a" Pprintast.expression (Untypeast.untype_expression fn))
     end
@@ -583,14 +619,8 @@ let transform_str bound_names (s : structure_item) =
     let path, name =
       Str.split (Str.regexp "\\.") ext_name |> Utils.Lists.unsnoc
     in
-    let rec interpret_arrow_as_params t = match t with
-      | Arrow (t1, t2) ->
-        let p, r = interpret_arrow_as_params t2 in
-        t1 :: p, r
-      | _ -> [], t
-    in
     let params, ret =
-      hip_type_of_type_expr val_desc.ctyp_type |> interpret_arrow_as_params
+      hip_type_of_type_expr val_desc.ctyp_type |> Types.params_of_arrow_type
     in
     Some (LogicTypeDecl (val_name.txt, params, ret, path, name))
   (* TODO we need the full structure to convert s back to a Parsetree.structure via Untypeast *)
@@ -602,7 +632,7 @@ let transform_str bound_names (s : structure_item) =
         let open Hipprover.Infer_types in
         let lemma, _ =
           with_empty_env begin
-            with_vartypes (List.to_seq lemma.l_params) begin
+            with_vartypes (List.to_seq (bound_names @ lemma.l_params)) begin
               let* lhs, rhs = infer_types_pair_staged_spec lemma.l_left lemma.l_right in
               let* env = Utils.State.get in
               let open Hipcore.Types in

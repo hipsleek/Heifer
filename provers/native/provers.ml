@@ -4,7 +4,7 @@ open Hipcore_typed
 open Typedhip
 open Common
 
-let cache : (pi * string list * pi, Provers_common.prover_result) Hashtbl.t = Hashtbl.create 10
+let cache : (pi * binder list * pi, Provers_common.prover_result) Hashtbl.t = Hashtbl.create 10
 
 let memo k f =
   match Hashtbl.find_opt cache k with
@@ -24,10 +24,10 @@ let needs_why3 =
       true
   end
 
-let entails_exists env left ex right =
+let entails_exists left ex right =
   let@ _ = memo (left, ex, right) in
-  let prove_why3 env left ex right = Prover_why3.entails_exists env left ex right in
-  let prove_z3 env left ex right = Prover_z3.entails_exists env left ex right in
+  let prove_why3 left ex right = Prover_why3.entails_exists left ex right in
+  let prove_z3 left ex right = Prover_z3.entails_exists left ex right in
   let prover = match Sys.getenv_opt "PROVER" with
   | Some "WHY3" -> prove_why3
   | Some "Z3" -> prove_z3
@@ -44,6 +44,6 @@ let entails_exists env left ex right =
     else
       prove_z3
   in
-  prover env left ex right
+  prover left ex right
 
 let handle f = f ()

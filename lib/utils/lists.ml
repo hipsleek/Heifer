@@ -58,8 +58,7 @@ let rec find_delete_map (f : 'a -> 'b option) (xs : 'a list) : ('b * 'a list) op
           | Some (y, xs') -> Some (y, x :: xs')
 
 let map_state (f : 's -> 'a -> 'b * 's) (s : 's) (xs : 'a list) : 'b list * 's =
-  let open State in
-  map ~f:(fun a s -> f s a) xs s
+  State.map_list ~f:(fun a s -> f s a) xs s
 
 module Monadic = struct
   let (let*) xs f = List.concat_map f xs

@@ -1,5 +1,5 @@
-open Hipcore
-open Hiptypes
+open Hipcore_typed
+open Typedhip
 
 val split_one : kappa -> ((string * term) * kappa) option
 

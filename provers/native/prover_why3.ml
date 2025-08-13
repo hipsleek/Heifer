@@ -761,7 +761,7 @@ let rec type_to_whyml t =
   | Arrow (t1, t2) -> PTarrow (type_to_whyml t1, type_to_whyml t2)
   | TConstr (name, args) -> PTtyapp (qualid [name], List.map type_to_whyml args)
 
-let rec term_to_whyml tenv t =
+let rec term_to_whyml t =
   match Typedhip.(t.term_desc) with
   | Const ValUnit -> term (Ttuple [])
   | Const TTrue -> term Ttrue
@@ -771,48 +771,48 @@ let rec term_to_whyml tenv t =
   | BinOp (SConcat, a, b) ->
     tapp
       (qualid ["String"; "concat"])
-      [term_to_whyml tenv a; term_to_whyml tenv b]
+      [term_to_whyml a; term_to_whyml b]
   | BinOp (Plus, a, b) ->
     tapp
       (qualid ["Int"; Ident.op_infix "+"])
-      [term_to_whyml tenv a; term_to_whyml tenv b]
+      [term_to_whyml a; term_to_whyml b]
   | BinOp (Minus, a, b) ->
     tapp
       (qualid ["Int"; Ident.op_infix "-"])
-      [term_to_whyml tenv a; term_to_whyml tenv b]
+      [term_to_whyml a; term_to_whyml b]
   | BinOp (TTimes, a, b) ->
     tapp
       (qualid ["Int"; Ident.op_infix "*"])
-      [term_to_whyml tenv a; term_to_whyml tenv b]
+      [term_to_whyml a; term_to_whyml b]
   | Rel (EQ, a, b) ->
     tapp
       (qualid [Ident.op_infix "="])
-      [term_to_whyml tenv a; term_to_whyml tenv b]
+      [term_to_whyml a; term_to_whyml b]
   | Rel (GT, a, b) ->
     tapp
       (qualid ["Int"; Ident.op_infix ">"])
-      [term_to_whyml tenv a; term_to_whyml tenv b]
+      [term_to_whyml a; term_to_whyml b]
   | Rel (GTEQ, a, b) ->
     tapp
       (qualid ["Int"; Ident.op_infix ">="])
-      [term_to_whyml tenv a; term_to_whyml tenv b]
+      [term_to_whyml a; term_to_whyml b]
   | Rel (LT, a, b) ->
     tapp
       (qualid ["Int"; Ident.op_infix "<"])
-      [term_to_whyml tenv a; term_to_whyml tenv b]
+      [term_to_whyml a; term_to_whyml b]
   | Rel (LTEQ, a, b) ->
     tapp
       (qualid ["Int"; Ident.op_infix "<="])
-      [term_to_whyml tenv a; term_to_whyml tenv b]
+      [term_to_whyml a; term_to_whyml b]
   | BinOp (TAnd, a, b) ->
-    tapp (qualid ["Bool"; "andb"]) [term_to_whyml tenv a; term_to_whyml tenv b]
+    tapp (qualid ["Bool"; "andb"]) [term_to_whyml a; term_to_whyml b]
   | BinOp (TOr, a, b) ->
-    tapp (qualid ["Bool"; "orb"]) [term_to_whyml tenv a; term_to_whyml tenv b]
-  | TNot a -> tapp (qualid ["Bool"; "notb"]) [term_to_whyml tenv a]
-  | TApp (f, args) -> tapp (qualid [f]) (List.map (term_to_whyml tenv) args)
+    tapp (qualid ["Bool"; "orb"]) [term_to_whyml a; term_to_whyml b]
+  | TNot a -> tapp (qualid ["Bool"; "notb"]) [term_to_whyml a]
+  | TApp (f, args) -> tapp (qualid [f]) (List.map (term_to_whyml) args)
   | Const Nil -> tapp (qualid ["[]"]) []
   | BinOp (TCons, h, t) ->
-    tapp (qualid ["::"]) [term_to_whyml tenv h; term_to_whyml tenv t]
+    tapp (qualid ["::"]) [term_to_whyml h; term_to_whyml t]
   | TLambda (_name, _, _sp, Some _) | TLambda (_name, _, _sp, None) ->
     (* if there is no body, generate something that only respects alpha equivalence *)
     (* this probably doesn't always work *)
@@ -827,49 +827,49 @@ let rec term_to_whyml tenv t =
   | Construct (name, []) ->
     term (Tident (qualid [name]))
   | Construct (name, args) ->
-      tapp (qualid [name]) (List.map (term_to_whyml tenv) args)
+      tapp (qualid [name]) (List.map term_to_whyml args)
   | TTuple _ | BinOp (TPower, _, _) | BinOp (TDiv, _, _) | Const (TStr _)
     ->
     failwith "nyi"
 
-and vars_to_params tenv vars =
+and vars_to_params vars =
   List.map
     (fun v ->
       let type_of_existential =
         (* warning if default? *)
-        SMap.find_opt v tenv |> Option.value ~default:Int
+        type_of_binder v
       in
       ( Loc.dummy_position,
-        Some (ident v),
+        Some (ident (ident_of_binder v)),
         false,
         Some (type_to_whyml type_of_existential) ))
     vars
 
-and pattern_to_whyml tenv pattern =
+and pattern_to_whyml pattern =
   let p = match pattern.pattern_desc with
   | PAny -> Pwild
   | PConstr (constr, args) ->
-      Papp (qualid [constr], (List.map (pattern_to_whyml tenv) args))
+      Papp (qualid [constr], (List.map pattern_to_whyml args))
   | PVar v -> Pvar (ident (Untypehip.ident_of_binder v))
   | PConstant _ -> failwith "constant patterns not supported"
-  | PAlias (p, s) -> Pas (pattern_to_whyml tenv p, ident s, false)
+  | PAlias (p, s) -> Pas (pattern_to_whyml p, ident s, false)
   in
   pat p
 
-and core_lang_to_whyml tenv e =
+and core_lang_to_whyml e =
   match e.core_desc with
-  | CValue t -> term_to_whyml tenv t
+  | CValue t -> term_to_whyml t
   | CLet (v, e1, e2) ->
     term
-      (Tlet (ident (Untypehip.ident_of_binder v), core_lang_to_whyml tenv e1, core_lang_to_whyml tenv e2))
+      (Tlet (ident (Untypehip.ident_of_binder v), core_lang_to_whyml e1, core_lang_to_whyml e2))
   | CSequence (_e1, _e2) ->
       failwith "CSequence"
   | CIfElse (c, t, e) ->
     term
       (Tif
-         ( pi_to_whyml tenv c,
-           core_lang_to_whyml tenv t,
-           core_lang_to_whyml tenv e ))
+         ( pi_to_whyml c,
+           core_lang_to_whyml t,
+           core_lang_to_whyml e ))
   | CFunCall (s, args) ->
     let fn =
       match s with
@@ -881,17 +881,17 @@ and core_lang_to_whyml tenv e =
       | "string_of_int" -> qualid ["String"; "from_int"]
       | _ -> qualid [s]
     in
-    tapp fn (List.map (term_to_whyml tenv) args)
+    tapp fn (List.map term_to_whyml args)
   | CMatch (_, None, scr, [], cases) ->
     term
       (Tcase
-         ( core_lang_to_whyml tenv scr,
+         ( core_lang_to_whyml scr,
            List.map
            (* TODO change to properly model general patterns *)
              (fun case ->
                match case.ccase_guard with
                | Some _ -> failwith "guard expressions not supported in why3"
-               | None -> (pattern_to_whyml tenv case.ccase_pat, core_lang_to_whyml tenv case.ccase_expr))
+               | None -> (pattern_to_whyml case.ccase_pat, core_lang_to_whyml case.ccase_expr))
              cases ))
   | CMatch (_, _, _, _, _) -> failwith "unsupported kind of match"
   | CAssert (_, _) | CLambda (_, _, _) -> failwith "unimplemented"
@@ -899,35 +899,38 @@ and core_lang_to_whyml tenv e =
   | CResume _ | CPerform (_, _) -> failwith "effects not allowed"
   | CShift _ | CReset _ -> failwith "TODO shift and reset core_lang_to_whyml "
 
-and pi_to_whyml tenv p =
+and pi_to_whyml p =
   match p with
   | True -> term Ttrue
   | False -> term Tfalse
   | Atomic (EQ, a, b) ->
     tapp
       (qualid [Ident.op_infix "="])
-      [term_to_whyml tenv a; term_to_whyml tenv b]
-  | Atomic (op, a, b) -> term_to_whyml tenv (Syntax.rel op a b)
+      [term_to_whyml a; term_to_whyml b]
+  | Atomic (op, a, b) -> term_to_whyml (Syntax.rel op a b)
   | And (a, b) ->
-    term (Tbinop (pi_to_whyml tenv a, Dterm.DTand, pi_to_whyml tenv b))
+    term (Tbinop (pi_to_whyml a, Dterm.DTand, pi_to_whyml b))
   | Or (a, b) ->
-    term (Tbinop (pi_to_whyml tenv a, Dterm.DTor, pi_to_whyml tenv b))
-  | Not a -> term (Tnot (pi_to_whyml tenv a))
+    term (Tbinop (pi_to_whyml a, Dterm.DTor, pi_to_whyml b))
+  | Not a -> term (Tnot (pi_to_whyml a))
   | Imply (_, _) | Predicate (_, _) -> failwith "nyi"
   | Subsumption (_, _) -> term Ttrue
 
 let collect_variables =
   object
-    inherit [_] reduce_spec
-    method zero = SSet.empty
-    method plus = SSet.union
-    method! visit_Var _ v = SSet.singleton v
+    inherit [_] reduce_spec as super
+    method zero = SMap.empty
+    method plus = SMap.merge_arbitrary
+    method! visit_term env t =
+      match t.term_desc with
+      | Var v -> SMap.singleton v t.term_type
+      | _ -> super#visit_term env t
 
     (* don't go inside lambda, as those variables don't get encoded *)
-    method! visit_TLambda _ _ _ _ _ = SSet.empty
+    method! visit_TLambda _ _ _ _ _ = SMap.empty
   end
 
-let prove tenv qtf f =
+let prove (qtf : Hipcore_typed.Typedhip.binder list) f =
   let ass, goal = f () in
 
   let vc_mod =
@@ -945,29 +948,29 @@ let prove tenv qtf f =
 
     (* start building goal *)
     let universally_quantified =
-      SSet.union
+      SMap.merge_arbitrary
         (collect_variables#visit_pi () ass)
         (collect_variables#visit_pi () goal)
-      |> SSet.to_list
+      |> SMap.to_list
     in
 
     let statement =
-      let assumptions = pi_to_whyml tenv ass in
+      let assumptions = pi_to_whyml ass in
       let goal1 =
-        let binders = vars_to_params tenv qtf in
+        let binders = vars_to_params qtf in
         match binders with
-        | [] -> pi_to_whyml tenv goal
+        | [] -> pi_to_whyml goal
         | _ :: _ ->
-          term (Tquant (Dterm.DTexists, binders, [], pi_to_whyml tenv goal))
+          term (Tquant (Dterm.DTexists, binders, [], pi_to_whyml goal))
       in
       match monolithic_goal with
       | false ->
         [
-          Dprop (Decl.Paxiom, ident "ass1", pi_to_whyml tenv ass);
+          Dprop (Decl.Paxiom, ident "ass1", pi_to_whyml ass);
           Dprop (Decl.Pgoal, ident "goal1", goal1);
         ]
       | true ->
-        let forall_binders = vars_to_params tenv universally_quantified in
+        let forall_binders = vars_to_params universally_quantified in
         let impl = term (Tbinop (assumptions, Dterm.DTimplies, goal1)) in
         let goal2 =
           match forall_binders with
@@ -998,7 +1001,7 @@ let prove tenv qtf f =
                         type_to_whyml t ))
                     fn.pf_params;
                 ld_type = Some (type_to_whyml fn.pf_ret_type);
-                ld_def = Some (core_lang_to_whyml tenv fn.pf_body);
+                ld_def = Some (core_lang_to_whyml fn.pf_body);
               })
             f
         in
@@ -1039,10 +1042,10 @@ let prove tenv qtf f =
           Dlogic
             (universally_quantified
             |> List.map (fun v ->
-                   let type_of_parameter = SMap.find v tenv in
+                   let type_of_parameter = type_of_binder v in
                    {
                      ld_loc = Loc.dummy_position;
-                     ld_ident = ident v;
+                     ld_ident = ident (ident_of_binder v);
                      ld_params = [];
                      ld_type = Some (type_to_whyml type_of_parameter);
                      ld_def = None;
@@ -1094,17 +1097,6 @@ let prove tenv qtf f =
   |> combine_task_results "Module"
 
 (* Entry point to call why3 *)
-let entails_exists tenv left ex right =
+let entails_exists left ex right =
   let@ _ = Globals.Timing.(time why3) in
-  let use_low_level = false in
-  match use_low_level with
-  | false -> prove tenv ex (fun _env -> (left, right))
-  | true ->
-    (* keep this around for a while before we commit to the other approach *)
-    let open LowLevel in
-    prove tenv ex (fun env ->
-        ( pi_to_why3 env left,
-          (* Term.t_exists_close *)
-          (* (SMap.bindings env.exists |> List.map snd) *)
-          (* [] () *)
-          pi_to_why3 env right ))
+  prove ex (fun _env -> (left, right))

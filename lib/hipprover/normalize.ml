@@ -1,5 +1,5 @@
-open Hipcore
-open Hiptypes
+open Hipcore_typed
+open Typedhip
 open Debug
 open Variables
 open Utils
@@ -7,125 +7,9 @@ open Syntax
 open Rewriting
 open Rules
 
-(*
-
-let rec lookforEqualityinPure (str : string) (p:pi) : term option =
-  match p with
-  | Atomic (EQ, Var v, t) ->
-    if String.compare v str == 0 then Some t
-    else None
-  | True
-  | False
-  | Imply  _
-  | Not   _
-  | Predicate _
-  | Subsumption _
-  | Or _
-  | Atomic _ -> None
-  | And (p1, p2) ->
-    (match lookforEqualityinPure str p1 with
-    | Some t -> Some t
-    | None -> lookforEqualityinPure str p2
-    )
-
-let rec accumulateTheSum (p:pi) (h:kappa) : kappa =
-  match h with
-  | EmptyHeap -> h
-  | PointsTo (pointer, term) ->
-    let term' = accumulateTheSumTerm p term in
-    PointsTo (pointer, term')
-  | SepConj (h1, h2) -> SepConj (accumulateTheSum p h1, accumulateTheSum p h2)
-
-(* | IndPred {name; _} -> *)
-(* failwith (Format.asprintf "cannot normalise predicate %s" name) *)
-
-let rec collect_lambdas_term (t : term) =
-  match t with
-  | Nil | TTrue | TFalse | UNIT | Num _ -> SSet.empty
-  | TList ts | TTupple ts -> SSet.concat (List.map collect_lambdas_term ts)
-  | Var _ -> SSet.empty
-  | Rel (_, a, b) | Plus (a, b) | Minus (a, b) | TAnd (a, b) | TOr (a, b) | TPower(a, b) | TTimes (a, b) | TDiv (a, b) | SConcat (a, b)
-    ->
-    SSet.union (collect_lambdas_term a) (collect_lambdas_term b)
-  | TNot a -> collect_lambdas_term a
-  | TApp (_, args) -> SSet.concat (List.map collect_lambdas_term args)
-  | TLambda (l, _params, _sp, _body) -> SSet.singleton l
-  | TCons _ -> failwith "unimplemented"
-  | TStr _ -> failwith "unimplemented"
-
-
-let rec collect_lambdas_pi (p : pi) =
-  match p with
-  | True | False -> SSet.empty
-  | Subsumption (a, b)
-  | Atomic (_, a, b) ->
-    SSet.union (collect_lambdas_term a) (collect_lambdas_term b)
-  | And (a, b) | Or (a, b) | Imply (a, b) ->
-    SSet.union (collect_lambdas_pi a) (collect_lambdas_pi b)
-  | Not a -> collect_lambdas_pi a
-  | Predicate (_, t) ->
-    List.fold_left (fun acc a -> SSet.union acc (collect_lambdas_term a)) SSet.empty t
-
-
-
-let rec collect_lambdas_heap (h : kappa) =
-  match h with
-  | EmptyHeap -> SSet.empty
-  | PointsTo (_, t) -> collect_lambdas_term t
-  | SepConj (a, b) ->
-    SSet.union (collect_lambdas_heap a) (collect_lambdas_heap b)
-
-let collect_lambdas_state (p, h) =
-  SSet.union (collect_lambdas_pi p) (collect_lambdas_heap h)
-
-let collect_lambdas_eff eff =
-  match eff with
-  | EffHOStage eff ->
-  SSet.concat
-    [
-      collect_lambdas_state eff.e_pre;
-      collect_lambdas_state eff.e_post;
-      SSet.concat (List.map collect_lambdas_term (snd eff.e_constr));
-      collect_lambdas_term eff.e_ret;
-    ]
-  | _ -> SSet.empty
-
-let collect_lambdas_norm (_vs, pre, post) =
-  SSet.concat [collect_lambdas_state pre; collect_lambdas_state post]
-
-let collect_lambdas (sp : normalisedStagedSpec) =
-  let effs, norm = sp in
-  SSet.concat (collect_lambdas_norm norm :: List.map collect_lambdas_eff effs)
-
-let rec collect_locations_heap (h : kappa) =
-  match h with
-  | EmptyHeap -> SSet.empty
-  | PointsTo (v, Var x) -> SSet.of_list [v; x]
-  | PointsTo (v, _) -> SSet.singleton v
-  | SepConj (a, b) ->
-    SSet.union (collect_locations_heap a) (collect_locations_heap b)
-
-let collect_locations_vars_state (_, h) = collect_locations_heap h
-
-let collect_locations_eff (eff:effHOTryCatchStages) =
-  match eff with
-  | EffHOStage eff  ->
-  SSet.concat
-    [
-      collect_locations_vars_state eff.e_pre;
-      collect_locations_vars_state eff.e_post;
-    ]
-  | _ -> SSet.empty
-
-let collect_locations_norm (_vs, pre, post) =
-  SSet.concat
-    [collect_locations_vars_state pre; collect_locations_vars_state post]
-
-let collect_locations (sp : normalisedStagedSpec) =
-  let effs, norm = sp in
-  SSet.concat
-    (collect_locations_norm norm :: List.map collect_locations_eff effs)
-*)
+(* set the res var's type to Any, the eq smart constructor will
+   set its type to the result value *)
+let res_var = res_var ~typ:Any
 
 let split_eq_res_pi (p : pi) : pi option * pi =
   match Lists.find_delete_opt is_eq_res (conjuncts_of_pi p) with
@@ -163,9 +47,9 @@ let split_ens_visitor =
 let split_ens = split_ens_visitor#visit_staged_spec ()
 
 let norm_bind_val = Staged.dynamic_rule
-  (Bind (Binder.uvar "x", NormalReturn (eq res_var (Term.uvar "r"), emp), Staged.uvar "f"))
+  (Bind ((Binder.uvar_untyped "x"), ens ~p:(eq res_var (Term.uvar "r")) (), Staged.uvar "f"))
   (fun sub ->
-    let x = sub "x" |> Binder.of_uterm in
+    let x = sub "x" |> Binder.of_uterm |> ident_of_binder in
     let r = sub "r" |> Term.of_uterm in
     let f = sub "f" |> Staged.of_uterm in
     if is_lambda_term r then
@@ -174,19 +58,19 @@ let norm_bind_val = Staged.dynamic_rule
       Subst.subst_free_vars [(x, r)] f)
 
 let norm_bind_trivial = Staged.dynamic_rule
-  (Bind (Binder.uvar "x", Staged.uvar "f",
+  (Bind (Binder.uvar_untyped "x", Staged.uvar "f",
     NormalReturn (eq res_var (Term.uvar "r"), emp)))
   (fun sub ->
-    let x = sub "x" |> Binder.of_uterm in
+    let x = sub "x" |> Binder.of_uterm |> ident_of_binder in
     let r = sub "r" |> Term.of_uterm in
     let f = sub "f" |> Staged.of_uterm in
-    if Var x = r then f
+    if Var x = r.term_desc then f
     else Bind (x, f, ens ~p:(eq res_var r) ()))
 
 let norm_bind_disj = Staged.dynamic_rule
-  (Bind (Binder.uvar "x", Disjunction (Staged.uvar "f1", Staged.uvar "f2"), Staged.uvar "fk"))
+  (Bind (Binder.uvar_untyped "x", Disjunction (Staged.uvar "f1", Staged.uvar "f2"), Staged.uvar "fk"))
   (fun sub ->
-    let x = Binder.of_uterm (sub "x") in
+    let x = Binder.of_uterm (sub "x") |> ident_of_binder in
     let f1 = Staged.of_uterm (sub "f1") in
     let f2 = Staged.of_uterm (sub "f2") in
     let fk = Staged.of_uterm (sub "fk") in
@@ -204,9 +88,9 @@ let norm_seq_ens_disj = Staged.dynamic_rule
 
 (* we can push req outside of bind *)
 let norm_bind_req = Staged.dynamic_rule
-  (Bind (Binder.uvar "x", Sequence (Require (Pure.uvar "p", Heap.uvar "h"), Staged.uvar "f"), Staged.uvar "fk"))
+  (Bind (Binder.uvar_untyped "x", Sequence (Require (Pure.uvar "p", Heap.uvar "h"), Staged.uvar "f"), Staged.uvar "fk"))
   (fun sub ->
-    let x = Binder.of_uterm (sub "x") in
+    let x = Binder.of_uterm (sub "x") |> ident_of_binder in
     let p = Pure.of_uterm (sub "p") in
     let h = Heap.of_uterm (sub "h") in
     let f = Staged.of_uterm (sub "f") in
@@ -214,28 +98,28 @@ let norm_bind_req = Staged.dynamic_rule
     Sequence (Require (p, h), Bind (x, f, fk)))
 
 let norm_bind_ex = Staged.dynamic_rule
-  (Bind (Binder.uvar "x", Exists (Binder.uvar "x1", (Staged.uvar "f")), Staged.uvar "fk"))
+  (Bind (Binder.uvar_untyped "x", Exists (Binder.uvar "x1", (Staged.uvar "f")), Staged.uvar "fk"))
   (fun sub ->
-    let x = Binder.of_uterm (sub "x") in
+    let x = Binder.of_uterm (sub "x") |> ident_of_binder in
     let x1 = Binder.of_uterm (sub "x1") in
     let f = Staged.of_uterm (sub "f") in
     let fk = Staged.of_uterm (sub "fk") in
     Exists (x1, Bind (x, f, fk)))
 
 let norm_bind_all = Staged.dynamic_rule
-  (Bind (Binder.uvar "x", ForAll (Binder.uvar "x1", (Staged.uvar "f")), Staged.uvar "fk"))
+  (Bind (Binder.uvar_untyped "x", ForAll (Binder.uvar "x1", (Staged.uvar "f")), Staged.uvar "fk"))
   (fun sub ->
-    let x = Binder.of_uterm (sub "x") in
+    let x = Binder.of_uterm (sub "x") |> ident_of_binder in
     let x1 = Binder.of_uterm (sub "x1") in
     let f = Staged.of_uterm (sub "f") in
     let fk = Staged.of_uterm (sub "fk") in
     ForAll (x1, Bind (x, f, fk)))
 
 let norm_bind_assoc_ens = Staged.dynamic_rule
-  (Bind (Binder.uvar "x", Bind (Binder.uvar "y", NormalReturn (Pure.uvar "p", Heap.uvar "h"), Staged.uvar "f1"), Staged.uvar "f2"))
+  (Bind (Binder.uvar_untyped "x", Bind (Binder.uvar_untyped "y", NormalReturn (Pure.uvar "p", Heap.uvar "h"), Staged.uvar "f1"), Staged.uvar "f2"))
   (fun sub ->
-    let x = Binder.of_uterm (sub "x") in
-    let y = Binder.of_uterm (sub "y") in
+    let x = Binder.of_uterm (sub "x") |> ident_of_binder in
+    let y = Binder.of_uterm (sub "y") |> ident_of_binder in
     let p = Pure.of_uterm (sub "p") in
     let h = Heap.of_uterm (sub "h") in
     let f1 = Staged.of_uterm (sub "f1") in
@@ -277,9 +161,9 @@ let norm_seq_ens_seq_all = Staged.dynamic_rule
 (* bind (seq (ens Q) f) fk `entails` seq (ens Q) (bind f fk) *)
 (* we can push ens outside of bind; if the result of ens is not used *)
 let norm_bind_seq_ens = Staged.dynamic_rule
-  (Bind (Binder.uvar "x", Sequence (NormalReturn (Pure.uvar "p", Heap.uvar "h"), Staged.uvar "f"), Staged.uvar "fk"))
+  (Bind (Binder.uvar_untyped "x", Sequence (NormalReturn (Pure.uvar "p", Heap.uvar "h"), Staged.uvar "f"), Staged.uvar "fk"))
   (fun sub ->
-    let x = Binder.of_uterm (sub "x") in
+    let x = Binder.of_uterm (sub "x") |> ident_of_binder in
     let p = Pure.of_uterm (sub "p") in
     let h = Heap.of_uterm (sub "h") in
     let f = Staged.of_uterm (sub "f") in
@@ -477,7 +361,7 @@ let%expect_test "rules" =
   in
   let _ =
     let ens_heap = NormalReturn (True, PointsTo ("x", num 1)) in
-    let ens_pure = NormalReturn (eq (Var "x") (num 1), emp) in
+    let ens_pure = NormalReturn (eq (var "x" ~typ:Int) (num 1), emp) in
     let input = seq [ens_heap; ens_pure] in
     test norm_ens_heap_ens_pure input;
     [%expect
@@ -507,13 +391,13 @@ let%expect_test "rules" =
       |}]
   in
   let _ =
-    let input = Bind ("x", Exists ("y", (ens ~p:(eq (v "res") (num 2)) ())), ens ~p:(eq (v "x") (num 1)) ()) in
+    let input = Bind ("x", Exists (("y", Int), (ens ~p:(eq (v "res") (num 2)) ())), ens ~p:(eq (v "x") (num 1)) ()) in
     test norm_bind_ex input;
     [%expect
       {| ex y. (let x = (ens res=2) in (ens x=1)) |}]
   in
   let _ =
-    let input = Bind ("x", ForAll ("y", (ens ~p:(eq (v "res") (num 2)) ())), ens ~p:(eq (v "x") (num 1)) ()) in
+    let input = Bind ("x", ForAll (("y", Int), (ens ~p:(eq (v "res") (num 2)) ())), ens ~p:(eq (v "x") (num 1)) ()) in
     test norm_bind_all input;
     [%expect
       {| forall y. (let x = (ens res=2) in (ens x=1)) |}]

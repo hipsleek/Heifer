@@ -7,6 +7,7 @@
                  test6: true
            test7_false: false (expected)
            test8_false: false (expected)
+                 test9: true
                  test4: true
                  test5: true
                 test61: true
@@ -38,7 +39,6 @@
 
   $ check test_ho.ml
             test1_true: false
-           test1_false: false (expected)
             test2_true: false
            test5_false: false (expected)
             test3_true: false
