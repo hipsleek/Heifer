@@ -722,8 +722,12 @@ let create_induction_hypothesis (ps : pstate) name : pctx =
     SSet.union Subst.(free_vars Sctx_staged f1) Subst.(free_vars Sctx_staged f2)
     |> SSet.remove "res" (* this isn't a free var; it's bound by ens *)
     |> SSet.remove name (* the function itself isn't free *)
-    |> SSet.to_list
   in
+  (* names of previous definitions are not free variables *)
+  let remove_definition set (def, _) = SSet.remove def set in
+  let free = List.fold_left remove_definition free pctx.definitions_nonrec in
+  let free = List.fold_left remove_definition free pctx.definitions_rec in
+  let free = SSet.to_list free in
   (* assume they are of term type *)
   let bs = List.map (fun f -> (f, Rewriting.Rules.Term.uvar f)) free in
   let f3 = Subst.subst_free_vars bs f1 in
@@ -818,12 +822,13 @@ let suppress_exn ~title ~default (f : unit -> 'a) : 'a =
     debug ~at:5 ~title "%s" (Printexc.to_string e);
     default
 
-let suppress_z3_exn ~title ~default (f : unit -> 'a) : 'a =
+let suppress_some_exn ~title ~default (f : unit -> 'a) : 'a =
   try
     f ()
-  with Z3.Error _ as e ->
-    debug ~at:5 ~title "%s" (Printexc.to_string e);
-    default
+  with
+  | Z3.Error _ | Infer_types.Cyclic_type _ as e ->
+      debug ~at:5 ~title "%s" (Printexc.to_string e);
+      default
 
 let rec apply_ent_rule ?name : tactic =
  fun (pctx, f1, f2) k ->
@@ -1125,7 +1130,7 @@ let rec apply_ent_rule ?name : tactic =
           (* copy the binder's type to allow for polymorphic constants in try_constants *)
           let f4 = Subst.subst_free_vars [(ident_of_binder x, term c.term_desc (type_of_binder x))] f4 in
           fun k1 ->
-            let@ _ = suppress_z3_exn
+            let@ _ = suppress_some_exn
               ~title:"ERROR: exists on the right, entailment step"
               ~default:fail
             in
@@ -1149,7 +1154,7 @@ let rec apply_ent_rule ?name : tactic =
           if Hipcore.Types.can_unify_with c.term_type (type_of_binder x) then
           let f3 = Subst.subst_free_vars [((ident_of_binder x), term c.term_desc (type_of_binder x))] f3 in
           fun k1 ->
-            let@ _ = suppress_z3_exn
+            let@ _ = suppress_some_exn
               ~title:"ERROR: forall on the left, entailment step"
               ~default:fail
             in
@@ -1208,8 +1213,8 @@ let rec apply_ent_rule ?name : tactic =
           apply_lemmas ps
         in
         if ps <> ps1 then entailment_search ?name ps1 k
-        else 
-          let is_contradiction = 
+        else
+          let is_contradiction =
             let@ _ = span (fun _r -> debug ~at:4 ~title:"try to discharge via contradiction" "") in
             check_pure_obligation (conj pctx.assumptions) False
           in

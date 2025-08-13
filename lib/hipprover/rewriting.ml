@@ -455,7 +455,7 @@ let rec unify_var : UF.store -> unifiable -> unifiable -> unit option =
     | Heap h1, Heap h2 -> unify_heap st (h1, e1) (h2, e2)
     | Term t1, Term t2 -> unify_term st (t1, e1) (t2, e2)
     | Type t1, Type t2 -> unify_type st (t1, e1) (t2, e2)
-    | Binder s1, Binder s2 when s1 = s2 -> Some ()
+    | Binder s1, Binder s2 -> if s1 = s2 then Some () else None
     | _, _ ->
       failwith
         (Format.sprintf "cannot unify values of different types: %s, %s"

@@ -105,6 +105,8 @@ rule token = parse
       { LET }
   | "in"
       { IN }
+  | "fun"
+      { FUN }
   | "sh"
       { SHIFT }
   | "rs"
