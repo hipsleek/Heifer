@@ -87,6 +87,10 @@ module U = Utils.Union_find
 module TEnv = struct
   type t = typ U.elem TMap.t ref
 
+  (** [Cyclic_type t1 t2] is raised when, during type unification, t1's value
+      is found to rely on t2. *)
+  exception Cyclic_type of typ * typ
+
   let create () =
     (* TODO this may break, since we now need to lazily create entries for concrete
     types as they are added to the list. *)
@@ -109,21 +113,23 @@ module TEnv = struct
   (** Attempt to resolve all type variables in t. (i.e. performs all
    unifications possible.) *)
   let simplify (m : t) t : typ =
-    let rec inner ?(do_not_expand = []) t =
+    let rec inner ?(expanded = SMap.empty) t =
       match t with
       | TVar s ->
         let simplified = TMap.find_opt t !m
         |> Option.map U.get
         |> Option.value ~default:t in
-        if simplified = t || List.mem s do_not_expand
+        if simplified = t
         then simplified
+        else if SMap.mem s expanded
+        then raise (Cyclic_type (t, simplified))
         (* Add s to the do-not-expand list, to prevent a cyclic expansion of s. *)
-        else inner ~do_not_expand:(s::do_not_expand) simplified
+        else inner ~expanded:(SMap.add s t expanded) simplified
       | TConstr (constr, args) -> 
           (* recurse into the constructor's arguments *)
-          TConstr (constr, List.map (inner ~do_not_expand) args)
+          TConstr (constr, List.map (inner ~expanded:expanded) args)
       | Arrow (src, dst) ->
-          Arrow (inner ~do_not_expand src, inner ~do_not_expand dst)
+          Arrow (inner ~expanded:expanded src, inner ~expanded:expanded dst)
       | _ -> t
     in
     inner t

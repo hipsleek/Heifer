@@ -25,9 +25,7 @@ let lift_opt (f : 'a -> 'b using_env) (a : 'a option) : 'b option using_env =
 (** Exception raised when solver cannot unify the two types. *)
 exception Unification_failure of typ * typ
 
-(** [Cyclic_type t1 t2] is raised when, during type unification, t1's value
-    is found to rely on t2. *)
-exception Cyclic_type of typ * typ
+exception Cyclic_type = TEnv.Cyclic_type
 
 let () =
   Printexc.register_printer begin function
@@ -54,6 +52,11 @@ let rec unify_types t1 t2 : unit using_env =
         if name1 = name2
         then (), List.fold_left2 (fun env p1 p2 -> unify_types p1 p2 env |> snd) env args1 args2
         else raise (Unification_failure (simp_t1, simp_t2))
+    (* case of function type *)
+    | Arrow (src1, dst1), Arrow (src2, dst2) ->
+      let (), env = unify_types src1 src2 env in
+      let (), env = unify_types dst1 dst2 env in
+      (), env
     (* case where t1 and t2 are the same type: *)
     | t1, t2 when compare_typ t1 t2 = 0 -> (), env
     (* case where one of the types is Any *)
@@ -563,7 +566,18 @@ let%expect_test "unsolvable unification: cyclic solution" =
   let t2 = TConstr ("list", [TVar "a"]) in
   let _ = unify_types t1 t2 env in
   output_simplified_types env [t1; t2];
-  [@@expect.uncaught_exn {| ("Cyclic_type('a, (('a) list) list)") |}]
+  [@@expect.uncaught_exn {| ("Cyclic_type('a, ('a) list)") |}]
+
+let%expect_test "unsolvable unification: cycle in environment" =
+  Printexc.record_backtrace false;
+  let env = create_abs_env () in
+  TEnv.(equate env.equalities (TVar "a") (TConstr ("list", [TVar "a"])));
+  let t1 = TVar "a" in
+  let t2 = TConstr ("list", [TVar "b"]) in
+  let _ = unify_types t1 t2 env in
+  output_simplified_types env [t1; t2]
+  [@@expect.uncaught_exn {| ("Cyclic_type('a, ('a) list)") |}]
+
 
 let%expect_test "unsolvable unification: incompatible types" =
   Printexc.record_backtrace false;
