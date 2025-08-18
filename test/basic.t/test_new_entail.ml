@@ -29,12 +29,10 @@ let test8_false ()
   j
 (* k is not a param *)
 
-(* disabled while types implementation is being completed *)
-(*
 let test9 ()
   (*@ ex r. ens res=r @*) =
   let j = 0 in
-  j *)
+  j
 (* existential return value *)
 
 let test4 ()

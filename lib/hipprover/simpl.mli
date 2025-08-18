@@ -1,5 +1,4 @@
-open Hipcore
-open Hiptypes
+open Hipcore_typed.Typedhip
 
 val simplify_term : term -> term
 

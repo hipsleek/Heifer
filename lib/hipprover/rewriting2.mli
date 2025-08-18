@@ -1,5 +1,4 @@
-open Hipcore
-open Hiptypes
+open Hipcore_typed.Typedhip
 
 (** Inspired by ppxlib's Ast_pattern.
     https://ocaml-ppx.github.io/ppxlib/ppxlib/matching-code.html
@@ -79,18 +78,18 @@ val seq :
   (staged_spec, 'a, 'c) pattern
 
 val bind :
-  (string, 'a, 'b) pattern ->
+  (binder, 'a, 'b) pattern ->
   (staged_spec, 'b, 'c) pattern ->
   (staged_spec, 'c, 'd) pattern ->
   (staged_spec, 'a, 'd) pattern
 
 val forall :
-  (string, 'a, 'b) pattern ->
+  (binder, 'a, 'b) pattern ->
   (staged_spec, 'b, 'c) pattern ->
   (staged_spec, 'a, 'c) pattern
 
 val exists :
-  (string, 'a, 'b) pattern ->
+  (binder, 'a, 'b) pattern ->
   (staged_spec, 'b, 'c) pattern ->
   (staged_spec, 'a, 'c) pattern
 
@@ -100,9 +99,9 @@ val reset :
 
 val shift :
   (bool, 'z, 'a) pattern ->
-  (string, 'a, 'b) pattern ->
+  (binder, 'a, 'b) pattern ->
   (staged_spec, 'b, 'c) pattern ->
-  (string, 'c, 'd) pattern ->
+  (binder, 'c, 'd) pattern ->
   (staged_spec, 'd, 'e) pattern ->
   (staged_spec, 'z, 'e) pattern
 

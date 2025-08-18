@@ -10,3 +10,6 @@ val exclude : guarded_pattern -> guarded_pattern list -> guarded_pattern list
 matching under the pattern. The corresponding list is
 the free variables in the formula. *)
 val pi_of_pattern : term -> guarded_pattern -> binder list * pi
+
+(** Return a list of names bound by this pattern. *)
+val pattern_bindings : guarded_pattern -> binder list

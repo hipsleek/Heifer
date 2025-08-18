@@ -20,12 +20,15 @@ let scope f =
 let mutate f =
   fun st -> (), f st
 
-let rec map ~f ls =
+let map f st =
+  bind st (fun a -> return (f a))
+
+let rec map_list ~f ls =
   match ls with
   | [] -> return []
   | x::xs -> 
       let* x = f x in
-      let* xs = map ~f xs in
+      let* xs = map_list ~f xs in
       return (x::xs)
 
 (* monad-aware wrapper around Debug's utilities *)

@@ -314,7 +314,7 @@ let rec forward (env: fvenv) (expr : core_lang): staged_spec * fvenv =
   | CLet (x, expr1, expr2) ->
       let spec1, env = forward env expr1 in
       let spec2, env = forward env expr2 in
-      Bind (ident_of_binder x, spec1, spec2), env
+      Bind (x, spec1, spec2), env
   | CSequence (expr1, expr2) ->
       let spec1, env = forward env expr1 in
       let spec2, env = forward env expr2 in
@@ -330,7 +330,7 @@ let rec forward (env: fvenv) (expr : core_lang): staged_spec * fvenv =
   | CFunCall (name, args) ->
       HigherOrder (name, args), env
   | CRef t ->
-      let x = (fresh_variable (), t.term_type) in
+      let x = (fresh_variable (), TConstr ("ref", [t.term_type])) in
       Exists (x, NormalReturn (res_eq (var_of_binder x), PointsTo (ident_of_binder x, t))), env
   | CWrite (x, t) ->
       let v = (fresh_variable (), t.term_type) in
@@ -350,7 +350,7 @@ let rec forward (env: fvenv) (expr : core_lang): staged_spec * fvenv =
       failwith "CPerform"
   | CMatch (_, _, discriminant, _, cases) ->
       let v = fresh_variable ~v:"match" () in
-      let t = var ~typ:expr.core_type v in
+      let t = var ~typ:discriminant.core_type v in
       let discriminant_spec, env = forward env discriminant in
       let handle_case (env, past_cases) case =
         let pat = case.ccase_pat in
@@ -370,12 +370,9 @@ let rec forward (env: fvenv) (expr : core_lang): staged_spec * fvenv =
         in
         case_spec, (env, (pat, guard)::past_cases)
       in
-      (* TODO in the presence of general patterns this is actually wrong, every pattern should exclude the possibility of the patterns preceding it
-         in the match statement
-         this needs some way to find the complement of a pattern, since spec doesn't allow for negative exists (whether expliclitly or via forall + conjunction) *)
   let cases_spec, (env, _) = Lists.map_state handle_case (env, []) cases in
       let disj_spec = Syntax.disj cases_spec in
-      Bind (v, discriminant_spec, disj_spec), env
+      Bind (binder_of_var t, discriminant_spec, disj_spec), env
   | CResume _ ->
       failwith "CResume"
   | CLambda (params, given_spec, body) ->
@@ -409,7 +406,7 @@ let rec forward (env: fvenv) (expr : core_lang): staged_spec * fvenv =
         | _ -> failwith "continuation argument does not have function type"
       in
       let cont = NormalReturn (res_eq (var ~typ:cont_arg_type x), EmptyHeap) in
-      Shift (nz, ident_of_binder k, spec_body, x, cont), env
+      Shift (nz, k, spec_body, (x, cont_arg_type), cont), env
   | CReset expr_body ->
       let spec_body, env = forward env expr_body in
       Reset spec_body, env

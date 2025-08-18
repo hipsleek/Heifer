@@ -8,34 +8,52 @@ open Normalize*)
 (* TODO should this module be moved to Rewriting? then the prover would depend on the parser *)
 module Rewrite = struct
   open Ocamlfrontend.Annotation
+  open Hipcore_typed.Retypehip
+  open Hipprover.Infer_types
   open Hipprover.Rewriting
 
+  let pipeline (parser, retyper, inferrer) =
+    let typed_parser s =
+      s
+      |> parser
+      |> retyper
+      |> (fun s ->
+          let typed, _ = Hipprover.Infer_types.with_empty_env begin
+            inferrer s
+          end in
+          typed)
+    in
+    typed_parser
 
   module Staged = struct
-    let (==>) lhs rhs =
-      Rules.Staged.rule (parse_staged_spec lhs) (parse_staged_spec rhs)
+    let (==>) lhs rhs = 
+      let p = pipeline (parse_staged_spec, retype_staged_spec, infer_types_staged_spec) in
+      Rules.Staged.rule (p lhs) (p rhs)
   end
 
   module Pure = struct
-    let (==>) lhs rhs =
-      Rules.Pure.rule (parse_pi lhs) (parse_pi rhs)
+    let (==>) lhs rhs = 
+      let p = pipeline (parse_pi, retype_pi, infer_types_pi) in
+      Rules.Pure.rule (p lhs) (p rhs)
   end
 
   module Heap = struct
-    let (==>) lhs rhs =
-      Rules.Heap.rule (parse_kappa lhs) (parse_kappa rhs)
+    let (==>) lhs rhs = 
+      let p = pipeline (parse_kappa, retype_kappa, infer_types_kappa) in
+      Rules.Heap.rule (p lhs) (p rhs)
   end
 
   module Term = struct
-    let (==>) lhs rhs =
-      Rules.Term.rule (parse_term lhs) (parse_term rhs)
+    let (==>) lhs rhs = 
+      let p = pipeline (parse_term, retype_term, infer_types_term ?hint:None) in
+      Rules.Term.rule (p lhs) (p rhs)
   end
 end
 open Rewrite
 
 let%expect_test "rewriting" =
   let open Hipprover.Rewriting in
-  let spec = Ocamlfrontend.Annotation.parse_staged_spec in
+  let spec s = pipeline (Ocamlfrontend.Annotation.parse_staged_spec, Hipcore_typed.Retypehip.retype_staged_spec, Hipprover.Infer_types.infer_types_staged_spec) s in
   let test rule target =
     let b1 = rewrite_all rule target in
     Format.printf "rewrite %s@." (string_of_uterm target);
@@ -77,7 +95,7 @@ let%expect_test "rewriting" =
 
 let%expect_test "autorewrite" =
   let open Hipprover.Rewriting in
-  let spec = Ocamlfrontend.Annotation.parse_staged_spec in
+  let spec s = s |> Ocamlfrontend.Annotation.parse_staged_spec |> Hipcore_typed.Retypehip.retype_staged_spec in
   let test db target =
     let b1 = autorewrite db target in
     Format.printf "start: %s@." (string_of_uterm target);

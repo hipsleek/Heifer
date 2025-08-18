@@ -128,10 +128,10 @@ and staged_spec =
   (* this constructor is also used for inductive predicate applications *)
   (* f$(x, y) is HigherOrder(..., ..., (f, [x]), y) *)
   | HigherOrder of string * term list
-  | Shift of bool * string * staged_spec * string * staged_spec (* see CShift for meaning of bool *)
+  | Shift of bool * binder * staged_spec * binder * staged_spec (* see CShift for meaning of bool *)
   | Reset of staged_spec
   | Sequence of staged_spec * staged_spec
-  | Bind of string * staged_spec * staged_spec
+  | Bind of binder * staged_spec * staged_spec
   | Disjunction of staged_spec * staged_spec
   (* effects: H /\ P /\ E(...args, v), term is always a placeholder variable *)
   | RaisingEff of (pi * kappa * instant * term)
@@ -141,17 +141,18 @@ and staged_spec =
 and typ = Types.typ = 
   | Any
   | Unit
-  | TConstr of string * typ list
   | Int
   | Bool
   | TyString
   | Lamb
   | Arrow of typ * typ
+  | TConstr of string * typ list
   | TVar of string
 
 [@@deriving
   visitors { variety = "map"; name = "map_spec" },
   visitors { variety = "reduce"; name = "reduce_spec" },
+  visitors { variety = "mapreduce"; name = "mapreduce_spec" },
   ord]
 
 let var_of_binder (v, t) = {term_desc = Var v; term_type = t}
@@ -159,6 +160,9 @@ let binder_of_var {term_desc; term_type} =
   match term_desc with
   | Var v -> (v, term_type)
   | _ -> raise (Invalid_argument "Term was not Var")
+let ident_of_binder ((v, _) : binder) = v
+let type_of_binder ((_, t) : binder) = t
+
 
 type tactic = Hiptypes.tactic
 

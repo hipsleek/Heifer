@@ -105,6 +105,13 @@ let rec intersect_two p1 p2 = match p1.pattern_desc, p2.pattern_desc with
       return (make (PConstr (name1, args)) p1.pattern_type)
   | _, _ -> []
 
+let rec pattern_bindings pat =
+  match pat.pattern_desc with
+  | PAny | PConstant _ -> []
+  | PConstr (_, args) -> List.concat_map pattern_bindings args
+  | PVar v -> [v]
+  | PAlias (pat, v) -> (v, pat.pattern_type)::(pattern_bindings pat)
+
 let deconflict_renames shared = 
   shared
     |> SMap.to_seq
@@ -185,6 +192,9 @@ module Guarded = struct
   let pi_of_pattern pat_term (pat, guard) =
     let (free_vars, pi) = pi_of_pattern pat_term pat in
     (free_vars, And (pi, eq guard ctrue))
+
+  let pattern_bindings (pat, _) =
+    pattern_bindings pat
 end
 
 (* shadow the unguarded definitions *)
@@ -197,11 +207,11 @@ module Testing = struct
     let open Globals in
     define_type {
       tdecl_name = "test_type";
-      tdecl_params = [];
+      tdecl_params = [TVar "a"];
       tdecl_kind = Tdecl_inductive [
         "A", [];
-        "B", [Int];
-        "D", [TConstr ("test_type", []); TConstr ("test_type", [])]
+        "B", [TVar "a"];
+        "D", [TConstr ("test_type", [TVar "a"]); TConstr ("test_type", [TVar "a"])]
       ]
     };
     define_type {
@@ -220,14 +230,14 @@ module Testing = struct
       else Printf.sprintf "%s when %s" (string_of_pattern pat) (string_of_term guard))
   pats) |> print_string
 
-  let any typ = {pattern_desc = PAny; pattern_type = TConstr (typ, [])}
+  let any ?(args = []) typ = {pattern_desc = PAny; pattern_type = TConstr (typ, args)}
   let constr ~typ ?(typ_args = []) ctr args  = {pattern_desc = PConstr (ctr, args); pattern_type = TConstr (typ, typ_args)}
-  let a = constr ~typ:"test_type" "A" []
-  let pvar ?(typ="test_type") name = 
-    let typ = TConstr (typ, []) in
+  let a = constr ~typ:"test_type" ~typ_args:[Int] "A" []
+  let pvar ?(typ="test_type") ?(typ_args=[Int]) name = 
+    let typ = TConstr (typ, typ_args) in
     {pattern_desc = PVar (name, typ); pattern_type = typ}
-  let b v = constr ~typ:"test_type" "B" [v]
-  let d (a1, a2) = constr ~typ:"test_type" "D" [a1; a2]
+  let b v = constr ~typ:"test_type" ~typ_args:[Int] "B" [v]
+  let d (a1, a2) = constr ~typ:"test_type" ~typ_args:[Int] "D" [a1; a2]
   let as_ ~name pat = {pattern_desc = PAlias (pat, name); pattern_type = pat.pattern_type}
 
   let z = constr ~typ:"nat" "Z" []
@@ -240,7 +250,7 @@ let%expect_test "complement" =
   let open Testing in
   setup_tests ();
 
-  let __ = Testing.any "test_type" in
+  let __ = Testing.any ~args:[Int] "test_type" in
   output (complement (guarded (b __)));
   [%expect{| A() | D(_, _) |}];
 
@@ -256,7 +266,7 @@ let%expect_test "intersect" =
   let open Testing in
   setup_tests ();
 
-  let __ = Testing.any "test_type" in
+  let __ = Testing.any ~args:[Int] "test_type" in
   output (intersect [guarded (d (pvar "a", pvar "b"))] [guarded (b (pvar "x")); guarded (d (__, d (__, pvar "d")))]);
   [%expect{| D(a, (D(_, d)) as b) |}];
 
@@ -272,7 +282,7 @@ let%expect_test "exclude" =
 
   setup_tests ();
 
-  let __ = Testing.any "test_type" in
+  let __ = Testing.any ~args:[Int] "test_type" in
   output (exclude (guarded (d (__, __))) [guarded a; guarded (d (b __, __))]);
   [%expect{| D(A(), _) | D(D(_, _), _) |}];
 

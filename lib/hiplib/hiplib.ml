@@ -175,8 +175,8 @@ let check_method prog inferred given =
   | Some given_spec ->
     let open Hipprover.Entail in
     (* likely that we need some env or extra setup later *)
-    let pctx = create_pctx (Untypehip.untype_core_program prog) in
-    check_staged_spec_entailment pctx (Untypehip.untype_staged_spec inferred) (Untypehip.untype_staged_spec given_spec)
+    let pctx = create_pctx prog in
+    check_staged_spec_entailment pctx inferred given_spec
 
 let infer_and_check_method (prog : core_program) (meth : meth_def) (given_spec : staged_spec option) =
   let inferred_spec = infer_spec prog meth in
@@ -219,9 +219,8 @@ let analyze_method (prog : core_program) (meth : meth_def) : core_program =
         "")
       in
       let pred = Hipprover.Entail.derive_predicate meth.m_name 
-        (List.map Untypehip.ident_of_binder meth.m_params)
-        (Untypehip.untype_staged_spec inferred_spec)
-        |> Retypehip.retype_pred_def in
+      meth.m_params
+      inferred_spec in
       (* let pred = todo () in *)
       let cp_predicates = SMap.add meth.m_name pred prog.cp_predicates in
       {prog with cp_predicates}
@@ -239,8 +238,8 @@ let analyze_method (prog : core_program) (meth : meth_def) : core_program =
 
 let check_lemma (prog : core_program) (l : lemma) : bool =
   let open Hipprover.Entail in
-  let pctx = create_pctx (Untypehip.untype_core_program prog) in
-  check_staged_spec_entailment pctx (Untypehip.untype_staged_spec l.l_left) (Untypehip.untype_staged_spec l.l_right)
+  let pctx = create_pctx prog in
+  check_staged_spec_entailment pctx l.l_left l.l_right
 
 let analyze_lemma (prog : core_program) (l : lemma) : core_program =
   let result = check_lemma prog l in
@@ -273,7 +272,7 @@ let process_pure_fn_info ({m_name; m_params; m_body; _}) = function
       in
       Globals.define_pure_fn m_name pf
 
-let process_intermediates (it : Typedhip.intermediate) prog : string list * core_program =
+let process_intermediates (it : Typedhip.intermediate) prog : binder list * core_program =
   (* Format.printf "%s\n" (Pretty.string_of_intermediate it);
   ([], prog) *)
   let open Typedhip in
@@ -340,7 +339,8 @@ let process_intermediates (it : Typedhip.intermediate) prog : string list * core
         debug ~at:1 ~title:(Format.asprintf "verifying function: %s" meth.m_name) "")
       in
       let prog = analyze_method prog meth in
-      [m_name], prog
+      let function_type = List.fold_right (fun e acc -> Arrow (e, acc)) (List.map type_of_binder m_params) m_body.core_type in
+      [m_name, function_type], prog
 
 let process_ocaml_structure (items: Ocaml_common.Typedtree.structure) : unit =
   let process_ocaml_item (bound_names, prog) item =
