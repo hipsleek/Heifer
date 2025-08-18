@@ -142,11 +142,12 @@ let to_unifiable st f : unifiable =
 
       method! visit_HigherOrder () f v =
         (* both a variable and something which may contain binder variables... *)
+        (* TODO: check *)
         match v with
         | [] ->
           if is_uvar_name f then
             (HigherOrder (f, []), SMap.singleton f (UF.make st None))
-          else (HigherOrder (f, []), SMap.empty)
+          else (HigherOrder (f, []), SMap.empty) (* TODO: unreachable? *)
         | _ :: _ ->
           let v1, e = super#visit_HigherOrder () f v in
           if is_uvar_name f then (v1, SMap.add f (UF.make st None) e)
@@ -159,12 +160,13 @@ let to_unifiable st f : unifiable =
         else (Predicate (f, v1), e)
 
       method! visit_PointsTo () l v =
+        (* TODO: check *)
         let v1, e = self#visit_term () v in
-        if is_uvar_name l then begin
+        if is_uvar_name l then
           match v.term_desc with
-          | Const ValUnit -> (PointsTo (l, v1), SMap.add l (UF.make st None) e)
-          | _ -> (PointsTo (l, v1), SMap.singleton l (UF.make st None))
-        end else
+          | Const ValUnit -> (PointsTo (l, v1), SMap.singleton l (UF.make st None))
+          | _ -> (PointsTo (l, v1), SMap.add l (UF.make st None) e)
+        else
           (PointsTo (l, v1), e)
 
       method! visit_Var () x =
@@ -175,8 +177,13 @@ let to_unifiable st f : unifiable =
         if is_uvar_name t then (TVar t, SMap.singleton t (UF.make st None))
         else (TVar t, SMap.empty)
 
+      method! visit_binder () (x, t) =
+        let b, e = super#visit_binder () (x, t) in
+        if is_uvar_name x then ((x, t), SMap.add x (UF.make st None) e) else (b, e)
+
+
       (* binders *)
-      method! visit_Bind () x f1 f2 =
+      (* method! visit_Bind () x f1 f2 =
         let v1, e = super#visit_Bind () x f1 f2 in
         if binder_is_uvar x then (v1, SMap.add (ident_of_binder x) (UF.make st None) e) else (v1, e)
 
@@ -186,7 +193,7 @@ let to_unifiable st f : unifiable =
 
       method! visit_ForAll () x f =
         let v1, e = super#visit_ForAll () x f in
-        if binder_is_uvar x then (v1, SMap.add (ident_of_binder x) (UF.make st None) e) else (v1, e)
+        if binder_is_uvar x then (v1, SMap.add (ident_of_binder x) (UF.make st None) e) else (v1, e) *)
     end
   in
   match f with
@@ -202,7 +209,10 @@ let to_unifiable st f : unifiable =
   | Term t ->
     let t, e = visitor#visit_term () t in
     (Term t, e)
-  | Binder s -> (Binder s, SMap.singleton (ident_of_binder s) (UF.make st None))
+  | Binder s ->
+    let s, e = visitor#visit_binder () s in
+    (Binder s, e)
+    (* SMap.singleton (ident_of_binder s) (UF.make st None)) *)
   | Type t ->
     let t, e = visitor#visit_typ () t in
     (Type t, e)
@@ -912,7 +922,7 @@ let%expect_test "rewriting" =
            Exists (Binder.uvar "x1", Staged.uvar "f"),
            Staged.uvar "fk" ))
       (Exists
-         ( Binder.uvar "x1", 
+         ( Binder.uvar "x1",
            Bind (Binder.uvar "x", Staged.uvar "f", Staged.uvar "fk") ))
   in
   test norm_bind_ex
