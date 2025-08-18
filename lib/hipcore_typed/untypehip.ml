@@ -114,13 +114,13 @@ match s with
 | HigherOrder (f, t) ->
     Hiptypes.HigherOrder (f, List.map untype_term t)
 | Shift (is_shift, k, spec, x, cont) ->
-    Hiptypes.Shift (is_shift, k, untype_staged_spec spec, ident_of_binder x, untype_staged_spec cont)
+    Hiptypes.Shift (is_shift, ident_of_binder k, untype_staged_spec spec, ident_of_binder x, untype_staged_spec cont)
 | Disjunction (f1, f2) ->
     Hiptypes.Disjunction (untype_staged_spec f1, untype_staged_spec f2)
 | Sequence (f1, f2) ->
     Hiptypes.Sequence (untype_staged_spec f1, untype_staged_spec f2)
 | Bind (x, f1, f2) ->
-    Hiptypes.Bind (x, untype_staged_spec f1, untype_staged_spec f2)
+    Hiptypes.Bind (ident_of_binder x, untype_staged_spec f1, untype_staged_spec f2)
 | Reset (spec) ->
     Hiptypes.Reset (untype_staged_spec spec)
 | RaisingEff (phi, h, inst, t) ->

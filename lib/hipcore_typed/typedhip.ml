@@ -128,10 +128,10 @@ and staged_spec =
   (* this constructor is also used for inductive predicate applications *)
   (* f$(x, y) is HigherOrder(..., ..., (f, [x]), y) *)
   | HigherOrder of string * term list
-  | Shift of bool * string * staged_spec * binder * staged_spec (* see CShift for meaning of bool *)
+  | Shift of bool * binder * staged_spec * binder * staged_spec (* see CShift for meaning of bool *)
   | Reset of staged_spec
   | Sequence of staged_spec * staged_spec
-  | Bind of string * staged_spec * staged_spec
+  | Bind of binder * staged_spec * staged_spec
   | Disjunction of staged_spec * staged_spec
   (* effects: H /\ P /\ E(...args, v), term is always a placeholder variable *)
   | RaisingEff of (pi * kappa * instant * term)

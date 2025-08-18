@@ -492,11 +492,11 @@ and infer_types_staged_spec ss : (staged_spec * typ option) using_env =
       return (Sequence (s1, s2), result_type)
   | Bind (f, s1, s2) ->
       let* s1, result_type = infer_types_staged_spec s1 in
-      let bindings = match result_type with
-        | Some result_type -> [f, result_type]
-        | None -> []
+      let* _ = match result_type with
+        | Some result_type -> unify_types result_type (type_of_binder f)
+        | None -> return ()
       in
-      with_vartypes (List.to_seq bindings) begin
+      with_vartypes (List.to_seq [f]) begin
         let* s2, result_type = infer_types_staged_spec s2 in
         return (Bind (f, s1, s2), result_type)
       end

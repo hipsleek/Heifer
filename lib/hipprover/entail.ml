@@ -856,7 +856,7 @@ let rec apply_ent_rule ?name : tactic =
           f3 ),
       f4 )
   | ( Bind
-        ( lname,
+        ( (lname, _),
           NormalReturn
             (Atomic (EQ, {term_desc = Var "res"; _}, {term_desc = TLambda (_h, ps, Some sp, _body); _}), EmptyHeap),
           f3 ),
@@ -873,7 +873,7 @@ let rec apply_ent_rule ?name : tactic =
   | ( Sequence
         ( (NormalReturn _ as f_head),
           Bind
-            ( lname,
+            ( (lname, _),
               NormalReturn
                 ( Atomic (EQ, {term_desc = Var "res"; _}, {term_desc = TLambda (_h, ps, Some sp, _body); _}),
                   EmptyHeap ),
@@ -893,7 +893,7 @@ let rec apply_ent_rule ?name : tactic =
         (NormalReturn _ as f_head),
         Sequence (
           Bind
-            ( lname,
+            ( (lname, _),
               NormalReturn
                 ( Atomic (EQ, {term_desc = Var "res"; _}, {term_desc = TLambda (_h, ps, Some sp, _body); _}),
                   EmptyHeap ),
@@ -1186,8 +1186,8 @@ let rec apply_ent_rule ?name : tactic =
     in
     entailment_search ?name
       ( pctx,
-        Subst.subst_free_vars [(x1, var x3)] f4,
-        Subst.subst_free_vars [(x2, var x3)] f6 )
+        Subst.subst_free_vars [(ident_of_binder x1, var x3)] f4,
+        Subst.subst_free_vars [(ident_of_binder x2, var x3)] f6 )
       k
   (* disjunction *)
   | _, _ ->

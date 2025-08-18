@@ -78,7 +78,7 @@ val seq :
   (staged_spec, 'a, 'c) pattern
 
 val bind :
-  (string, 'a, 'b) pattern ->
+  (binder, 'a, 'b) pattern ->
   (staged_spec, 'b, 'c) pattern ->
   (staged_spec, 'c, 'd) pattern ->
   (staged_spec, 'a, 'd) pattern
@@ -99,7 +99,7 @@ val reset :
 
 val shift :
   (bool, 'z, 'a) pattern ->
-  (string, 'a, 'b) pattern ->
+  (binder, 'a, 'b) pattern ->
   (staged_spec, 'b, 'c) pattern ->
   (binder, 'c, 'd) pattern ->
   (staged_spec, 'd, 'e) pattern ->

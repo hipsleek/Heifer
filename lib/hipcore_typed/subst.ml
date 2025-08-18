@@ -74,7 +74,7 @@ let types_of_free_vars (type ctx_type) (ctx_type : ctx_type subst_context) (ctx 
 
       method! visit_Bind () x f1 f2 =
         let b = super#visit_Bind () x f1 f2 in
-        SMap.remove x b
+        SMap.remove (ident_of_binder x) b
 
       method! visit_HigherOrder () f v =
         let b = super#visit_HigherOrder () f v in
@@ -111,14 +111,6 @@ let subst_free_vars_in (type ctx_t) (ctx_type : ctx_t subst_context) (bindings :
     else
       var, node
   in
-  let avoid_capture_untyped filter substitutor var node =
-  if filter
-  then
-      let new_var = fresh_variable ~v:var () in
-      new_var, substitutor [(var, v new_var)] node
-  else
-    var, node
-  in
   let subst_visitor = object (self)
     inherit [_] map_spec_with_binders as super
 
@@ -144,12 +136,12 @@ let subst_free_vars_in (type ctx_t) (ctx_type : ctx_t subst_context) (bindings :
       super#visit_ForAll (env, bindings) x f
 
     method! visit_Bind (env, bindings) x f1 f2 =
-      let x, f2 = avoid_capture_untyped (SSet.mem x free_in_term) (fun bindings -> self#visit_staged_spec (env, bindings)) x f2 in
+      let x, f2 = avoid_capture (SSet.mem (ident_of_binder x) free_in_term) (fun bindings -> self#visit_staged_spec (env, bindings)) x f2 in
       super#visit_Bind (env, bindings) x f1 f2
 
     method! visit_Shift (env, bindings) nz k body x cont =
-      let k, body = avoid_capture_untyped (SSet.mem k free_in_term) (fun bindings -> self#visit_staged_spec (env, bindings)) k body in
-      let x, cont = avoid_capture (SSet.mem k free_in_term) (fun bindings -> self#visit_staged_spec (env, bindings)) x cont in
+      let k, body = avoid_capture (SSet.mem (ident_of_binder k) free_in_term) (fun bindings -> self#visit_staged_spec (env, bindings)) k body in
+      let x, cont = avoid_capture (SSet.mem (ident_of_binder k) free_in_term) (fun bindings -> self#visit_staged_spec (env, bindings)) x cont in
       super#visit_Shift (env, bindings) nz k body x cont
 
     method! visit_TLambda (env, bindings) name params spec body =

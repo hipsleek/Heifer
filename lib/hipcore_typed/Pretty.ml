@@ -267,7 +267,7 @@ module With_types = struct
         | NormalReturn (Atomic (EQ, {term_desc = Var "res"; _}, {term_desc = Var y; _}), EmptyHeap) when (ident_of_binder x) = y -> ""
         | _ -> Format.asprintf ", %s. %s" (string_of_binder x) (string_of_staged_spec cont)
       in
-      Format.asprintf "shift%s(%s. %s%s)" zero k (string_of_staged_spec spec) cont_s
+      Format.asprintf "shift%s(%s. %s%s)" zero (string_of_binder k) (string_of_staged_spec spec) cont_s
     | Reset spec ->
       Format.asprintf "reset(%s)" (string_of_staged_spec spec)
     | Require (p, h) ->
@@ -292,7 +292,7 @@ module With_types = struct
       let string_of_eff_cases ops =  List.fold_left (fun acc a -> acc ^ ";\n" ^string_of_eff_case a) "" ops in
       Format.asprintf "ens %s; \n(TRY \n(%s)\nCATCH \n{%s%s}[%s])\n" (string_of_state (pi, h)) (string_of_staged_spec src) (string_of_normal_case) (string_of_eff_cases ops) (string_of_term ret)
     | Sequence (s1, s2) -> Format.sprintf "%s; %s" (string_of_staged_spec s1) (string_of_staged_spec s2)
-    | Bind (v, expr, body) -> Format.sprintf "let %s = (%s) in (%s)" v (string_of_staged_spec expr) (string_of_staged_spec body)
+    | Bind (v, expr, body) -> Format.sprintf "let %s = (%s) in (%s)" (string_of_binder v) (string_of_staged_spec expr) (string_of_staged_spec body)
     | Disjunction (lhs, rhs) -> Format.sprintf "(%s) \\/ (%s)" (string_of_staged_spec lhs) (string_of_staged_spec rhs)
   and string_of_pattern (p : pattern) : string =
     let desc = match p.pattern_desc with
@@ -389,9 +389,9 @@ and pp_staged_spec ppf spec =
     pp_pi p pp_kappa k
   | HigherOrder (f, args) -> pp_call_like pp_term ppf (f, args)
   | Shift (z, k, spec, _x, _cont) ->
-      fprintf ppf "@[%s(@[<hov 1>%s.@ %a@])@]"
+      fprintf ppf "@[%s(@[<hov 1>%a.@ %a@])@]"
       (if z then "sh" else "sh0")
-      k
+      pp_binder k
       pp_staged_spec spec
   | Reset spec ->
       fprintf ppf "@[%s(@[<hov 1>%a@])@]"
@@ -402,8 +402,8 @@ and pp_staged_spec ppf spec =
       pp_staged_spec s1
       pp_staged_spec s2
   | Bind (v, s1, s2) ->
-      fprintf ppf "@[<hov 1>let@ %s@ =@ @[<hov 1>%a@]@ in@ @[<hov 1>(%a)@]@]"
-      v
+      fprintf ppf "@[<hov 1>let@ %a@ =@ @[<hov 1>%a@]@ in@ @[<hov 1>(%a)@]@]"
+      pp_binder v 
       pp_staged_spec s1
       pp_staged_spec s2
   | Disjunction (s1, s2) ->

@@ -27,7 +27,7 @@ class ['self] map_spec_with_binders = object
 
   method! visit_Bind (bind_ctx, env) x f1 f2 =
     let f1 = super#visit_staged_spec (bind_ctx, env) f1 in
-    let f2 = super#visit_staged_spec (add_binder x bind_ctx, env) f2 in
+    let f2 = super#visit_staged_spec (add_binder (ident_of_binder x) bind_ctx, env) f2 in
     Bind (x, f1, f2)
 
   method! visit_TLambda (bind_ctx, env) name params spec body =
@@ -43,7 +43,7 @@ class ['self] map_spec_with_binders = object
     CLambda (params, spec, body)
 
   method! visit_Shift (bind_ctx, env) nz k body x cont =
-    let body = super#visit_staged_spec (add_binder k bind_ctx, env) body in
+    let body = super#visit_staged_spec (add_binder (ident_of_binder k) bind_ctx, env) body in
     let cont = super#visit_staged_spec (add_binder (ident_of_binder x) bind_ctx, env) cont in
     Shift (nz, k, body, x, cont)
 

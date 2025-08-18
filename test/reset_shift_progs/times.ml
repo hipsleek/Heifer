@@ -10,7 +10,7 @@ let rec times2_aux xs =
 
 [%%lemma{|
   times2_lemma(x, xs) =
-    rs(let v75 = times2_aux(xs) in ens res = x *. v75) ==>
+    rs(let v60 = times2_aux(xs) in ens res = x *. v60) ==>
     ens res = x *. times(xs) |}]
 
 let [@spec "ens res = times(xs)"] times2 xs =

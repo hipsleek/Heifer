@@ -178,7 +178,7 @@ let to_unifiable st f : unifiable =
       (* binders *)
       method! visit_Bind () x f1 f2 =
         let v1, e = super#visit_Bind () x f1 f2 in
-        if is_uvar_name x then (v1, SMap.add x (UF.make st None) e) else (v1, e)
+        if binder_is_uvar x then (v1, SMap.add (ident_of_binder x) (UF.make st None) e) else (v1, e)
 
       method! visit_Exists () x f =
         let v1, e = super#visit_Exists () x f in
@@ -316,23 +316,24 @@ let subst_uvars st (f, e) : uterm =
 
       method! visit_Bind () x f1 f2 =
         let x, f1, f2 =
-          if is_uvar_name x then
+          if binder_is_uvar x then
             let b =
-              UF.get st (SMap.find x e) |> Option.get |> uterm_to_binder
+              UF.get st (SMap.find (ident_of_binder x) e) |> Option.get |> uterm_to_binder
             in
-            ( ident_of_binder b,
-              Subst.subst_free_vars [(x, var_of_binder b)] f1,
-              Subst.subst_free_vars [(x, var_of_binder b)] f2 )
+            ( b,
+              Subst.subst_free_vars [(ident_of_binder x, var_of_binder b)] f1,
+              Subst.subst_free_vars [(ident_of_binder x, var_of_binder b)] f2 )
           else (x, f1, f2)
         in
         let f1 = self#visit_staged_spec () f1 in
         let f3 = self#visit_staged_spec () f2 in
         let x2, f2 =
           let free = Subst.(free_vars Sctx_staged f3) in
-          if SSet.mem x free then
-            let y = fresh_variable ~v:x () in
+          if SSet.mem (ident_of_binder x) free then
+            let y_name = fresh_variable ~v:(ident_of_binder x) () in
+            let y = (y_name, type_of_binder x) in
             (* note the use of f2, not f3 *)
-            let f2 = f2 |> Subst.subst_free_vars [(x, var y)] in
+            let f2 = f2 |> Subst.subst_free_vars [(ident_of_binder x, var_of_binder y)] in
             let f2 = self#visit_staged_spec () f2 in
             (y, f2)
           else (x, f3)
@@ -355,8 +356,8 @@ let subst_uvars st (f, e) : uterm =
       method! visit_Shift () b x_body f_body x_cont f_cont =
         (* we shall also rewrite in continuation I gues*)
         let x_body, f_body =
-          let y = fresh_variable ~v:x_body () in
-          let f_body = Subst.subst_free_vars [(x_body, var y)] f_body in
+          let y = (fresh_variable ~v:(ident_of_binder x_body) (), type_of_binder x_body) in
+          let f_body = Subst.subst_free_vars [(ident_of_binder x_body, var_of_binder y)] f_body in
           (y, f_body)
         in
         let x_cont, f_cont =
@@ -617,7 +618,7 @@ and unify_staged :
     let* _ = unify_var st (Staged b1, e1) (Staged b2, e2) in
     Some ()
   | Bind (x1, f1, f2), Bind (x2, f3, f4) ->
-    let* _ = unify_var st (Binder (x1, Unit), e1) (Binder (x2, Unit), e2) in
+    let* _ = unify_var st (Binder x1, e1) (Binder x2, e2) in
     let* _ = unify_var st (Staged f1, e1) (Staged f3, e2) in
     let* _ = unify_var st (Staged f2, e1) (Staged f4, e2) in
     Some ()
@@ -870,7 +871,7 @@ let%expect_test "rewriting" =
     Staged.(
       dynamic_rule
         (Bind
-           (Binder.uvar_untyped "x", ens ~p:(eq (v "res" ~typ:Any) (Term.uvar "r")) (), uvar "f"))
+           (Binder.uvar "x", ens ~p:(eq (v "res" ~typ:Any) (Term.uvar "r")) (), uvar "f"))
         (fun sub ->
           let x = sub "x" |> Binder.of_uterm in
           let r = sub "r" |> Term.of_uterm in
@@ -881,7 +882,7 @@ let%expect_test "rewriting" =
           [
             ens ();
             Bind
-              ( "y",
+              ( ("y", Int),
                 ens ~p:(eq (v "res" ~typ:Int) (num 1)) (),
                 ens ~p:(eq (v "res" ~typ:Int) (var "y" ~typ:Int)) () );
           ]));
@@ -907,17 +908,17 @@ let%expect_test "rewriting" =
   let norm_bind_ex =
     Staged.rule
       (Bind
-         ( Binder.uvar_untyped "x",
+         ( Binder.uvar "x",
            Exists (Binder.uvar "x1", Staged.uvar "f"),
            Staged.uvar "fk" ))
       (Exists
          ( Binder.uvar "x1", 
-           Bind (Binder.uvar_untyped "x", Staged.uvar "f", Staged.uvar "fk") ))
+           Bind (Binder.uvar "x", Staged.uvar "f", Staged.uvar "fk") ))
   in
   test norm_bind_ex
     (Staged
        (Bind
-          ( "x",
+          ( ("x", Int),
             Exists (("y", Int), ens ~p:(eq (v "res" ~typ:Int) (v "y" ~typ:Int)) ()),
             ens ~p:(eq (v "x" ~typ:Int) (num 1)) () )));
   (* this is quite broken, so use dynamic rules for binders.
@@ -927,7 +928,7 @@ let%expect_test "rewriting" =
     {|
     rewrite let x = (ex y. (ens res=y)) in (ens x=1)
     with let __x = (ex __x1. (__f())) in (__fk()) ==> ex __x1. (let __x = (__f()) in (__fk()))
-    result: ex y4. (let x5 = (ens res=y) in (ens x=1))
+    result: ex y3. (let x4 = (ens res=y) in (ens x=1))
     |}];
 
   (* type-aware rewriting *)
