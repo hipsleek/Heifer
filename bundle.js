@@ -1469,6 +1469,13 @@ function createApi(Z3) {
                 return result;
             }
         };
+        const Datatype = Object.assign((name) => {
+            return new DatatypeImpl(ctx, name);
+        }, {
+            createDatatypes(...datatypes) {
+                return createDatatypes(...datatypes);
+            }
+        });
         function If(condition, onTrue, onFalse) {
             if (isProbe(condition) && isTactic(onTrue) && isTactic(onFalse)) {
                 return Cond(condition, onTrue, onFalse);
@@ -2764,6 +2771,145 @@ function createApi(Z3) {
                 return isSubset(this, b);
             }
         }
+        ////////////////////////////
+        // Datatypes
+        ////////////////////////////
+        class DatatypeImpl {
+            constructor(ctx, name) {
+                this.constructors = [];
+                this.ctx = ctx;
+                this.name = name;
+            }
+            declare(name, ...fields) {
+                this.constructors.push([name, fields]);
+                return this;
+            }
+            create() {
+                const datatypes = createDatatypes(this);
+                return datatypes[0];
+            }
+        }
+        class DatatypeSortImpl extends SortImpl {
+            numConstructors() {
+                return Z3.get_datatype_sort_num_constructors(contextPtr, this.ptr);
+            }
+            constructorDecl(idx) {
+                const ptr = Z3.get_datatype_sort_constructor(contextPtr, this.ptr, idx);
+                return new FuncDeclImpl(ptr);
+            }
+            recognizer(idx) {
+                const ptr = Z3.get_datatype_sort_recognizer(contextPtr, this.ptr, idx);
+                return new FuncDeclImpl(ptr);
+            }
+            accessor(constructorIdx, accessorIdx) {
+                const ptr = Z3.get_datatype_sort_constructor_accessor(contextPtr, this.ptr, constructorIdx, accessorIdx);
+                return new FuncDeclImpl(ptr);
+            }
+            cast(other) {
+                if (isExpr(other)) {
+                    (0, utils_1.assert)(this.eqIdentity(other.sort), 'Value cannot be converted to this datatype');
+                    return other;
+                }
+                throw new Error('Cannot coerce value to datatype expression');
+            }
+            subsort(other) {
+                _assertContext(other.ctx);
+                return this.eqIdentity(other);
+            }
+        }
+        class DatatypeExprImpl extends ExprImpl {
+        }
+        function createDatatypes(...datatypes) {
+            if (datatypes.length === 0) {
+                throw new Error('At least one datatype must be provided');
+            }
+            // All datatypes must be from the same context
+            const dtCtx = datatypes[0].ctx;
+            for (const dt of datatypes) {
+                if (dt.ctx !== dtCtx) {
+                    throw new Error('All datatypes must be from the same context');
+                }
+            }
+            const sortNames = datatypes.map(dt => dt.name);
+            const constructorLists = [];
+            const scopedConstructors = [];
+            try {
+                // Create constructor lists for each datatype
+                for (const dt of datatypes) {
+                    const constructors = [];
+                    for (const [constructorName, fields] of dt.constructors) {
+                        const fieldNames = [];
+                        const fieldSorts = [];
+                        const fieldRefs = [];
+                        for (const [fieldName, fieldSort] of fields) {
+                            fieldNames.push(fieldName);
+                            if (fieldSort instanceof DatatypeImpl) {
+                                // Reference to another datatype being defined
+                                const refIndex = datatypes.indexOf(fieldSort);
+                                if (refIndex === -1) {
+                                    throw new Error(`Referenced datatype "${fieldSort.name}" not found in datatypes being created`);
+                                }
+                                // For recursive references, we pass null and the ref index
+                                fieldSorts.push(null); // null will be handled by the Z3 API
+                                fieldRefs.push(refIndex);
+                            }
+                            else {
+                                // Regular sort
+                                fieldSorts.push(fieldSort.ptr);
+                                fieldRefs.push(0);
+                            }
+                        }
+                        const constructor = Z3.mk_constructor(contextPtr, Z3.mk_string_symbol(contextPtr, constructorName), Z3.mk_string_symbol(contextPtr, `is_${constructorName}`), fieldNames.map(name => Z3.mk_string_symbol(contextPtr, name)), fieldSorts, fieldRefs);
+                        constructors.push(constructor);
+                        scopedConstructors.push(constructor);
+                    }
+                    const constructorList = Z3.mk_constructor_list(contextPtr, constructors);
+                    constructorLists.push(constructorList);
+                }
+                // Create the datatypes
+                const sortSymbols = sortNames.map(name => Z3.mk_string_symbol(contextPtr, name));
+                const resultSorts = Z3.mk_datatypes(contextPtr, sortSymbols, constructorLists);
+                // Create DatatypeSortImpl instances
+                const results = [];
+                for (let i = 0; i < resultSorts.length; i++) {
+                    const sortImpl = new DatatypeSortImpl(resultSorts[i]);
+                    // Attach constructor, recognizer, and accessor functions dynamically
+                    const numConstructors = sortImpl.numConstructors();
+                    for (let j = 0; j < numConstructors; j++) {
+                        const constructor = sortImpl.constructorDecl(j);
+                        const recognizer = sortImpl.recognizer(j);
+                        const constructorName = constructor.name().toString();
+                        // Attach constructor function
+                        if (constructor.arity() === 0) {
+                            // Nullary constructor (constant)
+                            sortImpl[constructorName] = constructor.call();
+                        }
+                        else {
+                            sortImpl[constructorName] = constructor;
+                        }
+                        // Attach recognizer function
+                        sortImpl[`is_${constructorName}`] = recognizer;
+                        // Attach accessor functions
+                        for (let k = 0; k < constructor.arity(); k++) {
+                            const accessor = sortImpl.accessor(j, k);
+                            const accessorName = accessor.name().toString();
+                            sortImpl[accessorName] = accessor;
+                        }
+                    }
+                    results.push(sortImpl);
+                }
+                return results;
+            }
+            finally {
+                // Clean up resources
+                for (const constructor of scopedConstructors) {
+                    Z3.del_constructor(contextPtr, constructor);
+                }
+                for (const constructorList of constructorLists) {
+                    Z3.del_constructor_list(contextPtr, constructorList);
+                }
+            }
+        }
         class QuantifierImpl extends ExprImpl {
             is_forall() {
                 return Z3.is_quantifier_forall(contextPtr, this.ast);
@@ -3059,6 +3205,7 @@ function createApi(Z3) {
             BitVec,
             Array,
             Set,
+            Datatype,
             ////////////////
             // Operations //
             ////////////////
