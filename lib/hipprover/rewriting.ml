@@ -440,16 +440,12 @@ let subst_uvars st (f, e : unifiable) : uterm =
         if is_uvar_name x then
           instantiate_uvar st e x |> uterm_to_binder
         else
-          (x, t)
+          (x, self#visit_typ () t)
 
       (* the remaining cases also handle capture-avoidance in addition to binder variables *)
 
       method! visit_Exists () x f =
-        let x =
-          if binder_is_uvar x then
-            UF.get st (SMap.find (ident_of_binder x) e) |> Option.get |> uterm_to_binder
-          else x
-        in
+        let x = self#visit_binder () x in
         (* avoid capture *)
         let f1 = self#visit_staged_spec () f in
         let x2, f2 =
@@ -468,11 +464,7 @@ let subst_uvars st (f, e : unifiable) : uterm =
       (* other cases are copy-pasted *)
 
       method! visit_ForAll () x f =
-        let x =
-          if binder_is_uvar x then
-            UF.get st (SMap.find (ident_of_binder x) e) |> Option.get |> uterm_to_binder
-          else x
-        in
+        let x = self#visit_binder () x in
         let f1 = self#visit_staged_spec () f in
         let x2, f2 =
           let free = Subst.(free_vars Sctx_staged f1) in
@@ -489,10 +481,8 @@ let subst_uvars st (f, e : unifiable) : uterm =
 
       method! visit_Bind () x f1 f2 =
         let x, f1, f2 =
-          if binder_is_uvar x then
-            let b =
-              UF.get st (SMap.find (ident_of_binder x) e) |> Option.get |> uterm_to_binder
-            in
+          let b = self#visit_binder () x in
+          if b <> x then
             ( b,
               Subst.subst_free_vars [(ident_of_binder x, var_of_binder b)] f1,
               Subst.subst_free_vars [(ident_of_binder x, var_of_binder b)] f2 )
@@ -514,6 +504,7 @@ let subst_uvars st (f, e : unifiable) : uterm =
         Bind (x2, f1, f2)
 
       method! visit_TLambda () name args spec_opt prog_opt =
+        let args = List.map (self#visit_binder ()) args in
         let renamed_args = List.map (fun arg -> (fresh_variable ~v:(ident_of_binder arg) (), type_of_binder arg)) args in
         let subst = List.map2 (fun arg new_arg -> (ident_of_binder arg, var_of_binder new_arg)) args renamed_args in
         let spec_opt = match spec_opt with
@@ -528,6 +519,8 @@ let subst_uvars st (f, e : unifiable) : uterm =
 
       method! visit_Shift () b x_body f_body x_cont f_cont =
         (* we shall also rewrite in continuation I gues*)
+        let x_body = self#visit_binder () x_body in
+        let x_cont = self#visit_binder () x_cont in
         let x_body, f_body =
           let y = (fresh_variable ~v:(ident_of_binder x_body) (), type_of_binder x_body) in
           let f_body = Subst.subst_free_vars [(ident_of_binder x_body, var_of_binder y)] f_body in
