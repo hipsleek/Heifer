@@ -135,39 +135,44 @@ let to_unifiable st f : unifiable =
              r))
   in
   let visitor =
-    object (self)
+    object (_self)
       inherit [_] mapreduce_spec as super
       method zero = SMap.empty
       method plus = SMap.merge_arbitrary
 
-      method! visit_HigherOrder () f v =
+      method! visit_HigherOrder () f args =
         (* both a variable and something which may contain binder variables... *)
-        (* TODO: check *)
-        match v with
+        match args with
         | [] ->
-          if is_uvar_name f then
-            (HigherOrder (f, []), SMap.singleton f (UF.make st None))
-          else (HigherOrder (f, []), SMap.empty) (* TODO: unreachable? *)
+            if is_uvar_name f then
+              (HigherOrder (f, []), SMap.singleton f (UF.make st None))
+            else
+              failwith "to_unifiable: unreachable"
         | _ :: _ ->
-          let v1, e = super#visit_HigherOrder () f v in
-          if is_uvar_name f then (v1, SMap.add f (UF.make st None) e)
-          else (v1, e)
+            let s, e = super#visit_HigherOrder () f args in
+            if is_uvar_name f then
+              (s, SMap.add f (UF.make st None) e)
+            else
+              (s, e)
 
-      method! visit_Predicate () f v =
-        let v1, e = self#visit_list self#visit_term () v in
+      method! visit_Predicate () f args =
+        let p, e = super#visit_Predicate () f args in
         if is_uvar_name f then
-          (Predicate (f, v1), SMap.add f (UF.make st None) e)
-        else (Predicate (f, v1), e)
+          (p, SMap.add f (UF.make st None) e)
+        else
+          (p, e)
 
       method! visit_PointsTo () l v =
-        (* TODO: check *)
-        let v1, e = self#visit_term () v in
+        let k, e = super#visit_PointsTo () l v in
         if is_uvar_name l then
           match v.term_desc with
-          | Const ValUnit -> (PointsTo (l, v1), SMap.singleton l (UF.make st None))
-          | _ -> (PointsTo (l, v1), SMap.add l (UF.make st None) e)
+          | Const ValUnit ->
+              (* unify over the entire heap formula *)
+              (k, SMap.singleton l (UF.make st None))
+          | _ ->
+              (k, SMap.add l (UF.make st None) e)
         else
-          (PointsTo (l, v1), e)
+          (k, e)
 
       method! visit_Var () x =
         if is_uvar_name x then (Var x, SMap.singleton x (UF.make st None))
