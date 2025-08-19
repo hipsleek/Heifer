@@ -379,20 +379,6 @@ let to_unifiable st f : unifiable =
       method! visit_binder () (x, t) =
         let b, e = super#visit_binder () (x, t) in
         if is_uvar_name x then ((x, t), SMap.add x (mk_entry ()) e) else (b, e)
-
-
-      (* binders *)
-      (* method! visit_Bind () x f1 f2 =
-        let v1, e = super#visit_Bind () x f1 f2 in
-        if binder_is_uvar x then (v1, SMap.add (ident_of_binder x) (UF.make st None) e) else (v1, e)
-
-      method! visit_Exists () x f =
-        let v1, e = super#visit_Exists () x f in
-        if binder_is_uvar x then (v1, SMap.add (ident_of_binder x) (UF.make st None) e) else (v1, e)
-
-      method! visit_ForAll () x f =
-        let v1, e = super#visit_ForAll () x f in
-        if binder_is_uvar x then (v1, SMap.add (ident_of_binder x) (UF.make st None) e) else (v1, e) *)
     end
   in
   match f with
@@ -889,9 +875,7 @@ let rewrite_rooted rule target =
     let inst_rhs =
       match rule.rhs with
       | `Replace rhs -> subst_uvars s (rhs, e)
-      | `Dynamic f ->
-        let mapping x = UF.get s (SMap.find (var_prefix ^ x) e) |> Option.get in
-        f mapping
+      | `Dynamic f -> f (fun x -> instantiate_uvar s e (var_prefix ^ x))
     in
     inst_rhs
   else Some target
