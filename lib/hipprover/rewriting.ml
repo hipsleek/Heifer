@@ -100,9 +100,9 @@ let var_prefix = "__"
 
 let is_uvar_name f = String.starts_with ~prefix:var_prefix f
 let binder_is_uvar b = is_uvar_name (ident_of_binder b)
-let type_is_uvar = function
+(* let type_is_uvar = function
   | TVar t when is_uvar_name t -> true
-  | _ -> false
+  | _ -> false *)
 let uvar_staged n = HigherOrder (var_prefix ^ n, [])
 let uvar_heap n = PointsTo (var_prefix ^ n, cunit)
 let uvar_pure n = Predicate (var_prefix ^ n, [])
@@ -413,7 +413,8 @@ let subst_uvars st (f, e) : uterm =
     let b = visitor#visit_binder () b in
     Binder b
   | Type t ->
-    if type_is_uvar t then UF.get st (SMap.find (string_of_type t) e) |> Option.get else Type t
+    let t = visitor#visit_typ () t in
+    Type t
 
 let%expect_test "capture-avoidance" =
   reset_counter 0;
