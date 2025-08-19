@@ -231,29 +231,28 @@ let subst_uvars st (f, e) : uterm =
 
       (* most of the work is done in these encoded-variable cases *)
 
-      method! visit_HigherOrder () f v =
-        match v with
+      method! visit_HigherOrder () f args =
+        match args with
         | [] ->
-          let f1 = super#visit_HigherOrder () f v in
-          if is_uvar_name f then
-            UF.get st (SMap.find f e) |> Option.get |> uterm_to_staged
-          else f1
+            if is_uvar_name f then
+              UF.get st (SMap.find f e) |> Option.get |> uterm_to_staged
+            else
+              failwith "subst_uvars: unreachable"
         | _ :: _ ->
-          let f1 = super#visit_HigherOrder () f v in
-          if is_uvar_name f then
-            match (UF.get st (SMap.find f e) |> Option.get |> uterm_to_term).term_desc with
-            | Var f2 ->
-              (match f1 with
-              | HigherOrder (_, v1) -> HigherOrder (f2, v1)
-              | _ -> failwith "unreachable")
-            | _ -> failwith "not a var"
-          else f1
+            let args = self#visit_list self#visit_term () args in
+            if is_uvar_name f then
+              let t = UF.get st (SMap.find f e) |> Option.get |> uterm_to_term in
+              match t.term_desc with
+              | Var f -> HigherOrder (f, args)
+              | _ -> failwith "subst_uvars: not a var"
+            else
+              HigherOrder (f, args)
 
-      method! visit_Predicate () f v =
-        let p = super#visit_Predicate () f v in
+      method! visit_Predicate () f args =
         if is_uvar_name f then
           UF.get st (SMap.find f e) |> Option.get |> uterm_to_pure
-        else p
+        else
+          super#visit_Predicate () f args
 
       method! visit_PointsTo () l v =
         let p = super#visit_PointsTo () l v in
@@ -275,14 +274,22 @@ let subst_uvars st (f, e) : uterm =
 
       method! visit_Var () x =
         if is_uvar_name x then
-          (UF.get st (SMap.find x e) |> Option.get |> uterm_to_term).term_desc
-        else Var x
+          let t = UF.get st (SMap.find x e) |> Option.get |> uterm_to_term in
+          t.term_desc
+        else
+          Var x
 
       method! visit_TVar () t =
         if is_uvar_name t then
-          (UF.get st (SMap.find t e) |> Option.get |> uterm_to_type)
-        else TVar t
+          UF.get st (SMap.find t e) |> Option.get |> uterm_to_type
+        else
+          TVar t
 
+      method! visit_binder () (x, t) =
+        if is_uvar_name x then
+          UF.get st (SMap.find x e) |> Option.get |> uterm_to_binder
+        else
+          (x, t)
 
       (* the remaining cases also handle capture-avoidance in addition to binder variables *)
 
@@ -402,8 +409,9 @@ let subst_uvars st (f, e) : uterm =
   | Term t ->
     let t = visitor#visit_term () t in
     Term t
-  | Binder x ->
-    if binder_is_uvar x then UF.get st (SMap.find (ident_of_binder x) e) |> Option.get else Binder x
+  | Binder b ->
+    let b = visitor#visit_binder () b in
+    Binder b
   | Type t ->
     if type_is_uvar t then UF.get st (SMap.find (string_of_type t) e) |> Option.get else Type t
 
