@@ -464,20 +464,37 @@ and infer_types_staged_spec ss : (staged_spec * typ option) using_env =
       let* result_type = type_of_result_of_state (p, k) in
       return (NormalReturn (p, k), result_type)
   | HigherOrder (f, args) ->
-      let* args = State.map_list ~f:infer_types_term args in
-      let* result_type =
+      let* f_type =
         match get_primitive_type_opt f with
-        | Some (_, result_type) -> return result_type
+        | Some (arg_types, result_type) -> return (arrow_type_of_params arg_types result_type)
         | None -> begin
           let* f_type = type_of_var_opt f in
           match f_type with
-          | Some typ -> 
-              let _, result_type = params_of_arrow_type typ in
-              return result_type
-          | None ->
-              failwith (Format.sprintf "Infer_types: unknown function name %s" f)
+          | Some typ -> return typ
+          | None -> failwith (Format.sprintf "Infer_types: unknown function name %s" f)
         end
       in
+      (* given the type of f as a function, infer its argument's types
+         note that we may see more arguments than expected from f's type,
+         which means we need to unify f's type with some function type *)
+      let rec unify_arg_types f_type args : (term list * typ) using_env =
+        match f_type, args with
+        (* match a parameter with an input type *)
+        | Arrow (func_arg_type, func_arg_types), (arg :: args) ->
+          let* arg = infer_types_term ~hint:func_arg_type arg in
+          let* args, result_type = unify_arg_types func_arg_types args in
+          return (arg::args, result_type)
+        (* no inputs left, whatever type we have must be the output *)
+        | typ, [] -> return ([], typ)
+        (* some inputs left, typ must be unified with some function type *)
+        | typ, args ->
+          let output_type = fresh_type_var () in
+          let* args = State.map_list ~f:infer_types_term args in
+          let function_type = arrow_type_of_params (List.map (fun t -> t.term_type) args) output_type in
+          let* () = unify_types typ function_type in
+          return (args, function_type)
+      in
+      let* args, result_type = unify_arg_types f_type args in
       return (HigherOrder (f, args), Some result_type)
   | Shift (b, k, spec, x, cont) ->
       let* spec, _ = infer_types_staged_spec spec in
