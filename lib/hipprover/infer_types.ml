@@ -36,7 +36,7 @@ let () =
 
 let rec unify_types t1 t2 : unit using_env =
   fun env ->
-    debug ~at:5 ~title:"unify" "%s ~ %s" (string_of_type t1) (string_of_type t2);
+    debug ~at:10 ~title:"unify_types" "%s ~ %s" (string_of_type t1) (string_of_type t2);
     match TEnv.(simplify env.equalities t1, simplify env.equalities t2) with
     (* case where one of t1, t2 is a type variable: *)
     | TVar var_name as var, simp | simp, (TVar var_name as var) -> 
@@ -272,7 +272,7 @@ and infer_types_constant ?(hint : typ option) const : typ =
 and infer_types_term ?(hint : typ option) term : term using_env =
   let@ _ =
     span_env (fun r ->
-        debug ~at:5 ~title:"infer_types" "%s : %s -| %s" (string_of_term term)
+        debug ~at:10 ~title:"infer_types" "%s : %s -| %s" (string_of_term term)
           (string_of_result string_of_term (State.Debug.presult_value r))
           (string_of_result string_of_abs_env (State.Debug.presult_state r)))
   in
@@ -382,7 +382,7 @@ and infer_types_constructor_like :
 and infer_types_pi pi : pi using_env =
   let@ _ =
        span_env (fun r ->
-           debug ~at:5 ~title:"infer_types_pi" "%s -| %s" (string_of_pi pi)
+           debug ~at:10 ~title:"infer_types_pi" "%s -| %s" (string_of_pi pi)
              (string_of_result string_of_abs_env (State.Debug.presult_state r)))
      in
   match pi with
@@ -436,6 +436,11 @@ and infer_types_state (p, k) : state using_env =
   is the type, if any, returned by the computations satisfying this spec. *)
 
 and infer_types_staged_spec ss : (staged_spec * typ option) using_env =
+  let@ _ =
+       span_env (fun r ->
+           debug ~at:10 ~title:"infer_types_staged_spec" "%s -| %s" (string_of_staged_spec ss)
+             (string_of_result string_of_abs_env (State.Debug.presult_state r)))
+     in
   let type_of_result_of_pi p =
     let pi_free_vars = Subst.(types_of_free_vars Sctx_pure p) in
     SMap.find_opt "res" pi_free_vars |> Option.join
