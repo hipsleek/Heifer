@@ -122,13 +122,15 @@ let get_uvar = function
   | _ -> None
 
 (* to avoid having a constructor for UF.t in the AST, use a layer of indirection *)
-type 'a unif = 'a * (UF.t * (string * string) list) SMap.t
+type perm = (string * string) list
+type umap = (UF.t * perm) SMap.t
+type 'a unif = 'a * umap
 type unifiable = uterm unif
 
 module Permutation = struct
   open Misc
 
-  type t = (string * string) list
+  type t = perm
 
   let rev (perm : t) : t =
     List.rev perm
@@ -295,10 +297,25 @@ module Permutation = struct
         TLambda (id, xs, s_opt, c_opt), e
     | TTuple _ ->
         todo ()
-
-  (* the good permutation stuffs go here *)
-  (* question, why do we need to apply the permutation to the lambda abstraction?! *)
 end
+
+let instantiate_uvar (st : UF.store) (e : (UF.t * (string * string) list) SMap.t) (x : string) : uterm =
+  let u, perm = match SMap.find_opt x e with
+    | None -> failwith (Format.sprintf "instantiate_uvar: %s not found" x)
+    | Some p -> p
+  in
+  let ut = match UF.get st u with
+    | None -> failwith (Format.sprintf "instantiate_uvar: %s not found" x)
+    | Some ut -> ut
+  in
+  match ut with
+  (* the e here is redundant! *)
+  | Staged s -> Staged (fst (Permutation.apply_staged_spec perm (s, e)))
+  | Pure p -> Pure (fst (Permutation.apply_pi perm (p, e)))
+  | Heap k -> Heap (fst (Permutation.apply_kappa perm (k, e)))
+  | Term t -> Term (fst (Permutation.apply_term perm (t, e)))
+  | Binder b -> Binder (Permutation.apply_binder perm b)
+  | Type _ -> ut
 
 let to_unifiable st f : unifiable =
   let@ _ =
@@ -412,13 +429,13 @@ let subst_uvars st (f, e : unifiable) : uterm =
         match args with
         | [] ->
             if is_uvar_name f then
-              UF.get st (SMap.find f e) |> Option.get |> uterm_to_staged
+              instantiate_uvar st e f |> uterm_to_staged
             else
               failwith "subst_uvars: unreachable"
         | _ :: _ ->
             let args = self#visit_list self#visit_term () args in
             if is_uvar_name f then
-              let t = UF.get st (SMap.find f e) |> Option.get |> uterm_to_term in
+              let t = instantiate_uvar st e f |> uterm_to_term in
               match t.term_desc with
               | Var f -> HigherOrder (f, args)
               | _ -> failwith "subst_uvars: not a var"
@@ -427,50 +444,49 @@ let subst_uvars st (f, e : unifiable) : uterm =
 
       method! visit_Predicate () f args =
         if is_uvar_name f then
-          UF.get st (SMap.find f e) |> Option.get |> uterm_to_pure
+          instantiate_uvar st e f |> uterm_to_pure
         else
           super#visit_Predicate () f args
 
       method! visit_PointsTo () l v =
-        let p = super#visit_PointsTo () l v in
-        if is_uvar_name l then begin
+        let v = self#visit_term () v in
+        if is_uvar_name l then
+          let ut = instantiate_uvar st e l in
           match v.term_desc with
           (* ugly hack: match on v, and if v is Const ValUnit there unification variable
              is the entire heap formula. Otherwise, it is just the variable `l` *)
-          | Const ValUnit -> UF.get st (SMap.find l e) |> Option.get |> uterm_to_heap
+          | Const ValUnit ->
+              uterm_to_heap ut
           | _ ->
-              match (UF.get st (SMap.find l e) |> Option.get |> uterm_to_term).term_desc with
-              | Var l' ->
-                  begin match p with
-                  | PointsTo (_, v) -> PointsTo (l', v)
-                  | _ -> failwith "unreachable"
-                  end
-              | _ -> failwith "not a var"
-        end
-        else p
+              let t = uterm_to_term ut in
+              match t.term_desc with
+              | Var l -> PointsTo (l, v)
+              | _ -> failwith "subst_uvars: not a var"
+        else
+          PointsTo (l, v)
 
       method! visit_Var () x =
         if is_uvar_name x then
-          let t = UF.get st (SMap.find x e) |> Option.get |> uterm_to_term in
+          let t = instantiate_uvar st e x |> uterm_to_term in
           t.term_desc
         else
           Var x
 
       method! visit_TVar () t =
         if is_uvar_name t then
-          UF.get st (SMap.find t e) |> Option.get |> uterm_to_type
+          instantiate_uvar st e t |> uterm_to_type
         else
           TVar t
 
       method! visit_binder () (x, t) =
         if is_uvar_name x then
-          UF.get st (SMap.find x e) |> Option.get |> uterm_to_binder
+          instantiate_uvar st e x |> uterm_to_binder
         else
           (x, t)
 
       (* the remaining cases also handle capture-avoidance in addition to binder variables *)
 
-      method! visit_Exists () x f =
+      (* method! visit_Exists () x f =
         let x =
           if binder_is_uvar x then
             UF.get st (SMap.find (ident_of_binder x) e) |> Option.get |> uterm_to_binder
@@ -570,7 +586,7 @@ let subst_uvars st (f, e : unifiable) : uterm =
         let f_cont = self#visit_staged_spec () f_cont in
         (* reconstruct the original expressoin *)
         Shift (b, x_body, f_body, x_cont, f_cont)
-        (* TODO other binders *)
+        (* TODO other binders *) *)
     end
   in
   match f with
