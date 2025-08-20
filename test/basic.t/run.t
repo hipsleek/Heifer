@@ -29,8 +29,8 @@
                 if_let: true
                   foo1: true
                   foo2: true
-                  goo1: false
-                  goo2: false
+                  goo1: true
+                  goo2: true
            call_f_in_g: true
               call_ret: true
      test_non_rec_pred: true
@@ -38,15 +38,14 @@
   [1]
 
   $ check test_ho.ml
-            test1_true: false
+            test1_true: true
             test2_true: false
            test5_false: false (expected)
-            test3_true: false
-            test4_true: false
-            test6_true: false
+            test3_true: true
+            test4_true: true
+            test6_true: true
            test7_false: false (expected)
-          compose_true: false
-   compose_exists_true: false
+          compose_true: true
   [1]
 
   $ check test_lists.ml
