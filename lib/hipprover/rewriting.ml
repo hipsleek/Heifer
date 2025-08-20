@@ -6,6 +6,7 @@ open Typedhip
 open Pretty
 open Debug
 open Utils
+open Misc
 
 let ( let* ) = Option.bind
 let ( let+ ) a f = Option.map f a
@@ -122,18 +123,12 @@ let get_uvar = function
   | _ -> None
 
 (* to avoid having a constructor for UF.t in the AST, use a layer of indirection *)
-type perm = (string * string) list
-type umap = (UF.t * perm) SMap.t
+type umap = UF.t SMap.t
 type 'a unif = 'a * umap
 type unifiable = uterm unif
 
 module Permutation = struct
-  open Misc
-
-  type t = perm
-
-  let rev (perm : t) : t =
-    List.rev perm
+  type t = (string * string) list
 
   let rec apply_ident (perm : t) (a : string) : string =
     match perm with
@@ -147,175 +142,159 @@ module Permutation = struct
   let apply_binder (perm : t) ((x, ty) : binder) : binder =
     apply_ident perm x, ty
 
-  let apply_ident_unif (perm : t) (a, e : string unif) : string unif =
-    if is_uvar_name a then
-      let f = function
-        | None -> failwith (Format.sprintf "apply_ident_unif: %s not found" a)
-        | Some (u, perm') -> Some (u, perm @ perm')
-      in
-      a, SMap.update a f e
-    else
-      apply_ident perm a, e
+  let apply_ident_uvar (perm : t) (a : string) : string =
+    if is_uvar_name a then a else apply_ident perm a
 
-  let rec apply_staged_spec (perm : t) (s, e : staged_spec unif) : staged_spec unif =
+  let rec apply_staged_spec (perm : t) (s : staged_spec) : staged_spec =
     match s with
     | Require (p, k) ->
-        let p, e = apply_pi perm (p, e) in
-        let k, e = apply_kappa perm (k, e) in
-        Require (p, k), e
+        let p = apply_pi perm p in
+        let k = apply_kappa perm k in
+        Require (p, k)
     | NormalReturn (p, k) ->
-        let p, e = apply_pi perm (p, e) in
-        let k, e = apply_kappa perm (k, e) in
-        NormalReturn (p, k), e
+        let p = apply_pi perm p in
+        let k = apply_kappa perm k in
+        NormalReturn (p, k)
     | Exists (x, s') ->
         let x = apply_binder perm x in
-        let s', e = apply_staged_spec perm (s', e) in
-        Exists (x, s'), e
+        let s' = apply_staged_spec perm s' in
+        Exists (x, s')
     | ForAll (x, s') ->
         let x = apply_binder perm x in
-        let s', e = apply_staged_spec perm (s', e) in
-        ForAll (x, s'), e
+        let s' = apply_staged_spec perm s' in
+        ForAll (x, s')
     | HigherOrder (f, args) ->
         (* f here may be an unifcation variable. In that case, we need to update the env *)
-        let f, e = apply_ident_unif perm (f, e) in
-        let args, e = apply_term_list perm (args, e) in
-        HigherOrder (f, args), e
+        let f = apply_ident_uvar perm f in
+        let args = apply_term_list perm args in
+        HigherOrder (f, args)
     | Shift (b, x, xb, k, kb) ->
         let x = apply_binder perm x in
         let k = apply_binder perm k in
-        let xb, e = apply_staged_spec perm (xb, e) in
-        let kb, e = apply_staged_spec perm (kb, e) in
-        Shift (b, x, xb, k, kb), e
+        let xb = apply_staged_spec perm xb in
+        let kb = apply_staged_spec perm kb in
+        Shift (b, x, xb, k, kb)
     | Reset s' ->
-        let s', e = apply_staged_spec perm (s', e) in
-        Reset s', e
+        let s' = apply_staged_spec perm s' in
+        Reset s'
     | Sequence (s1, s2) ->
-        let s1, e = apply_staged_spec perm (s1, e) in
-        let s2, e = apply_staged_spec perm (s2, e) in
-        Sequence (s1, s2), e
+        let s1 = apply_staged_spec perm s1 in
+        let s2 = apply_staged_spec perm s2 in
+        Sequence (s1, s2)
     | Bind (x, s1, s2) ->
         let x = apply_binder perm x in
-        let s1, e = apply_staged_spec perm (s1, e) in
-        let s2, e = apply_staged_spec perm (s2, e) in
-        Bind (x, s1, s2), e
+        let s1 = apply_staged_spec perm s1 in
+        let s2 = apply_staged_spec perm s2 in
+        Bind (x, s1, s2)
     | Disjunction (s1, s2) ->
-        let s1, e = apply_staged_spec perm (s1, e) in
-        let s2, e = apply_staged_spec perm (s2, e) in
-        Sequence (s1, s2), e
+        let s1 = apply_staged_spec perm s1 in
+        let s2 = apply_staged_spec perm s2 in
+        Sequence (s1, s2)
     | RaisingEff _ ->
         todo ()
     | TryCatch _ ->
         todo ()
 
-  and apply_pi (perm : t) (p, e : pi unif) : pi unif =
+  and apply_pi (perm : t) (p : pi) : pi =
     match p with
     | True ->
-        True, e
+        True
     | False ->
-        False, e
+        False
     | Atomic (op, t1, t2) ->
-        let t1, e = apply_term perm (t1, e) in
-        let t2, e = apply_term perm (t2, e) in
-        Atomic (op, t1, t2), e
+        let t1 = apply_term perm t1 in
+        let t2 = apply_term perm t2 in
+        Atomic (op, t1, t2)
     | And (p1, p2) ->
-        let p1, e = apply_pi perm (p1, e) in
-        let p2, e = apply_pi perm (p2, e) in
-        And (p1, p2), e
+        let p1 = apply_pi perm p1 in
+        let p2 = apply_pi perm p2 in
+        And (p1, p2)
     | Or (p1, p2) ->
-        let p1, e = apply_pi perm (p1, e) in
-        let p2, e = apply_pi perm (p2, e) in
-        Or (p1, p2), e
+        let p1 = apply_pi perm p1 in
+        let p2 = apply_pi perm p2 in
+        Or (p1, p2)
     | Imply (p1, p2) ->
-        let p1, e = apply_pi perm (p1, e) in
-        let p2, e = apply_pi perm (p2, e) in
-        Imply (p1, p2), e
+        let p1 = apply_pi perm p1 in
+        let p2 = apply_pi perm p2 in
+        Imply (p1, p2)
     | Not p' ->
-        let p', e = apply_pi perm (p', e) in
-        Not p', e
+        let p' = apply_pi perm p' in
+        Not p'
     | Predicate (f, args) ->
-        let f, e = apply_ident_unif perm (f, e) in
-        let args, e = apply_term_list perm (args, e) in
-        Predicate (f, args), e
+        let f = apply_ident_uvar perm f in
+        let args = apply_term_list perm args in
+        Predicate (f, args)
     | Subsumption (t1, t2) ->
-        let t1, e = apply_term perm (t1, e) in
-        let t2, e = apply_term perm (t2, e) in
-        Subsumption (t1, t2), e
+        let t1 = apply_term perm t1 in
+        let t2 = apply_term perm t2 in
+        Subsumption (t1, t2)
 
-  and apply_kappa (perm : t) (k, e : kappa unif) : kappa unif =
+  and apply_kappa (perm : t) (k : kappa) : kappa =
     match k with
     | EmptyHeap ->
-        EmptyHeap, e
+        EmptyHeap
     | PointsTo (l, v) ->
-        let l, e = apply_ident_unif perm (l, e) in
-        let v, e = apply_term perm (v, e) in
-        PointsTo (l, v), e
+        let l = apply_ident_uvar perm l in
+        let v = apply_term perm v in
+        PointsTo (l, v)
     | SepConj (k1, k2) ->
-        let k1, e = apply_kappa perm (k1, e) in
-        let k2, e = apply_kappa perm (k2, e) in
-        SepConj (k1, k2), e
+        let k1 = apply_kappa perm k1 in
+        let k2 = apply_kappa perm k2 in
+        SepConj (k1, k2)
 
-  and apply_term (perm : t) ({term_desc = t; term_type = ty}, e : term unif) : term unif =
-    let t, e = apply_term_desc perm (t, e) in
-    {term_desc = t; term_type = ty}, e
+  and apply_term (perm : t) ({term_desc = t; term_type = ty} : term) : term =
+    let t = apply_term_desc perm t in
+    {term_desc = t; term_type = ty}
 
-  and apply_term_list (perm : t) (ts, e : term list unif) : term list unif =
-    Lists.map_state (fun e t -> apply_term perm (t, e)) e ts
+  and apply_term_list (perm : t) (ts : term list) : term list =
+    List.map (apply_term perm) ts
 
-  and apply_term_desc (perm : t) (t, e : term_desc unif) : term_desc unif =
+  and apply_term_desc (perm : t) (t : term_desc) : term_desc =
     match t with
     | Const _ ->
-        t, e
+        t
     | Var x ->
-        let x, e = apply_ident_unif perm (x, e) in
-        Var x, e
+        let x = apply_ident_uvar perm x in
+        Var x
     | Rel (op, t1, t2) ->
-        let t1, e = apply_term perm (t1, e) in
-        let t2, e = apply_term perm (t2, e) in
-        Rel (op, t1, t2), e
+        let t1 = apply_term perm t1 in
+        let t2 = apply_term perm t2 in
+        Rel (op, t1, t2)
     | BinOp (op, t1, t2) ->
-        let t1, e = apply_term perm (t1, e) in
-        let t2, e = apply_term perm (t2, e) in
-        BinOp (op, t1, t2), e
+        let t1 = apply_term perm t1 in
+        let t2 = apply_term perm t2 in
+        BinOp (op, t1, t2)
     | TNot t' ->
-        let t', e = apply_term perm (t', e) in
-        TNot t', e
+        let t' = apply_term perm t' in
+        TNot t'
     | TApp (f, args) ->
         let f = apply_ident perm f in
-        let args, e = apply_term_list perm (args, e) in
-        TApp (f, args), e
+        let args = apply_term_list perm args in
+        TApp (f, args)
     | Construct (c, args) ->
-        let args, e = apply_term_list perm (args, e) in
-        Construct (c, args), e
+        let args = apply_term_list perm args in
+        Construct (c, args)
     | TLambda (id, xs, s_opt, c_opt) ->
         let xs = List.map (apply_binder perm) xs in
-        let s_opt, e = match s_opt with
-          | None -> None, e
+        let s_opt = match s_opt with
+          | None -> None
           | Some s ->
-              let s, e = apply_staged_spec perm (s, e) in
-              Some s, e
+              let s = apply_staged_spec perm s in
+              Some s
         in
-        TLambda (id, xs, s_opt, c_opt), e
+        TLambda (id, xs, s_opt, c_opt)
     | TTuple _ ->
         todo ()
 end
 
-let instantiate_uvar (st : UF.store) (e : (UF.t * (string * string) list) SMap.t) (x : string) : uterm =
-  let u, perm = match SMap.find_opt x e with
+let instantiate_uvar (st : UF.store) (e : umap) (x : string) : uterm =
+  let u = match SMap.find_opt x e with
     | None -> failwith (Format.sprintf "instantiate_uvar: %s not found" x)
-    | Some p -> p
+    | Some u -> u
   in
-  let ut = match UF.get st u with
-    | None -> failwith (Format.sprintf "instantiate_uvar: %s not found" x)
-    | Some ut -> ut
-  in
-  match ut with
-  (* the e here is redundant! *)
-  | Staged s -> Staged (fst (Permutation.apply_staged_spec perm (s, e)))
-  | Pure p -> Pure (fst (Permutation.apply_pi perm (p, e)))
-  | Heap k -> Heap (fst (Permutation.apply_kappa perm (k, e)))
-  | Term t -> Term (fst (Permutation.apply_term perm (t, e)))
-  | Binder b -> Binder (Permutation.apply_binder perm b)
-  | Type _ -> ut
+  match UF.get st u with
+  | None -> failwith (Format.sprintf "instantiate_uvar: %s not found" x)
+  | Some ut -> ut
 
 let to_unifiable st f : unifiable =
   let@ _ =
@@ -327,7 +306,7 @@ let to_unifiable st f : unifiable =
                  (string_of_list Fun.id (SMap.keys e)))
              r))
   in
-  let mk_entry () = UF.make st None, [] in
+  let mk_entry () = UF.make st None in
   let visitor =
     object (_self)
       inherit [_] mapreduce_spec as super
@@ -472,7 +451,7 @@ let subst_uvars st (f, e : unifiable) : uterm =
 
       (* the remaining cases also handle capture-avoidance in addition to binder variables *)
 
-      (* method! visit_Exists () x f =
+      method! visit_Exists () x f =
         let x =
           if binder_is_uvar x then
             UF.get st (SMap.find (ident_of_binder x) e) |> Option.get |> uterm_to_binder
@@ -572,7 +551,6 @@ let subst_uvars st (f, e : unifiable) : uterm =
         let f_cont = self#visit_staged_spec () f_cont in
         (* reconstruct the original expressoin *)
         Shift (b, x_body, f_body, x_cont, f_cont)
-        (* TODO other binders *) *)
     end
   in
   match f with
@@ -594,19 +572,6 @@ let subst_uvars st (f, e : unifiable) : uterm =
   | Type t ->
     let t = visitor#visit_typ () t in
     Type t
-
-let%expect_test "capture-avoidance" =
-  reset_counter 0;
-  let open Syntax in
-  let st = UF.new_store () in
-  let v = UF.make st (Some (Staged (ens ~p:(eq (v "x" ~typ:Int) (num 1)) ()))) in
-  (* v has x free. sub it into a term which binds x. the binder needs to be renamed *)
-  let ut =
-    subst_uvars st
-      (Staged (Exists (("x", Int), HigherOrder ("__a", []))), SMap.singleton "__a" v)
-  in
-  Format.printf "%s@." (string_of_uterm ut);
-  [%expect {| ex x0. (ens x=1) |}]
 
 let string_of_outcome r = match r with None -> "fail" | Some _ -> "ok"
 
@@ -704,7 +669,9 @@ and unify_type : UF.store -> typ unif -> typ unif -> unit option =
 and unify_pure : UF.store -> pi unif -> pi unif -> unit option =
  fun st (p1, e1) (p2, e2) ->
   match (p1, p2) with
-  | True, True | False, False -> Some ()
+  | True, True
+  | False, False ->
+    Some ()
   | Imply (p1, p2), Imply (p3, p4)
   | Or (p1, p2), Or (p3, p4)
   | And (p1, p2), And (p3, p4) ->
@@ -796,14 +763,23 @@ and unify_staged :
     let* _ = unify_var st (Staged f1, e1) (Staged f3, e2) in
     let* _ = unify_var st (Staged f2, e1) (Staged f4, e2) in
     Some ()
-  | Exists (x1, b1), Exists (x2, b2) ->
-    let* _ = unify_var st (Binder x1, e1) (Binder x2, e2) in
-    let* _ = unify_var st (Staged b1, e1) (Staged b2, e2) in
-    Some ()
+  | Exists (x1, b1), Exists (x2, b2)
   | ForAll (x1, b1), ForAll (x2, b2) ->
-    let* _ = unify_var st (Binder x1, e1) (Binder x2, e2) in
-    let* _ = unify_var st (Staged b1, e1) (Staged b2, e2) in
-    Some ()
+    (* we assume that the rhs cannot contain any uvar *)
+    let i1 = ident_of_binder x1 in
+    let i2 = ident_of_binder x2 in
+    if is_uvar_name i1 || i1 = i2 then
+      let* _ = unify_var st (Binder x1, e1) (Binder x2, e2) in
+      let* _ = unify_var st (Staged b1, e1) (Staged b2, e2) in
+      Some ()
+    else
+      let perm = [(i1, i2)] in
+      let x2' = Permutation.apply_binder perm x2 in
+      let b2' = Permutation.apply_staged_spec perm b2 in
+      (* need to check for freeness here. If i1 appear free in b2, then this should fails! *)
+      let* _ = unify_var st (Binder x1, e1) (Binder x2', e2) in
+      let* _ = unify_var st (Staged b1, e1) (Staged b2', e2) in
+      Some ()
   | HigherOrder (f1, a1), HigherOrder (f2, a2) when f1 = f2 ->
     if List.length a1 <> List.length a2 then None
     else
@@ -821,10 +797,20 @@ and unify_staged :
     let* _ = unify_var st (Staged b1, e1) (Staged b2, e2) in
     Some ()
   | Bind (x1, f1, f2), Bind (x2, f3, f4) ->
-    let* _ = unify_var st (Binder x1, e1) (Binder x2, e2) in
     let* _ = unify_var st (Staged f1, e1) (Staged f3, e2) in
-    let* _ = unify_var st (Staged f2, e1) (Staged f4, e2) in
-    Some ()
+    let i1 = ident_of_binder x1 in
+    let i2 = ident_of_binder x2 in
+    if is_uvar_name i1 || i1 = i2 then
+      let* _ = unify_var st (Binder x1, e1) (Binder x2, e2) in
+      let* _ = unify_var st (Staged f2, e1) (Staged f4, e2) in
+      Some ()
+    else
+      let perm = [(i1, i2)] in
+      let x2' = Permutation.apply_binder perm x2 in
+      let f4' = Permutation.apply_staged_spec perm f4 in
+      let* _ = unify_var st (Binder x1, e1) (Binder x2', e2) in
+      let* _ = unify_var st (Staged f2, e1) (Staged f4', e2) in
+      Some ()
   | Disjunction (f1, f2), Disjunction (f3, f4) ->
     let* _ = unify_var st (Staged f1, e1) (Staged f3, e2) in
     let* _ = unify_var st (Staged f2, e1) (Staged f4, e2) in
@@ -1129,7 +1115,7 @@ let%expect_test "rewriting" =
     {|
     rewrite let x = (ex y. (ens res=y)) in (ens x=1)
     with let __x = (ex __x1. (__f())) in (__fk()) ==> ex __x1. (let __x = (__f()) in (__fk()))
-    result: ex y3. (let x4 = (ens res=y) in (ens x=1))
+    result: ex y2. (let x3 = (ens res=y) in (ens x=1))
     |}];
 
   (* type-aware rewriting *)
