@@ -37,6 +37,7 @@ let eq x y =
 
 let v ?(typ = TVar (Hipcore.Variables.fresh_variable ~v:"v" ())) x = {term_desc = Var x; term_type = typ}
 let var = v
+let var_any x = {term_desc = Var x; term_type = Any}
 let num n = {term_desc = Const (Num n); term_type = Int}
 let tnot t = {term_desc = TNot t; term_type = Bool}
 let points_to x y = PointsTo (x, y)

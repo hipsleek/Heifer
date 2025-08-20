@@ -750,6 +750,24 @@ and unify_term : UF.store -> term unif -> term unif -> unit option =
   | TTuple _, TTuple _ -> failwith "TTuple"
   | _, _ -> None
 
+and unify_staged_with_binder (st : UF.store) ((b1, s1), e1 : (binder * staged_spec) unif) ((b2, s2), e2 : (binder * staged_spec) unif) : unit option =
+  let i1 = ident_of_binder b1 in
+  let i2 = ident_of_binder b2 in
+  (* we assume that the rhs cannot contain any uvar *)
+  if is_uvar_name i1 || i1 = i2 then begin
+    let* _ = unify_var st (Binder b1, e1) (Binder b2, e2) in
+    let* _ = unify_var st (Staged s1, e1) (Staged s2, e2) in
+    Some ()
+  end else begin
+    let perm = [(i1, i2)] in
+    let b2' = Permutation.apply_binder perm b2 in
+    let s2' = Permutation.apply_staged_spec perm s2 in
+    (* need to check for freeness here. If i1 appear free in b2, then this should fails! *)
+    let* _ = unify_var st (Binder b1, e1) (Binder b2', e2) in
+    let* _ = unify_var st (Staged s1, e1) (Staged s2', e2) in
+    Some ()
+  end
+
 and unify_staged :
     UF.store -> staged_spec unif -> staged_spec unif -> unit option =
  fun st (t1, e1) (t2, e2) ->
@@ -765,21 +783,7 @@ and unify_staged :
     Some ()
   | Exists (x1, b1), Exists (x2, b2)
   | ForAll (x1, b1), ForAll (x2, b2) ->
-    (* we assume that the rhs cannot contain any uvar *)
-    let i1 = ident_of_binder x1 in
-    let i2 = ident_of_binder x2 in
-    if is_uvar_name i1 || i1 = i2 then
-      let* _ = unify_var st (Binder x1, e1) (Binder x2, e2) in
-      let* _ = unify_var st (Staged b1, e1) (Staged b2, e2) in
-      Some ()
-    else
-      let perm = [(i1, i2)] in
-      let x2' = Permutation.apply_binder perm x2 in
-      let b2' = Permutation.apply_staged_spec perm b2 in
-      (* need to check for freeness here. If i1 appear free in b2, then this should fails! *)
-      let* _ = unify_var st (Binder x1, e1) (Binder x2', e2) in
-      let* _ = unify_var st (Staged b1, e1) (Staged b2', e2) in
-      Some ()
+    unify_staged_with_binder st ((x1, b1), e1) ((x2, b2), e2)
   | HigherOrder (f1, a1), HigherOrder (f2, a2) when f1 = f2 ->
     if List.length a1 <> List.length a2 then None
     else
@@ -789,28 +793,17 @@ and unify_staged :
           a1 a2
       in
       Some ()
-  | Shift (z1, k1, f1, _x1, _cont1), Shift (z2, k2, f2, _x2, _cont2) when z1 = z2 && k1 = k2 ->
-    (* TODO: shiftc *)
-    let* _ = unify_var st (Staged f1, e1) (Staged f2, e2) in
+  | Shift (z1, k1, f1, _x1, _cont1), Shift (z2, k2, f2, _x2, _cont2) when z1 = z2 ->
+    (* TODO: shiftc, handle the continuation? *)
+    let* _ = unify_staged_with_binder st ((k1, f1), e1) ((k2, f2), e2) in
     Some ()
   | Reset b1, Reset b2 ->
     let* _ = unify_var st (Staged b1, e1) (Staged b2, e2) in
     Some ()
   | Bind (x1, f1, f2), Bind (x2, f3, f4) ->
     let* _ = unify_var st (Staged f1, e1) (Staged f3, e2) in
-    let i1 = ident_of_binder x1 in
-    let i2 = ident_of_binder x2 in
-    if is_uvar_name i1 || i1 = i2 then
-      let* _ = unify_var st (Binder x1, e1) (Binder x2, e2) in
-      let* _ = unify_var st (Staged f2, e1) (Staged f4, e2) in
-      Some ()
-    else
-      let perm = [(i1, i2)] in
-      let x2' = Permutation.apply_binder perm x2 in
-      let f4' = Permutation.apply_staged_spec perm f4 in
-      let* _ = unify_var st (Binder x1, e1) (Binder x2', e2) in
-      let* _ = unify_var st (Staged f2, e1) (Staged f4', e2) in
-      Some ()
+    let* _ = unify_staged_with_binder st ((x1, f2), e1) ((x2, f4), e2) in
+    Some ()
   | Disjunction (f1, f2), Disjunction (f3, f4) ->
     let* _ = unify_var st (Staged f1, e1) (Staged f3, e2) in
     let* _ = unify_var st (Staged f2, e1) (Staged f4, e2) in
@@ -1150,6 +1143,55 @@ let%expect_test "rewriting" =
     with id((__n : '__t)) ==> ens (res : '__t)=(__n : '__t)
     result: ens (res : int)=(n : int)
     |}]
+
+let%expect_test "unify modulo alpha-equivalence" =
+  let open Syntax in
+  let test a b =
+    let st = UF.new_store () in
+    let a1 = to_unifiable st a in
+    let b1 = to_unifiable st b in
+    match unify st a1 b1 with
+    | None ->
+      Format.printf "failed to unify (%s) and (%s)@." (string_of_uterm a)
+        (string_of_uterm b)
+    | Some s ->
+      let a = subst_uvars s a1 in
+      Format.printf "%s@." (string_of_uterm a)
+  in
+  let () =
+    let res_eq_1 = ens ~p:(eq (var_any "res") (num 1)) () in
+    let a = Staged (Bind (("x", Any), res_eq_1, ens ~p:(eq (var_any "res") (var_any "x")) ())) in
+    let b = Staged (Bind (("y", Any), res_eq_1, ens ~p:(eq (var_any "res") (var_any "y")) ())) in
+    test a b;
+    [%expect{| let x4 = (ens res=1) in (ens res=x4) |}]
+  in
+  ()
+
+let%expect_test "rewriting modulo alpha-equivalence" =
+  let open Syntax in
+  let open Rules in
+  let test_with_printer pp_rule pp_ut rule ut =
+    let new_ut = rewrite_all rule ut in
+    Format.printf "rewrite %s@." (pp_ut ut);
+    Format.printf "with %s@." (pp_rule rule);
+    Format.printf "result: %s@." (pp_ut new_ut)
+  in
+  let test = test_with_printer string_of_rule string_of_uterm in
+  let () =
+    let res_eq_1 = ens ~p:(eq (var_any "res") (num 1)) () in
+    let rule = Staged.rule
+      (Bind (("x", Any), res_eq_1, ens ~p:(eq (var_any "res") (var_any "x")) ()))
+      res_eq_1
+    in
+    let ut = Staged (Bind (("y", Any), res_eq_1, ens ~p:(eq (var_any "res") (var_any "y")) ())) in
+    test rule ut;
+    [%expect{|
+      rewrite let y = (ens res=1) in (ens res=y)
+      with let x = (ens res=1) in (ens res=x) ==> ens res=1
+      result: ens res=1
+      |}]
+  in
+  ()
 
 (* see tests.ml for more *)
 
