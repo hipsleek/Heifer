@@ -7,9 +7,7 @@ open Pretty
 open Debug
 open Utils
 open Misc
-
-let ( let* ) = Option.bind
-let ( let+ ) a f = Option.map f a
+open Options.Syntax
 
 let rec sequence f xs =
   match xs with
@@ -276,12 +274,7 @@ module Permutation = struct
         Construct (c, args)
     | TLambda (id, xs, s_opt, c_opt) ->
         let xs = List.map (apply_binder perm) xs in
-        let s_opt = match s_opt with
-          | None -> None
-          | Some s ->
-              let s = apply_staged_spec perm s in
-              Some s
-        in
+        let s_opt = Option.map (apply_staged_spec perm) s_opt in
         TLambda (id, xs, s_opt, c_opt)
     | TTuple _ ->
         todo ()
@@ -624,11 +617,19 @@ let rec unify_var : UF.store -> unifiable -> unifiable -> unit option =
     | Heap h1, Heap h2 -> unify_heap st (h1, e1) (h2, e2)
     | Term t1, Term t2 -> unify_term st (t1, e1) (t2, e2)
     | Type t1, Type t2 -> unify_type st (t1, e1) (t2, e2)
-    | Binder s1, Binder s2 -> if s1 = s2 then Some () else None
+    | Binder b1, Binder b2 -> unify_binder st (b1, e1) (b2, e2)
     | _, _ ->
       failwith
         (Format.sprintf "cannot unify values of different types: %s, %s"
            (string_of_uterm t1) (string_of_uterm t2)))
+
+and unify_binder (st : UF.store) (b1, e1 : binder unif) (b2, e2 : binder unif) : unit option =
+  ignore (st, e1, e2);
+  let x1 = ident_of_binder b1 in
+  let x2 = ident_of_binder b2 in
+  (* check for the type later *)
+  if x1 = x2 then Some () else None
+
 and unify_var_types : UF.store -> unifiable -> unifiable -> unit option =
   fun st (t1, e1) (t2, e2) ->
     match t1, t2 with
@@ -715,7 +716,7 @@ and unify_heap : UF.store -> kappa unif -> kappa unif -> unit option =
 
 and unify_term : UF.store -> term unif -> term unif -> unit option =
  fun st (t1, e1) (t2, e2) ->
-  let* () = unify_var st (Type t1.term_type, e1) (Type t2.term_type, e2) in
+  (* let* () = unify_var st (Type t1.term_type, e1) (Type t2.term_type, e2) in *)
   match (t1.term_desc, t2.term_desc) with
   | Const c1, Const c2 when c1 = c2 -> Some ()
   | Var x1, Var x2 when x1 = x2 -> Some ()
