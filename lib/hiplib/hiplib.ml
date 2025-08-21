@@ -344,7 +344,14 @@ let process_intermediates (it : Typedhip.intermediate) prog : binder list * core
 
 let process_ocaml_structure (items: Ocaml_common.Typedtree.structure) : unit =
   let process_ocaml_item (bound_names, prog) item =
-    match Ocamlfrontend.Core_lang_typed.transform_str bound_names item with
+    let intermediate = 
+      let@ _ = Debug.(span (fun _ -> 
+        debug ~at:3 ~title:"parsing next ocaml structure item" ""
+      ))
+      in
+      Ocamlfrontend.Core_lang_typed.transform_str bound_names item
+    in
+    match intermediate with
     | Some it ->
         let new_bound, prog = process_intermediates it prog in
         new_bound @ bound_names, prog
