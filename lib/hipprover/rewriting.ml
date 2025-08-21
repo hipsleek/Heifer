@@ -1146,6 +1146,7 @@ let%expect_test "rewriting" =
 
 let%expect_test "unify modulo alpha-equivalence" =
   let open Syntax in
+  Variables.reset_counter 0;
   let test a b =
     let st = UF.new_store () in
     let a1 = to_unifiable st a in
@@ -1163,13 +1164,20 @@ let%expect_test "unify modulo alpha-equivalence" =
     let a = Staged (Bind (("x", Any), res_eq_1, ens ~p:(eq (var_any "res") (var_any "x")) ())) in
     let b = Staged (Bind (("y", Any), res_eq_1, ens ~p:(eq (var_any "res") (var_any "y")) ())) in
     test a b;
-    [%expect{| let x4 = (ens res=1) in (ens res=x4) |}]
+    [%expect{| let x0 = (ens res=1) in (ens res=x0) |}]
+  in
+  let () =
+    let a = Staged (Exists (("x", Any), ens ~p:(eq (var_any "res") (var_any "x")) ())) in
+    let b = Staged (Exists (("y", Any), ens ~p:(eq (var_any "res") (var_any "y")) ())) in
+    test a b;
+    [%expect{| ex x1. (ens res=x1) |}]
   in
   ()
 
 let%expect_test "rewriting modulo alpha-equivalence" =
   let open Syntax in
   let open Rules in
+  Variables.reset_counter 0;
   let test_with_printer pp_rule pp_ut rule ut =
     let new_ut = rewrite_all rule ut in
     Format.printf "rewrite %s@." (pp_ut ut);
