@@ -272,7 +272,7 @@ and infer_types_constant ?(hint : typ option) const : typ =
 and infer_types_term ?(hint : typ option) term : term using_env =
   let@ _ =
     span_env (fun r ->
-        debug ~at:10 ~title:"infer_types" "%s : %s -| %s" (string_of_term term)
+        debug ~at:10 ~title:"infer_types_term" "%s : %s -| %s" (string_of_term term)
           (string_of_result string_of_term (State.Debug.presult_value r))
           (string_of_result string_of_abs_env (State.Debug.presult_state r)))
   in
