@@ -17,7 +17,7 @@ let rec append_cps xs ys k =
 
 [%%lemma{|
   delim_to_cps(xs, ys) =
-    let v23 = rs(append_delim_aux(xs)) in v23(ys) ==>
+    let k = rs(append_delim_aux(xs)) in k(ys) ==>
     let k = (ens res = fun (r) -> (ens res = r)) in append_cps(xs, ys, k)
 |}]
 

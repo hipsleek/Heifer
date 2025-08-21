@@ -5,9 +5,9 @@ open Syntax
 open Typedhip
 open Pretty
 open Debug
-
-let ( let* ) = Option.bind
-let ( let+ ) a f = Option.map f a
+open Utils
+open Misc
+open Options.Syntax
 
 let rec sequence f xs =
   match xs with
@@ -121,8 +121,173 @@ let get_uvar = function
   | _ -> None
 
 (* to avoid having a constructor for UF.t in the AST, use a layer of indirection *)
-type 'a unif = 'a * UF.t SMap.t
+type umap = UF.t SMap.t
+type 'a unif = 'a * umap
 type unifiable = uterm unif
+
+module Permutation = struct
+  type t = (string * string) list
+
+  let rec apply_ident (perm : t) (a : string) : string =
+    match perm with
+    | [] -> a
+    | (a1, a2) :: perm' ->
+        let a' = apply_ident perm' a in
+        if a' = a1 then a2 else
+        if a' = a2 then a1 else
+        a'
+
+  let apply_binder (perm : t) ((x, ty) : binder) : binder =
+    apply_ident perm x, ty
+
+  let apply_ident_uvar (perm : t) (a : string) : string =
+    if is_uvar_name a then a else apply_ident perm a
+
+  let rec apply_staged_spec (perm : t) (s : staged_spec) : staged_spec =
+    match s with
+    | Require (p, k) ->
+        let p = apply_pi perm p in
+        let k = apply_kappa perm k in
+        Require (p, k)
+    | NormalReturn (p, k) ->
+        let p = apply_pi perm p in
+        let k = apply_kappa perm k in
+        NormalReturn (p, k)
+    | Exists (x, s') ->
+        let x = apply_binder perm x in
+        let s' = apply_staged_spec perm s' in
+        Exists (x, s')
+    | ForAll (x, s') ->
+        let x = apply_binder perm x in
+        let s' = apply_staged_spec perm s' in
+        ForAll (x, s')
+    | HigherOrder (f, args) ->
+        (* f here may be an unifcation variable. In that case, we need to update the env *)
+        let f = apply_ident_uvar perm f in
+        let args = apply_term_list perm args in
+        HigherOrder (f, args)
+    | Shift (b, x, xb, k, kb) ->
+        let x = apply_binder perm x in
+        let k = apply_binder perm k in
+        let xb = apply_staged_spec perm xb in
+        let kb = apply_staged_spec perm kb in
+        Shift (b, x, xb, k, kb)
+    | Reset s' ->
+        let s' = apply_staged_spec perm s' in
+        Reset s'
+    | Sequence (s1, s2) ->
+        let s1 = apply_staged_spec perm s1 in
+        let s2 = apply_staged_spec perm s2 in
+        Sequence (s1, s2)
+    | Bind (x, s1, s2) ->
+        let x = apply_binder perm x in
+        let s1 = apply_staged_spec perm s1 in
+        let s2 = apply_staged_spec perm s2 in
+        Bind (x, s1, s2)
+    | Disjunction (s1, s2) ->
+        let s1 = apply_staged_spec perm s1 in
+        let s2 = apply_staged_spec perm s2 in
+        Sequence (s1, s2)
+    | RaisingEff _ ->
+        todo ()
+    | TryCatch _ ->
+        todo ()
+
+  and apply_pi (perm : t) (p : pi) : pi =
+    match p with
+    | True ->
+        True
+    | False ->
+        False
+    | Atomic (op, t1, t2) ->
+        let t1 = apply_term perm t1 in
+        let t2 = apply_term perm t2 in
+        Atomic (op, t1, t2)
+    | And (p1, p2) ->
+        let p1 = apply_pi perm p1 in
+        let p2 = apply_pi perm p2 in
+        And (p1, p2)
+    | Or (p1, p2) ->
+        let p1 = apply_pi perm p1 in
+        let p2 = apply_pi perm p2 in
+        Or (p1, p2)
+    | Imply (p1, p2) ->
+        let p1 = apply_pi perm p1 in
+        let p2 = apply_pi perm p2 in
+        Imply (p1, p2)
+    | Not p' ->
+        let p' = apply_pi perm p' in
+        Not p'
+    | Predicate (f, args) ->
+        let f = apply_ident_uvar perm f in
+        let args = apply_term_list perm args in
+        Predicate (f, args)
+    | Subsumption (t1, t2) ->
+        let t1 = apply_term perm t1 in
+        let t2 = apply_term perm t2 in
+        Subsumption (t1, t2)
+
+  and apply_kappa (perm : t) (k : kappa) : kappa =
+    match k with
+    | EmptyHeap ->
+        EmptyHeap
+    | PointsTo (l, v) ->
+        let l = apply_ident_uvar perm l in
+        let v = apply_term perm v in
+        PointsTo (l, v)
+    | SepConj (k1, k2) ->
+        let k1 = apply_kappa perm k1 in
+        let k2 = apply_kappa perm k2 in
+        SepConj (k1, k2)
+
+  and apply_term (perm : t) ({term_desc = t; term_type = ty} : term) : term =
+    let t = apply_term_desc perm t in
+    {term_desc = t; term_type = ty}
+
+  and apply_term_list (perm : t) (ts : term list) : term list =
+    List.map (apply_term perm) ts
+
+  and apply_term_desc (perm : t) (t : term_desc) : term_desc =
+    match t with
+    | Const _ ->
+        t
+    | Var x ->
+        let x = apply_ident_uvar perm x in
+        Var x
+    | Rel (op, t1, t2) ->
+        let t1 = apply_term perm t1 in
+        let t2 = apply_term perm t2 in
+        Rel (op, t1, t2)
+    | BinOp (op, t1, t2) ->
+        let t1 = apply_term perm t1 in
+        let t2 = apply_term perm t2 in
+        BinOp (op, t1, t2)
+    | TNot t' ->
+        let t' = apply_term perm t' in
+        TNot t'
+    | TApp (f, args) ->
+        let f = apply_ident perm f in
+        let args = apply_term_list perm args in
+        TApp (f, args)
+    | Construct (c, args) ->
+        let args = apply_term_list perm args in
+        Construct (c, args)
+    | TLambda (id, xs, s_opt, c_opt) ->
+        let xs = List.map (apply_binder perm) xs in
+        let s_opt = Option.map (apply_staged_spec perm) s_opt in
+        TLambda (id, xs, s_opt, c_opt)
+    | TTuple _ ->
+        todo ()
+end
+
+let instantiate_uvar (st : UF.store) (e : umap) (x : string) : uterm =
+  let u = match SMap.find_opt x e with
+    | None -> failwith (Format.sprintf "instantiate_uvar: %s not found" x)
+    | Some u -> u
+  in
+  match UF.get st u with
+  | None -> failwith (Format.sprintf "instantiate_uvar: %s not found" x)
+  | Some ut -> ut
 
 let to_unifiable st f : unifiable =
   let@ _ =
@@ -134,6 +299,7 @@ let to_unifiable st f : unifiable =
                  (string_of_list Fun.id (SMap.keys e)))
              r))
   in
+  let mk_entry () = UF.make st None in
   let visitor =
     object (_self)
       inherit [_] mapreduce_spec as super
@@ -145,20 +311,20 @@ let to_unifiable st f : unifiable =
         match args with
         | [] ->
             if is_uvar_name f then
-              (HigherOrder (f, []), SMap.singleton f (UF.make st None))
+              (HigherOrder (f, []), SMap.singleton f (mk_entry ()))
             else
               failwith "to_unifiable: unreachable"
         | _ :: _ ->
             let s, e = super#visit_HigherOrder () f args in
             if is_uvar_name f then
-              (s, SMap.add f (UF.make st None) e)
+              (s, SMap.add f (mk_entry ()) e)
             else
               (s, e)
 
       method! visit_Predicate () f args =
         let p, e = super#visit_Predicate () f args in
         if is_uvar_name f then
-          (p, SMap.add f (UF.make st None) e)
+          (p, SMap.add f (mk_entry ()) e)
         else
           (p, e)
 
@@ -168,37 +334,23 @@ let to_unifiable st f : unifiable =
           match v.term_desc with
           | Const ValUnit ->
               (* unify over the entire heap formula *)
-              (k, SMap.singleton l (UF.make st None))
+              (k, SMap.singleton l (mk_entry ()))
           | _ ->
-              (k, SMap.add l (UF.make st None) e)
+              (k, SMap.add l (mk_entry ()) e)
         else
           (k, e)
 
       method! visit_Var () x =
-        if is_uvar_name x then (Var x, SMap.singleton x (UF.make st None))
+        if is_uvar_name x then (Var x, SMap.singleton x (mk_entry ()))
         else (Var x, SMap.empty)
 
       method! visit_TVar () t =
-        if is_uvar_name t then (TVar t, SMap.singleton t (UF.make st None))
+        if is_uvar_name t then (TVar t, SMap.singleton t (mk_entry ()))
         else (TVar t, SMap.empty)
 
       method! visit_binder () (x, t) =
         let b, e = super#visit_binder () (x, t) in
-        if is_uvar_name x then ((x, t), SMap.add x (UF.make st None) e) else (b, e)
-
-
-      (* binders *)
-      (* method! visit_Bind () x f1 f2 =
-        let v1, e = super#visit_Bind () x f1 f2 in
-        if binder_is_uvar x then (v1, SMap.add (ident_of_binder x) (UF.make st None) e) else (v1, e)
-
-      method! visit_Exists () x f =
-        let v1, e = super#visit_Exists () x f in
-        if binder_is_uvar x then (v1, SMap.add (ident_of_binder x) (UF.make st None) e) else (v1, e)
-
-      method! visit_ForAll () x f =
-        let v1, e = super#visit_ForAll () x f in
-        if binder_is_uvar x then (v1, SMap.add (ident_of_binder x) (UF.make st None) e) else (v1, e) *)
+        if is_uvar_name x then ((x, t), SMap.add x (mk_entry ()) e) else (b, e)
     end
   in
   match f with
@@ -224,7 +376,7 @@ let to_unifiable st f : unifiable =
 
 let of_unifiable (f, _) = f
 
-let subst_uvars st (f, e) : uterm =
+let subst_uvars st (f, e : unifiable) : uterm =
   let visitor =
     object (self)
       inherit [_] map_spec as super
@@ -235,13 +387,13 @@ let subst_uvars st (f, e) : uterm =
         match args with
         | [] ->
             if is_uvar_name f then
-              UF.get st (SMap.find f e) |> Option.get |> uterm_to_staged
+              instantiate_uvar st e f |> uterm_to_staged
             else
               failwith "subst_uvars: unreachable"
         | _ :: _ ->
             let args = self#visit_list self#visit_term () args in
             if is_uvar_name f then
-              let t = UF.get st (SMap.find f e) |> Option.get |> uterm_to_term in
+              let t = instantiate_uvar st e f |> uterm_to_term in
               match t.term_desc with
               | Var f -> HigherOrder (f, args)
               | _ -> failwith "subst_uvars: not a var"
@@ -250,44 +402,43 @@ let subst_uvars st (f, e) : uterm =
 
       method! visit_Predicate () f args =
         if is_uvar_name f then
-          UF.get st (SMap.find f e) |> Option.get |> uterm_to_pure
+          instantiate_uvar st e f |> uterm_to_pure
         else
           super#visit_Predicate () f args
 
       method! visit_PointsTo () l v =
-        let p = super#visit_PointsTo () l v in
-        if is_uvar_name l then begin
+        let v = self#visit_term () v in
+        if is_uvar_name l then
+          let ut = instantiate_uvar st e l in
           match v.term_desc with
           (* ugly hack: match on v, and if v is Const ValUnit there unification variable
              is the entire heap formula. Otherwise, it is just the variable `l` *)
-          | Const ValUnit -> UF.get st (SMap.find l e) |> Option.get |> uterm_to_heap
+          | Const ValUnit ->
+              uterm_to_heap ut
           | _ ->
-              match (UF.get st (SMap.find l e) |> Option.get |> uterm_to_term).term_desc with
-              | Var l' ->
-                  begin match p with
-                  | PointsTo (_, v) -> PointsTo (l', v)
-                  | _ -> failwith "unreachable"
-                  end
-              | _ -> failwith "not a var"
-        end
-        else p
+              let t = uterm_to_term ut in
+              match t.term_desc with
+              | Var l -> PointsTo (l, v)
+              | _ -> failwith "subst_uvars: not a var"
+        else
+          PointsTo (l, v)
 
       method! visit_Var () x =
         if is_uvar_name x then
-          let t = UF.get st (SMap.find x e) |> Option.get |> uterm_to_term in
+          let t = instantiate_uvar st e x |> uterm_to_term in
           t.term_desc
         else
           Var x
 
       method! visit_TVar () t =
         if is_uvar_name t then
-          UF.get st (SMap.find t e) |> Option.get |> uterm_to_type
+          instantiate_uvar st e t |> uterm_to_type
         else
           TVar t
 
       method! visit_binder () (x, t) =
         if is_uvar_name x then
-          UF.get st (SMap.find x e) |> Option.get |> uterm_to_binder
+          instantiate_uvar st e x |> uterm_to_binder
         else
           (x, t)
 
@@ -393,7 +544,6 @@ let subst_uvars st (f, e) : uterm =
         let f_cont = self#visit_staged_spec () f_cont in
         (* reconstruct the original expressoin *)
         Shift (b, x_body, f_body, x_cont, f_cont)
-        (* TODO other binders *)
     end
   in
   match f with
@@ -415,19 +565,6 @@ let subst_uvars st (f, e) : uterm =
   | Type t ->
     let t = visitor#visit_typ () t in
     Type t
-
-let%expect_test "capture-avoidance" =
-  reset_counter 0;
-  let open Syntax in
-  let st = UF.new_store () in
-  let v = UF.make st (Some (Staged (ens ~p:(eq (v "x" ~typ:Int) (num 1)) ()))) in
-  (* v has x free. sub it into a term which binds x. the binder needs to be renamed *)
-  let ut =
-    subst_uvars st
-      (Staged (Exists (("x", Int), HigherOrder ("__a", []))), SMap.singleton "__a" v)
-  in
-  Format.printf "%s@." (string_of_uterm ut);
-  [%expect {| ex x0. (ens x=1) |}]
 
 let string_of_outcome r = match r with None -> "fail" | Some _ -> "ok"
 
@@ -480,11 +617,19 @@ let rec unify_var : UF.store -> unifiable -> unifiable -> unit option =
     | Heap h1, Heap h2 -> unify_heap st (h1, e1) (h2, e2)
     | Term t1, Term t2 -> unify_term st (t1, e1) (t2, e2)
     | Type t1, Type t2 -> unify_type st (t1, e1) (t2, e2)
-    | Binder s1, Binder s2 -> if s1 = s2 then Some () else None
+    | Binder b1, Binder b2 -> unify_binder st (b1, e1) (b2, e2)
     | _, _ ->
       failwith
         (Format.sprintf "cannot unify values of different types: %s, %s"
            (string_of_uterm t1) (string_of_uterm t2)))
+
+and unify_binder (st : UF.store) (b1, e1 : binder unif) (b2, e2 : binder unif) : unit option =
+  ignore (st, e1, e2);
+  let x1 = ident_of_binder b1 in
+  let x2 = ident_of_binder b2 in
+  (* check for the type later *)
+  if x1 = x2 then Some () else None
+
 and unify_var_types : UF.store -> unifiable -> unifiable -> unit option =
   fun st (t1, e1) (t2, e2) ->
     match t1, t2 with
@@ -525,7 +670,9 @@ and unify_type : UF.store -> typ unif -> typ unif -> unit option =
 and unify_pure : UF.store -> pi unif -> pi unif -> unit option =
  fun st (p1, e1) (p2, e2) ->
   match (p1, p2) with
-  | True, True | False, False -> Some ()
+  | True, True
+  | False, False ->
+    Some ()
   | Imply (p1, p2), Imply (p3, p4)
   | Or (p1, p2), Or (p3, p4)
   | And (p1, p2), And (p3, p4) ->
@@ -569,7 +716,7 @@ and unify_heap : UF.store -> kappa unif -> kappa unif -> unit option =
 
 and unify_term : UF.store -> term unif -> term unif -> unit option =
  fun st (t1, e1) (t2, e2) ->
-  let* () = unify_var st (Type t1.term_type, e1) (Type t2.term_type, e2) in
+  (* let* () = unify_var st (Type t1.term_type, e1) (Type t2.term_type, e2) in *)
   match (t1.term_desc, t2.term_desc) with
   | Const c1, Const c2 when c1 = c2 -> Some ()
   | Var x1, Var x2 when x1 = x2 -> Some ()
@@ -604,6 +751,24 @@ and unify_term : UF.store -> term unif -> term unif -> unit option =
   | TTuple _, TTuple _ -> failwith "TTuple"
   | _, _ -> None
 
+and unify_staged_with_binder (st : UF.store) ((b1, s1), e1 : (binder * staged_spec) unif) ((b2, s2), e2 : (binder * staged_spec) unif) : unit option =
+  let i1 = ident_of_binder b1 in
+  let i2 = ident_of_binder b2 in
+  (* we assume that the rhs cannot contain any uvar *)
+  if is_uvar_name i1 || i1 = i2 then begin
+    let* _ = unify_var st (Binder b1, e1) (Binder b2, e2) in
+    let* _ = unify_var st (Staged s1, e1) (Staged s2, e2) in
+    Some ()
+  end else begin
+    let perm = [(i1, i2)] in
+    let b2' = Permutation.apply_binder perm b2 in
+    let s2' = Permutation.apply_staged_spec perm s2 in
+    (* need to check for freeness here. If i1 appear free in b2, then this should fails! *)
+    let* _ = unify_var st (Binder b1, e1) (Binder b2', e2) in
+    let* _ = unify_var st (Staged s1, e1) (Staged s2', e2) in
+    Some ()
+  end
+
 and unify_staged :
     UF.store -> staged_spec unif -> staged_spec unif -> unit option =
  fun st (t1, e1) (t2, e2) ->
@@ -617,14 +782,9 @@ and unify_staged :
     let* _ = unify_var st (Staged f1, e1) (Staged f3, e2) in
     let* _ = unify_var st (Staged f2, e1) (Staged f4, e2) in
     Some ()
-  | Exists (x1, b1), Exists (x2, b2) ->
-    let* _ = unify_var st (Binder x1, e1) (Binder x2, e2) in
-    let* _ = unify_var st (Staged b1, e1) (Staged b2, e2) in
-    Some ()
+  | Exists (x1, b1), Exists (x2, b2)
   | ForAll (x1, b1), ForAll (x2, b2) ->
-    let* _ = unify_var st (Binder x1, e1) (Binder x2, e2) in
-    let* _ = unify_var st (Staged b1, e1) (Staged b2, e2) in
-    Some ()
+    unify_staged_with_binder st ((x1, b1), e1) ((x2, b2), e2)
   | HigherOrder (f1, a1), HigherOrder (f2, a2) when f1 = f2 ->
     if List.length a1 <> List.length a2 then None
     else
@@ -634,17 +794,16 @@ and unify_staged :
           a1 a2
       in
       Some ()
-  | Shift (z1, k1, f1, _x1, _cont1), Shift (z2, k2, f2, _x2, _cont2) when z1 = z2 && k1 = k2 ->
-    (* TODO: shiftc *)
-    let* _ = unify_var st (Staged f1, e1) (Staged f2, e2) in
+  | Shift (z1, k1, f1, _x1, _cont1), Shift (z2, k2, f2, _x2, _cont2) when z1 = z2 ->
+    (* TODO: shiftc, handle the continuation? *)
+    let* _ = unify_staged_with_binder st ((k1, f1), e1) ((k2, f2), e2) in
     Some ()
   | Reset b1, Reset b2 ->
     let* _ = unify_var st (Staged b1, e1) (Staged b2, e2) in
     Some ()
   | Bind (x1, f1, f2), Bind (x2, f3, f4) ->
-    let* _ = unify_var st (Binder x1, e1) (Binder x2, e2) in
     let* _ = unify_var st (Staged f1, e1) (Staged f3, e2) in
-    let* _ = unify_var st (Staged f2, e1) (Staged f4, e2) in
+    let* _ = unify_staged_with_binder st ((x1, f2), e1) ((x2, f4), e2) in
     Some ()
   | Disjunction (f1, f2), Disjunction (f3, f4) ->
     let* _ = unify_var st (Staged f1, e1) (Staged f3, e2) in
@@ -696,9 +855,7 @@ let rewrite_rooted rule target =
     let inst_rhs =
       match rule.rhs with
       | `Replace rhs -> subst_uvars s (rhs, e)
-      | `Dynamic f ->
-        let mapping x = UF.get s (SMap.find (var_prefix ^ x) e) |> Option.get in
-        f mapping
+      | `Dynamic f -> f (fun x -> instantiate_uvar s e (var_prefix ^ x))
     in
     inst_rhs
   else Some target
@@ -952,7 +1109,7 @@ let%expect_test "rewriting" =
     {|
     rewrite let x = (ex y. (ens res=y)) in (ens x=1)
     with let __x = (ex __x1. (__f())) in (__fk()) ==> ex __x1. (let __x = (__f()) in (__fk()))
-    result: ex y3. (let x4 = (ens res=y) in (ens x=1))
+    result: ex y2. (let x3 = (ens res=y) in (ens x=1))
     |}];
 
   (* type-aware rewriting *)
@@ -987,6 +1144,63 @@ let%expect_test "rewriting" =
     with id((__n : '__t)) ==> ens (res : '__t)=(__n : '__t)
     result: ens (res : int)=(n : int)
     |}]
+
+let%expect_test "unify modulo alpha-equivalence" =
+  let open Syntax in
+  Variables.reset_counter 0;
+  let test a b =
+    let st = UF.new_store () in
+    let a1 = to_unifiable st a in
+    let b1 = to_unifiable st b in
+    match unify st a1 b1 with
+    | None ->
+      Format.printf "failed to unify (%s) and (%s)@." (string_of_uterm a)
+        (string_of_uterm b)
+    | Some s ->
+      let a = subst_uvars s a1 in
+      Format.printf "%s@." (string_of_uterm a)
+  in
+  let () =
+    let res_eq_1 = ens ~p:(eq (var_any "res") (num 1)) () in
+    let a = Staged (Bind (("x", Any), res_eq_1, ens ~p:(eq (var_any "res") (var_any "x")) ())) in
+    let b = Staged (Bind (("y", Any), res_eq_1, ens ~p:(eq (var_any "res") (var_any "y")) ())) in
+    test a b;
+    [%expect{| let x0 = (ens res=1) in (ens res=x0) |}]
+  in
+  let () =
+    let a = Staged (Exists (("x", Any), ens ~p:(eq (var_any "res") (var_any "x")) ())) in
+    let b = Staged (Exists (("y", Any), ens ~p:(eq (var_any "res") (var_any "y")) ())) in
+    test a b;
+    [%expect{| ex x1. (ens res=x1) |}]
+  in
+  ()
+
+let%expect_test "rewriting modulo alpha-equivalence" =
+  let open Syntax in
+  let open Rules in
+  Variables.reset_counter 0;
+  let test_with_printer pp_rule pp_ut rule ut =
+    let new_ut = rewrite_all rule ut in
+    Format.printf "rewrite %s@." (pp_ut ut);
+    Format.printf "with %s@." (pp_rule rule);
+    Format.printf "result: %s@." (pp_ut new_ut)
+  in
+  let test = test_with_printer string_of_rule string_of_uterm in
+  let () =
+    let res_eq_1 = ens ~p:(eq (var_any "res") (num 1)) () in
+    let rule = Staged.rule
+      (Bind (("x", Any), res_eq_1, ens ~p:(eq (var_any "res") (var_any "x")) ()))
+      res_eq_1
+    in
+    let ut = Staged (Bind (("y", Any), res_eq_1, ens ~p:(eq (var_any "res") (var_any "y")) ())) in
+    test rule ut;
+    [%expect{|
+      rewrite let y = (ens res=1) in (ens res=y)
+      with let x = (ens res=1) in (ens res=x) ==> ens res=1
+      result: ens res=1
+      |}]
+  in
+  ()
 
 (* see tests.ml for more *)
 
