@@ -83,6 +83,12 @@ View log output by setting `DEBUG=n`.
 | 1    | Explanations, for users              |
 | >= 2 | More and more detail, for developers |
 
+Several built-in filtering options are available; these can be set by setting `DEBUG='n; <option 1>; <option 2>; ...`. See the documentation of `debug.mli` for more details.
+
+Some helpful options:
+- `h rewrite_*` filters out all logs related to the rewrite libraries (which appear at level 5 and above).
+- `h unify_types; h infer_types*` filters out all logs related to type inference (which appear at level 10 and above).
+
 Set `FILE=1` to direct logs to an org-mode file, which is useful for structural navigation.
 
 Set `CTF=1` to produce a trace file that can be viewed with [Perfetto](https://ui.perfetto.dev/), queried with [PerfettoSQL](https://perfetto.dev/docs/quickstart/trace-analysis), etc. This is useful for profiling.
