@@ -343,10 +343,11 @@ let process_intermediates (it : Typedhip.intermediate) prog : binder list * core
       [m_name, function_type], prog
 
 let process_ocaml_structure (items: Ocaml_common.Typedtree.structure) : unit =
-  let process_ocaml_item (bound_names, prog) item =
+  let untyped_items = Untypeast.untype_structure items in
+  let process_ocaml_item (bound_names, prog) (item_untyped, item) =
     let intermediate = 
       let@ _ = Debug.(span (fun _ -> 
-        debug ~at:3 ~title:"parsing next ocaml structure item" ""
+        debug ~at:3 ~title:"parsing next ocaml structure item" "%s" (Pprintast.string_of_structure [item_untyped])
       ))
       in
       Ocamlfrontend.Core_lang_typed.transform_str bound_names item
@@ -358,7 +359,7 @@ let process_ocaml_structure (items: Ocaml_common.Typedtree.structure) : unit =
     | None ->
         bound_names, prog
   in
-  ignore (List.fold_left process_ocaml_item ([], empty_program) items.str_items)
+  ignore (List.fold_left process_ocaml_item ([], empty_program) (List.combine untyped_items items.str_items))
 
 let run_ocaml_string s =
   (** Parse and typecheck the code, before converting it into a core language program.
