@@ -1,6 +1,7 @@
 #!/bin/sh
 
-# export DEBUG='5; h rewrite_rooted; h rewrite_all; h unify; h infer_types_pi'
+# export DEBUG='5; h rewrite_rooted; h rewrite_all; h unify; h infer_types_pi; h infer_types'
+# export DEBUG='5; h unify; h infer_types_pi; h infer_types'
 
 set -x
 dune exec main/hip.exe -- "$@"

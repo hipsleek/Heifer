@@ -169,18 +169,18 @@ let infer_spec (prog : core_program) (meth : meth_def) =
   let inferred, _ = forward fv_env meth.m_body in
   inferred
 
-let check_method prog inferred given =
+let check_method name prog inferred given =
   match given with
   | None -> true
   | Some given_spec ->
     let open Hipprover.Entail in
     (* likely that we need some env or extra setup later *)
     let pctx = create_pctx prog in
-    check_staged_spec_entailment pctx inferred given_spec
+    check_staged_spec_entailment ~name pctx inferred given_spec
 
 let infer_and_check_method (prog : core_program) (meth : meth_def) (given_spec : staged_spec option) =
   let inferred_spec = infer_spec prog meth in
-  let result = check_method prog inferred_spec given_spec in
+  let result = check_method meth.m_name prog inferred_spec given_spec in
   inferred_spec, result
 
 let choose_spec (inferred_spec : staged_spec) (given_spec : staged_spec option) =
@@ -211,21 +211,17 @@ let analyze_method (prog : core_program) (meth : meth_def) : core_program =
   let prog = {prog with cp_methods = updated_meth :: prog.cp_methods} in
   let prog =
     (* let@ _ = Globals.Timing.(time overall) in *)
-    if not result then prog
-    else begin
+    if not result then
+      prog
+    else
       let@ _ = Debug.span (fun _ -> debug
         ~at:2
         ~title:(Format.asprintf "remembering predicate for %s" meth.m_name)
         "")
       in
-      let pred = Hipprover.Entail.derive_predicate meth.m_name 
-      meth.m_params
-      inferred_spec in
-      (* let pred = todo () in *)
+      let pred = Hipprover.Entail.derive_predicate meth.m_name meth.m_params inferred_spec in
       let cp_predicates = SMap.add meth.m_name pred prog.cp_predicates in
       {prog with cp_predicates}
-      (* prog *)
-    end
   in
   (* potentially report the normalized spec as well. Refactor *)
   report_result
@@ -289,10 +285,10 @@ let process_intermediates (it : Typedhip.intermediate) prog : binder list * core
       Globals.global_environment.pure_fn_types <-
         SMap.add name def Globals.global_environment.pure_fn_types;
       [], prog *)
-  | Typedef tdecl -> 
+  | Typedef tdecl ->
       Globals.define_type tdecl;
       debug ~at:1 ~title:"user type declaration" "%s" (Pretty.string_of_type_declaration tdecl);
-      [], prog  
+      [], prog
   | Eff _ ->
       todo ()
   | Lem l ->
