@@ -83,11 +83,7 @@ let new_pctx () =
   }
 
 let has_been_unfolded pctx name _lr =
-  pctx.unfolded
-  |> List.find_opt
-       (* (fun (u, lr1) -> u = name && lr = lr1) *)
-       (fun (Use u) -> u = name)
-  |> Option.is_some
+  List.exists (fun (Use u) -> u = name) pctx.unfolded
 
 let has_induction_hypothesis pctx name =
   pctx.induction_hypotheses
@@ -624,7 +620,8 @@ let unfold_recursive_defns pctx f lr =
     pctx.definitions_rec
     |> List.filter (fun (rule_name, _rule) ->
            not (has_been_unfolded pctx rule_name lr))
-  in
+          in
+  debug ~at:5 ~title:"unfold_recursive_defns - unsable defns" "%s" (string_of_list fst usable_defns);
   let f, used =
     List.fold_right
       (fun (name, rule) (f, used) ->
@@ -633,7 +630,7 @@ let unfold_recursive_defns pctx f lr =
         (f1, u @ used))
       usable_defns (f, [])
   in
-  debug ~at:2 ~title:"used rules" "%s" (string_of_list string_of_use used);
+  debug ~at:5 ~title:"unfold_recursive_defns - used rules" "%s" (string_of_list string_of_use used);
   ({ pctx with unfolded = used @ pctx.unfolded }, f, used)
 
 let unfold_nonrecursive_defns defns f =
@@ -691,10 +688,7 @@ let apply_induction_hypotheses : total =
           log_proof_state_total ~title:"apply_induction_hypotheses" ps r)
     in
     let pctx, f1, f2 = ps in
-    let db =
-      pctx.induction_hypotheses
-      |> List.filter (fun (n, _) -> has_been_unfolded pctx n `Left)
-    in
+    let db = List.filter (fun (n, _) -> has_been_unfolded pctx n `Left) pctx.induction_hypotheses in
     debug ~at:4 ~title:"can be unfolded?" "%s"
       (string_of_list Fun.id (List.map fst db));
     let db = db |> List.map snd in
@@ -713,17 +707,18 @@ let apply_lemmas : total =
     let f1 = autorewrite lemmas (Staged f1) |> of_uterm in
     (pctx, f1, f2)
 
-let create_induction_hypothesis (ps : pstate) name : pctx =
+let create_induction_hypothesis ?name (ps : pstate) : pctx =
   let@ _ =
     span (fun _r -> log_proof_state ~title:"create_induction_hypothesis" ps)
   in
   let pctx, f1, f2 = ps in
-  let free =
-    SSet.union Subst.(free_vars Sctx_staged f1) Subst.(free_vars Sctx_staged f2)
-    |> SSet.remove "res" (* this isn't a free var; it's bound by ens *)
-    |> SSet.remove name (* the function itself isn't free *)
-  in
+  let free = SSet.union Subst.(free_vars Sctx_staged f1) Subst.(free_vars Sctx_staged f2) in
+  let free = SSet.remove "res" free in (* this isn't a free var; it's bound by ens *)
   (* names of previous definitions are not free variables *)
+  let free = match name with
+    | None -> free
+    | Some name -> SSet.remove name free
+  in
   let remove_definition set (def, _) = SSet.remove def set in
   let free = List.fold_left remove_definition free pctx.definitions_nonrec in
   let free = List.fold_left remove_definition free pctx.definitions_rec in
@@ -733,7 +728,8 @@ let create_induction_hypothesis (ps : pstate) name : pctx =
   let f3 = Subst.subst_free_vars bs f1 in
   let f4 = Subst.subst_free_vars bs f2 in
   let ih = Rewriting.Rules.Staged.rule f3 f4 in
-  { pctx with induction_hypotheses = (name, ih) :: pctx.induction_hypotheses }
+  debug ~at:5 ~title:"created induction hypothesis" "%s" (Rewriting.string_of_rule ih);
+  { pctx with induction_hypotheses = (Option.value ~default:"" name, ih) :: pctx.induction_hypotheses }
 
 let is_recursive pctx f =
   List.find_opt (fun (g, _) -> g = f) pctx.definitions_rec |> Option.is_some
@@ -1065,14 +1061,14 @@ let rec apply_ent_rule ?name : tactic =
   (* create induction hypothesis *)
   | HigherOrder (f, _), f2
     when is_recursive pctx f
-         && (not (has_been_unfolded pctx f `Left))
+         && not (has_been_unfolded pctx f `Left)
          && not (has_induction_hypothesis pctx f) ->
     let ps =
       let@ _ =
         span (fun _r ->
             log_proof_state ~title:"ent: create IH, unfold" (pctx, f1, f2))
       in
-      let pctx = create_induction_hypothesis (pctx, f1, f2) f in
+      let pctx = create_induction_hypothesis (pctx, f1, f2) ~name:f in
       let f1 = unfold_nonrecursive_defns pctx.definitions_nonrec f1 in
       let pctx, f1, _ = unfold_recursive_defns pctx f1 `Left in
       simplify (pctx, f1, f2)
@@ -1211,16 +1207,24 @@ and entailment_search : ?name:string -> tactic =
     let ps = apply_lemmas ps in
     apply_ent_rule ?name ps k
 
-let check_staged_spec_entailment ?name pctx inferred given =
+let check_staged_spec_entailment ?name (pctx : pctx) (lhs : staged_spec) (rhs : staged_spec) =
   let@ _ = Hipcore_typed.Globals.Timing.(time entail) in
   let@ _ =
     span (fun r ->
-        debug ~at:2 ~title:"entailment" "%s\n⊑\n%s\n%s"
-          (string_of_staged_spec inferred)
-          (string_of_staged_spec given)
+        let title = match name with
+          | None -> "entailment"
+          | Some name -> Format.sprintf "entailment for '%s'" name
+        in
+        debug ~at:2 ~title "%s\n⊑\n%s\n%s"
+          (string_of_staged_spec lhs)
+          (string_of_staged_spec rhs)
           (string_of_result string_of_bool r))
   in
-  match Iter.head (entailment_search ?name (pctx, inferred, given)) with
+  (* note: name is never used meaningfully. Using this name, we can determine whether we are
+     proving a new specification and thus when generating an induction hypothesis we should
+     remove that name from the set of free variables *)
+  (* let pctx = create_induction_hypothesis ?name (pctx, lhs, rhs) in *)
+  match Iter.head (entailment_search ?name (pctx, lhs, rhs)) with
   | None -> false
   | Some ps ->
     debug ~at:2 ~title:"proof found" "%s" (string_of_pstate ps);

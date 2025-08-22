@@ -98,22 +98,23 @@ end
     programs or generated code *)
 let var_prefix = "__"
 
+let uvar_name x = var_prefix ^ x
 let is_uvar_name f = String.starts_with ~prefix:var_prefix f
 let binder_is_uvar b = is_uvar_name (ident_of_binder b)
 (* let type_is_uvar = function
   | TVar t when is_uvar_name t -> true
   | _ -> false *)
-let uvar_staged n = HigherOrder (var_prefix ^ n, [])
-let uvar_heap n = PointsTo (var_prefix ^ n, cunit)
-let uvar_pure n = Predicate (var_prefix ^ n, [])
-let uvar_term ?(typ = Any) n = v (var_prefix ^ n) ~typ
-let uvar_binder ?(typ = Any) n = (var_prefix ^ n, typ)
-let uvar_binder_untyped n = var_prefix ^ n
-let uvar_type t = TVar (var_prefix ^ t)
+let uvar_staged n = HigherOrder (uvar_name n, [])
+let uvar_heap n = PointsTo (uvar_name n, cunit)
+let uvar_pure n = Predicate (uvar_name n, [])
+let uvar_term ?(typ = Any) n = v (uvar_name n) ~typ
+let uvar_binder ?(typ = Any) n = (uvar_name n, typ)
+let uvar_binder_untyped n = uvar_name n
+let uvar_type t = TVar (uvar_name t)
 
 let get_uvar = function
-  | Staged (HigherOrder (f, _)) when is_uvar_name f -> Some f
-  | Pure (Predicate (f, _)) when is_uvar_name f -> Some f
+  | Staged (HigherOrder (f, [])) when is_uvar_name f -> Some f
+  | Pure (Predicate (f, [])) when is_uvar_name f -> Some f
   | Heap (PointsTo (f, {term_desc = Const ValUnit; _})) when is_uvar_name f -> Some f
   | Term ({term_desc = Var f; _}) when is_uvar_name f -> Some f
   | Binder f when binder_is_uvar f -> Some (ident_of_binder f)
@@ -678,14 +679,12 @@ and unify_pure : UF.store -> pi unif -> pi unif -> unit option =
     let* _ = unify_var st (Term t1, e1) (Term t3, e2) in
     let* _ = unify_var st (Term t2, e1) (Term t4, e2) in
     Some ()
-  | Predicate (f1, a1), Predicate (f2, a2) when f1 = f2 ->
-    if List.length a1 <> List.length a2 then None
+  | Predicate (f1, a1), Predicate (f2, a2) ->
+    if List.length a1 <> List.length a2 then
+      None
     else
-      let* _ =
-        sequence2
-          (fun (v1, v2) -> unify_var st (Term v1, e1) (Term v2, e2))
-          a1 a2
-      in
+      let* _ = unify_var st (Term (var_any f1), e1) (Term (var_any f2), e2) in
+      let* _ = sequence2 (fun (v1, v2) -> unify_var st (Term v1, e1) (Term v2, e2)) a1 a2 in
       Some ()
   | Subsumption (t1, t2), Subsumption (t3, t4) ->
     let* _ = unify_var st (Term t1, e1) (Term t3, e2) in
@@ -697,7 +696,8 @@ and unify_heap : UF.store -> kappa unif -> kappa unif -> unit option =
  fun st (p1, e1) (p2, e2) ->
   match (p1, p2) with
   | EmptyHeap, EmptyHeap -> Some ()
-  | PointsTo (x1, v1), PointsTo (x2, v2) when x1 = x2 ->
+  | PointsTo (x1, v1), PointsTo (x2, v2) ->
+    let* _ = unify_var st (Term (var_any x1), e1) (Term (var_any x2), e2) in
     let* _ = unify_var st (Term v1, e1) (Term v2, e2) in
     Some ()
   | SepConj (h1, h2), SepConj (h3, h4) ->
@@ -777,15 +777,13 @@ and unify_staged :
   | Exists (x1, b1), Exists (x2, b2)
   | ForAll (x1, b1), ForAll (x2, b2) ->
     unify_staged_with_binder st ((x1, b1), e1) ((x2, b2), e2)
-  | HigherOrder (f1, a1), HigherOrder (f2, a2) when f1 = f2 ->
-    if List.length a1 <> List.length a2 then None
+  | HigherOrder (f1, a1), HigherOrder (f2, a2) ->
+    if List.length a1 <> List.length a2 then
+      None
     else
-      let* _ =
-        sequence2
-          (fun (v1, v2) -> unify_var st (Term v1, e1) (Term v2, e2))
-          a1 a2
-      in
-      Some ()
+      let* _ = unify_var st (Term (var_any f1), e1) (Term (var_any f2), e2) in
+      let* _ = sequence2 (fun (v1, v2) -> unify_var st (Term v1, e1) (Term v2, e2)) a1 a2
+      in Some ()
   | Shift (z1, k1, f1, _x1, _cont1), Shift (z2, k2, f2, _x2, _cont2) when z1 = z2 ->
     (* TODO: shiftc, handle the continuation? *)
     let* _ = unify_staged_with_binder st ((k1, f1), e1) ((k2, f2), e2) in
@@ -847,7 +845,7 @@ let rewrite_rooted rule target =
     let inst_rhs =
       match rule.rhs with
       | `Replace rhs -> subst_uvars s (rhs, e)
-      | `Dynamic f -> f (fun x -> instantiate_uvar s e (var_prefix ^ x))
+      | `Dynamic f -> f (fun x -> instantiate_uvar s e (uvar_name x))
     in
     inst_rhs
   else Some target
@@ -1139,6 +1137,7 @@ let%expect_test "rewriting" =
 
 let%expect_test "unify modulo alpha-equivalence" =
   let open Syntax in
+  let open Rules in
   Variables.reset_counter 0;
   let test a b =
     let st = UF.new_store () in
@@ -1146,11 +1145,12 @@ let%expect_test "unify modulo alpha-equivalence" =
     let b1 = to_unifiable st b in
     match unify st a1 b1 with
     | None ->
-      Format.printf "failed to unify (%s) and (%s)@." (string_of_uterm a)
-        (string_of_uterm b)
+        Format.printf "failed to unify (%s) and (%s)@."
+          (string_of_uterm a)
+          (string_of_uterm b)
     | Some s ->
-      let a = subst_uvars s a1 in
-      Format.printf "%s@." (string_of_uterm a)
+        let a2 = subst_uvars s a1 in
+        Format.printf "%s@." (string_of_uterm a2)
   in
   let () =
     let res_eq_1 = ens ~p:(eq (var_any "res") (num 1)) () in
@@ -1164,6 +1164,15 @@ let%expect_test "unify modulo alpha-equivalence" =
     let b = Staged (Exists (("y", Any), ens ~p:(eq (var_any "res") (var_any "y")) ())) in
     test a b;
     [%expect{| ex x1. (ens res=x1) |}]
+  in
+  let () =
+    let uvar_f = uvar_name "f" in
+    let uvar_g = uvar_name "g" in
+    let uvar_x = Term.uvar "x" in
+    let a = Staged (Bind (("v", Any), HigherOrder (uvar_g, [uvar_x]), HigherOrder (uvar_f, [var_any "v"]))) in
+    let b = Staged (Bind (("r", Any), HigherOrder ("g", [var_any "x"]), HigherOrder ("f", [var_any "r"]))) in
+    test a b;
+    [%expect{| let v2 = (g(x)) in (f(v2)) |}]
   in
   ()
 
@@ -1190,6 +1199,28 @@ let%expect_test "rewriting modulo alpha-equivalence" =
       rewrite let y = (ens res=1) in (ens res=y)
       with let x = (ens res=1) in (ens res=x) ==> ens res=1
       result: ens res=1
+      |}]
+  in
+  let () =
+    let uvar_f = uvar_name "f" in
+    let uvar_g = uvar_name "g" in
+    let uvar_x = Term.uvar "x" in
+    let var_r_g = var_any "r_g" in
+    let var_r_f = var_any "r_f" in
+    let rule = Staged.rule
+      (Bind (("v", Any), HigherOrder (uvar_g, [uvar_x]), HigherOrder (uvar_f, [var_any "v"])))
+      (Exists (("r_g", Any), seq [
+        HigherOrder (uvar_g, [uvar_x; var_r_g]);
+        Exists (("r_f", Any), seq [
+          HigherOrder (uvar_f, [var_r_g; var_r_f]);
+          ens ~p:(eq (var_any "res") var_r_f) ()])]))
+    in
+    let ut = Staged (Bind (("r", Any), HigherOrder ("g", [var_any "x"]), HigherOrder ("f", [var_any "r"]))) in
+    test rule ut;
+    [%expect{|
+      rewrite let r = (g(x)) in (f(r))
+      with let v = (__g(__x)) in (__f(v)) ==> ex r_g. (__g(__x, r_g); ex r_f. (__f(r_g, r_f); ens res=r_f))
+      result: ex r_g1. (g(x, r_g1); ex r_f0. (f(r_g1, r_f0); ens res=r_f0))
       |}]
   in
   ()

@@ -1,10 +1,10 @@
 
-let[@pure] rec length (xs:int list): int =
+let[@pure] rec length (xs: 'a list): 'a =
   match xs with
   | [] -> 0
   | x :: xs1 -> 1 + length xs1
 
-[%%lemma {| length_positive_l(xs) = length(xs) ==> ens res>=0 |}]
+[%%lemma{| length_positive_l(xs) = length(xs) ==> ens res>=0 |}]
 
 (* [%%lemma {| length_empty() = length([]) ==> ens res=0 |}] *)
 
