@@ -90,7 +90,7 @@ let norm_seq_ens_disj = Staged.dynamic_rule
 let norm_bind_req = Staged.dynamic_rule
   (Bind (Binder.uvar "x", Sequence (Require (Pure.uvar "p", Heap.uvar "h"), Staged.uvar "f"), Staged.uvar "fk"))
   (fun sub ->
-    let x = Binder.of_uterm (sub "x") in 
+    let x = Binder.of_uterm (sub "x") in
     let p = Pure.of_uterm (sub "p") in
     let h = Heap.of_uterm (sub "h") in
     let f = Staged.of_uterm (sub "f") in
@@ -115,6 +115,7 @@ let norm_bind_all = Staged.dynamic_rule
     let fk = Staged.of_uterm (sub "fk") in
     ForAll (x1, Bind (x, f, fk)))
 
+(* TODO: generalize to bind_assoc? *)
 let norm_bind_assoc_ens = Staged.dynamic_rule
   (Bind (Binder.uvar "x", Bind (Binder.uvar "y", NormalReturn (Pure.uvar "p", Heap.uvar "h"), Staged.uvar "f1"), Staged.uvar "f2"))
   (fun sub ->
@@ -160,7 +161,7 @@ let norm_seq_ens_seq_all = Staged.dynamic_rule
 
 (* bind (seq (ens Q) f) fk `entails` seq (ens Q) (bind f fk) *)
 (* we can push ens outside of bind; if the result of ens is not used *)
-let norm_bind_seq_ens = Staged.dynamic_rule
+(* let norm_bind_seq_ens = Staged.dynamic_rule
   (Bind (Binder.uvar "x", Sequence (NormalReturn (Pure.uvar "p", Heap.uvar "h"), Staged.uvar "f"), Staged.uvar "fk"))
   (fun sub ->
     let x = Binder.of_uterm (sub "x") in
@@ -168,7 +169,7 @@ let norm_bind_seq_ens = Staged.dynamic_rule
     let h = Heap.of_uterm (sub "h") in
     let f = Staged.of_uterm (sub "f") in
     let fk = Staged.of_uterm (sub "fk") in
-    Sequence (NormalReturn (p, h), Bind (x, f, fk)))
+    Sequence (NormalReturn (p, h), Bind (x, f, fk))) *)
 
 let norm_ens_heap_ens_pure = Staged.dynamic_rule
   (seq [NormalReturn (True, Heap.uvar "h"); NormalReturn (Pure.uvar "p", emp)])
@@ -220,11 +221,6 @@ let norm_seq_ens_heap_ens_heap = Staged.rule
   (seq [NormalReturn (True, Heap.uvar "h1"); NormalReturn (True, Heap.uvar "h2"); Staged.uvar "f"])
   (seq [NormalReturn (True, SepConj (Heap.uvar "h1", Heap.uvar "h2")); Staged.uvar "f"])
 
-(* this rule is not proven in Coq formulization yet *)
-let norm_seq_assoc = Staged.rule
-  (seq [seq [Staged.uvar "f1"; Staged.uvar "f2"]; Staged.uvar "f3"])
-  (seq [Staged.uvar "f1"; Staged.uvar "f2"; Staged.uvar "f3"])
-
 let norm_seq_ens_emp = Staged.rule
   (seq [ens (); Staged.uvar "f"])
   (Staged.uvar "f")
@@ -240,6 +236,7 @@ let norm_seq_all = Staged.dynamic_rule
     let f = Staged.of_uterm (sub "f") in
     let fk = Staged.of_uterm (sub "fk") in
     ForAll (x, Sequence (f, fk)))
+
 let norm_seq_ex = Staged.dynamic_rule
   (Sequence (Exists (Binder.uvar "x", Staged.uvar "f"), Staged.uvar "fk"))
   (fun sub ->
@@ -247,6 +244,25 @@ let norm_seq_ex = Staged.dynamic_rule
     let f = Staged.of_uterm (sub "f") in
     let fk = Staged.of_uterm (sub "fk") in
     Exists (x, Sequence (f, fk)))
+
+(* this rule is not proven in Coq formulization yet *)
+let norm_seq_assoc = Staged.rule
+  (seq [seq [Staged.uvar "f1"; Staged.uvar "f2"]; Staged.uvar "f3"])
+  (seq [Staged.uvar "f1"; Staged.uvar "f2"; Staged.uvar "f3"])
+
+let norm_bind_seq_assoc =
+  let x = Binder.uvar "x" in
+  let f1 = Staged.uvar "f1" in
+  let f2 = Staged.uvar "f2" in
+  let f3 = Staged.uvar "f3" in
+  Staged.rule (seq [bind x f1 f2; f3]) (bind x f1 (seq [f2; f3]))
+
+let norm_seq_bind_assoc =
+  let x = Binder.uvar "x" in
+  let f1 = Staged.uvar "f1" in
+  let f2 = Staged.uvar "f2" in
+  let f3 = Staged.uvar "f3" in
+  Staged.rule (bind x (seq [f1; f2]) f3) (seq [f1; bind x f2 f3])
 
 (* this can be applied on both side *)
 let normalization_rules_empty = [
@@ -261,8 +277,7 @@ let normalization_rules_bind = [
   norm_bind_req;
   norm_bind_ex;
   norm_bind_all;
-  norm_bind_seq_ens;
-  norm_bind_assoc_ens;
+  (* norm_bind_seq_ens; *)
 ]
 
 let normalization_rules_seq = [
@@ -270,8 +285,14 @@ let normalization_rules_seq = [
   norm_seq_ens_ex;
   norm_seq_ens_all;
   norm_seq_ens_seq_all;
-  norm_seq_assoc;
   norm_seq_ens_disj;
+]
+
+let normalization_rules_assoc = [
+  norm_bind_assoc_ens;
+  norm_seq_assoc;
+  norm_bind_seq_assoc;
+  norm_seq_bind_assoc;
 ]
 
 let normalization_rules_permute_ens = [
@@ -287,6 +308,7 @@ let normalization_rules = List.concat [
   normalization_rules_empty;
   normalization_rules_bind;
   normalization_rules_seq;
+  normalization_rules_assoc;
   normalization_rules_permute_ens;
 ]
 
@@ -355,9 +377,9 @@ let%expect_test "rules" =
     let f = ens ~p:(eq res_var (num 1)) () in
     let fk = ens ~p:(eq res_var (plus (var "x") (num 1))) () in
     let input = bind ("x", Int) (seq [f; f]) fk in
-    test norm_bind_seq_ens input;
+    test norm_seq_bind_assoc input;
     [%expect
-      {| ens res=1; let x = (ens res=1) in (ens res=(x + 1)) |}]
+      {| ens res=1; let x2 = (ens res=1) in (ens res=(x2 + 1)) |}]
   in
   let _ =
     let ens_heap = NormalReturn (True, PointsTo ("x", num 1)) in

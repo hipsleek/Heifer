@@ -445,59 +445,52 @@ let subst_uvars st (f, e : unifiable) : uterm =
       (* the remaining cases also handle capture-avoidance in addition to binder variables *)
 
       method! visit_Exists () x f =
-        let x =
-          if binder_is_uvar x then
-            UF.get st (SMap.find (ident_of_binder x) e) |> Option.get |> uterm_to_binder
-          else x
-        in
-        (* avoid capture *)
+        let i = ident_of_binder x in
+        let x = if is_uvar_name i then uterm_to_binder (instantiate_uvar st e i) else x in
         let f1 = self#visit_staged_spec () f in
         let x2, f2 =
           let free = Subst.(free_vars Sctx_staged f1) in
           if SSet.mem (ident_of_binder x) free then
+            (* TODO: this should occurs most of the time. We can improve the performance of this! *)
             let y_name = fresh_variable ~v:(ident_of_binder x) () in
             let y = (y_name, type_of_binder x) in
-            (* note the use of f, not f1 *)
-            let f2 = f |> Subst.subst_free_vars [(ident_of_binder x, var_of_binder y)] in
-            let f2 = self#visit_staged_spec () f2 in
-            (y, f2)
-          else (x, f1)
+            let f2 = Subst.subst_free_vars [(ident_of_binder x, var_of_binder y)] f1 in
+            (* let f2 = self#visit_staged_spec () f2 in *)
+            y, f2
+          else
+            x, f1
         in
         Exists (x2, f2)
 
       (* other cases are copy-pasted *)
 
       method! visit_ForAll () x f =
-        let x =
-          if binder_is_uvar x then
-            UF.get st (SMap.find (ident_of_binder x) e) |> Option.get |> uterm_to_binder
-          else x
-        in
+        let i = ident_of_binder x in
+        let x = if is_uvar_name i then uterm_to_binder (instantiate_uvar st e i) else x in
         let f1 = self#visit_staged_spec () f in
         let x2, f2 =
           let free = Subst.(free_vars Sctx_staged f1) in
           if SSet.mem (ident_of_binder x) free then
             let y_name = fresh_variable ~v:(ident_of_binder x) () in
             let y = (y_name, type_of_binder x) in
-            (* note the use of f, not f1 *)
-            let f2 = f |> Subst.subst_free_vars [(ident_of_binder x, var_of_binder y)] in
-            let f2 = self#visit_staged_spec () f2 in
-            (y, f2)
-          else (x, f1)
+            let f2 = Subst.subst_free_vars [(ident_of_binder x, var_of_binder y)] f1 in
+            y, f2
+          else
+            x, f1
         in
         ForAll (x2, f2)
 
       method! visit_Bind () x f1 f2 =
-        let x, f1, f2 =
+        let i = ident_of_binder x in
+        let x = if is_uvar_name i then uterm_to_binder (instantiate_uvar st e i) else x in
+        (* let x, f1, f2 = (* this is if the uvar of binder can also appear in f1 and f2. But that should never happen with
+          the current implementation *)
           if binder_is_uvar x then
-            let b =
-              UF.get st (SMap.find (ident_of_binder x) e) |> Option.get |> uterm_to_binder
-            in
-            ( b,
-              Subst.subst_free_vars [(ident_of_binder x, var_of_binder b)] f1,
-              Subst.subst_free_vars [(ident_of_binder x, var_of_binder b)] f2 )
-          else (x, f1, f2)
-        in
+            let b = uterm_to_binder (instantiate_uvar st e i) in
+            let sigma = [(i, var_of_binder b)] in
+            b, Subst.subst_free_vars sigma f1, Subst.subst_free_vars sigma f2
+          else
+            x, f1, f2 *)
         let f1 = self#visit_staged_spec () f1 in
         let f3 = self#visit_staged_spec () f2 in
         let x2, f2 =
@@ -505,11 +498,10 @@ let subst_uvars st (f, e : unifiable) : uterm =
           if SSet.mem (ident_of_binder x) free then
             let y_name = fresh_variable ~v:(ident_of_binder x) () in
             let y = (y_name, type_of_binder x) in
-            (* note the use of f2, not f3 *)
-            let f2 = f2 |> Subst.subst_free_vars [(ident_of_binder x, var_of_binder y)] in
-            let f2 = self#visit_staged_spec () f2 in
-            (y, f2)
-          else (x, f3)
+            let f2 = Subst.subst_free_vars [(ident_of_binder x, var_of_binder y)] f3 in
+            y, f2
+          else
+            x, f3
         in
         Bind (x2, f1, f2)
 
@@ -1109,7 +1101,7 @@ let%expect_test "rewriting" =
     {|
     rewrite let x = (ex y. (ens res=y)) in (ens x=1)
     with let __x = (ex __x1. (__f())) in (__fk()) ==> ex __x1. (let __x = (__f()) in (__fk()))
-    result: ex y2. (let x3 = (ens res=y) in (ens x=1))
+    result: ex y2. (let x1 = (ens res=y2) in (ens x1=1))
     |}];
 
   (* type-aware rewriting *)

@@ -790,7 +790,7 @@ let prove_pure_fact (pctx : pctx) (p : pi) =
   | False -> false
   | _ -> check_pure_obligation (Syntax.conj pctx.assumptions) p
 
-let rec handle_pure_ens_lhs (pctx : pctx) f =
+let rec handle_pure_ens_lhs (pctx : pctx) (f : staged_spec) : pctx * staged_spec =
   debug ~at:5 ~title:"handle_pure_ens_lhs" "%s " (string_of_staged_spec f);
   match f with
   | NormalReturn (p, EmptyHeap) when not (Variables.is_eq_res p) ->
@@ -805,7 +805,7 @@ let rec handle_pure_ens_lhs (pctx : pctx) f =
   | _ ->
       pctx, f
 
-let rec handle_pure_ens_rhs (pctx : pctx) f =
+let rec handle_pure_ens_rhs (pctx : pctx) (f : staged_spec) : staged_spec option =
   debug ~at:5 ~title:"handle_pure_ens_rhs" "";
   match f with
   | NormalReturn (p, EmptyHeap) when not (Variables.is_eq_res p) ->
