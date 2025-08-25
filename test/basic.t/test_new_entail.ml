@@ -170,11 +170,11 @@ let foo1 xs = 1
 let foo2 xs (*@ ens res=1 @*) = 1
 
 let goo1 xs
-(*@ ex t. foo1(xs, t); ens res=t @*)
+(*@ let t = foo1(xs) in ens res=t @*)
 = foo1 xs
 
 let goo2 xs
-(*@ ex t. foo2(xs, t); ens res=t @*)
+(*@ let t = foo2(xs) in ens res=t @*)
 = foo2 xs
 
 let call_f_in_g ()
@@ -183,7 +183,7 @@ let call_f_in_g ()
   let f x = x in
   f 5
 
-let call_ret f (* ex v; f(100,v); ens res=v *) =
+let call_ret f (*@ let v = f(100) in ens res=v @*) =
   f 100
 
 let test_non_rec_pred ()

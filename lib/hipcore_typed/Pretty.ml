@@ -303,6 +303,9 @@ module With_types = struct
     | PAlias (p, s) -> Format.sprintf "(%s) as %s" (string_of_pattern p) s
     in
     Format.sprintf "%s : %s" desc (string_of_type p.pattern_type)
+
+  let string_of_pred ({p_name; p_params; p_body; _}) =
+    Format.asprintf "%s(%s) == %s" p_name (p_params |> List.map string_of_binder |> String.concat ", ") (string_of_staged_spec p_body)
 end
 
 (** formatters, more fit for external output *)

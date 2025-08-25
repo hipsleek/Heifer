@@ -69,6 +69,8 @@ let rec params_of_arrow_type t =
       t1 :: params, result
   | _ -> [], t
 
+let arrow_type_of_params params result = List.fold_right (fun typ acc -> Arrow (typ, acc)) params result
+
 let concrete_types = [Unit; Int; Bool; Lamb]
 
 let new_type_var : ?name:string -> unit -> typ =
