@@ -504,7 +504,7 @@ let subst_uvars st (f, e : unifiable) : uterm =
         Bind (x2, f1, f2)
 
       method! visit_TLambda () name args spec_opt prog_opt =
-        let args = List.map (self#visit_binder ()) args in
+        let args = self#visit_list self#visit_binder () args in
         let renamed_args = List.map (fun arg -> (fresh_variable ~v:(ident_of_binder arg) (), type_of_binder arg)) args in
         let subst = List.map2 (fun arg new_arg -> (ident_of_binder arg, var_of_binder new_arg)) args renamed_args in
         let spec_opt = match spec_opt with
