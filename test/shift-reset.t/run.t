@@ -111,3 +111,12 @@
           hello_printf: true
     hello_printf_false: false (expected)
   ALL OK!
+
+  $ check ../reset_shift_progs/append.ml
+                append: true
+      append_delim_aux: true
+            append_cps: true
+          delim_to_cps: false
+         cps_to_direct: false
+          append_delim: true
+  [1]
