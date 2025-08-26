@@ -1,0 +1,6 @@
+(library
+  (name hipcore_common)
+  (public_name heifer.hipcore_common)
+  (libraries utils)
+  (modules ast common types)
+  (preprocess (pps ppx_expect ppx_deriving.std visitors.ppx)))
