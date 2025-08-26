@@ -481,14 +481,7 @@ let subst_uvars st (f, e : unifiable) : uterm =
         ForAll (x2, f2)
 
       method! visit_Bind () x f1 f2 =
-        let x, f1, f2 =
-          let b = self#visit_binder () x in
-          if b <> x then
-            ( b,
-              Subst.subst_free_vars [(ident_of_binder x, var_of_binder b)] f1,
-              Subst.subst_free_vars [(ident_of_binder x, var_of_binder b)] f2 )
-          else (x, f1, f2)
-        in
+        let x = self#visit_binder () x in
         let f1 = self#visit_staged_spec () f1 in
         let f3 = self#visit_staged_spec () f2 in
         let x2, f2 =
