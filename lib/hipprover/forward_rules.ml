@@ -359,7 +359,7 @@ let rec forward (env: fvenv) (expr : core_lang): staged_spec * fvenv =
         let body_spec, env = forward env body in
         let open Patterns in
         let case_spec =
-          let disjuncts = 
+          let disjuncts =
             exclude (pat, guard) past_cases
             |> List.concat_map (fun pat -> exclude pat past_cases)
             |> List.map (pi_of_pattern t)
@@ -400,13 +400,17 @@ let rec forward (env: fvenv) (expr : core_lang): staged_spec * fvenv =
   | CShift (nz, k, expr_body) ->
       let spec_body, env = forward env expr_body in
       let x = Variables.fresh_variable ~v:"x" "continuation argument" in
-      let cont_arg_type = match k with
-        | _, Arrow (typ, _) -> typ
-        | _, TVar _ | _, Any -> TVar (Variables.fresh_variable ~v:"cont_typ" ())
+      let cont_arg_type = match type_of_binder k with
+        | Arrow (typ, _) -> typ
+        | TVar _
+        | Any -> TVar (Variables.fresh_variable ~v:"cont_typ" ())
         | _ -> failwith "continuation argument does not have function type"
       in
       let cont = NormalReturn (res_eq (var ~typ:cont_arg_type x), EmptyHeap) in
       Shift (nz, k, spec_body, (x, cont_arg_type), cont), env
   | CReset expr_body ->
       let spec_body, env = forward env expr_body in
-      Reset spec_body, env
+      (* cannot infer the type here *)
+      let x = Variables.fresh_variable ~v:"x" "continuation argument" in
+      let cont = NormalReturn (res_eq (var x), EmptyHeap) in
+      Reset (spec_body, (x, Any), cont), env

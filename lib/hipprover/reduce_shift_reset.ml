@@ -22,53 +22,53 @@ let shift_reset_free () = Misc.todo ()
 (* reset (forall x. f) \entails forall x. reset f *)
 (* only on the left *)
 let norm_reset_all : _ Rewriting2.rule = Rewriting2.(
-  reset (forall __ __),
-  fun x f -> ForAll (x, Reset f)
+  reset (forall __ __) __ __,
+  fun x f k cont -> ForAll (x, Reset (f, k, cont))
 )
 
 (* reset (exists x. f) \bientails exists x. reset f *)
 (* bientails; both side of the proof *)
 let norm_reset_ex : _ Rewriting2.rule = Rewriting2.(
-  reset (exists __ __),
-  fun x f -> Exists (x, Reset f)
+  reset (exists __ __) __ __,
+  fun x f k cont -> Exists (x, Reset (f, k, cont))
 )
 
 (* reset (f1 \/ f2) \bientails reset f1 \/ reset f2 *)
 (* bientails; both side of the proof *)
 let norm_reset_disj : _ Rewriting2.rule = Rewriting2.(
-  reset (disj __ __),
-  fun f1 f2 -> Disjunction (Reset f1, Reset f2)
+  reset (disj __ __) __ __,
+  fun f1 f2 x cont -> Disjunction (Reset (f1, x, cont), Reset (f2, x, cont))
 )
 
 (* reset (ens Q; f) \bientails ens Q; reset f *)
 (* bientails; both side of the proof *)
 let norm_reset_seq_ens : _ Rewriting2.rule = Rewriting2.(
-  reset (seq (ens __ __) __),
-  fun p k f -> Sequence (NormalReturn (p, k), Reset f)
+  reset (seq (ens __ __) __) __ __,
+  fun p k f x cont -> Sequence (NormalReturn (p, k), Reset (f, x, cont))
 )
 
 (* reset (req H; f) \entails req H; reset f *)
 (* entails; only on the left *)
 let norm_reset_seq_req : _ Rewriting2.rule = Rewriting2.(
-  reset (seq (req __ __) __),
-  fun p k f -> Sequence (Require (p, k), Reset f)
+  reset (seq (req __ __) __) __ __,
+  fun p k f x cont -> Sequence (Require (p, k), Reset (f, x, cont))
 )
 
 let norm_reset_bind_ens : _ Rewriting2.rule = Rewriting2.(
-  reset (bind __ (ens __ __) __),
-  fun x p k f -> Bind (x, NormalReturn (p, k), Reset f)
+  reset (bind __ (ens __ __) __) __ __,
+  fun x p k f xcont cont -> Bind (x, NormalReturn (p, k), Reset (f, xcont, cont))
 )
 
 let norm_reset_bind_req : _ Rewriting2.rule = Rewriting2.(
-  reset (bind __ (req __ __) __),
-  fun x p k f -> Bind (x, Require (p, k), Reset f)
+  reset (bind __ (req __ __) __) __ __,
+  fun x p k f xcont cont -> Bind (x, Require (p, k), Reset (f, xcont, cont))
 )
 
 (* reset (ens Q) \bientails ens Q *)
 (* both side of the proof *)
 let norm_reset_ens : _ Rewriting2.rule = Rewriting2.(
-  reset (ens __ __),
-  fun p k -> NormalReturn (p, k)
+  reset (ens __ __) __ __,
+  fun p k _ _ -> NormalReturn (p, k)
 )
 
 (* both sides *)
@@ -103,13 +103,13 @@ let red_seq_shift_extend : _ Rewriting2.rule = Rewriting2.(
 
 (* shift, immediately surronded by reset, is eliminated *)
 let red_reset_shift_elim : _ Rewriting2.rule = Rewriting2.(
-  reset (shift __ __ __ __ __),
-  fun is_shift x_body f_body x_cont f_cont ->
+  reset (shift __ __ __ __ __) __ __,
+  fun is_shift x_body f_body x_cont f_cont x_cont' f_cont' ->
     let open Syntax in
     let cont_name = Variables.fresh_variable ~v:"cont" "refined continuation" in
-    let cont = term (TLambda (cont_name, [x_cont], Some (Reset f_cont), None)) Lamb in
+    let cont = term (TLambda (cont_name, [x_cont], Some (Reset (f_cont, x_cont', f_cont')), None)) Lamb in
     let defun = Syntax.(ens ~p:(eq (Variables.res_var ~typ:Lamb) cont) ()) in
-    let body = if is_shift then Reset f_body else f_body in
+    let body = if is_shift then Reset (f_body, x_cont', f_cont') else f_body in
     Bind (x_body, defun, body)
 )
 

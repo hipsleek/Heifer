@@ -38,7 +38,7 @@ and retype_pi (pi : Hiptypes.pi) =
   | Hiptypes.Or (lhs, rhs) -> Or (retype_pi lhs, retype_pi rhs)
   | Hiptypes.Imply (lhs, rhs) -> Imply (retype_pi lhs, retype_pi rhs)
   | Hiptypes.Not p -> Not (retype_pi p)
-  | Hiptypes.Predicate (name, args) -> Predicate (name, List.map retype_term args) 
+  | Hiptypes.Predicate (name, args) -> Predicate (name, List.map retype_term args)
   | Hiptypes.Subsumption (lhs, rhs) -> Subsumption (retype_term lhs, retype_term rhs)
 and retype_kappa (kappa : Hiptypes.kappa) =
   match kappa with
@@ -61,7 +61,7 @@ and retype_staged_spec (staged_spec : Hiptypes.staged_spec) : staged_spec =
   | Hiptypes.NormalReturn (p, k) -> NormalReturn (retype_pi p, retype_kappa k)
   | Hiptypes.HigherOrder (name, args) -> HigherOrder (name, List.map retype_term args)
   | Hiptypes.Shift (b, k, body, x, cont) -> Shift (b, binder_of_ident k, retype_staged_spec body, binder_of_ident x, retype_staged_spec cont)
-  | Hiptypes.Reset x -> Reset (retype_staged_spec x)
+  | Hiptypes.Reset (s, x, cont) -> Reset (retype_staged_spec s, binder_of_ident x, retype_staged_spec cont)
   | Hiptypes.RaisingEff (p, k, ins, t) -> RaisingEff (retype_pi p, retype_kappa k, retype_instant ins, retype_term t)
   | Hiptypes.TryCatch (p, k, trycatch, t) -> TryCatch (retype_pi p, retype_kappa k, retype_trycatch trycatch, retype_term t)
 and retype_constr_case ({ccase_pat; ccase_guard; ccase_expr} : Hiptypes.constr_case) : constr_case =
@@ -76,7 +76,7 @@ and retype_pattern (pat : Hiptypes.pattern) : pattern =
   | PAny -> PAny
   | PVar var -> PVar (binder_of_ident var)
   | PConstr (name, args) -> PConstr (name, List.map retype_pattern args)
-  | PConstant c -> PConstant c 
+  | PConstant c -> PConstant c
   | PAlias (p, v) -> PAlias (retype_pattern p, v)
   in
   {pattern_desc; pattern_type = Types.new_type_var ()}
@@ -156,7 +156,7 @@ let retype_intermediate (i : Hiptypes.intermediate) : intermediate =
   | Meth (name, params, spec, body, tactics, pure_fn_info) ->
       Meth (name, List.map binder_of_ident params, Option.map retype_staged_spec spec, retype_core_lang body,
       tactics, Option.map (fun (typs, ret) -> (typs, ret)) pure_fn_info)
-  | Pred pred_def -> Pred (retype_pred_def pred_def) 
+  | Pred pred_def -> Pred (retype_pred_def pred_def)
   | SLPred sl_pred_def -> SLPred (retype_sl_pred_def sl_pred_def)
   | Typedef t -> Typedef t
 

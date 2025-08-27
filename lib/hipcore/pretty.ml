@@ -119,7 +119,7 @@ and string_of_staged_spec (st:staged_spec) : string =
       | _ -> Format.asprintf ", %s. %s" x (string_of_staged_spec cont)
     in
     Format.asprintf "shift%s(%s. %s%s)" zero k (string_of_staged_spec spec) cont_s
-  | Reset spec ->
+  | Reset (spec, _, _) ->
     Format.asprintf "reset(%s)" (string_of_staged_spec spec)
   | Require (p, h) ->
     Format.asprintf "req %s" (string_of_state (p, h))
@@ -252,10 +252,10 @@ and string_of_core_lang (e:core_lang) :string =
   | CAssert (p, h) -> Format.sprintf "assert (%s && %s)" (string_of_pi p) (string_of_kappa h)
   | CPerform (eff, Some arg) -> Format.sprintf "perform %s %s" eff (string_of_term arg)
   | CPerform (eff, None) -> Format.sprintf "perform %s" eff
-  | CMatch (typ, spec, e, hs, cs) -> Format.sprintf "match[%s] %s%s with\n%s%s" 
-    (string_of_handler_type typ) 
+  | CMatch (typ, spec, e, hs, cs) -> Format.sprintf "match[%s] %s%s with\n%s%s"
+    (string_of_handler_type typ)
     (Option.map string_of_try_catch_lemma spec |> Option.value ~default:"")
-    (string_of_core_lang e) 
+    (string_of_core_lang e)
     (match hs with | [] -> "" | _ :: _ -> string_of_core_handler_ops hs ^ "\n")
     (match cs with [] -> "" | _ :: _ -> string_of_constr_cases cs)
   | CResume tList -> Format.sprintf "continue %s" (List.map string_of_term tList |> String.concat " ")
@@ -280,7 +280,7 @@ and string_of_intermediate (i : intermediate) =
 
 and string_of_constr_cases cs =
   cs
-    |> List.map (fun case -> Format.asprintf "| %s%s -> %s" 
+    |> List.map (fun case -> Format.asprintf "| %s%s -> %s"
       (string_of_pattern case.ccase_pat)
       (match case.ccase_guard with
         | None -> ""
@@ -374,7 +374,7 @@ let rec string_of_type t =
   | TyString -> "string"
   | Int -> "int"
   | Unit -> "unit"
-  | TConstr (name, args) -> 
+  | TConstr (name, args) ->
       if List.is_empty args
       then name
       else Format.asprintf "(%s) %s" (List.map string_of_type args |> String.concat ",") name
@@ -399,7 +399,7 @@ let string_of_type_declaration tdecl =
     (string_of_list string_of_type tdecl.tdecl_params)
     tdecl.tdecl_name
     tdecl_body
-    
+
 
 let string_of_pure_fn ({ pf_name; pf_params; pf_ret_type; pf_body } : pure_fn_def) : string =
   Format.asprintf "let %s %s : %s = %s" pf_name (String.concat " " (List.map (fun (p, t) -> Format.asprintf "(%s:%s)" p (string_of_type t)) pf_params)) (string_of_type pf_ret_type) (string_of_core_lang pf_body)
@@ -622,7 +622,7 @@ and pp_staged_spec ppf spec =
       (if z then "sh" else "sh0")
       k
       pp_staged_spec spec
-  | Reset spec ->
+  | Reset (spec, _, _) ->
       fprintf ppf "@[%s(@[<hov 1>%a@])@]"
       "rs"
       pp_staged_spec spec
@@ -654,11 +654,11 @@ and pp_pattern ppf pat =
   | PConstant c -> pp_constant ppf c
   | PAlias (p, s) -> Format.fprintf ppf "@[%a@ as@ %s@]" pp_pattern p s
 and pp_constr_case ppf case =
-  Format.(fprintf ppf "@[@ |@ %a%a@ ->@ %a@]" 
+  Format.(fprintf ppf "@[@ |@ %a%a@ ->@ %a@]"
     pp_pattern case.ccase_pat
     (pp_print_option pp_term) case.ccase_guard
     pp_core_lang case.ccase_expr)
-and pp_constr_cases ppf cases = 
+and pp_constr_cases ppf cases =
   let open Format in
   pp_print_list ~pp_sep:(fun ppf () -> Format.fprintf ppf "@,") pp_constr_case ppf cases
 and pp_core_lang ppf core =

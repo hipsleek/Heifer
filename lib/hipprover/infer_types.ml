@@ -21,7 +21,7 @@ let lift_opt (f : 'a -> 'b using_env) (a : 'a option) : 'b option using_env =
       let* b = f a in
       return (Some b)
   | None -> return None
-  
+
 
 exception Unification_failure of typ * typ
 
@@ -39,7 +39,7 @@ let rec unify_types t1 t2 : unit using_env =
     debug ~at:10 ~title:"unify_types" "%s ~ %s" (string_of_type t1) (string_of_type t2);
     match TEnv.(simplify env.equalities t1, simplify env.equalities t2) with
     (* case where one of t1, t2 is a type variable: *)
-    | TVar var_name as var, simp | simp, (TVar var_name as var) -> 
+    | TVar var_name as var, simp | simp, (TVar var_name as var) ->
         TEnv.equate env.equalities var simp;
         (* check for cycles in the equality map *)
         let var_simplified = TEnv.simplify env.equalities var in
@@ -47,7 +47,7 @@ let rec unify_types t1 t2 : unit using_env =
         then raise (Cyclic_type (var, var_simplified))
         else (), env
     (* case where t1 and t2 are both type constructors: *)
-    | TConstr (name1, args1) as simp_t1, (TConstr (name2, args2) as simp_t2) -> 
+    | TConstr (name1, args1) as simp_t1, (TConstr (name2, args2) as simp_t2) ->
         if name1 = name2
         then (), List.fold_left2 (fun env p1 p2 -> unify_types p1 p2 env |> snd) env args1 args2
         else raise (Unification_failure (simp_t1, simp_t2))
@@ -89,7 +89,7 @@ let assert_var_has_type (v, v_typ : binder) t env =
 
 
 (** Add the following variable bindings to the inference environment. *)
-let add_vartypes vars = 
+let add_vartypes vars =
   let* _ = Utils.State.map_list ~f:(fun b -> assert_var_has_type b (type_of_binder b)) (List.of_seq vars) in
   return ()
 
@@ -111,7 +111,7 @@ let type_of_var_opt s : typ option using_env =
 let find_concrete_type = TEnv.concretize
 
 let concrete_type_env abs : typ_env =
-  let simpl t = 
+  let simpl t =
     TEnv.simplify abs.equalities t in
   SMap.map simpl abs.vartypes
 
@@ -150,7 +150,7 @@ let wrap_as_ref t = TConstr ("ref", [t])
 
 let rec infer_types_core_lang e : core_lang using_env =
   let* core_desc, core_type = match e.core_desc with
-  | CValue t -> 
+  | CValue t ->
       let* t = infer_types_term t in
       return (CValue t, t.term_type)
   | CFunCall (f, args) ->
@@ -250,7 +250,7 @@ let rec infer_types_core_lang e : core_lang using_env =
   | CLambda (args, spec, core) ->
     let* (args, spec, core), ftyp = infer_types_lambda_like (args, spec, core) in
     return (CLambda (args, spec, core), ftyp)
-  (* the global type information needs information on effect names for this *) 
+  (* the global type information needs information on effect names for this *)
   | CPerform (_, _) -> failwith "effect typing not implemented"
   | CResume _ -> failwith "effect typing not implemented"
   (* types need to be extended with answer type tracking to implement this *)
@@ -264,7 +264,7 @@ and infer_types_constant ?(hint : typ option) const : typ =
   | TTrue | TFalse -> Bool
   | TStr _ -> TyString
   | Num _ -> Int
-  | Nil -> begin match hint with 
+  | Nil -> begin match hint with
     | Some ((TConstr ("list", [_])) as list_type) -> list_type
     | _ -> TConstr ("list", [fresh_type_var ()])
   end
@@ -296,7 +296,7 @@ and infer_types_term ?(hint : typ option) term : term using_env =
       let* b = infer_types_term ~hint:btype b in
       return (BinOp (op, a, b), ret_type)
   (* possibly add syntactic heuristics for types, such as names *)
-  | Var v, Some t -> 
+  | Var v, Some t ->
       let* _ = assert_var_has_type (v, term.term_type) t in
       return (term.term_desc, t)
   | Var v, None ->
@@ -409,7 +409,7 @@ and infer_types_pi pi : pi using_env =
     let* a = infer_types_pi a in
     let* b = infer_types_pi b in
     return (Imply (a, b))
-  | Not a -> 
+  | Not a ->
       let* _ = infer_types_pi a in
       return (Not a)
   | pi -> return pi
@@ -505,9 +505,10 @@ and infer_types_staged_spec ss : (staged_spec * typ option) using_env =
       let* spec, _ = infer_types_staged_spec spec in
       let* cont, _ = infer_types_staged_spec cont in
       return (Shift (b, k, spec, x, cont), Some Any)
-  | Reset spec ->
+  | Reset (spec, x, cont) ->
       let* spec, _ = infer_types_staged_spec spec in
-      return (Reset spec, Some Any)
+      let* cont, _ = infer_types_staged_spec cont in
+      return (Reset (spec, x, cont), Some Any)
   | Sequence (s1, s2) ->
       let* s1, _ = infer_types_staged_spec s1 in
       let* s2, result_type = infer_types_staged_spec s2 in

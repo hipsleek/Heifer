@@ -129,7 +129,7 @@ and staged_spec =
   (* f$(x, y) is HigherOrder(..., ..., (f, [x]), y) *)
   | HigherOrder of string * term list
   | Shift of bool * binder * staged_spec * binder * staged_spec (* see CShift for meaning of bool *)
-  | Reset of staged_spec
+  | Reset of staged_spec * binder * staged_spec
   | Sequence of staged_spec * staged_spec
   | Bind of binder * staged_spec * staged_spec
   | Disjunction of staged_spec * staged_spec
@@ -138,7 +138,7 @@ and staged_spec =
   (* | IndPred of { name : string; args: term list } *)
   | TryCatch of (pi * kappa * trycatch * term)
 (* copied here so visitors can be generated *)
-and typ = Types.typ = 
+and typ = Types.typ =
   | Any
   | Unit
   | Int

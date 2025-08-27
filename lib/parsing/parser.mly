@@ -204,7 +204,8 @@ staged_spec:
         let x = Variables.fresh_variable ~v:"x" "continuation argument" in
         Shift (true, v, s, x, NormalReturn (Atomic (EQ, Variables.res_var, Var x), EmptyHeap)) }
   | RESET LPAREN s = staged_spec RPAREN
-      { Reset s }
+      { let x = Variables.fresh_variable ~v:"x" "continuation argument" in
+        Reset (s, x, NormalReturn (Atomic (EQ, Variables.res_var, Var x), EmptyHeap)) }
   | s1 = staged_spec SEMI s2 = staged_spec
       { Sequence (s1, s2) }
   | LET v = LOWERCASE_IDENT EQUAL s1 = staged_spec IN s2 = staged_spec

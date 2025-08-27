@@ -341,7 +341,7 @@ let process_intermediates (it : Typedhip.intermediate) prog : binder list * core
 let process_ocaml_structure (items: Ocaml_common.Typedtree.structure) : unit =
   let untyped_items = Untypeast.untype_structure items in
   let process_ocaml_item (bound_names, prog) (item_untyped, item) =
-    let@ _ = Debug.(span (fun _ -> 
+    let@ _ = Debug.(span (fun _ ->
       debug ~at:3 ~title:"processing next ocaml structure item" "%s" (Pprintast.string_of_structure [item_untyped])
     )) in
     let intermediate = Ocamlfrontend.Core_lang_typed.transform_str bound_names item in

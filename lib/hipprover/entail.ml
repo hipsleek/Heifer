@@ -1223,7 +1223,7 @@ let check_staged_spec_entailment ?name (pctx : pctx) (lhs : staged_spec) (rhs : 
   (* note: name is never used meaningfully. Using this name, we can determine whether we are
      proving a new specification and thus when generating an induction hypothesis we should
      remove that name from the set of free variables *)
-  (* let pctx = create_induction_hypothesis ?name (pctx, lhs, rhs) in *)
+  let pctx = create_induction_hypothesis ?name (pctx, lhs, rhs) in
   match Iter.head (entailment_search ?name (pctx, lhs, rhs)) with
   | None -> false
   | Some ps ->
