@@ -164,7 +164,7 @@ let ident_of_binder ((v, _) : binder) = v
 let type_of_binder ((_, t) : binder) = t
 
 
-type tactic = Hiptypes.tactic
+type tactic = Hipcore_common.Tactics.tactic
 
 type meth_def = {
   m_name : string;

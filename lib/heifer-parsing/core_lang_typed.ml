@@ -19,6 +19,7 @@ open Typedhip
 exception Foo of string
 
 let rec get_tactic e =
+  let open Hipcore_common.Tactics in
   let open Parsetree in
   match e with
   | { pexp_desc = Pexp_ident { txt = Lident "unfold_right"; _ }; _ } ->
