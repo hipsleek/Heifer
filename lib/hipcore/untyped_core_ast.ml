@@ -1,6 +1,8 @@
 
 [@@@warning "-17"]
 
+type binder = string
+
 type bin_rel_op = GT | LT | EQ | GTEQ | LTEQ
 and bin_term_op = Plus | Minus | SConcat | TAnd | TPower | TTimes | TDiv | TOr | TCons
 and const =

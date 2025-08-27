@@ -149,7 +149,7 @@ let untype_lemma Typedhip.{ l_name; l_params; l_left; l_right } =
 
 let untype_pure_fn_def Typedhip.{ pf_name; pf_params; pf_ret_type; pf_body } : Hiptypes.pure_fn_def =
   { pf_name;
-    pf_params;
+    pf_params = List.map ident_of_binder pf_params;
     pf_ret_type;
     pf_body = untype_core_lang pf_body; }
 

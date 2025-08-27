@@ -8,6 +8,8 @@ module type AST = sig
   type pi
   type kappa
   type staged_spec
+
+  type state = pi * kappa
 end
 
 (** Another module type for the AST, but with more types exposed,
