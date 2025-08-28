@@ -152,3 +152,22 @@ and typ = Types.typ =
   visitors { variety = "reduce"; name = "reduce_spec" },
   visitors { variety = "mapreduce"; name = "mapreduce_spec" },
   ord]
+
+let spec_calls_func spec f_name =
+  let go = object(self)
+    inherit [_] reduce_spec as super
+    method zero = false
+    method plus = (||)
+
+    method! visit_HigherOrder _ f a =
+      self#plus (f = f_name) (super#visit_HigherOrder () f a)
+
+    method! visit_Atomic () op a b =
+      match op with
+      | EQ -> (match (a.term_desc, b.term_desc) with
+        | (Var x, Var y) -> x = f_name || y = f_name
+        | _ -> false)
+      | _ -> false
+  end
+  in
+  go#visit_staged_spec () spec

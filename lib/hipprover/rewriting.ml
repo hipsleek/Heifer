@@ -1107,13 +1107,13 @@ let%expect_test "rewriting" =
 
   (* type-aware rewriting *)
   let string_of_uterm_with_types t =
-    let open Pretty.With_types in
+    let config = default_config () |> set_types_display in
     match t with
-    | Staged s -> string_of_staged_spec s
-    | Pure p -> string_of_pi p
-    | Heap h -> string_of_kappa h
-    | Term t -> string_of_term t
-    | Binder s -> (ident_of_binder s)
+    | Staged s -> string_of_staged_spec ~config s
+    | Pure p -> string_of_pi ~config p
+    | Heap h -> string_of_kappa ~config h
+    | Term t -> string_of_term ~config t
+    | Binder s -> string_of_binder ~config s
     | Type t -> string_of_type t
   in
   let string_of_rule_with_types r =
@@ -1350,7 +1350,7 @@ module Deep = struct
     | Var s -> s
     | Inst _ -> "<inst>"
     | Constr (f, a) ->
-      Format.asprintf "%s%s" f (string_of_args string_of_pattern a)
+      Format.asprintf "%s%s" f (string_of_list ~sep:", " string_of_pattern a)
 
   let v s = Var s
   let and_ p1 p2 = Constr ("and", [p1; p2])

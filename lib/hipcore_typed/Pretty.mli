@@ -1,0 +1,54 @@
+open Typedhip
+
+(** { 1 Pretty-printer configuration } *)
+
+type config
+
+val default_config : unit -> config
+
+val set_single_line : ?enabled:bool -> config -> config
+
+val set_types_display : ?enabled:bool -> config -> config
+
+(* what else would be useful... set_unicode? set_colors? *)
+
+(* example... *)
+
+(** {1 Pretty-printing functions } *)
+
+(** The pretty-printers are packaged into a module, parametrized by
+    the configuration. If you only need the default configuration,
+    the associated printers are available under [Default].*)
+
+module type Printers = sig
+  val pp_staged_spec : Format.formatter -> staged_spec -> unit 
+end
+
+module Default : Printers
+
+val obtain_printers : config -> (module Printers)
+
+(** { 1 String converters } *)
+
+(** Note that this is intended to display human-readable output. If 
+    you need to obtain the underlying identifier, use [ident_of_binder] instead. *)
+val string_of_binder : ?config:config -> binder -> string
+
+val string_of_type : ?config:config -> typ -> string
+val string_of_term : ?config:config -> term -> string
+val string_of_pi : ?config:config -> pi -> string
+val string_of_kappa : ?config:config -> kappa -> string
+val string_of_state : ?config:config -> state -> string
+val string_of_pattern : ?config:config -> pattern -> string
+val string_of_core_lang : ?config:config -> core_lang -> string
+val string_of_staged_spec : ?config:config -> staged_spec -> string
+
+
+(* some other combinators *)
+val string_of_option : ?none:string -> ('a -> string) -> 'a option -> string
+val string_of_list : ?sep:string -> ('a -> string) -> 'a list -> string
+
+(* these don't really belong here... in common maybe? *)
+val string_of_pred : ?config:config -> pred_def -> string
+val string_of_abs_env : ?config:config -> Hipcore_common.Types.abs_typ_env -> string
+val string_of_type_declaration : ?config:config -> Hipcore_common.Types.type_declaration -> string

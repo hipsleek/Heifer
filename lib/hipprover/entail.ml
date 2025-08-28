@@ -266,7 +266,7 @@ let derive_predicate m_name m_params f =
       p_name = m_name;
       p_params = m_params;
       p_body = new_spec;
-      p_rec = (find_rec m_name)#visit_staged_spec () new_spec;
+      p_rec = spec_calls_func new_spec m_name;
     }
   in
   res
