@@ -97,6 +97,7 @@ let report_header ~kind ~name =
 
 let normal_report ~kind ~name ~inferred_spec ~given_spec ~result =
   let header = report_header ~kind ~name in
+  let open Default in
   let inferred_spec_string =
     Format.asprintf
       "[ Inferred specification ]\n%a\n"
