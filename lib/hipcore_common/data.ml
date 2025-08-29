@@ -1,3 +1,6 @@
+(** Definitions which are not part of the core recursive AST loop, and can
+ therefore be defined in a separate module. *)
+
 module Make(M : Ast.AST) = struct
   type meth_def = {
     m_name: string;
