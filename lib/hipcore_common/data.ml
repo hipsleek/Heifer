@@ -1,6 +1,8 @@
 (** Definitions which are not part of the core recursive AST loop, and can
  therefore be defined in a separate module. *)
 
+open Utils.Hstdlib
+
 module Make(M : Ast.AST) = struct
   type meth_def = {
     m_name: string;
@@ -40,7 +42,7 @@ module Make(M : Ast.AST) = struct
 
   type lambda_obligation = {
     lo_name: string;
-    lo_preds: pred_def Common.SMap.t;
+    lo_preds: pred_def SMap.t;
     lo_left: M.staged_spec;
     lo_right: M.staged_spec;
   }
@@ -59,17 +61,17 @@ module Make(M : Ast.AST) = struct
 
   type core_program = {
     cp_effs: string list;
-    cp_predicates: pred_def Common.SMap.t;
-    cp_sl_predicates: sl_pred_def Common.SMap.t;
-    cp_lemmas: lemma Common.SMap.t;
+    cp_predicates: pred_def SMap.t;
+    cp_sl_predicates: sl_pred_def SMap.t;
+    cp_lemmas: lemma SMap.t;
     cp_methods: meth_def list;
   }
 
   let empty_program = {
     cp_effs = [];
     cp_methods = [];
-    cp_predicates = Common.SMap.empty;
-    cp_sl_predicates = Common.SMap.empty;
-    cp_lemmas = Common.SMap.empty
+    cp_predicates = SMap.empty;
+    cp_sl_predicates = SMap.empty;
+    cp_lemmas = SMap.empty
   }
 end

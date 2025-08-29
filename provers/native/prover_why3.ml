@@ -8,6 +8,9 @@ open Hiptypes
 open Hipcore_typed
 open Typedhip
 open Types
+open Utils.Hstdlib
+open Utils.Misc
+
 
 let prover_configs : (Whyconf.config_prover * Why3.Driver.driver) SMap.t ref =
   ref SMap.empty

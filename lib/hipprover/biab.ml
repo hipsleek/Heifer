@@ -4,6 +4,7 @@ open Syntax
 open Utils
 open Pretty
 open Hipcore.Common
+open Utils.Misc
 
 type biab_ctx = {
   equalities: pi list;

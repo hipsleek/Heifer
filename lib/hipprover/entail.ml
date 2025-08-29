@@ -6,6 +6,8 @@ open Hipcore.Common
 open Hipcore.Types
 open Debug
 open Utils
+open Utils.Misc
+open Utils.Hstdlib
 
 (* type use = Use of string * [ `Left | `Right ] [@unboxed] *)
 

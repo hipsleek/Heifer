@@ -114,7 +114,7 @@ let retype_pred_def (d : Hiptypes.pred_def) : pred_def =
 
 let retype_lambda_obligation (lo : Hiptypes.lambda_obligation) : lambda_obligation =
   { lo_name = Hiptypes.(lo.lo_name);
-    lo_preds = Common.SMap.map retype_pred_def Hiptypes.(lo.lo_preds);
+    lo_preds = Utils.Hstdlib.SMap.map retype_pred_def Hiptypes.(lo.lo_preds);
     lo_left = retype_staged_spec Hiptypes.(lo.lo_left);
     lo_right = retype_staged_spec Hiptypes.(lo.lo_right);
   }

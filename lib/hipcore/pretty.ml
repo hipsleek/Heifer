@@ -3,6 +3,8 @@
 ----------------------------------------------------*)
 
 open Hiptypes
+open Utils.Hstdlib
+open Utils.Misc
 
 let is_alpha = function 'a' .. 'z' | 'A' .. 'Z' -> true | _ -> false
 
@@ -228,7 +230,7 @@ and string_of_handler_type (h:handler_type) : string =
     | Shallow -> "s"
 
 and string_of_lemma l =
-  Format.asprintf "%s: forall %s, %s <: %s" l.l_name (string_of_list Fun.id l.l_params) (string_of_staged_spec l.l_left) (string_of_staged_spec l.l_right)
+  Format.asprintf "%s: forall %s, %s <: %s" l.l_name (Utils.Misc.string_of_list Fun.id l.l_params) (string_of_staged_spec l.l_left) (string_of_staged_spec l.l_right)
 
 and string_of_pattern (p : pattern) : string =
   match p with

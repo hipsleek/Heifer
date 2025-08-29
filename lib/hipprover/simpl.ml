@@ -4,6 +4,7 @@ open Hipcore_typed
 open Typedhip
 open Rewriting
 open Syntax
+open Utils.Hstdlib
 
 let term_num_folding_rules = 
   let num_constant_folding_rule op f =

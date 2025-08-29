@@ -1,6 +1,6 @@
 open Hipcore
 open Typedhip
-open Hipcore.Common
+open Utils.Hstdlib
 
 let ident_of_binder (name, _ : binder) : string = name
 let hiptypes_typ t = t

@@ -1,3 +1,4 @@
+open Utils.Hstdlib
 
 type typ =
   (* The order of constructors is important:
@@ -87,9 +88,6 @@ module TMap = Map.Make (struct
   let compare = compare_typ
 
 end)
-
-
-open Common
 
 module U = Utils.Union_find
 
