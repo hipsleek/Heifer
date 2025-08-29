@@ -223,12 +223,14 @@ module Testing = struct
       ]
     }
   open Pretty
-  let output pats = String.concat " | " (List.map 
-  (fun (pat, guard) ->
-    if guard = ctrue
-    then string_of_pattern pat
-      else Printf.sprintf "%s when %s" (string_of_pattern pat) (string_of_term guard))
-  pats) |> print_string
+  let output pats =
+    let config = default_config () |> set_single_line in
+    String.concat " | " (List.map 
+    (fun (pat, guard) ->
+      if guard = ctrue
+      then string_of_pattern ~config pat
+        else Printf.sprintf "%s when %s" (string_of_pattern ~config pat) (string_of_term ~config guard))
+    pats) |> print_string
 
   let any ?(args = []) typ = {pattern_desc = PAny; pattern_type = TConstr (typ, args)}
   let constr ~typ ?(typ_args = []) ctr args  = {pattern_desc = PConstr (ctr, args); pattern_type = TConstr (typ, typ_args)}

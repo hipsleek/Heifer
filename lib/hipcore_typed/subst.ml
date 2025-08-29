@@ -200,7 +200,7 @@ let%expect_test "subst" =
   reset_counter 0;
   let test bs f1 =
     let f2 = subst_free_vars bs f1 in
-    Format.printf "(%s)%s = %s@." (string_of_staged_spec f1)
+    Format.printf "(%s)[%s] = %s@." (string_of_staged_spec f1)
       (string_of_list
          (fun (x, t) -> Format.asprintf "%s/%s" (string_of_term t) x)
          bs)
@@ -208,7 +208,7 @@ let%expect_test "subst" =
   in
   let test_term bs f1 =
     let f2 = subst_free_vars_term bs f1 in
-    Format.printf "(%s)%s = %s@." (string_of_term f1)
+    Format.printf "(%s)[%s] = %s@." (string_of_term f1)
       (string_of_list
          (fun (x, t) -> Format.asprintf "%s/%s" (string_of_term t) x)
          bs)
