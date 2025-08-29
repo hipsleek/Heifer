@@ -637,10 +637,11 @@ let unfold_nonrecursive_defns defns f =
   let open Rewriting in
   let open Rules.Staged in
   let db = List.map snd defns in
-  let f = autorewrite db (Staged f) |> of_uterm in
+  let f = of_uterm (autorewrite db (Staged f)) in
   f
 
 let unfold_nonrecursive_definitions ((pctx, f1, f2) : pstate) : pstate =
+  debug ~at:5 ~title:"unfold_nonrecursive_definitions" "";
   let f1 = unfold_nonrecursive_defns pctx.definitions_nonrec f1 in
   let f2 = unfold_nonrecursive_defns pctx.definitions_nonrec f2 in
   (pctx, f1, f2)

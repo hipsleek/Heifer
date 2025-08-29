@@ -14,6 +14,10 @@ let rec append_cps xs ys k =
   | x :: xs' -> append_cps xs' ys (fun r -> k (x :: r))
 
 (* unfold the body of append_delim here! *)
+(* [%%lemma{|
+  delim_to_cps_aux(xs, ys, x, k) =
+    let f = rs(append_delim_aux)
+|}] *)
 
 [%%lemma{|
   delim_to_cps(xs, ys) =

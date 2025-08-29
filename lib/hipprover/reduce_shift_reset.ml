@@ -85,8 +85,10 @@ let norm_reset_ens : _ Rewriting2.rule = Rewriting2.(
       | NormalReturn _ ->
           cont
       | _ ->
+          let res_var_typed = Syntax.var "res" in
           let new_x = Variables.fresh_variable ~v:"x" "continuation" in
-          let new_cont = NormalReturn (Syntax.eq (Variables.res_var ~typ:Any) (Syntax.var_any new_x), EmptyHeap) in
+          let new_x_typed = Syntax.var new_x ~typ:res_var_typed.term_type in
+          let new_cont = NormalReturn (Syntax.eq res_var_typed new_x_typed, EmptyHeap) in
           Reset (cont, (new_x, Any), new_cont)
     in
     compose_cont (NormalReturn (p, k)) x cont
@@ -169,8 +171,8 @@ let red_reset_shift : _ Rewriting2.rule = Rewriting2.(
     let cont_name = Variables.fresh_variable ~v:"cont" "refined continuation" in
     let cont = term (TLambda (cont_name, [x_cont], Some (Reset (f_cont, x_id, f_id)), None)) Lamb in
     let defun = Syntax.(ens ~p:(eq (Variables.res_var ~typ:Lamb) cont) ()) in
-    let body = if is_shift then Reset (f_body, x_id, f_id) else failwith "shift0!" in
-    debug ~at:5 ~title:"red_reset_shift" "cont = %s\nbody = %s" (Pretty.string_of_term cont) (Pretty.string_of_staged_spec body);
+    let body = if is_shift then Reset (f_body, x_id, f_id) else f_body in
+    (* debug ~at:5 ~title:"red_reset_shift" "cont = %s\nbody = %s" (Pretty.string_of_term cont) (Pretty.string_of_staged_spec body); *)
     Bind (x_body, defun, body)
 )
 
@@ -218,7 +220,3 @@ let shift_reset_reduction_rules_rhs : _ Rewriting2.database = [
 let shift_reset_reduce_spec_lhs = shift_reset_reduce_spec_with shift_reset_reduction_rules_lhs
 
 let shift_reset_reduce_spec_rhs = shift_reset_reduce_spec_with shift_reset_reduction_rules_rhs
-
-(* require a small modification to the AST. *)
-(* we shall introduce `shift_c`: augment shift with an continuation *)
-(* in a nutshell, let's follow the coq version closely *)
