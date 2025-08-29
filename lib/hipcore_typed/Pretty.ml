@@ -9,13 +9,12 @@ open Utils.Hstdlib
 type 'a fmt = Format.formatter -> 'a -> unit
 
 let pp_sep_comma ppf () = Format.fprintf ppf ",@ "
-let pp_space ppf () = Format.fprintf ppf " "
 let pp_call_like : 'a. (Format.formatter -> 'a -> unit) -> Format.formatter -> string -> 'a list -> unit = 
     fun pp_arg ppf name args ->
     let open Format in
-    fprintf ppf "%s(%a)"
+    fprintf ppf "@[%s(%a)@]"
       name
-      (pp_print_list ~pp_sep:pp_space pp_arg) args
+      (pp_print_list ~pp_sep:pp_sep_comma pp_arg) args
 
 (* we use records-as-objects instead of classes to make it easier
  to dynamically stack modifications *)
@@ -108,10 +107,10 @@ let default_printer = {
     let open Format in
     match t.term_desc with
       | Const c -> self.pp_constant self ppf c
-      | BinOp (op, lhs, rhs) -> fprintf ppf "(%a %a %a)" (self.pp_term self) lhs (self.pp_bin_term_op self) op (self.pp_term self) rhs
+      | BinOp (op, lhs, rhs) -> fprintf ppf "@[(%a@ %a@ %a)@]" (self.pp_term self) lhs (self.pp_bin_term_op self) op (self.pp_term self) rhs
       | TNot a -> fprintf ppf "not(%a)" (self.pp_term self) a
       | Var str -> pp_print_string ppf str
-      | Rel (bop, t1, t2) -> fprintf ppf "(%a %a %a)" (self.pp_term self) t1 (self.pp_bin_op self) bop (self.pp_term self) t2
+      | Rel (bop, t1, t2) -> fprintf ppf "@[(%a@ %a@ %a)@]" (self.pp_term self) t1 (self.pp_bin_op self) bop (self.pp_term self) t2
       | Construct (op, args) | TApp (op, args) -> pp_call_like (self.pp_term self) ppf op args
       | TTuple elems
         -> fprintf ppf "(%a)" (pp_print_list ~pp_sep:(fun ppf () -> fprintf ppf ",") (self.pp_term self)) elems
@@ -132,7 +131,7 @@ let default_printer = {
     match core.core_desc with
     | CValue v -> fprintf ppf "@[%a@]" (self.pp_term self) v
     | CLet (v, e1, e2) ->
-        fprintf ppf "@[let@ %a@ =@ @[<hov 1>%a@]@;in@ @[<hov 1>(%a)@]@]"
+        fprintf ppf "@[let@ %a@ =@ @[< 1>%a@]@;in@ @[< 1>(%a)@]@]"
         (self.pp_binder self) v 
         (self.pp_core_lang self) e1
         (self.pp_core_lang self) e2
@@ -140,13 +139,13 @@ let default_printer = {
         fprintf ppf "@[%a;@ %a@]"
           (self.pp_core_lang self) e1
           (self.pp_core_lang self) e2
-    | CIfElse (pi, t, e) -> fprintf ppf "@[if@ %a@ then@ @[<hov>%a@]@ else@ @[<hov>%a@]@]"
+    | CIfElse (pi, t, e) -> fprintf ppf "@[if@ %a@ then@ @[<>%a@]@ else@ @[<>%a@]@]"
         (self.pp_pi self) pi (self.pp_core_lang self) t (self.pp_core_lang self) e
     | CFunCall (f, xs) -> pp_call_like (self.pp_term self) ppf f xs
     | CWrite (v, e) -> fprintf ppf "@[%s@ :=@ %a@]" v (self.pp_term self) e
     | CRef v -> fprintf ppf "@[ref@ %a@]" (self.pp_term self) v
     | CRead v -> fprintf ppf "@[!%s]" v
-    | CAssert (p, h) -> fprintf ppf "@[assert@ (@[<hov>%a@ /\\@ %a@])@]"
+    | CAssert (p, h) -> fprintf ppf "@[assert@ (@[<>%a@ /\\@ %a@])@]"
       (self.pp_pi self) p (self.pp_kappa self) h
     | CPerform (eff, arg) ->
         fprintf ppf "@[perform@ %s@ %a@]" eff (pp_print_option (self.pp_term self)) arg
@@ -198,40 +197,40 @@ let default_printer = {
     let open Format in
     match f with
     | Exists (v, spec) ->
-      fprintf ppf "@[<hov 1>ex@ %a.@ @[<hov 1>%a@]@]"
+      fprintf ppf "@[< 1>ex@ %a.@ @[< 1>%a@]@]"
       (self.pp_binder self) v
       (self.pp_staged_spec self) spec
     | ForAll (v, spec) ->
-      fprintf ppf "@[<hov 1>ex@ %a.@ @[<hov 1>%a@]@]"
+      fprintf ppf "@[< 1>ex@ %a.@ @[< 1>%a@]@]"
       (self.pp_binder self) v
       (self.pp_staged_spec self) spec
     | Require (p, k) ->
-      fprintf ppf "@[req@ (@[<hov 1>%a@ /\\@ %a@])@]"
+      fprintf ppf "@[req@ (@[< 1>%a@ /\\@ %a@])@]"
       (self.pp_pi self) p (self.pp_kappa self) k
     | NormalReturn (p, k) ->
-      fprintf ppf "@[ens@ (@[<hov 1>%a@ /\\@ %a@])@]"
+      fprintf ppf "@[ens@ (@[< 1>%a@ /\\@ %a@])@]"
       (self.pp_pi self) p (self.pp_kappa self) k
     | HigherOrder (f, args) -> pp_call_like (self.pp_term self) ppf f args
     | Shift (z, k, spec, _x, _cont) ->
-        fprintf ppf "@[%s(@[<hov 1>%a.@ %a@])@]"
+        fprintf ppf "@[%s(@[< 1>%a.@ %a@])@]"
         (if z then "sh" else "sh0")
         (self.pp_binder self) k
         (self.pp_staged_spec self) spec
     | Reset spec ->
-        fprintf ppf "@[%s(@[<hov 1>%a@])@]"
+        fprintf ppf "@[%s(@[< 1>%a@])@]"
         "rs"
         (self.pp_staged_spec self) spec
     | Sequence (s1, s2) ->
-        fprintf ppf "@[<hov 1>(%a;@ %a)@]"
+        fprintf ppf "@[< 1>(%a;@ %a)@]"
         (self.pp_staged_spec self) s1
         (self.pp_staged_spec self) s2
     | Bind (v, s1, s2) ->
-        fprintf ppf "@[<hov 1>let@ %a@ =@ @[<hov 1>%a@]@ in@ @[<hov 1>(%a)@]@]"
+        fprintf ppf "@[< 1>let@ %a@ =@ @[< 1>%a@]@ in@ @[< 1>(%a)@]@]"
         (self.pp_binder self) v 
         (self.pp_staged_spec self) s1
         (self.pp_staged_spec self) s2
     | Disjunction (s1, s2) ->
-        fprintf ppf "@[(%a@ \\/@ %a@]"
+        fprintf ppf "@[(%a@ \\/@ %a)@]"
         (self.pp_staged_spec self) s1
         (self.pp_staged_spec self) s2
     (* TODO *)
@@ -242,20 +241,20 @@ let default_printer = {
     fun self ppf p ->
     let open Format in
     match p with
-    | True -> fprintf ppf "true"
-    | False -> fprintf ppf "false"
-    | And (p1, p2) -> fprintf ppf "@[<hov 1>%a@ /\\@ %a@]"
+    | True -> fprintf ppf "T"
+    | False -> fprintf ppf "F"
+    | And (p1, p2) -> fprintf ppf "@[< 1>%a@ /\\@ %a@]"
         (self.pp_pi self) p1 (self.pp_pi self) p2
-    | Or (p1, p2) -> fprintf ppf "@[<hov 1>%a@ \\/@ %a@]"
+    | Or (p1, p2) -> fprintf ppf "@[< 1>%a@ \\/@ %a@]"
         (self.pp_pi self) p1 (self.pp_pi self) p2
-    | Not p -> fprintf ppf "@[<hov 1>~(%a)@]"
+    | Not p -> fprintf ppf "@[< 1>~(%a)@]"
         (self.pp_pi self) p
-    | Imply (p1, p2) -> fprintf ppf "@[<hov 1>(%a)@]@ =>@ @[<hov>(%a)@]"
+    | Imply (p1, p2) -> fprintf ppf "@[< 1>(%a)@]@ =>@ @[<>(%a)@]"
         (self.pp_pi self) p1 (self.pp_pi self) p2
     | Predicate (name, args) -> pp_call_like (self.pp_term self) ppf name args
-    | Subsumption (t1, t2) -> fprintf ppf "@[<hov 1>(%a)@]@ <:@ @[<hov>(%a)@]"
+    | Subsumption (t1, t2) -> fprintf ppf "@[< 1>(%a)@]@ <:@ @[<>(%a)@]"
         (self.pp_term self) t1 (self.pp_term self) t2
-    | Atomic (rel, t1, t2) -> fprintf ppf "@[<hov 1>(%a@ %a@ %a)@]"
+    | Atomic (rel, t1, t2) -> fprintf ppf "@[< 1>(%a@ %a@ %a)@]"
       (self.pp_term self) t1 (self.pp_bin_op self) rel (self.pp_term self) t2
   end;
   pp_kappa = begin
@@ -263,8 +262,8 @@ let default_printer = {
     let open Format in
     match k with
     | EmptyHeap -> fprintf ppf "emp"
-    | PointsTo (loc, t) -> fprintf ppf "@[%s@ ->@ @[<hov 1>(%a)@]@]" loc (self.pp_term self) t
-    | SepConj (k1, k2) -> fprintf ppf "@[<hov 1>(%a)@]@ *@ @[<hov>(%a)@]"
+    | PointsTo (loc, t) -> fprintf ppf "@[%s@ ->@ @[< 1>(%a)@]@]" loc (self.pp_term self) t
+    | SepConj (k1, k2) -> fprintf ppf "@[< 1>(%a)@]@ *@ @[<>(%a)@]"
       (self.pp_kappa self) k1 (self.pp_kappa self) k2
   end;
   pp_state = begin
@@ -276,11 +275,17 @@ let default_printer = {
 let add_type_annotations (pp : pretty_printer) : pretty_printer =
 (* TODO add annotations to terms, patterns, core lang, etc.. *)
   { pp with
-    pp_binder =
+    pp_binder = begin
     fun self ppf b ->
       Format.fprintf ppf "(%s : %a)"
       (ident_of_binder b)
-      (self.pp_typ self) (type_of_binder b)}
+      (self.pp_typ self) (type_of_binder b)
+    end;
+    pp_term = begin
+    fun self ppf t ->
+      Format.fprintf ppf "%a : %a"
+      (pp.pp_term self) t (pp.pp_typ self) t.term_type
+    end;}
 
 type config = {
   cfg_print_types : bool;
@@ -311,10 +316,9 @@ let with_changed_out_functions ppf wrapper f =
   result
 
 let with_compact_spacing out_functions = 
-  let do_nothing _ = () in 
   Format.{
     out_functions with
-    out_newline = do_nothing;
+    out_newline = ignore;
     out_indent = (fun _ -> out_functions.out_indent 1);
     out_spaces = (fun _ -> out_functions.out_spaces 1);
 }
@@ -471,3 +475,24 @@ let string_of_abs_env ?(config = default_config ()) abs_env =
   let type_eqs = (TMap.map (fun t -> U.get t) !(abs_env.equalities)) |> TMap.bindings in
   Format.asprintf "@[vars:@ %a,@ eqs:@ %a@]" (pp_assoc_list Format.pp_print_string M.pp_typ) variable_types (pp_assoc_list M.pp_typ M.pp_typ) type_eqs
 
+let%expect_test "syntax of output" =
+  let module With_types = (val obtain_printers (default_config () |> set_types_display) : Printers) in
+  let module Compact = (val obtain_printers (default_config () |> set_single_line) : Printers) in
+  let int_var v = {term_desc = Var v; term_type = Int} in
+  let cint c = {term_desc = Const (Num c); term_type = Int} in
+  let (+~) a b = {term_desc = BinOp (Plus, a, b); term_type = Int} in
+  let (=~) a b = Atomic (EQ, a, b) in
+  let f1 = NormalReturn (int_var "res" =~ cint 0, EmptyHeap) in
+  Format.printf "%a" With_types.pp_staged_spec f1;
+  [%expect {| |}];
+
+  (* f2 can be any output long enough to force default Format behavior to break lines *)
+  let to_sum = List.init 20 Fun.id |> List.map cint in
+  let f2 = NormalReturn (int_var "res" =~ List.fold_left (+~) (cint 0) to_sum, EmptyHeap) in
+  Format.printf "compacted: %a" Compact.pp_staged_spec f2;
+  [%expect {| |}];
+
+  let subpat = List.init 40 (Fun.const {pattern_desc = PAny; pattern_type = Int}) in
+  let p1 = {pattern_desc = PConstr ("with_lots_of_arguments", subpat); pattern_type = TConstr ("big_type", [])} in
+  Format.printf "expanded: %s\ncompacted: %s\n" (string_of_pattern p1) (string_of_pattern ~config:(default_config () |> set_single_line) p1);
+  [%expect {| |}];;
