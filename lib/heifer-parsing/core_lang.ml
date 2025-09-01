@@ -15,6 +15,7 @@ open Types
 exception Foo of string
 
 let rec get_tactic e =
+  let open Hipcore_common.Tactics in
   match e with
   | { pexp_desc = Pexp_ident { txt = Lident "unfold_right"; _ }; _ } ->
     [Unfold_right]

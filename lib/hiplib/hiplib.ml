@@ -1,11 +1,9 @@
 (* open Hipprover *)
 (* we need to clean up the imports here *)
-open Hipcore
 module Debug = Debug
 open Hipcore_typed
 open Typedhip
 open Pretty
-open Common
 open Ocaml_compiler
 open Asttypes
 (* get rid of the alias *)
@@ -15,6 +13,7 @@ open Debug
 (** Re-export Env, since it gets shadowed by another declaration later on. *)
 module Compiler_env = Env
 open Utils.Misc
+open Utils.Hstdlib
 
 let file_mode = ref false
 let test_mode = ref false

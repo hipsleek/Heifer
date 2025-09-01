@@ -2,7 +2,7 @@
 open Hipcore
 open Hipcore_typed
 open Typedhip
-open Common
+open Utils.Misc
 
 let cache : (pi * binder list * pi, Provers_common.prover_result) Hashtbl.t = Hashtbl.create 10
 

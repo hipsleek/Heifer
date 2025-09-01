@@ -1,12 +1,12 @@
 open Hipcore_typed
-open Hipcore.Common
 open Hipcore.Variables
 open Syntax
 open Typedhip
 open Pretty
 open Debug
 open Utils
-open Misc
+open Utils.Misc
+open Utils.Hstdlib
 open Options.Syntax
 
 let rec sequence f xs =

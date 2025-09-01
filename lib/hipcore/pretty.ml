@@ -3,6 +3,8 @@
 ----------------------------------------------------*)
 
 open Hiptypes
+open Utils.Hstdlib
+open Utils.Misc
 
 let is_alpha = function 'a' .. 'z' | 'A' .. 'Z' -> true | _ -> false
 
@@ -228,7 +230,7 @@ and string_of_handler_type (h:handler_type) : string =
     | Shallow -> "s"
 
 and string_of_lemma l =
-  Format.asprintf "%s: forall %s, %s <: %s" l.l_name (string_of_list Fun.id l.l_params) (string_of_staged_spec l.l_left) (string_of_staged_spec l.l_right)
+  Format.asprintf "%s: forall %s, %s <: %s" l.l_name (Utils.Misc.string_of_list Fun.id l.l_params) (string_of_staged_spec l.l_left) (string_of_staged_spec l.l_right)
 
 and string_of_pattern (p : pattern) : string =
   match p with
@@ -402,7 +404,7 @@ let string_of_type_declaration tdecl =
 
 
 let string_of_pure_fn ({ pf_name; pf_params; pf_ret_type; pf_body } : pure_fn_def) : string =
-  Format.asprintf "let %s %s : %s = %s" pf_name (String.concat " " (List.map (fun (p, t) -> Format.asprintf "(%s:%s)" p (string_of_type t)) pf_params)) (string_of_type pf_ret_type) (string_of_core_lang pf_body)
+  Format.asprintf "let %s %s : %s = %s" pf_name (String.concat " " (List.map (fun p -> Format.asprintf "%s" p) pf_params)) (string_of_type pf_ret_type) (string_of_core_lang pf_body)
 
 let string_of_tmap pp s =
   let open Types in

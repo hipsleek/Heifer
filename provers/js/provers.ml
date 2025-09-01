@@ -1,5 +1,6 @@
 open Hipcore_typed
-open Hipcore.Common
+open Utils.Misc
+open Utils.Hstdlib
 open Typedhip
 open Provers_common
 

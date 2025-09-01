@@ -1,7 +1,6 @@
 
-open Hipcore
 open Typedhip
-open Common
+open Utils.Hstdlib
 
 type map_context = {
   (* list of bound names *)

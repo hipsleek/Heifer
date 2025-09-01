@@ -1,6 +1,8 @@
 open Hiptypes
 open Syntax
 open Pretty
+open Utils.Hstdlib
+open Utils.Misc
 
 type 'a subst_context =
   | Staged : staged_spec subst_context

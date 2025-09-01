@@ -1,9 +1,10 @@
 (* Functions for printing the typed AST. *)
 
 open Hipcore
-open Common
 open Typedhip
 open Types
+open Utils.Misc
+open Utils.Hstdlib
 
 exception Foo of string
 

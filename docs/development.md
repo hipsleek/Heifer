@@ -7,6 +7,7 @@
 - Debug: Helpers for debug logging
 - Hipcore: core language and spec AST and pure functions for manipulating it
 - Hipcore_typed: core language and spec AST with type annotations
+- Hipcore_common: libraries and definitions common to both the untyped and typed ASTs
 - Provers: prover back ends which translate Hipcore types into SMT
 - Hipprover: code which depends on calls to an external prover, e.g. normalization
 - Ocamlfrontend: OCaml parser

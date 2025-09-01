@@ -1,11 +1,11 @@
 open Hipcore
 open Hipcore.Types
 open Hipcore_typed
-open Hipcore.Common
 open Hipcore_typed.Typedhip
 open Hipcore_typed.Pretty
 open Debug
 open Utils
+open Utils.Hstdlib
 
 let fresh_type_var () = TVar (Variables.fresh_variable ())
 
