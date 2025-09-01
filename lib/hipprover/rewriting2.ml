@@ -136,13 +136,12 @@ let disj (T pf1) (T pf2) =
       | _ ->
         fail "could not match Disjunction; got %s" (string_of_staged_spec x))
 
-let reset (T pf) (T px) (T pcont) =
+let reset (T pf) (T pcont) =
   T
     (fun x k ->
       match x with
-      | Reset (f, x, cont) ->
+      | Reset (f, cont) ->
         let k = pf f k in
-        let k = px x k in
         let k = pcont cont k in
         k
       | _ -> fail "could not match Reset; got %s" (string_of_staged_spec x))

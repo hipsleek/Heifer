@@ -173,11 +173,10 @@ module Permutation = struct
         let xb = apply_staged_spec perm xb in
         let kb = apply_staged_spec perm kb in
         Shift (b, x, xb, k, kb)
-    | Reset (s', k, kb) ->
-        let k = apply_binder perm k in
+    | Reset (s', cont) ->
         let s' = apply_staged_spec perm s' in
-        let kb = apply_staged_spec perm kb in
-        Reset (s', k, kb)
+        let cont = apply_term perm cont in
+        Reset (s', cont)
     | Sequence (s1, s2) ->
         let s1 = apply_staged_spec perm s1 in
         let s2 = apply_staged_spec perm s2 in
@@ -783,7 +782,8 @@ and unify_staged :
     (* TODO: shiftc, handle the continuation? *)
     let* _ = unify_staged_with_binder st ((k1, f1), e1) ((k2, f2), e2) in
     Some ()
-  | Reset (b1, _x1, _cont1), Reset (b2, _x2, _cont2) ->
+  | Reset (b1, _cont1), Reset (b2, _cont2) ->
+    (* TODO: resetc, handle the continuation *)
     let* _ = unify_var st (Staged b1, e1) (Staged b2, e2) in
     Some ()
   | Bind (x1, f1, f2), Bind (x2, f3, f4) ->

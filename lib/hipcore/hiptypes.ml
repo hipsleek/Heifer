@@ -105,7 +105,7 @@ and staged_spec =
   (* f$(x, y) is HigherOrder(..., ..., (f, [x]), y) *)
   | HigherOrder of string * term list
   | Shift of bool * string * staged_spec * string * staged_spec (* see CShift for meaning of bool *)
-  | Reset of staged_spec * string * staged_spec
+  | Reset of staged_spec * term (* invariant: the term must be a lambda *)
   | Sequence of staged_spec * staged_spec
   | Bind of string * staged_spec * staged_spec
   | Disjunction of staged_spec * staged_spec

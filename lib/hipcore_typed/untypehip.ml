@@ -121,8 +121,8 @@ match s with
     Hiptypes.Sequence (untype_staged_spec f1, untype_staged_spec f2)
 | Bind (x, f1, f2) ->
     Hiptypes.Bind (ident_of_binder x, untype_staged_spec f1, untype_staged_spec f2)
-| Reset (spec, x, cont) ->
-    Hiptypes.Reset (untype_staged_spec spec, ident_of_binder x, untype_staged_spec cont)
+| Reset (spec, cont) ->
+    Hiptypes.Reset (untype_staged_spec spec, untype_term cont)
 | RaisingEff (phi, h, inst, t) ->
     Hiptypes.RaisingEff (untype_pi phi, untype_kappa h, untype_instant inst, untype_term t)
 | TryCatch (phi, h, tc, t) ->

@@ -61,7 +61,7 @@ and retype_staged_spec (staged_spec : Hiptypes.staged_spec) : staged_spec =
   | Hiptypes.NormalReturn (p, k) -> NormalReturn (retype_pi p, retype_kappa k)
   | Hiptypes.HigherOrder (name, args) -> HigherOrder (name, List.map retype_term args)
   | Hiptypes.Shift (b, k, body, x, cont) -> Shift (b, binder_of_ident k, retype_staged_spec body, binder_of_ident x, retype_staged_spec cont)
-  | Hiptypes.Reset (s, x, cont) -> Reset (retype_staged_spec s, binder_of_ident x, retype_staged_spec cont)
+  | Hiptypes.Reset (s, cont) -> Reset (retype_staged_spec s, retype_term cont)
   | Hiptypes.RaisingEff (p, k, ins, t) -> RaisingEff (retype_pi p, retype_kappa k, retype_instant ins, retype_term t)
   | Hiptypes.TryCatch (p, k, trycatch, t) -> TryCatch (retype_pi p, retype_kappa k, retype_trycatch trycatch, retype_term t)
 and retype_constr_case ({ccase_pat; ccase_guard; ccase_expr} : Hiptypes.constr_case) : constr_case =

@@ -410,7 +410,5 @@ let rec forward (env: fvenv) (expr : core_lang): staged_spec * fvenv =
       Shift (nz, k, spec_body, (x, cont_arg_type), cont), env
   | CReset expr_body ->
       let spec_body, env = forward env expr_body in
-      (* cannot infer the type here *)
-      let x = Variables.fresh_variable ~v:"x" "continuation argument" in
-      let cont = NormalReturn (res_eq (var x), EmptyHeap) in
-      Reset (spec_body, (x, Any), cont), env
+      Reset (spec_body, Syntax.mk_id_lambda ()), env
+

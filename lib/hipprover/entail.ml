@@ -5,6 +5,7 @@ open With_types
 open Hipcore.Common
 open Hipcore.Types
 open Debug
+open Meta_assumption
 open Utils
 
 (* type use = Use of string * [ `Left | `Right ] [@unboxed] *)
@@ -27,6 +28,7 @@ type pctx = {
   lemmas : (string * Rewriting.rule) list;
   unfolded : use list;
   assumptions : pi list;
+  meta_assumptions: meta_assumption list;
 }
 
 let string_of_pctx ctx =
@@ -38,9 +40,9 @@ let string_of_pctx ctx =
     unfolded;
     induction_hypotheses;
     lemmas;
-  } =
-    ctx
-  in
+    meta_assumptions;
+  } = ctx in
+  ignore meta_assumptions; (*TODO: print later *)
   let open Rewriting in
   Format.asprintf
     "constants:\n\
@@ -80,6 +82,7 @@ let new_pctx () =
     unfolded = [];
     induction_hypotheses = [];
     lemmas = [];
+    meta_assumptions = [];
   }
 
 let has_been_unfolded pctx name _lr =
@@ -100,9 +103,11 @@ let type_vars_of_params params =
   |> SSet.to_list
 
 let uvar_bindings ?(type_subs = []) binders =
+  List.map
+    (fun p ->
+      let i = ident_of_binder p in
+      (i, Rewriting.Rules.Term.uvar i ~typ:(type_of_binder p |> Subst.subst_types_in_type type_subs)))
     binders
-    |> List.map (fun p -> (ident_of_binder p,
-      Rewriting.Rules.Term.uvar (ident_of_binder p) ~typ:(type_of_binder p |> Subst.subst_types_in_type type_subs)))
 
 let pred_to_rule pred =
   (* Replace the type variables in the parameters with uvars. *)
@@ -123,7 +128,7 @@ let pred_to_rule pred =
 
 let lemma_to_rule lemma =
   let type_vars = type_vars_of_params lemma.l_params in
-  let type_uvar_bindings = type_vars |> List.map (fun tv -> (tv, Rewriting.Rules.Type.uvar tv)) in
+  let type_uvar_bindings = List.map (fun tv -> (tv, Rewriting.Rules.Type.uvar tv)) type_vars in
   let bs = uvar_bindings ~type_subs:type_uvar_bindings lemma.l_params in
   let lhs = Subst.subst_free_vars bs lemma.l_left |> Subst.subst_types Sctx_staged type_uvar_bindings in
   let rhs = Subst.subst_free_vars bs lemma.l_right |> Subst.subst_types Sctx_staged type_uvar_bindings in

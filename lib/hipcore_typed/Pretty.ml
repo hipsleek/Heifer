@@ -268,9 +268,9 @@ module With_types = struct
         | _ -> Format.asprintf ", %s. %s" (string_of_binder x) (string_of_staged_spec cont)
       in
       Format.asprintf "shift%s(%s. %s%s)" zero (string_of_binder k) (string_of_staged_spec spec) cont_s
-    | Reset (spec, x, cont) ->
+    | Reset (spec, cont) ->
       (* TODO: resetc *)
-      ignore (x, cont);
+      ignore cont;
       Format.asprintf "reset(%s)" (string_of_staged_spec spec)
     | Require (p, h) ->
       Format.asprintf "req %s" (string_of_state (p, h))
@@ -398,7 +398,7 @@ and pp_staged_spec ppf spec =
       (if z then "sh" else "sh0")
       pp_binder k
       pp_staged_spec spec
-  | Reset (spec, _x, _cont) ->
+  | Reset (spec, _cont) ->
       fprintf ppf "@[%s(@[<hov 1>%a@])@]"
       "rs"
       pp_staged_spec spec

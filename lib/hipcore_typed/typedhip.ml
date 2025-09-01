@@ -129,7 +129,7 @@ and staged_spec =
   (* f$(x, y) is HigherOrder(..., ..., (f, [x]), y) *)
   | HigherOrder of string * term list
   | Shift of bool * binder * staged_spec * binder * staged_spec (* see CShift for meaning of bool *)
-  | Reset of staged_spec * binder * staged_spec
+  | Reset of staged_spec * term
   | Sequence of staged_spec * staged_spec
   | Bind of binder * staged_spec * staged_spec
   | Disjunction of staged_spec * staged_spec

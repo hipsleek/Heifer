@@ -119,7 +119,7 @@ and string_of_staged_spec (st:staged_spec) : string =
       | _ -> Format.asprintf ", %s. %s" x (string_of_staged_spec cont)
     in
     Format.asprintf "shift%s(%s. %s%s)" zero k (string_of_staged_spec spec) cont_s
-  | Reset (spec, _, _) ->
+  | Reset (spec, _) ->
     Format.asprintf "reset(%s)" (string_of_staged_spec spec)
   | Require (p, h) ->
     Format.asprintf "req %s" (string_of_state (p, h))
@@ -622,7 +622,7 @@ and pp_staged_spec ppf spec =
       (if z then "sh" else "sh0")
       k
       pp_staged_spec spec
-  | Reset (spec, _, _) ->
+  | Reset (spec, _) ->
       fprintf ppf "@[%s(@[<hov 1>%a@])@]"
       "rs"
       pp_staged_spec spec

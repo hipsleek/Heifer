@@ -19,32 +19,74 @@ let reset_free () = Misc.todo ()
 (* do we need this tho? Seems redundant! *)
 let shift_reset_free () = Misc.todo ()
 
+let get_cont_body (cont : term) : staged_spec =
+  match cont.term_desc with
+  | TLambda (_, _, body, _) ->
+      begin match body with
+      | Some body -> body
+      | None -> failwith "get_cont_body: empty body"
+      end
+  | _ ->
+      failwith "get_cont_body: not a TLambda"
+
+let get_cont_args (cont : term) : binder list =
+  match cont.term_desc with
+  | TLambda (_, args, _, _) -> args
+  | _ -> failwith "get_cont_args: not a TLambda"
+
+let get_cont_arg (cont : term) : binder =
+  match get_cont_args cont with
+  | [arg] -> arg
+  | [] -> failwith "get_cont_arg: empty arg"
+  | _ -> failwith "get_cont_arg: multiple args"
+
+let set_cont_body ({term_desc; term_type} : term) (body : staged_spec) : term =
+  match term_desc with
+  | TLambda (name, args, _, code) -> {term_desc = TLambda (name, args, Some body, code); term_type}
+  | _ -> failwith "set_cont_body: not a TLambda"
+
+let set_cont_arg ({term_desc; term_type} : term) (arg : binder) : term =
+  match term_desc with
+  | TLambda (name, _, body, code) -> {term_desc = TLambda (name, [arg], body, code); term_type}
+  | _ -> failwith "set_cont_arg: not a TLambda"
+
 let ignored_cont_arg = "#ignored_arg"
 
-let is_ignored_cont_binder (x : binder) : bool = ident_of_binder x = ignored_cont_arg
+let is_ignored_cont_binder (b : binder) : bool =
+  ident_of_binder b = ignored_cont_arg
 
-let compose_cont (f : staged_spec) (x : binder) (cont : staged_spec) : staged_spec =
-  if is_ignored_cont_binder x then Sequence (f, cont) else Bind (x, f, cont)
+let invoke_cont (f : staged_spec) (cont : term) : staged_spec =
+  (* TODO: optimize this! *)
+  let arg = get_cont_arg cont in
+  let body = get_cont_body cont in
+  if is_ignored_cont_binder arg then Sequence (f, body) else Bind (arg, f, body)
+
+let compose_cont (f : staged_spec) (b : binder) (cont : term) : term =
+  (* TODO: optimize this! *)
+  let body = invoke_cont f cont in
+  let cont = set_cont_body cont body in
+  let cont = set_cont_arg cont b in
+  cont
 
 (* reset (forall x. f) \entails forall x. reset f *)
 (* only on the left *)
 let norm_reset_all : _ Rewriting2.rule = Rewriting2.(
-  reset (forall __ __) __ __,
-  fun x f k cont -> ForAll (x, Reset (f, k, cont))
+  reset (forall __ __) __,
+  fun x f cont -> ForAll (x, Reset (f, cont))
 )
 
 (* reset (exists x. f) \bientails exists x. reset f *)
 (* bientails; both side of the proof *)
 let norm_reset_ex : _ Rewriting2.rule = Rewriting2.(
-  reset (exists __ __) __ __,
-  fun x f k cont -> Exists (x, Reset (f, k, cont))
+  reset (exists __ __) __,
+  fun x f cont -> Exists (x, Reset (f, cont))
 )
 
 (* reset (f1 \/ f2) \bientails reset f1 \/ reset f2 *)
 (* bientails; both side of the proof *)
 let norm_reset_disj : _ Rewriting2.rule = Rewriting2.(
-  reset (disj __ __) __ __,
-  fun f1 f2 x cont -> Disjunction (Reset (f1, x, cont), Reset (f2, x, cont))
+  reset (disj __ __) __,
+  fun f1 f2 cont -> Disjunction (Reset (f1, cont), Reset (f2, cont))
 )
 
 (* reset (ens Q; f) \bientails ens Q; reset f *)
@@ -74,24 +116,15 @@ let norm_reset_bind_req : _ Rewriting2.rule = Rewriting2.(
 (* reset (ens Q) \bientails ens Q *)
 (* both side of the proof *)
 let norm_reset_ens : _ Rewriting2.rule = Rewriting2.(
-  reset (ens __ __) __ __,
-  fun p k x cont ->
-    (* debug ~at:5 ~title:"norm_reset_ens" "ens (%s, %s), %s, %s"
-      (Pretty.string_of_pi p)
-      (Pretty.string_of_kappa k)
-      (Pretty.string_of_binder x)
-      (Pretty.string_of_staged_spec cont); *)
-    let cont = match cont with
-      | NormalReturn _ ->
-          cont
-      | _ ->
-          let res_var_typed = Syntax.var "res" in
-          let new_x = Variables.fresh_variable ~v:"x" "continuation" in
-          let new_x_typed = Syntax.var new_x ~typ:res_var_typed.term_type in
-          let new_cont = NormalReturn (Syntax.eq res_var_typed new_x_typed, EmptyHeap) in
-          Reset (cont, (new_x, Any), new_cont)
+  reset (ens __ __) __,
+  fun p k cont ->
+    let body = get_cont_body cont in
+    let cont = match body with
+      | NormalReturn _ -> cont
+      | _ -> set_cont_body cont (Reset (body, Syntax.mk_id_lambda ()))
     in
-    compose_cont (NormalReturn (p, k)) x cont
+    (* TODO: optimize this! *)
+    invoke_cont (NormalReturn (p, k)) cont
 )
 
 (* both sides *)
@@ -132,6 +165,7 @@ let red_seq_shift_extend : _ Rewriting2.rule = Rewriting2.(
     Shift (is_shift, x_body, f_body, x_cont, Sequence (f_cont, f))
 )
 
+(*
 (* shift, immediately surronded by reset, is eliminated *)
 let red_reset_shift_elim : _ Rewriting2.rule = Rewriting2.(
   reset (shift __ __ __ __ __) __ __,
@@ -143,36 +177,37 @@ let red_reset_shift_elim : _ Rewriting2.rule = Rewriting2.(
     let body = if is_shift then Reset (f_body, x_cont', f_cont') else f_body in
     Bind (x_body, defun, body)
 )
+*)
 
 (* only on the left, because of req *)
 let red_reset_bind : _ Rewriting2.rule = Rewriting2.(
-  reset (bind __ __ __) __ __,
-  fun b f1 f2 x cont ->
+  reset (bind __ __ __) __,
+  fun b f1 f2 cont ->
     match f1 with
     | Require _
-    | NormalReturn _ -> Bind (b, f1, Reset (f2, x, cont))
-    | _ -> Reset (f1, b, compose_cont f2 x cont)
+    | NormalReturn _ -> Bind (b, f1, Reset (f2, cont))
+    | _ -> Reset (f1, compose_cont f2 b cont)
 )
 
 (* only on the left, because of req *)
 let red_reset_seq : _ Rewriting2.rule = Rewriting2.(
-  reset (seq __ __) __ __,
-  fun f1 f2 x cont ->
+  reset (seq __ __) __,
+  fun f1 f2 cont ->
     match f1 with
     | Require _
-    | NormalReturn _ -> Sequence (f1, Reset (f2, x, cont))
-    | _ -> Reset (f1, (ignored_cont_arg, Any), compose_cont f2 x cont)
+    | NormalReturn _ -> Sequence (f1, Reset (f2, cont))
+    | _ -> Reset (f1, compose_cont f2 (ignored_cont_arg, Any) cont)
 )
 
 let red_reset_shift : _ Rewriting2.rule = Rewriting2.(
-  reset (shift __ __ __ __ __) __ __,
-  fun is_shift x_body f_body x_id f_id x_cont f_cont ->
+  reset (shift __ __ __ __ __) __,
+  fun is_shift x_body f_body _ _ cont ->
     let open Syntax in
-    let cont_name = Variables.fresh_variable ~v:"cont" "refined continuation" in
-    let cont = term (TLambda (cont_name, [x_cont], Some (Reset (f_cont, x_id, f_id)), None)) Lamb in
-    let defun = Syntax.(ens ~p:(eq (Variables.res_var ~typ:Lamb) cont) ()) in
-    let body = if is_shift then Reset (f_body, x_id, f_id) else f_body in
-    (* debug ~at:5 ~title:"red_reset_shift" "cont = %s\nbody = %s" (Pretty.string_of_term cont) (Pretty.string_of_staged_spec body); *)
+    let cont_body = get_cont_body cont in
+    let cont_body = Reset (cont_body, mk_id_lambda ()) in
+    let cont = set_cont_body cont cont_body in
+    let defun = Syntax.(ens ~p:(eq (Variables.res_var ~typ:cont.term_type) cont) ()) in
+    let body = if is_shift then Reset (f_body, mk_id_lambda ()) else f_body in
     Bind (x_body, defun, body)
 )
 

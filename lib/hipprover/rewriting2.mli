@@ -95,9 +95,8 @@ val exists :
 
 val reset :
   (staged_spec, 'a, 'b) pattern ->
-  (binder, 'b, 'c) pattern ->
-  (staged_spec, 'c, 'd) pattern ->
-  (staged_spec, 'a, 'd) pattern
+  (term, 'b, 'c) pattern ->
+  (staged_spec, 'a, 'c) pattern
 
 val shift :
   (bool, 'z, 'a) pattern ->

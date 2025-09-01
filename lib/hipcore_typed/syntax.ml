@@ -4,6 +4,7 @@ open Utils
 let is_lambda_term t = match t.term_desc with
   | TLambda _ -> true
   | _ -> false
+
 let emp = EmptyHeap
 let seq = Lists.foldr1 (fun c t -> Sequence (c, t))
 let req ?(p = True) ?(h = EmptyHeap) () = Require (p, h)
@@ -24,7 +25,7 @@ let eq_unchecked x y =
   Atomic (EQ, x, y)
 
 let eq x y =
-  let x, y = 
+  let x, y =
     let value_type = match x.term_type, y.term_type with
     | Any, t | t, Any -> t
     (* anything else needs an inference context to unify, make a heuristic guess *)
@@ -79,3 +80,12 @@ let rec conjuncts_of_kappa (k : kappa) : kappa list =
   | EmptyHeap -> []
   | PointsTo _ -> [k]
   | SepConj (k1, k2) -> conjuncts_of_kappa k1 @ conjuncts_of_kappa k2
+
+let mk_id_lambda () =
+  let res_typed = var "res" in
+  let typ = res_typed.term_type in
+  let arg = Hipcore.Variables.fresh_variable ~v:"x" "id" in
+  let arg_typed = var arg ~typ in
+  let binder = [(arg, typ)] in
+  let body = NormalReturn (eq res_typed arg_typed, EmptyHeap) in
+  {term_desc = TLambda ("", binder, Some body, None); term_type = Lamb}

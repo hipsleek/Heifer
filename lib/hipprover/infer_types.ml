@@ -505,10 +505,10 @@ and infer_types_staged_spec ss : (staged_spec * typ option) using_env =
       let* spec, _ = infer_types_staged_spec spec in
       let* cont, _ = infer_types_staged_spec cont in
       return (Shift (b, k, spec, x, cont), Some Any)
-  | Reset (spec, x, cont) ->
+  | Reset (spec, cont) ->
       let* spec, _ = infer_types_staged_spec spec in
-      let* cont, _ = infer_types_staged_spec cont in
-      return (Reset (spec, x, cont), Some Any)
+      let* cont = infer_types_term cont in
+      return (Reset (spec, cont), Some Any)
   | Sequence (s1, s2) ->
       let* s1, _ = infer_types_staged_spec s1 in
       let* s2, result_type = infer_types_staged_spec s2 in

@@ -10,7 +10,7 @@ let req ?(p = True) ?(h = EmptyHeap) () = Require (p, h)
 let ens ?(p = True) ?(h = EmptyHeap) () = NormalReturn (p, h)
 
 (* these take tuples, unlike the data constructors *)
-let req' (p,h) = Require (p, h)
+let req' (p, h) = Require (p, h)
 let ens' (p, h) =  NormalReturn (p, h)
 
 let bind v x y = Bind (v, x, y)
@@ -37,3 +37,8 @@ let rec conjuncts_of_kappa (k : kappa) : kappa list =
   | EmptyHeap -> []
   | PointsTo _ -> [k]
   | SepConj (k1, k2) -> conjuncts_of_kappa k1 @ conjuncts_of_kappa k2
+
+let mk_id_lambda () =
+  let arg = Variables.fresh_variable ~v:"x" "id" in
+  let body = ens ~p:(Variables.eq_res (var arg)) () in
+  TLambda ("", [arg], Some body, None)
