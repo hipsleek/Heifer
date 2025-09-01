@@ -1,6 +1,7 @@
-open Hipcore.Common
 open Typedhip
 open Hipcore.Types
+open Utils.Hstdlib
+open Utils.Misc
 
 let using_pure_fns = ref false
 

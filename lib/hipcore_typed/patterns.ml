@@ -1,9 +1,9 @@
 open Syntax
-open Hipcore.Common
 open Hipcore.Types
 open Hipcore.Variables
 open Typedhip
 open Utils.Lists
+open Utils.Hstdlib
 open Utils.Lists.Monadic
 
 type guarded_pattern = pattern * term

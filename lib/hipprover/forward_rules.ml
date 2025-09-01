@@ -8,6 +8,8 @@ open Variables
 open Pretty
 open Debug
 open Utils
+open Utils.Hstdlib
+open Utils.Misc
 open Syntax
 
 (*

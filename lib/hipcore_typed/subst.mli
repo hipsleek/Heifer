@@ -1,5 +1,5 @@
 open Typedhip
-open Hipcore.Common
+open Utils.Hstdlib
 
 type 'a subst_context =
   | Sctx_staged : staged_spec subst_context
