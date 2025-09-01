@@ -1,5 +1,4 @@
 (** Apply mechanical simplification rules to the given elements.*)
-open Hipcore.Common
 open Hipcore_typed
 open Typedhip
 open Rewriting

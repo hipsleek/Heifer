@@ -1,5 +1,4 @@
 open Hipcore_typed
-open Hipcore.Common
 open Hipcore.Variables
 open Syntax
 open Typedhip

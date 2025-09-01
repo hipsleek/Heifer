@@ -1,7 +1,6 @@
 open Hipcore
 open Hipcore.Types
 open Hipcore_typed
-open Hipcore.Common
 open Hipcore_typed.Typedhip
 open Hipcore_typed.Pretty
 open Debug

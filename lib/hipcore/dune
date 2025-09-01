@@ -1,7 +1,7 @@
 (library
  (name hipcore)
  (public_name heifer.hipcore)
- (modules subst pretty common hiptypes syntax variables types untyped_core_ast)
+ (modules subst pretty hiptypes syntax variables types untyped_core_ast)
  (libraries debug unionFind str ocaml_compiler utils hipcore_common)
  (inline_tests)
  (preprocess (pps ppx_expect ppx_deriving.std visitors.ppx)))
