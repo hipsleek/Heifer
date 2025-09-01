@@ -269,9 +269,7 @@ module With_types = struct
       in
       Format.asprintf "shift%s(%s. %s%s)" zero (string_of_binder k) (string_of_staged_spec spec) cont_s
     | Reset (spec, cont) ->
-      (* TODO: resetc *)
-      ignore cont;
-      Format.asprintf "reset(%s)" (string_of_staged_spec spec)
+      Format.asprintf "reset(%s, %s)" (string_of_staged_spec spec) (string_of_term cont)
     | Require (p, h) ->
       Format.asprintf "req %s" (string_of_state (p, h))
     | HigherOrder (f, args) ->

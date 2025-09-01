@@ -55,18 +55,38 @@ let ignored_cont_arg = "#ignored_arg"
 let is_ignored_cont_binder (b : binder) : bool =
   ident_of_binder b = ignored_cont_arg
 
-let invoke_cont (f : staged_spec) (cont : term) : staged_spec =
-  (* TODO: optimize this! *)
-  let arg = get_cont_arg cont in
-  let body = get_cont_body cont in
-  if is_ignored_cont_binder arg then Sequence (f, body) else Bind (arg, f, body)
+let fold_cont_desc (cont : term_desc) (var_case : string -> 'a) (lam_case : binder -> staged_spec -> 'a) : 'a =
+  match cont with
+  | Var k ->
+      var_case k
+  | TLambda (_, args, body_opt, _) ->
+      let arg = match args with
+        | [] -> failwith "fold_cont_desc: empty arg"
+        | [arg] -> arg
+        | _ -> failwith "fold_cont_desc: too many args"
+      in
+      let body = match body_opt with
+        | None -> failwith "fold_cont_desc: empty body"
+        | Some body -> body
+      in
+      lam_case arg body
+  | _ ->
+      failwith "fold_cont_desc: not a TLambda or Var"
 
-let compose_cont (f : staged_spec) (b : binder) (cont : term) : term =
-  (* TODO: optimize this! *)
-  let body = invoke_cont f cont in
-  let cont = set_cont_body cont body in
-  let cont = set_cont_arg cont b in
-  cont
+let compose_cont_desc (f : staged_spec) (cont : term_desc) : staged_spec =
+  let var_case k =
+    let imm = Variables.fresh_variable ~v:"v" "" in
+    let arg = Syntax.var imm in
+    Bind ((imm, arg.term_type), f, HigherOrder (k, [arg]))
+  in
+  let lam_case arg body =
+    if is_ignored_cont_binder arg then Sequence (f, body) else Bind (arg, f, body)
+  in
+  fold_cont_desc cont var_case lam_case
+
+let compose_cont (f : staged_spec) (arg : binder) (cont : term) : term =
+  let body = compose_cont_desc f cont.term_desc in
+  {term_desc = TLambda ("", [arg], Some body, None); term_type = Lamb}
 
 (* reset (forall x. f) \entails forall x. reset f *)
 (* only on the left *)
@@ -118,13 +138,18 @@ let norm_reset_bind_req : _ Rewriting2.rule = Rewriting2.(
 let norm_reset_ens : _ Rewriting2.rule = Rewriting2.(
   reset (ens __ __) __,
   fun p k cont ->
-    let body = get_cont_body cont in
-    let cont = match body with
-      | NormalReturn _ -> cont
-      | _ -> set_cont_body cont (Reset (body, Syntax.mk_id_lambda ()))
+    let reset_body = NormalReturn (p, k) in
+    let var_case f =
+      let imm = Variables.fresh_variable ~v:"v" "" in
+      let arg = Syntax.var imm in
+      let body = HigherOrder (f, [arg]) in
+      Bind ((imm, arg.term_type), reset_body, body)
     in
-    (* TODO: optimize this! *)
-    invoke_cont (NormalReturn (p, k)) cont
+    let lam_case arg body =
+      let body = match body with NormalReturn _ -> body | _ -> Reset (body, Syntax.mk_id_lambda ()) in
+      if is_ignored_cont_binder arg then Sequence (reset_body, body) else Bind (arg, reset_body, body)
+    in
+    fold_cont_desc cont.term_desc var_case lam_case
 )
 
 (* both sides *)
@@ -202,12 +227,17 @@ let red_reset_seq : _ Rewriting2.rule = Rewriting2.(
 let red_reset_shift : _ Rewriting2.rule = Rewriting2.(
   reset (shift __ __ __ __ __) __,
   fun is_shift x_body f_body _ _ cont ->
-    let open Syntax in
-    let cont_body = get_cont_body cont in
-    let cont_body = Reset (cont_body, mk_id_lambda ()) in
-    let cont = set_cont_body cont cont_body in
-    let defun = Syntax.(ens ~p:(eq (Variables.res_var ~typ:cont.term_type) cont) ()) in
-    let body = if is_shift then Reset (f_body, mk_id_lambda ()) else f_body in
+    (* cont can either be a lambda or a var! *)
+    let var_case f =
+      Syntax.(ens ~p:(eq (Variables.res_var ~typ:Lamb) (Syntax.var f ~typ:Lamb)) ())
+    in
+    let lam_case arg cont_body =
+      let cont_body = Reset (cont_body, Syntax.mk_id_lambda ()) in
+      let cont = {term_desc = TLambda ("", [arg], Some cont_body, None); term_type = Lamb} in
+      Syntax.(ens ~p:(eq (Variables.res_var ~typ:Lamb) cont) ())
+    in
+    let defun = fold_cont_desc cont.term_desc var_case lam_case in
+    let body = if is_shift then Reset (f_body, Syntax.mk_id_lambda ()) else f_body in
     Bind (x_body, defun, body)
 )
 

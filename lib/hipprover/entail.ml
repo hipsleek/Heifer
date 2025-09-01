@@ -1149,7 +1149,7 @@ let rec apply_ent_rule ?name : tactic =
     in
     disj_ choices k
   (* bind, which requires alpha equivalence *)
-  | Bind (x1, f3, f4), Bind (x2, f5, f6) ->
+  (* | Bind (x1, f3, f4), Bind (x2, f5, f6) ->
     let tag = Variables.fresh_variable () in
     let x3 = Variables.fresh_variable () in
     let@ _ =
@@ -1169,7 +1169,7 @@ let rec apply_ent_rule ?name : tactic =
       ( pctx,
         Subst.subst_free_vars [(ident_of_binder x1, var x3)] f4,
         Subst.subst_free_vars [(ident_of_binder x2, var x3)] f6 )
-      k
+      k *)
   (* disjunction *)
   | _, _ ->
     let ps = (pctx, f1, f2) in
