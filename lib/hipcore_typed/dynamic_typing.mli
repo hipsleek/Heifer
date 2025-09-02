@@ -5,7 +5,8 @@ open Typedhip
     behaviors differ between untyped and typed mode must check this flag
     using [dynamic_typing_enabled].
 
-    This must be called before any input is processed. *)
+    For a declaration to be processed in untyped mode, this must be called before
+    the declaration is processed. *)
 val set_dynamic_typing : unit -> unit
 
 val dynamic_typing_enabled : unit -> bool
