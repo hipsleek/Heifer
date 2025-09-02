@@ -1,7 +1,6 @@
 open Hipcore_typed
 open Typedhip
 open Pretty
-open With_types
 open Hipcore.Types
 open Debug
 open Utils

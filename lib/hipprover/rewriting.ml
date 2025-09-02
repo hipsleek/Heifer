@@ -1350,7 +1350,7 @@ module Deep = struct
     | Var s -> s
     | Inst _ -> "<inst>"
     | Constr (f, a) ->
-      Format.asprintf "%s%s" f (string_of_list ~sep:", " string_of_pattern a)
+      Format.asprintf "%s%s" f (Pretty.string_of_list ~sep:", " string_of_pattern a)
 
   let v s = Var s
   let and_ p1 p2 = Constr ("and", [p1; p2])

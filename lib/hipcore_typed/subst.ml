@@ -4,7 +4,6 @@ open Hipcore.Types
 open Hipcore.Variables
 open Rewrite_context
 open Utils.Hstdlib
-open Utils.Misc
 
 type 'a subst_context =
   | Sctx_staged : staged_spec subst_context
