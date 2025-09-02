@@ -825,11 +825,15 @@ let suppress_exn ~title ~default (f : unit -> 'a) : 'a =
     debug ~at:5 ~title "%s" (Printexc.to_string e);
     default
 
-let suppress_some_exn ~title ~default (f : unit -> 'a) : 'a =
+(** Suppress type errors from the prover backends and type checker, instead outputting
+    a debug log message (whose title is [title]) and returning [default]. These are usually
+    caused by the instantiation heuristic not catching ill-typed instantiations (especially
+    when in untyped mode), and are useful to let those instantiations act as a failing branch instead. *)
+let suppress_type_exn ~title ~default (f : unit -> 'a) : 'a =
   try
     f ()
   with
-  | Z3.Error _ | Infer_types.Cyclic_type _ as e ->
+  | Z3.Error _ | Infer_types.Cyclic_type _ | Infer_types.Unification_failure _ as e ->
       debug ~at:5 ~title "%s" (Printexc.to_string e);
       default
 
@@ -1133,7 +1137,7 @@ let rec apply_ent_rule ?name : tactic =
           (* copy the binder's type to allow for polymorphic constants in try_constants *)
           let f4 = Subst.subst_free_vars [(ident_of_binder x, term c.term_desc (type_of_binder x))] f4 in
           fun k1 ->
-            let@ _ = suppress_some_exn
+            let@ _ = suppress_type_exn
               ~title:"ERROR: exists on the right, entailment step"
               ~default:fail
             in
@@ -1157,7 +1161,7 @@ let rec apply_ent_rule ?name : tactic =
           if Hipcore.Types.can_unify_with c.term_type (type_of_binder x) then
           let f3 = Subst.subst_free_vars [((ident_of_binder x), term c.term_desc (type_of_binder x))] f3 in
           fun k1 ->
-            let@ _ = suppress_some_exn
+            let@ _ = suppress_type_exn
               ~title:"ERROR: forall on the left, entailment step"
               ~default:fail
             in
