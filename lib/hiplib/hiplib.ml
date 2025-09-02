@@ -179,6 +179,12 @@ let check_method prog inferred given =
 
 let infer_and_check_method (prog : core_program) (meth : meth_def) (given_spec : staged_spec option) =
   let inferred_spec = infer_spec prog meth in
+  let inferred_spec, given_spec =
+    let open Dynamic_typing in
+    if dynamic_typing_enabled ()
+    then type_with_any_spec inferred_spec, Option.map type_with_any_spec given_spec
+    else inferred_spec, given_spec
+  in
   let result = check_method prog inferred_spec given_spec in
   inferred_spec, result
 
@@ -271,9 +277,33 @@ let process_pure_fn_info ({m_name; m_params; m_body; _}) = function
       in
       Globals.define_pure_fn m_name pf
 
+let type_with_any_binder b = ident_of_binder b, Any
+
+(** Substitute Any into the types of this lemma if dynamic typing is enabled. *)
+let use_dynamic_types_if_enabled_lem (l : Typedhip.lemma) =
+  let open Dynamic_typing in
+  if dynamic_typing_enabled ()
+  then {l with
+          l_params = l.l_params |> List.map type_with_any_binder;
+          l_left = type_with_any_spec l.l_left;
+          l_right = type_with_any_spec l.l_right}
+  else l
+
+(** Substitute Any into the types of this method if dynamic typing is enabled.
+
+  {b Note:} This does not dynamically type core language expressions (which need
+  to be dynamically typed later), due to the forward verification process needing some
+  type information (e.g. during pattern matching.) *)
+let use_dynamic_types_if_enabled_meth (m : meth_def) =
+  let open Dynamic_typing in
+  if dynamic_typing_enabled ()
+  then {m with m_params = List.map type_with_any_binder m.m_params;
+        m_spec = Option.map type_with_any_spec m.m_spec}
+  else m
+
 let process_intermediates (it : Typedhip.intermediate) prog : binder list * core_program =
-  (* Format.printf "%s\n" (Pretty.string_of_intermediate it);
-  ([], prog) *)
+  (* This is the point where dynamic typing, if enabled, is applied; when filling out a case,
+     make sure to handle this. *)
   let open Typedhip in
   match it with
   (* | LogicTypeDecl (name, params, ret, path, lname) ->
@@ -307,6 +337,7 @@ let process_intermediates (it : Typedhip.intermediate) prog : binder list * core
       debug ~at:4 ~title:(Format.asprintf "added lemma %s" l.l_name) "%s" (string_of_lemma l); *)
       (* add to environment regardless of failure *)
       (* we need to prove the lemma *)
+      let l = use_dynamic_types_if_enabled_lem l in
       let@ _ = Debug.span (fun _ ->
         debug ~at:1 ~title:(Format.sprintf "verifying lemma: %s" l.l_name) "")
       in
@@ -334,6 +365,9 @@ let process_intermediates (it : Typedhip.intermediate) prog : binder list * core
   | Meth (m_name, m_params, m_spec, m_body, m_tactics, pure_fn_info) ->
       let meth : meth_def = {m_name; m_params; m_spec; m_body; m_tactics} in
       process_pure_fn_info meth pure_fn_info;
+      (* Apply dynamic typing _after_ doing pure function processing; since pure functions need to be
+         handled by SMT (and so need to be always typed anyway.) *)
+      let meth = use_dynamic_types_if_enabled_meth meth in
       let@ _ = Debug.span (fun _ ->
         debug ~at:1 ~title:(Format.asprintf "verifying function: %s" meth.m_name) "")
       in
