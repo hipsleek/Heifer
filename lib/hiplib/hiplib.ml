@@ -97,17 +97,16 @@ let report_header ~kind ~name =
 
 let normal_report ~kind ~name ~inferred_spec ~given_spec ~result =
   let header = report_header ~kind ~name in
-  let open Default in
   let inferred_spec_string =
     Format.asprintf
-      "[ Inferred specification ]\n%a\n"
-      pp_staged_spec inferred_spec
+      "[ Inferred specification ]\n%s\n"
+      (string_of_staged_spec inferred_spec)
   in
   let given_spec_string = match given_spec with
     | Some given_spec ->
         Format.asprintf
-          "[ Given specification ]\n%a\n"
-          pp_staged_spec given_spec
+          "[ Given specification ]\n%s\n"
+          (string_of_staged_spec given_spec)
     | None ->
         ""
   in

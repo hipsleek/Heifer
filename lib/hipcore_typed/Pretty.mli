@@ -10,23 +10,7 @@ val set_single_line : ?enabled:bool -> config -> config
 
 val set_types_display : ?enabled:bool -> config -> config
 
-(* what else would be useful... set_unicode? set_colors? *)
-
-(* example... *)
-
-(** {1 Pretty-printing functions } *)
-
-(** The pretty-printers are packaged into a module, parametrized by
-    the configuration. If you only need the default configuration,
-    the associated printers are available under [Default].*)
-
-module type Printers = sig
-  val pp_staged_spec : Format.formatter -> staged_spec -> unit 
-end
-
-module Default : Printers
-
-val obtain_printers : config -> (module Printers)
+val set_column_width : int -> config -> config
 
 (** { 1 String converters } *)
 

@@ -31,4 +31,5 @@
   (why3-ide (>= 1.8.0))
   (js_of_ocaml (>= 5.4.0))
   (unionFind (>= 20220122))
-  (visitors (>= 20210608))))
+  (visitors (>= 20210608))
+  (pprint (>= 20230830))))

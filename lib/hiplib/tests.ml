@@ -56,9 +56,9 @@ let%expect_test "rewriting" =
   let spec s = pipeline (Ocamlfrontend.Annotation.parse_staged_spec, Hipcore_typed.Retypehip.retype_staged_spec, Hipprover.Infer_types.infer_types_staged_spec) s in
   let test rule target =
     let b1 = rewrite_all rule target in
-    Format.printf "rewrite %s@." (string_of_uterm target);
-    Format.printf "with %s@." (string_of_rule rule);
-    Format.printf "result: %s@." (string_of_uterm b1)
+    Printf.printf "rewrite %s\n" (string_of_uterm target);
+    Printf.printf "with %s\n" (string_of_rule rule);
+    Printf.printf "result: %s\n" (string_of_uterm b1)
   in
 
   test Staged.("ens emp" ==> "ens false") (Staged (spec "ens emp; ens emp"));
