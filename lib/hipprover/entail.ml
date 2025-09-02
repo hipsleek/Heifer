@@ -237,6 +237,8 @@ let check_pure_obligation left right =
      the untyped extensions. Perform another typechecking phase to perform these
      unifications. *)
   let (left, right), _ =
+    let left = Dynamic_typing.instantiate_any_types_pi left in
+    let right = Dynamic_typing.instantiate_any_types_pi right in
     let open Infer_types in
     with_empty_env begin
       let* left, right = infer_types_pair_pi left right in
