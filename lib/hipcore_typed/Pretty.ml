@@ -506,13 +506,13 @@ let add_type_annotations (pp : pretty_printer) : pretty_printer =
   {
     pp with
     pp_binder = begin fun self ctx b ->
-      parens (pp.pp_binder self (ctx |> with_binding Negative_inf) b ^^ space ^^ colon ^^ break 1 ^^ (self.pp_typ self ctx (type_of_binder b)))
+      group (parens (pp.pp_binder self (ctx |> with_binding Negative_inf) b ^^ space ^^ colon ^^ break 1 ^^ (self.pp_typ self ctx (type_of_binder b))))
     end;
     pp_term = begin fun self ctx t ->
-      parens (pp.pp_term self (ctx |> with_binding Negative_inf) t ^^ space ^^ colon ^^ break 1 ^^ (self.pp_typ self ctx t.term_type))
+      group (parens (pp.pp_term self (ctx |> with_binding Negative_inf) t ^^ space ^^ colon ^^ break 1 ^^ (self.pp_typ self ctx t.term_type)))
     end;
     pp_core_lang = begin fun self ctx core ->
-      parens (pp.pp_core_lang self (ctx |> with_binding Negative_inf) core ^^ space ^^ colon ^^ break 1 ^^ (self.pp_typ self ctx core.core_type))
+      group (parens (pp.pp_core_lang self (ctx |> with_binding Negative_inf) core ^^ space ^^ colon ^^ break 1 ^^ (self.pp_typ self ctx core.core_type)))
     end
   }
 
