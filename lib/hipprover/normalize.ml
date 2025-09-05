@@ -349,7 +349,10 @@ let%expect_test "rules" =
     (* let output = disj [bind "x" f1 fk; bind "x" f2 fk] in *)
     test norm_bind_disj input;
     [%expect
-      {| (let x = (ens res=1) in (ens res=(x + 1))) \/ (let x = (ens res=2) in (ens res=(x + 1))) |}]
+      {|
+      (ens (res = 1)); x. (ens (res = x + 1))
+      \/ (ens (res = 2)); x. (ens (res = x + 1))
+      |}]
   in
   let _ =
     let f = ens ~p:(eq res_var (num 1)) () in
@@ -357,7 +360,7 @@ let%expect_test "rules" =
     let input = bind ("x", Int) (seq [f; f]) fk in
     test norm_bind_seq_ens input;
     [%expect
-      {| ens res=1; let x = (ens res=1) in (ens res=(x + 1)) |}]
+      {| ens (res = 1); (ens (res = 1)); x. (ens (res = x + 1)) |}]
   in
   let _ =
     let ens_heap = NormalReturn (True, PointsTo ("x", num 1)) in
@@ -365,9 +368,7 @@ let%expect_test "rules" =
     let input = seq [ens_heap; ens_pure] in
     test norm_ens_heap_ens_pure input;
     [%expect
-      {|
-      ens x=1; ens x->1
-      |}]
+      {| ens (x = 1 /\ emp); ens (T /\ x -> 1) |}]
   in
   let _ =
     let ens_heap = NormalReturn (True, PointsTo ("x", num 1)) in
@@ -375,9 +376,7 @@ let%expect_test "rules" =
     let input = seq [ens_heap; ens_res] in
     test norm_ens_heap_ens_pure input;
     [%expect
-      {|
-      ens x->1; ens res=69
-      |}]
+      {| ens (T /\ x -> 1); ens (res = 69) |}]
   in
   let _ =
     let ens_heap = NormalReturn (True, PointsTo ("x", num 1)) in
@@ -386,31 +385,29 @@ let%expect_test "rules" =
     let input = seq [ens_heap; ens_res; f] in
     test norm_seq_ens_heap_ens_pure input;
     [%expect
-      {|
-      ens x->1; ens res=69; ens res=42
-      |}]
+      {| ens (T /\ x -> 1); ens (res = 69); ens (res = 42) |}]
   in
   let _ =
     let input = Bind (("x", Int), Exists (("y", Int), (ens ~p:(eq (v "res") (num 2)) ())), ens ~p:(eq (v "x") (num 1)) ()) in
     test norm_bind_ex input;
     [%expect
-      {| ex y. (let x = (ens res=2) in (ens x=1)) |}]
+      {| ex y. ((ens (res = 2)); x. ens (x = 1 /\ emp)) |}]
   in
   let _ =
     let input = Bind (("x", Int), ForAll (("y", Int), (ens ~p:(eq (v "res") (num 2)) ())), ens ~p:(eq (v "x") (num 1)) ()) in
     test norm_bind_all input;
     [%expect
-      {| forall y. (let x = (ens res=2) in (ens x=1)) |}]
+      {| forall y. ((ens (res = 2)); x. ens (x = 1 /\ emp)) |}]
   in
   let _ =
     let input = Bind (("x", Int), ens ~p:(eq (v "y") (num 2)) (), ens ~p:(eq (v "res") (v "x")) ()) in
     test norm_bind_trivial input;
     [%expect
-      {| ens y=2 |}];
+      {| ens (y = 2 /\ emp) |}];
 
     let input = Bind (("z", Int), ens ~p:(eq (v "y") (num 2)) (), ens ~p:(eq (v "res") (v "x")) ()) in
     test norm_bind_trivial input;
     [%expect
-      {| let z = (ens y=2) in (ens res=x) |}]
+      {| (ens (y = 2 /\ emp)); z. ens (res = x) |}]
   in
   ()
