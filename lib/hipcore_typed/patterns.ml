@@ -223,12 +223,14 @@ module Testing = struct
       ]
     }
   open Pretty
-  let output pats = String.concat " | " (List.map 
-  (fun (pat, guard) ->
-    if guard = ctrue
-    then string_of_pattern pat
-      else Printf.sprintf "%s when %s" (string_of_pattern pat) (string_of_term guard))
-  pats) |> print_string
+  let output pats =
+    let config = default_config |> set_single_line in
+    String.concat " | " (List.map 
+    (fun (pat, guard) ->
+      if guard = ctrue
+      then string_of_pattern ~config pat
+        else Printf.sprintf "%s when %s" (string_of_pattern ~config pat) (string_of_term ~config guard))
+    pats) |> print_string
 
   let any ?(args = []) typ = {pattern_desc = PAny; pattern_type = TConstr (typ, args)}
   let constr ~typ ?(typ_args = []) ctr args  = {pattern_desc = PConstr (ctr, args); pattern_type = TConstr (typ, typ_args)}
@@ -252,14 +254,14 @@ let%expect_test "complement" =
 
   let __ = Testing.any ~args:[Int] "test_type" in
   output (complement (guarded (b __)));
-  [%expect{| A() | D(_, _) |}];
+  [%expect{| A | D(_, _) |}];
 
   output (complement (guarded (d (b __, a))));
-  [%expect{| A() | B(_) | D(B(_), B(_)) | D(B(_), D(_, _)) | D(A(), A()) | D(A(), B(_)) | D(A(), D(_, _)) | D(D(_, _), A()) | D(D(_, _), B(_)) | D(D(_, _), D(_, _)) |}];
+  [%expect{| A | B(_) | D(B(_), B(_)) | D(B(_), D(_, _)) | D(A, A) | D(A, B(_)) | D(A, D(_, _)) | D(D(_, _), A) | D(D(_, _), B(_)) | D(D(_, _), D(_, _)) |}];
 
   let __ = Testing.any "nat" in
   output (complement (guarded (s (as_ ~name:"s" (s __)))));
-  [%expect{| Z() | S((Z()) as s) |}];
+  [%expect{| Z | S(Z as s) |}];
 ;;
 
 let%expect_test "intersect" =
@@ -268,7 +270,7 @@ let%expect_test "intersect" =
 
   let __ = Testing.any ~args:[Int] "test_type" in
   output (intersect [guarded (d (pvar "a", pvar "b"))] [guarded (b (pvar "x")); guarded (d (__, d (__, pvar "d")))]);
-  [%expect{| D(a, (D(_, d)) as b) |}];
+  [%expect{| D(a, D(_, d) as b) |}];
 
   output (intersect [guarded (b __)] [guarded (d (__, __))]);
   [%expect{| |}];
@@ -284,12 +286,12 @@ let%expect_test "exclude" =
 
   let __ = Testing.any ~args:[Int] "test_type" in
   output (exclude (guarded (d (__, __))) [guarded a; guarded (d (b __, __))]);
-  [%expect{| D(A(), _) | D(D(_, _), _) |}];
+  [%expect{| D(A, _) | D(D(_, _), _) |}];
 
   output (exclude (guarded (b __)) []);
   [%expect{| B(_) |}];
 
   let __ = Testing.any "nat" in
   output (exclude (guarded (s (as_ ~name:"s" z)) ~condition:(rel EQ (var "s") (var "t") )) [guarded z; guarded (s (as_ ~name:"s" (s __)))]);
-  [%expect{| S(((Z()) as patd2) as s) when (s==t) |}];
+  [%expect{| S(Z as patd2 as s) when s == t |}];
 ;;

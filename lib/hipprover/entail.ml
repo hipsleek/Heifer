@@ -1,7 +1,6 @@
 open Hipcore_typed
 open Typedhip
 open Pretty
-open With_types
 open Hipcore.Types
 open Debug
 open Utils
@@ -266,7 +265,7 @@ let derive_predicate m_name m_params f =
       p_name = m_name;
       p_params = m_params;
       p_body = new_spec;
-      p_rec = (find_rec m_name)#visit_staged_spec () new_spec;
+      p_rec = spec_calls_func new_spec m_name;
     }
   in
   res
@@ -497,19 +496,19 @@ let%expect_test _ =
   [%expect
     {|
     * search | _1
-    (ens emp) \/ (ens emp) |- (ens F) \/ (ens emp)
+    ens (T /\ emp) \/ ens (T /\ emp) |- ens (F /\ emp) \/ ens (T /\ emp)
 
     * disj left | _2
     left branch
 
     ** search | _3
-    ens emp |- (ens F) \/ (ens emp)
+    ens (T /\ emp) |- ens (F /\ emp) \/ ens (T /\ emp)
 
     ** disj right | _4
     left branch
 
     *** search | _5
-    ens emp |- ens F
+    ens (T /\ emp) |- ens (F /\ emp)
 
     *** STUCK | _6
 
@@ -520,7 +519,7 @@ let%expect_test _ =
     right branch
 
     *** search | _9
-    ens emp |- ens emp
+    ens (T /\ emp) |- ens (T /\ emp)
 
     *** ens ens | _10
     ok
@@ -529,13 +528,13 @@ let%expect_test _ =
     right branch
 
     **** search | _12
-    ens emp |- (ens F) \/ (ens emp)
+    ens (T /\ emp) |- ens (F /\ emp) \/ ens (T /\ emp)
 
     **** disj right | _13
     left branch
 
     ***** search | _14
-    ens emp |- ens F
+    ens (T /\ emp) |- ens (F /\ emp)
 
     ***** STUCK | _15
 
@@ -546,7 +545,7 @@ let%expect_test _ =
     right branch
 
     ***** search | _18
-    ens emp |- ens emp
+    ens (T /\ emp) |- ens (T /\ emp)
 
     ***** ens ens | _19
     ok
@@ -564,9 +563,9 @@ let%expect_test _ =
     left branch
 
     * done | _24
-    (ens emp) \/ (ens emp)
+    ens (T /\ emp) \/ ens (T /\ emp)
     ⊑
-    (ens F) \/ (ens emp)
+    ens (F /\ emp) \/ ens (T /\ emp)
     <============================================================
     constants:
     []

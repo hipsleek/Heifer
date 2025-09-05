@@ -79,7 +79,7 @@ let%expect_test _ =
     test emp_biab_ctx h1 h2;
     [%expect
       {|
-      emp * x->1 |- x->1 * emp
+      emp * x -> 1 |- x -> 1 * emp
       T
       |}]
   in
@@ -89,7 +89,7 @@ let%expect_test _ =
     test emp_biab_ctx h1 h2;
     [%expect
       {|
-      y->2 * emp |- emp * x->1
+      y -> 2 * emp |- emp * x -> 1
       T
       |}]
   in
@@ -99,8 +99,8 @@ let%expect_test _ =
     test emp_biab_ctx h1 h2;
     [%expect
       {|
-      emp * x->a |- x->a * emp
-      a=1
+      emp * x -> a |- x -> a * emp
+      a = 1
       |}]
   in
   let _ =
@@ -109,8 +109,8 @@ let%expect_test _ =
     test emp_biab_ctx h1 h2;
     [%expect
       {|
-      emp * v14->0*v15->2 |- v14->0*v15->2 * emp
-      2=(1 + 1)
+      emp * v14 -> 0 * v15 -> 2 |- v14 -> 0 * v15 -> 2 * emp
+      2 = 1 + 1
       |}]
   in
   ()

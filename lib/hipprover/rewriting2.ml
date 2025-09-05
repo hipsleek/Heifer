@@ -189,7 +189,7 @@ let%expect_test "rewrite" =
       ~target:(And (True, False))
   in
   Format.printf "%s@." (string_of_pi res);
-  [%expect {| F/\T |}];
+  [%expect {| F /\ T |}];
 
   let res =
     rewrite_rooted ~lhs:(and_ __ __)
@@ -197,7 +197,7 @@ let%expect_test "rewrite" =
       ~target:(And (True, False))
   in
   Format.printf "%s@." (string_of_pi res);
-  [%expect {| F/\T |}]
+  [%expect {| F /\ T |}]
 
 let pi_visitor lhs krhs =
   object (_self)
@@ -250,7 +250,7 @@ let%expect_test "rewrite all" =
     (rewrite_all pi_in_staged (and_ true_ __) (fun a -> And (a, True))) target
   in
   Format.printf "%s@." (string_of_staged_spec r);
-  [%expect {| ens F/\T |}]
+  [%expect {| ens (F /\ T /\ emp) |}]
 
 type ('a, 'k) rule = ('a, 'k, 'a) pattern * 'k
 
@@ -294,4 +294,4 @@ let%expect_test _ =
 
   let r = autorewrite pi_in_staged db Syntax.(ens ~p:(And (True, False)) ()) in
   Format.printf "%s@." (string_of_staged_spec r);
-  [%expect {| ens F |}]
+  [%expect {| ens (F /\ emp) |}]

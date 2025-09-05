@@ -608,10 +608,10 @@ let%expect_test "unification with type constructors" =
   let _, env = unify_types t3 t4 env in
   output_simplified_types env [t1; t2; t3; t4];
   [%expect {|
-    t0: ((int) list) list
-    t1: ((int) list) list
-    t2: (int) list
-    t3: (int) list
+    t0: int list list
+    t1: int list list
+    t2: int list
+    t3: int list
     |}]
 
 let%expect_test "unification" =
@@ -626,10 +626,10 @@ let%expect_test "unification" =
   let _, env = unify_types t5 t3 env in
   output_simplified_types env [t1; t2; t3; t4; t5];
   [%expect {|
-    t0: (int) list
-    t1: (int) list
+    t0: int list
+    t1: int list
     t2: unit
-    t3: (int) list
+    t3: int list
     t4: unit
     |}]
 
@@ -640,7 +640,7 @@ let%expect_test "unsolvable unification: cyclic solution" =
   let t2 = TConstr ("list", [TVar "a"]) in
   let _ = unify_types t1 t2 env in
   output_simplified_types env [t1; t2];
-  [@@expect.uncaught_exn {| ("Cyclic_type('a, ('a) list)") |}]
+  [@@expect.uncaught_exn {| ("Cyclic_type('a, 'a list)") |}]
 
 let%expect_test "unsolvable unification: cycle in environment" =
   Printexc.record_backtrace false;
@@ -650,7 +650,7 @@ let%expect_test "unsolvable unification: cycle in environment" =
   let t2 = TConstr ("list", [TVar "b"]) in
   let _ = unify_types t1 t2 env in
   output_simplified_types env [t1; t2]
-  [@@expect.uncaught_exn {| ("Cyclic_type('a, ('a) list)") |}]
+  [@@expect.uncaught_exn {| ("Cyclic_type('a, 'a list)") |}]
 
 
 let%expect_test "unsolvable unification: incompatible types" =

@@ -22,6 +22,11 @@ let () =
     Option.bind (Sys.getenv_opt "CTF") int_of_string_opt
     |> Option.value ~default:0 > 0
   in
+  begin
+  if Option.bind (Sys.getenv_opt "SHOW_TYPES") int_of_string_opt
+    |> Option.value ~default:0 > 0
+  then Hipcore_typed.Pretty.(set_current_config set_types_display)
+  end;
   if Unix.isatty Unix.stdout && not !Hiplib.file_mode && not ctf then
     Hipcore.Pretty.colours := `Ansi;
   Hiplib.Debug.init ~ctf ~org:!Hiplib.file_mode (Sys.getenv_opt "DEBUG");

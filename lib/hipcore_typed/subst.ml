@@ -4,7 +4,6 @@ open Hipcore.Types
 open Hipcore.Variables
 open Rewrite_context
 open Utils.Hstdlib
-open Utils.Misc
 
 type 'a subst_context =
   | Sctx_staged : staged_spec subst_context
@@ -200,7 +199,7 @@ let%expect_test "subst" =
   reset_counter 0;
   let test bs f1 =
     let f2 = subst_free_vars bs f1 in
-    Format.printf "(%s)%s = %s@." (string_of_staged_spec f1)
+    Format.printf "(%s)[%s] = %s@." (string_of_staged_spec f1)
       (string_of_list
          (fun (x, t) -> Format.asprintf "%s/%s" (string_of_term t) x)
          bs)
@@ -208,7 +207,7 @@ let%expect_test "subst" =
   in
   let test_term bs f1 =
     let f2 = subst_free_vars_term bs f1 in
-    Format.printf "(%s)%s = %s@." (string_of_term f1)
+    Format.printf "(%s)[%s] = %s@." (string_of_term f1)
       (string_of_list
          (fun (x, t) -> Format.asprintf "%s/%s" (string_of_term t) x)
          bs)
@@ -232,7 +231,7 @@ let%expect_test "subst" =
          ens ~p:(eq (v "x") (v "x")) ();
          Exists (("x", Int), ens ~p:(eq (v "x") (num 1)) ());
        ]);
-  [%expect {| (ens x=x; ex x. (ens x=1))[y/x] = ens y=y; ex x. (ens x=1) |}];
+  [%expect {| (ens (x = x /\ emp); ex x. (ens (x = 1 /\ emp)))[y/x] = ens (y = y /\ emp); ex x. (ens (x = 1 /\ emp)) |}];
 
   test [("x", v "z")] (Exists (("z", Int), ens ~p:(eq (v "z") (v "x")) ()));
-  [%expect {| (ex z. (ens z=x))[z/x] = ex z0. (ens z0=z) |}]
+  [%expect {| (ex z. (ens (z = x /\ emp)))[z/x] = ex z0. (ens (z0 = z /\ emp)) |}]
