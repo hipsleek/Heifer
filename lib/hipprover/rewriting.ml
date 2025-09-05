@@ -1107,7 +1107,7 @@ let%expect_test "rewriting" =
 
   (* type-aware rewriting *)
   let string_of_uterm_with_types t =
-    let config = default_config () |> set_types_display in
+    let config = default_config |> set_types_display in
     match t with
     | Staged s -> string_of_staged_spec ~config s
     | Pure p -> string_of_pi ~config p
