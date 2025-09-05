@@ -224,7 +224,7 @@ module Testing = struct
     }
   open Pretty
   let output pats =
-    let config = default_config () |> set_single_line in
+    let config = default_config |> set_single_line in
     String.concat " | " (List.map 
     (fun (pat, guard) ->
       if guard = ctrue

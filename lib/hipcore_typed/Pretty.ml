@@ -525,12 +525,18 @@ type config = {
   cfg_ribbon_width : float;
 }
 
-let default_config () = {
+let default_config = {
   cfg_print_types = false;
   cfg_print_spacing = true;
   cfg_column_width = 80;
   cfg_ribbon_width = 1.0
 }
+
+let current_config_ = ref default_config
+
+let current_config () = !current_config_
+
+let set_current_config f = current_config_ := f !current_config_
 
 let set_single_line ?(enabled = true) cfg = {cfg with cfg_print_spacing = not enabled}
 let set_types_display ?(enabled = true) cfg = {cfg with cfg_print_types = enabled}
@@ -571,7 +577,6 @@ let obtain_printers_internal cfg : (module Printers_internal) =
   end)
 
 let print_document cfg doc =
-  (* Note that it is not recommended to use the Format functions for these purposes; see {{:github.com/fpottier/pprint/issues/9}this issue}. *)
   let buf = Buffer.create 256 in
   begin
     if cfg.cfg_print_spacing
@@ -580,39 +585,48 @@ let print_document cfg doc =
   end;
   Buffer.contents buf
 
-let string_of_binder ?(config = default_config ()) b =
+let string_of_binder ?config b =
+  let config = Option.value config ~default:(current_config ()) in
   let module M = (val obtain_printers_internal config : Printers_internal) in
   M.pp_binder b |> print_document config
 
-let string_of_type ?(config = default_config ()) t =
+let string_of_type ?config t =
+  let config = Option.value config ~default:(current_config ()) in
   let module M = (val obtain_printers_internal config : Printers_internal) in
   M.pp_typ t |> print_document config
 
-let string_of_pi ?(config = default_config ()) p =
+let string_of_pi ?config p =
+  let config = Option.value config ~default:(current_config ()) in
   let module M = (val obtain_printers_internal config : Printers_internal) in
   M.pp_pi p |> print_document config
 
-let string_of_kappa ?(config = default_config ()) k =
+let string_of_kappa ?config k =
+  let config = Option.value config ~default:(current_config ()) in
   let module M = (val obtain_printers_internal config : Printers_internal) in
   M.pp_kappa k |> print_document config
 
-let string_of_state ?(config = default_config ()) st =
+let string_of_state ?config st =
+  let config = Option.value config ~default:(current_config ()) in
   let module M = (val obtain_printers_internal config : Printers_internal) in
   M.pp_state st |> print_document config
 
-let string_of_pattern ?(config = default_config ()) pat =
+let string_of_pattern ?config pat =
+  let config = Option.value config ~default:(current_config ()) in
   let module M = (val obtain_printers_internal config : Printers_internal) in
   M.pp_pattern pat |> print_document config
 
-let string_of_term ?(config = default_config ()) t =
+let string_of_term ?config t =
+  let config = Option.value config ~default:(current_config ()) in
   let module M = (val obtain_printers_internal config : Printers_internal) in
   M.pp_term t |> print_document config
 
-let string_of_core_lang ?(config = default_config ()) core =
+let string_of_core_lang ?config core =
+  let config = Option.value config ~default:(current_config ()) in
   let module M = (val obtain_printers_internal config : Printers_internal) in
   M.pp_core_lang core |> print_document config
 
-let string_of_staged_spec ?(config = default_config ()) f =
+let string_of_staged_spec ?config f =
+  let config = Option.value config ~default:(current_config ()) in
   let module M = (val obtain_printers_internal config : Printers_internal) in
   M.pp_staged_spec f |> print_document config
 
@@ -624,13 +638,15 @@ let string_of_option ?(none = "") some opt =
 let string_of_list ?(sep=", ") pp elems =
   List.map pp elems |> String.concat sep
 
-let string_of_pred ?(config = default_config ()) pred =
+let string_of_pred ?config pred =
+  let config = Option.value config ~default:(current_config ()) in
   let module M = (val obtain_printers_internal config : Printers_internal) in
   let open PPrint in
   pp_call_like M.pp_binder (pred.p_name, pred.p_params) ^^ space ^^ equals ^^ nest 2 (break 1 ^^ M.pp_staged_spec pred.p_body)
   |> print_document config
 
-let string_of_type_declaration ?(config = default_config ()) tdecl =
+let string_of_type_declaration ?config tdecl =
+  let config = Option.value config ~default:(current_config ()) in
   let module M = (val obtain_printers_internal config : Printers_internal) in
   let open PPrint in
   let pp_inductive constrs =
@@ -658,7 +674,7 @@ let pp_assoc_list pp_key pp_value m =
   in
   braces (flow (semi ^^ blank 1) (List.map pp_element m))
 
-let string_of_abs_env ?(config = default_config ()) abs_env =
+let string_of_abs_env ?(config = default_config) abs_env =
   let module M = (val obtain_printers_internal config : Printers_internal) in
   let open PPrint in
   let variable_types = abs_env.vartypes |> SMap.bindings in
@@ -675,22 +691,22 @@ let%expect_test "syntax of output" =
   let (+~) a b = {term_desc = BinOp (Plus, a, b); term_type = Int} in
   let (=~) a b = Atomic (EQ, a, b) in
   let f1 = NormalReturn (int_var "res" =~ cint 0, EmptyHeap) in
-  print_string (string_of_staged_spec ~config:(default_config () |> set_types_display) f1);
+  print_string (string_of_staged_spec ~config:(default_config |> set_types_display) f1);
   [%expect {| |}];
 
   (* f2 can be any output long enough to force default Format behavior to break lines *)
   let to_sum = List.init 20 Fun.id |> List.map cint in
   let f2 = NormalReturn (int_var "res" =~ List.fold_left (+~) (cint 0) to_sum, EmptyHeap) in
-  print_string (string_of_staged_spec ~config:(default_config () |> set_single_line) f2);
+  print_string (string_of_staged_spec ~config:(default_config |> set_single_line) f2);
   [%expect {| |}];
 
   (* now test that the column width can change the output *)
-  print_string (string_of_staged_spec ~config:(default_config () |> set_column_width 20) f2);
+  print_string (string_of_staged_spec ~config:(default_config |> set_column_width 20) f2);
   [%expect {| |}];
 
   let subpat = List.init 40 (Fun.const {pattern_desc = PAny; pattern_type = Int}) in
   let p1 = {pattern_desc = PConstr ("with_lots_of_arguments", subpat); pattern_type = TConstr ("big_type", [])} in
-  Format.printf "expanded: %s\ncompacted: %s\n" (string_of_pattern p1) (string_of_pattern ~config:(default_config () |> set_single_line) p1);
+  Format.printf "expanded: %s\ncompacted: %s\n" (string_of_pattern p1) (string_of_pattern ~config:(default_config |> set_single_line) p1);
   [%expect {| |}];
 
   let t = (cint 1 +~ cint 2) in
