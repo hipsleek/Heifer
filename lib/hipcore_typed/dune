@@ -1,7 +1,8 @@
 (library
  (name hipcore_typed)
  (public_name heifer.hipcore_typed)
- (modules subst typedhip pretty untypehip retypehip patterns syntax patterns globals rewrite_context variables typed_core_ast)
+ (modules subst typedhip pretty untypehip retypehip patterns syntax patterns globals rewrite_context variables typed_core_ast
+   dynamic_typing)
  (libraries debug unionFind str utils hipcore)
  (inline_tests)
  (preprocess (pps ppx_expect ppx_deriving.std visitors.ppx)))
