@@ -99,8 +99,8 @@ let%expect_test "simplify tests" =
   let h1 =  (SepConj (EmptyHeap, SepConj (PointsTo ("x", num 1), EmptyHeap))) in
   test simplify_kappa Pretty.string_of_kappa h1;
   [%expect {|
-    simplify: emp*x->1*emp
-    result: x->1
+    simplify: emp * x -> 1 * emp
+    result: x -> 1
     |}];
   
   let ( -@ ) = binop Minus in
@@ -109,13 +109,13 @@ let%expect_test "simplify tests" =
   let t = (num 5) *@ ((num 6) +@ ((num 10) -@ (num 3))) in
   test simplify_term Pretty.string_of_term t;
   [%expect {|
-    simplify: (5 * (6 + (10 - 3)))
+    simplify: 5 *. (6 + 10 - 3)
     result: 65
     |}];
 
   let p1 = And (True, Or ( And (False, eq (var "a") (var "b")), eq (var "x") (var "y"))) in
   test simplify_pure Pretty.string_of_pi p1;
   [%expect {|
-    simplify: T/\F/\a=b\/x=y
-    result: x=y
+    simplify: T /\ (F /\ a = b \/ x = y)
+    result: x = y
     |}];;

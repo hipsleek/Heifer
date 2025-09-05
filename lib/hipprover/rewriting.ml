@@ -973,7 +973,7 @@ let%expect_test "unification and substitution" =
   let a = Staged (seq [uvar "n"; ens ()]) in
   let b = Staged (seq [ens ~p:(And (True, False)) (); ens ()]) in
   test a b;
-  [%expect {| ens T/\F; ens emp |}];
+  [%expect {| ens (T /\ F /\ emp); ens (T /\ emp) |}];
 
   let a = Staged (seq [uvar "n"; uvar "n"; ens ()]) in
   let b =
@@ -982,7 +982,7 @@ let%expect_test "unification and substitution" =
          [ens ~p:(And (True, False)) (); ens ~p:(And (True, False)) (); ens ()])
   in
   test a b;
-  [%expect {| ens T/\F; ens T/\F; ens emp |}]
+  [%expect {| ens (T /\ F /\ emp); ens (T /\ F /\ emp); ens (T /\ emp) |}]
 
 let%expect_test "rewriting" =
   let open Syntax in
@@ -1000,25 +1000,25 @@ let%expect_test "rewriting" =
     (Staged (seq [ens ~p:(Not True) (); ens ~p:(And (True, False)) (); ens ()]));
   [%expect
     {|
-    rewrite ens not(T); ens T/\F; ens emp
-    with __n(); ens emp ==> __n(); __n(); ens F
-    result: ens not(T); ens T/\F; ens T/\F; ens F
+    rewrite ens (~T /\ emp); ens (T /\ F /\ emp); ens (T /\ emp)
+    with __n(); ens (T /\ emp) ==> __n(); __n(); ens (F /\ emp)
+    result: ens (~T /\ emp); ens (T /\ F /\ emp); ens (T /\ F /\ emp); ens (F /\ emp)
     |}];
 
   test (Staged.rule (ens ()) (ens ~p:False ())) (Staged (seq [ens (); ens ()]));
   [%expect
     {|
-    rewrite ens emp; ens emp
-    with ens emp ==> ens F
-    result: ens F; ens F
+    rewrite ens (T /\ emp); ens (T /\ emp)
+    with ens (T /\ emp) ==> ens (F /\ emp)
+    result: ens (F /\ emp); ens (F /\ emp)
     |}];
 
   test (Pure.rule True False) (Staged (seq [ens (); ens ()]));
   [%expect
     {|
-    rewrite ens emp; ens emp
+    rewrite ens (T /\ emp); ens (T /\ emp)
     with T ==> F
-    result: ens F; ens F
+    result: ens (F /\ emp); ens (F /\ emp)
     |}];
 
   test
@@ -1026,9 +1026,9 @@ let%expect_test "rewriting" =
     (Staged (seq [ens ~h:(PointsTo ("x", num 1)) (); ens ()]));
   [%expect
     {|
-    rewrite ens x->1; ens emp
-    with x->1 ==> x->2
-    result: ens x->2; ens emp
+    rewrite ens (T /\ x -> 1); ens (T /\ emp)
+    with x -> 1 ==> x -> 2
+    result: ens (T /\ x -> 2); ens (T /\ emp)
     |}];
 
   test
@@ -1036,9 +1036,9 @@ let%expect_test "rewriting" =
     (Staged (seq [ens ~h:(PointsTo ("x", num 1)) (); ens ()]));
   [%expect
     {|
-    rewrite ens x->1; ens emp
+    rewrite ens (T /\ x -> 1); ens (T /\ emp)
     with 1 ==> 2
-    result: ens x->2; ens emp
+    result: ens (T /\ x -> 2); ens (T /\ emp)
     |}];
 
   test
@@ -1062,9 +1062,9 @@ let%expect_test "rewriting" =
           ]));
   [%expect
     {|
-    rewrite ens emp; let y = (ens res=1) in (ens res=y)
-    with let __x = (ens res=__r) in (__f()) ==> <dynamic>
-    result: ens emp; ens res=1
+    rewrite ens (T /\ emp); (ens (res = 1)); y. (ens (res = y))
+    with (ens (res = __r)); __x. __f() ==> <dynamic>
+    result: ens (T /\ emp); ens (res = 1)
     |}];
 
   test
@@ -1100,9 +1100,9 @@ let%expect_test "rewriting" =
     so capture-avoidance doesn't work properly *)
   [%expect
     {|
-    rewrite let x = (ex y. (ens res=y)) in (ens x=1)
-    with let __x = (ex __x1. (__f())) in (__fk()) ==> ex __x1. (let __x = (__f()) in (__fk()))
-    result: ex y2. (let x3 = (ens res=y) in (ens x=1))
+    rewrite (ex y. (ens (res = y))); x. ens (x = 1 /\ emp)
+    with (ex __x1. (__f())); __x. __fk() ==> ex __x1. ((__f()); __x. __fk())
+    result: ex y2. ((ens (res = y)); x3. ens (x = 1 /\ emp))
     |}];
 
   (* type-aware rewriting *)
@@ -1134,8 +1134,8 @@ let%expect_test "rewriting" =
 
   [%expect {|
     rewrite id((n : int))
-    with id((__n : '__t)) ==> ens (res : '__t)=(__n : '__t)
-    result: ens (res : int)=(n : int)
+    with id((__n : '__t)) ==> ens (res = (__n : '__t))
+    result: ens (res = (n : int))
     |}]
 
 let%expect_test "unify modulo alpha-equivalence" =
@@ -1158,13 +1158,13 @@ let%expect_test "unify modulo alpha-equivalence" =
     let a = Staged (Bind (("x", Any), res_eq_1, ens ~p:(eq (var_any "res") (var_any "x")) ())) in
     let b = Staged (Bind (("y", Any), res_eq_1, ens ~p:(eq (var_any "res") (var_any "y")) ())) in
     test a b;
-    [%expect{| let x0 = (ens res=1) in (ens res=x0) |}]
+    [%expect{| (ens (res = 1)); x0. ens (res = x0) |}]
   in
   let () =
     let a = Staged (Exists (("x", Any), ens ~p:(eq (var_any "res") (var_any "x")) ())) in
     let b = Staged (Exists (("y", Any), ens ~p:(eq (var_any "res") (var_any "y")) ())) in
     test a b;
-    [%expect{| ex x1. (ens res=x1) |}]
+    [%expect{| ex x1. (ens (res = x1)) |}]
   in
   ()
 
@@ -1188,9 +1188,9 @@ let%expect_test "rewriting modulo alpha-equivalence" =
     let ut = Staged (Bind (("y", Any), res_eq_1, ens ~p:(eq (var_any "res") (var_any "y")) ())) in
     test rule ut;
     [%expect{|
-      rewrite let y = (ens res=1) in (ens res=y)
-      with let x = (ens res=1) in (ens res=x) ==> ens res=1
-      result: ens res=1
+      rewrite (ens (res = 1)); y. ens (res = y)
+      with (ens (res = 1)); x. ens (res = x) ==> ens (res = 1)
+      result: ens (res = 1)
       |}]
   in
   ()
@@ -1240,15 +1240,15 @@ let%expect_test "autorewrite" =
   test norm_db
     (Staged (ens ~p:(conj [True; eq (v "x") (ctrue); True; True]) ()));
   [%expect {|
-    start: ens T/\x=true/\T/\T
-    result: ens x=true
+    start: ens (T /\ x = true /\ T /\ T /\ emp)
+    result: ens (x = true /\ emp)
     |}];
 
   test norm_db
     (Staged (ens ~p:(conj [True; eq (v "x") (v "x"); True; True]) ()));
   [%expect {|
-    start: ens T/\x=x/\T/\T
-    result: ens emp
+    start: ens (T /\ x = x /\ T /\ T /\ emp)
+    result: ens (T /\ emp)
     |}]
 
 (** Named after the ppxlib module. See Rewriting2 for a full-scale
@@ -1300,7 +1300,7 @@ module Ast_pattern = struct
     let p1 = and_ true_ __ in
     let r = match_ p1 (And (True, True)) in
     Format.printf "%s@." (string_of_option string_of_pi r);
-    [%expect {| Some T |}]
+    [%expect {| T |}]
 
   let rewrite_rooted (T p) u k = p u k
 
@@ -1311,7 +1311,7 @@ module Ast_pattern = struct
     in
     let r = Iter.head_exn (rule (And (True, False))) in
     Format.printf "%s@." (string_of_pi r);
-    [%expect {| F/\T |}]
+    [%expect {| F /\ T |}]
 
   let rewrite_all_pure lhs krhs =
     let visitor =
@@ -1336,7 +1336,7 @@ module Ast_pattern = struct
         #visit_staged_spec () target
     in
     Format.printf "%s@." (string_of_staged_spec r);
-    [%expect {| ens F/\T |}]
+    [%expect {| ens (F /\ T /\ emp) |}]
 end
 
 module Deep = struct
@@ -1440,5 +1440,5 @@ module Deep = struct
     let p2 = and_ (v "a") true_ in
     let r = rewrite_rooted p1 p2 (Pure (And (True, False))) in
     Format.printf "%s@." (string_of_option string_of_uterm r);
-    [%expect {| Some F/\T |}]
+    [%expect {| F /\ T |}]
 end

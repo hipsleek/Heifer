@@ -692,23 +692,35 @@ let%expect_test "syntax of output" =
   let (=~) a b = Atomic (EQ, a, b) in
   let f1 = NormalReturn (int_var "res" =~ cint 0, EmptyHeap) in
   print_string (string_of_staged_spec ~config:(default_config |> set_types_display) f1);
-  [%expect {| |}];
+  [%expect {| ens (res = (0 : int)) |}];
 
   (* f2 can be any output long enough to force default Format behavior to break lines *)
   let to_sum = List.init 20 Fun.id |> List.map cint in
   let f2 = NormalReturn (int_var "res" =~ List.fold_left (+~) (cint 0) to_sum, EmptyHeap) in
   print_string (string_of_staged_spec ~config:(default_config |> set_single_line) f2);
-  [%expect {| |}];
+  [%expect {| ens (res = 0 + 0 + 1 + 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9 + 10 + 11 + 12 + 13 + 14 + 15 + 16 + 17 + 18 + 19) |}];
 
   (* now test that the column width can change the output *)
   print_string (string_of_staged_spec ~config:(default_config |> set_column_width 20) f2);
-  [%expect {| |}];
+  [%expect {|
+    ens (res =
+      0 + 0 + 1 + 2 + 3
+        + 4 + 5 + 6 + 7
+        + 8 + 9 + 10
+        + 11 + 12 + 13
+        + 14 + 15 + 16
+        + 17 + 18 + 19)
+    |}];
 
   let subpat = List.init 40 (Fun.const {pattern_desc = PAny; pattern_type = Int}) in
   let p1 = {pattern_desc = PConstr ("with_lots_of_arguments", subpat); pattern_type = TConstr ("big_type", [])} in
   Format.printf "expanded: %s\ncompacted: %s\n" (string_of_pattern p1) (string_of_pattern ~config:(default_config |> set_single_line) p1);
-  [%expect {| |}];
+  [%expect {|
+    expanded: with_lots_of_arguments(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _,
+      _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
+    compacted: with_lots_of_arguments(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
+    |}];
 
   let t = (cint 1 +~ cint 2) in
   Format.printf "expanded: %s\n" (string_of_term t);
-  [%expect {| |}];;
+  [%expect {| expanded: 1 + 2 |}];;
