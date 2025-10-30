@@ -1,4 +1,7 @@
 
+open Cmdliner
+open Cmdliner.Term.Syntax
+
 let redirect_stdout f =
   let name = "out.org" in
   Format.printf "%s@." name;
@@ -11,30 +14,63 @@ let redirect_stdout f =
   Unix.close oldstdout;
   close_out newstdout
 
-let () =
-  Hiplib.(test_mode :=
-    (Option.bind (Sys.getenv_opt "TEST") int_of_string_opt
-    |> Option.value ~default:0) > 0);
-  Hiplib.(file_mode :=
-    (Option.bind (Sys.getenv_opt "FILE") int_of_string_opt
-    |> Option.value ~default:0) > 0);
+let in_test_mode =
+  let env = Cmd.Env.info "TEST" in
+  let doc = "Run in test mode." in
+  Arg.(value & flag & info ["test"] ~env ~doc ~docv:"TEST")
+
+let output_to_file =
+  let env = Cmd.Env.info "FILE" in
+  let doc = "Redirect all output to a file." in
+  Arg.(value & flag & info ["debug-file"] ~env ~doc ~docv:"DEBUG_FILE")
+
+let file_to_prove =
+  let doc = "The file with code to verify." in
+  Arg.(required & pos 0 (some string) None & info [] ~doc ~docv:"FILE")
+
+let show_types =
+  let env = Cmd.Env.info "SHOW_TYPES" in
+  let doc = "Insert type annotations in output." in
+  Arg.(value & flag & info ["show-types"] ~env ~doc ~docv:"SHOW_TYPES")
+
+let perfetto_trace =
+  let env = Cmd.Env.info "CTF" in
+  let doc = "Output a trace file viewable by Perfetto." in
+  Arg.(value & flag & info ["perfetto-trace"] ~env ~doc ~docv:"TRACE")
+
+let debug_query =
+  let env = Cmd.Env.info "DEBUG" in
+  let doc = "Enable and specify parameters to filter debug output." in
+  Arg.(value & opt (some string) None & info ["debug"] ~env ~doc ~docv:"DEBUG")
+
+let run_as_untyped =
+  let env = Cmd.Env.info "NOTYPES" in
+  let doc = "Ignore types when proving" in
+  Arg.(value & flag & info ["notypes"] ~env ~doc ~docv:"DEBUG")
+
+let cmd =
+  Cmd.make (Cmd.info "heifer" ~version:"0.1") @@
+  let+ file_to_prove and+ in_test_mode and+ output_to_file
+    and+ show_types and+ perfetto_trace and+ debug_query
+    and+ run_as_untyped in
+  Hiplib.test_mode := in_test_mode;
+  Hiplib.file_mode := output_to_file;
+  if show_types then
+    Hipcore_typed.Pretty.(set_current_config set_types_display);
+  if run_as_untyped then
+    Hipcore_typed.Dynamic_typing.set_dynamic_typing ();
+  Hiplib.Debug.init ~ctf:perfetto_trace ~org:!Hiplib.file_mode debug_query;
+  let file_to_prove = Sys.getcwd () ^ "/" ^ file_to_prove in
   begin
-  if Option.bind (Sys.getenv_opt "NOTYPES") int_of_string_opt |> Option.value ~default:0 > 0
-  then Hipcore_typed.Dynamic_typing.set_dynamic_typing ()
-  end;
-  let ctf =
-    Option.bind (Sys.getenv_opt "CTF") int_of_string_opt
-    |> Option.value ~default:0 > 0
-  in
-  begin
-  if Option.bind (Sys.getenv_opt "SHOW_TYPES") int_of_string_opt
-    |> Option.value ~default:0 > 0
-  then Hipcore_typed.Pretty.(set_current_config set_types_display)
-  end;
-  if Unix.isatty Unix.stdout && not !Hiplib.file_mode && not ctf then
-    Hipcore.Pretty.colours := `Ansi;
-  Hiplib.Debug.init ~ctf ~org:!Hiplib.file_mode (Sys.getenv_opt "DEBUG");
   if !Hiplib.file_mode then
-    redirect_stdout Hiplib.main
-  else
-    Hiplib.main ()
+    redirect_stdout (fun () -> Hiplib.run_file file_to_prove)
+  else 
+    Hiplib.run_file file_to_prove
+  end;
+  if !Hiplib.test_mode && not !Hiplib.tests_failed then Format.printf "ALL OK!@.";
+  let return_code = if !Hiplib.tests_failed then 1 else 0 in
+  return_code
+
+let main () = Cmd.eval' cmd
+
+let () = if !Sys.interactive then () else exit (main ())
