@@ -27,6 +27,7 @@ type pctx = {
   lemmas : (string * Rewriting.rule) list;
   unfolded : use list;
   assumptions : pi list;
+  proof_log : string Certificate.partial_proof_log
 }
 
 let string_of_pctx ctx =
@@ -38,6 +39,7 @@ let string_of_pctx ctx =
     unfolded;
     induction_hypotheses;
     lemmas;
+    _
   } =
     ctx
   in
@@ -80,6 +82,7 @@ let new_pctx () =
     unfolded = [];
     induction_hypotheses = [];
     lemmas = [];
+    proof_log = Certificate.empty_partial_log
   }
 
 let has_been_unfolded pctx name _lr =
