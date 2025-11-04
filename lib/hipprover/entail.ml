@@ -598,15 +598,16 @@ module Entail_result : sig
   val entail_failure : entailment_result
   val result_of_pctx : pctx -> staged_spec -> staged_spec -> entailment_result
   val entailment_succeeded : entailment_result -> bool
-  val statement_of_entailment : entailment_result -> Certificate.constr option
-  val certificate_of_entailment : entailment_result -> coq_tactic Certificate.proof_log option
+  val theorem_of_entailment : entailment_result -> (Certificate.constr * coq_tactic Certificate.proof_log) option
 end = struct 
   type entailment_result = pstate option
   let entail_failure = None
   let result_of_pctx pctx f1 f2 = Some (pctx, f1, f2)
   let entailment_succeeded = Option.is_some
-  let statement_of_entailment r = Option.bind r (fun (_, f1, f2) -> Certificate.statement_of_entailment f1 f2)
-  let certificate_of_entailment r = r |> Option.map (fun (pctx, _, _) -> Certificate.finalize_proof_log pctx.proof_log)
+  let theorem_of_entailment r = 
+    match r with
+    | Some (pctx, f1, f2) -> Some (Certificate.(statement_of_entailment f1 f2, finalize_proof_log pctx.proof_log))
+    | None -> None
 end
 
 type tactic = pstate -> pstate Iter.t

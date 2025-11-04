@@ -1,7 +1,10 @@
 
 open Hipcore_typed.Typedhip
+open Hipcore_typed.Pretty
 
 exception Unsupported_term of string
+
+let config = default_config |> set_single_line
 
 type constr = CVar of string
   | CConst of const
@@ -10,17 +13,19 @@ type constr = CVar of string
   (* these are only to make the output look nicer *)
   | CInfix of constr * string * constr
   | CSurround of string * constr * string
+  (* invalid node, meant to allow for better context regarding incomplete constr generation *)
+  | CError of string
 
 let rec hprop_of_kappa (k : kappa) : constr =
   match k with
   | SepConj (k1, k2) -> CInfix (hprop_of_kappa k1, "\\*", hprop_of_kappa k2)
-  | EmptyHeap -> CVar "hempty"
+  | EmptyHeap -> CVar "\[]"
   | PointsTo (l, v) -> CInfix (CVar l, "~~>", constr_of_term v)
 and constr_of_term (t : term) : constr =
   match t.term_desc with
   | Const c -> CConst c
   | Var v -> CVar v
-  | _ -> failwith "TODO a proper failure wrapper"
+  | _ -> CError (string_of_term ~config t)
 and constr_of_pi (p : pi) : constr =
   match p with
   | True -> CVar "True"
@@ -31,10 +36,13 @@ and constr_of_pi (p : pi) : constr =
   | Atomic (op, lhs, rhs) ->
       let operator = match op with
         | EQ -> "="
-        | _ -> failwith "TODO a proper failure wrapper"
+        | GT -> ">"
+        | LT -> "<"
+        | GTEQ -> ">="
+        | LTEQ -> "<="
       in
       CInfix (constr_of_term lhs, operator, constr_of_term rhs)
-  | _ -> failwith "TODO a proper failure wrapper"
+  | _ -> CError (string_of_pi ~config p)
 and constr_of_state ((p, k) : state) =
   CInfix (hprop_of_kappa k, "\\*", CSurround ("\\[", constr_of_pi p, "]"))
 and constr_of_staged_spec (ss : staged_spec) : constr =
@@ -46,12 +54,27 @@ and constr_of_staged_spec (ss : staged_spec) : constr =
   | NormalReturn (p, k) -> CApp (CVar "ens", [CFun ("res", constr_of_state (p, k))])
   | Sequence (f1, f2) -> CInfix (constr_of_staged_spec f1, ";;", constr_of_staged_spec f2)
   | Disjunction (f1, f2) -> CApp (CVar "disj", [constr_of_staged_spec f1; constr_of_staged_spec f2])
-  | Bind (v, f1, f2) -> CApp (CVar "bind", [constr_of_staged_spec f1; CFun (ident_of_binder v, constr_of_staged_spec f2)])
-  | _ -> failwith "TODO a proper failure wrapper"
+  | Bind (v, f1, f2) -> CApp (CVar "bind_t", [constr_of_staged_spec f1; CFun (ident_of_binder v, constr_of_staged_spec f2)])
+  | _ -> CError (string_of_staged_spec ~config ss)
 
-let string_of_constr c = failwith "TODO"
+let rec string_of_constr c =
+  match c with
+  | CConst c -> begin match c with
+    | ValUnit -> "tt"
+    | TStr s -> "\"" ^ s ^ "\""
+    | Num n -> string_of_int n
+    | Nil -> "[]"
+    | TTrue -> "true"
+    | TFalse -> "false"
+    end
+  | CVar v -> v
+  | CFun (x, body) -> Printf.sprintf "(fun %s => %s)" x (string_of_constr body)
+  | CApp (f, args) -> Printf.sprintf "(%s %s)" (string_of_constr f) (List.map string_of_constr args |> String.concat " ")
+  | CInfix (lhs, op, rhs) -> Printf.sprintf "(%s %s %s)" (string_of_constr lhs) op (string_of_constr rhs)
+  | CSurround (lp, sub, rp) -> Printf.sprintf "%s %s %s" lp (string_of_constr sub) rp
+  | CError s -> Printf.sprintf "(* unsupported node: %s *) _" s
 
-let statement_of_entailment f1 f2 = Some (CApp (CVar "entails", [constr_of_staged_spec f1; constr_of_staged_spec f2]))
+let statement_of_entailment f1 f2 = CApp (CVar "entails", [constr_of_staged_spec f1; constr_of_staged_spec f2])
 
 type 'a proof_log =
   | Step of 'a

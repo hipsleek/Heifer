@@ -86,12 +86,12 @@ let check_lambda_obligation_ name params lemmas predicates obl =
 let certificate_output : out_channel option ref = ref None
 
 let print_certificate name constr proof_log =
-  ignore proof_log;
   let open Hipprover.Certificate in
+  ignore proof_log;
   match !certificate_output with
   | None -> ()
   | Some out_chan ->
-      Printf.fprintf out_chan "Theorem %s_correctness : %s.\nProof.\nAdmitted." name (string_of_constr constr)
+      Printf.fprintf out_chan "Theorem %s_correctness : %s.\nProof.\nAdmitted.\n\n" name (string_of_constr constr)
 
 let test_failed result name =
   if String.ends_with ~suffix:"_false" name then
@@ -230,23 +230,28 @@ let analyze_method (prog : core_program) (meth : meth_def) : core_program =
     | None -> true
     | Some result -> entailment_succeeded result
   in
-  let prog =
-    (* let@ _ = Globals.Timing.(time overall) in *)
-    if not is_success then prog
-    else begin
-      let@ _ = Debug.span (fun _ -> debug
-        ~at:2
-        ~title:(Format.asprintf "remembering predicate for %s" meth.m_name)
-        "")
-      in
-      let pred = Hipprover.Entail.derive_predicate meth.m_name 
-      meth.m_params
-      inferred_spec in
-      (* let pred = todo () in *)
-      let cp_predicates = SMap.add meth.m_name pred prog.cp_predicates in
-      {prog with cp_predicates}
+  let add_predicate prog name params spec =
+    let@ _ = Debug.span (fun _ -> debug
+      ~at:2
+      ~title:(Format.asprintf "remembering predicate for %s" name)
+      "")
+    in
+    let pred = Hipprover.Entail.derive_predicate name params spec in
+    (* let pred = todo () in *)
+    let cp_predicates = SMap.add name pred prog.cp_predicates in
+    {prog with cp_predicates}
+  in
       (* prog *)
-    end
+  let prog = match result with
+    (* let@ _ = Globals.Timing.(time overall) in *)
+    | None -> add_predicate prog meth.m_name meth.m_params inferred_spec
+    | Some result ->
+        let open Hipprover.Entail.Entail_result in
+        match theorem_of_entailment result with
+        | Some (statement, proof) ->
+            print_certificate meth.m_name statement proof;
+            add_predicate prog meth.m_name meth.m_params inferred_spec
+        | None -> prog
   in
   (* potentially report the normalized spec as well. Refactor *)
   report_result
@@ -497,9 +502,11 @@ let preprocess_spec_comments =
 
 let run_file ~certificate_file input_file =
   let open Utils.Io in
-  match certificate_file with
-  | Some f -> certificate_output := Some (open_out f)
-  | None -> ();
+  begin
+    match certificate_file with
+    | Some f -> certificate_output := Some (open_out f)
+    | None -> ()
+  end;
   let chan = open_in input_file in
   let lines = input_lines chan in
   let content = String.concat "\n" lines in

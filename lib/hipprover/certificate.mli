@@ -38,4 +38,4 @@ type constr
 val string_of_constr : constr -> string
 
 (* this prototype version deliberately excludes calling functions from the context *)
-val statement_of_entailment : staged_spec -> staged_spec -> constr option
+val statement_of_entailment : staged_spec -> staged_spec -> constr
