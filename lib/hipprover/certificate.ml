@@ -49,6 +49,10 @@ and constr_of_staged_spec (ss : staged_spec) : constr =
   | Bind (v, f1, f2) -> CApp (CVar "bind", [constr_of_staged_spec f1; CFun (ident_of_binder v, constr_of_staged_spec f2)])
   | _ -> failwith "TODO a proper failure wrapper"
 
+let string_of_constr c = failwith "TODO"
+
+let statement_of_entailment f1 f2 = Some (CApp (CVar "entails", [constr_of_staged_spec f1; constr_of_staged_spec f2]))
+
 type 'a proof_log =
   | Step of 'a
   | Subproof of 'a proof_log list

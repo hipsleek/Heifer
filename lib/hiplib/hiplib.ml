@@ -31,6 +31,8 @@ let ocaml_prelude = "
 
 "
 
+let entailment_succeeded = Hipprover.Entail.Entail_result.entailment_succeeded
+
 (*
 let debug_tokens str =
   let lb = Lexing.from_string str in
@@ -80,6 +82,16 @@ let check_lambda_obligation_ name params lemmas predicates obl =
   let preds = SMap.merge_right_priority predicates obl.lo_preds in
   check_obligation_ name params lemmas preds (obl.lo_left, obl.lo_right)
 *)
+
+let certificate_output : out_channel option ref = ref None
+
+let print_certificate name constr proof_log =
+  ignore proof_log;
+  let open Hipprover.Certificate in
+  match !certificate_output with
+  | None -> ()
+  | Some out_chan ->
+      Printf.fprintf out_chan "Theorem %s_correctness : %s.\nProof.\nAdmitted." name (string_of_constr constr)
 
 let test_failed result name =
   if String.ends_with ~suffix:"_false" name then
@@ -170,12 +182,12 @@ let infer_spec (prog : core_program) (meth : meth_def) =
 
 let check_method prog inferred given =
   match given with
-  | None -> true
+  | None -> None
   | Some given_spec ->
     let open Hipprover.Entail in
     (* likely that we need some env or extra setup later *)
     let pctx = create_pctx prog in
-    check_staged_spec_entailment pctx inferred given_spec
+    Some (check_staged_spec_entailment pctx inferred given_spec)
 
 let infer_and_check_method (prog : core_program) (meth : meth_def) (given_spec : staged_spec option) =
   let inferred_spec = infer_spec prog meth in
@@ -214,9 +226,13 @@ let analyze_method (prog : core_program) (meth : meth_def) : core_program =
   let updated_meth = {meth with m_spec = Some choosen_spec} in
   (* we always add the method into the program, regardless of whether it is verified or not? *)
   let prog = {prog with cp_methods = updated_meth :: prog.cp_methods} in
+  let is_success = match result with
+    | None -> true
+    | Some result -> entailment_succeeded result
+  in
   let prog =
     (* let@ _ = Globals.Timing.(time overall) in *)
-    if not result then prog
+    if not is_success then prog
     else begin
       let@ _ = Debug.span (fun _ -> debug
         ~at:2
@@ -238,13 +254,13 @@ let analyze_method (prog : core_program) (meth : meth_def) : core_program =
     ~name:meth.m_name
     ~inferred_spec
     ~given_spec
-    ~result;
+    ~result:is_success;
   prog
 
 let check_lemma (prog : core_program) (l : lemma) : bool =
   let open Hipprover.Entail in
   let pctx = create_pctx prog in
-  check_staged_spec_entailment pctx l.l_left l.l_right
+  entailment_succeeded (check_staged_spec_entailment pctx l.l_left l.l_right)
 
 let analyze_lemma (prog : core_program) (l : lemma) : core_program =
   let result = check_lemma prog l in
@@ -479,8 +495,11 @@ let preprocess_spec_comments =
     let output = Str.global_replace lemma_attr_regex "@@@lemma" output in
     output
 
-let run_file input_file =
+let run_file ~certificate_file input_file =
   let open Utils.Io in
+  match certificate_file with
+  | Some f -> certificate_output := Some (open_out f)
+  | None -> ();
   let chan = open_in input_file in
   let lines = input_lines chan in
   let content = String.concat "\n" lines in
@@ -512,7 +531,6 @@ let run_file input_file =
   let lexbuf = Lexing.from_string content in
   let staged_spec = Parser.parse_staged_spec Lexer.token lexbuf in
   print_endline (Pretty.string_of_staged_spec staged_spec)
-*)
 
 let main () =
   if Array.length (Sys.argv) < 2 then begin
@@ -523,3 +541,4 @@ let main () =
   run_file inputfile;
   if !test_mode && not !tests_failed then Format.printf "ALL OK!@.";
   exit (if !tests_failed then 1 else 0)
+*)

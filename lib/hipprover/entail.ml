@@ -14,6 +14,65 @@ open Utils.Hstdlib
   | `Left -> Format.asprintf "%s, L" f
   | `Right -> Format.asprintf "%s, R" f *)
 
+type coq_tactic =
+  | Rewrite of string
+  | SRReduction
+  | Simplify
+  | Biab
+  | EntDisjL
+  | EntDisjR
+  | Focus of coq_tactic list
+
+type coq_tactics = coq_tactic list
+
+let rec string_of_coq_tactic t =
+  match t with
+  | EntDisjL -> "apply ent_disj_l."
+  | EntDisjR -> "apply ent_disj_l."
+  | Focus [] -> ""
+  | Focus [a] -> Format.asprintf "{ %s }" (string_of_coq_tactic a)
+  | Focus (a :: rest) ->
+    Format.asprintf "{ %s\n%s }" (string_of_coq_tactic a)
+      (string_of_list_ind_lines string_of_coq_tactic rest)
+  | Simplify -> "fsimpl."
+  | Biab -> "fbiabduction."
+  | SRReduction -> "freduction."
+  | Rewrite r -> Format.asprintf "rewrite %s." r
+
+and string_of_coq_tactics ts =
+  ts |> List.map string_of_coq_tactic |> String.concat "\n"
+
+let%expect_test _ =
+  Format.printf "%s@."
+    (string_of_coq_tactics
+       [
+         EntDisjL;
+         Focus
+           [
+             EntDisjR;
+             EntDisjL;
+             EntDisjR;
+             EntDisjL;
+             EntDisjR;
+             EntDisjL;
+             EntDisjR;
+             EntDisjL;
+           ];
+         Focus [EntDisjR];
+       ]);
+  [%expect
+    {|
+    apply ent_disj_l.
+    { apply ent_disj_l.
+      apply ent_disj_l.
+      apply ent_disj_l.
+      apply ent_disj_l.
+      apply ent_disj_l.
+      apply ent_disj_l.
+      apply ent_disj_l.
+      apply ent_disj_l. }
+    { apply ent_disj_l. }
+    |}]
 type use = Use of string [@@unboxed]
 
 let string_of_use (Use f) = f
@@ -27,7 +86,7 @@ type pctx = {
   lemmas : (string * Rewriting.rule) list;
   unfolded : use list;
   assumptions : pi list;
-  proof_log : string Certificate.partial_proof_log
+  proof_log : coq_tactic Certificate.partial_proof_log
 }
 
 let string_of_pctx ctx =
@@ -395,65 +454,6 @@ end = struct
       fmt
 end
 
-type coq_tactic =
-  | Rewrite of string
-  | SRReduction
-  | Simplify
-  | Biab
-  | EntDisjL
-  | EntDisjR
-  | Focus of coq_tactic list
-
-type coq_tactics = coq_tactic list
-
-let rec string_of_coq_tactic t =
-  match t with
-  | EntDisjL -> "apply ent_disj_l."
-  | EntDisjR -> "apply ent_disj_l."
-  | Focus [] -> ""
-  | Focus [a] -> Format.asprintf "{ %s }" (string_of_coq_tactic a)
-  | Focus (a :: rest) ->
-    Format.asprintf "{ %s\n%s }" (string_of_coq_tactic a)
-      (string_of_list_ind_lines string_of_coq_tactic rest)
-  | Simplify -> "fsimpl."
-  | Biab -> "fbiabduction."
-  | SRReduction -> "freduction."
-  | Rewrite r -> Format.asprintf "rewrite %s." r
-
-and string_of_coq_tactics ts =
-  ts |> List.map string_of_coq_tactic |> String.concat "\n"
-
-let%expect_test _ =
-  Format.printf "%s@."
-    (string_of_coq_tactics
-       [
-         EntDisjL;
-         Focus
-           [
-             EntDisjR;
-             EntDisjL;
-             EntDisjR;
-             EntDisjL;
-             EntDisjR;
-             EntDisjL;
-             EntDisjR;
-             EntDisjL;
-           ];
-         Focus [EntDisjR];
-       ]);
-  [%expect
-    {|
-    apply ent_disj_l.
-    { apply ent_disj_l.
-      apply ent_disj_l.
-      apply ent_disj_l.
-      apply ent_disj_l.
-      apply ent_disj_l.
-      apply ent_disj_l.
-      apply ent_disj_l.
-      apply ent_disj_l. }
-    { apply ent_disj_l. }
-    |}]
 
 let rec disj_left () : unit Tactic.t =
   let open Tactic in
@@ -592,6 +592,22 @@ let%expect_test _ =
 
     unfolded:
     |}]
+
+module Entail_result : sig 
+  type entailment_result
+  val entail_failure : entailment_result
+  val result_of_pctx : pctx -> staged_spec -> staged_spec -> entailment_result
+  val entailment_succeeded : entailment_result -> bool
+  val statement_of_entailment : entailment_result -> Certificate.constr option
+  val certificate_of_entailment : entailment_result -> coq_tactic Certificate.proof_log option
+end = struct 
+  type entailment_result = pstate option
+  let entail_failure = None
+  let result_of_pctx pctx f1 f2 = Some (pctx, f1, f2)
+  let entailment_succeeded = Option.is_some
+  let statement_of_entailment r = Option.bind r (fun (_, f1, f2) -> Certificate.statement_of_entailment f1 f2)
+  let certificate_of_entailment r = r |> Option.map (fun (pctx, _, _) -> Certificate.finalize_proof_log pctx.proof_log)
+end
 
 type tactic = pstate -> pstate Iter.t
 
@@ -1248,10 +1264,12 @@ let check_staged_spec_entailment ?name pctx inferred given =
         debug ~at:2 ~title:"entailment" "%s\n⊑\n%s\n%s"
           (string_of_staged_spec inferred)
           (string_of_staged_spec given)
-          (string_of_result string_of_bool r))
+          (string_of_result (fun x -> string_of_bool (Entail_result.entailment_succeeded x)) r))
   in
   match Iter.head (entailment_search ?name (pctx, inferred, given)) with
-  | None -> false
+  | None -> Entail_result.entail_failure
   | Some ps ->
     debug ~at:2 ~title:"proof found" "%s" (string_of_pstate ps);
-    true
+    let pctx_outcome, _, _ = ps in
+    let proof_log = pctx_outcome.proof_log in
+    Entail_result.result_of_pctx { pctx with proof_log } inferred given

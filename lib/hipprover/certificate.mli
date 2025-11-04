@@ -33,25 +33,9 @@ val close_subproof : 'a partial_proof_log -> 'a partial_proof_log
 
 val finalize_proof_log : 'a partial_proof_log -> 'a proof_log
 
-(* type proof_step *)
-(**)
-(* val use_rewrite : string -> proof_step *)
-(**)
-(* val apply_lemma : string -> proof_step *)
-(**)
-(* val apply_named_tactic : string -> proof_step *)
-(**)
-(* val concat : proof_step -> proof_step -> proof_step *)
-(**)
-(* val subgoals : proof_step -> proof_step list -> proof_step *)
-(**)
-(* type theorem *)
-(**)
-(* val theorem_of_entailment : staged_spec -> staged_spec -> theorem *)
-(**)
-(* type certificate *)
-(**)
-(* val create_proof : theorem -> proof_step -> certificate *)
-(**)
-(* val export : certificate -> string *)
-(**)
+type constr
+
+val string_of_constr : constr -> string
+
+(* this prototype version deliberately excludes calling functions from the context *)
+val statement_of_entailment : staged_spec -> staged_spec -> constr option

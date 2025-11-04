@@ -48,11 +48,15 @@ let run_as_untyped =
   let doc = "Ignore types when proving" in
   Arg.(value & flag & info ["notypes"] ~env ~doc ~docv:"DEBUG")
 
+let certificate_file =
+  let doc = "Output a Rocq certificate of any proved entailment. (Experimental)" in
+  Arg.(value & opt (some string) None & info ["certificate"] ~doc ~docv:"CERT_FILE")
+
 let cmd =
   Cmd.make (Cmd.info "heifer" ~version:"0.1") @@
   let+ file_to_prove and+ in_test_mode and+ output_to_file
     and+ show_types and+ perfetto_trace and+ debug_query
-    and+ run_as_untyped in
+    and+ run_as_untyped and+ certificate_file in
   Hiplib.test_mode := in_test_mode;
   Hiplib.file_mode := output_to_file;
   if show_types then
@@ -63,9 +67,9 @@ let cmd =
   let file_to_prove = Sys.getcwd () ^ "/" ^ file_to_prove in
   begin
   if !Hiplib.file_mode then
-    redirect_stdout (fun () -> Hiplib.run_file file_to_prove)
+    redirect_stdout (fun () -> Hiplib.run_file ~certificate_file file_to_prove)
   else 
-    Hiplib.run_file file_to_prove
+    Hiplib.run_file ~certificate_file file_to_prove
   end;
   if !Hiplib.test_mode && not !Hiplib.tests_failed then Format.printf "ALL OK!@.";
   let return_code = if !Hiplib.tests_failed then 1 else 0 in
