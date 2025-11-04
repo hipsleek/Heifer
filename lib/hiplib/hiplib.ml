@@ -83,15 +83,19 @@ let check_lambda_obligation_ name params lemmas predicates obl =
   check_obligation_ name params lemmas preds (obl.lo_left, obl.lo_right)
 *)
 
-let certificate_output : out_channel option ref = ref None
+let certificate_output : Hipprover.Certificate.certificate_file option ref = ref None
 
 let print_certificate name constr proof_log =
   let open Hipprover.Certificate in
   ignore proof_log;
   match !certificate_output with
   | None -> ()
-  | Some out_chan ->
-      Printf.fprintf out_chan "Theorem %s_correctness : %s.\nProof.\nAdmitted.\n\n" name (string_of_constr constr)
+  | Some file ->
+      write_theorem ~out:file
+        ~name:(name ^ "_correctness")
+        ~statement:constr
+        ~string_of_step:Hipprover.Entail.string_of_coq_tactic
+        (Some proof_log)
 
 let test_failed result name =
   if String.ends_with ~suffix:"_false" name then
@@ -503,8 +507,9 @@ let preprocess_spec_comments =
 let run_file ~certificate_file input_file =
   let open Utils.Io in
   begin
+    let open Hipprover.Certificate in
     match certificate_file with
-    | Some f -> certificate_output := Some (open_out f)
+    | Some f -> certificate_output := Some (open_out f |> make_certificate_file)
     | None -> ()
   end;
   let chan = open_in input_file in

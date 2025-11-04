@@ -15,64 +15,27 @@ open Utils.Hstdlib
   | `Right -> Format.asprintf "%s, R" f *)
 
 type coq_tactic =
-  | Rewrite of string
-  | SRReduction
   | Simplify
   | Biab
-  | EntDisjL
-  | EntDisjR
-  | Focus of coq_tactic list
+  | Match_ens
+  | Solve_single
+  | Solve_empty
+  | Intro_exists of binder
+  | Inst_exists of term
+  | Inst_forall of term
 
-type coq_tactics = coq_tactic list
-
-let rec string_of_coq_tactic t =
-  match t with
-  | EntDisjL -> "apply ent_disj_l."
-  | EntDisjR -> "apply ent_disj_l."
-  | Focus [] -> ""
-  | Focus [a] -> Format.asprintf "{ %s }" (string_of_coq_tactic a)
-  | Focus (a :: rest) ->
-    Format.asprintf "{ %s\n%s }" (string_of_coq_tactic a)
-      (string_of_list_ind_lines string_of_coq_tactic rest)
+let string_of_coq_tactic tac =
+  let config = (default_config |> set_single_line) in
+  match tac with
   | Simplify -> "fsimpl."
   | Biab -> "fbiabduction."
-  | SRReduction -> "freduction."
-  | Rewrite r -> Format.asprintf "rewrite %s." r
+  | Match_ens -> "fmatch_ens."
+  | Solve_single -> "fsingle_ens."
+  | Solve_empty -> "fempty."
+  | Intro_exists t -> "fdestruct " ^ (ident_of_binder t) ^ "."
+  | Inst_exists t -> "fexists " ^ (string_of_term ~config t) ^ "."
+  | Inst_forall t -> "finst_lhs_all " ^ (string_of_term ~config t) ^ "."
 
-and string_of_coq_tactics ts =
-  ts |> List.map string_of_coq_tactic |> String.concat "\n"
-
-let%expect_test _ =
-  Format.printf "%s@."
-    (string_of_coq_tactics
-       [
-         EntDisjL;
-         Focus
-           [
-             EntDisjR;
-             EntDisjL;
-             EntDisjR;
-             EntDisjL;
-             EntDisjR;
-             EntDisjL;
-             EntDisjR;
-             EntDisjL;
-           ];
-         Focus [EntDisjR];
-       ]);
-  [%expect
-    {|
-    apply ent_disj_l.
-    { apply ent_disj_l.
-      apply ent_disj_l.
-      apply ent_disj_l.
-      apply ent_disj_l.
-      apply ent_disj_l.
-      apply ent_disj_l.
-      apply ent_disj_l.
-      apply ent_disj_l. }
-    { apply ent_disj_l. }
-    |}]
 type use = Use of string [@@unboxed]
 
 let string_of_use (Use f) = f
@@ -143,6 +106,15 @@ let new_pctx () =
     lemmas = [];
     proof_log = Certificate.empty_partial_log
   }
+
+let log_proof_step pctx tactic = 
+  { pctx with proof_log = Certificate.(append pctx.proof_log (proof_step tactic)) }
+
+let open_subproof_log pctx =
+  { pctx with proof_log = Certificate.open_subproof pctx.proof_log }
+
+let close_subproof_log pctx =
+  { pctx with proof_log = Certificate.open_subproof pctx.proof_log }
 
 let has_been_unfolded pctx name _lr =
   pctx.unfolded
@@ -696,6 +668,7 @@ let rec repeat_simplify_lhs ?(limit = 5) (spec : staged_spec) : staged_spec =
 
 let simplify : total =
  fun (pctx, f1, f2) ->
+  let pctx = log_proof_step pctx Simplify in
   let@ _ =
     span (fun r -> log_proof_state_total ~title:"simplify" (pctx, f1, f2) r)
   in
@@ -869,6 +842,7 @@ let rec apply_ent_rule ?name : tactic =
   | NormalReturn (True, EmptyHeap), NormalReturn (True, EmptyHeap)
   | Require (True, EmptyHeap), Require (True, EmptyHeap) ->
     (* | Require (True, EmptyHeap), Require (True, EmptyHeap) -> *)
+    let pctx = log_proof_step pctx Solve_empty in
     k (pctx, ens (), ens ())
   (* | ( Sequence (NormalReturn (True, EmptyHeap), f1),
       Sequence (NormalReturn (True, EmptyHeap), f2) )
@@ -1043,6 +1017,7 @@ let rec apply_ent_rule ?name : tactic =
     let@ _ =
       span (fun _r -> log_proof_state ~title:"ent: ens ens" (pctx, f1, f2))
     in
+    let pctx = log_proof_step pctx Solve_single in
     let@ (ap, ah), (fp, fh) = biab h1 h2 in
     let valid =
       check_pure_obligation
@@ -1058,6 +1033,7 @@ let rec apply_ent_rule ?name : tactic =
     let@ _ =
       span (fun _r -> log_proof_state ~title:"ent: req req" (pctx, f1, f2))
     in
+    let pctx = log_proof_step pctx Solve_single in
     apply_ent_rule ?name (pctx, NormalReturn (p2, h2), NormalReturn (p1, h1)) k
   | Sequence (NormalReturn (p1, h1), f3), Sequence (NormalReturn (p2, h2), f4)
     ->
@@ -1070,6 +1046,7 @@ let rec apply_ent_rule ?name : tactic =
         (conj (pctx.assumptions @ [p1; Heap.xpure h1]))
         (conj [p2; ap; Heap.xpure h2])
     in
+    let pctx = log_proof_step pctx Match_ens in
     if valid then
       entailment_search ?name
         (pctx, seq [req ~h:ah (); f3], seq [req ~h:fh (); f4])
@@ -1134,6 +1111,7 @@ let rec apply_ent_rule ?name : tactic =
       in
       { pctx with constants = var_of_binder x :: pctx.constants }
     in
+    let pctx = log_proof_step pctx (Intro_exists x) in
     entailment_search ?name (pctx, f3, f2) k
   | f1, ForAll (x, f4) ->
     let pctx =
@@ -1165,6 +1143,7 @@ let rec apply_ent_rule ?name : tactic =
                 ~title:(Format.asprintf "ent: exists on the right; [%s/%s]" (string_of_term c) (string_of_binder x))
                 (pctx, f1, f2))
             in
+            let pctx = log_proof_step pctx (Inst_exists c) in
             entailment_search ?name (pctx, f1, f4) k1
           else (fun _ -> fail))
     in

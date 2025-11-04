@@ -39,3 +39,9 @@ val string_of_constr : constr -> string
 
 (* this prototype version deliberately excludes calling functions from the context *)
 val statement_of_entailment : staged_spec -> staged_spec -> constr
+
+type certificate_file
+
+val make_certificate_file : out_channel -> certificate_file
+
+val write_theorem : out:certificate_file -> name:string -> statement:constr -> string_of_step:('a -> string) -> 'a proof_log option -> unit
