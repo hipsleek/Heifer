@@ -57,6 +57,8 @@ type constr = CVar of string
 
 (* Do not throw an exception when processing an invalid node. Instead, return a CError. *)
 
+let pi_mentions_result p = Hipcore_typed.(Syntax.conjuncts_of_pi p |> List.exists Variables.is_eq_res)
+
 let rec hprop_of_kappa (k : kappa) : constr =
   match k with
   | SepConj (k1, k2) -> CInfix (hprop_of_kappa k1, "\\*", hprop_of_kappa k2)
@@ -66,6 +68,12 @@ and constr_of_term (t : term) : constr =
   match t.term_desc with
   | Const c -> CConst c
   | Var v -> CVar v
+  | BinOp (op, lhs, rhs) ->
+      let op_fun = match op with
+        | Plus -> CVar "vplus"
+        | _ -> CError "[binary operation]"
+      in
+      CApp (op_fun, [constr_of_term lhs; constr_of_term rhs])
   | _ -> CError (string_of_term ~config t)
 and constr_of_pi (p : pi) : constr =
   match p with
@@ -75,14 +83,20 @@ and constr_of_pi (p : pi) : constr =
   | Or (lhs, rhs) -> CInfix (constr_of_pi lhs, "\\/", constr_of_pi rhs)
   | Imply (lhs, rhs) -> CInfix (constr_of_pi lhs, "->", constr_of_pi rhs)
   | Atomic (op, lhs, rhs) ->
-      let operator = match op with
-        | EQ -> "="
-        | GT -> ">"
-        | LT -> "<"
-        | GTEQ -> ">="
-        | LTEQ -> "<="
-      in
-      CInfix (constr_of_term lhs, operator, constr_of_term rhs)
+      (* if this is a result comparison, insert a cast to [val] *)
+      begin
+      match Hipcore_typed.Variables.eq_res_term p with
+      | Some t -> CInfix (CVar "res", "=", CApp (CVar "into", [constr_of_term t]))
+      | None ->
+        let operator = match op with
+          | EQ -> "="
+          | GT -> ">"
+          | LT -> "<"
+          | GTEQ -> ">="
+          | LTEQ -> "<="
+        in
+        CInfix (constr_of_term lhs, operator, constr_of_term rhs)
+      end
   | _ -> CError (string_of_pi ~config p)
 and constr_of_state ((p, k) : state) =
   CInfix (hprop_of_kappa k, "\\*", CSurround ("\\[", constr_of_pi p, "]"))
@@ -92,10 +106,23 @@ and constr_of_staged_spec (ss : staged_spec) : constr =
   | ForAll (v, ss) -> CApp (CVar "fall", [CFun (ident_of_binder v, constr_of_staged_spec ss)])
   | Require (p, k) -> CApp (CVar "req_", [constr_of_state (p, k)])
   (* need to convert anything that says nothing about the result to an [ens_] ... *)
-  | NormalReturn (p, k) -> CApp (CVar "ens", [CFun ("res", constr_of_state (p, k))])
+  | NormalReturn (p, k) -> 
+      if pi_mentions_result p
+      then CApp (CVar "ens", [CFun ("res", constr_of_state (p, k))])
+      else CApp (CVar "ens_", [constr_of_state (p, k)])
+  | Sequence (Require (p, k), f) -> CApp (CVar "req", [constr_of_state (p, k); constr_of_staged_spec f])
   | Sequence (f1, f2) -> CInfix (constr_of_staged_spec f1, ";;", constr_of_staged_spec f2)
   | Disjunction (f1, f2) -> CApp (CVar "disj", [constr_of_staged_spec f1; constr_of_staged_spec f2])
-  | Bind (v, f1, f2) -> CApp (CVar "bind_t", [constr_of_staged_spec f1; CFun (ident_of_binder v, constr_of_staged_spec f2)])
+  | Bind (v, f1, f2) -> 
+      let bind f fk = match type_of_binder v with
+        | Int -> CApp (CVar "@bind_t", [CVar "int"; CVar "_"; f; fk])
+        | TConstr ("ref", _) -> CApp (CVar "@bind_t", [CVar "loc"; CVar "_"; f; fk])
+        (* let Coq infer the underlying type *)
+        (* if the bound variable is unused, it infers Int, which breaks some of the rewriting rules *)
+        (* there might need to be a better special case for that scenario... *)
+        | _ -> CApp (CVar "bind_t", [f; fk])
+      in
+      bind (constr_of_staged_spec f1) (CFun (ident_of_binder v, constr_of_staged_spec f2))
   | _ -> CError (string_of_staged_spec ~config ss)
 
 let rec string_of_constr c =
@@ -115,6 +142,7 @@ let rec string_of_constr c =
   | CSurround (lp, sub, rp) -> Printf.sprintf "%s %s %s" lp (string_of_constr sub) rp
   | CError s -> Printf.sprintf "(* unsupported node: %s *) _" s
 
+(* TODO quantify all free vars *)
 let statement_of_entailment f1 f2 = CApp (CVar "entails", [constr_of_staged_spec f1; constr_of_staged_spec f2])
 
 type certificate_file = out_channel
@@ -133,6 +161,14 @@ From ShiftReset.Mechanized Require Import State Normalization Entail_tactics.
 Instance RewritableBinder_anything : forall f, RewritableBinder f.
 Proof.
 Admitted.
+
+(* primitive function declarations *)
+
+Definition vplus (a b:val) : val :=
+  match a, b with
+  | vint a, vint b => vint (a + b)
+  | _, _ => vunit
+  end.
 
 (* end prelude *)
 

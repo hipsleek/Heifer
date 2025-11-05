@@ -25,16 +25,15 @@ type coq_tactic =
   | Inst_forall of term
 
 let string_of_coq_tactic tac =
-  let config = (default_config |> set_single_line) in
   match tac with
   | Simplify -> "fsimpl."
-  | Biab -> "fbiabduction."
+  | Biab -> "fbiab_state."
   | Match_ens -> "fmatch_ens."
   | Solve_single -> "fsingle_ens."
   | Solve_empty -> "fempty."
   | Intro_exists t -> "fdestruct " ^ (ident_of_binder t) ^ "."
-  | Inst_exists t -> "fexists " ^ (string_of_term ~config t) ^ "."
-  | Inst_forall t -> "finst_lhs_all " ^ (string_of_term ~config t) ^ "."
+  | Inst_exists t -> "fexists " ^ (Certificate.(string_of_constr (constr_of_term t))) ^ "."
+  | Inst_forall t -> "finst_lhs_all " ^ Certificate.(string_of_constr (constr_of_term t)) ^ "."
 
 type use = Use of string [@@unboxed]
 
@@ -973,7 +972,7 @@ let rec apply_ent_rule ?name : tactic =
       | Atomic (EQ, t1, t2) when t2.term_desc = Var (ident_of_binder y) -> Some t1
       | _ -> None
     in
-    let f1 =
+    let f1, pctx =
       match Lists.find_delete_map find_equality eqs with
       | None ->
         seq
@@ -981,7 +980,7 @@ let rec apply_ent_rule ?name : tactic =
             Require (conj (p2 :: eqs), sep_conj a);
             NormalReturn (p1, sep_conj f);
             f3;
-          ]
+          ], pctx
       | Some (t, eqs) ->
         debug ~at:5 ~title:"ent: biab f inst with" "[%s/%s]" (string_of_term t) (string_of_binder y);
         seq
@@ -989,8 +988,9 @@ let rec apply_ent_rule ?name : tactic =
             Require (conj (p2 :: eqs), sep_conj a);
             NormalReturn (p1, sep_conj f);
             Subst.subst_free_vars [(ident_of_binder y, t)] f3;
-          ]
+          ], log_proof_step pctx (Inst_forall t)
     in
+    let pctx = log_proof_step pctx Biab in
     entailment_search ?name (pctx, f1, f2) k
   (*
   | ( Sequence

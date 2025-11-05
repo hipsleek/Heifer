@@ -37,6 +37,7 @@ type constr
 
 val string_of_constr : constr -> string
 
+val constr_of_term : term -> constr
 (* this prototype version deliberately excludes calling functions from the context *)
 val statement_of_entailment : staged_spec -> staged_spec -> constr
 
