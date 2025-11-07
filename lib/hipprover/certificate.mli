@@ -45,4 +45,6 @@ type certificate_file
 
 val make_certificate_file : out_channel -> certificate_file
 
-val write_theorem : out:certificate_file -> name:string -> statement:constr -> string_of_step:('a -> string) -> 'a proof_log option -> unit
+val write_theorem : out:certificate_file -> program:core_program -> name:string -> statement:constr -> string_of_step:('a -> string) -> 'a proof_log option -> unit
+
+val write_assumption : out:certificate_file -> name:string -> statement:constr -> unit

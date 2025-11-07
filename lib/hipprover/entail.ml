@@ -16,6 +16,8 @@ open Utils.Hstdlib
 
 type coq_tactic =
   | Simplify
+  | Unfold_nonrec
+  | Intro_pure_assumption
   | Biab
   | Match_ens
   | Solve_single
@@ -27,6 +29,8 @@ type coq_tactic =
 let string_of_coq_tactic tac =
   match tac with
   | Simplify -> "fsimpl."
+  | Unfold_nonrec -> "funfold_from_ctx."
+  | Intro_pure_assumption -> "fpure_assumption."
   | Biab -> "fbiab_state."
   | Match_ens -> "fmatch_ens."
   | Solve_single -> "fsingle_ens."
@@ -667,11 +671,13 @@ let rec repeat_simplify_lhs ?(limit = 5) (spec : staged_spec) : staged_spec =
 
 let simplify : total =
  fun (pctx, f1, f2) ->
-  let pctx = log_proof_step pctx Simplify in
+   (* TODO apply this simplify step after folding recursive definitions *)
   let@ _ =
     span (fun r -> log_proof_state_total ~title:"simplify" (pctx, f1, f2) r)
   in
+  let pctx = log_proof_step pctx Unfold_nonrec in
   let pctx, f1, f2 = unfold_nonrecursive_definitions (pctx, f1, f2) in
+  let pctx = log_proof_step pctx Simplify in
   let f1 = repeat_simplify_lhs f1 in
   let f2 = Normalize.normalize_spec_rhs f2 in
   (pctx, f1, f2)
@@ -915,6 +921,7 @@ let rec apply_ent_rule ?name : tactic =
         span (fun _r ->
             log_proof_state ~title:"ent: pure assumption" (pctx, f1, f2))
       in
+      let pctx = log_proof_step pctx Intro_pure_assumption in
       { pctx with assumptions = p1 :: pctx.assumptions }
     in
     entailment_search ?name (pctx, f3, f2) k
@@ -924,6 +931,7 @@ let rec apply_ent_rule ?name : tactic =
         span (fun _r ->
             log_proof_state ~title:"ent: pure assumption" (pctx, f1, f2))
       in
+      let pctx = log_proof_step pctx Intro_pure_assumption in
       { pctx with assumptions = p2 :: pctx.assumptions }
     in
     entailment_search ?name (pctx, f1, f4) k

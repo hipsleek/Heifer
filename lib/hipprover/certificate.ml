@@ -54,6 +54,7 @@ type constr = CVar of string
   | CSurround of string * constr * string
   (* invalid node, meant to allow for better context regarding incomplete constr generation *)
   | CError of string
+  | CQuantify of string * string list * constr
 
 (* Do not throw an exception when processing an invalid node. Instead, return a CError. *)
 
@@ -88,15 +89,17 @@ and constr_of_pi (p : pi) : constr =
       match Hipcore_typed.Variables.eq_res_term p with
       | Some t -> CInfix (CVar "res", "=", CApp (CVar "into", [constr_of_term t]))
       | None ->
+        (* NOTE: these are currently implemented to only compare integers! *)
         let operator = match op with
-          | EQ -> "="
-          | GT -> ">"
-          | LT -> "<"
-          | GTEQ -> ">="
-          | LTEQ -> "<="
+          | EQ -> "veq"
+          | GT -> "vgt"
+          | LT -> "vlt"
+          | GTEQ -> "vge"
+          | LTEQ -> "vle"
         in
-        CInfix (constr_of_term lhs, operator, constr_of_term rhs)
+        CApp (CVar operator, [constr_of_term lhs; constr_of_term rhs])
       end
+  | Not p -> CSurround ("~", constr_of_pi p, "")
   | _ -> CError (string_of_pi ~config p)
 and constr_of_state ((p, k) : state) =
   CInfix (hprop_of_kappa k, "\\*", CSurround ("\\[", constr_of_pi p, "]"))
@@ -105,6 +108,8 @@ and constr_of_staged_spec (ss : staged_spec) : constr =
   | Exists (v, ss) -> CApp (CVar "fex", [CFun (ident_of_binder v, constr_of_staged_spec ss)])
   | ForAll (v, ss) -> CApp (CVar "fall", [CFun (ident_of_binder v, constr_of_staged_spec ss)])
   | Require (p, k) -> CApp (CVar "req_", [constr_of_state (p, k)])
+  (* support only one argument for now, pack multiple arguments via vtup...? *)
+  | HigherOrder (f, [arg]) -> CApp (CVar "unk", [CConst (TStr f); constr_of_term arg])
   (* need to convert anything that says nothing about the result to an [ens_] ... *)
   | NormalReturn (p, k) -> 
       if pi_mentions_result p
@@ -128,7 +133,7 @@ and constr_of_staged_spec (ss : staged_spec) : constr =
 let rec string_of_constr c =
   match c with
   | CConst c -> begin match c with
-    | ValUnit -> "tt"
+    | ValUnit -> "vunit"
     | TStr s -> "\"" ^ s ^ "\""
     | Num n -> string_of_int n
     | Nil -> "[]"
@@ -141,9 +146,48 @@ let rec string_of_constr c =
   | CInfix (lhs, op, rhs) -> Printf.sprintf "(%s %s %s)" (string_of_constr lhs) op (string_of_constr rhs)
   | CSurround (lp, sub, rp) -> Printf.sprintf "%s %s %s" lp (string_of_constr sub) rp
   | CError s -> Printf.sprintf "(* unsupported node: %s *) _" s
+  | CQuantify (q, vars, body) -> Printf.sprintf "%s %s, %s" q (String.concat " " vars) (string_of_constr body)
+
+let quantify vars constr =
+  match vars with
+  | [] -> constr
+  | free_vars -> CQuantify ("forall", free_vars, constr)
+
+let remove_nonterm_variables free_var_mapping =
+  free_var_mapping
+  |> Utils.Hstdlib.SMap.to_list
+  |> List.filter_map (fun (fv, ty) ->
+      match ty with
+      | None -> None
+      | Some _ -> Some fv)
 
 (* TODO quantify all free vars *)
-let statement_of_entailment f1 f2 = CApp (CVar "entails", [constr_of_staged_spec f1; constr_of_staged_spec f2])
+let statement_of_entailment f1 f2 = 
+  let free_vars = 
+    let open Utils.Hstdlib in
+    let open Hipcore_typed.Subst in
+    SMap.merge_arbitrary (types_of_free_vars Sctx_staged f1) (types_of_free_vars Sctx_staged f2)
+    |> SMap.remove "res"
+    |> remove_nonterm_variables
+  in
+  (* Printf.printf "SOE fv [%s] end\n" (String.concat "; " free_vars); *)
+  let entailment = CApp (CVar "entails", [constr_of_staged_spec f1; constr_of_staged_spec f2]) in
+  quantify free_vars entailment
+
+let statement_of_method name params spec =
+  match params with
+  | [p] -> 
+    let free_vars =
+      let open Hipcore_typed.Subst in
+      let open Utils.Hstdlib in
+      types_of_free_vars Sctx_staged spec
+      |> SMap.add (ident_of_binder p) (Some (type_of_binder p))
+      |> remove_nonterm_variables
+    in
+    (* Printf.printf "SOM %s fv [%s] end\n" name (String.concat "; " free_vars); *)
+    CQuantify ("forall", free_vars,
+    CApp (CVar "entails", [CApp (CVar "unk", [CConst (TStr name); CVar (ident_of_binder p)]); constr_of_staged_spec spec]))
+  | _ -> CError ("unsupported method " ^ name)
 
 type certificate_file = out_channel
 
@@ -151,6 +195,8 @@ let make_certificate_file out =
   let prelude = {|
 From ShiftReset Require Import Logic Entl Automation Norm Propriety.
 From ShiftReset.Mechanized Require Import State Normalization Entail_tactics.
+
+Local Open Scope string_scope.
 
 (* Due to deficiencies in the underlying model, this is necessary to get some of the
   needed rewrite operations (in particular, those manipulating the body of a [bind])
@@ -177,10 +223,19 @@ Definition vplus (a b:val) : val :=
   Printf.fprintf out "%s" prelude;
   out
 
-let write_theorem ~out ~name ~statement ~string_of_step log =
+let write_theorem ~out ~program ~name ~statement ~string_of_step log =
+  (* Printf.printf "writing theorem for %s\n" name; *)
+  (* Printf.printf "statement: %s\n" (string_of_constr statement); *)
+  let theorem_params =
+    program.cp_predicates
+    |> Utils.Hstdlib.SMap.to_list
+    |> List.map (fun (_, pred_def) -> 
+        let statement = statement_of_method pred_def.p_name pred_def.p_params pred_def.p_body in
+        Printf.sprintf "(%s_rewrite_rule : %s)" pred_def.p_name (string_of_constr statement))
+  in
   Printf.fprintf out "(* begin proof item %s *)\n" name;
-  Printf.fprintf out "Theorem %s : %s.\n" name (string_of_constr statement);
-  Printf.fprintf out "Proof. rew_hprop_to_state.\n";
+  Printf.fprintf out "Theorem %s %s\n : %s.\n" name (String.concat "\n  " theorem_params) (string_of_constr statement);
+  Printf.fprintf out "Proof. intros. rew_hprop_to_state.\n";
   begin match log with
   | None -> Printf.fprintf out "Admitted.\n"
   | Some log -> Printf.fprintf out "%s" (string_of_proof_log log string_of_step);
@@ -189,4 +244,6 @@ let write_theorem ~out ~name ~statement ~string_of_step log =
   Printf.fprintf out "(* end proof item %s *)\n\n" name;
   Out_channel.flush out
   
-
+let write_assumption ~out ~name ~statement =
+  Printf.fprintf out "Parameter %s: %s.\n\n" name (string_of_constr statement);
+  Out_channel.flush out;

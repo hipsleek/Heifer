@@ -61,6 +61,16 @@ let types_of_free_vars (type ctx_type) (ctx_type : ctx_type subst_context) (ctx 
       method zero = SMap.empty
       method plus = SMap.merge_right_priority
 
+      (* ens binds 'res', remove it as a free var *)
+      method! visit_NormalReturn () p k =
+        let free_p = super#visit_pi () p in
+        let free_k = super#visit_kappa () k in
+        SMap.merge_arbitrary free_p free_k |> SMap.remove "res"
+
+      method! visit_PointsTo () loc v =
+        let b = super#visit_term () v in
+        SMap.add loc (Some (TConstr ("ref", [v.term_type]))) b
+
       method! visit_Exists () x f =
         let b = super#visit_Exists () x f in
         SMap.remove (ident_of_binder x) b

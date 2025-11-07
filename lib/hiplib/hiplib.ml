@@ -85,13 +85,14 @@ let check_lambda_obligation_ name params lemmas predicates obl =
 
 let certificate_output : Hipprover.Certificate.certificate_file option ref = ref None
 
-let print_certificate name constr proof_log =
+let print_certificate program name constr proof_log =
   let open Hipprover.Certificate in
   ignore proof_log;
   match !certificate_output with
   | None -> ()
   | Some file ->
       write_theorem ~out:file
+        ~program
         ~name:(name ^ "_correctness")
         ~statement:constr
         ~string_of_step:Hipprover.Entail.string_of_coq_tactic
@@ -253,7 +254,7 @@ let analyze_method (prog : core_program) (meth : meth_def) : core_program =
         let open Hipprover.Entail.Entail_result in
         match theorem_of_entailment result with
         | Some (statement, proof) ->
-            print_certificate meth.m_name statement proof;
+            print_certificate prog meth.m_name statement proof;
             add_predicate prog meth.m_name meth.m_params inferred_spec
         | None -> prog
   in
