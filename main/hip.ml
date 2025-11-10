@@ -18,6 +18,10 @@ let () =
   Hiplib.(file_mode :=
     (Option.bind (Sys.getenv_opt "FILE") int_of_string_opt
     |> Option.value ~default:0) > 0);
+  begin
+  if Option.bind (Sys.getenv_opt "NOTYPES") int_of_string_opt |> Option.value ~default:0 > 0
+  then Hipcore_typed.Dynamic_typing.set_dynamic_typing ()
+  end;
   let ctf =
     Option.bind (Sys.getenv_opt "CTF") int_of_string_opt
     |> Option.value ~default:0 > 0

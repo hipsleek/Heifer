@@ -52,7 +52,8 @@ let reduce_visitor_function (type ctx_type) reduce_visitor (ctx_type : ctx_type 
 let find_non_term_binding x bindings =
   match List.assoc_opt x bindings with
   | Some {term_desc = Var name; _} -> name
-  | _ -> x
+  | Some _ -> failwith "Expected (Var _) for non-term substitution"
+  | None -> x
 
 let types_of_free_vars (type ctx_type) (ctx_type : ctx_type subst_context) (ctx : ctx_type) =
   let visitor =

@@ -74,6 +74,13 @@ Some of the environment variables Heifer interprets may be useful for testing.
 Setting `TEST=1` causes Heifer to print only whether a test has failed, which is useful for integration tests.
 A test in this context is a function whose main entailment proof must succeed; if its name has the suffix `_false`, the entailment must fail.
 
+## Untyped extensions
+
+Some extensions not supported by mainline OCaml are supported. Currently, this only includes delimited continuation operators (ala [OchaCaml](https://www.is.ocha.ac.jp/~asai/OchaCaml/)), but more may be supported.
+
+Setting `NOTYPES=1` will defer all typechecking during entailment checks until necessary (i.e. before SMT translation). This may be useful to ease development of extensions
+outside of those typechecked by OCaml.
+
 ## Logging and tracing
 
 View log output by setting `DEBUG=n`.
