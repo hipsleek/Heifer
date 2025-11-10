@@ -193,7 +193,6 @@ let remove_nonterm_variables free_var_mapping =
       | None -> None
       | Some _ -> Some fv)
 
-(* TODO quantify all free vars *)
 let statement_of_entailment f1 f2 = 
   let free_vars = 
     let open Utils.Hstdlib in
@@ -202,7 +201,6 @@ let statement_of_entailment f1 f2 =
     |> SMap.remove "res"
     |> remove_nonterm_variables
   in
-  (* Printf.printf "SOE fv [%s] end\n" (String.concat "; " free_vars); *)
   let entailment = CApp (CVar "entails", [constr_of_staged_spec f1; constr_of_staged_spec f2]) in
   quantify free_vars entailment
 
@@ -216,7 +214,6 @@ let statement_of_method name params spec =
       |> SMap.add (ident_of_binder p) (Some (type_of_binder p))
       |> remove_nonterm_variables
     in
-    (* Printf.printf "SOM %s fv [%s] end\n" name (String.concat "; " free_vars); *)
     CQuantify ("forall", free_vars,
     CApp (CVar "entails", [CApp (CVar "unk", [CConst (TStr name); CVar (ident_of_binder p)]); constr_of_staged_spec spec]))
   | _ -> CError ("unsupported method " ^ name)

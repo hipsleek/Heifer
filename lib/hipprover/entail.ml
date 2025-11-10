@@ -676,7 +676,6 @@ let rec repeat_simplify_lhs ?(limit = 5) (spec : staged_spec) : staged_spec =
 
 let simplify : total =
  fun (pctx, f1, f2) ->
-   (* TODO apply this simplify step after folding recursive definitions *)
   let@ _ =
     span (fun r -> log_proof_state_total ~title:"simplify" (pctx, f1, f2) r)
   in
