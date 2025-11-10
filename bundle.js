@@ -4043,7 +4043,24 @@ async function init(initModule) {
                     intArrayToByteArr(constructors),
                 ]);
             },
-            mk_datatype_sort: Mod._Z3_mk_datatype_sort,
+            mk_polymorphic_datatype: function (c, name, parameters, constructors) {
+                return Mod.ccall('Z3_mk_polymorphic_datatype', 'number', ['number', 'number', 'number', 'array', 'number', 'array'], [
+                    c,
+                    name,
+                    parameters.length,
+                    intArrayToByteArr(parameters),
+                    constructors.length,
+                    intArrayToByteArr(constructors),
+                ]);
+            },
+            mk_datatype_sort: function (c, name, params) {
+                return Mod.ccall('Z3_mk_datatype_sort', 'number', ['number', 'number', 'number', 'array'], [
+                    c,
+                    name,
+                    params.length,
+                    intArrayToByteArr(params),
+                ]);
+            },
             mk_constructor_list: function (c, constructors) {
                 return Mod.ccall('Z3_mk_constructor_list', 'number', ['number', 'number', 'array'], [
                     c,
