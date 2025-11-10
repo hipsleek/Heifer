@@ -18,6 +18,8 @@ type coq_tactic =
   | Simplify
   | Unfold_nonrec
   | Intro_pure_assumption
+  | Split_disjunction
+  | Choose_disj_branch of [`Left | `Right]
   | Biab
   | Match_ens
   | Solve_single
@@ -31,6 +33,9 @@ let string_of_coq_tactic tac =
   | Simplify -> "fsimpl."
   | Unfold_nonrec -> "funfold_from_ctx."
   | Intro_pure_assumption -> "fpure_assumption."
+  | Split_disjunction -> "fsplit_disj."
+  | Choose_disj_branch `Left -> "fdisj_left_state."
+  | Choose_disj_branch `Right -> "fdisj_right_state."
   | Biab -> "fbiab_state."
   | Match_ens -> "fmatch_ens."
   | Solve_single -> "fsingle_ens."
@@ -117,7 +122,7 @@ let open_subproof_log pctx =
   { pctx with proof_log = Certificate.open_subproof pctx.proof_log }
 
 let close_subproof_log pctx =
-  { pctx with proof_log = Certificate.open_subproof pctx.proof_log }
+  { pctx with proof_log = Certificate.close_subproof pctx.proof_log }
 
 let has_been_unfolded pctx name _lr =
   pctx.unfolded
@@ -792,6 +797,7 @@ let prove_pure_fact (pctx : pctx) (p : pi) =
 
 let rec handle_pure_ens_lhs (pctx : pctx) f =
   debug ~at:5 ~title:"handle_pure_ens_lhs" "%s " (string_of_staged_spec f);
+  let pctx = log_proof_step pctx Intro_pure_assumption in
   match f with
   | NormalReturn (p, EmptyHeap) when not (Variables.is_eq_res p) ->
       add_assumption pctx p, NormalReturn (True, EmptyHeap)
@@ -1068,24 +1074,27 @@ let rec apply_ent_rule ?name : tactic =
       k
   | Disjunction (f3, f4), f2 ->
     let tag = Variables.fresh_variable () in
+    let pctx = log_proof_step pctx Split_disjunction in
     let@ _ =
       span (fun _r ->
           debug ~at:4 ~title:(Format.asprintf "disj on the left [[%s]]" tag) "")
     in
-    let@ _ = entailment_search ?name (pctx, f3, f2) in
+    let@ (pctx, _, _) = entail_subgoal ?name (pctx, f3, f2) in
     let@ _ =
       span (fun _r ->
           debug ~at:4 ~title:(Format.asprintf "right disjunct <<%s>>" tag) "")
     in
-    entailment_search ?name (pctx, f4, f2) k
+    entail_subgoal ?name (pctx, f4, f2) k
   | f1, Disjunction (f3, f4) ->
     debug ~at:4 ~title:"disj on the right" "";
     or_
       (fun k1 ->
         let@ _ = span (fun _r -> debug ~at:4 ~title:"left disjunct" "") in
+        let pctx = log_proof_step pctx (Choose_disj_branch `Left) in
         entailment_search ?name (pctx, f1, f3) k1)
       (fun k1 ->
         let@ _ = span (fun _r -> debug ~at:4 ~title:"right disjunct" "") in
+        let pctx = log_proof_step pctx (Choose_disj_branch `Right) in
         entailment_search ?name (pctx, f1, f4) k1)
       k
   (* two functions with equal terms *)
@@ -1234,6 +1243,19 @@ let rec apply_ent_rule ?name : tactic =
           if is_contradiction
           then k (pctx, ens (), ens ())
           else (log_proof_state ~title:"STUCK" ps; fail)
+
+(** A wrapper for [entailment_search] that delineates this entailment as a focused subgoal
+  in the proof log. Note that unlike [entailment_search], the context this tactic outputs
+  must not be ignored. since the proof log of the subgoal is stored there. *)
+and entail_subgoal : ?name:string -> tactic =
+  fun ?name ps k ->
+    let (pctx, lhs, rhs) = ps in
+    let pctx_original = pctx in
+    let pctx = open_subproof_log pctx in
+    let@ (pctx, _, _) = entailment_search ?name (pctx, lhs, rhs) in
+    let pctx = close_subproof_log pctx in
+    (* preserve the original context, but copy over the proof log *)
+    k ({pctx_original with proof_log = pctx.proof_log}, lhs, rhs)
 
 and entailment_search : ?name:string -> tactic =
   let prev_state = ref None in

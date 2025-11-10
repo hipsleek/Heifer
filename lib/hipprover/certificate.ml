@@ -45,6 +45,37 @@ let rec string_of_proof_log ?(indent = 0) log string_of_step =
       (steps |> List.map (fun s -> string_of_proof_log ~indent:(indent + 2) s string_of_step) |> String.concat "") ^
       indent_string ^ "}\n"
 
+let%expect_test "proof logging" =
+  let output_log log = 
+    Printf.printf "%s\n" (string_of_proof_log log Fun.id)
+  in 
+  let log = empty_partial_log in
+  let log = append log (proof_step "intros.") in
+  let log = append log (proof_step "split.") in
+  let log = open_subproof log in
+    let log = append log (proof_step "exfalso.") in
+    let log = append log (proof_step "assumption.") in
+  let log = close_subproof log in
+  let log = open_subproof log in
+    let log = append log (proof_step "auto.") in
+  let log = close_subproof log in
+  output_log (finalize_proof_log log);
+  [%expect {|
+    {
+      intros.
+      split.
+      {
+        exfalso.
+        assumption.
+      }
+      {
+        auto.
+      }
+    }
+    |}];;
+  
+
+
 type constr = CVar of string
   | CConst of const
   | CApp of constr * constr list
@@ -69,6 +100,7 @@ and constr_of_term (t : term) : constr =
   match t.term_desc with
   | Const c -> CConst c
   | Var v -> CVar v
+  | TNot t -> CApp (CVar "vnot", [constr_of_term t])
   | BinOp (op, lhs, rhs) ->
       let op_fun = match op with
         | Plus -> CVar "vplus"
@@ -91,13 +123,13 @@ and constr_of_pi (p : pi) : constr =
       | None ->
         (* NOTE: these are currently implemented to only compare integers! *)
         let operator = match op with
-          | EQ -> "veq"
-          | GT -> "vgt"
-          | LT -> "vlt"
-          | GTEQ -> "vge"
-          | LTEQ -> "vle"
+          | EQ -> "="
+          | GT -> ">"
+          | LT -> "<"
+          | GTEQ -> ">="
+          | LTEQ -> "<="
         in
-        CApp (CVar operator, [constr_of_term lhs; constr_of_term rhs])
+        CInfix (constr_of_term lhs, operator, constr_of_term rhs)
       end
   | Not p -> CSurround ("~", constr_of_pi p, "")
   | _ -> CError (string_of_pi ~config p)
