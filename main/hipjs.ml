@@ -12,7 +12,7 @@ let ready () =
       ())
 
 let main () =
-  Hipcore_typed.Pretty.colours := `Html;
+  Hipcore.Pretty.colours := `Html;
   (* Console.(log [str "DOM content loaded."]); *)
   Jv.set Jv.global "ocaml_ready" (Jv.callback ~arity:1 ready);
   Jv.set Jv.global "hip_run_string"

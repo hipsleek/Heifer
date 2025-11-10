@@ -56,41 +56,41 @@ let%expect_test "rewriting" =
   let spec s = pipeline (Ocamlfrontend.Annotation.parse_staged_spec, Hipcore_typed.Retypehip.retype_staged_spec, Hipprover.Infer_types.infer_types_staged_spec) s in
   let test rule target =
     let b1 = rewrite_all rule target in
-    Format.printf "rewrite %s@." (string_of_uterm target);
-    Format.printf "with %s@." (string_of_rule rule);
-    Format.printf "result: %s@." (string_of_uterm b1)
+    Printf.printf "rewrite %s\n" (string_of_uterm target);
+    Printf.printf "with %s\n" (string_of_rule rule);
+    Printf.printf "result: %s\n" (string_of_uterm b1)
   in
 
   test Staged.("ens emp" ==> "ens false") (Staged (spec "ens emp; ens emp"));
   [%expect
   {|
-    rewrite ens emp; ens emp
-    with ens emp ==> ens F
-    result: ens F; ens F
+    rewrite ens (T /\ emp); ens (T /\ emp)
+    with ens (T /\ emp) ==> ens (F /\ emp)
+    result: ens (F /\ emp); ens (F /\ emp)
     |}];
 
   test Pure.("true" ==> "false") (Staged (spec "ens emp; ens emp"));
   [%expect
   {|
-    rewrite ens emp; ens emp
+    rewrite ens (T /\ emp); ens (T /\ emp)
     with T ==> F
-    result: ens F; ens F
+    result: ens (F /\ emp); ens (F /\ emp)
     |}];
 
   test Heap.("x->1" ==> "x->2") (Staged (spec "ens x->1; ens emp"));
  [%expect
   {|
-   rewrite ens x->1; ens emp
-   with x->1 ==> x->2
-   result: ens x->2; ens emp
+   rewrite ens (T /\ x -> 1); ens (T /\ emp)
+   with x -> 1 ==> x -> 2
+   result: ens (T /\ x -> 2); ens (T /\ emp)
    |}];
 
   test Term.("1" ==> "2") (Staged (spec "ens x->1; ens emp"));
  [%expect
   {|
-   rewrite ens x->1; ens emp
+   rewrite ens (T /\ x -> 1); ens (T /\ emp)
    with 1 ==> 2
-   result: ens x->2; ens emp
+   result: ens (T /\ x -> 2); ens (T /\ emp)
    |}]
 
 let%expect_test "autorewrite" =
@@ -106,8 +106,8 @@ let%expect_test "autorewrite" =
   test db (Staged (spec "ens x=true/\\true/\\true/\\true"));
  [%expect
   {|
-   start: ens x=true/\T/\T/\T
-   result: ens x=true/\T
+   start: ens (x = true /\ T /\ T /\ T /\ emp)
+   result: ens (x = true /\ T /\ emp)
    |}]
 
 (*
