@@ -14,7 +14,9 @@ type unop =
   | Not
   | Neg
 
-(** Atomic term: variables, (literal) constants, functions, primitives. *)
+(** Atomic term: variables, (literal) constants, functions, primitives. We
+    enforce that [term] must be pure: no side-effect can happen when reducing
+    a term. *)
 type term =
   | TVar of term var
   | TUnit
