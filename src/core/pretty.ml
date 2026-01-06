@@ -17,6 +17,7 @@ module OpInfo = struct
   let prec_hprop_pointsto = 5
   let prec_hprop_sepconj = 3
   let prec_staged_seq = 2
+  let prec_staged_bind = prec_staged_seq
   let prec_staged_disj = 1
 end
 
@@ -114,9 +115,9 @@ and pp_staged_spec_prec prec ctxt ppf = function
     in *)
     let pp ppf () =
       Fmt.pf ppf "@[<hov 2>%a;@ %s.@ %a"
-        (pp_staged_spec_prec 0 ctxt)
+        (pp_staged_spec_prec OpInfo.prec_staged_bind ctxt)
         s (name_of x)
-        (pp_staged_spec_prec 0 ctxt)
+        (pp_staged_spec_prec (OpInfo.prec_staged_bind - 1) ctxt)
         body
     in
     pp ppf ()

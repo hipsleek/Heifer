@@ -137,10 +137,10 @@ let%expect_test "shadowing" =
   [%expect {| ens emp; x. ens emp; x1. ens x1 = 2 |}];
 
   staged "ens emp; x. (ens x=1 \\/ (ens emp; x. ens x=2))";
-  [%expect {| ens emp; x. ens x = 1 \/ ens emp; x1. ens x1 = 2 |}];
+  [%expect {| ens emp; x. (ens x = 1 \/ ens emp; x1. ens x1 = 2) |}];
 
   staged "ens emp; x. ((ens emp; x. ens x=2) \\/ ens x=1)";
-  [%expect {| ens emp; x. ens emp; x1. ens x1 = 2 \/ ens x = 1 |}]
+  [%expect {| ens emp; x. (ens emp; x1. ens x1 = 2 \/ ens x = 1) |}]
 
 let%expect_test "precedence and associativity" =
   (* seq is right-associative *)
