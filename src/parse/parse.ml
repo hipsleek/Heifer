@@ -129,11 +129,8 @@ let%expect_test "basics" =
   staged "ens x=1";
   [%expect {| ens x = 1 |}];
 
-  staged "let x = ens emp in ens x=2";
-  [%expect {|
-    let x = ens emp in
-    ens x = 2
-    |}]
+  staged "ens emp; x. ens x=2";
+  [%expect {| ens emp; x. ens x = 2 |}]
 
 let%expect_test "precedence and associativity" =
   (* seq is right-associative *)

@@ -208,11 +208,14 @@ staged_spec:
   //       Shift (true, v, s, x, NormalReturn (Atomic (EQ, Variables.res_var, Var x), EmptyHeap)) }
   | RESET LPAREN s = staged_spec RPAREN
       { Reset s }
-  | s1 = staged_spec SEMI s2 = staged_spec
+  | s1=staged_spec SEMI s2=staged_spec
       { Sequence (s1, s2) }
-  | LET v = LOWERCASE_IDENT EQUAL s1 = staged_spec IN s2 = staged_spec
-      { Bind (s1, unbox (bind_var (new_tvar v)
+  | s1=staged_spec SEMI x=LOWERCASE_IDENT DOT s2=staged_spec
+      { Bind (s1, unbox (bind_var (new_tvar x)
         (box_staged_spec s2))) }
+//   | LET x=LOWERCASE_IDENT EQUAL s1=staged_spec IN s2=staged_spec
+//       { Bind (s1, unbox (bind_var (new_tvar x)
+//         (box_staged_spec s2))) }
   | LPAREN s = staged_spec RPAREN
       { s }
 ;

@@ -101,9 +101,13 @@ and pp_staged_spec_prec prec ppf = function
     parens_if (OpInfo.staged `Seq <= prec) pp ppf ()
   | Bind (s, b) ->
     let x, body = unbind b in
-    let pp ppf () =
+    (* let pp ppf () =
       Fmt.pf ppf "@[<v 0>@[<hov 2>let %s =@ %a@] in@,%a@]" (name_of x)
         pp_staged_spec s pp_staged_spec body
+    in *)
+    let pp ppf () =
+      Fmt.pf ppf "@[<hov 2>%a;@ %s.@ %a" pp_staged_spec s (name_of x)
+        pp_staged_spec body
     in
     pp ppf ()
   | Apply (f, t) -> Fmt.pf ppf "@[<hov 2>%a@ %a@]" pp_term f pp_term t
