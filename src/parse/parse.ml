@@ -130,7 +130,10 @@ let%expect_test "basics" =
   [%expect {| ens x=1 |}];
 
   staged "ens emp; x. ens x=1";
-  [%expect {| ens emp; x. ens x=1 |}]
+  [%expect {| ens emp; x. ens x=1 |}];
+
+  staged "forall x. ens x=1";
+  [%expect {| forall x. ens x=1 |}]
 
 let%expect_test "shadowing" =
   staged "ens emp; x. ens emp; x. ens x=2";

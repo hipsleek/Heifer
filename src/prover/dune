@@ -1,4 +1,4 @@
 (library
  (name prover)
  (public_name heifer.prover)
- (libraries core))
+ (libraries core parsing))

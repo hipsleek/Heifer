@@ -197,8 +197,6 @@ hprop:
 staged_spec:
   // | EXISTS vs = LOWERCASE_IDENT* DOT s = staged_spec
   //     { List.fold_right (fun v t -> Exists (v, t)) vs s }
-  // | FORALL vs = LOWERCASE_IDENT* DOT s = staged_spec
-  //     { List.fold_right (fun v t -> Forall (v, t)) vs s }
   | s1 = staged_spec DISJUNCTION s2 = staged_spec
       { Disjunct (s1, s2) }
   | REQUIRES h = hprop
@@ -222,10 +220,15 @@ staged_spec:
   | s1=staged_spec SEMI x=LOWERCASE_IDENT DOT
       midrule({ Binders.push_scope () })
     s2=staged_spec
-      {
-        let x = Binders.bind_variable x in
+      { let x = List.hd (Binders.bind_variables [x]) in
         (* TODO quadratic, possibly return a box from the rules *)
         Bind (s1, unbox (bind_var x (box_staged_spec s2))) }
+
+  | FORALL xs = LOWERCASE_IDENT* DOT
+      midrule({ Binders.push_scope () })
+    s = staged_spec
+      { let xs = Binders.bind_variables xs in
+        List.fold_right (fun x t -> Forall (unbox (bind_var x (box_staged_spec t)))) xs s }
 
   | LPAREN s = staged_spec RPAREN
       { s }
