@@ -1,0 +1,2 @@
+#utop_prompt_dummy;;
+#use_output "dune ocaml top";;

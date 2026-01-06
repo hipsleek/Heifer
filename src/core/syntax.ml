@@ -2,9 +2,17 @@ open Bindlib
 
 (* type metavar = {mv_name : string} *)
 
-type binop = Lt | Le | Gt | Ge | Eq | Neq
+type binop =
+  | Lt
+  | Le
+  | Gt
+  | Ge
+  | Eq
+  | Neq
 
-type unop = Not | Neg
+type unop =
+  | Not
+  | Neg
 
 (** Atomic term: variables, (literal) constants, functions, primitives *)
 type term =
@@ -17,9 +25,10 @@ type term =
   | TTuple of term list
   | TBinop of binop * term * term
   | TUnop of unop * term
-  (* | TMetavar of metavar *)
+(* | TMetavar of metavar *)
 
-(** Atomic pure proposition like `x < 1` will be represented with `term` and lifted to `prop` using `PAtom` *)
+(** Atomic pure proposition like `x < 1` will be represented with `term` and
+    lifted to `prop` using `PAtom` *)
 and prop =
   | PAtom of term
   | PConj of prop * prop
@@ -43,7 +52,7 @@ and staged_spec =
   | Shift of (term, staged_spec) binder
   | Reset of staged_spec
   | Dollar of staged_spec * (term, staged_spec) binder
-  (* | SMetavar of metavar *)
+(* | SMetavar of metavar *)
 
 module Constructors = struct
   let new_tvar = new_var (fun v -> TVar v)
@@ -52,6 +61,11 @@ module Constructors = struct
   let mk_ttrue = box TTrue
   let mk_tfalse = box TFalse
   let mk_tint i = box (TInt i)
+  let mk_tbinop op = box_apply2 (fun a b -> TBinop (op, a, b))
+  let mk_tunop op = box_apply (fun a -> TUnop (op, a))
+  let mk_patom = box_apply (fun a -> PAtom a)
+  let mk_pconj = box_apply2 (fun a b -> PConj (a, b))
+
   (* let mk_tpair = box_apply2 (fun t1 t2 -> TPair (t1, t2)) *)
   let mk_ttuple = box_apply (fun ts -> TTuple ts)
   let mk_tfun = box_apply (fun b -> TFun b)
@@ -117,7 +131,8 @@ module Constructors = struct
     | Exists b -> mk_exists (box_binder box_staged_spec b)
     | Shift b -> mk_shift (box_binder box_staged_spec b)
     | Reset s -> mk_reset (box_staged_spec s)
-    | Dollar (s, k) -> mk_dollar (box_staged_spec s) (box_binder box_staged_spec k)
+    | Dollar (s, k) ->
+      mk_dollar (box_staged_spec s) (box_binder box_staged_spec k)
     (* | SMetavar mv -> mk_smetavar mv *)
     (* | _ -> failwith "box_staged_spec: todo" *)
 end

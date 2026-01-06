@@ -100,38 +100,51 @@ let term_uvar_of_binder b =
 
 let type_vars_of_params params =
   params
-  |> List.map (fun p -> Hipcore.Types.free_type_vars (type_of_binder p) |> SSet.of_list)
-  |> SSet.concat
-  |> SSet.to_list
+  |> List.map (fun p ->
+      Hipcore.Types.free_type_vars (type_of_binder p) |> SSet.of_list)
+  |> SSet.concat |> SSet.to_list
 
 let uvar_bindings ?(type_subs = []) binders =
-    binders
-    |> List.map (fun p -> (ident_of_binder p,
-      Rewriting.Rules.Term.uvar (ident_of_binder p) ~typ:(type_of_binder p |> Subst.subst_types_in_type type_subs)))
+  binders
+  |> List.map (fun p ->
+      ( ident_of_binder p,
+        Rewriting.Rules.Term.uvar (ident_of_binder p)
+          ~typ:(type_of_binder p |> Subst.subst_types_in_type type_subs) ))
 
 let pred_to_rule pred =
   (* Replace the type variables in the parameters with uvars. *)
   let type_vars_in_pred = type_vars_of_params pred.p_params in
-  let type_uvars = type_vars_in_pred
-    |> List.map (fun tv -> (tv, Rewriting.Rules.Type.uvar tv)) in
+  let type_uvars =
+    type_vars_in_pred |> List.map (fun tv -> (tv, Rewriting.Rules.Type.uvar tv))
+  in
   (* Replace the parameters of the predicate with uvars. *)
-  let params = pred.p_params |> List.map term_uvar_of_binder |> List.map (Subst.subst_types Sctx_term type_uvars) in
+  let params =
+    pred.p_params
+    |> List.map term_uvar_of_binder
+    |> List.map (Subst.subst_types Sctx_term type_uvars)
+  in
   let lhs = HigherOrder (pred.p_name, params) in
   let rhs =
-    let bs = uvar_bindings ~type_subs:type_uvars pred.p_params
-    in
-    pred.p_body
-    |> Subst.subst_free_vars bs
+    let bs = uvar_bindings ~type_subs:type_uvars pred.p_params in
+    pred.p_body |> Subst.subst_free_vars bs
     |> Subst.subst_types Sctx_staged type_uvars
   in
   (pred.p_name, Rewriting.Rules.Staged.rule lhs rhs)
 
 let lemma_to_rule lemma =
   let type_vars = type_vars_of_params lemma.l_params in
-  let type_uvar_bindings = type_vars |> List.map (fun tv -> (tv, Rewriting.Rules.Type.uvar tv)) in
+  let type_uvar_bindings =
+    type_vars |> List.map (fun tv -> (tv, Rewriting.Rules.Type.uvar tv))
+  in
   let bs = uvar_bindings ~type_subs:type_uvar_bindings lemma.l_params in
-  let lhs = Subst.subst_free_vars bs lemma.l_left |> Subst.subst_types Sctx_staged type_uvar_bindings in
-  let rhs = Subst.subst_free_vars bs lemma.l_right |> Subst.subst_types Sctx_staged type_uvar_bindings in
+  let lhs =
+    Subst.subst_free_vars bs lemma.l_left
+    |> Subst.subst_types Sctx_staged type_uvar_bindings
+  in
+  let rhs =
+    Subst.subst_free_vars bs lemma.l_right
+    |> Subst.subst_types Sctx_staged type_uvar_bindings
+  in
   (lemma.l_name, Rewriting.Rules.Staged.rule lhs rhs)
 
 let create_pctx cp =
@@ -238,17 +251,16 @@ let check_pure_obligation left right =
      unifications. *)
   let (left, right), _ =
     let open Infer_types in
-    with_empty_env begin
-      let* left, right = infer_types_pair_pi left right in
-      return (left, right)
-    end
+    with_empty_env
+      begin
+        let* left, right = infer_types_pair_pi left right in
+        return (left, right)
+      end
   in
   let res = Provers.entails_exists left [] right in
   let open Provers_common in
   debug ~at:4 ~title:"prover detailed result" "%s" (string_of_prover_result res);
-  match res with
-  | Valid -> true
-  | _ -> false
+  match res with Valid -> true | _ -> false
 
 (* will be used for remembering predicate? Not sure whether it should be put here *)
 let derive_predicate m_name m_params f =
@@ -274,320 +286,8 @@ let derive_predicate m_name m_params f =
 let lambda_to_rule m_name m_params f =
   derive_predicate m_name m_params f |> pred_to_rule
 
-let try_constants pctx = Syntax.[num 0; term (Const Nil) (TConstr ("list", [Any]))] @ pctx.constants
-
-(** Tactics combine the state and list monads *)
-module Tactic : sig
-  type 'a t = pstate -> ('a * pstate) Iter.t
-
-  val run : 'a t -> pstate -> pctx option
-  val return : 'a -> 'a t
-  val bind : 'a t -> ('a -> 'b t) -> 'b t
-  val ( let* ) : 'a t -> ('a -> 'b t) -> 'b t
-  val ctx : pctx t
-
-  type goal = staged_spec * staged_spec
-
-  val goal : goal t
-  val goal_lhs : staged_spec t
-  val goal_rhs : staged_spec t
-  val with_lhs : staged_spec -> (unit -> 'a t) -> 'a t
-  val with_rhs : staged_spec -> (unit -> 'a t) -> 'a t
-  val fail : 'a t
-  val choice : 'a t -> 'a t -> 'a t
-  val choices : 'a t list -> 'a t
-  val committed_choice : 'a t -> 'a t -> 'a t
-  val committed_choices : 'a t list -> 'a t
-
-  val failure :
-    title:string -> ('a, Format.formatter, unit, unit t) format4 -> 'a
-
-  val span :
-    'a t -> title:string -> ('b, Format.formatter, unit, 'a t) format4 -> 'b
-end = struct
-  (* [@@@warning "-unused-value-declaration"] *)
-
-  type 'a t = pstate -> ('a * pstate) Iter.t
-  type goal = staged_spec * staged_spec
-
-  let run t ps = Iter.head (t ps) |> Option.map (fun (_, (pctx, _, _)) -> pctx)
-  let fail = fun _ -> Iter.empty
-  let return x = fun s -> Iter.return (x, s)
-  let bind m f = fun s -> Iter.flat_map (fun (x, s') -> f x s') (m s)
-  let ( let* ) = bind
-  let get = fun s -> Iter.return (s, s)
-
-  let ctx =
-    let* r, _, _ = get in
-    return r
-
-  let goal =
-    let* _, f1, f2 = get in
-    return (f1, f2)
-
-  let goal_lhs =
-    let* _, f1, _ = get in
-    return f1
-
-  let goal_rhs =
-    let* _, _, f2 = get in
-    return f2
-
-  let put s = fun _ -> Iter.return ((), s)
-
-  let put_lhs f1 =
-    let* pctx, _, f2 = get in
-    put (pctx, f1, f2)
-
-  let put_rhs f2 =
-    let* pctx, f1, _ = get in
-    put (pctx, f1, f2)
-
-  let put_goal (f1, f2) =
-    let* pctx, _, _ = get in
-    put (pctx, f1, f2)
-
-  (* let with_ (pctx, f1, f2) t =
-    let* _ = put (pctx, f1, f2) in
-    t () *)
-
-  let with_lhs f1 t =
-    let* of1, of2 = goal in
-    let* () = put_lhs f1 in
-    let* r = t () in
-    let* () = put_goal (of1, of2) in
-    return r
-
-  let with_rhs f2 t =
-    let* of1, of2 = goal in
-    let* () = put_rhs f2 in
-    let* r = t () in
-    let* () = put_goal (of1, of2) in
-    return r
-
-  let choice t1 t2 = fun ps -> Iter.append (t1 ps) (t2 ps)
-  let choices ts = fun ps -> Iter.append_l (List.map (fun t -> t ps) ts)
-
-  (* like ltac's lazymatch. unsure if this is necessary as we only get one solution. also this may lead to incompleteness of search, as we cannot backtrack past this, like a cut? *)
-  let committed_choice (t1 : 'a t) (t2 : 'a t) : 'a t =
-   fun ps -> Iter.take 1 ((choice t1 t2) ps)
-
-  let committed_choices ts = fun ps -> Iter.take 1 ((choices ts) ps)
-
-  let failure ~title fmt =
-    Format.kasprintf
-      (fun msg ->
-        fun s k ->
-         Debug.debug ~at:4 ~title "%s" msg;
-         fail s k)
-      fmt
-
-  let span (t : 'a t) ~title fmt =
-    Format.kasprintf
-      (fun msg ->
-        fun s k ->
-         let@ _ = span (fun _r -> Debug.debug ~at:4 ~title "%s" msg) in
-         t s k)
-      fmt
-end
-
-type coq_tactic =
-  | Rewrite of string
-  | SRReduction
-  | Simplify
-  | Biab
-  | EntDisjL
-  | EntDisjR
-  | Focus of coq_tactic list
-
-type coq_tactics = coq_tactic list
-
-let rec string_of_coq_tactic t =
-  match t with
-  | EntDisjL -> "apply ent_disj_l."
-  | EntDisjR -> "apply ent_disj_l."
-  | Focus [] -> ""
-  | Focus [a] -> Format.asprintf "{ %s }" (string_of_coq_tactic a)
-  | Focus (a :: rest) ->
-    Format.asprintf "{ %s\n%s }" (string_of_coq_tactic a)
-      (string_of_list_ind_lines string_of_coq_tactic rest)
-  | Simplify -> "fsimpl."
-  | Biab -> "fbiabduction."
-  | SRReduction -> "freduction."
-  | Rewrite r -> Format.asprintf "rewrite %s." r
-
-and string_of_coq_tactics ts =
-  ts |> List.map string_of_coq_tactic |> String.concat "\n"
-
-let%expect_test _ =
-  Format.printf "%s@."
-    (string_of_coq_tactics
-       [
-         EntDisjL;
-         Focus
-           [
-             EntDisjR;
-             EntDisjL;
-             EntDisjR;
-             EntDisjL;
-             EntDisjR;
-             EntDisjL;
-             EntDisjR;
-             EntDisjL;
-           ];
-         Focus [EntDisjR];
-       ]);
-  [%expect
-    {|
-    apply ent_disj_l.
-    { apply ent_disj_l.
-      apply ent_disj_l.
-      apply ent_disj_l.
-      apply ent_disj_l.
-      apply ent_disj_l.
-      apply ent_disj_l.
-      apply ent_disj_l.
-      apply ent_disj_l. }
-    { apply ent_disj_l. }
-    |}]
-
-let rec disj_left () : unit Tactic.t =
-  let open Tactic in
-  let* left = goal_lhs in
-  match left with
-  | Disjunction (f1, f2) ->
-    let* _ = span (with_lhs f1 search) ~title:"disj left" "left branch" in
-    span (with_lhs f2 search) ~title:"disj left" "right branch"
-  | _ -> fail
-
-and disj_right () : unit Tactic.t =
-  let open Tactic in
-  let* right = goal_rhs in
-  match right with
-  | Disjunction (f1, f2) ->
-    let goal2 = span (with_rhs f2 search) ~title:"disj right" "right branch" in
-    let goal1 = span (with_rhs f1 search) ~title:"disj right" "left branch" in
-    choice goal1 goal2
-  | _ -> fail
-
-and ens_ens () : unit Tactic.t =
-  let open Tactic in
-  let* left, right = goal in
-  match (left, right) with
-  | NormalReturn (True, EmptyHeap), NormalReturn (True, EmptyHeap) ->
-    debug ~at:4 ~title:"ens ens" "ok";
-    return ()
-  | _ -> fail
-
-and search () : unit Tactic.t =
-  let open Tactic in
-  let* left, right = goal in
-  debug ~at:4 ~title:"search" "%s |- %s"
-    (string_of_staged_spec left)
-    (string_of_staged_spec right);
-  choices [disj_left (); disj_right (); ens_ens (); failure ~title:"STUCK" ""]
-
-let%expect_test _ =
-  Debug.test_init 4;
-  let open Syntax in
-  let left = Disjunction (ens (), ens ()) in
-  let right = Disjunction (ens ~p:False (), ens ()) in
-  let r = Tactic.run (search ()) (new_pctx (), left, right) |> Option.get in
-  debug ~at:4 ~title:"done" "%s" (string_of_pstate (r, left, right));
-  [%expect
-    {|
-    * search | _1
-    (ens emp) \/ (ens emp) |- (ens F) \/ (ens emp)
-
-    * disj left | _2
-    left branch
-
-    ** search | _3
-    ens emp |- (ens F) \/ (ens emp)
-
-    ** disj right | _4
-    left branch
-
-    *** search | _5
-    ens emp |- ens F
-
-    *** STUCK | _6
-
-    *** disj right | _7 <-_4
-    left branch
-
-    ** disj right | _8
-    right branch
-
-    *** search | _9
-    ens emp |- ens emp
-
-    *** ens ens | _10
-    ok
-
-    *** disj left | _11
-    right branch
-
-    **** search | _12
-    ens emp |- (ens F) \/ (ens emp)
-
-    **** disj right | _13
-    left branch
-
-    ***** search | _14
-    ens emp |- ens F
-
-    ***** STUCK | _15
-
-    ***** disj right | _16 <-_13
-    left branch
-
-    **** disj right | _17
-    right branch
-
-    ***** search | _18
-    ens emp |- ens emp
-
-    ***** ens ens | _19
-    ok
-
-    ***** disj right | _20 <-_17
-    right branch
-
-    **** disj left | _21 <-_11
-    right branch
-
-    *** disj right | _22 <-_8
-    right branch
-
-    ** disj left | _23 <-_2
-    left branch
-
-    * done | _24
-    (ens emp) \/ (ens emp)
-    ⊑
-    (ens F) \/ (ens emp)
-    <============================================================
-    constants:
-    []
-
-    induction_hypotheses:
-
-
-    lemmas:
-
-
-    assumptions:
-
-
-    definitions_nonrec:
-
-
-    definitions_rec:
-
-
-    unfolded:
-    |}]
+let try_constants pctx =
+  Syntax.[num 0; term (Const Nil) (TConstr ("list", [Any]))] @ pctx.constants
 
 type tactic = pstate -> pstate Iter.t
 
@@ -624,7 +324,7 @@ let unfold_recursive_defns pctx f lr =
   let usable_defns =
     pctx.definitions_rec
     |> List.filter (fun (rule_name, _rule) ->
-           not (has_been_unfolded pctx rule_name lr))
+        not (has_been_unfolded pctx rule_name lr))
   in
   let f, used =
     List.fold_right
@@ -671,7 +371,8 @@ let rec repeat_simplify_lhs ?(limit = 5) (spec : staged_spec) : staged_spec =
   if limit < 0 then failwith "repeat_simplify_lhs: loop?";
   let simple_spec = Reduce_shift_reset.shift_reset_reduce_spec_lhs spec in
   let simple_spec = Normalize.normalize_spec_lhs simple_spec in
-  if simple_spec = spec then spec else repeat_simplify_lhs ~limit:(limit - 1) simple_spec
+  if simple_spec = spec then spec
+  else repeat_simplify_lhs ~limit:(limit - 1) simple_spec
 
 let simplify : total =
  fun (pctx, f1, f2) ->
@@ -783,7 +484,7 @@ let biab' h1 h2 k =
 let add_assumption (pctx : pctx) (p : pi) =
   match p with
   | True -> pctx
-  | _ -> {pctx with assumptions = p :: pctx.assumptions}
+  | _ -> { pctx with assumptions = p :: pctx.assumptions }
 
 let prove_pure_fact (pctx : pctx) (p : pi) =
   match p with
@@ -795,48 +496,45 @@ let rec handle_pure_ens_lhs (pctx : pctx) f =
   debug ~at:5 ~title:"handle_pure_ens_lhs" "%s " (string_of_staged_spec f);
   match f with
   | NormalReturn (p, EmptyHeap) when not (Variables.is_eq_res p) ->
-      add_assumption pctx p, NormalReturn (True, EmptyHeap)
-  | Sequence (NormalReturn (p, EmptyHeap), f') when not (Variables.is_eq_res p) ->
-      let pctx = add_assumption pctx p in
-      handle_pure_ens_lhs pctx f'
+    (add_assumption pctx p, NormalReturn (True, EmptyHeap))
+  | Sequence (NormalReturn (p, EmptyHeap), f') when not (Variables.is_eq_res p)
+    ->
+    let pctx = add_assumption pctx p in
+    handle_pure_ens_lhs pctx f'
   | ForAll (x, Sequence (NormalReturn (p, EmptyHeap), f'))
     when not (Variables.is_eq_res p) (* && x not in free(p) *) ->
-      let pctx = add_assumption pctx p in
-      handle_pure_ens_lhs pctx (ForAll (x, f'))
-  | _ ->
-      pctx, f
+    let pctx = add_assumption pctx p in
+    handle_pure_ens_lhs pctx (ForAll (x, f'))
+  | _ -> (pctx, f)
 
 let rec handle_pure_ens_rhs (pctx : pctx) f =
   debug ~at:5 ~title:"handle_pure_ens_rhs" "";
   match f with
   | NormalReturn (p, EmptyHeap) when not (Variables.is_eq_res p) ->
-      if prove_pure_fact pctx p then Some (NormalReturn (True, EmptyHeap)) else None
-  | Sequence (NormalReturn (p, EmptyHeap), f') when not (Variables.is_eq_res p) ->
-      if prove_pure_fact pctx p then handle_pure_ens_rhs pctx f' else None
-  | _ ->
-      Some f
+    if prove_pure_fact pctx p then Some (NormalReturn (True, EmptyHeap))
+    else None
+  | Sequence (NormalReturn (p, EmptyHeap), f') when not (Variables.is_eq_res p)
+    ->
+    if prove_pure_fact pctx p then handle_pure_ens_rhs pctx f' else None
+  | _ -> Some f
 
 let suppress_exn ~title ~default (f : unit -> 'a) : 'a =
-  try
-    f ()
+  try f ()
   with e ->
     debug ~at:5 ~title "%s" (Printexc.to_string e);
     default
 
 let suppress_some_exn ~title ~default (f : unit -> 'a) : 'a =
-  try
-    f ()
-  with
-  | Z3.Error _ | Infer_types.Cyclic_type _ as e ->
-      debug ~at:5 ~title "%s" (Printexc.to_string e);
-      default
+  try f ()
+  with (Z3.Error _ | Infer_types.Cyclic_type _) as e ->
+    debug ~at:5 ~title "%s" (Printexc.to_string e);
+    default
 
 let rec apply_ent_rule ?name : tactic =
  fun (pctx, f1, f2) k ->
   let pctx, f1 = handle_pure_ens_lhs pctx f1 in
-  let f2 = match handle_pure_ens_rhs pctx f2 with
-    | None -> f2
-    | Some f2 -> f2
+  let f2 =
+    match handle_pure_ens_rhs pctx f2 with None -> f2 | Some f2 -> f2
   in
   let open Syntax in
   match (f1, f2) with
@@ -853,13 +551,21 @@ let rec apply_ent_rule ?name : tactic =
   (* move pure things into the context *)
   | ( Sequence
         ( NormalReturn
-            (Atomic (EQ, {term_desc = Var lname; _}, {term_desc = TLambda (_h, ps, Some sp, _body); _}), EmptyHeap),
+            ( Atomic
+                ( EQ,
+                  { term_desc = Var lname; _ },
+                  { term_desc = TLambda (_h, ps, Some sp, _body); _ } ),
+              EmptyHeap ),
           f3 ),
       f4 )
   | ( Bind
         ( (lname, _),
           NormalReturn
-            (Atomic (EQ, {term_desc = Var "res"; _}, {term_desc = TLambda (_h, ps, Some sp, _body); _}), EmptyHeap),
+            ( Atomic
+                ( EQ,
+                  { term_desc = Var "res"; _ },
+                  { term_desc = TLambda (_h, ps, Some sp, _body); _ } ),
+              EmptyHeap ),
           f3 ),
       f4 ) ->
     let pctx =
@@ -876,7 +582,10 @@ let rec apply_ent_rule ?name : tactic =
           Bind
             ( (lname, _),
               NormalReturn
-                ( Atomic (EQ, {term_desc = Var "res"; _}, {term_desc = TLambda (_h, ps, Some sp, _body); _}),
+                ( Atomic
+                    ( EQ,
+                      { term_desc = Var "res"; _ },
+                      { term_desc = TLambda (_h, ps, Some sp, _body); _ } ),
                   EmptyHeap ),
               f3 ) ),
       f4 ) ->
@@ -890,16 +599,19 @@ let rec apply_ent_rule ?name : tactic =
       { pctx with definitions_nonrec = rule :: pctx.definitions_nonrec }
     in
     entailment_search ?name (pctx, Sequence (f_head, f3), f4) k
-  | ( Sequence (
-        (NormalReturn _ as f_head),
-        Sequence (
-          Bind
-            ( (lname, _),
-              NormalReturn
-                ( Atomic (EQ, {term_desc = Var "res"; _}, {term_desc = TLambda (_h, ps, Some sp, _body); _}),
-                  EmptyHeap ),
-              f3 ),
-          f4) ),
+  | ( Sequence
+        ( (NormalReturn _ as f_head),
+          Sequence
+            ( Bind
+                ( (lname, _),
+                  NormalReturn
+                    ( Atomic
+                        ( EQ,
+                          { term_desc = Var "res"; _ },
+                          { term_desc = TLambda (_h, ps, Some sp, _body); _ } ),
+                      EmptyHeap ),
+                  f3 ),
+              f4 ) ),
       f5 ) ->
     (* TODO: do not copy code. Refactor this into a function *)
     let pctx =
@@ -970,8 +682,10 @@ let rec apply_ent_rule ?name : tactic =
     in
     let@ a, f, eqs = biab' h1 h2 in
     let find_equality = function
-      | Atomic (EQ, t1, t2) when t1.term_desc = Var (ident_of_binder y) -> Some t2
-      | Atomic (EQ, t1, t2) when t2.term_desc = Var (ident_of_binder y) -> Some t1
+      | Atomic (EQ, t1, t2) when t1.term_desc = Var (ident_of_binder y) ->
+        Some t2
+      | Atomic (EQ, t1, t2) when t2.term_desc = Var (ident_of_binder y) ->
+        Some t1
       | _ -> None
     in
     let f1 =
@@ -984,7 +698,8 @@ let rec apply_ent_rule ?name : tactic =
             f3;
           ]
       | Some (t, eqs) ->
-        debug ~at:5 ~title:"ent: biab f inst with" "[%s/%s]" (string_of_term t) (string_of_binder y);
+        debug ~at:5 ~title:"ent: biab f inst with" "[%s/%s]" (string_of_term t)
+          (string_of_binder y);
         seq
           [
             Require (conj (p2 :: eqs), sep_conj a);
@@ -1027,8 +742,8 @@ let rec apply_ent_rule ?name : tactic =
     if valid then begin
       debug ~at:5 ~title:"ent: ens ens valid" "";
       entailment_search ?name (pctx, req ~h:ah (), req ~h:fh ()) k
-    end else
-      debug ~at:5 ~title:"ent: ens ens not valid" ""
+    end
+    else debug ~at:5 ~title:"ent: ens ens not valid" ""
   | Require (p1, h1), Require (p2, h2) ->
     let@ _ =
       span (fun _r -> log_proof_state ~title:"ent: req req" (pctx, f1, f2))
@@ -1123,49 +838,65 @@ let rec apply_ent_rule ?name : tactic =
     let choices =
       try_constants pctx
       |> List.map (fun c ->
-          let@ _ = suppress_exn
-            ~title:"ERROR: exists on the right, subst step"
-            ~default:(fun _ -> fail)
+          let@ _ =
+            suppress_exn ~title:"ERROR: exists on the right, subst step"
+              ~default:(fun _ -> fail)
           in
           if Hipcore.Types.can_unify_with c.term_type (type_of_binder x) then
-          (* copy the binder's type to allow for polymorphic constants in try_constants *)
-          let f4 = Subst.subst_free_vars [(ident_of_binder x, term c.term_desc (type_of_binder x))] f4 in
-          fun k1 ->
-            let@ _ = suppress_some_exn
-              ~title:"ERROR: exists on the right, entailment step"
-              ~default:fail
+            (* copy the binder's type to allow for polymorphic constants in try_constants *)
+            let f4 =
+              Subst.subst_free_vars
+                [(ident_of_binder x, term c.term_desc (type_of_binder x))]
+                f4
             in
-            let@ _ =
-              span (fun _r -> log_proof_state
-                ~title:(Format.asprintf "ent: exists on the right; [%s/%s]" (string_of_term c) (string_of_binder x))
-                (pctx, f1, f2))
-            in
-            entailment_search ?name (pctx, f1, f4) k1
-          else (fun _ -> fail))
+            fun k1 ->
+              let@ _ =
+                suppress_some_exn
+                  ~title:"ERROR: exists on the right, entailment step"
+                  ~default:fail
+              in
+              let@ _ =
+                span (fun _r ->
+                    log_proof_state
+                      ~title:
+                        (Format.asprintf "ent: exists on the right; [%s/%s]"
+                           (string_of_term c) (string_of_binder x))
+                      (pctx, f1, f2))
+              in
+              entailment_search ?name (pctx, f1, f4) k1
+          else fun _ -> fail)
     in
     disj_ choices k
   | ForAll (x, f3), f2 ->
     let choices =
       try_constants pctx
       |> List.map (fun c ->
-          let@ _ = suppress_exn
-            ~title:"ERROR: forall on the left, subst step"
-            ~default:(fun _ -> fail)
+          let@ _ =
+            suppress_exn ~title:"ERROR: forall on the left, subst step"
+              ~default:(fun _ -> fail)
           in
           if Hipcore.Types.can_unify_with c.term_type (type_of_binder x) then
-          let f3 = Subst.subst_free_vars [((ident_of_binder x), term c.term_desc (type_of_binder x))] f3 in
-          fun k1 ->
-            let@ _ = suppress_some_exn
-              ~title:"ERROR: forall on the left, entailment step"
-              ~default:fail
+            let f3 =
+              Subst.subst_free_vars
+                [(ident_of_binder x, term c.term_desc (type_of_binder x))]
+                f3
             in
-            let@ _ =
-              span (fun _r -> log_proof_state
-                ~title:(Format.asprintf "ent: forall on the left; [%s/%s]" (string_of_term c) (string_of_binder x))
-                (pctx, f1, f2))
-            in
-            entailment_search ?name (pctx, f3, f2) k1
-          else (fun _ -> fail))
+            fun k1 ->
+              let@ _ =
+                suppress_some_exn
+                  ~title:"ERROR: forall on the left, entailment step"
+                  ~default:fail
+              in
+              let@ _ =
+                span (fun _r ->
+                    log_proof_state
+                      ~title:
+                        (Format.asprintf "ent: forall on the left; [%s/%s]"
+                           (string_of_term c) (string_of_binder x))
+                      (pctx, f1, f2))
+              in
+              entailment_search ?name (pctx, f3, f2) k1
+          else fun _ -> fail)
     in
     disj_ choices k
   (* bind, which requires alpha equivalence *)
@@ -1216,12 +947,16 @@ let rec apply_ent_rule ?name : tactic =
         if ps <> ps1 then entailment_search ?name ps1 k
         else
           let is_contradiction =
-            let@ _ = span (fun _r -> debug ~at:4 ~title:"try to discharge via contradiction" "") in
+            let@ _ =
+              span (fun _r ->
+                  debug ~at:4 ~title:"try to discharge via contradiction" "")
+            in
             check_pure_obligation (conj pctx.assumptions) False
           in
-          if is_contradiction
-          then k (pctx, ens (), ens ())
-          else (log_proof_state ~title:"STUCK" ps; fail)
+          if is_contradiction then k (pctx, ens (), ens ())
+          else (
+            log_proof_state ~title:"STUCK" ps;
+            fail)
 
 and entailment_search : ?name:string -> tactic =
   let prev_state = ref None in
