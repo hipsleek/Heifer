@@ -49,7 +49,7 @@ let rec pp_term_prec prec ctxt ppf = function
     let left_prec = if assoc = `Right then prec' else prec' - 1 in
     let right_prec = if assoc = `Left then prec' else prec' - 1 in
     let pp ppf () =
-      Fmt.pf ppf "@[<hov 2>%a %s %a@]"
+      Fmt.pf ppf "@[<hov 2>%a%s%a@]"
         (pp_term_prec left_prec ctxt)
         t1 sym
         (pp_term_prec right_prec ctxt)
