@@ -10,11 +10,14 @@ module OpInfo = struct
     | Eq -> ("=", `Left, 3)
     | Neq -> ("!=", `Left, 3)
 
-  (* Operator precedence is only comparable within a syntactic category *)
   let unary = function Not -> ("!", 8) | Neg -> ("-", 8)
-  let prop = function `Conj -> 2
-  let hprop = function `PointsTo -> 5 | `SepConj -> 3
-  let staged = function `Seq -> 2 | `Disj -> 1
+
+  (* Operator precedence is only comparable within a syntactic category *)
+  let prec_prop_conj = 2
+  let prec_hprop_pointsto = 5
+  let prec_hprop_sepconj = 3
+  let prec_staged_seq = 2
+  let prec_staged_disj = 1
 end
 
 let parens_if cond pp ppf x = if cond then Fmt.pf ppf "(%a)" pp x else pp ppf x
@@ -64,12 +67,12 @@ and pp_prop_prec prec ctxt ppf = function
   | PConj (t1, t2) ->
     let pp ppf () =
       Fmt.pf ppf "@[<hov 2>%a /\\@ %a@]"
-        (pp_prop_prec (OpInfo.prop `Conj - 1) ctxt)
+        (pp_prop_prec (OpInfo.prec_prop_conj - 1) ctxt)
         t1
-        (pp_prop_prec (OpInfo.prop `Conj - 1) ctxt)
+        (pp_prop_prec (OpInfo.prec_prop_conj - 1) ctxt)
         t2
     in
-    parens_if (OpInfo.prop `Conj <= prec) pp ppf ()
+    parens_if (OpInfo.prec_prop_conj <= prec) pp ppf ()
 
 and pp_hprop_prec prec ctxt ppf = function
   | HPure p -> pp_prop_prec 0 ctxt ppf p
@@ -79,16 +82,16 @@ and pp_hprop_prec prec ctxt ppf = function
       Fmt.pf ppf "@[<hov 2>%a ->@ %a@]" (pp_term_prec 0 ctxt) t1
         (pp_term_prec 0 ctxt) t2
     in
-    parens_if (OpInfo.hprop `PointsTo <= prec) pp ppf ()
+    parens_if (OpInfo.prec_hprop_pointsto <= prec) pp ppf ()
   | HSepConj (h1, h2) ->
     let pp ppf () =
       Fmt.pf ppf "@[<hov 2>%a *@ %a@]"
-        (pp_hprop_prec (OpInfo.hprop `SepConj - 1) ctxt)
+        (pp_hprop_prec (OpInfo.prec_hprop_sepconj - 1) ctxt)
         h1
-        (pp_hprop_prec (OpInfo.hprop `SepConj - 1) ctxt)
+        (pp_hprop_prec (OpInfo.prec_hprop_sepconj - 1) ctxt)
         h2
     in
-    parens_if (OpInfo.hprop `SepConj <= prec) pp ppf ()
+    parens_if (OpInfo.prec_hprop_sepconj <= prec) pp ppf ()
 
 and pp_staged_spec_prec prec ctxt ppf = function
   | Return t -> Fmt.pf ppf "@[<hov 2>ret@ %a@]" (pp_term_prec 0 ctxt) t
@@ -97,12 +100,12 @@ and pp_staged_spec_prec prec ctxt ppf = function
   | Sequence (s1, s2) ->
     let pp ppf () =
       Fmt.pf ppf "@[<hov 0>%a;@ %a@]"
-        (pp_staged_spec_prec (OpInfo.staged `Seq) ctxt)
+        (pp_staged_spec_prec OpInfo.prec_staged_seq ctxt)
         s1
-        (pp_staged_spec_prec (OpInfo.staged `Seq - 1) ctxt)
+        (pp_staged_spec_prec (OpInfo.prec_staged_seq - 1) ctxt)
         s2
     in
-    parens_if (OpInfo.staged `Seq <= prec) pp ppf ()
+    parens_if (OpInfo.prec_staged_seq <= prec) pp ppf ()
   | Bind (s, b) ->
     let x, body, ctxt = unbind_in ctxt b in
     (* let pp ppf () =
@@ -123,12 +126,12 @@ and pp_staged_spec_prec prec ctxt ppf = function
   | Disjunct (s1, s2) ->
     let pp ppf () =
       Fmt.pf ppf "@[<hov 0>%a@ \\/@ %a@]"
-        (pp_staged_spec_prec (OpInfo.staged `Disj) ctxt)
+        (pp_staged_spec_prec OpInfo.prec_staged_disj ctxt)
         s1
-        (pp_staged_spec_prec (OpInfo.staged `Disj) ctxt)
+        (pp_staged_spec_prec OpInfo.prec_staged_disj ctxt)
         s2
     in
-    parens_if (OpInfo.staged `Disj <= prec) pp ppf ()
+    parens_if (OpInfo.prec_staged_disj <= prec) pp ppf ()
   | Forall b ->
     let x, body, ctxt = unbind_in ctxt b in
     let pp ppf () =
