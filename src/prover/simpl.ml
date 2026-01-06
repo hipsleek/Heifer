@@ -14,7 +14,7 @@ let rec refine_cont (s : staged_spec) (k : cont) : staged_spec =
       let x, s' = unbind b in
       Bind (s, unbox (bind_var x (box_staged_spec (refine_cont s' k)))) (* TODO: inefficient, we should work in box and only unbox at the end! *)
 
-let rec capture_cont (k : cont) : term =
+let capture_cont (k : cont) : term =
   match k with
   | CNil ->
       let x = new_tvar "x" in
