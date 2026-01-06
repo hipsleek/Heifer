@@ -1,6 +1,5 @@
 %{
 open Core.Syntax
-open Constructors
 open Bindlib
 %}
 
@@ -119,7 +118,7 @@ term:
   | n = INT
       { TInt n }
   | v = LOWERCASE_IDENT
-      { unbox (mk_tvar (new_tvar v)) }
+      { unbox (Mk.tvar (new_tvar v)) }
 //   | TILDE t = term
 //       { TNot t }
 //   | t1 = term op = bin_rel_op t2 = term

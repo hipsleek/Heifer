@@ -10,6 +10,7 @@ module OpInfo = struct
     | Eq -> ("=", `Left, 3)
     | Neq -> ("!=", `Left, 3)
 
+  (* Operator precedence is only comparable within a syntactic category *)
   let unary = function Not -> ("!", 8) | Neg -> ("-", 8)
   let prop = function `Conj -> 2
   let hprop = function `PointsTo -> 5 | `SepConj -> 3
