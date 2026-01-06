@@ -1,5 +1,11 @@
 export OCAMLRUNPARAM=b
 
+all1:
+	dune build src
+
+w:
+	dune build src @runtest -w
+
 all: test
 	# dune build @doc-private
 	dune build main/hip.exe

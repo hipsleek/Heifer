@@ -1,5 +1,5 @@
 
-open Parsing
+open Parsing_old
 
 let handle_error parser lexbuf =
   try parser Lexer.token lexbuf with
@@ -36,7 +36,7 @@ let string_of_payload (p : Parsetree.payload) =
   | PStr [{
       pstr_desc = Pstr_eval ({
         pexp_desc = Pexp_constant {
-          pconst_desc = Pconst_string (annotation, _, _); _}; _}, _); _}] -> 
+          pconst_desc = Pconst_string (annotation, _, _); _}; _}, _); _}] ->
             Some annotation
   | _ -> None
 

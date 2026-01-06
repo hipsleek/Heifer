@@ -17,7 +17,7 @@
  (flags (--explain)))
 
 (library
- (name parsing)
- (public_name heifer.parsing)
+ (name parsing_old)
+ (public_name heifer.parsing_old)
  (modules parser lexer)
  (libraries hipcore))
