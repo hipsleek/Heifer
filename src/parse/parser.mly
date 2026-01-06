@@ -117,8 +117,13 @@ term:
       { TUnit }
   | n = INT
       { TInt n }
-  | v = LOWERCASE_IDENT
-      { unbox (Mk.tvar (new_tvar v)) }
+
+//   | v = LOWERCASE_IDENT
+//       { unbox (Mk.tvar (new_tvar v)) }
+
+  | x = LOWERCASE_IDENT
+      { unbox (Mk.tvar (Binders.lookup_or_fresh x)) }
+
 //   | TILDE t = term
 //       { TNot t }
 //   | t1 = term op = bin_rel_op t2 = term
@@ -200,22 +205,28 @@ staged_spec:
       { Requires h }
   | ENSURES h = hprop
       { Ensures h }
+
   // | va = fn
   //     { let (v, args) = va in HigherOrder (v, args) }
   // | SHIFT LPAREN v = LOWERCASE_IDENT DOT s = staged_spec RPAREN
   //     { (* TODO: shiftc *)
   //       let x = Variables.fresh_variable ~v:"x" "continuation argument" in
   //       Shift (true, v, s, x, NormalReturn (Atomic (EQ, Variables.res_var, Var x), EmptyHeap)) }
-  | RESET LPAREN s = staged_spec RPAREN
+
+  | RESET LPAREN s=staged_spec RPAREN
       { Reset s }
   | s1=staged_spec SEMI s2=staged_spec
       { Sequence (s1, s2) }
-  | s1=staged_spec SEMI x=LOWERCASE_IDENT DOT s2=staged_spec
-      { Bind (s1, unbox (bind_var (new_tvar x)
-        (box_staged_spec s2))) }
+
 //   | LET x=LOWERCASE_IDENT EQUAL s1=staged_spec IN s2=staged_spec
-//       { Bind (s1, unbox (bind_var (new_tvar x)
-//         (box_staged_spec s2))) }
+  | s1=staged_spec SEMI x=LOWERCASE_IDENT DOT
+      midrule({ Binders.push_scope () })
+    s2=staged_spec
+      {
+        let x = Binders.bind_variable x in
+        (* TODO quadratic, possibly return a box from the rules *)
+        Bind (s1, unbox (bind_var x (box_staged_spec s2))) }
+
   | LPAREN s = staged_spec RPAREN
       { s }
 ;
@@ -235,15 +246,15 @@ staged_spec:
 
 parse_prop:
   | p = prop EOF
-      { p }
+      { Binders.reset_state (); p }
 
 parse_hprop:
   | k = hprop EOF
-      { k }
+      { Binders.reset_state (); k }
 
 parse_staged_spec:
   | s = staged_spec EOF
-      { s }
+      { Binders.reset_state (); s }
 
 // parse_term:
 //   | t = term EOF

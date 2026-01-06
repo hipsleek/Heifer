@@ -69,6 +69,7 @@ module Mk = struct
   let tfun = box_apply (fun b -> TFun b)
   let tbinop op = box_apply2 (fun t1 t2 -> TBinop (op, t1, t2))
   let tunop op = box_apply (fun t -> TUnop (op, t))
+
   (* let tmetavar mv = box (TMetavar mv) *)
   let patom = box_apply (fun t -> PAtom t)
   let pconj = box_apply2 (fun p1 p2 -> PConj (p1, p2))
@@ -76,6 +77,7 @@ module Mk = struct
   let hemp = box HEmp
   let hpointsto = box_apply2 (fun t1 t2 -> HPointsTo (t1, t2))
   let hsepconj = box_apply2 (fun p1 p2 -> HSepConj (p1, p2))
+
   (* let stmetavar mv = box (StMetavar mv) *)
   let return = box_apply (fun t -> Return t)
   let requires = box_apply (fun p -> Requires p)
@@ -105,8 +107,8 @@ let rec box_term = function
   | TFun b -> Mk.tfun (box_binder box_staged_spec b)
   | TBinop (op, t1, t2) -> Mk.tbinop op (box_term t1) (box_term t2)
   | TUnop (op, t) -> Mk.tunop op (box_term t)
-  (* | TMetavar mv -> tmetavar mv *)
-  (* | _ -> failwith "box_term: todo" *)
+(* | TMetavar mv -> tmetavar mv *)
+(* | _ -> failwith "box_term: todo" *)
 
 and box_prop = function
   | PAtom t -> Mk.patom (box_term t)
@@ -130,9 +132,10 @@ and box_staged_spec = function
   | Exists b -> Mk.exists (box_binder box_staged_spec b)
   | Shift b -> Mk.shift (box_binder box_staged_spec b)
   | Reset s -> Mk.reset (box_staged_spec s)
-  | Dollar (s, k) -> Mk.dollar (box_staged_spec s) (box_binder box_staged_spec k)
-  (* | SMetavar mv -> smetavar mv *)
-  (* | _ -> failwith "box_staged_spec: todo" *)
+  | Dollar (s, k) ->
+    Mk.dollar (box_staged_spec s) (box_binder box_staged_spec k)
+(* | SMetavar mv -> smetavar mv *)
+(* | _ -> failwith "box_staged_spec: todo" *)
 
 type sort =
   | Sort_term
