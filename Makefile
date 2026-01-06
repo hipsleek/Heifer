@@ -1,7 +1,7 @@
 export OCAMLRUNPARAM=b
 
 all1:
-	dune build src
+	dune build src @runtest
 
 w:
 	dune build src @runtest -w

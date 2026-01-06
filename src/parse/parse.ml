@@ -111,10 +111,11 @@ let extract_ignore_attribute attrs = extract_attribute parse_ignore_attribute at
 
 open Core.Pretty
 
-let%expect_test _ =
-  (* TODO test round tripping *)
-  let term a = Format.printf "%a@." pp_prop (parse_prop a) in
-  let staged a = Format.printf "%a@." pp_staged_spec (parse_staged_spec a) in
+let term a = Format.printf "%a@." pp_prop (parse_prop a)
+let staged a = Format.printf "%a@." pp_staged_spec (parse_staged_spec a)
+
+let%expect_test "basics" =
+  (* TODO test round-tripping *)
   term "true";
   [%expect {| true |}];
 
@@ -126,10 +127,31 @@ let%expect_test _ =
     |}];
 
   staged "ens x=1";
-  [%expect {| ens (x = 1) |}];
+  [%expect {| ens x = 1 |}];
 
   staged "let x = ens emp in ens x=2";
   [%expect {|
     let x = ens emp in
-    ens (x = 2)
+    ens x = 2
     |}]
+
+let%expect_test "precedence and associativity" =
+  (* seq is right-associative *)
+  staged "ens emp; (ens emp; ens emp)";
+  [%expect {| ens emp; ens emp; ens emp |}];
+
+  staged "(ens emp; ens emp); ens emp";
+  [%expect {| (ens emp; ens emp); ens emp |}];
+
+  staged "ens emp; ens emp; ens emp";
+  [%expect {| ens emp; ens emp; ens emp |}];
+
+  (* seq has higher precedence than disj *)
+  staged "ens emp; ens emp \\/ ens emp";
+  [%expect {| ens emp; ens emp \/ ens emp |}];
+
+  staged "(ens emp; ens emp) \\/ ens emp";
+  [%expect {| ens emp; ens emp \/ ens emp |}];
+
+  staged "ens emp; (ens emp \\/ ens emp)";
+  [%expect {| ens emp; (ens emp \/ ens emp) |}]
