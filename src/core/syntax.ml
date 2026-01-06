@@ -22,7 +22,7 @@ type term =
 (** Atomic pure proposition like `x < 1` will be represented with `term` and lifted to `prop` using `PAtom` *)
 and prop =
   | PAtom of term
-  | PConj of term * term
+  | PConj of prop * prop
 
 and hprop =
   | HPure of prop
@@ -53,9 +53,17 @@ module Constructors = struct
   let mk_tfalse = box TFalse
   let mk_tint i = box (TInt i)
   (* let mk_tpair = box_apply2 (fun t1 t2 -> TPair (t1, t2)) *)
+  let mk_ttuple = box_apply (fun ts -> TTuple ts)
   let mk_tfun = box_apply (fun b -> TFun b)
+  let mk_tbinop op = box_apply2 (fun t1 t2 -> TBinop (op, t1, t2))
+  let mk_tunop op = box_apply (fun t -> TUnop (op, t))
   (* let mk_tmetavar mv = box (TMetavar mv) *)
-  (* let mk_ststate = box StState *)
+  let mk_patom = box_apply (fun t -> PAtom t)
+  let mk_pconj = box_apply2 (fun p1 p2 -> PConj (p1, p2))
+  let mk_hpure = box_apply (fun p -> HPure p)
+  let mk_hemp = box HEmp
+  let mk_hpointsto = box_apply2 (fun t1 t2 -> HPointsTo (t1, t2))
+  let mk_hsepconj = box_apply2 (fun p1 p2 -> HSepConj (p1, p2))
   (* let mk_stmetavar mv = box (StMetavar mv) *)
   let mk_return = box_apply (fun t -> Return t)
   let mk_requires = box_apply (fun p -> Requires p)
@@ -64,6 +72,7 @@ module Constructors = struct
   let mk_bind = box_apply2 (fun s b -> Bind (s, b))
   let mk_apply = box_apply2 (fun f t -> Apply (f, t))
   let mk_disjunct = box_apply2 (fun s1 s2 -> Disjunct (s1, s2))
+  let mk_forall = box_apply (fun b -> Forall b)
   let mk_exists = box_apply (fun b -> Exists b)
   let mk_shift = box_apply (fun b -> Shift b)
   let mk_reset = box_apply (fun s -> Reset s)
@@ -75,67 +84,49 @@ module Constructors = struct
 
   let rec box_term = function
     | TVar x -> mk_tvar x
-    (* | TSymbol s -> mk_tsymbol s *)
     | TUnit -> mk_tunit
-    (* | TBool b -> mk_tbool b *)
+    | TTrue -> mk_ttrue
+    | TFalse -> mk_tfalse
     | TInt i -> mk_tint i
-    (* | TPair (t1, t2) -> mk_tpair (box_term t1) (box_term t2) *)
+    | TTuple ts -> mk_ttuple (box_list (List.map box_term ts))
     | TFun b -> mk_tfun (box_binder box_staged_spec b)
+    | TBinop (op, t1, t2) -> mk_tbinop op (box_term t1) (box_term t2)
+    | TUnop (op, t) -> mk_tunop op (box_term t)
     (* | TMetavar mv -> mk_tmetavar mv *)
-    | _ -> failwith "box_term: todo"
+    (* | _ -> failwith "box_term: todo" *)
+
+  and box_prop = function
+    | PAtom t -> mk_patom (box_term t)
+    | PConj (p1, p2) -> mk_pconj (box_prop p1) (box_prop p2)
+
+  and box_hprop = function
+    | HPure p -> mk_hpure (box_prop p)
+    | HEmp -> mk_hemp
+    | HPointsTo (t1, t2) -> mk_hpointsto (box_term t1) (box_term t2)
+    | HSepConj (p1, p2) -> mk_hsepconj (box_hprop p1) (box_hprop p2)
 
   and box_staged_spec = function
     | Return t -> mk_return (box_term t)
-    (* | Ensures st -> mk_ensures (box_state st) *)
+    | Requires p -> mk_requires (box_hprop p)
+    | Ensures p -> mk_ensures (box_hprop p)
     | Sequence (s1, s2) -> mk_sequence (box_staged_spec s1) (box_staged_spec s2)
     | Bind (s, b) -> mk_bind (box_staged_spec s) (box_binder box_staged_spec b)
     | Apply (f, t) -> mk_apply (box_term f) (box_term t)
     | Disjunct (s1, s2) -> mk_disjunct (box_staged_spec s1) (box_staged_spec s2)
+    | Forall b -> mk_forall (box_binder box_staged_spec b)
     | Exists b -> mk_exists (box_binder box_staged_spec b)
     | Shift b -> mk_shift (box_binder box_staged_spec b)
     | Reset s -> mk_reset (box_staged_spec s)
     | Dollar (s, k) -> mk_dollar (box_staged_spec s) (box_binder box_staged_spec k)
     (* | SMetavar mv -> mk_smetavar mv *)
-    | _ -> failwith "box_staged_spec: todo"
-
-  (* and box_staged_spec_binder = function
-    | Binder b -> mk_binder (box_binder box_staged_spec b)
-    | Ignore s -> mk_ignore (box_staged_spec s)
-    | SBMetavar mv -> mk_sbmetavar mv *)
+    (* | _ -> failwith "box_staged_spec: todo" *)
 end
 
-(* module StagedSpecBinder = struct
-  let subst (b : staged_spec_binder) (t : term) : staged_spec =
-    match b with
-    | Binder b -> subst b t
-    | Ignore s -> s
-    | SBMetavar _ -> assert false
-
-  let compose ~(delimited : bool) (b : staged_spec_binder) (s : staged_spec) :
-      staged_spec =
-    if delimited then Dollar (s, b)
-    else
-      match b with
-      | Binder _ -> Bind (s, b)
-      | Ignore s' -> Sequence (s, s')
-      | SBMetavar _ -> assert false
-end
-
-module Metavar = struct
-  type t = metavar
-
-  let equal (mv1 : t) (mv2 : t) = String.equal mv1.mv_name mv2.mv_name
-  let compare (mv1 : t) (mv2 : t) = String.compare mv1.mv_name mv2.mv_name
-  let hash (mv : t) = String.hash mv.mv_name
-end
-
-module Symbol = struct
-  type t = symbol
-
-  let equal (s1 : t) (s2 : t) = String.equal s1.s_name s2.s_name
-  let compare (s1 : t) (s2 : t) = String.compare s1.s_name s2.s_name
-  let hash (s : t) = String.hash s.s_name
-end
+type sort =
+  | Sort_term
+  | Sort_prop
+  | Sort_hprop
+  | Sort_staged_spec
 
 module Sort = struct
   exception Invalid_sort of string
@@ -143,4 +134,4 @@ module Sort = struct
 
   let invalid_sort msg = raise (Invalid_sort msg)
   let sort_mismatch msg = raise (Sort_mismatch msg)
-end *)
+end
