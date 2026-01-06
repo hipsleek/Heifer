@@ -30,9 +30,10 @@ let rec simpl_term (t : term) : term =
 and simpl_prop (p : prop) : prop = p
 and simpl_hprop (p : hprop) : hprop = p
 
-(** For simplicity, we only simplify [Sequence] and [Bind] at the moment.
-    We DO NOT simplify [Shift] and [Reset]. TODO: do we simplify under
-    binder? *)
+(** This is the entry point for [simpl].
+
+    For simplicity, we only simplify [Sequence] and [Bind] at the moment. We do
+    not simplify [Shift] and [Reset]. *)
 let rec simpl_staged_spec (s : staged_spec) : staged_spec =
   match s with
   | Return t -> Return t
@@ -79,3 +80,5 @@ and invoke_cont (k : cont) (t : term) =
   | CNil -> Return t
   | CCons0 (s, k) -> simpl_staged_spec_cont s k
   | CCons1 (b, k) -> simpl_staged_spec_cont (subst b t) k
+
+(* TODO: do we simplify under binder? *)
