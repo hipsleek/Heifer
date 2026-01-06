@@ -156,16 +156,7 @@ and pp_staged_spec_prec prec ctxt ppf = function
       body
   | Reset s ->
     Fmt.pf ppf "@[<hov 2>reset@ { %a }@]" (pp_staged_spec_prec 0 ctxt) s
-  | Dollar (s, b) ->
-    let k, body, ctxt = unbind_in ctxt b in
-    let pp ppf () =
-      Fmt.pf ppf "@[<v 0>@[<hov 2>$let %s =@ %a@] in@,%a@]" (name_of k)
-        (pp_staged_spec_prec 0 ctxt)
-        s
-        (pp_staged_spec_prec 0 ctxt)
-        body
-    in
-    pp ppf ()
+  | Dollar _ -> assert false
 
 let pp_staged_spec ppf s =
   pp_staged_spec_prec 0 (free_vars (box_staged_spec s)) ppf s
