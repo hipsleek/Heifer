@@ -49,23 +49,30 @@ open Bindlib
 
 ///////////////////////////
 
+// in increasing order of precedence
+%nonassoc SUBSUMES
+%nonassoc REQUIRES ENSURES
+%nonassoc FORALL EXISTS // lower than ;
+%right DISJUNCTION
+%right SEMI
+
+// prop
 %nonassoc EQUAL
 %nonassoc GREATER
 %nonassoc LESS
-%left STARDOT
-%left PLUS
-%left MINUS
-%right STAR
-%right COLONCOLON
-// %nonassoc SUBSUMES
-// %nonassoc MINUSGREATER
-%nonassoc TILDE
-%right CONJUNCTION
+%right EQUALGREATER
+%left CONJUNCTION
 
-%nonassoc DOT
-%right DISJUNCTION
-%right SEMI
-%nonassoc IN
+// hprop
+%right STAR
+
+// term
+%left PLUS //MINUS
+%left STARDOT // multiplication
+%right COLONCOLON
+// %nonassoc TILDE
+// %nonassoc DOT
+// %nonassoc IN
 
 %start parse_prop
 %type <prop> parse_prop
@@ -152,6 +159,10 @@ term:
 //       { Construct (v, []) }
 //   | v = CAPITAL_IDENT LPAREN args = separated_list(COMMA, term) RPAREN
 //       { Construct (v, args) }
+
+  // | f=LOWERCASE_IDENT items=delimited(LPAREN, separated_nonempty_list(COMMA, term), RPAREN)
+  //     { TApp (f, items) }
+
   | LBRACKET RBRACKET
       { TNil }
   | items=delimited(LBRACKET, separated_nonempty_list(SEMI, term), RBRACKET)
@@ -206,7 +217,8 @@ hprop:
       // { PointsTo (v, t) }
   | k1 = hprop STAR k2 = hprop
       { HSepConj (k1, k2) }
-  | p = prop { HPure p }
+  | p = prop %prec CONJUNCTION // this should be the highest level below star
+  { HPure p }
   // | k = delimited(LPAREN, hprop, RPAREN)
   //     { k }
 ;
@@ -253,20 +265,20 @@ staged_spec:
 //   | LET x=LOWERCASE_IDENT EQUAL s1=staged_spec IN s2=staged_spec
   | s1=staged_spec SEMI x=LOWERCASE_IDENT DOT
       midrule({ Binders.push_scope () })
-    s2=staged_spec
+    s2=staged_spec %prec SEMI
       { let x = List.hd (Binders.bind_variables [x]) in
         (* TODO quadratic, possibly return a box from the rules *)
         Bind (s1, unbox (bind_var x (box_staged_spec s2))) }
 
   | FORALL xs = LOWERCASE_IDENT* DOT
       midrule({ Binders.push_scope () })
-    s = staged_spec
+    s = staged_spec %prec FORALL
       { let xs = Binders.bind_variables xs in
         List.fold_right (fun x t -> Forall (unbox (bind_var x (box_staged_spec t)))) xs s }
 
   | EXISTS xs = LOWERCASE_IDENT* DOT
       midrule({ Binders.push_scope () })
-    s = staged_spec
+    s = staged_spec %prec EXISTS
       { let xs = Binders.bind_variables xs in
         List.fold_right (fun x t -> Exists (unbox (bind_var x (box_staged_spec t)))) xs s }
 
