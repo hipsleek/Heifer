@@ -1,6 +1,8 @@
 open Bindlib
 
 type metavar = { mv_name : string }
+
+(** User-defined symbol (top-level declaration). *)
 type symbol = { sym_name : string }
 
 type binop =
@@ -181,3 +183,12 @@ end
 (** Set and map of term variables. *)
 module TVSet = Set.Make(TV)
 module TVMap = Map.Make(TV)
+
+module Sym = struct
+  type t = symbol
+  let compare sym1 sym2 = String.compare sym1.sym_name sym2.sym_name
+end
+
+(** Set and map of symbols. *)
+module SymSet = Set.Make(Sym)
+module SymMap = Map.Make(Sym)

@@ -1,5 +1,5 @@
 (** Implementation of the [unfold] tactic.
-    
+
     To unfold a symbol, we traverse a specification, lookup the definition
     of the symbol, and do substitution. *)
 
@@ -25,5 +25,7 @@ and unfold_binder_aux sym def b =
   let x, s = unbind b in
   unbox (bind_var x (box_staged_spec (unfold_aux sym def s)))
 
-let unfold sym s =
-  unfold_aux sym (failwith "todo") s
+let unfold sym defs s =
+  match SymMap.find_opt sym defs with
+  | None -> s
+  | Some def -> unfold_aux sym def s
