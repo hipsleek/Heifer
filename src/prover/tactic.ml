@@ -51,6 +51,7 @@ module Tactic : sig
   val with_rhs : staged_spec -> (unit -> 'a t) -> 'a t
   val fail : string -> 'a t
   val choice : 'a t -> 'a t -> 'a t
+  val put_lhs : staged_spec -> unit t
   val put_rhs : staged_spec -> unit t
   val put_pctx : Pctx.t -> unit t
 
@@ -133,274 +134,48 @@ end = struct
 
   let choice t1 t2 =
    fun ps -> match t1 ps with Error _ -> t2 ps | Ok s -> Ok s
-  (* Iter.append () (t2 ps) *)
-
-  (* let choices ts = fun ps -> Iter.append_l (List.map (fun t -> t ps) ts) *)
-
-  (* like ltac's lazymatch. unsure if this is necessary as we only get one solution. also this may lead to incompleteness of search, as we cannot backtrack past this, like a cut? *)
-  (* let committed_choice (t1 : 'a t) (t2 : 'a t) : 'a t =
-   fun ps -> Iter.take 1 ((choice t1 t2) ps) *)
-
-  (* let committed_choices ts = fun ps -> Iter.take 1 ((choices ts) ps) *)
-
-  (* let failure ~title fmt =
-    Format.kasprintf
-      (fun msg ->
-        fun s k ->
-         Debug.debug ~at:4 ~title "%s" msg;
-         fail s k)
-      fmt
-
-  let span (t : 'a t) ~title fmt =
-    Format.kasprintf
-      (fun msg ->
-        fun s k ->
-         let@ _ = span (fun _r -> Debug.debug ~at:4 ~title "%s" msg) in
-         t s k)
-      fmt
-*)
 end
-
-(* type coq_tactic =
-  | Rewrite of string
-  | SRReduction
-  | Simplify
-  | Biab
-  | EntDisjL
-  | EntDisjR
-  | Focus of coq_tactic list
-
-type coq_tactics = coq_tactic list
-
-let rec string_of_coq_tactic t =
-  match t with
-  | EntDisjL -> "apply ent_disj_l."
-  | EntDisjR -> "apply ent_disj_l."
-  | Focus [] -> ""
-  | Focus [a] -> Format.asprintf "{ %s }" (string_of_coq_tactic a)
-  | Focus (a :: rest) ->
-    Format.asprintf "{ %s\n%s }" (string_of_coq_tactic a)
-      (string_of_list_ind_lines string_of_coq_tactic rest)
-  | Simplify -> "fsimpl."
-  | Biab -> "fbiabduction."
-  | SRReduction -> "freduction."
-  | Rewrite r -> Format.asprintf "rewrite %s." r
-
-and string_of_coq_tactics ts =
-  ts |> List.map string_of_coq_tactic |> String.concat "\n"
-
-let%expect_test _ =
-  Format.printf "%s@."
-    (string_of_coq_tactics
-       [
-         EntDisjL;
-         Focus
-           [
-             EntDisjR;
-             EntDisjL;
-             EntDisjR;
-             EntDisjL;
-             EntDisjR;
-             EntDisjL;
-             EntDisjR;
-             EntDisjL;
-           ];
-         Focus [EntDisjR];
-       ]);
-  [%expect
-    {|
-    apply ent_disj_l.
-    { apply ent_disj_l.
-      apply ent_disj_l.
-      apply ent_disj_l.
-      apply ent_disj_l.
-      apply ent_disj_l.
-      apply ent_disj_l.
-      apply ent_disj_l.
-      apply ent_disj_l. }
-    { apply ent_disj_l. }
-    |}] *)
 
 let intro =
   let open Tactic in
   let* right = goal_rhs in
   match right with
   | Forall b ->
+    (* TODO freshness issues? this has to be free on both sides *)
     let x, f = unbind b in
-    (* let* _ = span (with_lhs f1 search) ~title:"disj left" "left branch" in *)
-    (* span (with_lhs f2 search) ~title:"disj left" "right branch" *)
-    (* with_rhs *)
-    (* set *)
-    (* let* l = goal_lhs in *)
-    (* let* p = ctx in *)
     let* _ = put_rhs f in
     let* pctx = ctx in
     put_pctx { pctx with constants = unbox (Mk.tvar x) :: pctx.constants }
-    (* Ok (p, l, f) *)
-    (* Ok () *)
-    (* return (p, l, f) *)
-    (* put  *)
   | _ -> fail "cannot intro"
 
-(* let rec disj_left () : unit Tactic.t =
+let simpl =
   let open Tactic in
   let* left = goal_lhs in
-  match left with
-  | Disjunction (f1, f2) ->
-    let* _ = span (with_lhs f1 search) ~title:"disj left" "left branch" in
-    span (with_lhs f2 search) ~title:"disj left" "right branch"
-  | _ -> fail
-
-and disj_right () : unit Tactic.t =
-  let open Tactic in
   let* right = goal_rhs in
-  match right with
-  | Disjunction (f1, f2) ->
-    let goal2 = span (with_rhs f2 search) ~title:"disj right" "right branch" in
-    let goal1 = span (with_rhs f1 search) ~title:"disj right" "left branch" in
-    choice goal1 goal2
-  | _ -> fail
-
-and ens_ens () : unit Tactic.t =
-  let open Tactic in
-  let* left, right = goal in
-  match (left, right) with
-  | NormalReturn (True, EmptyHeap), NormalReturn (True, EmptyHeap) ->
-    debug ~at:4 ~title:"ens ens" "ok";
-    return ()
-  | _ -> fail
-
-and search () : unit Tactic.t =
-  let open Tactic in
-  let* left, right = goal in
-  debug ~at:4 ~title:"search" "%s |- %s"
-    (string_of_staged_spec left)
-    (string_of_staged_spec right);
-  choices [disj_left (); disj_right (); ens_ens (); failure ~title:"STUCK" ""]
-
-let%expect_test _ =
-  Debug.test_init 4;
-  let open Syntax in
-  let left = Disjunction (ens (), ens ()) in
-  let right = Disjunction (ens ~p:False (), ens ()) in
-  let r = Tactic.run (search ()) (new_pctx (), left, right) |> Option.get in
-  debug ~at:4 ~title:"done" "%s" (string_of_pstate (r, left, right));
-  [%expect
-    {|
-    * search | _1
-    (ens emp) \/ (ens emp) |- (ens F) \/ (ens emp)
-
-    * disj left | _2
-    left branch
-
-    ** search | _3
-    ens emp |- (ens F) \/ (ens emp)
-
-    ** disj right | _4
-    left branch
-
-    *** search | _5
-    ens emp |- ens F
-
-    *** STUCK | _6
-
-    *** disj right | _7 <-_4
-    left branch
-
-    ** disj right | _8
-    right branch
-
-    *** search | _9
-    ens emp |- ens emp
-
-    *** ens ens | _10
-    ok
-
-    *** disj left | _11
-    right branch
-
-    **** search | _12
-    ens emp |- (ens F) \/ (ens emp)
-
-    **** disj right | _13
-    left branch
-
-    ***** search | _14
-    ens emp |- ens F
-
-    ***** STUCK | _15
-
-    ***** disj right | _16 <-_13
-    left branch
-
-    **** disj right | _17
-    right branch
-
-    ***** search | _18
-    ens emp |- ens emp
-
-    ***** ens ens | _19
-    ok
-
-    ***** disj right | _20 <-_17
-    right branch
-
-    **** disj left | _21 <-_11
-    right branch
-
-    *** disj right | _22 <-_8
-    right branch
-
-    ** disj left | _23 <-_2
-    left branch
-
-    * done | _24
-    (ens emp) \/ (ens emp)
-    ⊑
-    (ens F) \/ (ens emp)
-    <============================================================
-    constants:
-    []
-
-    induction_hypotheses:
-
-
-    lemmas:
-
-
-    assumptions:
-
-
-    definitions_nonrec:
-
-
-    definitions_rec:
-
-
-    unfolded:
-    |}] *)
+  let* _ = put_lhs (Simpl.simpl_staged_spec left) in
+  put_rhs (Simpl.simpl_staged_spec right)
 
 module Interactive = struct
   let current_state = ref None
 
-  let print_state () =
+  let print_proof_state () =
     Format.printf "%s@." (show_pstate (Option.get !current_state))
 
   let start_proof l r =
     current_state :=
       Some (Pctx.create (), parse_staged_spec l, parse_staged_spec r);
-    print_state ()
+    print_proof_state ()
 
-  let apply (tac : 'a Tactic.t) =
+  let make_interactive (tac : 'a Tactic.t) () =
     match !current_state with
-    | None -> print_endline "No active goal!"
+    | None -> Format.printf "no goal@."
     | Some st ->
       (match tac st with
       | Ok (_, next_st) ->
         current_state := Some next_st;
-        (* print_goals next_st *)
-        print_state ()
-      | Error s ->
-        (* print_error e *)
-        Format.printf "error applying %s@." s)
+        print_proof_state ()
+      | Error s -> Format.printf "error: %s@." s)
+
+  let intro = make_interactive intro
+  let simpl = make_interactive simpl
 end

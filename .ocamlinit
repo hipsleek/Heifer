@@ -1,2 +1,7 @@
 #utop_prompt_dummy;;
 #use_output "dune ocaml top";;
+
+(* open Prover.Tactic;; *)
+open Prover.Tactic.Interactive;;
+
+start_proof "ens emp; ens emp" "forall x. ens emp";;
