@@ -31,8 +31,8 @@ type term =
   | TFun of (term, staged_spec) binder
   | TTuple of term list
   | TBinop of binop * term * term
-  | TNil
   | TUnop of unop * term
+  | TNil
 (* | TMetavar of metavar *)
 
 (** Atomic pure proposition like [x < 1] will be represented with [term] and
@@ -172,3 +172,12 @@ module Sort = struct
   let invalid_sort msg = raise (Invalid_sort msg)
   let sort_mismatch msg = raise (Sort_mismatch msg)
 end
+
+module TV = struct
+  type t = term var
+  let compare = compare_vars
+end
+
+(** Set and map of term variables. *)
+module TVSet = Set.Make(TV)
+module TVMap = Map.Make(TV)
