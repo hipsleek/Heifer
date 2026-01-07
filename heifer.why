@@ -1,0 +1,49 @@
+
+module Heifer
+
+  use int.Int
+  use bool.Bool
+  use list.List
+
+  type term =
+    | TInt int
+    | TBool bool
+    | TErr
+
+  function plus (a b:term) : term =
+    match a, b with
+    | TInt a1, TInt b1 -> TInt (a1 + b1)
+    | _, _ -> TErr
+    end
+
+  function eq (a b:term) : bool =
+    match a, b with
+    | TErr, _ | _, TErr -> false
+    | _, _ -> a = b
+    end
+
+  type prop =
+    | PTrue
+    | PFalse
+    | PNot prop
+    | PAnd prop prop
+    | POr prop prop
+    | PImply prop prop
+    | PEq term term
+    (* | PForall (term -> prop) *)
+    (* Verified Programs with Binders? *)
+
+  function interp (t:prop) : bool =
+    match t with
+    | PTrue -> true
+    | PFalse -> false
+    | PNot a -> not (interp a)
+    | PAnd a b -> interp a /\ interp b
+    | POr a b -> interp a \/ interp b
+    | PImply a b -> interp a -> interp b
+    | PEq a b -> a = b
+    (* | PForall f -> forall x. interp (f x) *)
+    end
+
+
+end
