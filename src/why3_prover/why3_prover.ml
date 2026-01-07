@@ -1,5 +1,7 @@
 (* module Hipdebug = Debug *)
-open Core.Syntax
+open Util
+
+(* open Core.Syntax *)
 open Why3
 (* module Debug = Hipdebug *)
 
@@ -428,7 +430,7 @@ and core_lang_to_whyml e =
   | CIfElse (c, t, e) ->
     term
       (Tif
-         ( pi_to_whyml c,
+         ( Translate.prop_to_whyml c,
            core_lang_to_whyml t,
            core_lang_to_whyml e ))
   | CFunCall (s, args) ->
@@ -476,108 +478,6 @@ let collect_variables =
 
 (* (qtf : Hipcore_typed.Typedhip.binder list) *)
 
-open Ptree
-open Ptree_helpers
-
-let rec term_to_whyml t =
-  match t with
-  | TUnit -> term (Ttuple [])
-  | TTrue -> term Ttrue
-  | TFalse -> term Tfalse
-  | TNil | TVar _ | TInt _ | TFun _ | TTuple _ | TBinop (_, _, _) | TUnop (_, _) | TSymbol _
-    ->
-    failwith "todo"
-
-(* | Const TTrue -> term Ttrue
-  | Const TFalse -> term Tfalse
-  | Const (Num i) -> tconst i
-  | Var v -> tvar (qualid [v])
-  | BinOp (SConcat, a, b) ->
-    tapp
-      (qualid ["String"; "concat"])
-      [term_to_whyml a; term_to_whyml b]
-  | BinOp (Plus, a, b) ->
-    tapp
-      (qualid ["Int"; Ident.op_infix "+"])
-      [term_to_whyml a; term_to_whyml b]
-  | BinOp (Minus, a, b) ->
-    tapp
-      (qualid ["Int"; Ident.op_infix "-"])
-      [term_to_whyml a; term_to_whyml b]
-  | BinOp (TTimes, a, b) ->
-    tapp
-      (qualid ["Int"; Ident.op_infix "*"])
-      [term_to_whyml a; term_to_whyml b]
-  | Rel (EQ, a, b) ->
-    tapp
-      (qualid [Ident.op_infix "="])
-      [term_to_whyml a; term_to_whyml b]
-  | Rel (GT, a, b) ->
-    tapp
-      (qualid ["Int"; Ident.op_infix ">"])
-      [term_to_whyml a; term_to_whyml b]
-  | Rel (GTEQ, a, b) ->
-    tapp
-      (qualid ["Int"; Ident.op_infix ">="])
-      [term_to_whyml a; term_to_whyml b]
-  | Rel (LT, a, b) ->
-    tapp
-      (qualid ["Int"; Ident.op_infix "<"])
-      [term_to_whyml a; term_to_whyml b]
-  | Rel (LTEQ, a, b) ->
-    tapp
-      (qualid ["Int"; Ident.op_infix "<="])
-      [term_to_whyml a; term_to_whyml b]
-  | BinOp (TAnd, a, b) ->
-    tapp (qualid ["Bool"; "andb"]) [term_to_whyml a; term_to_whyml b]
-  | BinOp (TOr, a, b) ->
-    tapp (qualid ["Bool"; "orb"]) [term_to_whyml a; term_to_whyml b]
-  | TNot a -> tapp (qualid ["Bool"; "notb"]) [term_to_whyml a]
-  | TApp (f, args) -> tapp (qualid [f]) (List.map (term_to_whyml) args)
-  | Const Nil -> tapp (qualid ["[]"]) []
-  | BinOp (TCons, h, t) ->
-    tapp (qualid ["::"]) [term_to_whyml h; term_to_whyml t]
-  | TLambda (_name, _, _sp, Some _) | TLambda (_name, _, _sp, None) ->
-    (* if there is no body, generate something that only respects alpha equivalence *)
-    (* this probably doesn't always work *)
-    (* tconst (Subst.hash_lambda t) *)
-    failwith "lambda"
-  (* failwith "no body" *)
-  (* disabled temporarily *)
-  (* | TLambda (_name, params, _sp, Some body) ->
-     let params, _ret = unsnoc params in
-     let binders = vars_to_params tenv params in
-     term (Tquant (Dterm.DTlambda, binders, [], core_lang_to_whyml tenv body)) *)
-  | Construct (name, []) ->
-    term (Tident (qualid [name]))
-  | Construct (name, args) ->
-      tapp (qualid [name]) (List.map term_to_whyml args)
-  | TTuple _ | BinOp (TPower, _, _) | BinOp (TDiv, _, _) | Const (TStr _) *)
-
-(* -> *)
-(* failwith "nyi" *)
-
-and pi_to_whyml p =
-  match p with
-  (* | True -> term Ttrue
-  | False -> term Tfalse
-  | Atomic (EQ, a, b) ->
-    tapp
-      (qualid [Ident.op_infix "="])
-      [term_to_whyml a; term_to_whyml b]
-  | Atomic (op, a, b) -> term_to_whyml (Syntax.rel op a b)
-  | And (a, b) -> *)
-  | PAtom t -> term_to_whyml t
-  | PConj (a, b) -> term (Tbinop (pi_to_whyml a, Dterm.DTand, pi_to_whyml b))
-  (* | Or (a, b) ->
-    term (Tbinop (pi_to_whyml a, Dterm.DTor, pi_to_whyml b))
-  | Not a -> term (Tnot (pi_to_whyml a)) *)
-  | PImplies (_, _)
-  (* | Predicate (_, _) -> failwith "nyi" *)
-  | PSubsumes (_, _) ->
-    (* term Ttrue *)
-    failwith "todo"
-
 let why3_config = Whyconf.init_config None
 let why3_config_main = Whyconf.get_main why3_config
 
@@ -623,34 +523,12 @@ let combine_task_results label task_results =
     in
     `Unknown explanation
 
-module SMap = struct
-  module M = Map.Make (String)
-  include M
-
-  let pp pp_v fmt map =
-    Format.fprintf fmt "@[<v 0>{@;<0 2>@[<v 0>%a@]@,}@]"
-      (Format.pp_print_list
-         ~pp_sep:(fun fmt () -> Format.fprintf fmt ",@ ")
-         (fun fmt (k, v) -> Format.fprintf fmt "%s: %a" k pp_v v))
-      (bindings map)
-
-  let update_ k f m =
-    update k (function None -> failwith "invalid" | Some v -> Some (f v)) m
-end
-
 let prover_configs : (Whyconf.config_prover * Why3.Driver.driver) SMap.t ref =
   ref SMap.empty
 
 let string_of_prover p =
   Format.asprintf "%s %s%s" p.Whyconf.prover_name p.prover_version
     (match p.prover_altern with "" -> "" | a -> "/" ^ a)
-
-let string_of_list p xs =
-  match xs with
-  | [] -> "[]"
-  | _ ->
-    let a = List.map p xs |> String.concat "; " in
-    Format.asprintf "[%s]" a
 
 let string_of_prover_result = function
   | `Valid -> "valid"
@@ -799,6 +677,8 @@ let attempt_proof task1 =
     combine_task_results "Task" task_results
 
 let prove ass goal =
+  let open Ptree in
+  let open Ptree_helpers in
   (* let ass, goal = f () in *)
   let vc_mod =
     (* whether to generate
@@ -822,19 +702,20 @@ let prove ass goal =
       |> SMap.to_list *)
     in *)
     let statement =
-      let assumptions = pi_to_whyml ass in
+      let assumptions = Translate.prop_to_whyml ass in
       let goal1 =
         let binders = [] in
         (* vars_to_params qtf in *)
         match binders with
-        | [] -> pi_to_whyml goal
+        | [] -> Translate.prop_to_whyml goal
         | _ :: _ ->
-          term (Tquant (Dterm.DTexists, binders, [], pi_to_whyml goal))
+          term
+            (Tquant (Dterm.DTexists, binders, [], Translate.prop_to_whyml goal))
       in
       match monolithic_goal with
       | false ->
         [
-          Dprop (Decl.Paxiom, ident "ass1", pi_to_whyml ass);
+          Dprop (Decl.Paxiom, ident "ass1", Translate.prop_to_whyml ass);
           Dprop (Decl.Pgoal, ident "goal1", goal1);
         ]
       | true ->
@@ -882,50 +763,6 @@ let prove ass goal =
         [Dlogic ff] *)
     in
 
-    let types =
-      (* let decls =
-        (* Globals.type_decls () *)
-        []
-      in *)
-      []
-      (* |> List.filter_map begin fun (name, tdecl) ->
-            match tdecl.tdecl_kind with
-            | Tdecl_inductive constrs ->
-              let mlw_constrs =
-                constrs
-                |> List.map begin fun (name, args) ->
-                    let constr_params =
-                      args
-                      |> List.map (fun typ ->
-                          (Loc.dummy_position, None, false, type_to_whyml typ))
-                    in
-                    (Loc.dummy_position, ident name, constr_params)
-                  end
-              in
-              let td_params =
-                tdecl.tdecl_params
-                |> List.filter_map (function
-                  | TVar s -> Some (ident s)
-                  | _ -> None)
-              in
-              Some
-                {
-                  td_ident = ident name;
-                  td_params;
-                  td_def = TDalgebraic mlw_constrs;
-                  (* dummy fields *)
-                  td_vis = Public;
-                  td_loc = Loc.dummy_position;
-                  td_inv = [];
-                  td_mut = false;
-                  td_wit = None;
-                }
-            | Tdecl_record _ -> None (* TODO, records not supported yet *)
-          end
-      in
-      [Dtype decls] *)
-    in
-
     let parameters =
       []
       (* match monolithic_goal with
@@ -961,7 +798,7 @@ let prove ass goal =
       ]
       @ extra
     in
-    (ident "M", List.concat [imports; types; fns; parameters; statement])
+    (ident "M", List.concat [imports; fns; parameters; statement])
   in
   let mlw_file = Modules [vc_mod] in
   (* Debug.debug ~at:4 ~title:"mlw file" "%a" *)
@@ -988,8 +825,3 @@ let prove ass goal =
   |> Wstdlib.Mstr.bindings
   |> List.map (fun (_, result) -> result)
   |> combine_task_results "Module"
-
-(* Entry point to call why3 *)
-(* let entails_exists left ex right =
-  let@ _ = Globals.Timing.(time why3) in
-  prove ex (fun _env -> (left, right)) *)
