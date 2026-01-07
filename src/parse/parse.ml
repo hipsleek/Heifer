@@ -133,7 +133,14 @@ let%expect_test "basics" =
   [%expect {| ens emp; x. ens x=1 |}];
 
   staged "forall x. ens x=1";
-  [%expect {| forall x. ens x=1 |}]
+  [%expect {| forall x. ens x=1 |}];
+
+  debug_tokens "f(1,2)";
+  staged "f(1,2)";
+  [%expect {|
+    LOWERCASE_IDENT f LPAREN INT 1 COMMA INT 2 RPAREN EOF
+    f (1, 2)
+    |}]
 
 let%expect_test "shadowing" =
   staged "ens emp; x. ens emp; x. ens x=2";

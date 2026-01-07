@@ -121,7 +121,7 @@ term:
 //   | v = LOWERCASE_IDENT
 //       { unbox (Mk.tvar (new_tvar v)) }
 
-  | x = LOWERCASE_IDENT
+  | x=LOWERCASE_IDENT
       { unbox (Mk.tvar (Binders.lookup_or_fresh x)) }
 
 //   | TILDE t = term
@@ -138,6 +138,12 @@ term:
 //       { Construct (v, args) }
 //   | LBRACKET items = separated_list(SEMI, term) RBRACKET
 //       { List.fold_right (fun v t -> BinOp (TCons, v, t)) items (Const Nil) }
+  |
+  LPAREN items=separated_nonempty_list(COMMA, term) RPAREN
+    // delimited(LPAREN, separated_nonempty_list(COMMA, term), RPAREN)
+// //   | v = LOWERCASE_IDENT args=
+      { TTuple items }
+      // List.fold_right (fun v t -> BinOp (TCons, v, t)) items (Const Nil)
 //   (* intended: function body spans maximally *)
 //   (* todo: remove the parens around function body *)
   // | FUN LPAREN args = separated_list(COMMA, LOWERCASE_IDENT) RPAREN MINUSGREATER LPAREN body=staged_spec RPAREN
@@ -195,14 +201,15 @@ hprop:
 // ;
 
 staged_spec:
-  // | EXISTS vs = LOWERCASE_IDENT* DOT s = staged_spec
-  //     { List.fold_right (fun v t -> Exists (v, t)) vs s }
   | s1 = staged_spec DISJUNCTION s2 = staged_spec
       { Disjunct (s1, s2) }
   | REQUIRES h = hprop
       { Requires h }
   | ENSURES h = hprop
       { Ensures h }
+
+  | f=term arg=term
+    { Apply (f, arg) }
 
   // | va = fn
   //     { let (v, args) = va in HigherOrder (v, args) }
@@ -229,6 +236,12 @@ staged_spec:
     s = staged_spec
       { let xs = Binders.bind_variables xs in
         List.fold_right (fun x t -> Forall (unbox (bind_var x (box_staged_spec t)))) xs s }
+
+  | EXISTS xs = LOWERCASE_IDENT* DOT
+      midrule({ Binders.push_scope () })
+    s = staged_spec
+      { let xs = Binders.bind_variables xs in
+        List.fold_right (fun x t -> Exists (unbox (bind_var x (box_staged_spec t)))) xs s }
 
   | LPAREN s = staged_spec RPAREN
       { s }
