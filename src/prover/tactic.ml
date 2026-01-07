@@ -200,4 +200,5 @@ module Interactive = struct
   let simpl = make_interactive (fun () -> simpl)
   let induction = make_interactive induction
   let smt () = Why3_prover.prove (PAtom TTrue) (PAtom TTrue)
+  let prove s = Why3_prover.prove (PAtom TTrue) (parse_prop s)
 end

@@ -8,78 +8,32 @@ let rec term_to_whyml t =
   | TUnit -> term (Ttuple [])
   | TTrue -> term Ttrue
   | TFalse -> term Tfalse
-  | TNil | TVar _ | TInt _ | TFun _ | TTuple _ | TBinop (_, _, _) | TUnop (_, _)
-    ->
-    failwith "todo"
-
-(* | Const TTrue -> term Ttrue
-  | Const TFalse -> term Tfalse
-  | Const (Num i) -> tconst i
-  | Var v -> tvar (qualid [v])
-  | BinOp (SConcat, a, b) ->
-    tapp
-      (qualid ["String"; "concat"])
-      [term_to_whyml a; term_to_whyml b]
-  | BinOp (Plus, a, b) ->
-    tapp
-      (qualid ["Int"; Ident.op_infix "+"])
-      [term_to_whyml a; term_to_whyml b]
-  | BinOp (Minus, a, b) ->
-    tapp
-      (qualid ["Int"; Ident.op_infix "-"])
-      [term_to_whyml a; term_to_whyml b]
-  | BinOp (TTimes, a, b) ->
-    tapp
-      (qualid ["Int"; Ident.op_infix "*"])
-      [term_to_whyml a; term_to_whyml b]
-  | Rel (EQ, a, b) ->
-    tapp
-      (qualid [Ident.op_infix "="])
-      [term_to_whyml a; term_to_whyml b]
-  | Rel (GT, a, b) ->
-    tapp
-      (qualid ["Int"; Ident.op_infix ">"])
-      [term_to_whyml a; term_to_whyml b]
-  | Rel (GTEQ, a, b) ->
-    tapp
-      (qualid ["Int"; Ident.op_infix ">="])
-      [term_to_whyml a; term_to_whyml b]
-  | Rel (LT, a, b) ->
-    tapp
-      (qualid ["Int"; Ident.op_infix "<"])
-      [term_to_whyml a; term_to_whyml b]
-  | Rel (LTEQ, a, b) ->
-    tapp
-      (qualid ["Int"; Ident.op_infix "<="])
-      [term_to_whyml a; term_to_whyml b]
-  | BinOp (TAnd, a, b) ->
-    tapp (qualid ["Bool"; "andb"]) [term_to_whyml a; term_to_whyml b]
-  | BinOp (TOr, a, b) ->
-    tapp (qualid ["Bool"; "orb"]) [term_to_whyml a; term_to_whyml b]
-  | TNot a -> tapp (qualid ["Bool"; "notb"]) [term_to_whyml a]
-  | TApp (f, args) -> tapp (qualid [f]) (List.map (term_to_whyml) args)
-  | Const Nil -> tapp (qualid ["[]"]) []
-  | BinOp (TCons, h, t) ->
+  | TNil -> tapp (qualid ["[]"]) []
+  | TInt i -> tconst i
+  | TBinop (Lt, a, b) ->
+    tapp (qualid [Ident.op_infix "<"]) [term_to_whyml a; term_to_whyml b]
+  | TBinop (Le, a, b) ->
+    tapp (qualid [Ident.op_infix "<="]) [term_to_whyml a; term_to_whyml b]
+  | TBinop (Gt, a, b) ->
+    tapp (qualid [Ident.op_infix ">"]) [term_to_whyml a; term_to_whyml b]
+  | TBinop (Ge, a, b) ->
+    tapp (qualid [Ident.op_infix ">="]) [term_to_whyml a; term_to_whyml b]
+  | TBinop (Neq, a, b) ->
+    tapp (qualid [Ident.op_infix "!="]) [term_to_whyml a; term_to_whyml b]
+  | TBinop (Eq, a, b) ->
+    tapp (qualid [Ident.op_infix "="]) [term_to_whyml a; term_to_whyml b]
+  | TBinop (Times, a, b) ->
+    tapp (qualid ["Int"; Ident.op_infix "*"]) [term_to_whyml a; term_to_whyml b]
+  | TBinop (Plus, a, b) ->
+    tapp (qualid ["Int"; Ident.op_infix "+"]) [term_to_whyml a; term_to_whyml b]
+  | TBinop (Cons, h, t) ->
     tapp (qualid ["::"]) [term_to_whyml h; term_to_whyml t]
-  | TLambda (_name, _, _sp, Some _) | TLambda (_name, _, _sp, None) ->
-    (* if there is no body, generate something that only respects alpha equivalence *)
-    (* this probably doesn't always work *)
-    (* tconst (Subst.hash_lambda t) *)
-    failwith "lambda"
-  (* failwith "no body" *)
-  (* disabled temporarily *)
-  (* | TLambda (_name, params, _sp, Some body) ->
-     let params, _ret = unsnoc params in
-     let binders = vars_to_params tenv params in
-     term (Tquant (Dterm.DTlambda, binders, [], core_lang_to_whyml tenv body)) *)
-  | Construct (name, []) ->
-    term (Tident (qualid [name]))
-  | Construct (name, args) ->
-      tapp (qualid [name]) (List.map term_to_whyml args)
-  | TTuple _ | BinOp (TPower, _, _) | BinOp (TDiv, _, _) | Const (TStr _) *)
-
-(* -> *)
-(* failwith "nyi" *)
+  | TUnop (Not, a) -> tapp (qualid ["Bool"; "notb"]) [term_to_whyml a]
+  | TVar x -> tvar (qualid [Bindlib.name_of x])
+  | TSymbol _ -> failwith "symbol"
+  | TFun _ -> failwith "todo fun"
+  | TTuple _ -> failwith "todo tuple"
+  | TUnop (Neg, _) -> failwith "todo unop"
 
 and prop_to_whyml p =
   match p with
@@ -97,8 +51,6 @@ and prop_to_whyml p =
   (* | Or (a, b) ->
     term (Tbinop (pi_to_whyml a, Dterm.DTor, pi_to_whyml b))
   | Not a -> term (Tnot (pi_to_whyml a)) *)
-  | PImplies (_, _)
-  (* | Predicate (_, _) -> failwith "nyi" *)
-  | PSubsumes (_, _) ->
-    (* term Ttrue *)
-    failwith "todo"
+  | PImplies (a, b) ->
+    term (Tbinop (prop_to_whyml a, Dterm.DTimplies, prop_to_whyml b))
+  | PSubsumes (_, _) -> term Ttrue
