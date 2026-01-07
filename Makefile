@@ -18,3 +18,6 @@ test:
 .PHONY: test-all
 test-all:
 	TEST_ALL=1 dune test
+
+debug-menhir:
+	echo 'parse_staged_spec: LOWERCASE_IDENT LPAREN INT COMMA INT RPAREN EOF' | menhir --dump --explain --interpret --interpret-show-cst --trace src/parse/parser.mly

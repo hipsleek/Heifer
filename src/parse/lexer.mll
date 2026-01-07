@@ -63,6 +63,8 @@ rule token = parse
       { MINUS }
   | "*"
       { STAR }
+  | "::"
+      { COLONCOLON }
   | "->"
       { MINUSGREATER }
   | "."

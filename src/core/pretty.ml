@@ -9,6 +9,9 @@ module OpInfo = struct
     | Ge -> (">=", `Left, 4)
     | Eq -> ("=", `Left, 3)
     | Neq -> ("!=", `Left, 3)
+    | Cons -> ("::", `Right, 5)
+    | Plus -> ("+", `Right, 5)
+    | Times -> ("*", `Right, 6)
 
   let unary = function Not -> ("!", 8) | Neg -> ("-", 8)
 
@@ -32,6 +35,7 @@ let parens_if cond pp ppf x = if cond then Fmt.pf ppf "(%a)" pp x else pp ppf x
 let rec pp_term_prec prec ctxt ppf = function
   | TVar x -> Fmt.string ppf (name_of x)
   | TUnit -> Fmt.string ppf "()"
+  | TNil -> Fmt.string ppf "[]"
   | TTrue -> Fmt.string ppf "true"
   | TFalse -> Fmt.string ppf "false"
   | TInt i -> Fmt.int ppf i
@@ -144,7 +148,7 @@ and pp_staged_spec_prec prec ctxt ppf = function
   | Exists b ->
     let x, body, ctxt = unbind_in ctxt b in
     let pp ppf () =
-      Fmt.pf ppf "@[<hov 2>exists %s.@ %a@]" (name_of x)
+      Fmt.pf ppf "@[<hov 2>ex %s.@ %a@]" (name_of x)
         (pp_staged_spec_prec 0 ctxt)
         body
     in

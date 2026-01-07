@@ -18,6 +18,7 @@ let show_token (tok : Parser.token) =
   | TRUE -> "TRUE"
   | TILDE -> "TILDE"
   | STARDOT -> "STARDOT"
+  | COLONCOLON -> "COLONCOLON"
   | SHIFT -> "SHIFT"
   | SEMI -> "SEMI"
   | RPAREN -> "RPAREN"
@@ -137,7 +138,16 @@ let%expect_test "basics" =
 
   debug_tokens "f(1,2)";
   staged "f(1,2)";
-  [%expect {|
+  [%expect
+    {|
+    LOWERCASE_IDENT f LPAREN INT 1 COMMA INT 2 RPAREN EOF
+    f (1, 2)
+    |}];
+
+  staged
+    "ens xs=[]; ret init \\/ ex h t. ens xs=h::t; foldr(f, init, t); r. f(h, r)";
+  [%expect
+    {|
     LOWERCASE_IDENT f LPAREN INT 1 COMMA INT 2 RPAREN EOF
     f (1, 2)
     |}]

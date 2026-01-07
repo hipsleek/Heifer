@@ -30,6 +30,7 @@ let rec simpl_term (t : term) : term =
   match t with
   | TVar _ -> t
   | TUnit -> TUnit
+  | TNil -> TNil
   | TTrue -> TTrue
   | TFalse -> TFalse
   | TInt _ -> t

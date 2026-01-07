@@ -9,6 +9,9 @@ type binop =
   | Ge
   | Eq
   | Neq
+  | Plus
+  | Times
+  | Cons
 
 type unop =
   | Not
@@ -26,6 +29,7 @@ type term =
   | TFun of (term, staged_spec) binder
   | TTuple of term list
   | TBinop of binop * term * term
+  | TNil
   | TUnop of unop * term
 (* | TMetavar of metavar *)
 
@@ -62,6 +66,7 @@ and staged_spec =
 module Mk = struct
   let tvar = box_var
   let tunit = box TUnit
+  let tnil = box TNil
   let ttrue = box TTrue
   let tfalse = box TFalse
   let tint i = box (TInt i)
@@ -100,6 +105,7 @@ let new_tvar = new_var (fun v -> TVar v)
 let rec box_term = function
   | TVar x -> Mk.tvar x
   | TUnit -> Mk.tunit
+  | TNil -> Mk.tnil
   | TTrue -> Mk.ttrue
   | TFalse -> Mk.tfalse
   | TInt i -> Mk.tint i

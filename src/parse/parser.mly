@@ -41,6 +41,7 @@ open Bindlib
 %token SHIFT
 %token RESET
 %token LONGARROW
+%token COLONCOLON
 
 %token EOF
 
@@ -53,6 +54,7 @@ open Bindlib
 %left PLUS
 %left MINUS
 %right STAR
+%right COLONCOLON
 // %nonassoc MINUSGREATER
 %nonassoc TILDE
 %right CONJUNCTION
@@ -76,7 +78,7 @@ open Bindlib
 // %type <Hiptypes.lemma> parse_lemma
 %%
 
-%inline bin_rel_op:
+%inline bin_op:
   | GREATER EQUAL
       { Ge }
   | LESS EQUAL
@@ -87,15 +89,19 @@ open Bindlib
       { Lt }
   | EQUAL
       { Eq }
+  | PLUS
+      { Plus }
+  | STARDOT
+      { Times }
+  | COLONCOLON
+      { Cons }
 ;
 
 // %inline bin_term_op:
-//   | PLUS PLUS
-//       { SConcat }
-//   | PLUS
-//       { Plus }
 //   | MINUS
 //       { Minus }
+//   | PLUS PLUS
+//       { SConcat }
 //   | STARDOT
 //       { TTimes }
 // ;
@@ -121,25 +127,33 @@ term:
 //   | v = LOWERCASE_IDENT
 //       { unbox (Mk.tvar (new_tvar v)) }
 
+  | TRUE
+      { TTrue }
+  | FALSE
+      { TFalse }
+
   | x=LOWERCASE_IDENT
       { unbox (Mk.tvar (Binders.lookup_or_fresh x)) }
 
 //   | TILDE t = term
 //       { TNot t }
-//   | t1 = term op = bin_rel_op t2 = term
+  // | t1 = term op = bin_rel_op t2 = term
 //       { Rel (op, t1, t2) }
-//   | t1 = term op = bin_term_op t2 = term
-//       { BinOp (op, t1, t2) }
+
+  | t1=term op=bin_op t2=term
+      { TBinop (op, t1, t2) }
+
 //   | v = LOWERCASE_IDENT LPAREN args = separated_list(COMMA, term) RPAREN
 //       { TApp (v, args) }
 //   | v = CAPITAL_IDENT
 //       { Construct (v, []) }
 //   | v = CAPITAL_IDENT LPAREN args = separated_list(COMMA, term) RPAREN
 //       { Construct (v, args) }
-//   | LBRACKET items = separated_list(SEMI, term) RBRACKET
-//       { List.fold_right (fun v t -> BinOp (TCons, v, t)) items (Const Nil) }
-  |
-  LPAREN items=separated_nonempty_list(COMMA, term) RPAREN
+  | LBRACKET RBRACKET
+      { TNil }
+  | items=delimited(LBRACKET, separated_nonempty_list(SEMI, term), RBRACKET)
+      { List.fold_right (fun v t -> TBinop (Cons, v, t)) items TNil }
+  | items=delimited(LPAREN, separated_nonempty_list(COMMA, term), RPAREN)
     // delimited(LPAREN, separated_nonempty_list(COMMA, term), RPAREN)
 // //   | v = LOWERCASE_IDENT args=
       { TTuple items }
@@ -152,15 +166,19 @@ term:
 // ;
 
 prop:
-  | TRUE
-      { PAtom TTrue }
-  | FALSE
-      { PAtom TFalse }
-  | t1 = term op = bin_rel_op t2 = term
-      { PAtom (TBinop (op, t1, t2)) }
+  // | TRUE
+  //     { PAtom TTrue }
+  // | FALSE
+  //     { PAtom TFalse }
+  // | t1 = term op = bin_op t2 = term
+  //     { PAtom (TBinop (op, t1, t2)) }
+
+  | t1=term
+      { PAtom t1 }
   // | a = pure_formula_term SUBSUMES b = pure_formula_term { Subsumption (a, b) }
   | p1 = prop CONJUNCTION p2 = prop
       { PConj (p1, p2) }
+
 //   // these cause shift-reduce conflicts, are not used, and are not in the symbolic heap fragment
 // //   | p1 = prop DISJUNCTION p2 = prop
 // //       { Or (p1, p2) }
@@ -180,8 +198,8 @@ hprop:
   | k1 = hprop STAR k2 = hprop
       { HSepConj (k1, k2) }
   | p = prop { HPure p }
-  | k = delimited(LPAREN, hprop, RPAREN)
-      { k }
+  // | k = delimited(LPAREN, hprop, RPAREN)
+  //     { k }
 ;
 
 // state:
