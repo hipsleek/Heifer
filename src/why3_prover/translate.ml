@@ -9,7 +9,7 @@ let rec term_to_whyml t =
   | TTrue -> term Ttrue
   | TFalse -> term Tfalse
   | TNil -> tapp (qualid ["[]"]) []
-  | TInt i -> tconst i
+  | TInt i -> tapp (qualid ["TInt"]) [tconst i]
   | TBinop (Lt, a, b) ->
     tapp (qualid [Ident.op_infix "<"]) [term_to_whyml a; term_to_whyml b]
   | TBinop (Le, a, b) ->
@@ -21,11 +21,13 @@ let rec term_to_whyml t =
   | TBinop (Neq, a, b) ->
     tapp (qualid [Ident.op_infix "!="]) [term_to_whyml a; term_to_whyml b]
   | TBinop (Eq, a, b) ->
-    tapp (qualid [Ident.op_infix "="]) [term_to_whyml a; term_to_whyml b]
+    (* tapp (qualid [Ident.op_infix "="]) [term_to_whyml a; term_to_whyml b] *)
+    tapp (qualid ["eq"]) [term_to_whyml a; term_to_whyml b]
   | TBinop (Times, a, b) ->
     tapp (qualid ["Int"; Ident.op_infix "*"]) [term_to_whyml a; term_to_whyml b]
   | TBinop (Plus, a, b) ->
-    tapp (qualid ["Int"; Ident.op_infix "+"]) [term_to_whyml a; term_to_whyml b]
+    (* tapp (qualid ["Int"; Ident.op_infix "+"]) [term_to_whyml a; term_to_whyml b] *)
+    tapp (qualid ["plus"]) [term_to_whyml a; term_to_whyml b]
   | TBinop (Cons, h, t) ->
     tapp (qualid ["::"]) [term_to_whyml h; term_to_whyml t]
   | TUnop (Not, a) -> tapp (qualid ["Bool"; "notb"]) [term_to_whyml a]

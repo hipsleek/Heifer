@@ -324,9 +324,9 @@ let prove ass goal =
         []
       in
       [
-        use ~import:false ["int"; "Int"];
-        use ~import:false ["bool"; "Bool"];
-        use ~import:false ["list"; "List"];
+        (* use ~import:false ["int"; "Int"]; *)
+        (* use ~import:false ["bool"; "Bool"]; *)
+        (* use ~import:false ["list"; "List"]; *)
         use ~import:false ["heifer"; "Heifer"];
       ]
       @ extra
@@ -340,16 +340,19 @@ let prove ass goal =
   Format.printf "%a@." (Mlw_printer.pp_mlw_file ~attr:true) mlw_file;
   let mods =
     try Typing.type_mlw_file why3_env [] "myfile.mlw" mlw_file
-    with Loc.Located _ (* (loc, e) *) ->
+    with Loc.Located (loc, e) ->
       (* A located exception [e] *)
-      (* if Debug.in_debug_mode () then (
-        Debug.debug ~at:4 ~title:"failed due to type error" "";
-        let msg = Format.asprintf "%a" Exn_printer.exn_printer e in
-        Format.printf "%a@."
-          (Mlw_printer.with_marker ~msg loc
-             (Mlw_printer.pp_mlw_file ~attr:true))
-          mlw_file); *)
-      failwith "failed due to type error"
+      (* if Debug.in_debug_mode () then ( *)
+      (* Debug.debug ~at:4 ~title:"failed due to type error" ""; *)
+      let msg = Format.asprintf "%a" Exn_printer.exn_printer e in
+      (* let msg = Printexc.to_string e in *)
+      (* Format.printf "%a@."
+        (Mlw_printer.with_marker ~msg loc (Mlw_printer.pp_mlw_file ~attr:true))
+        mlw_file; *)
+      let msg = Format.asprintf "failed: %s, %a@." msg Loc.pp_position loc in
+      (* ); *)
+      (* Format.printf "%s@." msg *)
+      failwith msg
   in
   (* there will be only one module *)
   mods
