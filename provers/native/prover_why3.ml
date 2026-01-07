@@ -101,14 +101,14 @@ let silence_stderr
   close_out null;
   result
 
-let combine_task_results label task_results = 
+let combine_task_results label task_results =
   let open Provers_common in
   if List.for_all (function Valid -> true | _ -> false) task_results
   then Valid
   else if List.exists (function Invalid -> true | _ -> false) task_results
   then Invalid
   else
-    let explanation = 
+    let explanation =
       task_results
       |> List.mapi (fun i result -> (i, result))
       |> List.filter_map (function (i, Unknown s) -> Some (Format.sprintf "%s %d: %s" label i s) | _ -> None)
@@ -181,7 +181,7 @@ let attempt_proof task1 =
     | (_, Unknown _), (_, Invalid)  -> name2, Invalid
     | (p1, (Valid as r1)), (p2, (Invalid as r2))
     | (p2, (Invalid as r2)), (p1, (Valid as r1)) ->
-       let explanation = 
+       let explanation =
           Format.sprintf "Provers %s (%s) and %s (%s) disagree on result"
           p1 (string_of_prover_result r1)
           p2 (string_of_prover_result r2)
@@ -195,7 +195,7 @@ let attempt_proof task1 =
     in
     List.fold_left combine_prover_results ("dummy", Unknown "[no prover results found]") prover_results
   in
-  let task_results = tasks 
+  let task_results = tasks
     |> List.map (attempt_task_on_provers provers)
     |> List.map (fun (_, result) -> result)
   in
@@ -1011,7 +1011,7 @@ let prove (qtf : Hipcore_typed.Typedhip.binder list) f =
         [Dlogic ff]
     in
 
-    let types = 
+    let types =
       let decls = Globals.type_decls () |>
       List.filter_map begin fun (name, tdecl) ->
         match tdecl.tdecl_kind with
