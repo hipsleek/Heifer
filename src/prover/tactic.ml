@@ -57,7 +57,6 @@ module Tactic : sig
   val put_lhs : staged_spec -> unit t
   val put_rhs : staged_spec -> unit t
   val put_goal : staged_spec -> staged_spec -> unit t
-  val put_pctx : Pctx.t -> unit t
   val add_assumption : prop -> unit t
   val add_constant : term -> unit t
 
@@ -200,4 +199,5 @@ module Interactive = struct
   let intro = make_interactive (fun () -> intro)
   let simpl = make_interactive (fun () -> simpl)
   let induction = make_interactive induction
+  let smt () = Why3_prover.prove (PAtom TTrue) (PAtom TTrue)
 end
