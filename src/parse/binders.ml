@@ -4,44 +4,28 @@ open Bindlib
 (** When parsing input into an AST that uses Bindlib, variables and their
     binders have to use physically equal vars (created with e.g. new_tvar).
 
-    This module provides a stateful data structure for doing this. It is
-    conceptually a symbol table mapping (string) names encountered to Bindlib
-    vars.
+    This module provides a stateful symbol table (mapping string names
+    encountered to Bindlib vars) for doing this.
 
-    To handle shadowing, it is generalised to a stack of symbol tables, where
-    each item on the stack models a scope.
+    - When a binder is encountered, a [new_tvar] is created.
+    - The var is used when a variable is parsed.
+    - On the way up past the binder, it is removed.
+    - The add/remove behaviour of Hashtbls handles shadowing. *)
 
-    - When a binder is encountered, a new scope is pushed.
-    - When a variable is encountered, it either creates or reuses a var of a
-      given name in the topmost scope.
-    - When ascending past a binder, the var is looked up before the scope is
-      popped. *)
+let unbound_vars : (string, term var) Hashtbl.t = Hashtbl.create 10
+let reset_state () = Hashtbl.clear unbound_vars
+let create x = Hashtbl.add unbound_vars x (new_tvar x)
 
-let unbound_vars : (string * term var) list list ref = ref [[]]
-let reset_state () = unbound_vars := [[]]
-let push_scope () = unbound_vars := [] :: !unbound_vars
-
-let lookup_or_fresh x =
-  match !unbound_vars with
-  | [] -> assert false
-  | h :: t ->
-    (match List.assoc_opt x h with
+let remove x =
+  let r =
+    match Hashtbl.find_opt unbound_vars x with
+    | None -> new_tvar x
     | Some y -> y
-    | None ->
-      let y = new_tvar x in
-      unbound_vars := ((x, y) :: h) :: t;
-      y)
+  in
+  Hashtbl.remove unbound_vars x;
+  r
 
-let bind_variables xs =
-  match !unbound_vars with
-  | [] -> assert false
-  | h :: t ->
-    let res =
-      List.map
-        (fun x ->
-          match List.assoc_opt x h with None -> new_tvar x | Some y -> y)
-        xs
-    in
-    unbound_vars := t;
-    (* pop scope *)
-    res
+let remove_all xs = List.map remove xs
+
+let get x =
+  match Hashtbl.find_opt unbound_vars x with None -> new_tvar x | Some y -> y

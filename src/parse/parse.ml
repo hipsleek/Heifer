@@ -141,8 +141,9 @@ let%expect_test "basics" =
   staged "ex x y. ens x=y";
   [%expect {| ex x y. ens x=y |}];
 
+  (* debug_tokens "ex x y. ens x=y; r. ens x=y"; *)
   staged "ex x y. ens x=y; r. ens x=y";
-  [%expect {| ex x1 y1. ens x1=y1; r. ens x=y |}];
+  [%expect {| ex x y. ens x=y; r. ens x=y |}];
 
   debug_tokens "f(1,2)";
   staged "f(1,2)";
@@ -155,7 +156,7 @@ let%expect_test "basics" =
   staged
     "ens xs=[]; ret init \\/ ex h t. ens xs=h::t; foldr(f, init, t); r. f(h, r)";
   [%expect
-    {| ens xs=[]; retinit \/ ex h1 t. ens xs=h1::t; foldr(f, init, t); r. f(h, r) |}]
+    {| ens xs=[]; retinit \/ ex h t. ens xs=h::t; foldr(f, init, t); r. f(h, r) |}]
 
 let%expect_test "shadowing" =
   staged "ens emp; x. ens emp; x. ens x=2";

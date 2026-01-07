@@ -143,7 +143,7 @@ term:
       { TFalse }
 
   | x=LOWERCASE_IDENT
-      { unbox (Mk.tvar (Binders.lookup_or_fresh x)) }
+      { unbox (Mk.tvar (Binders.get x)) }
 
 //   | TILDE t = term
 //       { TNot t }
@@ -263,28 +263,48 @@ staged_spec:
       { Sequence (s1, s2) }
 
 //   | LET x=LOWERCASE_IDENT EQUAL s1=staged_spec IN s2=staged_spec
-  | s1=staged_spec SEMI x=LOWERCASE_IDENT DOT
-      midrule({ Binders.push_scope () })
+  | s1=staged_spec SEMI x=binder DOT
+      // midrule({ Binders.push_scope () })
     s2=staged_spec %prec SEMI
-      { let x = List.hd (Binders.bind_variables [x]) in
+      {
+        let x = Binders.remove x in
         (* TODO quadratic, possibly return a box from the rules *)
         Bind (s1, unbox (bind_var x (box_staged_spec s2))) }
+        // let x = List.hd (Binders.bind_variables [x]) in
 
-  | FORALL xs = LOWERCASE_IDENT* DOT
-      midrule({ Binders.push_scope () })
+  | FORALL xs = binders DOT
+      // midrule({ Binders.push_scope () })
+        // let xs = Binders.bind_variables xs in
     s = staged_spec %prec FORALL
-      { let xs = Binders.bind_variables xs in
+      {
+        let xs = Binders.remove_all xs in
         List.fold_right (fun x t -> Forall (unbox (bind_var x (box_staged_spec t)))) xs s }
 
-  | EXISTS xs = LOWERCASE_IDENT* DOT
-      midrule({ Binders.push_scope () })
+  | EXISTS xs = binders DOT
+      // midrule({ Binders.push_scope () })
+// let xs = Binders.bind_variables xs in
     s = staged_spec %prec EXISTS
-      { let xs = Binders.bind_variables xs in
+      {
+        let xs = Binders.remove_all xs in
         List.fold_right (fun x t -> Exists (unbox (bind_var x (box_staged_spec t)))) xs s }
 
   | LPAREN s = staged_spec RPAREN
       { s }
 ;
+
+binders:
+  | xs=LOWERCASE_IDENT*
+    {
+      List.iter Binders.create xs
+      ; xs
+    }
+
+binder:
+  | x=LOWERCASE_IDENT
+    {
+      Binders.create x; x
+    }
+      // Binders.push_scope (); x
 
 // lemma:
 //   | name_params=fn EQUAL lhs=staged_spec LONGARROW rhs=staged_spec
