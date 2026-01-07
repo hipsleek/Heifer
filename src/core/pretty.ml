@@ -126,8 +126,9 @@ and pp_staged_spec_prec prec ctxt ppf = function
     in
     pp ppf ()
   | Apply (f, t) ->
-    Fmt.pf ppf "@[<hov 2>%a@ %a@]" (pp_term_prec 0 ctxt) f (pp_term_prec 0 ctxt)
-      t
+    Fmt.pf ppf "@[<hov 2>%a" (pp_term_prec 0 ctxt) f;
+    (match f with TVar _ -> () | _ -> Fmt.pf ppf "@ ");
+    Fmt.pf ppf "%a@]" (pp_term_prec 0 ctxt) t
   | Disjunct (s1, s2) ->
     let pp ppf () =
       Fmt.pf ppf "@[<hov 0>%a@ \\/@ %a@]"
@@ -138,17 +139,37 @@ and pp_staged_spec_prec prec ctxt ppf = function
     in
     parens_if (OpInfo.prec_staged_disj <= prec) pp ppf ()
   | Forall b ->
-    let x, body, ctxt = unbind_in ctxt b in
+    let rec collect ctxt b =
+      let x, body, ctxt = unbind_in ctxt b in
+      match body with
+      | Forall b' ->
+        let xs, body, ctxt = collect ctxt b' in
+        (x :: xs, body, ctxt)
+      | _ -> ([x], body, ctxt)
+    in
+    let xs, body, ctxt = collect ctxt b in
     let pp ppf () =
-      Fmt.pf ppf "@[<hov 2>forall %s.@ %a@]" (name_of x)
+      Fmt.pf ppf "@[<hov 2>forall %a.@ %a@]"
+        Fmt.(list ~sep:(any " ") string)
+        (List.map name_of xs)
         (pp_staged_spec_prec 0 ctxt)
         body
     in
     pp ppf ()
   | Exists b ->
-    let x, body, ctxt = unbind_in ctxt b in
+    let rec collect ctxt b =
+      let x, body, ctxt = unbind_in ctxt b in
+      match body with
+      | Exists b' ->
+        let xs, body, ctxt = collect ctxt b' in
+        (x :: xs, body, ctxt)
+      | _ -> ([x], body, ctxt)
+    in
+    let xs, body, ctxt = collect ctxt b in
     let pp ppf () =
-      Fmt.pf ppf "@[<hov 2>ex %s.@ %a@]" (name_of x)
+      Fmt.pf ppf "@[<hov 2>ex %a.@ %a@]"
+        Fmt.(list ~sep:(any " ") string)
+        (List.map name_of xs)
         (pp_staged_spec_prec 0 ctxt)
         body
     in

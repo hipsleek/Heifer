@@ -133,24 +133,24 @@ let%expect_test "basics" =
   staged "ens emp; x. ens x=1";
   [%expect {| ens emp; x. ens x=1 |}];
 
-  staged "forall x. ens x=1";
-  [%expect {| forall x. ens x=1 |}];
+  staged "forall x y. ens x=y";
+  [%expect {| forall x y. ens x=y |}];
+
+  staged "ex x y. ens x=y";
+  [%expect {| ex x y. ens x=y |}];
 
   debug_tokens "f(1,2)";
   staged "f(1,2)";
   [%expect
     {|
     LOWERCASE_IDENT f LPAREN INT 1 COMMA INT 2 RPAREN EOF
-    f (1, 2)
+    f(1, 2)
     |}];
 
   staged
     "ens xs=[]; ret init \\/ ex h t. ens xs=h::t; foldr(f, init, t); r. f(h, r)";
   [%expect
-    {|
-    LOWERCASE_IDENT f LPAREN INT 1 COMMA INT 2 RPAREN EOF
-    f (1, 2)
-    |}]
+    {| ens xs=[]; retinit \/ ex h1 t. ens xs=h1::t; foldr(f, init, t); r. f(h, r) |}]
 
 let%expect_test "shadowing" =
   staged "ens emp; x. ens emp; x. ens x=2";
