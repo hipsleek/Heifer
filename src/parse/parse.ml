@@ -141,6 +141,9 @@ let%expect_test "basics" =
   staged "ex x y. ens x=y";
   [%expect {| ex x y. ens x=y |}];
 
+  staged "ex x y. ens x=y; r. ens x=y";
+  [%expect {| ex x1 y1. ens x1=y1; r. ens x=y |}];
+
   debug_tokens "f(1,2)";
   staged "f(1,2)";
   [%expect
