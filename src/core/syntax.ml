@@ -1,6 +1,7 @@
 open Bindlib
 
-(* type metavar = {mv_name : string} *)
+type metavar = { mv_name : string }
+type symbol = { sym_name : string }
 
 type binop =
   | Lt
@@ -22,6 +23,7 @@ type unop =
     term. *)
 type term =
   | TVar of term var
+  | TSymbol of symbol
   | TUnit
   | TTrue
   | TFalse
@@ -62,11 +64,18 @@ and staged_spec =
   | Dollar of staged_spec * (term, staged_spec) binder
 (* | SMetavar of metavar *)
 
+(** Top level declaration.
+
+    [Dfun] declares a possibly recursive function. *)
+type decl =
+  | Dfun of (term, staged_spec) binder (* TODO: use mbinder if possible *)
+
 (** Smart constructors that wraps data in [Bindlib.box]. This module should
     never be [open]. Functions inside this module should be called by prefixing
     the function's name with [Mk]. *)
 module Mk = struct
   let tvar = box_var
+  let tsymbol sym = box (TSymbol sym)
   let tunit = box TUnit
   let tnil = box TNil
   let ttrue = box TTrue
@@ -108,6 +117,7 @@ let new_tvar = new_var (fun v -> TVar v)
 
 let rec box_term = function
   | TVar x -> Mk.tvar x
+  | TSymbol sym -> Mk.tsymbol sym
   | TUnit -> Mk.tunit
   | TNil -> Mk.tnil
   | TTrue -> Mk.ttrue
