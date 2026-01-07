@@ -36,6 +36,7 @@ let rec simpl_term (t : term) : term =
   | TFalse -> TFalse
   | TInt _ -> t
   | TTuple ts -> TTuple (List.map simpl_term ts)
+  | TApp (f, ts) -> TApp (f, List.map simpl_term ts)
   | TFun b -> TFun b
       (* let b = simpl_staged_spec_binder b in *)
       (* TFun b *)

@@ -31,6 +31,7 @@ type term =
   | TFalse
   | TInt of int
   | TFun of (term, staged_spec) binder
+  | TApp of string * term list
   | TTuple of term list
   | TBinop of binop * term * term
   | TUnop of unop * term
@@ -82,6 +83,7 @@ module Mk = struct
   let tnil = box TNil
   let ttrue = box TTrue
   let tfalse = box TFalse
+  let tapp = box_apply2 (fun f xs -> TApp (f, xs))
   let tint i = box (TInt i)
   let ttuple = box_apply (fun ts -> TTuple ts)
   let tfun = box_apply (fun b -> TFun b)
@@ -124,6 +126,7 @@ let rec box_term = function
   | TNil -> Mk.tnil
   | TTrue -> Mk.ttrue
   | TFalse -> Mk.tfalse
+  | TApp (f, xs) -> Mk.tapp (box f) (box_list (List.map box_term xs))
   | TInt i -> Mk.tint i
   | TTuple ts -> Mk.ttuple (box_list (List.map box_term ts))
   | TFun b -> Mk.tfun (box_binder box_staged_spec b)

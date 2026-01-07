@@ -32,6 +32,7 @@ let rec term_to_whyml t =
     tapp (qualid ["::"]) [term_to_whyml h; term_to_whyml t]
   | TUnop (Not, a) -> tapp (qualid ["Bool"; "notb"]) [term_to_whyml a]
   | TVar x -> tvar (qualid [Bindlib.name_of x])
+  | TApp (f, args) -> tapp (qualid [f]) (List.map term_to_whyml args)
   | TSymbol _ -> failwith "symbol"
   | TFun _ -> failwith "todo fun"
   | TTuple _ -> failwith "todo tuple"
