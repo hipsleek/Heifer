@@ -484,7 +484,7 @@ let rec term_to_whyml t =
   | TUnit -> term (Ttuple [])
   | TTrue -> term Ttrue
   | TFalse -> term Tfalse
-  | TNil | TVar _ | TInt _ | TFun _ | TTuple _ | TBinop (_, _, _) | TUnop (_, _)
+  | TNil | TVar _ | TInt _ | TFun _ | TTuple _ | TBinop (_, _, _) | TUnop (_, _) | TSymbol _
     ->
     failwith "todo"
 

@@ -29,6 +29,7 @@ let capture_cont (k : cont) : term =
 let rec simpl_term (t : term) : term =
   match t with
   | TVar _ -> t
+  | TSymbol sym -> TSymbol sym
   | TUnit -> TUnit
   | TNil -> TNil
   | TTrue -> TTrue

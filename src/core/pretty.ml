@@ -36,6 +36,7 @@ let parens_if cond pp ppf x = if cond then Fmt.pf ppf "(%a)" pp x else pp ppf x
     - If left associative, decrement for left child *)
 let rec pp_term_prec prec ctxt ppf = function
   | TVar x -> Fmt.string ppf (name_of x)
+  | TSymbol sym -> Fmt.string ppf sym.sym_name
   | TUnit -> Fmt.string ppf "()"
   | TNil -> Fmt.string ppf "[]"
   | TTrue -> Fmt.string ppf "true"
