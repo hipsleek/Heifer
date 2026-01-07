@@ -16,7 +16,9 @@ module OpInfo = struct
   let unary = function Not -> ("!", 8) | Neg -> ("-", 8)
 
   (* Operator precedence is only comparable within a syntactic category *)
-  let prec_prop_conj = 2
+  let prec_prop_conj = 3
+  let prec_prop_implies = 1
+  let prec_prop_subsumes = 2
   let prec_hprop_pointsto = 5
   let prec_hprop_sepconj = 3
   let prec_staged_seq = 2
@@ -69,15 +71,33 @@ let rec pp_term_prec prec ctxt ppf = function
 
 and pp_prop_prec prec ctxt ppf = function
   | PAtom t -> pp_term_prec 0 ctxt ppf t
+  | PImplies (t1, t2) ->
+    let pp ppf () =
+      Fmt.pf ppf "@[<hov 2>%a =>@ %a@]"
+        (pp_prop_prec OpInfo.prec_prop_implies ctxt)
+        t1
+        (pp_prop_prec (OpInfo.prec_prop_implies - 1) ctxt)
+        t2
+    in
+    parens_if (OpInfo.prec_prop_conj <= prec) pp ppf ()
   | PConj (t1, t2) ->
     let pp ppf () =
       Fmt.pf ppf "@[<hov 2>%a /\\@ %a@]"
         (pp_prop_prec (OpInfo.prec_prop_conj - 1) ctxt)
         t1
-        (pp_prop_prec (OpInfo.prec_prop_conj - 1) ctxt)
+        (pp_prop_prec OpInfo.prec_prop_conj ctxt)
         t2
     in
     parens_if (OpInfo.prec_prop_conj <= prec) pp ppf ()
+  | PSubsumes (t1, t2) ->
+    let pp ppf () =
+      Fmt.pf ppf "@[<hov 2>%a ⊑@ %a@]"
+        (pp_staged_spec_prec (OpInfo.prec_prop_subsumes - 1) ctxt)
+        t1
+        (pp_staged_spec_prec (OpInfo.prec_prop_subsumes - 1) ctxt)
+        t2
+    in
+    parens_if (OpInfo.prec_prop_subsumes <= prec) pp ppf ()
 
 and pp_hprop_prec prec ctxt ppf = function
   | HPure p -> pp_prop_prec 0 ctxt ppf p

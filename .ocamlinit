@@ -2,6 +2,7 @@
 #use_output "dune ocaml top";;
 
 (* open Prover.Tactic;; *)
+open Prover.Tactic.ProofState;;
 open Prover.Tactic.Interactive;;
 
 start_proof "ens emp; f(1, 2)" "forall x. ens emp";;

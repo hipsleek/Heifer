@@ -17,10 +17,10 @@ module Pctx = struct
   let create () = { constants = []; assumptions = [] }
 
   let pp ppf { constants; assumptions } =
-    Fmt.pf ppf "@[<v>constants: @[<hov>%a@]@,assumptions: @[<hov>%a@]@]"
-      Fmt.(list ~sep:semi pp_term)
+    Fmt.pf ppf "@[<v>@[<hov>%a@]@,%a@]"
+      Fmt.(list ~sep:comma pp_term)
       constants
-      Fmt.(list ~sep:semi pp_prop)
+      Fmt.(list ~sep:cut pp_prop)
       assumptions
 end
 
@@ -40,20 +40,26 @@ module Tactic : sig
   val return : 'a -> 'a t
   val bind : 'a t -> ('a -> 'b t) -> 'b t
   val ( let* ) : 'a t -> ('a -> 'b t) -> 'b t
-  val ctx : Pctx.t t
+  val fail : string -> 'a t
+  val choice : 'a t -> 'a t -> 'a t
 
   type goal = staged_spec * staged_spec
 
-  val goal : goal t
-  val goal_lhs : staged_spec t
-  val goal_rhs : staged_spec t
-  val with_lhs : staged_spec -> (unit -> 'a t) -> 'a t
-  val with_rhs : staged_spec -> (unit -> 'a t) -> 'a t
-  val fail : string -> 'a t
-  val choice : 'a t -> 'a t -> 'a t
+  val get_goal : goal t
+  val get_pctx : Pctx.t t
+
+  (* getters *)
+  val get_lhs : staged_spec t
+  val get_rhs : staged_spec t
+  (* val with_lhs : staged_spec -> (unit -> 'a t) -> 'a t *)
+  (* val with_rhs : staged_spec -> (unit -> 'a t) -> 'a t *)
+
   val put_lhs : staged_spec -> unit t
   val put_rhs : staged_spec -> unit t
+  val put_goal : staged_spec -> staged_spec -> unit t
   val put_pctx : Pctx.t -> unit t
+  val add_assumption : prop -> unit t
+  val add_constant : term -> unit t
 
   (*
   val choices : 'a t list -> 'a t
@@ -80,19 +86,19 @@ end = struct
   let ( let* ) = bind
   let get = fun s -> Ok (s, s)
 
-  let ctx =
+  let get_pctx =
     let* r, _, _ = get in
     return r
 
-  let goal =
+  let get_goal =
     let* _, f1, f2 = get in
     return (f1, f2)
 
-  let goal_lhs =
+  let get_lhs =
     let* _, f1, _ = get in
     return f1
 
-  let goal_rhs =
+  let get_rhs =
     let* _, _, f2 = get in
     return f2
 
@@ -110,27 +116,35 @@ end = struct
     let* pctx, f1, _ = get in
     put (pctx, f1, f2)
 
-  let put_goal (f1, f2) =
-    let* pctx, _, _ = get in
-    put (pctx, f1, f2)
+  let put_goal f1 f2 = let* pctx, _, _ = get in
+
+                       put (pctx, f1, f2)
+
+  let add_assumption p =
+    let* pctx = get_pctx in
+    put_pctx Pctx.{ pctx with assumptions = p :: pctx.assumptions }
+
+  let add_constant t =
+    let* pctx = get_pctx in
+    put_pctx Pctx.{ pctx with constants = t :: pctx.constants }
 
   (* let with_ (pctx, f1, f2) t =
     let* _ = put (pctx, f1, f2) in
     t () *)
 
-  let with_lhs f1 t =
+  (* let with_lhs f1 t =
     let* of1, of2 = goal in
     let* () = put_lhs f1 in
     let* r = t () in
     let* () = put_goal (of1, of2) in
-    return r
+    return r *)
 
-  let with_rhs f2 t =
+  (* let with_rhs f2 t =
     let* of1, of2 = goal in
     let* () = put_rhs f2 in
     let* r = t () in
     let* () = put_goal (of1, of2) in
-    return r
+    return r *)
 
   let choice t1 t2 =
    fun ps -> match t1 ps with Error _ -> t2 ps | Ok s -> Ok s
@@ -138,24 +152,27 @@ end
 
 let intro =
   let open Tactic in
-  let* right = goal_rhs in
+  let* right = get_rhs in
   match right with
   | Forall b ->
     (* TODO freshness issues? this has to be free on both sides *)
     let x, f = unbind b in
     let* _ = put_rhs f in
-    let* pctx = ctx in
-    put_pctx { pctx with constants = unbox (Mk.tvar x) :: pctx.constants }
+    add_constant (unbox (Mk.tvar x))
   | _ -> fail "cannot intro"
 
 let simpl =
   let open Tactic in
-  let* left = goal_lhs in
-  let* right = goal_rhs in
-  let* _ = put_lhs (Simpl.simpl_staged_spec left) in
-  put_rhs (Simpl.simpl_staged_spec right)
+  let* left, right = get_goal in
+  put_goal (Simpl.simpl_staged_spec left) (Simpl.simpl_staged_spec right)
 
-module Interactive = struct
+let induction wf =
+  let open Tactic in
+  let* left, right = get_goal in
+  (* TODO should be of the form forall n. n < n0 -> ... *)
+  add_assumption (PImplies (parse_prop wf, PSubsumes (left, right)))
+
+module ProofState = struct
   let current_state = ref None
 
   let print_proof_state () =
@@ -166,16 +183,21 @@ module Interactive = struct
       Some (Pctx.create (), parse_staged_spec l, parse_staged_spec r);
     print_proof_state ()
 
-  let make_interactive (tac : 'a Tactic.t) () =
+  let make_interactive (tac : 'b -> 'a Tactic.t) (arg : 'b) =
     match !current_state with
     | None -> Format.printf "no goal@."
     | Some st ->
-      (match tac st with
+      (match tac arg st with
       | Ok (_, next_st) ->
         current_state := Some next_st;
         print_proof_state ()
       | Error s -> Format.printf "error: %s@." s)
+end
 
-  let intro = make_interactive intro
-  let simpl = make_interactive simpl
+module Interactive = struct
+  open ProofState
+
+  let intro = make_interactive (fun () -> intro)
+  let simpl = make_interactive (fun () -> simpl)
+  let induction = make_interactive induction
 end

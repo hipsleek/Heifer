@@ -67,6 +67,8 @@ rule token = parse
       { COLONCOLON }
   | "->"
       { MINUSGREATER }
+  | "=>"
+      { EQUALGREATER }
   | "."
       { DOT }
   | "~"

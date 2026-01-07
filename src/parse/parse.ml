@@ -14,6 +14,7 @@ let handle_error parser lexbuf =
 
 let show_token (tok : Parser.token) =
   match tok with
+  | SUBSUMES -> "SUBSUMES"
   | STAR -> "STAR"
   | TRUE -> "TRUE"
   | TILDE -> "TILDE"
@@ -27,6 +28,7 @@ let show_token (tok : Parser.token) =
   | RBRACKET -> "RBRACKET"
   | PLUS -> "PLUS"
   | MINUSGREATER -> "MINUSGREATER"
+  | EQUALGREATER -> "EQUALGREATER"
   | MINUS -> "MINUS"
   | LPAREN -> "LPAREN"
   | LONGARROW -> "LONGARROW"

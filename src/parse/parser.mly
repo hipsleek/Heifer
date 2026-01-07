@@ -11,8 +11,10 @@ open Bindlib
 %token STAR
 %token STARDOT
 %token MINUSGREATER
+%token EQUALGREATER
 %token DOT
 %token TILDE
+%token SUBSUMES
 %token CONJUNCTION
 %token DISJUNCTION
 %token LPAREN
@@ -55,6 +57,7 @@ open Bindlib
 %left MINUS
 %right STAR
 %right COLONCOLON
+// %nonassoc SUBSUMES
 // %nonassoc MINUSGREATER
 %nonassoc TILDE
 %right CONJUNCTION
@@ -174,10 +177,16 @@ prop:
   //     { PAtom (TBinop (op, t1, t2)) }
 
   | t1=term
-      { PAtom t1 }
-  // | a = pure_formula_term SUBSUMES b = pure_formula_term { Subsumption (a, b) }
+    { PAtom t1 }
+
   | p1 = prop CONJUNCTION p2 = prop
-      { PConj (p1, p2) }
+    { PConj (p1, p2) }
+
+  | p1 = prop EQUALGREATER p2 = prop
+    { PImplies (p1, p2) }
+
+  | a = staged_spec SUBSUMES b = staged_spec
+    { PSubsumes (a, b) }
 
 //   // these cause shift-reduce conflicts, are not used, and are not in the symbolic heap fragment
 // //   | p1 = prop DISJUNCTION p2 = prop

@@ -38,6 +38,8 @@ type term =
 and prop =
   | PAtom of term
   | PConj of prop * prop
+  | PImplies of prop * prop
+  | PSubsumes of staged_spec * staged_spec
 
 and hprop =
   | HPure of prop
@@ -78,6 +80,8 @@ module Mk = struct
   (* let tmetavar mv = box (TMetavar mv) *)
   let patom = box_apply (fun t -> PAtom t)
   let pconj = box_apply2 (fun p1 p2 -> PConj (p1, p2))
+  let pimplies = box_apply2 (fun p1 p2 -> PImplies (p1, p2))
+  let psubsumes = box_apply2 (fun f1 f2 -> PSubsumes (f1, f2))
   let hpure = box_apply (fun p -> HPure p)
   let hemp = box HEmp
   let hpointsto = box_apply2 (fun t1 t2 -> HPointsTo (t1, t2))
@@ -119,6 +123,8 @@ let rec box_term = function
 and box_prop = function
   | PAtom t -> Mk.patom (box_term t)
   | PConj (p1, p2) -> Mk.pconj (box_prop p1) (box_prop p2)
+  | PSubsumes (f1, f2) -> Mk.psubsumes (box_staged_spec f1) (box_staged_spec f2)
+  | PImplies (p1, p2) -> Mk.pimplies (box_prop p1) (box_prop p2)
 
 and box_hprop = function
   | HPure p -> Mk.hpure (box_prop p)
