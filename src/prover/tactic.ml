@@ -13,6 +13,12 @@ module SMap = struct
       al
 end
 
+let pp_hypotheses ~pp_k ~pp_v ppf m =
+  let al = SMap.bindings m in
+  Fmt.pf ppf "@[<v>%a@]"
+    Fmt.(list ~sep:(any ",@ ") (pair ~sep:(any ":@ ") pp_k pp_v))
+    al
+
 type sequent = staged_spec * staged_spec
 
 module Pctx = struct
@@ -30,7 +36,7 @@ module Pctx = struct
     Fmt.pf ppf "@[<v>@[<hov>%a@]@,%a%s@,  %a@,⊑ %a@,@]"
       Fmt.(list ~sep:comma pp_term)
       constants
-      (SMap.pp ~pp_k:Fmt.string ~pp_v:pp_prop)
+      (pp_hypotheses ~pp_k:Fmt.string ~pp_v:pp_prop)
       assumptions line pp_staged_spec l pp_staged_spec r
 end
 
