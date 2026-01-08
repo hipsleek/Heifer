@@ -125,8 +125,8 @@ and reduce_staged_spec_cont (s : staged_spec) (k : cont) : staged_spec =
   | Bind (s, b) -> reduce_staged_spec_cont s (CCons1 (b, k))
   | Apply (f, t) -> Reset (refine_cont (Apply (f, t)) k)
   | Disjunct (s1, s2) -> Disjunct (reduce_staged_spec_cont s1 k, reduce_staged_spec_cont s2 k)
-  (* | Forall b -> ??? *)
-  (* | Exists b -> ??? *)
+  | Forall b -> Reset (refine_cont (Forall b) k)
+  | Exists b -> Reset (refine_cont (Exists b) k)
   | Shift b -> reduce_staged_spec_cont (subst b (capture_cont k)) CNil
   | Reset s -> reduce_staged_spec_cont (reduce_staged_spec_cont s CNil) k
   | _ -> failwith "todo"
