@@ -220,8 +220,8 @@ prop:
 hprop:
   | EMP
       { HEmp }
-  // | v = LOWERCASE_IDENT MINUSGREATER t = term
-      // { PointsTo (v, t) }
+  | l=term MINUSGREATER v=term
+      { HPointsTo (l, v) }
   | k1 = hprop STAR k2 = hprop
       { HSepConj (k1, k2) }
   | p = prop %prec CONJUNCTION // this should be the highest level below star

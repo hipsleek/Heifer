@@ -5,4 +5,4 @@
 open Prover.Tactic.ProofState;;
 open Prover.Tactic.Interactive;;
 
-start_proof "ens emp; f(1, 2)" "(forall x. ens emp) \\/ ens emp";;
+start_proof "ex x. ens x->1; f(1, 2)" "(forall x. ens emp) \\/ ens emp";;
