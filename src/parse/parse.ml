@@ -189,4 +189,8 @@ let%expect_test "precedence and associativity" =
   [%expect {| ens emp; ens emp \/ ens emp |}];
 
   staged "ens emp; (ens emp \\/ ens emp)";
-  [%expect {| ens emp; (ens emp \/ ens emp) |}]
+  [%expect {| ens emp; (ens emp \/ ens emp) |}];
+
+  (* disj and quantifier precedence *)
+  staged "(forall x. ens x=1) \\/ ens emp";
+  [%expect {| forall x. ens x=1 \/ ens emp |}]
