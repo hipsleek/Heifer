@@ -135,6 +135,12 @@ end = struct
     | g :: gs -> put ({ g with constants = t :: g.constants } :: gs)
 end
 
+let refl =
+  let open Tactic in
+  let* left, right = get_goal in
+  if equal_staged_spec left right then pop_goal
+  else fail "cannot close goal using reflexivity"
+
 let forall_intro =
   let open Tactic in
   let* right = get_rhs in
@@ -205,7 +211,8 @@ end
 module Interactive = struct
   open ProofState
 
-  let intro = make_interactive (fun () -> forall_intro)
+  let refl = make_interactive (fun () -> refl)
+  let forall_intro = make_interactive (fun () -> forall_intro)
   let disj_elim = make_interactive (fun () -> disj_elim)
   let left = make_interactive (fun () -> left)
   let right = make_interactive (fun () -> right)

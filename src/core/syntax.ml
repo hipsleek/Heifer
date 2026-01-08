@@ -180,18 +180,85 @@ end
 
 module TV = struct
   type t = term var
+
   let compare = compare_vars
 end
 
 (** Set and map of term variables. *)
-module TVSet = Set.Make(TV)
-module TVMap = Map.Make(TV)
+module TVSet = Set.Make (TV)
+
+module TVMap = Map.Make (TV)
 
 module Sym = struct
   type t = symbol
+
   let compare sym1 sym2 = String.compare sym1.sym_name sym2.sym_name
 end
 
 (** Set and map of symbols. *)
-module SymSet = Set.Make(Sym)
-module SymMap = Map.Make(Sym)
+module SymSet = Set.Make (Sym)
+
+module SymMap = Map.Make (Sym)
+
+let rec equal_term t1 t2 =
+  match (t1, t2) with
+  | TVar x1, TVar x2 -> eq_vars x1 x2
+  | TSymbol s1, TSymbol s2 -> s1.sym_name = s2.sym_name
+  | TUnit, TUnit -> true
+  | TTrue, TTrue -> true
+  | TFalse, TFalse -> true
+  | TInt i1, TInt i2 -> i1 = i2
+  | TFun b1, TFun b2 -> eq_binder equal_staged_spec b1 b2
+  | TApp (f1, xs1), TApp (f2, xs2) ->
+    f1 = f2
+    && List.length xs1 = List.length xs2
+    && List.for_all2 equal_term xs1 xs2
+  | TTuple ts1, TTuple ts2 ->
+    List.length ts1 = List.length ts2 && List.for_all2 equal_term ts1 ts2
+  | TBinop (op1, t11, t12), TBinop (op2, t21, t22) ->
+    op1 = op2 && equal_term t11 t21 && equal_term t12 t22
+  | TUnop (op1, t1), TUnop (op2, t2) -> op1 = op2 && equal_term t1 t2
+  | TNil, TNil -> true
+  | _, _ -> false
+
+and equal_prop p1 p2 =
+  match (p1, p2) with
+  | PAtom t1, PAtom t2 -> equal_term t1 t2
+  | PConj (p11, p12), PConj (p21, p22) ->
+    equal_prop p11 p21 && equal_prop p12 p22
+  | PImplies (p11, p12), PImplies (p21, p22) ->
+    equal_prop p11 p21 && equal_prop p12 p22
+  | PSubsumes (s11, s12), PSubsumes (s21, s22) ->
+    equal_staged_spec s11 s21 && equal_staged_spec s12 s22
+  | _, _ -> false
+
+and equal_hprop h1 h2 =
+  match (h1, h2) with
+  | HPure p1, HPure p2 -> equal_prop p1 p2
+  | HEmp, HEmp -> true
+  | HPointsTo (t11, t12), HPointsTo (t21, t22) ->
+    equal_term t11 t21 && equal_term t12 t22
+  | HSepConj (h11, h12), HSepConj (h21, h22) ->
+    equal_hprop h11 h21 && equal_hprop h12 h22
+  | _, _ -> false
+
+and equal_staged_spec s1 s2 =
+  match (s1, s2) with
+  | Return t1, Return t2 -> equal_term t1 t2
+  | Requires h1, Requires h2 -> equal_hprop h1 h2
+  | Ensures h1, Ensures h2 -> equal_hprop h1 h2
+  | Sequence (s11, s12), Sequence (s21, s22) ->
+    equal_staged_spec s11 s21 && equal_staged_spec s12 s22
+  | Bind (s1, b1), Bind (s2, b2) ->
+    equal_staged_spec s1 s2 && eq_binder equal_staged_spec b1 b2
+  | Apply (t11, t12), Apply (t21, t22) ->
+    equal_term t11 t21 && equal_term t12 t22
+  | Disjunct (s11, s12), Disjunct (s21, s22) ->
+    equal_staged_spec s11 s21 && equal_staged_spec s12 s22
+  | Forall b1, Forall b2 -> eq_binder equal_staged_spec b1 b2
+  | Exists b1, Exists b2 -> eq_binder equal_staged_spec b1 b2
+  | Shift b1, Shift b2 -> eq_binder equal_staged_spec b1 b2
+  | Reset s1, Reset s2 -> equal_staged_spec s1 s2
+  | Dollar (s1, k1), Dollar (s2, k2) ->
+    equal_staged_spec s1 s2 && eq_binder equal_staged_spec k1 k2
+  | _, _ -> false
