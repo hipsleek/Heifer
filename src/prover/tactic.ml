@@ -85,6 +85,7 @@ module Tactic : sig
   val put_lhs : staged_spec -> unit t
   val put_rhs : staged_spec -> unit t
   val put_goal : staged_spec -> staged_spec -> unit t
+  val modify_assumption : string -> (prop -> prop t) -> unit t
   val add_assumption : string -> prop -> unit t
   val add_heap_assumption : hprop -> unit t
   val add_constant : term -> unit t
@@ -119,8 +120,37 @@ end = struct
     loop 0 f xs
 
   let get = fun s -> Ok (s, s)
+  let put s = fun _ -> Ok ((), s)
 
   open Pctx
+
+  let modify_goal f =
+    let* ps = get in
+    match ps with
+    | [] -> fail "no more goals"
+    | g :: gs -> put ({ g with goal = f g.goal } :: gs)
+
+  let put_goal l r = modify_goal (fun _ -> (l, r))
+  let put_lhs l = modify_goal (fun (_, r) -> (l, r))
+  let put_rhs r = modify_goal (fun (l, _) -> (l, r))
+
+  let add_assumption name pr =
+    let* ps = get in
+    match ps with
+    | [] -> fail "no more goals"
+    | g :: gs ->
+      put ({ g with assumptions = SMap.add name pr g.assumptions } :: gs)
+
+  let modify_assumption name f =
+    let* ps = get in
+    match ps with
+    | [] -> fail "no goals"
+    | g :: _ ->
+      (match SMap.find_opt name g.assumptions with
+      | None -> fail "name not found"
+      | Some t ->
+        let* t1 = f t in
+        add_assumption name t1)
 
   let get_goal =
     let* ps = get in
@@ -134,14 +164,6 @@ end = struct
     let* _, f2 = get_goal in
     return f2
 
-  let put s = fun _ -> Ok ((), s)
-
-  let modify_goal f =
-    let* ps = get in
-    match ps with
-    | [] -> fail "no more goals"
-    | g :: gs -> put ({ g with goal = f g.goal } :: gs)
-
   let pop =
     let* ps = get in
     match ps with
@@ -153,17 +175,6 @@ end = struct
   let push g =
     let* ps = get in
     put (g :: ps)
-
-  let put_goal l r = modify_goal (fun _ -> (l, r))
-  let put_lhs l = modify_goal (fun (_, r) -> (l, r))
-  let put_rhs r = modify_goal (fun (l, _) -> (l, r))
-
-  let add_assumption name pr =
-    let* ps = get in
-    match ps with
-    | [] -> fail "no more goals"
-    | g :: gs ->
-      put ({ g with assumptions = SMap.add name pr g.assumptions } :: gs)
 
   let add_heap_assumption h =
     let* ps = get in
@@ -186,6 +197,14 @@ let intro_heap =
     let* _ = put_lhs rest in
     add_heap_assumption h
   | _ -> fail "cannot intro lhs"
+
+let specialize h ts =
+  let open Tactic in
+  let ts = List.map parse_term ts |> Array.of_list in
+  (* TODO allow not exactly same length? *)
+  modify_assumption h (function
+    | PForall b -> return (msubst b ts)
+    | _ -> fail "not a prop that can be specialised")
 
 let refl =
   let open Tactic in
@@ -291,6 +310,7 @@ end
 module Interactive = struct
   open ProofState
 
+  let specialize h args = make_interactive (fun () -> specialize args h)
   let refl = make_interactive (fun () -> refl)
   let intro_heap = make_interactive (fun () -> intro_heap)
   let forall_intro = make_interactive (fun () -> forall_intro)
