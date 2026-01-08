@@ -11,6 +11,7 @@ module Heifer
     | TCons term term
     | TNil
     | TErr
+    | Var string
 
   function plus (a b:term) : term =
     match a, b with
@@ -18,11 +19,15 @@ module Heifer
     | _, _ -> TErr
     end
 
-  function eq (a b:term) : bool =
+(*
+  function eq (a b:term) : term =
     match a, b with
-    | TErr, _ | _, TErr -> false
-    | _, _ -> a = b
+    | TErr, _ | _, TErr -> TBool false
+    | _, _ -> TBool (a = b)
     end
+*)
+
+  (* function eq (a b:term) : term = TBool (a = b) *)
 
   function sum (xs:term) : term =
     match xs with
@@ -57,26 +62,36 @@ module Heifer
   goal G1: list_sub TNil (TCons (TInt 1) TNil)
 
   type prop =
+    (* | PAtom term *)
     | PTrue
     | PFalse
     | PNot prop
     | PAnd prop prop
     | POr prop prop
     | PImply prop prop
+    | PForall string prop
     | PEq term term
-    (* | PForall (term -> prop) *)
-    (* Verified Programs with Binders? *)
 
-  function interp (t:prop) : bool =
+  use fmap.Fmap as Map
+
+  function interp_term (env: Map.fmap string term) (t:term) : term =
     match t with
+    | TInt _ | TBool _ | TCons _ _ | TNil | TErr -> t
+    | Var x -> Map.find x env
+    end
+
+  function interp (env: Map.fmap string term) (p:prop) : bool =
+    match p with
     | PTrue -> true
     | PFalse -> false
-    | PNot a -> not (interp a)
-    | PAnd a b -> interp a /\ interp b
-    | POr a b -> interp a \/ interp b
-    | PImply a b -> interp a -> interp b
-    | PEq a b -> a = b
-    (* | PForall f -> forall x. interp (f x) *)
+    | PNot a -> not (interp env a)
+    | PAnd a b -> interp env a /\ interp env b
+    | POr a b -> interp env a \/ interp env b
+    | PImply a b -> interp env a -> interp env b
+    | PEq a b -> interp_term env a = interp_term env b
+    (* | PAtom a -> interp_term env a *)
+   (* = TBool true *)
+    | PForall x b -> forall a:term. interp (Map.add x a env) b
     end
 
 end

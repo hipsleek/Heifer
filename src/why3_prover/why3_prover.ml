@@ -208,7 +208,7 @@ module Heifer
 end
   |} *)
 
-let prove ass goal =
+let prove goal =
   let open Ptree in
   let open Ptree_helpers in
   (* let ass, goal = f () in *)
@@ -234,7 +234,7 @@ let prove ass goal =
       |> SMap.to_list *)
     in *)
     let statement =
-      let assumptions = Translate.prop_to_whyml ass in
+      (* let assumptions = Translate.prop_to_whyml ass in *)
       let goal1 =
         let binders = [] in
         (* vars_to_params qtf in *)
@@ -247,21 +247,21 @@ let prove ass goal =
       match monolithic_goal with
       | false ->
         [
-          Dprop (Decl.Paxiom, ident "ass1", Translate.prop_to_whyml ass);
+          (* Dprop (Decl.Paxiom, ident "ass1", Translate.prop_to_whyml ass); *)
           Dprop (Decl.Pgoal, ident "goal1", goal1);
         ]
       | true ->
-        let forall_binders =
+        (* let forall_binders =
           []
           (* vars_to_params universally_quantified *)
-        in
-        let impl = term (Tbinop (assumptions, Dterm.DTimplies, goal1)) in
+        in *)
+        (* let impl = term (Tbinop (assumptions, Dterm.DTimplies, goal1)) in
         let goal2 =
           match forall_binders with
           | [] -> impl
           | _ :: _ -> term (Tquant (Dterm.DTforall, forall_binders, [], impl))
-        in
-        [Dprop (Decl.Pgoal, ident "goal1", goal2)]
+        in *)
+        [Dprop (Decl.Pgoal, ident "goal1", goal1)]
     in
 
     let fns =

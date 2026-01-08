@@ -3,11 +3,14 @@ open Core.Syntax
 open Ptree
 open Ptree_helpers
 
+let tstr s = term (Tconst (Constant.ConstStr s))
+let empty_map = tvar (qualid ["Map"; "empty"])
+
 let rec term_to_whyml t =
   match t with
   | TUnit -> term (Ttuple [])
-  | TTrue -> term Ttrue
-  | TFalse -> term Tfalse
+  | TTrue -> tapp (qualid ["TBool"]) [term Ttrue]
+  | TFalse -> tapp (qualid ["TBool"]) [term Tfalse]
   | TNil -> tapp (qualid ["[]"]) []
   | TInt i -> tapp (qualid ["TInt"]) [tconst i]
   | TBinop (Lt, a, b) ->
@@ -31,14 +34,16 @@ let rec term_to_whyml t =
   | TBinop (Cons, h, t) ->
     tapp (qualid ["::"]) [term_to_whyml h; term_to_whyml t]
   | TUnop (Not, a) -> tapp (qualid ["Bool"; "notb"]) [term_to_whyml a]
-  | TVar x -> tvar (qualid [Bindlib.name_of x])
+  | TVar x ->
+    (* tvar (qualid [Bindlib.name_of x]) *)
+    tapp (qualid ["Var"]) [tstr (Bindlib.name_of x)]
   | TApp (f, args) -> tapp (qualid [f]) (List.map term_to_whyml args)
   | TSymbol _ -> failwith "symbol"
   | TFun _ -> failwith "todo fun"
   | TTuple _ -> failwith "todo tuple"
   | TUnop (Neg, _) -> failwith "todo unop"
 
-and prop_to_whyml p =
+let rec prop_to_whyml_aux p =
   match p with
   (* | True -> term Ttrue
   | False -> term Tfalse
@@ -48,13 +53,36 @@ and prop_to_whyml p =
       [term_to_whyml a; term_to_whyml b]
   | Atomic (op, a, b) -> term_to_whyml (Syntax.rel op a b)
   | And (a, b) -> *)
-  | PForall _ -> failwith "cannot translate forall"
-  | PAtom t -> term_to_whyml t
+  | PForall b ->
+    (* TODO need ctxt *)
+    let xs, b = Bindlib.unmbind b in
+    let xs = Array.to_list xs in
+    List.fold_right
+      (fun c t -> tapp (qualid ["PForall"]) [tstr (Bindlib.name_of c); t])
+      xs (prop_to_whyml_aux b)
+    (* [tconst i] *)
+    (* tapp (qualid ["eq"]) *)
+    (* [term_to_whyml a; term_to_whyml b] *)
+    (* failwith "cannot translate forall" *)
+  | PAtom TTrue -> tapp (qualid ["PTrue"]) []
+  | PAtom TFalse -> tapp (qualid ["PFalse"]) []
+  | PAtom (TBinop (Eq, a, b)) ->
+    tapp (qualid ["PEq"]) [term_to_whyml a; term_to_whyml b]
+  | PAtom _ ->
+    Format.printf "%a@." Core.Pretty.pp_prop p;
+    failwith "unimplemented"
+    (* term_to_whyml t *)
+    (* tapp (qualid ["interp_term"]) [empty_map; term_to_whyml t] *)
+    (* tapp (qualid ["PAtom"]) [term_to_whyml t] *)
   | PConj (a, b) ->
-    term (Tbinop (prop_to_whyml a, Dterm.DTand, prop_to_whyml b))
+    term (Tbinop (prop_to_whyml_aux a, Dterm.DTand, prop_to_whyml_aux b))
   (* | Or (a, b) ->
     term (Tbinop (pi_to_whyml a, Dterm.DTor, pi_to_whyml b))
   | Not a -> term (Tnot (pi_to_whyml a)) *)
   | PImplies (a, b) ->
-    term (Tbinop (prop_to_whyml a, Dterm.DTimplies, prop_to_whyml b))
-  | PSubsumes (_, _) -> term Ttrue
+    tapp (qualid ["PImplies"]) [prop_to_whyml_aux a; prop_to_whyml_aux b]
+    (* term (Tbinop (, Dterm.DTimplies, )) *)
+    (* term (Tbinop (prop_to_whyml_aux a, Dterm.DTimplies, prop_to_whyml_aux b)) *)
+  | PSubsumes _ -> term Ttrue
+
+let prop_to_whyml p = tapp (qualid ["interp"]) [empty_map; prop_to_whyml_aux p]
