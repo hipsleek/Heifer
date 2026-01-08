@@ -199,6 +199,13 @@ prop:
   | a = staged_spec SUBSUMES b = staged_spec
     { PSubsumes (a, b) }
 
+  | FORALL xs = binders DOT
+      // midrule({ Binders.push_scope () })
+        // let xs = Binders.bind_variables xs in
+    p = prop %prec FORALL
+      { let xs = Binders.remove_all xs in
+        List.fold_right (fun x t -> PForall (unbox (bind_var x (box_prop t)))) xs p }
+
 //   // these cause shift-reduce conflicts, are not used, and are not in the symbolic heap fragment
 // //   | p1 = prop DISJUNCTION p2 = prop
 // //       { Or (p1, p2) }
