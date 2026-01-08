@@ -58,6 +58,8 @@ module Tactic : sig
   val ( let* ) : 'a t -> ('a -> 'b t) -> 'b t
   val fail : string -> 'a t
   val choice : 'a t -> 'a t -> 'a t
+  val pop_goal : Pctx.t t
+  val push_goal : Pctx.t -> unit t
   val get_goal : sequent t
   val get_lhs : staged_spec t
   val get_rhs : staged_spec t
@@ -103,6 +105,18 @@ end = struct
     | [] -> fail "no more goals"
     | g :: gs -> put ({ g with goal = f g.goal } :: gs)
 
+  let pop_goal =
+    let* ps = get in
+    match ps with
+    | [] -> fail "cannot pop goal"
+    | g :: gs ->
+      let* _ = put gs in
+      return g
+
+  let push_goal g =
+    let* ps = get in
+    put (g :: ps)
+
   let put_goal l r = modify_goal (fun _ -> (l, r))
   let put_lhs l = modify_goal (fun (_, r) -> (l, r))
   let put_rhs r = modify_goal (fun (l, _) -> (l, r))
@@ -121,7 +135,7 @@ end = struct
     | g :: gs -> put ({ g with constants = t :: g.constants } :: gs)
 end
 
-let intro =
+let forall_intro =
   let open Tactic in
   let* right = get_rhs in
   match right with
@@ -131,6 +145,34 @@ let intro =
     let* _ = put_rhs f in
     add_constant (unbox (Mk.tvar x))
   | _ -> fail "cannot intro"
+
+let disj_elim =
+  let open Tactic in
+  let* left, right = get_goal in
+  match left with
+  | Disjunct (a, b) ->
+    let* ps = pop_goal in
+    let* _ = push_goal { ps with goal = (a, right) } in
+    push_goal { ps with goal = (b, right) }
+  | _ -> fail "not a disjunction"
+
+let left =
+  let open Tactic in
+  let* left, right = get_goal in
+  match right with
+  | Disjunct (a, _) ->
+    let* ps = pop_goal in
+    push_goal { ps with goal = (left, a) }
+  | _ -> fail "not a disjunction"
+
+let right =
+  let open Tactic in
+  let* left, right = get_goal in
+  match right with
+  | Disjunct (_, b) ->
+    let* ps = pop_goal in
+    push_goal { ps with goal = (left, b) }
+  | _ -> fail "not a disjunction"
 
 let simpl =
   let open Tactic in
@@ -163,7 +205,10 @@ end
 module Interactive = struct
   open ProofState
 
-  let intro = make_interactive (fun () -> intro)
+  let intro = make_interactive (fun () -> forall_intro)
+  let disj_elim = make_interactive (fun () -> disj_elim)
+  let left = make_interactive (fun () -> left)
+  let right = make_interactive (fun () -> right)
   let simpl = make_interactive (fun () -> simpl)
   let induction ~ih = make_interactive (induction ~ih)
   let smt () = Why3_prover.prove (PAtom TTrue) (PAtom TTrue)
