@@ -3,16 +3,26 @@ open Core.Pretty
 open Parsing.Parse
 open Bindlib
 
+module SMap = struct
+  include Map.Make (String)
+
+  let pp ~pp_k ~pp_v ppf m =
+    let al = bindings m in
+    Fmt.pf ppf "@[<hov>{%a}@]"
+      Fmt.(list ~sep:(any ",@ ") (pair ~sep:(any ":@ ") pp_k pp_v))
+      al
+end
+
 type sequent = staged_spec * staged_spec
 
 module Pctx = struct
   type t = {
     constants : term list;
-    assumptions : prop list;
+    assumptions : prop SMap.t;
     goal : sequent;
   }
 
-  let create ~goal () = { constants = []; assumptions = []; goal }
+  let create ~goal () = { constants = []; assumptions = SMap.empty; goal }
   let draw_line n = String.make n '-'
 
   let pp ppf { constants; assumptions; goal = l, r } =
@@ -20,7 +30,7 @@ module Pctx = struct
     Fmt.pf ppf "@[<v>@[<hov>%a@]@,%a%s@,  %a@,⊑ %a@,@]"
       Fmt.(list ~sep:comma pp_term)
       constants
-      Fmt.(list ~sep:cut pp_prop)
+      (SMap.pp ~pp_k:Fmt.string ~pp_v:pp_prop)
       assumptions line pp_staged_spec l pp_staged_spec r
 end
 
@@ -55,7 +65,7 @@ module Tactic : sig
   val put_lhs : staged_spec -> unit t
   val put_rhs : staged_spec -> unit t
   val put_goal : staged_spec -> staged_spec -> unit t
-  val add_assumption : prop -> unit t
+  val add_assumption : string -> prop -> unit t
   val add_constant : term -> unit t
 end = struct
   type 'a t = Pstate.t -> ('a * Pstate.t, string) Result.t
@@ -97,11 +107,12 @@ end = struct
   let put_lhs l = modify_goal (fun (_, r) -> (l, r))
   let put_rhs r = modify_goal (fun (l, _) -> (l, r))
 
-  let add_assumption pr =
+  let add_assumption name pr =
     let* ps = get in
     match ps with
     | [] -> fail "no more goals"
-    | g :: gs -> put ({ g with assumptions = pr :: g.assumptions } :: gs)
+    | g :: gs ->
+      put ({ g with assumptions = SMap.add name pr g.assumptions } :: gs)
 
   let add_constant t =
     let* ps = get in
@@ -126,11 +137,11 @@ let simpl =
   let* left, right = get_goal in
   put_goal (Simpl.simpl_staged_spec left) (Simpl.simpl_staged_spec right)
 
-let induction wf =
+let induction ~ih wf =
   let open Tactic in
   let* left, right = get_goal in
   (* TODO should be of the form forall n. n < n0 -> ... *)
-  add_assumption (PImplies (parse_prop wf, PSubsumes (left, right)))
+  add_assumption ih (PImplies (parse_prop wf, PSubsumes (left, right)))
 
 module ProofState = struct
   let current_state = ref []
@@ -154,7 +165,7 @@ module Interactive = struct
 
   let intro = make_interactive (fun () -> intro)
   let simpl = make_interactive (fun () -> simpl)
-  let induction = make_interactive induction
+  let induction ~ih = make_interactive (induction ~ih)
   let smt () = Why3_prover.prove (PAtom TTrue) (PAtom TTrue)
   let prove s = Why3_prover.prove (PAtom TTrue) (parse_prop s)
 end
