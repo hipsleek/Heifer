@@ -25,19 +25,29 @@ module Pctx = struct
   type t = {
     constants : term list;
     assumptions : prop SMap.t;
+    heap_context : hprop list;
     goal : sequent;
   }
 
-  let create ~goal () = { constants = []; assumptions = SMap.empty; goal }
+  let create ~goal () =
+    { constants = []; assumptions = SMap.empty; heap_context = []; goal }
+
   let draw_line n = String.make n '-'
 
-  let pp ppf { constants; assumptions; goal = l, r } =
+  let pp ppf { constants; assumptions; heap_context; goal = l, r } =
     let line = draw_line 20 in
-    Fmt.pf ppf "@[<v>@[<hov>%a@]@,%a%s@,  %a@,⊑ %a@,@]"
-      Fmt.(list ~sep:comma pp_term)
-      constants
+    Format.open_vbox 0;
+    Fmt.pf ppf "@[<hov>%a@]@," Fmt.(list ~sep:comma pp_term) constants;
+    Fmt.pf ppf "%a%s@,"
       (pp_hypotheses ~pp_k:Fmt.string ~pp_v:pp_prop)
-      assumptions line pp_staged_spec l pp_staged_spec r
+      assumptions line;
+    (match heap_context with
+    | [] -> ()
+    | _ ->
+      let heap_line = line ^ "*" in
+      Fmt.pf ppf "%a@,%s@," Fmt.(list ~sep:cut pp_hprop) heap_context heap_line);
+    Fmt.pf ppf "  %a@,⊑ %a@," pp_staged_spec l pp_staged_spec r;
+    Format.close_box ()
 end
 
 module Pstate = struct
@@ -74,6 +84,7 @@ module Tactic : sig
   val put_rhs : staged_spec -> unit t
   val put_goal : staged_spec -> staged_spec -> unit t
   val add_assumption : string -> prop -> unit t
+  val add_heap_assumption : hprop -> unit t
   val add_constant : term -> unit t
 end = struct
   type 'a t = Pstate.t -> ('a * Pstate.t, string) Result.t
@@ -134,12 +145,27 @@ end = struct
     | g :: gs ->
       put ({ g with assumptions = SMap.add name pr g.assumptions } :: gs)
 
+  let add_heap_assumption h =
+    let* ps = get in
+    match ps with
+    | [] -> fail "no more goals"
+    | g :: gs -> put ({ g with heap_context = h :: g.heap_context } :: gs)
+
   let add_constant t =
     let* ps = get in
     match ps with
     | [] -> fail "no more goals"
     | g :: gs -> put ({ g with constants = t :: g.constants } :: gs)
 end
+
+let intro_heap =
+  let open Tactic in
+  let* left = get_lhs in
+  match left with
+  | Sequence (Ensures h, rest) ->
+    let* _ = put_lhs rest in
+    add_heap_assumption h
+  | _ -> fail "cannot intro lhs"
 
 let refl =
   let open Tactic in
@@ -246,6 +272,7 @@ module Interactive = struct
   open ProofState
 
   let refl = make_interactive (fun () -> refl)
+  let intro_heap = make_interactive (fun () -> intro_heap)
   let forall_intro = make_interactive (fun () -> forall_intro)
   let forall_elim = make_interactive forall_elim
   let exists_intro = make_interactive exists_intro

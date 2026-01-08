@@ -116,7 +116,7 @@ and pp_hprop_prec prec ctxt ppf = function
   | HEmp -> Fmt.string ppf "emp"
   | HPointsTo (t1, t2) ->
     let pp ppf () =
-      Fmt.pf ppf "@[<hov 2>%a ->@ %a@]" (pp_term_prec 0 ctxt) t1
+      Fmt.pf ppf "@[<hov 2>%a->%a@]" (pp_term_prec 0 ctxt) t1
         (pp_term_prec 0 ctxt) t2
     in
     parens_if (OpInfo.prec_hprop_pointsto <= prec) pp ppf ()
