@@ -3,6 +3,8 @@ open Core.Pretty
 open Parsing.Parse
 open Bindlib
 
+type goal = staged_spec * staged_spec
+
 module Pctx = struct
   type t = {
     constants : term list;
@@ -12,25 +14,34 @@ module Pctx = struct
     (* lemmas : (string * Rewriting.rule) list; *)
     (* unfolded : use list; *)
     assumptions : prop list;
+    goals : (staged_spec * staged_spec) list;
   }
 
-  let create () = { constants = []; assumptions = [] }
+  let create ?(goals = []) () = { constants = []; assumptions = []; goals }
+  let draw_line n = String.make n '-'
 
-  let pp ppf { constants; assumptions } =
-    Fmt.pf ppf "@[<v>@[<hov>%a@]@,%a@]"
-      Fmt.(list ~sep:comma pp_term)
-      constants
-      Fmt.(list ~sep:cut pp_prop)
-      assumptions
+  let pp ppf { constants; assumptions; goals } =
+    match goals with
+    | [] -> Fmt.pf ppf "no more goals"
+    | (l, r) :: goals1 ->
+      let line = draw_line 20 in
+      let goal_text =
+        match List.length goals1 with
+        | 0 -> ""
+        | n -> Format.asprintf "(%d more goals)" n
+      in
+      Fmt.pf ppf "@[<v>@[<hov>%a@]@,%a%s@,  %a@,⊑ %a@,%s@,@]"
+        Fmt.(list ~sep:comma pp_term)
+        constants
+        Fmt.(list ~sep:cut pp_prop)
+        assumptions
+        (* Format.asprintf "@[<v>@,%a@,@]" Pctx.pp pctx *)
+        line pp_staged_spec l pp_staged_spec r goal_text
 end
 
-type pstate = Pctx.t * staged_spec * staged_spec
+type pstate = Pctx.t
 
-let show_pstate (pctx, l, r) =
-  let draw_line n = String.make n '-' in
-  let line = draw_line 20 in
-  Format.asprintf "@[<v>@,%a@,%s@,  %a@,⊑ %a@,@]" Pctx.pp pctx line
-    pp_staged_spec l pp_staged_spec r
+(* let show_pstate (pctx, l, r) = *)
 
 (** Tactics combine the state and list monads *)
 module Tactic : sig
@@ -42,111 +53,78 @@ module Tactic : sig
   val ( let* ) : 'a t -> ('a -> 'b t) -> 'b t
   val fail : string -> 'a t
   val choice : 'a t -> 'a t -> 'a t
-
-  type goal = staged_spec * staged_spec
-
   val get_goal : goal t
-  val get_pctx : Pctx.t t
-
-  (* getters *)
   val get_lhs : staged_spec t
   val get_rhs : staged_spec t
-  (* val with_lhs : staged_spec -> (unit -> 'a t) -> 'a t *)
-  (* val with_rhs : staged_spec -> (unit -> 'a t) -> 'a t *)
-
   val put_lhs : staged_spec -> unit t
   val put_rhs : staged_spec -> unit t
   val put_goal : staged_spec -> staged_spec -> unit t
+  val modify_goal : (goal -> goal) -> unit t
   val add_assumption : prop -> unit t
   val add_constant : term -> unit t
 
-  (*
-  val choices : 'a t list -> 'a t
-  val committed_choice : 'a t -> 'a t -> 'a t
-  val committed_choices : 'a t list -> 'a t *)
+  (* val get_pctx : Pctx.t t
 
-  (* val failure :
-    title:string -> ('a, Format.formatter, unit, unit t) format4 -> 'a
 
-  val span :
-    'a t -> title:string -> ('b, Format.formatter, unit, 'a t) format4 -> 'b *)
+
+  *)
 end = struct
-  (* [@@@warning "-unused-value-declaration"] *)
-
   type 'a t = pstate -> ('a * pstate, string) Result.t
-  type goal = staged_spec * staged_spec
 
-  let run t ps =
-    Result.to_option (t ps) |> Option.map (fun (_, (pctx, _, _)) -> pctx)
-
+  let run t ps = Result.to_option (t ps) |> Option.map snd
   let fail s = fun _ -> Error s
+
+  let choice t1 t2 =
+   fun ps -> match t1 ps with Error _ -> t2 ps | Ok s -> Ok s
+
   let return x = fun s -> Ok (x, s)
   let bind m f = fun s -> Result.bind (m s) (fun (x, s') -> f x s')
   let ( let* ) = bind
   let get = fun s -> Ok (s, s)
 
-  let get_pctx =
+  (* let get_pctx =
     let* r, _, _ = get in
-    return r
+    return r *)
+
+  open Pctx
 
   let get_goal =
-    let* _, f1, f2 = get in
-    return (f1, f2)
+    let* pctx = get in
+    match pctx.goals with
+    | [] -> fail "no more goals"
+    | (f1, f2) :: _ -> return (f1, f2)
 
   let get_lhs =
-    let* _, f1, _ = get in
+    let* f1, _ = get_goal in
     return f1
 
   let get_rhs =
-    let* _, _, f2 = get in
+    let* _, f2 = get_goal in
     return f2
 
   let put s = fun _ -> Ok ((), s)
 
-  let put_pctx pctx =
+  (* let put_pctx pctx =
     let* _, f1, f2 = get in
-    put (pctx, f1, f2)
+    put (pctx, f1, f2) *)
 
-  let put_lhs f1 =
-    let* pctx, _, f2 = get in
-    put (pctx, f1, f2)
+  let modify_goal f =
+    let* pctx = get in
+    match pctx.goals with
+    | [] -> fail "no more goals"
+    | g :: gs -> put { pctx with goals = f g :: gs }
 
-  let put_rhs f2 =
-    let* pctx, f1, _ = get in
-    put (pctx, f1, f2)
-
-  let put_goal f1 f2 = let* pctx, _, _ = get in
-
-                       put (pctx, f1, f2)
+  let put_goal l r = modify_goal (fun _ -> (l, r))
+  let put_lhs l = modify_goal (fun (_, r) -> (l, r))
+  let put_rhs r = modify_goal (fun (l, _) -> (l, r))
 
   let add_assumption p =
-    let* pctx = get_pctx in
-    put_pctx Pctx.{ pctx with assumptions = p :: pctx.assumptions }
+    let* pctx = get in
+    put Pctx.{ pctx with assumptions = p :: pctx.assumptions }
 
   let add_constant t =
-    let* pctx = get_pctx in
-    put_pctx Pctx.{ pctx with constants = t :: pctx.constants }
-
-  (* let with_ (pctx, f1, f2) t =
-    let* _ = put (pctx, f1, f2) in
-    t () *)
-
-  (* let with_lhs f1 t =
-    let* of1, of2 = goal in
-    let* () = put_lhs f1 in
-    let* r = t () in
-    let* () = put_goal (of1, of2) in
-    return r *)
-
-  (* let with_rhs f2 t =
-    let* of1, of2 = goal in
-    let* () = put_rhs f2 in
-    let* r = t () in
-    let* () = put_goal (of1, of2) in
-    return r *)
-
-  let choice t1 t2 =
-   fun ps -> match t1 ps with Error _ -> t2 ps | Ok s -> Ok s
+    let* pctx = get in
+    put Pctx.{ pctx with constants = t :: pctx.constants }
 end
 
 let intro =
@@ -175,11 +153,11 @@ module ProofState = struct
   let current_state = ref None
 
   let print_proof_state () =
-    Format.printf "%s@." (show_pstate (Option.get !current_state))
+    Format.printf "%a@." Pctx.pp (Option.get !current_state)
 
   let start_proof l r =
     current_state :=
-      Some (Pctx.create (), parse_staged_spec l, parse_staged_spec r);
+      Some (Pctx.create ~goals:[(parse_staged_spec l, parse_staged_spec r)] ());
     print_proof_state ()
 
   let make_interactive (tac : 'b -> 'a Tactic.t) (arg : 'b) =
