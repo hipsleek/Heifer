@@ -64,8 +64,8 @@ module Tactic : sig
   val ( let* ) : 'a t -> ('a -> 'b t) -> 'b t
   val fail : string -> 'a t
   val choice : 'a t -> 'a t -> 'a t
-  val pop_goal : Pctx.t t
-  val push_goal : Pctx.t -> unit t
+  val pop : Pctx.t t
+  val push : Pctx.t -> unit t
   val get_goal : sequent t
   val get_lhs : staged_spec t
   val get_rhs : staged_spec t
@@ -111,7 +111,7 @@ end = struct
     | [] -> fail "no more goals"
     | g :: gs -> put ({ g with goal = f g.goal } :: gs)
 
-  let pop_goal =
+  let pop =
     let* ps = get in
     match ps with
     | [] -> fail "cannot pop goal"
@@ -119,7 +119,7 @@ end = struct
       let* _ = put gs in
       return g
 
-  let push_goal g =
+  let push g =
     let* ps = get in
     put (g :: ps)
 
@@ -144,7 +144,7 @@ end
 let refl =
   let open Tactic in
   let* left, right = get_goal in
-  if equal_staged_spec left right then pop_goal
+  if equal_staged_spec left right then pop
   else fail "cannot close goal using reflexivity"
 
 let forall_intro =
@@ -191,9 +191,9 @@ let disj_elim =
   let* left, right = get_goal in
   match left with
   | Disjunct (a, b) ->
-    let* ps = pop_goal in
-    let* _ = push_goal { ps with goal = (a, right) } in
-    push_goal { ps with goal = (b, right) }
+    let* ps = pop in
+    let* _ = push { ps with goal = (a, right) } in
+    push { ps with goal = (b, right) }
   | _ -> fail "not a disjunction"
 
 let left =
@@ -201,8 +201,8 @@ let left =
   let* left, right = get_goal in
   match right with
   | Disjunct (a, _) ->
-    let* ps = pop_goal in
-    push_goal { ps with goal = (left, a) }
+    let* ps = pop in
+    push { ps with goal = (left, a) }
   | _ -> fail "not a disjunction"
 
 let right =
@@ -210,8 +210,8 @@ let right =
   let* left, right = get_goal in
   match right with
   | Disjunct (_, b) ->
-    let* ps = pop_goal in
-    push_goal { ps with goal = (left, b) }
+    let* ps = pop in
+    push { ps with goal = (left, b) }
   | _ -> fail "not a disjunction"
 
 let simpl =
