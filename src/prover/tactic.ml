@@ -3,18 +3,13 @@ open Core.Pretty
 open Parsing.Parse
 open Bindlib
 
-type goal = staged_spec * staged_spec
+type sequent = staged_spec * staged_spec
 
 module Pctx = struct
   type t = {
     constants : term list;
-    (* definitions_nonrec : (string * Rewriting.rule) list; *)
-    (* definitions_rec : (string * Rewriting.rule) list; *)
-    (* induction_hypotheses : (string * Rewriting.rule) list; *)
-    (* lemmas : (string * Rewriting.rule) list; *)
-    (* unfolded : use list; *)
     assumptions : prop list;
-    goals : (staged_spec * staged_spec) list;
+    goals : sequent list;
   }
 
   let create ?(goals = []) () = { constants = []; assumptions = []; goals }
@@ -34,44 +29,31 @@ module Pctx = struct
         Fmt.(list ~sep:comma pp_term)
         constants
         Fmt.(list ~sep:cut pp_prop)
-        assumptions
-        (* Format.asprintf "@[<v>@,%a@,@]" Pctx.pp pctx *)
-        line pp_staged_spec l pp_staged_spec r goal_text
+        assumptions line pp_staged_spec l pp_staged_spec r goal_text
 end
 
-type pstate = Pctx.t
-
-(* let show_pstate (pctx, l, r) = *)
-
-(** Tactics combine the state and list monads *)
 module Tactic : sig
-  type 'a t = pstate -> ('a * pstate, string) Result.t
+  type 'a t
 
-  val run : 'a t -> pstate -> Pctx.t option
+  val run : 'a t -> Pctx.t -> (Pctx.t, string) result
   val return : 'a -> 'a t
   val bind : 'a t -> ('a -> 'b t) -> 'b t
   val ( let* ) : 'a t -> ('a -> 'b t) -> 'b t
   val fail : string -> 'a t
   val choice : 'a t -> 'a t -> 'a t
-  val get_goal : goal t
+  val get_goal : sequent t
   val get_lhs : staged_spec t
   val get_rhs : staged_spec t
   val put_lhs : staged_spec -> unit t
   val put_rhs : staged_spec -> unit t
   val put_goal : staged_spec -> staged_spec -> unit t
-  val modify_goal : (goal -> goal) -> unit t
+  val modify_goal : (sequent -> sequent) -> unit t
   val add_assumption : prop -> unit t
   val add_constant : term -> unit t
-
-  (* val get_pctx : Pctx.t t
-
-
-
-  *)
 end = struct
-  type 'a t = pstate -> ('a * pstate, string) Result.t
+  type 'a t = Pctx.t -> ('a * Pctx.t, string) Result.t
 
-  let run t ps = Result.to_option (t ps) |> Option.map snd
+  let run t ps = Result.map snd (t ps)
   let fail s = fun _ -> Error s
 
   let choice t1 t2 =
@@ -81,10 +63,6 @@ end = struct
   let bind m f = fun s -> Result.bind (m s) (fun (x, s') -> f x s')
   let ( let* ) = bind
   let get = fun s -> Ok (s, s)
-
-  (* let get_pctx =
-    let* r, _, _ = get in
-    return r *)
 
   open Pctx
 
@@ -103,10 +81,6 @@ end = struct
     return f2
 
   let put s = fun _ -> Ok ((), s)
-
-  (* let put_pctx pctx =
-    let* _, f1, f2 = get in
-    put (pctx, f1, f2) *)
 
   let modify_goal f =
     let* pctx = get in
@@ -164,8 +138,8 @@ module ProofState = struct
     match !current_state with
     | None -> Format.printf "no goal@."
     | Some st ->
-      (match tac arg st with
-      | Ok (_, next_st) ->
+      (match Tactic.run (tac arg) st with
+      | Ok next_st ->
         current_state := Some next_st;
         print_proof_state ()
       | Error s -> Format.printf "error: %s@." s)
