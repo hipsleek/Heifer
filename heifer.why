@@ -45,6 +45,17 @@ module Heifer
 
   goal G: forall xs:list int. TInt (sum1 xs) = sum (box_list xs)
 
+  inductive list_sub (l1 l2: term) =
+    | list_sub_cons:
+      forall x l:term.
+        list_sub l (TCons x l)
+    | list_sub_tail:
+      forall x l1 l2:term.
+        list_sub l1 l2 ->
+        list_sub l1 (TCons x l2)
+
+  goal G1: list_sub TNil (TCons (TInt 1) TNil)
+
   type prop =
     | PTrue
     | PFalse
@@ -67,6 +78,5 @@ module Heifer
     | PEq a b -> a = b
     (* | PForall f -> forall x. interp (f x) *)
     end
-
 
 end
