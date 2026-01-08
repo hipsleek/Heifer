@@ -193,4 +193,7 @@ let%expect_test "precedence and associativity" =
 
   (* disj and quantifier precedence *)
   staged "(forall x. ens x=1) \\/ ens emp";
-  [%expect {| forall x. ens x=1 \/ ens emp |}]
+  [%expect {| forall x. ens x=1 \/ ens emp |}];
+
+  staged "forall x. (ens x=1 \\/ ens emp)";
+  [%expect {| forall x. (ens x=1 \/ ens emp) |}]

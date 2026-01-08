@@ -22,8 +22,8 @@ module OpInfo = struct
   let prec_prop_forall = 1
   let prec_hprop_pointsto = 5
   let prec_hprop_sepconj = 3
-  let prec_staged_seq = 2
-  let prec_staged_bind = prec_staged_seq
+  let prec_staged_seq = 3
+  let prec_staged_quantifier = 2
   let prec_staged_disj = 1
 end
 
@@ -151,12 +151,12 @@ and pp_staged_spec_prec prec ctxt ppf = function
     in *)
     let pp ppf () =
       Fmt.pf ppf "@[<hov 2>%a;@ %s.@ %a"
-        (pp_staged_spec_prec OpInfo.prec_staged_bind ctxt)
+        (pp_staged_spec_prec OpInfo.prec_staged_seq ctxt)
         s (name_of x)
-        (pp_staged_spec_prec (OpInfo.prec_staged_bind - 1) ctxt)
+        (pp_staged_spec_prec (OpInfo.prec_staged_seq - 1) ctxt)
         body
     in
-    pp ppf ()
+    parens_if (OpInfo.prec_staged_seq <= prec) pp ppf ()
   | Apply (f, t) ->
     Fmt.pf ppf "@[<hov 2>%a" (pp_term_prec 0 ctxt) f;
     (match f with TVar _ -> () | _ -> Fmt.pf ppf "@ ");
@@ -164,7 +164,7 @@ and pp_staged_spec_prec prec ctxt ppf = function
   | Disjunct (s1, s2) ->
     let pp ppf () =
       Fmt.pf ppf "@[<hov 0>%a@ \\/@ %a@]"
-        (pp_staged_spec_prec OpInfo.prec_staged_disj ctxt)
+        (pp_staged_spec_prec (OpInfo.prec_staged_disj - 1) ctxt)
         s1
         (pp_staged_spec_prec OpInfo.prec_staged_disj ctxt)
         s2
@@ -184,10 +184,10 @@ and pp_staged_spec_prec prec ctxt ppf = function
       Fmt.pf ppf "@[<hov 2>forall %a.@ %a@]"
         Fmt.(list ~sep:(any " ") string)
         (List.map name_of xs)
-        (pp_staged_spec_prec 0 ctxt)
+        (pp_staged_spec_prec OpInfo.prec_staged_quantifier ctxt)
         body
     in
-    pp ppf ()
+    parens_if (OpInfo.prec_staged_quantifier <= prec) pp ppf ()
   | Exists b ->
     let rec collect ctxt b =
       let x, body, ctxt = unbind_in ctxt b in
@@ -202,10 +202,10 @@ and pp_staged_spec_prec prec ctxt ppf = function
       Fmt.pf ppf "@[<hov 2>ex %a.@ %a@]"
         Fmt.(list ~sep:(any " ") string)
         (List.map name_of xs)
-        (pp_staged_spec_prec 0 ctxt)
+        (pp_staged_spec_prec OpInfo.prec_staged_quantifier ctxt)
         body
     in
-    pp ppf ()
+    parens_if (OpInfo.prec_staged_quantifier <= prec) pp ppf ()
   | Shift b ->
     let k, body, ctxt = unbind_in ctxt b in
     Fmt.pf ppf "@[<hov 2>shift %s.@ %a@]" (name_of k)
