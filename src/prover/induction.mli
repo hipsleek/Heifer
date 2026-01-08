@@ -13,4 +13,4 @@ type induction_hypothesis = (term, prop) mbinder
     another implication. If we decide to encode a list of heap assumptions like
     Iris, we will also need to generalize over these variables; and we will
     need the magic wand. *)
-val induction : prop list -> term mvar -> staged_spec -> staged_spec -> staged_spec
+val induction : prop list -> term mvar -> staged_spec -> staged_spec -> induction_hypothesis

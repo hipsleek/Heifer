@@ -24,6 +24,11 @@ and prop_has_vars xs p =
   | PConj (p1, p2) -> prop_has_vars xs p1 || prop_has_vars xs p2
   | PImplies (p1, p2) -> prop_has_vars xs p1 || prop_has_vars xs p2
   | PSubsumes (s1, s2) -> staged_spec_has_vars xs s1 || staged_spec_has_vars xs s2
+  | PForall b -> prop_binder_has_vars xs b
+
+and prop_binder_has_vars xs b =
+  let _, p = unbind b in
+  prop_has_vars xs p
 
 and hprop_has_vars xs p =
   match p with
