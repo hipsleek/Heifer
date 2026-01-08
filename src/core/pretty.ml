@@ -203,7 +203,7 @@ and pp_staged_spec_prec prec ctxt ppf = function
       (pp_staged_spec_prec 0 ctxt)
       body
   | Reset s ->
-    Fmt.pf ppf "@[<hov 2>reset@ { %a }@]" (pp_staged_spec_prec 0 ctxt) s
+    Fmt.pf ppf "@[<hov 2>reset@ (%a)@]" (pp_staged_spec_prec 0 ctxt) s
   | Dollar _ -> assert false
 
 let pp_staged_spec ppf s =

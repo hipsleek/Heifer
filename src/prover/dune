@@ -1,4 +1,6 @@
 (library
  (name prover)
  (public_name heifer.prover)
- (libraries core parsing why3_prover))
+ (inline_tests)
+ (libraries core parsing why3_prover)
+ (preprocess (pps ppx_expect)))

@@ -111,9 +111,9 @@ rule token = parse
       { IN }
   | "fun"
       { FUN }
-  | "sh"
+  | "sh" | "shift"
       { SHIFT }
-  | "rs"
+  | "rs" | "reset"
       { RESET }
   | eof
       { EOF }
