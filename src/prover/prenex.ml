@@ -49,6 +49,10 @@ and prenex_prop (p : prop) : prop =
   | PAtom t -> PAtom (prenex_term t)
   | PConj (p1, p2) -> PConj (prenex_prop p1, prenex_prop p2)
   | PImplies (p1, p2) -> PImplies (prenex_prop p1, prenex_prop p2)
+  | PForall b ->
+    let x, body = unbind b in
+    let body' = prenex_prop body in
+    unbox (Mk.pforall (bind_var x (box_prop body')))
   | PSubsumes (s1, s2) ->
     PSubsumes
       (close_unbox (prenex_staged_spec s1), close_unbox (prenex_staged_spec s2))
@@ -119,4 +123,8 @@ let%expect_test "prenex" =
 
   (* quantifiers don't get lifted out of a reset *)
   test "reset (forall a. ens a=1)";
-  [%expect {| reset (forall a. ens a=1) |}]
+  [%expect {| reset (forall a. ens a=1) |}];
+
+  (* prop also contains forall *)
+  test "ens emp; r. ens forall a. a=1";
+  [%expect {| ens emp; r. ens forall a. a=1 |}]

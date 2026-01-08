@@ -48,6 +48,7 @@ and prop_to_whyml p =
       [term_to_whyml a; term_to_whyml b]
   | Atomic (op, a, b) -> term_to_whyml (Syntax.rel op a b)
   | And (a, b) -> *)
+  | PForall _ -> failwith "cannot translate forall"
   | PAtom t -> term_to_whyml t
   | PConj (a, b) ->
     term (Tbinop (prop_to_whyml a, Dterm.DTand, prop_to_whyml b))

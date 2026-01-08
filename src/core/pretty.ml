@@ -16,9 +16,10 @@ module OpInfo = struct
   let unary = function Not -> ("!", 8) | Neg -> ("-", 8)
 
   (* Operator precedence is only comparable within a syntactic category *)
-  let prec_prop_conj = 3
-  let prec_prop_implies = 1
-  let prec_prop_subsumes = 2
+  let prec_prop_conj = 4
+  let prec_prop_subsumes = 3
+  let prec_prop_implies = 2
+  let prec_prop_forall = 1
   let prec_hprop_pointsto = 5
   let prec_hprop_sepconj = 3
   let prec_staged_seq = 2
@@ -74,6 +75,14 @@ let rec pp_term_prec prec ctxt ppf = function
 
 and pp_prop_prec prec ctxt ppf = function
   | PAtom t -> pp_term_prec 0 ctxt ppf t
+  | PForall b ->
+    let x, body, ctxt = unbind_in ctxt b in
+    let pp ppf () =
+      Fmt.pf ppf "@[<hov 2>forall %s.@ %a" (name_of x)
+        (pp_prop_prec (OpInfo.prec_prop_forall - 1) ctxt)
+        body
+    in
+    pp ppf ()
   | PImplies (t1, t2) ->
     let pp ppf () =
       Fmt.pf ppf "@[<hov 2>%a =>@ %a@]"
