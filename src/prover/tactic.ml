@@ -71,6 +71,8 @@ module Tactic : sig
   val run : 'a t -> Pstate.t -> (Pstate.t, string) result
   val return : 'a -> 'a t
   val bind : 'a t -> ('a -> 'b t) -> 'b t
+  val iter_m : ('a -> unit t) -> 'a list -> unit t
+  val iter_array_m : ('a -> unit t) -> 'a array -> unit t
   val ( let* ) : 'a t -> ('a -> 'b t) -> 'b t
   val fail : string -> 'a t
   val choice : 'a t -> 'a t -> 'a t
@@ -98,6 +100,24 @@ end = struct
   let return x = fun s -> Ok (x, s)
   let bind m f = fun s -> Result.bind (m s) (fun (x, s') -> f x s')
   let ( let* ) = bind
+
+  let rec iter_m f xs =
+    match xs with
+    | [] -> return ()
+    | x :: xs1 ->
+      let* () = f x in
+      iter_m f xs1
+
+  let iter_array_m f xs =
+    let l = Array.length xs in
+    let rec loop i f xs =
+      if i < l then
+        let* () = f (Array.unsafe_get xs i) in
+        loop (i + 1) f xs
+      else return ()
+    in
+    loop 0 f xs
+
   let get = fun s -> Ok (s, s)
 
   open Pctx
@@ -179,9 +199,9 @@ let forall_intro =
   match Prenex.move_quantifiers_out right with
   | Forall b ->
     (* TODO freshness issues? this has to be free on both sides *)
-    let x, f = unbind b in
+    let xs, f = unmbind b in
     let* _ = put_rhs f in
-    add_constant (unbox (Mk.tvar x))
+    iter_array_m (fun x -> add_constant (unbox (Mk.tvar x))) xs
   | _ -> fail "cannot intro forall"
 
 let forall_elim t =
@@ -189,8 +209,8 @@ let forall_elim t =
   let* left = get_lhs in
   match Prenex.move_quantifiers_out left with
   | Forall b ->
-    let t = parse_term t in
-    put_lhs (subst b t)
+    let t = List.map parse_term t |> Array.of_list in
+    put_lhs (msubst b t)
   | _ -> fail "cannot eliminate forall"
 
 let exists_intro t =
@@ -198,8 +218,8 @@ let exists_intro t =
   let* right = get_rhs in
   match Prenex.move_quantifiers_out right with
   | Exists b ->
-    let t = parse_term t in
-    put_rhs (subst b t)
+    let t = List.map parse_term t |> Array.of_list in
+    put_rhs (msubst b t)
   | _ -> fail "cannot intro exists"
 
 let exists_elim =
@@ -207,9 +227,9 @@ let exists_elim =
   let* left = get_lhs in
   match Prenex.move_quantifiers_out left with
   | Exists b ->
-    let x, f = unbind b in
+    let xs, f = unmbind b in
     let* _ = put_lhs f in
-    add_constant (unbox (Mk.tvar x))
+    iter_array_m (fun x -> add_constant (unbox (Mk.tvar x))) xs
   | _ -> fail "cannot eliminate exists"
 
 let disj_elim =

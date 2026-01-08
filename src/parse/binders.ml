@@ -25,7 +25,7 @@ let remove x =
   Hashtbl.remove unbound_vars x;
   r
 
-let remove_all xs = List.map remove xs
+let remove_all xs = List.map remove xs |> Array.of_list
 
 let get x =
   match Hashtbl.find_opt unbound_vars x with None -> new_tvar x | Some y -> y

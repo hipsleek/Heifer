@@ -16,14 +16,19 @@ let rec unfold_aux sym def s =
   | Apply (TSymbol sym', t) when sym = sym' -> subst def t
   | Apply (t1, t2) -> Apply (t1, t2)
   | Disjunct (s1, s2) -> Disjunct (unfold_aux sym def s1, unfold_aux sym def s2)
-  | Forall b -> Forall (unfold_binder_aux sym def b)
-  | Exists b -> Exists (unfold_binder_aux sym def b)
+  | Forall b -> Forall (unfold_mbinder_aux sym def b)
+  | Exists b -> Exists (unfold_mbinder_aux sym def b)
   | Shift b -> Shift (unfold_binder_aux sym def b)
   | Reset s -> Reset (unfold_aux sym def s)
   | Dollar _ -> failwith "todo"
+
 and unfold_binder_aux sym def b =
   let x, s = unbind b in
   unbox (bind_var x (box_staged_spec (unfold_aux sym def s)))
+
+and unfold_mbinder_aux sym def b =
+  let x, s = unmbind b in
+  unbox (bind_mvar x (box_staged_spec (unfold_aux sym def s)))
 
 let unfold sym defs s =
   match SymMap.find_opt sym defs with

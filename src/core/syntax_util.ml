@@ -27,7 +27,7 @@ and prop_has_vars xs p =
   | PForall b -> prop_binder_has_vars xs b
 
 and prop_binder_has_vars xs b =
-  let _, p = unbind b in
+  let _, p = unmbind b in
   prop_has_vars xs p
 
 and hprop_has_vars xs p =
@@ -46,12 +46,16 @@ and staged_spec_has_vars xs s =
   | Bind (s, b) -> staged_spec_has_vars xs s || staged_spec_binder_has_vars xs b
   | Apply (t1, t2) -> term_has_vars xs t1 || term_has_vars xs t2
   | Disjunct (s1, s2) -> staged_spec_has_vars xs s1 || staged_spec_has_vars xs s2
-  | Forall b -> staged_spec_binder_has_vars xs b
-  | Exists b -> staged_spec_binder_has_vars xs b
+  | Forall b -> staged_spec_mbinder_has_vars xs b
+  | Exists b -> staged_spec_mbinder_has_vars xs b
   | Shift b -> staged_spec_binder_has_vars xs b
   | Reset s -> staged_spec_has_vars xs s
   | Dollar _ -> failwith "todo"
 
 and staged_spec_binder_has_vars xs b =
   let _, s = unbind b in
+  staged_spec_has_vars xs s
+
+and staged_spec_mbinder_has_vars xs b =
+  let _, s = unmbind b in
   staged_spec_has_vars xs s

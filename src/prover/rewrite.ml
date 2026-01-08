@@ -30,11 +30,15 @@ let rec rewrite rule target : staged_spec =
     | Bind (s, b) -> Bind (rewrite rule s, rewrite_binder rule b)
     | Apply (f, t) -> Apply (f, t)
     | Disjunct (s1, s2) -> Disjunct (rewrite rule s1, rewrite rule s2)
-    | Forall b -> Forall (rewrite_binder rule b)
-    | Exists b -> Exists (rewrite_binder rule b)
+    | Forall b -> Forall (rewrite_mbinder rule b)
+    | Exists b -> Exists (rewrite_mbinder rule b)
     | Shift b -> Shift (rewrite_binder rule b)
     | Reset s -> Reset (rewrite rule s)
     | Dollar _ -> failwith "todo"
 and rewrite_binder rule target : (term, staged_spec) binder =
   let x, target = unbind target in
   unbox (bind_var x (box_staged_spec (rewrite rule target)))
+
+and rewrite_mbinder rule target : (term, staged_spec) mbinder =
+  let x, target = unmbind target in
+  unbox (bind_mvar x (box_staged_spec (rewrite rule target)))

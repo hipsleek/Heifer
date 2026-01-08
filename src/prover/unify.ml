@@ -84,7 +84,7 @@ and unify_staged_spec_aux s1 s2 uvars sigma =
       let sigma = unify_staged_spec_aux s12 s22 uvars sigma in
       sigma
   | Forall _, Forall _ -> failwith "todo"
-  | Exists b1, Exists b2 -> unify_staged_spec_binder_aux b1 b2 uvars sigma
+  | Exists b1, Exists b2 -> unify_staged_spec_mbinder_aux b1 b2 uvars sigma
   | Shift b1, Shift b2 -> unify_staged_spec_binder_aux b1 b2 uvars sigma
   | Reset s1, Reset s2 -> unify_staged_spec_aux s1 s2 uvars sigma
   | Dollar _, Dollar _ -> failwith "todo"
@@ -96,6 +96,10 @@ and unify_staged_spec_aux s1 s2 uvars sigma =
 
 and unify_staged_spec_binder_aux b1 b2 uvars sigma =
   let _, s1, s2 = unbind2 b1 b2 in
+  unify_staged_spec_aux s1 s2 uvars sigma
+
+and unify_staged_spec_mbinder_aux b1 b2 uvars sigma =
+  let _, s1, s2 = unmbind2 b1 b2 in
   unify_staged_spec_aux s1 s2 uvars sigma
 
 (** The main entry point of the unification algorithm.

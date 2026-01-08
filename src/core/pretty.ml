@@ -76,9 +76,11 @@ let rec pp_term_prec prec ctxt ppf = function
 and pp_prop_prec prec ctxt ppf = function
   | PAtom t -> pp_term_prec 0 ctxt ppf t
   | PForall b ->
-    let x, body, ctxt = unbind_in ctxt b in
+    let x, body, ctxt = unmbind_in ctxt b in
     let pp ppf () =
-      Fmt.pf ppf "@[<hov 2>forall %s.@ %a" (name_of x)
+      Fmt.pf ppf "@[<hov 2>forall %a.@ %a"
+        Fmt.(array ~sep:(any " ") string)
+        (names_of x)
         (pp_prop_prec (OpInfo.prec_prop_forall - 1) ctxt)
         body
     in
@@ -171,37 +173,21 @@ and pp_staged_spec_prec prec ctxt ppf = function
     in
     parens_if (OpInfo.prec_staged_disj <= prec) pp ppf ()
   | Forall b ->
-    let rec collect ctxt b =
-      let x, body, ctxt = unbind_in ctxt b in
-      match body with
-      | Forall b' ->
-        let xs, body, ctxt = collect ctxt b' in
-        (x :: xs, body, ctxt)
-      | _ -> ([x], body, ctxt)
-    in
-    let xs, body, ctxt = collect ctxt b in
+    let xs, body, ctxt = unmbind_in ctxt b in
     let pp ppf () =
       Fmt.pf ppf "@[<hov 2>forall %a.@ %a@]"
-        Fmt.(list ~sep:(any " ") string)
-        (List.map name_of xs)
+        Fmt.(array ~sep:(any " ") string)
+        (names_of xs)
         (pp_staged_spec_prec OpInfo.prec_staged_quantifier ctxt)
         body
     in
     parens_if (OpInfo.prec_staged_quantifier <= prec) pp ppf ()
   | Exists b ->
-    let rec collect ctxt b =
-      let x, body, ctxt = unbind_in ctxt b in
-      match body with
-      | Exists b' ->
-        let xs, body, ctxt = collect ctxt b' in
-        (x :: xs, body, ctxt)
-      | _ -> ([x], body, ctxt)
-    in
-    let xs, body, ctxt = collect ctxt b in
+    let xs, body, ctxt = unmbind_in ctxt b in
     let pp ppf () =
       Fmt.pf ppf "@[<hov 2>ex %a.@ %a@]"
-        Fmt.(list ~sep:(any " ") string)
-        (List.map name_of xs)
+        Fmt.(array ~sep:(any " ") string)
+        (names_of xs)
         (pp_staged_spec_prec OpInfo.prec_staged_quantifier ctxt)
         body
     in

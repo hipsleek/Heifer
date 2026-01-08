@@ -2,8 +2,8 @@ open Bindlib
 open Core.Syntax
 
 type quantifier =
-  | QForall of term var
-  | QExists of term var
+  | QForall of term mvar
+  | QExists of term mvar
 
 (** A formula in prenex form, with quantifiers in outermost-first order. *)
 type 'a prenex = {
@@ -26,9 +26,9 @@ let rec close (pf : staged_spec Bindlib.box prenex) : staged_spec Bindlib.box =
   match pf.quantifiers with
   | [] -> pf.body
   | QForall x :: rest ->
-    Mk.forall (bind_var x (close { quantifiers = rest; body = pf.body }))
+    Mk.forall (bind_mvar x (close { quantifiers = rest; body = pf.body }))
   | QExists x :: rest ->
-    Mk.exists (bind_var x (close { quantifiers = rest; body = pf.body }))
+    Mk.exists (bind_mvar x (close { quantifiers = rest; body = pf.body }))
 
 let close_unbox pf = unbox (close (map box_staged_spec pf))
 
@@ -50,9 +50,9 @@ and prenex_prop (p : prop) : prop =
   | PConj (p1, p2) -> PConj (prenex_prop p1, prenex_prop p2)
   | PImplies (p1, p2) -> PImplies (prenex_prop p1, prenex_prop p2)
   | PForall b ->
-    let x, body = unbind b in
+    let x, body = unmbind b in
     let body' = prenex_prop body in
-    unbox (Mk.pforall (bind_var x (box_prop body')))
+    unbox (Mk.pforall (bind_mvar x (box_prop body')))
   | PSubsumes (s1, s2) ->
     PSubsumes
       (close_unbox (prenex_staged_spec s1), close_unbox (prenex_staged_spec s2))
@@ -89,10 +89,10 @@ and prenex_staged_spec (s : staged_spec) : staged_spec prenex =
       (fun b1 b2 -> Disjunct (b1, b2))
       (prenex_staged_spec s1) (prenex_staged_spec s2)
   | Forall b ->
-    let x, body = unbind b in
+    let x, body = unmbind b in
     prepend_quantifier (QForall x) (prenex_staged_spec body)
   | Exists b ->
-    let x, body = unbind b in
+    let x, body = unmbind b in
     prepend_quantifier (QExists x) (prenex_staged_spec body)
   | Shift b ->
     let x, body = unbind b in

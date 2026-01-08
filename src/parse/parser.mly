@@ -200,11 +200,9 @@ prop:
     { PSubsumes (a, b) }
 
   | FORALL xs = binders DOT
-      // midrule({ Binders.push_scope () })
-        // let xs = Binders.bind_variables xs in
     p = prop %prec FORALL
       { let xs = Binders.remove_all xs in
-        List.fold_right (fun x t -> PForall (unbox (bind_var x (box_prop t)))) xs p }
+        PForall (unbox (bind_mvar xs (box_prop p))) }
 
 //   // these cause shift-reduce conflicts, are not used, and are not in the symbolic heap fragment
 // //   | p1 = prop DISJUNCTION p2 = prop
@@ -271,29 +269,21 @@ staged_spec:
 
 //   | LET x=LOWERCASE_IDENT EQUAL s1=staged_spec IN s2=staged_spec
   | s1=staged_spec SEMI x=binder DOT
-      // midrule({ Binders.push_scope () })
     s2=staged_spec %prec SEMI
       {
         let x = Binders.remove x in
         (* TODO quadratic, possibly return a box from the rules *)
         Bind (s1, unbox (bind_var x (box_staged_spec s2))) }
-        // let x = List.hd (Binders.bind_variables [x]) in
 
   | FORALL xs = binders DOT
-      // midrule({ Binders.push_scope () })
-        // let xs = Binders.bind_variables xs in
     s = staged_spec %prec FORALL
-      {
-        let xs = Binders.remove_all xs in
-        List.fold_right (fun x t -> Forall (unbox (bind_var x (box_staged_spec t)))) xs s }
+      { let xs = Binders.remove_all xs in
+        Forall (unbox (bind_mvar xs (box_staged_spec s))) }
 
   | EXISTS xs = binders DOT
-      // midrule({ Binders.push_scope () })
-// let xs = Binders.bind_variables xs in
     s = staged_spec %prec EXISTS
-      {
-        let xs = Binders.remove_all xs in
-        List.fold_right (fun x t -> Exists (unbox (bind_var x (box_staged_spec t)))) xs s }
+      { let xs = Binders.remove_all xs in
+        Exists (unbox (bind_mvar xs (box_staged_spec s))) }
 
   | LPAREN s = staged_spec RPAREN
       { s }

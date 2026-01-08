@@ -44,7 +44,7 @@ and prop =
   | PAtom of term
   | PConj of prop * prop
   | PImplies of prop * prop
-  | PForall of (term, prop) binder
+  | PForall of (term, prop) mbinder
   | PSubsumes of staged_spec * staged_spec
 
 and hprop =
@@ -61,8 +61,8 @@ and staged_spec =
   | Bind of staged_spec * (term, staged_spec) binder
   | Apply of term * term
   | Disjunct of staged_spec * staged_spec
-  | Forall of (term, staged_spec) binder
-  | Exists of (term, staged_spec) binder
+  | Forall of (term, staged_spec) mbinder
+  | Exists of (term, staged_spec) mbinder
   | Shift of (term, staged_spec) binder
   | Reset of staged_spec
   | Dollar of staged_spec * (term, staged_spec) binder
@@ -142,7 +142,7 @@ let rec box_term = function
 and box_prop = function
   | PAtom t -> Mk.patom (box_term t)
   | PConj (p1, p2) -> Mk.pconj (box_prop p1) (box_prop p2)
-  | PForall b -> Mk.pforall (box_binder box_prop b)
+  | PForall b -> Mk.pforall (box_mbinder box_prop b)
   | PSubsumes (f1, f2) -> Mk.psubsumes (box_staged_spec f1) (box_staged_spec f2)
   | PImplies (p1, p2) -> Mk.pimplies (box_prop p1) (box_prop p2)
 
@@ -160,8 +160,8 @@ and box_staged_spec = function
   | Bind (s, b) -> Mk.bind (box_staged_spec s) (box_binder box_staged_spec b)
   | Apply (f, t) -> Mk.apply (box_term f) (box_term t)
   | Disjunct (s1, s2) -> Mk.disjunct (box_staged_spec s1) (box_staged_spec s2)
-  | Forall b -> Mk.forall (box_binder box_staged_spec b)
-  | Exists b -> Mk.exists (box_binder box_staged_spec b)
+  | Forall b -> Mk.forall (box_mbinder box_staged_spec b)
+  | Exists b -> Mk.exists (box_mbinder box_staged_spec b)
   | Shift b -> Mk.shift (box_binder box_staged_spec b)
   | Reset s -> Mk.reset (box_staged_spec s)
   | Dollar (s, k) ->
@@ -260,8 +260,8 @@ and equal_staged_spec s1 s2 =
     equal_term t11 t21 && equal_term t12 t22
   | Disjunct (s11, s12), Disjunct (s21, s22) ->
     equal_staged_spec s11 s21 && equal_staged_spec s12 s22
-  | Forall b1, Forall b2 -> eq_binder equal_staged_spec b1 b2
-  | Exists b1, Exists b2 -> eq_binder equal_staged_spec b1 b2
+  | Forall b1, Forall b2 -> eq_mbinder equal_staged_spec b1 b2
+  | Exists b1, Exists b2 -> eq_mbinder equal_staged_spec b1 b2
   | Shift b1, Shift b2 -> eq_binder equal_staged_spec b1 b2
   | Reset s1, Reset s2 -> equal_staged_spec s1 s2
   | Dollar (s1, k1), Dollar (s2, k2) ->
