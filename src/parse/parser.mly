@@ -82,8 +82,8 @@ open Bindlib
 // %type <Hiptypes.pi * Hiptypes.kappa> parse_state
 %start parse_staged_spec
 %type <staged_spec> parse_staged_spec
-// %start parse_term
-// %type <Hiptypes.term> parse_term
+%start parse_term
+%type <term> parse_term
 // %start parse_lemma
 // %type <Hiptypes.lemma> parse_lemma
 %%
@@ -331,9 +331,9 @@ parse_staged_spec:
   | s = staged_spec EOF
       { Binders.reset_state (); s }
 
-// parse_term:
-//   | t = term EOF
-//       { t }
+parse_term:
+  | t = term EOF
+      { t }
 
 // parse_lemma:
 //   | t = lemma EOF

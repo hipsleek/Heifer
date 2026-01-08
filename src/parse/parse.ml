@@ -70,6 +70,8 @@ let parse_prop spec = handle_error Parser.parse_prop (Lexing.from_string spec)
 let parse_staged_spec spec =
   handle_error Parser.parse_staged_spec (Lexing.from_string spec)
 
+let parse_term spec = handle_error Parser.parse_term (Lexing.from_string spec)
+
 (* open Parsing *)
 
 (*

@@ -150,13 +150,41 @@ let refl =
 let forall_intro =
   let open Tactic in
   let* right = get_rhs in
-  match right with
+  match Prenex.move_quantifiers_out right with
   | Forall b ->
     (* TODO freshness issues? this has to be free on both sides *)
     let x, f = unbind b in
     let* _ = put_rhs f in
     add_constant (unbox (Mk.tvar x))
-  | _ -> fail "cannot intro"
+  | _ -> fail "cannot intro forall"
+
+let forall_elim t =
+  let open Tactic in
+  let* left = get_lhs in
+  match Prenex.move_quantifiers_out left with
+  | Forall b ->
+    let t = parse_term t in
+    put_lhs (subst b t)
+  | _ -> fail "cannot eliminate forall"
+
+let exists_intro t =
+  let open Tactic in
+  let* right = get_rhs in
+  match Prenex.move_quantifiers_out right with
+  | Exists b ->
+    let t = parse_term t in
+    put_rhs (subst b t)
+  | _ -> fail "cannot intro exists"
+
+let exists_elim =
+  let open Tactic in
+  let* left = get_lhs in
+  match Prenex.move_quantifiers_out left with
+  | Exists b ->
+    let x, f = unbind b in
+    let* _ = put_lhs f in
+    add_constant (unbox (Mk.tvar x))
+  | _ -> fail "cannot eliminate exists"
 
 let disj_elim =
   let open Tactic in
@@ -219,6 +247,9 @@ module Interactive = struct
 
   let refl = make_interactive (fun () -> refl)
   let forall_intro = make_interactive (fun () -> forall_intro)
+  let forall_elim = make_interactive forall_elim
+  let exists_intro = make_interactive exists_intro
+  let exists_elim = make_interactive (fun () -> exists_elim)
   let disj_elim = make_interactive (fun () -> disj_elim)
   let left = make_interactive (fun () -> left)
   let right = make_interactive (fun () -> right)
