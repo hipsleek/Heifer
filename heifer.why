@@ -8,6 +8,8 @@ module Heifer
   type term =
     | TInt int
     | TBool bool
+    | TCons term term
+    | TNil
     | TErr
 
   function plus (a b:term) : term =
@@ -21,6 +23,27 @@ module Heifer
     | TErr, _ | _, TErr -> false
     | _, _ -> a = b
     end
+
+  function sum (xs:term) : term =
+    match xs with
+    | TNil -> TInt 0
+    | TCons (TInt x) rest -> plus (TInt x) (sum rest)
+    | _ -> TErr
+    end
+
+  function sum1 (xs:list int) : int =
+    match xs with
+    | Nil -> 0
+    | Cons x rest -> x + sum1 rest
+    end
+
+  function box_list (xs:list int) : term =
+    match xs with
+    | Nil -> TNil
+    | Cons x rest -> TCons (TInt x) (box_list rest)
+    end
+
+  goal G: forall xs:list int. TInt (sum1 xs) = sum (box_list xs)
 
   type prop =
     | PTrue

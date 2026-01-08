@@ -2,15 +2,15 @@ open Core.Syntax
 open Bindlib
 
 (** When parsing input into an AST that uses Bindlib, variables and their
-    binders have to use physically equal vars (created with e.g. new_tvar).
+    binders have to use physically equal vars (created with e.g. [new_tvar]).
 
     This module provides a stateful symbol table (mapping string names
-    encountered to Bindlib vars) for doing this.
+    encountered to Bindlib [var]s) for doing this.
 
     - When a binder is encountered, a [new_tvar] is created.
-    - The var is used when a variable is parsed.
+    - The [var] is used when a variable is parsed.
     - On the way up past the binder, it is removed.
-    - The add/remove behaviour of Hashtbls handles shadowing. *)
+    - The [add]/[remove] behaviour of [Hashtbl]s handles shadowing. *)
 
 let unbound_vars : (string, term var) Hashtbl.t = Hashtbl.create 10
 let reset_state () = Hashtbl.clear unbound_vars
