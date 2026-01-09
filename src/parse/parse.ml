@@ -24,6 +24,7 @@ let show_token (tok : Parser.token) =
   | SEMI -> "SEMI"
   | RPAREN -> "RPAREN"
   | RESET -> "RESET"
+  | RETURN -> "RETURN"
   | REQUIRES -> "REQUIRES"
   | RBRACKET -> "RBRACKET"
   | PLUS -> "PLUS"
@@ -158,7 +159,7 @@ let%expect_test "basics" =
   staged
     "ens xs=[]; ret init \\/ ex h t. ens xs=h::t; foldr(f, init, t); r. f(h, r)";
   [%expect
-    {| ens xs=[]; retinit \/ ex h t. ens xs=h::t; foldr(f, init, t); r. f(h, r) |}]
+    {| ens xs=[]; ret init \/ ex h t. ens xs=h::t; foldr(f, init, t); r. f(h, r) |}]
 
 let%expect_test "shadowing" =
   staged "ens emp; x. ens emp; x. ens x=2";

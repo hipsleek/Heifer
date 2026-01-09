@@ -16,7 +16,9 @@ end
 let pp_hypotheses ~pp_k ~pp_v ppf m =
   let al = SMap.bindings m in
   Fmt.pf ppf "@[<v>%a@]"
-    Fmt.(list ~sep:(any ",@ ") (pair ~sep:(any ":@ ") pp_k pp_v))
+    Fmt.(
+      list ~sep:(any "@,")
+        (Fmt.hovbox ~indent:2 (pair ~sep:(any ":@ ") pp_k pp_v)))
     al
 
 type sequent = staged_spec * staged_spec
@@ -35,16 +37,22 @@ module Pctx = struct
   let draw_line n = String.make n '-'
 
   let pp ppf { constants; assumptions; heap_context; goal = l, r } =
-    let line = draw_line 20 in
     Format.open_vbox 0;
     Fmt.pf ppf "@[<hov>%a@]@," Fmt.(list ~sep:comma pp_term) constants;
-    Fmt.pf ppf "%a%s@,"
-      (pp_hypotheses ~pp_k:Fmt.string ~pp_v:pp_prop)
-      assumptions line;
+    (match SMap.is_empty assumptions with
+    | true -> ()
+    | false ->
+      Fmt.pf ppf "%a@,"
+        (pp_hypotheses ~pp_k:Fmt.string ~pp_v:pp_prop)
+        assumptions);
+    (* always draw the line, even if there are no hypotheses *)
+    let line_length = 40 in
+    let line = draw_line line_length in
+    Fmt.pf ppf "%s@," line;
     (match heap_context with
     | [] -> ()
     | _ ->
-      let heap_line = line ^ "*" in
+      let heap_line = draw_line (line_length - 1) ^ "*" in
       Fmt.pf ppf "%a@,%s@," Fmt.(list ~sep:cut pp_hprop) heap_context heap_line);
     Fmt.pf ppf "  %a@,⊑ %a@," pp_staged_spec l pp_staged_spec r;
     Format.close_box ()

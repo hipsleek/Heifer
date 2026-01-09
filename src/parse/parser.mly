@@ -37,6 +37,7 @@ open Bindlib
 %token FORALL
 %token REQUIRES
 %token ENSURES
+%token RETURN
 %token LET
 %token IN
 %token FUN
@@ -51,7 +52,7 @@ open Bindlib
 
 // in increasing order of precedence
 %nonassoc SUBSUMES
-%nonassoc REQUIRES ENSURES
+%nonassoc REQUIRES ENSURES RETURN
 %nonassoc FORALL EXISTS // lower than ;
 %right DISJUNCTION
 %right SEMI
@@ -247,6 +248,9 @@ hprop:
 staged_spec:
   | s1 = staged_spec DISJUNCTION s2 = staged_spec
       { Disjunct (s1, s2) }
+  | RETURN t = term
+      { Return t }
+
   | REQUIRES h = hprop
       { Requires h }
   | ENSURES h = hprop

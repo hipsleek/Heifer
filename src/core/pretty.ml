@@ -133,9 +133,9 @@ and pp_hprop_prec prec ctxt ppf = function
     parens_if (OpInfo.prec_hprop_sepconj <= prec) pp ppf ()
 
 and pp_staged_spec_prec prec ctxt ppf = function
-  | Return t -> Fmt.pf ppf "@[<hov 2>ret@ %a@]" (pp_term_prec 0 ctxt) t
-  | Requires h -> Fmt.pf ppf "@[<hov 2>req@ %a@]" (pp_hprop_prec 0 ctxt) h
-  | Ensures h -> Fmt.pf ppf "@[<hov 2>ens@ %a@]" (pp_hprop_prec 0 ctxt) h
+  | Return t -> Fmt.pf ppf "ret %a" (pp_term_prec 0 ctxt) t
+  | Requires h -> Fmt.pf ppf "req %a" (pp_hprop_prec 0 ctxt) h
+  | Ensures h -> Fmt.pf ppf "ens %a" (pp_hprop_prec 0 ctxt) h
   | Sequence (s1, s2) ->
     let pp ppf () =
       Fmt.pf ppf "@[<hov 0>%a;@ %a@]"
@@ -152,7 +152,7 @@ and pp_staged_spec_prec prec ctxt ppf = function
         (pp_staged_spec ctxt) s (pp_staged_spec ctxt) body
     in *)
     let pp ppf () =
-      Fmt.pf ppf "@[<hov 2>%a;@ %s.@ %a"
+      Fmt.pf ppf "@[<hov 2>%a;@ %s.@ %a@]"
         (pp_staged_spec_prec OpInfo.prec_staged_seq ctxt)
         s (name_of x)
         (pp_staged_spec_prec (OpInfo.prec_staged_seq - 1) ctxt)

@@ -105,6 +105,8 @@ rule token = parse
       { REQUIRES }
   | "ens"
       { ENSURES }
+  | "ret"
+      { RETURN }
   | "let"
       { LET }
   | "in"
