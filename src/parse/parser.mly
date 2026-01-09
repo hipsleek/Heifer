@@ -63,7 +63,7 @@ let resolve_identifier x =
 
 // in increasing order of precedence
 %nonassoc SUBSUMES
-%nonassoc REQUIRES ENSURES RETURN
+%nonassoc REQUIRES ENSURES
 %nonassoc FORALL EXISTS // lower than ;
 %right DISJUNCTION
 %right SEMI
