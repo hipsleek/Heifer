@@ -177,9 +177,58 @@ let%expect_test "simpl" =
     ⊑ ens emp
     |}]
 
-let%expect_test "declare functions" =
+let%expect_test "induction" =
+  start_proof "ex n. ens n > 0; ens emp" "forall n. req n > 0; ens n = 1";
+  exists_elim ();
+  intro_pure "Hn";
+  forall_intro ();
+  induction "IH" ["n"];
+  [%expect {|
+    ----------------------------------------
+      ex n. ens n>0; ens emp
+    ⊑ forall n. req n>0; ens n=1
+
+    n
+    ----------------------------------------
+      ens n>0; ens emp
+    ⊑ forall n. req n>0; ens n=1
+
+    n
+    Hn: n>0
+    ----------------------------------------
+      ens emp
+    ⊑ forall n. req n>0; ens n=1
+
+    n, n1
+    Hn: n>0
+    ----------------------------------------
+      ens emp
+    ⊑ req n1>0; ens n1=1
+
+    n, n1
+    Hn: n>0
+    IH: forall n2. n2>0 => ens emp ⊑ req n1>0; ens n1=1
+    ----------------------------------------
+      ens emp
+    ⊑ req n1>0; ens n1=1
+    |}]
+
+let%expect_test "unfold" =
   reset_proof_state ();
   declare "succ x = ret x + 1";
+  start_proof "ens emp" "succ 1; r. ens 2 = r";
+  unfold "succ";
   [%expect
-    {| succ declared |}
+    {|
+    succ declared
+
+    ----------------------------------------
+      ens emp
+    ⊑ succ 1; r. ens 2=r
+
+
+    ----------------------------------------
+      ens emp
+    ⊑ ret 1+1; r. ens 2=r
+    |}
   ]
