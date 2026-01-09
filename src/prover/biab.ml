@@ -128,3 +128,27 @@ let%expect_test _ =
       |}]
   in
   ()
+
+let pairwise_var_inequality xs ys =
+  let inequalities =
+    List.concat_map
+      (fun x ->
+        List.filter_map
+          (fun y -> if x = y then None else Some (PAtom (TBinop (Neq, x, y))))
+          ys)
+      xs
+  in
+  conj inequalities
+
+let xpure (h : hprop) : prop =
+  let rec run h =
+    match h with
+    | HEmp -> (PAtom TTrue, [])
+    | HPointsTo (x, _) -> (PAtom (TBinop (Gt, x, TInt 0)), [x])
+    | HSepConj (a, b) ->
+      let a, xs = run a in
+      let b, ys = run b in
+      (PConj (a, PConj (b, pairwise_var_inequality xs ys)), xs @ ys)
+    | HPure p -> (p, [])
+  in
+  fst (run h)

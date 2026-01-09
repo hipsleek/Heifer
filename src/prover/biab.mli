@@ -5,3 +5,5 @@ open Core.Syntax
     Returns {m H_1}, {m A}, {m F}, and extra equalities required to make {m H_1 = H_2}.
 *)
 val solve : hprop -> hprop -> hprop list * hprop list * hprop list * prop list
+
+val xpure : hprop -> prop
