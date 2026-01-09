@@ -74,7 +74,7 @@ type def = (term, staged_spec) mbinder
 
     [Dfun] declares a possibly recursive function. *)
 type decl =
-  | Dfun of def
+  | Dfun of symbol * def
 
 (** Smart constructors that wraps data in [Bindlib.box]. This module should
     never be [open]. Functions inside this module should be called by prefixing

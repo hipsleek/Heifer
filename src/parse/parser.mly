@@ -1,6 +1,17 @@
 %{
 open Core.Syntax
 open Bindlib
+
+(** Resolve an identifier when parsing:
+    - If the identifier is bounded, then it's a variable.
+    - Otherwise, we assume that it is a symbol.
+
+    In the future, we may maintain a symbol table for the parser,
+    if we have multiple kind of symbols. *)
+let resolve_identifier x =
+  match Binders.get_opt x with
+  | None -> TSymbol {sym_name = x}
+  | Some v -> TVar v
 %}
 
 %token EQUAL
@@ -79,12 +90,12 @@ open Bindlib
 %type <prop> parse_prop
 %start parse_hprop
 %type <hprop> parse_hprop
-// %start parse_state
-// %type <Hiptypes.pi * Hiptypes.kappa> parse_state
 %start parse_staged_spec
 %type <staged_spec> parse_staged_spec
 %start parse_term
 %type <term> parse_term
+%start parse_decl
+%type <decl> parse_decl
 // %start parse_lemma
 // %type <Hiptypes.lemma> parse_lemma
 %%
@@ -134,17 +145,13 @@ term:
       { TUnit }
   | n = INT
       { TInt n }
-
-//   | v = LOWERCASE_IDENT
-//       { unbox (Mk.tvar (new_tvar v)) }
-
   | TRUE
       { TTrue }
   | FALSE
       { TFalse }
 
   | x=LOWERCASE_IDENT
-      { unbox (Mk.tvar (Binders.get x)) }
+      { resolve_identifier x }
 
 //   | TILDE t = term
 //       { TNot t }
@@ -229,17 +236,6 @@ hprop:
   //     { k }
 ;
 
-// state:
-//   | p = pi
-//       { (p, EmptyHeap) }
-//   | k = kappa
-//       { (True, k) }
-//   | p = pi CONJUNCTION k = kappa
-//       { (p, k) }
-//   | k = kappa CONJUNCTION p = pi
-//       { (p, k) }
-// ;
-
 // fn:
 //   | v = LOWERCASE_IDENT LPAREN args = separated_list(COMMA, term) RPAREN
 //     { (v, args) }
@@ -293,6 +289,15 @@ staged_spec:
       { s }
 ;
 
+def:
+  | xs = binders EQUAL s = staged_spec
+    { let xs = Binders.remove_all xs in
+      unbox (bind_mvar xs (box_staged_spec s)) }
+
+symbol:
+  | x = LOWERCASE_IDENT
+    { {sym_name = x} }
+
 binders:
   | xs=LOWERCASE_IDENT*
     {
@@ -336,10 +341,11 @@ parse_term:
   | t = term EOF
       { t }
 
+// at the moment, the only declaration we may have is function declaration.
+parse_decl:
+  | sym = symbol def = def EOF
+    { Dfun (sym, def) }
+
 // parse_lemma:
 //   | t = lemma EOF
-//       { t }
-
-// parse_state:
-//   | t = state EOF
 //       { t }

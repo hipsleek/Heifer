@@ -176,3 +176,10 @@ let%expect_test "simpl" =
       ens 1=1; ret ()
     ⊑ ens emp
     |}]
+
+let%expect_test "declare functions" =
+  reset_proof_state ();
+  declare "succ x = ret x + 1";
+  [%expect
+    {| succ declared |}
+  ]

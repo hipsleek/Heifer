@@ -1,6 +1,10 @@
 open Bindlib
 open Syntax
 
+let open_dfun d =
+  match d with
+  | Dfun (sym, def) -> sym, def
+
 let rec term_has_vars xs t : bool =
   match t with
   | TVar x -> TVSet.mem x xs

@@ -1,5 +1,7 @@
 open Core.Syntax
 open Core.Pretty
+open Core.Decl
+open Core.Syntax_util
 open Parsing.Parse
 open Bindlib
 
@@ -308,20 +310,45 @@ let induction ~ih wf =
   add_assumption ih (PImplies (parse_prop wf, PSubsumes (left, right)))
 
 module ProofState = struct
-  let current_state = ref []
-  let print_proof_state () = Format.printf "%a@." Pstate.pp !current_state
+  type t = { definitions : symbol_table; goals : Pstate.t }
+  let initial_state = { definitions = empty_table; goals = [] }
+  let current_state = ref initial_state
+
+  let reset_proof_state () = current_state := initial_state
+
+  let print_proof_state () = Format.printf "%a@." Pstate.pp !current_state.goals
+
+  (* TODO: add some other command to print definition/hypothesis/etc. *)
+
+  (** Handle definitions *)
+  let get_definitions () = !current_state.definitions
+  let set_definitions definitions = current_state := { !current_state with definitions }
+
+  let set_goals goals = current_state := { !current_state with goals }
+
+  let declare decl =
+    let sym, def = open_dfun (parse_decl decl) in
+    try
+      set_definitions (add_decl sym def !current_state.definitions);
+      Format.printf "%s declared@." sym.sym_name
+    with Failure msg ->
+      Format.printf "error: %s@." msg
 
   let start_proof l r =
-    current_state :=
-      [Pctx.create ~goal:(parse_staged_spec l, parse_staged_spec r) ()];
+    set_goals [Pctx.create ~goal:(parse_staged_spec l, parse_staged_spec r) ()];
     print_proof_state ()
 
-  let make_interactive (tac : 'b -> 'a Tactic.t) (arg : 'b) =
-    match Tactic.run (tac arg) !current_state with
-    | Ok next_st ->
-      current_state := next_st;
+  let run_tactic tac =
+    match Tactic.run tac !current_state.goals with
+    | Ok new_goals ->
+      set_goals new_goals;
       print_proof_state ()
     | Error s -> Format.printf "error: %s@." s
+
+  let make_interactive (tac : 'b -> 'a Tactic.t) (arg : 'b) =
+    run_tactic (tac arg)
+
+  (* TODO: tactic may need to refer to the global state, not just the current goal itself. *)
 end
 
 module Interactive = struct
@@ -341,4 +368,19 @@ module Interactive = struct
   let simpl = make_interactive (fun () -> simpl)
   let induction ~ih = make_interactive (induction ~ih)
   let prove s = Why3_prover.prove (parse_prop s)
+
+  (** Unfold a definition everywhere inside the current state.
+      TODO: implement `unfold in`. *)
+  let unfold (sym_name : string) =
+    let sym = {sym_name} in
+    let definitions = get_definitions () in
+    match SymMap.find_opt sym definitions with
+    | None -> Format.printf "error: the symbol %s does not exist@." sym_name
+    | Some def ->
+        let tac =
+          let open Tactic in
+          let* lhs, rhs = get_goal in
+          put_goal (Unfold.unfold sym def lhs) (Unfold.unfold sym def rhs)
+        in
+        run_tactic tac
 end

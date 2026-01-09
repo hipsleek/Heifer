@@ -6,7 +6,10 @@ type symbol_table = def SymMap.t
 
 let empty_table = SymMap.empty
 
-let add_decl sym def table =
+(** Add a new declaration to a symbol table.
+
+    Raise [Failure] if the symbol already exists. *)
+let add_decl sym def (table : symbol_table) : symbol_table =
   (* if the symbol is already in the symbol table, throw an error *)
   if SymMap.mem sym table then raise (Failure "symbol is already declared");
   SymMap.add sym def table
