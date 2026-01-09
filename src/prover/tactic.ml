@@ -198,6 +198,15 @@ let intro_heap =
     add_heap_assumption h
   | _ -> fail "cannot intro lhs"
 
+let intro_pure name =
+  let open Tactic in
+  let* left = get_lhs in
+  match left with
+  | Sequence (Ensures (HPure p), rest) ->
+    let* _ = put_lhs rest in
+    add_assumption name p
+  | _ -> fail "cannot intro lhs"
+
 let specialize h ts =
   let open Tactic in
   let ts = List.map parse_term ts |> Array.of_list in
@@ -310,9 +319,10 @@ end
 module Interactive = struct
   open ProofState
 
-  let specialize h args = make_interactive (fun () -> specialize args h)
+  let specialize h = make_interactive (specialize h)
   let refl = make_interactive (fun () -> refl)
   let intro_heap = make_interactive (fun () -> intro_heap)
+  let intro_pure = make_interactive intro_pure
   let forall_intro = make_interactive (fun () -> forall_intro)
   let forall_elim = make_interactive forall_elim
   let exists_intro = make_interactive exists_intro
