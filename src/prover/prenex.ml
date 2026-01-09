@@ -36,9 +36,9 @@ let rec prenex_term (t : term) : term =
   match t with
   | TVar _ | TSymbol _ | TUnit | TTrue | TFalse | TInt _ | TNil -> t
   | TFun b ->
-    let x, body = unbind b in
+    let xs, body = unmbind b in
     let body' = close_unbox (prenex_staged_spec body) in
-    unbox (Mk.tfun (bind_var x (box_staged_spec body')))
+    unbox (Mk.tfun (bind_mvar xs (box_staged_spec body')))
   | TApp (f, ts) -> TApp (f, List.map prenex_term ts)
   | TTuple ts -> TTuple (List.map prenex_term ts)
   | TBinop (op, t1, t2) -> TBinop (op, prenex_term t1, prenex_term t2)
@@ -69,7 +69,7 @@ and prenex_staged_spec (s : staged_spec) : staged_spec prenex =
   | Return t -> pure (Return (prenex_term t))
   | Requires h -> pure (Requires (prenex_hprop h))
   | Ensures h -> pure (Ensures (prenex_hprop h))
-  | Apply (t1, t2) -> pure (Apply (prenex_term t1, prenex_term t2))
+  | Apply (t1, t2) -> pure (Apply (prenex_term t1, List.map prenex_term t2))
   | Sequence (s1, s2) ->
     combine
       (fun b1 b2 -> Sequence (b1, b2))

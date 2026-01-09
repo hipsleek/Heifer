@@ -252,7 +252,7 @@ staged_spec:
   | ENSURES h = hprop
       { Ensures h }
 
-  | f=term arg=term
+  | f=term arg=term+
     { Apply (f, arg) }
 
   // | va = fn

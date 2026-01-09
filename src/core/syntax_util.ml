@@ -14,7 +14,7 @@ let rec term_has_vars xs t : bool =
   | TFalse -> false
   | TInt _ -> false
   | TNil -> false
-  | TFun b -> staged_spec_binder_has_vars xs b
+  | TFun b -> staged_spec_mbinder_has_vars xs b
   | TApp (_, ts) -> term_list_has_vars xs ts
   | TTuple ts -> term_list_has_vars xs ts
   | TBinop (_, t1, t2) -> term_has_vars xs t1 || term_has_vars xs t2
@@ -48,7 +48,7 @@ and staged_spec_has_vars xs s =
   | Ensures p -> hprop_has_vars xs p
   | Sequence (s1, s2) -> staged_spec_has_vars xs s1 || staged_spec_has_vars xs s2
   | Bind (s, b) -> staged_spec_has_vars xs s || staged_spec_binder_has_vars xs b
-  | Apply (t1, t2) -> term_has_vars xs t1 || term_has_vars xs t2
+  | Apply (t1, t2) -> term_has_vars xs t1 || List.exists (term_has_vars xs) t2
   | Disjunct (s1, s2) -> staged_spec_has_vars xs s1 || staged_spec_has_vars xs s2
   | Forall b -> staged_spec_mbinder_has_vars xs b
   | Exists b -> staged_spec_mbinder_has_vars xs b

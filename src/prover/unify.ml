@@ -20,7 +20,7 @@ let rec unify_term_aux t1 t2 uvars sigma =
   | TTrue, TTrue -> sigma
   | TFalse, TFalse -> sigma
   | TInt i1, TInt i2 when i1 = i2 -> sigma
-  | TFun b1, TFun b2 -> unify_staged_spec_binder_aux b1 b2 uvars sigma
+  | TFun b1, TFun b2 -> unify_staged_spec_mbinder_aux b1 b2 uvars sigma
   | TTuple ts1, TTuple ts2 -> unify_term_list_aux ts1 ts2 uvars sigma
   | TBinop (op1, t11, t12), TBinop (op2, t21, t22) when op1 = op2 ->
       let sigma = unify_term_aux t11 t21 uvars sigma in
@@ -77,7 +77,10 @@ and unify_staged_spec_aux s1 s2 uvars sigma =
       sigma
   | Apply (t11, t12), Apply (t21, t22) ->
       let sigma = unify_term_aux t11 t21 uvars sigma in
-      let sigma = unify_term_aux t12 t22 uvars sigma in
+      let sigma =
+        List.fold_right2 (fun c1 c2 sigma ->
+            unify_term_aux c1 c2 uvars sigma) t12 t22 sigma
+      in
       sigma
   | Disjunct (s11, s12), Disjunct (s21, s22) ->
       let sigma = unify_staged_spec_aux s11 s21 uvars sigma in

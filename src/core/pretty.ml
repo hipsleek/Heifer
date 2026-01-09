@@ -46,8 +46,10 @@ let rec pp_term_prec prec ctxt ppf = function
   | TApp (f, xs) ->
     Fmt.pf ppf "%s(%a)" f Fmt.(list ~sep:(any ",@ ") (pp_term_prec 0 ctxt)) xs
   | TFun b ->
-    let x, body, ctxt = unbind_in ctxt b in
-    Fmt.pf ppf "@[<hov 2>fun %s ->@ %a@]" (name_of x)
+    let x, body, ctxt = unmbind_in ctxt b in
+    Fmt.pf ppf "@[<hov 2>fun %a ->@ %a@]"
+      Fmt.(array ~sep:(any " ") string)
+      (names_of x)
       (pp_staged_spec_prec 0 ctxt)
       body
   | TTuple ts ->
@@ -160,9 +162,9 @@ and pp_staged_spec_prec prec ctxt ppf = function
     in
     parens_if (OpInfo.prec_staged_seq <= prec) pp ppf ()
   | Apply (f, t) ->
-    Fmt.pf ppf "@[<hov 2>%a" (pp_term_prec 0 ctxt) f;
-    (match f with TVar _ -> () | _ -> Fmt.pf ppf "@ ");
-    Fmt.pf ppf "%a@]" (pp_term_prec 0 ctxt) t
+    Fmt.pf ppf "@[<hov 2>%a@ %a@]" (pp_term_prec 0 ctxt) f
+      Fmt.(list ~sep:(any "@ ") (pp_term_prec 0 ctxt))
+      t
   | Disjunct (s1, s2) ->
     let pp ppf () =
       Fmt.pf ppf "@[<hov 0>%a@ \\/@ %a@]"

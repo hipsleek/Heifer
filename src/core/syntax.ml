@@ -30,7 +30,7 @@ type term =
   | TTrue
   | TFalse
   | TInt of int
-  | TFun of (term, staged_spec) binder
+  | TFun of (term, staged_spec) mbinder
   | TApp of string * term list
   | TTuple of term list
   | TBinop of binop * term * term
@@ -59,7 +59,7 @@ and staged_spec =
   | Ensures of hprop
   | Sequence of staged_spec * staged_spec
   | Bind of staged_spec * (term, staged_spec) binder
-  | Apply of term * term
+  | Apply of term * term list
   | Disjunct of staged_spec * staged_spec
   | Forall of (term, staged_spec) mbinder
   | Exists of (term, staged_spec) mbinder
@@ -73,8 +73,7 @@ type def = (term, staged_spec) mbinder
 (** Top level declaration.
 
     [Dfun] declares a possibly recursive function. *)
-type decl =
-  | Dfun of symbol * def
+type decl = Dfun of symbol * def
 
 (** Smart constructors that wraps data in [Bindlib.box]. This module should
     never be [open]. Functions inside this module should be called by prefixing
@@ -133,7 +132,7 @@ let rec box_term = function
   | TApp (f, xs) -> Mk.tapp (box f) (box_list (List.map box_term xs))
   | TInt i -> Mk.tint i
   | TTuple ts -> Mk.ttuple (box_list (List.map box_term ts))
-  | TFun b -> Mk.tfun (box_binder box_staged_spec b)
+  | TFun b -> Mk.tfun (box_mbinder box_staged_spec b)
   | TBinop (op, t1, t2) -> Mk.tbinop op (box_term t1) (box_term t2)
   | TUnop (op, t) -> Mk.tunop op (box_term t)
 (* | TMetavar mv -> tmetavar mv *)
@@ -158,7 +157,7 @@ and box_staged_spec = function
   | Ensures p -> Mk.ensures (box_hprop p)
   | Sequence (s1, s2) -> Mk.sequence (box_staged_spec s1) (box_staged_spec s2)
   | Bind (s, b) -> Mk.bind (box_staged_spec s) (box_binder box_staged_spec b)
-  | Apply (f, t) -> Mk.apply (box_term f) (box_term t)
+  | Apply (f, t) -> Mk.apply (box_term f) (box_list (List.map box_term t))
   | Disjunct (s1, s2) -> Mk.disjunct (box_staged_spec s1) (box_staged_spec s2)
   | Forall b -> Mk.forall (box_mbinder box_staged_spec b)
   | Exists b -> Mk.exists (box_mbinder box_staged_spec b)
@@ -213,7 +212,7 @@ let rec equal_term t1 t2 =
   | TTrue, TTrue -> true
   | TFalse, TFalse -> true
   | TInt i1, TInt i2 -> i1 = i2
-  | TFun b1, TFun b2 -> eq_binder equal_staged_spec b1 b2
+  | TFun b1, TFun b2 -> eq_mbinder equal_staged_spec b1 b2
   | TApp (f1, xs1), TApp (f2, xs2) ->
     f1 = f2
     && List.length xs1 = List.length xs2
@@ -257,7 +256,7 @@ and equal_staged_spec s1 s2 =
   | Bind (s1, b1), Bind (s2, b2) ->
     equal_staged_spec s1 s2 && eq_binder equal_staged_spec b1 b2
   | Apply (t11, t12), Apply (t21, t22) ->
-    equal_term t11 t21 && equal_term t12 t22
+    equal_term t11 t21 && List.for_all2 equal_term t12 t22
   | Disjunct (s11, s12), Disjunct (s21, s22) ->
     equal_staged_spec s11 s21 && equal_staged_spec s12 s22
   | Forall b1, Forall b2 -> eq_mbinder equal_staged_spec b1 b2

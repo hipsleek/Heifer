@@ -18,13 +18,13 @@ let capture_cont (k : cont) : term =
   match k with
   | CNil ->
       let x = new_tvar "x" in
-      unbox (Mk.tfun (bind_var x (Mk.return (Mk.tvar x))))
+      unbox (Mk.tfun (bind_mvar [|x|] (Mk.return (Mk.tvar x))))
   | CCons0 (s, k) ->
       let x = new_tvar "_" in
-      unbox (Mk.tfun (bind_var x (box_staged_spec (Reset (refine_cont s k)))))
+      unbox (Mk.tfun (bind_mvar [|x|] (box_staged_spec (Reset (refine_cont s k)))))
   | CCons1 (b, k) ->
       let x, s = unbind b in
-      unbox (Mk.tfun (bind_var x (box_staged_spec (Reset (refine_cont s k)))))
+      unbox (Mk.tfun (bind_mvar [|x|] (box_staged_spec (Reset (refine_cont s k)))))
 
 let rec simpl_term (t : term) : term =
   match t with
@@ -59,7 +59,7 @@ let rec simpl_staged_spec (s : staged_spec) : staged_spec =
   | Apply (f, t) ->
       begin
         match f with
-        | TFun b -> simpl_staged_spec (subst b t)
+        | TFun b -> simpl_staged_spec (msubst b (Array.of_list t))
         | _ -> Apply (f, t)
       end
   | Disjunct (s1, s2) -> Disjunct (simpl_staged_spec s1, simpl_staged_spec s2)
@@ -80,7 +80,7 @@ and simpl_staged_spec_cont (s : staged_spec) (k : cont) : staged_spec =
   | Apply (f, t) ->
       begin
         match f with
-        | TFun b -> simpl_staged_spec_cont (subst b t) k
+        | TFun b -> simpl_staged_spec_cont (msubst b (Array.of_list t)) k
         | _ -> refine_cont (Apply (f, t)) k
       end
   | Disjunct (s1, s2) -> Disjunct (simpl_staged_spec_cont s1 k, simpl_staged_spec_cont s2 k)
