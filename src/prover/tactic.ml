@@ -99,6 +99,7 @@ module Tactic : sig
   val ( let* ) : 'a t -> ('a -> 'b t) -> 'b t
   val fail : string -> 'a t
   val choice : 'a t -> 'a t -> 'a t
+  val choices : ?err:string -> 'a t list -> 'a t
   val pop : Pctx.t t
   val push : Pctx.t -> unit t
   val get_rename_ctxt : Bindlib.ctxt t
@@ -107,6 +108,8 @@ module Tactic : sig
   val get_rhs : staged_spec t
   val get_constants : term var SMap.t t
   val get_assumptions : prop SMap.t t
+  val get_heap_assumptions : hprop t
+  val put_heap_assumptions : hprop -> unit t
   val get_constant : string -> term var t
   val get_assumption : string -> prop t
   val modify_goal : (sequent -> sequent) -> unit t
@@ -118,6 +121,7 @@ module Tactic : sig
   val add_heap_assumption : hprop -> unit t
   val add_constant : string -> term var -> unit t
   val pop_assumption : string -> prop t (* remove + return *)
+  val pop_heap_assumptions : hprop t
 
   val modify_assumption :
     string -> (prop -> prop t) -> unit t (* this is `modify_m` in Haskell *)
@@ -126,13 +130,24 @@ end = struct
 
   let run t ps = Result.map snd (t ps)
   let fail s = fun _ -> Error s
+  let return x = fun s -> Ok (x, s)
+  let bind m f = fun s -> Result.bind (m s) (fun (x, s') -> f x s')
+  let ( let* ) = bind
 
   let choice t1 t2 =
    fun ps -> match t1 ps with Error _ -> t2 ps | Ok s -> Ok s
 
-  let return x = fun s -> Ok (x, s)
-  let bind m f = fun s -> Result.bind (m s) (fun (x, s') -> f x s')
-  let ( let* ) = bind
+  let rec choices ?(err = "empty choice") ts =
+   fun ps ->
+    match ts with
+    | [] -> Error err
+    | t :: ts1 ->
+      (match t ps with
+      | Error er ->
+        choices ~err ts1 ps
+        (* TODO possibly use a list or tree of errors *)
+        |> Result.map_error (fun e -> Format.asprintf "%s / %s" e er)
+      | Ok a -> Ok a)
 
   let rec map_m f xs =
     match xs with
@@ -205,6 +220,12 @@ end = struct
       let* _ = put_pctxt { pc with assumptions } in
       return p
 
+  let pop_heap_assumptions =
+    let* pc = get_pctxt in
+    let hp = Constr.sep_conj pc.heap_context in
+    let* _ = put_pctxt { pc with heap_context = [] } in
+    return hp
+
   let modify_assumption name f =
     let* p = pop_assumption name in
     let* p = f p in
@@ -233,6 +254,14 @@ end = struct
   let get_assumptions =
     let* p = get_pctxt in
     return p.assumptions
+
+  let get_heap_assumptions =
+    let* p = get_pctxt in
+    return (Constr.sep_conj p.heap_context)
+
+  let put_heap_assumptions h =
+    let* p = get_pctxt in
+    put_pctxt { p with heap_context = Heap.split_sep_conj h }
 
   let get_constant x =
     let* constants = get_constants in
@@ -265,23 +294,79 @@ end = struct
     | g :: gs -> put ({ g with heap_context = h :: g.heap_context } :: gs)
 end
 
-let intro_heap =
+let uncons_ens f =
   let open Tactic in
-  let* left = get_lhs in
-  match left with
-  | Sequence (Ensures h, rest) ->
-    let* _ = put_lhs rest in
-    add_heap_assumption h
-  | _ -> fail "cannot intro lhs"
+  match f with
+  | Sequence (Ensures (HPure p), rest) -> return (p, rest)
+  | Ensures (HPure p) -> return (p, Ensures HEmp)
+  | _ -> fail "cannot uncons pure ens"
+
+let uncons_req f =
+  let open Tactic in
+  match f with
+  | Sequence (Requires (HPure p), rest) -> return (p, rest)
+  | Requires (HPure p) -> return (p, Requires HEmp)
+  | _ -> fail "cannot uncons pure req"
+
+let rec uncons_hens f =
+  let open Tactic in
+  match f with
+  | Sequence (Ensures HEmp, rest) -> uncons_hens rest
+  | Sequence (Ensures h, rest) -> return (h, rest)
+  | Ensures HEmp -> fail "cannot uncons empty"
+  | Ensures h -> return (h, Ensures HEmp)
+  | _ -> fail "cannot uncons ens"
+
+let rec uncons_hreq f =
+  let open Tactic in
+  match f with
+  | Sequence (Requires HEmp, rest) -> uncons_hreq rest
+  | Sequence (Requires h, rest) -> return (h, rest)
+  | Requires HEmp -> fail "cannot uncons empty"
+  | Requires h -> return (h, Requires HEmp)
+  | _ -> fail "cannot uncons req"
+
+let revert_heap =
+  let open Tactic in
+  let* left, right = get_goal in
+  let* hp = pop_heap_assumptions in
+  put_goal (Sequence (Ensures hp, left)) right
 
 let intro_pure name =
   let open Tactic in
-  let* left = get_lhs in
-  match left with
-  | Sequence (Ensures (HPure p), rest) ->
+  let* left, right = get_goal in
+  let intro_left =
+    let* p, rest = uncons_ens left in
     let* _ = put_lhs rest in
     add_assumption name p
-  | _ -> fail "cannot intro lhs"
+  in
+  let intro_right =
+    let* p, rest = uncons_req right in
+    let* _ = put_rhs rest in
+    add_assumption name p
+  in
+  choices ~err:"failed to intro pure" [intro_left; intro_right]
+
+let intro_heap =
+  let open Tactic in
+  let* left, right = get_goal in
+  let intro_left =
+    let* h, rest = uncons_hens left in
+    match h with
+    | HEmp -> fail "cannot uncons empty"
+    | _ ->
+      let* () = put_lhs rest in
+      add_heap_assumption h
+  in
+  let intro_right =
+    let* h, rest = uncons_hreq right in
+    match h with
+    | HEmp -> fail "cannot uncons empty"
+    | _ ->
+      let* () = put_rhs rest in
+      add_heap_assumption h
+  in
+  choices ~err:"failed to intro heap" [intro_left; intro_right]
 
 let specialize h ts =
   let open Tactic in
@@ -382,27 +467,86 @@ let req_left =
   match right with
   | Sequence (Requires h, rest) -> put_goal (Sequence (Ensures h, left)) rest
   | Requires h -> put_goal (Sequence (Ensures h, left)) (Ensures HEmp)
-  | _ -> fail "cannot do anything"
+  | _ -> fail "req_left cannot do anything"
 
-let solve =
+let cancel_heap =
   let open Tactic in
   let* left, right = get_goal in
-  let uncons_ens f =
-    match f with
-    | Sequence (Ensures (HPure p), rest) -> return (p, rest)
-    | Ensures (HPure p) -> return (p, Ensures HEmp)
-    | _ -> fail "cannot split"
+  let ens_ens =
+    let* h1, f1 = uncons_hens left in
+    let* h2, f2 = uncons_hens right in
+    let a, f = Heap.biab h1 h2 in
+    Constr.(put_goal (ens_seq f f1) (ens_seq a f2))
   in
-  let* p1, f1 = uncons_ens left in
-  let* p2, f2 = uncons_ens right in
-  let res = Why3_prover.prove (PImplies (p1, p2)) in
-  match res with `Valid -> put_goal f1 f2 | _ -> return ()
+  let req_req =
+    let* h1, f1 = uncons_hreq right in
+    let* h2, f2 = uncons_hreq left in
+    let a, f = Heap.biab h1 h2 in
+    Constr.(put_goal (req_seq a f1) (req_seq f f2))
+  in
+  let ens_req_left =
+    (* TODO quantifier? *)
+    match left with
+    | Sequence (Ensures h1, Sequence (Requires h2, rest)) ->
+      let a, f = Heap.biab h1 h2 in
+      put_lhs (Constr.seq [Requires a; Ensures f; rest])
+    | _ -> fail "cannot match"
+  in
+  let ctx_req_left =
+    let* h2, f1 = uncons_hreq left in
+    let* h1 = get_heap_assumptions in
+    let a, f = Heap.biab h1 h2 in
+    let* () = put_heap_assumptions f in
+    put_lhs (Constr.req_seq a f1)
+  in
+  let ctx_ens_right =
+    let* h2, f1 = uncons_hens right in
+    let* h1 = get_heap_assumptions in
+    let a, f = Heap.biab h1 h2 in
+    let* () = put_heap_assumptions f in
+    put_rhs (Constr.ens_seq a f1)
+  in
+  (* TODO xpure? *)
+  choices ~err:"failed to cancel heap"
+    [ens_ens; req_req; ens_req_left; ctx_req_left; ctx_ens_right]
 
-(* let induction ~ih wf =
+let discharge =
   let open Tactic in
   let* left, right = get_goal in
-  (* TODO should be of the form forall n. n < n0 -> ... *)
-  add_assumption ih (PImplies (parse_prop wf, PSubsumes (left, right))) *)
+  let ens_ens =
+    let* p1, f1 = uncons_ens left in
+    let* p2, f2 = uncons_ens right in
+    let res = Why3_prover.prove (PImplies (p1, p2)) in
+    match res with `Valid -> put_goal f1 f2 | _ -> fail "could not cancel ens"
+  in
+  let req_req =
+    let* p1, f1 = uncons_ens right in
+    let* p2, f2 = uncons_ens left in
+    let res = Why3_prover.prove (PImplies (p1, p2)) in
+    match res with `Valid -> put_goal f2 f1 | _ -> fail "could not cancel req"
+  in
+  let prove_with_ctx p =
+    let* pure = get_assumptions in
+    let pure = SMap.fold (fun _ c t -> PConj (c, t)) pure (PAtom TTrue) in
+    let res = Why3_prover.prove (PImplies (pure, p)) in
+    return res
+  in
+  let ens_right =
+    let* p, f1 = uncons_ens right in
+    let* res = prove_with_ctx p in
+    match res with
+    | `Valid -> put_goal left f1
+    | _ -> fail "could not prove ens on the right"
+  in
+  let req_left =
+    let* p, f1 = uncons_req left in
+    let* res = prove_with_ctx p in
+    match res with
+    | `Valid -> put_goal f1 right
+    | _ -> fail "could not prove req on the left"
+  in
+  choices ~err:"failed to prove pure obligation"
+    [ens_ens; req_req; ens_right; req_left]
 
 module ProofState = struct
   type t = {
@@ -455,6 +599,7 @@ module Interactive = struct
   let specialize h = make_interactive (specialize h)
   let refl = make_interactive (fun () -> refl)
   let intro_heap = make_interactive (fun () -> intro_heap)
+  let revert_heap = make_interactive (fun () -> revert_heap)
   let intro_pure = make_interactive intro_pure
   let forall_intro = make_interactive (fun () -> forall_intro)
   let forall_elim = make_interactive forall_elim
@@ -465,7 +610,8 @@ module Interactive = struct
   let right = make_interactive (fun () -> right)
   let simpl = make_interactive (fun () -> simpl)
   let req_left = make_interactive (fun () -> req_left)
-  let solve = make_interactive (fun () -> solve)
+  let cancel_heap = make_interactive (fun () -> cancel_heap)
+  let discharge = make_interactive (fun () -> discharge)
 
   (* let induction ~ih = make_interactive (induction ~ih) *)
   let prove s = Why3_prover.prove (parse_prop s)

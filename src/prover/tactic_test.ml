@@ -99,7 +99,12 @@ let%expect_test "intro heap" =
       ens x->1
     ⊑ ens emp
 
-    error: cannot intro lhs
+
+    ----------------------------------------
+    x->1
+    ---------------------------------------*
+      ens emp
+    ⊑ ens emp
     |}];
 
   start_proof "ret 1" "ens emp";
@@ -110,7 +115,7 @@ let%expect_test "intro heap" =
       ret 1
     ⊑ ens emp
 
-    error: cannot intro lhs
+    error: failed to intro heap / cannot uncons req / cannot uncons ens
     |}]
 
 let%expect_test "forall intro" =
@@ -403,7 +408,11 @@ let%expect_test "intro_pure" =
       ens x=1
     ⊑ ens emp
 
-    error: cannot intro lhs
+
+    H: x=1
+    ----------------------------------------
+      ens emp
+    ⊑ ens emp
     |}];
 
   start_proof "ens x->1" "ens emp";
@@ -414,7 +423,7 @@ let%expect_test "intro_pure" =
       ens x->1
     ⊑ ens emp
 
-    error: cannot intro lhs
+    error: failed to intro pure / cannot uncons pure req / cannot uncons pure ens
     |}];
 
   start_proof "ens a=1" "ens emp";
@@ -425,15 +434,16 @@ let%expect_test "intro_pure" =
       ens a=1
     ⊑ ens emp
 
-    error: cannot intro lhs
+
+    H: a=1
+    ----------------------------------------
+      ens emp
+    ⊑ ens emp
     |}];
 
   start_proof "ens a=1; ens b=2; ens emp" "ens emp";
-
   intro_pure "H";
-
   intro_pure "H";
-
   [%expect
     {|
     ----------------------------------------
@@ -446,7 +456,7 @@ let%expect_test "intro_pure" =
       ens b=2; ens emp
     ⊑ ens emp
 
-    error: add_assumption: H is already used
+    error: failed to intro pure / cannot uncons pure req / add_assumption: H is already used
     |}]
 
 let%expect_test "rewrite" =

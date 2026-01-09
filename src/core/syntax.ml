@@ -75,9 +75,7 @@ type def = (term, staged_spec) mbinder
     [Dfun] declares a possibly recursive function. *)
 type decl = Dfun of symbol * def
 
-(** Smart constructors that wraps data in [Bindlib.box]. This module should
-    never be [open]. Functions inside this module should be called by prefixing
-    the function's name with [Mk]. *)
+(** Smart constructors that wrap data in [Bindlib.box]. *)
 module Mk = struct
   let tvar = box_var
   let tsymbol sym = box (TSymbol sym)
@@ -118,6 +116,30 @@ module Mk = struct
   let dollar = box_apply2 (fun s k -> Dollar (s, k))
   (* let smetavar mv = box (SMetavar mv) *)
   (* let sbmetavar mv = box (SBMetavar mv) *)
+end
+
+module Constr = struct
+  let foldr1 ?default f xs =
+    let rec foldr1_aux f y = function
+      | [] -> y
+      | x :: xs -> f y (foldr1_aux f x xs)
+    in
+    match xs with
+    | [] ->
+      (match default with None -> failwith "foldr1: empty" | Some a -> a)
+    | x :: xs -> foldr1_aux f x xs
+
+  let sep_conj = foldr1 ~default:HEmp (fun c t -> HSepConj (c, t))
+  let conj = foldr1 ~default:(PAtom TTrue) (fun c t -> PConj (c, t))
+
+  let seq xs =
+    match xs with
+    | [] -> failwith "seq: empty"
+    | [x] -> x
+    | _ -> foldr1 (fun c t -> Sequence (c, t)) xs
+
+  let ens_seq h f = Sequence (Ensures h, f)
+  let req_seq h f = Sequence (Ensures h, f)
 end
 
 let new_tvar = new_var (fun v -> TVar v)

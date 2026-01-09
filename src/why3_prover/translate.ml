@@ -76,8 +76,9 @@ let rec prop_to_whyml_aux ctxt p =
     (* tapp (qualid ["interp_term"]) [empty_map; term_to_whyml t] *)
     (* tapp (qualid ["PAtom"]) [term_to_whyml t] *)
   | PConj (a, b) ->
-    term
-      (Tbinop (prop_to_whyml_aux ctxt a, Dterm.DTand, prop_to_whyml_aux ctxt b))
+    tapp (qualid ["PAnd"]) [prop_to_whyml_aux ctxt a; prop_to_whyml_aux ctxt b]
+  (* term
+      (Tbinop (prop_to_whyml_aux ctxt a, Dterm.DTand, prop_to_whyml_aux ctxt b)) *)
   (* | Or (a, b) ->
     term (Tbinop (pi_to_whyml a, Dterm.DTor, pi_to_whyml b))
   | Not a -> term (Tnot (pi_to_whyml a)) *)

@@ -1,11 +1,6 @@
 open Core.Syntax
 open Core.Pretty
-
-let rec foldr1_aux f y = function [] -> y | x :: xs -> f y (foldr1_aux f x xs)
-
-let foldr1 ?default f = function
-  | [] -> (match default with None -> failwith "foldr1: empty" | Some a -> a)
-  | x :: xs -> foldr1_aux f x xs
+open Constr
 
 let rec find_delete_map (f : 'a -> 'b option) (xs : 'a list) :
     ('b * 'a list) option =
@@ -27,7 +22,7 @@ let rec match_points_to (ks1 : hprop list) (ks2 : hprop list) :
   | (HPointsTo (x, t) as k) :: ks1 ->
     (* we try to match on the location *)
     let match_loc = function
-      | HPointsTo (x', t') when x = x' -> Some t'
+      | HPointsTo (x', t') when equal_term x x' -> Some t'
       | _ -> None
     in
     begin match find_delete_map match_loc ks2 with
@@ -48,21 +43,22 @@ let rec match_points_to (ks1 : hprop list) (ks2 : hprop list) :
   | HEmp :: _ | HSepConj _ :: _ -> failwith "match_points_to"
   | HPure _ :: _ -> failwith "hpure"
 
-let rec conjuncts_of_kappa (k : hprop) : hprop list =
+let rec split_sep_conj (k : hprop) : hprop list =
   match k with
   | HEmp -> []
   | HPointsTo _ -> [k]
-  | HSepConj (k1, k2) -> conjuncts_of_kappa k1 @ conjuncts_of_kappa k2
-  | HPure _ -> failwith "hpure"
+  | HSepConj (k1, k2) -> split_sep_conj k1 @ split_sep_conj k2
+  | HPure _ ->
+    Format.printf "%a@." pp_hprop k;
+    failwith "hpure"
 
 (* A * H1 |- H2 * D *)
 (* the caller has h1 and h2 and therefore we don't need to return that *)
 (* because we may have many solutions, that's why we need to use Iter.t.
    but I am not going to use it now *)
-let solve (h1 : hprop) (h2 : hprop) :
-    hprop list * hprop list * hprop list * prop list =
-  let heap1 = conjuncts_of_kappa h1 in
-  let heap2 = conjuncts_of_kappa h2 in
+let biab_aux (h1 : hprop) (h2 : hprop) =
+  let heap1 = split_sep_conj h1 in
+  let heap2 = split_sep_conj h2 in
   (* now match h1 and h2 together. *)
   (* we need to match heap1 and heap2 together *)
   (* this is O(n^2) but do we do not care about efficiency atm *)
@@ -70,8 +66,16 @@ let solve (h1 : hprop) (h2 : hprop) :
      then the complexity of O(n log n) *)
   match_points_to heap1 heap2
 
-let sep_conj = foldr1 ~default:HEmp (fun c t -> HSepConj (c, t))
-let conj = foldr1 ~default:(PAtom TTrue) (fun c t -> PConj (c, t))
+let biab h1 h2 =
+  let _common, a, f, eqs = biab_aux h1 h2 in
+  let f = sep_conj f in
+  let a =
+    match eqs with
+    | [] -> sep_conj a
+    | _ :: _ -> HSepConj (sep_conj a, HPure (conj eqs))
+  in
+  (f, a)
+
 let fvar x = TSymbol { sym_name = x }
 let points_to l v = HPointsTo (fvar l, v)
 let num n = TInt n
@@ -80,7 +84,7 @@ let plus a b = TApp ("plus", [a; b])
 (* see Tests for more e2e tests, which would be nice to port here *)
 let%expect_test _ =
   let test h1 h2 =
-    let common, anti_frame, frame, equalities = solve h1 h2 in
+    let common, anti_frame, frame, equalities = biab_aux h1 h2 in
     let common = sep_conj common in
     let anti_frame = sep_conj anti_frame in
     let frame = sep_conj frame in
