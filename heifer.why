@@ -29,6 +29,12 @@ module Heifer
 
   (* function eq (a b:term) : term = TBool (a = b) *)
 
+  function gt (a b:term) : term =
+    match a, b with
+    | TInt a1, TInt b1 -> TBool (a1 > b1)
+    | _ -> TErr
+    end
+
   function sum (xs:term) : term =
     match xs with
     | TNil -> TInt 0
@@ -68,9 +74,10 @@ module Heifer
     | PNot prop
     | PAnd prop prop
     | POr prop prop
-    | PImply prop prop
+    | PImplies prop prop
     | PForall string prop
     | PEq term term
+    | PGt term term
 
   use fmap.Fmap as Map
 
@@ -87,8 +94,9 @@ module Heifer
     | PNot a -> not (interp env a)
     | PAnd a b -> interp env a /\ interp env b
     | POr a b -> interp env a \/ interp env b
-    | PImply a b -> interp env a -> interp env b
+    | PImplies a b -> interp env a -> interp env b
     | PEq a b -> interp_term env a = interp_term env b
+    | PGt a b -> gt (interp_term env a) (interp_term env b) = TBool true
     (* | PAtom a -> interp_term env a *)
    (* = TBool true *)
     | PForall x b -> forall a:term. interp (Map.add x a env) b

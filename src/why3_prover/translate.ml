@@ -67,6 +67,8 @@ let rec prop_to_whyml_aux ctxt p =
   | PAtom TFalse -> tapp (qualid ["PFalse"]) []
   | PAtom (TBinop (Eq, a, b)) ->
     tapp (qualid ["PEq"]) [term_to_whyml a; term_to_whyml b]
+  | PAtom (TBinop (Gt, a, b)) ->
+    tapp (qualid ["PGt"]) [term_to_whyml a; term_to_whyml b]
   | PAtom _ ->
     Format.printf "%a@." Core.Pretty.pp_prop p;
     failwith "unimplemented"
