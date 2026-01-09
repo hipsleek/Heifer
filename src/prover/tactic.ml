@@ -27,20 +27,25 @@ type sequent = staged_spec * staged_spec
 
 module Pctx = struct
   type t = {
-    constants : term list;
+    rename_ctxt : Bindlib.ctxt;
+    constants : (term var) SMap.t;
     assumptions : prop SMap.t;
     heap_context : hprop list;
     goal : sequent;
   }
 
   let create ~goal () =
-    { constants = []; assumptions = SMap.empty; heap_context = []; goal }
+    { rename_ctxt = empty_ctxt; (* simple solution for now. *)
+      constants = SMap.empty;
+      assumptions = SMap.empty;
+      heap_context = []; goal }
 
   let draw_line n = String.make n '-'
 
-  let pp ppf { constants; assumptions; heap_context; goal = l, r } =
+  (* TODO: use rename_ctxt *)
+  let pp ppf {rename_ctxt=_; constants; assumptions; heap_context; goal = l, r} =
     Format.open_vbox 0;
-    Fmt.pf ppf "@[<hov>%a@]@," Fmt.(list ~sep:comma pp_term) constants;
+    Fmt.pf ppf "@[<hov>%a@]@," Fmt.(list ~sep:comma Fmt.string) (List.map fst (SMap.bindings constants));
     (match SMap.is_empty assumptions with
     | true -> ()
     | false ->
@@ -81,6 +86,7 @@ module Tactic : sig
   val run : 'a t -> Pstate.t -> (Pstate.t, string) result
   val return : 'a -> 'a t
   val bind : 'a t -> ('a -> 'b t) -> 'b t
+  val map_m : ('a -> 'b t) -> 'a list -> 'b list t
   val iter_m : ('a -> unit t) -> 'a list -> unit t
   val iter_array_m : ('a -> unit t) -> 'a array -> unit t
   val ( let* ) : 'a t -> ('a -> 'b t) -> 'b t
@@ -88,18 +94,24 @@ module Tactic : sig
   val choice : 'a t -> 'a t -> 'a t
   val pop : Pctx.t t
   val push : Pctx.t -> unit t
+  val get_rename_ctxt : Bindlib.ctxt t
   val get_goal : sequent t
   val get_lhs : staged_spec t
   val get_rhs : staged_spec t
+  val get_constants : (term var) SMap.t t
+  val get_assumptions : prop SMap.t t
+  val get_constant : string -> (term var) t
   val get_assumption : string -> prop t
   val modify_goal : (sequent -> sequent) -> unit t
+  val put_rename_ctxt : Bindlib.ctxt -> unit t
   val put_lhs : staged_spec -> unit t
   val put_rhs : staged_spec -> unit t
   val put_goal : staged_spec -> staged_spec -> unit t
-  val modify_assumption : string -> (prop -> prop t) -> unit t
   val add_assumption : string -> prop -> unit t
   val add_heap_assumption : hprop -> unit t
-  val add_constant : term -> unit t
+  val add_constant : string -> term var -> unit t
+  val pop_assumption : string -> prop t (* remove + return *)
+  val modify_assumption : string -> (prop -> prop t) -> unit t (* this is `modify_m` in Haskell *)
 end = struct
   type 'a t = Pstate.t -> ('a * Pstate.t, string) Result.t
 
@@ -112,6 +124,14 @@ end = struct
   let return x = fun s -> Ok (x, s)
   let bind m f = fun s -> Result.bind (m s) (fun (x, s') -> f x s')
   let ( let* ) = bind
+
+  let rec map_m f xs =
+    match xs with
+    | [] -> return []
+    | x :: xs ->
+        let* y = f x in
+        let* ys = map_m f xs in
+        return (y :: ys)
 
   let rec iter_m f xs =
     match xs with
@@ -135,39 +155,62 @@ end = struct
 
   open Pctx
 
-  let modify_goal f =
-    let* ps = get in
-    match ps with
-    | [] -> fail "no more goals"
-    | g :: gs -> put ({ g with goal = f g.goal } :: gs)
-
-  let put_goal l r = modify_goal (fun _ -> (l, r))
-  let put_lhs l = modify_goal (fun (_, r) -> (l, r))
-  let put_rhs r = modify_goal (fun (l, _) -> (l, r))
-
-  let add_assumption name pr =
-    let* ps = get in
-    match ps with
-    | [] -> fail "no more goals"
-    | g :: gs ->
-      put ({ g with assumptions = SMap.add name pr g.assumptions } :: gs)
-
-  let modify_assumption name f =
-    let* ps = get in
-    match ps with
-    | [] -> fail "no goals"
-    | g :: _ ->
-      (match SMap.find_opt name g.assumptions with
-      | None -> fail "name not found"
-      | Some t ->
-        let* t1 = f t in
-        add_assumption name t1)
-
   let get_pctxt =
     let* ps = get in
     match ps with
     | [] -> fail "no more goal"
     | g :: _ -> return g
+
+  let put_pctxt p =
+    let* ps = get in
+    match ps with
+    | [] -> fail "no more goal"
+    | _ :: ps -> put (p :: ps)
+
+  let modify_pctxt f =
+    let* ps = get in
+    match ps with
+    | [] -> fail "no more goal"
+    | p :: ps -> put (f p :: ps)
+
+  let modify_goal f = modify_pctxt (fun p -> {p with goal = f p.goal})
+  let put_goal l r = modify_pctxt (fun p -> {p with goal = l, r})
+  let put_lhs l = modify_goal (fun (_, r) -> (l, r))
+  let put_rhs r = modify_goal (fun (l, _) -> (l, r))
+
+  let put_rename_ctxt rename_ctxt = modify_pctxt (fun p -> {p with rename_ctxt})
+
+  let add_constant name t =
+    let* pc = get_pctxt in
+    if SMap.mem name pc.constants then
+      fail ("add_constant: " ^ name ^ " is already used")
+    else
+      put_pctxt ({pc with constants = SMap.add name t pc.constants})
+
+  let add_assumption name p =
+    let* pc = get_pctxt in
+    if SMap.mem name pc.assumptions then
+      fail ("add_assumption: " ^ name ^ " is already used")
+    else
+      put_pctxt ({pc with assumptions = SMap.add name p pc.assumptions})
+
+  let pop_assumption name =
+    let* pc = get_pctxt in
+    match SMap.find_opt name pc.assumptions with
+    | None -> fail ("no assumption named: " ^ name)
+    | Some p ->
+        let assumptions = SMap.remove name pc.assumptions in
+        let* _ = put_pctxt ({pc with assumptions}) in
+        return p
+
+  let modify_assumption name f =
+    let* p = pop_assumption name in
+    let* p = f p in
+    add_assumption name p
+
+  let get_rename_ctxt =
+    let* p = get_pctxt in
+    return p.rename_ctxt
 
   let get_goal =
     let* p = get_pctxt in
@@ -181,9 +224,23 @@ end = struct
     let* _, f2 = get_goal in
     return f2
 
-  let get_assumption h =
+  let get_constants =
     let* p = get_pctxt in
-    match SMap.find_opt h p.assumptions with
+    return p.constants
+
+  let get_assumptions =
+    let* p = get_pctxt in
+    return p.assumptions
+
+  let get_constant x =
+    let* constants = get_constants in
+    match SMap.find_opt x constants with
+    | None -> fail ("no constant named: " ^ x)
+    | Some v -> return v
+
+  let get_assumption h =
+    let* assumptions = get_assumptions in
+    match SMap.find_opt h assumptions with
     | None -> fail ("no assumption named: " ^ h)
     | Some p -> return p
 
@@ -204,12 +261,6 @@ end = struct
     match ps with
     | [] -> fail "no more goals"
     | g :: gs -> put ({ g with heap_context = h :: g.heap_context } :: gs)
-
-  let add_constant t =
-    let* ps = get in
-    match ps with
-    | [] -> fail "no more goals"
-    | g :: gs -> put ({ g with constants = t :: g.constants } :: gs)
 end
 
 let intro_heap =
@@ -232,6 +283,7 @@ let intro_pure name =
 
 let specialize h ts =
   let open Tactic in
+  (* TODO: parse_term with respect to constant context *)
   let ts = List.map parse_term ts |> Array.of_list in
   (* TODO allow not exactly same length? *)
   modify_assumption h (function
@@ -246,13 +298,15 @@ let refl =
 
 let forall_intro =
   let open Tactic in
+  let* ctxt = get_rename_ctxt in
   let* right = get_rhs in
   match Prenex.move_quantifiers_out right with
   | Forall b ->
     (* TODO freshness issues? this has to be free on both sides *)
-    let xs, f = unmbind b in
+    let xs, f, ctxt = unmbind_in ctxt b in
     let* _ = put_rhs f in
-    iter_array_m (fun x -> add_constant (unbox (Mk.tvar x))) xs
+    let* _ = put_rename_ctxt ctxt in
+    iter_array_m (fun x -> add_constant (name_of x) x) xs
   | _ -> fail "cannot intro forall"
 
 let forall_elim t =
@@ -260,6 +314,7 @@ let forall_elim t =
   let* left = get_lhs in
   match Prenex.move_quantifiers_out left with
   | Forall b ->
+    (* TODO: parse_term with respect to constant context *)
     let t = List.map parse_term t |> Array.of_list in
     put_lhs (msubst b t)
   | _ -> fail "cannot eliminate forall"
@@ -269,18 +324,21 @@ let exists_intro t =
   let* right = get_rhs in
   match Prenex.move_quantifiers_out right with
   | Exists b ->
+    (* TODO: parse_term with respect to constant context *)
     let t = List.map parse_term t |> Array.of_list in
     put_rhs (msubst b t)
   | _ -> fail "cannot intro exists"
 
 let exists_elim =
   let open Tactic in
+  let* ctxt = get_rename_ctxt in
   let* left = get_lhs in
   match Prenex.move_quantifiers_out left with
   | Exists b ->
-    let xs, f = unmbind b in
+    let xs, f, ctxt = unmbind_in ctxt b in
     let* _ = put_lhs f in
-    iter_array_m (fun x -> add_constant (unbox (Mk.tvar x))) xs
+    let* _ = put_rename_ctxt ctxt in
+    iter_array_m (fun x -> add_constant (name_of x) x) xs
   | _ -> fail "cannot eliminate exists"
 
 let disj_elim =
@@ -316,11 +374,11 @@ let simpl =
   let* left, right = get_goal in
   put_goal (Simpl.simpl_staged_spec left) (Simpl.simpl_staged_spec right)
 
-let induction ~ih wf =
+(* let induction ~ih wf =
   let open Tactic in
   let* left, right = get_goal in
   (* TODO should be of the form forall n. n < n0 -> ... *)
-  add_assumption ih (PImplies (parse_prop wf, PSubsumes (left, right)))
+  add_assumption ih (PImplies (parse_prop wf, PSubsumes (left, right))) *)
 
 module ProofState = struct
   type t = { definitions : symbol_table; goals : Pstate.t }
@@ -382,8 +440,11 @@ module Interactive = struct
   (* let induction ~ih = make_interactive (induction ~ih) *)
   let prove s = Why3_prover.prove (parse_prop s)
 
-  (** Unfold a definition everywhere inside the current state.
-      TODO: implement `unfold in`. *)
+  (** Unfold a definition (symbol) on both side of a sequent in the current
+      proof state.
+
+      TODO: implement `unfold in`.
+      TODO: report failure using monad. Make it consistent *)
   let unfold (sym_name : string) =
     let sym = {sym_name} in
     let definitions = get_definitions () in
@@ -397,11 +458,29 @@ module Interactive = struct
         in
         run_tactic tac
 
-  let induction (ih : string) (vars : string list) =
-    ignore (ih, vars);
-    failwith "todo"
+  (** Generate an induction hypothesis in the current proof state.
 
-  (** Rewrite in the LHS of a sequent. TODO: implement `rewrite in`. *)
+      TODO: add decreasing measurement as a hypothesis for the IH. *)
+  let induction (ih : string) (vars : string list) =
+    let tac =
+      let open Tactic in
+      let* assumptions = get_assumptions in
+      let* vars = map_m get_constant vars in
+      let* lhs, rhs = get_goal in
+      let assumptions = List.map snd (SMap.bindings assumptions) in
+      let vars = Array.of_list vars in
+      (* generate the body of the induction hypothesis *)
+      let ih_body = Induction.induction assumptions vars lhs rhs in
+      (* and wrap it into a prop *)
+      let ih_prop = PForall ih_body in
+      add_assumption ih ih_prop
+    in
+    run_tactic tac
+
+  (** Rewrite in the LHS of a sequent.
+
+      TODO: implement `rewrite in` (but where can we safely rewrite?)
+      TODO: implement rewrite with hypothesis (generate subgoals) *)
   let rewrite (h : string) =
     let tac =
       let open Tactic in
