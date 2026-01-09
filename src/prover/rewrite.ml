@@ -6,6 +6,22 @@ exception Rewrite_failure
 
 type rule = (term, staged_spec * staged_spec) mbinder
 
+let rec prop_to_rule_aux (p : prop) =
+  match p with
+  | PAtom _ -> invalid_arg "prop_to_rule_aux: PAtom"
+  | PConj _ -> invalid_arg "prop_to_rule_aux: PConj"
+  | PImplies _ -> invalid_arg "prop_to_rule_aux: PImplies"
+  | PForall b ->
+      let xs, p = unmbind b in
+      let ms, lhs, rhs = prop_to_rule_aux p in
+      xs :: ms, lhs, rhs
+  | PSubsumes (lhs, rhs) ->
+      [], lhs, rhs
+
+let prop_to_rule p =
+  let ms, lhs, rhs = prop_to_rule_aux p in
+  unbox (bind_mvar (Array.concat ms) (box_pair (box_staged_spec lhs) (box_staged_spec rhs)))
+
 let rewrite_exact rule target : staged_spec =
   let uvars, (lhs, rhs) = unmbind rule in
   let sigma =
@@ -17,7 +33,9 @@ let rewrite_exact rule target : staged_spec =
   let rhs = unbox (bind_mvar uvars (box_staged_spec rhs)) in
   msubst rhs args
 
-(** Traverse the target, and rewrite if possible. *)
+(** Traverse the target, and rewrite if possible.
+
+    TODO: make this more efficient: repeated `unmbind` is inefficient *)
 let rec rewrite rule target : staged_spec =
   try
     rewrite_exact rule target

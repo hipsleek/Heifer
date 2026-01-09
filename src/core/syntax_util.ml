@@ -1,9 +1,12 @@
 open Bindlib
 open Syntax
 
-let open_dfun d =
-  match d with
+let open_dfun = function
   | Dfun (sym, def) -> sym, def
+
+let open_psubsumes = function
+  | PSubsumes (s1, s2) -> s1, s2
+  | _ -> invalid_arg "open_psubsumes: not PSubsumes"
 
 let rec term_has_vars xs t : bool =
   match t with

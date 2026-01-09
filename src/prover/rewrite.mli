@@ -17,6 +17,14 @@ exception Rewrite_failure
     *)
 type rule = (term, staged_spec * staged_spec) mbinder
 
+(** Analyze a [prop] and turn it into a [rule] for rewriting. The proposition
+    is expected to be of the form:
+    {[forall x y z, forall s t u v, ..., lhs subsumes rhs]}
+
+    Raise [Invalid_argument] if the input is not of the expected form.
+    *)
+val prop_to_rule : prop -> rule
+
 (** Rewrite a [staged_spec] according to a [rule]. The lhs of the [rule] must
     match exactly the [staged_spec] to be written.
 

@@ -91,6 +91,7 @@ module Tactic : sig
   val get_goal : sequent t
   val get_lhs : staged_spec t
   val get_rhs : staged_spec t
+  val get_assumption : string -> prop t
   val modify_goal : (sequent -> sequent) -> unit t
   val put_lhs : staged_spec -> unit t
   val put_rhs : staged_spec -> unit t
@@ -162,9 +163,15 @@ end = struct
         let* t1 = f t in
         add_assumption name t1)
 
-  let get_goal =
+  let get_pctxt =
     let* ps = get in
-    match ps with [] -> fail "no more goals" | g :: _ -> return g.goal
+    match ps with
+    | [] -> fail "no more goal"
+    | g :: _ -> return g
+
+  let get_goal =
+    let* p = get_pctxt in
+    return p.goal
 
   let get_lhs =
     let* f1, _ = get_goal in
@@ -173,6 +180,12 @@ end = struct
   let get_rhs =
     let* _, f2 = get_goal in
     return f2
+
+  let get_assumption h =
+    let* p = get_pctxt in
+    match SMap.find_opt h p.assumptions with
+    | None -> fail ("no assumption named: " ^ h)
+    | Some p -> return p
 
   let pop =
     let* ps = get in
@@ -366,7 +379,7 @@ module Interactive = struct
   let left = make_interactive (fun () -> left)
   let right = make_interactive (fun () -> right)
   let simpl = make_interactive (fun () -> simpl)
-  let induction ~ih = make_interactive (induction ~ih)
+  (* let induction ~ih = make_interactive (induction ~ih) *)
   let prove s = Why3_prover.prove (parse_prop s)
 
   (** Unfold a definition everywhere inside the current state.
@@ -383,4 +396,19 @@ module Interactive = struct
           put_goal (Unfold.unfold sym def lhs) (Unfold.unfold sym def rhs)
         in
         run_tactic tac
+
+  let induction (ih : string) (vars : string list) =
+    ignore (ih, vars);
+    failwith "todo"
+
+  (** Rewrite in the LHS of a sequent. TODO: implement `rewrite in`. *)
+  let rewrite (h : string) =
+    let tac =
+      let open Tactic in
+      let* assumption = get_assumption h in
+      let* lhs = get_lhs in
+      let rule = Rewrite.prop_to_rule assumption in
+      put_lhs (Rewrite.rewrite rule lhs)
+    in
+    run_tactic tac
 end
