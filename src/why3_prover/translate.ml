@@ -43,7 +43,7 @@ let rec term_to_whyml t =
   | TTuple _ -> failwith "todo tuple"
   | TUnop (Neg, _) -> failwith "todo unop"
 
-let rec prop_to_whyml_aux p =
+let rec prop_to_whyml_aux ctxt p =
   match p with
   (* | True -> term Ttrue
   | False -> term Tfalse
@@ -54,12 +54,11 @@ let rec prop_to_whyml_aux p =
   | Atomic (op, a, b) -> term_to_whyml (Syntax.rel op a b)
   | And (a, b) -> *)
   | PForall b ->
-    (* TODO need ctxt *)
-    let xs, b = Bindlib.unmbind b in
+    let xs, b, ctxt = Bindlib.unmbind_in ctxt b in
     let xs = Array.to_list xs in
     List.fold_right
       (fun c t -> tapp (qualid ["PForall"]) [tstr (Bindlib.name_of c); t])
-      xs (prop_to_whyml_aux b)
+      xs (prop_to_whyml_aux ctxt b)
     (* [tconst i] *)
     (* tapp (qualid ["eq"]) *)
     (* [term_to_whyml a; term_to_whyml b] *)
@@ -75,14 +74,18 @@ let rec prop_to_whyml_aux p =
     (* tapp (qualid ["interp_term"]) [empty_map; term_to_whyml t] *)
     (* tapp (qualid ["PAtom"]) [term_to_whyml t] *)
   | PConj (a, b) ->
-    term (Tbinop (prop_to_whyml_aux a, Dterm.DTand, prop_to_whyml_aux b))
+    term
+      (Tbinop (prop_to_whyml_aux ctxt a, Dterm.DTand, prop_to_whyml_aux ctxt b))
   (* | Or (a, b) ->
     term (Tbinop (pi_to_whyml a, Dterm.DTor, pi_to_whyml b))
   | Not a -> term (Tnot (pi_to_whyml a)) *)
   | PImplies (a, b) ->
-    tapp (qualid ["PImplies"]) [prop_to_whyml_aux a; prop_to_whyml_aux b]
+    tapp (qualid ["PImplies"])
+      [prop_to_whyml_aux ctxt a; prop_to_whyml_aux ctxt b]
     (* term (Tbinop (, Dterm.DTimplies, )) *)
     (* term (Tbinop (prop_to_whyml_aux a, Dterm.DTimplies, prop_to_whyml_aux b)) *)
   | PSubsumes _ -> term Ttrue
 
-let prop_to_whyml p = tapp (qualid ["interp"]) [empty_map; prop_to_whyml_aux p]
+let prop_to_whyml p =
+  let p1 = prop_to_whyml_aux Bindlib.(free_vars (box_prop p)) p in
+  tapp (qualid ["interp"]) [empty_map; p1]
