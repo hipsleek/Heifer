@@ -11,6 +11,17 @@ let%expect_test "reflexivity" =
     ⊑ ens emp
 
     no more goals
+    |}];
+
+  start_proof "ens emp" "ens x=1";
+  refl ();
+  [%expect
+    {|
+    ----------------------------------------
+      ens emp
+    ⊑ ens x=1
+
+    error: cannot close goal using reflexivity
     |}]
 
 let%expect_test "specialize" =
@@ -32,6 +43,35 @@ let%expect_test "specialize" =
     ----------------------------------------
       ens emp
     ⊑ ens emp
+    |}];
+
+  start_proof "ens a=1; ens emp" "ens emp";
+  intro_pure "H";
+  specialize "H" ["1"];
+  [%expect
+    {|
+    ----------------------------------------
+      ens a=1; ens emp
+    ⊑ ens emp
+
+
+    H: a=1
+    ----------------------------------------
+      ens emp
+    ⊑ ens emp
+
+    error: not a prop that can be specialised
+    |}];
+
+  start_proof "ens emp" "ens emp";
+  specialize "H" ["1"];
+  [%expect
+    {|
+    ----------------------------------------
+      ens emp
+    ⊑ ens emp
+
+    error: no assumption named: H
     |}]
 
 let%expect_test "intro heap" =
@@ -49,6 +89,28 @@ let%expect_test "intro heap" =
     ---------------------------------------*
       ens emp
     ⊑ ens emp
+    |}];
+
+  start_proof "ens x->1" "ens emp";
+  intro_heap ();
+  [%expect
+    {|
+    ----------------------------------------
+      ens x->1
+    ⊑ ens emp
+
+    error: cannot intro lhs
+    |}];
+
+  start_proof "ret 1" "ens emp";
+  intro_heap ();
+  [%expect
+    {|
+    ----------------------------------------
+      ret 1
+    ⊑ ens emp
+
+    error: cannot intro lhs
     |}]
 
 let%expect_test "forall intro" =
@@ -64,6 +126,17 @@ let%expect_test "forall intro" =
     ----------------------------------------
       ens emp
     ⊑ ens a=1
+    |}];
+
+  start_proof "ens emp" "ens emp";
+  forall_intro ();
+  [%expect
+    {|
+    ----------------------------------------
+      ens emp
+    ⊑ ens emp
+
+    error: cannot intro forall
     |}]
 
 let%expect_test "forall elim" =
@@ -79,6 +152,17 @@ let%expect_test "forall elim" =
     ----------------------------------------
       ens 1=1
     ⊑ ens emp
+    |}];
+
+  start_proof "ens emp" "ens emp";
+  forall_elim ["1"];
+  [%expect
+    {|
+    ----------------------------------------
+      ens emp
+    ⊑ ens emp
+
+    error: cannot eliminate forall
     |}]
 
 let%expect_test "exists elim" =
@@ -94,6 +178,17 @@ let%expect_test "exists elim" =
     ----------------------------------------
       ens a=1
     ⊑ ens emp
+    |}];
+
+  start_proof "ens emp" "ens emp";
+  exists_elim ();
+  [%expect
+    {|
+    ----------------------------------------
+      ens emp
+    ⊑ ens emp
+
+    error: cannot eliminate exists
     |}]
 
 let%expect_test "exists intro" =
@@ -109,6 +204,17 @@ let%expect_test "exists intro" =
     ----------------------------------------
       ens emp
     ⊑ ens 1=1
+    |}];
+
+  start_proof "ens emp" "ens emp";
+  exists_intro ["1"];
+  [%expect
+    {|
+    ----------------------------------------
+      ens emp
+    ⊑ ens emp
+
+    error: cannot intro exists
     |}]
 
 let%expect_test "disj_elim" =
@@ -125,6 +231,17 @@ let%expect_test "disj_elim" =
       ens emp
     ⊑ ens emp
     (1 more goals)
+    |}];
+
+  start_proof "ens emp" "ens emp";
+  disj_elim ();
+  [%expect
+    {|
+    ----------------------------------------
+      ens emp
+    ⊑ ens emp
+
+    error: not a disjunction
     |}]
 
 let%expect_test "left/right" =
@@ -146,6 +263,28 @@ let%expect_test "left/right" =
     ----------------------------------------
       ens emp
     ⊑ ens 2=2
+    |}];
+
+  start_proof "ens emp" "ens emp";
+  left ();
+  [%expect
+    {|
+    ----------------------------------------
+      ens emp
+    ⊑ ens emp
+
+    error: not a disjunction
+    |}];
+
+  start_proof "ens emp" "ens emp";
+  right ();
+  [%expect
+    {|
+    ----------------------------------------
+      ens emp
+    ⊑ ens emp
+
+    error: not a disjunction
     |}]
 
 let%expect_test "simpl" =
@@ -183,7 +322,8 @@ let%expect_test "induction" =
   intro_pure "Hn";
   forall_intro ();
   induction "IH" ["n"];
-  [%expect {|
+  [%expect
+    {|
     ----------------------------------------
       ex n. ens n>0; ens emp
     ⊑ forall n. req n>0; ens n=1
@@ -211,6 +351,17 @@ let%expect_test "induction" =
     ----------------------------------------
       ens emp
     ⊑ req n1>0; ens n1=1
+    |}];
+
+  start_proof "ens emp" "ens emp";
+  induction "IH" ["n"];
+  [%expect
+    {|
+    ----------------------------------------
+      ens emp
+    ⊑ ens emp
+
+    error: no constant named: n
     |}]
 
 let%expect_test "unfold" =
@@ -230,5 +381,93 @@ let%expect_test "unfold" =
     ----------------------------------------
       ens emp
     ⊑ ret 1+1; r. ens 2=r
-    |}
-  ]
+    |}];
+
+  start_proof "ens emp" "ens emp";
+  unfold "foo";
+  [%expect
+    {|
+    ----------------------------------------
+      ens emp
+    ⊑ ens emp
+
+    error: the symbol foo does not exist
+    |}]
+
+let%expect_test "intro_pure" =
+  start_proof "ens x=1" "ens emp";
+  intro_pure "H";
+  [%expect
+    {|
+    ----------------------------------------
+      ens x=1
+    ⊑ ens emp
+
+    error: cannot intro lhs
+    |}];
+
+  start_proof "ens x->1" "ens emp";
+  intro_pure "H";
+  [%expect
+    {|
+    ----------------------------------------
+      ens x->1
+    ⊑ ens emp
+
+    error: cannot intro lhs
+    |}];
+
+  start_proof "ens a=1" "ens emp";
+  intro_pure "H";
+  [%expect
+    {|
+    ----------------------------------------
+      ens a=1
+    ⊑ ens emp
+
+    error: cannot intro lhs
+    |}];
+
+  start_proof "ens a=1; ens b=2; ens emp" "ens emp";
+
+  intro_pure "H";
+
+  intro_pure "H";
+
+  [%expect
+    {|
+    ----------------------------------------
+      ens a=1; ens b=2; ens emp
+    ⊑ ens emp
+
+
+    H: a=1
+    ----------------------------------------
+      ens b=2; ens emp
+    ⊑ ens emp
+
+    error: add_assumption: H is already used
+    |}]
+
+let%expect_test "rewrite" =
+  start_proof "ens a=1; ens a=2" "ens emp";
+  (* TODO should this work? *)
+  (* intro_pure "H"; *)
+  (* rewrite "H"; *)
+  [%expect
+    {|
+    ----------------------------------------
+      ens a=1; ens a=2
+    ⊑ ens emp
+    |}];
+
+  start_proof "ens emp" "ens emp";
+  rewrite "H";
+  [%expect
+    {|
+    ----------------------------------------
+      ens emp
+    ⊑ ens emp
+
+    error: no assumption named: H
+    |}]
