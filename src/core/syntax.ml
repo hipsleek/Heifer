@@ -24,51 +24,43 @@ type unop =
     enforce that [term] must be pure: no side-effect can happen when reducing a
     term. *)
 type term =
-  | TVar of term var
-  | TSymbol of symbol
-  | TUnit
-  | TTrue
-  | TFalse
-  | TInt of int
-  | TFun of (term, staged_spec) mbinder
-  | TApp of string * term list
-  | TTuple of term list
-  | TBinop of binop * term * term
-  | TUnop of unop * term
-  | TNil
-(* | TMetavar of metavar *)
-
-(** Atomic pure proposition like [x < 1] will be represented with [term] and
-    lifted to [prop] using [PAtom]. *)
-and prop =
-  | PAtom of term
-  | PConj of prop * prop
-  | PImplies of prop * prop
-  | PForall of (term, prop) mbinder
-  | PSubsumes of staged_spec * staged_spec
-
-and hprop =
-  | HPure of prop
-  | HEmp
-  | HPointsTo of term * term
-  | HSepConj of hprop * hprop
-
-and staged_spec =
-  | Return of term
-  | Requires of hprop
-  | Ensures of hprop
-  | Sequence of staged_spec * staged_spec
-  | Bind of staged_spec * (term, staged_spec) binder
+  | Var of term var
+  | Symbol of symbol
+  | Unit
+  | True
+  | False
+  | Int of int
+  | Fun of (term, term) mbinder
+  (* | TApp of string * term list *)
+  | Tuple of term list
+  | Binop of binop * term * term
+  | Unop of unop * term
+  | Nil
+  (* | PAtom of term *)
+  | Conj of term * term
+  | Disj of term * term
+  | Implies of term * term
+  (* | PForall of (term, term) mbinder *)
+  | Subsumes of term * term
+  (* | HPure of term *)
+  | Emp
+  | PointsTo of term * term
+  | SepConj of term * term
+  (* | Return of term *)
+  | Requires of term
+  | Ensures of term
+  | Sequence of term * term
+  | Bind of term * (term, term) binder
   | Apply of term * term list
-  | Disjunct of staged_spec * staged_spec
-  | Forall of (term, staged_spec) mbinder
-  | Exists of (term, staged_spec) mbinder
-  | Shift of (term, staged_spec) binder
-  | Reset of staged_spec
-  | Dollar of staged_spec * (term, staged_spec) binder
+  (* | Disjunct of term * term *)
+  | Forall of (term, term) mbinder
+  | Exists of (term, term) mbinder
+  | Shift of (term, term) binder
+  | Reset of term
+(* | Dollar of term * (term, term) binder *)
 (* | SMetavar of metavar *)
 
-type def = (term, staged_spec) mbinder
+type def = (term, term) mbinder
 
 (** Top level declaration.
 
@@ -77,45 +69,36 @@ type decl = Dfun of symbol * def
 
 (** Smart constructors that wrap data in [Bindlib.box]. *)
 module Mk = struct
-  let tvar = box_var
-  let tsymbol sym = box (TSymbol sym)
-  let tunit = box TUnit
-  let tnil = box TNil
-  let ttrue = box TTrue
-  let tfalse = box TFalse
-  let tapp = box_apply2 (fun f xs -> TApp (f, xs))
-  let tint i = box (TInt i)
-  let ttuple = box_apply (fun ts -> TTuple ts)
-  let tfun = box_apply (fun b -> TFun b)
-  let tbinop op = box_apply2 (fun t1 t2 -> TBinop (op, t1, t2))
-  let tunop op = box_apply (fun t -> TUnop (op, t))
-
-  (* let tmetavar mv = box (TMetavar mv) *)
-  let patom = box_apply (fun t -> PAtom t)
-  let pconj = box_apply2 (fun p1 p2 -> PConj (p1, p2))
-  let pforall = box_apply (fun b -> PForall b)
-  let pimplies = box_apply2 (fun p1 p2 -> PImplies (p1, p2))
-  let psubsumes = box_apply2 (fun f1 f2 -> PSubsumes (f1, f2))
-  let hpure = box_apply (fun p -> HPure p)
-  let hemp = box HEmp
-  let hpointsto = box_apply2 (fun t1 t2 -> HPointsTo (t1, t2))
-  let hsepconj = box_apply2 (fun p1 p2 -> HSepConj (p1, p2))
-
-  (* let stmetavar mv = box (StMetavar mv) *)
-  let return = box_apply (fun t -> Return t)
+  let var = box_var
+  let symbol sym = box (Symbol sym)
+  let unit = box Unit
+  let nil = box Nil
+  let true_ = box True
+  let false_ = box False
+  let app = box_apply2 (fun f xs -> Apply (f, xs))
+  let int i = box (Int i)
+  let tuple = box_apply (fun ts -> Tuple ts)
+  let fun_ = box_apply (fun b -> Fun b)
+  let binop op = box_apply2 (fun t1 t2 -> Binop (op, t1, t2))
+  let unop op = box_apply (fun t -> Unop (op, t))
+  let atom = box_apply (fun t -> t)
+  let conj = box_apply2 (fun p1 p2 -> Conj (p1, p2))
+  let forall = box_apply (fun b -> Forall b)
+  let implies = box_apply2 (fun p1 p2 -> Implies (p1, p2))
+  let subsumes = box_apply2 (fun f1 f2 -> Subsumes (f1, f2))
+  let emp = box Emp
+  let pointsto = box_apply2 (fun t1 t2 -> PointsTo (t1, t2))
+  let sepconj = box_apply2 (fun p1 p2 -> SepConj (p1, p2))
   let requires = box_apply (fun p -> Requires p)
   let ensures = box_apply (fun p -> Ensures p)
   let sequence = box_apply2 (fun s1 s2 -> Sequence (s1, s2))
   let bind = box_apply2 (fun s b -> Bind (s, b))
   let apply = box_apply2 (fun f t -> Apply (f, t))
-  let disjunct = box_apply2 (fun s1 s2 -> Disjunct (s1, s2))
+  let disjunct = box_apply2 (fun s1 s2 -> Disj (s1, s2))
   let forall = box_apply (fun b -> Forall b)
   let exists = box_apply (fun b -> Exists b)
   let shift = box_apply (fun b -> Shift b)
   let reset = box_apply (fun s -> Reset s)
-  let dollar = box_apply2 (fun s k -> Dollar (s, k))
-  (* let smetavar mv = box (SMetavar mv) *)
-  (* let sbmetavar mv = box (SBMetavar mv) *)
 end
 
 module Constr = struct
@@ -129,8 +112,8 @@ module Constr = struct
       (match default with None -> failwith "foldr1: empty" | Some a -> a)
     | x :: xs -> foldr1_aux f x xs
 
-  let sep_conj = foldr1 ~default:HEmp (fun c t -> HSepConj (c, t))
-  let conj = foldr1 ~default:(PAtom TTrue) (fun c t -> PConj (c, t))
+  let sep_conj = foldr1 ~default:Emp (fun c t -> SepConj (c, t))
+  let conj = foldr1 ~default:True (fun c t -> Conj (c, t))
 
   let seq xs =
     match xs with
@@ -142,53 +125,41 @@ module Constr = struct
   let req_seq h f = Sequence (Ensures h, f)
 end
 
-let new_tvar = new_var (fun v -> TVar v)
+let new_tvar = new_var (fun v -> Var v)
 
 let rec box_term = function
-  | TVar x -> Mk.tvar x
-  | TSymbol sym -> Mk.tsymbol sym
-  | TUnit -> Mk.tunit
-  | TNil -> Mk.tnil
-  | TTrue -> Mk.ttrue
-  | TFalse -> Mk.tfalse
-  | TApp (f, xs) -> Mk.tapp (box f) (box_list (List.map box_term xs))
-  | TInt i -> Mk.tint i
-  | TTuple ts -> Mk.ttuple (box_list (List.map box_term ts))
-  | TFun b -> Mk.tfun (box_mbinder box_staged_spec b)
-  | TBinop (op, t1, t2) -> Mk.tbinop op (box_term t1) (box_term t2)
-  | TUnop (op, t) -> Mk.tunop op (box_term t)
-(* | TMetavar mv -> tmetavar mv *)
-(* | _ -> failwith "box_term: todo" *)
+  | Var x -> Mk.var x
+  | Symbol sym -> Mk.symbol sym
+  | Unit -> Mk.unit
+  | Nil -> Mk.nil
+  | True -> Mk.true_
+  | False -> Mk.false_
+  | Apply (f, xs) -> Mk.apply (box_term f) (box_list (List.map box_term xs))
+  | Int i -> Mk.int i
+  | Tuple ts -> Mk.tuple (box_list (List.map box_term ts))
+  | Fun b -> Mk.fun_ (box_mbinder box_term b)
+  | Binop (op, t1, t2) -> Mk.binop op (box_term t1) (box_term t2)
+  | Unop (op, t) -> Mk.unop op (box_term t)
+  | Conj (p1, p2) -> Mk.conj (box_term p1) (box_term p2)
+  | Disj (p1, p2) -> Mk.disjunct (box_term p1) (box_term p2)
+  | Implies (p1, p2) -> Mk.implies (box_term p1) (box_term p2)
+  | Subsumes (f1, f2) -> Mk.subsumes (box_term f1) (box_term f2)
+  | Emp -> Mk.emp
+  | PointsTo (t1, t2) -> Mk.pointsto (box_term t1) (box_term t2)
+  | SepConj (p1, p2) -> Mk.sepconj (box_term p1) (box_term p2)
+  | Requires p -> Mk.requires (box_term p)
+  | Ensures p -> Mk.ensures (box_term p)
+  | Sequence (s1, s2) -> Mk.sequence (box_term s1) (box_term s2)
+  | Bind (s, b) -> Mk.bind (box_term s) (box_binder box_term b)
+  | Forall b -> Mk.forall (box_mbinder box_term b)
+  | Exists b -> Mk.exists (box_mbinder box_term b)
+  | Shift b -> Mk.shift (box_binder box_term b)
+  | Reset s -> Mk.reset (box_term s)
 
-and box_prop = function
-  | PAtom t -> Mk.patom (box_term t)
-  | PConj (p1, p2) -> Mk.pconj (box_prop p1) (box_prop p2)
-  | PForall b -> Mk.pforall (box_mbinder box_prop b)
-  | PSubsumes (f1, f2) -> Mk.psubsumes (box_staged_spec f1) (box_staged_spec f2)
-  | PImplies (p1, p2) -> Mk.pimplies (box_prop p1) (box_prop p2)
-
-and box_hprop = function
-  | HPure p -> Mk.hpure (box_prop p)
-  | HEmp -> Mk.hemp
-  | HPointsTo (t1, t2) -> Mk.hpointsto (box_term t1) (box_term t2)
-  | HSepConj (p1, p2) -> Mk.hsepconj (box_hprop p1) (box_hprop p2)
-
-and box_staged_spec = function
-  | Return t -> Mk.return (box_term t)
-  | Requires p -> Mk.requires (box_hprop p)
-  | Ensures p -> Mk.ensures (box_hprop p)
-  | Sequence (s1, s2) -> Mk.sequence (box_staged_spec s1) (box_staged_spec s2)
-  | Bind (s, b) -> Mk.bind (box_staged_spec s) (box_binder box_staged_spec b)
-  | Apply (f, t) -> Mk.apply (box_term f) (box_list (List.map box_term t))
-  | Disjunct (s1, s2) -> Mk.disjunct (box_staged_spec s1) (box_staged_spec s2)
-  | Forall b -> Mk.forall (box_mbinder box_staged_spec b)
-  | Exists b -> Mk.exists (box_mbinder box_staged_spec b)
-  | Shift b -> Mk.shift (box_binder box_staged_spec b)
-  | Reset s -> Mk.reset (box_staged_spec s)
-  | Dollar (s, k) ->
-    Mk.dollar (box_staged_spec s) (box_binder box_staged_spec k)
-(* | SMetavar mv -> smetavar mv *)
-(* | _ -> failwith "box_staged_spec: todo" *)
+(* Aliases for compatibility *)
+let box_prop = box_term
+let box_hprop = box_term
+let box_staged_spec = box_term
 
 type sort =
   | Sort_term
@@ -228,63 +199,42 @@ module SymMap = Map.Make (Sym)
 
 let rec equal_term t1 t2 =
   match (t1, t2) with
-  | TVar x1, TVar x2 -> eq_vars x1 x2
-  | TSymbol s1, TSymbol s2 -> s1.sym_name = s2.sym_name
-  | TUnit, TUnit -> true
-  | TTrue, TTrue -> true
-  | TFalse, TFalse -> true
-  | TInt i1, TInt i2 -> i1 = i2
-  | TFun b1, TFun b2 -> eq_mbinder equal_staged_spec b1 b2
-  | TApp (f1, xs1), TApp (f2, xs2) ->
-    f1 = f2
+  | Var x1, Var x2 -> eq_vars x1 x2
+  | Symbol s1, Symbol s2 -> s1.sym_name = s2.sym_name
+  | Unit, Unit -> true
+  | True, True -> true
+  | False, False -> true
+  | Int i1, Int i2 -> i1 = i2
+  | Fun b1, Fun b2 -> eq_mbinder equal_term b1 b2
+  | Apply (f1, xs1), Apply (f2, xs2) ->
+    equal_term f1 f2
     && List.length xs1 = List.length xs2
     && List.for_all2 equal_term xs1 xs2
-  | TTuple ts1, TTuple ts2 ->
+  | Tuple ts1, Tuple ts2 ->
     List.length ts1 = List.length ts2 && List.for_all2 equal_term ts1 ts2
-  | TBinop (op1, t11, t12), TBinop (op2, t21, t22) ->
+  | Binop (op1, t11, t12), Binop (op2, t21, t22) ->
     op1 = op2 && equal_term t11 t21 && equal_term t12 t22
-  | TUnop (op1, t1), TUnop (op2, t2) -> op1 = op2 && equal_term t1 t2
-  | TNil, TNil -> true
-  | _, _ -> false
-
-and equal_prop p1 p2 =
-  match (p1, p2) with
-  | PAtom t1, PAtom t2 -> equal_term t1 t2
-  | PConj (p11, p12), PConj (p21, p22) ->
-    equal_prop p11 p21 && equal_prop p12 p22
-  | PImplies (p11, p12), PImplies (p21, p22) ->
-    equal_prop p11 p21 && equal_prop p12 p22
-  | PSubsumes (s11, s12), PSubsumes (s21, s22) ->
-    equal_staged_spec s11 s21 && equal_staged_spec s12 s22
-  | _, _ -> false
-
-and equal_hprop h1 h2 =
-  match (h1, h2) with
-  | HPure p1, HPure p2 -> equal_prop p1 p2
-  | HEmp, HEmp -> true
-  | HPointsTo (t11, t12), HPointsTo (t21, t22) ->
+  | Unop (op1, t1), Unop (op2, t2) -> op1 = op2 && equal_term t1 t2
+  | Nil, Nil -> true
+  | Conj (p11, p12), Conj (p21, p22) -> equal_term p11 p21 && equal_term p12 p22
+  | Disj (p11, p12), Disj (p21, p22) -> equal_term p11 p21 && equal_term p12 p22
+  | Implies (p11, p12), Implies (p21, p22) ->
+    equal_term p11 p21 && equal_term p12 p22
+  | Subsumes (s11, s12), Subsumes (s21, s22) ->
+    equal_term s11 s21 && equal_term s12 s22
+  | Emp, Emp -> true
+  | PointsTo (t11, t12), PointsTo (t21, t22) ->
     equal_term t11 t21 && equal_term t12 t22
-  | HSepConj (h11, h12), HSepConj (h21, h22) ->
-    equal_hprop h11 h21 && equal_hprop h12 h22
-  | _, _ -> false
-
-and equal_staged_spec s1 s2 =
-  match (s1, s2) with
-  | Return t1, Return t2 -> equal_term t1 t2
-  | Requires h1, Requires h2 -> equal_hprop h1 h2
-  | Ensures h1, Ensures h2 -> equal_hprop h1 h2
+  | SepConj (h11, h12), SepConj (h21, h22) ->
+    equal_term h11 h21 && equal_term h12 h22
+  | Requires h1, Requires h2 -> equal_term h1 h2
+  | Ensures h1, Ensures h2 -> equal_term h1 h2
   | Sequence (s11, s12), Sequence (s21, s22) ->
-    equal_staged_spec s11 s21 && equal_staged_spec s12 s22
+    equal_term s11 s21 && equal_term s12 s22
   | Bind (s1, b1), Bind (s2, b2) ->
-    equal_staged_spec s1 s2 && eq_binder equal_staged_spec b1 b2
-  | Apply (t11, t12), Apply (t21, t22) ->
-    equal_term t11 t21 && List.for_all2 equal_term t12 t22
-  | Disjunct (s11, s12), Disjunct (s21, s22) ->
-    equal_staged_spec s11 s21 && equal_staged_spec s12 s22
-  | Forall b1, Forall b2 -> eq_mbinder equal_staged_spec b1 b2
-  | Exists b1, Exists b2 -> eq_mbinder equal_staged_spec b1 b2
-  | Shift b1, Shift b2 -> eq_binder equal_staged_spec b1 b2
-  | Reset s1, Reset s2 -> equal_staged_spec s1 s2
-  | Dollar (s1, k1), Dollar (s2, k2) ->
-    equal_staged_spec s1 s2 && eq_binder equal_staged_spec k1 k2
+    equal_term s1 s2 && eq_binder equal_term b1 b2
+  | Forall b1, Forall b2 -> eq_mbinder equal_term b1 b2
+  | Exists b1, Exists b2 -> eq_mbinder equal_term b1 b2
+  | Shift b1, Shift b2 -> eq_binder equal_term b1 b2
+  | Reset s1, Reset s2 -> equal_term s1 s2
   | _, _ -> false
