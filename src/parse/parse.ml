@@ -108,18 +108,19 @@ let%expect_test "basics" =
 
   (* application of function to a single tuple value *)
   staged "f(1,2)";
-  [%expect
-    {| f (1, 2) |}];
+  [%expect {| f (1, 2) |}];
 
   (* application to multiple values *)
   staged "f 1 2";
-  [%expect
-    {| f 1 2 |}];
+  [%expect {| f 1 2 |}];
 
   (* relative precedences for foldr *)
   staged "ens xs=[]; ret init \\/ ex h t. ens xs=h::t; foldr f init t; r. f h r";
   [%expect
-    {| ens xs=[]; ret init \/ ex h t. ens xs=h::t; foldr f init t; r. f h r |}]
+    {| ens xs=[]; ret init \/ ex h t. ens xs=h::t; foldr f init t; r. f h r |}];
+
+  staged "foldr (fun c t -> ret c+t) 0 []";
+  [%expect {| foldr (fun c t -> ret c+t) 0 [] |}]
 
 let%expect_test "shadowing" =
   staged "ens emp; x. ens emp; x. ens x=2";

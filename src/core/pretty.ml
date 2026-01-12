@@ -47,7 +47,7 @@ let rec pp_term_prec prec ctxt ppf = function
     Fmt.pf ppf "%s(%a)" f Fmt.(list ~sep:(any ",@ ") (pp_term_prec 0 ctxt)) xs
   | TFun b ->
     let x, body, ctxt = unmbind_in ctxt b in
-    Fmt.pf ppf "@[<hov 2>fun %a ->@ %a@]"
+    Fmt.pf ppf "@[<hov 2>(fun %a ->@ %a)@]"
       Fmt.(array ~sep:(any " ") string)
       (names_of x)
       (pp_staged_spec_prec 0 ctxt)

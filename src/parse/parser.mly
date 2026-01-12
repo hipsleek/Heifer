@@ -182,10 +182,11 @@ term:
       // List.fold_right (fun v t -> BinOp (TCons, v, t)) items (Const Nil)
 //   (* intended: function body spans maximally *)
 //   (* todo: remove the parens around function body *)
-  // | FUN LPAREN args = separated_list(COMMA, LOWERCASE_IDENT) RPAREN MINUSGREATER LPAREN body=staged_spec RPAREN
-  //     // { TFun ("", args, Some body, None) }
-  //     { TFun ("", args, Some body, None) }
-// ;
+
+  | LPAREN FUN xs=binders MINUSGREATER s=staged_spec RPAREN
+    { let xs = Binders.remove_all xs in
+      TFun (unbox (bind_mvar xs (box_staged_spec s))) }
+  ;
 
 prop:
   // | TRUE
