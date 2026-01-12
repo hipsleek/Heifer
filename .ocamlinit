@@ -19,14 +19,15 @@ intro_pure "H";;
 discharge ();;
 refl ();; *)
 
-
-start_proof "ens emp" "forall x. req x->1; ens x->1";;
+(* start_proof "ens emp" "forall x. req x->1; ens x->1";;
 forall_intro ();;
 req_left ();;
 cancel_heap ();;
-refl ();;
+refl ();; *)
 
 (* start_proof "ens emp" "forall x. req x->1; ens x->1";;
 forall_intro ();;
 intro_heap ();;
 cancel_heap ();; *)
+
+start_proof "foldr (fun c t -> c + t) 0 []" "ret sum([])";;

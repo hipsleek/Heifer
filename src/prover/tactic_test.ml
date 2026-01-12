@@ -481,3 +481,61 @@ let%expect_test "rewrite" =
 
     error: no assumption named: H
     |}]
+
+let%expect_test "heap tactics" =
+  start_proof "ens emp" "forall x. req x->1; ens x->1";
+  forall_intro ();
+  req_left ();
+  cancel_heap ();
+  refl ();
+  [%expect
+    {|
+    ----------------------------------------
+      ens emp
+    ⊑ forall x. req x->1; ens x->1
+
+    x
+    ----------------------------------------
+      ens emp
+    ⊑ req x->1; ens x->1
+
+    x
+    ----------------------------------------
+      ens x->1; ens emp
+    ⊑ ens x->1
+
+    x
+    ----------------------------------------
+      ens emp; ens emp
+    ⊑ ens emp; ens emp
+
+    no more goals
+    |}];
+
+  start_proof "ens emp" "forall x. req x->1; ens x->1";
+  forall_intro ();
+  intro_heap ();
+  cancel_heap ();
+  [%expect
+    {|
+    ----------------------------------------
+      ens emp
+    ⊑ forall x. req x->1; ens x->1
+
+    x
+    ----------------------------------------
+      ens emp
+    ⊑ req x->1; ens x->1
+
+    x
+    ----------------------------------------
+    x->1
+    ---------------------------------------*
+      ens emp
+    ⊑ ens x->1
+
+    x
+    ----------------------------------------
+      ens emp
+    ⊑ ens emp; ens emp
+    |}]
