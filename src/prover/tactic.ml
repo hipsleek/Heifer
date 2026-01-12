@@ -56,9 +56,9 @@ module Pctx = struct
     (match SMap.is_empty assumptions with
     | true -> ()
     | false ->
-      Fmt.pf ppf "%a@,"
-        (pp_hypotheses ~pp_k:Fmt.string ~pp_v:pp_term)
-        assumptions);
+        Fmt.pf ppf "%a@,"
+          (pp_hypotheses ~pp_k:Fmt.string ~pp_v:pp_term)
+          assumptions);
     (* always draw the line, even if there are no hypotheses *)
     let line_length = 40 in
     let line = draw_line line_length in
@@ -66,8 +66,8 @@ module Pctx = struct
     (match heap_context with
     | [] -> ()
     | _ ->
-      let heap_line = draw_line (line_length - 1) ^ "*" in
-      Fmt.pf ppf "%a@,%s@," Fmt.(list ~sep:cut pp_term) heap_context heap_line);
+        let heap_line = draw_line (line_length - 1) ^ "*" in
+        Fmt.pf ppf "%a@,%s@," Fmt.(list ~sep:cut pp_term) heap_context heap_line);
     Fmt.pf ppf "  %a@,⊑ %a@," pp_term l pp_term r;
     Format.close_box ()
 end
@@ -79,12 +79,12 @@ module Pstate = struct
     match s with
     | [] -> Fmt.pf ppf "no more goals"
     | p :: goals1 ->
-      let goal_text =
-        match List.length goals1 with
-        | 0 -> ""
-        | n -> Format.asprintf "(%d more goals)" n
-      in
-      Fmt.pf ppf "@[<v>%a%s@]" Pctx.pp p goal_text
+        let goal_text =
+          match List.length goals1 with
+          | 0 -> ""
+          | n -> Format.asprintf "(%d more goals)" n
+        in
+        Fmt.pf ppf "@[<v>%a%s@]" Pctx.pp p goal_text
 end
 
 module Tactic : sig
@@ -142,27 +142,27 @@ end = struct
     match ts with
     | [] -> Error err
     | t :: ts1 ->
-      (match t ps with
-      | Error er ->
-        choices ~err ts1 ps
-        (* TODO possibly use a list or tree of errors *)
-        |> Result.map_error (fun e -> Format.asprintf "%s / %s" e er)
-      | Ok a -> Ok a)
+        (match t ps with
+        | Error er ->
+            choices ~err ts1 ps
+            (* TODO possibly use a list or tree of errors *)
+            |> Result.map_error (fun e -> Format.asprintf "%s / %s" e er)
+        | Ok a -> Ok a)
 
   let rec map_m f xs =
     match xs with
     | [] -> return []
     | x :: xs ->
-      let* y = f x in
-      let* ys = map_m f xs in
-      return (y :: ys)
+        let* y = f x in
+        let* ys = map_m f xs in
+        return (y :: ys)
 
   let rec iter_m f xs =
     match xs with
     | [] -> return ()
     | x :: xs1 ->
-      let* () = f x in
-      iter_m f xs1
+        let* () = f x in
+        iter_m f xs1
 
   let iter_array_m f xs =
     let l = Array.length xs in
@@ -216,9 +216,9 @@ end = struct
     match SMap.find_opt name pc.assumptions with
     | None -> fail ("no assumption named: " ^ name)
     | Some p ->
-      let assumptions = SMap.remove name pc.assumptions in
-      let* _ = put_pctxt { pc with assumptions } in
-      return p
+        let assumptions = SMap.remove name pc.assumptions in
+        let* _ = put_pctxt { pc with assumptions } in
+        return p
 
   let pop_heap_assumptions =
     let* pc = get_pctxt in
@@ -280,8 +280,8 @@ end = struct
     match ps with
     | [] -> fail "cannot pop goal"
     | g :: gs ->
-      let* _ = put gs in
-      return g
+        let* _ = put gs in
+        return g
 
   let push g =
     let* ps = get in
@@ -294,15 +294,8 @@ end = struct
     | g :: gs -> put ({ g with heap_context = h :: g.heap_context } :: gs)
 end
 
-let is_pure t =
-  match t with
-  | Emp | PointsTo _ | SepConj _ -> false
-  | _ -> true
-
-let is_heap t =
-  match t with
-  | Emp | PointsTo _ | SepConj _ -> true
-  | _ -> false
+let is_pure t = match t with Emp | PointsTo _ | SepConj _ -> false | _ -> true
+let is_heap t = match t with Emp | PointsTo _ | SepConj _ -> true | _ -> false
 
 let uncons_ens f =
   let open Tactic in
@@ -365,16 +358,16 @@ let intro_heap =
     match h with
     | Emp -> fail "cannot uncons empty"
     | _ ->
-      let* () = put_lhs rest in
-      add_heap_assumption h
+        let* () = put_lhs rest in
+        add_heap_assumption h
   in
   let intro_right =
     let* h, rest = uncons_hreq right in
     match h with
     | Emp -> fail "cannot uncons empty"
     | _ ->
-      let* () = put_rhs rest in
-      add_heap_assumption h
+        let* () = put_rhs rest in
+        add_heap_assumption h
   in
   choices ~err:"failed to intro heap" [intro_left; intro_right]
 
@@ -399,11 +392,11 @@ let forall_intro =
   let* right = get_rhs in
   match Prenex.move_quantifiers_out right with
   | Forall b ->
-    (* TODO freshness issues? this has to be free on both sides *)
-    let xs, f, ctxt = unmbind_in ctxt b in
-    let* _ = put_rhs f in
-    let* _ = put_rename_ctxt ctxt in
-    iter_array_m (fun x -> add_constant (name_of x) x) xs
+      (* TODO freshness issues? this has to be free on both sides *)
+      let xs, f, ctxt = unmbind_in ctxt b in
+      let* _ = put_rhs f in
+      let* _ = put_rename_ctxt ctxt in
+      iter_array_m (fun x -> add_constant (name_of x) x) xs
   | _ -> fail "cannot intro forall"
 
 let forall_elim t =
@@ -411,9 +404,9 @@ let forall_elim t =
   let* left = get_lhs in
   match Prenex.move_quantifiers_out left with
   | Forall b ->
-    (* TODO: parse_term with respect to constant context *)
-    let t = List.map parse_term t |> Array.of_list in
-    put_lhs (msubst b t)
+      (* TODO: parse_term with respect to constant context *)
+      let t = List.map parse_term t |> Array.of_list in
+      put_lhs (msubst b t)
   | _ -> fail "cannot eliminate forall"
 
 let exists_intro t =
@@ -421,9 +414,9 @@ let exists_intro t =
   let* right = get_rhs in
   match Prenex.move_quantifiers_out right with
   | Exists b ->
-    (* TODO: parse_term with respect to constant context *)
-    let t = List.map parse_term t |> Array.of_list in
-    put_rhs (msubst b t)
+      (* TODO: parse_term with respect to constant context *)
+      let t = List.map parse_term t |> Array.of_list in
+      put_rhs (msubst b t)
   | _ -> fail "cannot intro exists"
 
 let exists_elim =
@@ -432,10 +425,10 @@ let exists_elim =
   let* left = get_lhs in
   match Prenex.move_quantifiers_out left with
   | Exists b ->
-    let xs, f, ctxt = unmbind_in ctxt b in
-    let* _ = put_lhs f in
-    let* _ = put_rename_ctxt ctxt in
-    iter_array_m (fun x -> add_constant (name_of x) x) xs
+      let xs, f, ctxt = unmbind_in ctxt b in
+      let* _ = put_lhs f in
+      let* _ = put_rename_ctxt ctxt in
+      iter_array_m (fun x -> add_constant (name_of x) x) xs
   | _ -> fail "cannot eliminate exists"
 
 let disj_elim =
@@ -443,9 +436,9 @@ let disj_elim =
   let* left, right = get_goal in
   match left with
   | Disj (a, b) ->
-    let* ps = pop in
-    let* _ = push { ps with goal = (a, right) } in
-    push { ps with goal = (b, right) }
+      let* ps = pop in
+      let* _ = push { ps with goal = (a, right) } in
+      push { ps with goal = (b, right) }
   | _ -> fail "not a disjunction"
 
 let left =
@@ -453,8 +446,8 @@ let left =
   let* left, right = get_goal in
   match right with
   | Disj (a, _) ->
-    let* ps = pop in
-    push { ps with goal = (left, a) }
+      let* ps = pop in
+      push { ps with goal = (left, a) }
   | _ -> fail "not a disjunction"
 
 let right =
@@ -462,8 +455,8 @@ let right =
   let* left, right = get_goal in
   match right with
   | Disj (_, b) ->
-    let* ps = pop in
-    push { ps with goal = (left, b) }
+      let* ps = pop in
+      push { ps with goal = (left, b) }
   | _ -> fail "not a disjunction"
 
 let simpl =
@@ -498,8 +491,8 @@ let cancel_heap =
     (* TODO quantifier? *)
     match left with
     | Sequence (Ensures h1, Sequence (Requires h2, rest)) ->
-      let a, f = Heap.biab h1 h2 in
-      put_lhs (Constr.seq [Requires a; Ensures f; rest])
+        let a, f = Heap.biab h1 h2 in
+        put_lhs (Constr.seq [Requires a; Ensures f; rest])
     | _ -> fail "cannot match"
   in
   let ctx_req_left =
@@ -593,8 +586,8 @@ module ProofState = struct
   let run_tactic tac =
     match Tactic.run tac !current_state.goals with
     | Ok new_goals ->
-      set_goals new_goals;
-      print_proof_state ()
+        set_goals new_goals;
+        print_proof_state ()
     | Error s -> Format.printf "error: %s@." s
 
   let make_interactive (tac : 'b -> 'a Tactic.t) (arg : 'b) =
@@ -637,12 +630,12 @@ module Interactive = struct
     match SymMap.find_opt sym definitions with
     | None -> Format.printf "error: the symbol %s does not exist@." sym_name
     | Some def ->
-      let tac =
-        let open Tactic in
-        let* lhs, rhs = get_goal in
-        put_goal (Unfold.unfold sym def lhs) (Unfold.unfold sym def rhs)
-      in
-      run_tactic tac
+        let tac =
+          let open Tactic in
+          let* lhs, rhs = get_goal in
+          put_goal (Unfold.unfold sym def lhs) (Unfold.unfold sym def rhs)
+        in
+        run_tactic tac
 
   (** Generate an induction hypothesis in the current proof state.
 

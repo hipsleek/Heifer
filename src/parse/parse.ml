@@ -1,16 +1,17 @@
 let handle_error parser lexbuf =
   try parser Lexer.token lexbuf with
   | Lexer.Lexing_error msg ->
-    Printf.eprintf "Lexing error: %s\n" msg;
-    failwith "lexer error"
+      Printf.eprintf "Lexing error: %s\n" msg;
+      failwith "lexer error"
   | Parser.Error ->
-    let pos = Lexing.lexeme_start_p lexbuf in
-    let line = pos.Lexing.pos_lnum in
-    let column = pos.Lexing.pos_cnum - pos.Lexing.pos_bol + 1 in
-    let token = Lexing.lexeme lexbuf in
-    Printf.eprintf "Parse error at line %d, column %d: unexpected token '%s'\n"
-      line column token;
-    failwith "parse error"
+      let pos = Lexing.lexeme_start_p lexbuf in
+      let line = pos.Lexing.pos_lnum in
+      let column = pos.Lexing.pos_cnum - pos.Lexing.pos_bol + 1 in
+      let token = Lexing.lexeme lexbuf in
+      Printf.eprintf
+        "Parse error at line %d, column %d: unexpected token '%s'\n" line column
+        token;
+      failwith "parse error"
 
 let show_token (tok : Parser.token) =
   match tok with
@@ -65,97 +66,172 @@ let debug_tokens str =
   let tokens = loop [] in
   let s = tokens |> List.map show_token |> String.concat " " in
   Format.printf "%s@." s
-(* debug ~at:3 ~title:"debug tokens" "%s" s *)
 
-let parse_term spec = handle_error Parser.parse_term (Lexing.from_string spec)
-let parse_staged_spec = parse_term
-let parse_prop = parse_term
-let parse_hprop = parse_term
+let parse_term spec =
+  let t = handle_error Parser.parse_term (Lexing.from_string spec) in
+  (match Core.Syntax.check_sort t with
+  | Ok _ -> ()
+  | Error s -> failwith ("sort check failed: " ^ s));
+  t
+
+let parse_staged_spec s =
+  let r = parse_term s in
+  (match Core.Syntax.check_sort r with
+  | Ok Sort_staged_spec -> ()
+  | _ -> failwith "not a staged spec");
+  r
+
+let parse_prop s =
+  let r = parse_term s in
+  (match Core.Syntax.check_sort r with
+  | Ok Sort_prop -> ()
+  | _ -> failwith "not a prop");
+  r
+
+let parse_hprop s =
+  let r = parse_term s in
+  (match Core.Syntax.check_sort r with
+  | Ok Sort_hprop -> ()
+  | _ -> failwith "not a hprop");
+  r
+
 let parse_decl decl = handle_error Parser.parse_decl (Lexing.from_string decl)
 
-open Core.Pretty
-
-let term a = Format.printf "%a@." pp_term (parse_term a)
+let test ?(dump = false) a =
+  let check_round_tripping s =
+    let s1 = Format.asprintf "%a@." Core.Pretty.pp_term (parse_term s) in
+    if s <> s1 then Format.printf "round-tripping failed!@."
+  in
+  try
+    let parsed = parse_term a in
+    if dump then Format.printf "%a@." Core.Syntax.dump_term parsed;
+    let s = Format.asprintf "%a@." Core.Pretty.pp_term parsed in
+    Format.printf "%s@." s;
+    check_round_tripping s
+  with Failure s -> Format.printf "%s@." s
 
 let%expect_test "basics" =
-  (* TODO test round-tripping *)
-  term "true";
+  test "true";
   [%expect {| true |}];
 
   debug_tokens "ens emp";
-  term "ens emp";
+  test "ens emp";
   [%expect {|
     ENSURES EMP EOF
     ens emp
     |}];
 
-  term "ens x=1";
+  test "ens x=1";
   [%expect {| ens x=1 |}];
-  term "ens emp; x. ens x=1";
+
+  test "ens emp; x. ens x=1";
   [%expect {| ens emp; x. ens x=1 |}];
 
-  term "forall x y. ens x=y";
+  test "forall x y. ens x=y";
   [%expect {| forall x y. ens x=y |}];
-  term "ex x y. ens x=y";
-  [%expect {| ex x y. ens x=y |}]
-(* ;
 
-  term "ex x y. ens x=y; r. ens x=y";
-  [%expect {| ex x y. ens x=y; r. ens x=y |}] *)
-(* ;
+  test "ex x y. ens x=y; r. ens x=y";
+  [%expect {| ex x y. ens x=y; r. ens x=y |}]
 
+let%expect_test "tuples" =
+  (* empty tuples are not allowed *)
+  test ~dump:true "()";
+  [%expect {|
+    Unit
+    ()
+    |}];
+
+  (* single-element tuples are not allowed *)
+  test ~dump:true "(1)";
+  [%expect {|
+    Int 1
+    1
+    |}];
+
+  test ~dump:true "(1, 2)";
+  [%expect {|
+    Tuple [Int 1, Int 2]
+    (1, 2)
+    |}]
+
+let%expect_test "application" =
   (* application of function to a single tuple value *)
-  term "f(1,2)";
+  test "f(1,2)";
   [%expect {| f (1, 2) |}];
 
   (* application to multiple values *)
-  term "f 1 2";
-  [%expect {| f 1 2 |}];
+  test ~dump:true "f 1 2";
+  [%expect {|
+    Apply (Apply (Symbol f, [Int 1]), [Int 2])
+    f 1 2
+    |}]
 
+let%expect_test "definitions and entailments" =
   (* relative precedences for foldr *)
-  term "ens xs=[]; ret init \\/ ex h t. ens xs=h::t; foldr f init t; r. f h r";
+  test "ens xs=[]; init \\/ ex h t. ens xs=h::t; foldr f init t; r. f h r";
   [%expect
-    {| ens xs=[]; ret init \/ ex h t. ens xs=h::t; foldr f init t; r. f h r |}];
+    {| ens xs=[]; init \/ (ex h t. ens xs=h::t; foldr f init t; r. f h r) |}];
 
-  term "foldr (fun c t -> ret c+t) 0 []";
-  [%expect {| foldr (fun c t -> ret c+t) 0 [] |}];
-  term "ret sum$([])";
-  [%expect {| ret sum$([]) |}] *)
+  test "foldr (fun c t -> c+t) 0 [] <: sum []";
+  [%expect {| foldr (fun c t -> c+t) 0 [] <: sum [] |}]
 
-(* let%expect_test "shadowing" =
-  term "ens emp; x. ens emp; x. ens x=2";
+let%expect_test "shadowing" =
+  test "ens emp; x. ens emp; x. ens x=2";
   [%expect {| ens emp; x. ens emp; x1. ens x1=2 |}];
 
-  term "ens emp; x. (ens x=1 \\/ (ens emp; x. ens x=2))";
+  test "ens emp; x. (ens x=1 \\/ (ens emp; x. ens x=2))";
   [%expect {| ens emp; x. (ens x=1 \/ ens emp; x1. ens x1=2) |}];
 
-  term "ens emp; x. ((ens emp; x. ens x=2) \\/ ens x=1)";
+  test "ens emp; x. ((ens emp; x. ens x=2) \\/ ens x=1)";
   [%expect {| ens emp; x. (ens emp; x1. ens x1=2 \/ ens x=1) |}]
 
 let%expect_test "precedence and associativity" =
   (* seq is right-associative *)
-  term "ens emp; (ens emp; ens emp)";
+  test "ens emp; (ens emp; ens emp)";
   [%expect {| ens emp; ens emp; ens emp |}];
 
-  term "(ens emp; ens emp); ens emp";
+  test "(ens emp; ens emp); ens emp";
   [%expect {| (ens emp; ens emp); ens emp |}];
 
-  term "ens emp; ens emp; ens emp";
+  test "ens emp; ens emp; ens emp";
   [%expect {| ens emp; ens emp; ens emp |}];
 
+  (* seq has higher precedence than forall *)
+  test "forall x. ens emp; ens emp";
+  [%expect {| forall x. ens emp; ens emp |}];
+
+  test "forall x. (ens emp; ens emp)";
+  [%expect {| forall x. ens emp; ens emp |}];
+
+  test "(forall x. ens emp); ens emp";
+  [%expect {| (forall x. ens emp); ens emp |}];
+
+  (* forall can technically appear on the right without parens,
+    but our pretty printing is simple and does not take that into account *)
+  test "ens emp; forall x. ens emp";
+  [%expect {| ens emp; (forall x. ens emp) |}];
+
+  (* weird terms like these are possible *)
+  test "ens (ens emp)";
+  [%expect {| sort check failed: expected prop or hprop in requires/ensures |}];
+
   (* seq has higher precedence than disj *)
-  term "ens emp; ens emp \\/ ens emp";
+  test "ens emp; ens emp \\/ ens emp";
   [%expect {| ens emp; ens emp \/ ens emp |}];
 
-  term "(ens emp; ens emp) \\/ ens emp";
+  test "(ens emp; ens emp) \\/ ens emp";
   [%expect {| ens emp; ens emp \/ ens emp |}];
 
-  term "ens emp; (ens emp \\/ ens emp)";
+  test "ens emp; (ens emp \\/ ens emp)";
   [%expect {| ens emp; (ens emp \/ ens emp) |}];
 
-  (* disj and quantifier precedence *)
-  term "(forall x. ens x=1) \\/ ens emp";
-  [%expect {| forall x. ens x=1 \/ ens emp |}];
+  (* disjunction is left-associative *)
+  test "ens emp \\/ (ens emp \\/ ens emp)";
+  [%expect {| ens emp \/ (ens emp \/ ens emp) |}];
 
-  term "forall x. (ens x=1 \\/ ens emp)";
-  [%expect {| forall x. (ens x=1 \/ ens emp) |}] *)
+  (* disj and quantifier precedence *)
+  test "(forall x. ens x=1) \\/ ens emp";
+  [%expect {| (forall x. ens x=1) \/ ens emp |}];
+
+  test "forall x. (ens x=1 \\/ ens emp)";
+  [%expect {| forall x. ens x=1 \/ ens emp |}]

@@ -69,6 +69,8 @@ rule token = parse
       { MINUSGREATER }
   | "=>"
       { EQUALGREATER }
+  | "<:"
+      { SUBSUMES }
   | "."
       { DOT }
   | "~"
