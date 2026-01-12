@@ -202,7 +202,7 @@ module SymMap = Map.Make (Sym)
 let rec equal_term t1 t2 =
   match (t1, t2) with
   | Var x1, Var x2 -> eq_vars x1 x2
-  | Symbol s1, Symbol s2 -> s1.sym_name = s2.sym_name
+  | Symbol s1, Symbol s2 -> s1 = s2
   | Unit, Unit -> true
   | True, True -> true
   | False, False -> true

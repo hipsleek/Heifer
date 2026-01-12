@@ -1,4 +1,4 @@
-(* open Tactic.ProofState
+open Tactic.ProofState
 open Tactic.Interactive
 
 let%expect_test "reflexivity" =
@@ -31,7 +31,8 @@ let%expect_test "specialize" =
   [%expect
     {|
     ----------------------------------------
-      ens forall a. a=1; ens emp⊑ ens emp
+      ens forall a. a=1; ens emp
+    ⊑ ens emp
 
     H: forall a. a=1
     ----------------------------------------
@@ -107,12 +108,12 @@ let%expect_test "intro heap" =
     ⊑ ens emp
     |}];
 
-  start_proof "ret 1" "ens emp";
+  start_proof "1" "ens emp";
   intro_heap ();
   [%expect
     {|
     ----------------------------------------
-      ret 1
+      1
     ⊑ ens emp
 
     error: failed to intro heap / cannot uncons req / cannot uncons ens
@@ -538,4 +539,4 @@ let%expect_test "heap tactics" =
     ----------------------------------------
       ens emp
     ⊑ ens emp; ens emp
-    |}] *)
+    |}]
