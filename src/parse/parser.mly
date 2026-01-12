@@ -10,8 +10,8 @@ open Bindlib
     if we have multiple kind of symbols. *)
 let resolve_identifier x =
   match Binders.get_opt x with
-  | None -> TSymbol {sym_name = x}
-  | Some v -> TVar v
+  | None -> Symbol {sym_name = x}
+  | Some v -> Var v
 %}
 
 %token EQUAL
@@ -64,19 +64,21 @@ let resolve_identifier x =
 
 // in increasing order of precedence
 %nonassoc SUBSUMES
+%nonassoc FUN
 %nonassoc REQUIRES ENSURES
 %nonassoc FORALL EXISTS // lower than ;
 %right DISJUNCTION
 %right SEMI
 
-// prop
+// term
 %nonassoc EQUAL
+%nonassoc MINUSGREATER
 %nonassoc GREATER
 %nonassoc LESS
 %right EQUALGREATER
 %left CONJUNCTION
 
-// hprop
+// term
 %right STAR
 
 // term
@@ -87,12 +89,6 @@ let resolve_identifier x =
 // %nonassoc DOT
 // %nonassoc IN
 
-%start parse_prop
-%type <prop> parse_prop
-%start parse_hprop
-%type <hprop> parse_hprop
-%start parse_staged_spec
-%type <staged_spec> parse_staged_spec
 %start parse_term
 %type <term> parse_term
 %start parse_decl
@@ -140,30 +136,127 @@ let resolve_identifier x =
 //       { TStr s }
 // ;
 
-term:
+// these terms cannot contain staged logic sequencing
+term2:
   | LPAREN RPAREN
-  // | c = const
-      { TUnit }
+      { Unit }
+
   | n = INT
-      { TInt n }
+      { Int n }
+
   | TRUE
-      { TTrue }
+      { True }
+
   | FALSE
-      { TFalse }
+      { False }
 
   | x=LOWERCASE_IDENT
       { resolve_identifier x }
+
+  | t1=term2 op=bin_op t2=term2
+      { Binop (op, t1, t2) }
+
+  | LBRACKET RBRACKET
+      { Nil }
+
+  | LBRACKET items=separated_nonempty_list(SEMI, term2) RBRACKET
+      { List.fold_right (fun v t -> Binop (Cons, v, t)) items Nil }
+
+  | LPAREN
+  // items=separated_nonempty_list(COMMA, term2)
+  items=tuple_content
+  RPAREN
+      { Tuple items }
+
+  | LPAREN s=term0 RPAREN
+      { s }
+
+  | //LPAREN
+  FUN xs=binders MINUSGREATER s=term2 %prec FUN //RPAREN
+    { let xs = Binders.remove_all xs in
+      Fun (unbox (bind_mvar xs (box_term s))) }
+
+  | p1 = term2 CONJUNCTION p2 = term2
+    { Conj (p1, p2) }
+
+  | p1 = term2 EQUALGREATER p2 = term2
+    { Implies (p1, p2) }
+
+  | a = term2 SUBSUMES b = term2
+    { Subsumes (a, b) }
+
+  | EMP
+      { Emp }
+
+  | l=term2 MINUSGREATER v=term2
+      { PointsTo (l, v) }
+
+  | k1 = term2 STAR k2 = term2
+      { SepConj (k1, k2) }
+
+  | s1 = term2 DISJUNCTION s2 = term2
+      { Disj (s1, s2) }
+
+  | REQUIRES h = term2
+      { Requires h }
+
+  | ENSURES h = term2
+      { Ensures h }
+
+  // // | f=term2 arg=term2+
+  // | f=term2 arg=nonempty_list(term2)
+  //   { Apply (f, arg) }
+
+  | RESET LPAREN s=term2 RPAREN
+      { Reset s }
+
+  | FORALL xs = binders DOT
+    s = term2 %prec FORALL
+      { let xs = Binders.remove_all xs in
+        Forall (unbox (bind_mvar xs (box_term s))) }
+
+  | EXISTS xs = binders DOT
+    s = term2 %prec EXISTS
+      { let xs = Binders.remove_all xs in
+        Exists (unbox (bind_mvar xs (box_term s))) }
+  ;
+
+term1:
+  | f=term2 arg=nonempty_list(term2)
+    { Apply (f, arg) }
+  ;
+
+term0:
+  | t=term1
+      { t }
+
+  | s1=term0 SEMI s2=term0
+      { Sequence (s1, s2) }
+
+  | s1=term0 SEMI x=binder DOT s2=term0 %prec SEMI
+      {
+        let x = Binders.remove x in
+        (* TODO quadratic, possibly return a box from the rules *)
+        Bind (s1, unbox (bind_var x (box_term s2))) }
+
+;
+
+
+tuple_content:
+  | e1=term0 COMMA e2=term0
+    { [e1; e2] }
+  | e1=term0 COMMA rest=tuple_content
+    { e1::rest }
+  ;
+  // items=separated_nonempty_list(COMMA, term1)
 
 //   | TILDE t = term
 //       { TNot t }
   // | t1 = term op = bin_rel_op t2 = term
 //       { Rel (op, t1, t2) }
 
-  | t1=term op=bin_op t2=term
-      { TBinop (op, t1, t2) }
-
-  | v=LOWERCASE_IDENT DOLLAR LPAREN args=separated_list(COMMA, term) RPAREN
-      { TApp (v, args) }
+  // | v=LOWERCASE_IDENT DOLLAR LPAREN args=separated_list(COMMA, term) RPAREN
+  //     { App (v, args) }
 
 //   | v = CAPITAL_IDENT
 //       { Construct (v, []) }
@@ -173,136 +266,40 @@ term:
   // | f=LOWERCASE_IDENT items=delimited(LPAREN, separated_nonempty_list(COMMA, term), RPAREN)
   //     { TApp (f, items) }
 
-  | LBRACKET RBRACKET
-      { TNil }
-  | items=delimited(LBRACKET, separated_nonempty_list(SEMI, term), RBRACKET)
-      { List.fold_right (fun v t -> TBinop (Cons, v, t)) items TNil }
-  | items=delimited(LPAREN, separated_nonempty_list(COMMA, term), RPAREN)
-    // delimited(LPAREN, separated_nonempty_list(COMMA, term), RPAREN)
-// //   | v = LOWERCASE_IDENT args=
-      { TTuple items }
-      // List.fold_right (fun v t -> BinOp (TCons, v, t)) items (Const Nil)
-//   (* intended: function body spans maximally *)
-//   (* todo: remove the parens around function body *)
-
-  | LPAREN FUN xs=binders MINUSGREATER s=staged_spec RPAREN
-    { let xs = Binders.remove_all xs in
-      TFun (unbox (bind_mvar xs (box_staged_spec s))) }
-  ;
-
-prop:
-  // | TRUE
-  //     { PAtom TTrue }
-  // | FALSE
-  //     { PAtom TFalse }
-  // | t1 = term op = bin_op t2 = term
-  //     { PAtom (TBinop (op, t1, t2)) }
-
-  | t1=term
-    { PAtom t1 }
-
-  | p1 = prop CONJUNCTION p2 = prop
-    { PConj (p1, p2) }
-
-  | p1 = prop EQUALGREATER p2 = prop
-    { PImplies (p1, p2) }
-
-  | a = staged_spec SUBSUMES b = staged_spec
-    { PSubsumes (a, b) }
-
-  | FORALL xs = binders DOT
-    p = prop %prec FORALL
-      { let xs = Binders.remove_all xs in
-        PForall (unbox (bind_mvar xs (box_prop p))) }
-
-//   // these cause shift-reduce conflicts, are not used, and are not in the symbolic heap fragment
-// //   | p1 = prop DISJUNCTION p2 = prop
-// //       { Or (p1, p2) }
-//   // | pure_formula IMPLICATION pure_formula { Imply ($1, $3) }
-//   | TILDE p = prop
-//       { Not p }
-// //   | v = LOWERCASE_IDENT args=delimited(LPAREN, separated_nonempty_list(COMMA, pure_formula_term), RPAREN) { Predicate (v, args) }
-//   | p = delimited(LPAREN, prop, RPAREN)
-//       { p }
-;
-
-hprop:
-  | EMP
-      { HEmp }
-  | l=term MINUSGREATER v=term
-      { HPointsTo (l, v) }
-  | k1 = hprop STAR k2 = hprop
-      { HSepConj (k1, k2) }
-  | p = prop %prec CONJUNCTION // this should be the highest level below star
-  { HPure p }
-  // | k = delimited(LPAREN, hprop, RPAREN)
-  //     { k }
-;
+  // | SHIFT LPAREN v = LOWERCASE_IDENT DOT s = term RPAREN
+  //     { (* TODO: shiftc *)
+  //       let x = Variables.fresh_variable ~v:"x" "continuation argument" in
+  //       Shift (true, v, s, x, NormalReturn (Atomic (EQ, Variables.res_var, Var x), EmptyHeap)) }
 
 // fn:
 //   | v = LOWERCASE_IDENT LPAREN args = separated_list(COMMA, term) RPAREN
 //     { (v, args) }
 // ;
 
-staged_spec:
-  | s1 = staged_spec DISJUNCTION s2 = staged_spec
-      { Disjunct (s1, s2) }
-  | RETURN t = term
-      { Return t }
+  // | RETURN t = term
+  //     { Return t }
 
-  | REQUIRES h = hprop
-      { Requires h }
-  | ENSURES h = hprop
-      { Ensures h }
-
-  | f=term arg=term+
-    { Apply (f, arg) }
-
-  // | va = fn
-  //     { let (v, args) = va in HigherOrder (v, args) }
-  // | SHIFT LPAREN v = LOWERCASE_IDENT DOT s = staged_spec RPAREN
-  //     { (* TODO: shiftc *)
-  //       let x = Variables.fresh_variable ~v:"x" "continuation argument" in
-  //       Shift (true, v, s, x, NormalReturn (Atomic (EQ, Variables.res_var, Var x), EmptyHeap)) }
-
-  | RESET LPAREN s=staged_spec RPAREN
-      { Reset s }
-  | s1=staged_spec SEMI s2=staged_spec
-      { Sequence (s1, s2) }
-
-//   | LET x=LOWERCASE_IDENT EQUAL s1=staged_spec IN s2=staged_spec
-  | s1=staged_spec SEMI x=binder DOT
-    s2=staged_spec %prec SEMI
-      {
-        let x = Binders.remove x in
-        (* TODO quadratic, possibly return a box from the rules *)
-        Bind (s1, unbox (bind_var x (box_staged_spec s2))) }
-
-  | FORALL xs = binders DOT
-    s = staged_spec %prec FORALL
-      { let xs = Binders.remove_all xs in
-        Forall (unbox (bind_mvar xs (box_staged_spec s))) }
-
-  | EXISTS xs = binders DOT
-    s = staged_spec %prec EXISTS
-      { let xs = Binders.remove_all xs in
-        Exists (unbox (bind_mvar xs (box_staged_spec s))) }
-
-  | LPAREN s = staged_spec RPAREN
-      { s }
-;
+//   // these cause shift-reduce conflicts, are not used, and are not in the symbolic heap fragment
+// //   | p1 = term DISJUNCTION p2 = term
+// //       { Or (p1, p2) }
+//   // | pure_formula IMPLICATION pure_formula { Imply ($1, $3) }
+//   | TILDE p = term
+//       { Not p }
+// //   | v = LOWERCASE_IDENT args=delimited(LPAREN, separated_nonempty_list(COMMA, pure_formula_term), RPAREN) { Predicate (v, args) }
+//   | p = delimited(LPAREN, term, RPAREN)
+//       { p }
 
 def:
-  | xs = binders EQUAL s = staged_spec
+  | xs = binders EQUAL s = term0
     { let xs = Binders.remove_all xs in
-      unbox (bind_mvar xs (box_staged_spec s)) }
+      unbox (bind_mvar xs (box_term s)) }
 
 symbol:
   | x = LOWERCASE_IDENT
     { {sym_name = x} }
 
 binders:
-  | xs=LOWERCASE_IDENT*
+  | xs=LOWERCASE_IDENT+
     {
       List.iter Binders.create xs
       ; xs
@@ -316,7 +313,7 @@ binder:
       // Binders.push_scope (); x
 
 // lemma:
-//   | name_params=fn EQUAL lhs=staged_spec LONGARROW rhs=staged_spec
+//   | name_params=fn EQUAL lhs=term LONGARROW rhs=term
 //     { let (f, params) = name_params in
 //       let params =
 //         List.map (function Var s -> s | _ -> failwith "invalid lemma") params
@@ -328,20 +325,8 @@ binder:
 //     }
 // ;
 
-parse_prop:
-  | p = prop EOF
-      { Binders.reset_state (); p }
-
-parse_hprop:
-  | k = hprop EOF
-      { Binders.reset_state (); k }
-
-parse_staged_spec:
-  | s = staged_spec EOF
-      { Binders.reset_state (); s }
-
 parse_term:
-  | t = term EOF
+  | t = term0 EOF
       { t }
 
 // at the moment, the only declaration we may have is function declaration.
