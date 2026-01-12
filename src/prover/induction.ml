@@ -14,8 +14,8 @@ type induction_hypothesis = (term, prop) mbinder
     implication. *)
 let induction (assumptions : prop list) (vars : term mvar) lhs rhs : induction_hypothesis =
   let vars_set = TVSet.of_seq (Array.to_seq vars) in
-  let generalized_assumptions = List.filter (prop_has_vars vars_set) assumptions in
+  let generalized_assumptions = List.filter (has_vars vars_set) assumptions in
   (* Technically, `subsume` should live at meta-logic and not inside the logic system itself *)
-  let ih = List.fold_right (fun h g -> PImplies (h, g)) generalized_assumptions (PSubsumes (lhs, rhs)) in
+  let ih = List.fold_right (fun h g -> Implies (h, g)) generalized_assumptions (Subsumes (lhs, rhs)) in
   (* Now generalize ih *)
   unbox (bind_mvar vars (box_prop ih))

@@ -23,14 +23,14 @@ let pp_hypotheses ~pp_k ~pp_v ppf m =
         (Fmt.hovbox ~indent:2 (pair ~sep:(any ":@ ") pp_k pp_v)))
     al
 
-type sequent = staged_spec * staged_spec
+type sequent = term * term
 
 module Pctx = struct
   type t = {
     rename_ctxt : Bindlib.ctxt;
     constants : term var SMap.t;
-    assumptions : prop SMap.t;
-    heap_context : hprop list;
+    assumptions : term SMap.t;
+    heap_context : term list;
     goal : sequent;
   }
 
@@ -57,7 +57,7 @@ module Pctx = struct
     | true -> ()
     | false ->
       Fmt.pf ppf "%a@,"
-        (pp_hypotheses ~pp_k:Fmt.string ~pp_v:pp_prop)
+        (pp_hypotheses ~pp_k:Fmt.string ~pp_v:pp_term)
         assumptions);
     (* always draw the line, even if there are no hypotheses *)
     let line_length = 40 in
@@ -67,8 +67,8 @@ module Pctx = struct
     | [] -> ()
     | _ ->
       let heap_line = draw_line (line_length - 1) ^ "*" in
-      Fmt.pf ppf "%a@,%s@," Fmt.(list ~sep:cut pp_hprop) heap_context heap_line);
-    Fmt.pf ppf "  %a@,⊑ %a@," pp_staged_spec l pp_staged_spec r;
+      Fmt.pf ppf "%a@,%s@," Fmt.(list ~sep:cut pp_term) heap_context heap_line);
+    Fmt.pf ppf "  %a@,⊑ %a@," pp_term l pp_term r;
     Format.close_box ()
 end
 
@@ -104,27 +104,27 @@ module Tactic : sig
   val push : Pctx.t -> unit t
   val get_rename_ctxt : Bindlib.ctxt t
   val get_goal : sequent t
-  val get_lhs : staged_spec t
-  val get_rhs : staged_spec t
+  val get_lhs : term t
+  val get_rhs : term t
   val get_constants : term var SMap.t t
-  val get_assumptions : prop SMap.t t
-  val get_heap_assumptions : hprop t
-  val put_heap_assumptions : hprop -> unit t
+  val get_assumptions : term SMap.t t
+  val get_heap_assumptions : term t
+  val put_heap_assumptions : term -> unit t
   val get_constant : string -> term var t
-  val get_assumption : string -> prop t
+  val get_assumption : string -> term t
   val modify_goal : (sequent -> sequent) -> unit t
   val put_rename_ctxt : Bindlib.ctxt -> unit t
-  val put_lhs : staged_spec -> unit t
-  val put_rhs : staged_spec -> unit t
-  val put_goal : staged_spec -> staged_spec -> unit t
-  val add_assumption : string -> prop -> unit t
-  val add_heap_assumption : hprop -> unit t
+  val put_lhs : term -> unit t
+  val put_rhs : term -> unit t
+  val put_goal : term -> term -> unit t
+  val add_assumption : string -> term -> unit t
+  val add_heap_assumption : term -> unit t
   val add_constant : string -> term var -> unit t
-  val pop_assumption : string -> prop t (* remove + return *)
-  val pop_heap_assumptions : hprop t
+  val pop_assumption : string -> term t (* remove + return *)
+  val pop_heap_assumptions : term t
 
   val modify_assumption :
-    string -> (prop -> prop t) -> unit t (* this is `modify_m` in Haskell *)
+    string -> (term -> term t) -> unit t (* this is `modify_m` in Haskell *)
 end = struct
   type 'a t = Pstate.t -> ('a * Pstate.t, string) Result.t
 
@@ -294,36 +294,46 @@ end = struct
     | g :: gs -> put ({ g with heap_context = h :: g.heap_context } :: gs)
 end
 
+let is_pure t =
+  match t with
+  | Emp | PointsTo _ | SepConj _ -> false
+  | _ -> true
+
+let is_heap t =
+  match t with
+  | Emp | PointsTo _ | SepConj _ -> true
+  | _ -> false
+
 let uncons_ens f =
   let open Tactic in
   match f with
-  | Sequence (Ensures (HPure p), rest) -> return (p, rest)
-  | Ensures (HPure p) -> return (p, Ensures HEmp)
+  | Sequence (Ensures p, rest) when is_pure p -> return (p, rest)
+  | Ensures p when is_pure p -> return (p, Ensures Emp)
   | _ -> fail "cannot uncons pure ens"
 
 let uncons_req f =
   let open Tactic in
   match f with
-  | Sequence (Requires (HPure p), rest) -> return (p, rest)
-  | Requires (HPure p) -> return (p, Requires HEmp)
+  | Sequence (Requires p, rest) when is_pure p -> return (p, rest)
+  | Requires p when is_pure p -> return (p, Requires Emp)
   | _ -> fail "cannot uncons pure req"
 
 let rec uncons_hens f =
   let open Tactic in
   match f with
-  | Sequence (Ensures HEmp, rest) -> uncons_hens rest
-  | Sequence (Ensures h, rest) -> return (h, rest)
-  | Ensures HEmp -> fail "cannot uncons empty"
-  | Ensures h -> return (h, Ensures HEmp)
+  | Sequence (Ensures Emp, rest) -> uncons_hens rest
+  | Sequence (Ensures h, rest) when is_heap h -> return (h, rest)
+  | Ensures Emp -> fail "cannot uncons empty"
+  | Ensures h when is_heap h -> return (h, Ensures Emp)
   | _ -> fail "cannot uncons ens"
 
 let rec uncons_hreq f =
   let open Tactic in
   match f with
-  | Sequence (Requires HEmp, rest) -> uncons_hreq rest
-  | Sequence (Requires h, rest) -> return (h, rest)
-  | Requires HEmp -> fail "cannot uncons empty"
-  | Requires h -> return (h, Requires HEmp)
+  | Sequence (Requires Emp, rest) -> uncons_hreq rest
+  | Sequence (Requires h, rest) when is_heap h -> return (h, rest)
+  | Requires Emp -> fail "cannot uncons empty"
+  | Requires h when is_heap h -> return (h, Requires Emp)
   | _ -> fail "cannot uncons req"
 
 let revert_heap =
@@ -353,7 +363,7 @@ let intro_heap =
   let intro_left =
     let* h, rest = uncons_hens left in
     match h with
-    | HEmp -> fail "cannot uncons empty"
+    | Emp -> fail "cannot uncons empty"
     | _ ->
       let* () = put_lhs rest in
       add_heap_assumption h
@@ -361,7 +371,7 @@ let intro_heap =
   let intro_right =
     let* h, rest = uncons_hreq right in
     match h with
-    | HEmp -> fail "cannot uncons empty"
+    | Emp -> fail "cannot uncons empty"
     | _ ->
       let* () = put_rhs rest in
       add_heap_assumption h
@@ -374,13 +384,13 @@ let specialize h ts =
   let ts = List.map parse_term ts |> Array.of_list in
   (* TODO allow not exactly same length? *)
   modify_assumption h (function
-    | PForall b -> return (msubst b ts)
+    | Forall b -> return (msubst b ts)
     | _ -> fail "not a prop that can be specialised")
 
 let refl =
   let open Tactic in
   let* left, right = get_goal in
-  if equal_staged_spec left right then pop
+  if equal_term left right then pop
   else fail "cannot close goal using reflexivity"
 
 let forall_intro =
@@ -432,7 +442,7 @@ let disj_elim =
   let open Tactic in
   let* left, right = get_goal in
   match left with
-  | Disjunct (a, b) ->
+  | Disj (a, b) ->
     let* ps = pop in
     let* _ = push { ps with goal = (a, right) } in
     push { ps with goal = (b, right) }
@@ -442,7 +452,7 @@ let left =
   let open Tactic in
   let* left, right = get_goal in
   match right with
-  | Disjunct (a, _) ->
+  | Disj (a, _) ->
     let* ps = pop in
     push { ps with goal = (left, a) }
   | _ -> fail "not a disjunction"
@@ -451,7 +461,7 @@ let right =
   let open Tactic in
   let* left, right = get_goal in
   match right with
-  | Disjunct (_, b) ->
+  | Disj (_, b) ->
     let* ps = pop in
     push { ps with goal = (left, b) }
   | _ -> fail "not a disjunction"
@@ -459,14 +469,14 @@ let right =
 let simpl =
   let open Tactic in
   let* left, right = get_goal in
-  put_goal (Simpl.simpl_staged_spec left) (Simpl.simpl_staged_spec right)
+  put_goal (Simpl.simpl_term left) (Simpl.simpl_term right)
 
 let req_left =
   let open Tactic in
   let* left, right = get_goal in
   match right with
   | Sequence (Requires h, rest) -> put_goal (Sequence (Ensures h, left)) rest
-  | Requires h -> put_goal (Sequence (Ensures h, left)) (Ensures HEmp)
+  | Requires h -> put_goal (Sequence (Ensures h, left)) (Ensures Emp)
   | _ -> fail "req_left cannot do anything"
 
 let cancel_heap =
@@ -516,19 +526,19 @@ let discharge =
   let ens_ens =
     let* p1, f1 = uncons_ens left in
     let* p2, f2 = uncons_ens right in
-    let res = Why3_prover.prove (PImplies (p1, p2)) in
+    let res = Why3_prover.prove (Implies (p1, p2)) in
     match res with `Valid -> put_goal f1 f2 | _ -> fail "could not cancel ens"
   in
   let req_req =
     let* p1, f1 = uncons_ens right in
     let* p2, f2 = uncons_ens left in
-    let res = Why3_prover.prove (PImplies (p1, p2)) in
+    let res = Why3_prover.prove (Implies (p1, p2)) in
     match res with `Valid -> put_goal f2 f1 | _ -> fail "could not cancel req"
   in
   let prove_with_ctx p =
     let* pure = get_assumptions in
-    let pure = SMap.fold (fun _ c t -> PConj (c, t)) pure (PAtom TTrue) in
-    let res = Why3_prover.prove (PImplies (pure, p)) in
+    let pure = SMap.fold (fun _ c t -> Conj (c, t)) pure True in
+    let res = Why3_prover.prove (Implies (pure, p)) in
     return res
   in
   let ens_right =
@@ -648,7 +658,7 @@ module Interactive = struct
       (* generate the body of the induction hypothesis *)
       let ih_body = Induction.induction assumptions vars lhs rhs in
       (* and wrap it into a prop *)
-      let ih_prop = PForall ih_body in
+      let ih_prop = Forall ih_body in
       add_assumption ih ih_prop
     in
     run_tactic tac

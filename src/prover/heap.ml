@@ -19,10 +19,10 @@ let rec match_points_to (ks1 : hprop list) (ks2 : hprop list) :
     hprop list * hprop list * hprop list * prop list =
   match ks1 with
   | [] -> ([], ks2, [], [])
-  | (HPointsTo (x, t) as k) :: ks1 ->
+  | (PointsTo (x, t) as k) :: ks1 ->
     (* we try to match on the location *)
     let match_loc = function
-      | HPointsTo (x', t') when equal_term x x' -> Some t'
+      | PointsTo (x', t') when equal_term x x' -> Some t'
       | _ -> None
     in
     begin match find_delete_map match_loc ks2 with
@@ -36,19 +36,19 @@ let rec match_points_to (ks1 : hprop list) (ks2 : hprop list) :
       (* let ctx = if t = t' then ctx else {equalities = eq t t' :: ctx.equalities} in *)
       let common, anti_frame, frame, equalities = match_points_to ks1 ks2 in
       let equalities =
-        if t = t' then equalities else PAtom (TBinop (Eq, t, t')) :: equalities
+        if t = t' then equalities else Binop (Eq, t, t') :: equalities
       in
       (k :: common, anti_frame, frame, equalities)
     end
-  | HEmp :: _ | HSepConj _ :: _ -> failwith "match_points_to"
-  | HPure _ :: _ -> failwith "hpure"
+  | Emp :: _ | SepConj _ :: _ -> failwith "match_points_to"
+  | _ -> failwith "match_points_to: invalid term in heap list"
 
 let rec split_sep_conj (k : hprop) : hprop list =
   match k with
-  | HEmp -> []
-  | HPointsTo _ -> [k]
-  | HSepConj (k1, k2) -> split_sep_conj k1 @ split_sep_conj k2
-  | HPure _ ->
+  | Emp -> []
+  | PointsTo _ -> [k]
+  | SepConj (k1, k2) -> split_sep_conj k1 @ split_sep_conj k2
+  | _ ->
     Format.printf "%a@." pp_term k;
     failwith "hpure"
 
@@ -72,7 +72,7 @@ let biab h1 h2 =
   let a =
     match eqs with
     | [] -> sep_conj a
-    | _ :: _ -> HSepConj (sep_conj a, HPure (conj eqs))
+    | _ :: _ -> SepConj (sep_conj a, conj eqs)
   in
   (f, a)
 
@@ -128,7 +128,7 @@ let%expect_test _ =
     [%expect
       {|
       emp * v14->0 * v15->2 |- v14->0 * v15->2 * emp
-      2=plus$(1, 1)
+      2=plus 1 1
       |}]
   in
   ()
@@ -138,7 +138,7 @@ let pairwise_var_inequality xs ys =
     List.concat_map
       (fun x ->
         List.filter_map
-          (fun y -> if x = y then None else Some (Atom (Binop (Neq, x, y))))
+          (fun y -> if x = y then None else Some (Binop (Neq, x, y)))
           ys)
       xs
   in
@@ -147,12 +147,12 @@ let pairwise_var_inequality xs ys =
 let xpure (h : hprop) : prop =
   let rec run h =
     match h with
-    | HEmp -> (PAtom TTrue, [])
-    | HPointsTo (x, _) -> (PAtom (TBinop (Gt, x, TInt 0)), [x])
-    | HSepConj (a, b) ->
+    | Emp -> (True, [])
+    | PointsTo (x, _) -> (Binop (Gt, x, Int 0), [x])
+    | SepConj (a, b) ->
       let a, xs = run a in
       let b, ys = run b in
-      (PConj (a, PConj (b, pairwise_var_inequality xs ys)), xs @ ys)
-    | HPure p -> (p, [])
+      (Conj (a, Conj (b, pairwise_var_inequality xs ys)), xs @ ys)
+    | _ -> (h, [])
   in
   fst (run h)
