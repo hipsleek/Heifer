@@ -3,25 +3,22 @@ open Bindlib
 
 module OpInfo = struct
   let binary = function
-    | Lt -> ("<", `Left, 4)
-    | Le -> ("<=", `Left, 4)
-    | Gt -> (">", `Left, 4)
-    | Ge -> (">=", `Left, 4)
-    | Eq -> ("=", `Left, 3)
-    | Neq -> ("!=", `Left, 3)
-    | Cons -> ("::", `Right, 5)
-    | Plus -> ("+", `Right, 5)
-    | Times -> ("*", `Right, 6)
+    | Lt -> ("<", `Left, 8)
+    | Le -> ("<=", `Left, 8)
+    | Gt -> (">", `Left, 8)
+    | Ge -> (">=", `Left, 8)
+    | Eq -> ("=", `Left, 7)
+    | Neq -> ("!=", `Left, 7)
+    | Cons -> ("::", `Right, 9)
+    | Plus -> ("+", `Right, 9)
+    | Times -> ("*", `Right, 10)
 
-  let unary = function Not -> ("!", 8) | Neg -> ("-", 8)
-
-  (* Operator precedence is only comparable within a syntactic category *)
-  let prec_prop_conj = 4
-  let prec_prop_subsumes = 3
-  let prec_prop_implies = 2
-  let prec_prop_forall = 1
+  let unary = function Not -> ("!", 12) | Neg -> ("-", 12)
+  let prec_prop_conj = 8
+  let prec_prop_subsumes = 7
+  let prec_prop_implies = 6
   let prec_hprop_pointsto = 5
-  let prec_hprop_sepconj = 3
+  let prec_hprop_sepconj = 4
   let prec_staged_seq = 3
   let prec_staged_quantifier = 2
   let prec_staged_disj = 1
