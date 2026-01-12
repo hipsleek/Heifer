@@ -3,7 +3,7 @@ open Core.Syntax
 open Bindlib
 
 (** Resolve an identifier when parsing:
-    - If the identifier is bounded, then it's a variable.
+    - If the identifier is bound, then it's a variable.
     - Otherwise, we assume that it is a symbol.
 
     In the future, we may maintain a symbol table for the parser,
@@ -34,6 +34,7 @@ let resolve_identifier x =
 %token RBRACKET
 %token SEMI
 %token COMMA
+%token DOLLAR
 
 %token TRUE
 %token FALSE
@@ -161,8 +162,9 @@ term:
   | t1=term op=bin_op t2=term
       { TBinop (op, t1, t2) }
 
-//   | v = LOWERCASE_IDENT LPAREN args = separated_list(COMMA, term) RPAREN
-//       { TApp (v, args) }
+  | v=LOWERCASE_IDENT DOLLAR LPAREN args=separated_list(COMMA, term) RPAREN
+      { TApp (v, args) }
+
 //   | v = CAPITAL_IDENT
 //       { Construct (v, []) }
 //   | v = CAPITAL_IDENT LPAREN args = separated_list(COMMA, term) RPAREN

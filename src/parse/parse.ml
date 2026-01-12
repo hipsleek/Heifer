@@ -28,6 +28,7 @@ let show_token (tok : Parser.token) =
   | REQUIRES -> "REQUIRES"
   | RBRACKET -> "RBRACKET"
   | PLUS -> "PLUS"
+  | DOLLAR -> "DOLLAR"
   | MINUSGREATER -> "MINUSGREATER"
   | EQUALGREATER -> "EQUALGREATER"
   | MINUS -> "MINUS"
@@ -120,7 +121,10 @@ let%expect_test "basics" =
     {| ens xs=[]; ret init \/ ex h t. ens xs=h::t; foldr f init t; r. f h r |}];
 
   staged "foldr (fun c t -> ret c+t) 0 []";
-  [%expect {| foldr (fun c t -> ret c+t) 0 [] |}]
+  [%expect {| foldr (fun c t -> ret c+t) 0 [] |}];
+
+  staged "ret sum$([])";
+  [%expect {| ret sum([]) |}]
 
 let%expect_test "shadowing" =
   staged "ens emp; x. ens emp; x. ens x=2";

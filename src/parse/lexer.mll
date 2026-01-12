@@ -113,6 +113,8 @@ rule token = parse
       { IN }
   | "fun"
       { FUN }
+  | "$"
+      { DOLLAR }
   | "sh" | "shift"
       { SHIFT }
   | "rs" | "reset"
