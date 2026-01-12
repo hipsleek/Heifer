@@ -238,3 +238,60 @@ let rec equal_term t1 t2 =
   | Shift b1, Shift b2 -> eq_binder equal_term b1 b2
   | Reset s1, Reset s2 -> equal_term s1 s2
   | _, _ -> false
+
+(* Aliases *)
+let equal_prop = equal_term
+let equal_hprop = equal_term
+let equal_staged_spec = equal_term
+
+let match_term ~var ~symbol ~unit ~true_ ~false_ ~int ~fun_ ~tuple ~binop ~unop
+    ~nil ~apply t =
+  match t with
+  | Var x -> var x
+  | Symbol s -> symbol s
+  | Unit -> unit
+  | True -> true_
+  | False -> false_
+  | Int i -> int i
+  | Fun b -> fun_ b
+  | Tuple l -> tuple l
+  | Binop (o, l, r) -> binop o l r
+  | Unop (o, r) -> unop o r
+  | Nil -> nil
+  | Apply (f, a) -> apply f a
+  | _ -> failwith "match_term: mismatch"
+
+let match_prop ~atom ~conj ~implies ~subsumes ~exists ~forall t =
+  match t with
+  | Conj (a, b) -> conj a b
+  | Implies (a, b) -> implies a b
+  | Subsumes (a, b) -> subsumes a b
+  | Forall b -> forall b
+  | Exists b -> exists b
+  | Var _ | Symbol _ | Unit | True | False | Int _ | Fun _ | Tuple _ | Binop _
+  | Unop _ | Nil | Apply _ ->
+    atom t
+  | _ -> failwith "match_prop: mismatch"
+
+let match_hprop ~emp ~pointsto ~sepconj t =
+  match t with
+  | Emp -> emp
+  | PointsTo (l, r) -> pointsto l r
+  | SepConj (a, b) -> sepconj a b
+  | _ -> failwith "match_hprop: mismatch"
+
+let match_staged_spec ~return_ ~requires ~ensures ~sequence ~bind ~conj ~disj
+    ~forall ~exists ~shift ~reset ~apply t =
+  match t with
+  | Requires p -> requires p
+  | Ensures p -> ensures p
+  | Sequence (a, b) -> sequence a b
+  | Bind (a, b) -> bind a b
+  | Conj (a, b) -> conj a b
+  | Disj (a, b) -> disj a b
+  | Forall b -> forall b
+  | Exists b -> exists b
+  | Shift b -> shift b
+  | Reset a -> reset a
+  | Apply (f, a) -> apply f a
+  | _ -> return_ t
