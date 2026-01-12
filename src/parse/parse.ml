@@ -124,7 +124,7 @@ let%expect_test "basics" =
   [%expect {| foldr (fun c t -> ret c+t) 0 [] |}];
 
   staged "ret sum$([])";
-  [%expect {| ret sum([]) |}]
+  [%expect {| ret sum$([]) |}]
 
 let%expect_test "shadowing" =
   staged "ens emp; x. ens emp; x. ens x=2";

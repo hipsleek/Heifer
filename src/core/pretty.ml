@@ -44,7 +44,7 @@ let rec pp_term_prec prec ctxt ppf = function
   | TFalse -> Fmt.string ppf "false"
   | TInt i -> Fmt.int ppf i
   | TApp (f, xs) ->
-    Fmt.pf ppf "%s(%a)" f Fmt.(list ~sep:(any ",@ ") (pp_term_prec 0 ctxt)) xs
+    Fmt.pf ppf "%s$(%a)" f Fmt.(list ~sep:(any ",@ ") (pp_term_prec 0 ctxt)) xs
   | TFun b ->
     let x, body, ctxt = unmbind_in ctxt b in
     Fmt.pf ppf "@[<hov 2>(fun %a ->@ %a)@]"

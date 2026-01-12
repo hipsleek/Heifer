@@ -128,7 +128,7 @@ let%expect_test _ =
     [%expect
       {|
       emp * v14->0 * v15->2 |- v14->0 * v15->2 * emp
-      2=plus(1, 1)
+      2=plus$(1, 1)
       |}]
   in
   ()
