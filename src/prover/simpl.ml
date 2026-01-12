@@ -26,6 +26,7 @@ let capture_cont (k : cont) : term =
       let x, s = unbind b in
       unbox (Mk.fun_ (bind_mvar [|x|] (box_term (Reset (refine_cont s k)))))
 
+(* BROKEN: need type-checking to work properly *)
 let rec simpl_term (t : term) : term =
   match t with
   (* Computational / Spec terms *)
