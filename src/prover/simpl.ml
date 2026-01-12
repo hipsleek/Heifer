@@ -18,40 +18,41 @@ let capture_cont (k : cont) : term =
   match k with
   | CNil ->
       let x = new_tvar "x" in
-      unbox (Mk.tfun (bind_mvar [|x|] (Mk.return (Mk.tvar x))))
+      unbox (Mk.fun_ (bind_mvar [|x|] ((Mk.var x))))
   | CCons0 (s, k) ->
       let x = new_tvar "_" in
-      unbox (Mk.tfun (bind_mvar [|x|] (box_staged_spec (Reset (refine_cont s k)))))
+      unbox (Mk.fun_ (bind_mvar [|x|] (box_staged_spec (Reset (refine_cont s k)))))
   | CCons1 (b, k) ->
       let x, s = unbind b in
-      unbox (Mk.tfun (bind_mvar [|x|] (box_staged_spec (Reset (refine_cont s k)))))
+      unbox (Mk.fun_ (bind_mvar [|x|] (box_staged_spec (Reset (refine_cont s k)))))
 
 let rec simpl_term (t : term) : term =
   match t with
-  | TVar _ -> t
-  | TSymbol sym -> TSymbol sym
-  | TUnit -> TUnit
-  | TNil -> TNil
-  | TTrue -> TTrue
-  | TFalse -> TFalse
-  | TInt _ -> t
-  | TTuple ts -> TTuple (List.map simpl_term ts)
-  | TApp (f, ts) -> TApp (f, List.map simpl_term ts)
-  | TFun b -> TFun b
+  | Var _ -> t
+  | Symbol sym -> Symbol sym
+  | Unit -> Unit
+  | Nil -> Nil
+  | True -> True
+  | False -> False
+  | Int _ -> t
+  | Tuple ts -> Tuple (List.map simpl_term ts)
+  | Apply (f, ts) -> Apply (f, List.map simpl_term ts)
+  | Fun b -> Fun b
       (* let b = simpl_staged_spec_binder b in *)
       (* TFun b *)
-  | TBinop _ -> t
-  | TUnop _ -> t
-and simpl_prop (p : prop) : prop = p
-and simpl_hprop (p : hprop) : hprop = p
+  | Binop _ -> t
+  | Unop _ -> t
+  (* | _ -> assert false *)
+(* and simpl_prop (p : prop) : prop = p *)
+(* and simpl_hprop (p : hprop) : hprop = p *)
 
 (** This is the entry point for [simpl].
 
     For simplicity, we only simplify [Sequence] and [Bind] at the moment. We do
     not simplify [Shift] and [Reset]. *)
-let rec simpl_staged_spec (s : staged_spec) : staged_spec =
-  match s with
-  | Return t -> Return t
+(* let rec simpl_staged_spec (s : staged_spec) : staged_spec =
+  match s with *)
+  (* | Return t -> Return t *)
   | Requires p -> Requires p
   | Ensures p -> Ensures p
   | Sequence (s1, s2) -> simpl_staged_spec_cont s1 (CCons0 (s2, CNil))
@@ -72,7 +73,6 @@ let rec simpl_staged_spec (s : staged_spec) : staged_spec =
 
 and simpl_staged_spec_cont (s : staged_spec) (k : cont) : staged_spec =
   match s with
-  | Return t -> simpl_invoke_cont k t
   | Requires p -> Sequence (Requires p, simpl_invoke_cont k TUnit)
   | Ensures p -> Sequence (Ensures p, simpl_invoke_cont k TUnit)
   | Sequence (s1, s2) -> simpl_staged_spec_cont s1 (CCons0 (s2, k))

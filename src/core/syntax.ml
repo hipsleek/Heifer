@@ -159,6 +159,10 @@ let box_prop = box_term
 let box_hprop = box_term
 let box_staged_spec = box_term
 
+type staged_spec = term
+type prop = term
+type hprop = term
+
 type sort =
   | Sort_term
   | Sort_prop

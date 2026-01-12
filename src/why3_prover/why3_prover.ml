@@ -239,10 +239,10 @@ let prove goal =
         let binders = [] in
         (* vars_to_params qtf in *)
         match binders with
-        | [] -> Translate.prop_to_whyml goal
+        | [] -> Translate.term_to_whyml goal
         | _ :: _ ->
           term
-            (Tquant (Dterm.DTexists, binders, [], Translate.prop_to_whyml goal))
+            (Tquant (Dterm.DTexists, binders, [], Translate.term_to_whyml goal))
       in
       match monolithic_goal with
       | false ->

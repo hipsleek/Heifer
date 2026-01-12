@@ -224,6 +224,8 @@ term2:
 term1:
   | f=term2 arg=nonempty_list(term2)
     { Apply (f, arg) }
+  | t=term2
+      { t }
   ;
 
 term0:

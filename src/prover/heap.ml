@@ -49,7 +49,7 @@ let rec split_sep_conj (k : hprop) : hprop list =
   | HPointsTo _ -> [k]
   | HSepConj (k1, k2) -> split_sep_conj k1 @ split_sep_conj k2
   | HPure _ ->
-    Format.printf "%a@." pp_hprop k;
+    Format.printf "%a@." pp_term k;
     failwith "hpure"
 
 (* A * H1 |- H2 * D *)
@@ -76,10 +76,10 @@ let biab h1 h2 =
   in
   (f, a)
 
-let fvar x = TSymbol { sym_name = x }
-let points_to l v = HPointsTo (fvar l, v)
-let num n = TInt n
-let plus a b = TApp ("plus", [a; b])
+let fvar x = Symbol { sym_name = x }
+let points_to l v = PointsTo (fvar l, v)
+let num n = Int n
+let plus a b = Apply (Symbol { sym_name = "plus" }, [a; b])
 
 (* see Tests for more e2e tests, which would be nice to port here *)
 let%expect_test _ =
@@ -89,8 +89,8 @@ let%expect_test _ =
     let anti_frame = sep_conj anti_frame in
     let frame = sep_conj frame in
     let equalities = conj equalities in
-    Format.printf "%a * %a |- %a * %a\n%a@." pp_hprop anti_frame pp_hprop common
-      pp_hprop common pp_hprop frame pp_prop equalities
+    Format.printf "%a * %a |- %a * %a\n%a@." pp_term anti_frame pp_term common
+      pp_term common pp_term frame pp_term equalities
   in
   let _ =
     let h1 = points_to "x" (num 1) in
@@ -138,7 +138,7 @@ let pairwise_var_inequality xs ys =
     List.concat_map
       (fun x ->
         List.filter_map
-          (fun y -> if x = y then None else Some (PAtom (TBinop (Neq, x, y))))
+          (fun y -> if x = y then None else Some (Atom (Binop (Neq, x, y))))
           ys)
       xs
   in
