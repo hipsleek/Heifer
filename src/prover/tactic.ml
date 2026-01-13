@@ -390,7 +390,7 @@ let forall_intro =
   let open Tactic in
   let* ctxt = get_rename_ctxt in
   let* right = get_rhs in
-  match Prenex.move_quantifiers_out right with
+  match Prenex.prenex right with
   | Forall b ->
       (* TODO freshness issues? this has to be free on both sides *)
       let xs, f, ctxt = unmbind_in ctxt b in
@@ -402,7 +402,7 @@ let forall_intro =
 let forall_elim t =
   let open Tactic in
   let* left = get_lhs in
-  match Prenex.move_quantifiers_out left with
+  match Prenex.prenex left with
   | Forall b ->
       (* TODO: parse_term with respect to constant context *)
       let t = List.map parse_term t |> Array.of_list in
@@ -412,7 +412,7 @@ let forall_elim t =
 let exists_intro t =
   let open Tactic in
   let* right = get_rhs in
-  match Prenex.move_quantifiers_out right with
+  match Prenex.prenex right with
   | Exists b ->
       (* TODO: parse_term with respect to constant context *)
       let t = List.map parse_term t |> Array.of_list in
@@ -423,7 +423,7 @@ let exists_elim =
   let open Tactic in
   let* ctxt = get_rename_ctxt in
   let* left = get_lhs in
-  match Prenex.move_quantifiers_out left with
+  match Prenex.prenex left with
   | Exists b ->
       let xs, f, ctxt = unmbind_in ctxt b in
       let* _ = put_lhs f in

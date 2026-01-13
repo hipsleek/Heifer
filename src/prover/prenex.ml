@@ -1,7 +1,7 @@
 open Bindlib
 open Core.Syntax
 
-type quantifier =
+(* type quantifier =
   | QForall of term mvar
   | QExists of term mvar
 
@@ -30,9 +30,38 @@ let rec close (pf : term Bindlib.box prenex) : term Bindlib.box =
   | QExists x :: rest ->
       Mk.exists (bind_mvar x (close { quantifiers = rest; body = pf.body }))
 
-let close_unbox pf = unbox (close (map box_term pf))
+let close_unbox pf = unbox (close (map box_term pf)) *)
 
-let rec prenex_term (t : term) : term prenex =
+let rec prenex_box t =
+  match t with
+  | Forall b -> Mk.forall (prenex_box_mbinder b)
+  | Exists b -> Mk.exists (prenex_box_mbinder b)
+  | Sequence (t1, t2) -> prenex_box_cont t1 (fun tb -> Mk.sequence tb (box_term t2))
+  | Bind (t, b) -> prenex_box_cont t (fun tb -> Mk.bind tb (box_binder box_term b))
+  | _ -> box_term t
+
+(** The continuation is necessary here, as we turn the quantifiers inside-out.
+    It encodes how to construct the matrix inside the quantifiers. *)
+and prenex_box_cont t k =
+  match t with
+  | Forall b -> Mk.forall (prenex_box_mbinder_cont b k)
+  | Exists b -> Mk.exists (prenex_box_mbinder_cont b k)
+  | Sequence (t1, t2) -> prenex_box_cont t1 (fun tb -> k (Mk.sequence tb (box_term t2)))
+  | Bind (t, b) -> prenex_box_cont t (fun tb -> k (Mk.bind tb (box_binder box_term b)))
+  | _ -> k (box_term t)
+
+and prenex_box_mbinder b =
+  let xs, t = unmbind b in
+  bind_mvar xs (prenex_box t)
+
+and prenex_box_mbinder_cont b k =
+  let xs, t = unmbind b in
+  bind_mvar xs (prenex_box_cont t k)
+
+let prenex t = unbox (prenex_box t)
+
+
+(* let rec prenex_term (t : term) : term prenex =
   match t with
   (* Atomic / Pure terms *)
   | Var _ | Symbol _ | Unit | True | False | Int _ | Nil | Emp -> pure t
@@ -81,25 +110,4 @@ let rec prenex_term (t : term) : term prenex =
 
 and process_term t = close_unbox (prenex_term t)
 
-let move_quantifiers_out s = process_term s
-
-(* let%expect_test "prenex" =
-  let test s =
-    let f = Parsing.Parse.parse_staged_spec s in
-    let f1 = move_quantifiers_out f in
-    Format.printf "%a@." Core.Pretty.pp_term f1
-  in
-  test "ens emp; r. ex a. ens a=1";
-  [%expect {| ex a. ens emp; r. ens a=1 |}] *)
-(* ;
-
-  test "ens emp; r. (forall a. ens a=1 \\/ ens emp)";
-  [%expect {| forall a. ens emp; r. (ens a=1 \/ ens emp) |}];
-
-  (* quantifiers don't get lifted out of a reset *)
-  test "reset (forall a. ens a=1)";
-  [%expect {| reset (forall a. ens a=1) |}];
-
-  (* prop also contains forall *)
-  test "ens emp; r. ens forall a. a=1";
-  [%expect {| ens emp; r. ens forall a. a=1 |}] *)
+let move_quantifiers_out s = process_term s *)
