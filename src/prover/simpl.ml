@@ -150,8 +150,57 @@ let simpl_assoc t = unbox (simpl_assoc_box t)
 
 
 (** Simplify a term, using beta reduction strategy.
-    Beta reduction: reduce all applications of [Fun]. *)
-let simpl_beta t = ignore t; failwith "todo"
+    Beta reduction: reduce all applications of [Fun].
+
+    Note: be careful when calling this function! It will loop if a term which
+    has no beta-normal form is passed as argument.
+
+    TODO: this is the naive implementation. It can be more efficient. *)
+let rec simpl_beta t =
+  match t with
+  | Var _
+  | Symbol _
+  | Unit
+  | True
+  | False
+  | Int _
+  | Nil
+  | Emp -> t
+  | Fun b -> Fun (simpl_beta_mbinder b)
+  | Tuple ts -> Tuple (simpl_beta_list ts)
+  | Binop (op, t1, t2) -> Binop (op, simpl_beta t1, simpl_beta t2)
+  | Unop (op, t) -> Unop (op, simpl_beta t)
+  | Conj (t1, t2) -> Conj (simpl_beta t1, simpl_beta t2)
+  | Disj (t1, t2) -> Disj (simpl_beta t1, simpl_beta t2)
+  | Implies (t1, t2) -> Implies (simpl_beta t1, simpl_beta t2)
+  | Subsumes (t1, t2) -> Subsumes (simpl_beta t1, simpl_beta t2)
+  | PointsTo (t1, t2) -> PointsTo (simpl_beta t1, simpl_beta t2)
+  | SepConj (t1, t2) -> SepConj (simpl_beta t1, simpl_beta t2)
+  | Requires t -> Requires (simpl_beta t)
+  | Ensures t -> Ensures (simpl_beta t)
+  | Sequence (t1, t2) -> Sequence (simpl_beta t1, simpl_beta t2)
+  | Bind (t, b) -> Bind (simpl_beta t, simpl_beta_binder b)
+  | Apply (t, ts) -> simpl_beta_step (simpl_beta t) (simpl_beta_list ts)
+  | Forall b -> Forall (simpl_beta_mbinder b)
+  | Exists b -> Exists (simpl_beta_mbinder b)
+  | Shift b -> Shift (simpl_beta_binder b)
+  | Reset t -> Reset (simpl_beta t)
+
+and simpl_beta_list ts =
+  List.map simpl_beta ts
+
+and simpl_beta_binder b =
+  let x, t = unbind b in
+  unbox (bind_var x (box_term (simpl_beta t)))
+
+and simpl_beta_mbinder b =
+  let xs, t = unmbind b in
+  unbox (bind_mvar xs (box_term (simpl_beta t)))
+
+and simpl_beta_step t ts =
+  match t with
+  | Fun b -> simpl_beta (msubst b (Array.of_list ts))
+  | _ -> Apply (t, ts)
 
 
 (** This is the main entry point for [shift/reset reduction].
@@ -194,4 +243,4 @@ and reduce_invoke_cont (k : cont) (t : term) : term =
   | CCons1 (b, k) -> reduce_staged_spec_cont (subst b t) k
 
 let simpl_term t =
-  simpl_assoc (simpl_zeta t)
+  simpl_assoc (simpl_beta (simpl_zeta t))
