@@ -92,7 +92,7 @@ module Mk = struct
   let sequence = box_apply2 (fun s1 s2 -> Sequence (s1, s2))
   let bind = box_apply2 (fun s b -> Bind (s, b))
   let apply = box_apply2 (fun f t -> Apply (f, t))
-  let disjunct = box_apply2 (fun s1 s2 -> Disj (s1, s2))
+  let disj = box_apply2 (fun s1 s2 -> Disj (s1, s2))
   let forall = box_apply (fun b -> Forall b)
   let exists = box_apply (fun b -> Exists b)
   let shift = box_apply (fun b -> Shift b)
@@ -139,7 +139,7 @@ let rec box_term = function
   | Binop (op, t1, t2) -> Mk.binop op (box_term t1) (box_term t2)
   | Unop (op, t) -> Mk.unop op (box_term t)
   | Conj (p1, p2) -> Mk.conj (box_term p1) (box_term p2)
-  | Disj (p1, p2) -> Mk.disjunct (box_term p1) (box_term p2)
+  | Disj (p1, p2) -> Mk.disj (box_term p1) (box_term p2)
   | Implies (p1, p2) -> Mk.implies (box_term p1) (box_term p2)
   | Subsumes (f1, f2) -> Mk.subsumes (box_term f1) (box_term f2)
   | Emp -> Mk.emp

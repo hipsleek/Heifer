@@ -26,74 +26,136 @@ let capture_cont (k : cont) : term =
       let x, s = unbind b in
       unbox (Mk.fun_ (bind_mvar [|x|] (box_term (Reset (refine_cont s k)))))
 
-(* BROKEN: need type-checking to work properly *)
-let rec simpl_term (t : term) : term =
+
+(** Simplify a term, using zeta reduction strategy.
+    Zeta reduction: reduce all local bindings ([Sequence] and [Bind]). *)
+let rec simpl_zeta t =
+  fst (simpl_zeta_aux t)
+
+and simpl_zeta_list ts =
+  fst (simpl_zeta_list_aux ts)
+
+and simpl_zeta_binder b =
+  let x, t = unbind b in
+  unbox (bind_var x (box_term (simpl_zeta t)))
+
+and simpl_zeta_mbinder b =
+  let xs, t = unmbind b in
+  unbox (bind_mvar xs (box_term (simpl_zeta t)))
+
+(** Do the actual simplification and return a [bool] indicating whether the
+    resulting term is a pure term or not. If a term is pure, it is safe to be
+    substituted to a binding. *)
+and simpl_zeta_aux t =
   match t with
-  (* Computational / Spec terms *)
-  | Sequence (s1, s2) -> simpl_staged_spec_cont s1 (CCons0 (s2, CNil))
-  | Bind (s, b) -> simpl_staged_spec_cont s (CCons1 (b, CNil))
-  | Apply (f, ts) ->
-      begin
-        match f with
-        | Fun b -> simpl_term (msubst b (Array.of_list ts))
-        | _ -> Apply (simpl_term f, List.map simpl_term ts)
-      end
-  | Disj (s1, s2) -> Disj (simpl_term s1, simpl_term s2)
-  | Requires p -> Requires (simpl_term p)
-  | Ensures p -> Ensures (simpl_term p)
-  | Shift b -> Shift b (* TODO: simplify inside binder? *)
-  | Reset s -> Reset (simpl_term s)
-  | Forall b -> Forall b
-  | Exists b -> Exists b
+  | Var _
+  | Symbol _
+  | Unit
+  | True
+  | False
+  | Int _
+  | Nil -> t, true
+  | Fun b -> Fun (simpl_zeta_mbinder b), true
+  | Tuple ts ->
+      let ts, p = simpl_zeta_list_aux ts in
+      Tuple ts, p
+  | Binop (op, t1, t2) ->
+      let t1, p1 = simpl_zeta_aux t1 in
+      let t2, p2 = simpl_zeta_aux t2 in
+      Binop (op, t1, t2), p1 && p2
+  | Unop (op, t) ->
+      let t, p = simpl_zeta_aux t in
+      Unop (op, t), p
+  | Conj (t1, t2) ->
+      let t1, p1 = simpl_zeta_aux t1 in
+      let t2, p2 = simpl_zeta_aux t2 in
+      Conj (t1, t2), p1 && p2
+  | Disj (t1, t2) ->
+      let t1, p1 = simpl_zeta_aux t1 in
+      let t2, p2 = simpl_zeta_aux t2 in
+      Disj (t1, t2), p1 && p2
+  | Implies (t1, t2) ->
+      let t1, p1 = simpl_zeta_aux t1 in
+      let t2, p2 = simpl_zeta_aux t2 in
+      Implies (t1, t2), p1 && p2
+  | Subsumes (t1, t2) -> Subsumes (simpl_zeta t1, simpl_zeta t2), false
+  | Emp -> t, false
+  | PointsTo (t1, t2) -> PointsTo (simpl_zeta t1, simpl_zeta t2), false
+  | SepConj (t1, t2) -> SepConj (simpl_zeta t1, simpl_zeta t2), false
+  | Requires t -> Requires (simpl_zeta t), false
+  | Ensures t -> Ensures (simpl_zeta t), false
+  | Sequence (t1, t2) ->
+      let t1, p = simpl_zeta_aux t1 in
+      if p then simpl_zeta_aux t2 else Sequence (t1, simpl_zeta t2), false
+  | Bind (t, b) ->
+      let t, p = simpl_zeta_aux t in
+      if p then simpl_zeta_aux (subst b t) else Bind (t, simpl_zeta_binder b), false
+  | Apply (t, ts) -> Apply (simpl_zeta t, simpl_zeta_list ts), false
+  | Forall b -> Forall (simpl_zeta_mbinder b), false
+  | Exists b -> Exists (simpl_zeta_mbinder b), false
+  | Shift b -> Shift (simpl_zeta_binder b), false
+  | Reset t -> Reset (simpl_zeta t), false
 
-  (* Pure / Structural terms *)
-  | Var _ -> t
-  | Symbol _ -> t
-  | Unit -> Unit
-  | Nil -> Nil
-  | True -> True
-  | False -> False
-  | Int _ -> t
-  | Emp -> Emp
-  | Tuple ts -> Tuple (List.map simpl_term ts)
-  | Binop (op, t1, t2) -> Binop (op, simpl_term t1, simpl_term t2)
-  | Unop (op, t) -> Unop (op, simpl_term t)
-  | PointsTo (t1, t2) -> PointsTo (simpl_term t1, simpl_term t2)
-  | SepConj (h1, h2) -> SepConj (simpl_term h1, simpl_term h2)
-  | Conj (p1, p2) -> Conj (simpl_term p1, simpl_term p2)
-  | Implies (p1, p2) -> Implies (simpl_term p1, simpl_term p2)
-  | Subsumes (s1, s2) -> Subsumes (simpl_term s1, simpl_term s2)
-  | Fun b -> Fun b
+and simpl_zeta_list_aux ts =
+  match ts with
+  | [] -> [], true
+  | t :: ts ->
+      let t, p = simpl_zeta_aux t in
+      let ts, ps = simpl_zeta_list_aux ts in
+      t :: ts, p && ps
 
-and simpl_staged_spec_cont (s : term) (k : cont) : term =
-  match s with
-  | Requires p -> Sequence (Requires (simpl_term p), simpl_invoke_cont k Unit)
-  | Ensures p -> Sequence (Ensures (simpl_term p), simpl_invoke_cont k Unit)
-  | Sequence (s1, s2) -> simpl_staged_spec_cont s1 (CCons0 (s2, k))
-  | Bind (s, b) -> simpl_staged_spec_cont s (CCons1 (b, k))
-  | Apply (f, ts) ->
-      begin
-        match f with
-        | Fun b -> simpl_staged_spec_cont (msubst b (Array.of_list ts)) k
-        | _ -> refine_cont (Apply (simpl_term f, List.map simpl_term ts)) k
-      end
-  | Disj (s1, s2) -> Disj (simpl_staged_spec_cont s1 k, simpl_staged_spec_cont s2 k)
-  | Forall _ -> refine_cont s k
-  | Exists _ -> refine_cont s k
-  | Shift _ -> refine_cont s k
-  | Reset s -> refine_cont (Reset (simpl_term s)) k
-  (* Treat everything else as a return value *)
-  | _ -> simpl_invoke_cont k (simpl_term s)
 
-and simpl_invoke_cont (k : cont) (t : term) =
-  match k with
-  | CNil -> t
-  | CCons0 (s, k) -> simpl_staged_spec_cont s k
-  | CCons1 (b, k) -> simpl_staged_spec_cont (subst b t) k
+(** Simplify a term, using associativity of bind and sequence.
 
-(* TODO: do we simplify under binder? *)
+    This auxiliary function returns a [box] for efficiency. The [box] will be
+    unboxed once at the end. *)
+let rec simpl_assoc_box t =
+  match t with
+  | Conj (t1, t2) -> Mk.conj (simpl_assoc_box t1) (simpl_assoc_box t2)
+  | Disj (t1, t2) -> Mk.disj (simpl_assoc_box t1) (simpl_assoc_box t2)
+  | Forall b -> Mk.forall (simpl_assoc_box_mbinder b)
+  | Exists b -> Mk.exists (simpl_assoc_box_mbinder b)
+  | Shift b -> Mk.shift (simpl_assoc_box_binder b)
+  | Reset t -> Mk.reset (simpl_assoc_box t)
+  | Sequence (t1, t2) -> simpl_assoc_box_cont t1 (fun tb -> Mk.sequence tb (simpl_assoc_box t2))
+  | Bind (t, b) -> simpl_assoc_box_cont t (fun tb -> Mk.bind tb (simpl_assoc_box_binder b))
+  | _ -> box_term t
 
-(** This is the main entry point for [shift/reset reduction]. *)
+and simpl_assoc_box_binder b =
+  let x, t = unbind b in
+  bind_var x (simpl_assoc_box t)
+
+and simpl_assoc_box_mbinder b =
+  let xs, t = unmbind b in
+  bind_mvar xs (simpl_assoc_box t)
+
+and simpl_assoc_box_cont t k =
+  match t with
+  | Conj (t1, t2) -> k (Mk.conj (simpl_assoc_box t1) (simpl_assoc_box t2))
+  | Disj (t1, t2) -> k (Mk.disj (simpl_assoc_box t1) (simpl_assoc_box t2))
+  | Forall b -> k (Mk.forall (simpl_assoc_box_mbinder b))
+  | Exists b -> k (Mk.exists (simpl_assoc_box_mbinder b))
+  | Shift b -> k (Mk.shift (simpl_assoc_box_binder b))
+  | Reset t -> k (Mk.reset (simpl_assoc_box t))
+  | Sequence (t1, t2) -> simpl_assoc_box_cont t1 (fun tb -> Mk.sequence tb (simpl_assoc_box_cont t2 k))
+  | Bind (t, b) -> simpl_assoc_box_cont t (fun tb -> Mk.bind tb (simpl_assoc_box_binder_cont b k))
+  | _ -> k (box_term t)
+
+and simpl_assoc_box_binder_cont b k =
+  let x, t = unbind b in
+  bind_var x (simpl_assoc_box_cont t k)
+
+(** Simplify a term, using associativity of bind and sequence. *)
+let simpl_assoc t = unbox (simpl_assoc_box t)
+
+
+(** Simplify a term, using beta reduction strategy.
+    Beta reduction: reduce all applications of [Fun]. *)
+let simpl_beta t = ignore t; failwith "todo"
+
+(** This is the main entry point for [shift/reset reduction].
+
+    TODO: rewrite this. *)
 let rec reduce_staged_spec (s : term) : term =
   match s with
   | Requires p -> Requires p
