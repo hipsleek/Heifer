@@ -154,20 +154,26 @@ let rec box_term = function
   | Shift b -> Mk.shift (box_binder box_term b)
   | Reset s -> Mk.reset (box_term s)
 
-(* Aliases for compatibility *)
 let box_prop = box_term
 let box_hprop = box_term
 let box_staged_spec = box_term
 
-type staged_spec = term
 type prop = term
 type hprop = term
+type staged_spec = term
 
 type sort =
   | Sort_term
   | Sort_prop
   | Sort_hprop
   | Sort_staged_spec
+
+let pp_sort ppf t =
+  match t with
+  | Sort_term -> Format.fprintf ppf "Sort_term"
+  | Sort_prop -> Format.fprintf ppf "Sort_prop"
+  | Sort_hprop -> Format.fprintf ppf "Sort_hprop"
+  | Sort_staged_spec -> Format.fprintf ppf "Sort_staged_spec"
 
 module Sort = struct
   exception Invalid_sort of string
@@ -241,62 +247,9 @@ let rec equal_term t1 t2 =
   | Reset s1, Reset s2 -> equal_term s1 s2
   | _, _ -> false
 
-(* Aliases *)
 let equal_prop = equal_term
 let equal_hprop = equal_term
 let equal_staged_spec = equal_term
-
-let match_term ~var ~symbol ~unit ~true_ ~false_ ~int ~fun_ ~tuple ~binop ~unop
-    ~nil ~apply t =
-  match t with
-  | Var x -> var x
-  | Symbol s -> symbol s
-  | Unit -> unit
-  | True -> true_
-  | False -> false_
-  | Int i -> int i
-  | Fun b -> fun_ b
-  | Tuple l -> tuple l
-  | Binop (o, l, r) -> binop o l r
-  | Unop (o, r) -> unop o r
-  | Nil -> nil
-  | Apply (f, a) -> apply f a
-  | _ -> failwith "match_term: mismatch"
-
-let match_prop ~atom ~conj ~implies ~subsumes ~exists ~forall t =
-  match t with
-  | Conj (a, b) -> conj a b
-  | Implies (a, b) -> implies a b
-  | Subsumes (a, b) -> subsumes a b
-  | Forall b -> forall b
-  | Exists b -> exists b
-  | Var _ | Symbol _ | Unit | True | False | Int _ | Fun _ | Tuple _ | Binop _
-  | Unop _ | Nil | Apply _ ->
-      atom t
-  | _ -> failwith "match_prop: mismatch"
-
-let match_hprop ~emp ~pointsto ~sepconj t =
-  match t with
-  | Emp -> emp
-  | PointsTo (l, r) -> pointsto l r
-  | SepConj (a, b) -> sepconj a b
-  | _ -> failwith "match_hprop: mismatch"
-
-let match_staged_spec ~return_ ~requires ~ensures ~sequence ~bind ~conj ~disj
-    ~forall ~exists ~shift ~reset ~apply t =
-  match t with
-  | Requires p -> requires p
-  | Ensures p -> ensures p
-  | Sequence (a, b) -> sequence a b
-  | Bind (a, b) -> bind a b
-  | Conj (a, b) -> conj a b
-  | Disj (a, b) -> disj a b
-  | Forall b -> forall b
-  | Exists b -> exists b
-  | Shift b -> shift b
-  | Reset a -> reset a
-  | Apply (f, a) -> apply f a
-  | _ -> return_ t
 
 let rec dump_term ppf t =
   match t with
@@ -372,12 +325,11 @@ let rec dump_term ppf t =
       Fmt.pf ppf "@[Shift (%s. %a)@]" (Bindlib.name_of k) dump_term body
   | Reset t -> Fmt.pf ppf "@[Reset (%a)@]" dump_term t
 
-let is_term = function Sort_term -> true | _ -> false
-let is_prop = function Sort_term | Sort_prop -> true | _ -> false
-let is_hprop = function Sort_hprop -> true | _ -> false
-let is_staged_spec _ = true
-
 let check_sort t =
+  let is_term x = x = Sort_term in
+  let is_prop x = x = Sort_prop in
+  let is_hprop x = x = Sort_hprop in
+  let is_staged_spec x = x = Sort_staged_spec in
   let rec check_sort_aux env t =
     let open Result in
     let ( let* ) = bind in
@@ -395,7 +347,12 @@ let check_sort t =
             (Ok ()) ts
         in
         Ok Sort_term
-    | Binop (_, t1, t2) ->
+    | Binop ((Eq | Le | Lt | Ge | Gt | Neq), t1, t2) ->
+        let* s1 = check_sort_aux env t1 in
+        let* s2 = check_sort_aux env t2 in
+        let* () = require (is_term s1 && is_term s2) "expected term in binop" in
+        Ok Sort_prop
+    | Binop ((Plus | Times | Cons), t1, t2) ->
         let* s1 = check_sort_aux env t1 in
         let* s2 = check_sort_aux env t2 in
         let* () = require (is_term s1 && is_term s2) "expected term in binop" in
@@ -423,7 +380,7 @@ let check_sort t =
         in
         let* s = check_sort_aux env' body in
         let* () = require (is_term s) "expected term in function body" in
-        Ok Sort_term
+        Ok Sort_staged_spec
     | Emp -> Ok Sort_hprop
     | PointsTo (t1, t2) ->
         let* s1 = check_sort_aux env t1 in
@@ -492,12 +449,15 @@ let check_sort t =
         let* s1 = check_sort_aux env t1 in
         let* s2 = check_sort_aux env t2 in
         if is_prop s1 && is_prop s2 then Ok Sort_prop
+        else if is_hprop s1 && is_hprop s2 then Ok Sort_hprop
         else if is_staged_spec s1 && is_staged_spec s2 then Ok Sort_staged_spec
         else Error "ill-sorted conjunction"
     | Disj (t1, t2) ->
         let* s1 = check_sort_aux env t1 in
         let* s2 = check_sort_aux env t2 in
-        if is_staged_spec s1 && is_staged_spec s2 then Ok Sort_staged_spec
+        if is_prop s1 && is_prop s2 then Ok Sort_prop
+        else if is_hprop s1 && is_hprop s2 then Ok Sort_hprop
+        else if is_staged_spec s1 && is_staged_spec s2 then Ok Sort_staged_spec
         else Error "ill-sorted disjunction"
     | Forall b | Exists b ->
         let xs, body = Bindlib.unmbind b in
@@ -505,8 +465,8 @@ let check_sort t =
           Array.fold_left (fun e x -> TVMap.add x Sort_term e) env xs
         in
         let* s = check_sort_aux env' body in
-        if is_prop s then Ok Sort_prop
-        else if is_staged_spec s then Ok Sort_staged_spec
-        else Error "ill-sorted quantifier body"
+        (match s with
+        | Sort_prop | Sort_staged_spec | Sort_hprop -> Ok s
+        | _ -> Error "ill-sorted quantifier body")
   in
   check_sort_aux TVMap.empty t
