@@ -166,6 +166,8 @@ unsequenced_term:
 //   | TILDE t = term
 //       { TNot t }
 
+// terms are almost all in a single level, using precedence levels to disambiguate parsing.
+// the only tweak is to solve the reduce/reduce conflict from sequencing and lists, by creating an extra level, like what ocaml itself does.
 term:
   | s=unsequenced_term
     { s }
