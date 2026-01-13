@@ -68,7 +68,7 @@ module Pctx = struct
     | _ ->
         let heap_line = draw_line (line_length - 1) ^ "*" in
         Fmt.pf ppf "%a@,%s@," Fmt.(list ~sep:cut pp_term) heap_context heap_line);
-    Fmt.pf ppf "  %a@,⊑ %a@," pp_term l pp_term r;
+    Fmt.pf ppf "   %a@,<: %a@," pp_term l pp_term r;
     Format.close_box ()
 end
 
