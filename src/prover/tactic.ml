@@ -23,15 +23,13 @@ let pp_hypotheses ~pp_k ~pp_v ppf m =
         (Fmt.hovbox ~indent:2 (pair ~sep:(any ":@ ") pp_k pp_v)))
     al
 
-type sequent = term * term
-
 module Pctx = struct
   type t = {
     rename_ctxt : Bindlib.ctxt;
     constants : term var SMap.t;
     assumptions : term SMap.t;
     heap_context : term list;
-    goal : sequent;
+    goal : term;
   }
 
   let create ~goal () =
@@ -47,8 +45,7 @@ module Pctx = struct
   let draw_line n = String.make n '-'
 
   (* TODO: use rename_ctxt *)
-  let pp ppf
-      { rename_ctxt = _; constants; assumptions; heap_context; goal = l, r } =
+  let pp ppf { rename_ctxt = _; constants; assumptions; heap_context; goal } =
     Format.open_vbox 0;
     Fmt.pf ppf "@[<hov>%a@]@,"
       Fmt.(list ~sep:comma Fmt.string)
@@ -68,7 +65,9 @@ module Pctx = struct
     | _ ->
         let heap_line = draw_line (line_length - 1) ^ "*" in
         Fmt.pf ppf "%a@,%s@," Fmt.(list ~sep:cut pp_term) heap_context heap_line);
-    Fmt.pf ppf "   %a@,<: %a@," pp_term l pp_term r;
+    (match goal with
+    | Subsumes (l, r) -> Fmt.pf ppf "   %a@,<: %a@," pp_term l pp_term r
+    | _ -> Fmt.pf ppf "%a" pp_term goal);
     Format.close_box ()
 end
 
@@ -103,20 +102,16 @@ module Tactic : sig
   val pop : Pctx.t t
   val push : Pctx.t -> unit t
   val get_rename_ctxt : Bindlib.ctxt t
-  val get_goal : sequent t
-  val get_lhs : term t
-  val get_rhs : term t
+  val get_goal : term t
   val get_constants : term var SMap.t t
   val get_assumptions : term SMap.t t
   val get_heap_assumptions : term t
   val put_heap_assumptions : term -> unit t
   val get_constant : string -> term var t
   val get_assumption : string -> term t
-  val modify_goal : (sequent -> sequent) -> unit t
+  val modify_goal : (term -> term) -> unit t
   val put_rename_ctxt : Bindlib.ctxt -> unit t
-  val put_lhs : term -> unit t
-  val put_rhs : term -> unit t
-  val put_goal : term -> term -> unit t
+  val put_goal : term -> unit t
   val add_assumption : string -> term -> unit t
   val add_heap_assumption : term -> unit t
   val add_constant : string -> term var -> unit t
@@ -192,9 +187,7 @@ end = struct
     match ps with [] -> fail "no more goal" | p :: ps -> put (f p :: ps)
 
   let modify_goal f = modify_pctxt (fun p -> { p with goal = f p.goal })
-  let put_goal l r = modify_pctxt (fun p -> { p with goal = (l, r) })
-  let put_lhs l = modify_goal (fun (_, r) -> (l, r))
-  let put_rhs r = modify_goal (fun (l, _) -> (l, r))
+  let put_goal goal = modify_pctxt (fun p -> { p with goal })
 
   let put_rename_ctxt rename_ctxt =
     modify_pctxt (fun p -> { p with rename_ctxt })
@@ -238,14 +231,6 @@ end = struct
   let get_goal =
     let* p = get_pctxt in
     return p.goal
-
-  let get_lhs =
-    let* f1, _ = get_goal in
-    return f1
-
-  let get_rhs =
-    let* _, f2 = get_goal in
-    return f2
 
   let get_constants =
     let* p = get_pctxt in
@@ -329,15 +314,32 @@ let rec uncons_hreq f =
   | Requires h when is_heap h -> return (h, Requires Emp)
   | _ -> fail "cannot uncons req"
 
+let get_subsumption =
+  let open Tactic in
+  let* g = get_goal in
+  match g with
+  | Subsumes (left, right) -> return (left, right)
+  | _ -> fail "not a subsumption"
+
+let put_lhs l =
+  let open Tactic in
+  let* _, right = get_subsumption in
+  put_goal (Subsumes (l, right))
+
+let put_rhs r =
+  let open Tactic in
+  let* left, _ = get_subsumption in
+  put_goal (Subsumes (left, r))
+
 let revert_heap =
   let open Tactic in
-  let* left, right = get_goal in
+  let* left, right = get_subsumption in
   let* hp = pop_heap_assumptions in
-  put_goal (Sequence (Ensures hp, left)) right
+  put_goal (Subsumes (Sequence (Ensures hp, left), right))
 
 let intro_pure name =
   let open Tactic in
-  let* left, right = get_goal in
+  let* left, right = get_subsumption in
   let intro_left =
     let* p, rest = uncons_ens left in
     let* _ = put_lhs rest in
@@ -352,7 +354,7 @@ let intro_pure name =
 
 let intro_heap =
   let open Tactic in
-  let* left, right = get_goal in
+  let* left, right = get_subsumption in
   let intro_left =
     let* h, rest = uncons_hens left in
     match h with
@@ -382,14 +384,14 @@ let specialize h ts =
 
 let refl =
   let open Tactic in
-  let* left, right = get_goal in
+  let* left, right = get_subsumption in
   if equal_term left right then pop
   else fail "cannot close goal using reflexivity"
 
 let forall_intro =
   let open Tactic in
   let* ctxt = get_rename_ctxt in
-  let* right = get_rhs in
+  let* _, right = get_subsumption in
   match Prenex.move_quantifiers_out right with
   | Forall b ->
       (* TODO freshness issues? this has to be free on both sides *)
@@ -401,7 +403,7 @@ let forall_intro =
 
 let forall_elim t =
   let open Tactic in
-  let* left = get_lhs in
+  let* left, _ = get_subsumption in
   match Prenex.move_quantifiers_out left with
   | Forall b ->
       (* TODO: parse_term with respect to constant context *)
@@ -411,7 +413,7 @@ let forall_elim t =
 
 let exists_intro t =
   let open Tactic in
-  let* right = get_rhs in
+  let* _, right = get_subsumption in
   match Prenex.move_quantifiers_out right with
   | Exists b ->
       (* TODO: parse_term with respect to constant context *)
@@ -422,7 +424,7 @@ let exists_intro t =
 let exists_elim =
   let open Tactic in
   let* ctxt = get_rename_ctxt in
-  let* left = get_lhs in
+  let* left, _ = get_subsumption in
   match Prenex.move_quantifiers_out left with
   | Exists b ->
       let xs, f, ctxt = unmbind_in ctxt b in
@@ -433,59 +435,60 @@ let exists_elim =
 
 let disj_elim =
   let open Tactic in
-  let* left, right = get_goal in
+  let* left, right = get_subsumption in
   match left with
   | Disj (a, b) ->
       let* ps = pop in
-      let* _ = push { ps with goal = (a, right) } in
-      push { ps with goal = (b, right) }
+      let* _ = push { ps with goal = Subsumes (a, right) } in
+      push { ps with goal = Subsumes (b, right) }
   | _ -> fail "not a disjunction"
 
 let left =
   let open Tactic in
-  let* left, right = get_goal in
+  let* left, right = get_subsumption in
   match right with
   | Disj (a, _) ->
       let* ps = pop in
-      push { ps with goal = (left, a) }
+      push { ps with goal = Subsumes (left, a) }
   | _ -> fail "not a disjunction"
 
 let right =
   let open Tactic in
-  let* left, right = get_goal in
+  let* left, right = get_subsumption in
   match right with
   | Disj (_, b) ->
       let* ps = pop in
-      push { ps with goal = (left, b) }
+      push { ps with goal = Subsumes (left, b) }
   | _ -> fail "not a disjunction"
 
 let simpl =
   let open Tactic in
-  let* left, right = get_goal in
-  put_goal (Simpl.simpl_term left) (Simpl.simpl_term right)
+  let* left, right = get_subsumption in
+  put_goal (Subsumes (Simpl.simpl_term left, Simpl.simpl_term right))
 
 let req_left =
   let open Tactic in
-  let* left, right = get_goal in
+  let* left, right = get_subsumption in
   match right with
-  | Sequence (Requires h, rest) -> put_goal (Sequence (Ensures h, left)) rest
-  | Requires h -> put_goal (Sequence (Ensures h, left)) (Ensures Emp)
+  | Sequence (Requires h, rest) ->
+      put_goal (Subsumes (Sequence (Ensures h, left), rest))
+  | Requires h -> put_goal (Subsumes (Sequence (Ensures h, left), Ensures Emp))
   | _ -> fail "req_left cannot do anything"
 
 let cancel_heap =
   let open Tactic in
-  let* left, right = get_goal in
+  let* left, right = get_subsumption in
   let ens_ens =
     let* h1, f1 = uncons_hens left in
     let* h2, f2 = uncons_hens right in
     let a, f = Heap.biab h1 h2 in
-    Constr.(put_goal (ens_seq f f1) (ens_seq a f2))
+    Constr.(put_goal (Subsumes (ens_seq f f1, ens_seq a f2)))
   in
   let req_req =
     let* h1, f1 = uncons_hreq right in
     let* h2, f2 = uncons_hreq left in
     let a, f = Heap.biab h1 h2 in
-    Constr.(put_goal (req_seq a f1) (req_seq f f2))
+    Constr.(put_goal (Subsumes (req_seq a f1, req_seq f f2)))
   in
   let ens_req_left =
     (* TODO quantifier? *)
@@ -515,18 +518,22 @@ let cancel_heap =
 
 let discharge =
   let open Tactic in
-  let* left, right = get_goal in
+  let* left, right = get_subsumption in
   let ens_ens =
     let* p1, f1 = uncons_ens left in
     let* p2, f2 = uncons_ens right in
     let res = Why3_prover.prove (Implies (p1, p2)) in
-    match res with `Valid -> put_goal f1 f2 | _ -> fail "could not cancel ens"
+    match res with
+    | `Valid -> put_goal (Subsumes (f1, f2))
+    | _ -> fail "could not cancel ens"
   in
   let req_req =
     let* p1, f1 = uncons_ens right in
     let* p2, f2 = uncons_ens left in
     let res = Why3_prover.prove (Implies (p1, p2)) in
-    match res with `Valid -> put_goal f2 f1 | _ -> fail "could not cancel req"
+    match res with
+    | `Valid -> put_goal (Subsumes (f2, f1))
+    | _ -> fail "could not cancel req"
   in
   let prove_with_ctx p =
     let* pure = get_assumptions in
@@ -538,14 +545,14 @@ let discharge =
     let* p, f1 = uncons_ens right in
     let* res = prove_with_ctx p in
     match res with
-    | `Valid -> put_goal left f1
+    | `Valid -> put_goal (Subsumes (left, f1))
     | _ -> fail "could not prove ens on the right"
   in
   let req_left =
     let* p, f1 = uncons_req left in
     let* res = prove_with_ctx p in
     match res with
-    | `Valid -> put_goal f1 right
+    | `Valid -> put_goal (Subsumes (f1, right))
     | _ -> fail "could not prove req on the left"
   in
   choices ~err:"failed to prove pure obligation"
@@ -579,8 +586,8 @@ module ProofState = struct
       Format.printf "%s declared@." sym.sym_name
     with Failure msg -> Format.printf "error: %s@." msg
 
-  let start_proof l r =
-    set_goals [Pctx.create ~goal:(parse_staged_spec l, parse_staged_spec r) ()];
+  let start_proof g =
+    set_goals [Pctx.create ~goal:(parse_staged_spec g) ()];
     print_proof_state ()
 
   let run_tactic tac =
@@ -632,8 +639,9 @@ module Interactive = struct
     | Some def ->
         let tac =
           let open Tactic in
-          let* lhs, rhs = get_goal in
-          put_goal (Unfold.unfold sym def lhs) (Unfold.unfold sym def rhs)
+          let* lhs, rhs = get_subsumption in
+          put_goal
+            (Subsumes (Unfold.unfold sym def lhs, Unfold.unfold sym def rhs))
         in
         run_tactic tac
 
@@ -645,7 +653,7 @@ module Interactive = struct
       let open Tactic in
       let* assumptions = get_assumptions in
       let* vars = map_m get_constant vars in
-      let* lhs, rhs = get_goal in
+      let* lhs, rhs = get_subsumption in
       let assumptions = List.map snd (SMap.bindings assumptions) in
       let vars = Array.of_list vars in
       (* generate the body of the induction hypothesis *)
@@ -664,7 +672,7 @@ module Interactive = struct
     let tac =
       let open Tactic in
       let* assumption = get_assumption h in
-      let* lhs = get_lhs in
+      let* lhs, _ = get_subsumption in
       let rule = Rewrite.prop_to_rule assumption in
       put_lhs (Rewrite.rewrite rule lhs)
     in

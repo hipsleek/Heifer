@@ -65,11 +65,11 @@ let resolve_identifier x =
 
 // low precedence
 %nonassoc FORALL EXISTS FUN
+%right SUBSUMES EQUALGREATER
 %left DISJUNCTION
 %right SEMI
 %nonassoc REQUIRES ENSURES
 
-%right SUBSUMES EQUALGREATER
 
 %nonassoc EQUAL GREATER LESS
 

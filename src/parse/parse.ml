@@ -149,7 +149,22 @@ let%expect_test "definitions and entailments" =
     {| ens xs=[]; init \/ (ex h t. ens xs=h::t; foldr f init t; r. f h r) |}];
 
   test "foldr (fun c t -> c+t) 0 [] <: sum []";
-  [%expect {| foldr (fun c t -> c+t) 0 [] <: sum [] |}]
+  [%expect {| foldr (fun c t -> c+t) 0 [] <: sum [] |}];
+
+  test ~dump:true "ens (forall a. a=1); ens emp <: ens emp";
+  [%expect
+    {|
+    Subsumes (Sequence (Ensures (Forall (a. Binop (Eq, Var a, Int 1))), Ensures (Emp)),
+      Ensures (Emp))
+    ens (forall a. a=1); ens emp <: ens emp
+    |}];
+
+  test ~dump:true "forall a. ens a=1 <: ens emp";
+  [%expect
+    {|
+    Forall (a. Subsumes (Ensures (Binop (Eq, Var a, Int 1)), Ensures (Emp)))
+    forall a. ens a=1 <: ens emp
+    |}]
 
 let%expect_test "shadowing" =
   test "ens emp; x. ens emp; x. ens x=2";
@@ -187,7 +202,7 @@ let%expect_test "precedence and associativity" =
   test "ens emp; forall x. ens emp";
   [%expect {| ens emp; (forall x. ens emp) |}];
 
-  (* weird terms like these are possible *)
+  (* ill-typed terms like these are possible *)
   test "ens (ens emp)";
   [%expect {| ens ens emp |}];
 

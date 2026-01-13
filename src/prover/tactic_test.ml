@@ -2,7 +2,7 @@ open Tactic.ProofState
 open Tactic.Interactive
 
 let%expect_test "reflexivity" =
-  start_proof "ens emp" "ens emp";
+  start_proof "ens emp <: ens emp";
   refl ();
   [%expect
     {|
@@ -13,7 +13,7 @@ let%expect_test "reflexivity" =
     no more goals
     |}];
 
-  start_proof "ens emp" "ens x=1";
+  start_proof "ens emp <: ens x=1";
   refl ();
   [%expect
     {|
@@ -25,13 +25,13 @@ let%expect_test "reflexivity" =
     |}]
 
 let%expect_test "specialize" =
-  start_proof "ens (forall a. a=1); ens emp" "ens emp";
+  start_proof "ens (forall a. a=1); ens emp <: ens emp";
   intro_pure "H";
   specialize "H" ["1"];
   [%expect
     {|
     ----------------------------------------
-       ens forall a. a=1; ens emp
+       ens (forall a. a=1); ens emp
     <: ens emp
 
 
@@ -47,7 +47,7 @@ let%expect_test "specialize" =
     <: ens emp
     |}];
 
-  start_proof "ens a=1; ens emp" "ens emp";
+  start_proof "ens a=1; ens emp <: ens emp";
   intro_pure "H";
   specialize "H" ["1"];
   [%expect
@@ -65,7 +65,7 @@ let%expect_test "specialize" =
     error: not a prop that can be specialised
     |}];
 
-  start_proof "ens emp" "ens emp";
+  start_proof "ens emp <: ens emp";
   specialize "H" ["1"];
   [%expect
     {|
@@ -77,7 +77,7 @@ let%expect_test "specialize" =
     |}]
 
 let%expect_test "intro heap" =
-  start_proof "ens x->1; ens emp" "ens emp";
+  start_proof "ens x->1; ens emp <: ens emp";
   intro_heap ();
   [%expect
     {|
@@ -93,7 +93,7 @@ let%expect_test "intro heap" =
     <: ens emp
     |}];
 
-  start_proof "ens x->1" "ens emp";
+  start_proof "ens x->1 <: ens emp";
   intro_heap ();
   [%expect
     {|
@@ -109,7 +109,7 @@ let%expect_test "intro heap" =
     <: ens emp
     |}];
 
-  start_proof "1" "ens emp";
+  start_proof "1 <: ens emp";
   intro_heap ();
   [%expect
     {|
@@ -121,7 +121,7 @@ let%expect_test "intro heap" =
     |}]
 
 let%expect_test "forall intro" =
-  start_proof "ens emp" "forall a. ens a=1";
+  start_proof "ens emp <: forall a. ens a=1";
   forall_intro ();
   [%expect
     {|
@@ -135,7 +135,7 @@ let%expect_test "forall intro" =
     <: ens a=1
     |}];
 
-  start_proof "ens emp" "ens emp";
+  start_proof "ens emp <: ens emp";
   forall_intro ();
   [%expect
     {|
@@ -147,7 +147,7 @@ let%expect_test "forall intro" =
     |}]
 
 let%expect_test "forall elim" =
-  start_proof "forall a. ens a=1" "ens emp";
+  start_proof "(forall a. ens a=1) <: ens emp";
   forall_elim ["1"];
   [%expect
     {|
@@ -161,7 +161,7 @@ let%expect_test "forall elim" =
     <: ens emp
     |}];
 
-  start_proof "ens emp" "ens emp";
+  start_proof "ens emp <: ens emp";
   forall_elim ["1"];
   [%expect
     {|
@@ -173,7 +173,7 @@ let%expect_test "forall elim" =
     |}]
 
 let%expect_test "exists elim" =
-  start_proof "exists a. ens a=1" "ens emp";
+  start_proof "(exists a. ens a=1) <: ens emp";
   exists_elim ();
   [%expect
     {|
@@ -187,7 +187,7 @@ let%expect_test "exists elim" =
     <: ens emp
     |}];
 
-  start_proof "ens emp" "ens emp";
+  start_proof "ens emp <: ens emp";
   exists_elim ();
   [%expect
     {|
@@ -199,7 +199,7 @@ let%expect_test "exists elim" =
     |}]
 
 let%expect_test "exists intro" =
-  start_proof "ens emp" "exists a. ens a=1";
+  start_proof "ens emp <: exists a. ens a=1";
   exists_intro ["1"];
   [%expect
     {|
@@ -213,7 +213,7 @@ let%expect_test "exists intro" =
     <: ens 1=1
     |}];
 
-  start_proof "ens emp" "ens emp";
+  start_proof "ens emp <: ens emp";
   exists_intro ["1"];
   [%expect
     {|
@@ -225,7 +225,7 @@ let%expect_test "exists intro" =
     |}]
 
 let%expect_test "disj_elim" =
-  start_proof "ens emp \\/ ens emp" "ens emp";
+  start_proof "ens emp \\/ ens emp <: ens emp";
   disj_elim ();
   [%expect
     {|
@@ -240,7 +240,7 @@ let%expect_test "disj_elim" =
     (1 more goals)
     |}];
 
-  start_proof "ens emp" "ens emp";
+  start_proof "ens emp <: ens emp";
   disj_elim ();
   [%expect
     {|
@@ -252,7 +252,7 @@ let%expect_test "disj_elim" =
     |}]
 
 let%expect_test "left/right" =
-  start_proof "ens emp" "(ens 1=1 \\/ ens 2=2) \\/ ens 3=3";
+  start_proof "ens emp <: (ens 1=1 \\/ ens 2=2) \\/ ens 3=3";
   left ();
   right ();
   [%expect
@@ -272,7 +272,7 @@ let%expect_test "left/right" =
     <: ens 2=2
     |}];
 
-  start_proof "ens emp" "ens emp";
+  start_proof "ens emp <: ens emp";
   left ();
   [%expect
     {|
@@ -283,7 +283,7 @@ let%expect_test "left/right" =
     error: not a disjunction
     |}];
 
-  start_proof "ens emp" "ens emp";
+  start_proof "ens emp <: ens emp";
   right ();
   [%expect
     {|
@@ -295,7 +295,7 @@ let%expect_test "left/right" =
     |}]
 
 let%expect_test "simpl" =
-  start_proof "ens emp; r. ens emp" "ens emp";
+  start_proof "ens emp; r. ens emp <: ens emp";
   simpl ();
   [%expect
     {|
@@ -309,7 +309,7 @@ let%expect_test "simpl" =
     <: ens emp
     |}];
 
-  start_proof "1; r. ens r=1" "ens emp";
+  start_proof "1; r. ens r=1 <: ens emp";
   simpl ();
   [%expect
     {|
@@ -324,7 +324,7 @@ let%expect_test "simpl" =
     |}]
 
 let%expect_test "induction" =
-  start_proof "ex n. ens n > 0; ens emp" "forall n. req n > 0; ens n = 1";
+  start_proof "(ex n. ens n > 0; ens emp) <: forall n. req n > 0; ens n = 1";
   exists_elim ();
   intro_pure "Hn";
   forall_intro ();
@@ -360,7 +360,7 @@ let%expect_test "induction" =
     <: req n1>0; ens n1=1
     |}];
 
-  start_proof "ens emp" "ens emp";
+  start_proof "ens emp <: ens emp";
   induction "IH" ["n"];
   [%expect
     {|
@@ -374,7 +374,7 @@ let%expect_test "induction" =
 let%expect_test "unfold" =
   reset_proof_state ();
   declare "succ x = x + 1";
-  start_proof "ens emp" "succ 1; r. ens 2 = r";
+  start_proof "ens emp <: succ 1; r. ens 2 = r";
   unfold "succ";
   [%expect
     {|
@@ -390,7 +390,7 @@ let%expect_test "unfold" =
     <: 1+1; r. ens 2=r
     |}];
 
-  start_proof "ens emp" "ens emp";
+  start_proof "ens emp <: ens emp";
   unfold "foo";
   [%expect
     {|
@@ -402,7 +402,7 @@ let%expect_test "unfold" =
     |}]
 
 let%expect_test "intro_pure" =
-  start_proof "ens x=1" "ens emp";
+  start_proof "ens x=1 <: ens emp";
   intro_pure "H";
   [%expect
     {|
@@ -417,7 +417,7 @@ let%expect_test "intro_pure" =
     <: ens emp
     |}];
 
-  start_proof "ens x->1" "ens emp";
+  start_proof "ens x->1 <: ens emp";
   intro_pure "H";
   [%expect
     {|
@@ -428,7 +428,7 @@ let%expect_test "intro_pure" =
     error: failed to intro pure / cannot uncons pure req / cannot uncons pure ens
     |}];
 
-  start_proof "ens a=1" "ens emp";
+  start_proof "ens a=1 <: ens emp";
   intro_pure "H";
   [%expect
     {|
@@ -443,7 +443,7 @@ let%expect_test "intro_pure" =
     <: ens emp
     |}];
 
-  start_proof "ens a=1; ens b=2; ens emp" "ens emp";
+  start_proof "ens a=1; ens b=2; ens emp <: ens emp";
   intro_pure "H";
   intro_pure "H";
   [%expect
@@ -462,7 +462,7 @@ let%expect_test "intro_pure" =
     |}]
 
 let%expect_test "rewrite" =
-  start_proof "ens a=1; ens a=2" "ens emp";
+  start_proof "ens a=1; ens a=2 <: ens emp";
   (* TODO should this work? *)
   (* intro_pure "H"; *)
   (* rewrite "H"; *)
@@ -473,7 +473,7 @@ let%expect_test "rewrite" =
     <: ens emp
     |}];
 
-  start_proof "ens emp" "ens emp";
+  start_proof "ens emp <: ens emp";
   rewrite "H";
   [%expect
     {|
@@ -485,7 +485,7 @@ let%expect_test "rewrite" =
     |}]
 
 let%expect_test "heap tactics" =
-  start_proof "ens emp" "forall x. req x->1; ens x->1";
+  start_proof "ens emp <: forall x. req x->1; ens x->1";
   forall_intro ();
   req_left ();
   cancel_heap ();
@@ -514,7 +514,7 @@ let%expect_test "heap tactics" =
     no more goals
     |}];
 
-  start_proof "ens emp" "forall x. req x->1; ens x->1";
+  start_proof "ens emp <: forall x. req x->1; ens x->1";
   forall_intro ();
   intro_heap ();
   cancel_heap ();

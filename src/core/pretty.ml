@@ -13,7 +13,7 @@ P ::= true, false, unit, int, tuple, emp
     | P; P | P; r. P
     | P \/ P
     | P <: P | P ==> P
-    | sh k. P | fun x -> P | forall x. P | exists x. P
+    | sh k. P | λ x. P | forall x. P | exists x. P
     | < P > | ( P )
     ------------------------ low
     v} *)
@@ -139,13 +139,8 @@ let rec pp_term_prec prec ctxt ppf = function
           h2
       in
       parens_if (OpInfo.prec_sepconj <= prec) pp ppf ()
-  | Requires h ->
-      let pp ppf () = Fmt.pf ppf "req %a" (pp_term_prec 0 ctxt) h in
-      parens_if (OpInfo.prec_req_ens <= prec) pp ppf ()
-  | Ensures h ->
-      (* Format.printf "(ens)@."; *)
-      let pp ppf () = Fmt.pf ppf "ens %a" (pp_term_prec 0 ctxt) h in
-      parens_if (OpInfo.prec_req_ens <= prec) pp ppf ()
+  | Requires h -> Fmt.pf ppf "req %a" (pp_term_prec OpInfo.prec_req_ens ctxt) h
+  | Ensures h -> Fmt.pf ppf "ens %a" (pp_term_prec OpInfo.prec_req_ens ctxt) h
   | Sequence (s1, s2) ->
       let pp ppf () =
         Fmt.pf ppf "@[<hov 0>%a;@ %a@]"
@@ -170,6 +165,7 @@ let rec pp_term_prec prec ctxt ppf = function
       in
       parens_if (OpInfo.prec_seq <= prec) pp ppf ()
   | Apply (f, t) ->
+      (* TODO is 0 correct? *)
       Fmt.pf ppf "@[<hov 2>%a@ %a@]" (pp_term_prec 0 ctxt) f
         Fmt.(list ~sep:(any "@ ") (pp_term_prec 0 ctxt))
         t
