@@ -526,7 +526,7 @@ let cancel_heap =
   choices ~err:"failed to cancel heap"
     [ens_ens; req_req; ens_req_left; ctx_req_left; ctx_ens_right]
 
-let discharge =
+let prove_pure =
   let open Tactic in
   let* left, right = get_subsumption in
   let ens_ens =
@@ -547,7 +547,10 @@ let discharge =
   in
   let prove_with_ctx p =
     let* pure = get_assumptions in
-    let pure = SMap.fold (fun _ c t -> Conj (c, t)) pure True in
+    let pure =
+      SMap.bindings pure |> List.map snd
+      |> Core.Syntax.foldr1 ~default:True (fun c t -> Conj (c, t))
+    in
     let res = Why3_prover.prove (Implies (pure, p)) in
     return res
   in
@@ -565,8 +568,25 @@ let discharge =
     | `Valid -> put_goal (Subsumes (f1, right))
     | _ -> fail "could not prove req on the left"
   in
+  let both_values =
+    let could_be_value t =
+      match t with
+      | Var _ | True | False | Unit | Int _ | Apply _ -> true
+      | _ -> false
+    in
+    let* left, right = get_subsumption in
+    match could_be_value left && could_be_value right with
+    | false -> fail "not values"
+    | true ->
+        let* res = prove_with_ctx (Binop (Eq, left, right)) in
+        (match res with
+        | `Valid ->
+            let* _ = pop in
+            return ()
+        | _ -> fail "could not prove req on the left")
+  in
   choices ~err:"failed to prove pure obligation"
-    [ens_ens; req_req; ens_right; req_left]
+    [both_values; ens_ens; req_req; ens_right; req_left]
 
 module ProofState = struct
   type t = {
@@ -631,7 +651,7 @@ module Interactive = struct
   let simpl = make_interactive (fun () -> simpl)
   let req_left = make_interactive (fun () -> req_left)
   let cancel_heap = make_interactive (fun () -> cancel_heap)
-  let discharge = make_interactive (fun () -> discharge)
+  let prove_pure = make_interactive (fun () -> prove_pure)
 
   (* let induction ~ih = make_interactive (induction ~ih) *)
   let prove s = Why3_prover.prove (parse_prop s)

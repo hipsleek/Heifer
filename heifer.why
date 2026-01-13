@@ -123,7 +123,7 @@ module Heifer
     | PGe a b -> ge (interp_term env a) (interp_term env b) = TBool true
     | PLt a b -> lt (interp_term env a) (interp_term env b) = TBool true
     | PLe a b -> le (interp_term env a) (interp_term env b) = TBool true
-    | PNeq a b -> interp_term env a != interp_term env b
+    | PNeq a b -> interp_term env a <> interp_term env b
     (* | PAtom a -> interp_term env a *)
    (* = TBool true *)
     | PForall x b -> forall a:term. interp (Map.add x a env) b

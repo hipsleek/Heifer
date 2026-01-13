@@ -10,13 +10,13 @@ open Prover.Tactic.Interactive;;
 (* start_proof "ens emp" "forall x. req x=1; ens x>0";;
 forall_intro ();;
 req_left ();;
-discharge ();;
+prove_pure ();;
 refl ();; *)
 
 (* start_proof "ens emp" "forall x. req x=1; ens x>0";;
 forall_intro ();;
 intro_pure "H";;
-discharge ();;
+prove_pure ();;
 refl ();; *)
 
 (* start_proof "ens emp" "forall x. req x->1; ens x->1";;
@@ -38,3 +38,5 @@ start_proof "forall xs. foldr (fun c t -> c + t) 0 xs <: sum xs";;
 forall_intro ();;
 unfold "foldr";;
 disj_elim ();;
+intro_pure "H";
+prove_pure ();;
