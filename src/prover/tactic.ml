@@ -390,16 +390,26 @@ let refl =
 
 let forall_intro =
   let open Tactic in
-  let* ctxt = get_rename_ctxt in
-  let* _, right = get_subsumption in
-  match Prenex.prenex right with
-  | Forall b ->
-      (* TODO freshness issues? this has to be free on both sides *)
-      let xs, f, ctxt = unmbind_in ctxt b in
-      let* _ = put_rhs f in
-      let* _ = put_rename_ctxt ctxt in
-      iter_array_m (fun x -> add_constant (name_of x) x) xs
-  | _ -> fail "cannot intro forall"
+  let intro g k =
+    match Prenex.prenex g with
+    | Forall b ->
+        let* ctxt = get_rename_ctxt in
+        (* TODO freshness issues? this has to be free on both sides *)
+        let xs, f, ctxt = unmbind_in ctxt b in
+        let* _ = k f in
+        let* _ = put_rename_ctxt ctxt in
+        iter_array_m (fun x -> add_constant (name_of x) x) xs
+    | _ -> fail "not a forall"
+  in
+  let staged =
+    let* _, right = get_subsumption in
+    intro right put_rhs
+  in
+  let pure =
+    let* g = get_goal in
+    intro g put_goal
+  in
+  choices [staged; pure]
 
 let forall_elim t =
   let open Tactic in

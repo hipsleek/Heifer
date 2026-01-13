@@ -143,7 +143,7 @@ let%expect_test "forall intro" =
        ens emp
     <: ens emp
 
-    error: cannot intro forall
+    error: empty choice / not a forall / not a forall
     |}]
 
 let%expect_test "forall elim" =

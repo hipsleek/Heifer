@@ -30,4 +30,4 @@ forall_intro ();;
 intro_heap ();;
 cancel_heap ();; *)
 
-start_proof "foldr (fun c t -> c + t) 0 []" "ret sum([])";;
+start_proof "forall xs. foldr (fun c t -> c + t) 0 xs <: sum xs";;
