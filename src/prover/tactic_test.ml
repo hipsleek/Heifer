@@ -25,7 +25,7 @@ let%expect_test "reflexivity" =
     |}]
 
 let%expect_test "specialize" =
-  start_proof "ens forall a. a=1; ens emp" "ens emp";
+  start_proof "ens (forall a. a=1); ens emp" "ens emp";
   intro_pure "H";
   specialize "H" ["1"];
   [%expect
@@ -33,6 +33,7 @@ let%expect_test "specialize" =
     ----------------------------------------
       ens forall a. a=1; ens emp
     ⊑ ens emp
+
 
     H: forall a. a=1
     ----------------------------------------
@@ -304,21 +305,21 @@ let%expect_test "simpl" =
 
 
     ----------------------------------------
-      ens emp; ens emp; ret ()
+      ens emp; r. ens emp
     ⊑ ens emp
     |}];
 
-  start_proof "ret 1; r. ens r=1" "ens emp";
+  start_proof "1; r. ens r=1" "ens emp";
   simpl ();
   [%expect
     {|
     ----------------------------------------
-      ret 1; r. ens r=1
+      1; r. ens r=1
     ⊑ ens emp
 
 
     ----------------------------------------
-      ens 1=1; ret ()
+      ens 1=1
     ⊑ ens emp
     |}]
 
@@ -353,7 +354,7 @@ let%expect_test "induction" =
 
     n, n1
     Hn: n>0
-    IH: forall n2. n2>0 => ens emp ⊑ req n1>0; ens n1=1
+    IH: forall n2. n2>0 => ens emp <: req n1>0; ens n1=1
     ----------------------------------------
       ens emp
     ⊑ req n1>0; ens n1=1
@@ -372,7 +373,7 @@ let%expect_test "induction" =
 
 let%expect_test "unfold" =
   reset_proof_state ();
-  declare "succ x = ret x + 1";
+  declare "succ x = x + 1";
   start_proof "ens emp" "succ 1; r. ens 2 = r";
   unfold "succ";
   [%expect
@@ -386,7 +387,7 @@ let%expect_test "unfold" =
 
     ----------------------------------------
       ens emp
-    ⊑ ret 1+1; r. ens 2=r
+    ⊑ 1+1; r. ens 2=r
     |}];
 
   start_proof "ens emp" "ens emp";
