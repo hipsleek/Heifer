@@ -449,8 +449,8 @@ let disj_elim =
   match left with
   | Disj (a, b) ->
       let* ps = pop in
-      let* _ = push { ps with goal = Subsumes (a, right) } in
-      push { ps with goal = Subsumes (b, right) }
+      let* _ = push { ps with goal = Subsumes (b, right) } in
+      push { ps with goal = Subsumes (a, right) }
   | _ -> fail "not a disjunction"
 
 let left =
