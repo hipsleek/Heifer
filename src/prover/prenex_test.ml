@@ -19,7 +19,7 @@ let%expect_test "prenex" =
   [%expect {| reset (forall a. ens a=1) |}];
 
   test "ens emp; r. ens (forall a. a=1)";
-  [%expect {| ens emp; r. ens forall a. a=1 |}];
+  [%expect {| ens emp; r. ens (forall a. a=1) |}];
 
   test "(forall x. ens x=1); ens 1=1";
   [%expect {| forall x. ens x=1; ens 1=1 |}];

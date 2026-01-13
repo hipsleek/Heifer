@@ -107,7 +107,10 @@ let%expect_test "basics" =
   [%expect {| forall x y. ens x=y |}];
 
   test "ex x y. ens x=y; r. ens x=y";
-  [%expect {| ex x y. ens x=y; r. ens x=y |}]
+  [%expect {| ex x y. ens x=y; r. ens x=y |}];
+
+  test "forall x. forall y. ens x=y";
+  [%expect {| forall x. (forall y. ens x=y) |}]
 
 let%expect_test "tuples" =
   (* empty tuples are not allowed *)
