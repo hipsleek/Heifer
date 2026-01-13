@@ -65,11 +65,11 @@ let resolve_identifier x =
 
 // low precedence
 %nonassoc FORALL EXISTS FUN
+%right SUBSUMES EQUALGREATER
 %left DISJUNCTION
 %right SEMI
 %nonassoc REQUIRES ENSURES
 
-%right SUBSUMES EQUALGREATER
 
 %nonassoc EQUAL GREATER LESS
 
@@ -166,6 +166,8 @@ unsequenced_term:
 //   | TILDE t = term
 //       { TNot t }
 
+// terms are almost all in a single level, using precedence levels to disambiguate parsing.
+// the only tweak is to solve the reduce/reduce conflict from sequencing and lists, by creating an extra level, like what ocaml itself does.
 term:
   | s=unsequenced_term
     { s }
