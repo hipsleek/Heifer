@@ -153,6 +153,7 @@ let simpl_assoc t = unbox (simpl_assoc_box t)
     Beta reduction: reduce all applications of [Fun]. *)
 let simpl_beta t = ignore t; failwith "todo"
 
+
 (** This is the main entry point for [shift/reset reduction].
 
     TODO: rewrite this. *)
@@ -191,3 +192,6 @@ and reduce_invoke_cont (k : cont) (t : term) : term =
   | CNil -> t
   | CCons0 (s, k) -> reduce_staged_spec_cont s k
   | CCons1 (b, k) -> reduce_staged_spec_cont (subst b t) k
+
+let simpl_term t =
+  simpl_assoc (simpl_zeta t)

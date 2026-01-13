@@ -93,4 +93,4 @@ and unify_mbinder_aux b1 b2 uvars sigma =
 (** The main entry point of the unification algorithm.
 
     Precondition: only [t1] contains unification variables. *)
-let unify s1 s2 uvars = unify_aux s1 s2 uvars TVMap.empty
+let unify t1 t2 uvars = unify_aux t1 t2 uvars TVMap.empty
