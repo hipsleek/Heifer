@@ -526,7 +526,7 @@ let cancel_heap =
   choices ~err:"failed to cancel heap"
     [ens_ens; req_req; ens_req_left; ctx_req_left; ctx_ens_right]
 
-let prove_pure =
+let prove =
   let open Tactic in
   let prove_with_ctx p =
     let* pure = get_assumptions in
@@ -661,10 +661,10 @@ module Interactive = struct
   let simpl = make_interactive (fun () -> simpl)
   let req_left = make_interactive (fun () -> req_left)
   let cancel_heap = make_interactive (fun () -> cancel_heap)
-  let prove_pure = make_interactive (fun () -> prove_pure)
+  let prove = make_interactive (fun () -> prove)
 
   (* let induction ~ih = make_interactive (induction ~ih) *)
-  let prove s = Why3_prover.prove (parse_prop s)
+  let prove_s s = Why3_prover.prove (parse_prop s)
 
   (** Unfold a definition (symbol) on both side of a sequent in the current
       proof state.
