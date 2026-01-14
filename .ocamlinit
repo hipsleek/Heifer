@@ -2,6 +2,7 @@
 #use_output "dune ocaml top";;
 
 (* open Prover.Tactic;; *)
+open Core.Syntax;;
 open Prover.Tactic.ProofState;;
 open Prover.Tactic.Interactive;;
 
@@ -37,7 +38,7 @@ declare {|foldr f init xs =
 start_proof "forall xs. foldr (fun c t -> c + t) 0 xs <: sum xs";;
 
 forall_intro ();;
-induction "IH" ["xs"];;
+induction ~name:"IH" `List "xs";;
 unfold "foldr";;
 disj_elim ();;
 
@@ -50,7 +51,7 @@ exists_elim ();;
 intro_pure "Hxs";;
 specialize "IH" ["t"];;
 
-rewrite "IH";;
+(* rewrite "IH";; *)
 simpl ();;
 
 !current_state;;
