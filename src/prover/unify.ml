@@ -87,6 +87,7 @@ and unify_binder_aux b1 b2 uvars sigma =
   unify_aux s1 s2 uvars sigma
 
 and unify_mbinder_aux b1 b2 uvars sigma =
+  if mbinder_arity b1 <> mbinder_arity b2 then raise Unification_failure;
   let _, s1, s2 = unmbind2 b1 b2 in
   unify_aux s1 s2 uvars sigma
 
