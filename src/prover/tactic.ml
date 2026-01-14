@@ -528,11 +528,25 @@ let cancel_heap =
 
 let prove_pure =
   let open Tactic in
+  let prove_with_ctx p =
+    let* pure = get_assumptions in
+    let pure =
+      SMap.bindings pure |> List.map snd
+      |> Core.Syntax.foldr1 ~default:True (fun c t -> Conj (c, t))
+    in
+    let* free = get_constants in
+    let entail =
+      let free = free |> SMap.bindings |> List.map snd |> Array.of_list in
+      unbox (Mk.forall (bind_mvar free (box_term (Implies (pure, p)))))
+    in
+    let res = Why3_prover.prove entail in
+    return res
+  in
   let* left, right = get_subsumption in
   let ens_ens =
     let* p1, f1 = uncons_ens left in
     let* p2, f2 = uncons_ens right in
-    let res = Why3_prover.prove (Implies (p1, p2)) in
+    let* res = prove_with_ctx (Implies (p1, p2)) in
     match res with
     | `Valid -> put_goal (Subsumes (f1, f2))
     | _ -> fail "could not cancel ens"
@@ -540,19 +554,10 @@ let prove_pure =
   let req_req =
     let* p1, f1 = uncons_ens right in
     let* p2, f2 = uncons_ens left in
-    let res = Why3_prover.prove (Implies (p1, p2)) in
+    let* res = prove_with_ctx (Implies (p1, p2)) in
     match res with
     | `Valid -> put_goal (Subsumes (f2, f1))
     | _ -> fail "could not cancel req"
-  in
-  let prove_with_ctx p =
-    let* pure = get_assumptions in
-    let pure =
-      SMap.bindings pure |> List.map snd
-      |> Core.Syntax.foldr1 ~default:True (fun c t -> Conj (c, t))
-    in
-    let res = Why3_prover.prove (Implies (pure, p)) in
-    return res
   in
   let ens_right =
     let* p, f1 = uncons_ens right in
