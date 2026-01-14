@@ -532,6 +532,7 @@ let prove_pure =
     let* pure = get_assumptions in
     let pure =
       SMap.bindings pure |> List.map snd
+      |> List.filter Why3_prover.is_translatable
       |> Core.Syntax.foldr1 ~default:True (fun c t -> Conj (c, t))
     in
     let* free = get_constants in

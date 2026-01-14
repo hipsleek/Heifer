@@ -362,3 +362,5 @@ let prove goal =
   |> Wstdlib.Mstr.bindings
   |> List.map (fun (_, result) -> result)
   |> combine_task_results "Module"
+
+let is_translatable = Translate.is_translatable

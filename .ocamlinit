@@ -35,8 +35,22 @@ declare {|foldr f init xs =
   \/ ex h t. ens xs=h::t; foldr f init t; r. f h r|};;
 
 start_proof "forall xs. foldr (fun c t -> c + t) 0 xs <: sum xs";;
+
 forall_intro ();;
+induction "IH" ["xs"];;
 unfold "foldr";;
 disj_elim ();;
+
+(* base case *)
 intro_pure "H";
 prove_pure ();;
+
+(* inductive case *)
+exists_elim ();;
+intro_pure "Hxs";;
+
+specialize "IH" ["t"];;
+
+(* rewrite "IH";; *)
+
+simpl ();;

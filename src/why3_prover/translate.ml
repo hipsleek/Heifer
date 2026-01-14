@@ -6,6 +6,36 @@ open Ptree_helpers
 (* let tstr s = term (Tconst (Constant.ConstStr s)) *)
 (* let empty_map = tvar (qualid ["Map"; "empty"]) *)
 
+let rec is_translatable t =
+  match t with
+  | Symbol _ | Var _ | True | False ->
+      (* atomic propositions *)
+      true
+  | Unit | Nil | Emp | Int _ | Tuple _ ->
+      (* terms are fine too *)
+      true
+  | Binop (Lt, _, _)
+  | Binop (Le, _, _)
+  | Binop (Gt, _, _)
+  | Binop (Ge, _, _)
+  | Binop (Eq, _, _)
+  | Binop (Neq, _, _)
+  | Binop (Plus, _, _)
+  | Binop (Times, _, _)
+  | Binop (Cons, _, _)
+  | Unop (Not, _)
+  | Unop (Neg, _) ->
+      (* terms *)
+      true
+  | Forall b | Exists b ->
+      let _, b = Bindlib.unmbind b in
+      is_translatable b
+  | Apply (a, b) -> is_translatable a && List.for_all is_translatable b
+  | Conj (a, b) | Disj (a, b) | Implies (a, b) ->
+      is_translatable a && is_translatable b
+  | Fun _ | Requires _ | Ensures _ | Subsumes _ -> false
+  | PointsTo _ | SepConj _ | Shift _ | Reset _ | Sequence _ | Bind _ -> false
+
 let vars_to_params vars =
   List.map
     (fun v ->
