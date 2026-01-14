@@ -229,8 +229,10 @@ binder:
 
 parse_term:
   | t = term EOF
-      { t }
+      { Postprocess.postprocess t }
 
 parse_decl:
   | sym = symbol def = def EOF
-    { Dfun (sym, def) }
+    { let xs, b = unmbind def in
+      let body = unbox (bind_mvar xs (box_term (Postprocess.postprocess b))) in
+      Dfun (sym, body) }
