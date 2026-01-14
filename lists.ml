@@ -1,0 +1,70 @@
+let rec unsnoc_aux y = function
+  | [] -> [], y
+  | x :: xs ->
+      let xs', x' = unsnoc_aux x xs in
+      y :: xs', x'
+
+let unsnoc = function
+  | [] -> failwith "unsnoc"
+  | x :: xs -> unsnoc_aux x xs
+
+let rec foldr1_aux f y = function
+  | [] -> y
+  | x :: xs -> f y (foldr1_aux f x xs)
+
+let foldr1 ?default f = function
+  | [] ->
+    (match default with
+    | None -> failwith "foldr1: empty"
+    | Some a -> a)
+  | x :: xs -> foldr1_aux f x xs
+
+let foldl1 f = function
+  | [] -> failwith "foldl1"
+  | x :: xs -> List.fold_left f x xs
+
+let rec replace_nth n y = function
+  | [] -> []
+  | x :: xs -> if n = 0 then y :: xs else x :: replace_nth (n - 1) y xs
+
+let rec init_aux y = function
+  | [] -> []
+  | x :: xs -> y :: init_aux x xs
+
+let init = function
+  | [] -> failwith "init"
+  | x :: xs -> init_aux x xs
+
+let rec find_delete_opt (f : 'a -> bool) (xs : 'a list) : ('a * 'a list) option =
+  match xs with
+  | [] -> None
+  | x :: xs ->
+      if f x then
+        Some (x, xs)
+      else
+        match find_delete_opt f xs with
+        | None -> None
+        | Some (x', xs') -> Some (x', x :: xs')
+
+let rec find_delete_map (f : 'a -> 'b option) (xs : 'a list) : ('b * 'a list) option =
+  match xs with
+  | [] -> None
+  | x :: xs ->
+      match f x with
+      | Some y -> Some (y, xs)
+      | None ->
+          match find_delete_map f xs with
+          | None -> None
+          | Some (y, xs') -> Some (y, x :: xs')
+
+let map_state (f : 's -> 'a -> 'b * 's) (s : 's) (xs : 'a list) : 'b list * 's =
+  State.map_list ~f:(fun a s -> f s a) xs s
+
+module Monadic = struct
+  let (let*) xs f = List.concat_map f xs
+  let return x = [x]
+end
+
+let cartesian_product (lists: 'a list list) : 'a list list =
+  let open Monadic in
+  List.fold_right (fun ls result -> let* x = ls in let* rest = result in return (x::rest)) lists [[]]

@@ -1,4 +1,5 @@
 open Bindlib
+open Util
 
 type metavar = { mv_name : string }
 
@@ -67,6 +68,36 @@ type def = (term, term) mbinder
     [Dfun] declares a possibly recursive function. *)
 type decl = Dfun of symbol * def
 
+module Tm = struct
+  let var x = Var x
+  let symbol sym = Symbol sym
+  let unit = Unit
+  let nil = Nil
+  let true_ = True
+  let false_ = False
+  let int i = Int i
+  let tuple ts = Tuple ts
+  let fun_ b = Fun b
+  let apply t ts = Apply (t, ts)
+  let binop op t1 t2 = Binop (op, t1, t2)
+  let unop op t = Unop (op, t)
+  let conj t1 t2 = Conj (t1, t2)
+  let disj t1 t2 = Disj (t1, t2)
+  let implies t1 t2 = Implies (t1, t2)
+  let subsumes t1 t2 = Subsumes (t1, t2)
+  let emp = Emp
+  let pointsto t1 t2 = PointsTo (t1, t2)
+  let sepconj t1 t2 = SepConj (t1, t2)
+  let requires t = Requires t
+  let ensures t = Ensures t
+  let sequence t1 t2 = Sequence (t1, t2)
+  let bind t1 t2 = Bind (t1, t2)
+  let forall b = Forall b
+  let exists b = Exists b
+  let shift b = Shift b
+  let reset t = Reset t
+end
+
 (** Smart constructors that wrap data in [Bindlib.box]. *)
 module Mk = struct
   let var = box_var
@@ -75,13 +106,14 @@ module Mk = struct
   let nil = box Nil
   let true_ = box True
   let false_ = box False
-  let app = box_apply2 (fun f xs -> Apply (f, xs))
   let int i = box (Int i)
   let tuple = box_apply (fun ts -> Tuple ts)
   let fun_ = box_apply (fun b -> Fun b)
+  let apply = box_apply2 (fun f xs -> Apply (f, xs))
   let binop op = box_apply2 (fun t1 t2 -> Binop (op, t1, t2))
   let unop op = box_apply (fun t -> Unop (op, t))
   let conj = box_apply2 (fun p1 p2 -> Conj (p1, p2))
+  let disj = box_apply2 (fun s1 s2 -> Disj (s1, s2))
   let implies = box_apply2 (fun p1 p2 -> Implies (p1, p2))
   let subsumes = box_apply2 (fun f1 f2 -> Subsumes (f1, f2))
   let emp = box Emp
@@ -91,35 +123,28 @@ module Mk = struct
   let ensures = box_apply (fun p -> Ensures p)
   let sequence = box_apply2 (fun s1 s2 -> Sequence (s1, s2))
   let bind = box_apply2 (fun s b -> Bind (s, b))
-  let apply = box_apply2 (fun f t -> Apply (f, t))
-  let disj = box_apply2 (fun s1 s2 -> Disj (s1, s2))
   let forall = box_apply (fun b -> Forall b)
   let exists = box_apply (fun b -> Exists b)
   let shift = box_apply (fun b -> Shift b)
   let reset = box_apply (fun s -> Reset s)
 end
 
-let foldr1 ?default f xs =
-  let rec foldr1_aux f y = function
-    | [] -> y
-    | x :: xs -> f y (foldr1_aux f x xs)
-  in
-  match xs with
-  | [] -> (match default with None -> failwith "foldr1: empty" | Some a -> a)
-  | x :: xs -> foldr1_aux f x xs
-
 module Constr = struct
-  let sep_conj = foldr1 ~default:Emp (fun c t -> SepConj (c, t))
-  let conj = foldr1 ~default:True (fun c t -> Conj (c, t))
+  let sepconj = function
+    | [] -> Emp
+    | ts -> Lists.fold_right1 Tm.sepconj ts
 
-  let seq xs =
-    match xs with
-    | [] -> failwith "seq: empty"
-    | [x] -> x
-    | _ -> foldr1 (fun c t -> Sequence (c, t)) xs
+  let conj = function
+    | [] -> True
+    | ts -> Lists.fold_right1 Tm.conj ts
+
+  let sequence = function
+    | [] -> invalid_arg "sequence: empty list"
+    | ts -> Lists.fold_right1 Tm.sequence ts
 
   let ens_seq h f = Sequence (Ensures h, f)
   let req_seq h f = Sequence (Ensures h, f)
+  let eq t1 t2 = Binop (Eq, t1, t2)
 end
 
 let new_tvar = new_var (fun v -> Var v)

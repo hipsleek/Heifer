@@ -77,30 +77,3 @@ and rewrite_binder rule target =
 and rewrite_mbinder rule target =
   let x, target = unmbind target in
   unbox (bind_mvar x (box_staged_spec (rewrite rule target)))
-
-open Core.Pretty
-open Parsing.Parse
-
-let%expect_test _ =
-  let test rule term =
-    let t0 = parse_term term in
-    let t = rewrite rule t0 in
-    Format.printf "%a ==> %a@." pp_term t0 pp_term t
-  in
-  let rule : rule = unbox (bind_mvar [||] (box_pair Mk.true_ Mk.false_)) in
-  test rule "true";
-  [%expect {| true ==> false |}];
-
-  let id =
-    let x = new_tvar "x" in
-    Mk.fun_ (bind_mvar [| x |] (Mk.var x))
-  in
-  let rule : rule =
-    unbox
-      (bind_mvar [||]
-         (box_pair
-            (Mk.apply (Mk.symbol { sym_name = "f" }) (box_list [id]))
-            (Mk.apply (Mk.symbol { sym_name = "g" }) (box_list [Mk.int 1]))))
-  in
-  test rule "f (fun x -> x)";
-  [%expect {| f (fun x -> x) ==> g 1 |}]

@@ -215,7 +215,7 @@ end = struct
 
   let pop_heap_assumptions =
     let* pc = get_pctxt in
-    let hp = Constr.sep_conj pc.heap_context in
+    let hp = Constr.sepconj pc.heap_context in
     let* _ = put_pctxt { pc with heap_context = [] } in
     return hp
 
@@ -242,11 +242,11 @@ end = struct
 
   let get_heap_assumptions =
     let* p = get_pctxt in
-    return (Constr.sep_conj p.heap_context)
+    return (Constr.sepconj p.heap_context)
 
   let put_heap_assumptions h =
     let* p = get_pctxt in
-    put_pctxt { p with heap_context = Heap.split_sep_conj h }
+    put_pctxt { p with heap_context = Heap.deep_destruct_sepconj h }
 
   let get_constant x =
     let* constants = get_constants in
@@ -505,7 +505,7 @@ let cancel_heap =
     match left with
     | Sequence (Ensures h1, Sequence (Requires h2, rest)) ->
         let a, f = Heap.biab h1 h2 in
-        put_lhs (Constr.seq [Requires a; Ensures f; rest])
+        put_lhs (Constr.sequence [Requires a; Ensures f; rest])
     | _ -> fail "cannot match"
   in
   let ctx_req_left =
@@ -533,7 +533,7 @@ let prove =
     let pure =
       SMap.bindings pure |> List.map snd
       |> List.filter Why3_prover.is_translatable
-      |> Core.Syntax.foldr1 ~default:True (fun c t -> Conj (c, t))
+      |> Core.Syntax.Constr.conj
     in
     let* free = get_constants in
     let entail =

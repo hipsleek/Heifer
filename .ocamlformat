@@ -1,13 +1,14 @@
 profile = default
 version = 0.28.1
 
-type-decl=sparse
-break-separators=after
-space-around-lists=false
-dock-collection-brackets=true
-field-space=loose
-indicate-multiline-delimiters=no
-leading-nested-match-parens=true
-sequence-style=terminator
-exp-grouping=preserve
-doc-comments=before
+type-decl = sparse
+break-cases = fit-or-vertical
+break-separators = after
+space-around-lists = false
+dock-collection-brackets = true
+field-space = loose
+indicate-multiline-delimiters = no
+leading-nested-match-parens = true
+sequence-style = terminator
+exp-grouping = preserve
+doc-comments = before

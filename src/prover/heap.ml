@@ -1,148 +1,76 @@
-open Core.Syntax
 open Core.Pretty
-open Constr
+open Core.Syntax
+open Util
 
-let rec find_delete_map (f : 'a -> 'b option) (xs : 'a list) :
-    ('b * 'a list) option =
-  match xs with
-  | [] -> None
-  | x :: xs ->
-    (match f x with
-    | Some y -> Some (y, xs)
-    | None ->
-      (match find_delete_map f xs with
-      | None -> None
-      | Some (y, xs') -> Some (y, x :: xs')))
+type heaplet = term * term
+type heap = heaplet list
 
-(* precondition: all separation conjuctions are flatten into a list of conjucts *)
-let rec match_points_to (ks1 : hprop list) (ks2 : hprop list) :
-    hprop list * hprop list * hprop list * prop list =
-  match ks1 with
-  | [] -> ([], ks2, [], [])
-  | (PointsTo (x, t) as k) :: ks1 ->
-    (* we try to match on the location *)
-    let match_loc = function
-      | PointsTo (x', t') when equal_term x x' -> Some t'
-      | _ -> None
-    in
-    begin match find_delete_map match_loc ks2 with
-    | None ->
-      (* the location does not exists in the rhs *)
-      (* therefore we add it into the rhs residue *)
-      let common, anti_frame, frame, equalities = match_points_to ks1 ks2 in
-      (common, anti_frame, k :: frame, equalities)
-    | Some (t', ks2) ->
-      (* generate an equality here *)
-      (* let ctx = if t = t' then ctx else {equalities = eq t t' :: ctx.equalities} in *)
-      let common, anti_frame, frame, equalities = match_points_to ks1 ks2 in
-      let equalities =
-        if t = t' then equalities else Binop (Eq, t, t') :: equalities
-      in
-      (k :: common, anti_frame, frame, equalities)
-    end
-  | Emp :: _ | SepConj _ :: _ -> failwith "match_points_to"
-  | _ -> failwith "match_points_to: invalid term in heap list"
+let prepend_equality t1 t2 equalities =
+  if equal_term t1 t2 then equalities else Constr.eq t1 t2 :: equalities
 
-let rec split_sep_conj (k : hprop) : hprop list =
-  match k with
-  | Emp -> []
-  | PointsTo _ -> [k]
-  | SepConj (k1, k2) -> split_sep_conj k1 @ split_sep_conj k2
-  | _ ->
-    Format.printf "%a@." pp_term k;
-    failwith "hpure"
+let rec match_heap h1 h2 =
+  match h1 with
+  | [] -> [], [], h2, []
+  | hl1 :: h1 ->
+      let x1, t1 = hl1 in
+      let match_heaplet (x2, t2) = if equal_term x1 x2 then Some t2 else None in
+      match Lists.find_remove_map match_heaplet h2 with
+      | None ->
+          let common, h1, h2, equalities = match_heap h1 h2 in
+          common, hl1 :: h1, h2, equalities
+      | Some (t2, h2) ->
+          let common, h1, h2, equalities = match_heap h1 h2 in
+          let equalities = prepend_equality t1 t2 equalities in
+          hl1 :: common, h1, h2, equalities
 
-(* A * H1 |- H2 * D *)
-(* the caller has h1 and h2 and therefore we don't need to return that *)
-(* because we may have many solutions, that's why we need to use Iter.t.
-   but I am not going to use it now *)
-let biab_aux (h1 : hprop) (h2 : hprop) =
-  let heap1 = split_sep_conj h1 in
-  let heap2 = split_sep_conj h2 in
-  (* now match h1 and h2 together. *)
-  (* we need to match heap1 and heap2 together *)
+let hprop_to_heap t =
+  let rec visit t acc =
+    match t with
+    | Emp -> acc
+    | PointsTo (t1, t2) -> (t1, t2) :: acc
+    | SepConj (t1, t2) -> visit t1 (visit t2 acc)
+    | _ -> invalid_arg (Format.asprintf "hprop_to_heap: %a" pp_term t)
+  in
+  visit t []
+
+let biab_aux t1 t2 =
+  let h1 = hprop_to_heap t1 in
+  let h2 = hprop_to_heap t2 in
   (* this is O(n^2) but do we do not care about efficiency atm *)
   (* if we can sort the conjucts and then do something like "merge"
      then the complexity of O(n log n) *)
-  match_points_to heap1 heap2
+  match_heap h1 h2
 
-let biab h1 h2 =
-  let _common, a, f, eqs = biab_aux h1 h2 in
-  let f = sep_conj f in
-  let a =
-    match eqs with
-    | [] -> sep_conj a
-    | _ :: _ -> SepConj (sep_conj a, conj eqs)
-  in
-  (f, a)
+let heaplet_to_hprop (t1, t2) = PointsTo (t1, t2)
 
-let fvar x = Symbol { sym_name = x }
-let points_to l v = PointsTo (fvar l, v)
-let num n = Int n
-let plus a b = Apply (Symbol { sym_name = "plus" }, [a; b])
+let heap_to_hprop h = Constr.sepconj (List.map heaplet_to_hprop h)
 
-(* see Tests for more e2e tests, which would be nice to port here *)
-let%expect_test _ =
-  let test h1 h2 =
-    let common, anti_frame, frame, equalities = biab_aux h1 h2 in
-    let common = sep_conj common in
-    let anti_frame = sep_conj anti_frame in
-    let frame = sep_conj frame in
-    let equalities = conj equalities in
-    Format.printf "%a * %a |- %a * %a\n%a@." pp_term anti_frame pp_term common
-      pp_term common pp_term frame pp_term equalities
+let deep_destruct_sepconj t =
+  let rec visit t acc =
+    match t with
+    | Emp -> acc
+    | PointsTo _ -> t :: acc
+    | SepConj (t1, t2) -> visit t1 (visit t2 acc)
+    | _ -> invalid_arg (Format.asprintf "deep_destruct_sepconj: %a" pp_term t)
   in
-  let _ =
-    let h1 = points_to "x" (num 1) in
-    let h2 = points_to "x" (num 1) in
-    test h1 h2;
-    [%expect {|
-      emp * x->1 |- x->1 * emp
-      true
-      |}]
-  in
-  let _ =
-    let h1 = points_to "x" (num 1) in
-    let h2 = points_to "y" (num 2) in
-    test h1 h2;
-    [%expect {|
-      y->2 * emp |- emp * x->1
-      true
-      |}]
-  in
-  let _ =
-    let h1 = points_to "x" (fvar "a") in
-    let h2 = points_to "x" (num 1) in
-    test h1 h2;
-    [%expect {|
-      emp * x->a |- x->a * emp
-      a=1
-      |}]
-  in
-  let _ =
-    let h1 = sep_conj [points_to "v14" (num 0); points_to "v15" (num 2)] in
-    let h2 =
-      sep_conj [points_to "v15" (plus (num 1) (num 1)); points_to "v14" (num 0)]
-    in
-    test h1 h2;
-    [%expect
-      {|
-      emp * v14->0 * v15->2 |- v14->0 * v15->2 * emp
-      2=plus 1 1
-      |}]
-  in
-  ()
+  visit t []
 
-let pairwise_var_inequality xs ys =
-  let inequalities =
-    List.concat_map
-      (fun x ->
-        List.filter_map
-          (fun y -> if x = y then None else Some (Binop (Neq, x, y)))
-          ys)
-      xs
+let biab t1 t2 =
+  let _, h1, h2, equalities = biab_aux t1 t2 in
+  let t1 = heap_to_hprop h1 in
+  let t2 = heap_to_hprop h2 in
+  let t2 =
+    match equalities with
+    | [] -> t2
+    | _ -> SepConj (t2, Constr.conj equalities)
   in
-  conj inequalities
+  (t1, t2)
+
+let pairwise_inequalites xs ys =
+  let open Lists.Monad in
+  let* x = xs in
+  let* y = ys in
+  pure (Binop (Neq, x, y))
 
 let xpure (h : hprop) : prop =
   let rec run h =
@@ -150,9 +78,9 @@ let xpure (h : hprop) : prop =
     | Emp -> (True, [])
     | PointsTo (x, _) -> (Binop (Gt, x, Int 0), [x])
     | SepConj (a, b) ->
-      let a, xs = run a in
-      let b, ys = run b in
-      (Conj (a, Conj (b, pairwise_var_inequality xs ys)), xs @ ys)
+        let a, xs = run a in
+        let b, ys = run b in
+        (Conj (a, Conj (b, Constr.conj (pairwise_inequalites xs ys))), xs @ ys)
     | _ -> (h, [])
   in
   fst (run h)

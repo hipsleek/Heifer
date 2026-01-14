@@ -13,5 +13,3 @@ let add_decl sym def (table : symbol_table) : symbol_table =
   (* if the symbol is already in the symbol table, throw an error *)
   if SymMap.mem sym table then raise (Failure "symbol is already declared");
   SymMap.add sym def table
-
-(* TODO: add a sample decl for foldr *)
