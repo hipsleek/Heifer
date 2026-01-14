@@ -9,8 +9,8 @@ type rule = (term, staged_spec * staged_spec) mbinder
 let rec prop_to_rule_aux p ms =
   match p with
   | Forall b ->
-    let xs, p = unmbind b in
-    prop_to_rule_aux p (xs :: ms)
+      let xs, p = unmbind b in
+      prop_to_rule_aux p (xs :: ms)
   | Subsumes (lhs, rhs) -> (List.rev ms, lhs, rhs)
   | _ -> failwith "prop_to_rule_aux: expect Forall and Subsumes only"
 
@@ -49,7 +49,7 @@ let rec rewrite rule target =
     | Exists b -> Exists (rewrite_mbinder rule b)
     | Shift b -> Shift (rewrite_binder rule b)
     | Reset s -> Reset (rewrite rule s)
-    | _ -> failwith "todo")
+    | _ -> failwith (Format.asprintf "todo %a" Core.Pretty.pp_term target))
 
 and rewrite_binder rule target =
   let x, target = unbind target in
