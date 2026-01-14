@@ -124,10 +124,35 @@ module Heifer
     | PLt a b -> lt (interp_term env a) (interp_term env b) = TBool true
     | PLe a b -> le (interp_term env a) (interp_term env b) = TBool true
     | PNeq a b -> interp_term env a <> interp_term env b
-    (* | PAtom a -> interp_term env a *)
-   (* = TBool true *)
     | PForall x b -> forall a:term. interp (Map.add x a env) b
     | PExists x b -> exists a:term. interp (Map.add x a env) b
     end
+
+  (* sum is shallow and evaluated immediately, which is why this doesn't work *)
+  goal goal1:
+    interp
+      Map.empty
+      (PForall
+         "xs"
+         (PImplies (PEq (Var "xs") TNil ) (PEq (TInt 0) ((Var "xs").sum))))
+
+  goal goal2:
+    interp
+      Map.empty
+      (((PEq (TInt 0) ((TNil).sum))))
+
+  goal goal3:
+    interp
+      Map.empty
+      (PForall
+         "xs"
+         (PImplies (PEq (Var "xs") TNil ) PTrue))
+
+  goal goal4:
+    interp
+      Map.empty
+      (PForall
+         "xs"
+         (PImplies (PEq (Var "xs") TNil ) (PEq (TNil) (Var "xs"))))
 
 end

@@ -127,5 +127,11 @@ let rec term_to_whyml_aux ctxt t =
 (* | PSubsumes _ -> term Ttrue *)
 
 let term_to_whyml p =
+  (* let env =
+    List.fold_right
+      (fun c t -> tapp (qualid ["Map"; "add"]) [c; p1; t])
+      free empty_map
+  in *)
+  let env = empty_map in
   let p1 = term_to_whyml_aux Bindlib.(free_vars (box_prop p)) p in
-  tapp (qualid ["interp"]) [empty_map; p1]
+  tapp (qualid ["interp"]) [env; p1]

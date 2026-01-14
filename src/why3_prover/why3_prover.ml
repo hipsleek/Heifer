@@ -90,9 +90,9 @@ let load_prover_driver conf name =
 let ensure_prover_loaded name =
   match SMap.find_opt name !prover_configs with
   | None ->
-    let conf = load_prover_config name in
-    prover_configs :=
-      SMap.add name (conf, load_prover_driver conf name) !prover_configs
+      let conf = load_prover_config name in
+      prover_configs :=
+        SMap.add name (conf, load_prover_driver conf name) !prover_configs
   | Some _ -> ()
 
 let get_prover_config name = SMap.find name !prover_configs
@@ -155,31 +155,31 @@ let attempt_proof task1 =
       | OutOfMemory -> `Unknown (explain "out of memory")
       | StepLimitExceeded -> `Unknown (explain "step limit exceeded")
       | Failure s | HighFailure s ->
-        failwith
-          (* raise *)
-          ((* Provers_common.Prover_error *)
-           explain
-             (Format.sprintf "reported error: %s" s))
+          failwith
+            (* raise *)
+            ((* Provers_common.Prover_error *)
+             explain
+               (Format.sprintf "reported error: %s" s))
     in
     let combine_prover_results (name1, r1) (name2, r2) =
       (* let open Provers_common in *)
       match ((name1, r1), (name2, r2)) with
       | (_, `Valid), (_, `Unknown _) | (_, `Valid), (_, `Valid) ->
-        (name1, `Valid)
+          (name1, `Valid)
       | (_, `Unknown _), (_, `Valid) -> (name2, `Valid)
       | (_, `Invalid), (_, `Unknown _) | (_, `Invalid), (_, `Invalid) ->
-        (name1, `Invalid)
+          (name1, `Invalid)
       | (_, `Unknown _), (_, `Invalid) -> (name2, `Invalid)
       | (p1, (`Valid as r1)), (p2, (`Invalid as r2))
       | (p2, (`Invalid as r2)), (p1, (`Valid as r1)) ->
-        let explanation =
-          Format.sprintf "Provers %s (%s) and %s (%s) disagree on result" p1
-            (string_of_prover_result r1)
-            p2
-            (string_of_prover_result r2)
-        in
-        (* raise (Provers_common.Prover_error explanation) *)
-        failwith explanation
+          let explanation =
+            Format.sprintf "Provers %s (%s) and %s (%s) disagree on result" p1
+              (string_of_prover_result r1)
+              p2
+              (string_of_prover_result r2)
+          in
+          (* raise (Provers_common.Prover_error explanation) *)
+          failwith explanation
       | (_, `Unknown s1), (_, `Unknown s2) -> (name1, `Unknown (s1 ^ "\n" ^ s2))
     in
     let attempt_task_on_provers provers task =
@@ -241,27 +241,27 @@ let prove goal =
         match binders with
         | [] -> Translate.term_to_whyml goal
         | _ :: _ ->
-          term
-            (Tquant (Dterm.DTexists, binders, [], Translate.term_to_whyml goal))
+            term
+              (Tquant (Dterm.DTexists, binders, [], Translate.term_to_whyml goal))
       in
       match monolithic_goal with
       | false ->
-        [
-          (* Dprop (Decl.Paxiom, ident "ass1", Translate.prop_to_whyml ass); *)
-          Dprop (Decl.Pgoal, ident "goal1", goal1);
-        ]
+          [
+            (* Dprop (Decl.Paxiom, ident "ass1", Translate.prop_to_whyml ass); *)
+            Dprop (Decl.Pgoal, ident "goal1", goal1);
+          ]
       | true ->
-        (* let forall_binders =
+          (* let forall_binders =
           []
           (* vars_to_params universally_quantified *)
         in *)
-        (* let impl = term (Tbinop (assumptions, Dterm.DTimplies, goal1)) in
+          (* let impl = term (Tbinop (assumptions, Dterm.DTimplies, goal1)) in
         let goal2 =
           match forall_binders with
           | [] -> impl
           | _ :: _ -> term (Tquant (Dterm.DTforall, forall_binders, [], impl))
         in *)
-        [Dprop (Decl.Pgoal, ident "goal1", goal1)]
+          [Dprop (Decl.Pgoal, ident "goal1", goal1)]
     in
 
     let fns =
