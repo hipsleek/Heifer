@@ -49,9 +49,10 @@ prove ();;
 (* inductive case *)
 exists_elim ();;
 intro_pure "Hxs";;
-specialize "IH" ["t"];;
+(* specialize "IH" ["t"];; *)
 
-(* rewrite "IH";; *)
-simpl ();;
+rewrite "IH";;
 
-!current_state;;
+(* simpl ();; *)
+
+(* !current_state;; *)
