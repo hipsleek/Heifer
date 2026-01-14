@@ -208,6 +208,13 @@ let%expect_test "application" =
   [%expect {|
     Apply (Symbol f, [Int 1, Int 2])
     f 1 2
+    |}];
+
+  (* this gets normalised *)
+  test ~dump:true "(f 1) 2";
+  [%expect {|
+    Apply (Symbol f, [Int 1, Int 2])
+    f 1 2
     |}]
 
 let%expect_test "definitions and entailments" =
