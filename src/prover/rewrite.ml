@@ -39,17 +39,36 @@ let rec rewrite rule target =
   try rewrite_exact rule target
   with Rewrite_failure ->
     (match target with
-    | Requires p -> Requires p
-    | Ensures p -> Ensures p
-    | Sequence (s1, s2) -> Sequence (rewrite rule s1, rewrite rule s2)
-    | Bind (s, b) -> Bind (rewrite rule s, rewrite_binder rule b)
+    | Var _
+    | Symbol _
+    | Unit
+    | True
+    | False
+    | Int _
+    | Nil
+    | Emp -> target
+    | Fun b -> Fun (rewrite_mbinder rule b)
+    | Tuple ts -> Tuple (rewrite_list rule ts)
+    | Binop (op, t1, t2) -> Binop (op, rewrite rule t1, rewrite rule t2)
+    | Unop (op, t) -> Unop (op, rewrite rule t)
+    | Conj (t1, t2) -> Conj (rewrite rule t1, rewrite rule t2)
+    | Implies (t1, t2) -> Implies (rewrite rule t1, rewrite rule t2)
+    | Subsumes (t1, t2) -> Subsumes (rewrite rule t1, rewrite rule t2)
+    | PointsTo (t1, t2) -> PointsTo (rewrite rule t1, rewrite rule t2)
+    | SepConj (t1, t2) -> SepConj (rewrite rule t1, rewrite rule t2)
+    | Requires t -> Requires (rewrite rule t)
+    | Ensures t -> Ensures (rewrite rule t)
+    | Sequence (t1, t2) -> Sequence (rewrite rule t1, rewrite rule t2)
+    | Bind (t, b) -> Bind (rewrite rule t, rewrite_binder rule b)
     | Apply (f, t) -> Apply (f, t)
-    | Disj (s1, s2) -> Disj (rewrite rule s1, rewrite rule s2)
+    | Disj (t1, t2) -> Disj (rewrite rule t1, rewrite rule t2)
     | Forall b -> Forall (rewrite_mbinder rule b)
     | Exists b -> Exists (rewrite_mbinder rule b)
     | Shift b -> Shift (rewrite_binder rule b)
-    | Reset s -> Reset (rewrite rule s)
-    | _ -> failwith (Format.asprintf "todo %a" Core.Pretty.pp_term target))
+    | Reset t -> Reset (rewrite rule t))
+
+and rewrite_list rule target =
+  List.map (rewrite rule) target
 
 and rewrite_binder rule target =
   let x, target = unbind target in
