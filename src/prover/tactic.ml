@@ -542,7 +542,7 @@ let prove =
     in
     let res = Why3_prover.prove entail in
     (match res with
-    | `Valid -> Format.printf "==> Valid\n.@."
+    | `Valid -> Format.printf "==> Valid\n@."
     | `Invalid -> Format.printf "==> Invalid\n@."
     | `Unknown s -> Format.printf "==> Unknown: %s\n@." s);
     return res
@@ -685,22 +685,31 @@ module Interactive = struct
         in
         run_tactic tac
 
+  (* let induction kind (ih_name : string) (x : string) (vars : string list) = *)
+
   (** Generate an induction hypothesis in the current proof state.
 
       TODO: add decreasing measurement as a hypothesis for the IH. *)
-  let induction (ih : string) (vars : string list) =
+  let induction :
+      ?vars:string list ->
+      name:string ->
+      [ `List | `Int of int ] ->
+      string ->
+      unit =
+   fun ?(vars = []) ~name kind x ->
     let tac =
       let open Tactic in
       let* assumptions = get_assumptions in
+      let* x = get_constant x in
       let* vars = map_m get_constant vars in
       let* lhs, rhs = get_subsumption in
       let assumptions = List.map snd (SMap.bindings assumptions) in
       let vars = Array.of_list vars in
       (* generate the body of the induction hypothesis *)
-      let ih_body = Induction.induction assumptions vars lhs rhs in
+      let ih_body = Induction.induction kind x vars assumptions lhs rhs in
       (* and wrap it into a prop *)
       let ih_prop = Forall ih_body in
-      add_assumption ih ih_prop
+      add_assumption name ih_prop
     in
     run_tactic tac
 
@@ -712,9 +721,13 @@ module Interactive = struct
     let tac =
       let open Tactic in
       let* assumption = get_assumption h in
-      let* lhs, _ = get_subsumption in
       let rule = Rewrite.prop_to_rule assumption in
-      put_lhs (Rewrite.rewrite rule lhs)
+      let* lhs, _ = get_subsumption in
+      let lhs1, side = Rewrite.rewrite rule lhs in
+      let* ps = pop in
+      let* () = iter_m (fun p -> push { ps with goal = p }) side in
+      let* () = push ps in
+      put_lhs lhs1
     in
     run_tactic tac
 end

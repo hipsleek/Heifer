@@ -350,11 +350,12 @@ let%expect_test "simpl" =
     |}]
 
 let%expect_test "induction" =
+  (* there are two variables named n, and we are doing induction on the existentially-quantified one *)
   start_proof "(ex n. ens n > 0; ens emp) <: forall n. req n > 0; ens n = 1";
   exists_elim ();
   intro_pure "Hn";
   forall_intro ();
-  induction "IH" ["n"];
+  induction (`Int 0) "n" ~name:"IH";
   [%expect
     {|
     ----------------------------------------
@@ -384,14 +385,37 @@ let%expect_test "induction" =
 
     n, n1
     Hn: n>0
-    IH: forall n2. n2>0 => ens emp <: req n1>0; ens n1=1
+    IH: forall n2. ge n2 0 /\ lt n2 n => ens emp <: req n1>0; ens n1=1
     ----------------------------------------
        ens emp
     <: req n1>0; ens n1=1
     |}];
 
+  start_proof "ens emp <: forall xs. length xs > 0";
+  forall_intro ();
+  induction `List "xs" ~name:"IH";
+  [%expect
+    {|
+    ----------------------------------------
+       ens emp
+    <: forall xs. length xs>0
+
+
+    xs
+    ----------------------------------------
+       ens emp
+    <: length xs>0
+
+
+    xs
+    IH: forall xs1. sublist xs1 xs => ens emp <: length xs1>0
+    ----------------------------------------
+       ens emp
+    <: length xs>0
+    |}];
+
   start_proof "ens emp <: ens emp";
-  induction "IH" ["n"];
+  induction `List "n" ~name:"IH";
   [%expect
     {|
     ----------------------------------------

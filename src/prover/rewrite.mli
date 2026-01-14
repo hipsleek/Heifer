@@ -1,34 +1,20 @@
-open Bindlib
 open Core.Syntax
 
-exception Rewrite_failure
-
 (** A rewriting rule is of the form:
-    {[forall x y z, lhs x y z => rhs x y z]}
-    where arrow can be replaced by some other relation, like equality or
-    entailment.
+    {[
+      forall x y z, cond x y z => ... => lhs x y z <: rhs x y z
+    ]}
+    where [<:] can be replaced by some other relation, like equality.
 
-    At the moment, we enforce that the rewriting rule is closed.
+    At the moment, we enforce that the rewriting rules are closed.
 
-    TODO: should relax rewriting rule to include free variables (which may
-    come from the proof context, for example). Also, we may want "conditional
-    rewriting" of the form:
-    {[forall x y z, cond x y z -> lhs x y z => rhs x y z]}
-    *)
-type rule = (term, staged_spec * staged_spec) mbinder
+    TODO: should relax rewriting rule to include free variables (which may come
+    from the proof context, for example). *)
+type rule
 
-(** Analyze a [prop] and turn it into a [rule] for rewriting. The proposition
-    is expected to be of the form:
-    {[forall x y z, forall s t u v, ..., lhs subsumes rhs]}
-
-    Raise [Invalid_argument] if the input is not of the expected form.
-    *)
+(** Turn a prop into a [rule], or raise [Invalid_argument]. *)
 val prop_to_rule : prop -> rule
 
-(** Rewrite a [staged_spec] according to a [rule]. The lhs of the [rule] must
-    match exactly the [staged_spec] to be written.
-
-    Raise [Rewrite_failure] if rewriting cannot be done *)
-val rewrite_exact : rule -> staged_spec -> staged_spec
-
-val rewrite : rule -> staged_spec -> staged_spec
+(** Traverse the target and rewrite using the given rule everywhere in it.
+    Produces subgoals if the rule is conditional. *)
+val rewrite : rule -> staged_spec -> staged_spec * prop list

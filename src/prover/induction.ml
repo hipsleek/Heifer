@@ -4,18 +4,44 @@ open Core.Syntax_util
 
 type induction_hypothesis = (term, prop) mbinder
 
-(** Generates an induction hypothesis (disregarding termination measure) at the
-    moment, just like the [fix] tactic in Rocq.
+let build_wf_premise wf x y =
+  match wf with
+  | `List ->
+      Mk.(
+        apply
+          (symbol { sym_name = "sublist" })
+          (box_list [box_var y; box_var x]))
+  | `Int n ->
+      let ge =
+        Mk.(apply (symbol { sym_name = "ge" }) (box_list [box_var y; int n]))
+      in
+      let lt =
+        Mk.(
+          apply (symbol { sym_name = "lt" }) (box_list [box_var y; box_var x]))
+      in
+      Mk.conj ge lt
 
-    This method takes a list of pure assumptions (the current context), the lhs,
-    the rhs, and a list of variables to generalize over.
-
-    TODO: prove a measure for well-foundness, which should be encoded as another
-    implication. *)
-let induction (assumptions : prop list) (vars : term mvar) lhs rhs : induction_hypothesis =
-  let vars_set = TVSet.of_seq (Array.to_seq vars) in
+let induction wf x other_vars assumptions lhs rhs =
+  let vars_set = TVSet.of_seq (Array.to_seq other_vars) in
+  (* TODO generalize over heap context *)
   let generalized_assumptions = List.filter (has_vars vars_set) assumptions in
-  (* Technically, `subsume` should live at meta-logic and not inside the logic system itself *)
-  let ih = List.fold_right (fun h g -> Implies (h, g)) generalized_assumptions (Subsumes (lhs, rhs)) in
-  (* Now generalize ih *)
-  unbox (bind_mvar vars (box_prop ih))
+  let ih =
+    List.fold_right
+      (fun h g -> Implies (h, g))
+      generalized_assumptions
+      (Subsumes (lhs, rhs))
+  in
+
+  (* y is the new variable contained to be well-founded wrt x *)
+  let y : term var = new_tvar (name_of (x : term var)) in
+
+  (* replace uses of x in IH with y *)
+  let ih = subst (unbox (bind_var x (box_term ih))) (unbox (box_var y)) in
+
+  (* x no longer occurs in ih *)
+  let gvars = Array.concat [[| y |]; other_vars] in
+
+  let wf_premise = build_wf_premise wf x y in
+
+  (* now generalize ih *)
+  unbox (bind_mvar gvars (Mk.implies wf_premise (box_term ih)))
