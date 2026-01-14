@@ -83,7 +83,7 @@ module Pstate = struct
           | 0 -> ""
           | n -> Format.asprintf "(%d more goals)" n
         in
-        Fmt.pf ppf "@[<v>%a%s@]" Pctx.pp p goal_text
+        Fmt.pf ppf "@[<v>%a%s@,@]" Pctx.pp p goal_text
 end
 
 module Tactic : sig
@@ -540,6 +540,10 @@ let prove_pure =
       unbox (Mk.forall (bind_mvar free (box_term (Implies (pure, p)))))
     in
     let res = Why3_prover.prove entail in
+    (match res with
+    | `Valid -> Format.printf "==> Valid\n.@."
+    | `Invalid -> Format.printf "==> Invalid\n@."
+    | `Unknown s -> Format.printf "==> Unknown: %s\n@." s);
     return res
   in
   let* left, right = get_subsumption in

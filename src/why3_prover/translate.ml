@@ -3,15 +3,27 @@ open Core.Syntax
 open Ptree
 open Ptree_helpers
 
-let tstr s = term (Tconst (Constant.ConstStr s))
-let empty_map = tvar (qualid ["Map"; "empty"])
+(* let tstr s = term (Tconst (Constant.ConstStr s)) *)
+(* let empty_map = tvar (qualid ["Map"; "empty"]) *)
+
+let vars_to_params vars =
+  List.map
+    (fun v ->
+      ( Loc.dummy_position,
+        Some (ident v),
+        false,
+        Some (PTtyapp (qualid ["term"], [])) ))
+    vars
+(* in *)
 
 let rec term_to_whyml_aux ctxt t =
   match t with
   | Unit -> term (Ttuple [])
-  (* | True -> tapp (qualid ["TBool"]) [term Ttrue]
-  | False -> tapp (qualid ["TBool"]) [term Tfalse] *)
-  | Nil -> tapp (qualid ["TNil"]) []
+  (* | True -> tapp (qualid ["PTrue"]) [] *)
+  (* | False -> tapp (qualid ["PFalse"]) [] *)
+  | True -> tapp (qualid ["TBool"]) [term Ttrue]
+  | False -> tapp (qualid ["TBool"]) [term Tfalse]
+  | Nil -> tvar (* tapp () [] *) (qualid ["TNil"])
   | Int i -> tapp (qualid ["TInt"]) [tconst i]
   (* | Binop (Lt, a, b) ->
     tapp
@@ -47,9 +59,8 @@ let rec term_to_whyml_aux ctxt t =
   | Binop (Cons, h, t) ->
       tapp (qualid ["::"]) [term_to_whyml_aux ctxt h; term_to_whyml_aux ctxt t]
   | Unop (Not, a) -> tapp (qualid ["Bool"; "notb"]) [term_to_whyml_aux ctxt a]
-  | Var x ->
-      (* tvar (qualid [Bindlib.name_of x]) *)
-      tapp (qualid ["Var"]) [tstr (Bindlib.name_of x)]
+  | Var x -> tvar (qualid [Bindlib.name_of x])
+  (* tapp (qualid ["Var"]) [tstr (Bindlib.name_of x)] *)
   (* | Apply (f, args) -> tapp (qualid [f]) (List.map term_to_whyml_aux ctxt args) *)
   | Apply (Symbol { sym_name = f }, args) ->
       tapp (qualid [f]) (List.map (term_to_whyml_aux ctxt) args)
@@ -70,35 +81,57 @@ let rec term_to_whyml_aux ctxt t =
   | Forall _ | Exists _ *)
   | Forall b ->
       let xs, b, ctxt = Bindlib.unmbind_in ctxt b in
-      let xs = Array.to_list xs in
-      List.fold_right
+      let xs = Array.to_list xs |> List.map Bindlib.name_of in
+      (* List.fold_right
         (fun c t -> tapp (qualid ["PForall"]) [tstr (Bindlib.name_of c); t])
-        xs (term_to_whyml_aux ctxt b)
+        xs (term_to_whyml_aux ctxt b) *)
+      term
+        (Tquant (Dterm.DTforall, vars_to_params xs, [], term_to_whyml_aux ctxt b))
   | Exists b ->
+      (* failwith "exists" *)
       let xs, b, ctxt = Bindlib.unmbind_in ctxt b in
+      let xs = Array.to_list xs |> List.map Bindlib.name_of in
+      (* List.fold_right
+        (fun c t -> tapp (qualid ["PForall"]) [tstr (Bindlib.name_of c); t])
+        xs (term_to_whyml_aux ctxt b) *)
+      term
+        (Tquant (Dterm.DTexists, vars_to_params xs, [], term_to_whyml_aux ctxt b))
+      (* let xs, b, ctxt = Bindlib.unmbind_in ctxt b in
       let xs = Array.to_list xs in
       List.fold_right
         (fun c t -> tapp (qualid ["PExists"]) [tstr (Bindlib.name_of c); t])
-        xs (term_to_whyml_aux ctxt b)
+        xs (term_to_whyml_aux ctxt b) *)
       (* [tconst i] *)
       (* tapp (qualid ["eq"]) *)
       (* [term_to_whyml_aux ctxt a; term_to_whyml_aux ctxt b] *)
       (* failwith "cannot translate forall" *)
-  | True -> tapp (qualid ["PTrue"]) []
-  | False -> tapp (qualid ["PFalse"]) []
   | Binop (Eq, a, b) ->
-      tapp (qualid ["PEq"]) [term_to_whyml_aux ctxt a; term_to_whyml_aux ctxt b]
-  | Binop (Gt, a, b) ->
-      tapp (qualid ["PGt"]) [term_to_whyml_aux ctxt a; term_to_whyml_aux ctxt b]
-  | Binop (Lt, a, b) ->
-      tapp (qualid ["PLt"]) [term_to_whyml_aux ctxt a; term_to_whyml_aux ctxt b]
-  | Binop (Le, a, b) ->
-      tapp (qualid ["PLe"]) [term_to_whyml_aux ctxt a; term_to_whyml_aux ctxt b]
-  | Binop (Ge, a, b) ->
-      tapp (qualid ["PGe"]) [term_to_whyml_aux ctxt a; term_to_whyml_aux ctxt b]
-  | Binop (Neq, a, b) ->
-      tapp (qualid ["PNeq"])
+      (* tapp (qualid ["PEq"]) [term_to_whyml_aux ctxt a; term_to_whyml_aux ctxt b] *)
+      (* tapp (qualid ["eq"]) [term_to_whyml_aux ctxt a; term_to_whyml_aux ctxt b] *)
+      tapp
+        (qualid [Ident.op_infix "="])
         [term_to_whyml_aux ctxt a; term_to_whyml_aux ctxt b]
+  | Binop (Gt, a, b) ->
+      (* failwith "gt" *)
+      tapp (qualid ["gt"]) [term_to_whyml_aux ctxt a; term_to_whyml_aux ctxt b]
+      (* tapp (qualid ["PGt"]) [term_to_whyml_aux ctxt a; term_to_whyml_aux ctxt b] *)
+  | Binop (Lt, a, b) ->
+      (* failwith "lt" *)
+      tapp (qualid ["lt"]) [term_to_whyml_aux ctxt a; term_to_whyml_aux ctxt b]
+      (* tapp (qualid ["PLt"]) [term_to_whyml_aux ctxt a; term_to_whyml_aux ctxt b] *)
+  | Binop (Le, a, b) ->
+      (* failwith "le" *)
+      tapp (qualid ["le"]) [term_to_whyml_aux ctxt a; term_to_whyml_aux ctxt b]
+      (* tapp (qualid ["PLe"]) [term_to_whyml_aux ctxt a; term_to_whyml_aux ctxt b] *)
+  | Binop (Ge, a, b) ->
+      (* failwith "ge" *)
+      tapp (qualid ["ge"]) [term_to_whyml_aux ctxt a; term_to_whyml_aux ctxt b]
+      (* tapp (qualid ["PGe"]) [term_to_whyml_aux ctxt a; term_to_whyml_aux ctxt b] *)
+  | Binop (Neq, a, b) ->
+      (* failwith "neq" *)
+      tapp (qualid ["neq"]) [term_to_whyml_aux ctxt a; term_to_whyml_aux ctxt b]
+      (* tapp (qualid ["PNeq"])
+        [term_to_whyml_aux ctxt a; term_to_whyml_aux ctxt b] *)
       (* | PAtom _ ->
     Format.printf "%a@." Core.Pretty.pp_prop p;
     failwith "unimplemented" *)
@@ -106,18 +139,25 @@ let rec term_to_whyml_aux ctxt t =
       (* tapp (qualid ["interp_term"]) [empty_map; term_to_whyml_aux ctxt t] *)
       (* tapp (qualid ["PAtom"]) [term_to_whyml_aux ctxt t] *)
   | Conj (a, b) ->
-      tapp (qualid ["PAnd"])
-        [term_to_whyml_aux ctxt a; term_to_whyml_aux ctxt b]
+      (* tapp (qualid ["PAnd"])
+        [term_to_whyml_aux ctxt a; term_to_whyml_aux ctxt b] *)
+      term
+        (Tbinop (term_to_whyml_aux ctxt a, Dterm.DTand, term_to_whyml_aux ctxt b))
   | Disj (a, b) ->
-      tapp (qualid ["POr"]) [term_to_whyml_aux ctxt a; term_to_whyml_aux ctxt b]
+      (* tapp (qualid ["POr"]) [term_to_whyml_aux ctxt a; term_to_whyml_aux ctxt b] *)
+      term
+        (Tbinop (term_to_whyml_aux ctxt a, Dterm.DTor, term_to_whyml_aux ctxt b))
   (* term
       (Tbinop (term_to_whyml_aux ctxt a, Dterm.DTand, term_to_whyml_aux ctxt b)) *)
   (* | Or (a, b) ->
     term (Tbinop (pi_to_whyml a, Dterm.DTor, pi_to_whyml b))
   | Not a -> term (Tnot (pi_to_whyml a)) *)
   | Implies (a, b) ->
-      tapp (qualid ["PImplies"])
-        [term_to_whyml_aux ctxt a; term_to_whyml_aux ctxt b]
+      (* tapp (qualid ["PImplies"])
+        [term_to_whyml_aux ctxt a; term_to_whyml_aux ctxt b] *)
+      term
+        (Tbinop
+           (term_to_whyml_aux ctxt a, Dterm.DTimplies, term_to_whyml_aux ctxt b))
 (* term (Tbinop (, Dterm.DTimplies, )) *)
 (* term (Tbinop (term_to_whyml_aux a, Dterm.DTimplies, term_to_whyml_aux b)) *)
 
@@ -132,6 +172,7 @@ let term_to_whyml p =
       (fun c t -> tapp (qualid ["Map"; "add"]) [c; p1; t])
       free empty_map
   in *)
-  let env = empty_map in
   let p1 = term_to_whyml_aux Bindlib.(free_vars (box_prop p)) p in
-  tapp (qualid ["interp"]) [env; p1]
+  (* let env = empty_map in
+  tapp (qualid ["interp"]) [env; p1] *)
+  p1

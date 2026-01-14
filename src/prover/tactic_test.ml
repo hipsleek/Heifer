@@ -10,6 +10,7 @@ let%expect_test "reflexivity" =
        ens emp
     <: ens emp
 
+
     no more goals
     |}];
 
@@ -20,6 +21,7 @@ let%expect_test "reflexivity" =
     ----------------------------------------
        ens emp
     <: ens x=1
+
 
     error: cannot close goal using reflexivity
     |}]
@@ -35,10 +37,12 @@ let%expect_test "specialize" =
     <: ens emp
 
 
+
     H: forall a. a=1
     ----------------------------------------
        ens emp
     <: ens emp
+
 
 
     H: 1=1
@@ -57,10 +61,12 @@ let%expect_test "specialize" =
     <: ens emp
 
 
+
     H: a=1
     ----------------------------------------
        ens emp
     <: ens emp
+
 
     error: not a prop that can be specialised
     |}];
@@ -73,6 +79,7 @@ let%expect_test "specialize" =
        ens emp
     <: ens emp
 
+
     error: no assumption named: H
     |}]
 
@@ -84,6 +91,7 @@ let%expect_test "intro heap" =
     ----------------------------------------
        ens x->1; ens emp
     <: ens emp
+
 
 
     ----------------------------------------
@@ -102,6 +110,7 @@ let%expect_test "intro heap" =
     <: ens emp
 
 
+
     ----------------------------------------
     x->1
     ---------------------------------------*
@@ -117,6 +126,7 @@ let%expect_test "intro heap" =
        1
     <: ens emp
 
+
     error: failed to intro heap / cannot uncons req / cannot uncons ens
     |}]
 
@@ -128,6 +138,7 @@ let%expect_test "forall intro" =
     ----------------------------------------
        ens emp
     <: forall a. ens a=1
+
 
     a
     ----------------------------------------
@@ -143,6 +154,7 @@ let%expect_test "forall intro" =
        ens emp
     <: ens emp
 
+
     error: empty choice / not a forall / not a forall
     |}]
 
@@ -154,6 +166,7 @@ let%expect_test "forall elim" =
     ----------------------------------------
        forall a. ens a=1
     <: ens emp
+
 
 
     ----------------------------------------
@@ -169,6 +182,7 @@ let%expect_test "forall elim" =
        ens emp
     <: ens emp
 
+
     error: cannot eliminate forall
     |}]
 
@@ -180,6 +194,7 @@ let%expect_test "exists elim" =
     ----------------------------------------
        ex a. ens a=1
     <: ens emp
+
 
     a
     ----------------------------------------
@@ -195,6 +210,7 @@ let%expect_test "exists elim" =
        ens emp
     <: ens emp
 
+
     error: cannot eliminate exists
     |}]
 
@@ -206,6 +222,7 @@ let%expect_test "exists intro" =
     ----------------------------------------
        ens emp
     <: ex a. ens a=1
+
 
 
     ----------------------------------------
@@ -221,6 +238,7 @@ let%expect_test "exists intro" =
        ens emp
     <: ens emp
 
+
     error: cannot intro exists
     |}]
 
@@ -232,6 +250,7 @@ let%expect_test "disj_elim" =
     ----------------------------------------
        ens emp \/ ens emp
     <: ens emp
+
 
 
     ----------------------------------------
@@ -248,6 +267,7 @@ let%expect_test "disj_elim" =
        ens emp
     <: ens emp
 
+
     error: not a disjunction
     |}]
 
@@ -262,9 +282,11 @@ let%expect_test "left/right" =
     <: ens 1=1 \/ ens 2=2 \/ ens 3=3
 
 
+
     ----------------------------------------
        ens emp
     <: ens 1=1 \/ ens 2=2
+
 
 
     ----------------------------------------
@@ -280,6 +302,7 @@ let%expect_test "left/right" =
        ens emp
     <: ens emp
 
+
     error: not a disjunction
     |}];
 
@@ -290,6 +313,7 @@ let%expect_test "left/right" =
     ----------------------------------------
        ens emp
     <: ens emp
+
 
     error: not a disjunction
     |}]
@@ -304,6 +328,7 @@ let%expect_test "simpl" =
     <: ens emp
 
 
+
     ----------------------------------------
        ens emp; r. ens emp
     <: ens emp
@@ -316,6 +341,7 @@ let%expect_test "simpl" =
     ----------------------------------------
        1; r. ens r=1
     <: ens emp
+
 
 
     ----------------------------------------
@@ -335,22 +361,26 @@ let%expect_test "induction" =
        ex n. ens n>0; ens emp
     <: forall n. req n>0; ens n=1
 
+
     n
     ----------------------------------------
        ens n>0; ens emp
     <: forall n. req n>0; ens n=1
+
 
     n
     Hn: n>0
     ----------------------------------------
        ens emp
     <: forall n. req n>0; ens n=1
+
 
     n, n1
     Hn: n>0
     ----------------------------------------
        ens emp
     <: req n1>0; ens n1=1
+
 
     n, n1
     Hn: n>0
@@ -367,6 +397,7 @@ let%expect_test "induction" =
     ----------------------------------------
        ens emp
     <: ens emp
+
 
     error: no constant named: n
     |}]
@@ -385,6 +416,7 @@ let%expect_test "unfold" =
     <: succ 1; r. ens 2=r
 
 
+
     ----------------------------------------
        ens emp
     <: 1+1; r. ens 2=r
@@ -398,6 +430,7 @@ let%expect_test "unfold" =
        ens emp
     <: ens emp
 
+
     error: the symbol foo does not exist
     |}]
 
@@ -409,6 +442,7 @@ let%expect_test "intro_pure" =
     ----------------------------------------
        ens x=1
     <: ens emp
+
 
 
     H: x=1
@@ -425,6 +459,7 @@ let%expect_test "intro_pure" =
        ens x->1
     <: ens emp
 
+
     error: failed to intro pure / cannot uncons pure req / cannot uncons pure ens
     |}];
 
@@ -435,6 +470,7 @@ let%expect_test "intro_pure" =
     ----------------------------------------
        ens a=1
     <: ens emp
+
 
 
     H: a=1
@@ -453,10 +489,12 @@ let%expect_test "intro_pure" =
     <: ens emp
 
 
+
     H: a=1
     ----------------------------------------
        ens b=2; ens emp
     <: ens emp
+
 
     error: failed to intro pure / cannot uncons pure req / add_assumption: H is already used
     |}]
@@ -481,6 +519,7 @@ let%expect_test "rewrite" =
        ens emp
     <: ens emp
 
+
     error: no assumption named: H
     |}]
 
@@ -496,20 +535,24 @@ let%expect_test "heap tactics" =
        ens emp
     <: forall x. req x->1; ens x->1
 
+
     x
     ----------------------------------------
        ens emp
     <: req x->1; ens x->1
+
 
     x
     ----------------------------------------
        ens x->1; ens emp
     <: ens x->1
 
+
     x
     ----------------------------------------
        ens emp; ens emp
     <: ens emp; ens emp
+
 
     no more goals
     |}];
@@ -524,10 +567,12 @@ let%expect_test "heap tactics" =
        ens emp
     <: forall x. req x->1; ens x->1
 
+
     x
     ----------------------------------------
        ens emp
     <: req x->1; ens x->1
+
 
     x
     ----------------------------------------
@@ -535,6 +580,7 @@ let%expect_test "heap tactics" =
     ---------------------------------------*
        ens emp
     <: ens x->1
+
 
     x
     ----------------------------------------
