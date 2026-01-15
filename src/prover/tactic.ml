@@ -20,7 +20,7 @@ let pp_hypotheses ~pp_k ~pp_v ppf m =
   Fmt.pf ppf "@[<v>%a@]"
     Fmt.(
       list ~sep:(any "@,")
-        (Fmt.hovbox ~indent:2 (pair ~sep:(any ":@ ") pp_k pp_v)))
+        (Fmt.hovbox ~indent:2 (pair ~sep:(any ": ") pp_k pp_v)))
     al
 
 module Pctx = struct
@@ -42,7 +42,11 @@ module Pctx = struct
       goal;
     }
 
-  let draw_line n = String.make n '-'
+  let draw_line n =
+    let unicode = true in
+    match unicode with
+    | false -> String.make n '-'
+    | true -> String.concat "" (List.init n (fun _ -> "─"))
 
   (* TODO: use rename_ctxt *)
   let pp ppf { rename_ctxt = _; constants; assumptions; heap_context; goal } =
@@ -56,7 +60,7 @@ module Pctx = struct
           (pp_hypotheses ~pp_k:Fmt.string ~pp_v:pp_term)
           assumptions);
     (* always draw the line, even if there are no hypotheses *)
-    let line_length = 40 in
+    let line_length = 60 in
     let line = draw_line line_length in
     Fmt.pf ppf "%s@," line;
     (match heap_context with

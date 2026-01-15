@@ -15,14 +15,14 @@ declare {|foldr f init xs =
 ```ocaml
 # start_proof "forall xs. foldr (fun c t -> c + t) 0 xs <: sum xs";
 
-----------------------------------------
+────────────────────────────────────────────────────────────
 forall xs. foldr (fun c t -> c+t) 0 xs <: sum xs
 
 - : unit = ()
 
 # forall_intro ()
 xs
-----------------------------------------
+────────────────────────────────────────────────────────────
    foldr (fun c t -> c+t) 0 xs
 <: sum xs
 
@@ -34,8 +34,10 @@ We proceed by induction on the structure of the list `xs`.
 ```ocaml
 # induction ~name:"IH" `List "xs"
 xs
-IH: forall xs1. sublist xs1 xs => foldr (fun c t -> c+t) 0 xs1 <: sum xs1
-----------------------------------------
+IH: forall xs1.
+      sublist xs1 xs =>
+        foldr (fun c t -> c+t) 0 xs1 <: sum xs1
+────────────────────────────────────────────────────────────
    foldr (fun c t -> c+t) 0 xs
 <: sum xs
 
@@ -43,19 +45,25 @@ IH: forall xs1. sublist xs1 xs => foldr (fun c t -> c+t) 0 xs1 <: sum xs1
 
 # unfold "foldr"
 xs
-IH: forall xs1. sublist xs1 xs => foldr (fun c t -> c+t) 0 xs1 <: sum xs1
-----------------------------------------
-   ens xs=[]; 0 \/
-   (ex h t.
-      ens xs=h::t; foldr (fun c t1 -> c+t1) 0 t; r. (fun c t1 -> c+t1) h r)
+IH: forall xs1.
+      sublist xs1 xs =>
+        foldr (fun c t -> c+t) 0 xs1 <: sum xs1
+────────────────────────────────────────────────────────────
+   ens xs=[]; 0
+   \/ (ex h t.
+         ens xs=h::t;
+         foldr (fun c t1 -> c+t1) 0 t; r.
+           (fun c t1 -> c+t1) h r)
 <: sum xs
 
 - : unit = ()
 
 # disj_elim ()
 xs
-IH: forall xs1. sublist xs1 xs => foldr (fun c t -> c+t) 0 xs1 <: sum xs1
-----------------------------------------
+IH: forall xs1.
+      sublist xs1 xs =>
+        foldr (fun c t -> c+t) 0 xs1 <: sum xs1
+────────────────────────────────────────────────────────────
    ens xs=[]; 0
 <: sum xs
 (1 more goals)
@@ -69,8 +77,10 @@ Base case
 # intro_pure "H"
 xs
 H: xs=[]
-IH: forall xs1. sublist xs1 xs => foldr (fun c t -> c+t) 0 xs1 <: sum xs1
-----------------------------------------
+IH: forall xs1.
+      sublist xs1 xs =>
+        foldr (fun c t -> c+t) 0 xs1 <: sum xs1
+────────────────────────────────────────────────────────────
    0
 <: sum xs
 (1 more goals)
@@ -81,16 +91,21 @@ IH: forall xs1. sublist xs1 xs => foldr (fun c t -> c+t) 0 xs1 <: sum xs1
 module M
   use heifer.Heifer
 
-  goal goal1: forall xs : term. (xs = TNil) -> ((TInt 0) = (xs.sum))
+  goal goal1:
+    forall xs : term. (xs = TNil) -> ((TInt 0) = (xs.sum))
 end
 ==> Valid
 
 
 xs
-IH: forall xs1. sublist xs1 xs => foldr (fun c t -> c+t) 0 xs1 <: sum xs1
-----------------------------------------
+IH: forall xs1.
+      sublist xs1 xs =>
+        foldr (fun c t -> c+t) 0 xs1 <: sum xs1
+────────────────────────────────────────────────────────────
    ex h t.
-     ens xs=h::t; foldr (fun c t1 -> c+t1) 0 t; r. (fun c t1 -> c+t1) h r
+     ens xs=h::t;
+     foldr (fun c t1 -> c+t1) 0 t; r.
+       (fun c t1 -> c+t1) h r
 <: sum xs
 
 - : unit = ()
@@ -101,9 +116,12 @@ Inductive case
 ```ocaml
 # exists_elim ()
 h, t, xs
-IH: forall xs1. sublist xs1 xs => foldr (fun c t -> c+t) 0 xs1 <: sum xs1
-----------------------------------------
-   ens xs=h::t; foldr (fun c t1 -> c+t1) 0 t; r. (fun c t1 -> c+t1) h r
+IH: forall xs1.
+      sublist xs1 xs =>
+        foldr (fun c t -> c+t) 0 xs1 <: sum xs1
+────────────────────────────────────────────────────────────
+   ens xs=h::t;
+   foldr (fun c t1 -> c+t1) 0 t; r. (fun c t1 -> c+t1) h r
 <: sum xs
 
 - : unit = ()
@@ -111,8 +129,10 @@ IH: forall xs1. sublist xs1 xs => foldr (fun c t -> c+t) 0 xs1 <: sum xs1
 # intro_pure "Hxs"
 h, t, xs
 Hxs: xs=h::t
-IH: forall xs1. sublist xs1 xs => foldr (fun c t -> c+t) 0 xs1 <: sum xs1
-----------------------------------------
+IH: forall xs1.
+      sublist xs1 xs =>
+        foldr (fun c t -> c+t) 0 xs1 <: sum xs1
+────────────────────────────────────────────────────────────
    foldr (fun c t1 -> c+t1) 0 t; r. (fun c t1 -> c+t1) h r
 <: sum xs
 
@@ -126,8 +146,10 @@ This lets us rewrite the call to `foldr`.
 # rewrite "IH"
 h, t, xs
 Hxs: xs=h::t
-IH: forall xs1. sublist xs1 xs => foldr (fun c t -> c+t) 0 xs1 <: sum xs1
-----------------------------------------
+IH: forall xs1.
+      sublist xs1 xs =>
+        foldr (fun c t -> c+t) 0 xs1 <: sum xs1
+────────────────────────────────────────────────────────────
 sublist t xs
 (1 more goals)
 
@@ -146,8 +168,10 @@ end
 
 h, t, xs
 Hxs: xs=h::t
-IH: forall xs1. sublist xs1 xs => foldr (fun c t -> c+t) 0 xs1 <: sum xs1
-----------------------------------------
+IH: forall xs1.
+      sublist xs1 xs =>
+        foldr (fun c t -> c+t) 0 xs1 <: sum xs1
+────────────────────────────────────────────────────────────
    sum t; r. (fun c t1 -> c+t1) h r
 <: sum xs
 
@@ -160,8 +184,10 @@ Having done that, the goal follows from the definition of `sum`.
 # simpl ()
 h, t, xs
 Hxs: xs=h::t
-IH: forall xs1. sublist xs1 xs => foldr (fun c t -> c+t) 0 xs1 <: sum xs1
-----------------------------------------
+IH: forall xs1.
+      sublist xs1 xs =>
+        foldr (fun c t -> c+t) 0 xs1 <: sum xs1
+────────────────────────────────────────────────────────────
    sum t; r. h+r
 <: sum xs
 
