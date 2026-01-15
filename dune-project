@@ -3,6 +3,7 @@
 (using coq 0.2)
 (using directory-targets 0.1)
 (using menhir 2.1)
+(using mdx 0.4)
 
 (name heifer)
 (generate_opam_files true)
@@ -25,6 +26,7 @@
   (menhir (>= 20220210))
   (iter (>= 1.9))
   (fmt (>= 0.9))
+  (mdx (>= 2.5.1))
   (dune (>= 3.8.0))
   (ppx_deriving (>= 5.2.1))
   (ppx_expect (>= v0.15.1))
