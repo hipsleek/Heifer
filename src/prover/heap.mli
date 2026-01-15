@@ -1,21 +1,29 @@
 
 open Core.Syntax
 
+type heaplet
 type heap
 
 val hprop_to_heap : hprop -> heap
 
 val heap_to_hprop : heap -> hprop
 
+val hprop_list_to_heap : hprop list -> heap
+
+val heap_to_hprop_list : heap -> hprop list
+
+(** Destruct a heap proposition into atomic heap propositions of the form
+    [t1 -> t2]. [Emp] is eliminated.
+
+    Raise [Invalid_argument] if argument is not a heap proposition *)
 val deep_destruct_sepconj : hprop -> hprop list
 
-(** Given two heap propositions, return a 4-tuple containing, in order:
-    - The common heap.
-    - The left-exclusive heap.
-    - The right-exclusive heap.
-    - Equalities to be satisfied. *)
-val biab_aux : hprop -> hprop -> heap * heap * heap * term list
+(* TODO: improve the interface of this module! *)
 
-val biab : hprop -> hprop -> hprop * hprop
+val match_heap : heap -> heap -> heap * heap * heap * prop list
+
+val biab : hprop -> hprop -> hprop * hprop * prop
+
+val biab_list : hprop list -> hprop list -> hprop list * hprop list * prop list
 
 val xpure : hprop -> prop

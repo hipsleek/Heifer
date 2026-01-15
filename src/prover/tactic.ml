@@ -2,6 +2,7 @@ open Core.Syntax
 open Core.Pretty
 open Core.Decl
 open Core.Syntax_util
+open Core.Simply_typed
 open Parsing.Parse
 open Bindlib
 
@@ -28,24 +29,23 @@ module Pctx = struct
     rename_ctxt : Bindlib.ctxt;
     constants : term var SMap.t;
     assumptions : term SMap.t;
-    heap_context : term list;
+    heap_assumptions : term list; (* TODO: add names *)
     goal : term;
   }
 
   let create ~goal () =
     {
-      rename_ctxt = empty_ctxt;
-      (* simple solution for now. *)
+      rename_ctxt = empty_ctxt; (* simple solution for now. *)
       constants = SMap.empty;
       assumptions = SMap.empty;
-      heap_context = [];
+      heap_assumptions = [];
       goal;
     }
 
   let draw_line n = String.make n '-'
 
   (* TODO: use rename_ctxt *)
-  let pp ppf { rename_ctxt = _; constants; assumptions; heap_context; goal } =
+  let pp ppf { rename_ctxt = _; constants; assumptions; heap_assumptions; goal } =
     Fmt.pf ppf "@[<v>@[<hov>%a@]@,"
       Fmt.(list ~sep:comma Fmt.string)
       (List.map fst (SMap.bindings constants));
@@ -59,17 +59,17 @@ module Pctx = struct
     let line_length = 40 in
     let line = draw_line line_length in
     Fmt.pf ppf "%s@," line;
-    (match heap_context with
+    (match heap_assumptions with
     | [] -> ()
     | _ ->
         let heap_line = draw_line (line_length - 1) ^ "*" in
-        Fmt.pf ppf "%a@,%s@," Fmt.(list ~sep:cut pp_term) heap_context heap_line);
+        Fmt.pf ppf "%a@,%s@," Fmt.(list ~sep:cut pp_term) heap_assumptions heap_line);
     (match goal with
     | Subsumes (l, r) -> Fmt.pf ppf "   %a@,<: %a" pp_term l pp_term r
     | _ -> Fmt.pf ppf "%a" pp_term goal);
     Fmt.pf ppf "@]"
 
-  let _pp ppf
+  (* let _pp ppf
       { rename_ctxt = _; constants = _; assumptions; heap_context = _; goal } =
     let hyp =
       match SMap.is_empty assumptions with
@@ -86,7 +86,7 @@ module Pctx = struct
       | _ -> Fmt.str "%a" pp_term goal
     in
     (* TODO no way to show ---* *)
-    Fmt.pf ppf "%a" PrintBox_text.pp PrintBox.(vlist [text hyp; text goal])
+    Fmt.pf ppf "%a" PrintBox_text.pp PrintBox.(vlist [text hyp; text goal]) *)
 end
 
 module Pstate = struct
@@ -107,50 +107,65 @@ module Tactic : sig
   type 'a t
 
   val run : 'a t -> Pstate.t -> (Pstate.t, string) result
+  (* basic combinators *)
   val return : 'a -> 'a t
-  val bind : 'a t -> ('a -> 'b t) -> 'b t
   val map : ('a -> 'b) -> 'a t -> 'b t
+  val bind : 'a t -> ('a -> 'b t) -> 'b t
+  val ( let+ ) : 'a t -> ('a -> 'b) -> 'b t
+  val ( let* ) : 'a t -> ('a -> 'b t) -> 'b t
+  val fail : string -> 'a t
+  val failf : ('a, Format.formatter, unit, 'b t) format4 -> 'a
+  val catch : 'a t -> (string -> 'a t) -> 'a t
+  val choice : 'a t -> 'a t -> 'a t
+  val choices : ?err:string -> 'a t list -> 'a t
+  val get : Pstate.t t
+  val put : Pstate.t -> unit t
+  val gets : (Pstate.t -> 'a) -> 'a t
+  val modify : (Pstate.t -> Pstate.t) -> unit t
+  (* higher-order combinators, with other datatypes *)
   val map_m : ('a -> 'b t) -> 'a list -> 'b list t
   val iter_m : ('a -> unit t) -> 'a list -> unit t
   val iter_array_m : ('a -> unit t) -> 'a array -> unit t
-  val ( let* ) : 'a t -> ('a -> 'b t) -> 'b t
-  val ( let+ ) : 'a t -> ('a -> 'b) -> 'b t
-  val fail : string -> 'a t
-  val failf : ('a, Format.formatter, unit, 'b t) format4 -> 'a
-  val choice : 'a t -> 'a t -> 'a t
-  val choices : ?err:string -> 'a t list -> 'a t
+  (* derived combinators: managing goals *)
   val pop : Pctx.t t
   val push : Pctx.t -> unit t
+  val get_pctxt : Pctx.t t
+  val put_pctxt : Pctx.t -> unit t
+  val gets_pctxt : (Pctx.t -> 'a) -> 'a t
+  val modify_pctxt : (Pctx.t -> Pctx.t) -> unit t
+  (* derived combinators: get *)
   val get_rename_ctxt : Bindlib.ctxt t
-  val get_goal : term t
   val get_constants : term var SMap.t t
   val get_assumptions : term SMap.t t
-  val get_heap_assumptions : term t
-  val put_heap_assumptions : term -> unit t
+  val get_heap_assumptions : term list t
+  val get_goal : term t
   val get_constant : string -> term var t
   val get_assumption : string -> term t
-  val modify_goal : (term -> term) -> unit t
+  (* val get_heap_assumption : string -> term t *)
+  (* derived combinators: put *)
   val put_rename_ctxt : Bindlib.ctxt -> unit t
+  val put_constants : term var SMap.t -> unit t
+  val put_assumptions : term SMap.t -> unit t
+  val put_heap_assumptions : term list -> unit t
   val put_goal : term -> unit t
-  val add_assumption : string -> term -> unit t
-  val add_heap_assumption : term -> unit t
   val add_constant : string -> term var -> unit t
+  val add_assumption : string -> term -> unit t
+  (* val add_heap_assumption : string -> term -> unit t *)
+  (* derived combinators: modify *)
   val pop_assumption : string -> term t (* remove + return *)
-  val pop_heap_assumptions : term t
-
-  val modify_assumption :
-    string -> (term -> term t) -> unit t (* this is `modify_m` in Haskell *)
+  (* val pop_heap_assumption : string -> term t *)
+  val modify_goal : (term -> term) -> unit t
 end = struct
   type 'a t = Pstate.t -> ('a * Pstate.t, string) Result.t
 
-  let run t ps = Result.map snd (t ps)
+  let run m s = Result.map snd (m s)
   let fail s = fun _ -> Error s
   let failf fmt = Format.kasprintf (fun s -> fun _ -> Error s) fmt
   let return x = fun s -> Ok (x, s)
-  let bind m f = fun s -> Result.bind (m s) (fun (x, s') -> f x s')
-  let ( let* ) = bind
   let map = fun f m -> fun s -> Result.map (fun (a, s1) -> (f a, s1)) (m s)
+  let bind m f = fun s -> Result.bind (m s) (fun (x, s') -> f x s')
   let ( let+ ) a f = map f a
+  let ( let* ) = bind
 
   let choice t1 t2 =
    fun ps ->
@@ -195,16 +210,38 @@ end = struct
     in
     loop 0 f xs
 
+  let catch m h =
+    fun s ->
+      let r = m s in
+      match m s with
+      | Ok _ -> r
+      | Error e -> h e s
+
   let get = fun s -> Ok (s, s)
+
   let put s = fun _ -> Ok ((), s)
 
+  let gets f = fun s -> Ok (f s, s)
+
+  let modify f = fun s -> Ok ((), f s)
+
   open Pctx
+
+  let pop =
+    let* ps = get in
+    match ps with
+    | [] -> fail "no more goal"
+    | p :: ps ->
+        let+ _ = put ps in
+        p
+
+  let push p = modify (fun ps -> p :: ps)
 
   let get_pctxt =
     let* ps = get in
     match ps with
     | [] -> fail "no more goal"
-    | g :: _ -> return g
+    | p :: _ -> return p
 
   let put_pctxt p =
     let* ps = get in
@@ -212,103 +249,96 @@ end = struct
     | [] -> fail "no more goal"
     | _ :: ps -> put (p :: ps)
 
+  let gets_pctxt f =
+    let* ps = get in
+    match ps with
+    | [] -> fail "no more goal"
+    | p :: _ -> return (f p)
+
   let modify_pctxt f =
     let* ps = get in
     match ps with
     | [] -> fail "no more goal"
     | p :: ps -> put (f p :: ps)
 
-  let modify_goal f = modify_pctxt (fun p -> { p with goal = f p.goal })
-  let put_goal goal = modify_pctxt (fun p -> { p with goal })
+  let get_rename_ctxt = gets_pctxt (fun p -> p.rename_ctxt)
+
+  let get_constants = gets_pctxt (fun p -> p.constants)
+
+  let get_assumptions = gets_pctxt (fun p -> p.assumptions)
+
+  let get_heap_assumptions = gets_pctxt (fun p -> p.heap_assumptions)
+
+  let get_goal = gets_pctxt (fun p -> p.goal)
+
+  let get_constant name =
+    let* constants = get_constants in
+    match SMap.find_opt name constants with
+    | None -> fail ("no constant named: " ^ name)
+    | Some v -> return v
+
+  let get_assumption name =
+    let* assumptions = get_assumptions in
+    match SMap.find_opt name assumptions with
+    | None -> fail ("no assumption named: " ^ name)
+    | Some t -> return t
+
+  (* let get_heap_assumption name =
+    let* heap_assumptions = get_heap_assumptions in
+    match SMap.find_opt name heap_assumptions with
+    | None -> fail ("no heap assumption named: " ^ name)
+    | Some t -> return t *)
 
   let put_rename_ctxt rename_ctxt =
     modify_pctxt (fun p -> { p with rename_ctxt })
 
-  let add_constant name t =
-    let* pc = get_pctxt in
-    if SMap.mem name pc.constants then
-      fail ("add_constant: " ^ name ^ " is already used")
-    else put_pctxt { pc with constants = SMap.add name t pc.constants }
+  let put_constants constants =
+    modify_pctxt (fun p -> { p with constants })
 
-  let add_assumption name p =
-    let* pc = get_pctxt in
-    if SMap.mem name pc.assumptions then
-      fail ("add_assumption: " ^ name ^ " is already used")
-    else put_pctxt { pc with assumptions = SMap.add name p pc.assumptions }
+  let put_assumptions assumptions =
+    modify_pctxt (fun p -> { p with assumptions })
+
+  let put_heap_assumptions heap_assumptions =
+    modify_pctxt (fun p -> { p with heap_assumptions })
+
+  let put_goal goal =
+    modify_pctxt (fun p -> { p with goal })
+
+  let add_constant name v =
+    let* constants = get_constants in
+    if SMap.mem name constants
+    then fail ("add_constant: " ^ name ^ " is already used")
+    else put_constants (SMap.add name v constants)
+
+  let add_assumption name t =
+    let* assumptions = get_assumptions in
+    if SMap.mem name assumptions
+    then fail ("add_assumption: " ^ name ^ " is already used")
+    else put_assumptions (SMap.add name t assumptions)
+
+  (* let add_heap_assumption name t =
+    let* heap_assumptions = get_heap_assumptions in
+    if SMap.mem name heap_assumptions
+    then fail ("add_heap_assumption: " ^ name ^ " is already used")
+    else put_heap_assumptions (SMap.add name t heap_assumptions) *)
 
   let pop_assumption name =
-    let* pc = get_pctxt in
-    match SMap.find_opt name pc.assumptions with
-    | None -> fail ("no assumption named: " ^ name)
-    | Some p ->
-        let assumptions = SMap.remove name pc.assumptions in
-        let* _ = put_pctxt { pc with assumptions } in
-        return p
-
-  let pop_heap_assumptions =
-    let* pc = get_pctxt in
-    let hp = Constr.sepconj pc.heap_context in
-    let* _ = put_pctxt { pc with heap_context = [] } in
-    return hp
-
-  let modify_assumption name f =
-    let* p = pop_assumption name in
-    let* p = f p in
-    add_assumption name p
-
-  let get_rename_ctxt =
-    let* p = get_pctxt in
-    return p.rename_ctxt
-
-  let get_goal =
-    let* p = get_pctxt in
-    return p.goal
-
-  let get_constants =
-    let* p = get_pctxt in
-    return p.constants
-
-  let get_assumptions =
-    let* p = get_pctxt in
-    return p.assumptions
-
-  let get_heap_assumptions =
-    let* p = get_pctxt in
-    return (Constr.sepconj p.heap_context)
-
-  let put_heap_assumptions h =
-    let* p = get_pctxt in
-    put_pctxt { p with heap_context = Heap.deep_destruct_sepconj h }
-
-  let get_constant x =
-    let* constants = get_constants in
-    match SMap.find_opt x constants with
-    | None -> fail ("no constant named: " ^ x)
-    | Some v -> return v
-
-  let get_assumption h =
     let* assumptions = get_assumptions in
-    match SMap.find_opt h assumptions with
-    | None -> fail ("no assumption named: " ^ h)
-    | Some p -> return p
+    match SMap.find_opt name assumptions with
+    | None -> fail ("no assumption named: " ^ name)
+    | Some t ->
+        let+ _ = put_assumptions (SMap.remove name assumptions) in
+        t
 
-  let pop =
-    let* ps = get in
-    match ps with
-    | [] -> fail "cannot pop goal"
-    | g :: gs ->
-        let* _ = put gs in
-        return g
+  (* let pop_heap_assumption name =
+    let* heap_assumptions = get_heap_assumptions in
+    match SMap.find_opt name heap_assumptions with
+    | None -> fail ("no heap assumption named: " ^ name)
+    | Some t ->
+        let+ _ = put_heap_assumptions (SMap.remove name heap_assumptions) in
+        t *)
 
-  let push g =
-    let* ps = get in
-    put (g :: ps)
-
-  let add_heap_assumption h =
-    let* ps = get in
-    match ps with
-    | [] -> fail "no more goals"
-    | g :: gs -> put ({ g with heap_context = h :: g.heap_context } :: gs)
+  let modify_goal f = modify_pctxt (fun p -> { p with goal = f p.goal })
 end
 
 let is_pure t =
@@ -340,24 +370,6 @@ let uncons_req f =
   | Requires p when is_pure p -> return (p, Requires Emp)
   | _ -> fail "cannot uncons pure req"
 
-let rec uncons_hens f =
-  let open Tactic in
-  match f with
-  | Sequence (Ensures Emp, rest) -> uncons_hens rest
-  | Sequence (Ensures h, rest) when is_heap h -> return (h, rest)
-  | Ensures Emp -> fail "cannot uncons empty"
-  | Ensures h when is_heap h -> return (h, Ensures Emp)
-  | _ -> fail "cannot uncons ens"
-
-let rec uncons_hreq f =
-  let open Tactic in
-  match f with
-  | Sequence (Requires Emp, rest) -> uncons_hreq rest
-  | Sequence (Requires h, rest) when is_heap h -> return (h, rest)
-  | Requires Emp -> fail "cannot uncons empty"
-  | Requires h when is_heap h -> return (h, Requires Emp)
-  | _ -> fail "cannot uncons req"
-
 let get_subsumption =
   let open Tactic in
   let* g = get_goal in
@@ -375,12 +387,6 @@ let put_rhs r =
   let* left, _ = get_subsumption in
   put_goal (Subsumes (left, r))
 
-let revert_heap =
-  let open Tactic in
-  let* left, right = get_subsumption in
-  let* hp = pop_heap_assumptions in
-  put_goal (Subsumes (Sequence (Ensures hp, left), right))
-
 let intro_pure name =
   let open Tactic in
   let* left, right = get_subsumption in
@@ -396,7 +402,7 @@ let intro_pure name =
   in
   choices ~err:"failed to intro pure" [intro_left; intro_right]
 
-let intro_heap =
+(* let intro_heap =
   let open Tactic in
   let* left, right = get_subsumption in
   let intro_left =
@@ -415,16 +421,17 @@ let intro_heap =
         let* () = put_rhs rest in
         add_heap_assumption h
   in
-  choices ~err:"failed to intro heap" [intro_left; intro_right]
+  choices ~err:"failed to intro heap" [intro_left; intro_right] *)
 
-let specialize h ts =
+let specialize name ts =
   let open Tactic in
   (* TODO: parse_term with respect to constant context *)
   let ts = List.map parse_term ts |> Array.of_list in
   (* TODO allow not exactly same length? *)
-  modify_assumption h (function
-    | Forall b -> return (msubst b ts)
-    | _ -> fail "not a prop that can be specialised")
+  let* assumption = pop_assumption name in
+  match assumption with
+  | Forall b -> add_assumption name (msubst b ts)
+  | _ -> fail "not a prop that can be specialised"
 
 let refl =
   let open Tactic in
@@ -529,7 +536,99 @@ let req_left =
   | Requires h -> put_goal (Subsumes (Sequence (Ensures h, left), Ensures Emp))
   | _ -> fail "req_left cannot do anything"
 
-let cancel_heap =
+module HeapTactic = struct
+  (* TODO: catch Invalid_argument that may be thrown by Heap functions *)
+
+  let ens_heap_intro =
+    let open Tactic in
+    let* _, right = get_subsumption in
+    match unseq_open_ensures_opt right with
+    | None -> fail "ens_heap_intro: not ensures"
+    | Some (t, _) when not (is_hprop t) -> fail "ens_heap_intro: not hprop"
+    | Some (t, right) ->
+        let ts = Heap.deep_destruct_sepconj t in
+        let* heap_assumptions = get_heap_assumptions in
+        let* _ = put_heap_assumptions (ts @ heap_assumptions) in
+        put_rhs right
+
+  let req_heap_intro =
+    let open Tactic in
+    let* left, _ = get_subsumption in
+    match unseq_open_requires_opt left with
+    | None -> fail "req_heap_intro: not requires"
+    | Some (t, _) when not (is_hprop t) -> fail "req_heap_intro: not hprop"
+    | Some (t, left) ->
+        let ts = Heap.deep_destruct_sepconj t in
+        let* heap_assumptions = get_heap_assumptions in
+        let* _ = put_heap_assumptions (ts @ heap_assumptions) in
+        put_lhs left
+
+  let rec unseq_open_loop f target =
+    match f target with
+    | None -> [], target
+    | Some (t, _) when not (is_hprop t) -> [], target
+    | Some (t, target) ->
+        let ts, target = unseq_open_loop f target in
+        Heap.deep_destruct_sepconj t @ ts, target
+
+  let ens_heap_intros =
+    let open Tactic in
+    let* _, right = get_subsumption in
+    let ts, right = unseq_open_loop unseq_open_ensures_opt right in
+    let* heap_assumptions = get_heap_assumptions in
+    let* _ = put_heap_assumptions (ts @ heap_assumptions) in
+    put_rhs right
+
+  let req_heap_intros =
+    let open Tactic in
+    let* left, _ = get_subsumption in
+    let ts, left = unseq_open_loop unseq_open_requires_opt left in
+    let* heap_assumptions = get_heap_assumptions in
+    let* _ = put_heap_assumptions (ts @ heap_assumptions) in
+    put_lhs left
+
+  let req_heap_elim : unit Tactic.t =
+    let open Tactic in
+    let* _, right = get_subsumption in
+    match unseq_open_requires_opt right with
+    | None -> fail "req_heap_elim: not requires"
+    | Some (t, _) when not (is_hprop t) -> fail "req_heap_elim: not hprop"
+    | Some (t, right) ->
+        let* heap_assumptions = get_heap_assumptions in
+        let ts = Heap.deep_destruct_sepconj t in
+        let ts, heap_assumptions, equalities = Heap.biab_list ts heap_assumptions in
+        match ts with
+        | [] ->
+            let* _ = put_heap_assumptions heap_assumptions in
+            let* _ = put_rhs right in
+            let* p = get_pctxt in (* TODO: is there a more elegant way to write this? *)
+            iter_m (fun equality -> push {p with goal = equality}) equalities
+        | _ -> fail "req_heap_elim: cannot prove hprop"
+
+
+  let ens_heap_elim : unit Tactic.t =
+    let open Tactic in
+    let* left, _ = get_subsumption in
+    match unseq_open_ensures_opt left with
+    | None -> fail "ens_heap_elim: not ensures"
+    | Some (t, _) when not (is_hprop t) -> fail "ens_heap_elim: not hprop"
+    | Some (t, left) ->
+        let* heap_assumptions = get_heap_assumptions in
+        let ts = Heap.deep_destruct_sepconj t in
+        let ts, heap_assumptions, equalities = Heap.biab_list ts heap_assumptions in
+        match ts with
+        | [] ->
+            let* _ = put_heap_assumptions heap_assumptions in
+            let* _ = put_lhs left in
+            let* p = get_pctxt in (* TODO: is there a more elegant way to write this? *)
+            iter_m (fun equality -> push {p with goal = equality}) equalities
+        | _ -> fail "req_heap_elim: cannot prove hprop"
+
+  (* automation: do later *)
+  let heap_solver () = failwith "todo"
+end
+
+(* let cancel_heap =
   let open Tactic in
   let* left, right = get_subsumption in
   let ens_ens =
@@ -568,7 +667,7 @@ let cancel_heap =
   in
   (* TODO xpure? *)
   choices ~err:"failed to cancel heap"
-    [ens_ens; req_req; ens_req_left; ctx_req_left; ctx_ens_right]
+    [ens_ens; req_req; ens_req_left; ctx_req_left; ctx_ens_right] *)
 
 let prove =
   let open Tactic in
@@ -735,8 +834,13 @@ module Interactive = struct
 
   let specialize h = make_interactive (specialize h)
   let refl = make_interactive (fun () -> refl)
-  let intro_heap = make_interactive (fun () -> intro_heap)
-  let revert_heap = make_interactive (fun () -> revert_heap)
+  (* let intro_heap = make_interactive (fun () -> intro_heap) *)
+  (* let revert_heap = make_interactive (fun () -> revert_heap) *)
+  let req_heap_intro = make_interactive (fun () -> HeapTactic.req_heap_intro)
+  let ens_heap_intro = make_interactive (fun () -> HeapTactic.ens_heap_intro)
+  let req_heap_elim = make_interactive (fun () -> HeapTactic.req_heap_elim)
+  let ens_heap_elim = make_interactive (fun () -> HeapTactic.ens_heap_elim)
+  (* TODO: write an "intro heap" tactic *)
   let intro_pure = make_interactive intro_pure
   let forall_intro = make_interactive (fun () -> forall_intro)
   let forall_elim = make_interactive forall_elim
@@ -747,7 +851,7 @@ module Interactive = struct
   let right = make_interactive (fun () -> right)
   let simpl = make_interactive (fun () -> simpl)
   let req_left = make_interactive (fun () -> req_left)
-  let cancel_heap = make_interactive (fun () -> cancel_heap)
+  (* let cancel_heap = make_interactive (fun () -> cancel_heap) *)
   let prove = make_interactive (fun () -> prove)
   let admit = make_interactive (fun () -> admit)
 

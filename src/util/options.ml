@@ -3,3 +3,8 @@ module Monad = struct
   let ( let+ ) opt f = Option.map f opt
   let ( let* ) = Option.bind
 end
+
+let filter f opt =
+  match opt with
+  | Some x when f x -> opt
+  | _ -> None

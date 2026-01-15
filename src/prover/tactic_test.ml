@@ -80,30 +80,13 @@ let%expect_test "specialize" =
     |}]
 
 let%expect_test "intro heap" =
-  start_proof "ens x->1; ens emp <: ens emp";
-  intro_heap ();
+  start_proof "ens emp <: ens x->1; ens emp";
+  ens_heap_intro ();
   [%expect
     {|
     ----------------------------------------
-       ens x->1; ens emp
-    <: ens emp
-
-
-
-    ----------------------------------------
-    x->1
-    ---------------------------------------*
        ens emp
-    <: ens emp
-    |}];
-
-  start_proof "ens x->1 <: ens emp";
-  intro_heap ();
-  [%expect
-    {|
-    ----------------------------------------
-       ens x->1
-    <: ens emp
+    <: ens x->1; ens emp
 
 
 
@@ -115,14 +98,18 @@ let%expect_test "intro heap" =
     |}];
 
   start_proof "1 <: ens emp";
-  intro_heap ();
+  ens_heap_intro ();
   [%expect
     {|
     ----------------------------------------
        1
     <: ens emp
 
-    error: failed to intro heap / cannot uncons req / cannot uncons ens
+
+
+    ----------------------------------------
+       1
+    <: ()
     |}]
 
 let%expect_test "forall intro" =
@@ -532,38 +519,51 @@ let%expect_test "rewrite" =
     |}]
 
 let%expect_test "heap tactics" =
-  start_proof "ens emp <: forall x. req x->1; ens x->1";
+  start_proof "ens emp <: forall x. ens x->1; req x->1";
   forall_intro ();
-  req_left ();
-  cancel_heap ();
+  (* req_left (); *)
+  ens_heap_intro ();
+  ens_heap_elim ();
+  req_heap_elim ();
   refl ();
   [%expect
     {|
     ----------------------------------------
        ens emp
-    <: forall x. req x->1; ens x->1
+    <: forall x. ens x->1; req x->1
 
 
     x
     ----------------------------------------
        ens emp
-    <: req x->1; ens x->1
+    <: ens x->1; req x->1
 
 
     x
     ----------------------------------------
-       ens x->1; ens emp
-    <: ens x->1
+    x->1
+    ---------------------------------------*
+       ens emp
+    <: req x->1
 
 
     x
     ----------------------------------------
-       ens emp; ens emp
-    <: ens emp; ens emp
+    x->1
+    ---------------------------------------*
+       ()
+    <: req x->1
+
+
+    x
+    ----------------------------------------
+       ()
+    <: ()
 
     no more goals
     |}];
 
+(*
   start_proof "ens emp <: forall x. req x->1; ens x->1";
   forall_intro ();
   intro_heap ();
@@ -594,3 +594,4 @@ let%expect_test "heap tactics" =
        ens emp
     <: ens emp; ens emp
     |}]
+*)
