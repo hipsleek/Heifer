@@ -29,7 +29,10 @@ module OpInfo = struct
     | Plus -> ("+", `Right, 11)
     | Times -> ("*", `Right, 12)
 
-  let unary = function Not -> ("!", 14) | Neg -> ("-", 14)
+  let unary = function
+    | Not -> ("!", 14)
+    | Neg -> ("-", 14)
+
   let prec_pointsto = 8
   let prec_sepconj = 7
   let prec_conj = 6
@@ -171,7 +174,7 @@ let rec pp_term_prec prec ctxt ppf = function
         t
   | Disj (s1, s2) ->
       let pp ppf () =
-        Fmt.pf ppf "@[<hov 0>%a@ \\/@ %a@]"
+        Fmt.pf ppf "@[<hov 0>%a@ \\/ %a@]"
           (pp_term_prec (OpInfo.prec_disj - 1) ctxt)
           s1
           (pp_term_prec OpInfo.prec_disj ctxt)
