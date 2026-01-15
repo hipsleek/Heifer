@@ -46,8 +46,7 @@ module Pctx = struct
 
   (* TODO: use rename_ctxt *)
   let pp ppf { rename_ctxt = _; constants; assumptions; heap_context; goal } =
-    Format.open_vbox 0;
-    Fmt.pf ppf "@[<hov>%a@]@,"
+    Fmt.pf ppf "@[<v>@[<hov>%a@]@,"
       Fmt.(list ~sep:comma Fmt.string)
       (List.map fst (SMap.bindings constants));
     (match SMap.is_empty assumptions with
@@ -66,9 +65,28 @@ module Pctx = struct
         let heap_line = draw_line (line_length - 1) ^ "*" in
         Fmt.pf ppf "%a@,%s@," Fmt.(list ~sep:cut pp_term) heap_context heap_line);
     (match goal with
-    | Subsumes (l, r) -> Fmt.pf ppf "   %a@,<: %a@," pp_term l pp_term r
-    | _ -> Fmt.pf ppf "%a@," pp_term goal);
-    Format.close_box ()
+    | Subsumes (l, r) -> Fmt.pf ppf "   %a@,<: %a" pp_term l pp_term r
+    | _ -> Fmt.pf ppf "%a" pp_term goal);
+    Fmt.pf ppf "@]"
+
+  let _pp ppf
+      { rename_ctxt = _; constants = _; assumptions; heap_context = _; goal } =
+    let hyp =
+      match SMap.is_empty assumptions with
+      | true -> ""
+      | false ->
+          Fmt.str "%a"
+            (pp_hypotheses ~pp_k:Fmt.string ~pp_v:pp_term)
+            assumptions
+    in
+    let goal =
+      match goal with
+      | Subsumes (l, r) -> Fmt.str "   %a<: 1%a" pp_term l pp_term r
+      | Implies (l, r) -> Fmt.str "   %a=> %a" pp_term l pp_term r
+      | _ -> Fmt.str "%a" pp_term goal
+    in
+    (* TODO no way to show ---* *)
+    Fmt.pf ppf "%a" PrintBox_text.pp PrintBox.(vlist [text hyp; text goal])
 end
 
 module Pstate = struct
@@ -77,13 +95,12 @@ module Pstate = struct
   let pp ppf s =
     match s with
     | [] -> Fmt.pf ppf "no more goals"
-    | p :: goals1 ->
-        let goal_text =
-          match List.length goals1 with
-          | 0 -> ""
-          | n -> Format.asprintf "(%d more goals)" n
-        in
-        Fmt.pf ppf "@[<v>%a%s@,@]" Pctx.pp p goal_text
+    | g :: gs ->
+        Fmt.pf ppf "@[<v>@,%a" Pctx.pp g;
+        (match List.length gs with
+        | 0 -> ()
+        | n -> Fmt.pf ppf "@,(%d more goals)" n);
+        Fmt.pf ppf "@,@]"
 end
 
 module Tactic : sig

@@ -10,7 +10,6 @@ let%expect_test "reflexivity" =
        ens emp
     <: ens emp
 
-
     no more goals
     |}];
 
@@ -21,7 +20,6 @@ let%expect_test "reflexivity" =
     ----------------------------------------
        ens emp
     <: ens x=1
-
 
     error: cannot close goal using reflexivity
     |}]
@@ -67,7 +65,6 @@ let%expect_test "specialize" =
        ens emp
     <: ens emp
 
-
     error: not a prop that can be specialised
     |}];
 
@@ -78,7 +75,6 @@ let%expect_test "specialize" =
     ----------------------------------------
        ens emp
     <: ens emp
-
 
     error: no assumption named: H
     |}]
@@ -126,7 +122,6 @@ let%expect_test "intro heap" =
        1
     <: ens emp
 
-
     error: failed to intro heap / cannot uncons req / cannot uncons ens
     |}]
 
@@ -153,7 +148,6 @@ let%expect_test "forall intro" =
     ----------------------------------------
        ens emp
     <: ens emp
-
 
     error: empty choice / not a forall / not a forall
     |}]
@@ -182,7 +176,6 @@ let%expect_test "forall elim" =
        ens emp
     <: ens emp
 
-
     error: cannot eliminate forall
     |}]
 
@@ -209,7 +202,6 @@ let%expect_test "exists elim" =
     ----------------------------------------
        ens emp
     <: ens emp
-
 
     error: cannot eliminate exists
     |}]
@@ -238,7 +230,6 @@ let%expect_test "exists intro" =
        ens emp
     <: ens emp
 
-
     error: cannot intro exists
     |}]
 
@@ -266,7 +257,6 @@ let%expect_test "disj_elim" =
     ----------------------------------------
        ens emp
     <: ens emp
-
 
     error: not a disjunction
     |}]
@@ -302,7 +292,6 @@ let%expect_test "left/right" =
        ens emp
     <: ens emp
 
-
     error: not a disjunction
     |}];
 
@@ -313,7 +302,6 @@ let%expect_test "left/right" =
     ----------------------------------------
        ens emp
     <: ens emp
-
 
     error: not a disjunction
     |}]
@@ -422,7 +410,6 @@ let%expect_test "induction" =
        ens emp
     <: ens emp
 
-
     error: no constant named: n
     |}]
 
@@ -434,6 +421,7 @@ let%expect_test "unfold" =
   [%expect
     {|
     succ declared
+
 
     ----------------------------------------
        ens emp
@@ -453,7 +441,6 @@ let%expect_test "unfold" =
     ----------------------------------------
        ens emp
     <: ens emp
-
 
     error: the symbol foo does not exist
     |}]
@@ -482,7 +469,6 @@ let%expect_test "intro_pure" =
     ----------------------------------------
        ens x->1
     <: ens emp
-
 
     error: failed to intro pure / cannot uncons pure req / cannot uncons pure ens
     |}];
@@ -519,7 +505,6 @@ let%expect_test "intro_pure" =
        ens b=2; ens emp
     <: ens emp
 
-
     error: failed to intro pure / cannot uncons pure req / add_assumption: H is already used
     |}]
 
@@ -542,7 +527,6 @@ let%expect_test "rewrite" =
     ----------------------------------------
        ens emp
     <: ens emp
-
 
     error: no assumption named: H
     |}]
@@ -576,7 +560,6 @@ let%expect_test "heap tactics" =
     ----------------------------------------
        ens emp; ens emp
     <: ens emp; ens emp
-
 
     no more goals
     |}];
