@@ -330,7 +330,7 @@ let%expect_test "simpl" =
 
 
     ----------------------------------------
-       ens emp; r. ens emp
+       ens emp; ens emp
     <: ens emp
     |}];
 
