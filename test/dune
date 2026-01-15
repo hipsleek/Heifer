@@ -2,5 +2,11 @@
  (enabled_if (<> %{env:TEST_ALL=false} "false")))
 
 (mdx
+ (deps heifer.why)
  (libraries heifer)
  (enabled_if (<> %{env:TEST_ALL=false} "false")))
+
+(rule
+ ; (deps ../heifer.why)
+ ; (targets heifer.why)
+ (copy ../heifer.why heifer.why))
