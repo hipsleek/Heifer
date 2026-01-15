@@ -33,9 +33,19 @@ let why3_env : Env.env =
 
 let combine_task_results label task_results =
   (* let open Provers_common in *)
-  if List.for_all (function `Valid -> true | _ -> false) task_results then
-    `Valid
-  else if List.exists (function `Invalid -> true | _ -> false) task_results
+  if
+    List.for_all
+      (function
+        | `Valid -> true
+        | _ -> false)
+      task_results
+  then `Valid
+  else if
+    List.exists
+      (function
+        | `Invalid -> true
+        | _ -> false)
+      task_results
   then `Invalid
   else
     let explanation =
@@ -53,7 +63,9 @@ let prover_configs : (Whyconf.config_prover * Why3.Driver.driver) SMap.t ref =
 
 let string_of_prover p =
   Format.asprintf "%s %s%s" p.Whyconf.prover_name p.prover_version
-    (match p.prover_altern with "" -> "" | a -> "/" ^ a)
+    (match p.prover_altern with
+    | "" -> ""
+    | a -> "/" ^ a)
 
 let string_of_prover_result = function
   | `Valid -> "valid"
@@ -208,7 +220,7 @@ module Heifer
 end
   |} *)
 
-let prove goal =
+let really_prove goal =
   let open Ptree in
   let open Ptree_helpers in
   (* let ass, goal = f () in *)
@@ -349,7 +361,10 @@ let prove goal =
       (* Format.printf "%a@."
         (Mlw_printer.with_marker ~msg loc (Mlw_printer.pp_mlw_file ~attr:true))
         mlw_file; *)
-      let msg = Format.asprintf "failed: %s, %a@." msg Loc.pp_position loc in
+      let msg =
+        Format.asprintf "failed to construct module: %s, %a@." msg
+          Loc.pp_position loc
+      in
       (* ); *)
       (* Format.printf "%s@." msg *)
       failwith msg
@@ -362,5 +377,12 @@ let prove goal =
   |> Wstdlib.Mstr.bindings
   |> List.map (fun (_, result) -> result)
   |> combine_task_results "Module"
+
+let prove goal =
+  (* try *)
+  really_prove goal
+(* with
+  | Failure s -> `Failure s
+  | e -> `Failure (Printexc.to_string e) *)
 
 let is_translatable = Translate.is_translatable

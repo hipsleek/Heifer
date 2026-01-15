@@ -130,7 +130,10 @@ end = struct
   let ( let* ) = bind
 
   let choice t1 t2 =
-   fun ps -> match t1 ps with Error _ -> t2 ps | Ok s -> Ok s
+   fun ps ->
+    match t1 ps with
+    | Error _ -> t2 ps
+    | Ok s -> Ok s
 
   let rec choices ?(err = "empty choice") ts =
    fun ps ->
@@ -176,15 +179,21 @@ end = struct
 
   let get_pctxt =
     let* ps = get in
-    match ps with [] -> fail "no more goal" | g :: _ -> return g
+    match ps with
+    | [] -> fail "no more goal"
+    | g :: _ -> return g
 
   let put_pctxt p =
     let* ps = get in
-    match ps with [] -> fail "no more goal" | _ :: ps -> put (p :: ps)
+    match ps with
+    | [] -> fail "no more goal"
+    | _ :: ps -> put (p :: ps)
 
   let modify_pctxt f =
     let* ps = get in
-    match ps with [] -> fail "no more goal" | p :: ps -> put (f p :: ps)
+    match ps with
+    | [] -> fail "no more goal"
+    | p :: ps -> put (f p :: ps)
 
   let modify_goal f = modify_pctxt (fun p -> { p with goal = f p.goal })
   let put_goal goal = modify_pctxt (fun p -> { p with goal })
@@ -279,8 +288,15 @@ end = struct
     | g :: gs -> put ({ g with heap_context = h :: g.heap_context } :: gs)
 end
 
-let is_pure t = match t with Emp | PointsTo _ | SepConj _ -> false | _ -> true
-let is_heap t = match t with Emp | PointsTo _ | SepConj _ -> true | _ -> false
+let is_pure t =
+  match t with
+  | Emp | PointsTo _ | SepConj _ -> false
+  | _ -> true
+
+let is_heap t =
+  match t with
+  | Emp | PointsTo _ | SepConj _ -> true
+  | _ -> false
 
 let uncons_ens f =
   let open Tactic in
@@ -544,11 +560,12 @@ let prove =
     (match res with
     | `Valid -> Format.printf "==> Valid\n@."
     | `Invalid -> Format.printf "==> Invalid\n@."
-    | `Unknown s -> Format.printf "==> Unknown: %s\n@." s);
+    | `Unknown s ->
+        Format.printf "==> Unknown: %s\n@." s
+        (* | `Failure s -> Format.printf "==> Failure: %s\n@." s *));
     return res
   in
-  let* left, right = get_subsumption in
-  let ens_ens =
+  (* let ens_ens =
     let* p1, f1 = uncons_ens left in
     let* p2, f2 = uncons_ens right in
     let* res = prove_with_ctx (Implies (p1, p2)) in
@@ -563,8 +580,9 @@ let prove =
     match res with
     | `Valid -> put_goal (Subsumes (f2, f1))
     | _ -> fail "could not cancel req"
-  in
+  in *)
   let ens_right =
+    let* left, right = get_subsumption in
     let* p, f1 = uncons_ens right in
     let* res = prove_with_ctx p in
     match res with
@@ -572,6 +590,7 @@ let prove =
     | _ -> fail "could not prove ens on the right"
   in
   let req_left =
+    let* left, right = get_subsumption in
     let* p, f1 = uncons_req left in
     let* res = prove_with_ctx p in
     match res with
@@ -593,10 +612,50 @@ let prove =
         | `Valid ->
             let* _ = pop in
             return ()
-        | _ -> fail "could not prove req on the left")
+        | _ -> fail "could not prove equality")
+  in
+  let can_be_translated =
+    (* this is more general than the value case *)
+    (* TODO is it possible that this produces props, which should then be related using implies? *)
+    let* left, right = get_subsumption in
+    match Why3_prover.(is_translatable left && is_translatable right) with
+    | false -> fail "cannot be translated"
+    | true ->
+        let* res = prove_with_ctx (Binop (Eq, left, right)) in
+        (match res with
+        | `Valid ->
+            let* _ = pop in
+            return ()
+        | _ -> fail "could not prove")
+  in
+  let is_prop =
+    let rec could_be_prop t =
+      match t with
+      | True | False | Apply _ -> true
+      | Implies (a, b) | Conj (a, b) | Disj (a, b) ->
+          could_be_prop a && could_be_prop b
+      | _ -> false
+    in
+    let* g = get_goal in
+    match could_be_prop g with
+    | false -> fail "not a prop"
+    | true ->
+        let* res = prove_with_ctx g in
+        (match res with
+        | `Valid ->
+            let* _ = pop in
+            return ()
+        | _ -> fail "could not prove goal")
   in
   choices ~err:"failed to prove pure obligation"
-    [both_values; ens_ens; req_req; ens_right; req_left]
+    [
+      both_values;
+      is_prop;
+      ens_right;
+      req_left;
+      (* ens_ens; req_req;*)
+      can_be_translated;
+    ]
 
 module ProofState = struct
   type t = {
