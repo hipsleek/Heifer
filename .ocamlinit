@@ -51,7 +51,8 @@ exists_elim ();;
 intro_pure "Hxs";;
 rewrite "IH";;
 
-simpl ();;
+(* immediately discharge subgoal *)
 prove ();;
 
+simpl ();;
 prove ();;

@@ -67,7 +67,7 @@ module Pctx = struct
         Fmt.pf ppf "%a@,%s@," Fmt.(list ~sep:cut pp_term) heap_context heap_line);
     (match goal with
     | Subsumes (l, r) -> Fmt.pf ppf "   %a@,<: %a@," pp_term l pp_term r
-    | _ -> Fmt.pf ppf "%a" pp_term goal);
+    | _ -> Fmt.pf ppf "%a@," pp_term goal);
     Format.close_box ()
 end
 
@@ -97,6 +97,7 @@ module Tactic : sig
   val iter_array_m : ('a -> unit t) -> 'a array -> unit t
   val ( let* ) : 'a t -> ('a -> 'b t) -> 'b t
   val fail : string -> 'a t
+  val failf : ('a, Format.formatter, unit, 'b t) format4 -> 'a
   val choice : 'a t -> 'a t -> 'a t
   val choices : ?err:string -> 'a t list -> 'a t
   val pop : Pctx.t t
@@ -125,6 +126,7 @@ end = struct
 
   let run t ps = Result.map snd (t ps)
   let fail s = fun _ -> Error s
+  let failf fmt = Format.kasprintf (fun s -> fun _ -> Error s) fmt
   let return x = fun s -> Ok (x, s)
   let bind m f = fun s -> Result.bind (m s) (fun (x, s') -> f x s')
   let ( let* ) = bind
@@ -335,7 +337,7 @@ let get_subsumption =
   let* g = get_goal in
   match g with
   | Subsumes (left, right) -> return (left, right)
-  | _ -> fail "not a subsumption"
+  | _ -> failf "not a subsumption: %a" Core.Pretty.pp_term g
 
 let put_lhs l =
   let open Tactic in
@@ -773,7 +775,6 @@ module Interactive = struct
     run_tactic tac
 
   (* TODO: implement `rewrite in` (but where can we safely rewrite?) *)
-  (* TODO: implement rewrite with hypothesis (generate subgoals) *)
 
   (** Rewrite in the LHS of a sequent. *)
   let rewrite (h : string) =
@@ -784,9 +785,9 @@ module Interactive = struct
       let* lhs, _ = get_subsumption in
       let lhs1, side = Rewrite.rewrite rule lhs in
       let* ps = pop in
-      let* () = iter_m (fun p -> push { ps with goal = p }) side in
       let* () = push ps in
-      put_lhs lhs1
+      let* () = put_lhs lhs1 in
+      iter_m (fun p -> push { ps with goal = p }) (List.rev side)
     in
     run_tactic tac
 end
