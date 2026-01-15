@@ -10,6 +10,5 @@ let empty_table = SymMap.empty
 
     Raise [Failure] if the symbol already exists. *)
 let add_decl sym def (table : symbol_table) : symbol_table =
-  (* if the symbol is already in the symbol table, throw an error *)
-  if SymMap.mem sym table then raise (Failure "symbol is already declared");
+  if SymMap.mem sym table then failwith "symbol is already declared";
   SymMap.add sym def table

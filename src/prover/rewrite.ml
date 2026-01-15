@@ -20,9 +20,9 @@ let rec prop_to_rule_aux p ms side =
 
 let prop_to_rule p =
   let ms, side, lhs, rhs = prop_to_rule_aux p [] [] in
-  let side = box_list (List.map box_prop side) in
-  let lhs = box_staged_spec lhs in
-  let rhs = box_staged_spec rhs in
+  let side = box_list (List.map box_term side) in
+  let lhs = box_term lhs in
+  let rhs = box_term rhs in
   unbox (bind_mvar (Array.concat ms) (box_pair side (box_pair lhs rhs)))
 
 (** Rewrite the target at the top level, either raising on failure or returning
@@ -35,12 +35,12 @@ let rewrite_exact rule target =
   in
   if TVMap.cardinal sigma <> Array.length uvars then raise Rewrite_failure;
   let args = Array.map (fun x -> TVMap.find x sigma) uvars in
-  let rhs = unbox (bind_mvar uvars (box_staged_spec rhs)) in
+  let rhs = unbox (bind_mvar uvars (box_term rhs)) in
   let rhs = msubst rhs args in
   let side =
     List.map
       (fun a ->
-        let a = unbox (bind_mvar uvars (box_prop a)) in
+        let a = unbox (bind_mvar uvars (box_term a)) in
         let a = msubst a args in
         a)
       side
@@ -100,11 +100,11 @@ and rewrite_list ~side rule target = List.map (rewrite_aux ~side rule) target
 
 and rewrite_binder ~side rule target =
   let x, target = unbind target in
-  unbox (bind_var x (box_staged_spec (rewrite_aux ~side rule target)))
+  unbox (bind_var x (box_term (rewrite_aux ~side rule target)))
 
 and rewrite_mbinder ~side rule target =
   let x, target = unmbind target in
-  unbox (bind_mvar x (box_staged_spec (rewrite_aux ~side rule target)))
+  unbox (bind_mvar x (box_term (rewrite_aux ~side rule target)))
 
 let rewrite rule target =
   let side_conditions = ref [] in

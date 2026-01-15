@@ -17,6 +17,22 @@ let rec is_pure_term = function
   | Implies (t1, t2) -> is_pure_term t1 && is_pure_term t2
   | _ -> false
 
+(** TODO: rewrite this to be more robust *)
+let is_prop = function
+  | True
+  | False
+  | Binop _ (* binary and unary operators that return bool can be treated as prop *)
+  | Unop _
+  | Conj _
+  | Disj _
+  | Implies _
+  | Subsumes _ -> true
+  | _ -> false
+
+let is_hprop = function
+  | Emp | PointsTo _ | SepConj _ -> true
+  | _ -> false
+
 let check_sort t =
   let is_term x = x = Sort_term in
   let is_prop x = x = Sort_prop in

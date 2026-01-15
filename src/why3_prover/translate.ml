@@ -121,4 +121,4 @@ let rec term_to_whyml_aux ctxt t =
   | Requires _ | Ensures _ | Sequence (_, _) | Shift _ | Reset _ ->
       failwith "staged logic not handled at this level"
 
-let term_to_whyml p = term_to_whyml_aux Bindlib.(free_vars (box_prop p)) p
+let term_to_whyml p = term_to_whyml_aux Bindlib.(free_vars (box_term p)) p

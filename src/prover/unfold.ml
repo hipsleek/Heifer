@@ -1,7 +1,4 @@
-(** Implementation of the [unfold] tactic.
-
-    To unfold a symbol, we traverse a specification, lookup the definition of
-    the symbol, and do substitution. *)
+(** Implementation of the [unfold] tactic. *)
 
 open Bindlib
 open Core.Syntax
@@ -35,8 +32,8 @@ and unfold_list sym def =
 
 and unfold_binder sym def b =
   let x, t = unbind b in
-  unbox (bind_var x (box_staged_spec (unfold sym def t)))
+  unbox (bind_var x (box_term (unfold sym def t)))
 
 and unfold_mbinder sym def b =
   let x, t = unmbind b in
-  unbox (bind_mvar x (box_staged_spec (unfold sym def t)))
+  unbox (bind_mvar x (box_term (unfold sym def t)))

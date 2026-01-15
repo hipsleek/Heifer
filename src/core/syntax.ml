@@ -21,9 +21,8 @@ type unop =
   | Not
   | Neg
 
-(** Atomic term: variables, (literal) constants, functions, primitives. We
-    enforce that [term] must be pure: no side-effect can happen when reducing a
-    term. *)
+(** Atomic term: variables, (literal) constants, functions, primitives;
+    propositions; heap propositions; and staged specification formulae. *)
 type term =
   | Var of term var
   | Symbol of symbol
@@ -32,34 +31,27 @@ type term =
   | False
   | Int of int
   | Fun of (term, term) mbinder
-  (* | TApp of string * term list *)
   | Tuple of term list
   | Binop of binop * term * term
   | Unop of unop * term
   | Nil
-  (* | PAtom of term *)
   | Conj of term * term
   | Disj of term * term
   | Implies of term * term
-  (* | PForall of (term, term) mbinder *)
   | Subsumes of term * term
-  (* | HPure of term *)
   | Emp
   | PointsTo of term * term
   | SepConj of term * term
-  (* | Return of term *)
   | Requires of term
   | Ensures of term
   | Sequence of term * term
   | Bind of term * (term, term) binder
   | Apply of term * term list
-  (* | Disjunct of term * term *)
   | Forall of (term, term) mbinder
   | Exists of (term, term) mbinder
   | Shift of (term, term) binder
   | Reset of term
 (* | Dollar of term * (term, term) binder *)
-(* | SMetavar of metavar *)
 
 type def = (term, term) mbinder
 
@@ -178,10 +170,6 @@ let rec box_term = function
   | Shift b -> Mk.shift (box_binder box_term b)
   | Reset s -> Mk.reset (box_term s)
 
-let box_prop = box_term
-let box_hprop = box_term
-let box_staged_spec = box_term
-
 type prop = term
 type hprop = term
 type staged_spec = term
@@ -270,10 +258,6 @@ let rec equal_term t1 t2 =
   | Shift b1, Shift b2 -> eq_binder equal_term b1 b2
   | Reset s1, Reset s2 -> equal_term s1 s2
   | _, _ -> false
-
-let equal_prop = equal_term
-let equal_hprop = equal_term
-let equal_staged_spec = equal_term
 
 let rec dump_term ppf t =
   match t with
