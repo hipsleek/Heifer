@@ -109,10 +109,12 @@ module Tactic : sig
   val run : 'a t -> Pstate.t -> (Pstate.t, string) result
   val return : 'a -> 'a t
   val bind : 'a t -> ('a -> 'b t) -> 'b t
+  val map : ('a -> 'b) -> 'a t -> 'b t
   val map_m : ('a -> 'b t) -> 'a list -> 'b list t
   val iter_m : ('a -> unit t) -> 'a list -> unit t
   val iter_array_m : ('a -> unit t) -> 'a array -> unit t
   val ( let* ) : 'a t -> ('a -> 'b t) -> 'b t
+  val ( let+ ) : 'a t -> ('a -> 'b) -> 'b t
   val fail : string -> 'a t
   val failf : ('a, Format.formatter, unit, 'b t) format4 -> 'a
   val choice : 'a t -> 'a t -> 'a t
@@ -147,6 +149,8 @@ end = struct
   let return x = fun s -> Ok (x, s)
   let bind m f = fun s -> Result.bind (m s) (fun (x, s') -> f x s')
   let ( let* ) = bind
+  let map = fun f m -> fun s -> Result.map (fun (a, s1) -> (f a, s1)) (m s)
+  let ( let+ ) a f = map f a
 
   let choice t1 t2 =
    fun ps ->
@@ -316,6 +320,11 @@ let is_heap t =
   match t with
   | Emp | PointsTo _ | SepConj _ -> true
   | _ -> false
+
+let admit =
+  let open Tactic in
+  let+ _ = pop in
+  ()
 
 let uncons_ens f =
   let open Tactic in
@@ -740,6 +749,7 @@ module Interactive = struct
   let req_left = make_interactive (fun () -> req_left)
   let cancel_heap = make_interactive (fun () -> cancel_heap)
   let prove = make_interactive (fun () -> prove)
+  let admit = make_interactive (fun () -> admit)
 
   (* let induction ~ih = make_interactive (induction ~ih) *)
   let prove_s s = Why3_prover.prove (parse_prop s)
@@ -762,8 +772,6 @@ module Interactive = struct
             (Subsumes (Unfold.unfold sym def lhs, Unfold.unfold sym def rhs))
         in
         run_tactic tac
-
-  (* let induction kind (ih_name : string) (x : string) (vars : string list) = *)
 
   (** Generate an induction hypothesis in the current proof state.
 
