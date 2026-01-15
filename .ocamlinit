@@ -1,10 +1,7 @@
 #utop_prompt_dummy;;
 #use_output "dune ocaml top";;
 
-(* open Prover.Tactic;; *)
-open Core.Syntax;;
-open Prover.Tactic.ProofState;;
-open Prover.Tactic.Interactive;;
+open Heifer.Interactive;;
 
 (* start_proof "ex x. ens x->1; f(1, 2)" "(forall x. ens emp) \\/ ens emp";; *)
 
@@ -43,7 +40,7 @@ unfold "foldr";;
 disj_elim ();;
 
 (* base case *)
-intro_pure "H";
+intro_pure "H";;
 prove ();;
 
 (* inductive case *)

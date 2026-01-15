@@ -88,12 +88,6 @@ IH: forall xs1.
 - : unit = ()
 
 # prove ()
-module M
-  use heifer.Heifer
-
-  goal goal1:
-    forall xs : term. (xs = TNil) -> ((TInt 0) = (xs.sum))
-end
 ==> Valid
 
 
@@ -156,13 +150,6 @@ sublist t xs
 - : unit = ()
 
 # prove ()
-module M
-  use heifer.Heifer
-
-  goal goal1:
-    forall h : term, t : term, xs : term.
-      (xs = (TCons h t)) -> (sublist t xs)
-end
 ==> Valid
 
 
@@ -194,13 +181,6 @@ IH: forall xs1.
 - : unit = ()
 
 # prove ()
-module M
-  use heifer.Heifer
-
-  goal goal1:
-    forall h : term, t : term, xs : term.
-      (xs = (TCons h t)) -> ((plus h (t.sum)) = (xs.sum))
-end
 ==> Valid
 
 no more goals

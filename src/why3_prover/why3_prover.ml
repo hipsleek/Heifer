@@ -220,7 +220,7 @@ module Heifer
 end
   |} *)
 
-let really_prove goal =
+let really_prove show_goal goal =
   let open Ptree in
   let open Ptree_helpers in
   (* let ass, goal = f () in *)
@@ -349,7 +349,8 @@ let really_prove goal =
   (* let prelude = Lexer.parse_mlw_file (Lexing.from_string prelude) in *)
   let mlw_file = Modules [vc_mod] in
   (* Debug.debug ~at:4 ~title:"mlw file" "%a" *)
-  Format.printf "%a@." (Mlw_printer.pp_mlw_file ~attr:true) mlw_file;
+  if show_goal then
+    Format.printf "%a@." (Mlw_printer.pp_mlw_file ~attr:true) mlw_file;
   let mods =
     try Typing.type_mlw_file why3_env [] "myfile.mlw" mlw_file
     with Loc.Located (loc, e) ->
@@ -378,9 +379,9 @@ let really_prove goal =
   |> List.map (fun (_, result) -> result)
   |> combine_task_results "Module"
 
-let prove goal =
+let prove ?(show_goal = false) goal =
   (* try *)
-  really_prove goal
+  really_prove show_goal goal
 (* with
   | Failure s -> `Failure s
   | e -> `Failure (Printexc.to_string e) *)

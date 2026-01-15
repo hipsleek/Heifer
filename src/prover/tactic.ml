@@ -5,6 +5,11 @@ open Core.Syntax_util
 open Parsing.Parse
 open Bindlib
 
+module Options = struct
+  let notation = ref true
+  let show_why3_goal = ref false
+end
+
 module SMap = struct
   include Map.Make (String)
 
@@ -53,6 +58,12 @@ module Pctx = struct
     Fmt.pf ppf "@[<v>@[<hov>%a@]@,"
       Fmt.(list ~sep:comma Fmt.string)
       (List.map fst (SMap.bindings constants));
+
+    let pp_term =
+      match !Options.notation with
+      | true -> pp_term
+      | false -> dump_term
+    in
     (match SMap.is_empty assumptions with
     | true -> ()
     | false ->
@@ -588,7 +599,7 @@ let prove =
       let free = free |> SMap.bindings |> List.map snd |> Array.of_list in
       unbox (Mk.forall (bind_mvar free (box_term (Implies (pure, p)))))
     in
-    let res = Why3_prover.prove entail in
+    let res = Why3_prover.prove ~show_goal:!Options.show_why3_goal entail in
     (match res with
     | `Valid -> Format.printf "==> Valid\n@."
     | `Invalid -> Format.printf "==> Invalid\n@."
@@ -756,7 +767,7 @@ module Interactive = struct
   let admit = make_interactive (fun () -> admit)
 
   (* let induction ~ih = make_interactive (induction ~ih) *)
-  let prove_s s = Why3_prover.prove (parse_prop s)
+  let prove_s s = Why3_prover.prove ~show_goal:true (parse_prop s)
 
   (** Unfold a definition (symbol) on both side of a sequent in the current
       proof state.
