@@ -12,14 +12,7 @@ module Options = struct
   let show_why3_goal = ref false
 end
 
-let pp_hypotheses ~pp_k ~pp_v ppf m =
-  let al = SMap.bindings m in
-  Fmt.pf ppf "@[<v>%a@]"
-    Fmt.(
-      list ~sep:(any "@,")
-        (Fmt.hovbox ~indent:2 (pair ~sep:(any ": ") pp_k pp_v)))
-    al
-
+(* TODO: refactor to proof_context.ml *)
 module Pctx = struct
   type t = {
     rename_ctxt : Bindlib.ctxt;
@@ -38,13 +31,15 @@ module Pctx = struct
       goal;
     }
 
-  let draw_line n =
-    let unicode = true in
-    match unicode with
-    | false -> String.make n '-'
-    | true -> String.concat "" (List.init n (fun _ -> "─"))
+  let pp_hypotheses ~pp_k ~pp_v ppf m =
+  let al = SMap.bindings m in
+  Fmt.pf ppf "@[<v>%a@]"
+    Fmt.(
+      list ~sep:(any "@,")
+        (Fmt.hovbox ~indent:2 (pair ~sep:(any ": ") pp_k pp_v)))
+    al
 
-  (* TODO: use rename_ctxt *)
+  (* TODO: use rename_ctxt, and split into different functions *)
   let pp ppf { rename_ctxt = _; constants; assumptions; heap_assumptions; goal } =
     Fmt.pf ppf "@[<v>@[<hov>%a@]@,"
       Fmt.(list ~sep:comma Fmt.string)
@@ -74,27 +69,9 @@ module Pctx = struct
     | Subsumes (l, r) -> Fmt.pf ppf "   %a@,<: %a" pp_term l pp_term r
     | _ -> Fmt.pf ppf "%a" pp_term goal);
     Fmt.pf ppf "@]"
-
-  (* let _pp ppf
-      { rename_ctxt = _; constants = _; assumptions; heap_context = _; goal } =
-    let hyp =
-      match SMap.is_empty assumptions with
-      | true -> ""
-      | false ->
-          Fmt.str "%a"
-            (pp_hypotheses ~pp_k:Fmt.string ~pp_v:pp_term)
-            assumptions
-    in
-    let goal =
-      match goal with
-      | Subsumes (l, r) -> Fmt.str "   %a<: 1%a" pp_term l pp_term r
-      | Implies (l, r) -> Fmt.str "   %a=> %a" pp_term l pp_term r
-      | _ -> Fmt.str "%a" pp_term goal
-    in
-    (* TODO no way to show ---* *)
-    Fmt.pf ppf "%a" PrintBox_text.pp PrintBox.(vlist [text hyp; text goal]) *)
 end
 
+(* TODO: refactor to proof_state.ml. proof_state will depend on proof_context *)
 module Pstate = struct
   type t = Pctx.t list
 
@@ -109,6 +86,7 @@ module Pstate = struct
         Fmt.pf ppf "@,@]"
 end
 
+(* TODO: refactor to tactic_monad.ml. tactic_monad will depend on proof_state. *)
 module Tactic : sig
   type 'a t
 
@@ -575,31 +553,37 @@ module HeapTactic = struct
     let open Tactic in
     choices ~err:"failed to intro heap" [ens_heap_intro; req_heap_intro]
 
-(*
+  let unseq_open_opt f target =
+    let open Util.Options.Monad in
+    let* t, target = f target in
+    let+ ts = Heap.deep_destruct_sepconj_opt t in
+    ts, target
+
   let rec unseq_open_loop f target =
-    match f target with
+    match unseq_open_opt f target with
     | None -> [], target
-    | Some (t, _) when not (is_hprop t) -> [], target
-    | Some (t, target) ->
-        let ts, target = unseq_open_loop f target in
-        Heap.deep_destruct_sepconj t @ ts, target
+    | Some (ts1, target) ->
+        let ts2, target = unseq_open_loop f target in
+        ts1 @ ts2, target
 
   let ens_heap_intros =
     let open Tactic in
-    let* _, right = get_subsumption in
-    let ts, right = unseq_open_loop unseq_open_ensures_opt right in
-    let* heap_assumptions = get_heap_assumptions in
-    let* _ = put_heap_assumptions (ts @ heap_assumptions) in
-    put_rhs right
+    let* lhs = get_lhs in
+    let ts, lhs = unseq_open_loop unseq_open_ensures_opt lhs in
+    let* _ = modify_heap_assumptions (List.append ts) in
+    put_lhs lhs
 
   let req_heap_intros =
     let open Tactic in
-    let* left, _ = get_subsumption in
-    let ts, left = unseq_open_loop unseq_open_requires_opt left in
-    let* heap_assumptions = get_heap_assumptions in
-    let* _ = put_heap_assumptions (ts @ heap_assumptions) in
-    put_lhs left
-*)
+    let* rhs = get_rhs in
+    let ts, rhs = unseq_open_loop unseq_open_requires_opt rhs in
+    let* _ = modify_heap_assumptions (List.append ts) in
+    put_rhs rhs
+
+  let intros_heap =
+    let open Tactic in
+    let* _ = ens_heap_intros in
+    req_heap_intros
 
   let req_heap_elim =
     let open Tactic in
@@ -614,7 +598,7 @@ module HeapTactic = struct
     let* p = get_pctxt in
     iter_m (fun equality -> push_pctxt {p with goal = equality}) equalities
 
-  let ens_heap_elim : unit Tactic.t =
+  let ens_heap_elim =
     let open Tactic in
     let* rhs = get_rhs in
     let* t, rhs = unwrap (unseq_open_ensures_opt rhs) "ens_heap_elim: not ensures" in
@@ -627,8 +611,13 @@ module HeapTactic = struct
     let* p = get_pctxt in (* TODO: is there a more elegant way to write this? *)
     iter_m (fun equality -> push_pctxt {p with goal = equality}) equalities
 
-  (* automation: do later *)
-  let heap_solver () = failwith "todo"
+  let heap_solver : unit Tactic.t =
+    let open Tactic in
+    let rec loop () = bind intros_heap loop in
+    loop ()
+    (* TODO: keep calling elim. try solve all subgoals of elims *)
+    (* if there is progress, loop back *)
+    (* we need to keep track of progress somehow, but that's not very elegant... *)
 end
 
 let prove =
@@ -746,6 +735,8 @@ let prove =
       can_be_translated;
     ]
 
+(* TODO: refactor into some top-level module, with a different name. The current
+   name clashes with Pstate -> proof_state *)
 module ProofState = struct
   type t = {
     definitions : symbol_table;
@@ -804,6 +795,7 @@ module Interactive = struct
 
   let intro_pure name = run_tactic (PureTactic.intro_pure name)
   let intro_heap () = run_tactic HeapTactic.intro_heap
+  let intros_heap () = run_tactic (HeapTactic.intros_heap)
 
   let forall_intro = make_interactive (fun () -> forall_intro)
   let forall_elim = make_interactive forall_elim

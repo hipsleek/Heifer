@@ -4,6 +4,7 @@ module Monad : sig
   val ( let* ) : 'a list -> ('a -> 'b list) -> 'b list
 end
 
+val make : int -> 'a -> 'a list
 val unsnoc : 'a list -> 'a list * 'a
 val fold_left1 : ('a -> 'a -> 'a) -> 'a list -> 'a
 val fold_right1 : ('a -> 'a -> 'a) -> 'a list -> 'a

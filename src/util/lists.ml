@@ -4,6 +4,9 @@ module Monad = struct
   let ( let* ) xs f = List.concat_map f xs
 end
 
+let rec make n x =
+  if n <= 0 then [] else x :: make (n - 1) x
+
 let rec unsnoc_aux y = function
   | [] -> [], y
   | x :: xs ->
