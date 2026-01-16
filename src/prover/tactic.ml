@@ -510,33 +510,35 @@ let exists_elim =
       iter_array_m (fun x -> add_constant (name_of x) x) xs
   | _ -> fail "cannot eliminate exists"
 
-let disj_elim =
-  let open Tactic in
-  let* left, right = get_subsumption in
-  match left with
-  | Disj (a, b) ->
-      let* ps = pop_pctxt in
-      let* _ = push_pctxt { ps with goal = Subsumes (b, right) } in
-      push_pctxt { ps with goal = Subsumes (a, right) }
-  | _ -> fail "not a disjunction"
+module DisjTactic = struct
+  let disj_elim =
+    let open Tactic in
+    let* left, right = get_subsumption in
+    match left with
+    | Disj (a, b) ->
+        let* ps = pop_pctxt in
+        let* _ = push_pctxt { ps with goal = Subsumes (b, right) } in
+        push_pctxt { ps with goal = Subsumes (a, right) }
+    | _ -> fail "not a disjunction"
 
-let left =
-  let open Tactic in
-  let* left, right = get_subsumption in
-  match right with
-  | Disj (a, _) ->
-      let* ps = pop_pctxt in
-      push_pctxt { ps with goal = Subsumes (left, a) }
-  | _ -> fail "not a disjunction"
+  let left =
+    let open Tactic in
+    let* left, right = get_subsumption in
+    match right with
+    | Disj (a, _) ->
+        let* ps = pop_pctxt in
+        push_pctxt { ps with goal = Subsumes (left, a) }
+    | _ -> fail "not a disjunction"
 
-let right =
-  let open Tactic in
-  let* left, right = get_subsumption in
-  match right with
-  | Disj (_, b) ->
-      let* ps = pop_pctxt in
-      push_pctxt { ps with goal = Subsumes (left, b) }
-  | _ -> fail "not a disjunction"
+  let right =
+    let open Tactic in
+    let* left, right = get_subsumption in
+    match right with
+    | Disj (_, b) ->
+        let* ps = pop_pctxt in
+        push_pctxt { ps with goal = Subsumes (left, b) }
+    | _ -> fail "not a disjunction"
+end
 
 let simpl =
   let open Tactic in
@@ -807,10 +809,10 @@ module Interactive = struct
   let forall_elim = make_interactive forall_elim
   let exists_intro = make_interactive exists_intro
   let exists_elim = make_interactive (fun () -> exists_elim)
-  let disj_elim = make_interactive (fun () -> disj_elim)
-  let left = make_interactive (fun () -> left)
-  let right = make_interactive (fun () -> right)
-  let simpl = make_interactive (fun () -> simpl)
+  let disj_elim () = run_tactic DisjTactic.disj_elim
+  let left () = run_tactic DisjTactic.left
+  let right () = run_tactic DisjTactic.right
+  let simpl () = run_tactic simpl
   let req_left = make_interactive (fun () -> req_left)
   (* let cancel_heap = make_interactive (fun () -> cancel_heap) *)
   let prove = make_interactive (fun () -> prove)
