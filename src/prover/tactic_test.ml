@@ -21,7 +21,7 @@ let%expect_test "reflexivity" =
        ens emp
     <: ens x=1
 
-    error: cannot close goal using reflexivity
+    error: refl: cannot close goal
     |}]
 
 let%expect_test "specialize" =
@@ -80,13 +80,13 @@ let%expect_test "specialize" =
     |}]
 
 let%expect_test "intro heap" =
-  start_proof "ens emp <: ens x->1; ens emp";
+  start_proof "ens x->1; ens emp <: ens emp";
   ens_heap_intro ();
   [%expect
     {|
     ────────────────────────────────────────────────────────────
-       ens emp
-    <: ens x->1; ens emp
+       ens x->1; ens emp
+    <: ens emp
 
 
 
@@ -97,30 +97,30 @@ let%expect_test "intro heap" =
     <: ens emp
     |}];
 
-  start_proof "req x->1 <: ens emp";
+  start_proof "ens emp <: req x->1";
   req_heap_intro ();
   [%expect
     {|
     ────────────────────────────────────────────────────────────
-       req x->1
-    <: ens emp
+       ens emp
+    <: req x->1
 
 
 
     ────────────────────────────────────────────────────────────
     x->1
     ───────────────────────────────────────────────────────────*
-       ()
-    <: ens emp
+       ens emp
+    <: ()
     |}];
 
-  start_proof "1 <: ens emp";
-  ens_heap_intro ();
+  start_proof "1 <: req emp";
+  req_heap_intro ();
   [%expect
     {|
     ────────────────────────────────────────────────────────────
        1
-    <: ens emp
+    <: req emp
 
 
 
@@ -446,7 +446,7 @@ let%expect_test "unfold" =
        ens emp
     <: ens emp
 
-    error: the symbol foo does not exist
+    unfold: the symbol foo does not exist
     |}]
 
 let%expect_test "intro_pure" =
@@ -462,7 +462,7 @@ let%expect_test "intro_pure" =
 
     H: x=1
     ────────────────────────────────────────────────────────────
-       ens emp
+       ()
     <: ens emp
     |}];
 
@@ -474,7 +474,7 @@ let%expect_test "intro_pure" =
        ens x->1
     <: ens emp
 
-    error: failed to intro pure / cannot uncons pure req / cannot uncons pure ens
+    error: failed to intro pure / req_pure_intro: not requires / ens_pure_intro: not prop
     |}];
 
   start_proof "ens a=1 <: ens emp";
@@ -489,7 +489,7 @@ let%expect_test "intro_pure" =
 
     H: a=1
     ────────────────────────────────────────────────────────────
-       ens emp
+       ()
     <: ens emp
     |}];
 
@@ -509,7 +509,7 @@ let%expect_test "intro_pure" =
        ens b=2; ens emp
     <: ens emp
 
-    error: failed to intro pure / cannot uncons pure req / add_assumption: H is already used
+    error: failed to intro pure / req_pure_intro: not requires / add_assumption: H is already used
     |}]
 
 let%expect_test "rewrite" =
@@ -536,31 +536,29 @@ let%expect_test "rewrite" =
     |}]
 
 let%expect_test "heap tactics" =
-  start_proof "ens emp <: forall x. ens x->1; req x->1";
+  start_proof "ens emp <: forall x. req x->1; ens x->1";
   forall_intro ();
   ens_heap_intro ();
+  req_heap_intro ();
   ens_heap_elim ();
-  req_heap_elim ();
   refl ();
   [%expect
     {|
     ────────────────────────────────────────────────────────────
        ens emp
-    <: forall x. ens x->1; req x->1
+    <: forall x. req x->1; ens x->1
 
 
     x
     ────────────────────────────────────────────────────────────
        ens emp
-    <: ens x->1; req x->1
+    <: req x->1; ens x->1
 
 
     x
     ────────────────────────────────────────────────────────────
-    x->1
-    ───────────────────────────────────────────────────────────*
-       ens emp
-    <: req x->1
+       ()
+    <: req x->1; ens x->1
 
 
     x
@@ -568,7 +566,7 @@ let%expect_test "heap tactics" =
     x->1
     ───────────────────────────────────────────────────────────*
        ()
-    <: req x->1
+    <: ens x->1
 
 
     x

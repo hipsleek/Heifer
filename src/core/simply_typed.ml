@@ -26,11 +26,15 @@ let is_prop = function
   | Conj _
   | Disj _
   | Implies _
-  | Subsumes _ -> true
+  | Subsumes _
+  | Forall _
+  | Exists _ -> true
   | _ -> false
 
 let is_hprop = function
-  | Emp | PointsTo _ | SepConj _ -> true
+  | Emp
+  | PointsTo _
+  | SepConj _ -> true (* forall? exists? *)
   | _ -> false
 
 let check_sort t =

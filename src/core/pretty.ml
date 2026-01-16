@@ -207,4 +207,4 @@ let rec pp_term_prec prec ctxt ppf = function
         body
   | Reset s -> Fmt.pf ppf "@[<hov 2>reset@ (%a)@]" (pp_term_prec 0 ctxt) s
 
-let pp_term ppf s = pp_term_prec 0 (free_vars (box_term s)) ppf s
+let pp_term ppf t = pp_term_prec 0 (free_vars (box_term t)) ppf t

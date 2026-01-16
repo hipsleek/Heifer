@@ -56,6 +56,9 @@ let deep_destruct_sepconj t =
   in
   visit t []
 
+let deep_destruct_sepconj_opt t =
+  try Some (deep_destruct_sepconj t) with Invalid_argument _ -> None
+
 let biab_list ts1 ts2 =
   let h1 = hprop_list_to_heap ts1 in
   let h2 = hprop_list_to_heap ts2 in

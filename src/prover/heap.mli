@@ -18,6 +18,8 @@ val heap_to_hprop_list : heap -> hprop list
     Raise [Invalid_argument] if argument is not a heap proposition *)
 val deep_destruct_sepconj : hprop -> hprop list
 
+val deep_destruct_sepconj_opt : hprop -> hprop list option
+
 (* TODO: improve the interface of this module! *)
 
 val match_heap : heap -> heap -> heap * heap * heap * prop list

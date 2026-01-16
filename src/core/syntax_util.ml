@@ -6,7 +6,7 @@ let open_dfun = function
 
 let open_subsumes = function
   | Subsumes (t1, t2) -> t1, t2
-  | _ -> invalid_arg "open_subsumes: not PSubsumes"
+  | t -> invalid_arg (Format.asprintf "open_subsumes: %a" Pretty.pp_term t)
 
 let is_emp = function
   | Emp -> true
