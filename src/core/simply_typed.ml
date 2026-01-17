@@ -21,7 +21,8 @@ let rec is_pure_term = function
 let is_prop = function
   | True
   | False
-  | Binop _ (* binary and unary operators that return bool can be treated as prop *)
+  | Binop _
+  (* binary and unary operators that return bool can be treated as prop *)
   | Unop _
   | Conj _
   | Disj _
@@ -32,9 +33,7 @@ let is_prop = function
   | _ -> false
 
 let is_hprop = function
-  | Emp
-  | PointsTo _
-  | SepConj _ -> true (* forall? exists? *)
+  | Emp | PointsTo _ | SepConj _ -> true (* forall? exists? *)
   | _ -> false
 
 let check_sort t =
@@ -64,7 +63,7 @@ let check_sort t =
         let* s2 = check_sort_aux env t2 in
         let* () = require (is_term s1 && is_term s2) "expected term in binop" in
         Ok Sort_prop
-    | Binop ((Plus | Times | Cons), t1, t2) ->
+    | Binop ((Minus | Plus | Times | Cons), t1, t2) ->
         let* s1 = check_sort_aux env t1 in
         let* s2 = check_sort_aux env t2 in
         let* () = require (is_term s1 && is_term s2) "expected term in binop" in

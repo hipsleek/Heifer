@@ -14,6 +14,7 @@ type binop =
   | Eq
   | Neq
   | Plus
+  | Minus
   | Times
   | Cons
 
@@ -287,12 +288,17 @@ let rec dump_term ppf t =
         | Eq -> "Eq"
         | Neq -> "Neq"
         | Plus -> "Plus"
+        | Minus -> "Minus"
         | Times -> "Times"
         | Cons -> "Cons"
       in
       Fmt.pf ppf "@[<hov 2>Binop (%s, %a, %a)@]" op_s dump_term t1 dump_term t2
   | Unop (op, t) ->
-      let op_s = match op with Not -> "Not" | Neg -> "Neg" in
+      let op_s =
+        match op with
+        | Not -> "Not"
+        | Neg -> "Neg"
+      in
       Fmt.pf ppf "@[<hov 2>Unop (%s, %a)@]" op_s dump_term t
   | Nil -> Fmt.string ppf "Nil"
   | Conj (t1, t2) ->

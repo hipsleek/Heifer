@@ -19,15 +19,11 @@ module Heifer
     | _, _ -> TErr
     end
 
-(*
-  function eq (a b:term) : term =
+  function minus (a b:term) : term =
     match a, b with
-    | TErr, _ | _, TErr -> TBool false
-    | _, _ -> TBool (a = b)
+    | TInt a1, TInt b1 -> TInt (a1 - b1)
+    | _, _ -> TErr
     end
-*)
-
-  (* function eq (a b:term) : term = TBool (a = b) *)
 
   function gt (a b:term) : term =
     match a, b with

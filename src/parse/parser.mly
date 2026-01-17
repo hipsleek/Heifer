@@ -77,7 +77,7 @@ let resolve_identifier x =
 %left STAR
 %nonassoc MINUSGREATER
 
-%left PLUS //MINUS
+%left PLUS MINUS
 %left STARDOT // multiplication
 %right COLONCOLON
 %nonassoc TRUE FALSE RESET LPAREN LOWERCASE_IDENT LBRACKET INT EMP
@@ -100,6 +100,7 @@ let resolve_identifier x =
   | LESS { Lt }
   | EQUAL { Eq }
   | PLUS { Plus }
+  | MINUS { Minus }
   | STARDOT { Times }
   | COLONCOLON { Cons }
   ;

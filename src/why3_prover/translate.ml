@@ -11,7 +11,7 @@ let rec is_translatable t =
   | Unit | Nil | Emp | Int _ | Tuple _ ->
       (* terms are fine too *)
       true
-  | Binop ((Lt | Le | Gt | Ge | Eq | Neq | Plus | Times | Cons), _, _)
+  | Binop ((Lt | Le | Gt | Ge | Eq | Neq | Plus | Minus | Times | Cons), _, _)
   | Unop ((Not | Neg), _) ->
       (* terms *)
       true
@@ -56,6 +56,9 @@ let rec term_to_whyml_aux ctxt t =
   | Binop (Plus, a, b) ->
       (* tapp (qualid ["Int"; Ident.op_infix "+"]) [term_to_whyml_aux ctxt a; term_to_whyml_aux ctxt b] *)
       tapp (qualid ["plus"])
+        [term_to_whyml_aux ctxt a; term_to_whyml_aux ctxt b]
+  | Binop (Minus, a, b) ->
+      tapp (qualid ["minus"])
         [term_to_whyml_aux ctxt a; term_to_whyml_aux ctxt b]
   | Binop (Cons, h, t) ->
       tapp (qualid ["TCons"])
