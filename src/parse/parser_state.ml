@@ -26,7 +26,16 @@ let remove x =
   r
 
 let remove_all xs = List.map remove xs |> Array.of_list
-
 let get = Hashtbl.find unbound_vars
-
 let get_opt = Hashtbl.find_opt unbound_vars
+
+(** Resolve an identifier when parsing:
+    - If the identifier is bound, then it's a variable.
+    - Otherwise, we assume that it is a symbol.
+
+    In the future, we may maintain a symbol table for the parser, if we have
+    multiple kind of symbols. *)
+let resolve_identifier x =
+  match get_opt x with
+  | None -> Symbol { sym_name = x }
+  | Some v -> Var v
