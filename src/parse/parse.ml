@@ -164,8 +164,8 @@ let%expect_test "definitions and entailments" =
   test ~dump:true "ens (forall a. a=1); ens emp <: ens emp";
   [%expect
     {|
-    Subsumes (Sequence (Ensures (Forall (a. Binop (Eq, Var a, Int 1))), Ensures (Emp)),
-      Ensures (Emp))
+    Subsumes (Sequence (Ensures (Forall (a. Binop (Eq, Var a, Int 1))),
+                Ensures (Emp)), Ensures (Emp))
     ens (forall a. a=1); ens emp <: ens emp
     |}];
 
