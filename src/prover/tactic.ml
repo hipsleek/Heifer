@@ -2,7 +2,6 @@ open Core
 open Core.Syntax
 open Core.Decl
 open Core.Syntax_util
-open Parsing.Parse
 open Bindlib
 open Util.Strings
 
@@ -38,6 +37,7 @@ module Tactic : sig
   (* basic combinators *)
   val pure : 'a -> 'a t
   val map : ('a -> 'b) -> 'a t -> 'b t
+  val ( >|= ) : 'a t -> ('a -> 'b) -> 'b t
   val mapl : 'b -> 'a t -> 'b t
   val bind : 'a t -> ('a -> 'b t) -> 'b t
   val ( let+ ) : 'a t -> ('a -> 'b) -> 'b t
@@ -99,6 +99,9 @@ end = struct
   let fail s = fun _ -> Error s
   let pure x = fun s -> Ok (x, s)
   let map f m = fun s -> Result.map (fun (x, s) -> (f x, s)) (m s)
+
+  (* name from https://c-cube.github.io/ocaml-containers/last/containers/CCFun/Monad/index.html *)
+  let ( >|= ) m f = map f m
   let mapl x m = fun s -> Result.map (fun (_, s) -> (x, s)) (m s)
   let bind m f = fun s -> Result.bind (m s) (fun (x, s) -> f x s)
   let ( let+ ) a f = map f a
@@ -365,10 +368,15 @@ module PureTactic = struct
       [ens_pure_intro name; req_pure_intro name]
 end
 
+let parse_term ts =
+  let open Tactic in
+  let open Parsing.Parse in
+  let* constants = get_constants in
+  pure (parse_term ~ctx:constants ts)
+
 let specialize name ts =
   let open Tactic in
-  let* constants = get_constants in
-  let ts = List.map (parse_term ~ctx:constants) ts |> Array.of_list in
+  let* ts = map_m parse_term ts >|= Array.of_list in
   (* TODO allow not exactly same length? *)
   let* assumption = pop_assumption name in
   match assumption with
@@ -408,8 +416,7 @@ let forall_elim t =
   let* left, _ = get_subsumption in
   match Prenex.prenex left with
   | Forall b ->
-      (* TODO: parse_term with respect to constant context *)
-      let t = List.map parse_term t |> Array.of_list in
+      let* t = map_m parse_term t >|= Array.of_list in
       put_lhs (msubst b t)
   | _ -> fail "cannot eliminate forall"
 
@@ -418,8 +425,7 @@ let exists_intro t =
   let* _, right = get_subsumption in
   match Prenex.prenex right with
   | Exists b ->
-      (* TODO: parse_term with respect to constant context *)
-      let t = List.map parse_term t |> Array.of_list in
+      let* t = map_m parse_term t >|= Array.of_list in
       put_rhs (msubst b t)
   | _ -> fail "cannot intro exists"
 
@@ -723,14 +729,15 @@ module ProofState = struct
   let set_goals goals = current_state := { !current_state with goals }
 
   let declare decl =
-    let sym, def = open_dfun (parse_decl decl) in
+    let sym, def = open_dfun (Parsing.Parse.parse_decl decl) in
     try
       set_definitions (add_decl sym def !current_state.definitions);
       Format.printf "%s declared@." sym.sym_name
     with Failure msg -> Format.printf "error: %s@." msg
 
-  let start_proof goal =
-    set_goals [Proof_context.create ~goal:(parse_term goal)];
+  let start_proof g =
+    (* Options.init (); *)
+    set_goals [Proof_context.create ~goal:(Parsing.Parse.parse_staged_spec g)];
     print_proof_state ()
 
   let run_tactic tac =
@@ -775,7 +782,7 @@ module Interactive = struct
   let admit () = run_tactic admit
 
   (* let induction ~ih = make_interactive (induction ~ih) *)
-  let prove_s s = Why3_prover.prove ~show_goal:true (parse_prop s)
+  let prove_s s = Why3_prover.prove ~show_goal:true (Parsing.Parse.parse_prop s)
 
   (** Unfold a definition (symbol) on both side of a sequent in the current
       proof state.
