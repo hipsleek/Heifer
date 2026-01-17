@@ -11,10 +11,9 @@ let rec is_translatable t =
   | Unit | Nil | Emp | Int _ | Tuple _ ->
       (* terms are fine too *)
       true
-  | Binop ((Lt | Le | Gt | Ge | Eq | Neq | Plus | Minus | Times | Cons), _, _)
-  | Unop ((Not | Neg), _) ->
-      (* terms *)
-      true
+  | Binop ((Lt | Le | Gt | Ge | Eq | Neq | Plus | Minus | Times | Cons), a, b)
+    -> is_translatable a && is_translatable b
+  | Unop ((Not | Neg), a) -> is_translatable a (* terms *)
   | Forall b | Exists b ->
       let _, b = Bindlib.unmbind b in
       is_translatable b
@@ -69,7 +68,7 @@ let rec term_to_whyml_aux ctxt t =
       (* tapp (qualid ["Var"]) [tstr (Bindlib.name_of x)] *)
       tvar (qualid [Bindlib.name_of x])
   | Symbol _ -> failwith "free symbol"
-  | Fun _ -> failwith "todo fun"
+  | Fun _ -> failwith "lambdas not handled at this level"
   | Tuple _ -> failwith "todo tuple"
   | Apply (Symbol { sym_name = f }, args) ->
       tapp (qualid [f]) (List.map (term_to_whyml_aux ctxt) args)
