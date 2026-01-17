@@ -88,7 +88,7 @@ let rec rewrite_aux ~side rule target =
     | Sequence (t1, t2) ->
         Sequence (rewrite_aux ~side rule t1, rewrite_aux ~side rule t2)
     | Bind (t, b) -> Bind (rewrite_aux ~side rule t, rewrite_binder ~side rule b)
-    | Apply (f, t) -> Apply (f, t)
+    | Apply (f, t) -> Apply (rewrite_aux ~side rule f, rewrite_list ~side rule t)
     | Disj (t1, t2) ->
         Disj (rewrite_aux ~side rule t1, rewrite_aux ~side rule t2)
     | Forall b -> Forall (rewrite_mbinder ~side rule b)
