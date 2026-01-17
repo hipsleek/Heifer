@@ -65,6 +65,7 @@ exists_intro ["l"; "knot"];;
 (* TODO this is named poorly *)
 ens_heap_elim ();;
 
+Options.show_why3_goal := true;;
 prove ();;
 
 Options.notation := false;;

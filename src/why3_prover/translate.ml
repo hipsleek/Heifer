@@ -95,7 +95,8 @@ let rec term_to_whyml_aux ctxt t =
         (Tquant (Dterm.DTexists, vars_to_params xs, [], term_to_whyml_aux ctxt b))
   | Binop (Eq, a, b) ->
       tapp
-        (qualid [Ident.op_infix "="])
+        (* (qualid [Ident.op_infix "="]) *)
+        (qualid ["eq"])
         [term_to_whyml_aux ctxt a; term_to_whyml_aux ctxt b]
   | Binop (Gt, a, b) ->
       tapp (qualid ["gt"]) [term_to_whyml_aux ctxt a; term_to_whyml_aux ctxt b]
@@ -114,9 +115,13 @@ let rec term_to_whyml_aux ctxt t =
       term
         (Tbinop (term_to_whyml_aux ctxt a, Dterm.DTor, term_to_whyml_aux ctxt b))
   | Implies (a, b) ->
-      term
-        (Tbinop
-           (term_to_whyml_aux ctxt a, Dterm.DTimplies, term_to_whyml_aux ctxt b))
+      (* TODO this may need to be more widely used *)
+      let coerce_to_prop a =
+        tapp (qualid [Ident.op_infix "="]) [a; term_to_whyml_aux ctxt True]
+      in
+      let a = term_to_whyml_aux ctxt a |> coerce_to_prop in
+      let b = term_to_whyml_aux ctxt b |> coerce_to_prop in
+      term (Tbinop (a, Dterm.DTimplies, b))
   | Emp | PointsTo _ | SepConj _ ->
       failwith "separation logic cannot be translated"
   | Subsumes _ -> failwith "subsumptions not handled at this level"

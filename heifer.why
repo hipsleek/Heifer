@@ -2,6 +2,7 @@
 module Heifer
 
   use int.Int
+  use int.Fact
   use bool.Bool
   use list.List
 
@@ -23,6 +24,24 @@ module Heifer
     match a, b with
     | TInt a1, TInt b1 -> TInt (a1 - b1)
     | _, _ -> TErr
+    end
+
+  function times (a b:term) : term =
+    match a, b with
+    | TInt a1, TInt b1 -> TInt (a1 * b1)
+    | _, _ -> TErr
+    end
+
+  function eq (a b:term) : term =
+    match a, b with
+    | TInt a1, TInt b1 -> TBool (a1 = b1)
+    | _ -> TErr
+    end
+
+  function neq (a b:term) : term =
+    match a, b with
+    | TInt a1, TInt b1 -> TBool (a1 <> b1)
+    | _ -> TErr
     end
 
   function gt (a b:term) : term =
@@ -49,6 +68,8 @@ module Heifer
     | _ -> TErr
     end
 
+  (* TODO replace with why3 stdlib version *)
+
   function sum (xs:term) : term =
     match xs with
     | TNil -> TInt 0
@@ -70,6 +91,33 @@ module Heifer
 
   goal G: forall xs:list int. TInt (sum1 xs) = sum (box_list xs)
 
+(*
+  function fact (n:term) : term =
+    match le n (TInt 0) with
+    | TInt n0 -> TInt 1
+    | TInt _ -> times n (fact (minus n (TInt 1)))
+    | _ -> TErr
+    end
+
+  function fact1 (n:int) : int =
+    if n <= 0 then 1 else n * fact1 (n - 1)
+*)
+
+  function fact (n:term) : term =
+    match n with
+    | TInt n0 -> TInt (Fact.fact n0)
+    | _ -> TErr
+    end
+
+(*
+    match le n (TInt 0) with
+    | TInt n0 ->
+      if n0 <= 0 then TInt 1
+      else times n (fact (minus n (TInt 1)))
+    | _ -> TErr
+    end
+*)
+
   inductive sublist (l1 l2: term) =
     | sublist_cons:
       forall x l:term.
@@ -81,5 +129,15 @@ module Heifer
 
   goal G1: sublist TNil (TCons (TInt 1) TNil)
   goal G2: not (sublist (TCons (TInt 1) TNil) (TCons (TInt 1) TNil))
+
+  inductive is_int (n: term) =
+    | is_int: forall n0:int. is_int (TInt n0)
+
+  goal goal1:
+    forall knot : term, l : term, n : term.
+      is_int n ->
+      ((eq n (TInt 0)) = (TBool true))
+        ->
+        ((eq (TInt 1) (n.fact)) = (TBool true))
 
 end
