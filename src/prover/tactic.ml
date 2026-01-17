@@ -13,6 +13,7 @@ end
 (* TODO: refactor to proof_state.ml. proof_state will depend on proof_context *)
 module Pstate = struct
   open Proof_context
+
   type t = proof_context list
 
   let pp ppf s =
@@ -29,9 +30,11 @@ end
 (* TODO: refactor to tactic_monad.ml. tactic_monad will depend on proof_state. *)
 module Tactic : sig
   open Proof_context
+
   type 'a t
 
   val run : 'a t -> Pstate.t -> (Pstate.t, string) result
+
   (* basic combinators *)
   val pure : 'a -> 'a t
   val map : ('a -> 'b) -> 'a t -> 'b t
@@ -47,10 +50,12 @@ module Tactic : sig
   val put : Pstate.t -> unit t
   val gets : (Pstate.t -> 'a) -> 'a t
   val modify : (Pstate.t -> Pstate.t) -> unit t
+
   (* higher-order combinators, with other datatypes *)
   val map_m : ('a -> 'b t) -> 'a list -> 'b list t
   val iter_m : ('a -> unit t) -> 'a list -> unit t
   val iter_array_m : ('a -> unit t) -> 'a array -> unit t
+
   (* derived combinators: managing pctxts *)
   val pop_pctxt : proof_context t
   val push_pctxt : proof_context -> unit t
@@ -58,6 +63,7 @@ module Tactic : sig
   val put_pctxt : proof_context -> unit t
   val gets_pctxt : (proof_context -> 'a) -> 'a t
   val modify_pctxt : (proof_context -> proof_context) -> unit t
+
   (* derived combinators: get *)
   val get_rename_ctxt : Bindlib.ctxt t
   val get_constants : term var SMap.t t
@@ -66,6 +72,7 @@ module Tactic : sig
   val get_goal : term t
   val get_constant : string -> term var t
   val get_assumption : string -> term t
+
   (* val get_heap_assumption : string -> term t *)
   (* derived combinators: put *)
   val put_rename_ctxt : Bindlib.ctxt -> unit t
@@ -75,31 +82,34 @@ module Tactic : sig
   val put_goal : term -> unit t
   val add_constant : string -> term var -> unit t
   val add_assumption : string -> term -> unit t
+
   (* val add_heap_assumption : string -> term -> unit t *)
   (* derived combinators: modify *)
   val pop_assumption : string -> term t (* remove + return *)
+
   (* val pop_heap_assumption : string -> term t *)
   val modify_goal : (term -> term) -> unit t
   val modify_heap_assumptions : (term list -> term list) -> unit t
 end = struct
   open Proof_context
+
   type 'a t = Pstate.t -> ('a * Pstate.t, string) Result.t
 
   let run m s = Result.map snd (m s)
   let fail s = fun _ -> Error s
   let pure x = fun s -> Ok (x, s)
   let map f m = fun s -> Result.map (fun (x, s) -> (f x, s)) (m s)
-  let mapl x m = fun s -> Result.map (fun (_, s) -> x, s) (m s)
+  let mapl x m = fun s -> Result.map (fun (_, s) -> (x, s)) (m s)
   let bind m f = fun s -> Result.bind (m s) (fun (x, s) -> f x s)
   let ( let+ ) a f = map f a
   let ( let* ) = bind
 
   let choice m1 m2 =
-    fun s ->
-      let r = m1 s in
-      match r with
-      | Ok _ -> r
-      | Error _ -> m2 s
+   fun s ->
+    let r = m1 s in
+    match r with
+    | Ok _ -> r
+    | Error _ -> m2 s
 
   let rec choices ?(err = "empty choice") ts =
    fun ps ->
@@ -137,18 +147,15 @@ end = struct
     loop 0
 
   let catch m h =
-    fun s ->
-      let r = m s in
-      match r with
-      | Ok _ -> r
-      | Error e -> h e s
+   fun s ->
+    let r = m s in
+    match r with
+    | Ok _ -> r
+    | Error e -> h e s
 
   let get = fun s -> Ok (s, s)
-
   let put s = fun _ -> Ok ((), s)
-
   let gets f = fun s -> Ok (f s, s)
-
   let modify f = fun s -> Ok ((), f s)
 
   let pop_pctxt =
@@ -186,13 +193,9 @@ end = struct
     | p :: ps -> put (f p :: ps)
 
   let get_rename_ctxt = gets_pctxt (fun p -> p.rename_ctxt)
-
   let get_constants = gets_pctxt (fun p -> p.constants)
-
   let get_assumptions = gets_pctxt (fun p -> p.assumptions)
-
   let get_heap_assumptions = gets_pctxt (fun p -> p.heap_assumptions)
-
   let get_goal = gets_pctxt (fun p -> p.goal)
 
   let get_constant name =
@@ -216,8 +219,7 @@ end = struct
   let put_rename_ctxt rename_ctxt =
     modify_pctxt (fun p -> { p with rename_ctxt })
 
-  let put_constants constants =
-    modify_pctxt (fun p -> { p with constants })
+  let put_constants constants = modify_pctxt (fun p -> { p with constants })
 
   let put_assumptions assumptions =
     modify_pctxt (fun p -> { p with assumptions })
@@ -225,19 +227,18 @@ end = struct
   let put_heap_assumptions heap_assumptions =
     modify_pctxt (fun p -> { p with heap_assumptions })
 
-  let put_goal goal =
-    modify_pctxt (fun p -> { p with goal })
+  let put_goal goal = modify_pctxt (fun p -> { p with goal })
 
   let add_constant name v =
     let* constants = get_constants in
-    if SMap.mem name constants
-    then fail ("add_constant: " ^ name ^ " is already used")
+    if SMap.mem name constants then
+      fail ("add_constant: " ^ name ^ " is already used")
     else put_constants (SMap.add name v constants)
 
   let add_assumption name t =
     let* assumptions = get_assumptions in
-    if SMap.mem name assumptions
-    then fail ("add_assumption: " ^ name ^ " is already used")
+    if SMap.mem name assumptions then
+      fail ("add_assumption: " ^ name ^ " is already used")
     else put_assumptions (SMap.add name t assumptions)
 
   (* let add_heap_assumption name t =
@@ -263,7 +264,9 @@ end = struct
         t *)
 
   let modify_goal f = modify_pctxt (fun p -> { p with goal = f p.goal })
-  let modify_heap_assumptions f = modify_pctxt (fun p -> { p with heap_assumptions = f p.heap_assumptions })
+
+  let modify_heap_assumptions f =
+    modify_pctxt (fun p -> { p with heap_assumptions = f p.heap_assumptions })
 end
 
 let is_pure t =
@@ -339,7 +342,9 @@ module PureTactic = struct
   let ens_pure_intro name =
     let open Tactic in
     let* lhs = get_lhs in
-    let* t, lhs = unwrap (unseq_open_ensures_opt lhs) "ens_pure_intro: not ensures" in
+    let* t, lhs =
+      unwrap (unseq_open_ensures_opt lhs) "ens_pure_intro: not ensures"
+    in
     let* _ = guard (Simply_typed.is_prop t) "ens_pure_intro: not prop" in
     let* _ = add_assumption name t in
     put_lhs lhs
@@ -347,20 +352,23 @@ module PureTactic = struct
   let req_pure_intro name =
     let open Tactic in
     let* rhs = get_rhs in
-    let* t, rhs = unwrap (unseq_open_requires_opt rhs) "req_pure_intro: not requires" in
+    let* t, rhs =
+      unwrap (unseq_open_requires_opt rhs) "req_pure_intro: not requires"
+    in
     let* _ = guard (Simply_typed.is_prop t) "req_pure_intro: not prop" in
     let* _ = add_assumption name t in
     put_rhs rhs
 
   let intro_pure name =
     let open Tactic in
-    choices ~err:"failed to intro pure" [ens_pure_intro name; req_pure_intro name]
+    choices ~err:"failed to intro pure"
+      [ens_pure_intro name; req_pure_intro name]
 end
 
 let specialize name ts =
   let open Tactic in
-  (* TODO: parse_term with respect to constant context *)
-  let ts = List.map parse_term ts |> Array.of_list in
+  let* constants = get_constants in
+  let ts = List.map (parse_term ~ctx:constants) ts |> Array.of_list in
   (* TODO allow not exactly same length? *)
   let* assumption = pop_assumption name in
   match assumption with
@@ -370,8 +378,7 @@ let specialize name ts =
 let refl =
   let open Tactic in
   let* left, right = get_subsumption in
-  if equal_term left right then pop_pctxt
-  else fail "refl: cannot close goal"
+  if equal_term left right then pop_pctxt else fail "refl: cannot close goal"
 
 let forall_intro =
   let open Tactic in
@@ -476,16 +483,24 @@ module HeapTactic = struct
   let ens_heap_intro =
     let open Tactic in
     let* lhs = get_lhs in
-    let* t, lhs = unwrap (unseq_open_ensures_opt lhs) "ens_heap_intro: not ensures" in
-    let* ts = unwrap (Heap.deep_destruct_sepconj_opt t) "ens_heap_intro: not hprop" in
+    let* t, lhs =
+      unwrap (unseq_open_ensures_opt lhs) "ens_heap_intro: not ensures"
+    in
+    let* ts =
+      unwrap (Heap.deep_destruct_sepconj_opt t) "ens_heap_intro: not hprop"
+    in
     let* _ = modify_heap_assumptions (List.append ts) in
     put_lhs lhs
 
   let req_heap_intro =
     let open Tactic in
     let* rhs = get_rhs in
-    let* t, rhs = unwrap (unseq_open_requires_opt rhs) "req_heap_intro: not requires" in
-    let* ts = unwrap (Heap.deep_destruct_sepconj_opt t) "req_heap_intro: not hprop" in
+    let* t, rhs =
+      unwrap (unseq_open_requires_opt rhs) "req_heap_intro: not requires"
+    in
+    let* ts =
+      unwrap (Heap.deep_destruct_sepconj_opt t) "req_heap_intro: not hprop"
+    in
     let* _ = modify_heap_assumptions (List.append ts) in
     put_rhs rhs
 
@@ -497,14 +512,14 @@ module HeapTactic = struct
     let open Util.Options.Monad in
     let* t, target = f target in
     let+ ts = Heap.deep_destruct_sepconj_opt t in
-    ts, target
+    (ts, target)
 
   let rec unseq_open_loop f target =
     match unseq_open_opt f target with
-    | None -> [], target
+    | None -> ([], target)
     | Some (ts1, target) ->
         let ts2, target = unseq_open_loop f target in
-        ts1 @ ts2, target
+        (ts1 @ ts2, target)
 
   let ens_heap_intros =
     let open Tactic in
@@ -528,36 +543,45 @@ module HeapTactic = struct
   let req_heap_elim =
     let open Tactic in
     let* lhs = get_lhs in
-    let* t, lhs = unwrap (unseq_open_requires_opt lhs) "req_heap_elim: not requires" in
-    let* ts = unwrap (Heap.deep_destruct_sepconj_opt t) "req_heap_elim: not hprop" in
+    let* t, lhs =
+      unwrap (unseq_open_requires_opt lhs) "req_heap_elim: not requires"
+    in
+    let* ts =
+      unwrap (Heap.deep_destruct_sepconj_opt t) "req_heap_elim: not hprop"
+    in
     let* heap_assumptions = get_heap_assumptions in
     let ts, heap_assumptions, equalities = Heap.biab_list ts heap_assumptions in
     let* _ = guard (List.is_empty ts) "req_heap_elim: cannot prove hprop" in
     let* _ = put_heap_assumptions heap_assumptions in
     let* _ = put_lhs lhs in
     let* p = get_pctxt in
-    iter_m (fun equality -> push_pctxt {p with goal = equality}) equalities
+    iter_m (fun equality -> push_pctxt { p with goal = equality }) equalities
 
   let ens_heap_elim =
     let open Tactic in
     let* rhs = get_rhs in
-    let* t, rhs = unwrap (unseq_open_ensures_opt rhs) "ens_heap_elim: not ensures" in
-    let* ts = unwrap (Heap.deep_destruct_sepconj_opt t) "ens_heap_elim: not hprop" in
+    let* t, rhs =
+      unwrap (unseq_open_ensures_opt rhs) "ens_heap_elim: not ensures"
+    in
+    let* ts =
+      unwrap (Heap.deep_destruct_sepconj_opt t) "ens_heap_elim: not hprop"
+    in
     let* heap_assumptions = get_heap_assumptions in
     let ts, heap_assumptions, equalities = Heap.biab_list ts heap_assumptions in
     let* _ = guard (List.is_empty ts) "ens_heap_elim: cannot prove hprop" in
     let* _ = put_heap_assumptions heap_assumptions in
     let* _ = put_rhs rhs in
-    let* p = get_pctxt in (* TODO: is there a more elegant way to write this? *)
-    iter_m (fun equality -> push_pctxt {p with goal = equality}) equalities
+    let* p = get_pctxt in
+    (* TODO: is there a more elegant way to write this? *)
+    iter_m (fun equality -> push_pctxt { p with goal = equality }) equalities
 
   let heap_solver : unit Tactic.t =
     let open Tactic in
     let rec loop () = bind intros_heap loop in
     loop ()
-    (* TODO: keep calling elim. try solve all subgoals of elims *)
-    (* if there is progress, loop back *)
-    (* we need to keep track of progress somehow, but that's not very elegant... *)
+  (* TODO: keep calling elim. try solve all subgoals of elims *)
+  (* if there is progress, loop back *)
+  (* we need to keep track of progress somehow, but that's not very elegant... *)
 end
 
 let prove =
@@ -727,16 +751,15 @@ module Interactive = struct
 
   let specialize h = make_interactive (specialize h)
   let refl () = run_tactic refl
+
   (* let revert_heap = make_interactive (fun () -> revert_heap) *)
   let req_heap_intro () = run_tactic HeapTactic.req_heap_intro
   let ens_heap_intro () = run_tactic HeapTactic.ens_heap_intro
   let req_heap_elim () = run_tactic HeapTactic.req_heap_elim
   let ens_heap_elim () = run_tactic HeapTactic.ens_heap_elim
-
   let intro_pure name = run_tactic (PureTactic.intro_pure name)
   let intro_heap () = run_tactic HeapTactic.intro_heap
-  let intros_heap () = run_tactic (HeapTactic.intros_heap)
-
+  let intros_heap () = run_tactic HeapTactic.intros_heap
   let forall_intro = make_interactive (fun () -> forall_intro)
   let forall_elim = make_interactive forall_elim
   let exists_intro = make_interactive exists_intro
@@ -746,6 +769,7 @@ module Interactive = struct
   let right () = run_tactic DisjTactic.right
   let simpl () = run_tactic simpl
   let req_left = make_interactive (fun () -> req_left)
+
   (* let cancel_heap = make_interactive (fun () -> cancel_heap) *)
   let prove = make_interactive (fun () -> prove)
   let admit () = run_tactic admit
