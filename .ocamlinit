@@ -18,9 +18,12 @@ declare {|
     \/ ens n>0; self (n-1); r1. n*.r1
 |};;
 
-start_proof "forall n. landin_rec factf; f. f n <: ex l v. ens l->v; fact n";;
+start_proof "forall n. is_int n =>
+  landin_rec factf; f. f n <: ex l v. ens l->v; fact n";;
 
+(* Options.notation := false;; *)
 forall_intro ();;
+intro_pure "Hty";;
 unfold "landin_rec";;
 exists_elim ();;
 simpl ();;
