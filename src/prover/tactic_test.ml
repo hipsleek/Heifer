@@ -507,7 +507,7 @@ let%expect_test "intro_pure" =
        ens x->1
     <: ens emp
 
-    error: failed to intro pure / req_pure_intro: not requires / ens_pure_intro: not prop
+    error: failed to intro pure / req_pure_intro: not requires / ens_pure_intro: not prop / not an implication
     |}];
 
   start_proof "ens a=1 <: ens emp";
@@ -542,7 +542,7 @@ let%expect_test "intro_pure" =
        ens b=2; ens emp
     <: ens emp
 
-    error: failed to intro pure / req_pure_intro: not requires / add_assumption: H is already used
+    error: failed to intro pure / req_pure_intro: not requires / add_assumption: H is already used / not an implication
     |}]
 
 let%expect_test "rewrite" =

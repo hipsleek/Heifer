@@ -362,10 +362,19 @@ module PureTactic = struct
     let* _ = add_assumption name t in
     put_rhs rhs
 
+  let impl_intro name =
+    let open Tactic in
+    let* g = get_goal in
+    match g with
+    | Implies (p, q) ->
+        let* _ = add_assumption name p in
+        put_goal q
+    | _ -> fail "not an implication"
+
   let intro_pure name =
     let open Tactic in
     choices ~err:"failed to intro pure"
-      [ens_pure_intro name; req_pure_intro name]
+      [impl_intro name; ens_pure_intro name; req_pure_intro name]
 end
 
 let parse_term ts =
