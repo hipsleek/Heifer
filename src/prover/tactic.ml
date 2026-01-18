@@ -594,15 +594,17 @@ let prove =
   let open Tactic in
   let prove_with_ctx p =
     let* assumptions = get_assumptions in
-    let assumptions =
-      SMap.bindings assumptions |> List.map snd
-      |> List.filter Why3_prover.is_translatable
-      |> Core.Syntax.Constr.conj
+    let p =
+      let ass =
+        SMap.bindings assumptions |> List.map snd
+        |> List.filter Why3_prover.is_translatable
+      in
+      List.fold_right (fun c t -> Implies (c, t)) ass p
     in
     let* free = get_constants in
     let entail =
       let free = free |> SMap.bindings |> List.map snd |> Array.of_list in
-      unbox (Mk.forall (bind_mvar free (box_term (Implies (assumptions, p)))))
+      unbox (Mk.forall (bind_mvar free (box_term p)))
     in
     let res = Why3_prover.prove ~show_goal:!Options.show_why3_goal entail in
     (match res with
