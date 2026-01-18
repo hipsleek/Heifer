@@ -109,13 +109,37 @@ let ensure_prover_loaded name =
 
 let get_prover_config name = SMap.find name !prover_configs
 
-let attempt_proof task1 =
-  (* Format.printf "task: %a@." Why3.Pretty.print_task task1; *)
-  let tasks = Trans.apply_transform "simplify_formula" why3_env task1 in
+let pretty_print_debug_vc (lines : string) : string =
+  let rec drop_until f = function
+    | [] -> []
+    | hd :: tl when f hd -> tl
+    | _ :: tl -> drop_until f tl
+  in
+  let lines =
+    lines |> String.split_on_char '\n' |> List.map String.trim
+    |> drop_until (fun hd -> String.equal hd "(* use heifer.Heifer *)")
+    |> List.filter (fun s -> s <> "" && s <> "end")
+    |> List.map (fun s -> "  " ^ s)
+  in
+  Format.asprintf {|module M
+  use heifer.Heifer
+%s
+end|}
+    (lines |> String.concat "\n")
 
-  (* Debug.debug ~at:5 ~title:"WhyML VC" "%a"
-    (Format.pp_print_list Why3.Pretty.print_task)
-    tasks; *)
+let attempt_proof show_goal task1 =
+  (* Format.printf "task: %a@." Why3.Pretty.print_task task1; *)
+  let tasks =
+    Trans.apply_transform "introduce_premises" why3_env task1
+    |> List.concat_map (Trans.apply_transform "simplify_formula" why3_env)
+  in
+
+  (* Debug.debug ~at:5 ~title:"WhyML VC" "%a" *)
+  (if show_goal then
+     let debug_vc =
+       Format.asprintf "%a" (Format.pp_print_list Why3.Pretty.print_task) tasks
+     in
+     Format.printf "%s@." (pretty_print_debug_vc debug_vc));
 
   (* only do this once, not recursively *)
   (* let tasks =
@@ -374,7 +398,7 @@ let really_prove show_goal goal =
   mods
   |> Wstdlib.Mstr.map (fun m ->
       let tasks = Task.split_theory m.Pmodule.mod_theory None None in
-      combine_task_results "Goal" (List.map attempt_proof tasks))
+      combine_task_results "Goal" (List.map (attempt_proof show_goal) tasks))
   |> Wstdlib.Mstr.bindings
   |> List.map (fun (_, result) -> result)
   |> combine_task_results "Module"
