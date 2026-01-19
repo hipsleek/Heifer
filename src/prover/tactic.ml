@@ -45,12 +45,16 @@ module Tactic : sig
   (* basic combinators *)
   val pure : 'a -> 'a t
   val map : ('a -> 'b) -> 'a t -> 'b t
-  val ( >|= ) : 'a t -> ('a -> 'b) -> 'b t
   val mapl : 'b -> 'a t -> 'b t
   val bind : 'a t -> ('a -> 'b t) -> 'b t
+  val ( <$> ) : ('a -> 'b) -> 'a t -> 'b t
+  val ( <&> ) : 'a t -> ('a -> 'b) -> 'b t
+  val ( <$ ) : 'b -> 'a t -> 'b t
+  val ( >>= ) : 'a t -> ('a -> 'b t) -> 'b t
   val ( let+ ) : 'a t -> ('a -> 'b) -> 'b t
   val ( let* ) : 'a t -> ('a -> 'b t) -> 'b t
   val fail : string -> 'a t
+  val try_ : 'a t -> ('a, string) result t
   val catch : 'a t -> (string -> 'a t) -> 'a t
   val choice : 'a t -> 'a t -> 'a t
   val choices : ?err:string -> 'a t list -> 'a t
@@ -107,12 +111,14 @@ end = struct
   let fail s = fun _ -> Error s
   let pure x = fun s -> Ok (x, s)
   let map f m = fun s -> Result.map (fun (x, s) -> (f x, s)) (m s)
-
-  (* name from https://c-cube.github.io/ocaml-containers/last/containers/CCFun/Monad/index.html *)
-  let ( >|= ) m f = map f m
   let mapl x m = fun s -> Result.map (fun (_, s) -> (x, s)) (m s)
   let bind m f = fun s -> Result.bind (m s) (fun (x, s) -> f x s)
-  let ( let+ ) a f = map f a
+
+  let ( <$> ) = map
+  let ( <$ ) = mapl
+  let ( <&> ) m f = map f m
+  let ( >>= ) = bind
+  let ( let+ ) m f = map f m
   let ( let* ) = bind
 
   let choice m1 m2 =
@@ -162,6 +168,12 @@ end = struct
     match r with
     | Ok _ -> r
     | Error e -> h e s
+
+  let try_ m =
+    fun s ->
+      match m s with
+      | Ok (x, s) -> Ok (Ok x, s)
+      | Error e -> Ok (Error e, s)
 
   let get = fun s -> Ok (s, s)
   let put s = fun _ -> Ok ((), s)
@@ -291,7 +303,7 @@ let is_heap t =
 
 let admit =
   let open Tactic in
-  mapl () pop_pctxt
+  () <$ pop_pctxt
 
 let uncons_ens f =
   let open Tactic in
@@ -373,6 +385,27 @@ let semicolon tac1 tac2 =
     let+ s1 = Tactic.run (semicolon1 tac1 tac2) s1 in
     Pstate.append s1 s2
 
+let invoke_why3 goal =
+  let open Tactic in
+  let* constants = get_constants in
+  let+ assumptions = get_assumptions in
+  let constants = Array.of_list (SMap.fold (fun _ c acc -> c :: acc) constants []) in
+  let handle_assumption _ assumption goal =
+    if Why3_prover.is_translatable assumption
+    then Implies (assumption, goal)
+    else goal
+  in
+  let why3_goal = SMap.fold handle_assumption assumptions goal in
+  let why3_goal = unbox (Mk.forall (bind_mvar constants (box_term why3_goal))) in
+  Why3_prover.prove ~show_goal:!Options.show_why3_goal why3_goal
+
+let solve_invoke_why3 goal =
+  let open Tactic in
+  let* result = invoke_why3 goal in
+  match result with
+  | `Valid -> pure ()
+  | _ -> fail "solve_invoke_why3: cannot solve goal"
+
 module PureTactic = struct
   let ens_pure_intro name =
     let open Tactic in
@@ -397,16 +430,34 @@ module PureTactic = struct
   let impl_intro name =
     let open Tactic in
     let* g = get_goal in
-    match g with
-    | Implies (p, q) ->
-        let* _ = add_assumption name p in
-        put_goal q
-    | _ -> fail "not an implication"
+    let* p, q = unwrap (open_implies_opt g) "impl_intro: not implies" in
+    let* _ = add_assumption name p in
+    put_goal q
 
   let intro_pure name =
     let open Tactic in
-    choices ~err:"failed to intro pure"
+    choices ~err:"intro_pure: failed"
       [impl_intro name; ens_pure_intro name; req_pure_intro name]
+
+  let ens_pure_elim =
+    let open Tactic in
+    let* rhs = get_rhs in
+    let* t, rhs = unwrap (unseq_open_ensures_opt rhs) "ens_pure_elim: not ensures" in
+    let* _ = guard (Simply_typed.is_prop t) "ens_pure_elim: not prop" in
+    let* result = invoke_why3 t in
+    match result with
+    | `Valid -> put_rhs rhs
+    | _ -> fail "ens_pure_elim: cannot prove prop"
+
+  let req_pure_elim =
+    let open Tactic in
+    let* lhs = get_lhs in
+    let* t, lhs = unwrap (unseq_open_requires_opt lhs) "req_pure_elim: not requires" in
+    let* _ = guard (Simply_typed.is_prop t) "req_pure_elim: not prop" in
+    let* result = invoke_why3 t in
+    match result with
+    | `Valid -> put_lhs lhs
+    | _ -> fail "req_pure_elim: cannot prove prop"
 end
 
 let parse_term ts =
@@ -417,7 +468,7 @@ let parse_term ts =
 
 let specialize name ts =
   let open Tactic in
-  let* ts = map_m parse_term ts >|= Array.of_list in
+  let* ts = map_m parse_term ts <&> Array.of_list in
   (* TODO allow not exactly same length? *)
   let* assumption = pop_assumption name in
   match assumption with
@@ -457,7 +508,7 @@ let forall_elim t =
   let* left, _ = get_subsumption in
   match Prenex.prenex left with
   | Forall b ->
-      let* t = map_m parse_term t >|= Array.of_list in
+      let* t = map_m parse_term t <&> Array.of_list in
       put_lhs (msubst b t)
   | _ -> fail "cannot eliminate forall"
 
@@ -466,7 +517,7 @@ let exists_intro t =
   let* _, right = get_subsumption in
   match Prenex.prenex right with
   | Exists b ->
-      let* t = map_m parse_term t >|= Array.of_list in
+      let* t = map_m parse_term t <&> Array.of_list in
       put_rhs (msubst b t)
   | _ -> fail "cannot intro exists"
 
@@ -587,40 +638,73 @@ module HeapTactic = struct
     let* _ = ens_heap_intros in
     req_heap_intros
 
-  let req_heap_elim =
+  let req_heap_elim_common =
     let open Tactic in
     let* lhs = get_lhs in
-    let* t, lhs =
-      unwrap (unseq_open_requires_opt lhs) "req_heap_elim: not requires"
-    in
-    let* ts =
-      unwrap (Heap.deep_destruct_sepconj_opt t) "req_heap_elim: not hprop"
-    in
+    let* t, lhs = unwrap (unseq_open_requires_opt lhs) "req_heap_elim: not requires" in
+    let* ts = unwrap (Heap.deep_destruct_sepconj_opt t) "req_heap_elim: not hprop" in
     let* heap_assumptions = get_heap_assumptions in
     let ts, heap_assumptions, equalities = Heap.biab_list ts heap_assumptions in
-    let* _ = guard (List.is_empty ts) "req_heap_elim: cannot prove hprop" in
+    let+ _ = guard (List.is_empty ts) "req_heap_elim: cannot prove hprop" in
+    heap_assumptions, lhs, equalities
+
+  let req_heap_elim =
+    let open Tactic in
+    let* heap_assumptions, lhs, equalities = req_heap_elim_common in
     let* _ = put_heap_assumptions heap_assumptions in
     let* _ = put_lhs lhs in
     let* p = get_pctxt in
     iter_m (fun equality -> push_pctxt { p with goal = equality }) equalities
 
-  let ens_heap_elim =
+  let solve_req_heap_elim =
+    let open Tactic in
+    let* heap_assumptions, lhs, equalities = req_heap_elim_common in
+    let tactic =
+      let* _ = iter_m solve_invoke_why3 equalities in
+      let* _ = put_heap_assumptions heap_assumptions in
+      put_lhs lhs
+    in
+    catch tactic (fun _ -> fail "solve_req_heap_elim: cannot prove equality")
+
+  let ens_heap_elim_common =
     let open Tactic in
     let* rhs = get_rhs in
-    let* t, rhs =
-      unwrap (unseq_open_ensures_opt rhs) "ens_heap_elim: not ensures"
-    in
-    let* ts =
-      unwrap (Heap.deep_destruct_sepconj_opt t) "ens_heap_elim: not hprop"
-    in
+    let* t, rhs = unwrap (unseq_open_ensures_opt rhs) "ens_heap_elim: not ensures" in
+    let* ts = unwrap (Heap.deep_destruct_sepconj_opt t) "ens_heap_elim: not hprop" in
     let* heap_assumptions = get_heap_assumptions in
     let ts, heap_assumptions, equalities = Heap.biab_list ts heap_assumptions in
-    let* _ = guard (List.is_empty ts) "ens_heap_elim: cannot prove hprop" in
+    let+ _ = guard (List.is_empty ts) "ens_heap_elim: cannot prove hprop" in
+    heap_assumptions, rhs, equalities
+
+  let ens_heap_elim =
+    let open Tactic in
+    let* heap_assumptions, rhs, equalities = ens_heap_elim_common in
     let* _ = put_heap_assumptions heap_assumptions in
     let* _ = put_rhs rhs in
     let* p = get_pctxt in
-    (* TODO: is there a more elegant way to write this? *)
     iter_m (fun equality -> push_pctxt { p with goal = equality }) equalities
+
+  let solve_ens_heap_elim =
+    let open Tactic in
+    let* heap_assumptions, rhs, equalities = ens_heap_elim_common in
+    let tactic =
+      let* _ = iter_m solve_invoke_why3 equalities in
+      let* _ = put_heap_assumptions heap_assumptions in
+      put_rhs rhs
+    in
+    catch tactic (fun _ -> fail "solve_ens_heap_elim: cannot prove equality")
+
+  let heap_solver =
+    let open Tactic in
+    let rec loop () =
+      let* goal = get_goal in
+      let* _ = intros_heap in
+      let* _ = try_ solve_req_heap_elim in
+      let* _ = try_ solve_ens_heap_elim in
+      let* goal' = get_goal in
+      if equal_term goal goal' then pure () else loop ()
+    in
+    loop ()
 
   let revert_heap =
     let open Tactic in
@@ -628,20 +712,6 @@ module HeapTactic = struct
     let* lhs = get_lhs in
     let* _ = put_lhs (Sequence (Ensures (Constr.sepconj heap_assumptions), lhs)) in
     put_heap_assumptions []
-
-  let heap_solver : unit Tactic.t =
-    let open Tactic in
-    let rec loop () =
-      let* goal = get_goal in
-      let* _ = intros_heap in
-      let* goal' = get_goal in
-
-      if equal_term goal goal' then pure () else loop ()
-    in
-    loop ()
-  (* TODO: keep calling elim. try solve all subgoals of elims *)
-  (* if there is progress, loop back *)
-  (* we need to keep track of progress somehow, but that's not very elegant... *)
 end
 
 let prove =
@@ -669,22 +739,6 @@ let prove =
         (* | `Failure s -> Format.printf "==> Failure: %s\n@." s *));
     pure res
   in
-  (* let ens_ens =
-    let* p1, f1 = uncons_ens left in
-    let* p2, f2 = uncons_ens right in
-    let* res = prove_with_ctx (Implies (p1, p2)) in
-    match res with
-    | `Valid -> put_goal (Subsumes (f1, f2))
-    | _ -> fail "could not cancel ens"
-  in
-  let req_req =
-    let* p1, f1 = uncons_ens right in
-    let* p2, f2 = uncons_ens left in
-    let* res = prove_with_ctx (Implies (p1, p2)) in
-    match res with
-    | `Valid -> put_goal (Subsumes (f2, f1))
-    | _ -> fail "could not cancel req"
-  in *)
   let ens_right =
     let* left, right = get_subsumption in
     let* p, f1 = uncons_ens right in
@@ -821,7 +875,8 @@ module Interactive = struct
   let intro_pure name = run_tactic (PureTactic.intro_pure name)
   let intro_heap () = run_tactic HeapTactic.intro_heap
   let intros_heap () = run_tactic HeapTactic.intros_heap
-  let revert_heap = make_interactive (fun () -> HeapTactic.revert_heap)
+  let revert_heap () = run_tactic HeapTactic.revert_heap
+  let heap_solver () = run_tactic HeapTactic.heap_solver
   let forall_intro = make_interactive (fun () -> forall_intro)
   let forall_elim = make_interactive forall_elim
   let exists_intro = make_interactive exists_intro

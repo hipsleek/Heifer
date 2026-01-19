@@ -71,7 +71,7 @@ and unify_aux t1 t2 uvars sigma =
   | Exists b1, Exists b2 -> unify_mbinder_aux b1 b2 uvars sigma
   | Shift b1, Shift b2 -> unify_binder_aux b1 b2 uvars sigma
   | Reset s1, Reset s2 -> unify_aux s1 s2 uvars sigma
-  | _, Sequence (t21, _) -> unify_aux t1 t21 uvars sigma (* Band-aid, rewrite modulo assoc *)
+  | _, Sequence (t21, _) -> unify_aux t1 t21 uvars sigma
   | _, Bind (t21, _) -> unify_aux t1 t21 uvars sigma
   | _, _ -> raise Unification_failure
 

@@ -8,6 +8,10 @@ let open_subsumes = function
   | Subsumes (t1, t2) -> t1, t2
   | t -> invalid_arg (Format.asprintf "open_subsumes: %a" Pretty.pp_term t)
 
+let open_implies_opt = function
+  | Implies (t1, t2) -> Some (t1, t2)
+  | _ -> None
+
 let is_emp = function
   | Emp -> true
   | _ -> false
