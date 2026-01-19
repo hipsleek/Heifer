@@ -91,8 +91,10 @@ let rec term_to_whyml_aux ctxt kind t =
   | Fun _, _ -> failwith "lambdas not handled at this level"
   | Tuple _, Term -> failwith "todo tuple"
   | Tuple _, Formula -> failwith "tuple cannot be used as a formula"
+  (* | Apply (Symbol { sym_name = "is_int" }, args), Formula ->
+      tapp (qualid ["is_int"]) (List.map (term_to_whyml_aux ctxt Term) args) *)
   | Apply (Symbol { sym_name = f }, args), _ ->
-      tapp (qualid [f]) (List.map (term_to_whyml_aux ctxt kind) args)
+      tapp (qualid [f]) (List.map (term_to_whyml_aux ctxt Term) args)
   | Apply (_f, _args), _ -> failwith "apply"
   | Bind (a, b), Term ->
       (* there is no let in whyml terms, only programs... *)
