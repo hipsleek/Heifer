@@ -30,6 +30,20 @@ start_proof
 forall_intro ();;
 intro_pure "Hty";;
 unfold "landin_rec";;
+
+goal_is
+  {|
+     (ex l knot.
+        ens l->();
+        ens knot=(fun n1 ->
+                   forall f1.
+                     req l->f1; ens l->f1; factf f1 n1);
+        (forall v0. req l->v0; ens l->knot; knot)); f.
+       f n
+  <: ex l v. ens l->v; fact n
+        |}
+;;
+
 exists_elim ();;
 simpl ();;
 intro_heap ();;
@@ -41,22 +55,41 @@ forall_elim ["()"];;
 simpl ();;
 req_heap_elim ();;
 simpl ();;
+
+goal_is {|
+     ens l->knot; knot n
+  <: ex l v. ens l->v; fact n
+|};;
+
 induction ~name:"IH" (`Int 0) "n";;
 
 (* TODO rewrite at one occurrence, currently worked around by introing *)
 intro_heap ();;
 rewrite "Hknot";;
+
+goal_is
+  {|
+     (fun n1 -> forall f1. req l->f1; ens l->f1; factf f1 n1)
+       n
+  <: ex l v. ens l->v; fact n
+|}
+;;
+
 simpl ();;
 forall_elim ["knot"];;
 req_heap_elim ();;
 intro_heap ();;
 
-(* now we are in the form we can get at the structure of factf *)
+(* now we can get at the structure of factf *)
 
 unfold "factf";;
 disj_elim ();;
 
 (* base case *)
+goal_is {|
+  ens n=0; 1
+  <: ex l v. ens l->v; fact n
+|};;
 
 intro_pure "Hn";;
 exists_intro ["l"; "knot"];;
@@ -69,15 +102,19 @@ ens_heap_elim ();;
 prove ();;
 
 (* inductive case *)
+goal_is {|
+  ens n>0; knot (n-1); r1. n*r1
+  <: ex l v. ens l->v; fact n
+|};;
 
 intro_pure "Hn";;
 revert_heap ();;
 rewrite "IH";;
 prove ();;
+goal_is "(ex l v. ens l->v; fact (n-1)); r1. n*.r1 <: ex l v. ens l->v; fact n"
+;;
 exists_elim ();;
 exists_intro ["l1"; "v"];;
-
-(* Options.notation := false;; *)
 simpl ();;
 intro_heap ();;
 

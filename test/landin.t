@@ -36,6 +36,19 @@
   <: ex l v. ens l->v; fact n
   
   
+  n
+  Hty: is_int n
+  ────────────────────────────────────────────────────────────
+     (ex l knot.
+        ens l->();
+        ens knot=(fun n1 ->
+                   forall f1.
+                     req l->f1; ens l->f1; factf f1 n1);
+        (forall v0. req l->v0; ens l->knot; knot)); f. 
+       f n
+  <: ex l v. ens l->v; fact n
+  
+  
   knot, l, n
   Hty: is_int n
   ────────────────────────────────────────────────────────────
@@ -123,6 +136,15 @@
   Hknot: knot=(fun n ->
                 forall f1. req l->f1; ens l->f1; factf f1 n)
   Hty: is_int n
+  ────────────────────────────────────────────────────────────
+     ens l->knot; knot n
+  <: ex l v. ens l->v; fact n
+  
+  
+  knot, l, n
+  Hknot: knot=(fun n ->
+                forall f1. req l->f1; ens l->f1; factf f1 n)
+  Hty: is_int n
   IH: forall n1.
         n1>=0 /\ n1<n =>
           ens l->knot; knot n1 <:
@@ -144,6 +166,22 @@
   l->knot
   ───────────────────────────────────────────────────────────*
      knot n
+  <: ex l v. ens l->v; fact n
+  
+  
+  knot, l, n
+  Hknot: knot=(fun n ->
+                forall f1. req l->f1; ens l->f1; factf f1 n)
+  Hty: is_int n
+  IH: forall n1.
+        n1>=0 /\ n1<n =>
+          ens l->knot; knot n1 <:
+            (ex l1 v. ens l1->v; fact n1)
+  ────────────────────────────────────────────────────────────
+  l->knot
+  ───────────────────────────────────────────────────────────*
+     (fun n1 -> forall f1. req l->f1; ens l->f1; factf f1 n1)
+       n
   <: ex l v. ens l->v; fact n
   
   
@@ -232,8 +270,24 @@
   ────────────────────────────────────────────────────────────
   l->knot
   ───────────────────────────────────────────────────────────*
-     ens n=0; 1 \/ ens n>0; knot (n-1); r1. n*r1
+     ens n=0; 1 \/ ens n>0; knot (n-1); r1. n*.r1
   <: ex l v. ens l->v; fact n
+  
+  
+  knot, l, n
+  Hknot: knot=(fun n ->
+                forall f1. req l->f1; ens l->f1; factf f1 n)
+  Hty: is_int n
+  IH: forall n1.
+        n1>=0 /\ n1<n =>
+          ens l->knot; knot n1 <:
+            (ex l1 v. ens l1->v; fact n1)
+  ────────────────────────────────────────────────────────────
+  l->knot
+  ───────────────────────────────────────────────────────────*
+     ens n=0; 1
+  <: ex l v. ens l->v; fact n
+  (1 more goals)
   
   
   knot, l, n
@@ -316,9 +370,13 @@
   ────────────────────────────────────────────────────────────
   l->knot
   ───────────────────────────────────────────────────────────*
-     ens n>0; knot (n-1); r1. n*r1
+     ens n>0; knot (n-1); r1. n*.r1
   <: ex l v. ens l->v; fact n
   
+  error: goal was expected to be
+    ens n>0; knot (n-1); r1. n * r1 <: (ex l v. ens l->v; fact n)
+  but was:
+    ens n>0; knot (n-1); r1. n*.r1 <: (ex l v. ens l->v; fact n)
   
   knot, l, n
   Hknot: knot=(fun n ->
@@ -332,7 +390,7 @@
   ────────────────────────────────────────────────────────────
   l->knot
   ───────────────────────────────────────────────────────────*
-     knot (n-1); r1. n*r1
+     knot (n-1); r1. n*.r1
   <: ex l v. ens l->v; fact n
   
   
@@ -346,7 +404,7 @@
           ens l->knot; knot n1 <:
             (ex l1 v. ens l1->v; fact n1)
   ────────────────────────────────────────────────────────────
-     ens l->knot; knot (n-1); r1. n*r1
+     ens l->knot; knot (n-1); r1. n*.r1
   <: ex l v. ens l->v; fact n
   
   
@@ -378,7 +436,21 @@
           ens l->knot; knot n1 <:
             (ex l1 v. ens l1->v; fact n1)
   ────────────────────────────────────────────────────────────
-     (ex l v. ens l->v; fact (n-1)); r1. n*r1
+     (ex l v. ens l->v; fact (n-1)); r1. n*.r1
+  <: ex l v. ens l->v; fact n
+  
+  
+  knot, l, n
+  Hknot: knot=(fun n ->
+                forall f1. req l->f1; ens l->f1; factf f1 n)
+  Hn: n>0
+  Hty: is_int n
+  IH: forall n1.
+        n1>=0 /\ n1<n =>
+          ens l->knot; knot n1 <:
+            (ex l1 v. ens l1->v; fact n1)
+  ────────────────────────────────────────────────────────────
+     (ex l v. ens l->v; fact (n-1)); r1. n*.r1
   <: ex l v. ens l->v; fact n
   
   
@@ -392,7 +464,7 @@
           ens l->knot; knot n1 <:
             (ex l1 v. ens l1->v; fact n1)
   ────────────────────────────────────────────────────────────
-     (ens l1->v; fact (n-1)); r1. n*r1
+     (ens l1->v; fact (n-1)); r1. n*.r1
   <: ex l v. ens l->v; fact n
   
   
@@ -406,7 +478,7 @@
           ens l->knot; knot n1 <:
             (ex l1 v. ens l1->v; fact n1)
   ────────────────────────────────────────────────────────────
-     (ens l1->v; fact (n-1)); r1. n*r1
+     (ens l1->v; fact (n-1)); r1. n*.r1
   <: ens l1->v; fact n
   
   
@@ -420,7 +492,7 @@
           ens l->knot; knot n1 <:
             (ex l1 v. ens l1->v; fact n1)
   ────────────────────────────────────────────────────────────
-     ens l1->v; fact (n-1); r1. n*r1
+     ens l1->v; fact (n-1); r1. n*.r1
   <: ens l1->v; fact n
   
   
@@ -436,7 +508,7 @@
   ────────────────────────────────────────────────────────────
   l1->v
   ───────────────────────────────────────────────────────────*
-     fact (n-1); r1. n*r1
+     fact (n-1); r1. n*.r1
   <: ens l1->v; fact n
   
   
@@ -450,7 +522,7 @@
           ens l->knot; knot n1 <:
             (ex l1 v. ens l1->v; fact n1)
   ────────────────────────────────────────────────────────────
-     fact (n-1); r1. n*r1
+     fact (n-1); r1. n*.r1
   <: fact n
   
   Warning, file line 0, characters 0-0: unused variable knot

@@ -1,6 +1,7 @@
 open Core
 open Util
 open Core.Syntax
+open Core.Pretty
 open Core.Decl
 open Core.Syntax_util
 open Bindlib
@@ -55,6 +56,7 @@ module Tactic : sig
   val ( let+ ) : 'a t -> ('a -> 'b) -> 'b t
   val ( let* ) : 'a t -> ('a -> 'b t) -> 'b t
   val fail : string -> 'a t
+  val failf : ('a, Format.formatter, unit, 'b t) format4 -> 'a
   val try_ : 'a t -> ('a, string) result t
   val catch : 'a t -> (string -> 'a t) -> 'a t
   val choice : 'a t -> 'a t -> 'a t
@@ -110,11 +112,11 @@ end = struct
 
   let run m s = Result.map snd (m s)
   let fail s = fun _ -> Error s
+  let failf fmt = Format.kasprintf fail fmt
   let pure x = fun s -> Ok (x, s)
   let map f m = fun s -> Result.map (fun (x, s) -> (f x, s)) (m s)
   let mapl x m = fun s -> Result.map (fun (_, s) -> (x, s)) (m s)
   let bind m f = fun s -> Result.bind (m s) (fun (x, s) -> f x s)
-
   let ( <$> ) = map
   let ( <$ ) = mapl
   let ( <&> ) m f = map f m
@@ -172,10 +174,10 @@ end = struct
     | Error e -> h e s
 
   let try_ m =
-    fun s ->
-      match m s with
-      | Ok (x, s) -> Ok (Ok x, s)
-      | Error e -> Ok (Error e, s)
+   fun s ->
+    match m s with
+    | Ok (x, s) -> Ok (Ok x, s)
+    | Error e -> Ok (Error e, s)
 
   let get = fun s -> Ok (s, s)
   let put s = fun _ -> Ok ((), s)
@@ -326,7 +328,7 @@ let get_subsumption =
   let* t = get_goal in
   match t with
   | Subsumes (lhs, rhs) -> pure (lhs, rhs)
-  | _ -> fail (Format.asprintf "get_subsumption: %a" Core.Pretty.pp_term t)
+  | _ -> fail (Format.asprintf "get_subsumption: %a" pp_term t)
 
 let put_subsumption lhs rhs =
   let open Tactic in
@@ -391,14 +393,17 @@ let invoke_why3 goal =
   let open Tactic in
   let* constants = get_constants in
   let+ assumptions = get_assumptions in
-  let constants = Array.of_list (SMap.fold (fun _ c acc -> c :: acc) constants []) in
+  let constants =
+    Array.of_list (SMap.fold (fun _ c acc -> c :: acc) constants [])
+  in
   let handle_assumption _ assumption goal =
-    if Why3_prover.is_translatable assumption
-    then Implies (assumption, goal)
+    if Why3_prover.is_translatable assumption then Implies (assumption, goal)
     else goal
   in
   let why3_goal = SMap.fold handle_assumption assumptions goal in
-  let why3_goal = unbox (Mk.forall (bind_mvar constants (box_term why3_goal))) in
+  let why3_goal =
+    unbox (Mk.forall (bind_mvar constants (box_term why3_goal)))
+  in
   Why3_prover.prove ~show_goal:!Options.show_why3_goal why3_goal
 
 let solve_invoke_why3 goal =
@@ -444,7 +449,9 @@ module PureTactic = struct
   let ens_pure_elim =
     let open Tactic in
     let* rhs = get_rhs in
-    let* t, rhs = unwrap (unseq_open_ensures_opt rhs) "ens_pure_elim: not ensures" in
+    let* t, rhs =
+      unwrap (unseq_open_ensures_opt rhs) "ens_pure_elim: not ensures"
+    in
     let* _ = guard (Simply_typed.is_prop t) "ens_pure_elim: not prop" in
     let* result = invoke_why3 t in
     match result with
@@ -454,7 +461,9 @@ module PureTactic = struct
   let req_pure_elim =
     let open Tactic in
     let* lhs = get_lhs in
-    let* t, lhs = unwrap (unseq_open_requires_opt lhs) "req_pure_elim: not requires" in
+    let* t, lhs =
+      unwrap (unseq_open_requires_opt lhs) "req_pure_elim: not requires"
+    in
     let* _ = guard (Simply_typed.is_prop t) "req_pure_elim: not prop" in
     let* result = invoke_why3 t in
     match result with
@@ -476,6 +485,24 @@ let specialize name ts =
   match assumption with
   | Forall b -> add_assumption name (msubst b ts)
   | _ -> fail "not a prop that can be specialised"
+
+let have ~name s =
+  let open Tactic in
+  let* g = parse_term s in
+  let* ps = pop_pctxt in
+  let* _ = push_pctxt { ps with goal = g } in
+  let* _ = push_pctxt ps in
+  add_assumption name g
+
+let goal_is s =
+  let open Tactic in
+  let* g = parse_term s in
+  let* g1 = get_goal in
+  match equal_term g g1 with
+  | true -> pure ()
+  | false ->
+      failf "@[<v>goal was expected to be@,  %a@,but was:@,  %a@]" pp_term g
+        pp_term g1
 
 let refl =
   let open Tactic in
@@ -643,12 +670,16 @@ module HeapTactic = struct
   let req_heap_elim_common =
     let open Tactic in
     let* lhs = get_lhs in
-    let* t, lhs = unwrap (unseq_open_requires_opt lhs) "req_heap_elim: not requires" in
-    let* ts = unwrap (Heap.deep_destruct_sepconj_opt t) "req_heap_elim: not hprop" in
+    let* t, lhs =
+      unwrap (unseq_open_requires_opt lhs) "req_heap_elim: not requires"
+    in
+    let* ts =
+      unwrap (Heap.deep_destruct_sepconj_opt t) "req_heap_elim: not hprop"
+    in
     let* heap_assumptions = get_heap_assumptions in
     let ts, heap_assumptions, equalities = Heap.biab_list ts heap_assumptions in
     let+ _ = guard (List.is_empty ts) "req_heap_elim: cannot prove hprop" in
-    heap_assumptions, lhs, equalities
+    (heap_assumptions, lhs, equalities)
 
   let req_heap_elim =
     let open Tactic in
@@ -671,12 +702,16 @@ module HeapTactic = struct
   let ens_heap_elim_common =
     let open Tactic in
     let* rhs = get_rhs in
-    let* t, rhs = unwrap (unseq_open_ensures_opt rhs) "ens_heap_elim: not ensures" in
-    let* ts = unwrap (Heap.deep_destruct_sepconj_opt t) "ens_heap_elim: not hprop" in
+    let* t, rhs =
+      unwrap (unseq_open_ensures_opt rhs) "ens_heap_elim: not ensures"
+    in
+    let* ts =
+      unwrap (Heap.deep_destruct_sepconj_opt t) "ens_heap_elim: not hprop"
+    in
     let* heap_assumptions = get_heap_assumptions in
     let ts, heap_assumptions, equalities = Heap.biab_list ts heap_assumptions in
     let+ _ = guard (List.is_empty ts) "ens_heap_elim: cannot prove hprop" in
-    heap_assumptions, rhs, equalities
+    (heap_assumptions, rhs, equalities)
 
   let ens_heap_elim =
     let open Tactic in
@@ -870,6 +905,8 @@ end
 module Interactive = struct
   open ProofState
 
+  let have ~name = make_interactive (have ~name)
+  let goal_is = make_interactive goal_is
   let specialize h = make_interactive (specialize h)
   let refl () = run_tactic refl
   let req_heap_intro () = run_tactic HeapTactic.req_heap_intro

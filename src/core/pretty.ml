@@ -28,7 +28,7 @@ module OpInfo = struct
     | Cons -> ("::", `Right, 13)
     | Plus -> ("+", `Left, 11)
     | Minus -> ("-", `Left, 11)
-    | Times -> ("*", `Right, 12)
+    | Times -> ("*.", `Right, 12)
 
   let unary = function
     | Not -> ("!", 14)
