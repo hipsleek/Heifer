@@ -411,7 +411,7 @@ let%expect_test "induction" =
 
     n, n1
     Hn: n>0
-    IH: forall n2. ge n2 0 /\ lt n2 n => ens emp <: req n1>0; ens n1=1
+    IH: forall n2. n2>=0 /\ n2<n => ens emp <: req n1>0; ens n1=1
     ────────────────────────────────────────────────────────────
        ens emp
     <: req n1>0; ens n1=1

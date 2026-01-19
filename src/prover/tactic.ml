@@ -736,6 +736,7 @@ let prove =
     let rec could_be_prop t =
       match t with
       | True | False | Apply _ -> true
+      | Binop ((Ge | Gt | Eq | Neq | Le | Lt), _, _) -> true
       | Implies (a, b) | Conj (a, b) | Disj (a, b) ->
           could_be_prop a && could_be_prop b
       | _ -> false
