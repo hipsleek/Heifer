@@ -1,6 +1,7 @@
 open Core.Syntax
 
 exception Unification_failure
+exception Unification_frame of term TVMap.t * (term -> term)
 
 (** The main entry point of the unification algorithm. [unify lhs target uvars]
     tries to unify [lhs] with [target], with unification variables [uvars].

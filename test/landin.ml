@@ -20,8 +20,10 @@ declare
 ;;
 
 start_proof
-  "forall n. is_int n =>\n\
-  \  landin_rec factf; f. f n <: ex l v. ens l->v; fact n"
+  {|
+  forall n. is_int n =>
+    landin_rec factf; f. f n <: ex l v. ens l->v; fact n
+|}
 ;;
 
 (* Options.notation := false;; *)
@@ -70,9 +72,19 @@ prove ();;
 
 intro_pure "Hn";;
 revert_heap ();;
-rewrite "IH"
+rewrite "IH";;
+prove ();;
+exists_elim ();;
+exists_intro ["l1"; "v"];;
 
 (* Options.notation := false;; *)
-(* simpl () *)
+simpl ();;
+intro_heap ();;
+
+(* TODO should be intro *)
+ens_heap_elim ();;
+
+(* Prover.Tactic.Options.show_why3_goal := true;; *)
+prove ()
 
 (* TODO a defn of fact, some way to include it in here *)

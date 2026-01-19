@@ -4,6 +4,7 @@ open Bindlib
 open Core.Syntax
 
 exception Unification_failure
+exception Unification_frame of term TVMap.t * (term -> term)
 
 (** Precondition: only [t1] contains unification variables. *)
 let rec unify_uvar x t uvars sigma =
@@ -12,7 +13,7 @@ let rec unify_uvar x t uvars sigma =
   | Some t' -> unify_aux t' t uvars sigma
 
 and unify_aux t1 t2 uvars sigma =
-  match t1, t2 with
+  match (t1, t2) with
   | Var x, _ when TVSet.mem x uvars -> unify_uvar x t2 uvars sigma
   | Var x1, Var x2 when eq_vars x1 x2 -> sigma
   | Symbol sym1, Symbol sym2 when sym1 = sym2 -> sigma
@@ -71,12 +72,17 @@ and unify_aux t1 t2 uvars sigma =
   | Exists b1, Exists b2 -> unify_mbinder_aux b1 b2 uvars sigma
   | Shift b1, Shift b2 -> unify_binder_aux b1 b2 uvars sigma
   | Reset s1, Reset s2 -> unify_aux s1 s2 uvars sigma
-  | _, Sequence (t21, _) -> unify_aux t1 t21 uvars sigma
-  | _, Bind (t21, _) -> unify_aux t1 t21 uvars sigma
+  | _, Sequence (t21, t22) ->
+      (* Band-aid, rewrite modulo assoc *)
+      let sigma = unify_aux t1 t21 uvars sigma in
+      raise (Unification_frame (sigma, fun t -> Sequence (t, t22)))
+  | _, Bind (t21, t22) ->
+      let sigma = unify_aux t1 t21 uvars sigma in
+      raise (Unification_frame (sigma, fun t -> Bind (t, t22)))
   | _, _ -> raise Unification_failure
 
 and unify_list_aux ts1 ts2 uvars sigma =
-  match ts1, ts2 with
+  match (ts1, ts2) with
   | [], [] -> sigma
   | t1 :: ts1, t2 :: ts2 ->
       let sigma = unify_aux t1 t2 uvars sigma in

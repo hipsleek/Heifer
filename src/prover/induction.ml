@@ -12,13 +12,8 @@ let build_wf_premise wf x y =
           (symbol { sym_name = "sublist" })
           (box_list [box_var y; box_var x]))
   | `Int n ->
-      let ge =
-        Mk.(apply (symbol { sym_name = "ge" }) (box_list [box_var y; int n]))
-      in
-      let lt =
-        Mk.(
-          apply (symbol { sym_name = "lt" }) (box_list [box_var y; box_var x]))
-      in
+      let ge = Mk.(binop Ge (box_var y) (int n)) in
+      let lt = Mk.(binop Lt (box_var y) (box_var x)) in
       Mk.conj ge lt
 
 let induction wf x other_vars assumptions lhs rhs =
