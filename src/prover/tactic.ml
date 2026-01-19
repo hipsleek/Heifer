@@ -635,6 +635,7 @@ module HeapTactic = struct
       let* goal = get_goal in
       let* _ = intros_heap in
       let* goal' = get_goal in
+
       if equal_term goal goal' then pure () else loop ()
     in
     loop ()
