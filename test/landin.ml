@@ -39,7 +39,7 @@ forall_elim ["()"];;
 simpl ();;
 req_heap_elim ();;
 simpl ();;
-induction ~name:"IH" `List "n";;
+induction ~name:"IH" (`Int 0) "n";;
 
 (* TODO rewrite at one occurrence, currently worked around by introing *)
 intro_heap ();;
@@ -62,9 +62,17 @@ exists_intro ["l"; "knot"];;
 (* TODO ens_heap_intro ();; *)
 (* TODO this is named poorly *)
 ens_heap_elim ();;
-Options.show_why3_goal := true;;
+
+(* Options.show_why3_goal := true;; *)
 prove ();;
-Options.notation := false;;
-simpl ()
+
+(* inductive case *)
+
+intro_pure "Hn";;
+revert_heap ();;
+rewrite "IH"
+
+(* Options.notation := false;; *)
+(* simpl () *)
 
 (* TODO a defn of fact, some way to include it in here *)
