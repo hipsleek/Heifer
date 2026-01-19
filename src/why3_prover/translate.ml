@@ -64,8 +64,8 @@ let rec term_to_whyml_aux ctxt kind t =
   | Int i, Term -> tapp (qualid ["TInt"]) [tconst i]
   | Int _, Formula -> failwith "int cannot be used as a formula"
   | Binop (Times, a, b), Term ->
-      tapp
-        (qualid ["Int"; Ident.op_infix "*"])
+      tapp (qualid ["times"])
+        (* (qualid ["Int"; Ident.op_infix "*"]) *)
         [term_to_whyml_aux ctxt Term a; term_to_whyml_aux ctxt Term b]
   | Binop (Plus, a, b), Term ->
       (* tapp (qualid ["Int"; Ident.op_infix "+"]) [term_to_whyml_aux ctxt Term a; term_to_whyml_aux ctxt Term b] *)
