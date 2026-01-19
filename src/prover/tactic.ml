@@ -851,7 +851,7 @@ module ProofState = struct
     with Failure msg -> Format.printf "error: %s@." msg
 
   let start_proof g =
-    set_goals [Proof_context.create ~goal:(Parsing.Parse.parse_staged_spec g)];
+    set_goals [Proof_context.create ~goal:(Parsing.Parse.parse_term g)];
     print_proof_state ()
 
   let run_tactic tac =
@@ -906,20 +906,12 @@ module Interactive = struct
   let unfold (sym_name : string) =
     let sym = { sym_name } in
     let definitions = get_definitions () in
+    let open Tactic in
     match SymMap.find_opt sym definitions with
     | None -> Format.printf "unfold: the symbol %s does not exist@." sym_name
-    | Some def ->
-        let tac =
-          let open Tactic in
-          let* lhs, rhs = get_subsumption in
-          put_goal
-            (Subsumes (Unfold.unfold sym def lhs, Unfold.unfold sym def rhs))
-        in
-        run_tactic tac
+    | Some def -> run_tactic (modify_goal (Unfold.unfold sym def))
 
-  (** Generate an induction hypothesis in the current proof state.
-
-      TODO: add decreasing measurement as a hypothesis for the IH. *)
+  (** Generate an induction hypothesis in the current proof state. *)
   let induction :
       ?vars:string list ->
       name:string ->
