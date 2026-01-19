@@ -19,8 +19,8 @@ module Pstate = struct
   let destruct = List.map Lists.singleton
 
   let focus = function
-    | [] -> [], []
-    | s :: ss -> [s], ss
+    | [] -> ([], [])
+    | s :: ss -> ([s], ss)
 
   let append = List.append
 
@@ -38,6 +38,7 @@ end
 (* TODO: refactor to tactic_monad.ml. tactic_monad will depend on proof_state. *)
 module Tactic : sig
   open Proof_context
+
   type 'a t = Pstate.t -> ('a * Pstate.t, string) Result.t
 
   val run : 'a t -> Pstate.t -> (Pstate.t, string) result
@@ -123,15 +124,16 @@ end = struct
     | Error _ -> m2 s
 
   let rec choices ?(err = "empty choice") ms =
-    fun s ->
-      match ms with
-      | [] -> Error err
-      | m :: ms ->
-          let r = m s in
-          match r with
-          | Ok _ -> r
-          (* TODO possibly use a list or tree of errors *)
-          | Error e -> Result.map_error (Format.asprintf "%s / %s" e) (choices ~err ms s)
+   fun s ->
+    match ms with
+    | [] -> Error err
+    | m :: ms ->
+        let r = m s in
+        (match r with
+        | Ok _ -> r
+        (* TODO possibly use a list or tree of errors *)
+        | Error e ->
+            Result.map_error (Format.asprintf "%s / %s" e) (choices ~err ms s))
 
   let rec map_m f = function
     | [] -> pure []
@@ -349,29 +351,29 @@ let guard b e =
   if b then pure () else fail e
 
 let all_goals tac =
-  fun s ->
-    let open Results.Monad in
-    let rec loop = function
-      | [] -> pure []
-      | s :: ss ->
-          let* s1 = Tactic.run tac s in
-          let+ s2 = loop ss in
-          Pstate.append s1 s2
-    in
-    let+ s = loop (Pstate.destruct s) in
-    (), s
+ fun s ->
+  let open Results.Monad in
+  let rec loop = function
+    | [] -> pure []
+    | s :: ss ->
+        let* s1 = Tactic.run tac s in
+        let+ s2 = loop ss in
+        Pstate.append s1 s2
+  in
+  let+ s = loop (Pstate.destruct s) in
+  ((), s)
 
 let semicolon1 tac1 tac2 =
   let open Tactic in
   let* _ = tac1 in
-  all_goals (tac2)
+  all_goals tac2
 
 let semicolon tac1 tac2 =
-  fun s ->
-    let open Results.Monad in
-    let s1, s2 = Pstate.focus s in
-    let+ s1 = Tactic.run (semicolon1 tac1 tac2) s1 in
-    Pstate.append s1 s2
+ fun s ->
+  let open Results.Monad in
+  let s1, s2 = Pstate.focus s in
+  let+ s1 = Tactic.run (semicolon1 tac1 tac2) s1 in
+  Pstate.append s1 s2
 
 module PureTactic = struct
   let ens_pure_intro name =
@@ -626,7 +628,9 @@ module HeapTactic = struct
     let open Tactic in
     let* heap_assumptions = get_heap_assumptions in
     let* lhs = get_lhs in
-    let* _ = put_lhs (Sequence (Ensures (Constr.sepconj heap_assumptions), lhs)) in
+    let* _ =
+      put_lhs (Sequence (Ensures (Constr.sepconj heap_assumptions), lhs))
+    in
     put_heap_assumptions []
 
   let heap_solver : unit Tactic.t =
@@ -814,7 +818,6 @@ module Interactive = struct
 
   let specialize h = make_interactive (specialize h)
   let refl () = run_tactic refl
-
   let req_heap_intro () = run_tactic HeapTactic.req_heap_intro
   let ens_heap_intro () = run_tactic HeapTactic.ens_heap_intro
   let req_heap_elim () = run_tactic HeapTactic.req_heap_elim
