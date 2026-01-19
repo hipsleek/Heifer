@@ -7,5 +7,5 @@ module Interactive = struct
   include Prover.Tactic.ProofState
   include Prover.Tactic.Interactive
 
-  let () = Format.set_margin 60
+  let () = Format.set_margin !Prover.Proof_context.Options.line_length
 end
