@@ -42,7 +42,16 @@ type kind =
   | Formula
   | Term
 
-(** Implemented cases should be kept in sync with [is_translatable] *)
+(** Implemented cases should be kept in sync with [is_translatable].
+
+    This translation is contetxtual: it depends on what the expected type of the
+    context (initially Formula) is. We need this because we model both terms and
+    props (called "formula" in Why3) in one type (due to allowing props to
+    appear inside terms), whereas Why3 separates them.
+
+    This translation assumes that propos do not appear in terms (i.e. once the
+    context type becomes Term, it never changes back to Formula), as that's
+    supposed to be handled by the staged logic prover. *)
 let rec term_to_whyml_aux ctxt kind t =
   (* let s =
     match kind with
