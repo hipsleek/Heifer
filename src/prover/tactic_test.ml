@@ -187,7 +187,7 @@ let%expect_test "forall intro" =
        ens emp
     <: ens emp
 
-    error: empty choice / not a forall / not a forall
+    error: not a forall / not a forall / empty choice
     |}]
 
 let%expect_test "forall elim" =
@@ -508,7 +508,7 @@ let%expect_test "intro_pure" =
        ens x->1
     <: ens emp
 
-    error: failed to intro pure / req_pure_intro: not requires / ens_pure_intro: not prop / not an implication
+    error: not an implication / ens_pure_intro: not prop / req_pure_intro: not requires / failed to intro pure
     |}];
 
   start_proof "ens a=1 <: ens emp";
@@ -543,7 +543,7 @@ let%expect_test "intro_pure" =
        ens b=2; ens emp
     <: ens emp
 
-    error: failed to intro pure / req_pure_intro: not requires / add_assumption: H is already used / not an implication
+    error: not an implication / add_assumption: H is already used / req_pure_intro: not requires / failed to intro pure
     |}]
 
 let%expect_test "rewrite" =

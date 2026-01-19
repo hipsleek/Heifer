@@ -622,6 +622,13 @@ module HeapTactic = struct
     (* TODO: is there a more elegant way to write this? *)
     iter_m (fun equality -> push_pctxt { p with goal = equality }) equalities
 
+  let revert_heap =
+    let open Tactic in
+    let* heap_assumptions = get_heap_assumptions in
+    let* lhs = get_lhs in
+    let* _ = put_lhs (Sequence (Ensures (Constr.sepconj heap_assumptions), lhs)) in
+    put_heap_assumptions []
+
   let heap_solver : unit Tactic.t =
     let open Tactic in
     let rec loop () =
@@ -806,7 +813,6 @@ module Interactive = struct
   let specialize h = make_interactive (specialize h)
   let refl () = run_tactic refl
 
-  (* let revert_heap = make_interactive (fun () -> revert_heap) *)
   let req_heap_intro () = run_tactic HeapTactic.req_heap_intro
   let ens_heap_intro () = run_tactic HeapTactic.ens_heap_intro
   let req_heap_elim () = run_tactic HeapTactic.req_heap_elim
@@ -814,6 +820,7 @@ module Interactive = struct
   let intro_pure name = run_tactic (PureTactic.intro_pure name)
   let intro_heap () = run_tactic HeapTactic.intro_heap
   let intros_heap () = run_tactic HeapTactic.intros_heap
+  let revert_heap = make_interactive (fun () -> HeapTactic.revert_heap)
   let forall_intro = make_interactive (fun () -> forall_intro)
   let forall_elim = make_interactive forall_elim
   let exists_intro = make_interactive exists_intro
