@@ -25,15 +25,16 @@ module OpInfo = struct
     | Ge -> (">=", `Left, 10)
     | Eq -> ("=", `Left, 9)
     | Neq -> ("!=", `Left, 9)
-    | Cons -> ("::", `Right, 11)
-    | Plus -> ("+", `Right, 11)
-    | Minus -> ("-", `Right, 11)
+    | Cons -> ("::", `Right, 13)
+    | Plus -> ("+", `Left, 11)
+    | Minus -> ("-", `Left, 11)
     | Times -> ("*", `Right, 12)
 
   let unary = function
     | Not -> ("!", 14)
     | Neg -> ("-", 14)
 
+  let prec_app = 15
   let prec_pointsto = 8
   let prec_sepconj = 7
   let prec_conj = 6
@@ -169,9 +170,10 @@ let rec pp_term_prec prec ctxt ppf = function
       in
       parens_if (OpInfo.prec_seq <= prec) pp ppf ()
   | Apply (f, t) ->
-      (* TODO is 0 correct? *)
-      Fmt.pf ppf "@[<hov 2>%a@ %a@]" (pp_term_prec 0 ctxt) f
-        Fmt.(list ~sep:(any "@ ") (pp_term_prec 0 ctxt))
+      Fmt.pf ppf "@[<hov 2>%a@ %a@]"
+        (pp_term_prec (OpInfo.prec_app - 1) ctxt)
+        f
+        Fmt.(list ~sep:(any "@ ") (pp_term_prec OpInfo.prec_app ctxt))
         t
   | Disj (s1, s2) ->
       let pp ppf () =
