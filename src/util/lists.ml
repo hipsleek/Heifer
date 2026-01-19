@@ -1,8 +1,4 @@
-module Monad = struct
-  let pure x = [x]
-  let ( let+ ) xs f = List.map f xs
-  let ( let* ) xs f = List.concat_map f xs
-end
+let singleton x = [x]
 
 let rec make n x =
   if n <= 0 then [] else x :: make (n - 1) x
@@ -62,3 +58,9 @@ let rec find_remove_map f = function
 
 let product xs ys =
   List.concat_map (fun x -> List.map (fun y -> (x, y)) ys) xs
+
+module Monad = struct
+  let pure = singleton
+  let ( let+ ) xs f = List.map f xs
+  let ( let* ) xs f = List.concat_map f xs
+end

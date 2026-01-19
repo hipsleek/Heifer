@@ -1,4 +1,5 @@
 open Core
+open Util
 open Core.Syntax
 open Core.Decl
 open Core.Syntax_util
@@ -15,6 +16,14 @@ module Pstate = struct
   open Proof_context
   type t = proof_context list
 
+  let destruct = List.map Lists.singleton
+
+  let focus = function
+    | [] -> [], []
+    | s :: ss -> [s], ss
+
+  let append = List.append
+
   let pp ppf s =
     match s with
     | [] -> Fmt.pf ppf "no more goals"
@@ -29,7 +38,7 @@ end
 (* TODO: refactor to tactic_monad.ml. tactic_monad will depend on proof_state. *)
 module Tactic : sig
   open Proof_context
-  type 'a t
+  type 'a t = Pstate.t -> ('a * Pstate.t, string) Result.t
 
   val run : 'a t -> Pstate.t -> (Pstate.t, string) result
   (* basic combinators *)
@@ -101,17 +110,16 @@ end = struct
       | Ok _ -> r
       | Error _ -> m2 s
 
-  let rec choices ?(err = "empty choice") ts =
-   fun ps ->
-    match ts with
-    | [] -> Error err
-    | t :: ts1 ->
-        (match t ps with
-        | Error er ->
-            choices ~err ts1 ps
-            (* TODO possibly use a list or tree of errors *)
-            |> Result.map_error (fun e -> Format.asprintf "%s / %s" e er)
-        | Ok a -> Ok a)
+  let rec choices ?(err = "empty choice") ms =
+    fun s ->
+      match ms with
+      | [] -> Error err
+      | m :: ms ->
+          let r = m s in
+          match r with
+          | Ok _ -> r
+          (* TODO possibly use a list or tree of errors *)
+          | Error e -> Result.map_error (Format.asprintf "%s / %s" e) (choices ~err ms s)
 
   let rec map_m f = function
     | [] -> pure []
@@ -335,6 +343,31 @@ let guard b e =
   let open Tactic in
   if b then pure () else fail e
 
+let all_goals tac =
+  fun s ->
+    let open Results.Monad in
+    let rec loop = function
+      | [] -> pure []
+      | s :: ss ->
+          let* s1 = Tactic.run tac s in
+          let+ s2 = loop ss in
+          Pstate.append s1 s2
+    in
+    let+ s = loop (Pstate.destruct s) in
+    (), s
+
+let semicolon1 tac1 tac2 =
+  let open Tactic in
+  let* _ = tac1 in
+  all_goals (tac2)
+
+let semicolon tac1 tac2 =
+  fun s ->
+    let open Results.Monad in
+    let s1, s2 = Pstate.focus s in
+    let+ s1 = Tactic.run (semicolon1 tac1 tac2) s1 in
+    Pstate.append s1 s2
+
 module PureTactic = struct
   let ens_pure_intro name =
     let open Tactic in
@@ -553,7 +586,12 @@ module HeapTactic = struct
 
   let heap_solver : unit Tactic.t =
     let open Tactic in
-    let rec loop () = bind intros_heap loop in
+    let rec loop () =
+      let* goal = get_goal in
+      let* _ = intros_heap in
+      let* goal' = get_goal in
+      if equal_term goal goal' then pure () else loop ()
+    in
     loop ()
     (* TODO: keep calling elim. try solve all subgoals of elims *)
     (* if there is progress, loop back *)
