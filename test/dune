@@ -12,4 +12,5 @@
 
 (executables
  (names landin foldr)
- (libraries heifer))
+ (libraries heifer)
+ (preprocess (pps ppx_print_tactic)))

@@ -1,0 +1,4 @@
+(library
+ (name ppx_print_tactic)
+ (kind ppx_rewriter)
+ (libraries ppxlib))
