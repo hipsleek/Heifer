@@ -1,4 +1,5 @@
 (cram
+ (deps heifer.why landin.exe)
  (enabled_if (<> %{env:TEST_ALL=false} "false")))
 
 (mdx
@@ -8,3 +9,7 @@
 
 (rule
  (copy ../heifer.why heifer.why))
+
+(executables
+ (names landin foldr)
+ (libraries heifer))
