@@ -204,6 +204,10 @@ let rec intro_and_invert_types show_goal task =
         (* TODO this can be automated with dequantification maybe. but then we have to keep running that *)
         let xs, _, _body = Term.t_open_quant q in
         let xs = List.map (fun x -> x.Term.vs_name.id_string) xs in
+        let xs =
+          (* intro one name at a time. not sure why this is needed... *)
+          [List.hd xs]
+        in
         let* task = apply_transform_args "intros" why3_env xs task in
         intro_and_invert_types show_goal task
     | Tbinop (Timplies, p, _) ->
