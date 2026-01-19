@@ -70,9 +70,18 @@ prove ();;
 
 intro_pure "Hn";;
 revert_heap ();;
-rewrite "IH"
+rewrite "IH";;
+prove ();;
+exists_elim ();;
+exists_intro ["l1"; "v"];;
 
 (* Options.notation := false;; *)
-(* simpl () *)
+simpl ();;
+intro_heap ();;
+
+(* TODO should be intro *)
+ens_heap_elim ();;
+Prover.Tactic.Options.show_why3_goal := true;;
+prove ()
 
 (* TODO a defn of fact, some way to include it in here *)
