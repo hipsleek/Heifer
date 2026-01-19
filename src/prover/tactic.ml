@@ -1,6 +1,5 @@
 open Core
 open Core.Syntax
-open Core.Pretty
 open Core.Decl
 open Core.Syntax_util
 open Parsing.Parse
@@ -8,78 +7,19 @@ open Bindlib
 open Util.Strings
 
 module Options = struct
-  let notation = ref true
   let show_why3_goal = ref false
-end
-
-(* TODO: refactor to proof_context.ml *)
-module Pctx = struct
-  type t = {
-    rename_ctxt : Bindlib.ctxt;
-    constants : term var SMap.t;
-    assumptions : term SMap.t;
-    heap_assumptions : term list; (* TODO: add names *)
-    goal : term;
-  }
-
-  let create ~goal () =
-    {
-      rename_ctxt = empty_ctxt; (* simple solution for now. *)
-      constants = SMap.empty;
-      assumptions = SMap.empty;
-      heap_assumptions = [];
-      goal;
-    }
-
-  let pp_hypotheses ~pp_k ~pp_v ppf m =
-  let al = SMap.bindings m in
-  Fmt.pf ppf "@[<v>%a@]"
-    Fmt.(
-      list ~sep:(any "@,")
-        (Fmt.hovbox ~indent:2 (pair ~sep:(any ": ") pp_k pp_v)))
-    al
-
-  (* TODO: use rename_ctxt, and split into different functions *)
-  let pp ppf { rename_ctxt = _; constants; assumptions; heap_assumptions; goal } =
-    Fmt.pf ppf "@[<v>@[<hov>%a@]@,"
-      Fmt.(list ~sep:comma Fmt.string)
-      (List.map fst (SMap.bindings constants));
-
-    let pp_term =
-      match !Options.notation with
-      | true -> pp_term
-      | false -> dump_term
-    in
-    (match SMap.is_empty assumptions with
-    | true -> ()
-    | false ->
-        Fmt.pf ppf "%a@,"
-          (pp_hypotheses ~pp_k:Fmt.string ~pp_v:pp_term)
-          assumptions);
-    (* always draw the line, even if there are no hypotheses *)
-    let line_length = 60 in
-    let line = draw_line line_length in
-    Fmt.pf ppf "%s@," line;
-    (match heap_assumptions with
-    | [] -> ()
-    | _ ->
-        let heap_line = draw_line (line_length - 1) ^ "*" in
-        Fmt.pf ppf "%a@,%s@," Fmt.(list ~sep:cut pp_term) heap_assumptions heap_line);
-    (match goal with
-    | Subsumes (l, r) -> Fmt.pf ppf "   %a@,<: %a" pp_term l pp_term r
-    | _ -> Fmt.pf ppf "%a" pp_term goal);
-    Fmt.pf ppf "@]"
 end
 
 (* TODO: refactor to proof_state.ml. proof_state will depend on proof_context *)
 module Pstate = struct
-  type t = Pctx.t list
+  open Proof_context
+  type t = proof_context list
 
   let pp ppf s =
     match s with
     | [] -> Fmt.pf ppf "no more goals"
     | g :: gs ->
-        Fmt.pf ppf "@[<v>@,%a" Pctx.pp g;
+        Fmt.pf ppf "@[<v>@,%a" pp_proof_context g;
         (match List.length gs with
         | 0 -> ()
         | n -> Fmt.pf ppf "@,(%d more goals)" n);
@@ -88,6 +28,7 @@ end
 
 (* TODO: refactor to tactic_monad.ml. tactic_monad will depend on proof_state. *)
 module Tactic : sig
+  open Proof_context
   type 'a t
 
   val run : 'a t -> Pstate.t -> (Pstate.t, string) result
@@ -111,12 +52,12 @@ module Tactic : sig
   val iter_m : ('a -> unit t) -> 'a list -> unit t
   val iter_array_m : ('a -> unit t) -> 'a array -> unit t
   (* derived combinators: managing pctxts *)
-  val pop_pctxt : Pctx.t t
-  val push_pctxt : Pctx.t -> unit t
-  val get_pctxt : Pctx.t t
-  val put_pctxt : Pctx.t -> unit t
-  val gets_pctxt : (Pctx.t -> 'a) -> 'a t
-  val modify_pctxt : (Pctx.t -> Pctx.t) -> unit t
+  val pop_pctxt : proof_context t
+  val push_pctxt : proof_context -> unit t
+  val get_pctxt : proof_context t
+  val put_pctxt : proof_context -> unit t
+  val gets_pctxt : (proof_context -> 'a) -> 'a t
+  val modify_pctxt : (proof_context -> proof_context) -> unit t
   (* derived combinators: get *)
   val get_rename_ctxt : Bindlib.ctxt t
   val get_constants : term var SMap.t t
@@ -141,6 +82,7 @@ module Tactic : sig
   val modify_goal : (term -> term) -> unit t
   val modify_heap_assumptions : (term list -> term list) -> unit t
 end = struct
+  open Proof_context
   type 'a t = Pstate.t -> ('a * Pstate.t, string) Result.t
 
   let run m s = Result.map snd (m s)
@@ -208,8 +150,6 @@ end = struct
   let gets f = fun s -> Ok (f s, s)
 
   let modify f = fun s -> Ok ((), f s)
-
-  open Pctx
 
   let pop_pctxt =
     let* ps = get in
@@ -765,8 +705,8 @@ module ProofState = struct
       Format.printf "%s declared@." sym.sym_name
     with Failure msg -> Format.printf "error: %s@." msg
 
-  let start_proof g =
-    set_goals [Pctx.create ~goal:(parse_staged_spec g) ()];
+  let start_proof goal =
+    set_goals [Proof_context.create ~goal:(parse_term goal)];
     print_proof_state ()
 
   let run_tactic tac =
