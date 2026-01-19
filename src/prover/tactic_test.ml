@@ -83,8 +83,9 @@ let%expect_test "specialize" =
   start_proof "ens (forall y. y=1) <: forall x. ens x=1";
   forall_intro ();
   intro_pure "H";
-  (* Tactic.Options.notation := false; *)
+  Proof_context.Options.notation := false;
   specialize "H" ["x"];
+  Proof_context.Options.notation := true;
   [%expect
     {|
     ────────────────────────────────────────────────────────────
@@ -106,10 +107,10 @@ let%expect_test "specialize" =
 
 
     x
-    H: x=1
+    H: Binop (Eq, Var x, Int 1)
     ────────────────────────────────────────────────────────────
-       ()
-    <: ens x=1
+       Unit
+    <: Ensures (Binop (Eq, Var x, Int 1))
     |}]
 
 let%expect_test "intro heap" =

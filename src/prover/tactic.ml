@@ -747,7 +747,6 @@ module ProofState = struct
     with Failure msg -> Format.printf "error: %s@." msg
 
   let start_proof g =
-    (* Options.init (); *)
     set_goals [Proof_context.create ~goal:(Parsing.Parse.parse_staged_spec g)];
     print_proof_state ()
 
