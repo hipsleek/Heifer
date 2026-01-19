@@ -13,7 +13,7 @@ declare {|foldr f init xs =
 
 
 ```ocaml
-# start_proof "forall xs. foldr (fun c t -> c + t) 0 xs <: sum xs";
+# start_proof "forall xs. foldr (fun c t -> c + t) 0 xs <: sum xs"
 
 ────────────────────────────────────────────────────────────
 forall xs. foldr (fun c t -> c+t) 0 xs <: sum xs
