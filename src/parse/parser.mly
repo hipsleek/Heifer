@@ -1,17 +1,6 @@
 %{
 open Core.Syntax
 open Bindlib
-
-(** Resolve an identifier when parsing:
-    - If the identifier is bound, then it's a variable.
-    - Otherwise, we assume that it is a symbol.
-
-    In the future, we may maintain a symbol table for the parser,
-    if we have multiple kind of symbols. *)
-let resolve_identifier x =
-  match Binders.get_opt x with
-  | None -> Symbol {sym_name = x}
-  | Some v -> Var v
 %}
 
 %token EQUAL
@@ -124,7 +113,7 @@ unsequenced_term:
       { Emp }
 
   | x=LOWERCASE_IDENT
-      { resolve_identifier x }
+      { Parser_state.resolve_identifier x }
 
   | LBRACKET RBRACKET
       { Nil }
@@ -174,17 +163,17 @@ term:
     { s }
 
   | FUN xs=binders MINUSGREATER s=term %prec FUN
-    { let xs = Binders.remove_all xs in
+    { let xs = Parser_state.remove_all xs in
       Fun (unbox (bind_mvar xs (box_term s))) }
 
   | FORALL xs = binders DOT
     s = term %prec FORALL
-      { let xs = Binders.remove_all xs in
+      { let xs = Parser_state.remove_all xs in
         Forall (unbox (bind_mvar xs (box_term s))) }
 
   | EXISTS xs = binders DOT
     s = term %prec EXISTS
-      { let xs = Binders.remove_all xs in
+      { let xs = Parser_state.remove_all xs in
         Exists (unbox (bind_mvar xs (box_term s))) }
 
   // | SHIFT LPAREN v = LOWERCASE_IDENT DOT s = term RPAREN
@@ -197,7 +186,7 @@ term:
 
   | s1=term SEMI x=binder DOT s2=term %prec SEMI
       {
-        let x = Binders.remove x in
+        let x = Parser_state.remove x in
         (* TODO quadratic, possibly return a box from the rules *)
         Bind (s1, unbox (bind_var x (box_term s2))) }
 
@@ -212,7 +201,7 @@ term:
 
 def:
   | xs = binders EQUAL s = term
-    { let xs = Binders.remove_all xs in
+    { let xs = Parser_state.remove_all xs in
       unbox (bind_mvar xs (box_term s)) }
 
 symbol:
@@ -221,12 +210,12 @@ symbol:
 
 binders:
   | xs=LOWERCASE_IDENT+
-    { List.iter Binders.create xs;
+    { List.iter Parser_state.create xs;
       xs }
 
 binder:
   | x=LOWERCASE_IDENT
-    { Binders.create x; x }
+    { Parser_state.create x; x }
 
 parse_term:
   | t = term EOF

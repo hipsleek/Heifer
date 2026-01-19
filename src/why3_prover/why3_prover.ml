@@ -109,13 +109,133 @@ let ensure_prover_loaded name =
 
 let get_prover_config name = SMap.find name !prover_configs
 
-let attempt_proof task1 =
-  (* Format.printf "task: %a@." Why3.Pretty.print_task task1; *)
-  let tasks = Trans.apply_transform "simplify_formula" why3_env task1 in
+(* Best-effort attempt to render VCs in a form that can be appended to the end of heifer.why for debugging *)
+let pretty_print_debug_vc (lines : string) : string =
+  let lines =
+    lines |> String.split_on_char '\n'
+    |> List.drop_while (fun s ->
+        not (String.ends_with ~suffix:"(* use heifer.Heifer *)" s))
+  in
+  (* let indent = String.index_from (List.hd lines) 0 '(' - 2 in *)
+  let lines =
+    lines |> List.tl
+    (* |> List.map (fun s -> String.sub s indent (String.length s - indent)) *)
+    |> List.filter (fun s ->
+        let s = String.trim s in
+        s <> "" && s <> "end")
+  in
+  Format.asprintf {|module M
+  use Heifer
+%s
+end|} (lines |> String.concat "\n")
 
-  (* Debug.debug ~at:5 ~title:"WhyML VC" "%a"
-    (Format.pp_print_list Why3.Pretty.print_task)
-    tasks; *)
+let log_vc show_goal tasks =
+  if show_goal then
+    let debug_vc =
+      Format.asprintf "@[<v>%a@]" (Fmt.list Why3.Pretty.print_task) tasks
+    in
+    Format.printf "%s@." (pretty_print_debug_vc debug_vc)
+
+(* Exposes the structure of tasks for debugging.
+  A task is an option of a reversed linked list of tdecls.
+  A tdecl is either a decl, a use, etc.
+  decls are types, data, logic, etc. *)
+let[@warning "-32"] rec inspect_task task =
+  match task with
+  | None -> ()
+  | Some task_hd ->
+      inspect_task task_hd.Task.task_prev;
+      let decl = task_hd.Task.task_decl in
+      (match decl.Theory.td_node with
+      | Theory.Decl { Decl.d_node = d; _ } ->
+          (match d with
+          | Decl.Dtype _ -> Format.printf "Dtype@."
+          | Decl.Ddata _ -> Format.printf "Ddata@."
+          | Decl.Dparam l ->
+              let ty =
+                match l.ls_value with
+                | None -> "no type"
+                | Some t -> Format.asprintf "%a" Pretty.print_ty t
+              in
+              Format.printf "Dparam %a : %s@." Pretty.print_ls l ty
+          | Decl.Dlogic _ -> Format.printf "Dlogic@."
+          | Decl.Dind (kind, decl) ->
+              (* inductive definition, not a term of inductive type *)
+              let kind =
+                match kind with
+                | Coind -> "Coind"
+                | Ind -> "Ind"
+              in
+              let decl =
+                match decl with
+                | (l, _) :: _ -> Format.asprintf "%a" Pretty.print_ls l
+                | _ -> failwith "asd"
+              in
+              Format.printf "Dind %s %s@." kind decl
+          | Decl.Dprop (kind, pr, f) ->
+              (* hypotheses are in here too, typically as axioms *)
+              let kind =
+                match kind with
+                | Decl.Plemma -> "Plemma"
+                | Decl.Paxiom -> "Paxiom"
+                | Decl.Pgoal -> "Pgoal"
+              in
+              Format.printf "Dprop %s %a: %a@." kind Pretty.print_pr pr
+                (* pr.Decl.pr_name.Ident.id_string *)
+                Why3.Pretty.print_term f)
+      | Theory.Use { th_name; _ } ->
+          Format.printf "Use (%s)@." th_name.id_string
+      | Theory.Clone _ -> Format.printf "Clone@."
+      | Theory.Meta _ -> Format.printf "Meta@.")
+
+let ( let* ) m f = List.concat_map f m
+
+let apply_transform_args name env args task =
+  let naming_table = Why3.Args_wrapper.build_naming_tables task in
+  Trans.apply_transform_args name env args naming_table "whyml" task
+
+(* A repeat-match loop using Why3's API *)
+let rec intro_and_invert_types show_goal task =
+  (* log_vc show_goal [task]; *)
+  try
+    let goal_fmla = Task.task_goal_fmla task in
+    match goal_fmla.t_node with
+    | Tquant (Tforall, q) ->
+        (* TODO this can be automated with dequantification maybe. but then we have to keep running that *)
+        let xs, _, _body = Term.t_open_quant q in
+        let xs = List.map (fun x -> x.Term.vs_name.id_string) xs in
+        let xs =
+          (* intro one name at a time. not sure why this is needed... *)
+          [List.hd xs]
+        in
+        let* task = apply_transform_args "intros" why3_env xs task in
+        intro_and_invert_types show_goal task
+    | Tbinop (Timplies, p, _) ->
+        (match p.t_node with
+        | Term.Tapp (f, _) ->
+            (match f.ls_name.id_string with
+            | "is_int" ->
+                let* task =
+                  Trans.apply_transform "inversion_pr" why3_env task
+                in
+                intro_and_invert_types show_goal task
+            | _ ->
+                let* task = apply_transform_args "intros" why3_env ["H"] task in
+                intro_and_invert_types show_goal task)
+        | _ -> [task])
+    | _ -> [task]
+  with Task.GoalNotFound -> [task]
+
+let attempt_proof show_goal task =
+  (* inspect_task task; *)
+  let tasks =
+    (* simplification is necessary, regardless of whether we use any other tactics,
+      as it e.g. removes redundant quantified args, which we don't check for when translating *)
+    let* task = Trans.apply_transform "simplify_formula" why3_env task in
+    intro_and_invert_types show_goal task
+  in
+
+  log_vc show_goal tasks;
 
   (* only do this once, not recursively *)
   (* let tasks =
@@ -139,79 +259,69 @@ let attempt_proof task1 =
           Some (get_prover_config prover)
         with _ -> None)
   in
+
   if List.is_empty provers then
-    failwith
-      (* raise *)
-      (* Provers_common.Prover_error *)
-      "why3 prover: No provers found; check your configuration"
-  else
-    (* try each task, on all possible provers *)
-    let attempt_task (pconf, pdriver) task =
-      (* : Provers_common.prover_result = *)
-      let result1 =
-        Call_provers.wait_on_call
-          (Driver.prove_task
-             ~limits:
-               { Call_provers.empty_limits with Call_provers.limit_time = 0.5 }
-             ~config:why3_config_main ~command:pconf.Whyconf.command pdriver
-             task)
-      in
-      let explain ctx =
-        Format.sprintf "Prover %s: %s" pconf.prover.prover_name ctx
-      in
-      match result1.pr_answer with
-      | Valid -> `Valid
-      | Invalid -> `Invalid
-      | Timeout -> `Unknown (explain "timeout")
-      | Unknown s -> `Unknown (explain (Format.sprintf "unknown: %s" s))
-      | OutOfMemory -> `Unknown (explain "out of memory")
-      | StepLimitExceeded -> `Unknown (explain "step limit exceeded")
-      | Failure s | HighFailure s ->
-          failwith
-            (* raise *)
-            ((* Provers_common.Prover_error *)
-             explain
-               (Format.sprintf "reported error: %s" s))
+    failwith "why3 prover: No provers found; check your configuration";
+
+  (* try each task, on all possible provers *)
+  let attempt_task (pconf, pdriver) task =
+    let result1 =
+      Call_provers.wait_on_call
+        (Driver.prove_task
+           ~limits:
+             { Call_provers.empty_limits with Call_provers.limit_time = 0.5 }
+           ~config:why3_config_main ~command:pconf.Whyconf.command pdriver task)
     in
-    let combine_prover_results (name1, r1) (name2, r2) =
-      (* let open Provers_common in *)
-      match ((name1, r1), (name2, r2)) with
-      | (_, `Valid), (_, `Unknown _) | (_, `Valid), (_, `Valid) ->
-          (name1, `Valid)
-      | (_, `Unknown _), (_, `Valid) -> (name2, `Valid)
-      | (_, `Invalid), (_, `Unknown _) | (_, `Invalid), (_, `Invalid) ->
-          (name1, `Invalid)
-      | (_, `Unknown _), (_, `Invalid) -> (name2, `Invalid)
-      | (p1, (`Valid as r1)), (p2, (`Invalid as r2))
-      | (p2, (`Invalid as r2)), (p1, (`Valid as r1)) ->
-          let explanation =
-            Format.sprintf "Provers %s (%s) and %s (%s) disagree on result" p1
-              (string_of_prover_result r1)
-              p2
-              (string_of_prover_result r2)
-          in
-          (* raise (Provers_common.Prover_error explanation) *)
-          failwith explanation
-      | (_, `Unknown s1), (_, `Unknown s2) -> (name1, `Unknown (s1 ^ "\n" ^ s2))
+    let explain ctx =
+      Format.sprintf "Prover %s: %s" pconf.prover.prover_name ctx
     in
-    let attempt_task_on_provers provers task =
-      let open Whyconf in
-      let prover_results =
-        List.map
-          (fun ((pconf, _) as prover) ->
-            (pconf.prover.prover_name, attempt_task prover task))
-          provers
-      in
-      List.fold_left combine_prover_results
-        ("dummy", `Unknown "[no prover results found]")
-        prover_results
+    match result1.pr_answer with
+    | Valid -> `Valid
+    | Invalid -> `Invalid
+    | Timeout -> `Unknown (explain "timeout")
+    | Unknown s -> `Unknown (explain (Format.sprintf "unknown: %s" s))
+    | OutOfMemory -> `Unknown (explain "out of memory")
+    | StepLimitExceeded -> `Unknown (explain "step limit exceeded")
+    | Failure s | HighFailure s ->
+        failwith (explain (Format.sprintf "reported error: %s" s))
+  in
+  let combine_prover_results (name1, r1) (name2, r2) =
+    match ((name1, r1), (name2, r2)) with
+    | (_, `Valid), (_, `Unknown _) | (_, `Valid), (_, `Valid) -> (name1, `Valid)
+    | (_, `Unknown _), (_, `Valid) -> (name2, `Valid)
+    | (_, `Invalid), (_, `Unknown _) | (_, `Invalid), (_, `Invalid) ->
+        (name1, `Invalid)
+    | (_, `Unknown _), (_, `Invalid) -> (name2, `Invalid)
+    | (p1, (`Valid as r1)), (p2, (`Invalid as r2))
+    | (p2, (`Invalid as r2)), (p1, (`Valid as r1)) ->
+        let explanation =
+          Format.sprintf "Provers %s (%s) and %s (%s) disagree on result" p1
+            (string_of_prover_result r1)
+            p2
+            (string_of_prover_result r2)
+        in
+        (* raise (Provers_common.Prover_error explanation) *)
+        failwith explanation
+    | (_, `Unknown s1), (_, `Unknown s2) -> (name1, `Unknown (s1 ^ "\n" ^ s2))
+  in
+  let attempt_task_on_provers provers task =
+    let open Whyconf in
+    let prover_results =
+      List.map
+        (fun ((pconf, _) as prover) ->
+          (pconf.prover.prover_name, attempt_task prover task))
+        provers
     in
-    let task_results =
-      tasks
-      |> List.map (attempt_task_on_provers provers)
-      |> List.map (fun (_, result) -> result)
-    in
-    combine_task_results "Task" task_results
+    List.fold_left combine_prover_results
+      ("dummy", `Unknown "[no prover results found]")
+      prover_results
+  in
+  let task_results =
+    tasks
+    |> List.map (attempt_task_on_provers provers)
+    |> List.map (fun (_, result) -> result)
+  in
+  combine_task_results "Task" task_results
 
 (* let prelude = {|
 module Heifer
@@ -374,7 +484,7 @@ let really_prove show_goal goal =
   mods
   |> Wstdlib.Mstr.map (fun m ->
       let tasks = Task.split_theory m.Pmodule.mod_theory None None in
-      combine_task_results "Goal" (List.map attempt_proof tasks))
+      combine_task_results "Goal" (List.map (attempt_proof show_goal) tasks))
   |> Wstdlib.Mstr.bindings
   |> List.map (fun (_, result) -> result)
   |> combine_task_results "Module"

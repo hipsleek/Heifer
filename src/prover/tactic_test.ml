@@ -77,6 +77,39 @@ let%expect_test "specialize" =
     <: ens emp
 
     error: no assumption named: H
+    |}];
+
+  (* context-dependence *)
+  start_proof "ens (forall y. y=1) <: forall x. ens x=1";
+  forall_intro ();
+  intro_pure "H";
+  (* Tactic.Options.notation := false; *)
+  specialize "H" ["x"];
+  [%expect
+    {|
+    ────────────────────────────────────────────────────────────
+       ens (forall y. y=1)
+    <: forall x. ens x=1
+
+
+    x
+    ────────────────────────────────────────────────────────────
+       ens (forall y. y=1)
+    <: ens x=1
+
+
+    x
+    H: forall y. y=1
+    ────────────────────────────────────────────────────────────
+       ()
+    <: ens x=1
+
+
+    x
+    H: x=1
+    ────────────────────────────────────────────────────────────
+       ()
+    <: ens x=1
     |}]
 
 let%expect_test "intro heap" =
@@ -474,7 +507,7 @@ let%expect_test "intro_pure" =
        ens x->1
     <: ens emp
 
-    error: failed to intro pure / req_pure_intro: not requires / ens_pure_intro: not prop
+    error: failed to intro pure / req_pure_intro: not requires / ens_pure_intro: not prop / not an implication
     |}];
 
   start_proof "ens a=1 <: ens emp";
@@ -509,7 +542,7 @@ let%expect_test "intro_pure" =
        ens b=2; ens emp
     <: ens emp
 
-    error: failed to intro pure / req_pure_intro: not requires / add_assumption: H is already used
+    error: failed to intro pure / req_pure_intro: not requires / add_assumption: H is already used / not an implication
     |}]
 
 let%expect_test "rewrite" =
@@ -575,7 +608,7 @@ let%expect_test "heap tactics" =
     <: ()
 
     no more goals
-    |}];
+    |}]
 
 (*
   start_proof "ens emp <: forall x. req x->1; ens x->1";

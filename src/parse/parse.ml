@@ -1,3 +1,5 @@
+open Util.Strings
+
 let handle_error parser lexbuf =
   try parser Lexer.token lexbuf with
   | Lexer.Lexing_error msg ->
@@ -61,13 +63,18 @@ let debug_tokens str =
   let lb = Lexing.from_string str in
   let rec loop tokens =
     let tok = Lexer.token lb in
-    match tok with EOF -> List.rev (tok :: tokens) | _ -> loop (tok :: tokens)
+    match tok with
+    | EOF -> List.rev (tok :: tokens)
+    | _ -> loop (tok :: tokens)
   in
   let tokens = loop [] in
   let s = tokens |> List.map show_token |> String.concat " " in
   Format.printf "%s@." s
 
-let parse_term spec = handle_error Parser.parse_term (Lexing.from_string spec)
+let parse_term ?(ctx = SMap.empty) spec =
+  Parser_state.init ctx;
+  handle_error Parser.parse_term (Lexing.from_string spec)
+
 let parse_staged_spec = parse_term
 let parse_prop = parse_term
 let parse_hprop = parse_term
@@ -164,8 +171,8 @@ let%expect_test "definitions and entailments" =
   test ~dump:true "ens (forall a. a=1); ens emp <: ens emp";
   [%expect
     {|
-    Subsumes (Sequence (Ensures (Forall (a. Binop (Eq, Var a, Int 1))), Ensures (Emp)),
-      Ensures (Emp))
+    Subsumes (Sequence (Ensures (Forall (a. Binop (Eq, Var a, Int 1))),
+                Ensures (Emp)), Ensures (Emp))
     ens (forall a. a=1); ens emp <: ens emp
     |}];
 

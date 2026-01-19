@@ -11,10 +11,9 @@ let rec is_translatable t =
   | Unit | Nil | Emp | Int _ | Tuple _ ->
       (* terms are fine too *)
       true
-  | Binop ((Lt | Le | Gt | Ge | Eq | Neq | Plus | Minus | Times | Cons), _, _)
-  | Unop ((Not | Neg), _) ->
-      (* terms *)
-      true
+  | Binop ((Lt | Le | Gt | Ge | Eq | Neq | Plus | Minus | Times | Cons), a, b)
+    -> is_translatable a && is_translatable b
+  | Unop ((Not | Neg), a) -> is_translatable a (* terms *)
   | Forall b | Exists b ->
       let _, b = Bindlib.unmbind b in
       is_translatable b
@@ -39,42 +38,63 @@ let vars_to_params vars =
         Some (PTtyapp (qualid ["term"], [])) ))
     vars
 
+type kind =
+  | Formula
+  | Term
+
 (** Implemented cases should be kept in sync with [is_translatable] *)
-let rec term_to_whyml_aux ctxt t =
-  match t with
-  | Unit -> term (Ttuple [])
-  | True -> tapp (qualid ["TBool"]) [term Ttrue]
-  | False -> tapp (qualid ["TBool"]) [term Tfalse]
-  | Nil ->
+let rec term_to_whyml_aux ctxt kind t =
+  (* let s =
+    match kind with
+    | Formula -> "formula"
+    | Term -> "term"
+  in
+  Format.printf "%a %s@." Core.Pretty.pp_term t s; *)
+  match (t, kind) with
+  | Unit, Term -> term (Ttuple [])
+  | Unit, Formula -> failwith "unit cannot be used as a formula"
+  | True, Term -> tapp (qualid ["TBool"]) [term Ttrue]
+  | False, Term -> tapp (qualid ["TBool"]) [term Tfalse]
+  | True, Formula -> term Ttrue
+  | False, Formula -> term Tfalse
+  | Nil, Term ->
       (* tapp (qualid ["TNil"]) []  *)
       tvar (qualid ["TNil"])
-  | Int i -> tapp (qualid ["TInt"]) [tconst i]
-  | Binop (Times, a, b) ->
+  | Nil, Formula -> failwith "nil cannot be used as a formula"
+  | Int i, Term -> tapp (qualid ["TInt"]) [tconst i]
+  | Int _, Formula -> failwith "int cannot be used as a formula"
+  | Binop (Times, a, b), Term ->
       tapp
         (qualid ["Int"; Ident.op_infix "*"])
-        [term_to_whyml_aux ctxt a; term_to_whyml_aux ctxt b]
-  | Binop (Plus, a, b) ->
-      (* tapp (qualid ["Int"; Ident.op_infix "+"]) [term_to_whyml_aux ctxt a; term_to_whyml_aux ctxt b] *)
+        [term_to_whyml_aux ctxt Term a; term_to_whyml_aux ctxt Term b]
+  | Binop (Plus, a, b), Term ->
+      (* tapp (qualid ["Int"; Ident.op_infix "+"]) [term_to_whyml_aux ctxt Term a; term_to_whyml_aux ctxt Term b] *)
       tapp (qualid ["plus"])
-        [term_to_whyml_aux ctxt a; term_to_whyml_aux ctxt b]
-  | Binop (Minus, a, b) ->
+        [term_to_whyml_aux ctxt Term a; term_to_whyml_aux ctxt Term b]
+  | Binop (Minus, a, b), Term ->
       tapp (qualid ["minus"])
-        [term_to_whyml_aux ctxt a; term_to_whyml_aux ctxt b]
-  | Binop (Cons, h, t) ->
+        [term_to_whyml_aux ctxt Term a; term_to_whyml_aux ctxt Term b]
+  | Binop (Cons, h, t), Term ->
       tapp (qualid ["TCons"])
-        [term_to_whyml_aux ctxt h; term_to_whyml_aux ctxt t]
-  | Unop (Not, a) -> tapp (qualid ["Bool"; "notb"]) [term_to_whyml_aux ctxt a]
-  | Unop (Neg, _) -> failwith "todo unary negation"
-  | Var x ->
+        [term_to_whyml_aux ctxt Term h; term_to_whyml_aux ctxt Term t]
+  | Binop ((Times | Plus | Minus | Cons), _, _), Formula ->
+      failwith "binop cannot be used as a formula"
+  | Unop (Not, _), Formula -> failwith "todo not formula"
+  | Unop (Not, a), Term ->
+      tapp (qualid ["Bool"; "notb"]) [term_to_whyml_aux ctxt Term a]
+  | Unop (Neg, _), Term -> failwith "todo unary negation"
+  | Unop (Neg, _), Formula -> failwith "neg cannot be used as a formula"
+  | Var x, _ ->
       (* tapp (qualid ["Var"]) [tstr (Bindlib.name_of x)] *)
       tvar (qualid [Bindlib.name_of x])
-  | Symbol _ -> failwith "free symbol"
-  | Fun _ -> failwith "todo fun"
-  | Tuple _ -> failwith "todo tuple"
-  | Apply (Symbol { sym_name = f }, args) ->
-      tapp (qualid [f]) (List.map (term_to_whyml_aux ctxt) args)
-  | Apply (_f, _args) -> failwith "apply"
-  | Bind (a, b) ->
+  | Symbol _, _ -> failwith "free symbol"
+  | Fun _, _ -> failwith "lambdas not handled at this level"
+  | Tuple _, Term -> failwith "todo tuple"
+  | Tuple _, Formula -> failwith "tuple cannot be used as a formula"
+  | Apply (Symbol { sym_name = f }, args), _ ->
+      tapp (qualid [f]) (List.map (term_to_whyml_aux ctxt kind) args)
+  | Apply (_f, _args), _ -> failwith "apply"
+  | Bind (a, b), Term ->
       (* there is no let in whyml terms, only programs... *)
       (* let x, b, ctxt = Bindlib.unbind_in ctxt b in
       term
@@ -83,45 +103,93 @@ let rec term_to_whyml_aux ctxt t =
              term_to_whyml_aux ctxt a,
              term_to_whyml_aux ctxt b )) *)
       let b1 = Bindlib.subst b a in
-      term_to_whyml_aux ctxt b1
-  | Forall b ->
+      term_to_whyml_aux ctxt Term b1
+  | Bind _, Formula -> failwith "bind cannot be used in a formula"
+  | Forall b, Formula ->
       let xs, b, ctxt = Bindlib.unmbind_in ctxt b in
       let xs = Array.to_list xs |> List.map Bindlib.name_of in
       term
-        (Tquant (Dterm.DTforall, vars_to_params xs, [], term_to_whyml_aux ctxt b))
-  | Exists b ->
+        (Tquant
+           ( Dterm.DTforall,
+             vars_to_params xs,
+             [],
+             term_to_whyml_aux ctxt Formula b ))
+  | Exists b, Formula ->
       let xs, b, ctxt = Bindlib.unmbind_in ctxt b in
       let xs = Array.to_list xs |> List.map Bindlib.name_of in
       term
-        (Tquant (Dterm.DTexists, vars_to_params xs, [], term_to_whyml_aux ctxt b))
-  | Binop (Eq, a, b) ->
+        (Tquant
+           ( Dterm.DTexists,
+             vars_to_params xs,
+             [],
+             term_to_whyml_aux ctxt Formula b ))
+  | (Forall _ | Exists _), Term ->
+      failwith "quantifiers cannot be used as a term"
+  | Binop (Eq, a, b), Term ->
       tapp
-        (qualid [Ident.op_infix "="])
-        [term_to_whyml_aux ctxt a; term_to_whyml_aux ctxt b]
-  | Binop (Gt, a, b) ->
-      tapp (qualid ["gt"]) [term_to_whyml_aux ctxt a; term_to_whyml_aux ctxt b]
-  | Binop (Lt, a, b) ->
-      tapp (qualid ["lt"]) [term_to_whyml_aux ctxt a; term_to_whyml_aux ctxt b]
-  | Binop (Le, a, b) ->
-      tapp (qualid ["le"]) [term_to_whyml_aux ctxt a; term_to_whyml_aux ctxt b]
-  | Binop (Ge, a, b) ->
-      tapp (qualid ["ge"]) [term_to_whyml_aux ctxt a; term_to_whyml_aux ctxt b]
-  | Binop (Neq, a, b) ->
-      tapp (qualid ["neq"]) [term_to_whyml_aux ctxt a; term_to_whyml_aux ctxt b]
-  | Conj (a, b) ->
-      term
-        (Tbinop (term_to_whyml_aux ctxt a, Dterm.DTand, term_to_whyml_aux ctxt b))
-  | Disj (a, b) ->
-      term
-        (Tbinop (term_to_whyml_aux ctxt a, Dterm.DTor, term_to_whyml_aux ctxt b))
-  | Implies (a, b) ->
+        (* (qualid [Ident.op_infix "="]) *)
+        (qualid ["eq"])
+        [term_to_whyml_aux ctxt Term a; term_to_whyml_aux ctxt Term b]
+  | Binop (Gt, a, b), Term ->
+      tapp (qualid ["gt"])
+        [term_to_whyml_aux ctxt Term a; term_to_whyml_aux ctxt Term b]
+  | Binop (Lt, a, b), Term ->
+      tapp (qualid ["lt"])
+        [term_to_whyml_aux ctxt Term a; term_to_whyml_aux ctxt Term b]
+  | Binop (Le, a, b), Term ->
+      tapp (qualid ["le"])
+        [term_to_whyml_aux ctxt Term a; term_to_whyml_aux ctxt Term b]
+  | Binop (Ge, a, b), Term ->
+      tapp (qualid ["ge"])
+        [term_to_whyml_aux ctxt Term a; term_to_whyml_aux ctxt Term b]
+  | Binop (Neq, a, b), Term ->
+      tapp (qualid ["neq"])
+        [term_to_whyml_aux ctxt Term a; term_to_whyml_aux ctxt Term b]
+  | Binop ((Eq | Neq | Gt | Lt | Le | Ge), _, _), Formula ->
+      (* ctxt  *)
+      let coerce_to_prop a =
+        (* let a1 = term_to_whyml_aux ctxt a in *)
+        (* match a with
+        | Apply (Symbol { sym_name = "is_int" }, _) -> a1
+        | _ -> *)
+        tapp (qualid [Ident.op_infix "="]) [a; term_to_whyml_aux ctxt Term True]
+      in
+
+      term_to_whyml_aux ctxt Term t |> coerce_to_prop
+      (* failwith "Todo" *)
+      (* failwith "relational operators cannot be used as a formula" *)
+  | Conj (a, b), _ ->
       term
         (Tbinop
-           (term_to_whyml_aux ctxt a, Dterm.DTimplies, term_to_whyml_aux ctxt b))
-  | Emp | PointsTo _ | SepConj _ ->
+           ( term_to_whyml_aux ctxt kind a,
+             Dterm.DTand,
+             term_to_whyml_aux ctxt kind b ))
+  | Disj (a, b), _ ->
+      term
+        (Tbinop
+           ( term_to_whyml_aux ctxt kind a,
+             Dterm.DTor,
+             term_to_whyml_aux ctxt kind b ))
+  | Implies (a, b), Formula ->
+      (* TODO this may need to be more widely used *)
+      (* let coerce_to_prop ctxt a =
+        let a1 = term_to_whyml_aux ctxt a in
+        match a with
+        | Apply (Symbol { sym_name = "is_int" }, _) -> a1
+        | _ ->
+            tapp (qualid [Ident.op_infix "="]) [a1; term_to_whyml_aux ctxt True]
+      in *)
+      (* let a = term_to_whyml_aux ctxt a |> coerce_to_prop in *)
+      (* let b = term_to_whyml_aux ctxt b |> coerce_to_prop in *)
+      let a = term_to_whyml_aux ctxt Formula a in
+      let b = term_to_whyml_aux ctxt Formula b in
+      term (Tbinop (a, Dterm.DTimplies, b))
+  | Implies _, Term -> failwith "implication cannot be used as a term"
+  | Emp, _ | PointsTo _, _ | SepConj _, _ ->
       failwith "separation logic cannot be translated"
-  | Subsumes _ -> failwith "subsumptions not handled at this level"
-  | Requires _ | Ensures _ | Sequence (_, _) | Shift _ | Reset _ ->
+  | Subsumes _, _ -> failwith "subsumptions not handled at this level"
+  | Requires _, _ | Ensures _, _ | Sequence _, _ | Shift _, _ | Reset _, _ ->
       failwith "staged logic not handled at this level"
 
-let term_to_whyml p = term_to_whyml_aux Bindlib.(free_vars (box_term p)) p
+let term_to_whyml p =
+  term_to_whyml_aux Bindlib.(free_vars (box_term p)) Formula p
