@@ -29,14 +29,16 @@ let prop_to_rule p =
     the rewritten target and instantiated subgoals *)
 let rewrite_exact rule target =
   let uvars, (side, (lhs, rhs)) = unmbind rule in
-  let sigma =
-    try unify lhs target (TVSet.of_seq (Array.to_seq uvars))
-    with Unification_failure -> raise Rewrite_failure
+  let sigma, residue =
+    try (unify lhs target (TVSet.of_seq (Array.to_seq uvars)), Fun.id) with
+    | Unification_failure -> raise Rewrite_failure
+    | Unification_frame (s, r) -> (s, r)
   in
   if TVMap.cardinal sigma <> Array.length uvars then raise Rewrite_failure;
   let args = Array.map (fun x -> TVMap.find x sigma) uvars in
   let rhs = unbox (bind_mvar uvars (box_term rhs)) in
   let rhs = msubst rhs args in
+  let rhs = residue rhs in
   let side =
     List.map
       (fun a ->
