@@ -226,3 +226,5 @@
   ==> Valid
   
   no more goals
+  qed ()
+  no more goals

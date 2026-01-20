@@ -504,6 +504,13 @@ let goal_is s =
       failf "@[<v>goal was expected to be@,  %a@,but was:@,  %a@]" pp_term g
         pp_term g1
 
+let qed =
+  let open Tactic in
+  let* ps = get in
+  match ps with
+  | [] -> pure ()
+  | _ -> fail "proof not finished"
+
 let refl =
   let open Tactic in
   let* left, right = get_subsumption in
@@ -907,6 +914,7 @@ module Interactive = struct
 
   let have ~name = make_interactive (have ~name)
   let goal_is = make_interactive goal_is
+  let qed = make_interactive (fun () -> qed)
   let specialize h = make_interactive (specialize h)
   let refl () = run_tactic refl
   let req_heap_intro () = run_tactic HeapTactic.req_heap_intro

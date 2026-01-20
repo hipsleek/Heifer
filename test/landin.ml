@@ -117,6 +117,8 @@ intro_heap ();;
 ens_heap_intro ();;
 
 (* Prover.Tactic.Options.show_why3_goal := true;; *)
-prove ()
+prove ();;
 
 (* TODO a defn of fact, some way to include it in here *)
+
+qed ()

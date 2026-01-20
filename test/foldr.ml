@@ -69,4 +69,5 @@ goal_is {|
 (* Having done that, the goal follows from the definition of `sum`. *)
 
 simpl ();;
-prove ()
+prove ();;
+qed ()
