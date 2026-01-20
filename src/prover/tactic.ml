@@ -981,8 +981,6 @@ module Interactive = struct
   let prove = make_interactive (fun () -> prove)
   let admit () = run_tactic admit
   let dup () = run_tactic dup
-
-  (* let induction ~ih = make_interactive (induction ~ih) *)
   let prove_s s = Why3_prover.prove ~show_goal:true (Parsing.Parse.parse_prop s)
 
   (** Unfold a definition (symbol) on both side of a sequent in the current
@@ -998,6 +996,23 @@ module Interactive = struct
     | None -> Format.printf "unfold: the symbol %s does not exist@." sym_name
     | Some def -> run_tactic (modify_goal (Unfold.unfold sym def))
 
+  let get_quantified_subsumption =
+    let open Tactic in
+    let rec collect_quantifiers ctxt xs g =
+      match g with
+      | Forall b ->
+          let xs1, f, ctxt = unmbind_in ctxt b in
+          collect_quantifiers ctxt (xs1 :: xs) f
+      | Subsumes (l, r) -> Some (xs, l, r)
+      | _ -> None
+    in
+    let* g = get_goal in
+    let* ctxt = get_rename_ctxt in
+    match collect_quantifiers ctxt [] g with
+    | None -> fail "quantified or a subsumption"
+    | Some (xs, left, right) ->
+        pure (List.rev xs |> List.map Array.to_list |> List.concat, left, right)
+
   (** Generate an induction hypothesis in the current proof state. *)
   let induction :
       ?vars:string list ->
@@ -1011,9 +1026,9 @@ module Interactive = struct
       let* assumptions = get_assumptions in
       let* x = get_constant x in
       let* vars = map_m get_constant vars in
-      let* lhs, rhs = get_subsumption in
+      let* qs, lhs, rhs = get_quantified_subsumption in
       let assumptions = List.map snd (SMap.bindings assumptions) in
-      let vars = Array.of_list vars in
+      let vars = Array.of_list (vars @ qs) in
       (* generate the body of the induction hypothesis *)
       let ih_body = Induction.induction kind x vars assumptions lhs rhs in
       (* and wrap it into a prop *)
