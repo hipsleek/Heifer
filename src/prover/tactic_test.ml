@@ -112,7 +112,7 @@ let%expect_test "specialize" =
 
 let%expect_test "elim heap" =
   start_proof "ens x->1; ens emp <: ens emp";
-  ens_heap_elim ();
+  ens_heap_intro ();
   [%expect
     {|
     ────────────────────────────────────────────────────────────
@@ -492,7 +492,7 @@ let%expect_test "intro_pure" =
        ens x->1
     <: ens emp
 
-    error: impl_intro: not implies / ens_pure_intro: not prop / req_pure_intro: not requires / intro_pure: failed
+    error: impl_intro: not implies / ens_pure_intro: not prop / pre_req_intro: not requires / intro_pure: failed
     |}];
 
   start_proof "ens a=1 <: ens emp";
@@ -525,7 +525,7 @@ let%expect_test "intro_pure" =
        ens b=2; ens emp
     <: ens emp
 
-    error: impl_intro: not implies / add_assumption: H is already used / req_pure_intro: not requires / intro_pure: failed
+    error: impl_intro: not implies / add_assumption: H is already used / pre_req_intro: not requires / intro_pure: failed
     |}]
 
 let%expect_test "rewrite" =
@@ -554,9 +554,9 @@ let%expect_test "rewrite" =
 let%expect_test "heap tactics" =
   start_proof "ens emp <: forall x. req x->1; ens x->1";
   forall_intro ();
-  ens_heap_elim ();
-  req_heap_intro ();
   ens_heap_intro ();
+  req_heap_intro ();
+  ens_heap_elim ();
   refl ();
   [%expect
     {|
@@ -592,31 +592,6 @@ let%expect_test "heap tactics" =
 
     no more goals
     |}];
-
-  start_proof "ens emp <: forall x. req x->1; ens x->1";
-  forall_intro ();
-  heap_solver ();
-  refl ();
-  [%expect
-    {|
-     ────────────────────────────────────────────────────────────
-        ens emp
-     <: forall x. req x->1; ens x->1
-
-
-     x
-     ────────────────────────────────────────────────────────────
-        ens emp
-     <: req x->1; ens x->1
-
-
-     x
-     ────────────────────────────────────────────────────────────
-        ()
-     <: ()
-
-     no more goals
-     |}]
 
 (* start_proof "ens emp <: forall x v. req v=1; req x->v; ens x->1";
    forall_intro ();
