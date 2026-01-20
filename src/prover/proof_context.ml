@@ -18,28 +18,33 @@ type proof_context = {
 
 type t = proof_context
 
-let create ~goal = {
-  rename_ctxt = Bindlib.empty_ctxt;
-  constants = SMap.empty;
-  assumptions = SMap.empty;
-  heap_assumptions = [];
-  goal;
-}
+let create ~goal =
+  {
+    rename_ctxt = Bindlib.empty_ctxt;
+    constants = SMap.empty;
+    assumptions = SMap.empty;
+    heap_assumptions = [];
+    goal;
+  }
 
 let pp_constants pp_name ppf constants =
-  Fmt.pf ppf "@[<hov>%a@]@," (Fmt.list ~sep:Fmt.comma pp_name)
-    (List.map fst (SMap.bindings constants))
+  let constants = List.map fst (SMap.bindings constants) in
+  match constants with
+  | [] -> ()
+  | _ -> Fmt.pf ppf "@[<hov>%a@]@," (Fmt.list ~sep:Fmt.comma pp_name) constants
 
 let pp_assumptions_ne pp_name pp_assumption ppf assumptions =
   Fmt.pf ppf "@[<v>%a@]@,"
-    (Fmt.list (Fmt.hovbox ~indent:2 (Fmt.pair ~sep:(Fmt.any ": ") pp_name pp_assumption)))
+    (Fmt.list
+       (Fmt.hovbox ~indent:2
+          (Fmt.pair ~sep:(Fmt.any ": ") pp_name pp_assumption)))
     (SMap.bindings assumptions)
 
-let pp_line ppf =
-  Fmt.pf ppf "%s@," (draw_line !Options.line_length)
+let pp_line ppf = Fmt.pf ppf "%s@," (draw_line !Options.line_length)
 
 let pp_assumptions pp_name pp_assumption ppf assumptions =
-  if not (SMap.is_empty assumptions) then pp_assumptions_ne pp_name pp_assumption ppf assumptions;
+  if not (SMap.is_empty assumptions) then
+    pp_assumptions_ne pp_name pp_assumption ppf assumptions;
   pp_line ppf
 
 let pp_heap_line ppf =
@@ -58,7 +63,8 @@ let pp_goal pp_term ppf = function
   | Subsumes (lhs, rhs) -> Fmt.pf ppf "   %a@,<: %a" pp_term lhs pp_term rhs
   | goal -> Fmt.pf ppf "%a" pp_term goal
 
-let pp_proof_context ppf { rename_ctxt = _; constants; assumptions; heap_assumptions; goal } =
+let pp_proof_context ppf
+    { rename_ctxt = _; constants; assumptions; heap_assumptions; goal } =
   let pp_term = if !Options.notation then pp_term else dump_term in
   Fmt.pf ppf "@[<v>";
   pp_constants Fmt.string ppf constants;

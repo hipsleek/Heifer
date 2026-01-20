@@ -4,13 +4,11 @@
     (ex x. ens x->1; read x) <: 1
   |}
   
-  
   ────────────────────────────────────────────────────────────
      ex x. ens x->1; read x
   <: 1
   
   axiom ~name:"H" "forall x. read x <: forall v. req x->v; ens x->v; v"
-  
   
   H: forall x. read x <: (forall v. req x->v; ens x->v; v)
   ────────────────────────────────────────────────────────────

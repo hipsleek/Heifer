@@ -23,7 +23,6 @@
       landin_rec factf; f. f n <: ex l v. ens l->v; fact n
   |}
   
-  
   ────────────────────────────────────────────────────────────
   forall n.
     is_int n =>
