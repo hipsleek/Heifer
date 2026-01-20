@@ -536,6 +536,27 @@ let refl =
   let* left, right = get_subsumption in
   if equal_term left right then pop_pctxt else fail "refl: cannot close goal"
 
+let revert s =
+  let open Tactic in
+  let* x = parse_term s in
+  match x with
+  | Var v ->
+      let* pc = get_pctxt in
+      let dependent =
+        SMap.filter (fun _k a -> has_vars (TVSet.singleton v) a) pc.assumptions
+        |> SMap.bindings
+      in
+      (match dependent with
+      | (k, _) :: _ ->
+          failf "assumption %s is dependent on %s, cannot revert" k (name_of v)
+      | [] ->
+          let constants = SMap.remove (name_of v) pc.constants in
+          let goal = Forall (unbox (bind_mvar [| v |] (box_term pc.goal))) in
+          let pc1 = { pc with constants; goal } in
+          let* _ = put_pctxt pc1 in
+          pure ())
+  | _ -> fail "cannot revert non-var"
+
 let forall_intro =
   let open Tactic in
   let intro g k =
@@ -964,6 +985,7 @@ module Interactive = struct
   let intro_pure name = run_tactic (PureTactic.intro_pure name)
   let intro_heap () = run_tactic HeapTactic.intro_heap
   let intros_heap () = run_tactic HeapTactic.intros_heap
+  let revert = make_interactive revert
   let revert_heap () = run_tactic HeapTactic.revert_heap
   let heap_solver () = run_tactic HeapTactic.heap_solver
   let forall_intro = make_interactive (fun () -> forall_intro)
