@@ -113,9 +113,9 @@ let%expect_test "specialize" =
     <: Ensures (Binop (Eq, Var x, Int 1))
     |}]
 
-let%expect_test "intro heap" =
+let%expect_test "elim heap" =
   start_proof "ens x->1; ens emp <: ens emp";
-  ens_heap_intro ();
+  ens_heap_elim ();
   [%expect
     {|
     ────────────────────────────────────────────────────────────
@@ -572,9 +572,9 @@ let%expect_test "rewrite" =
 let%expect_test "heap tactics" =
   start_proof "ens emp <: forall x. req x->1; ens x->1";
   forall_intro ();
-  ens_heap_intro ();
-  req_heap_intro ();
   ens_heap_elim ();
+  req_heap_intro ();
+  ens_heap_intro ();
   refl ();
   [%expect
     {|
@@ -611,11 +611,12 @@ let%expect_test "heap tactics" =
     no more goals
     |}];
 
-   start_proof "ens emp <: forall x. req x->1; ens x->1";
-   forall_intro ();
-   heap_solver ();
-   refl ();
-   [%expect {|
+  start_proof "ens emp <: forall x. req x->1; ens x->1";
+  forall_intro ();
+  heap_solver ();
+  refl ();
+  [%expect
+    {|
      ────────────────────────────────────────────────────────────
         ens emp
      <: forall x. req x->1; ens x->1
@@ -633,9 +634,9 @@ let%expect_test "heap tactics" =
      <: ()
 
      no more goals
-     |}];
+     |}]
 
-   (* start_proof "ens emp <: forall x v. req v=1; req x->v; ens x->1";
+(* start_proof "ens emp <: forall x v. req v=1; req x->v; ens x->1";
    forall_intro ();
    intro_pure "Hv";
    heap_solver ();

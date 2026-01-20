@@ -406,7 +406,7 @@
   <: ens l->knot; fact n
   (1 more goals)
   
-  ens_heap_elim ()
+  ens_heap_intro ()
   
   knot, l, n
   Hknot: knot=(fun n ->
@@ -594,7 +594,7 @@
      fact (n-1); r1. n*.r1
   <: ens l1->v; fact n
   
-  ens_heap_elim ()
+  ens_heap_intro ()
   
   knot, l, l1, n, v
   Hknot: knot=(fun n ->

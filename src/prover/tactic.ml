@@ -607,14 +607,14 @@ let req_left =
   | _ -> fail "req_left cannot do anything"
 
 module HeapTactic = struct
-  let ens_heap_intro =
+  let ens_heap_elim =
     let open Tactic in
     let* lhs = get_lhs in
     let* t, lhs =
-      unwrap (unseq_open_ensures_opt lhs) "ens_heap_intro: not ensures"
+      unwrap (unseq_open_ensures_opt lhs) "ens_heap_elim: not ensures"
     in
     let* ts =
-      unwrap (Heap.deep_destruct_sepconj_opt t) "ens_heap_intro: not hprop"
+      unwrap (Heap.deep_destruct_sepconj_opt t) "ens_heap_elim: not hprop"
     in
     let* _ = modify_heap_assumptions (List.append ts) in
     put_lhs lhs
@@ -633,7 +633,7 @@ module HeapTactic = struct
 
   let intro_heap =
     let open Tactic in
-    choices ~err:"failed to intro heap" [ens_heap_intro; req_heap_intro]
+    choices ~err:"failed to intro heap" [ens_heap_elim; req_heap_intro]
 
   let unseq_open_opt f target =
     let open Util.Options.Monad in
@@ -699,37 +699,37 @@ module HeapTactic = struct
     in
     catch tactic (fun _ -> fail "solve_req_heap_elim: cannot prove equality")
 
-  let ens_heap_elim_common =
+  let ens_heap_intro_common =
     let open Tactic in
     let* rhs = get_rhs in
     let* t, rhs =
-      unwrap (unseq_open_ensures_opt rhs) "ens_heap_elim: not ensures"
+      unwrap (unseq_open_ensures_opt rhs) "ens_heap_intro: not ensures"
     in
     let* ts =
-      unwrap (Heap.deep_destruct_sepconj_opt t) "ens_heap_elim: not hprop"
+      unwrap (Heap.deep_destruct_sepconj_opt t) "ens_heap_intro: not hprop"
     in
     let* heap_assumptions = get_heap_assumptions in
     let ts, heap_assumptions, equalities = Heap.biab_list ts heap_assumptions in
-    let+ _ = guard (List.is_empty ts) "ens_heap_elim: cannot prove hprop" in
+    let+ _ = guard (List.is_empty ts) "ens_heap_intro: cannot prove hprop" in
     (heap_assumptions, rhs, equalities)
 
-  let ens_heap_elim =
+  let ens_heap_intro =
     let open Tactic in
-    let* heap_assumptions, rhs, equalities = ens_heap_elim_common in
+    let* heap_assumptions, rhs, equalities = ens_heap_intro_common in
     let* _ = put_heap_assumptions heap_assumptions in
     let* _ = put_rhs rhs in
     let* p = get_pctxt in
     iter_m (fun equality -> push_pctxt { p with goal = equality }) equalities
 
-  let solve_ens_heap_elim =
+  let solve_ens_heap_intro =
     let open Tactic in
-    let* heap_assumptions, rhs, equalities = ens_heap_elim_common in
+    let* heap_assumptions, rhs, equalities = ens_heap_intro_common in
     let tactic =
       let* _ = iter_m solve_invoke_why3 equalities in
       let* _ = put_heap_assumptions heap_assumptions in
       put_rhs rhs
     in
-    catch tactic (fun _ -> fail "solve_ens_heap_elim: cannot prove equality")
+    catch tactic (fun _ -> fail "solve_ens_heap_intro: cannot prove equality")
 
   let heap_solver =
     let open Tactic in
@@ -737,7 +737,7 @@ module HeapTactic = struct
       let* goal = get_goal in
       let* _ = intros_heap in
       let* _ = try_ solve_req_heap_elim in
-      let* _ = try_ solve_ens_heap_elim in
+      let* _ = try_ solve_ens_heap_intro in
       let* goal' = get_goal in
       if equal_term goal goal' then pure () else loop ()
     in
