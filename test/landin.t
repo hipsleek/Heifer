@@ -1,6 +1,7 @@
 
   $ ./landin.exe
-  declare
+  
+  # declare
       {|
     landin_rec f =
       ex l knot.
@@ -10,14 +11,16 @@
         knot
   |}
   landin_rec declared
-  declare
+  
+  # declare
       {|
     factf self n =
       ens n=0; 1
       \/ ens n>0; self (n-1); r1. n*.r1
   |}
   factf declared
-  start_proof
+  
+  # start_proof
       {|
     forall n. is_int n =>
       landin_rec factf; f. f n <: ex l v. ens l->v; fact n
@@ -28,14 +31,16 @@
     is_int n =>
       landin_rec factf; f. f n <: (ex l v. ens l->v; fact n)
   
-  forall_intro ()
+  
+  # forall_intro ()
   
   n
   ────────────────────────────────────────────────────────────
   is_int n =>
     landin_rec factf; f. f n <: (ex l v. ens l->v; fact n)
   
-  intro_pure "Hty"
+  
+  # intro_pure "Hty"
   
   n
   Hty: is_int n
@@ -43,7 +48,8 @@
      landin_rec factf; f. f n
   <: ex l v. ens l->v; fact n
   
-  unfold "landin_rec"
+  
+  # unfold "landin_rec"
   
   n
   Hty: is_int n
@@ -57,7 +63,8 @@
        f n
   <: ex l v. ens l->v; fact n
   
-  goal_is
+  
+  # goal_is
       {|
        (ex l knot.
           ens l->();
@@ -81,7 +88,8 @@
        f n
   <: ex l v. ens l->v; fact n
   
-  exists_elim ()
+  
+  # exists_elim ()
   
   knot, l, n
   Hty: is_int n
@@ -93,7 +101,8 @@
        f n
   <: ex l v. ens l->v; fact n
   
-  simpl ()
+  
+  # simpl ()
   
   knot, l, n
   Hty: is_int n
@@ -104,7 +113,8 @@
      (forall v0. req l->v0; ens l->knot; knot); f. f n
   <: ex l v. ens l->v; fact n
   
-  intro_heap ()
+  
+  # intro_heap ()
   
   knot, l, n
   Hty: is_int n
@@ -116,7 +126,8 @@
      (forall v0. req l->v0; ens l->knot; knot); f. f n
   <: ex l v. ens l->v; fact n
   
-  intro_pure "Hknot"
+  
+  # intro_pure "Hknot"
   
   knot, l, n
   Hknot: knot=(fun n ->
@@ -128,7 +139,8 @@
      (forall v0. req l->v0; ens l->knot; knot); f. f n
   <: ex l v. ens l->v; fact n
   
-  forall_elim ["()"]
+  
+  # forall_elim ["()"]
   
   knot, l, n
   Hknot: knot=(fun n ->
@@ -140,7 +152,8 @@
      (req l->(); ens l->knot; knot); f. f n
   <: ex l v. ens l->v; fact n
   
-  simpl ()
+  
+  # simpl ()
   
   knot, l, n
   Hknot: knot=(fun n ->
@@ -152,7 +165,8 @@
      req l->(); ens l->knot; knot; f. f n
   <: ex l v. ens l->v; fact n
   
-  req_heap_elim ()
+  
+  # req_heap_elim ()
   
   knot, l, n
   Hknot: knot=(fun n ->
@@ -162,7 +176,8 @@
      ens l->knot; knot; f. f n
   <: ex l v. ens l->v; fact n
   
-  simpl ()
+  
+  # simpl ()
   
   knot, l, n
   Hknot: knot=(fun n ->
@@ -172,7 +187,8 @@
      ens l->knot; knot n
   <: ex l v. ens l->v; fact n
   
-  goal_is {|
+  
+  # goal_is {|
        ens l->knot; knot n
     <: ex l v. ens l->v; fact n
   |}
@@ -185,7 +201,8 @@
      ens l->knot; knot n
   <: ex l v. ens l->v; fact n
   
-  induction ~name:"IH" (`Int 0) "n"
+  
+  # induction ~name:"IH" (`Int 0) "n"
   
   knot, l, n
   Hknot: knot=(fun n ->
@@ -199,7 +216,8 @@
      ens l->knot; knot n
   <: ex l v. ens l->v; fact n
   
-  intro_heap ()
+  
+  # intro_heap ()
   
   knot, l, n
   Hknot: knot=(fun n ->
@@ -215,7 +233,8 @@
      knot n
   <: ex l v. ens l->v; fact n
   
-  rewrite "Hknot"
+  
+  # rewrite "Hknot"
   
   knot, l, n
   Hknot: knot=(fun n ->
@@ -232,7 +251,8 @@
        n
   <: ex l v. ens l->v; fact n
   
-  goal_is
+  
+  # goal_is
       {|
        (fun n1 -> forall f1. req l->f1; ens l->f1; factf f1 n1)
          n
@@ -254,7 +274,8 @@
        n
   <: ex l v. ens l->v; fact n
   
-  simpl ()
+  
+  # simpl ()
   
   knot, l, n
   Hknot: knot=(fun n ->
@@ -270,7 +291,8 @@
      forall f1. req l->f1; ens l->f1; factf f1 n
   <: ex l v. ens l->v; fact n
   
-  forall_elim ["knot"]
+  
+  # forall_elim ["knot"]
   
   knot, l, n
   Hknot: knot=(fun n ->
@@ -286,7 +308,8 @@
      req l->knot; ens l->knot; factf knot n
   <: ex l v. ens l->v; fact n
   
-  req_heap_elim ()
+  
+  # req_heap_elim ()
   
   knot, l, n
   Hknot: knot=(fun n ->
@@ -300,7 +323,8 @@
      ens l->knot; factf knot n
   <: ex l v. ens l->v; fact n
   
-  intro_heap ()
+  
+  # intro_heap ()
   
   knot, l, n
   Hknot: knot=(fun n ->
@@ -316,7 +340,8 @@
      factf knot n
   <: ex l v. ens l->v; fact n
   
-  unfold "factf"
+  
+  # unfold "factf"
   
   knot, l, n
   Hknot: knot=(fun n ->
@@ -332,7 +357,8 @@
      ens n=0; 1 \/ ens n>0; knot (n-1); r1. n*.r1
   <: ex l v. ens l->v; fact n
   
-  disj_elim ()
+  
+  # disj_elim ()
   
   knot, l, n
   Hknot: knot=(fun n ->
@@ -349,7 +375,8 @@
   <: ex l v. ens l->v; fact n
   (1 more goals)
   
-  goal_is {|
+  
+  # goal_is {|
     ens n=0; 1
     <: ex l v. ens l->v; fact n
   |}
@@ -369,7 +396,8 @@
   <: ex l v. ens l->v; fact n
   (1 more goals)
   
-  intro_pure "Hn"
+  
+  # intro_pure "Hn"
   
   knot, l, n
   Hknot: knot=(fun n ->
@@ -387,7 +415,8 @@
   <: ex l v. ens l->v; fact n
   (1 more goals)
   
-  exists_intro ["l"; "knot"]
+  
+  # exists_intro ["l"; "knot"]
   
   knot, l, n
   Hknot: knot=(fun n ->
@@ -405,7 +434,8 @@
   <: ens l->knot; fact n
   (1 more goals)
   
-  ens_heap_intro ()
+  
+  # ens_heap_intro ()
   
   knot, l, n
   Hknot: knot=(fun n ->
@@ -421,7 +451,8 @@
   <: fact n
   (1 more goals)
   
-  prove ()
+  
+  # prove ()
   Warning, file line 0, characters 0-0: unused variable knot
   Warning, file line 0, characters 0-0: unused variable l
   ==> Valid
@@ -441,7 +472,8 @@
      ens n>0; knot (n-1); r1. n*.r1
   <: ex l v. ens l->v; fact n
   
-  goal_is {|
+  
+  # goal_is {|
     ens n>0; knot (n-1); r1. n*r1
     <: ex l v. ens l->v; fact n
   |}
@@ -449,7 +481,8 @@
     ens n>0; knot (n-1); r1. n * r1 <: (ex l v. ens l->v; fact n)
   but was:
     ens n>0; knot (n-1); r1. n*.r1 <: (ex l v. ens l->v; fact n)
-  intro_pure "Hn"
+  
+  # intro_pure "Hn"
   
   knot, l, n
   Hknot: knot=(fun n ->
@@ -466,7 +499,8 @@
      knot (n-1); r1. n*.r1
   <: ex l v. ens l->v; fact n
   
-  revert_heap ()
+  
+  # revert_heap ()
   
   knot, l, n
   Hknot: knot=(fun n ->
@@ -481,7 +515,8 @@
      ens l->knot; knot (n-1); r1. n*.r1
   <: ex l v. ens l->v; fact n
   
-  rewrite "IH"
+  
+  # rewrite "IH"
   
   knot, l, n
   Hknot: knot=(fun n ->
@@ -496,7 +531,8 @@
   n-1>=0 /\ n-1<n
   (1 more goals)
   
-  prove ()
+  
+  # prove ()
   Warning, file line 0, characters 0-0: unused variable knot
   Warning, file line 0, characters 0-0: unused variable l
   ==> Valid
@@ -515,7 +551,8 @@
      (ex l v. ens l->v; fact (n-1)); r1. n*.r1
   <: ex l v. ens l->v; fact n
   
-  goal_is
+  
+  # goal_is
       "(ex l v. ens l->v; fact (n-1)); r1. n*.r1 <: ex l v. ens l->v; fact n"
   
   knot, l, n
@@ -531,7 +568,8 @@
      (ex l v. ens l->v; fact (n-1)); r1. n*.r1
   <: ex l v. ens l->v; fact n
   
-  exists_elim ()
+  
+  # exists_elim ()
   
   knot, l, l1, n, v
   Hknot: knot=(fun n ->
@@ -546,7 +584,8 @@
      (ens l1->v; fact (n-1)); r1. n*.r1
   <: ex l v. ens l->v; fact n
   
-  exists_intro ["l1"; "v"]
+  
+  # exists_intro ["l1"; "v"]
   
   knot, l, l1, n, v
   Hknot: knot=(fun n ->
@@ -561,7 +600,8 @@
      (ens l1->v; fact (n-1)); r1. n*.r1
   <: ens l1->v; fact n
   
-  simpl ()
+  
+  # simpl ()
   
   knot, l, l1, n, v
   Hknot: knot=(fun n ->
@@ -576,7 +616,8 @@
      ens l1->v; fact (n-1); r1. n*.r1
   <: ens l1->v; fact n
   
-  intro_heap ()
+  
+  # intro_heap ()
   
   knot, l, l1, n, v
   Hknot: knot=(fun n ->
@@ -593,7 +634,8 @@
      fact (n-1); r1. n*.r1
   <: ens l1->v; fact n
   
-  ens_heap_intro ()
+  
+  # ens_heap_intro ()
   
   knot, l, l1, n, v
   Hknot: knot=(fun n ->
@@ -608,7 +650,8 @@
      fact (n-1); r1. n*.r1
   <: fact n
   
-  prove ()
+  
+  # prove ()
   Warning, file line 0, characters 0-0: unused variable knot
   Warning, file line 0, characters 0-0: unused variable l
   Warning, file line 0, characters 0-0: unused variable l1
@@ -616,5 +659,6 @@
   ==> Valid
   
   no more goals
-  qed ()
+  
+  # qed ()
   no more goals

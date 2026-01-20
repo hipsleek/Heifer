@@ -5,6 +5,7 @@ let add_print s =
   | Pstr_eval _ ->
       let str = Format.asprintf "%a@." Pprintast.structure_item s in
       let str = String.sub str 2 (String.length str - 2) |> String.trim in
+      let str = Format.asprintf "\n# %s" str in
       let loc = s.pstr_loc in
       let open Ast_builder.Default in
       let expr =

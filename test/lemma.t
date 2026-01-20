@@ -1,6 +1,7 @@
 
   $ ./lemma.exe
-  start_proof {|
+  
+  # start_proof {|
     (ex x. ens x->1; read x) <: 1
   |}
   
@@ -8,14 +9,16 @@
      ex x. ens x->1; read x
   <: 1
   
-  axiom ~name:"H" "forall x. read x <: forall v. req x->v; ens x->v; v"
+  
+  # axiom ~name:"H" "forall x. read x <: forall v. req x->v; ens x->v; v"
   
   H: forall x. read x <: (forall v. req x->v; ens x->v; v)
   ────────────────────────────────────────────────────────────
      ex x. ens x->1; read x
   <: 1
   
-  exists_elim ()
+  
+  # exists_elim ()
   
   x
   H: forall x. read x <: (forall v. req x->v; ens x->v; v)
@@ -23,7 +26,8 @@
      ens x->1; read x
   <: 1
   
-  rewrite "H"
+  
+  # rewrite "H"
   
   x
   H: forall x. read x <: (forall v. req x->v; ens x->v; v)
@@ -31,7 +35,8 @@
      ens x->1; (forall v. req x->v; ens x->v; v)
   <: 1
   
-  intro_heap ()
+  
+  # intro_heap ()
   
   x
   H: forall x. read x <: (forall v. req x->v; ens x->v; v)
@@ -41,7 +46,8 @@
      forall v. req x->v; ens x->v; v
   <: 1
   
-  forall_elim ["1"]
+  
+  # forall_elim ["1"]
   
   x
   H: forall x. read x <: (forall v. req x->v; ens x->v; v)
@@ -51,7 +57,8 @@
      req x->1; ens x->1; 1
   <: 1
   
-  req_heap_elim ()
+  
+  # req_heap_elim ()
   
   x
   H: forall x. read x <: (forall v. req x->v; ens x->v; v)
@@ -59,7 +66,8 @@
      ens x->1; 1
   <: 1
   
-  ens_heap_elim ()
+  
+  # ens_heap_elim ()
   
   x
   H: forall x. read x <: (forall v. req x->v; ens x->v; v)
@@ -69,7 +77,9 @@
      1
   <: 1
   
-  refl ()
+  
+  # refl ()
   no more goals
-  qed ()
+  
+  # qed ()
   no more goals
