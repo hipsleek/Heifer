@@ -27,7 +27,7 @@ let rec is_translatable t =
       is_translatable a && is_translatable b
       (* staged logic and separation logic can't be translated *)
   | Fun _ | Requires _ | Ensures _ | Subsumes _ -> false
-  | PointsTo _ | SepConj _ | Shift _ | Reset _ -> false
+  | PointsTo _ | SepConj _ | Wand _ | Shift _ | Reset _ -> false
 
 let vars_to_params vars =
   List.map
@@ -196,7 +196,7 @@ let rec term_to_whyml_aux ctxt kind t =
       let b = term_to_whyml_aux ctxt Formula b in
       term (Tbinop (a, Dterm.DTimplies, b))
   | Implies _, Term -> failwith "implication cannot be used as a term"
-  | Emp, _ | PointsTo _, _ | SepConj _, _ ->
+  | Emp, _ | PointsTo _, _ | SepConj _, _ | Wand _, _ ->
       failwith "separation logic cannot be translated"
   | Subsumes _, _ -> failwith "subsumptions not handled at this level"
   | Requires _, _ | Ensures _, _ | Sequence _, _ | Shift _, _ | Reset _, _ ->
