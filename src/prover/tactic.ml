@@ -510,9 +510,9 @@ let case ~name s =
   let* p = parse_term s in
   let* pc = pop_pctxt in
   let* _ = push_pctxt pc in
-  let* _ = add_assumption name p in
+  let* _ = add_assumption name (Unop (Not, p)) in
   let* _ = push_pctxt pc in
-  add_assumption name (Unop (Not, p))
+  add_assumption name p
 
 let goal_is s =
   let open Tactic in
