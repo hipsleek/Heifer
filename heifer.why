@@ -7,6 +7,7 @@ module Heifer
   use list.List
 
   type term =
+    | TUnit
     | TInt int
     | TBool bool
     | TCons term term

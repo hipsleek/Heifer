@@ -60,7 +60,9 @@ let rec term_to_whyml_aux ctxt kind t =
   in
   Format.printf "%a %s@." Core.Pretty.pp_term t s; *)
   match (t, kind) with
-  | Unit, Term -> term (Ttuple [])
+  | Unit, Term ->
+      (* term (Ttuple []) *)
+      tvar (qualid ["TUnit"])
   | Unit, Formula -> failwith "unit cannot be used as a formula"
   | True, Term -> tapp (qualid ["TBool"]) [term Ttrue]
   | False, Term -> tapp (qualid ["TBool"]) [term Tfalse]
