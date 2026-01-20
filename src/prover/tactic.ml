@@ -490,8 +490,13 @@ let have ~name s =
   let open Tactic in
   let* g = parse_term s in
   let* ps = pop_pctxt in
-  let* _ = push_pctxt { ps with goal = g } in
   let* _ = push_pctxt ps in
+  let* _ = add_assumption name g in
+  push_pctxt { ps with goal = g }
+
+let axiom ~name s =
+  let open Tactic in
+  let* g = parse_term s in
   add_assumption name g
 
 let goal_is s =
@@ -913,6 +918,7 @@ module Interactive = struct
   open ProofState
 
   let have ~name = make_interactive (have ~name)
+  let axiom ~name = make_interactive (axiom ~name)
   let goal_is = make_interactive goal_is
   let qed = make_interactive (fun () -> qed)
   let specialize h = make_interactive (specialize h)
