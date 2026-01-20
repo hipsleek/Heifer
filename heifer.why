@@ -34,14 +34,14 @@ module Heifer
 
   function eq (a b:term) : term =
     match a, b with
-    | TInt a1, TInt b1 -> TBool (a1 = b1)
-    | _ -> TErr
+    | TErr, _ | _, TErr -> TErr
+    | _, _ -> TBool (a = b)
     end
 
   function neq (a b:term) : term =
     match a, b with
-    | TInt a1, TInt b1 -> TBool (a1 <> b1)
-    | _ -> TErr
+    | TErr, _ | _, TErr -> TErr
+    | _, _ -> TBool (a <> b)
     end
 
   function gt (a b:term) : term =
