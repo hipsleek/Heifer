@@ -89,6 +89,7 @@ let rec rewrite_aux ~ctx rule target =
     | Conj (t1, t2) -> Conj (rewrite_aux ~ctx rule t1, rewrite_aux ~ctx rule t2)
     | Implies (t1, t2) ->
         Implies (rewrite_aux ~ctx rule t1, rewrite_aux ~ctx rule t2)
+    | Wand (t1, t2) -> Wand (rewrite_aux ~ctx rule t1, rewrite_aux ~ctx rule t2)
     | Subsumes (t1, t2) ->
         Subsumes (rewrite_aux ~ctx rule t1, rewrite_aux ~ctx rule t2)
     | PointsTo (t1, t2) ->

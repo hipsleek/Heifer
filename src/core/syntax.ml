@@ -39,6 +39,7 @@ type term =
   | Conj of term * term
   | Disj of term * term
   | Implies of term * term
+  | Wand of term * term
   | Subsumes of term * term
   | Emp
   | PointsTo of term * term
@@ -108,6 +109,7 @@ module Mk = struct
   let conj = box_apply2 (fun p1 p2 -> Conj (p1, p2))
   let disj = box_apply2 (fun s1 s2 -> Disj (s1, s2))
   let implies = box_apply2 (fun p1 p2 -> Implies (p1, p2))
+  let wand = box_apply2 (fun p1 p2 -> Wand (p1, p2))
   let subsumes = box_apply2 (fun f1 f2 -> Subsumes (f1, f2))
   let emp = box Emp
   let pointsto = box_apply2 (fun t1 t2 -> PointsTo (t1, t2))
@@ -158,6 +160,7 @@ let rec box_term = function
   | Conj (p1, p2) -> Mk.conj (box_term p1) (box_term p2)
   | Disj (p1, p2) -> Mk.disj (box_term p1) (box_term p2)
   | Implies (p1, p2) -> Mk.implies (box_term p1) (box_term p2)
+  | Wand (p1, p2) -> Mk.wand (box_term p1) (box_term p2)
   | Subsumes (f1, f2) -> Mk.subsumes (box_term f1) (box_term f2)
   | Emp -> Mk.emp
   | PointsTo (t1, t2) -> Mk.pointsto (box_term t1) (box_term t2)
@@ -308,6 +311,8 @@ let rec dump_term ppf t =
       Fmt.pf ppf "@[<hov 2>Disj (%a,@ %a)@]" dump_term t1 dump_term t2
   | Implies (t1, t2) ->
       Fmt.pf ppf "@[<hov 2>Implies (%a,@ %a)@]" dump_term t1 dump_term t2
+  | Wand (t1, t2) ->
+      Fmt.pf ppf "@[<hov 2>Wand (%a,@ %a)@]" dump_term t1 dump_term t2
   | Subsumes (t1, t2) ->
       Fmt.pf ppf "@[<hov 2>Subsumes (%a,@ %a)@]" dump_term t1 dump_term t2
   | Emp -> Fmt.string ppf "Emp"

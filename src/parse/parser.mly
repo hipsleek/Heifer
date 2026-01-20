@@ -46,6 +46,7 @@ open Bindlib
 %token RESET
 %token LONGARROW
 %token COLONCOLON
+%token WAND
 
 %token EOF
 
@@ -54,7 +55,7 @@ open Bindlib
 
 // low precedence
 %nonassoc FORALL EXISTS FUN
-%right SUBSUMES EQUALGREATER
+%right SUBSUMES EQUALGREATER WAND
 %left DISJUNCTION
 %right SEMI
 %nonassoc REQUIRES ENSURES
@@ -195,6 +196,9 @@ term:
 
   | p1=term EQUALGREATER p2=term
     { Implies (p1, p2) }
+
+  | p1=term WAND p2=term
+    { Wand (p1, p2) }
 
   | a=term SUBSUMES b=term
     { Subsumes (a, b) }

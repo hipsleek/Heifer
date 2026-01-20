@@ -2,10 +2,10 @@ open Bindlib
 open Syntax
 
 let open_dfun = function
-  | Dfun (sym, def) -> sym, def
+  | Dfun (sym, def) -> (sym, def)
 
 let open_subsumes = function
-  | Subsumes (t1, t2) -> t1, t2
+  | Subsumes (t1, t2) -> (t1, t2)
   | t -> invalid_arg (Format.asprintf "open_subsumes: %a" Pretty.pp_term t)
 
 let open_implies_opt = function
@@ -46,9 +46,10 @@ let rec has_vars xs = function
   | Tuple ts -> list_has_vars xs ts
   | Binop (_, t1, t2) -> has_vars xs t1 || has_vars xs t2
   | Unop (_, t) -> has_vars xs t
-  | Conj (t1, t2) -> has_vars xs t1 || has_vars xs t2
-  | Disj (t1, t2) -> has_vars xs t1 || has_vars xs t2
-  | Implies (t1, t2) -> has_vars xs t1 || has_vars xs t2
+  | Conj (t1, t2)
+  | Disj (t1, t2)
+  | Implies (t1, t2)
+  | Wand (t1, t2)
   | Subsumes (t1, t2) -> has_vars xs t1 || has_vars xs t2
   | Emp -> false
   | PointsTo (t1, t2) -> has_vars xs t1 || has_vars xs t2
@@ -63,8 +64,7 @@ let rec has_vars xs = function
   | Shift b -> binder_has_vars xs b
   | Reset t -> has_vars xs t
 
-and list_has_vars xs =
-  List.exists (has_vars xs)
+and list_has_vars xs = List.exists (has_vars xs)
 
 and binder_has_vars xs b =
   let _, t = unbind b in

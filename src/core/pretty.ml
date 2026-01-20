@@ -109,6 +109,15 @@ let rec pp_term_prec prec ctxt ppf = function
           t2
       in
       parens_if (OpInfo.prec_conj <= prec) pp ppf ()
+  | Wand (t1, t2) ->
+      let pp ppf () =
+        Fmt.pf ppf "@[<hov 2>%a -*@ %a@]"
+          (pp_term_prec OpInfo.prec_entail ctxt)
+          t1
+          (pp_term_prec (OpInfo.prec_entail - 1) ctxt)
+          t2
+      in
+      parens_if (OpInfo.prec_conj <= prec) pp ppf ()
   | Conj (t1, t2) ->
       let pp ppf () =
         Fmt.pf ppf "@[<hov 2>%a /\\@ %a@]"

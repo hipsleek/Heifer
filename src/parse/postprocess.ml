@@ -24,6 +24,7 @@ let rec make_applications_nary t =
   | Disj (t1, t2) -> Disj (make_applications_nary t1, make_applications_nary t2)
   | Implies (t1, t2) ->
       Implies (make_applications_nary t1, make_applications_nary t2)
+  | Wand (t1, t2) -> Wand (make_applications_nary t1, make_applications_nary t2)
   | Subsumes (t1, t2) ->
       Subsumes (make_applications_nary t1, make_applications_nary t2)
   | PointsTo (t1, t2) ->

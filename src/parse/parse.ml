@@ -34,6 +34,7 @@ let show_token (tok : Parser.token) =
   | DOLLAR -> "DOLLAR"
   | MINUSGREATER -> "MINUSGREATER"
   | EQUALGREATER -> "EQUALGREATER"
+  | WAND -> "WAND"
   | MINUS -> "MINUS"
   | LPAREN -> "LPAREN"
   | LONGARROW -> "LONGARROW"
@@ -249,4 +250,11 @@ let%expect_test "precedence and associativity" =
   [%expect {| ens x=1 /\ y=2 |}];
 
   test "ens x=1 /\\ ens y=2";
-  [%expect {| ens x=1 /\ ens y=2 |}]
+  [%expect {| ens x=1 /\ ens y=2 |}];
+
+  (* wand and sep conj *)
+  test "x->1 -* y->2";
+  [%expect {| x->1 -* y->2 |}];
+
+  test "(x->1 -* y->2) -* z->3";
+  [%expect {| x->1 -* y->2 -* z->3 |}]

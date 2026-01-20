@@ -23,12 +23,12 @@ let rec unfold sym def t =
   | Unop (op, t) -> Unop (op, unfold sym def t)
   | Conj (t1, t2) -> Conj (unfold sym def t1, unfold sym def t2)
   | Implies (t1, t2) -> Implies (unfold sym def t1, unfold sym def t2)
+  | Wand (t1, t2) -> Wand (unfold sym def t1, unfold sym def t2)
   | Subsumes (t1, t2) -> Subsumes (unfold sym def t1, unfold sym def t2)
   | PointsTo (t1, t2) -> PointsTo (unfold sym def t1, unfold sym def t2)
   | SepConj (t1, t2) -> SepConj (unfold sym def t1, unfold sym def t2)
 
-and unfold_list sym def =
-  List.map (unfold sym def)
+and unfold_list sym def = List.map (unfold sym def)
 
 and unfold_binder sym def b =
   let x, t = unbind b in
