@@ -60,9 +60,9 @@ open Bindlib
 %nonassoc REQUIRES ENSURES
 
 
+%left CONJUNCTION
 %nonassoc EQUAL GREATER LESS
 
-%left CONJUNCTION
 %left STAR
 %nonassoc MINUSGREATER
 
