@@ -93,7 +93,9 @@ goal_is {|
 
 intro_pure "Hn";;
 exists_intro ["l"; "knot"];;
-ens_heap_intro ();;
+
+(* TODO ens_heap_intro ();; *)
+ens_heap_elim ();;
 
 (* Options.show_why3_goal := true;; *)
 prove ();;
@@ -114,9 +116,13 @@ exists_elim ();;
 exists_intro ["l1"; "v"];;
 simpl ();;
 intro_heap ();;
-ens_heap_intro ();;
+
+(* TODO ens_heap_intro ();; *)
+ens_heap_elim ();;
 
 (* Prover.Tactic.Options.show_why3_goal := true;; *)
+
+Options.show_why3_goal := true;;
 prove ();;
 
 (* TODO a defn of fact, some way to include it in here *)

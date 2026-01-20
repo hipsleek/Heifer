@@ -189,42 +189,73 @@ let[@warning "-32"] rec inspect_task task =
       | Theory.Meta _ -> Format.printf "Meta@.")
 
 let ( let* ) m f = List.concat_map f m
+let pure a = [a]
+
+let rec fold_m f xs init =
+  match xs with
+  | [] -> pure init
+  | x :: xs1 ->
+      let* acc = fold_m f xs1 init in
+      f x acc
 
 let apply_transform_args name env args task =
   let naming_table = Why3.Args_wrapper.build_naming_tables task in
   Trans.apply_transform_args name env args naming_table "whyml" task
 
 (* A repeat-match loop using Why3's API *)
-let rec intro_and_invert_types show_goal task =
-  (* log_vc show_goal [task]; *)
-  try
-    let goal_fmla = Task.task_goal_fmla task in
-    match goal_fmla.t_node with
-    | Tquant (Tforall, q) ->
-        (* TODO this can be automated with dequantification maybe. but then we have to keep running that *)
-        let xs, _, _body = Term.t_open_quant q in
-        let xs = List.map (fun x -> x.Term.vs_name.id_string) xs in
-        let xs =
-          (* intro one name at a time. not sure why this is needed... *)
-          [List.hd xs]
-        in
-        let* task = apply_transform_args "intros" why3_env xs task in
-        intro_and_invert_types show_goal task
-    | Tbinop (Timplies, p, _) ->
-        (match p.t_node with
-        | Term.Tapp (f, _) ->
-            (match f.ls_name.id_string with
-            | "is_int" ->
-                let* task =
-                  Trans.apply_transform "inversion_pr" why3_env task
-                in
-                intro_and_invert_types show_goal task
-            | _ ->
-                let* task = apply_transform_args "intros" why3_env ["H"] task in
-                intro_and_invert_types show_goal task)
-        | _ -> [task])
-    | _ -> [task]
-  with Task.GoalNotFound -> [task]
+let intro_and_invert_types _show_goal task =
+  let rec aux task =
+    (* log_vc show_goal [task]; *)
+    try
+      let goal_fmla = Task.task_goal_fmla task in
+      match goal_fmla.t_node with
+      | Tquant (Tforall, q) ->
+          let xs, _, _body = Term.t_open_quant q in
+          let xs = List.map (fun x -> x.Term.vs_name.id_string) xs in
+          let xs =
+            (* intro one name at a time. not sure why we can't just intro all at once... *)
+            [List.hd xs]
+          in
+          let* task = apply_transform_args "intros" why3_env xs task in
+          aux task
+      | Tbinop (Timplies, p, _) ->
+          (match p.t_node with
+          | Term.Tapp (f, _) ->
+              (match f.ls_name.id_string with
+              | "is_int" ->
+                  let* task =
+                    Trans.apply_transform "inversion_pr" why3_env task
+                  in
+                  aux task
+              | _ ->
+                  let* task =
+                    apply_transform_args "intros" why3_env ["H"] task
+                  in
+                  aux task)
+          | _ -> [task])
+      | _ -> [task]
+    with Task.GoalNotFound -> [task]
+  in
+  aux task
+
+(** Produces references to the most recently introduced hypotheses, which show
+    up as axioms. As a heuristic, stops at the last inductive definition. *)
+let get_latest_axioms (t : Task.task) : Decl.prsymbol list =
+  let decls = Task.task_decls t in
+  let decls =
+    decls |> List.rev
+    |> List.take_while (fun d ->
+        match d.Decl.d_node with
+        | Decl.Dind _ -> false
+        | _ -> true)
+    |> List.filter_map (fun d ->
+        match d.Decl.d_node with
+        | Decl.Dprop (Decl.Paxiom, pr, _t) ->
+            (* Format.printf "axioms %a@." Pretty.print_term t; *)
+            Some pr
+        | _ -> None)
+  in
+  decls
 
 let attempt_proof show_goal task =
   (* inspect_task task; *)
@@ -232,7 +263,30 @@ let attempt_proof show_goal task =
     (* simplification is necessary, regardless of whether we use any other tactics,
       as it e.g. removes redundant quantified args, which we don't check for when translating *)
     let* task = Trans.apply_transform "simplify_formula" why3_env task in
-    intro_and_invert_types show_goal task
+
+    (* get rid of equalities after inverting *)
+    let* task = intro_and_invert_types show_goal task in
+
+    (* this crashes *)
+    (* let* task = Trans.apply_transform "subst_all" why3_env task in *)
+    let* task = apply_transform_args "subst_all" why3_env [] task in
+
+    (* compute in hypotheses *)
+    let* task =
+      let axioms = get_latest_axioms task in
+      fold_m
+        (fun c t ->
+          let use_string_interface = true in
+          match use_string_interface with
+          | false ->
+              Trans.apply (Compute.normalize_hyp None (Some c) why3_env) t
+          | true ->
+              let name = c.Decl.pr_name.Ident.id_string in
+              apply_transform_args "compute_hyp" why3_env ["in"; name] t)
+        axioms task
+    in
+    let* task = Trans.apply_transform "compute_in_goal" why3_env task in
+    pure task
   in
 
   log_vc show_goal tasks;
