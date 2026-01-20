@@ -13,6 +13,7 @@ let rec unify_uvar x t uvars sigma =
   | Some t' -> unify_aux t' t uvars sigma
 
 and unify_aux t1 t2 uvars sigma =
+  (* Core.Pretty.(Format.printf "%a ~ %a@." pp_term t1 pp_term t2); *)
   match (t1, t2) with
   | Var x, _ when TVSet.mem x uvars -> unify_uvar x t2 uvars sigma
   | Var x1, Var x2 when eq_vars x1 x2 -> sigma

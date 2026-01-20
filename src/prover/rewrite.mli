@@ -17,4 +17,4 @@ val prop_to_rule : prop -> rule
 
 (** Traverse the target and rewrite using the given rule everywhere in it.
     Produces subgoals if the rule is conditional. *)
-val rewrite : rule -> staged_spec -> staged_spec * prop list
+val rewrite : rule -> staged_spec -> (staged_spec * prop list) option

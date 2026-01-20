@@ -25,6 +25,14 @@ let prop_to_rule p =
   let rhs = box_term rhs in
   unbox (bind_mvar (Array.concat ms) (box_pair side (box_pair lhs rhs)))
 
+(* Accumulates the effects of a rewrite *)
+type ctx = {
+  mutable side_conditions : prop list list;
+  mutable rewritten : int;
+}
+
+let initial_ctx () = { side_conditions = []; rewritten = 0 }
+
 (** Rewrite the target at the top level, either raising on failure or returning
     the rewritten target and instantiated subgoals *)
 let rewrite_exact rule target =
@@ -34,7 +42,9 @@ let rewrite_exact rule target =
     | Unification_failure -> raise Rewrite_failure
     | Unification_frame (s, r) -> (s, r)
   in
-  if TVMap.cardinal sigma <> Array.length uvars then raise Rewrite_failure;
+  if TVMap.cardinal sigma <> Array.length uvars then
+    (* this condition means variables could not be instantiated *)
+    raise Rewrite_failure;
   let args = Array.map (fun x -> TVMap.find x sigma) uvars in
   let rhs = unbox (bind_mvar uvars (box_term rhs)) in
   let rhs = msubst rhs args in
@@ -62,53 +72,52 @@ let rewrite_exact rule target =
       scheme produces a number of side conditions/subgoals depending on the
       number of occurrences rewritten. This is because the instantiations are
       only discovered during traversal. *)
-let rec rewrite_aux ~side rule target =
+let rec rewrite_aux ~ctx rule target =
   try
     let t, c = rewrite_exact rule target in
-    side := c :: !side;
+    ctx.side_conditions <- c :: ctx.side_conditions;
+    ctx.rewritten <- ctx.rewritten + 1;
     t
   with Rewrite_failure ->
     (match target with
     | Var _ | Symbol _ | Unit | True | False | Int _ | Nil | Emp -> target
-    | Fun b -> Fun (rewrite_mbinder ~side rule b)
-    | Tuple ts -> Tuple (rewrite_list ~side rule ts)
+    | Fun b -> Fun (rewrite_mbinder ~ctx rule b)
+    | Tuple ts -> Tuple (rewrite_list ~ctx rule ts)
     | Binop (op, t1, t2) ->
-        Binop (op, rewrite_aux ~side rule t1, rewrite_aux ~side rule t2)
-    | Unop (op, t) -> Unop (op, rewrite_aux ~side rule t)
-    | Conj (t1, t2) ->
-        Conj (rewrite_aux ~side rule t1, rewrite_aux ~side rule t2)
+        Binop (op, rewrite_aux ~ctx rule t1, rewrite_aux ~ctx rule t2)
+    | Unop (op, t) -> Unop (op, rewrite_aux ~ctx rule t)
+    | Conj (t1, t2) -> Conj (rewrite_aux ~ctx rule t1, rewrite_aux ~ctx rule t2)
     | Implies (t1, t2) ->
-        Implies (rewrite_aux ~side rule t1, rewrite_aux ~side rule t2)
+        Implies (rewrite_aux ~ctx rule t1, rewrite_aux ~ctx rule t2)
     | Subsumes (t1, t2) ->
-        Subsumes (rewrite_aux ~side rule t1, rewrite_aux ~side rule t2)
+        Subsumes (rewrite_aux ~ctx rule t1, rewrite_aux ~ctx rule t2)
     | PointsTo (t1, t2) ->
-        PointsTo (rewrite_aux ~side rule t1, rewrite_aux ~side rule t2)
+        PointsTo (rewrite_aux ~ctx rule t1, rewrite_aux ~ctx rule t2)
     | SepConj (t1, t2) ->
-        SepConj (rewrite_aux ~side rule t1, rewrite_aux ~side rule t2)
-    | Requires t -> Requires (rewrite_aux ~side rule t)
-    | Ensures t -> Ensures (rewrite_aux ~side rule t)
+        SepConj (rewrite_aux ~ctx rule t1, rewrite_aux ~ctx rule t2)
+    | Requires t -> Requires (rewrite_aux ~ctx rule t)
+    | Ensures t -> Ensures (rewrite_aux ~ctx rule t)
     | Sequence (t1, t2) ->
-        Sequence (rewrite_aux ~side rule t1, rewrite_aux ~side rule t2)
-    | Bind (t, b) -> Bind (rewrite_aux ~side rule t, rewrite_binder ~side rule b)
-    | Apply (f, t) -> Apply (rewrite_aux ~side rule f, rewrite_list ~side rule t)
-    | Disj (t1, t2) ->
-        Disj (rewrite_aux ~side rule t1, rewrite_aux ~side rule t2)
-    | Forall b -> Forall (rewrite_mbinder ~side rule b)
-    | Exists b -> Exists (rewrite_mbinder ~side rule b)
-    | Shift b -> Shift (rewrite_binder ~side rule b)
-    | Reset t -> Reset (rewrite_aux ~side rule t))
+        Sequence (rewrite_aux ~ctx rule t1, rewrite_aux ~ctx rule t2)
+    | Bind (t, b) -> Bind (rewrite_aux ~ctx rule t, rewrite_binder ~ctx rule b)
+    | Apply (f, t) -> Apply (rewrite_aux ~ctx rule f, rewrite_list ~ctx rule t)
+    | Disj (t1, t2) -> Disj (rewrite_aux ~ctx rule t1, rewrite_aux ~ctx rule t2)
+    | Forall b -> Forall (rewrite_mbinder ~ctx rule b)
+    | Exists b -> Exists (rewrite_mbinder ~ctx rule b)
+    | Shift b -> Shift (rewrite_binder ~ctx rule b)
+    | Reset t -> Reset (rewrite_aux ~ctx rule t))
 
-and rewrite_list ~side rule target = List.map (rewrite_aux ~side rule) target
+and rewrite_list ~ctx rule target = List.map (rewrite_aux ~ctx rule) target
 
-and rewrite_binder ~side rule target =
+and rewrite_binder ~ctx rule target =
   let x, target = unbind target in
-  unbox (bind_var x (box_term (rewrite_aux ~side rule target)))
+  unbox (bind_var x (box_term (rewrite_aux ~ctx rule target)))
 
-and rewrite_mbinder ~side rule target =
+and rewrite_mbinder ~ctx rule target =
   let x, target = unmbind target in
-  unbox (bind_mvar x (box_term (rewrite_aux ~side rule target)))
+  unbox (bind_mvar x (box_term (rewrite_aux ~ctx rule target)))
 
 let rewrite rule target =
-  let side_conditions = ref [] in
-  let t = rewrite_aux ~side:side_conditions rule target in
-  (t, List.concat !side_conditions)
+  let ctx = initial_ctx () in
+  let t = rewrite_aux ~ctx rule target in
+  if ctx.rewritten > 0 then Some (t, List.concat ctx.side_conditions) else None

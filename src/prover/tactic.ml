@@ -1022,11 +1022,13 @@ module Interactive = struct
       let* assumption = get_assumption h in
       let rule = Rewrite.prop_to_rule assumption in
       let* lhs, _ = get_subsumption in
-      let lhs1, side = Rewrite.rewrite rule lhs in
-      let* ps = pop_pctxt in
-      let* () = push_pctxt ps in
-      let* () = put_lhs lhs1 in
-      iter_m (fun p -> push_pctxt { ps with goal = p }) (List.rev side)
+      match Rewrite.rewrite rule lhs with
+      | Some (lhs1, side) ->
+          let* ps = pop_pctxt in
+          let* () = push_pctxt ps in
+          let* () = put_lhs lhs1 in
+          iter_m (fun p -> push_pctxt { ps with goal = p }) (List.rev side)
+      | None -> fail "rewrite failed"
     in
     run_tactic tac
 end
