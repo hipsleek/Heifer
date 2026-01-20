@@ -1,4 +1,6 @@
 
+(data_only_dirs test_old)
+
 ; build web version
 
 (rule
