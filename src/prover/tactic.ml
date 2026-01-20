@@ -309,6 +309,12 @@ let admit =
   let open Tactic in
   () <$ pop_pctxt
 
+let dup =
+  let open Tactic in
+  let* p = pop_pctxt in
+  let* _ = push_pctxt p in
+  push_pctxt p
+
 let uncons_ens f =
   let open Tactic in
   match f with
@@ -573,6 +579,24 @@ let exists_elim =
       let* _ = put_rename_ctxt ctxt in
       iter_array_m (fun x -> add_constant (name_of x) x) xs
   | _ -> fail "cannot eliminate exists"
+
+let conj_elim_l =
+  let open Tactic in
+  let* left, right = get_subsumption in
+  match left with
+  | Conj (a, _) ->
+      let* ps = pop_pctxt in
+      push_pctxt { ps with goal = Subsumes (a, right) }
+  | _ -> fail "not a conjunction"
+
+let conj_elim_r =
+  let open Tactic in
+  let* left, right = get_subsumption in
+  match left with
+  | Conj (_, b) ->
+      let* ps = pop_pctxt in
+      push_pctxt { ps with goal = Subsumes (b, right) }
+  | _ -> fail "not a conjunction"
 
 module DisjTactic = struct
   let disj_elim =
@@ -939,12 +963,15 @@ module Interactive = struct
   let disj_elim () = run_tactic DisjTactic.disj_elim
   let left () = run_tactic DisjTactic.left
   let right () = run_tactic DisjTactic.right
+  let conj_elim_l () = run_tactic conj_elim_l
+  let conj_elim_r () = run_tactic conj_elim_r
   let simpl () = run_tactic simpl
   let req_left = make_interactive (fun () -> req_left)
 
   (* let cancel_heap = make_interactive (fun () -> cancel_heap) *)
   let prove = make_interactive (fun () -> prove)
   let admit () = run_tactic admit
+  let dup () = run_tactic dup
 
   (* let induction ~ih = make_interactive (induction ~ih) *)
   let prove_s s = Why3_prover.prove ~show_goal:true (Parsing.Parse.parse_prop s)

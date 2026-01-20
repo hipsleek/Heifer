@@ -1,5 +1,5 @@
 (cram
- (deps heifer.why lemma.exe landin.exe foldr.exe)
+ (deps heifer.why (glob_files *.exe))
  (enabled_if (<> %{env:TEST_ALL=false} "false")))
 
 (rule
