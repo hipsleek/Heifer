@@ -505,6 +505,15 @@ let axiom ~name s =
   let* g = parse_term s in
   add_assumption name g
 
+let case ~name s =
+  let open Tactic in
+  let* p = parse_term s in
+  let* pc = pop_pctxt in
+  let* _ = push_pctxt pc in
+  let* _ = add_assumption name p in
+  let* _ = push_pctxt pc in
+  add_assumption name (Unop (Not, p))
+
 let goal_is s =
   let open Tactic in
   let* g = parse_term s in
@@ -942,6 +951,7 @@ module Interactive = struct
   open ProofState
 
   let have ~name = make_interactive (have ~name)
+  let case ~name = make_interactive (case ~name)
   let axiom ~name = make_interactive (axiom ~name)
   let goal_is = make_interactive goal_is
   let qed = make_interactive (fun () -> qed)
