@@ -3,7 +3,7 @@ export OCAMLRUNPARAM=b
 .PHONY: all
 all:
 	@echo 'note: running unit tests only; use make test-all to run integration tests'
-	dune build src @runtest --display=short
+	dune build src test @runtest --display=short
 
 .PHONY: w
 w:
