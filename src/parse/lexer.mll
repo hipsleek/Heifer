@@ -53,6 +53,8 @@ rule token = parse
       { GREATER }
   | "==>"
       { LONGARROW }
+  | "-*"
+      { WAND }
   | "<"
       { LESS }
   | "*."

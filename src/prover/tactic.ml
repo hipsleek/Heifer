@@ -314,6 +314,12 @@ let admit =
   let open Tactic in
   () <$ pop_pctxt
 
+let dup =
+  let open Tactic in
+  let* p = pop_pctxt in
+  let* _ = push_pctxt p in
+  push_pctxt p
+
 let uncons_ens f =
   let open Tactic in
   match f with
@@ -530,6 +536,15 @@ let axiom ~name s =
   let* g = parse_term s in
   add_assumption name g
 
+let case ~name s =
+  let open Tactic in
+  let* p = parse_term s in
+  let* pc = pop_pctxt in
+  let* _ = push_pctxt pc in
+  let* _ = add_assumption name (Unop (Not, p)) in
+  let* _ = push_pctxt pc in
+  add_assumption name p
+
 let goal_is s =
   let open Tactic in
   let* g = parse_term s in
@@ -551,6 +566,27 @@ let refl =
   let open Tactic in
   let* left, right = get_subsumption in
   if equal_term left right then pop_pctxt else fail "refl: cannot close goal"
+
+let revert s =
+  let open Tactic in
+  let* x = parse_term s in
+  match x with
+  | Var v ->
+      let* pc = get_pctxt in
+      let dependent =
+        SMap.filter (fun _k a -> has_vars (TVSet.singleton v) a) pc.assumptions
+        |> SMap.bindings
+      in
+      (match dependent with
+      | (k, _) :: _ ->
+          failf "assumption %s is dependent on %s, cannot revert" k (name_of v)
+      | [] ->
+          let constants = SMap.remove (name_of v) pc.constants in
+          let goal = Forall (unbox (bind_mvar [| v |] (box_term pc.goal))) in
+          let pc1 = { pc with constants; goal } in
+          let* _ = put_pctxt pc1 in
+          pure ())
+  | _ -> fail "cannot revert non-var"
 
 let forall_intro =
   let open Tactic in
@@ -604,6 +640,24 @@ let exists_elim =
       let* _ = put_rename_ctxt ctxt in
       iter_array_m (fun x -> add_constant (name_of x) x) xs
   | _ -> fail "cannot eliminate exists"
+
+let conj_elim_l =
+  let open Tactic in
+  let* left, right = get_subsumption in
+  match left with
+  | Conj (a, _) ->
+      let* ps = pop_pctxt in
+      push_pctxt { ps with goal = Subsumes (a, right) }
+  | _ -> fail "not a conjunction"
+
+let conj_elim_r =
+  let open Tactic in
+  let* left, right = get_subsumption in
+  match left with
+  | Conj (_, b) ->
+      let* ps = pop_pctxt in
+      push_pctxt { ps with goal = Subsumes (b, right) }
+  | _ -> fail "not a conjunction"
 
 module DisjTactic = struct
   let disj_elim =
@@ -895,6 +949,7 @@ module Interactive = struct
   open ProofState
 
   let have ~name = make_interactive (have ~name)
+  let case ~name = make_interactive (case ~name)
   let axiom ~name = make_interactive (axiom ~name)
   let goal_is = make_interactive goal_is
   let qed = make_interactive (fun () -> qed)
@@ -907,6 +962,7 @@ module Interactive = struct
   let intro_pure name = run_tactic (PureTactic.intro_pure name)
   let intro_heap () = run_tactic HeapTactic.intro_heap
   let intros_heap () = run_tactic HeapTactic.intros_heap
+  let revert = make_interactive revert
   let revert_heap () = run_tactic HeapTactic.revert_heap
   let heap_solver () = run_tactic HeapTactic.heap_solver
   let forall_intro = make_interactive (fun () -> forall_intro)
@@ -916,12 +972,15 @@ module Interactive = struct
   let disj_elim () = run_tactic DisjTactic.disj_elim
   let left () = run_tactic DisjTactic.left
   let right () = run_tactic DisjTactic.right
+  let conj_elim_l () = run_tactic conj_elim_l
+  let conj_elim_r () = run_tactic conj_elim_r
   let simpl () = run_tactic simpl
   let req_left = make_interactive (fun () -> req_left)
 
   (* let cancel_heap = make_interactive (fun () -> cancel_heap) *)
   let prove = make_interactive (fun () -> prove)
   let admit () = run_tactic admit
+  let dup () = run_tactic dup
 
   (* let induction ~ih = make_interactive (induction ~ih) *)
   let prove_s s = Why3_prover.prove ~show_goal:true (Parsing.Parse.parse_prop s)
@@ -972,11 +1031,13 @@ module Interactive = struct
       let* assumption = get_assumption h in
       let rule = Rewrite.prop_to_rule assumption in
       let* lhs, _ = get_subsumption in
-      let lhs1, side = Rewrite.rewrite rule lhs in
-      let* ps = pop_pctxt in
-      let* () = push_pctxt ps in
-      let* () = put_lhs lhs1 in
-      iter_m (fun p -> push_pctxt { ps with goal = p }) (List.rev side)
+      match Rewrite.rewrite rule lhs with
+      | Some (lhs1, side) ->
+          let* ps = pop_pctxt in
+          let* () = push_pctxt ps in
+          let* () = put_lhs lhs1 in
+          iter_m (fun p -> push_pctxt { ps with goal = p }) (List.rev side)
+      | None -> fail "rewrite failed"
     in
     run_tactic tac
 end

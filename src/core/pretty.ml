@@ -19,24 +19,24 @@ P ::= true, false, unit, int, tuple, emp
     v} *)
 module OpInfo = struct
   let binary = function
-    | Lt -> ("<", `Left, 10)
-    | Le -> ("<=", `Left, 10)
-    | Gt -> (">", `Left, 10)
-    | Ge -> (">=", `Left, 10)
-    | Eq -> ("=", `Left, 9)
-    | Neq -> ("!=", `Left, 9)
-    | Cons -> ("::", `Right, 13)
-    | Plus -> ("+", `Left, 11)
-    | Minus -> ("-", `Left, 11)
-    | Times -> ("*.", `Right, 12)
+    | Lt -> ("<", `Left, 7)
+    | Le -> ("<=", `Left, 7)
+    | Gt -> (">", `Left, 7)
+    | Ge -> (">=", `Left, 7)
+    | Eq -> ("=", `Left, 7)
+    | Neq -> ("!=", `Left, 7)
+    | Cons -> ("::", `Right, 12)
+    | Plus -> ("+", `Left, 10)
+    | Minus -> ("-", `Left, 10)
+    | Times -> ("*.", `Right, 11)
 
   let unary = function
-    | Not -> ("!", 14)
-    | Neg -> ("-", 14)
+    | Not -> ("!", 13)
+    | Neg -> ("-", 13)
 
-  let prec_app = 15
-  let prec_pointsto = 8
-  let prec_sepconj = 7
+  let prec_app = 14
+  let prec_pointsto = 9
+  let prec_sepconj = 8
   let prec_conj = 6
   let prec_req_ens = 5
   let prec_seq = 4
@@ -103,6 +103,15 @@ let rec pp_term_prec prec ctxt ppf = function
   | Implies (t1, t2) ->
       let pp ppf () =
         Fmt.pf ppf "@[<hov 2>%a =>@ %a@]"
+          (pp_term_prec OpInfo.prec_entail ctxt)
+          t1
+          (pp_term_prec (OpInfo.prec_entail - 1) ctxt)
+          t2
+      in
+      parens_if (OpInfo.prec_conj <= prec) pp ppf ()
+  | Wand (t1, t2) ->
+      let pp ppf () =
+        Fmt.pf ppf "@[<hov 2>%a -*@ %a@]"
           (pp_term_prec OpInfo.prec_entail ctxt)
           t1
           (pp_term_prec (OpInfo.prec_entail - 1) ctxt)

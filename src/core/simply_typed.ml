@@ -121,6 +121,13 @@ let check_sort t =
           require (is_prop s1 && is_prop s2) "expected prop in implies"
         in
         Ok Sort_prop
+    | Wand (p1, p2) ->
+        let* s1 = check_sort_aux env p1 in
+        let* s2 = check_sort_aux env p2 in
+        let* () =
+          require (is_hprop s1 && is_hprop s2) "expected hprop in wand"
+        in
+        Ok Sort_prop
     | Requires p | Ensures p ->
         let* s = check_sort_aux env p in
         if is_prop s || is_hprop s then Ok Sort_staged_spec

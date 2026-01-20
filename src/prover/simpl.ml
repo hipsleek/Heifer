@@ -73,6 +73,10 @@ and simpl_zeta_aux t =
       let t1, p1 = simpl_zeta_aux t1 in
       let t2, p2 = simpl_zeta_aux t2 in
       (Implies (t1, t2), p1 && p2)
+  | Wand (t1, t2) ->
+      let t1, p1 = simpl_zeta_aux t1 in
+      let t2, p2 = simpl_zeta_aux t2 in
+      (Wand (t1, t2), p1 && p2)
   | Subsumes (t1, t2) -> (Subsumes (simpl_zeta t1, simpl_zeta t2), false)
   | Emp -> (t, false)
   | PointsTo (t1, t2) -> (PointsTo (simpl_zeta t1, simpl_zeta t2), false)
@@ -167,6 +171,7 @@ let rec simpl_beta t =
   | Conj (t1, t2) -> Conj (simpl_beta t1, simpl_beta t2)
   | Disj (t1, t2) -> Disj (simpl_beta t1, simpl_beta t2)
   | Implies (t1, t2) -> Implies (simpl_beta t1, simpl_beta t2)
+  | Wand (t1, t2) -> Wand (simpl_beta t1, simpl_beta t2)
   | Subsumes (t1, t2) -> Subsumes (simpl_beta t1, simpl_beta t2)
   | PointsTo (t1, t2) -> PointsTo (simpl_beta t1, simpl_beta t2)
   | SepConj (t1, t2) -> SepConj (simpl_beta t1, simpl_beta t2)
