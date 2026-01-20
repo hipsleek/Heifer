@@ -1,16 +1,11 @@
 (cram
- (deps heifer.why landin.exe)
- (enabled_if (<> %{env:TEST_ALL=false} "false")))
-
-(mdx
- (deps heifer.why)
- (libraries heifer)
+ (deps heifer.why landin.exe foldr.exe)
  (enabled_if (<> %{env:TEST_ALL=false} "false")))
 
 (rule
  (copy ../heifer.why heifer.why))
 
 (executables
- (names landin foldr)
+ (names landin foldr lemma)
  (libraries heifer)
  (preprocess (pps ppx_print_tactic)))
