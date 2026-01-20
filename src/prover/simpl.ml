@@ -73,14 +73,11 @@ and simpl_zeta_aux t =
       let t1, p1 = simpl_zeta_aux t1 in
       let t2, p2 = simpl_zeta_aux t2 in
       (Implies (t1, t2), p1 && p2)
-  | Wand (t1, t2) ->
-      let t1, p1 = simpl_zeta_aux t1 in
-      let t2, p2 = simpl_zeta_aux t2 in
-      (Wand (t1, t2), p1 && p2)
   | Subsumes (t1, t2) -> (Subsumes (simpl_zeta t1, simpl_zeta t2), false)
   | Emp -> (t, false)
   | PointsTo (t1, t2) -> (PointsTo (simpl_zeta t1, simpl_zeta t2), false)
   | SepConj (t1, t2) -> (SepConj (simpl_zeta t1, simpl_zeta t2), false)
+  | Wand (t1, t2) -> (Wand (simpl_zeta t1, simpl_zeta t2), false)
   | Requires t -> (Requires (simpl_zeta t), false)
   | Ensures t -> (Ensures (simpl_zeta t), false)
   | Sequence (t1, t2) ->

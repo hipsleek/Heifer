@@ -39,11 +39,11 @@ type term =
   | Conj of term * term
   | Disj of term * term
   | Implies of term * term
-  | Wand of term * term
   | Subsumes of term * term
   | Emp
   | PointsTo of term * term
   | SepConj of term * term
+  | Wand of term * term
   | Requires of term
   | Ensures of term
   | Sequence of term * term
@@ -82,6 +82,7 @@ module Tm = struct
   let emp = Emp
   let pointsto t1 t2 = PointsTo (t1, t2)
   let sepconj t1 t2 = SepConj (t1, t2)
+  let wand t1 t2 = Wand (t1, t2)
   let requires t = Requires t
   let ensures t = Ensures t
   let sequence t1 t2 = Sequence (t1, t2)
