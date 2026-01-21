@@ -258,3 +258,16 @@ let%expect_test "precedence and associativity" =
 
   test "(x->1 -* y->2) -* z->3";
   [%expect {| x->1 -* y->2 -* z->3 |}]
+
+let%expect_test "shift/reset" =
+  test "shift k 0";
+  [%expect {| shift k 0 |}];
+
+  test ~dump:true "shift k k 1";
+  [%expect {|
+    Shift (k. Apply (Var k, [Int 1]))
+    shift k k 1
+    |}];
+
+  test "shift k k 1 + 2";
+  [%expect {| shift k (k 1+2) |}]

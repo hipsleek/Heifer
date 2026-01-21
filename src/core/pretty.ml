@@ -215,7 +215,8 @@ let rec pp_term_prec prec ctxt ppf = function
       parens_if (OpInfo.prec_binder <= prec) pp ppf ()
   | Shift b ->
       let k, body, ctxt = unbind_in ctxt b in
-      Fmt.pf ppf "@[<hov 2>shift %s.@ %a@]" (name_of k) (pp_term_prec 0 ctxt)
+      Fmt.pf ppf "@[<hov 2>shift %s@ %a@]" (name_of k)
+        (pp_term_prec OpInfo.prec_app ctxt)
         body
   | Reset s -> Fmt.pf ppf "@[<hov 2>reset@ (%a)@]" (pp_term_prec 0 ctxt) s
 

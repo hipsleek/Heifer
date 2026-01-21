@@ -58,7 +58,7 @@ open Bindlib
 %right SUBSUMES EQUALGREATER WAND
 %left DISJUNCTION
 %right SEMI
-%nonassoc REQUIRES ENSURES
+%nonassoc REQUIRES ENSURES SHIFT
 
 
 %left CONJUNCTION
@@ -167,20 +167,17 @@ term:
     { let xs = Parser_state.remove_all xs in
       Fun (unbox (bind_mvar xs (box_term s))) }
 
-  | FORALL xs = binders DOT
-    s = term %prec FORALL
+  | FORALL xs=binders DOT s=term %prec FORALL
       { let xs = Parser_state.remove_all xs in
         Forall (unbox (bind_mvar xs (box_term s))) }
 
-  | EXISTS xs = binders DOT
-    s = term %prec EXISTS
+  | EXISTS xs=binders DOT s=term %prec EXISTS
       { let xs = Parser_state.remove_all xs in
         Exists (unbox (bind_mvar xs (box_term s))) }
 
-  // | SHIFT LPAREN v = LOWERCASE_IDENT DOT s = term RPAREN
-  //     { (* TODO: shiftc *)
-  //       let x = Variables.fresh_variable ~v:"x" "continuation argument" in
-  //       Shift (true, v, s, x, NormalReturn (Atomic (EQ, Variables.res_var, Var x), EmptyHeap)) }
+  | SHIFT x=binder b=term
+      { let x = Parser_state.remove x in
+        Shift (unbox (bind_var x (box_term b))) }
 
   | s1=term SEMI s2=term
       { Sequence (s1, s2) }
