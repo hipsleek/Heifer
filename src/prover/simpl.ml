@@ -169,4 +169,4 @@ and simpl_beta_step t ts =
   | _ -> Apply (t, ts)
 
 
-let simpl t = simpl_assoc (simpl_beta (simpl_zeta t))
+let simpl t = simpl_beta (simpl_zeta (simpl_assoc t))

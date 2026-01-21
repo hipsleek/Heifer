@@ -35,9 +35,7 @@ let capture_cont = function
       let x, t = unbind b in
       unbox (Mk.fun_ (bind_mvar [| x |] (box_refine_cont_reset t k)))
 
-(** This is the main entry point for [shift/reset reduction].
-
-    TODO: rewrite this. *)
+(** This is the main entry point for [shift/reset reduction]. *)
 let rec reduce t =
   match t with
   | Requires t -> Requires t
@@ -50,7 +48,7 @@ let rec reduce t =
   | Forall b -> Forall (reduce_mbinder b)
   | Exists b -> Exists (reduce_mbinder b)
   | Shift b -> Shift (reduce_binder b)
-  | Reset _t -> failwith "todo"
+  | Reset t -> reduce_cont t Nil
   | Subsumes (t1, t2) -> Subsumes (reduce t1, reduce t2)
   | _ -> t
 
@@ -83,7 +81,7 @@ and reduce_cont t k =
   | Fun _
   | Binop _
   | Unop _
-  | Tuple _ 
+  | Tuple _
   | Nil -> invoke_cont_pure t k
   | _ -> invalid_arg (Format.asprintf "reduce_cont: %a" pp_term t)
 
