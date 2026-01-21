@@ -85,7 +85,7 @@ open Bindlib
 
 %inline bin_op:
   | GREATER EQUAL { Ge }
-  | LESS EQUAL { Lt }
+  | LESS EQUAL { Le }
   | GREATER { Gt }
   | LESS { Lt }
   | EQUAL { Eq }
