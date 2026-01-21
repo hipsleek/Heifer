@@ -17,6 +17,8 @@ let rec is_pure_term = function
   | Implies (t1, t2) -> is_pure_term t1 && is_pure_term t2
   | _ -> false
 
+(* TODO merge with [could_be_prop] *)
+
 (** TODO: rewrite this to be more robust *)
 let is_prop = function
   | True
@@ -29,7 +31,8 @@ let is_prop = function
   | Implies _
   | Subsumes _
   | Forall _
-  | Exists _ -> true
+  | Exists _
+  | Apply _ -> true
   | _ -> false
 
 let is_hprop = function
