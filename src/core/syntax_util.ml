@@ -1,12 +1,26 @@
 open Bindlib
 open Syntax
+open Util
 
 let open_dfun = function
   | Dfun (sym, def) -> (sym, def)
 
-let open_subsumes = function
-  | Subsumes (t1, t2) -> (t1, t2)
-  | t -> invalid_arg (Format.asprintf "open_subsumes: %a" Pretty.pp_term t)
+let open_subsumes_opt = function
+  | Subsumes (t1, t2) -> Some (t1, t2)
+  | _ -> None
+
+let open_subsumes t =
+  match open_subsumes_opt t with
+  | Some (t1, t2) -> (t1, t2)
+  | None -> invalid_arg (Format.asprintf "open_subsumes: %a" Pretty.pp_term t)
+
+let open_requires_opt = function
+  | Requires t -> Some t
+  | _ -> None
+
+let open_ensures_opt = function
+  | Ensures t -> Some t
+  | _ -> None
 
 let open_implies_opt = function
   | Implies (t1, t2) -> Some (t1, t2)
@@ -24,15 +38,25 @@ let is_false = function
   | False -> true
   | _ -> false
 
-let unseq_open_ensures_opt = function
-  | Ensures t -> Some (t, Unit)
-  | Sequence (Ensures t1, t2) -> Some (t1, t2)
-  | _ -> None
+let unseq_opt = function
+  | Sequence (t1, t2) -> Some (t1, Some t2)
+  | t -> Some (t, None)
 
-let unseq_open_requires_opt = function
-  | Requires t -> Some (t, Unit)
-  | Sequence (Requires t1, t2) -> Some (t1, t2)
-  | _ -> None
+let unseq_open_ensures_opt t =
+  let open Options.Monad in
+  let* t1, t2 = unseq_opt t in
+  let* t1 = open_ensures_opt t1 in
+  pure (t1, t2)
+
+let unseq_open_requires_opt t =
+  let open Options.Monad in
+  let* t1, t2 = unseq_opt t in
+  let* t1 = open_requires_opt t1 in
+  pure (t1, t2)
+
+let unseq_tail_to_term = function
+  | Some t -> t
+  | None -> Unit
 
 let rec has_vars xs = function
   | Var x -> TVSet.mem x xs

@@ -430,19 +430,22 @@ module IntroTactic = struct
   let pre_ens_elim =
     let open Tactic in
     let* lhs = get_lhs in
-    unwrap (unseq_open_ensures_opt lhs) "pre_ens_elim: not ensures"
+    let+ t1, t2 = unwrap (unseq_open_ensures_opt lhs) "pre_ens_elim: not ensures" in
+    t1, unseq_tail_to_term t2
 
   let pre_req_intro =
     let open Tactic in
     let* rhs = get_rhs in
-    unwrap (unseq_open_requires_opt rhs) "pre_req_intro: not requires"
+    let+ t1, t2 = unwrap (unseq_open_requires_opt rhs) "pre_req_intro: not requires" in
+    t1, unseq_tail_to_term t2
 end
 
 module ElimTactic = struct
   let pre_ens_intro =
     let open Tactic in
     let* rhs = get_rhs in
-    unwrap (unseq_open_ensures_opt rhs) "pre_ens_intro: not ensures"
+    let+ t1, t2 = unwrap (unseq_open_ensures_opt rhs) "pre_ens_intro: not ensures" in
+    t1, unseq_tail_to_term t2
 
   (** UNSAFE: heap assumptions are linear, cannot be duplicated freely! *)
   let ens_intro =
@@ -455,7 +458,8 @@ module ElimTactic = struct
   let pre_req_elim =
     let open Tactic in
     let* lhs = get_lhs in
-    unwrap (unseq_open_requires_opt lhs) "pre_req_elim: not requires"
+    let+ t1, t2 = unwrap (unseq_open_requires_opt lhs) "pre_req_elim: not requires" in
+    t1, unseq_tail_to_term t2
 
   (** UNSAFE: heap assumptions are linear, cannot be duplicated freely! *)
   let req_elim =
@@ -736,7 +740,7 @@ module HeapTactic = struct
     match unseq_open_opt f target with
     | None -> ([], target)
     | Some (ts1, target) ->
-        let ts2, target = unseq_open_loop f target in
+        let ts2, target = unseq_open_loop f (unseq_tail_to_term target) in
         (ts1 @ ts2, target)
 
   let ens_heap_elim =
