@@ -42,25 +42,33 @@ let is_false = function
   | False -> true
   | _ -> false
 
-let unseq_opt = function
-  | Sequence (t1, t2) -> Some (t1, Some t2)
-  | t -> Some (t, None)
+let unseq = function
+  | Sequence (t1, t2) -> t1, Some t2
+  | t -> t, None
 
 let unseq_open_ensures_opt t =
+  let t1, t2 = unseq t in
   let open Options.Monad in
-  let* t1, t2 = unseq_opt t in
-  let* t1 = open_ensures_opt t1 in
-  pure (t1, t2)
+  let+ t1 = open_ensures_opt t1 in
+  t1, t2
 
 let unseq_open_requires_opt t =
+  let t1, t2 = unseq t in
   let open Options.Monad in
-  let* t1, t2 = unseq_opt t in
-  let* t1 = open_requires_opt t1 in
-  pure (t1, t2)
+  let+ t1 = open_requires_opt t1 in
+  t1, t2
 
 let unseq_tail_to_term = function
   | Some t -> t
   | None -> Unit
+
+let reseq t = function
+  | Some t' -> Sequence (t, t')
+  | None -> t
+
+let reseq_close_ensures t = reseq (Ensures t)
+
+let reseq_close_requires t = reseq (Requires t)
 
 let rec has_vars xs = function
   | Var x -> TVSet.mem x xs

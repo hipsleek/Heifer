@@ -775,6 +775,39 @@ module HeapTactic = struct
     put_lhs (Sequence (Ensures (Constr.sepconj heap_assumptions), lhs))
 end
 
+module UnmixTactic = struct
+  let pre_unmix f_get f_put f_unseq_open_opt f_constr =
+    let open Tactic in
+    let* t = f_get in
+    let* t1, t2 = unwrap (f_unseq_open_opt t) "pre_unmix: invalid argument" in
+    let pure, heap = Mixed.deep_destruct_mixed t1 in
+    let pure = Constr.conj pure in
+    let heap = Constr.sepconj heap in
+    f_put (Sequence (f_constr pure, reseq (f_constr heap) t2))
+
+  let unmix_ens f_get f_put =
+    pre_unmix f_get f_put unseq_open_ensures_opt Tm.ensures
+
+  let unmix_ens_lhs = unmix_ens get_lhs put_lhs
+
+  let unmix_ens_rhs = unmix_ens get_rhs put_rhs
+
+  let unmix_req f_get f_put =
+    pre_unmix f_get f_put unseq_open_requires_opt Tm.requires
+
+  let unmix_req_lhs = unmix_req get_lhs put_lhs
+
+  let unmix_req_rhs = unmix_req get_rhs put_rhs
+
+  let unmix =
+    let open Tactic in
+    let* _ = try_ unmix_req_lhs in
+    let* _ = try_ unmix_ens_lhs in
+    let* _ = try_ unmix_req_rhs in
+    let* _ = try_ unmix_ens_rhs in
+    pure ()
+end
+
 let prove =
   let open Tactic in
   let prove_with_ctx p =
@@ -954,6 +987,7 @@ module Interactive = struct
   let conj_elim_l () = run_tactic conj_elim_l
   let conj_elim_r () = run_tactic conj_elim_r
   let simpl () = run_tactic simpl
+  let unmix () = run_tactic UnmixTactic.unmix
   (* let req_left = make_interactive (fun () -> req_left) *)
 
   (* let cancel_heap = make_interactive (fun () -> cancel_heap) *)
