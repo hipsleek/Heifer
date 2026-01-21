@@ -1,6 +1,7 @@
 profile = default
 version = 0.28.1
 
+margin = 100
 type-decl = sparse
 break-cases = fit-or-vertical
 break-separators = after

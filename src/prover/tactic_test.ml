@@ -287,7 +287,7 @@ let%expect_test "disj_elim" =
        ens emp
     <: ens emp
 
-    error: not a disjunction
+    error: disj_elim: not disj
     |}]
 
 let%expect_test "left/right" =
@@ -319,7 +319,7 @@ let%expect_test "left/right" =
        ens emp
     <: ens emp
 
-    error: not a disjunction
+    error: left: not disj
     |}];
 
   start_proof "ens emp <: ens emp";
@@ -330,7 +330,7 @@ let%expect_test "left/right" =
        ens emp
     <: ens emp
 
-    error: not a disjunction
+    error: right: not disj
     |}]
 
 let%expect_test "simpl" =

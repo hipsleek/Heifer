@@ -427,24 +427,16 @@ let solve_invoke_why3 goal =
 (* Feel free to rename functions inside this module, if you can find better
    names. *)
 module IntroTactic = struct
-  let pre_ens_elim =
+  let pre_ens_intro =
     let open Tactic in
-    let* lhs = get_lhs in
-    let+ t1, t2 = unwrap (unseq_open_ensures_opt lhs) "pre_ens_elim: not ensures" in
+    let* rhs = get_rhs in
+    let+ t1, t2 = unwrap (unseq_open_ensures_opt rhs) "pre_ens_intro: not ensures" in
     t1, unseq_tail_to_term t2
 
   let pre_req_intro =
     let open Tactic in
     let* rhs = get_rhs in
     let+ t1, t2 = unwrap (unseq_open_requires_opt rhs) "pre_req_intro: not requires" in
-    t1, unseq_tail_to_term t2
-end
-
-module ElimTactic = struct
-  let pre_ens_intro =
-    let open Tactic in
-    let* rhs = get_rhs in
-    let+ t1, t2 = unwrap (unseq_open_ensures_opt rhs) "pre_ens_intro: not ensures" in
     t1, unseq_tail_to_term t2
 
   (** UNSAFE: heap assumptions are linear, cannot be duplicated freely! *)
@@ -454,6 +446,15 @@ module ElimTactic = struct
     let* _ = put_rhs rhs in
     let* _ = dup_pctxt in
     put_goal t
+end
+
+module ElimTactic = struct
+
+  let pre_ens_elim =
+    let open Tactic in
+    let* lhs = get_lhs in
+    let+ t1, t2 = unwrap (unseq_open_ensures_opt lhs) "pre_ens_elim: not ensures" in
+    t1, unseq_tail_to_term t2
 
   let pre_req_elim =
     let open Tactic in
@@ -473,7 +474,7 @@ end
 module PureTactic = struct
   let ens_pure_elim name =
     let open Tactic in
-    let* t, lhs = IntroTactic.pre_ens_elim in
+    let* t, lhs = ElimTactic.pre_ens_elim in
     let* _ = guard (Simply_typed.is_prop t) "ens_pure_elim: not prop" in
     let* _ = add_assumption name t in
     put_lhs lhs
@@ -499,7 +500,7 @@ module PureTactic = struct
 
   let ens_pure_intro =
     let open Tactic in
-    let* t, rhs = ElimTactic.pre_ens_intro in
+    let* t, rhs = IntroTactic.pre_ens_intro in
     let* _ = guard (Simply_typed.is_prop t) "ens_pure_intro: not prop" in
     let* _ = solve_invoke_why3 t in
     put_rhs rhs
@@ -666,63 +667,39 @@ let conj_elim_r =
 module DisjTactic = struct
   let disj_elim =
     let open Tactic in
-    let* left, right = get_subsumption in
-    match left with
-    | Disj (a, b) ->
-        let* ps = pop_pctxt in
-        let* _ = push_pctxt { ps with goal = Subsumes (b, right) } in
-        push_pctxt { ps with goal = Subsumes (a, right) }
-    | _ -> fail "not a disjunction"
+    let* lhs = get_lhs in
+    let* lhs1, lhs2 = unwrap (open_disj_opt lhs) "disj_elim: not disj" in
+    let* _ = put_lhs lhs2 in
+    let* _ = dup_pctxt in
+    put_lhs lhs1
 
   let left =
     let open Tactic in
-    let* left, right = get_subsumption in
-    match right with
-    | Disj (a, _) ->
-        let* ps = pop_pctxt in
-        push_pctxt { ps with goal = Subsumes (left, a) }
-    | _ -> fail "not a disjunction"
+    let* rhs = get_rhs in
+    let* rhs, _ = unwrap (open_disj_opt rhs) "left: not disj" in
+    put_rhs rhs
 
   let right =
     let open Tactic in
-    let* left, right = get_subsumption in
-    match right with
-    | Disj (_, b) ->
-        let* ps = pop_pctxt in
-        push_pctxt { ps with goal = Subsumes (left, b) }
-    | _ -> fail "not a disjunction"
+    let* rhs = get_rhs in
+    let* _, rhs = unwrap (open_disj_opt rhs) "right: not disj" in
+    put_rhs rhs
 end
 
-let simpl =
-  let open Tactic in
-  let* lhs, rhs = get_subsumption in
-  put_subsumption (Simpl.simpl_term lhs) (Simpl.simpl_term rhs)
-
-let req_left =
-  let open Tactic in
-  let* left, right = get_subsumption in
-  match right with
-  | Sequence (Requires h, rest) ->
-      put_goal (Subsumes (Sequence (Ensures h, left), rest))
-  | Requires h -> put_goal (Subsumes (Sequence (Ensures h, left), Ensures Emp))
-  | _ -> fail "req_left cannot do anything"
+let simpl = Tactic.modify_goal (Simpl.simpl_term)
 
 module HeapTactic = struct
   let ens_heap_elim =
     let open Tactic in
-    let* t, lhs = IntroTactic.pre_ens_elim in
-    let* ts =
-      unwrap (Heap.deep_destruct_sepconj_opt t) "ens_heap_elim: not hprop"
-    in
+    let* t, lhs = ElimTactic.pre_ens_elim in
+    let* ts = unwrap (Heap.deep_destruct_sepconj_opt t) "ens_heap_elim: not hprop" in
     let* _ = modify_heap_assumptions (List.append ts) in
     put_lhs lhs
 
   let req_heap_intro =
     let open Tactic in
     let* t, rhs = IntroTactic.pre_req_intro in
-    let* ts =
-      unwrap (Heap.deep_destruct_sepconj_opt t) "req_heap_intro: not hprop"
-    in
+    let* ts = unwrap (Heap.deep_destruct_sepconj_opt t) "req_heap_intro: not hprop" in
     let* _ = modify_heap_assumptions (List.append ts) in
     put_rhs rhs
 
@@ -767,14 +744,16 @@ module HeapTactic = struct
     let goals_opt = Heap.deep_destruct_sepconj_opt goal in
     let* goals = unwrap goals_opt "pre_heap_prover: not hprop" in
     let* heap_assumptions = get_heap_assumptions in
-    let goals, heap_assumptions, equalities =
-      Heap.biab_list goals heap_assumptions
-    in
-    let* _ =
-      guard (List.is_empty goals) "pre_heap_prover: cannot prove hprop"
-    in
+    let goals, heap_assumptions, equalities = Heap.biab_list goals heap_assumptions in
+    let* _ = guard (List.is_empty goals) "pre_heap_prover: cannot prove hprop" in
     let* _ = iter_m solve_invoke_why3 equalities in
     put_heap_assumptions heap_assumptions
+
+  let heap_solver =
+    let open Tactic in
+    let* goal = get_goal in
+    let* _ = pre_heap_solver goal in
+    () <$ pop_pctxt
 
   let req_heap_elim =
     let open Tactic in
@@ -784,24 +763,16 @@ module HeapTactic = struct
 
   let ens_heap_intro =
     let open Tactic in
-    let* t, rhs = ElimTactic.pre_ens_intro in
+    let* t, rhs = IntroTactic.pre_ens_intro in
     let* _ = pre_heap_solver t in
     put_rhs rhs
-
-  let heap_solver =
-    let open Tactic in
-    let* goal = get_goal in
-    let* _ = pre_heap_solver goal in
-    () <$ pop_pctxt
 
   let revert_heap =
     let open Tactic in
     let* heap_assumptions = get_heap_assumptions in
     let* lhs = get_lhs in
-    let* _ =
-      put_lhs (Sequence (Ensures (Constr.sepconj heap_assumptions), lhs))
-    in
-    put_heap_assumptions []
+    let* _ = put_heap_assumptions [] in
+    put_lhs (Sequence (Ensures (Constr.sepconj heap_assumptions), lhs))
 end
 
 let prove =
@@ -983,7 +954,7 @@ module Interactive = struct
   let conj_elim_l () = run_tactic conj_elim_l
   let conj_elim_r () = run_tactic conj_elim_r
   let simpl () = run_tactic simpl
-  let req_left = make_interactive (fun () -> req_left)
+  (* let req_left = make_interactive (fun () -> req_left) *)
 
   (* let cancel_heap = make_interactive (fun () -> cancel_heap) *)
   let prove = make_interactive (fun () -> prove)
