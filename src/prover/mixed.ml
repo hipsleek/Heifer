@@ -48,3 +48,7 @@ let deep_destruct_mixed t =
   in
   let pure1, heap1 = visit t in
   to_list pure1, to_list heap1
+
+let normalize_mixed t =
+  let pure, heap = deep_destruct_mixed t in
+  Constr.conj pure, Constr.sepconj heap

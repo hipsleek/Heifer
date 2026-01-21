@@ -788,14 +788,22 @@ module UnmixTactic = struct
     f_put (Sequence (f_constr pure, reseq (f_constr heap) t2))
 
   let unmix_ens f_get f_put =
-    pre_unmix f_get f_put unseq_open_ensures_opt Tm.ensures
+    let open Tactic in
+    let* t = f_get in
+    let* t1, t2 = unwrap (unseq_open_ensures_opt t) "pre_unmix: not ensures" in
+    let pure, heap = Mixed.normalize_mixed t1 in
+    f_put (Sequence (Ensures pure, reseq (Ensures heap) t2))
 
   let unmix_ens_lhs = unmix_ens get_lhs put_lhs
 
   let unmix_ens_rhs = unmix_ens get_rhs put_rhs
 
   let unmix_req f_get f_put =
-    pre_unmix f_get f_put unseq_open_requires_opt Tm.requires
+    let open Tactic in
+    let* t = f_get in
+    let* t1, t2 = unwrap (unseq_open_requires_opt t) "pre_unmix: not requires" in
+    let pure, heap = Mixed.normalize_mixed t1 in
+    f_put (Sequence (Requires pure, reseq (Requires heap) t2))
 
   let unmix_req_lhs = unmix_req get_lhs put_lhs
 
