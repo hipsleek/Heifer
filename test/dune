@@ -6,6 +6,6 @@
  (copy ../heifer.why heifer.why))
 
 (executables
- (names landin foldr lemma)
+ (names landin foldr)
  (libraries heifer)
  (preprocess (pps ppx_print_tactic)))

@@ -9,7 +9,7 @@ declare
 ;;
 
 start_proof
-  "forall xs. is_list is_int xs => foldr (fun c t -> c + t) 0 xs <: sum xs"
+  "forall xs. is_int_list xs => foldr (fun c t -> c + t) 0 xs <: sum xs"
 ;;
 
 forall_intro ();;

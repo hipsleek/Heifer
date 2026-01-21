@@ -131,6 +131,18 @@ module Heifer
         is_int_list t ->
         is_int_list (TCons h t)
 
-  (* this file is expected by the translation to end with inductive definitions *)
+  (* this file is expected by why3_prover.ml to end with inductive definitions *)
 
+end
+
+module M
+  use Heifer
+
+  goal goal1:
+    forall h : term, t : term, xs : term.
+      (xs.is_int_list)
+        ->
+        ((eq xs (TCons h t)) = (TBool true))
+        ->
+        ((eq (plus h (t.sum)) (xs.sum)) = (TBool true))
 end

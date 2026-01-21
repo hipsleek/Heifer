@@ -435,7 +435,7 @@
   (1 more goals)
   
   
-  # ens_heap_intro ()
+  # ens_heap_elim ()
   
   knot, l, n
   Hknot: knot=(fun n ->
@@ -635,7 +635,7 @@
   <: ens l1->v; fact n
   
   
-  # ens_heap_intro ()
+  # ens_heap_elim ()
   
   knot, l, l1, n, v
   Hknot: knot=(fun n ->
@@ -651,11 +651,31 @@
   <: fact n
   
   
+  # Options.show_why3_goal := true
+  
   # prove ()
+  module M
+    use heifer.Heifer
+    
+    goal goal1:
+      forall knot : term, l : term, l1 : term, n : term, v : term.
+        ((gt n (TInt 0)) = (TBool true))
+          ->
+          (n.is_int)
+          ->
+          ((times n ((minus n (TInt 1)).fact)) = (n.fact))
+  end
   Warning, file line 0, characters 0-0: unused variable knot
   Warning, file line 0, characters 0-0: unused variable l
   Warning, file line 0, characters 0-0: unused variable l1
   Warning, file line 0, characters 0-0: unused variable v
+  module M
+    use Heifer
+    constant n0 : int
+    axiom H : 0 < n0
+    goal goal1 :
+      times (TInt n0) (fact1 (minus (TInt n0) (TInt 1))) = fact1 (TInt n0)
+  end
   ==> Valid
   
   no more goals

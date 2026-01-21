@@ -159,7 +159,15 @@ let rec term_to_whyml_aux ctxt kind t =
   | Binop (Neq, a, b), Term ->
       tapp (qualid ["neq"])
         [term_to_whyml_aux ctxt Term a; term_to_whyml_aux ctxt Term b]
-  | Binop ((Eq | Neq | Gt | Lt | Le | Ge), _, _), Formula ->
+  | Binop (Eq, a, b), Formula ->
+      tapp
+        (qualid [Ident.op_infix "="])
+        [term_to_whyml_aux ctxt Term a; term_to_whyml_aux ctxt Term b]
+  | Binop (Neq, a, b), Formula ->
+      tapp
+        (qualid [Ident.op_infix "<>"])
+        [term_to_whyml_aux ctxt Term a; term_to_whyml_aux ctxt Term b]
+  | Binop ((Gt | Lt | Le | Ge), _, _), Formula ->
       (* ctxt  *)
       let coerce_to_prop a =
         (* let a1 = term_to_whyml_aux ctxt a in *)
