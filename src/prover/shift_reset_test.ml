@@ -39,7 +39,13 @@ let%expect_test "reset without shift" =
   [%expect {| ens true=true; () |}];
 
   test {| forall x. reset ((ens x=1; r. ens x=r); r. req r=()) |};
-  [%expect {| forall x. ens x=1; ens x=(); req ()=() |}]
+  [%expect {| forall x. ens x=1; ens x=(); req ()=() |}];
+
+  test {| reset (exists x. ens x=1; req x=2) |};
+  [%expect {| ex x. ens x=1; req x=2 |}];
+
+  test {| reset (exists f x. f x )|};
+  [%expect {| ex f x. reset (f x) |}]
 
 let%expect_test "reset with shift" =
   ()
