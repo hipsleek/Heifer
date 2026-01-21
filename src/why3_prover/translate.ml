@@ -90,7 +90,7 @@ let rec term_to_whyml_aux ctxt kind t =
         [term_to_whyml_aux ctxt Term h; term_to_whyml_aux ctxt Term t]
   | Binop ((Times | Plus | Minus | Cons), _, _), Formula ->
       failwith "binop cannot be used as a formula"
-  | Unop (Not, _), Formula -> failwith "todo not formula"
+  | Unop (Not, a), Formula -> term (Tnot (term_to_whyml_aux ctxt Formula a))
   | Unop (Not, a), Term ->
       tapp (qualid ["Bool"; "notb"]) [term_to_whyml_aux ctxt Term a]
   | Unop (Neg, _), Term -> failwith "todo unary negation"
