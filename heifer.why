@@ -190,6 +190,20 @@ module Heifer
     | _ -> TErr
     end
 
+  function product (xs:term) : term =
+    match xs with
+    | TNil -> TInt 1
+    | TCons h t -> times h (product t)
+    | _ -> TErr
+    end
+
+  function append (xs ys:term) : term =
+    match xs with
+    | TNil -> ys
+    | TCons h t -> TCons h (append t ys)
+    | _ -> TErr
+    end
+
   inductive sublist (l1 l2: term) =
     | sublist_cons:
       forall x l:term.
@@ -208,12 +222,16 @@ module Heifer
   inductive is_nat (n: term) =
     | is_nat: forall n0:int. n0 >= 0 -> is_nat (TInt n0)
 
+
+  (* This higher-order definition interacts poorly with automation *)
+  (*
   inductive is_list (ty:term->bool) (n: term) =
     | is_nil: forall ty:term->bool. is_list ty TNil
     | is_cons: forall h t:term. forall ty:term->bool.
         ty h ->
         is_list ty t ->
         is_list ty (TCons h t)
+  *)
 
   inductive is_int_list (n: term) =
     | is_int_nil: is_int_list TNil
