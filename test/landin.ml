@@ -93,9 +93,7 @@ goal_is {|
 
 intro_pure "Hn";;
 exists_intro ["l"; "knot"];;
-
-(* TODO ens_heap_intro ();; *)
-ens_heap_elim ();;
+ens_heap_intro ();;
 
 (* Options.show_why3_goal := true;; *)
 prove ();;
@@ -116,9 +114,7 @@ exists_elim ();;
 exists_intro ["l1"; "v"];;
 simpl ();;
 intro_heap ();;
-
-(* TODO ens_heap_intro ();; *)
-ens_heap_elim ();;
+ens_heap_intro ();;
 
 (* Prover.Tactic.Options.show_why3_goal := true;; *)
 

@@ -427,10 +427,10 @@ let solve_invoke_why3 goal =
 (* Feel free to rename functions inside this module, if you can find better
    names. *)
 module IntroTactic = struct
-  let pre_ens_intro =
+  let pre_ens_elim =
     let open Tactic in
     let* lhs = get_lhs in
-    unwrap (unseq_open_ensures_opt lhs) "pre_ens_intro: not ensures"
+    unwrap (unseq_open_ensures_opt lhs) "pre_ens_elim: not ensures"
 
   let pre_req_intro =
     let open Tactic in
@@ -439,15 +439,15 @@ module IntroTactic = struct
 end
 
 module ElimTactic = struct
-  let pre_ens_elim =
+  let pre_ens_intro =
     let open Tactic in
     let* rhs = get_rhs in
-    unwrap (unseq_open_ensures_opt rhs) "pre_ens_elim: not ensures"
+    unwrap (unseq_open_ensures_opt rhs) "pre_ens_intro: not ensures"
 
   (** UNSAFE: heap assumptions are linear, cannot be duplicated freely! *)
-  let ens_elim =
+  let ens_intro =
     let open Tactic in
-    let* t, rhs = pre_ens_elim in
+    let* t, rhs = pre_ens_intro in
     let* _ = put_rhs rhs in
     let* _ = dup_pctxt in
     put_goal t
@@ -467,10 +467,10 @@ module ElimTactic = struct
 end
 
 module PureTactic = struct
-  let ens_pure_intro name =
+  let ens_pure_elim name =
     let open Tactic in
-    let* t, lhs = IntroTactic.pre_ens_intro in
-    let* _ = guard (Simply_typed.is_prop t) "ens_pure_intro: not prop" in
+    let* t, lhs = IntroTactic.pre_ens_elim in
+    let* _ = guard (Simply_typed.is_prop t) "ens_pure_elim: not prop" in
     let* _ = add_assumption name t in
     put_lhs lhs
 
@@ -491,12 +491,12 @@ module PureTactic = struct
   let intro_pure name =
     let open Tactic in
     choices ~err:"intro_pure: failed"
-      [impl_intro name; ens_pure_intro name; req_pure_intro name]
+      [impl_intro name; ens_pure_elim name; req_pure_intro name]
 
-  let ens_pure_elim =
+  let ens_pure_intro =
     let open Tactic in
-    let* t, rhs = ElimTactic.pre_ens_elim in
-    let* _ = guard (Simply_typed.is_prop t) "ens_pure_elim: not prop" in
+    let* t, rhs = ElimTactic.pre_ens_intro in
+    let* _ = guard (Simply_typed.is_prop t) "ens_pure_intro: not prop" in
     let* _ = solve_invoke_why3 t in
     put_rhs rhs
 
@@ -704,11 +704,11 @@ let req_left =
   | _ -> fail "req_left cannot do anything"
 
 module HeapTactic = struct
-  let ens_heap_intro =
+  let ens_heap_elim =
     let open Tactic in
-    let* t, lhs = IntroTactic.pre_ens_intro in
+    let* t, lhs = IntroTactic.pre_ens_elim in
     let* ts =
-      unwrap (Heap.deep_destruct_sepconj_opt t) "ens_heap_intro: not hprop"
+      unwrap (Heap.deep_destruct_sepconj_opt t) "ens_heap_elim: not hprop"
     in
     let* _ = modify_heap_assumptions (List.append ts) in
     put_lhs lhs
@@ -724,7 +724,7 @@ module HeapTactic = struct
 
   let intro_heap =
     let open Tactic in
-    choices ~err:"intro_heap: failed" [ens_heap_intro; req_heap_intro]
+    choices ~err:"intro_heap: failed" [ens_heap_elim; req_heap_intro]
 
   let unseq_open_opt f target =
     let open Util.Options.Monad in
@@ -739,7 +739,7 @@ module HeapTactic = struct
         let ts2, target = unseq_open_loop f target in
         (ts1 @ ts2, target)
 
-  let ens_heap_intros =
+  let ens_heap_elim =
     let open Tactic in
     let* lhs = get_lhs in
     let ts, lhs = unseq_open_loop unseq_open_ensures_opt lhs in
@@ -755,7 +755,7 @@ module HeapTactic = struct
 
   let intros_heap =
     let open Tactic in
-    let* _ = ens_heap_intros in
+    let* _ = ens_heap_elim in
     req_heap_intros
 
   let pre_heap_solver goal =
@@ -763,8 +763,12 @@ module HeapTactic = struct
     let goals_opt = Heap.deep_destruct_sepconj_opt goal in
     let* goals = unwrap goals_opt "pre_heap_prover: not hprop" in
     let* heap_assumptions = get_heap_assumptions in
-    let goals, heap_assumptions, equalities = Heap.biab_list goals heap_assumptions in
-    let* _ = guard (List.is_empty goals) "pre_heap_prover: cannot prove hprop" in
+    let goals, heap_assumptions, equalities =
+      Heap.biab_list goals heap_assumptions
+    in
+    let* _ =
+      guard (List.is_empty goals) "pre_heap_prover: cannot prove hprop"
+    in
     let* _ = iter_m solve_invoke_why3 equalities in
     put_heap_assumptions heap_assumptions
 
@@ -774,9 +778,9 @@ module HeapTactic = struct
     let* _ = pre_heap_solver t in
     put_lhs lhs
 
-  let ens_heap_elim =
+  let ens_heap_intro =
     let open Tactic in
-    let* t, rhs = ElimTactic.pre_ens_elim in
+    let* t, rhs = ElimTactic.pre_ens_intro in
     let* _ = pre_heap_solver t in
     put_rhs rhs
 
@@ -956,9 +960,9 @@ module Interactive = struct
   let specialize h = make_interactive (specialize h)
   let refl () = run_tactic refl
   let req_heap_intro () = run_tactic HeapTactic.req_heap_intro
-  let ens_heap_intro () = run_tactic HeapTactic.ens_heap_intro
-  let req_heap_elim () = run_tactic HeapTactic.req_heap_elim
   let ens_heap_elim () = run_tactic HeapTactic.ens_heap_elim
+  let req_heap_elim () = run_tactic HeapTactic.req_heap_elim
+  let ens_heap_intro () = run_tactic HeapTactic.ens_heap_intro
   let intro_pure name = run_tactic (PureTactic.intro_pure name)
   let intro_heap () = run_tactic HeapTactic.intro_heap
   let intros_heap () = run_tactic HeapTactic.intros_heap
