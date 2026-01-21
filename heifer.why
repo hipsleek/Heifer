@@ -34,14 +34,20 @@ module Heifer
 
   function eq (a b:term) : term =
     match a, b with
-    | TErr, _ | _, TErr -> TErr
-    | _, _ -> TBool (a = b)
+    | TUnit, TUnit | TNil, TNil -> TBool true
+    | TInt a1, TInt b1 -> TBool (a1 = b1)
+    | TBool a1, TBool b1 -> TBool (a1 = b1)
+    | TCons h1 t1, TCons h2 t2 -> TBool (h1 = h2 && t1 = t2)
+    | _, _ -> TErr
     end
 
   function neq (a b:term) : term =
     match a, b with
-    | TErr, _ | _, TErr -> TErr
-    | _, _ -> TBool (a <> b)
+    | TUnit, TUnit | TNil, TNil -> TBool true
+    | TInt a1, TInt b1 -> TBool (a1 <> b1)
+    | TBool a1, TBool b1 -> TBool (a1 <> b1)
+    | TCons h1 t1, TCons h2 t2 -> TBool (h1 <> h2 || t1 <> t2)
+    | _, _ -> TErr
     end
 
   function gt (a b:term) : term =
@@ -110,5 +116,21 @@ module Heifer
 
   inductive is_int (n: term) =
     | is_int: forall n0:int. is_int (TInt n0)
+
+  inductive is_list (ty:term->bool) (n: term) =
+    | is_nil: forall ty:term->bool. is_list ty TNil
+    | is_cons: forall h t:term. forall ty:term->bool.
+        ty h ->
+        is_list ty t ->
+        is_list ty (TCons h t)
+
+  inductive is_int_list (n: term) =
+    | is_int_nil: is_int_list TNil
+    | is_int_cons: forall h t:term.
+        is_int h ->
+        is_int_list t ->
+        is_int_list (TCons h t)
+
+  (* this file is expected by the translation to end with inductive definitions *)
 
 end

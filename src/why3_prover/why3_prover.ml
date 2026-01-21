@@ -132,9 +132,11 @@ end|} (lines |> String.concat "\n")
 let log_vc show_goal tasks =
   if show_goal then
     let debug_vc =
-      Format.asprintf "@[<v>%a@]" (Fmt.list Why3.Pretty.print_task) tasks
+      tasks
+      |> List.map (fun t -> Format.asprintf "%a" Why3.Pretty.print_task t)
+      |> List.map pretty_print_debug_vc
     in
-    Format.printf "%s@." (pretty_print_debug_vc debug_vc)
+    Format.printf "@[<v>%a@]@." (Fmt.list Fmt.string) debug_vc
 
 (* Exposes the structure of tasks for debugging.
   A task is an option of a reversed linked list of tdecls.
@@ -223,6 +225,7 @@ let intro_and_invert_types _show_goal task =
           | Term.Tapp (f, _) ->
               (match f.ls_name.id_string with
               | "is_int" ->
+                  (* | "is_list" -> *)
                   let* task =
                     Trans.apply_transform "inversion_pr" why3_env task
                   in

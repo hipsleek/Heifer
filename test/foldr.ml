@@ -8,8 +8,12 @@ declare
   \/ ex h t. ens xs=h::t; foldr f init t; r. f h r|}
 ;;
 
-start_proof "forall xs. foldr (fun c t -> c + t) 0 xs <: sum xs";;
+start_proof
+  "forall xs. is_list is_int xs => foldr (fun c t -> c + t) 0 xs <: sum xs"
+;;
+
 forall_intro ();;
+intro_pure "Hty";;
 goal_is "foldr (fun c t -> c+t) 0 xs <: sum xs";;
 
 (* We proceed by induction on the structure of the list `xs`. *)
@@ -69,5 +73,6 @@ goal_is {|
 (* Having done that, the goal follows from the definition of `sum`. *)
 
 simpl ();;
+Options.show_why3_goal := true;;
 prove ();;
 qed ()

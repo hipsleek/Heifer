@@ -98,7 +98,8 @@ let rec term_to_whyml_aux ctxt kind t =
   | Var x, _ ->
       (* tapp (qualid ["Var"]) [tstr (Bindlib.name_of x)] *)
       tvar (qualid [Bindlib.name_of x])
-  | Symbol _, _ -> failwith "free symbol"
+  | Symbol { sym_name }, Term -> tvar (qualid [sym_name])
+  | Symbol _, Formula -> failwith "symbol cannot be used as formula"
   | Fun _, _ -> failwith "lambdas not handled at this level"
   | Tuple _, Term -> failwith "todo tuple"
   | Tuple _, Formula -> failwith "tuple cannot be used as a formula"
