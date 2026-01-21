@@ -7,36 +7,33 @@ type cont =
   | Cons_sequence of term * cont
   | Cons_bind of (term, term) binder * cont
 
-let rec refineb_box_cont tb = function
+let rec box_refine_box_cont tb = function
   | Nil -> tb
-  | Cons_sequence (t, k) -> Mk.sequence tb (refineb_cont t k)
+  | Cons_sequence (t, k) -> Mk.sequence tb (box_refine_cont t k)
   | Cons_bind (b, k) ->
       let x, t = unbind b in
-      Mk.bind tb (bind_var x (refineb_cont t k))
+      Mk.bind tb (bind_var x (box_refine_cont t k))
 
-and refineb_cont t = refineb_box_cont (box_term t)
+and box_refine_cont t = box_refine_box_cont (box_term t)
 
-let refine_cont t k = unbox (refineb_cont t k)
+let box_refine_cont_reset t k = Mk.reset (box_refine_cont t k)
 
-(* let rec refine_cont (t : term) (k : cont) : term =
-  match k with
-  | CNil -> t
-  | CCons0 (t', k) -> Sequence (t, refine_cont t' k)
-  | CCons1 (b, k) ->
-      let x, t' = unbind b in
-      Bind (t, unbox (bind_var x (box_term (refine_cont t' k)))) *)
+let refine_cont t k = unbox (box_refine_cont t k)
 
-(* let capture_cont (k : cont) : term =
-  match k with
-  | CNil ->
-      let x = new_tvar "x" in
-      unbox (Mk.fun_ (bind_mvar [| x |] (Mk.var x)))
-  | CCons0 (t, k) ->
-      let x = new_tvar "_" in
-      unbox (Mk.fun_ (bind_mvar [| x |] (box_term (Reset (refine_cont t k)))))
-  | CCons1 (b, k) ->
+let refine_cont_reset t k = Reset (refine_cont t k)
+
+let ignored_tvar = new_tvar "_"
+
+let captured_nil =
+  let x = new_tvar "x" in
+  unbox (Mk.fun_ (bind_mvar [| x |] (Mk.var x)))
+
+let capture_cont = function
+  | Nil -> captured_nil
+  | Cons_sequence (t, k) -> unbox (Mk.fun_ (bind_mvar [| ignored_tvar |] (box_refine_cont_reset t k)))
+  | Cons_bind (b, k) ->
       let x, t = unbind b in
-      unbox (Mk.fun_ (bind_mvar [| x |] (box_term (Reset (refine_cont t k))))) *)
+      unbox (Mk.fun_ (bind_mvar [| x |] (box_refine_cont_reset t k)))
 
 (** This is the main entry point for [shift/reset reduction].
 
@@ -77,10 +74,10 @@ and reduce_cont t k =
   | Bind (t, b) -> reduce_cont t (Cons_bind (b, k))
   | Apply _ -> Reset (refine_cont t k)
   | Disj (t1, t2) -> Disj (reduce_cont t1 k, reduce_cont t2 k)
-  | Forall b -> Reset (refine_cont (Forall (reduce_mbinder b)) k)
+  (* | Forall b -> Reset (refine_cont (Forall (reduce_mbinder b)) k) *)
   | Exists b -> Reset (refine_cont (Exists (reduce_mbinder b)) k)
-  (* | Shift b -> reduce_cont (subst b (capture_cont k)) CNil
-  | Reset t -> reduce_cont (reduce_cont t CNil) k *)
+  | Shift b -> reduce_cont (subst b (capture_cont k)) Nil
+  | Reset t -> reduce_cont (reduce_cont t Nil) k
   | Subsumes _ -> invalid_arg (Format.asprintf "reduce_cont: %a" pp_term t)
   | _ -> reduce_invoke_cont k t
 

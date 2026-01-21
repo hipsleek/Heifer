@@ -81,46 +81,46 @@ and simpl_zeta_list_aux ts =
 
     This auxiliary function returns a [box] for efficiency. The [box] will be
     unboxed once at the end. *)
-let rec simpl_assocb t =
+let rec box_simpl_assoc t =
   match t with
-  | Conj (t1, t2) -> Mk.conj (simpl_assocb t1) (simpl_assocb t2)
-  | Disj (t1, t2) -> Mk.disj (simpl_assocb t1) (simpl_assocb t2)
-  | Forall b -> Mk.forall (simpl_assocb_mbinder b)
-  | Exists b -> Mk.exists (simpl_assocb_mbinder b)
-  | Shift b -> Mk.shift (simpl_assocb_binder b)
-  | Reset t -> Mk.reset (simpl_assocb t)
-  | Sequence (t1, t2) -> simpl_assocb_cont t1 (fun tb -> Mk.sequence tb (simpl_assocb t2))
-  | Bind (t, b) -> simpl_assocb_cont t (fun tb -> Mk.bind tb (simpl_assocb_binder b))
-  | Subsumes (t1, t2) -> Mk.subsumes (simpl_assocb t1) (simpl_assocb t2)
+  | Conj (t1, t2) -> Mk.conj (box_simpl_assoc t1) (box_simpl_assoc t2)
+  | Disj (t1, t2) -> Mk.disj (box_simpl_assoc t1) (box_simpl_assoc t2)
+  | Forall b -> Mk.forall (box_simpl_assoc_mbinder b)
+  | Exists b -> Mk.exists (box_simpl_assoc_mbinder b)
+  | Shift b -> Mk.shift (box_simpl_assoc_binder b)
+  | Reset t -> Mk.reset (box_simpl_assoc t)
+  | Sequence (t1, t2) -> box_simpl_assoc_cont t1 (fun tb -> Mk.sequence tb (box_simpl_assoc t2))
+  | Bind (t, b) -> box_simpl_assoc_cont t (fun tb -> Mk.bind tb (box_simpl_assoc_binder b))
+  | Subsumes (t1, t2) -> Mk.subsumes (box_simpl_assoc t1) (box_simpl_assoc t2)
   | _ -> box_term t
 
-and simpl_assocb_binder b =
+and box_simpl_assoc_binder b =
   let x, t = unbind b in
-  bind_var x (simpl_assocb t)
+  bind_var x (box_simpl_assoc t)
 
-and simpl_assocb_mbinder b =
+and box_simpl_assoc_mbinder b =
   let xs, t = unmbind b in
-  bind_mvar xs (simpl_assocb t)
+  bind_mvar xs (box_simpl_assoc t)
 
-and simpl_assocb_cont t k =
+and box_simpl_assoc_cont t k =
   match t with
-  | Conj (t1, t2) -> k (Mk.conj (simpl_assocb t1) (simpl_assocb t2))
-  | Disj (t1, t2) -> Mk.disj (simpl_assocb_cont t1 k) (simpl_assocb_cont t2 k)
-  | Forall b -> k (Mk.forall (simpl_assocb_mbinder b))
-  | Exists b -> k (Mk.exists (simpl_assocb_mbinder b))
-  | Shift b -> k (Mk.shift (simpl_assocb_binder b))
-  | Reset t -> k (Mk.reset (simpl_assocb t))
-  | Sequence (t1, t2) -> simpl_assocb_cont t1 (fun tb -> Mk.sequence tb (simpl_assocb_cont t2 k))
-  | Bind (t, b) -> simpl_assocb_cont t (fun tb -> Mk.bind tb (simpl_assocb_binder_cont b k))
+  | Conj (t1, t2) -> k (Mk.conj (box_simpl_assoc t1) (box_simpl_assoc t2))
+  | Disj (t1, t2) -> Mk.disj (box_simpl_assoc_cont t1 k) (box_simpl_assoc_cont t2 k)
+  | Forall b -> k (Mk.forall (box_simpl_assoc_mbinder b))
+  | Exists b -> k (Mk.exists (box_simpl_assoc_mbinder b))
+  | Shift b -> k (Mk.shift (box_simpl_assoc_binder b))
+  | Reset t -> k (Mk.reset (box_simpl_assoc t))
+  | Sequence (t1, t2) -> box_simpl_assoc_cont t1 (fun tb -> Mk.sequence tb (box_simpl_assoc_cont t2 k))
+  | Bind (t, b) -> box_simpl_assoc_cont t (fun tb -> Mk.bind tb (box_simpl_assoc_binder_cont b k))
   | _ -> k (box_term t)
 
-and simpl_assocb_binder_cont b k =
+and box_simpl_assoc_binder_cont b k =
   let x, t = unbind b in
-  bind_var x (simpl_assocb_cont t k)
+  bind_var x (box_simpl_assoc_cont t k)
 
 
 (** Simplify a term, using associativity of bind and sequence. *)
-let simpl_assoc t = unbox (simpl_assocb t)
+let simpl_assoc t = unbox (box_simpl_assoc t)
 
 (** Simplify a term, using beta reduction strategy. Beta reduction: reduce all
     applications of [Fun].
