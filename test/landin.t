@@ -162,7 +162,7 @@
   ────────────────────────────────────────────────────────────
   l->()
   ───────────────────────────────────────────────────────────*
-     req l->(); ens l->knot; knot; f. f n
+     req l->(); ens l->knot; knot n
   <: ex l v. ens l->v; fact n
   
   
@@ -173,7 +173,7 @@
                 forall f1. req l->f1; ens l->f1; factf f1 n)
   Hty: is_int n
   ────────────────────────────────────────────────────────────
-     ens l->knot; knot; f. f n
+     ens l->knot; knot n
   <: ex l v. ens l->v; fact n
   
   
