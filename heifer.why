@@ -14,23 +14,105 @@ module Heifer
     | TNil
     | TErr
 
+(*
+  function plus (a b:term) : term =
+    match a with
+    | TInt a1 ->
+      if a1 = 0 then b
+      else
+        match b with
+        | TInt b1 ->
+          if b1 = 0 then a
+          else TInt (a1 + b1)
+        | _ -> TErr
+        end
+    | _ -> TErr
+    end
+    *)
+
+(*
+  function plus (a b:term) : term =
+    if a = TInt 0 || b = TInt 0 then
+      match a, b with
+      | TInt _, _ ->
+      end
+    else
+      match a, b with
+      | TInt a1, TInt b1 -> TInt (a1 + b1)
+      | _, _ -> TErr
+      end
+
+  function minus (a b:term) : term =
+    match b with
+    | TInt b1 ->
+      if b1 = 0 then a
+      else
+        match a with
+        | TInt a1 -> TInt (a1 - b1)
+        | _ -> TErr
+        end
+    | _ -> TErr
+    end
+     *)
+
+(*
+  function times (a b:term) : term =
+    match a with
+    | TInt a1 ->
+      if a1 = 0 then TInt 0
+      else
+        match b with
+        | TInt b1 ->
+          if b1 = 0 then TInt 0
+          else TInt (a1 * b1)
+        | _ -> TErr
+        end
+    | _ -> TErr
+    end
+*)
+
+(*
+  function times (a b:term) : term =
+    if a = TInt 0 || b = TInt 0 then TInt 0
+    else
+      match a, b with
+      | TInt a1, TInt b1 -> TInt (a1 * b1)
+      | _, _ -> TErr
+      end
+*)
+
+(*
   function plus (a b:term) : term =
     match a, b with
     | TInt a1, TInt b1 -> TInt (a1 + b1)
-    | _, _ -> TErr
+    | _ -> TErr
     end
+*)
 
-  function minus (a b:term) : term =
-    match a, b with
-    | TInt a1, TInt b1 -> TInt (a1 - b1)
-    | _, _ -> TErr
-    end
+  function plus (a b:term) : term
+  axiom plus_spec: forall a b:int. plus (TInt a) (TInt b) = TInt (a + b)
 
+  axiom plus_z_l: forall x:term. plus (TInt 0) x = x
+  axiom plus_z_r: forall x:term. plus x (TInt 0) = x
+
+  function minus (a b:term) : term
+  axiom minus_spec: forall a b:int. plus (TInt a) (TInt b) = TInt (a - b)
+
+  axiom minus_z_r: forall x:term. minus x (TInt 0) = x
+
+(*
   function times (a b:term) : term =
     match a, b with
     | TInt a1, TInt b1 -> TInt (a1 * b1)
-    | _, _ -> TErr
+    | _ -> TErr
     end
+*)
+
+  function times (a b:term) : term
+  axiom times_spec: forall a b:int. times (TInt a) (TInt b) = TInt (a * b)
+
+  axiom times_z_l: forall x:term. times (TInt 0) x = TInt 0
+  axiom times_z_r: forall x:term. times x (TInt 0) = TInt 0
 
   function eq (a b:term) : term =
     match a, b with
@@ -71,6 +153,12 @@ module Heifer
   function le (a b:term) : term =
     match a, b with
     | TInt a1, TInt b1 -> TBool (a1 <= b1)
+    | _ -> TErr
+    end
+
+  function uminus (a:term) : term =
+    match a with
+    | TInt a1 -> TInt (-a1)
     | _ -> TErr
     end
 
@@ -136,16 +224,4 @@ module Heifer
 
   (* this file is expected by why3_prover.ml to end with inductive definitions *)
 
-end
-
-module M
-  use Heifer
-
-  goal goal1:
-    forall h : term, t : term, xs : term.
-      (xs.is_int_list)
-        ->
-        ((eq xs (TCons h t)) = (TBool true))
-        ->
-        ((eq (plus h (t.sum)) (xs.sum)) = (TBool true))
 end
