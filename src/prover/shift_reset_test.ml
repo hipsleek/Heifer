@@ -2,12 +2,12 @@ open Shift_reset
 open Core.Pretty
 open Parsing.Parse
 
+let test input =
+  let input = parse_term input in
+  let output = reduce input in
+  Format.printf "%a" pp_term output
+
 let%expect_test "reset without shift" =
-  let test input =
-    let input = parse_term input in
-    let output = reduce input in
-    Format.printf "%a" pp_term output
-  in
   test "reset (1)";
   [%expect {| 1 |}];
 
@@ -40,3 +40,6 @@ let%expect_test "reset without shift" =
 
   test {| forall x. reset ((ens x=1; r. ens x=r); r. req r=()) |};
   [%expect {| forall x. ens x=1; ens x=(); req ()=() |}]
+
+let%expect_test "reset with shift" =
+  ()
