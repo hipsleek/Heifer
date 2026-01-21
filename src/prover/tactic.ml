@@ -686,7 +686,9 @@ module DisjTactic = struct
     put_rhs rhs
 end
 
-let simpl = Tactic.modify_goal (Simpl.simpl_term)
+let simpl = Tactic.modify_goal Simpl.simpl
+
+let shift_reset_reduce = Tactic.modify_goal Shift_reset.reduce
 
 module HeapTactic = struct
   let ens_heap_elim =
@@ -988,6 +990,7 @@ module Interactive = struct
   let conj_elim_r () = run_tactic conj_elim_r
   let simpl () = run_tactic simpl
   let unmix () = run_tactic UnmixTactic.unmix
+  let shift_reset_reduce () = run_tactic shift_reset_reduce
   (* let req_left = make_interactive (fun () -> req_left) *)
 
   (* let cancel_heap = make_interactive (fun () -> cancel_heap) *)
