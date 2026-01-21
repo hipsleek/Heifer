@@ -66,25 +66,33 @@ and reduce_mbinder b =
     shift/reset reduction. *)
 and reduce_cont t k =
   match t with
-  | Requires p ->
-      Sequence (Requires p, reduce_invoke_cont k Unit)
-      (* Float requires outside of reset *)
-  | Ensures p -> Sequence (Ensures p, reduce_invoke_cont k Unit)
+  | Requires _ -> invoke_cont_impure_unit t k
+  | Ensures _ -> invoke_cont_impure_unit t k
   | Sequence (t1, t2) -> reduce_cont t1 (Cons_sequence (t2, k))
   | Bind (t, b) -> reduce_cont t (Cons_bind (b, k))
-  | Apply _ -> Reset (refine_cont t k)
+  | Apply _ -> refine_cont_reset t k
   | Disj (t1, t2) -> Disj (reduce_cont t1 k, reduce_cont t2 k)
-  (* | Forall b -> Reset (refine_cont (Forall (reduce_mbinder b)) k) *)
+  | Forall b -> Reset (refine_cont (Forall (reduce_mbinder b)) k)
   | Exists b -> Reset (refine_cont (Exists (reduce_mbinder b)) k)
   | Shift b -> reduce_cont (subst b (capture_cont k)) Nil
   | Reset t -> reduce_cont (reduce_cont t Nil) k
-  | Subsumes _ -> invalid_arg (Format.asprintf "reduce_cont: %a" pp_term t)
-  | _ -> reduce_invoke_cont k t
+  | Unit
+  | True
+  | False
+  | Int _
+  | Fun _
+  | Binop _
+  | Unop _
+  | Tuple _ 
+  | Nil -> invoke_cont_pure t k
+  | _ -> invalid_arg (Format.asprintf "reduce_cont: %a" pp_term t)
 
-and reduce_invoke_cont (k : cont) (t : term) : term =
-  ignore (k, t);
-  failwith "todo"
-  (* match k with
-  | CNil -> t
-  | CCons0 (t, k) -> reduce_cont t k
-  | CCons1 (b, k) -> reduce_cont (subst b t) k *)
+and invoke_cont_pure t = function
+  | Nil -> t
+  | Cons_sequence (t', k) -> reduce_cont t' k
+  | Cons_bind (b, k) -> reduce_cont (subst b t) k
+
+and invoke_cont_impure_unit t = function
+  | Nil -> t
+  | Cons_sequence (t', k) -> Sequence (t, reduce_cont t' k)
+  | Cons_bind (b, k) -> Sequence (t, reduce_cont (subst b Unit) k)
