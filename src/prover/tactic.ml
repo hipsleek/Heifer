@@ -945,10 +945,8 @@ module ProofState = struct
 
   let declare decl =
     let sym, def = open_dfun (Parsing.Parse.parse_decl decl) in
-    try
-      set_definitions (add_decl sym def !current_state.definitions);
-      Format.printf "%s declared@." sym.sym_name
-    with Failure msg -> Format.printf "error: %s@." msg
+    set_definitions (add_decl sym def !current_state.definitions);
+    Format.printf "%s declared@." sym.sym_name
 
   let start_proof g =
     set_goals [Proof_context.create ~goal:(Parsing.Parse.parse_term g)];

@@ -6,6 +6,6 @@
  (copy ../heifer.why heifer.why))
 
 (executables
- (names landin foldr equiv)
+ (names landin foldr equiv append times)
  (libraries heifer)
  (preprocess (pps ppx_print_tactic)))
