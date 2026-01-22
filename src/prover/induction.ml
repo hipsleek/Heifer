@@ -12,15 +12,13 @@ let build_wf_premise wf x y =
       let lt = Mk.(binop Lt (box_var y) (box_var x)) in
       Mk.conj ge lt
 
-let induction wf x other_vars assumptions lhs rhs =
+let induction wf x other_vars assumptions goal =
   (* TODO generalize over heap context *)
   let generalized_assumptions =
     let other_vars = TVSet.of_seq (Array.to_seq other_vars) in
     List.filter (has_vars (TVSet.add x other_vars)) assumptions
   in
-  let ih =
-    List.fold_right (fun h g -> Implies (h, g)) generalized_assumptions (Subsumes (lhs, rhs))
-  in
+  let ih = List.fold_right (fun h g -> Implies (h, g)) generalized_assumptions goal in
 
   (* y is the new variable contained to be well-founded wrt x *)
   let y : term var = new_tvar (name_of (x : term var)) in

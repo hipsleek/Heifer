@@ -398,7 +398,7 @@ let%expect_test "induction" =
 
     n, n1
     Hn: n>0
-    IH: forall n2. n2>=0 /\ n2<n => ens emp <: req n1>0; ens n1=1
+    IH: forall n2. n2>=0 /\ n2<n => n2>0 => ens emp <: req n1>0; ens n1=1
     ────────────────────────────────────────────────────────────
        ens emp
     <: req n1>0; ens n1=1
@@ -453,7 +453,7 @@ let%expect_test "induction" =
 
 
     n
-    IH: forall n1. n1>=0 /\ n1<n => ens emp <: ens emp
+    IH: forall n1. n1>=0 /\ n1<n => n1>0 => ens emp <: ens emp
     ────────────────────────────────────────────────────────────
     n>0 => ens emp <: ens emp
     |}];
@@ -475,13 +475,11 @@ let%expect_test "induction" =
 
     n
     ────────────────────────────────────────────────────────────
-
-
-    IH: forall n1. n1>=0 /\ n1<n => forall m. n1>m => ens emp <: ens emp
+    forall m. n>m => ens emp <: ens emp
 
 
     n
-    IH: forall n1 m1. n1>=0 /\ n1<n => n1>m1 => ens emp <: ens emp
+    IH: forall n1. n1>=0 /\ n1<n => (forall m. n1>m => ens emp <: ens emp)
     ────────────────────────────────────────────────────────────
     forall m. n>m => ens emp <: ens emp
     |}]

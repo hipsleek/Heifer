@@ -980,26 +980,6 @@ module Interactive = struct
     | None -> Format.printf "unfold: the symbol %s does not exist@." sym_name
     | Some def -> run_tactic (modify_goal (Unfold.unfold sym def))
 
-  let split_subsumption_goal =
-    let open Tactic in
-    (* TODO this seems very similar to the function for decomposing rewrite rules *)
-    let rec collect_assumptions_and_quantifiers ctxt xs ass g =
-      match g with
-      | Forall b ->
-          let xs1, f, ctxt = unmbind_in ctxt b in
-          collect_assumptions_and_quantifiers ctxt (xs1 :: xs) ass f
-      | Implies (l, r) -> collect_assumptions_and_quantifiers ctxt xs (l :: ass) r
-      | Subsumes (l, r) -> Some (List.rev xs, List.rev ass, l, r)
-      | _ -> None
-    in
-    let* g = get_goal in
-    let* ctxt = get_rename_ctxt in
-    match collect_assumptions_and_quantifiers ctxt [] [] g with
-    | None -> fail "quantified or a subsumption"
-    | Some (xs, ass, left, right) ->
-        let xs = xs |> List.map Array.to_list |> List.concat in
-        pure (xs, ass, left, right)
-
   (** Generate an induction hypothesis in the current proof state. *)
   let induction : ?vars:string list -> name:string -> [ `List | `Int of int ] -> string -> unit =
    fun ?(vars = []) ~name kind x ->
@@ -1008,11 +988,11 @@ module Interactive = struct
       let* assumptions = get_assumptions in
       let* x = get_constant x in
       let* vars = map_m get_constant vars in
-      let* qs, ass, lhs, rhs = split_subsumption_goal in
-      let assumptions = ass @ List.map snd (SMap.bindings assumptions) in
-      let vars = Array.of_list (vars @ qs) in
+      let assumptions = List.map snd (SMap.bindings assumptions) in
+      let vars = Array.of_list vars in
       (* generate the body of the induction hypothesis *)
-      let ih_body = Induction.induction kind x vars assumptions lhs rhs in
+      let* g = get_goal in
+      let ih_body = Induction.induction kind x vars assumptions g in
       (* and wrap it into a prop *)
       let ih_prop = Forall ih_body in
       add_assumption name ih_prop
