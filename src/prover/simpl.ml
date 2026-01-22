@@ -1,5 +1,6 @@
 open Bindlib
 open Core.Syntax
+open Core.Syntax_util
 
 let return_unit = function
   | Requires _ | Ensures _ -> true
@@ -13,11 +14,11 @@ and simpl_zeta_list ts = fst (simpl_zeta_list_aux ts)
 
 and simpl_zeta_binder b =
   let x, t = unbind b in
-  unbox (bind_var x (box_term (simpl_zeta t)))
+  generalize x (simpl_zeta t)
 
 and simpl_zeta_mbinder b =
   let xs, t = unmbind b in
-  unbox (bind_mvar xs (box_term (simpl_zeta t)))
+  mgeneralize xs (simpl_zeta t)
 
 (** Do the actual simplification and return a [bool] indicating whether the
     resulting term is a pure term or not. If a term is pure, it is safe to be
@@ -157,11 +158,11 @@ and simpl_beta_list ts = List.map simpl_beta ts
 
 and simpl_beta_binder b =
   let x, t = unbind b in
-  unbox (bind_var x (box_term (simpl_beta t)))
+  generalize x (simpl_beta t)
 
 and simpl_beta_mbinder b =
   let xs, t = unmbind b in
-  unbox (bind_mvar xs (box_term (simpl_beta t)))
+  mgeneralize xs (simpl_beta t)
 
 and simpl_beta_step t ts =
   match t with
