@@ -78,25 +78,26 @@ simpl ();;
 axiom ~name:"Hdecr" {| forall x y v. ens x->v; decr x y <: ens x->v-y |};;
 rewrite "Hdecr";;
 
-goal_is
-  {|
+goal_is {|
      ens y->a1+x; ens z->b-1; loop2 x y z
   <: ens y->a1+b*.x * z->0
-|}
-;;
+|};;
 
 intro_heap ();;
 intro_heap ();;
-specialize "IH" ["b-1"; "a1+x"];;
+specialize "IH" ["b-1"];;
+forward "IH";;
+prove ();;
+forward "IH";;
+prove ();;
+specialize "IH" ["a1+x"];;
 rewrite "IH";;
 prove ();;
 
-goal_is
-  {|
+goal_is {|
      req y->a1+x * z->b-1; ens y->a1+x+(b-1)*.x * z->0
   <: ens y->a1+b*.x * z->0
-|}
-;;
+|};;
 
 req_heap_elim ();;
 ens_heap_elim ();;
@@ -107,12 +108,10 @@ prove ();;
 (* case b <= 0 *)
 conj_elim_r ();;
 
-goal_is
-  {|
+goal_is {|
      req z->b /\ b<=0; ens z->b
   <: req y->a1 * z->b; ens y->a1+b*.x * z->0
-|}
-;;
+|};;
 
 axiom ~name:"Hh" {| forall p q. req p /\ q <: req p; req q |};;
 rewrite "Hh";;
