@@ -980,22 +980,25 @@ module Interactive = struct
     | None -> Format.printf "unfold: the symbol %s does not exist@." sym_name
     | Some def -> run_tactic (modify_goal (Unfold.unfold sym def))
 
-  let get_quantified_subsumption =
+  let split_subsumption_goal =
     let open Tactic in
-    let rec collect_quantifiers ctxt xs g =
+    (* TODO this seems very similar to the function for decomposing rewrite rules *)
+    let rec collect_assumptions_and_quantifiers ctxt xs ass g =
       match g with
       | Forall b ->
           let xs1, f, ctxt = unmbind_in ctxt b in
-          collect_quantifiers ctxt (xs1 :: xs) f
-      | Subsumes (l, r) -> Some (xs, l, r)
+          collect_assumptions_and_quantifiers ctxt (xs1 :: xs) ass f
+      | Implies (l, r) -> collect_assumptions_and_quantifiers ctxt xs (l :: ass) r
+      | Subsumes (l, r) -> Some (List.rev xs, List.rev ass, l, r)
       | _ -> None
     in
     let* g = get_goal in
     let* ctxt = get_rename_ctxt in
-    match collect_quantifiers ctxt [] g with
+    match collect_assumptions_and_quantifiers ctxt [] [] g with
     | None -> fail "quantified or a subsumption"
-    | Some (xs, left, right) ->
-        pure (List.rev xs |> List.map Array.to_list |> List.concat, left, right)
+    | Some (xs, ass, left, right) ->
+        let xs = xs |> List.map Array.to_list |> List.concat in
+        pure (xs, ass, left, right)
 
   (** Generate an induction hypothesis in the current proof state. *)
   let induction : ?vars:string list -> name:string -> [ `List | `Int of int ] -> string -> unit =
@@ -1005,8 +1008,8 @@ module Interactive = struct
       let* assumptions = get_assumptions in
       let* x = get_constant x in
       let* vars = map_m get_constant vars in
-      let* qs, lhs, rhs = get_quantified_subsumption in
-      let assumptions = List.map snd (SMap.bindings assumptions) in
+      let* qs, ass, lhs, rhs = split_subsumption_goal in
+      let assumptions = ass @ List.map snd (SMap.bindings assumptions) in
       let vars = Array.of_list (vars @ qs) in
       (* generate the body of the induction hypothesis *)
       let ih_body = Induction.induction kind x vars assumptions lhs rhs in

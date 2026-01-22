@@ -436,6 +436,54 @@ let%expect_test "induction" =
     <: ens emp
 
     error: no constant named: n
+    |}];
+
+  start_proof "forall n. n>0 => ens emp <: ens emp";
+  forall_intro ();
+  induction (`Int 0) "n" ~name:"IH";
+  [%expect
+    {|
+    ────────────────────────────────────────────────────────────
+    forall n. n>0 => ens emp <: ens emp
+
+
+    n
+    ────────────────────────────────────────────────────────────
+    n>0 => ens emp <: ens emp
+
+
+    n
+    IH: forall n1. n1>=0 /\ n1<n => ens emp <: ens emp
+    ────────────────────────────────────────────────────────────
+    n>0 => ens emp <: ens emp
+    |}];
+
+  start_proof "forall n m. n>m => ens emp <: ens emp";
+  forall_intro ();
+  revert "m";
+  induction (`Int 0) "n" ~name:"IH";
+  [%expect
+    {|
+    ────────────────────────────────────────────────────────────
+    forall n m. n>m => ens emp <: ens emp
+
+
+    m, n
+    ────────────────────────────────────────────────────────────
+    n>m => ens emp <: ens emp
+
+
+    n
+    ────────────────────────────────────────────────────────────
+
+
+    IH: forall n1. n1>=0 /\ n1<n => forall m. n1>m => ens emp <: ens emp
+
+
+    n
+    IH: forall n1 m1. n1>=0 /\ n1<n => n1>m1 => ens emp <: ens emp
+    ────────────────────────────────────────────────────────────
+    forall m. n>m => ens emp <: ens emp
     |}]
 
 let%expect_test "unfold" =
