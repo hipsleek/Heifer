@@ -95,6 +95,7 @@ module Tactic : sig
   val put_rename_ctxt : Bindlib.ctxt -> unit t
   val put_constants : term var SMap.t -> unit t
   val put_assumptions : term SMap.t -> unit t
+  val put_assumption : string -> term -> unit t
   val put_heap_assumptions : term list -> unit t
   val put_goal : term -> unit t
   val add_constant : string -> term var -> unit t
@@ -251,6 +252,12 @@ end = struct
   let put_rename_ctxt rename_ctxt = modify_pctxt (fun p -> { p with rename_ctxt })
   let put_constants constants = modify_pctxt (fun p -> { p with constants })
   let put_assumptions assumptions = modify_pctxt (fun p -> { p with assumptions })
+
+  let put_assumption name p =
+    let* _ = get_assumption name in
+    let* assumptions = get_assumptions in
+    put_assumptions (SMap.add name p assumptions)
+
   let put_heap_assumptions heap_assumptions = modify_pctxt (fun p -> { p with heap_assumptions })
   let put_goal goal = modify_pctxt (fun p -> { p with goal })
 
@@ -501,6 +508,18 @@ let parse_term ts =
   let open Parsing.Parse in
   let* constants = get_constants in
   pure (parse_term ~ctx:constants ts)
+
+let forward hyp =
+  let open Tactic in
+  let* assumption = get_assumption hyp in
+  match assumption with
+  | Implies (l, r) ->
+      let* pc = pop_pctxt in
+      let* _ = push_pctxt pc in
+      let* _ = put_assumption hyp r in
+      let* _ = push_pctxt pc in
+      put_goal l
+  | _ -> fail "forward should be applied to an implication"
 
 let specialize name ts =
   let open Tactic in
@@ -938,6 +957,7 @@ module Interactive = struct
   let goal_is = make_interactive goal_is
   let qed = make_interactive (fun () -> qed)
   let specialize h = make_interactive (specialize h)
+  let forward = make_interactive forward
   let refl () = run_tactic refl
   let req_heap_intro () = run_tactic HeapTactic.req_heap_intro
   let ens_heap_elim () = run_tactic HeapTactic.ens_heap_elim
