@@ -70,6 +70,10 @@ let reseq_close_ensures t = reseq (Ensures t)
 
 let reseq_close_requires t = reseq (Requires t)
 
+let generalize x t = unbox (bind_var x (box_term t))
+
+let mgeneralize xs t = unbox (bind_mvar xs (box_term t))
+
 let rec has_vars xs = function
   | Var x -> TVSet.mem x xs
   | Symbol _ -> false
