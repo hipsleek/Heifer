@@ -6,11 +6,7 @@ type induction_hypothesis = (term, prop) mbinder
 
 let build_wf_premise wf x y =
   match wf with
-  | `List ->
-      Mk.(
-        apply
-          (symbol { sym_name = "sublist" })
-          (box_list [box_var y; box_var x]))
+  | `List -> Mk.(apply (symbol { sym_name = "sublist" }) (box_list [box_var y; box_var x]))
   | `Int n ->
       let ge = Mk.(binop Ge (box_var y) (int n)) in
       let lt = Mk.(binop Lt (box_var y) (box_var x)) in
@@ -21,10 +17,7 @@ let induction wf x other_vars assumptions lhs rhs =
   (* TODO generalize over heap context *)
   let generalized_assumptions = List.filter (has_vars vars_set) assumptions in
   let ih =
-    List.fold_right
-      (fun h g -> Implies (h, g))
-      generalized_assumptions
-      (Subsumes (lhs, rhs))
+    List.fold_right (fun h g -> Implies (h, g)) generalized_assumptions (Subsumes (lhs, rhs))
   in
 
   (* y is the new variable contained to be well-founded wrt x *)

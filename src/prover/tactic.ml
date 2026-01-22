@@ -142,8 +142,7 @@ end = struct
         (match r with
         | Ok _ -> r
         (* TODO possibly use a list or tree of errors *)
-        | Error e ->
-            Result.map_error (Format.asprintf "%s / %s" e) (choices ~err ms s))
+        | Error e -> Result.map_error (Format.asprintf "%s / %s" e) (choices ~err ms s))
 
   let rec map_m f = function
     | [] -> pure []
@@ -249,29 +248,20 @@ end = struct
     | None -> fail ("no heap assumption named: " ^ name)
     | Some t -> return t *)
 
-  let put_rename_ctxt rename_ctxt =
-    modify_pctxt (fun p -> { p with rename_ctxt })
-
+  let put_rename_ctxt rename_ctxt = modify_pctxt (fun p -> { p with rename_ctxt })
   let put_constants constants = modify_pctxt (fun p -> { p with constants })
-
-  let put_assumptions assumptions =
-    modify_pctxt (fun p -> { p with assumptions })
-
-  let put_heap_assumptions heap_assumptions =
-    modify_pctxt (fun p -> { p with heap_assumptions })
-
+  let put_assumptions assumptions = modify_pctxt (fun p -> { p with assumptions })
+  let put_heap_assumptions heap_assumptions = modify_pctxt (fun p -> { p with heap_assumptions })
   let put_goal goal = modify_pctxt (fun p -> { p with goal })
 
   let add_constant name v =
     let* constants = get_constants in
-    if SMap.mem name constants then
-      fail ("add_constant: " ^ name ^ " is already used")
+    if SMap.mem name constants then fail ("add_constant: " ^ name ^ " is already used")
     else put_constants (SMap.add name v constants)
 
   let add_assumption name t =
     let* assumptions = get_assumptions in
-    if SMap.mem name assumptions then
-      fail ("add_assumption: " ^ name ^ " is already used")
+    if SMap.mem name assumptions then fail ("add_assumption: " ^ name ^ " is already used")
     else put_assumptions (SMap.add name t assumptions)
 
   (* let add_heap_assumption name t =
@@ -404,17 +394,12 @@ let invoke_why3 goal =
   let open Tactic in
   let* constants = get_constants in
   let+ assumptions = get_assumptions in
-  let constants =
-    Array.of_list (SMap.fold (fun _ c acc -> c :: acc) constants [])
-  in
+  let constants = Array.of_list (SMap.fold (fun _ c acc -> c :: acc) constants []) in
   let handle_assumption _ assumption goal =
-    if Why3_prover.is_translatable assumption then Implies (assumption, goal)
-    else goal
+    if Why3_prover.is_translatable assumption then Implies (assumption, goal) else goal
   in
   let why3_goal = SMap.fold handle_assumption assumptions goal in
-  let why3_goal =
-    unbox (Mk.forall (bind_mvar constants (box_term why3_goal)))
-  in
+  let why3_goal = unbox (Mk.forall (bind_mvar constants (box_term why3_goal))) in
   Why3_prover.prove ~show_goal:!Options.show_why3_goal why3_goal
 
 let solve_invoke_why3 goal =
@@ -431,13 +416,13 @@ module IntroTactic = struct
     let open Tactic in
     let* rhs = get_rhs in
     let+ t1, t2 = unwrap (unseq_open_ensures_opt rhs) "pre_ens_intro: not ensures" in
-    t1, unseq_tail_to_term t2
+    (t1, unseq_tail_to_term t2)
 
   let pre_req_intro =
     let open Tactic in
     let* rhs = get_rhs in
     let+ t1, t2 = unwrap (unseq_open_requires_opt rhs) "pre_req_intro: not requires" in
-    t1, unseq_tail_to_term t2
+    (t1, unseq_tail_to_term t2)
 
   (** UNSAFE: heap assumptions are linear, cannot be duplicated freely! *)
   let ens_intro =
@@ -449,18 +434,17 @@ module IntroTactic = struct
 end
 
 module ElimTactic = struct
-
   let pre_ens_elim =
     let open Tactic in
     let* lhs = get_lhs in
     let+ t1, t2 = unwrap (unseq_open_ensures_opt lhs) "pre_ens_elim: not ensures" in
-    t1, unseq_tail_to_term t2
+    (t1, unseq_tail_to_term t2)
 
   let pre_req_elim =
     let open Tactic in
     let* lhs = get_lhs in
     let+ t1, t2 = unwrap (unseq_open_requires_opt lhs) "pre_req_elim: not requires" in
-    t1, unseq_tail_to_term t2
+    (t1, unseq_tail_to_term t2)
 
   (** UNSAFE: heap assumptions are linear, cannot be duplicated freely! *)
   let req_elim =
@@ -495,8 +479,7 @@ module PureTactic = struct
 
   let intro_pure name =
     let open Tactic in
-    choices ~err:"intro_pure: failed"
-      [impl_intro name; ens_pure_elim name; req_pure_intro name]
+    choices ~err:"intro_pure: failed" [impl_intro name; ens_pure_elim name; req_pure_intro name]
 
   let ens_pure_intro =
     let open Tactic in
@@ -556,9 +539,7 @@ let goal_is s =
   let* g1 = get_goal in
   match equal_term g g1 with
   | true -> pure ()
-  | false ->
-      failf "@[<v>goal was expected to be@,  %a@,but was:@,  %a@]" pp_term g
-        pp_term g1
+  | false -> failf "@[<v>goal was expected to be@,  %a@,but was:@,  %a@]" pp_term g pp_term g1
 
 let qed =
   let open Tactic in
@@ -579,12 +560,10 @@ let revert s =
   | Var v ->
       let* pc = get_pctxt in
       let dependent =
-        SMap.filter (fun _k a -> has_vars (TVSet.singleton v) a) pc.assumptions
-        |> SMap.bindings
+        SMap.filter (fun _k a -> has_vars (TVSet.singleton v) a) pc.assumptions |> SMap.bindings
       in
       (match dependent with
-      | (k, _) :: _ ->
-          failf "assumption %s is dependent on %s, cannot revert" k (name_of v)
+      | (k, _) :: _ -> failf "assumption %s is dependent on %s, cannot revert" k (name_of v)
       | [] ->
           let constants = SMap.remove (name_of v) pc.constants in
           let goal = Forall (unbox (bind_mvar [| v |] (box_term pc.goal))) in
@@ -687,7 +666,6 @@ module DisjTactic = struct
 end
 
 let simpl = Tactic.modify_goal Simpl.simpl
-
 let shift_reset_reduce = Tactic.modify_goal Shift_reset.reduce
 
 module HeapTactic = struct
@@ -795,7 +773,6 @@ module UnmixTactic = struct
     f_put (Sequence (Ensures pure, reseq (Ensures heap) t2))
 
   let unmix_ens_lhs = unmix_ens get_lhs put_lhs
-
   let unmix_ens_rhs = unmix_ens get_rhs put_rhs
 
   let unmix_req f_get f_put =
@@ -806,7 +783,6 @@ module UnmixTactic = struct
     f_put (Sequence (Requires pure, reseq (Requires heap) t2))
 
   let unmix_req_lhs = unmix_req get_lhs put_lhs
-
   let unmix_req_rhs = unmix_req get_rhs put_rhs
 
   let unmix =
@@ -824,8 +800,7 @@ let prove =
     let* assumptions = get_assumptions in
     let p =
       let ass =
-        SMap.bindings assumptions |> List.map snd
-        |> List.filter Why3_prover.is_translatable
+        SMap.bindings assumptions |> List.map snd |> List.filter Why3_prover.is_translatable
       in
       List.fold_right (fun c t -> Implies (c, t)) ass p
     in
@@ -895,8 +870,7 @@ let prove =
       match t with
       | True | False | Apply _ -> true
       | Binop ((Ge | Gt | Eq | Neq | Le | Lt), _, _) -> true
-      | Implies (a, b) | Conj (a, b) | Disj (a, b) ->
-          could_be_prop a && could_be_prop b
+      | Implies (a, b) | Conj (a, b) | Disj (a, b) -> could_be_prop a && could_be_prop b
       | _ -> false
     in
     let* g = get_goal in
@@ -911,14 +885,7 @@ let prove =
         | _ -> fail "could not prove goal")
   in
   choices ~err:"failed to prove pure obligation"
-    [
-      both_values;
-      is_prop;
-      ens_right;
-      req_left;
-      (* ens_ens; req_req;*)
-      can_be_translated;
-    ]
+    [both_values; is_prop; ens_right; req_left; (* ens_ens; req_req;*) can_be_translated]
 
 (* TODO: refactor into some top-level module, with a different name. The current
    name clashes with Pstate -> proof_state *)
@@ -938,9 +905,7 @@ module ProofState = struct
   (** Handle definitions *)
   let get_definitions () = !current_state.definitions
 
-  let set_definitions definitions =
-    current_state := { !current_state with definitions }
-
+  let set_definitions definitions = current_state := { !current_state with definitions }
   let set_goals goals = current_state := { !current_state with goals }
 
   let declare decl =
@@ -959,8 +924,7 @@ module ProofState = struct
         print_proof_state ()
     | Error s -> Format.printf "error: %s@." s
 
-  let make_interactive (tac : 'b -> 'a Tactic.t) (arg : 'b) =
-    run_tactic (tac arg)
+  let make_interactive (tac : 'b -> 'a Tactic.t) (arg : 'b) = run_tactic (tac arg)
 
   (* TODO: tactic may need to refer to the global state, not just the current goal itself. *)
 end
@@ -1005,11 +969,9 @@ module Interactive = struct
   let dup () = run_tactic dup
   let prove_s s = Why3_prover.prove ~show_goal:true (Parsing.Parse.parse_prop s)
 
-  (** Unfold a definition (symbol) on both side of a sequent in the current
-      proof state.
+  (** Unfold a definition (symbol) on both side of a sequent in the current proof state.
 
-      TODO: implement `unfold in`. TODO: report failure using monad. Make it
-      consistent *)
+      TODO: implement `unfold in`. TODO: report failure using monad. Make it consistent *)
   let unfold (sym_name : string) =
     let sym = { sym_name } in
     let definitions = get_definitions () in
@@ -1036,12 +998,7 @@ module Interactive = struct
         pure (List.rev xs |> List.map Array.to_list |> List.concat, left, right)
 
   (** Generate an induction hypothesis in the current proof state. *)
-  let induction :
-      ?vars:string list ->
-      name:string ->
-      [ `List | `Int of int ] ->
-      string ->
-      unit =
+  let induction : ?vars:string list -> name:string -> [ `List | `Int of int ] -> string -> unit =
    fun ?(vars = []) ~name kind x ->
     let tac =
       let open Tactic in
