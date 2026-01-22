@@ -92,7 +92,6 @@ forward "IH";;
 prove ();;
 specialize "IH" ["a1+x"];;
 rewrite "IH";;
-prove ();;
 
 goal_is {|
      req y->a1+x * z->b-1; ens y->a1+x+(b-1)*.x * z->0

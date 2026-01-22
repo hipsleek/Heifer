@@ -46,7 +46,8 @@
   Hty: is_int_list xs
   IH: forall xs1.
         sublist xs1 xs =>
-          foldr (fun c t -> c+t) 0 xs1 <: sum xs1
+          is_int_list xs1 =>
+            foldr (fun c t -> c+t) 0 xs1 <: sum xs1
   ────────────────────────────────────────────────────────────
      foldr (fun c t -> c+t) 0 xs
   <: sum xs
@@ -58,7 +59,8 @@
   Hty: is_int_list xs
   IH: forall xs1.
         sublist xs1 xs =>
-          foldr (fun c t -> c+t) 0 xs1 <: sum xs1
+          is_int_list xs1 =>
+            foldr (fun c t -> c+t) 0 xs1 <: sum xs1
   ────────────────────────────────────────────────────────────
      ens xs=[]; 0
      \/ (ex h t.
@@ -82,7 +84,8 @@
   Hty: is_int_list xs
   IH: forall xs1.
         sublist xs1 xs =>
-          foldr (fun c t -> c+t) 0 xs1 <: sum xs1
+          is_int_list xs1 =>
+            foldr (fun c t -> c+t) 0 xs1 <: sum xs1
   ────────────────────────────────────────────────────────────
      ens xs=[]; 0
      \/ (ex h t.
@@ -98,7 +101,8 @@
   Hty: is_int_list xs
   IH: forall xs1.
         sublist xs1 xs =>
-          foldr (fun c t -> c+t) 0 xs1 <: sum xs1
+          is_int_list xs1 =>
+            foldr (fun c t -> c+t) 0 xs1 <: sum xs1
   ────────────────────────────────────────────────────────────
      ens xs=[]; 0
   <: sum xs
@@ -111,7 +115,8 @@
   Hty: is_int_list xs
   IH: forall xs1.
         sublist xs1 xs =>
-          foldr (fun c t -> c+t) 0 xs1 <: sum xs1
+          is_int_list xs1 =>
+            foldr (fun c t -> c+t) 0 xs1 <: sum xs1
   ────────────────────────────────────────────────────────────
      ens xs=[]; 0
   <: sum xs
@@ -125,7 +130,8 @@
   Hty: is_int_list xs
   IH: forall xs1.
         sublist xs1 xs =>
-          foldr (fun c t -> c+t) 0 xs1 <: sum xs1
+          is_int_list xs1 =>
+            foldr (fun c t -> c+t) 0 xs1 <: sum xs1
   ────────────────────────────────────────────────────────────
      0
   <: sum xs
@@ -140,7 +146,8 @@
   Hty: is_int_list xs
   IH: forall xs1.
         sublist xs1 xs =>
-          foldr (fun c t -> c+t) 0 xs1 <: sum xs1
+          is_int_list xs1 =>
+            foldr (fun c t -> c+t) 0 xs1 <: sum xs1
   ────────────────────────────────────────────────────────────
      ex h t.
        ens xs=h::t;
@@ -172,7 +179,8 @@
   Hty: is_int_list xs
   IH: forall xs1.
         sublist xs1 xs =>
-          foldr (fun c t -> c+t) 0 xs1 <: sum xs1
+          is_int_list xs1 =>
+            foldr (fun c t -> c+t) 0 xs1 <: sum xs1
   ────────────────────────────────────────────────────────────
      ens xs=h::t;
      foldr (fun c t1 -> c+t1) 0 t; r. (fun c t1 -> c+t1) h r
@@ -186,7 +194,8 @@
   Hxs: xs=h::t
   IH: forall xs1.
         sublist xs1 xs =>
-          foldr (fun c t -> c+t) 0 xs1 <: sum xs1
+          is_int_list xs1 =>
+            foldr (fun c t -> c+t) 0 xs1 <: sum xs1
   ────────────────────────────────────────────────────────────
      foldr (fun c t1 -> c+t1) 0 t; r. (fun c t1 -> c+t1) h r
   <: sum xs
@@ -203,7 +212,8 @@
   Hxs: xs=h::t
   IH: forall xs1.
         sublist xs1 xs =>
-          foldr (fun c t -> c+t) 0 xs1 <: sum xs1
+          is_int_list xs1 =>
+            foldr (fun c t -> c+t) 0 xs1 <: sum xs1
   ────────────────────────────────────────────────────────────
      foldr (fun c t1 -> c+t1) 0 t; r. (fun c t1 -> c+t1) h r
   <: sum xs
@@ -216,9 +226,26 @@
   Hxs: xs=h::t
   IH: forall xs1.
         sublist xs1 xs =>
-          foldr (fun c t -> c+t) 0 xs1 <: sum xs1
+          is_int_list xs1 =>
+            foldr (fun c t -> c+t) 0 xs1 <: sum xs1
   ────────────────────────────────────────────────────────────
   sublist t xs
+  (2 more goals)
+  
+  
+  # prove ()
+  ==> Valid
+  
+  
+  h, t, xs
+  Hty: is_int_list xs
+  Hxs: xs=h::t
+  IH: forall xs1.
+        sublist xs1 xs =>
+          is_int_list xs1 =>
+            foldr (fun c t -> c+t) 0 xs1 <: sum xs1
+  ────────────────────────────────────────────────────────────
+  is_int_list t
   (1 more goals)
   
   
@@ -231,7 +258,8 @@
   Hxs: xs=h::t
   IH: forall xs1.
         sublist xs1 xs =>
-          foldr (fun c t -> c+t) 0 xs1 <: sum xs1
+          is_int_list xs1 =>
+            foldr (fun c t -> c+t) 0 xs1 <: sum xs1
   ────────────────────────────────────────────────────────────
      sum t; r. (fun c t1 -> c+t1) h r
   <: sum xs
@@ -247,7 +275,8 @@
   Hxs: xs=h::t
   IH: forall xs1.
         sublist xs1 xs =>
-          foldr (fun c t -> c+t) 0 xs1 <: sum xs1
+          is_int_list xs1 =>
+            foldr (fun c t -> c+t) 0 xs1 <: sum xs1
   ────────────────────────────────────────────────────────────
      sum t; r. (fun c t1 -> c+t1) h r
   <: sum xs
@@ -260,7 +289,8 @@
   Hxs: xs=h::t
   IH: forall xs1.
         sublist xs1 xs =>
-          foldr (fun c t -> c+t) 0 xs1 <: sum xs1
+          is_int_list xs1 =>
+            foldr (fun c t -> c+t) 0 xs1 <: sum xs1
   ────────────────────────────────────────────────────────────
      sum t; r. h+r
   <: sum xs

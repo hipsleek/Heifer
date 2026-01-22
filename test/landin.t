@@ -210,8 +210,9 @@
   Hty: is_int n
   IH: forall n1.
         n1>=0 /\ n1<n =>
-          ens l->knot; knot n1 <:
-            (ex l1 v. ens l1->v; fact n1)
+          is_int n1 =>
+            ens l->knot; knot n1 <:
+              (ex l1 v. ens l1->v; fact n1)
   ────────────────────────────────────────────────────────────
      ens l->knot; knot n
   <: ex l v. ens l->v; fact n
@@ -225,8 +226,9 @@
   Hty: is_int n
   IH: forall n1.
         n1>=0 /\ n1<n =>
-          ens l->knot; knot n1 <:
-            (ex l1 v. ens l1->v; fact n1)
+          is_int n1 =>
+            ens l->knot; knot n1 <:
+              (ex l1 v. ens l1->v; fact n1)
   ────────────────────────────────────────────────────────────
   l->knot
   ───────────────────────────────────────────────────────────*
@@ -242,8 +244,9 @@
   Hty: is_int n
   IH: forall n1.
         n1>=0 /\ n1<n =>
-          ens l->knot; knot n1 <:
-            (ex l1 v. ens l1->v; fact n1)
+          is_int n1 =>
+            ens l->knot; knot n1 <:
+              (ex l1 v. ens l1->v; fact n1)
   ────────────────────────────────────────────────────────────
   l->knot
   ───────────────────────────────────────────────────────────*
@@ -265,8 +268,9 @@
   Hty: is_int n
   IH: forall n1.
         n1>=0 /\ n1<n =>
-          ens l->knot; knot n1 <:
-            (ex l1 v. ens l1->v; fact n1)
+          is_int n1 =>
+            ens l->knot; knot n1 <:
+              (ex l1 v. ens l1->v; fact n1)
   ────────────────────────────────────────────────────────────
   l->knot
   ───────────────────────────────────────────────────────────*
@@ -283,8 +287,9 @@
   Hty: is_int n
   IH: forall n1.
         n1>=0 /\ n1<n =>
-          ens l->knot; knot n1 <:
-            (ex l1 v. ens l1->v; fact n1)
+          is_int n1 =>
+            ens l->knot; knot n1 <:
+              (ex l1 v. ens l1->v; fact n1)
   ────────────────────────────────────────────────────────────
   l->knot
   ───────────────────────────────────────────────────────────*
@@ -300,8 +305,9 @@
   Hty: is_int n
   IH: forall n1.
         n1>=0 /\ n1<n =>
-          ens l->knot; knot n1 <:
-            (ex l1 v. ens l1->v; fact n1)
+          is_int n1 =>
+            ens l->knot; knot n1 <:
+              (ex l1 v. ens l1->v; fact n1)
   ────────────────────────────────────────────────────────────
   l->knot
   ───────────────────────────────────────────────────────────*
@@ -317,8 +323,9 @@
   Hty: is_int n
   IH: forall n1.
         n1>=0 /\ n1<n =>
-          ens l->knot; knot n1 <:
-            (ex l1 v. ens l1->v; fact n1)
+          is_int n1 =>
+            ens l->knot; knot n1 <:
+              (ex l1 v. ens l1->v; fact n1)
   ────────────────────────────────────────────────────────────
      ens l->knot; factf knot n
   <: ex l v. ens l->v; fact n
@@ -332,8 +339,9 @@
   Hty: is_int n
   IH: forall n1.
         n1>=0 /\ n1<n =>
-          ens l->knot; knot n1 <:
-            (ex l1 v. ens l1->v; fact n1)
+          is_int n1 =>
+            ens l->knot; knot n1 <:
+              (ex l1 v. ens l1->v; fact n1)
   ────────────────────────────────────────────────────────────
   l->knot
   ───────────────────────────────────────────────────────────*
@@ -349,8 +357,9 @@
   Hty: is_int n
   IH: forall n1.
         n1>=0 /\ n1<n =>
-          ens l->knot; knot n1 <:
-            (ex l1 v. ens l1->v; fact n1)
+          is_int n1 =>
+            ens l->knot; knot n1 <:
+              (ex l1 v. ens l1->v; fact n1)
   ────────────────────────────────────────────────────────────
   l->knot
   ───────────────────────────────────────────────────────────*
@@ -366,8 +375,9 @@
   Hty: is_int n
   IH: forall n1.
         n1>=0 /\ n1<n =>
-          ens l->knot; knot n1 <:
-            (ex l1 v. ens l1->v; fact n1)
+          is_int n1 =>
+            ens l->knot; knot n1 <:
+              (ex l1 v. ens l1->v; fact n1)
   ────────────────────────────────────────────────────────────
   l->knot
   ───────────────────────────────────────────────────────────*
@@ -387,8 +397,9 @@
   Hty: is_int n
   IH: forall n1.
         n1>=0 /\ n1<n =>
-          ens l->knot; knot n1 <:
-            (ex l1 v. ens l1->v; fact n1)
+          is_int n1 =>
+            ens l->knot; knot n1 <:
+              (ex l1 v. ens l1->v; fact n1)
   ────────────────────────────────────────────────────────────
   l->knot
   ───────────────────────────────────────────────────────────*
@@ -406,8 +417,9 @@
   Hty: is_int n
   IH: forall n1.
         n1>=0 /\ n1<n =>
-          ens l->knot; knot n1 <:
-            (ex l1 v. ens l1->v; fact n1)
+          is_int n1 =>
+            ens l->knot; knot n1 <:
+              (ex l1 v. ens l1->v; fact n1)
   ────────────────────────────────────────────────────────────
   l->knot
   ───────────────────────────────────────────────────────────*
@@ -425,8 +437,9 @@
   Hty: is_int n
   IH: forall n1.
         n1>=0 /\ n1<n =>
-          ens l->knot; knot n1 <:
-            (ex l1 v. ens l1->v; fact n1)
+          is_int n1 =>
+            ens l->knot; knot n1 <:
+              (ex l1 v. ens l1->v; fact n1)
   ────────────────────────────────────────────────────────────
   l->knot
   ───────────────────────────────────────────────────────────*
@@ -444,8 +457,9 @@
   Hty: is_int n
   IH: forall n1.
         n1>=0 /\ n1<n =>
-          ens l->knot; knot n1 <:
-            (ex l1 v. ens l1->v; fact n1)
+          is_int n1 =>
+            ens l->knot; knot n1 <:
+              (ex l1 v. ens l1->v; fact n1)
   ────────────────────────────────────────────────────────────
      1
   <: fact n
@@ -464,8 +478,9 @@
   Hty: is_int n
   IH: forall n1.
         n1>=0 /\ n1<n =>
-          ens l->knot; knot n1 <:
-            (ex l1 v. ens l1->v; fact n1)
+          is_int n1 =>
+            ens l->knot; knot n1 <:
+              (ex l1 v. ens l1->v; fact n1)
   ────────────────────────────────────────────────────────────
   l->knot
   ───────────────────────────────────────────────────────────*
@@ -473,14 +488,27 @@
   <: ex l v. ens l->v; fact n
   
   
-  # goal_is {|
-    ens n>0; knot (n-1); r1. n*r1
+  # goal_is
+      {|
+    ens n>0; knot (n-1); r1. n*.r1
     <: ex l v. ens l->v; fact n
   |}
-  error: goal was expected to be
-    ens n>0; knot (n-1); r1. n * r1 <: (ex l v. ens l->v; fact n)
-  but was:
-    ens n>0; knot (n-1); r1. n*.r1 <: (ex l v. ens l->v; fact n)
+  
+  knot, l, n
+  Hknot: knot=(fun n ->
+                forall f1. req l->f1; ens l->f1; factf f1 n)
+  Hty: is_int n
+  IH: forall n1.
+        n1>=0 /\ n1<n =>
+          is_int n1 =>
+            ens l->knot; knot n1 <:
+              (ex l1 v. ens l1->v; fact n1)
+  ────────────────────────────────────────────────────────────
+  l->knot
+  ───────────────────────────────────────────────────────────*
+     ens n>0; knot (n-1); r1. n*.r1
+  <: ex l v. ens l->v; fact n
+  
   
   # intro_pure "Hn"
   
@@ -491,8 +519,9 @@
   Hty: is_int n
   IH: forall n1.
         n1>=0 /\ n1<n =>
-          ens l->knot; knot n1 <:
-            (ex l1 v. ens l1->v; fact n1)
+          is_int n1 =>
+            ens l->knot; knot n1 <:
+              (ex l1 v. ens l1->v; fact n1)
   ────────────────────────────────────────────────────────────
   l->knot
   ───────────────────────────────────────────────────────────*
@@ -509,8 +538,9 @@
   Hty: is_int n
   IH: forall n1.
         n1>=0 /\ n1<n =>
-          ens l->knot; knot n1 <:
-            (ex l1 v. ens l1->v; fact n1)
+          is_int n1 =>
+            ens l->knot; knot n1 <:
+              (ex l1 v. ens l1->v; fact n1)
   ────────────────────────────────────────────────────────────
      ens l->knot; knot (n-1); r1. n*.r1
   <: ex l v. ens l->v; fact n
@@ -525,10 +555,32 @@
   Hty: is_int n
   IH: forall n1.
         n1>=0 /\ n1<n =>
-          ens l->knot; knot n1 <:
-            (ex l1 v. ens l1->v; fact n1)
+          is_int n1 =>
+            ens l->knot; knot n1 <:
+              (ex l1 v. ens l1->v; fact n1)
   ────────────────────────────────────────────────────────────
   n-1>=0 /\ n-1<n
+  (2 more goals)
+  
+  
+  # prove ()
+  Warning, file line 0, characters 0-0: unused variable knot
+  Warning, file line 0, characters 0-0: unused variable l
+  ==> Valid
+  
+  
+  knot, l, n
+  Hknot: knot=(fun n ->
+                forall f1. req l->f1; ens l->f1; factf f1 n)
+  Hn: n>0
+  Hty: is_int n
+  IH: forall n1.
+        n1>=0 /\ n1<n =>
+          is_int n1 =>
+            ens l->knot; knot n1 <:
+              (ex l1 v. ens l1->v; fact n1)
+  ────────────────────────────────────────────────────────────
+  is_int (n-1)
   (1 more goals)
   
   
@@ -545,8 +597,9 @@
   Hty: is_int n
   IH: forall n1.
         n1>=0 /\ n1<n =>
-          ens l->knot; knot n1 <:
-            (ex l1 v. ens l1->v; fact n1)
+          is_int n1 =>
+            ens l->knot; knot n1 <:
+              (ex l1 v. ens l1->v; fact n1)
   ────────────────────────────────────────────────────────────
      (ex l v. ens l->v; fact (n-1)); r1. n*.r1
   <: ex l v. ens l->v; fact n
@@ -562,8 +615,9 @@
   Hty: is_int n
   IH: forall n1.
         n1>=0 /\ n1<n =>
-          ens l->knot; knot n1 <:
-            (ex l1 v. ens l1->v; fact n1)
+          is_int n1 =>
+            ens l->knot; knot n1 <:
+              (ex l1 v. ens l1->v; fact n1)
   ────────────────────────────────────────────────────────────
      (ex l v. ens l->v; fact (n-1)); r1. n*.r1
   <: ex l v. ens l->v; fact n
@@ -578,8 +632,9 @@
   Hty: is_int n
   IH: forall n1.
         n1>=0 /\ n1<n =>
-          ens l->knot; knot n1 <:
-            (ex l1 v. ens l1->v; fact n1)
+          is_int n1 =>
+            ens l->knot; knot n1 <:
+              (ex l1 v. ens l1->v; fact n1)
   ────────────────────────────────────────────────────────────
      (ens l1->v; fact (n-1)); r1. n*.r1
   <: ex l v. ens l->v; fact n
@@ -594,8 +649,9 @@
   Hty: is_int n
   IH: forall n1.
         n1>=0 /\ n1<n =>
-          ens l->knot; knot n1 <:
-            (ex l1 v. ens l1->v; fact n1)
+          is_int n1 =>
+            ens l->knot; knot n1 <:
+              (ex l1 v. ens l1->v; fact n1)
   ────────────────────────────────────────────────────────────
      (ens l1->v; fact (n-1)); r1. n*.r1
   <: ens l1->v; fact n
@@ -610,8 +666,9 @@
   Hty: is_int n
   IH: forall n1.
         n1>=0 /\ n1<n =>
-          ens l->knot; knot n1 <:
-            (ex l1 v. ens l1->v; fact n1)
+          is_int n1 =>
+            ens l->knot; knot n1 <:
+              (ex l1 v. ens l1->v; fact n1)
   ────────────────────────────────────────────────────────────
      ens l1->v; fact (n-1); r1. n*.r1
   <: ens l1->v; fact n
@@ -626,8 +683,9 @@
   Hty: is_int n
   IH: forall n1.
         n1>=0 /\ n1<n =>
-          ens l->knot; knot n1 <:
-            (ex l1 v. ens l1->v; fact n1)
+          is_int n1 =>
+            ens l->knot; knot n1 <:
+              (ex l1 v. ens l1->v; fact n1)
   ────────────────────────────────────────────────────────────
   l1->v
   ───────────────────────────────────────────────────────────*
@@ -644,8 +702,9 @@
   Hty: is_int n
   IH: forall n1.
         n1>=0 /\ n1<n =>
-          ens l->knot; knot n1 <:
-            (ex l1 v. ens l1->v; fact n1)
+          is_int n1 =>
+            ens l->knot; knot n1 <:
+              (ex l1 v. ens l1->v; fact n1)
   ────────────────────────────────────────────────────────────
      fact (n-1); r1. n*.r1
   <: fact n

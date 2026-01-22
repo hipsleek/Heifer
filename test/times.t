@@ -48,7 +48,20 @@
   
   
   # induction ~name:"IH" `List "xs"
-  error: quantified or a subsumption
+  
+  xs
+  Htxs: is_int_list xs
+  IH: forall xs1.
+        sublist xs1 xs =>
+          is_int_list xs1 =>
+            (forall x.
+               is_int x =>
+                 reset (times xs1; r. x * r) <:
+                   product (x::xs1))
+  ────────────────────────────────────────────────────────────
+  forall x.
+    is_int x => reset (times xs; r. x * r) <: product (x::xs)
+  
   
   # start_proof
       {| forall xs. is_int_list xs =>

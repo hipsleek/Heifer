@@ -66,10 +66,12 @@
   
   b, x, y, z
   Htyb: is_nat b
-  IH: forall b1 a1.
+  IH: forall b1.
         b1>=0 /\ b1<b =>
-          loop2 x y z <:
-            req y->a1 * z->b1; ens y->a1+b1*.x * z->0
+          is_nat b1 =>
+            (forall a.
+               loop2 x y z <:
+                 req y->a * z->b1; ens y->a+b1*.x * z->0)
   ────────────────────────────────────────────────────────────
   forall a.
     loop2 x y z <: req y->a * z->b; ens y->a+b*.x * z->0
@@ -79,10 +81,12 @@
   
   a1, b, x, y, z
   Htyb: is_nat b
-  IH: forall b1 a1.
+  IH: forall b1.
         b1>=0 /\ b1<b =>
-          loop2 x y z <:
-            req y->a1 * z->b1; ens y->a1+b1*.x * z->0
+          is_nat b1 =>
+            (forall a.
+               loop2 x y z <:
+                 req y->a * z->b1; ens y->a+b1*.x * z->0)
   ────────────────────────────────────────────────────────────
      loop2 x y z
   <: req y->a1 * z->b; ens y->a1+b*.x * z->0
@@ -95,10 +99,12 @@
   
   a1, b, x, y, z
   Htyb: is_nat b
-  IH: forall b1 a1.
+  IH: forall b1.
         b1>=0 /\ b1<b =>
-          loop2 x y z <:
-            req y->a1 * z->b1; ens y->a1+b1*.x * z->0
+          is_nat b1 =>
+            (forall a.
+               loop2 x y z <:
+                 req y->a * z->b1; ens y->a+b1*.x * z->0)
   ────────────────────────────────────────────────────────────
      loop2 x y z
   <: req y->a1 * z->b; ens y->a1+b*.x * z->0
@@ -108,10 +114,12 @@
   
   a1, b, x, y, z
   Htyb: is_nat b
-  IH: forall b1 a1.
+  IH: forall b1.
         b1>=0 /\ b1<b =>
-          loop2 x y z <:
-            req y->a1 * z->b1; ens y->a1+b1*.x * z->0
+          is_nat b1 =>
+            (forall a.
+               loop2 x y z <:
+                 req y->a * z->b1; ens y->a+b1*.x * z->0)
   ────────────────────────────────────────────────────────────
      forall a.
        (req z->a /\ a>0;
@@ -142,10 +150,12 @@
   
   a1, b, x, y, z
   Htyb: is_nat b
-  IH: forall b1 a1.
+  IH: forall b1.
         b1>=0 /\ b1<b =>
-          loop2 x y z <:
-            req y->a1 * z->b1; ens y->a1+b1*.x * z->0
+          is_nat b1 =>
+            (forall a.
+               loop2 x y z <:
+                 req y->a * z->b1; ens y->a+b1*.x * z->0)
   ────────────────────────────────────────────────────────────
      (req z->b /\ b>0;
       ens z->b; incr y x; decr z 1; loop2 x y z) /\
@@ -158,10 +168,12 @@
   a1, b, x, y, z
   Hb: b>0
   Htyb: is_nat b
-  IH: forall b1 a1.
+  IH: forall b1.
         b1>=0 /\ b1<b =>
-          loop2 x y z <:
-            req y->a1 * z->b1; ens y->a1+b1*.x * z->0
+          is_nat b1 =>
+            (forall a.
+               loop2 x y z <:
+                 req y->a * z->b1; ens y->a+b1*.x * z->0)
   ────────────────────────────────────────────────────────────
      (req z->b /\ b>0;
       ens z->b; incr y x; decr z 1; loop2 x y z) /\
@@ -175,10 +187,12 @@
   a1, b, x, y, z
   Hb: b>0
   Htyb: is_nat b
-  IH: forall b1 a1.
+  IH: forall b1.
         b1>=0 /\ b1<b =>
-          loop2 x y z <:
-            req y->a1 * z->b1; ens y->a1+b1*.x * z->0
+          is_nat b1 =>
+            (forall a.
+               loop2 x y z <:
+                 req y->a * z->b1; ens y->a+b1*.x * z->0)
   ────────────────────────────────────────────────────────────
      req z->b /\ b>0;
      ens z->b; incr y x; decr z 1; loop2 x y z
@@ -196,10 +210,12 @@
   a1, b, x, y, z
   Hb: b>0
   Htyb: is_nat b
-  IH: forall b1 a1.
+  IH: forall b1.
         b1>=0 /\ b1<b =>
-          loop2 x y z <:
-            req y->a1 * z->b1; ens y->a1+b1*.x * z->0
+          is_nat b1 =>
+            (forall a.
+               loop2 x y z <:
+                 req y->a * z->b1; ens y->a+b1*.x * z->0)
   ────────────────────────────────────────────────────────────
      req z->b /\ b>0;
      ens z->b; incr y x; decr z 1; loop2 x y z
@@ -212,10 +228,12 @@
   a1, b, x, y, z
   Hb: b>0
   Htyb: is_nat b
-  IH: forall b1 a1.
+  IH: forall b1.
         b1>=0 /\ b1<b =>
-          loop2 x y z <:
-            req y->a1 * z->b1; ens y->a1+b1*.x * z->0
+          is_nat b1 =>
+            (forall a.
+               loop2 x y z <:
+                 req y->a * z->b1; ens y->a+b1*.x * z->0)
   ────────────────────────────────────────────────────────────
   y->a1
   z->b
@@ -232,10 +250,12 @@
   Hb: b>0
   Hh: forall p q. req p /\ q <: req p; req q
   Htyb: is_nat b
-  IH: forall b1 a1.
+  IH: forall b1.
         b1>=0 /\ b1<b =>
-          loop2 x y z <:
-            req y->a1 * z->b1; ens y->a1+b1*.x * z->0
+          is_nat b1 =>
+            (forall a.
+               loop2 x y z <:
+                 req y->a * z->b1; ens y->a+b1*.x * z->0)
   ────────────────────────────────────────────────────────────
   y->a1
   z->b
@@ -252,10 +272,12 @@
   Hb: b>0
   Hh: forall p q. req p /\ q <: req p; req q
   Htyb: is_nat b
-  IH: forall b1 a1.
+  IH: forall b1.
         b1>=0 /\ b1<b =>
-          loop2 x y z <:
-            req y->a1 * z->b1; ens y->a1+b1*.x * z->0
+          is_nat b1 =>
+            (forall a.
+               loop2 x y z <:
+                 req y->a * z->b1; ens y->a+b1*.x * z->0)
   ────────────────────────────────────────────────────────────
   y->a1
   z->b
@@ -272,10 +294,12 @@
   Hb: b>0
   Hh: forall p q. req p /\ q <: req p; req q
   Htyb: is_nat b
-  IH: forall b1 a1.
+  IH: forall b1.
         b1>=0 /\ b1<b =>
-          loop2 x y z <:
-            req y->a1 * z->b1; ens y->a1+b1*.x * z->0
+          is_nat b1 =>
+            (forall a.
+               loop2 x y z <:
+                 req y->a * z->b1; ens y->a+b1*.x * z->0)
   ────────────────────────────────────────────────────────────
   y->a1
   z->b
@@ -292,10 +316,12 @@
   Hb: b>0
   Hh: forall p q. req p /\ q <: req p; req q
   Htyb: is_nat b
-  IH: forall b1 a1.
+  IH: forall b1.
         b1>=0 /\ b1<b =>
-          loop2 x y z <:
-            req y->a1 * z->b1; ens y->a1+b1*.x * z->0
+          is_nat b1 =>
+            (forall a.
+               loop2 x y z <:
+                 req y->a * z->b1; ens y->a+b1*.x * z->0)
   ────────────────────────────────────────────────────────────
   y->a1
   ───────────────────────────────────────────────────────────*
@@ -316,10 +342,12 @@
   Hb: b>0
   Hh: forall p q. req p /\ q <: req p; req q
   Htyb: is_nat b
-  IH: forall b1 a1.
+  IH: forall b1.
         b1>=0 /\ b1<b =>
-          loop2 x y z <:
-            req y->a1 * z->b1; ens y->a1+b1*.x * z->0
+          is_nat b1 =>
+            (forall a.
+               loop2 x y z <:
+                 req y->a * z->b1; ens y->a+b1*.x * z->0)
   ────────────────────────────────────────────────────────────
   y->a1
   ───────────────────────────────────────────────────────────*
@@ -334,10 +362,12 @@
   Hb: b>0
   Hh: forall p q. req p /\ q <: req p; req q
   Htyb: is_nat b
-  IH: forall b1 a1.
+  IH: forall b1.
         b1>=0 /\ b1<b =>
-          loop2 x y z <:
-            req y->a1 * z->b1; ens y->a1+b1*.x * z->0
+          is_nat b1 =>
+            (forall a.
+               loop2 x y z <:
+                 req y->a * z->b1; ens y->a+b1*.x * z->0)
   ────────────────────────────────────────────────────────────
      ens y->a1; ens z->b; incr y x; decr z 1; loop2 x y z
   <: ens y->a1+b*.x * z->0
@@ -351,10 +381,12 @@
   Hb: b>0
   Hh: forall p q. req p /\ q <: req p; req q
   Htyb: is_nat b
-  IH: forall b1 a1.
+  IH: forall b1.
         b1>=0 /\ b1<b =>
-          loop2 x y z <:
-            req y->a1 * z->b1; ens y->a1+b1*.x * z->0
+          is_nat b1 =>
+            (forall a.
+               loop2 x y z <:
+                 req y->a * z->b1; ens y->a+b1*.x * z->0)
   ────────────────────────────────────────────────────────────
      ens y->a1; ens z->b; incr y x; decr z 1; loop2 x y z
   <: ens y->a1+b*.x * z->0
@@ -368,10 +400,12 @@
   Hb: b>0
   Hh: forall p q. req p /\ q <: req p; req q
   Htyb: is_nat b
-  IH: forall b1 a1.
+  IH: forall b1.
         b1>=0 /\ b1<b =>
-          loop2 x y z <:
-            req y->a1 * z->b1; ens y->a1+b1*.x * z->0
+          is_nat b1 =>
+            (forall a.
+               loop2 x y z <:
+                 req y->a * z->b1; ens y->a+b1*.x * z->0)
   ────────────────────────────────────────────────────────────
      (ens z->b; ens y->a1); incr y x; decr z 1; loop2 x y z
   <: ens y->a1+b*.x * z->0
@@ -385,10 +419,12 @@
   Hb: b>0
   Hh: forall p q. req p /\ q <: req p; req q
   Htyb: is_nat b
-  IH: forall b1 a1.
+  IH: forall b1.
         b1>=0 /\ b1<b =>
-          loop2 x y z <:
-            req y->a1 * z->b1; ens y->a1+b1*.x * z->0
+          is_nat b1 =>
+            (forall a.
+               loop2 x y z <:
+                 req y->a * z->b1; ens y->a+b1*.x * z->0)
   ────────────────────────────────────────────────────────────
      ens z->b; ens y->a1; incr y x; decr z 1; loop2 x y z
   <: ens y->a1+b*.x * z->0
@@ -403,10 +439,12 @@
   Hh: forall p q. req p /\ q <: req p; req q
   Hincr: forall x y v. ens x->v; incr x y <: ens x->v+y
   Htyb: is_nat b
-  IH: forall b1 a1.
+  IH: forall b1.
         b1>=0 /\ b1<b =>
-          loop2 x y z <:
-            req y->a1 * z->b1; ens y->a1+b1*.x * z->0
+          is_nat b1 =>
+            (forall a.
+               loop2 x y z <:
+                 req y->a * z->b1; ens y->a+b1*.x * z->0)
   ────────────────────────────────────────────────────────────
      ens z->b; ens y->a1; incr y x; decr z 1; loop2 x y z
   <: ens y->a1+b*.x * z->0
@@ -421,10 +459,12 @@
   Hh: forall p q. req p /\ q <: req p; req q
   Hincr: forall x y v. ens x->v; incr x y <: ens x->v+y
   Htyb: is_nat b
-  IH: forall b1 a1.
+  IH: forall b1.
         b1>=0 /\ b1<b =>
-          loop2 x y z <:
-            req y->a1 * z->b1; ens y->a1+b1*.x * z->0
+          is_nat b1 =>
+            (forall a.
+               loop2 x y z <:
+                 req y->a * z->b1; ens y->a+b1*.x * z->0)
   ────────────────────────────────────────────────────────────
      ens z->b; ens y->a1+x; decr z 1; loop2 x y z
   <: ens y->a1+b*.x * z->0
@@ -439,10 +479,12 @@
   Hh: forall p q. req p /\ q <: req p; req q
   Hincr: forall x y v. ens x->v; incr x y <: ens x->v+y
   Htyb: is_nat b
-  IH: forall b1 a1.
+  IH: forall b1.
         b1>=0 /\ b1<b =>
-          loop2 x y z <:
-            req y->a1 * z->b1; ens y->a1+b1*.x * z->0
+          is_nat b1 =>
+            (forall a.
+               loop2 x y z <:
+                 req y->a * z->b1; ens y->a+b1*.x * z->0)
   ────────────────────────────────────────────────────────────
      (ens y->a1+x; ens z->b); decr z 1; loop2 x y z
   <: ens y->a1+b*.x * z->0
@@ -457,10 +499,12 @@
   Hh: forall p q. req p /\ q <: req p; req q
   Hincr: forall x y v. ens x->v; incr x y <: ens x->v+y
   Htyb: is_nat b
-  IH: forall b1 a1.
+  IH: forall b1.
         b1>=0 /\ b1<b =>
-          loop2 x y z <:
-            req y->a1 * z->b1; ens y->a1+b1*.x * z->0
+          is_nat b1 =>
+            (forall a.
+               loop2 x y z <:
+                 req y->a * z->b1; ens y->a+b1*.x * z->0)
   ────────────────────────────────────────────────────────────
      ens y->a1+x; ens z->b; decr z 1; loop2 x y z
   <: ens y->a1+b*.x * z->0
@@ -476,10 +520,12 @@
   Hh: forall p q. req p /\ q <: req p; req q
   Hincr: forall x y v. ens x->v; incr x y <: ens x->v+y
   Htyb: is_nat b
-  IH: forall b1 a1.
+  IH: forall b1.
         b1>=0 /\ b1<b =>
-          loop2 x y z <:
-            req y->a1 * z->b1; ens y->a1+b1*.x * z->0
+          is_nat b1 =>
+            (forall a.
+               loop2 x y z <:
+                 req y->a * z->b1; ens y->a+b1*.x * z->0)
   ────────────────────────────────────────────────────────────
      ens y->a1+x; ens z->b; decr z 1; loop2 x y z
   <: ens y->a1+b*.x * z->0
@@ -495,10 +541,12 @@
   Hh: forall p q. req p /\ q <: req p; req q
   Hincr: forall x y v. ens x->v; incr x y <: ens x->v+y
   Htyb: is_nat b
-  IH: forall b1 a1.
+  IH: forall b1.
         b1>=0 /\ b1<b =>
-          loop2 x y z <:
-            req y->a1 * z->b1; ens y->a1+b1*.x * z->0
+          is_nat b1 =>
+            (forall a.
+               loop2 x y z <:
+                 req y->a * z->b1; ens y->a+b1*.x * z->0)
   ────────────────────────────────────────────────────────────
      ens y->a1+x; ens z->b-1; loop2 x y z
   <: ens y->a1+b*.x * z->0
@@ -518,10 +566,12 @@
   Hh: forall p q. req p /\ q <: req p; req q
   Hincr: forall x y v. ens x->v; incr x y <: ens x->v+y
   Htyb: is_nat b
-  IH: forall b1 a1.
+  IH: forall b1.
         b1>=0 /\ b1<b =>
-          loop2 x y z <:
-            req y->a1 * z->b1; ens y->a1+b1*.x * z->0
+          is_nat b1 =>
+            (forall a.
+               loop2 x y z <:
+                 req y->a * z->b1; ens y->a+b1*.x * z->0)
   ────────────────────────────────────────────────────────────
      ens y->a1+x; ens z->b-1; loop2 x y z
   <: ens y->a1+b*.x * z->0
@@ -537,10 +587,12 @@
   Hh: forall p q. req p /\ q <: req p; req q
   Hincr: forall x y v. ens x->v; incr x y <: ens x->v+y
   Htyb: is_nat b
-  IH: forall b1 a1.
+  IH: forall b1.
         b1>=0 /\ b1<b =>
-          loop2 x y z <:
-            req y->a1 * z->b1; ens y->a1+b1*.x * z->0
+          is_nat b1 =>
+            (forall a.
+               loop2 x y z <:
+                 req y->a * z->b1; ens y->a+b1*.x * z->0)
   ────────────────────────────────────────────────────────────
   y->a1+x
   ───────────────────────────────────────────────────────────*
@@ -558,10 +610,12 @@
   Hh: forall p q. req p /\ q <: req p; req q
   Hincr: forall x y v. ens x->v; incr x y <: ens x->v+y
   Htyb: is_nat b
-  IH: forall b1 a1.
+  IH: forall b1.
         b1>=0 /\ b1<b =>
-          loop2 x y z <:
-            req y->a1 * z->b1; ens y->a1+b1*.x * z->0
+          is_nat b1 =>
+            (forall a.
+               loop2 x y z <:
+                 req y->a * z->b1; ens y->a+b1*.x * z->0)
   ────────────────────────────────────────────────────────────
   z->b-1
   y->a1+x
@@ -571,7 +625,7 @@
   (1 more goals)
   
   
-  # specialize "IH" ["b-1"; "a1+x"]
+  # specialize "IH" ["b-1"]
   
   a1, b, x, y, z
   H_ens_swap: forall p q. ens p; ens q <: ens q; ens p
@@ -581,8 +635,10 @@
   Hincr: forall x y v. ens x->v; incr x y <: ens x->v+y
   Htyb: is_nat b
   IH: b-1>=0 /\ b-1<b =>
-        loop2 x y z <:
-          req y->a1+x * z->b-1; ens y->a1+x+(b-1)*.x * z->0
+        is_nat (b-1) =>
+          (forall a.
+             loop2 x y z <:
+               req y->a * z->b-1; ens y->a+(b-1)*.x * z->0)
   ────────────────────────────────────────────────────────────
   z->b-1
   y->a1+x
@@ -592,7 +648,7 @@
   (1 more goals)
   
   
-  # rewrite "IH"
+  # forward "IH"
   
   a1, b, x, y, z
   H_ens_swap: forall p q. ens p; ens q <: ens q; ens p
@@ -602,8 +658,10 @@
   Hincr: forall x y v. ens x->v; incr x y <: ens x->v+y
   Htyb: is_nat b
   IH: b-1>=0 /\ b-1<b =>
-        loop2 x y z <:
-          req y->a1+x * z->b-1; ens y->a1+x+(b-1)*.x * z->0
+        is_nat (b-1) =>
+          (forall a.
+             loop2 x y z <:
+               req y->a * z->b-1; ens y->a+(b-1)*.x * z->0)
   ────────────────────────────────────────────────────────────
   z->b-1
   y->a1+x
@@ -627,9 +685,98 @@
   Hh: forall p q. req p /\ q <: req p; req q
   Hincr: forall x y v. ens x->v; incr x y <: ens x->v+y
   Htyb: is_nat b
-  IH: b-1>=0 /\ b-1<b =>
+  IH: is_nat (b-1) =>
+        (forall a.
+           loop2 x y z <:
+             req y->a * z->b-1; ens y->a+(b-1)*.x * z->0)
+  ────────────────────────────────────────────────────────────
+  z->b-1
+  y->a1+x
+  ───────────────────────────────────────────────────────────*
+     loop2 x y z
+  <: ens y->a1+b*.x * z->0
+  (1 more goals)
+  
+  
+  # forward "IH"
+  
+  a1, b, x, y, z
+  H_ens_swap: forall p q. ens p; ens q <: ens q; ens p
+  Hb: b>0
+  Hdecr: forall x y v. ens x->v; decr x y <: ens x->v-y
+  Hh: forall p q. req p /\ q <: req p; req q
+  Hincr: forall x y v. ens x->v; incr x y <: ens x->v+y
+  Htyb: is_nat b
+  IH: is_nat (b-1) =>
+        (forall a.
+           loop2 x y z <:
+             req y->a * z->b-1; ens y->a+(b-1)*.x * z->0)
+  ────────────────────────────────────────────────────────────
+  z->b-1
+  y->a1+x
+  ───────────────────────────────────────────────────────────*
+  is_nat (b-1)
+  (2 more goals)
+  
+  
+  # prove ()
+  Warning, file line 0, characters 0-0: unused variable a1
+  Warning, file line 0, characters 0-0: unused variable x
+  Warning, file line 0, characters 0-0: unused variable y
+  Warning, file line 0, characters 0-0: unused variable z
+  ==> Valid
+  
+  
+  a1, b, x, y, z
+  H_ens_swap: forall p q. ens p; ens q <: ens q; ens p
+  Hb: b>0
+  Hdecr: forall x y v. ens x->v; decr x y <: ens x->v-y
+  Hh: forall p q. req p /\ q <: req p; req q
+  Hincr: forall x y v. ens x->v; incr x y <: ens x->v+y
+  Htyb: is_nat b
+  IH: forall a.
         loop2 x y z <:
-          req y->a1+x * z->b-1; ens y->a1+x+(b-1)*.x * z->0
+          req y->a * z->b-1; ens y->a+(b-1)*.x * z->0
+  ────────────────────────────────────────────────────────────
+  z->b-1
+  y->a1+x
+  ───────────────────────────────────────────────────────────*
+     loop2 x y z
+  <: ens y->a1+b*.x * z->0
+  (1 more goals)
+  
+  
+  # specialize "IH" ["a1+x"]
+  
+  a1, b, x, y, z
+  H_ens_swap: forall p q. ens p; ens q <: ens q; ens p
+  Hb: b>0
+  Hdecr: forall x y v. ens x->v; decr x y <: ens x->v-y
+  Hh: forall p q. req p /\ q <: req p; req q
+  Hincr: forall x y v. ens x->v; incr x y <: ens x->v+y
+  Htyb: is_nat b
+  IH: loop2 x y z <:
+        req y->a1+x * z->b-1; ens y->a1+x+(b-1)*.x * z->0
+  ────────────────────────────────────────────────────────────
+  z->b-1
+  y->a1+x
+  ───────────────────────────────────────────────────────────*
+     loop2 x y z
+  <: ens y->a1+b*.x * z->0
+  (1 more goals)
+  
+  
+  # rewrite "IH"
+  
+  a1, b, x, y, z
+  H_ens_swap: forall p q. ens p; ens q <: ens q; ens p
+  Hb: b>0
+  Hdecr: forall x y v. ens x->v; decr x y <: ens x->v-y
+  Hh: forall p q. req p /\ q <: req p; req q
+  Hincr: forall x y v. ens x->v; incr x y <: ens x->v+y
+  Htyb: is_nat b
+  IH: loop2 x y z <:
+        req y->a1+x * z->b-1; ens y->a1+x+(b-1)*.x * z->0
   ────────────────────────────────────────────────────────────
   z->b-1
   y->a1+x
@@ -652,9 +799,8 @@
   Hh: forall p q. req p /\ q <: req p; req q
   Hincr: forall x y v. ens x->v; incr x y <: ens x->v+y
   Htyb: is_nat b
-  IH: b-1>=0 /\ b-1<b =>
-        loop2 x y z <:
-          req y->a1+x * z->b-1; ens y->a1+x+(b-1)*.x * z->0
+  IH: loop2 x y z <:
+        req y->a1+x * z->b-1; ens y->a1+x+(b-1)*.x * z->0
   ────────────────────────────────────────────────────────────
   z->b-1
   y->a1+x
@@ -673,9 +819,8 @@
   Hh: forall p q. req p /\ q <: req p; req q
   Hincr: forall x y v. ens x->v; incr x y <: ens x->v+y
   Htyb: is_nat b
-  IH: b-1>=0 /\ b-1<b =>
-        loop2 x y z <:
-          req y->a1+x * z->b-1; ens y->a1+x+(b-1)*.x * z->0
+  IH: loop2 x y z <:
+        req y->a1+x * z->b-1; ens y->a1+x+(b-1)*.x * z->0
   ────────────────────────────────────────────────────────────
      ens y->a1+x+(b-1)*.x * z->0
   <: ens y->a1+b*.x * z->0
@@ -691,9 +836,8 @@
   Hh: forall p q. req p /\ q <: req p; req q
   Hincr: forall x y v. ens x->v; incr x y <: ens x->v+y
   Htyb: is_nat b
-  IH: b-1>=0 /\ b-1<b =>
-        loop2 x y z <:
-          req y->a1+x * z->b-1; ens y->a1+x+(b-1)*.x * z->0
+  IH: loop2 x y z <:
+        req y->a1+x * z->b-1; ens y->a1+x+(b-1)*.x * z->0
   ────────────────────────────────────────────────────────────
   y->a1+x+(b-1)*.x
   z->0
@@ -714,9 +858,8 @@
   Hh: forall p q. req p /\ q <: req p; req q
   Hincr: forall x y v. ens x->v; incr x y <: ens x->v+y
   Htyb: is_nat b
-  IH: b-1>=0 /\ b-1<b =>
-        loop2 x y z <:
-          req y->a1+x * z->b-1; ens y->a1+x+(b-1)*.x * z->0
+  IH: loop2 x y z <:
+        req y->a1+x * z->b-1; ens y->a1+x+(b-1)*.x * z->0
   ────────────────────────────────────────────────────────────
      ()
   <: ()
@@ -751,10 +894,12 @@
   a1, b, x, y, z
   Hb: !b>0
   Htyb: is_nat b
-  IH: forall b1 a1.
+  IH: forall b1.
         b1>=0 /\ b1<b =>
-          loop2 x y z <:
-            req y->a1 * z->b1; ens y->a1+b1*.x * z->0
+          is_nat b1 =>
+            (forall a.
+               loop2 x y z <:
+                 req y->a * z->b1; ens y->a+b1*.x * z->0)
   ────────────────────────────────────────────────────────────
      (req z->b /\ b>0;
       ens z->b; incr y x; decr z 1; loop2 x y z) /\
@@ -767,10 +912,12 @@
   a1, b, x, y, z
   Hb: !b>0
   Htyb: is_nat b
-  IH: forall b1 a1.
+  IH: forall b1.
         b1>=0 /\ b1<b =>
-          loop2 x y z <:
-            req y->a1 * z->b1; ens y->a1+b1*.x * z->0
+          is_nat b1 =>
+            (forall a.
+               loop2 x y z <:
+                 req y->a * z->b1; ens y->a+b1*.x * z->0)
   ────────────────────────────────────────────────────────────
      req z->b /\ b<=0; ens z->b
   <: req y->a1 * z->b; ens y->a1+b*.x * z->0
@@ -785,10 +932,12 @@
   a1, b, x, y, z
   Hb: !b>0
   Htyb: is_nat b
-  IH: forall b1 a1.
+  IH: forall b1.
         b1>=0 /\ b1<b =>
-          loop2 x y z <:
-            req y->a1 * z->b1; ens y->a1+b1*.x * z->0
+          is_nat b1 =>
+            (forall a.
+               loop2 x y z <:
+                 req y->a * z->b1; ens y->a+b1*.x * z->0)
   ────────────────────────────────────────────────────────────
      req z->b /\ b<=0; ens z->b
   <: req y->a1 * z->b; ens y->a1+b*.x * z->0
@@ -800,10 +949,12 @@
   Hb: !b>0
   Hh: forall p q. req p /\ q <: req p; req q
   Htyb: is_nat b
-  IH: forall b1 a1.
+  IH: forall b1.
         b1>=0 /\ b1<b =>
-          loop2 x y z <:
-            req y->a1 * z->b1; ens y->a1+b1*.x * z->0
+          is_nat b1 =>
+            (forall a.
+               loop2 x y z <:
+                 req y->a * z->b1; ens y->a+b1*.x * z->0)
   ────────────────────────────────────────────────────────────
      req z->b /\ b<=0; ens z->b
   <: req y->a1 * z->b; ens y->a1+b*.x * z->0
@@ -815,10 +966,12 @@
   Hb: !b>0
   Hh: forall p q. req p /\ q <: req p; req q
   Htyb: is_nat b
-  IH: forall b1 a1.
+  IH: forall b1.
         b1>=0 /\ b1<b =>
-          loop2 x y z <:
-            req y->a1 * z->b1; ens y->a1+b1*.x * z->0
+          is_nat b1 =>
+            (forall a.
+               loop2 x y z <:
+                 req y->a * z->b1; ens y->a+b1*.x * z->0)
   ────────────────────────────────────────────────────────────
      (req z->b; req b<=0); ens z->b
   <: req y->a1 * z->b; ens y->a1+b*.x * z->0
@@ -830,10 +983,12 @@
   Hb: !b>0
   Hh: forall p q. req p /\ q <: req p; req q
   Htyb: is_nat b
-  IH: forall b1 a1.
+  IH: forall b1.
         b1>=0 /\ b1<b =>
-          loop2 x y z <:
-            req y->a1 * z->b1; ens y->a1+b1*.x * z->0
+          is_nat b1 =>
+            (forall a.
+               loop2 x y z <:
+                 req y->a * z->b1; ens y->a+b1*.x * z->0)
   ────────────────────────────────────────────────────────────
      req z->b; req b<=0; ens z->b
   <: req y->a1 * z->b; ens y->a1+b*.x * z->0
@@ -845,10 +1000,12 @@
   Hb: !b>0
   Hh: forall p q. req p /\ q <: req p; req q
   Htyb: is_nat b
-  IH: forall b1 a1.
+  IH: forall b1.
         b1>=0 /\ b1<b =>
-          loop2 x y z <:
-            req y->a1 * z->b1; ens y->a1+b1*.x * z->0
+          is_nat b1 =>
+            (forall a.
+               loop2 x y z <:
+                 req y->a * z->b1; ens y->a+b1*.x * z->0)
   ────────────────────────────────────────────────────────────
   y->a1
   z->b
@@ -863,10 +1020,12 @@
   Hb: !b>0
   Hh: forall p q. req p /\ q <: req p; req q
   Htyb: is_nat b
-  IH: forall b1 a1.
+  IH: forall b1.
         b1>=0 /\ b1<b =>
-          loop2 x y z <:
-            req y->a1 * z->b1; ens y->a1+b1*.x * z->0
+          is_nat b1 =>
+            (forall a.
+               loop2 x y z <:
+                 req y->a * z->b1; ens y->a+b1*.x * z->0)
   ────────────────────────────────────────────────────────────
   y->a1
   ───────────────────────────────────────────────────────────*
@@ -906,10 +1065,12 @@
   Hb: !b>0
   Hh: forall p q. req p /\ q <: req p; req q
   Htyb: is_nat b
-  IH: forall b1 a1.
+  IH: forall b1.
         b1>=0 /\ b1<b =>
-          loop2 x y z <:
-            req y->a1 * z->b1; ens y->a1+b1*.x * z->0
+          is_nat b1 =>
+            (forall a.
+               loop2 x y z <:
+                 req y->a * z->b1; ens y->a+b1*.x * z->0)
   ────────────────────────────────────────────────────────────
   y->a1
   ───────────────────────────────────────────────────────────*
@@ -923,10 +1084,12 @@
   Hb: !b>0
   Hh: forall p q. req p /\ q <: req p; req q
   Htyb: is_nat b
-  IH: forall b1 a1.
+  IH: forall b1.
         b1>=0 /\ b1<b =>
-          loop2 x y z <:
-            req y->a1 * z->b1; ens y->a1+b1*.x * z->0
+          is_nat b1 =>
+            (forall a.
+               loop2 x y z <:
+                 req y->a * z->b1; ens y->a+b1*.x * z->0)
   ────────────────────────────────────────────────────────────
   z->b
   y->a1
@@ -993,10 +1156,12 @@
   Hb: !b>0
   Hh: forall p q. req p /\ q <: req p; req q
   Htyb: is_nat b
-  IH: forall b1 a1.
+  IH: forall b1.
         b1>=0 /\ b1<b =>
-          loop2 x y z <:
-            req y->a1 * z->b1; ens y->a1+b1*.x * z->0
+          is_nat b1 =>
+            (forall a.
+               loop2 x y z <:
+                 req y->a * z->b1; ens y->a+b1*.x * z->0)
   ────────────────────────────────────────────────────────────
      ()
   <: ()

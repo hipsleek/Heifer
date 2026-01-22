@@ -11,20 +11,16 @@ declare
 |}
 ;;
 
-declare
-  {|
+declare {|
   factf self n =
     ens n=0; 1
     \/ ens n>0; self (n-1); r1. n*.r1
-|}
-;;
+|};;
 
-start_proof
-  {|
+start_proof {|
   forall n. is_int n =>
     landin_rec factf; f. f n <: ex l v. ens l->v; fact n
-|}
-;;
+|};;
 
 (* Options.notation := false;; *)
 forall_intro ();;
@@ -100,7 +96,7 @@ prove ();;
 
 (* inductive case *)
 goal_is {|
-  ens n>0; knot (n-1); r1. n*r1
+  ens n>0; knot (n-1); r1. n*.r1
   <: ex l v. ens l->v; fact n
 |};;
 
@@ -108,8 +104,8 @@ intro_pure "Hn";;
 revert_heap ();;
 rewrite "IH";;
 prove ();;
-goal_is "(ex l v. ens l->v; fact (n-1)); r1. n*.r1 <: ex l v. ens l->v; fact n"
-;;
+prove ();;
+goal_is "(ex l v. ens l->v; fact (n-1)); r1. n*.r1 <: ex l v. ens l->v; fact n";;
 exists_elim ();;
 exists_intro ["l1"; "v"];;
 simpl ();;
