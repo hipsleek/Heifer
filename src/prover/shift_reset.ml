@@ -70,7 +70,7 @@ and reduce_cont t k =
   | Bind (t, b) -> reduce_cont t (Cons_bind (b, k))
   | Apply _ -> refine_cont_reset t k
   | Disj (t1, t2) -> Disj (reduce_cont t1 k, reduce_cont t2 k)
-  | Forall b -> Reset (refine_cont (Forall (reduce_mbinder b)) k) (* TODO: what to do in this case? *)
+  | Forall b -> Forall (reduce_mbinder_cont b k) (* TODO: what to do in this case? *)
   | Exists b -> Exists (reduce_mbinder_cont b k)
   | Shift b -> reduce_cont (subst b (capture_cont k)) Nil
   | Reset t -> reduce_cont (reduce_cont t Nil) k
