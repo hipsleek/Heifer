@@ -5,7 +5,7 @@ open Core.Syntax
 open Core.Syntax_util
 open Util
 
-exception Unification_failure
+exception Unification_failure of string
 
 let pattern_args_opt uvars ts =
   let open Options.Monad in
@@ -38,11 +38,17 @@ let args_reducible xs ts =
   in
   visit 0 ts
 
+let structure_mismatch () =
+  raise (Unification_failure "structure mismatch")
+
+let escaped_variable () =
+  raise (Unification_failure "escaped variable")
+
 (** Precondition: only [t1] contains unification variables. *)
 let rec unify_uvar x t uvars bvars sigma =
   match TVMap.find_opt x sigma with
   | None ->
-      if has_vars bvars t then raise Unification_failure; (* bound variable escapes! *)
+      if has_vars bvars t then escaped_variable ();
       TVMap.add x t sigma
   | Some t' -> pre_unify t' t uvars bvars sigma
 
@@ -104,7 +110,7 @@ and pre_unify t1 t2 uvars bvars sigma =
   | Exists b1, Exists b2 -> pre_unify_mbinder b1 b2 uvars bvars sigma
   | Shift b1, Shift b2 -> pre_unify_binder b1 b2 uvars bvars sigma
   | Reset s1, Reset s2 -> pre_unify s1 s2 uvars bvars sigma
-  | _, _ -> raise Unification_failure
+  | _, _ -> structure_mismatch ()
 
 and unify_apply1 t1 ts1 t2 uvars bvars sigma =
   match pattern_opt uvars t1 ts1 with
@@ -125,7 +131,7 @@ and unify_apply2 t1 ts1 t2 uvars bvars sigma =
       let sigma = pre_unify t1 t2 uvars bvars sigma in
       let sigma = pre_unify_list ts1 ts2 uvars bvars sigma in
       sigma
-  | _ -> raise Unification_failure
+  | _ -> structure_mismatch ()
 
 and pre_unify_list ts1 ts2 uvars bvars sigma =
   match (ts1, ts2) with
@@ -134,27 +140,27 @@ and pre_unify_list ts1 ts2 uvars bvars sigma =
       let sigma = pre_unify t1 t2 uvars bvars sigma in
       let sigma = pre_unify_list ts1 ts2 uvars bvars sigma in
       sigma
-  | _, _ -> raise Unification_failure
+  | _, _ -> structure_mismatch ()
 
 and pre_unify_binder b1 b2 uvars bvars sigma =
   let x, s1, s2 = unbind2 b1 b2 in
   pre_unify s1 s2 uvars (TVSet.add x bvars) sigma
 
 and pre_unify_mbinder b1 b2 uvars bvars sigma =
-  if mbinder_arity b1 <> mbinder_arity b2 then raise Unification_failure;
+  if mbinder_arity b1 <> mbinder_arity b2 then structure_mismatch ();
   let xs, s1, s2 = unmbind2 b1 b2 in
   pre_unify s1 s2 uvars (TVSet.add_seq (Array.to_seq xs) bvars) sigma
 
-and unify_modulo_assoc t1 t2 uvars bvars sigma =
+let rec pre_unify_assoc t1 t2 uvars bvars sigma =
   match t1, t2 with
   | Sequence (t11, t12), Sequence (t21, t22) ->
       let sigma = pre_unify t11 t21 uvars bvars sigma in
-      let sigma_frame = unify_modulo_assoc t12 t22 uvars bvars sigma in
-      sigma_frame
+      let sigma = pre_unify_assoc t12 t22 uvars bvars sigma in
+      sigma
   | Bind (t1, b1), Bind (t2, b2) ->
       let sigma = pre_unify t1 t2 uvars bvars sigma in
-      let sigma_frame = unify_binder_modulo_assoc b1 b2 uvars bvars sigma in
-      sigma_frame
+      let sigma = pre_unify_assoc_binder b1 b2 uvars bvars sigma in
+      sigma
   | _, Sequence (t21, t22) ->
       let sigma = pre_unify t1 t21 uvars bvars sigma in
       sigma, Some (fun t -> Sequence (t, t22))
@@ -165,12 +171,14 @@ and unify_modulo_assoc t1 t2 uvars bvars sigma =
       let sigma = pre_unify t1 t2 uvars bvars sigma in
       sigma, None
 
-and unify_binder_modulo_assoc b1 b2 uvars bvars sigma =
+and pre_unify_assoc_binder b1 b2 uvars bvars sigma =
   let x, t1, t2 = unbind2 b1 b2 in
-  unify_modulo_assoc t1 t2 uvars (TVSet.add x bvars) sigma
+  pre_unify_assoc t1 t2 uvars (TVSet.add x bvars) sigma
 
 
 (** The main entry point of the unification algorithm.
 
     Precondition: only [t1] contains unification variables. *)
-let unify t1 t2 uvars = unify_modulo_assoc t1 t2 uvars TVSet.empty TVMap.empty
+let unify t1 t2 uvars = pre_unify t1 t2 uvars TVSet.empty TVMap.empty
+
+let unify_assoc t1 t2 uvars = pre_unify_assoc t1 t2 uvars TVSet.empty TVMap.empty

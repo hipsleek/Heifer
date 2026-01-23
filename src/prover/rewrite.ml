@@ -38,10 +38,10 @@ let initial_ctx () = { side_conditions = []; rewritten = 0 }
 let rewrite_exact rule target =
   let uvars, (side, (lhs, rhs)) = unmbind rule in
   let sigma, frame =
-    match unify lhs target (TVSet.of_seq (Array.to_seq uvars)) with
+    match unify_assoc lhs target (TVSet.of_seq (Array.to_seq uvars)) with
     | sigma, None -> sigma, Fun.id
     | sigma, Some frame -> sigma, frame
-    | exception Unification_failure -> raise Rewrite_failure
+    | exception Unification_failure _ -> raise Rewrite_failure
   in
   if TVMap.cardinal sigma <> Array.length uvars then
     (* this condition means variables could not be instantiated *)
