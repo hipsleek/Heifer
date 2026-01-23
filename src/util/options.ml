@@ -4,6 +4,8 @@ module Monad = struct
   let ( let* ) = Option.bind
 end
 
+let guard b = if b then Some () else None
+
 let filter f opt =
   match opt with
   | Some x when f x -> opt
