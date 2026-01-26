@@ -74,6 +74,7 @@ and reduce_cont t k =
   | Exists b -> Exists (reduce_mbinder_cont b k)
   | Shift b -> reduce_cont (subst b (capture_cont k)) Nil
   | Reset t -> reduce_cont (reduce_cont t Nil) k
+  | Var _
   | Unit
   | True
   | False
