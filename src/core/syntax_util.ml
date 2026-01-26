@@ -9,6 +9,10 @@ let open_disj_opt = function
   | Disj (t1, t2) -> Some (t1, t2)
   | _ -> None
 
+let open_conj_opt = function
+  | Conj (t1, t2) -> Some (t1, t2)
+  | _ -> None
+
 let open_subsumes_opt = function
   | Subsumes (t1, t2) -> Some (t1, t2)
   | _ -> None

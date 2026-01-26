@@ -301,6 +301,7 @@ let attempt_proof show_goal task =
     (* compute in hypotheses *)
     let* task =
       let axioms = comp in
+      (* print the task *)
       fold_m
         (fun c t ->
           let use_string_interface = true in

@@ -538,10 +538,10 @@ let have ~name s =
   let* _ = add_assumption name g in
   push_pctxt { ps with goal = g }
 
-let axiom ~name s =
+(* let axiom ~name s =
   let open Tactic in
   let* g = parse_term s in
-  add_assumption name g
+  add_assumption name g *)
 
 let case ~name s =
   let open Tactic in
@@ -569,8 +569,8 @@ let qed =
 
 let refl =
   let open Tactic in
-  let* left, right = get_subsumption in
-  if equal_term left right then pop_pctxt else fail "refl: cannot close goal"
+  let* lhs, rhs = get_subsumption in
+  if equal_term lhs rhs then pop_pctxt else fail "refl: cannot close goal"
 
 let revert s =
   let open Tactic in
@@ -643,6 +643,9 @@ let exists_elim =
       let* _ = put_rename_ctxt ctxt in
       iter_array_m (fun x -> add_constant (name_of x) x) xs
   | _ -> fail "cannot eliminate exists"
+
+module ConjTactic = struct
+end
 
 let conj_elim_l =
   let open Tactic in
@@ -911,41 +914,71 @@ let prove =
 module ProofState = struct
   type t = {
     definitions : symbol_table;
+    lemmas : term SMap.t;
     goals : Pstate.t;
   }
 
-  let initial_state = { definitions = empty_table; goals = [] }
+  let initial_state = { definitions = empty_table; lemmas = SMap.empty; goals = [] }
+  let state_stack = ref []
   let current_state = ref initial_state
   let reset_proof_state () = current_state := initial_state
   let print_proof_state () = Format.printf "%a@." Pstate.pp !current_state.goals
 
-  (* TODO: add some other command to print definition/hypothesis/etc. *)
+  let push_proof_state () =
+    state_stack := !current_state :: !state_stack
 
-  (** Handle definitions *)
+  let pop_proof_state () =
+    match !state_stack with
+    | [] -> Format.printf "state stack is empty@."
+    | state :: stack -> current_state := state; state_stack := stack
+
   let get_definitions () = !current_state.definitions
+  let get_lemmas () = !current_state.lemmas
+  let get_goals () = !current_state.goals
 
   let set_definitions definitions = current_state := { !current_state with definitions }
+  let set_lemmas lemmas = current_state := { !current_state with lemmas }
   let set_goals goals = current_state := { !current_state with goals }
+  let set_goal goal = set_goals [goal]
+
+  let get_lemma name = SMap.find name (get_lemmas ())
+  let add_lemma name term = set_lemmas (SMap.add name term (get_lemmas ()))
+  let get_lemma_opt name = SMap.find_opt name (get_lemmas ())
+  let remove_lemma name = set_lemmas (SMap.remove name (get_lemmas ()))
+
+  let get_definition sym = SymMap.find sym (get_definitions ())
+  let get_definition_opt sym = SymMap.find_opt sym (get_definitions ())
 
   let declare decl =
     let sym, def = open_dfun (Parsing.Parse.parse_decl decl) in
     set_definitions (add_decl sym def !current_state.definitions);
     Format.printf "%s declared@." sym.sym_name
 
-  let start_proof g =
-    set_goals [Proof_context.create ~goal:(Parsing.Parse.parse_term g)];
+  let axiom ~name term =
+    let goal = Parsing.Parse.parse_term term in
+    add_lemma name goal;
+    Format.printf "axiom %s declared@." name
+
+  let lemma ~name term =
+    let goal = Parsing.Parse.parse_term term in
+    add_lemma name goal;
+    Format.printf "lemma %s declared@." name;
+    set_goal (Proof_context.create ~goal);
     print_proof_state ()
 
-  let run_tactic tac =
-    match Tactic.run tac !current_state.goals with
+  let start_proof term =
+    let goal = Parsing.Parse.parse_term term in
+    set_goal (Proof_context.create ~goal);
+    print_proof_state ()
+
+  let run_tactic tactic =
+    match Tactic.run tactic (get_goals ()) with
     | Ok new_goals ->
         set_goals new_goals;
         print_proof_state ()
-    | Error s -> Format.printf "error: %s@." s
+    | Error msg -> Format.printf "error: %s@." msg
 
   let make_interactive (tac : 'b -> 'a Tactic.t) (arg : 'b) = run_tactic (tac arg)
-
-  (* TODO: tactic may need to refer to the global state, not just the current goal itself. *)
 end
 
 module Interactive = struct
@@ -953,7 +986,6 @@ module Interactive = struct
 
   let have ~name = make_interactive (have ~name)
   let case ~name = make_interactive (case ~name)
-  let axiom ~name = make_interactive (axiom ~name)
   let goal_is = make_interactive goal_is
   let qed = make_interactive (fun () -> qed)
   let specialize h = make_interactive (specialize h)
@@ -996,13 +1028,11 @@ module Interactive = struct
   (** Unfold a definition (symbol) on both side of a sequent in the current proof state.
 
       TODO: implement `unfold in`. TODO: report failure using monad. Make it consistent *)
-  let unfold (sym_name : string) =
-    let sym = { sym_name } in
-    let definitions = get_definitions () in
-    let open Tactic in
-    match SymMap.find_opt sym definitions with
-    | None -> Format.printf "unfold: the symbol %s does not exist@." sym_name
-    | Some def -> run_tactic (modify_goal (Unfold.unfold sym def))
+  let unfold name =
+    let sym = { sym_name = name } in
+    match get_definition_opt sym with
+    | None -> Format.printf "unfold: %s does not exist@." name
+    | Some def -> run_tactic (Tactic.modify_goal (Unfold.unfold sym def))
 
   (** Generate an induction hypothesis in the current proof state. *)
   let induction : ?vars:string list -> name:string -> [ `List | `Int of int ] -> string -> unit =
@@ -1026,10 +1056,10 @@ module Interactive = struct
   (* TODO: implement `rewrite in` (but where can we safely rewrite?) *)
 
   (** Rewrite in the LHS of a sequent. *)
-  let rewrite (h : string) =
-    let tac =
+  let rewrite name =
+    let tactic =
       let open Tactic in
-      let* assumption = get_assumption h in
+      let* assumption = catch (get_assumption name) (fun msg -> unwrap (get_lemma_opt name) msg) in
       let rule = Rewrite.prop_to_rule assumption in
       let* lhs, _ = get_subsumption in
       match Rewrite.rewrite rule lhs with
@@ -1040,5 +1070,5 @@ module Interactive = struct
           iter_m (fun p -> push_pctxt { ps with goal = p }) (List.rev side)
       | None -> fail "rewrite failed"
     in
-    run_tactic tac
+    run_tactic tactic
 end
