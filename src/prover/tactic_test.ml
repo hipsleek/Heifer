@@ -73,7 +73,7 @@ let%expect_test "specialize" =
        ens emp
     <: ens emp
 
-    error: no assumption named: H
+    error: pop_assumption: H does not exist
     |}];
 
   (* context-dependence *)
@@ -435,7 +435,7 @@ let%expect_test "induction" =
        ens emp
     <: ens emp
 
-    error: no constant named: n
+    error: get_constant: n does not exist
     |}];
 
   start_proof "forall n. n>0 => ens emp <: ens emp";
@@ -594,7 +594,7 @@ let%expect_test "rewrite" =
        ens emp
     <: ens emp
 
-    error: no assumption named: H
+    error: get_assumption: H does not exist
     |}]
 
 let%expect_test "heap tactics" =
