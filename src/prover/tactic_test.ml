@@ -123,7 +123,7 @@ let%expect_test "elim heap" =
     ────────────────────────────────────────────────────────────
     x->1
     ───────────────────────────────────────────────────────────*
-       ()
+       ens emp
     <: ens emp
     |}];
 
@@ -319,7 +319,7 @@ let%expect_test "left/right" =
        ens emp
     <: ens emp
 
-    error: left: not disj
+    error: disj_intro: not disj
     |}];
 
   start_proof "ens emp <: ens emp";
@@ -330,7 +330,7 @@ let%expect_test "left/right" =
        ens emp
     <: ens emp
 
-    error: right: not disj
+    error: disj_intro: not disj
     |}]
 
 let%expect_test "simpl" =

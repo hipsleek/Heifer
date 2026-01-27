@@ -311,12 +311,6 @@ let admit =
   let open Tactic in
   () <$ pop_pctxt
 
-let dup =
-  let open Tactic in
-  let* p = pop_pctxt in
-  let* _ = push_pctxt p in
-  push_pctxt p
-
 let uncons_ens f =
   let open Tactic in
   match f with
@@ -452,14 +446,6 @@ module ElimTactic = struct
     let* lhs = get_lhs in
     let+ t1, t2 = unwrap (unseq_open_requires_opt lhs) "pre_req_elim: not requires" in
     (t1, unseq_tail_to_term t2)
-
-  (** UNSAFE: heap assumptions are linear, cannot be duplicated freely! *)
-  let req_elim =
-    let open Tactic in
-    let* t, lhs = pre_req_elim in
-    let* _ = put_lhs lhs in
-    let* _ = dup_pctxt in
-    put_goal t
 end
 
 module PureTactic = struct
@@ -488,6 +474,13 @@ module PureTactic = struct
     let open Tactic in
     choices ~err:"intro_pure: failed" [impl_intro name; ens_pure_elim name; req_pure_intro name]
 
+  let req_pure_elim =
+    let open Tactic in
+    let* t, lhs = ElimTactic.pre_req_elim in
+    let* _ = guard (Simply_typed.is_prop t) "req_pure_elim: not prop" in
+    let* _ = solve_invoke_why3 t in
+    put_lhs lhs
+
   let ens_pure_intro =
     let open Tactic in
     let* t, rhs = IntroTactic.pre_ens_intro in
@@ -495,12 +488,9 @@ module PureTactic = struct
     let* _ = solve_invoke_why3 t in
     put_rhs rhs
 
-  let req_pure_elim =
+  let elim_pure =
     let open Tactic in
-    let* t, lhs = ElimTactic.pre_req_elim in
-    let* _ = guard (Simply_typed.is_prop t) "req_pure_elim: not prop" in
-    let* _ = solve_invoke_why3 t in
-    put_lhs lhs
+    choices ~err:"elim_pure: failed" [req_pure_elim; ens_pure_intro]
 end
 
 let parse_term ts =
@@ -645,25 +635,15 @@ let exists_elim =
   | _ -> fail "cannot eliminate exists"
 
 module ConjTactic = struct
+  let conj_elim f_proj =
+    let open Tactic in
+    let* lhs = get_lhs in
+    let* lhs = unwrap (open_conj_opt lhs) "conj_elim: not conj" in
+    put_lhs (f_proj lhs)
+
+  let conj_elim_l = conj_elim fst
+  let conj_elim_r = conj_elim snd
 end
-
-let conj_elim_l =
-  let open Tactic in
-  let* left, right = get_subsumption in
-  match left with
-  | Conj (a, _) ->
-      let* ps = pop_pctxt in
-      push_pctxt { ps with goal = Subsumes (a, right) }
-  | _ -> fail "not a conjunction"
-
-let conj_elim_r =
-  let open Tactic in
-  let* left, right = get_subsumption in
-  match left with
-  | Conj (_, b) ->
-      let* ps = pop_pctxt in
-      push_pctxt { ps with goal = Subsumes (b, right) }
-  | _ -> fail "not a conjunction"
 
 module DisjTactic = struct
   let disj_elim =
@@ -674,17 +654,14 @@ module DisjTactic = struct
     let* _ = dup_pctxt in
     put_lhs lhs1
 
-  let left =
+  let disj_intro f_proj =
     let open Tactic in
     let* rhs = get_rhs in
-    let* rhs, _ = unwrap (open_disj_opt rhs) "left: not disj" in
-    put_rhs rhs
+    let* rhs = unwrap (open_disj_opt rhs) "disj_intro: not disj" in
+    put_rhs (f_proj rhs)
 
-  let right =
-    let open Tactic in
-    let* rhs = get_rhs in
-    let* _, rhs = unwrap (open_disj_opt rhs) "right: not disj" in
-    put_rhs rhs
+  let left = disj_intro fst
+  let right = disj_intro snd
 end
 
 let simpl = Tactic.modify_goal Simpl.simpl
@@ -722,7 +699,7 @@ module HeapTactic = struct
         let ts2, target = unseq_open_loop f (unseq_tail_to_term target) in
         (ts1 @ ts2, target)
 
-  let ens_heap_elim =
+  let ens_heap_elims =
     let open Tactic in
     let* lhs = get_lhs in
     let ts, lhs = unseq_open_loop unseq_open_ensures_opt lhs in
@@ -738,8 +715,9 @@ module HeapTactic = struct
 
   let intros_heap =
     let open Tactic in
-    let* _ = ens_heap_elim in
-    req_heap_intros
+    let* _ = ens_heap_elims in
+    let* _ = req_heap_intros in
+    pure ()
 
   let pre_heap_solver goal =
     let open Tactic in
@@ -769,6 +747,10 @@ module HeapTactic = struct
     let* _ = pre_heap_solver t in
     put_rhs rhs
 
+  let elim_heap =
+    let open Tactic in
+    choices ~err:"elim_heap: failed" [req_heap_elim; ens_heap_intro]
+
   let revert_heap =
     let open Tactic in
     let* heap_assumptions = get_heap_assumptions in
@@ -778,19 +760,10 @@ module HeapTactic = struct
 end
 
 module UnmixTactic = struct
-  let pre_unmix f_get f_put f_unseq_open_opt f_constr =
-    let open Tactic in
-    let* t = f_get in
-    let* t1, t2 = unwrap (f_unseq_open_opt t) "pre_unmix: invalid argument" in
-    let pure, heap = Mixed.deep_destruct_mixed t1 in
-    let pure = Constr.conj pure in
-    let heap = Constr.sepconj heap in
-    f_put (Sequence (f_constr pure, reseq (f_constr heap) t2))
-
   let unmix_ens f_get f_put =
     let open Tactic in
     let* t = f_get in
-    let* t1, t2 = unwrap (unseq_open_ensures_opt t) "pre_unmix: not ensures" in
+    let* t1, t2 = unwrap (unseq_open_ensures_opt t) "unmix_ens: not ensures" in
     let pure, heap = Mixed.normalize_mixed t1 in
     f_put (Sequence (Ensures pure, reseq (Ensures heap) t2))
 
@@ -800,7 +773,7 @@ module UnmixTactic = struct
   let unmix_req f_get f_put =
     let open Tactic in
     let* t = f_get in
-    let* t1, t2 = unwrap (unseq_open_requires_opt t) "pre_unmix: not requires" in
+    let* t1, t2 = unwrap (unseq_open_requires_opt t) "unmix_req: not requires" in
     let pure, heap = Mixed.normalize_mixed t1 in
     f_put (Sequence (Requires pure, reseq (Requires heap) t2))
 
@@ -986,7 +959,7 @@ module Interactive = struct
 
   let have ~name = make_interactive (have ~name)
   let case ~name = make_interactive (case ~name)
-  let goal_is = make_interactive goal_is
+  let goal_is term = run_tactic (goal_is term)
   let qed = make_interactive (fun () -> qed)
   let specialize h = make_interactive (specialize h)
   let forward = make_interactive forward
@@ -1000,8 +973,10 @@ module Interactive = struct
   let ens_pure_intro () = run_tactic PureTactic.ens_pure_intro
   let ens_pure_elim name = run_tactic (PureTactic.ens_pure_elim name)
   let intro_pure name = run_tactic (PureTactic.intro_pure name)
+  let elim_pure () = run_tactic PureTactic.elim_pure
   let intro_heap () = run_tactic HeapTactic.intro_heap
   let intros_heap () = run_tactic HeapTactic.intros_heap
+  let elim_heap () = run_tactic HeapTactic.elim_heap
   let revert = make_interactive revert
   let revert_heap () = run_tactic HeapTactic.revert_heap
   let heap_solver () = run_tactic HeapTactic.heap_solver
@@ -1009,20 +984,17 @@ module Interactive = struct
   let forall_elim = make_interactive forall_elim
   let exists_intro = make_interactive exists_intro
   let exists_elim = make_interactive (fun () -> exists_elim)
+  let conj_elim_l () = run_tactic ConjTactic.conj_elim_l
+  let conj_elim_r () = run_tactic ConjTactic.conj_elim_r
   let disj_elim () = run_tactic DisjTactic.disj_elim
   let left () = run_tactic DisjTactic.left
   let right () = run_tactic DisjTactic.right
-  let conj_elim_l () = run_tactic conj_elim_l
-  let conj_elim_r () = run_tactic conj_elim_r
   let simpl () = run_tactic simpl
   let unmix () = run_tactic UnmixTactic.unmix
   let shift_reset_reduce () = run_tactic shift_reset_reduce
-  (* let req_left = make_interactive (fun () -> req_left) *)
 
-  (* let cancel_heap = make_interactive (fun () -> cancel_heap) *)
   let prove = make_interactive (fun () -> prove)
   let admit () = run_tactic admit
-  let dup () = run_tactic dup
   let prove_s s = Why3_prover.prove ~show_goal:true (Parsing.Parse.parse_prop s)
 
   (** Unfold a definition (symbol) on both side of a sequent in the current proof state.
