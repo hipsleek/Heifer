@@ -511,7 +511,7 @@ let%expect_test "unfold" =
        ens emp
     <: ens emp
 
-    unfold: foo does not exist
+    error: unfold: foo does not exist
     |}]
 
 let%expect_test "intro_pure" =

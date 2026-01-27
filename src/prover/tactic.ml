@@ -997,14 +997,16 @@ module Interactive = struct
   let admit () = run_tactic admit
   let prove_s s = Why3_prover.prove ~show_goal:true (Parsing.Parse.parse_prop s)
 
-  (** Unfold a definition (symbol) on both side of a sequent in the current proof state.
-
-      TODO: implement `unfold in`. TODO: report failure using monad. Make it consistent *)
+  (** Unfold a definition (symbol) on both side of a sequent in the current proof state. *)
   let unfold name =
-    let sym = { sym_name = name } in
-    match get_definition_opt sym with
-    | None -> Format.printf "unfold: %s does not exist@." name
-    | Some def -> run_tactic (Tactic.modify_goal (Unfold.unfold sym def))
+    let tactic =
+      let open Tactic in
+      let sym = { sym_name = name } in
+      match get_definition_opt sym with
+      | None -> fail (Format.sprintf "unfold: %s does not exist" name)
+      | Some def -> modify_goal (Unfold.unfold sym def)
+    in
+    run_tactic tactic
 
   (** Generate an induction hypothesis in the current proof state. *)
   let induction : ?vars:string list -> name:string -> [ `List | `Int of int ] -> string -> unit =
