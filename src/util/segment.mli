@@ -1,20 +1,20 @@
 module Seg : sig
   type t
-  val length : int * int -> int
-  val mem : 'a -> 'a * 'a -> bool
-  val compare : int * 'a -> int * 'b -> int
+  val length : t -> int
+  val mem : int -> t -> bool
+  val compare : t -> t -> int
 end
 
 module SegSet : Set.S with type elt = Seg.t
 
 module SegTree : sig
   type t
-  val empty : SegSet.t
-  val add : int -> SegSet.t -> SegSet.t
-  val mem : int -> SegSet.t -> bool
-  val remove : int -> SegSet.t -> SegSet.t
-  val length : SegSet.t -> int
-  val union : SegSet.t -> SegSet.t -> SegSet.t
-  val next : int -> SegSet.t -> int
-  val max_elt_opt : SegSet.t -> int option
+  val empty : t
+  val add : int -> t -> t
+  val mem : int -> t -> bool
+  val remove : int -> t -> t
+  val length : t -> int
+  val union : t -> t -> t
+  val next : int -> t -> int
+  val max_elt_opt : t -> int option
 end
