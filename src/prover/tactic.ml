@@ -11,6 +11,11 @@ module Options = struct
   let show_why3_goal = ref false
 end
 
+module Message = struct
+  let does_not_exist = Format.sprintf "%s does not exist"
+  let is_already_used = Format.sprintf "%s is already used"
+end
+
 (* TODO: refactor to proof_state.ml. proof_state will depend on proof_context *)
 module Pstate = struct
   open Proof_context
@@ -234,13 +239,13 @@ end = struct
   let get_constant name =
     let* constants = get_constants in
     match SMap.find_opt name constants with
-    | None -> fail ("no constant named: " ^ name)
+    | None -> fail ("get_constant: " ^ Message.does_not_exist name)
     | Some v -> pure v
 
   let get_assumption name =
     let* assumptions = get_assumptions in
     match SMap.find_opt name assumptions with
-    | None -> fail ("no assumption named: " ^ name)
+    | None -> fail ("get_assumption: " ^ Message.does_not_exist name)
     | Some t -> pure t
 
   (* let get_heap_assumption name =
@@ -263,12 +268,12 @@ end = struct
 
   let add_constant name v =
     let* constants = get_constants in
-    if SMap.mem name constants then fail ("add_constant: " ^ name ^ " is already used")
+    if SMap.mem name constants then fail ("add_constant: " ^ Message.is_already_used name)
     else put_constants (SMap.add name v constants)
 
   let add_assumption name t =
     let* assumptions = get_assumptions in
-    if SMap.mem name assumptions then fail ("add_assumption: " ^ name ^ " is already used")
+    if SMap.mem name assumptions then fail ("add_assumption: " ^ Message.is_already_used name)
     else put_assumptions (SMap.add name t assumptions)
 
   (* let add_heap_assumption name t =
@@ -280,7 +285,7 @@ end = struct
   let pop_assumption name =
     let* assumptions = get_assumptions in
     match SMap.find_opt name assumptions with
-    | None -> fail ("no assumption named: " ^ name)
+    | None -> fail ("pop_assumption: " ^ Message.does_not_exist name)
     | Some t -> t <$ put_assumptions (SMap.remove name assumptions)
 
   (* let pop_heap_assumption name =
@@ -977,7 +982,7 @@ module Interactive = struct
   let intro_heap () = run_tactic HeapTactic.intro_heap
   let intros_heap () = run_tactic HeapTactic.intros_heap
   let elim_heap () = run_tactic HeapTactic.elim_heap
-  let revert = make_interactive revert
+  let revert name = run_tactic (revert name)
   let revert_heap () = run_tactic HeapTactic.revert_heap
   let heap_solver () = run_tactic HeapTactic.heap_solver
   let forall_intro = make_interactive (fun () -> forall_intro)
@@ -1003,7 +1008,7 @@ module Interactive = struct
       let open Tactic in
       let sym = { sym_name = name } in
       match get_definition_opt sym with
-      | None -> fail (Format.sprintf "unfold: %s does not exist" name)
+      | None -> fail (Format.sprintf "unfold: " ^ Message.does_not_exist name)
       | Some def -> modify_goal (Unfold.unfold sym def)
     in
     run_tactic tactic
