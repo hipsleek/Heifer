@@ -82,7 +82,10 @@ module SegTree = struct
     | None -> n
     | Some (p, q) -> if p <= n then q else n
 
-  (* let fresh i t = failwith "todo" *)
+  (* TODO: adopt efficient version *)
+  let fresh n t =
+    let o = next n t in
+    o, add o t
 
   let max_elt_opt t =
     match SegSet.max_elt_opt t with

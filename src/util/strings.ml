@@ -1,4 +1,5 @@
 module SMap = Map.Make (String)
+module SSet = Set.Make (String)
 
 let get_last s = s.[String.length s - 1]
 

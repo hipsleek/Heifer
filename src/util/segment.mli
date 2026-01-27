@@ -16,5 +16,6 @@ module SegTree : sig
   val length : t -> int
   val union : t -> t -> t
   val next : int -> t -> int
+  val fresh : int -> t -> int * t
   val max_elt_opt : t -> int option
 end

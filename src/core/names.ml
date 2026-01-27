@@ -1,6 +1,7 @@
 (* https://github.com/rocq-prover/rocq/blob/master/engine/nameops.ml *)
 
 open Util
+open Util.Segment
 
 module Subscript = struct
   type t = {
@@ -11,24 +12,24 @@ module Subscript = struct
   let rec overflow n = n mod 10 = 9 && (n / 10 = 0 || overflow (n / 10))
   let zero = { ss_subs = 0; ss_zero = 0 }
 
-  let succ s =
-    if s.ss_subs = 0 then
-      if s.ss_zero = 0 then
+  let succ { ss_zero; ss_subs } =
+    if ss_subs = 0 then
+      if ss_zero = 0 then
         (* [] -> [0] *)
         { ss_zero = 1; ss_subs = 0 }
       else
         (* [0...00] -> [0..01] *)
-        { ss_zero = s.ss_zero - 1; ss_subs = 1 }
-    else if overflow s.ss_subs then
-      if s.ss_zero = 0 then
+        { ss_zero = ss_zero - 1; ss_subs = 1 }
+    else if overflow ss_subs then
+      if ss_zero = 0 then
         (* [9...9] -> [10...0] *)
-        { ss_zero = 0; ss_subs = 1 + s.ss_subs }
+        { ss_zero = 0; ss_subs = 1 + ss_subs }
       else
         (* [0...009...9] -> [0...010...0] *)
-        { ss_zero = s.ss_zero - 1; ss_subs = 1 + s.ss_subs }
+        { ss_zero = ss_zero - 1; ss_subs = 1 + ss_subs }
     else
       (* [0...0n] -> [0...0{n+1}] *)
-      { ss_zero = s.ss_zero; ss_subs = s.ss_subs + 1 }
+      { ss_zero; ss_subs = ss_subs + 1 }
 
   let equal s1 s2 = s1.ss_zero = s2.ss_zero && s1.ss_subs = s2.ss_subs
 
@@ -133,3 +134,178 @@ let forget_subscript s =
   let newid = Bytes.make (numstart + 1) '0' in
   String.blit s 0 newid 0 numstart;
   String.of_bytes newid
+
+(* THE CODE BELOW ARE PORTED AND COMPILE, BUT IT HAVEN'T BEEN CHECKED *)
+
+module SubSet = struct
+  type t = {
+    num : SegTree.t;
+    pre : SegTree.t list; (* lists are OK because we are already logarithmic *)
+  }
+  (* We represent sets of subscripts by case-splitting on ss_zero.
+     If it is zero, we store the number in the [num] set. Otherwise, we know
+     the set of possible values is finite. At position k, [pre] contains a set
+     of maximum size 10^k representing k-digit numbers with at least one leading
+     zero. *)
+
+  let empty = { num = SegTree.empty; pre = [] }
+  let max_subscript Subscript.{ ss_zero; ss_subs } = Maths.pow10 (Maths.log10 ss_subs + ss_zero - 1)
+
+  let add ss s =
+    let open Subscript in
+    if Int.equal ss.ss_zero 0 then { s with num = SegTree.add ss.ss_subs s.num }
+    else
+      let pre =
+        let len = List.length s.pre in
+        if len < ss.ss_zero then s.pre @ Lists.make (ss.ss_zero - len) SegTree.empty else s.pre
+      in
+      let set =
+        match List.nth_opt pre (ss.ss_zero - 1) with
+        | None -> assert false
+        | Some m -> SegTree.add ss.ss_subs m
+      in
+      { s with pre = Lists.set_nth (ss.ss_zero - 1) set pre }
+
+  let union { num = num1; pre = pre1 } { num = num2; pre = pre2 } =
+    let rec merge_pre pre1 pre2 =
+      match (pre1, pre2) with
+      | [], x | x, [] -> x
+      | v1 :: rest1, v2 :: rest2 -> SegTree.union v1 v2 :: merge_pre rest1 rest2
+    in
+    let num = SegTree.union num1 num2 in
+    { num; pre = merge_pre pre1 pre2 }
+
+  let remove ss s =
+    let open Subscript in
+    if Int.equal ss.ss_zero 0 then { s with num = SegTree.remove ss.ss_subs s.num }
+    else
+      match List.nth_opt s.pre (ss.ss_zero - 1) with
+      | None -> s
+      | Some m ->
+          let m = SegTree.remove ss.ss_subs m in
+          { s with pre = Lists.set_nth (ss.ss_zero - 1) m s.pre }
+
+  let mem ss s =
+    let open Subscript in
+    if Int.equal ss.ss_zero 0 then SegTree.mem ss.ss_subs s.num
+    else
+      match List.nth_opt s.pre (ss.ss_zero - 1) with
+      | None -> false
+      | Some m -> SegTree.mem ss.ss_subs m
+
+  let ss_O = { Subscript.ss_zero = 1; ss_subs = 0 } (* [0] *)
+
+  let next ss s =
+    let open Subscript in
+    if ss.ss_zero > 0 then
+      match List.nth_opt s.pre (ss.ss_zero - 1) with
+      | None -> ss
+      | Some m ->
+          let next = SegTree.next ss.ss_subs m in
+          let max = max_subscript ss in
+          if max <= next then (* overflow *)
+            { ss_zero = 0; ss_subs = SegTree.next max s.num }
+          else { ss_zero = ss.ss_zero; ss_subs = next }
+    else if Int.equal ss.ss_subs 0 then
+      (* Handle specially [] *)
+      if not @@ SegTree.mem 0 s.num then Subscript.zero
+      else
+        match s.pre with
+        | [] -> ss_O
+        | m :: _ ->
+            if SegTree.mem 0 m then { ss_zero = 0; ss_subs = SegTree.next 1 s.num } else ss_O
+    else { ss_zero = 0; ss_subs = SegTree.next ss.ss_subs s.num }
+
+  let fresh ss s =
+    let open Subscript in
+    if ss.ss_zero > 0 then
+      match List.nth_opt s.pre (ss.ss_zero - 1) with
+      | None -> (ss, add ss s)
+      | Some m ->
+          let subs, m = SegTree.fresh ss.ss_subs m in
+          let max = max_subscript ss in
+          if max <= subs then
+            let subs, num = SegTree.fresh max s.num in
+            ({ ss_zero = 0; ss_subs = subs }, { s with num })
+          else
+            let s = { s with pre = Lists.set_nth (ss.ss_zero - 1) m s.pre } in
+            ({ ss_zero = ss.ss_zero; ss_subs = subs }, s)
+    else if Int.equal ss.ss_subs 0 then
+      if not @@ SegTree.mem 0 s.num then (Subscript.zero, { num = SegTree.add 0 s.num; pre = s.pre })
+      else
+        match s.pre with
+        | [] -> (ss_O, { num = s.num; pre = [SegTree.add 0 SegTree.empty] })
+        | m :: rem ->
+            if SegTree.mem 0 m then
+              let subs, num = SegTree.fresh 1 s.num in
+              ({ ss_zero = 0; ss_subs = subs }, { num; pre = s.pre })
+            else (ss_O, { num = s.num; pre = SegTree.add 0 SegTree.empty :: rem })
+    else
+      let subs, num = SegTree.fresh ss.ss_subs s.num in
+      ({ ss_zero = 0; ss_subs = subs }, { s with num })
+
+  let max_elt_opt s =
+    let mapi i m =
+      match SegTree.max_elt_opt m with
+      | None -> None
+      | Some k -> Some { Subscript.ss_zero = i; ss_subs = k }
+    in
+    let maxs = List.mapi mapi (s.num :: s.pre) in
+    let fold s accu =
+      match s with
+      | None -> accu
+      | Some ss ->
+          (match accu with
+          | None -> Some ss
+          | Some ss' -> if Subscript.compare ss ss' <= 0 then accu else s)
+    in
+    List.fold_left fold None maxs
+end
+
+module Fresh = struct
+  open Util.Strings
+
+  type t = SubSet.t SMap.t
+
+  let empty = SMap.empty
+
+  let add id m =
+    let id, s = get_subscript id in
+    let old = try SMap.find id m with Not_found -> SubSet.empty in
+    SMap.add id (SubSet.add s old) m
+
+  let union m1 m2 = SMap.union (fun _ s1 s2 -> Some (SubSet.union s1 s2)) m1 m2
+
+  let remove id m =
+    let id, s = get_subscript id in
+    match SMap.find id m with
+    | old -> SMap.add id (SubSet.remove s old) m
+    | exception Not_found -> m
+
+  let mem id m =
+    let id, s = get_subscript id in
+    try SubSet.mem s (SMap.find id m) with Not_found -> false
+
+  let next id0 m =
+    let id, s = get_subscript id0 in
+    match SMap.find_opt id m with
+    | None -> id0
+    | Some old ->
+        let ss = SubSet.next s old in
+        add_subscript id ss
+
+  let fresh id0 m =
+    let id, s = get_subscript id0 in
+    match SMap.find_opt id m with
+    | None -> (id0, SMap.add id (SubSet.add s SubSet.empty) m)
+    | Some old ->
+        let ss, n = SubSet.fresh s old in
+        (add_subscript id ss, SMap.add id n m)
+
+  let of_list l = List.fold_left (fun accu id -> add id accu) empty l
+  let of_set s = SSet.fold add s empty
+
+  let max_map s =
+    let filter _ m = SubSet.max_elt_opt m in
+    SMap.filter_map filter s
+end
