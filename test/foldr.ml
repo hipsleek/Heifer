@@ -2,71 +2,78 @@ open Heifer.Interactive;;
 
 (* First, a definition of `foldr`. *)
 
-declare {|foldr f init xs =
-  ens xs=[]; init
-  \/ ex h t. ens xs=h::t; foldr f init t; r. f h r|};;
+Options.fail_fast := true;;
 
-start_proof "forall xs. is_int_list xs => foldr (fun c t -> c + t) 0 xs <: sum xs";;
+declare
+  {|
+    foldr f acc xs =
+      ens xs=[]; acc \/
+      ex x xs'. ens xs=x::xs'; foldr f acc xs'; r. f x r
+  |}
+;;
+
+start_proof
+  {| forall xs. is_int_list xs => foldr (fun x acc -> x + acc) 0 xs <: sum xs |}
+;;
+
 forall_intro ();;
 intro_pure "Hty";;
-goal_is "foldr (fun c t -> c+t) 0 xs <: sum xs";;
+goal_is "foldr (fun x acc -> x+acc) 0 xs <: sum xs";;
 
 (* We proceed by induction on the structure of the list `xs`. *)
 induction ~name:"IH" `List "xs";;
 unfold "foldr";;
-
 goal_is
   {|
-   ens xs=[]; 0
-   \/ (ex h t.
-         ens xs=h::t;
-         foldr (fun c t1 -> c+t1) 0 t; r.
-           (fun c t1 -> c+t1) h r)
-<: sum xs
-|}
+    ens xs=[]; 0 \/
+    (ex x xs'.
+      ens xs=x::xs';
+      foldr (fun x1 acc -> x1+acc) 0 xs'; r. (fun x1 acc -> x1+acc) x r)
+    <: sum xs
+  |}
 ;;
 
 disj_elim ();;
 
-(* base case *)
+(* Base case *)
 goal_is "ens xs=[]; 0 <: sum xs";;
-intro_pure "H";;
+intro_pure "Hxs";;
 prove ();;
 
 (* Inductive case *)
-
 goal_is
   {|
-   ex h t.
-     ens xs=h::t;
-     foldr (fun c t1 -> c+t1) 0 t; r.
-       (fun c t1 -> c+t1) h r
-<: sum xs
-|}
+    (ex x xs'.
+      ens xs=x::xs';
+      foldr (fun x1 acc -> x1+acc) 0 xs'; r. (fun x1 acc -> x1+acc) x r)
+    <: sum xs
+  |}
 ;;
 
 exists_elim ();;
 intro_pure "Hxs";;
-
-goal_is {|
-   foldr (fun c t1 -> c+t1) 0 t; r. (fun c t1 -> c+t1) h r
-<: sum xs
-|};;
+goal_is
+  {|
+    foldr (fun x1 acc -> x1+acc) 0 xs'; r. (fun x1 acc -> x1+acc) x r
+    <: sum xs
+  |};;
 
 (* To use the induction hypothesis, we have to prove that `t` is a sublist of `xs`. This lets us rewrite the call to `foldr`. *)
-
 rewrite "IH";;
 prove ();;
 prove ();;
-
-goal_is {|
-   sum t; r. (fun c t1 -> c+t1) h r
-<: sum xs
-|};;
+goal_is
+  {|
+    sum xs'; r. (fun x1 acc -> x1+acc) x r
+    <: sum xs
+  |};;
 
 (* Having done that, the goal follows from the definition of `sum`. *)
 
 simpl ();;
 Options.show_why3_goal := true;;
 prove ();;
-qed ()
+Options.show_why3_goal := false;;
+qed ();;
+
+Options.fail_fast := false;;
