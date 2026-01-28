@@ -10,7 +10,8 @@ module Subscript = struct
   }
 
   let rec overflow n = n mod 10 = 9 && (n / 10 = 0 || overflow (n / 10))
-  let zero = { ss_subs = 0; ss_zero = 0 }
+
+  let none = { ss_subs = 0; ss_zero = 0 }
 
   let succ { ss_zero; ss_subs } =
     if ss_subs = 0 then
@@ -107,7 +108,7 @@ let get_subscript s =
       else (pos, acc)
   in
   let pos, suf = get_suf (len - 1) [] in
-  if pos = len - 1 then (s, Subscript.zero)
+  if pos = len - 1 then (s, Subscript.none)
   else
     let s = String.sub s 0 (pos + 1) in
     let rec compute_zeros acc = function
@@ -120,7 +121,7 @@ let get_subscript s =
     (s, { ss_subs; ss_zero })
 
 let add_subscript s ss =
-  if Subscript.equal Subscript.zero ss then s
+  if Subscript.equal Subscript.none ss then s
   else if ss.Subscript.ss_subs = 0 then
     let pad = String.make ss.Subscript.ss_zero '0' in
     Printf.sprintf "%s%s" s pad
@@ -138,6 +139,8 @@ let forget_subscript s =
 (* THE CODE BELOW ARE PORTED AND COMPILE, BUT IT HAVEN'T BEEN CHECKED *)
 
 module SubSet = struct
+  open Subscript
+
   type t = {
     num : SegTree.t;
     pre : SegTree.t list; (* lists are OK because we are already logarithmic *)
@@ -149,11 +152,12 @@ module SubSet = struct
      zero. *)
 
   let empty = { num = SegTree.empty; pre = [] }
-  let max_subscript Subscript.{ ss_zero; ss_subs } = Maths.pow10 (Maths.log10 ss_subs + ss_zero - 1)
+
+  let max_subscript { ss_zero; ss_subs } = Maths.pow10 (Maths.log10 ss_subs + ss_zero - 1)
 
   let add ss s =
     let open Subscript in
-    if Int.equal ss.ss_zero 0 then { s with num = SegTree.add ss.ss_subs s.num }
+    if ss.ss_zero = 0 then { s with num = SegTree.add ss.ss_subs s.num }
     else
       let pre =
         let len = List.length s.pre in
@@ -177,7 +181,7 @@ module SubSet = struct
 
   let remove ss s =
     let open Subscript in
-    if Int.equal ss.ss_zero 0 then { s with num = SegTree.remove ss.ss_subs s.num }
+    if ss.ss_zero = 0 then { s with num = SegTree.remove ss.ss_subs s.num }
     else
       match List.nth_opt s.pre (ss.ss_zero - 1) with
       | None -> s
@@ -208,7 +212,7 @@ module SubSet = struct
           else { ss_zero = ss.ss_zero; ss_subs = next }
     else if Int.equal ss.ss_subs 0 then
       (* Handle specially [] *)
-      if not @@ SegTree.mem 0 s.num then Subscript.zero
+      if not @@ SegTree.mem 0 s.num then Subscript.none
       else
         match s.pre with
         | [] -> ss_O
@@ -231,7 +235,7 @@ module SubSet = struct
             let s = { s with pre = Lists.set_nth (ss.ss_zero - 1) m s.pre } in
             ({ ss_zero = ss.ss_zero; ss_subs = subs }, s)
     else if Int.equal ss.ss_subs 0 then
-      if not @@ SegTree.mem 0 s.num then (Subscript.zero, { num = SegTree.add 0 s.num; pre = s.pre })
+      if not @@ SegTree.mem 0 s.num then (Subscript.none, { num = SegTree.add 0 s.num; pre = s.pre })
       else
         match s.pre with
         | [] -> (ss_O, { num = s.num; pre = [SegTree.add 0 SegTree.empty] })

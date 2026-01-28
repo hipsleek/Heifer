@@ -14,3 +14,4 @@ val init : 'a list -> 'a list
 val find_remove_opt : ('a -> bool) -> 'a list -> ('a * 'a list) option
 val find_remove_map : ('a -> 'b option) -> 'a list -> ('b * 'a list) option
 val product : 'a list -> 'b list -> ('a * 'b) list
+val string_of_list : ('a -> string) -> 'a list -> string
