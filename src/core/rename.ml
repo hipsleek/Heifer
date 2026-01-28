@@ -1,7 +1,7 @@
 open Bindlib
 open Names
 
-module Core = struct
+module Core : Renaming = struct
   type ctxt = Fresh.t
 
   let empty_ctxt = Fresh.empty

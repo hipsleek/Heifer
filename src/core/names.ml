@@ -11,13 +11,12 @@ module Subscript = struct
 
   let rec overflow n = n mod 10 = 9 && (n / 10 = 0 || overflow (n / 10))
 
-  let none = { ss_subs = 0; ss_zero = 0 }
+  let none = { ss_zero = 0; ss_subs = 0 }
+  let zero = { ss_zero = 1; ss_subs = 0 }
 
   let succ { ss_zero; ss_subs } =
     if ss_subs = 0 then
-      if ss_zero = 0 then
-        (* [] -> [0] *)
-        { ss_zero = 1; ss_subs = 0 }
+      if ss_zero = 0 then zero (* [] -> [0] *)
       else
         (* [0...00] -> [0..01] *)
         { ss_zero = ss_zero - 1; ss_subs = 1 }
@@ -197,8 +196,6 @@ module SubSet = struct
       | None -> false
       | Some m -> SegTree.mem ss.ss_subs m
 
-  let ss_O = { Subscript.ss_zero = 1; ss_subs = 0 } (* [0] *)
-
   let next ss s =
     let open Subscript in
     if ss.ss_zero > 0 then
@@ -215,9 +212,9 @@ module SubSet = struct
       if not @@ SegTree.mem 0 s.num then Subscript.none
       else
         match s.pre with
-        | [] -> ss_O
+        | [] -> zero
         | m :: _ ->
-            if SegTree.mem 0 m then { ss_zero = 0; ss_subs = SegTree.next 1 s.num } else ss_O
+            if SegTree.mem 0 m then { ss_zero = 0; ss_subs = SegTree.next 1 s.num } else zero
     else { ss_zero = 0; ss_subs = SegTree.next ss.ss_subs s.num }
 
   let fresh ss s =
@@ -238,12 +235,12 @@ module SubSet = struct
       if not @@ SegTree.mem 0 s.num then (Subscript.none, { num = SegTree.add 0 s.num; pre = s.pre })
       else
         match s.pre with
-        | [] -> (ss_O, { num = s.num; pre = [SegTree.add 0 SegTree.empty] })
+        | [] -> (zero, { num = s.num; pre = [SegTree.add 0 SegTree.empty] })
         | m :: rem ->
             if SegTree.mem 0 m then
               let subs, num = SegTree.fresh 1 s.num in
               ({ ss_zero = 0; ss_subs = subs }, { num; pre = s.pre })
-            else (ss_O, { num = s.num; pre = SegTree.add 0 SegTree.empty :: rem })
+            else (zero, { num = s.num; pre = SegTree.add 0 SegTree.empty :: rem })
     else
       let subs, num = SegTree.fresh ss.ss_subs s.num in
       ({ ss_zero = 0; ss_subs = subs }, { s with num })
