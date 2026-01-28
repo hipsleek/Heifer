@@ -57,7 +57,6 @@ intro_pure "Hk";;
 unfold "append_sh";;
 unfold "append_cps";;
 shift_reset_reduce ();;
-
 disj_elim ();;
 
 left ();;
@@ -99,7 +98,6 @@ forall_intro ();;
 unfold "append_cps";;
 unfold "append_pure";;
 simpl ();;
-
 disj_elim ();;
 
 left ();;
