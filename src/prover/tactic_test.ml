@@ -389,19 +389,19 @@ let%expect_test "induction" =
     <: forall n. req n>0; ens n=1
 
 
-    n, n1
+    n, n0
     Hn: n>0
     ────────────────────────────────────────────────────────────
        ens emp
-    <: req n1>0; ens n1=1
+    <: req n0>0; ens n0=1
 
 
-    n, n1
+    n, n0
     Hn: n>0
-    IH: forall n2. n2>=0 /\ n2<n => n2>0 => ens emp <: req n1>0; ens n1=1
+    IH: forall n1. n1>=0 /\ n1<n => n1>0 => ens emp <: req n0>0; ens n0=1
     ────────────────────────────────────────────────────────────
        ens emp
-    <: req n1>0; ens n1=1
+    <: req n0>0; ens n0=1
     |}];
 
   start_proof "ens emp <: forall xs. length xs > 0";

@@ -4,7 +4,7 @@ declare
   {|
     append_sh xs =
       ens xs=[]; shift k k \/
-      exists x ys. ens xs=x::ys; append_sh ys; r. x::r
+      exists x xs'. ens xs=x::xs'; append_sh xs'; r. x::r
   |}
 ;;
 
@@ -16,7 +16,7 @@ declare
   {|
     append_cps xs k =
       ens xs=[]; k \/
-      exists x ys. ens xs=x::ys; append_cps ys (fun r -> k (x::r))
+      exists x xs'. ens xs=x::xs'; append_cps xs' (fun r -> k (x::r))
   |}
 ;;
 
@@ -69,9 +69,9 @@ refl ();;
 
 right ();;
 exists_elim ();
-exists_intro ["x"; "ys"];;
+exists_intro ["x"; "xs'"];;
 intro_pure "Hxs";;
-ens_pure_intro ();;
+elim_pure ();;
 simpl ();;
 rewrite "IH";;
 
@@ -107,10 +107,10 @@ refl ();;
 
 right ();;
 exists_elim ();;
-exists_intro ["x"; "ys1"];;
+exists_intro ["x"; "xs'"];;
 simpl ();;
 intro_pure "Hxs";;
-ens_pure_intro ();;
+elim_pure ();;
 rewrite "IH";;
 
 admit ();;

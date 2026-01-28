@@ -1,7 +1,7 @@
 open Bindlib
 open Names
 
-module Rename = struct
+module Core = struct
   type ctxt = Fresh.t
 
   let empty_ctxt = Fresh.empty
@@ -13,4 +13,4 @@ module Rename = struct
   let remove_name = Fresh.remove
 end
 
-module Ctxt = Ctxt (Rename)
+include Ctxt (Core)

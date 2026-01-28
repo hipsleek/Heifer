@@ -1,7 +1,8 @@
+open Core
+open Bindlib
 open Core.Syntax
 open Core.Pretty
 open Util.Strings
-open Bindlib
 
 module Options = struct
   let notation = ref true
@@ -9,7 +10,7 @@ module Options = struct
 end
 
 type proof_context = {
-  rename_ctxt : Bindlib.ctxt;
+  rename_ctxt : Rename.ctxt;
   constants : term var SMap.t;
   assumptions : term SMap.t;
   heap_assumptions : term list; (* TODO: add names *)
@@ -20,7 +21,7 @@ type t = proof_context
 
 let create ~goal =
   {
-    rename_ctxt = Bindlib.empty_ctxt;
+    rename_ctxt = Rename.empty_ctxt;
     constants = SMap.empty;
     assumptions = SMap.empty;
     heap_assumptions = [];
@@ -65,6 +66,7 @@ let pp_goal pp_term ppf = function
 
 let pp_proof_context ppf
     { rename_ctxt = _; constants; assumptions; heap_assumptions; goal } =
+  (* TODO: pp_term_in rename_ctxt *)
   let pp_term = if !Options.notation then pp_term else dump_term in
   Fmt.pf ppf "@[<v>";
   pp_constants Fmt.string ppf constants;

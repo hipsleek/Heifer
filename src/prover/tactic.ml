@@ -87,7 +87,7 @@ module Tactic : sig
   val modify_pctxt : (proof_context -> proof_context) -> unit t
 
   (* derived combinators: get *)
-  val get_rename_ctxt : Bindlib.ctxt t
+  val get_rename_ctxt : Rename.ctxt t
   val get_constants : term var SMap.t t
   val get_assumptions : term SMap.t t
   val get_heap_assumptions : term list t
@@ -97,7 +97,7 @@ module Tactic : sig
 
   (* val get_heap_assumption : string -> term t *)
   (* derived combinators: put *)
-  val put_rename_ctxt : Bindlib.ctxt -> unit t
+  val put_rename_ctxt : Rename.ctxt -> unit t
   val put_constants : term var SMap.t -> unit t
   val put_assumptions : term SMap.t -> unit t
   val put_assumption : string -> term -> unit t
@@ -580,10 +580,10 @@ let revert s =
       | (k, _) :: _ -> failf "assumption %s is dependent on %s, cannot revert" k (name_of v)
       | [] ->
           let constants = SMap.remove (name_of v) pc.constants in
+          let rename_ctxt = Rename.Core.remove_name (name_of v) pc.rename_ctxt in
           let goal = Forall (unbox (bind_mvar [| v |] (box_term pc.goal))) in
-          let pc1 = { pc with constants; goal } in
-          let* _ = put_pctxt pc1 in
-          pure ())
+          let pc1 = { pc with rename_ctxt; constants; goal } in
+          put_pctxt pc1)
   | _ -> fail "cannot revert non-var"
 
 let forall_intro =
@@ -593,7 +593,7 @@ let forall_intro =
     | Forall b ->
         let* ctxt = get_rename_ctxt in
         (* TODO freshness issues? this has to be free on both sides *)
-        let xs, f, ctxt = unmbind_in ctxt b in
+        let xs, f, ctxt = Rename.unmbind_in ctxt b in
         let* _ = k f in
         let* _ = put_rename_ctxt ctxt in
         iter_array_m (fun x -> add_constant (name_of x) x) xs
@@ -633,7 +633,7 @@ let exists_elim =
   let* left, _ = get_subsumption in
   match Prenex.prenex left with
   | Exists b ->
-      let xs, f, ctxt = unmbind_in ctxt b in
+      let xs, f, ctxt = Rename.unmbind_in ctxt b in
       let* _ = put_lhs f in
       let* _ = put_rename_ctxt ctxt in
       iter_array_m (fun x -> add_constant (name_of x) x) xs
