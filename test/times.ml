@@ -1,5 +1,8 @@
 open Heifer.Interactive;;
 
+Options.show_why3_goal := true;;
+Options.fail_fast := true;;
+
 axiom ~name:"mult_0_r"
   {| forall x. x*.0 = 0 |}
 ;;
@@ -79,11 +82,11 @@ refl ();;
 right ();;
 simpl ();;
 rewrite "IH";;
-
-admit ();;
+pure_solver ();;
 
 forall_intro ();;
 simpl ();;
+rewrite "Hk";;
 refl ();;
 
 refl ();;
@@ -122,7 +125,7 @@ intro_pure "Hx";;
 admit ();; (* need: times_pure is indeed pure for rewriting *)
 
 rewrite "IH";;
-admit ();; (* wf condition *)
+pure_solver ();;
 
 simpl ();;
 rewrite "mult_0_r";;
@@ -156,3 +159,6 @@ simpl ();;
 rewrite "bind_id_r";;
 refl ();;
 qed ();;
+
+Options.show_why3_goal := false;;
+Options.fail_fast := false;;

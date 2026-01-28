@@ -283,23 +283,24 @@ let attempt_proof show_goal task =
     (* the strategy is: introduce everything, invert the type hypotheses, then simplify in the premises *)
     let* task = Trans.apply_transform "introduce_premises" why3_env task in
 
-    let comp, inv = categorise_hypotheses task in
+    (* let comp, inv = categorise_hypotheses task in *)
 
     (* invert all the type premises once, then introduce and subst *)
-    let* task =
+    (* let* task =
       fold_m
         (fun c t ->
           let name = c.Decl.pr_name.Ident.id_string in
           apply_transform_args "inversion_arg_pr" why3_env [name] t)
         inv task
-    in
+    in *)
     let* task = Trans.apply_transform "introduce_premises" why3_env task in
     (* this crashes *)
     (* let* task = Trans.apply_transform "subst_all" why3_env task in *)
     let* task = apply_transform_args "subst_all" why3_env [] task in
 
     (* compute in hypotheses *)
-    let* task =
+    (* this cause a problem at the moment *)
+    (* let* task =
       let axioms = comp in
       (* print the task *)
       fold_m
@@ -310,9 +311,10 @@ let attempt_proof show_goal task =
               Trans.apply (Compute.normalize_hyp None (Some c) why3_env) t
           | true ->
               let name = c.Decl.pr_name.Ident.id_string in
+              Format.printf "arg_name: %s\n" name;
               apply_transform_args "compute_hyp" why3_env ["in"; name] t)
         axioms task
-    in
+    in *)
 
     (* computing in the goal seems unnecessary and sometimes causes more blowup *)
     (* let* task = Trans.apply_transform "compute_in_goal" why3_env task in *)
