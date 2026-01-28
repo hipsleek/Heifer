@@ -1,5 +1,7 @@
 open Heifer.Interactive;;
 
+Options.fail_fast := true;;
+
 declare
   {|
   landin_rec f =
@@ -112,11 +114,12 @@ simpl ();;
 intro_heap ();;
 ens_heap_intro ();;
 
-(* Prover.Tactic.Options.show_why3_goal := true;; *)
 
 Options.show_why3_goal := true;;
 prove ();;
+Options.show_why3_goal := false;;
 
 (* TODO a defn of fact, some way to include it in here *)
+qed ();;
 
-qed ()
+Options.fail_fast := false;;

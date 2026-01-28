@@ -510,7 +510,7 @@ module PureTactic = struct
     choices ~err:"elim_pure: failed" [req_pure_elim; ens_pure_intro]
 end
 
-module StrategyTactic = struct
+module ReasonTactic = struct
   let ex_falso = Tactic.put_goal False
 end
 
@@ -573,10 +573,18 @@ let qed =
   | [] -> pure ()
   | _ -> fail "proof not finished"
 
-let refl =
-  let open Tactic in
-  let* lhs, rhs = get_subsumption in
-  if equal_term lhs rhs then pop_pctxt else fail "refl: cannot close goal"
+module FinishTactic = struct
+  let refl =
+    let open Tactic in
+    let* lhs, rhs = get_subsumption in
+    if equal_term lhs rhs then pop_pctxt else fail "refl: cannot close goal"
+end
+
+module SimplTactic = struct
+  let simpl = Tactic.modify_goal Simpl.simpl
+  let shift_reset_reduce = Tactic.modify_goal Shift_reset.reduce
+  let prenex = Tactic.modify_goal Prenex.prenex
+end
 
 let revert s =
   let open Tactic in
@@ -679,9 +687,6 @@ module DisjTactic = struct
   let left = disj_intro fst
   let right = disj_intro snd
 end
-
-let simpl = Tactic.modify_goal Simpl.simpl
-let shift_reset_reduce = Tactic.modify_goal Shift_reset.reduce
 
 module HeapTactic = struct
   let ens_heap_elim =
@@ -981,7 +986,7 @@ module Interactive = struct
   let qed = make_interactive (fun () -> qed)
   let specialize h = make_interactive (specialize h)
   let forward = make_interactive forward
-  let refl () = run_tactic refl
+  let refl () = run_tactic FinishTactic.refl
   let req_heap_intro () = run_tactic HeapTactic.req_heap_intro
   let ens_heap_elim () = run_tactic HeapTactic.ens_heap_elim
   let req_heap_elim () = run_tactic HeapTactic.req_heap_elim
@@ -1008,10 +1013,10 @@ module Interactive = struct
   let disj_elim () = run_tactic DisjTactic.disj_elim
   let left () = run_tactic DisjTactic.left
   let right () = run_tactic DisjTactic.right
-  let simpl () = run_tactic simpl
+  let simpl () = run_tactic SimplTactic.simpl
+  let shift_reset_reduce () = run_tactic SimplTactic.shift_reset_reduce
   let unmix () = run_tactic UnmixTactic.unmix
-  let shift_reset_reduce () = run_tactic shift_reset_reduce
-  let ex_falso () = run_tactic StrategyTactic.ex_falso
+  let ex_falso () = run_tactic ReasonTactic.ex_falso
 
   let prove = make_interactive (fun () -> prove)
   let admit () = run_tactic admit
