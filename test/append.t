@@ -1,6 +1,14 @@
 
   $ ./append.exe
   
+  # Options.fail_fast := true
+  
+  # axiom ~name:"eta_reduce" {| forall f. (fun x -> f x) <: f |}
+  axiom eta_reduce declared
+  
+  # axiom ~name:"bind_id_r" {| forall t. t; x. x <: t |}
+  axiom bind_id_r declared
+  
   # declare
       {|
       append_sh xs =
@@ -8,6 +16,10 @@
         exists x xs'. ens xs=x::xs'; append_sh xs'; r. x::r
     |}
   append_sh declared
+  
+  # axiom ~name:"append_sh_bind_id_r"
+      {| forall xs. append_sh xs <: append_sh xs; x. x |}
+  axiom append_sh_bind_id_r declared
   
   # declare {| append_delim xs ys = reset (append_sh xs); f. f ys |}
   append_delim declared
@@ -27,16 +39,6 @@
         exists x xs'. ens xs=x::xs'; append_pure xs' ys; r. x::r
     |}
   append_pure declared
-  
-  # axiom ~name:"eta_reduction" {| forall f. (fun x -> f x) <: f |}
-  axiom eta_reduction declared
-  
-  # axiom ~name:"right_identity" {| forall t. t; x. x <: t |}
-  axiom right_identity declared
-  
-  # axiom ~name:"append_sh_right_identity"
-      {| forall xs. reset (append_sh xs) <: reset (append_sh xs; x. x) |}
-  axiom append_sh_right_identity declared
   
   # lemma ~name:"append_sh/append_cps"
       {|
@@ -259,7 +261,7 @@
   (1 more goals)
   
   
-  # rewrite "eta_reduction"
+  # rewrite "eta_reduce"
   
   k, xs
   Hk: forall r. reset (k r) <: k r
@@ -407,7 +409,8 @@
   (2 more goals)
   
   
-  # admit ()
+  # pure_solver ()
+  Warning, file line 0, characters 0-0: unused variable k
   
   k, x, xs, xs'
   Hk: forall r. reset (k r) <: k r
@@ -758,7 +761,9 @@
   (1 more goals)
   
   
-  # admit ()
+  # pure_solver ()
+  Warning, file line 0, characters 0-0: unused variable ys
+  Warning, file line 0, characters 0-0: unused variable k
   
   k, x, xs, xs', ys
   Hxs: xs=x::xs'
@@ -814,7 +819,7 @@
   <: append_pure xs ys
   
   
-  # rewrite "append_sh_right_identity"
+  # rewrite "append_sh_bind_id_r"
   
   xs, ys
   ────────────────────────────────────────────────────────────
@@ -881,7 +886,7 @@
   <: append_pure xs ys
   
   
-  # rewrite "right_identity"
+  # rewrite "bind_id_r"
   
   xs, ys
   ────────────────────────────────────────────────────────────
@@ -894,3 +899,5 @@
   
   # qed ()
   no more goals
+  
+  # Options.fail_fast := false
