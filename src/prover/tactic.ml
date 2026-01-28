@@ -9,6 +9,7 @@ open Util.Strings
 
 module Options = struct
   let show_why3_goal = ref false
+  let fail_fast = ref false
 end
 
 module Message = struct
@@ -509,6 +510,10 @@ module PureTactic = struct
     choices ~err:"elim_pure: failed" [req_pure_elim; ens_pure_intro]
 end
 
+module StrategyTactic = struct
+  let ex_falso = Tactic.put_goal False
+end
+
 let parse_term ts =
   let open Tactic in
   let open Parsing.Parse in
@@ -543,11 +548,6 @@ let have ~name s =
   let* _ = push_pctxt ps in
   let* _ = add_assumption name g in
   push_pctxt { ps with goal = g }
-
-(* let axiom ~name s =
-  let open Tactic in
-  let* g = parse_term s in
-  add_assumption name g *)
 
 let case ~name s =
   let open Tactic in
@@ -965,7 +965,9 @@ module ProofState = struct
     | Ok new_goals ->
         set_goals new_goals;
         print_proof_state ()
-    | Error msg -> Format.printf "error: %s@." msg
+    | Error msg ->
+        Format.printf "error: %s@." msg;
+        if !Options.fail_fast then failwith msg
 
   let make_interactive (tac : 'b -> 'a Tactic.t) (arg : 'b) = run_tactic (tac arg)
 end
@@ -1009,6 +1011,7 @@ module Interactive = struct
   let simpl () = run_tactic simpl
   let unmix () = run_tactic UnmixTactic.unmix
   let shift_reset_reduce () = run_tactic shift_reset_reduce
+  let ex_falso () = run_tactic StrategyTactic.ex_falso
 
   let prove = make_interactive (fun () -> prove)
   let admit () = run_tactic admit

@@ -1,5 +1,7 @@
 open Heifer.Interactive;;
 
+Options.fail_fast := true;;
+
 axiom ~name:"eta_reduce"
   {| forall f. (fun x -> f x) <: f |}
 ;;
@@ -45,12 +47,16 @@ intro_heap ();;
 disj_elim ();;
 
 intro_pure "H_absurd";;
-admit ();; (* discriminate/absurd *)
+ex_falso ();;
+pure_solver ();;
 
 intro_pure "_0";;
 elim_heap ();;
 admit ();; (* arithmetic *)
 
 intro_pure "H_absurd";;
-admit ();; (* discriminate/absurd *)
+ex_falso ();;
+pure_solver ();;
 qed ();;
+
+Options.fail_fast := false;;
