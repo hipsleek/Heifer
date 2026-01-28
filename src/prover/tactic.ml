@@ -479,18 +479,29 @@ module PureTactic = struct
     let open Tactic in
     choices ~err:"intro_pure: failed" [impl_intro name; ens_pure_elim name; req_pure_intro name]
 
+  let pre_pure_solver goal =
+    let open Tactic in
+    let* _ = guard (Simply_typed.is_prop goal) "pre_pure_solver: not prop" in
+    solve_invoke_why3 goal
+
+  let pure_solver =
+    let open Tactic in
+    let* goal = get_goal in
+    let* _ = pre_pure_solver goal in
+    () <$ pop_pctxt
+
   let req_pure_elim =
     let open Tactic in
     let* t, lhs = ElimTactic.pre_req_elim in
     let* _ = guard (Simply_typed.is_prop t) "req_pure_elim: not prop" in
-    let* _ = solve_invoke_why3 t in
+    let* _ = pre_pure_solver t in
     put_lhs lhs
 
   let ens_pure_intro =
     let open Tactic in
     let* t, rhs = IntroTactic.pre_ens_intro in
     let* _ = guard (Simply_typed.is_prop t) "ens_pure_intro: not prop" in
-    let* _ = solve_invoke_why3 t in
+    let* _ = pre_pure_solver t in
     put_rhs rhs
 
   let elim_pure =
@@ -727,10 +738,10 @@ module HeapTactic = struct
   let pre_heap_solver goal =
     let open Tactic in
     let goals_opt = Heap.deep_destruct_sepconj_opt goal in
-    let* goals = unwrap goals_opt "pre_heap_prover: not hprop" in
+    let* goals = unwrap goals_opt "pre_heap_solver: not hprop" in
     let* heap_assumptions = get_heap_assumptions in
     let goals, heap_assumptions, equalities = Heap.biab_list goals heap_assumptions in
-    let* _ = guard (List.is_empty goals) "pre_heap_prover: cannot prove hprop" in
+    let* _ = guard (List.is_empty goals) "pre_heap_solver: cannot prove hprop" in
     let* _ = iter_m solve_invoke_why3 equalities in
     put_heap_assumptions heap_assumptions
 
@@ -983,6 +994,7 @@ module Interactive = struct
   let intros_heap () = run_tactic HeapTactic.intros_heap
   let elim_heap () = run_tactic HeapTactic.elim_heap
   let revert name = run_tactic (revert name)
+  let pure_solver () = run_tactic PureTactic.pure_solver
   let revert_heap () = run_tactic HeapTactic.revert_heap
   let heap_solver () = run_tactic HeapTactic.heap_solver
   let forall_intro = make_interactive (fun () -> forall_intro)
