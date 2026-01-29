@@ -135,7 +135,7 @@ let check_uvars_well_scoped uvars bvars sigma =
   TVSet.iter check uvars
 
 (** Rewrite the target at the top level, either raising on failure or returning the rewritten target *)
-let rewrite_exact rule bvars target =
+let pre_rewrite_root rule bvars target =
   let { rwr_umvar; rwr_arity; rwr_uvars; rwr_lhs;
         rwr_condition_uvars;
         rwr_conditions_mbinder;
@@ -161,7 +161,7 @@ let rewrite_exact rule bvars target =
 let rec pre_rewrite rule bvars target =
   let open Monad in
   try
-    let result, conditions = rewrite_exact rule bvars target in
+    let result, conditions = pre_rewrite_root rule bvars target in
     let update { rws_conditions; rws_count } =
       let rws_conditions = Snoc_list.append_list rws_conditions conditions in
       let rws_count = rws_count + 1 in
