@@ -594,7 +594,7 @@ let%expect_test "rewrite" =
        ens emp
     <: ens emp
 
-    error: get_assumption: H does not exist
+    error: H does not exist
     |}]
 
 let%expect_test "heap tactics" =

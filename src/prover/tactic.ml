@@ -1094,8 +1094,7 @@ module Interactive = struct
       let* _ = f_put result in
       let* _ = push_pure_goals conditions in
       pure ()
-    with Rewrite_failure msg ->
-      fail (Format.sprintf "do_rewrite: %s" msg)
+    with Rewrite_failure msg -> fail msg
 
   (** Rewrite in the LHS of a sequent. *)
   let rewrite ?(direction = Direction.ltr) name =
