@@ -1,20 +1,60 @@
 open Core.Syntax
 
+exception Rewrite_failure of string
+
+type rewrite_direction =
+  | Direction_ltr
+  | Direction_rtl
+
+type rewrite_relation =
+  | Relation_eq
+  | Relation_subsumes
+
+module Direction : sig
+  val ltr : rewrite_direction
+  val rtl : rewrite_direction
+end
+
 (** A rewriting rule is of the form:
     {[
-      forall x y z, cond x y z => ... => lhs x y z <: rhs x y z
+      forall x y z, cond x y z => ... => lhs x y z rel rhs x y z
     ]}
-    where [<:] can be replaced by some other relation, like equality.
+    where [rel] can be replaced by some other relation, like equality. *)
+type rewrite_rule
 
-    At the moment, we enforce that the rewriting rules are closed.
+(** Turn a term into a [rule], or raise [Invalid_argument]. *)
+val make_rule : ?direction:rewrite_direction -> term -> rewrite_rule
 
-    TODO: should relax rewriting rule to include free variables (which may come
-    from the proof context, for example). *)
-type rule
+val get_rule_relation : rewrite_rule -> rewrite_relation
 
-(** Turn a prop into a [rule], or raise [Invalid_argument]. *)
-val prop_to_rule : prop -> rule
+val get_rule_conditions : rewrite_rule -> term list
+
+val get_rule_lhs : rewrite_rule -> term
+
+val get_rule_rhs : rewrite_rule -> term
+
+type rewrite_state
+
+module Monad : sig
+  type 'a t
+  val run : 'a t -> rewrite_state -> 'a * rewrite_state
+  val pure : 'a -> 'a t
+  val map : ('a -> 'b) -> 'a t -> 'b t
+  val mapl : 'b -> 'a t -> 'b t
+  val lift2 : ('a -> 'b -> 'c) -> 'a t -> 'b t -> 'c t
+  val bind : 'a t -> ('a -> 'b t) -> 'b t
+  val ( <$> ) : ('a -> 'b) -> 'a t -> 'b t
+  val ( <$ ) : 'b -> 'a t -> 'b t
+  val ( >>= ) : 'a t -> ('a -> 'b t) -> 'b t
+  val ( let+ ) : 'a t -> ('a -> 'b) -> 'b t
+  val ( let* ) : 'a t -> ('a -> 'b t) -> 'b t
+  val get : rewrite_state t
+  val put : rewrite_state -> unit t
+  val modify : (rewrite_state -> rewrite_state) -> unit t
+end
 
 (** Traverse the target and rewrite using the given rule everywhere in it.
-    Produces subgoals if the rule is conditional. *)
-val rewrite : rule -> staged_spec -> (staged_spec * prop list) option
+    Produces subgoals if the rule is conditional.
+
+    Raise [Rewrite_failure] if no change was made. *)
+val rewrite : rewrite_rule -> term -> term * term list

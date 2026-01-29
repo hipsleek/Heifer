@@ -78,6 +78,8 @@ let generalize x t = unbox (bind_var x (box_term t))
 
 let mgeneralize xs t = unbox (bind_mvar xs (box_term t))
 
+let mgeneralize_list xs ts = unbox (bind_mvar xs (box_term_list ts))
+
 let rec has_vars xs = function
   | Var x -> TVSet.mem x xs
   | Symbol _ -> false

@@ -101,15 +101,15 @@ and pre_unify t1 t2 uvars bvars sigma =
       let sigma = pre_unify t11 t21 uvars bvars sigma in
       let sigma = pre_unify t12 t22 uvars bvars sigma in
       sigma
-  | Bind (s1, b1), Bind (s2, b2) ->
-      let sigma = pre_unify s1 s2 uvars bvars sigma in
+  | Bind (t1, b1), Bind (t2, b2) ->
+      let sigma = pre_unify t1 t2 uvars bvars sigma in
       let sigma = pre_unify_binder b1 b2 uvars bvars sigma in
       sigma
   | Apply (t1, ts1), _ -> unify_apply1 t1 ts1 t2 uvars bvars sigma
   | Forall b1, Forall b2 -> pre_unify_mbinder b1 b2 uvars bvars sigma
   | Exists b1, Exists b2 -> pre_unify_mbinder b1 b2 uvars bvars sigma
   | Shift b1, Shift b2 -> pre_unify_binder b1 b2 uvars bvars sigma
-  | Reset s1, Reset s2 -> pre_unify s1 s2 uvars bvars sigma
+  | Reset t1, Reset t2 -> pre_unify t1 t2 uvars bvars sigma
   | _, _ -> structure_mismatch ()
 
 and unify_apply1 t1 ts1 t2 uvars bvars sigma =
@@ -143,13 +143,13 @@ and pre_unify_list ts1 ts2 uvars bvars sigma =
   | _, _ -> structure_mismatch ()
 
 and pre_unify_binder b1 b2 uvars bvars sigma =
-  let x, s1, s2 = unbind2 b1 b2 in
-  pre_unify s1 s2 uvars (TVSet.add x bvars) sigma
+  let x, t1, t2 = unbind2 b1 b2 in
+  pre_unify t1 t2 uvars (TVSet.add x bvars) sigma
 
 and pre_unify_mbinder b1 b2 uvars bvars sigma =
   if mbinder_arity b1 <> mbinder_arity b2 then structure_mismatch ();
-  let xs, s1, s2 = unmbind2 b1 b2 in
-  pre_unify s1 s2 uvars (TVSet.add_seq (Array.to_seq xs) bvars) sigma
+  let xs, t1, t2 = unmbind2 b1 b2 in
+  pre_unify t1 t2 uvars (TVSets.add_array xs bvars) sigma
 
 let rec pre_unify_assoc t1 t2 uvars bvars sigma =
   match t1, t2 with
