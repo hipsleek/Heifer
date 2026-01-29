@@ -397,6 +397,12 @@ let semicolon tac1 tac2 =
   let+ s1 = Tactic.run (semicolon1 tac1 tac2) s1 in
   Pstate.append s1 s2
 
+let push_pure_goals goals =
+  let open Tactic in
+  let* p = get_pctxt in
+  let new_ps = List.map (fun g -> { p with goal = g }) goals in
+  modify (Pstate.append new_ps)
+
 let invoke_why3 goal =
   let open Tactic in
   let* constants = get_constants in
@@ -1070,22 +1076,42 @@ module Interactive = struct
     in
     run_tactic tac
 
+  let interactive_get_assumption name =
+    let open Tactic in
+    catch
+      (get_assumption name)
+      (fun _ ->
+        match get_lemma_opt name with
+        | Some assumption -> pure assumption
+        | None -> fail (Message.does_not_exist name))
+
+  let do_rewrite rule f_get f_put =
+    let open Rewrite in
+    let open Tactic in
+    let* target = f_get in
+    try
+      let result, conditions = rewrite rule target in
+      let* _ = f_put result in
+      let* _ = push_pure_goals conditions in
+      pure ()
+    with Rewrite_failure msg ->
+      fail (Format.sprintf "do_rewrite: %s" msg)
+
   (** Rewrite in the LHS of a sequent. *)
   let rewrite ?(direction = Direction.ltr) name =
     let tactic =
       let open Rewrite in
       let open Tactic in
-      let* assumption = catch (get_assumption name) (fun msg -> unwrap (get_lemma_opt name) msg) in
+      let* assumption = interactive_get_assumption name in
       let rule = make_rule ~direction assumption in
-      (* let relation = get_rule_relation rule in *)
-      let* lhs, _ = get_subsumption in
-      match rewrite rule lhs with
-      | lhs1, side ->
-          let* ps = pop_pctxt in
-          let* () = push_pctxt ps in
-          let* () = put_lhs lhs1 in
-          iter_m (fun p -> push_pctxt { ps with goal = p }) (List.rev side)
-      | exception Rewrite_failure msg -> fail (Format.sprintf "rewrite: %s" msg)
+      let relation = get_rule_relation rule in
+      let f_get, f_put =
+        match relation, direction with
+        | Relation_eq, _ -> (get_goal, put_goal)
+        | Relation_subsumes, Direction_ltr -> (get_lhs, put_lhs)
+        | Relation_subsumes, Direction_rtl -> (get_rhs, put_rhs)
+      in
+      do_rewrite rule f_get f_put
     in
     run_tactic tactic
 end
