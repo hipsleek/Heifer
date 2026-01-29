@@ -1,13 +1,13 @@
-module Seg : sig
+module Core : sig
   type t
   val length : t -> int
   val mem : int -> t -> bool
   val compare : t -> t -> int
 end
 
-module SegSet : Set.S with type elt = Seg.t
+module Set : Set.S with type elt = Core.t
 
-module SegTree : sig
+module Tree : sig
   type t
   val empty : t
   val add : int -> t -> t

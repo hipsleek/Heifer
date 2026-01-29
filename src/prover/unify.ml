@@ -175,10 +175,13 @@ and pre_unify_assoc_binder b1 b2 uvars bvars sigma =
   let x, t1, t2 = unbind2 b1 b2 in
   pre_unify_assoc t1 t2 uvars (TVSet.add x bvars) sigma
 
+let unify_in t1 t2 uvars = pre_unify t1 t2 uvars TVSet.empty
+
+let unify_assoc_in t1 t2 uvars = pre_unify_assoc t1 t2 uvars TVSet.empty
 
 (** The main entry point of the unification algorithm.
 
     Precondition: only [t1] contains unification variables. *)
-let unify t1 t2 uvars = pre_unify t1 t2 uvars TVSet.empty TVMap.empty
+let unify t1 t2 uvars = unify_in t1 t2 uvars TVMap.empty
 
-let unify_assoc t1 t2 uvars = pre_unify_assoc t1 t2 uvars TVSet.empty TVMap.empty
+let unify_assoc t1 t2 uvars = unify_assoc_in t1 t2 uvars TVMap.empty

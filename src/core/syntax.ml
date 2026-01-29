@@ -212,6 +212,10 @@ end
 (** Set and map of term variables. *)
 module TVSet = Set.Make (TV)
 
+module TVSets = struct
+  let of_array arr = Array.fold_right TVSet.add arr TVSet.empty
+end
+
 module TVMap = Map.Make (TV)
 
 module Sym = struct

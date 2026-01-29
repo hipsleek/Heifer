@@ -108,7 +108,9 @@ let rec has_vars xs = function
   | Shift b -> binder_has_vars xs b
   | Reset t -> has_vars xs t
 
-and list_has_vars xs = List.exists (has_vars xs)
+and list_has_vars xs = function
+  | [] -> false
+  | t :: ts -> has_vars xs t || list_has_vars xs ts
 
 and binder_has_vars xs b =
   let _, t = unbind b in
@@ -117,3 +119,47 @@ and binder_has_vars xs b =
 and mbinder_has_vars xs b =
   let _, t = unmbind b in
   has_vars xs t
+
+let rec pre_get_vars acc = function
+  | Var x -> TVSet.add x acc
+  | Symbol _ -> acc
+  | Unit -> acc
+  | True -> acc
+  | False -> acc
+  | Int _ -> acc
+  | Nil -> acc
+  | Fun b -> pre_get_vars_mbinder acc b
+  | Tuple ts -> pre_get_vars_list acc ts
+  | Binop (_, t1, t2) -> pre_get_vars (pre_get_vars acc t1) t2
+  | Unop (_, t) -> pre_get_vars acc t
+  | Conj (t1, t2)
+  | Disj (t1, t2)
+  | Implies (t1, t2)
+  | Wand (t1, t2)
+  | Subsumes (t1, t2) -> pre_get_vars (pre_get_vars acc t1) t2
+  | Emp -> acc
+  | PointsTo (t1, t2) -> pre_get_vars (pre_get_vars acc t1) t2
+  | SepConj (t1, t2) -> pre_get_vars (pre_get_vars acc t1) t2
+  | Requires t -> pre_get_vars acc t
+  | Ensures t -> pre_get_vars acc t
+  | Sequence (t1, t2) -> pre_get_vars (pre_get_vars acc t1) t2
+  | Bind (t, b) -> pre_get_vars_binder (pre_get_vars acc t) b
+  | Apply (t, ts) -> pre_get_vars_list (pre_get_vars acc t) ts
+  | Forall b -> pre_get_vars_mbinder acc b
+  | Exists b -> pre_get_vars_mbinder acc b
+  | Shift b -> pre_get_vars_binder acc b
+  | Reset t -> pre_get_vars acc t
+
+and pre_get_vars_list acc = function
+  | [] -> acc
+  | t :: ts -> pre_get_vars_list (pre_get_vars acc t) ts
+
+and pre_get_vars_binder acc b =
+  let x, t = unbind b in
+  TVSet.remove x (pre_get_vars acc t)
+
+and pre_get_vars_mbinder acc b =
+  let xs, t = unmbind b in
+  TVSet.diff (pre_get_vars acc t) (TVSets.of_array xs)
+
+let get_vars t = pre_get_vars TVSet.empty t

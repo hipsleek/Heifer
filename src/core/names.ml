@@ -1,7 +1,6 @@
 (* https://github.com/rocq-prover/rocq/blob/master/engine/nameops.ml *)
 
 open Util
-open Util.Segment
 
 module Subscript = struct
   type t = {
@@ -139,8 +138,8 @@ let forget_subscript s =
 
 module SubSet = struct
   type t = {
-    num : SegTree.t;
-    pre : SegTree.t list; (* lists are OK because we are already logarithmic *)
+    num : Segment.Tree.t;
+    pre : Segment.Tree.t list; (* lists are OK because we are already logarithmic *)
   }
   (* We represent sets of subscripts by case-splitting on ss_zero.
      If it is zero, we store the number in the [num] set. Otherwise, we know
@@ -148,21 +147,21 @@ module SubSet = struct
      of maximum size 10^k representing k-digit numbers with at least one leading
      zero. *)
 
-  let empty = { num = SegTree.empty; pre = [] }
+  let empty = { num = Segment.Tree.empty; pre = [] }
   let max_subscript Subscript.{ ss_zero; ss_subs } = Maths.pow10 (Maths.log10 ss_subs + ss_zero - 1)
 
   let add ss s =
     let open Subscript in
-    if Int.equal ss.ss_zero 0 then { s with num = SegTree.add ss.ss_subs s.num }
+    if Int.equal ss.ss_zero 0 then { s with num = Segment.Tree.add ss.ss_subs s.num }
     else
       let pre =
         let len = List.length s.pre in
-        if len < ss.ss_zero then s.pre @ Lists.make (ss.ss_zero - len) SegTree.empty else s.pre
+        if len < ss.ss_zero then s.pre @ Lists.make (ss.ss_zero - len) Segment.Tree.empty else s.pre
       in
       let set =
         match List.nth_opt pre (ss.ss_zero - 1) with
         | None -> assert false
-        | Some m -> SegTree.add ss.ss_subs m
+        | Some m -> Segment.Tree.add ss.ss_subs m
       in
       { s with pre = Lists.set_nth (ss.ss_zero - 1) set pre }
 
@@ -170,28 +169,28 @@ module SubSet = struct
     let rec merge_pre pre1 pre2 =
       match (pre1, pre2) with
       | [], x | x, [] -> x
-      | v1 :: rest1, v2 :: rest2 -> SegTree.union v1 v2 :: merge_pre rest1 rest2
+      | v1 :: rest1, v2 :: rest2 -> Segment.Tree.union v1 v2 :: merge_pre rest1 rest2
     in
-    let num = SegTree.union num1 num2 in
+    let num = Segment.Tree.union num1 num2 in
     { num; pre = merge_pre pre1 pre2 }
 
   let remove ss s =
     let open Subscript in
-    if Int.equal ss.ss_zero 0 then { s with num = SegTree.remove ss.ss_subs s.num }
+    if Int.equal ss.ss_zero 0 then { s with num = Segment.Tree.remove ss.ss_subs s.num }
     else
       match List.nth_opt s.pre (ss.ss_zero - 1) with
       | None -> s
       | Some m ->
-          let m = SegTree.remove ss.ss_subs m in
+          let m = Segment.Tree.remove ss.ss_subs m in
           { s with pre = Lists.set_nth (ss.ss_zero - 1) m s.pre }
 
   let mem ss s =
     let open Subscript in
-    if Int.equal ss.ss_zero 0 then SegTree.mem ss.ss_subs s.num
+    if Int.equal ss.ss_zero 0 then Segment.Tree.mem ss.ss_subs s.num
     else
       match List.nth_opt s.pre (ss.ss_zero - 1) with
       | None -> false
-      | Some m -> SegTree.mem ss.ss_subs m
+      | Some m -> Segment.Tree.mem ss.ss_subs m
 
   let ss_O = { Subscript.ss_zero = 1; ss_subs = 0 } (* [0] *)
 
@@ -201,20 +200,20 @@ module SubSet = struct
       match List.nth_opt s.pre (ss.ss_zero - 1) with
       | None -> ss
       | Some m ->
-          let next = SegTree.next ss.ss_subs m in
+          let next = Segment.Tree.next ss.ss_subs m in
           let max = max_subscript ss in
           if max <= next then (* overflow *)
-            { ss_zero = 0; ss_subs = SegTree.next max s.num }
+            { ss_zero = 0; ss_subs = Segment.Tree.next max s.num }
           else { ss_zero = ss.ss_zero; ss_subs = next }
     else if Int.equal ss.ss_subs 0 then
       (* Handle specially [] *)
-      if not @@ SegTree.mem 0 s.num then Subscript.zero
+      if not @@ Segment.Tree.mem 0 s.num then Subscript.zero
       else
         match s.pre with
         | [] -> ss_O
         | m :: _ ->
-            if SegTree.mem 0 m then { ss_zero = 0; ss_subs = SegTree.next 1 s.num } else ss_O
-    else { ss_zero = 0; ss_subs = SegTree.next ss.ss_subs s.num }
+            if Segment.Tree.mem 0 m then { ss_zero = 0; ss_subs = Segment.Tree.next 1 s.num } else ss_O
+    else { ss_zero = 0; ss_subs = Segment.Tree.next ss.ss_subs s.num }
 
   let fresh ss s =
     let open Subscript in
@@ -222,31 +221,31 @@ module SubSet = struct
       match List.nth_opt s.pre (ss.ss_zero - 1) with
       | None -> (ss, add ss s)
       | Some m ->
-          let subs, m = SegTree.fresh ss.ss_subs m in
+          let subs, m = Segment.Tree.fresh ss.ss_subs m in
           let max = max_subscript ss in
           if max <= subs then
-            let subs, num = SegTree.fresh max s.num in
+            let subs, num = Segment.Tree.fresh max s.num in
             ({ ss_zero = 0; ss_subs = subs }, { s with num })
           else
             let s = { s with pre = Lists.set_nth (ss.ss_zero - 1) m s.pre } in
             ({ ss_zero = ss.ss_zero; ss_subs = subs }, s)
     else if Int.equal ss.ss_subs 0 then
-      if not @@ SegTree.mem 0 s.num then (Subscript.zero, { num = SegTree.add 0 s.num; pre = s.pre })
+      if not @@ Segment.Tree.mem 0 s.num then (Subscript.zero, { num = Segment.Tree.add 0 s.num; pre = s.pre })
       else
         match s.pre with
-        | [] -> (ss_O, { num = s.num; pre = [SegTree.add 0 SegTree.empty] })
+        | [] -> (ss_O, { num = s.num; pre = [Segment.Tree.add 0 Segment.Tree.empty] })
         | m :: rem ->
-            if SegTree.mem 0 m then
-              let subs, num = SegTree.fresh 1 s.num in
+            if Segment.Tree.mem 0 m then
+              let subs, num = Segment.Tree.fresh 1 s.num in
               ({ ss_zero = 0; ss_subs = subs }, { num; pre = s.pre })
-            else (ss_O, { num = s.num; pre = SegTree.add 0 SegTree.empty :: rem })
+            else (ss_O, { num = s.num; pre = Segment.Tree.add 0 Segment.Tree.empty :: rem })
     else
-      let subs, num = SegTree.fresh ss.ss_subs s.num in
+      let subs, num = Segment.Tree.fresh ss.ss_subs s.num in
       ({ ss_zero = 0; ss_subs = subs }, { s with num })
 
   let max_elt_opt s =
     let mapi i m =
-      match SegTree.max_elt_opt m with
+      match Segment.Tree.max_elt_opt m with
       | None -> None
       | Some k -> Some { Subscript.ss_zero = i; ss_subs = k }
     in

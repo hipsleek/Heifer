@@ -794,6 +794,23 @@ module UnmixTactic = struct
     pure ()
 end
 
+module RewriteTactic = struct
+  (* let rewrite name =
+    let tactic =
+      let open Tactic in
+      let* assumption = catch (get_assumption name) (fun msg -> unwrap (get_lemma_opt name) msg) in
+      let rule = Rewrite.prop_to_rule assumption in
+      let* lhs, _ = get_subsumption in
+      match Rewrite.rewrite rule lhs with
+      | Some (lhs1, side) ->
+          let* ps = pop_pctxt in
+          let* () = push_pctxt ps in
+          let* () = put_lhs lhs1 in
+          iter_m (fun p -> push_pctxt { ps with goal = p }) (List.rev side)
+      | None -> fail "rewrite failed"
+    in *)
+end
+
 let prove =
   let open Tactic in
   let prove_with_ctx p =
