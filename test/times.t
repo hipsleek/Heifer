@@ -1,244 +1,1110 @@
 
   $ ./times.exe
   
+  # Options.show_why3_goal := true
+  
+  # Options.fail_fast := true
+  
+  # axiom ~name:"mult_0_r" {| forall x. x*.0 = 0 |}
+  axiom mult_0_r declared
+  
+  # axiom ~name:"eta_reduce" {| forall f. (fun x -> f x) <: f |}
+  axiom eta_reduce declared
+  
+  # axiom ~name:"bind_id_r" {| forall t. t; x. x <: t |}
+  axiom bind_id_r declared
+  
   # declare
-      {| times xs =
-      ens xs=[]; 1
-      \/ (ex ys. ens xs=0::ys; shift k 0)
-      \/ ex x ys. ens xs=x::ys; times ys; r. x*.r
+      {|
+      times_sh xs =
+        ens xs=[]; 1 \/
+        ex x xs'. ens xs=x::xs'; (ens x=0; shift k 0 \/ times_sh xs'; r. x*.r)
     |}
+  times_sh declared
+  
+  # axiom ~name:"times_sh_id_r"
+      {| forall xs. times_sh xs <: times_sh xs; x. x |}
+  axiom times_sh_id_r declared
+  
+  # declare {| times xs = reset (times_sh xs) |}
   times declared
   
-  # start_proof
-      {| forall xs x. is_int_list xs => is_int x =>
-     reset (times xs; r. x*r)
-  <: product (x::xs)
-  |}
+  # declare
+      {|
+      times_cp xs k =
+        ens xs=[]; k 1 \/
+        ex x xs'. ens xs=x::xs'; (ens x=0; 0 \/ times_cp xs' (fun r -> k (x*.r)))
+    |}
+  times_cp declared
+  
+  # declare
+      {|
+      times_pure xs =
+        ens xs=[]; 1 \/
+        ex x xs'. ens xs=x::xs'; times_pure xs'; r. x*.r
+    |}
+  times_pure declared
+  
+  # lemma ~name:"times_sh/times_cp"
+      {|
+      forall xs k.
+        (forall r. reset (k r) <: k r) =>
+        reset (times_sh xs; r. k r) <: times_cp xs k
+    |}
+  lemma times_sh/times_cp declared
   
   ────────────────────────────────────────────────────────────
-  forall xs x.
-    is_int_list xs =>
-      is_int x =>
-        reset (times xs; r. x * r) <: product (x::xs)
+  forall xs k.
+    (forall r. reset (k r) <: k r) =>
+      reset (times_sh xs; r. k r) <: times_cp xs k
   
   
   # forall_intro ()
   
-  x, xs
+  k, xs
   ────────────────────────────────────────────────────────────
-  is_int_list xs =>
-    is_int x => reset (times xs; r. x * r) <: product (x::xs)
+  (forall r. reset (k r) <: k r) =>
+    reset (times_sh xs; r. k r) <: times_cp xs k
   
   
-  # intro_pure "Htxs"
-  
-  x, xs
-  Htxs: is_int_list xs
-  ────────────────────────────────────────────────────────────
-  is_int x => reset (times xs; r. x * r) <: product (x::xs)
-  
-  
-  # revert "x"
+  # revert "k"
   
   xs
-  Htxs: is_int_list xs
   ────────────────────────────────────────────────────────────
-  forall x.
-    is_int x => reset (times xs; r. x * r) <: product (x::xs)
+  forall k.
+    (forall r. reset (k r) <: k r) =>
+      reset (times_sh xs; r. k r) <: times_cp xs k
   
   
   # induction ~name:"IH" `List "xs"
   
   xs
-  Htxs: is_int_list xs
   IH: forall xs1.
         sublist xs1 xs =>
-          is_int_list xs1 =>
-            (forall x.
-               is_int x =>
-                 reset (times xs1; r. x * r) <:
-                   product (x::xs1))
+          (forall k.
+             (forall r. reset (k r) <: k r) =>
+               reset (times_sh xs1; r. k r) <: times_cp xs1 k)
   ────────────────────────────────────────────────────────────
-  forall x.
-    is_int x => reset (times xs; r. x * r) <: product (x::xs)
+  forall k.
+    (forall r. reset (k r) <: k r) =>
+      reset (times_sh xs; r. k r) <: times_cp xs k
   
   
-  # start_proof
-      {| forall xs. is_int_list xs =>
-       reset (times xs)
-    <: product xs
-  |}
+  # forall_intro ()
+  
+  k, xs
+  IH: forall xs1.
+        sublist xs1 xs =>
+          (forall k.
+             (forall r. reset (k r) <: k r) =>
+               reset (times_sh xs1; r. k r) <: times_cp xs1 k)
+  ────────────────────────────────────────────────────────────
+  (forall r. reset (k r) <: k r) =>
+    reset (times_sh xs; r. k r) <: times_cp xs k
+  
+  
+  # intro_pure "Hk"
+  
+  k, xs
+  Hk: forall r. reset (k r) <: k r
+  IH: forall xs1.
+        sublist xs1 xs =>
+          (forall k.
+             (forall r. reset (k r) <: k r) =>
+               reset (times_sh xs1; r. k r) <: times_cp xs1 k)
+  ────────────────────────────────────────────────────────────
+     reset (times_sh xs; r. k r)
+  <: times_cp xs k
+  
+  
+  # unfold "times_sh"
+  
+  k, xs
+  Hk: forall r. reset (k r) <: k r
+  IH: forall xs1.
+        sublist xs1 xs =>
+          (forall k.
+             (forall r. reset (k r) <: k r) =>
+               reset (times_sh xs1; r. k r) <: times_cp xs1 k)
+  ────────────────────────────────────────────────────────────
+     reset
+       ((ens xs=[]; 1
+         \/ (ex x xs'.
+               ens xs=x::xs';
+               (ens x=0; shift k1 0
+                \/ times_sh xs'; r1. x*.r1))); r. k r)
+  <: times_cp xs k
+  
+  
+  # unfold "times_cp"
+  
+  k, xs
+  Hk: forall r. reset (k r) <: k r
+  IH: forall xs1.
+        sublist xs1 xs =>
+          (forall k.
+             (forall r. reset (k r) <: k r) =>
+               reset (times_sh xs1; r. k r) <: times_cp xs1 k)
+  ────────────────────────────────────────────────────────────
+     reset
+       ((ens xs=[]; 1
+         \/ (ex x xs'.
+               ens xs=x::xs';
+               (ens x=0; shift k1 0
+                \/ times_sh xs'; r1. x*.r1))); r. k r)
+  <: ens xs=[]; k 1
+     \/ (ex x xs'.
+           ens xs=x::xs';
+           (ens x=0; 0 \/ times_cp xs' (fun r -> k (x*.r))))
+  
+  
+  # shift_reset_reduce ()
+  
+  k, xs
+  Hk: forall r. reset (k r) <: k r
+  IH: forall xs1.
+        sublist xs1 xs =>
+          (forall k.
+             (forall r. reset (k r) <: k r) =>
+               reset (times_sh xs1; r. k r) <: times_cp xs1 k)
+  ────────────────────────────────────────────────────────────
+     ens xs=[]; reset (k 1)
+     \/ (ex x xs'.
+           ens xs=x::xs';
+           (ens x=0; 0
+            \/ reset (times_sh xs'; r. x*.r; r1. k r1)))
+  <: ens xs=[]; k 1
+     \/ (ex x xs'.
+           ens xs=x::xs';
+           (ens x=0; 0 \/ times_cp xs' (fun r -> k (x*.r))))
+  
+  
+  # disj_elim ()
+  
+  k, xs
+  Hk: forall r. reset (k r) <: k r
+  IH: forall xs1.
+        sublist xs1 xs =>
+          (forall k.
+             (forall r. reset (k r) <: k r) =>
+               reset (times_sh xs1; r. k r) <: times_cp xs1 k)
+  ────────────────────────────────────────────────────────────
+     ens xs=[]; reset (k 1)
+  <: ens xs=[]; k 1
+     \/ (ex x xs'.
+           ens xs=x::xs';
+           (ens x=0; 0 \/ times_cp xs' (fun r -> k (x*.r))))
+  (1 more goals)
+  
+  
+  # left ()
+  
+  k, xs
+  Hk: forall r. reset (k r) <: k r
+  IH: forall xs1.
+        sublist xs1 xs =>
+          (forall k.
+             (forall r. reset (k r) <: k r) =>
+               reset (times_sh xs1; r. k r) <: times_cp xs1 k)
+  ────────────────────────────────────────────────────────────
+     ens xs=[]; reset (k 1)
+  <: ens xs=[]; k 1
+  (1 more goals)
+  
+  
+  # rewrite "Hk"
+  
+  k, xs
+  Hk: forall r. reset (k r) <: k r
+  IH: forall xs1.
+        sublist xs1 xs =>
+          (forall k.
+             (forall r. reset (k r) <: k r) =>
+               reset (times_sh xs1; r. k r) <: times_cp xs1 k)
+  ────────────────────────────────────────────────────────────
+     ens xs=[]; k 1
+  <: ens xs=[]; k 1
+  (1 more goals)
+  
+  
+  # refl ()
+  
+  k, xs
+  Hk: forall r. reset (k r) <: k r
+  IH: forall xs1.
+        sublist xs1 xs =>
+          (forall k.
+             (forall r. reset (k r) <: k r) =>
+               reset (times_sh xs1; r. k r) <: times_cp xs1 k)
+  ────────────────────────────────────────────────────────────
+     ex x xs'.
+       ens xs=x::xs';
+       (ens x=0; 0 \/ reset (times_sh xs'; r. x*.r; r1. k r1))
+  <: ens xs=[]; k 1
+     \/ (ex x xs'.
+           ens xs=x::xs';
+           (ens x=0; 0 \/ times_cp xs' (fun r -> k (x*.r))))
+  
+  
+  # right ()
+  
+  k, xs
+  Hk: forall r. reset (k r) <: k r
+  IH: forall xs1.
+        sublist xs1 xs =>
+          (forall k.
+             (forall r. reset (k r) <: k r) =>
+               reset (times_sh xs1; r. k r) <: times_cp xs1 k)
+  ────────────────────────────────────────────────────────────
+     ex x xs'.
+       ens xs=x::xs';
+       (ens x=0; 0 \/ reset (times_sh xs'; r. x*.r; r1. k r1))
+  <: ex x xs'.
+       ens xs=x::xs';
+       (ens x=0; 0 \/ times_cp xs' (fun r -> k (x*.r)))
+  
+  
+  # exists_elim (); exists_intro ["x"; "xs'"]
+  
+  k, x, xs, xs'
+  Hk: forall r. reset (k r) <: k r
+  IH: forall xs1.
+        sublist xs1 xs =>
+          (forall k.
+             (forall r. reset (k r) <: k r) =>
+               reset (times_sh xs1; r. k r) <: times_cp xs1 k)
+  ────────────────────────────────────────────────────────────
+     ens xs=x::xs';
+     (ens x=0; 0 \/ reset (times_sh xs'; r. x*.r; r1. k r1))
+  <: ex x xs'.
+       ens xs=x::xs';
+       (ens x=0; 0 \/ times_cp xs' (fun r -> k (x*.r)))
+  
+  
+  k, x, xs, xs'
+  Hk: forall r. reset (k r) <: k r
+  IH: forall xs1.
+        sublist xs1 xs =>
+          (forall k.
+             (forall r. reset (k r) <: k r) =>
+               reset (times_sh xs1; r. k r) <: times_cp xs1 k)
+  ────────────────────────────────────────────────────────────
+     ens xs=x::xs';
+     (ens x=0; 0 \/ reset (times_sh xs'; r. x*.r; r1. k r1))
+  <: ens xs=x::xs';
+     (ens x=0; 0 \/ times_cp xs' (fun r -> k (x*.r)))
+  
+  
+  # intro_pure "Hxs"
+  
+  k, x, xs, xs'
+  Hk: forall r. reset (k r) <: k r
+  Hxs: xs=x::xs'
+  IH: forall xs1.
+        sublist xs1 xs =>
+          (forall k.
+             (forall r. reset (k r) <: k r) =>
+               reset (times_sh xs1; r. k r) <: times_cp xs1 k)
+  ────────────────────────────────────────────────────────────
+     ens x=0; 0 \/ reset (times_sh xs'; r. x*.r; r1. k r1)
+  <: ens xs=x::xs';
+     (ens x=0; 0 \/ times_cp xs' (fun r -> k (x*.r)))
+  
+  
+  # elim_pure ()
+  module M
+    use heifer.Heifer
+    
+    goal goal1:
+      forall xs' : term, xs : term, x : term, k : term.
+        (xs = (TCons x xs')) -> (xs = (TCons x xs'))
+  end
+  Warning, file line 0, characters 0-0: unused variable k
+  module M
+    use Heifer
+    goal goal1 : true
+  end
+  
+  k, x, xs, xs'
+  Hk: forall r. reset (k r) <: k r
+  Hxs: xs=x::xs'
+  IH: forall xs1.
+        sublist xs1 xs =>
+          (forall k.
+             (forall r. reset (k r) <: k r) =>
+               reset (times_sh xs1; r. k r) <: times_cp xs1 k)
+  ────────────────────────────────────────────────────────────
+     ens x=0; 0 \/ reset (times_sh xs'; r. x*.r; r1. k r1)
+  <: ens x=0; 0 \/ times_cp xs' (fun r -> k (x*.r))
+  
+  
+  # disj_elim ()
+  
+  k, x, xs, xs'
+  Hk: forall r. reset (k r) <: k r
+  Hxs: xs=x::xs'
+  IH: forall xs1.
+        sublist xs1 xs =>
+          (forall k.
+             (forall r. reset (k r) <: k r) =>
+               reset (times_sh xs1; r. k r) <: times_cp xs1 k)
+  ────────────────────────────────────────────────────────────
+     ens x=0; 0
+  <: ens x=0; 0 \/ times_cp xs' (fun r -> k (x*.r))
+  (1 more goals)
+  
+  
+  # left ()
+  
+  k, x, xs, xs'
+  Hk: forall r. reset (k r) <: k r
+  Hxs: xs=x::xs'
+  IH: forall xs1.
+        sublist xs1 xs =>
+          (forall k.
+             (forall r. reset (k r) <: k r) =>
+               reset (times_sh xs1; r. k r) <: times_cp xs1 k)
+  ────────────────────────────────────────────────────────────
+     ens x=0; 0
+  <: ens x=0; 0
+  (1 more goals)
+  
+  
+  # refl ()
+  
+  k, x, xs, xs'
+  Hk: forall r. reset (k r) <: k r
+  Hxs: xs=x::xs'
+  IH: forall xs1.
+        sublist xs1 xs =>
+          (forall k.
+             (forall r. reset (k r) <: k r) =>
+               reset (times_sh xs1; r. k r) <: times_cp xs1 k)
+  ────────────────────────────────────────────────────────────
+     reset (times_sh xs'; r. x*.r; r1. k r1)
+  <: ens x=0; 0 \/ times_cp xs' (fun r -> k (x*.r))
+  
+  
+  # right ()
+  
+  k, x, xs, xs'
+  Hk: forall r. reset (k r) <: k r
+  Hxs: xs=x::xs'
+  IH: forall xs1.
+        sublist xs1 xs =>
+          (forall k.
+             (forall r. reset (k r) <: k r) =>
+               reset (times_sh xs1; r. k r) <: times_cp xs1 k)
+  ────────────────────────────────────────────────────────────
+     reset (times_sh xs'; r. x*.r; r1. k r1)
+  <: times_cp xs' (fun r -> k (x*.r))
+  
+  
+  # simpl ()
+  
+  k, x, xs, xs'
+  Hk: forall r. reset (k r) <: k r
+  Hxs: xs=x::xs'
+  IH: forall xs1.
+        sublist xs1 xs =>
+          (forall k.
+             (forall r. reset (k r) <: k r) =>
+               reset (times_sh xs1; r. k r) <: times_cp xs1 k)
+  ────────────────────────────────────────────────────────────
+     reset (times_sh xs'; r. k (x*.r))
+  <: times_cp xs' (fun r -> k (x*.r))
+  
+  
+  # rewrite "IH"
+  
+  k, x, xs, xs'
+  Hk: forall r. reset (k r) <: k r
+  Hxs: xs=x::xs'
+  IH: forall xs1.
+        sublist xs1 xs =>
+          (forall k.
+             (forall r. reset (k r) <: k r) =>
+               reset (times_sh xs1; r. k r) <: times_cp xs1 k)
+  ────────────────────────────────────────────────────────────
+  sublist xs' xs
+  (2 more goals)
+  
+  
+  # pure_solver ()
+  module M
+    use heifer.Heifer
+    
+    goal goal1:
+      forall xs' : term, xs : term, x : term, k : term.
+        (xs = (TCons x xs')) -> (sublist xs' xs)
+  end
+  Warning, file line 0, characters 0-0: unused variable k
+  module M
+    use Heifer
+    constant xs' : term
+    constant x : term
+    goal goal1 : sublist xs' (TCons x xs')
+  end
+  
+  k, x, xs, xs'
+  Hk: forall r. reset (k r) <: k r
+  Hxs: xs=x::xs'
+  IH: forall xs1.
+        sublist xs1 xs =>
+          (forall k.
+             (forall r. reset (k r) <: k r) =>
+               reset (times_sh xs1; r. k r) <: times_cp xs1 k)
+  ────────────────────────────────────────────────────────────
+  forall r.
+    reset ((fun r1 -> k (x*.r1)) r) <:
+      (fun r1 -> k (x*.r1)) r
+  (1 more goals)
+  
+  
+  # forall_intro ()
+  
+  k, r, x, xs, xs'
+  Hk: forall r. reset (k r) <: k r
+  Hxs: xs=x::xs'
+  IH: forall xs1.
+        sublist xs1 xs =>
+          (forall k.
+             (forall r. reset (k r) <: k r) =>
+               reset (times_sh xs1; r. k r) <: times_cp xs1 k)
+  ────────────────────────────────────────────────────────────
+     reset ((fun r1 -> k (x*.r1)) r)
+  <: (fun r1 -> k (x*.r1)) r
+  (1 more goals)
+  
+  
+  # simpl ()
+  
+  k, r, x, xs, xs'
+  Hk: forall r. reset (k r) <: k r
+  Hxs: xs=x::xs'
+  IH: forall xs1.
+        sublist xs1 xs =>
+          (forall k.
+             (forall r. reset (k r) <: k r) =>
+               reset (times_sh xs1; r. k r) <: times_cp xs1 k)
+  ────────────────────────────────────────────────────────────
+     reset (k (x*.r))
+  <: k (x*.r)
+  (1 more goals)
+  
+  
+  # rewrite "Hk"
+  
+  k, r, x, xs, xs'
+  Hk: forall r. reset (k r) <: k r
+  Hxs: xs=x::xs'
+  IH: forall xs1.
+        sublist xs1 xs =>
+          (forall k.
+             (forall r. reset (k r) <: k r) =>
+               reset (times_sh xs1; r. k r) <: times_cp xs1 k)
+  ────────────────────────────────────────────────────────────
+     k (x*.r)
+  <: k (x*.r)
+  (1 more goals)
+  
+  
+  # refl ()
+  
+  k, x, xs, xs'
+  Hk: forall r. reset (k r) <: k r
+  Hxs: xs=x::xs'
+  IH: forall xs1.
+        sublist xs1 xs =>
+          (forall k.
+             (forall r. reset (k r) <: k r) =>
+               reset (times_sh xs1; r. k r) <: times_cp xs1 k)
+  ────────────────────────────────────────────────────────────
+     times_cp xs' (fun r -> k (x*.r))
+  <: times_cp xs' (fun r -> k (x*.r))
+  
+  
+  # refl ()
+  no more goals
+  
+  # qed ()
+  no more goals
+  
+  # lemma ~name:"times_cp/times_pure"
+      {|
+      forall xs k.
+        (k 0 <: 0) =>
+        times_cp xs k <: times_pure xs; r. k r
+    |}
+  lemma times_cp/times_pure declared
   
   ────────────────────────────────────────────────────────────
-  forall xs. is_int_list xs => reset (times xs) <: product xs
+  forall xs k.
+    (k 0 <: 0) => times_cp xs k <: times_pure xs; r. k r
+  
+  
+  # forall_intro ()
+  
+  k, xs
+  ────────────────────────────────────────────────────────────
+  (k 0 <: 0) => times_cp xs k <: times_pure xs; r. k r
+  
+  
+  # revert "k"
+  
+  xs
+  ────────────────────────────────────────────────────────────
+  forall k.
+    (k 0 <: 0) => times_cp xs k <: times_pure xs; r. k r
+  
+  
+  # induction ~name:"IH" `List "xs"
+  
+  xs
+  IH: forall xs1.
+        sublist xs1 xs =>
+          (forall k.
+             (k 0 <: 0) =>
+               times_cp xs1 k <: times_pure xs1; r. k r)
+  ────────────────────────────────────────────────────────────
+  forall k.
+    (k 0 <: 0) => times_cp xs k <: times_pure xs; r. k r
+  
+  
+  # forall_intro ()
+  
+  k, xs
+  IH: forall xs1.
+        sublist xs1 xs =>
+          (forall k.
+             (k 0 <: 0) =>
+               times_cp xs1 k <: times_pure xs1; r. k r)
+  ────────────────────────────────────────────────────────────
+  (k 0 <: 0) => times_cp xs k <: times_pure xs; r. k r
+  
+  
+  # intro_pure "Hk"
+  
+  k, xs
+  Hk: k 0 <: 0
+  IH: forall xs1.
+        sublist xs1 xs =>
+          (forall k.
+             (k 0 <: 0) =>
+               times_cp xs1 k <: times_pure xs1; r. k r)
+  ────────────────────────────────────────────────────────────
+     times_cp xs k
+  <: times_pure xs; r. k r
+  
+  
+  # unfold "times_cp"
+  
+  k, xs
+  Hk: k 0 <: 0
+  IH: forall xs1.
+        sublist xs1 xs =>
+          (forall k.
+             (k 0 <: 0) =>
+               times_cp xs1 k <: times_pure xs1; r. k r)
+  ────────────────────────────────────────────────────────────
+     ens xs=[]; k 1
+     \/ (ex x xs'.
+           ens xs=x::xs';
+           (ens x=0; 0 \/ times_cp xs' (fun r -> k (x*.r))))
+  <: times_pure xs; r. k r
+  
+  
+  # unfold "times_pure"
+  
+  k, xs
+  Hk: k 0 <: 0
+  IH: forall xs1.
+        sublist xs1 xs =>
+          (forall k.
+             (k 0 <: 0) =>
+               times_cp xs1 k <: times_pure xs1; r. k r)
+  ────────────────────────────────────────────────────────────
+     ens xs=[]; k 1
+     \/ (ex x xs'.
+           ens xs=x::xs';
+           (ens x=0; 0 \/ times_cp xs' (fun r -> k (x*.r))))
+  <: (ens xs=[]; 1
+      \/ (ex x xs'. ens xs=x::xs'; times_pure xs'; r1. x*.r1));
+       r. k r
+  
+  
+  # simpl ()
+  
+  k, xs
+  Hk: k 0 <: 0
+  IH: forall xs1.
+        sublist xs1 xs =>
+          (forall k.
+             (k 0 <: 0) =>
+               times_cp xs1 k <: times_pure xs1; r. k r)
+  ────────────────────────────────────────────────────────────
+     ens xs=[]; k 1
+     \/ (ex x xs'.
+           ens xs=x::xs';
+           (ens x=0; 0 \/ times_cp xs' (fun r -> k (x*.r))))
+  <: ens xs=[]; k 1
+     \/ (ex x xs'. ens xs=x::xs'; times_pure xs'; r1. x*.r1);
+          r. k r
+  
+  
+  # disj_elim ()
+  
+  k, xs
+  Hk: k 0 <: 0
+  IH: forall xs1.
+        sublist xs1 xs =>
+          (forall k.
+             (k 0 <: 0) =>
+               times_cp xs1 k <: times_pure xs1; r. k r)
+  ────────────────────────────────────────────────────────────
+     ens xs=[]; k 1
+  <: ens xs=[]; k 1
+     \/ (ex x xs'. ens xs=x::xs'; times_pure xs'; r1. x*.r1);
+          r. k r
+  (1 more goals)
+  
+  
+  # left ()
+  
+  k, xs
+  Hk: k 0 <: 0
+  IH: forall xs1.
+        sublist xs1 xs =>
+          (forall k.
+             (k 0 <: 0) =>
+               times_cp xs1 k <: times_pure xs1; r. k r)
+  ────────────────────────────────────────────────────────────
+     ens xs=[]; k 1
+  <: ens xs=[]; k 1
+  (1 more goals)
+  
+  
+  # refl ()
+  
+  k, xs
+  Hk: k 0 <: 0
+  IH: forall xs1.
+        sublist xs1 xs =>
+          (forall k.
+             (k 0 <: 0) =>
+               times_cp xs1 k <: times_pure xs1; r. k r)
+  ────────────────────────────────────────────────────────────
+     ex x xs'.
+       ens xs=x::xs';
+       (ens x=0; 0 \/ times_cp xs' (fun r -> k (x*.r)))
+  <: ens xs=[]; k 1
+     \/ (ex x xs'. ens xs=x::xs'; times_pure xs'; r1. x*.r1);
+          r. k r
+  
+  
+  # right ()
+  
+  k, xs
+  Hk: k 0 <: 0
+  IH: forall xs1.
+        sublist xs1 xs =>
+          (forall k.
+             (k 0 <: 0) =>
+               times_cp xs1 k <: times_pure xs1; r. k r)
+  ────────────────────────────────────────────────────────────
+     ex x xs'.
+       ens xs=x::xs';
+       (ens x=0; 0 \/ times_cp xs' (fun r -> k (x*.r)))
+  <: (ex x xs'. ens xs=x::xs'; times_pure xs'; r1. x*.r1); r.
+       k r
+  
+  
+  # exists_elim ()
+  
+  k, x, xs, xs'
+  Hk: k 0 <: 0
+  IH: forall xs1.
+        sublist xs1 xs =>
+          (forall k.
+             (k 0 <: 0) =>
+               times_cp xs1 k <: times_pure xs1; r. k r)
+  ────────────────────────────────────────────────────────────
+     ens xs=x::xs';
+     (ens x=0; 0 \/ times_cp xs' (fun r -> k (x*.r)))
+  <: (ex x xs'. ens xs=x::xs'; times_pure xs'; r1. x*.r1); r.
+       k r
+  
+  
+  # exists_intro ["x"; "xs'"]
+  
+  k, x, xs, xs'
+  Hk: k 0 <: 0
+  IH: forall xs1.
+        sublist xs1 xs =>
+          (forall k.
+             (k 0 <: 0) =>
+               times_cp xs1 k <: times_pure xs1; r. k r)
+  ────────────────────────────────────────────────────────────
+     ens xs=x::xs';
+     (ens x=0; 0 \/ times_cp xs' (fun r -> k (x*.r)))
+  <: (ens xs=x::xs'; times_pure xs'; r1. x*.r1); r. k r
+  
+  
+  # simpl ()
+  
+  k, x, xs, xs'
+  Hk: k 0 <: 0
+  IH: forall xs1.
+        sublist xs1 xs =>
+          (forall k.
+             (k 0 <: 0) =>
+               times_cp xs1 k <: times_pure xs1; r. k r)
+  ────────────────────────────────────────────────────────────
+     ens xs=x::xs';
+     (ens x=0; 0 \/ times_cp xs' (fun r -> k (x*.r)))
+  <: ens xs=x::xs'; times_pure xs'; r. k (x*.r)
+  
+  
+  # intro_pure "Hxs"
+  
+  k, x, xs, xs'
+  Hk: k 0 <: 0
+  Hxs: xs=x::xs'
+  IH: forall xs1.
+        sublist xs1 xs =>
+          (forall k.
+             (k 0 <: 0) =>
+               times_cp xs1 k <: times_pure xs1; r. k r)
+  ────────────────────────────────────────────────────────────
+     ens x=0; 0 \/ times_cp xs' (fun r -> k (x*.r))
+  <: ens xs=x::xs'; times_pure xs'; r. k (x*.r)
+  
+  
+  # elim_pure ()
+  module M
+    use heifer.Heifer
+    
+    goal goal1:
+      forall xs' : term, xs : term, x : term, k : term.
+        (xs = (TCons x xs')) -> (xs = (TCons x xs'))
+  end
+  Warning, file line 0, characters 0-0: unused variable k
+  module M
+    use Heifer
+    goal goal1 : true
+  end
+  
+  k, x, xs, xs'
+  Hk: k 0 <: 0
+  Hxs: xs=x::xs'
+  IH: forall xs1.
+        sublist xs1 xs =>
+          (forall k.
+             (k 0 <: 0) =>
+               times_cp xs1 k <: times_pure xs1; r. k r)
+  ────────────────────────────────────────────────────────────
+     ens x=0; 0 \/ times_cp xs' (fun r -> k (x*.r))
+  <: times_pure xs'; r. k (x*.r)
+  
+  
+  # disj_elim ()
+  
+  k, x, xs, xs'
+  Hk: k 0 <: 0
+  Hxs: xs=x::xs'
+  IH: forall xs1.
+        sublist xs1 xs =>
+          (forall k.
+             (k 0 <: 0) =>
+               times_cp xs1 k <: times_pure xs1; r. k r)
+  ────────────────────────────────────────────────────────────
+     ens x=0; 0
+  <: times_pure xs'; r. k (x*.r)
+  (1 more goals)
+  
+  
+  # intro_pure "Hx"
+  
+  k, x, xs, xs'
+  Hk: k 0 <: 0
+  Hx: x=0
+  Hxs: xs=x::xs'
+  IH: forall xs1.
+        sublist xs1 xs =>
+          (forall k.
+             (k 0 <: 0) =>
+               times_cp xs1 k <: times_pure xs1; r. k r)
+  ────────────────────────────────────────────────────────────
+     0
+  <: times_pure xs'; r. k (x*.r)
+  (1 more goals)
+  
+  
+  # admit ()
+  
+  k, x, xs, xs'
+  Hk: k 0 <: 0
+  Hxs: xs=x::xs'
+  IH: forall xs1.
+        sublist xs1 xs =>
+          (forall k.
+             (k 0 <: 0) =>
+               times_cp xs1 k <: times_pure xs1; r. k r)
+  ────────────────────────────────────────────────────────────
+     times_cp xs' (fun r -> k (x*.r))
+  <: times_pure xs'; r. k (x*.r)
+  
+  
+  # rewrite "IH"
+  
+  k, x, xs, xs'
+  Hk: k 0 <: 0
+  Hxs: xs=x::xs'
+  IH: forall xs1.
+        sublist xs1 xs =>
+          (forall k.
+             (k 0 <: 0) =>
+               times_cp xs1 k <: times_pure xs1; r. k r)
+  ────────────────────────────────────────────────────────────
+  sublist xs' xs
+  (2 more goals)
+  
+  
+  # pure_solver ()
+  module M
+    use heifer.Heifer
+    
+    goal goal1:
+      forall xs' : term, xs : term, x : term, k : term.
+        (xs = (TCons x xs')) -> (sublist xs' xs)
+  end
+  Warning, file line 0, characters 0-0: unused variable k
+  module M
+    use Heifer
+    constant xs' : term
+    constant x : term
+    goal goal1 : sublist xs' (TCons x xs')
+  end
+  
+  k, x, xs, xs'
+  Hk: k 0 <: 0
+  Hxs: xs=x::xs'
+  IH: forall xs1.
+        sublist xs1 xs =>
+          (forall k.
+             (k 0 <: 0) =>
+               times_cp xs1 k <: times_pure xs1; r. k r)
+  ────────────────────────────────────────────────────────────
+     (fun r -> k (x*.r)) 0
+  <: 0
+  (1 more goals)
+  
+  
+  # simpl ()
+  
+  k, x, xs, xs'
+  Hk: k 0 <: 0
+  Hxs: xs=x::xs'
+  IH: forall xs1.
+        sublist xs1 xs =>
+          (forall k.
+             (k 0 <: 0) =>
+               times_cp xs1 k <: times_pure xs1; r. k r)
+  ────────────────────────────────────────────────────────────
+     k (x*.0)
+  <: 0
+  (1 more goals)
+  
+  
+  # rewrite "mult_0_r"
+  
+  k, x, xs, xs'
+  Hk: k 0 <: 0
+  Hxs: xs=x::xs'
+  IH: forall xs1.
+        sublist xs1 xs =>
+          (forall k.
+             (k 0 <: 0) =>
+               times_cp xs1 k <: times_pure xs1; r. k r)
+  ────────────────────────────────────────────────────────────
+     k 0
+  <: 0
+  (1 more goals)
+  
+  
+  # rewrite "Hk"
+  
+  k, x, xs, xs'
+  Hk: k 0 <: 0
+  Hxs: xs=x::xs'
+  IH: forall xs1.
+        sublist xs1 xs =>
+          (forall k.
+             (k 0 <: 0) =>
+               times_cp xs1 k <: times_pure xs1; r. k r)
+  ────────────────────────────────────────────────────────────
+     0
+  <: 0
+  (1 more goals)
+  
+  
+  # refl ()
+  
+  k, x, xs, xs'
+  Hk: k 0 <: 0
+  Hxs: xs=x::xs'
+  IH: forall xs1.
+        sublist xs1 xs =>
+          (forall k.
+             (k 0 <: 0) =>
+               times_cp xs1 k <: times_pure xs1; r. k r)
+  ────────────────────────────────────────────────────────────
+     times_pure xs'; r. (fun r1 -> k (x*.r1)) r
+  <: times_pure xs'; r. k (x*.r)
+  
+  
+  # simpl ()
+  
+  k, x, xs, xs'
+  Hk: k 0 <: 0
+  Hxs: xs=x::xs'
+  IH: forall xs1.
+        sublist xs1 xs =>
+          (forall k.
+             (k 0 <: 0) =>
+               times_cp xs1 k <: times_pure xs1; r. k r)
+  ────────────────────────────────────────────────────────────
+     times_pure xs'; r. k (x*.r)
+  <: times_pure xs'; r. k (x*.r)
+  
+  
+  # refl ()
+  no more goals
+  
+  # qed ()
+  no more goals
+  
+  # start_proof {| forall xs. times xs <: times_pure xs |}
+  
+  ────────────────────────────────────────────────────────────
+  forall xs. times xs <: times_pure xs
   
   
   # forall_intro ()
   
   xs
   ────────────────────────────────────────────────────────────
-  is_int_list xs => reset (times xs) <: product xs
-  
-  
-  # intro_pure "Hty"
-  
-  xs
-  Hty: is_int_list xs
-  ────────────────────────────────────────────────────────────
-     reset (times xs)
-  <: product xs
+     times xs
+  <: times_pure xs
   
   
   # unfold "times"
   
   xs
-  Hty: is_int_list xs
   ────────────────────────────────────────────────────────────
-     reset
-       (ens xs=[]; 1 \/ (ex ys. ens xs=0::ys; shift k 0)
-        \/ (ex x ys. ens xs=x::ys; times ys; r. x*.r))
-  <: product xs
+     reset (times_sh xs)
+  <: times_pure xs
+  
+  
+  # rewrite "times_sh_id_r"
+  
+  xs
+  ────────────────────────────────────────────────────────────
+     reset (times_sh xs; x. x)
+  <: times_pure xs
+  
+  
+  # rewrite "times_sh/times_cp"
+  
+  xs
+  ────────────────────────────────────────────────────────────
+  forall r. reset ((fun r1 -> r1) r) <: (fun r1 -> r1) r
+  (1 more goals)
+  
+  
+  # forall_intro ()
+  
+  r, xs
+  ────────────────────────────────────────────────────────────
+     reset ((fun r1 -> r1) r)
+  <: (fun r1 -> r1) r
+  (1 more goals)
+  
+  
+  # simpl ()
+  
+  r, xs
+  ────────────────────────────────────────────────────────────
+     reset (r)
+  <: r
+  (1 more goals)
   
   
   # shift_reset_reduce ()
   
-  xs
-  Hty: is_int_list xs
+  r, xs
   ────────────────────────────────────────────────────────────
-     ens xs=[]; 1 \/ (ex ys. ens xs=0::ys; 0)
-     \/ (ex x ys. ens xs=x::ys; reset (times ys; r. x*.r))
-  <: product xs
-  
-  
-  # disj_elim ()
-  
-  xs
-  Hty: is_int_list xs
-  ────────────────────────────────────────────────────────────
-     ens xs=[]; 1 \/ (ex ys. ens xs=0::ys; 0)
-  <: product xs
+     r
+  <: r
   (1 more goals)
   
   
-  # disj_elim ()
+  # refl ()
   
   xs
-  Hty: is_int_list xs
   ────────────────────────────────────────────────────────────
-     ens xs=[]; 1
-  <: product xs
-  (2 more goals)
+     times_cp xs (fun r -> r)
+  <: times_pure xs
   
   
-  # goal_is {|
-     ens xs=[]; 1
-  <: product xs
-  |}
+  # rewrite "times_cp/times_pure"
   
   xs
-  Hty: is_int_list xs
   ────────────────────────────────────────────────────────────
-     ens xs=[]; 1
-  <: product xs
-  (2 more goals)
-  
-  
-  # intro_pure "Hxs"
-  
-  xs
-  Hty: is_int_list xs
-  Hxs: xs=[]
-  ────────────────────────────────────────────────────────────
-     1
-  <: product xs
-  (2 more goals)
-  
-  
-  # prove ()
-  ==> Valid
-  
-  
-  xs
-  Hty: is_int_list xs
-  ────────────────────────────────────────────────────────────
-     ex ys. ens xs=0::ys; 0
-  <: product xs
+     (fun r -> r) 0
+  <: 0
   (1 more goals)
   
   
-  # goal_is {|
-     (ex ys. ens xs=0::ys; 0)
-  <: product xs
-  |}
+  # simpl ()
   
   xs
-  Hty: is_int_list xs
-  ────────────────────────────────────────────────────────────
-     ex ys. ens xs=0::ys; 0
-  <: product xs
-  (1 more goals)
-  
-  
-  # exists_elim ()
-  
-  xs, ys
-  Hty: is_int_list xs
-  ────────────────────────────────────────────────────────────
-     ens xs=0::ys; 0
-  <: product xs
-  (1 more goals)
-  
-  
-  # intro_pure "Hxs"
-  
-  xs, ys
-  Hty: is_int_list xs
-  Hxs: xs=0::ys
   ────────────────────────────────────────────────────────────
      0
-  <: product xs
+  <: 0
   (1 more goals)
   
   
-  # prove ()
-  ==> Valid
-  
+  # refl ()
   
   xs
-  Hty: is_int_list xs
   ────────────────────────────────────────────────────────────
-     ex x ys. ens xs=x::ys; reset (times ys; r. x*.r)
-  <: product xs
+     times_pure xs; r. (fun r1 -> r1) r
+  <: times_pure xs
   
   
-  # goal_is
-      {|
-     (ex x ys. ens xs=x::ys; reset (times ys; r. x*.r))
-  <: product xs
-  |}
+  # simpl ()
   
   xs
-  Hty: is_int_list xs
   ────────────────────────────────────────────────────────────
-     ex x ys. ens xs=x::ys; reset (times ys; r. x*.r)
-  <: product xs
+     times_pure xs; r. r
+  <: times_pure xs
   
   
-  # exists_elim ()
+  # rewrite "bind_id_r"
   
-  x, xs, ys
-  Hty: is_int_list xs
+  xs
   ────────────────────────────────────────────────────────────
-     ens xs=x::ys; reset (times ys; r. x*.r)
-  <: product xs
+     times_pure xs
+  <: times_pure xs
   
   
-  # intro_pure "Hxs"
+  # refl ()
+  no more goals
   
-  x, xs, ys
-  Hty: is_int_list xs
-  Hxs: xs=x::ys
-  ────────────────────────────────────────────────────────────
-     reset (times ys; r. x*.r)
-  <: product xs
+  # qed ()
+  no more goals
   
+  # Options.show_why3_goal := false
+  
+  # Options.fail_fast := false

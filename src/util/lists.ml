@@ -59,6 +59,10 @@ let rec find_remove_map f = function
 let product xs ys =
   List.concat_map (fun x -> List.map (fun y -> (x, y)) ys) xs
 
+let string_of_list f = function
+  | [] -> "[]"
+  | xs -> String.concat "; " (List.map f xs)
+
 module Monad = struct
   let pure = singleton
   let ( let+ ) xs f = List.map f xs

@@ -9,6 +9,7 @@ open Util.Strings
 
 module Options = struct
   let show_why3_goal = ref false
+  let fail_fast = ref false
 end
 
 module Message = struct
@@ -87,7 +88,7 @@ module Tactic : sig
   val modify_pctxt : (proof_context -> proof_context) -> unit t
 
   (* derived combinators: get *)
-  val get_rename_ctxt : Bindlib.ctxt t
+  val get_rename_ctxt : Rename.ctxt t
   val get_constants : term var SMap.t t
   val get_assumptions : term SMap.t t
   val get_heap_assumptions : term list t
@@ -97,7 +98,7 @@ module Tactic : sig
 
   (* val get_heap_assumption : string -> term t *)
   (* derived combinators: put *)
-  val put_rename_ctxt : Bindlib.ctxt -> unit t
+  val put_rename_ctxt : Rename.ctxt -> unit t
   val put_constants : term var SMap.t -> unit t
   val put_assumptions : term SMap.t -> unit t
   val put_assumption : string -> term -> unit t
@@ -479,23 +480,38 @@ module PureTactic = struct
     let open Tactic in
     choices ~err:"intro_pure: failed" [impl_intro name; ens_pure_elim name; req_pure_intro name]
 
+  let pre_pure_solver goal =
+    let open Tactic in
+    let* _ = guard (Simply_typed.is_prop goal) "pre_pure_solver: not prop" in
+    solve_invoke_why3 goal
+
+  let pure_solver =
+    let open Tactic in
+    let* goal = get_goal in
+    let* _ = pre_pure_solver goal in
+    () <$ pop_pctxt
+
   let req_pure_elim =
     let open Tactic in
     let* t, lhs = ElimTactic.pre_req_elim in
     let* _ = guard (Simply_typed.is_prop t) "req_pure_elim: not prop" in
-    let* _ = solve_invoke_why3 t in
+    let* _ = pre_pure_solver t in
     put_lhs lhs
 
   let ens_pure_intro =
     let open Tactic in
     let* t, rhs = IntroTactic.pre_ens_intro in
     let* _ = guard (Simply_typed.is_prop t) "ens_pure_intro: not prop" in
-    let* _ = solve_invoke_why3 t in
+    let* _ = pre_pure_solver t in
     put_rhs rhs
 
   let elim_pure =
     let open Tactic in
     choices ~err:"elim_pure: failed" [req_pure_elim; ens_pure_intro]
+end
+
+module ReasonTactic = struct
+  let ex_falso = Tactic.put_goal False
 end
 
 let parse_term ts =
@@ -533,11 +549,6 @@ let have ~name s =
   let* _ = add_assumption name g in
   push_pctxt { ps with goal = g }
 
-(* let axiom ~name s =
-  let open Tactic in
-  let* g = parse_term s in
-  add_assumption name g *)
-
 let case ~name s =
   let open Tactic in
   let* p = parse_term s in
@@ -562,10 +573,18 @@ let qed =
   | [] -> pure ()
   | _ -> fail "proof not finished"
 
-let refl =
-  let open Tactic in
-  let* lhs, rhs = get_subsumption in
-  if equal_term lhs rhs then pop_pctxt else fail "refl: cannot close goal"
+module FinishTactic = struct
+  let refl =
+    let open Tactic in
+    let* lhs, rhs = get_subsumption in
+    if equal_term lhs rhs then pop_pctxt else fail "refl: cannot close goal"
+end
+
+module SimplTactic = struct
+  let simpl = Tactic.modify_goal Simpl.simpl
+  let shift_reset_reduce = Tactic.modify_goal Shift_reset.reduce
+  let prenex = Tactic.modify_goal Prenex.prenex
+end
 
 let revert s =
   let open Tactic in
@@ -580,10 +599,10 @@ let revert s =
       | (k, _) :: _ -> failf "assumption %s is dependent on %s, cannot revert" k (name_of v)
       | [] ->
           let constants = SMap.remove (name_of v) pc.constants in
+          let rename_ctxt = Rename.Core.remove_name (name_of v) pc.rename_ctxt in
           let goal = Forall (unbox (bind_mvar [| v |] (box_term pc.goal))) in
-          let pc1 = { pc with constants; goal } in
-          let* _ = put_pctxt pc1 in
-          pure ())
+          let pc1 = { pc with rename_ctxt; constants; goal } in
+          put_pctxt pc1)
   | _ -> fail "cannot revert non-var"
 
 let forall_intro =
@@ -593,7 +612,7 @@ let forall_intro =
     | Forall b ->
         let* ctxt = get_rename_ctxt in
         (* TODO freshness issues? this has to be free on both sides *)
-        let xs, f, ctxt = unmbind_in ctxt b in
+        let xs, f, ctxt = Rename.unmbind_in ctxt b in
         let* _ = k f in
         let* _ = put_rename_ctxt ctxt in
         iter_array_m (fun x -> add_constant (name_of x) x) xs
@@ -633,7 +652,7 @@ let exists_elim =
   let* left, _ = get_subsumption in
   match Prenex.prenex left with
   | Exists b ->
-      let xs, f, ctxt = unmbind_in ctxt b in
+      let xs, f, ctxt = Rename.unmbind_in ctxt b in
       let* _ = put_lhs f in
       let* _ = put_rename_ctxt ctxt in
       iter_array_m (fun x -> add_constant (name_of x) x) xs
@@ -668,9 +687,6 @@ module DisjTactic = struct
   let left = disj_intro fst
   let right = disj_intro snd
 end
-
-let simpl = Tactic.modify_goal Simpl.simpl
-let shift_reset_reduce = Tactic.modify_goal Shift_reset.reduce
 
 module HeapTactic = struct
   let ens_heap_elim =
@@ -727,10 +743,10 @@ module HeapTactic = struct
   let pre_heap_solver goal =
     let open Tactic in
     let goals_opt = Heap.deep_destruct_sepconj_opt goal in
-    let* goals = unwrap goals_opt "pre_heap_prover: not hprop" in
+    let* goals = unwrap goals_opt "pre_heap_solver: not hprop" in
     let* heap_assumptions = get_heap_assumptions in
     let goals, heap_assumptions, equalities = Heap.biab_list goals heap_assumptions in
-    let* _ = guard (List.is_empty goals) "pre_heap_prover: cannot prove hprop" in
+    let* _ = guard (List.is_empty goals) "pre_heap_solver: cannot prove hprop" in
     let* _ = iter_m solve_invoke_why3 equalities in
     put_heap_assumptions heap_assumptions
 
@@ -971,7 +987,9 @@ module ProofState = struct
     | Ok new_goals ->
         set_goals new_goals;
         print_proof_state ()
-    | Error msg -> Format.printf "error: %s@." msg
+    | Error msg ->
+        Format.printf "error: %s@." msg;
+        if !Options.fail_fast then failwith msg
 
   let make_interactive (tac : 'b -> 'a Tactic.t) (arg : 'b) = run_tactic (tac arg)
 end
@@ -985,7 +1003,7 @@ module Interactive = struct
   let qed = make_interactive (fun () -> qed)
   let specialize h = make_interactive (specialize h)
   let forward = make_interactive forward
-  let refl () = run_tactic refl
+  let refl () = run_tactic FinishTactic.refl
   let req_heap_intro () = run_tactic HeapTactic.req_heap_intro
   let ens_heap_elim () = run_tactic HeapTactic.ens_heap_elim
   let req_heap_elim () = run_tactic HeapTactic.req_heap_elim
@@ -1000,6 +1018,7 @@ module Interactive = struct
   let intros_heap () = run_tactic HeapTactic.intros_heap
   let elim_heap () = run_tactic HeapTactic.elim_heap
   let revert name = run_tactic (revert name)
+  let pure_solver () = run_tactic PureTactic.pure_solver
   let revert_heap () = run_tactic HeapTactic.revert_heap
   let heap_solver () = run_tactic HeapTactic.heap_solver
   let forall_intro = make_interactive (fun () -> forall_intro)
@@ -1011,9 +1030,10 @@ module Interactive = struct
   let disj_elim () = run_tactic DisjTactic.disj_elim
   let left () = run_tactic DisjTactic.left
   let right () = run_tactic DisjTactic.right
-  let simpl () = run_tactic simpl
+  let simpl () = run_tactic SimplTactic.simpl
+  let shift_reset_reduce () = run_tactic SimplTactic.shift_reset_reduce
   let unmix () = run_tactic UnmixTactic.unmix
-  let shift_reset_reduce () = run_tactic shift_reset_reduce
+  let ex_falso () = run_tactic ReasonTactic.ex_falso
 
   let prove = make_interactive (fun () -> prove)
   let admit () = run_tactic admit

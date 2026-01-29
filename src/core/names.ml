@@ -9,13 +9,13 @@ module Subscript = struct
   }
 
   let rec overflow n = n mod 10 = 9 && (n / 10 = 0 || overflow (n / 10))
-  let zero = { ss_subs = 0; ss_zero = 0 }
+
+  let none = { ss_zero = 0; ss_subs = 0 }
+  let zero = { ss_zero = 1; ss_subs = 0 }
 
   let succ { ss_zero; ss_subs } =
     if ss_subs = 0 then
-      if ss_zero = 0 then
-        (* [] -> [0] *)
-        { ss_zero = 1; ss_subs = 0 }
+      if ss_zero = 0 then zero (* [] -> [0] *)
       else
         (* [0...00] -> [0..01] *)
         { ss_zero = ss_zero - 1; ss_subs = 1 }
@@ -106,7 +106,7 @@ let get_subscript s =
       else (pos, acc)
   in
   let pos, suf = get_suf (len - 1) [] in
-  if pos = len - 1 then (s, Subscript.zero)
+  if pos = len - 1 then (s, Subscript.none)
   else
     let s = String.sub s 0 (pos + 1) in
     let rec compute_zeros acc = function
@@ -119,7 +119,7 @@ let get_subscript s =
     (s, { ss_subs; ss_zero })
 
 let add_subscript s ss =
-  if Subscript.equal Subscript.zero ss then s
+  if Subscript.equal Subscript.none ss then s
   else if ss.Subscript.ss_subs = 0 then
     let pad = String.make ss.Subscript.ss_zero '0' in
     Printf.sprintf "%s%s" s pad
@@ -152,7 +152,7 @@ module SubSet = struct
 
   let add ss s =
     let open Subscript in
-    if Int.equal ss.ss_zero 0 then { s with num = Segment.Tree.add ss.ss_subs s.num }
+    if ss.ss_zero = 0 then { s with num = Segment.Tree.add ss.ss_subs s.num }
     else
       let pre =
         let len = List.length s.pre in
@@ -176,7 +176,7 @@ module SubSet = struct
 
   let remove ss s =
     let open Subscript in
-    if Int.equal ss.ss_zero 0 then { s with num = Segment.Tree.remove ss.ss_subs s.num }
+    if ss.ss_zero = 0 then { s with num = Segment.Tree.remove ss.ss_subs s.num }
     else
       match List.nth_opt s.pre (ss.ss_zero - 1) with
       | None -> s
@@ -192,8 +192,6 @@ module SubSet = struct
       | None -> false
       | Some m -> Segment.Tree.mem ss.ss_subs m
 
-  let ss_O = { Subscript.ss_zero = 1; ss_subs = 0 } (* [0] *)
-
   let next ss s =
     let open Subscript in
     if ss.ss_zero > 0 then
@@ -207,12 +205,12 @@ module SubSet = struct
           else { ss_zero = ss.ss_zero; ss_subs = next }
     else if Int.equal ss.ss_subs 0 then
       (* Handle specially [] *)
-      if not @@ Segment.Tree.mem 0 s.num then Subscript.zero
+      if not @@ Segment.Tree.mem 0 s.num then Subscript.none
       else
         match s.pre with
-        | [] -> ss_O
+        | [] -> zero
         | m :: _ ->
-            if Segment.Tree.mem 0 m then { ss_zero = 0; ss_subs = Segment.Tree.next 1 s.num } else ss_O
+            if Segment.Tree.mem 0 m then { ss_zero = 0; ss_subs = Segment.Tree.next 1 s.num } else zero
     else { ss_zero = 0; ss_subs = Segment.Tree.next ss.ss_subs s.num }
 
   let fresh ss s =
@@ -230,15 +228,15 @@ module SubSet = struct
             let s = { s with pre = Lists.set_nth (ss.ss_zero - 1) m s.pre } in
             ({ ss_zero = ss.ss_zero; ss_subs = subs }, s)
     else if Int.equal ss.ss_subs 0 then
-      if not @@ Segment.Tree.mem 0 s.num then (Subscript.zero, { num = Segment.Tree.add 0 s.num; pre = s.pre })
+      if not @@ Segment.Tree.mem 0 s.num then (Subscript.none, { num = Segment.Tree.add 0 s.num; pre = s.pre })
       else
         match s.pre with
-        | [] -> (ss_O, { num = s.num; pre = [Segment.Tree.add 0 Segment.Tree.empty] })
+        | [] -> (zero, { num = s.num; pre = [Segment.Tree.add 0 Segment.Tree.empty] })
         | m :: rem ->
             if Segment.Tree.mem 0 m then
               let subs, num = Segment.Tree.fresh 1 s.num in
               ({ ss_zero = 0; ss_subs = subs }, { num; pre = s.pre })
-            else (ss_O, { num = s.num; pre = Segment.Tree.add 0 Segment.Tree.empty :: rem })
+            else (zero, { num = s.num; pre = Segment.Tree.add 0 Segment.Tree.empty :: rem })
     else
       let subs, num = Segment.Tree.fresh ss.ss_subs s.num in
       ({ ss_zero = 0; ss_subs = subs }, { s with num })

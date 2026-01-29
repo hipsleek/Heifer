@@ -1,25 +1,30 @@
 
   $ ./foldr.exe
   
+  # Options.fail_fast := true
+  
   # declare
-      {|foldr f init xs =
-    ens xs=[]; init
-    \/ ex h t. ens xs=h::t; foldr f init t; r. f h r|}
+      {|
+      foldr f acc xs =
+        ens xs=[]; acc \/
+        ex x xs'. ens xs=x::xs'; foldr f acc xs'; r. f x r
+    |}
   foldr declared
   
   # start_proof
-      "forall xs. is_int_list xs => foldr (fun c t -> c + t) 0 xs <: sum xs"
+      {| forall xs. is_int_list xs => foldr (fun x acc -> x + acc) 0 xs <: sum xs |}
   
   ────────────────────────────────────────────────────────────
   forall xs.
-    is_int_list xs => foldr (fun c t -> c+t) 0 xs <: sum xs
+    is_int_list xs =>
+      foldr (fun x acc -> x+acc) 0 xs <: sum xs
   
   
   # forall_intro ()
   
   xs
   ────────────────────────────────────────────────────────────
-  is_int_list xs => foldr (fun c t -> c+t) 0 xs <: sum xs
+  is_int_list xs => foldr (fun x acc -> x+acc) 0 xs <: sum xs
   
   
   # intro_pure "Hty"
@@ -27,16 +32,16 @@
   xs
   Hty: is_int_list xs
   ────────────────────────────────────────────────────────────
-     foldr (fun c t -> c+t) 0 xs
+     foldr (fun x acc -> x+acc) 0 xs
   <: sum xs
   
   
-  # goal_is "foldr (fun c t -> c+t) 0 xs <: sum xs"
+  # goal_is "foldr (fun x acc -> x+acc) 0 xs <: sum xs"
   
   xs
   Hty: is_int_list xs
   ────────────────────────────────────────────────────────────
-     foldr (fun c t -> c+t) 0 xs
+     foldr (fun x acc -> x+acc) 0 xs
   <: sum xs
   
   
@@ -47,9 +52,9 @@
   IH: forall xs1.
         sublist xs1 xs =>
           is_int_list xs1 =>
-            foldr (fun c t -> c+t) 0 xs1 <: sum xs1
+            foldr (fun x acc -> x+acc) 0 xs1 <: sum xs1
   ────────────────────────────────────────────────────────────
-     foldr (fun c t -> c+t) 0 xs
+     foldr (fun x acc -> x+acc) 0 xs
   <: sum xs
   
   
@@ -60,38 +65,37 @@
   IH: forall xs1.
         sublist xs1 xs =>
           is_int_list xs1 =>
-            foldr (fun c t -> c+t) 0 xs1 <: sum xs1
+            foldr (fun x acc -> x+acc) 0 xs1 <: sum xs1
   ────────────────────────────────────────────────────────────
      ens xs=[]; 0
-     \/ (ex h t.
-           ens xs=h::t;
-           foldr (fun c t1 -> c+t1) 0 t; r.
-             (fun c t1 -> c+t1) h r)
+     \/ (ex x xs'.
+           ens xs=x::xs';
+           foldr (fun x1 acc -> x1+acc) 0 xs'; r.
+             (fun x1 acc -> x1+acc) x r)
   <: sum xs
   
   
   # goal_is
       {|
-     ens xs=[]; 0
-     \/ (ex h t.
-           ens xs=h::t;
-           foldr (fun c t1 -> c+t1) 0 t; r.
-             (fun c t1 -> c+t1) h r)
-  <: sum xs
-  |}
+      ens xs=[]; 0 \/
+      (ex x xs'.
+        ens xs=x::xs';
+        foldr (fun x1 acc -> x1+acc) 0 xs'; r. (fun x1 acc -> x1+acc) x r)
+      <: sum xs
+    |}
   
   xs
   Hty: is_int_list xs
   IH: forall xs1.
         sublist xs1 xs =>
           is_int_list xs1 =>
-            foldr (fun c t -> c+t) 0 xs1 <: sum xs1
+            foldr (fun x acc -> x+acc) 0 xs1 <: sum xs1
   ────────────────────────────────────────────────────────────
      ens xs=[]; 0
-     \/ (ex h t.
-           ens xs=h::t;
-           foldr (fun c t1 -> c+t1) 0 t; r.
-             (fun c t1 -> c+t1) h r)
+     \/ (ex x xs'.
+           ens xs=x::xs';
+           foldr (fun x1 acc -> x1+acc) 0 xs'; r.
+             (fun x1 acc -> x1+acc) x r)
   <: sum xs
   
   
@@ -102,7 +106,7 @@
   IH: forall xs1.
         sublist xs1 xs =>
           is_int_list xs1 =>
-            foldr (fun c t -> c+t) 0 xs1 <: sum xs1
+            foldr (fun x acc -> x+acc) 0 xs1 <: sum xs1
   ────────────────────────────────────────────────────────────
      ens xs=[]; 0
   <: sum xs
@@ -116,22 +120,22 @@
   IH: forall xs1.
         sublist xs1 xs =>
           is_int_list xs1 =>
-            foldr (fun c t -> c+t) 0 xs1 <: sum xs1
+            foldr (fun x acc -> x+acc) 0 xs1 <: sum xs1
   ────────────────────────────────────────────────────────────
      ens xs=[]; 0
   <: sum xs
   (1 more goals)
   
   
-  # intro_pure "H"
+  # intro_pure "Hxs"
   
   xs
-  H: xs=[]
   Hty: is_int_list xs
+  Hxs: xs=[]
   IH: forall xs1.
         sublist xs1 xs =>
           is_int_list xs1 =>
-            foldr (fun c t -> c+t) 0 xs1 <: sum xs1
+            foldr (fun x acc -> x+acc) 0 xs1 <: sum xs1
   ────────────────────────────────────────────────────────────
      0
   <: sum xs
@@ -147,89 +151,97 @@
   IH: forall xs1.
         sublist xs1 xs =>
           is_int_list xs1 =>
-            foldr (fun c t -> c+t) 0 xs1 <: sum xs1
+            foldr (fun x acc -> x+acc) 0 xs1 <: sum xs1
   ────────────────────────────────────────────────────────────
-     ex h t.
-       ens xs=h::t;
-       foldr (fun c t1 -> c+t1) 0 t; r.
-         (fun c t1 -> c+t1) h r
+     ex x xs'.
+       ens xs=x::xs';
+       foldr (fun x1 acc -> x1+acc) 0 xs'; r.
+         (fun x1 acc -> x1+acc) x r
   <: sum xs
   
   
   # goal_is
       {|
-     ex h t.
-       ens xs=h::t;
-       foldr (fun c t1 -> c+t1) 0 t; r.
-         (fun c t1 -> c+t1) h r
-  <: sum xs
-  |}
-  error: goal was expected to be
-    ex h t.
-      ens xs=h::t; foldr (fun c t1 -> c+t1) 0 t; r. (fun c t1 -> c+t1) h r <:
-        sum xs
-  but was:
-    (ex h t.
-       ens xs=h::t; foldr (fun c t1 -> c+t1) 0 t; r. (fun c t1 -> c+t1) h r) <:
-      sum xs
+      (ex x xs'.
+        ens xs=x::xs';
+        foldr (fun x1 acc -> x1+acc) 0 xs'; r. (fun x1 acc -> x1+acc) x r)
+      <: sum xs
+    |}
   
-  # exists_elim ()
-  
-  h, t, xs
+  xs
   Hty: is_int_list xs
   IH: forall xs1.
         sublist xs1 xs =>
           is_int_list xs1 =>
-            foldr (fun c t -> c+t) 0 xs1 <: sum xs1
+            foldr (fun x acc -> x+acc) 0 xs1 <: sum xs1
   ────────────────────────────────────────────────────────────
-     ens xs=h::t;
-     foldr (fun c t1 -> c+t1) 0 t; r. (fun c t1 -> c+t1) h r
+     ex x xs'.
+       ens xs=x::xs';
+       foldr (fun x1 acc -> x1+acc) 0 xs'; r.
+         (fun x1 acc -> x1+acc) x r
+  <: sum xs
+  
+  
+  # exists_elim ()
+  
+  x, xs, xs'
+  Hty: is_int_list xs
+  IH: forall xs1.
+        sublist xs1 xs =>
+          is_int_list xs1 =>
+            foldr (fun x acc -> x+acc) 0 xs1 <: sum xs1
+  ────────────────────────────────────────────────────────────
+     ens xs=x::xs';
+     foldr (fun x1 acc -> x1+acc) 0 xs'; r.
+       (fun x1 acc -> x1+acc) x r
   <: sum xs
   
   
   # intro_pure "Hxs"
   
-  h, t, xs
+  x, xs, xs'
   Hty: is_int_list xs
-  Hxs: xs=h::t
+  Hxs: xs=x::xs'
   IH: forall xs1.
         sublist xs1 xs =>
           is_int_list xs1 =>
-            foldr (fun c t -> c+t) 0 xs1 <: sum xs1
+            foldr (fun x acc -> x+acc) 0 xs1 <: sum xs1
   ────────────────────────────────────────────────────────────
-     foldr (fun c t1 -> c+t1) 0 t; r. (fun c t1 -> c+t1) h r
+     foldr (fun x1 acc -> x1+acc) 0 xs'; r.
+       (fun x1 acc -> x1+acc) x r
   <: sum xs
   
   
   # goal_is
       {|
-     foldr (fun c t1 -> c+t1) 0 t; r. (fun c t1 -> c+t1) h r
-  <: sum xs
-  |}
+      foldr (fun x1 acc -> x1+acc) 0 xs'; r. (fun x1 acc -> x1+acc) x r
+      <: sum xs
+    |}
   
-  h, t, xs
+  x, xs, xs'
   Hty: is_int_list xs
-  Hxs: xs=h::t
+  Hxs: xs=x::xs'
   IH: forall xs1.
         sublist xs1 xs =>
           is_int_list xs1 =>
-            foldr (fun c t -> c+t) 0 xs1 <: sum xs1
+            foldr (fun x acc -> x+acc) 0 xs1 <: sum xs1
   ────────────────────────────────────────────────────────────
-     foldr (fun c t1 -> c+t1) 0 t; r. (fun c t1 -> c+t1) h r
+     foldr (fun x1 acc -> x1+acc) 0 xs'; r.
+       (fun x1 acc -> x1+acc) x r
   <: sum xs
   
   
   # rewrite "IH"
   
-  h, t, xs
+  x, xs, xs'
   Hty: is_int_list xs
-  Hxs: xs=h::t
+  Hxs: xs=x::xs'
   IH: forall xs1.
         sublist xs1 xs =>
           is_int_list xs1 =>
-            foldr (fun c t -> c+t) 0 xs1 <: sum xs1
+            foldr (fun x acc -> x+acc) 0 xs1 <: sum xs1
   ────────────────────────────────────────────────────────────
-  sublist t xs
+  sublist xs' xs
   (2 more goals)
   
   
@@ -237,15 +249,15 @@
   ==> Valid
   
   
-  h, t, xs
+  x, xs, xs'
   Hty: is_int_list xs
-  Hxs: xs=h::t
+  Hxs: xs=x::xs'
   IH: forall xs1.
         sublist xs1 xs =>
           is_int_list xs1 =>
-            foldr (fun c t -> c+t) 0 xs1 <: sum xs1
+            foldr (fun x acc -> x+acc) 0 xs1 <: sum xs1
   ────────────────────────────────────────────────────────────
-  is_int_list t
+  is_int_list xs'
   (1 more goals)
   
   
@@ -253,46 +265,46 @@
   ==> Valid
   
   
-  h, t, xs
+  x, xs, xs'
   Hty: is_int_list xs
-  Hxs: xs=h::t
+  Hxs: xs=x::xs'
   IH: forall xs1.
         sublist xs1 xs =>
           is_int_list xs1 =>
-            foldr (fun c t -> c+t) 0 xs1 <: sum xs1
+            foldr (fun x acc -> x+acc) 0 xs1 <: sum xs1
   ────────────────────────────────────────────────────────────
-     sum t; r. (fun c t1 -> c+t1) h r
+     sum xs'; r. (fun x1 acc -> x1+acc) x r
   <: sum xs
   
   
   # goal_is {|
-     sum t; r. (fun c t1 -> c+t1) h r
-  <: sum xs
-  |}
+      sum xs'; r. (fun x1 acc -> x1+acc) x r
+      <: sum xs
+    |}
   
-  h, t, xs
+  x, xs, xs'
   Hty: is_int_list xs
-  Hxs: xs=h::t
+  Hxs: xs=x::xs'
   IH: forall xs1.
         sublist xs1 xs =>
           is_int_list xs1 =>
-            foldr (fun c t -> c+t) 0 xs1 <: sum xs1
+            foldr (fun x acc -> x+acc) 0 xs1 <: sum xs1
   ────────────────────────────────────────────────────────────
-     sum t; r. (fun c t1 -> c+t1) h r
+     sum xs'; r. (fun x1 acc -> x1+acc) x r
   <: sum xs
   
   
   # simpl ()
   
-  h, t, xs
+  x, xs, xs'
   Hty: is_int_list xs
-  Hxs: xs=h::t
+  Hxs: xs=x::xs'
   IH: forall xs1.
         sublist xs1 xs =>
           is_int_list xs1 =>
-            foldr (fun c t -> c+t) 0 xs1 <: sum xs1
+            foldr (fun x acc -> x+acc) 0 xs1 <: sum xs1
   ────────────────────────────────────────────────────────────
-     sum t; r. h+r
+     sum xs'; r. x+r
   <: sum xs
   
   
@@ -303,23 +315,27 @@
     use heifer.Heifer
     
     goal goal1:
-      forall h : term, t : term, xs : term.
+      forall x : term, xs : term, xs' : term.
         (xs.is_int_list)
           ->
-          (xs = (TCons h t))
+          (xs = (TCons x xs'))
           ->
-          ((plus h (t.sum)) = (xs.sum))
+          ((plus x (xs'.sum)) = (xs.sum))
   end
   module M
     use Heifer
-    constant h : term
-    constant t : term
-    axiom H : is_int_list (TCons h t)
-    goal goal1 : plus h (sum t) = sum (TCons h t)
+    constant x : term
+    constant xs' : term
+    axiom H : is_int_list (TCons x xs')
+    goal goal1 : plus x (sum xs') = sum (TCons x xs')
   end
   ==> Valid
   
   no more goals
   
+  # Options.show_why3_goal := false
+  
   # qed ()
   no more goals
+  
+  # Options.fail_fast := false

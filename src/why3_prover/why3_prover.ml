@@ -1,4 +1,9 @@
-open Util
+open Util.Strings
+
+module Heifer = struct
+  module Util = Util
+end
+
 open Why3
 
 let why3_config = Whyconf.init_config None
@@ -84,7 +89,7 @@ let load_prover_config name : Whyconf.config_prover =
       Whyconf.(
         Mprover.map (fun cp -> string_of_prover cp.prover) provers
         |> Mprover.bindings |> List.map snd)
-      |> string_of_list Fun.id
+      |> Heifer.Util.Lists.string_of_list Fun.id
     in
     let _p, conf = Whyconf.Mprover.min_binding provers in
     (* Debug.debug ~at:2 ~title:"loaded prover" "defaulting to %s out of:\n%s"
@@ -190,15 +195,15 @@ let[@warning "-32"] rec inspect_task task =
       | Theory.Clone _ -> Format.printf "Clone@."
       | Theory.Meta _ -> Format.printf "Meta@.")
 
-let ( let* ) m f = List.concat_map f m
-let pure a = [a]
+(* let ( let* ) m f = List.concat_map f m
+let pure a = [a] *)
 
-let rec fold_m f xs init =
+(* let rec fold_m f xs init =
   match xs with
   | [] -> pure init
   | x :: xs1 ->
       let* acc = fold_m f xs1 init in
-      f x acc
+      f x acc *)
 
 let apply_transform_args name env args task =
   let naming_table = Why3.Args_wrapper.build_naming_tables task in
@@ -206,6 +211,7 @@ let apply_transform_args name env args task =
 
 (** Superseded, but an example of a repeat-match loop using Why3's API *)
 let _intro_and_invert_types _show_goal task =
+  let open Heifer.Util.Lists.Monad in
   let rec aux task =
     (* log_vc show_goal [task]; *)
     try
@@ -243,14 +249,15 @@ let _intro_and_invert_types _show_goal task =
 (** We currently rely on the file ending with an inductive definition as the
     marker for what was introduced. Produces more recently introduced hypotheses
     first. *)
-let get_introduced_hypotheses t =
+(* let get_introduced_hypotheses t =
   let decls = Task.task_decls t in
   decls |> List.rev
   |> List.take_while (fun d ->
       match d.Decl.d_node with
       | Decl.Dind _ -> false
-      | _ -> true)
+      | _ -> true) *)
 
+(*
 let categorise_hypotheses t =
   let decls = get_introduced_hypotheses t in
   let compute, invert =
@@ -272,9 +279,11 @@ let categorise_hypotheses t =
       decls ([], [])
   in
   (compute, invert)
+*)
 
 let attempt_proof show_goal task =
   (* inspect_task task; *)
+  let open Heifer.Util.Lists.Monad in
   let tasks =
     (* simplification is necessary, regardless of whether we use any other tactics,
       as it e.g. removes redundant quantified args, which we don't check for when translating *)
@@ -283,23 +292,24 @@ let attempt_proof show_goal task =
     (* the strategy is: introduce everything, invert the type hypotheses, then simplify in the premises *)
     let* task = Trans.apply_transform "introduce_premises" why3_env task in
 
-    let comp, inv = categorise_hypotheses task in
+    (* let comp, inv = categorise_hypotheses task in *)
 
     (* invert all the type premises once, then introduce and subst *)
-    let* task =
+    (* let* task =
       fold_m
         (fun c t ->
           let name = c.Decl.pr_name.Ident.id_string in
           apply_transform_args "inversion_arg_pr" why3_env [name] t)
         inv task
-    in
+    in *)
     let* task = Trans.apply_transform "introduce_premises" why3_env task in
     (* this crashes *)
     (* let* task = Trans.apply_transform "subst_all" why3_env task in *)
     let* task = apply_transform_args "subst_all" why3_env [] task in
 
     (* compute in hypotheses *)
-    let* task =
+    (* this cause a problem at the moment *)
+    (* let* task =
       let axioms = comp in
       (* print the task *)
       fold_m
@@ -310,9 +320,10 @@ let attempt_proof show_goal task =
               Trans.apply (Compute.normalize_hyp None (Some c) why3_env) t
           | true ->
               let name = c.Decl.pr_name.Ident.id_string in
+              Format.printf "arg_name: %s\n" name;
               apply_transform_args "compute_hyp" why3_env ["in"; name] t)
         axioms task
-    in
+    in *)
 
     (* computing in the goal seems unnecessary and sometimes causes more blowup *)
     (* let* task = Trans.apply_transform "compute_in_goal" why3_env task in *)
