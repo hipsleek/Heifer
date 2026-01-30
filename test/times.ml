@@ -3,6 +3,10 @@ open Heifer.Interactive;;
 Options.show_why3_goal := true;;
 Options.fail_fast := true;;
 
+axiom ~name:"mult_0_l"
+  {| forall x. 0*.x = 0 |}
+;;
+
 axiom ~name:"mult_0_r"
   {| forall x. x*.0 = 0 |}
 ;;
@@ -95,7 +99,7 @@ qed ();;
 lemma ~name:"times_cp/times_pure"
   {|
     forall xs k.
-      (k 0 <: 0) =>
+      (0 <: k 0) =>
       times_cp xs k <: times_pure xs; r. k r
   |}
 ;;
@@ -122,7 +126,11 @@ elim_pure ();;
 disj_elim ();;
 
 intro_pure "Hx";;
-admit ();; (* need: times_pure is indeed pure for rewriting *)
+rewrite "Hx";;
+rewrite "mult_0_l";;
+rewrite ~direction:Direction.rtl "Hk";;
+goal_is "0 <: times_pure xs'; r. 0";;
+admit ();; (* there is no way to reduce times_pure as of now *)
 
 rewrite "IH";;
 pure_solver ();;
