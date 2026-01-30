@@ -11,11 +11,23 @@ axiom ~name:"bind_id_r"
 ;;
 
 axiom ~name:"conj_false_l"
-  {| forall t. (false /\ t)=false |}
+  {| forall t. (false /\ t) = false |}
+;;
+
+axiom ~name:"conj_false_r"
+  {| forall t. (t /\ false) = false |}
 ;;
 
 axiom ~name:"conj_true_l"
-  {| forall t. (true /\ t)=t |}
+  {| forall t. (true /\ t) = t |}
+;;
+
+axiom ~name:"conj_true_r"
+  {| forall t. (t /\ true) = t |}
+;;
+
+axiom ~name:"conj_assoc"
+  {| forall t1 t2 t3. ((t1 /\ t2) /\ t3) = (t1 /\ (t2 /\ t3)) |}
 ;;
 
 declare
@@ -27,7 +39,7 @@ declare
 ;;
 
 declare
-  {| toss x = reset (do_toss x; v. (ens v=true; 1 \/ ens v=false; 0)) |}
+  {| toss x = reset (do_toss x; r. (ens r=true; 1 \/ ens r=false; 0)) |}
 ;;
 
 lemma ~name:"toss_spec"
@@ -76,7 +88,7 @@ declare
 ;;
 
 declare
-  {| toss_n n x = reset (do_toss_n n x; v. (ens v=true; 1 \/ ens v=false; 0)) |}
+  {| toss_n n x = reset (do_toss_n n x; r. (ens r=true; 1 \/ ens r=false; 0)) |}
 ;;
 
 lemma ~name:"toss_n_spec/1"
@@ -143,7 +155,16 @@ ex_falso ();;
 pure_solver ();;
 qed ();;
 
-(* First, we try to prove that toss_n always returns 1 *)
+lemma ~name:"do_toss_n_spec"
+  {|
+    forall n x acc.
+      reset (do_toss_n n x; r. (ens (acc /\ r)=true; 1 \/ ens (acc /\ r)=false; 0)) <:
+      forall v. req x->v; ex v'. ens x->v'; (ens acc=true; 1 \/ ens acc=false; 0)
+  |}
+;;
+
+admit ();; (* can be proven, I proved it, but I need to port the proofs over. And it is quite tedious *)
+
 lemma ~name:"toss_n_spec"
   {| forall n x. toss_n n x <: forall v. req x->v; exists v'. ens x->v; 1 |}
 ;;
