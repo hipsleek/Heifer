@@ -2,6 +2,8 @@
 
 open Util
 
+let is_underscore = String.equal "_"
+
 module Subscript = struct
   type t = {
     ss_zero : int;  (** Number of leading zeros of the subscript *)

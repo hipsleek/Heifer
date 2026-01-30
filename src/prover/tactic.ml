@@ -273,9 +273,10 @@ end = struct
     else put_constants (SMap.add name v constants)
 
   let add_assumption name t =
-    let* assumptions = get_assumptions in
-    if SMap.mem name assumptions then fail ("add_assumption: " ^ Message.is_already_used name)
-    else put_assumptions (SMap.add name t assumptions)
+    if Names.is_underscore name then pure () else
+      let* assumptions = get_assumptions in
+      if SMap.mem name assumptions then fail ("add_assumption: " ^ Message.is_already_used name)
+      else put_assumptions (SMap.add name t assumptions)
 
   (* let add_heap_assumption name t =
     let* heap_assumptions = get_heap_assumptions in
@@ -587,6 +588,7 @@ module FinishTactic = struct
 end
 
 module SimplTactic = struct
+  let simpl_beta = Tactic.modify_goal Simpl.simpl_beta
   let simpl = Tactic.modify_goal Simpl.simpl
   let shift_reset_reduce = Tactic.modify_goal Shift_reset.reduce
   let prenex = Tactic.modify_goal Prenex.prenex
@@ -1037,6 +1039,7 @@ module Interactive = struct
   let disj_elim () = run_tactic DisjTactic.disj_elim
   let left () = run_tactic DisjTactic.left
   let right () = run_tactic DisjTactic.right
+  let simpl_beta () = run_tactic SimplTactic.simpl_beta
   let simpl () = run_tactic SimplTactic.simpl
   let shift_reset_reduce () = run_tactic SimplTactic.shift_reset_reduce
   let unmix () = run_tactic UnmixTactic.unmix

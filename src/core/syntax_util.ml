@@ -34,6 +34,10 @@ let open_implies_opt = function
   | Implies (t1, t2) -> Some (t1, t2)
   | _ -> None
 
+let is_reset = function
+  | Reset _ -> true
+  | _ -> false
+
 let is_emp = function
   | Emp -> true
   | _ -> false

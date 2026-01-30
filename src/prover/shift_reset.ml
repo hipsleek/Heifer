@@ -1,6 +1,7 @@
 open Bindlib
-open Core.Syntax
 open Core.Pretty
+open Core.Syntax
+open Core.Syntax_util
 
 type cont =
   | Nil
@@ -54,11 +55,11 @@ let rec reduce t =
 
 and reduce_binder b =
   let x, t = unbind b in
-  unbox (bind_var x (box_term (reduce t)))
+  generalize x (reduce t)
 
 and reduce_mbinder b =
   let xs, t = unmbind b in
-  unbox (bind_mvar xs (box_term (reduce t)))
+  mgeneralize xs (reduce t)
 
 (** This function is called only when we visit the body of a [Reset] during
     shift/reset reduction. *)
@@ -73,7 +74,9 @@ and reduce_cont t k =
   | Forall b -> Forall (reduce_mbinder_cont b k) (* TODO: what to do in this case? *)
   | Exists b -> Exists (reduce_mbinder_cont b k)
   | Shift b -> reduce_cont (subst b (capture_cont k)) Nil
-  | Reset t -> reduce_cont (reduce_cont t Nil) k
+  | Reset t ->
+      let t = reduce_cont t Nil in
+      if is_reset t then invoke_cont_impure t k else reduce_cont t k
   | Var _
   | Unit
   | True
@@ -83,19 +86,29 @@ and reduce_cont t k =
   | Binop _
   | Unop _
   | Tuple _
-  | Nil -> invoke_cont_pure t k
+  | Nil
+  | Conj _ -> invoke_cont_pure t k
   | _ -> invalid_arg (Format.asprintf "reduce_cont: %a" pp_term t)
+
+and reduce_binder_cont b k =
+  let x, t = unbind b in
+  generalize x (reduce_cont t k)
 
 and reduce_mbinder_cont b k =
   let xs, t = unmbind b in
-  unbox (bind_mvar xs (box_term (reduce_cont t k)))
+  mgeneralize xs (reduce_cont t k)
 
 and invoke_cont_pure t = function
   | Nil -> t
-  | Cons_sequence (t', k) -> reduce_cont t' k
+  | Cons_sequence (t, k) -> reduce_cont t k
   | Cons_bind (b, k) -> reduce_cont (subst b t) k
 
 and invoke_cont_impure_unit t = function
   | Nil -> t
   | Cons_sequence (t', k) -> Sequence (t, reduce_cont t' k)
   | Cons_bind (b, k) -> Sequence (t, reduce_cont (subst b Unit) k)
+
+and invoke_cont_impure t = function
+  | Nil -> t
+  | Cons_sequence (t', k) -> Sequence (t, reduce_cont t' k)
+  | Cons_bind (b, k) -> Bind (t, reduce_binder_cont b k)
