@@ -17,9 +17,12 @@ end
 
 (** A rewriting rule is of the form:
     {[
-      forall x y z, cond x y z => ... => lhs x y z rel rhs x y z
+      forall x. cond x => forall y. cond x y => ... => lhs x y "rel" rhs x y
     ]}
-    where [rel] can be replaced by some other relation, like equality. *)
+    - [x] and [y] are universally quantified variables, which will be instantiated by unification.
+      Therefore, they are also called `unification` variables.
+    - [cond x] and [cond x y] are rewriting conditions, to be proven before the rewriting is done.
+    - [rel] is a relation, either subsumption [<:] or equality [=]. *)
 type rewrite_rule
 
 (** Turn a term into a [rule], or raise [Invalid_argument]. *)

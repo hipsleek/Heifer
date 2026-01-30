@@ -21,14 +21,22 @@ module Direction = struct
 end
 
 type rewrite_rule = {
+  (* unification variables, collected to an array (mvar) *)
   rwr_umvar : term mvar;
-  rwr_uvars : TVSet.t; (* invariant: rwr_uvars = TVSets.of_array rwr_umvar *)
+  (* unification variables, collected to a set.
+     Invariant: rwr_uvars = TVSets.of_array rwr_umvar *)
+  rwr_uvars : TVSet.t;
+  (* Invariant: rwr_arity = Array.length rwr_umvar *)
   rwr_arity : int;
   rwr_conditions : term list;
+  (* unification variables that appear in the rewriting conditions. These unification variables
+     must not be unified with any bound variable, otherwise the bound variable would escape its
+     scope and we would have ill-formed conditions *)
   rwr_condition_uvars : TVSet.t;
   rwr_relation : rewrite_relation;
   rwr_lhs : term;
   rwr_rhs : term;
+  (* cached mbinder of rwr_conditions and rwr_rhs, for efficiency *)
   rwr_conditions_mbinder : (term, term list) mbinder;
   rwr_rhs_mbinder : (term, term) mbinder;
 }
@@ -69,7 +77,9 @@ let get_rule_lhs rule = rule.rwr_lhs
 let get_rule_rhs rule = rule.rwr_rhs
 
 type rewrite_state = {
+  (* an accumulator of instantiated conditions *)
   rws_conditions : term snoc_list;
+  (* number of rewriting done *)
   rws_count : int;
 }
 
