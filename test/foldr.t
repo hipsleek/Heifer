@@ -336,6 +336,5 @@
   # Options.show_why3_goal := false
   
   # qed ()
-  no more goals
   
   # Options.fail_fast := false

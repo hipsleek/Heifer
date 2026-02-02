@@ -46,7 +46,6 @@
         (forall r. reset (k r) <: k r) =>
         reset (append_sh xs; r. k r) <: append_cps xs k
     |}
-  lemma append_sh/append_cps declared
   
   ────────────────────────────────────────────────────────────
   forall xs k.
@@ -499,14 +498,13 @@
   no more goals
   
   # qed ()
-  no more goals
+  lemma append_sh/append_cps declared
   
   # lemma ~name:"append_cps/append_pure"
       {|
       forall xs ys k.
         append_cps xs k; f. f ys <: append_pure xs ys; r. k r
     |}
-  lemma append_cps/append_pure declared
   
   ────────────────────────────────────────────────────────────
   forall xs ys k.
@@ -795,7 +793,7 @@
   no more goals
   
   # qed ()
-  no more goals
+  lemma append_cps/append_pure declared
   
   # start_proof {| forall xs ys. append_delim xs ys <: append_pure xs ys |}
   
@@ -898,6 +896,5 @@
   no more goals
   
   # qed ()
-  no more goals
   
   # Options.fail_fast := false

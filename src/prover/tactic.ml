@@ -940,13 +940,19 @@ let prove =
 (* TODO: refactor into some top-level module, with a different name. The current
    name clashes with Pstate -> proof_state *)
 module ProofState = struct
+  type mode =
+    | Mode_lemma of string * term
+    | Mode_goal
+    | Mode_none
+
   type t = {
     definitions : symbol_table;
     lemmas : term SMap.t;
+    mode : mode;
     goals : Pstate.t;
   }
 
-  let initial_state = { definitions = empty_table; lemmas = SMap.empty; goals = [] }
+  let initial_state = { definitions = empty_table; lemmas = SMap.empty; mode = Mode_none; goals = [] }
   let state_stack = ref []
   let current_state = ref initial_state
   let reset_proof_state () = current_state := initial_state
@@ -962,10 +968,12 @@ module ProofState = struct
 
   let get_definitions () = !current_state.definitions
   let get_lemmas () = !current_state.lemmas
+  let get_mode () = !current_state.mode
   let get_goals () = !current_state.goals
 
   let set_definitions definitions = current_state := { !current_state with definitions }
   let set_lemmas lemmas = current_state := { !current_state with lemmas }
+  let set_mode mode = current_state := { !current_state with mode }
   let set_goals goals = current_state := { !current_state with goals }
   let set_goal goal = set_goals [goal]
 
@@ -976,6 +984,11 @@ module ProofState = struct
 
   let get_definition sym = SymMap.find sym (get_definitions ())
   let get_definition_opt sym = SymMap.find_opt sym (get_definitions ())
+
+  let in_mode_none () =
+    match get_mode () with
+    | Mode_none -> true
+    | _ -> false
 
   let declare decl =
     let sym, def = open_dfun (Parsing.Parse.parse_decl decl) in
@@ -989,13 +1002,13 @@ module ProofState = struct
 
   let lemma ~name term =
     let goal = Parsing.Parse.parse_term term in
-    add_lemma name goal;
-    Format.printf "lemma %s declared@." name;
+    set_mode (Mode_lemma (name, goal));
     set_goal (Proof_context.create ~goal);
     print_proof_state ()
 
   let start_proof term =
     let goal = Parsing.Parse.parse_term term in
+    set_mode Mode_goal;
     set_goal (Proof_context.create ~goal);
     print_proof_state ()
 
@@ -1009,6 +1022,15 @@ module ProofState = struct
         if !Options.fail_fast then failwith msg
 
   let make_interactive (tac : 'b -> 'a Tactic.t) (arg : 'b) = run_tactic (tac arg)
+
+  let qed () =
+    match get_mode () with
+    | Mode_goal -> set_mode Mode_none
+    | Mode_lemma (name, goal) ->
+        add_lemma name goal;
+        set_mode Mode_none;
+        Format.printf "lemma %s declared@." name
+    | Mode_none -> Format.printf "error: no open proof@."
 end
 
 module Interactive = struct
@@ -1018,7 +1040,6 @@ module Interactive = struct
   let have ~name = make_interactive (have ~name)
   let case ~name = make_interactive (case ~name)
   let goal_is term = run_tactic (goal_is term)
-  let qed = make_interactive (fun () -> qed)
   let specialize h = make_interactive (specialize h)
   let forward = make_interactive forward
   let refl () = run_tactic FinishTactic.refl
