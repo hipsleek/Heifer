@@ -515,6 +515,15 @@ module PureTactic = struct
   let elim_pure =
     let open Tactic in
     choices ~err:"elim_pure: failed" [req_pure_elim; ens_pure_intro]
+
+  let revert_pure name =
+    let open Tactic in
+    let* assumption = pop_assumption name in
+    modify_goal (Tm.implies assumption)
+
+  let clear_pure name =
+    let open Tactic in
+    () <$ pop_assumption name
 end
 
 module ReasonTactic = struct
@@ -1027,6 +1036,8 @@ module Interactive = struct
   let intros_heap () = run_tactic HeapTactic.intros_heap
   let elim_heap () = run_tactic HeapTactic.elim_heap
   let revert name = run_tactic (revert name)
+  let revert_pure name = run_tactic (PureTactic.revert_pure name)
+  let clear_pure name = run_tactic (PureTactic.clear_pure name)
   let pure_solver () = run_tactic PureTactic.pure_solver
   let revert_heap () = run_tactic HeapTactic.revert_heap
   let heap_solver () = run_tactic HeapTactic.heap_solver

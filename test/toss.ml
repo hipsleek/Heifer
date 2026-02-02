@@ -42,6 +42,122 @@ declare
   {| toss x = reset (do_toss x; r. (ens r=true; 1 \/ ens r=false; 0)) |}
 ;;
 
+declare
+  {|
+    do_toss_n n x =
+      ens n = 0; true \/
+      ens n > 0; do_toss x; r1. do_toss_n (n-1) x; r2. r1 /\ r2
+  |}
+;;
+
+declare
+  {| toss_n n x = reset (do_toss_n n x; r. (ens r=true; 1 \/ ens r=false; 0)) |}
+;;
+
+
+lemma ~name:"do_toss_n_spec"
+  {|
+    forall n x a.
+      reset (do_toss_n n x; r. (ens (a /\ r)=true; 1 \/ ens (a /\ r)=false; 0)) <:
+      forall v. req x->v; ens x->v+pow 2 (n+1)-2; (ens a=true; 1 \/ ens a=false; 0)
+  |}
+;;
+
+forall_intro ();;
+revert "a";;
+induction ~name:"IH" (`Int 0) "n";;
+forall_intro ();;
+unfold "do_toss_n";;
+unfold "do_toss";;
+unfold "incr";;
+shift_reset_reduce ();;
+simpl ();;
+shift_reset_reduce ();;
+simpl ();;
+disj_elim ();;
+
+intro_pure "Hn";;
+forall_intro ();;
+intro_heap ();;
+rewrite "Hn";;
+have ~name:"H_eq" "v+pow 2 (0+1)-2 = v";;
+admit ();;
+rewrite "H_eq";;
+clear_pure "H_eq";;
+elim_heap ();;
+rewrite "conj_true_r";;
+refl ();;
+
+intro_pure "Hn";;
+forall_intro ();;
+intro_heap ();;
+forall_elim ["v"];;
+elim_heap ();;
+intro_heap ();;
+rewrite ~direction:Direction.rtl "conj_assoc";;
+rewrite "conj_true_r";;
+rewrite "conj_false_r";;
+rewrite "IH";;
+pure_solver ();;
+rewrite "IH";;
+pure_solver ();;
+
+forall_elim ["v+1"];;
+simpl ();;
+elim_heap ();;
+intro_heap ();;
+disj_elim ();;
+
+intro_pure "Ha";;
+forall_elim ["v+1+pow 2 (n-1+1)-2"];;
+elim_heap ();;
+intro_heap ();;
+forall_elim ["v+1+pow 2 (n-1+1)-2+1"];;
+simpl ();;
+elim_heap ();;
+have ~name:"H_eq" "v+1+pow 2 (n-1+1)-2+1+pow 2 (n-1+1)-2 = v+pow 2 (n+1)-2";;
+admit ();;
+rewrite "H_eq";;
+clear_pure "H_eq";;
+intro_heap ();;
+elim_heap ();;
+disj_elim ();;
+
+intro_pure "H_absurd";;
+ex_falso ();;
+pure_solver ();;
+
+intro_pure "_";;
+left ();;
+elim_pure ();;
+prove ();;
+
+intro_pure "Ha";;
+forall_elim ["v+1+pow 2 (n-1+1)-2"];;
+elim_heap ();;
+intro_heap ();;
+forall_elim ["v+1+pow 2 (n-1+1)-2+1"];;
+simpl ();;
+elim_heap ();;
+have ~name:"H_eq" "v+1+pow 2 (n-1+1)-2+1+pow 2 (n-1+1)-2 = v+pow 2 (n+1)-2";;
+admit ();;
+rewrite "H_eq";;
+clear_pure "H_eq";;
+intro_heap ();;
+elim_heap ();;
+disj_elim ();;
+
+intro_pure "H_absurd";;
+ex_falso ();;
+pure_solver ();;
+
+intro_pure "_";;
+right ();;
+elim_pure ();;
+prove ();;
+qed ();;
+
+
 lemma ~name:"toss_spec"
   {| forall x. toss x <: forall v. req x->v; ens x->v+2; 1 |}
 ;;
@@ -78,18 +194,6 @@ intro_pure "H_absurd";;
 ex_falso ();;
 pure_solver ();;
 qed ();;
-
-declare
-  {|
-    do_toss_n n x =
-      ens n = 0; true \/
-      ens n > 0; do_toss x; r1. do_toss_n (n-1) x; r2. r1 /\ r2
-  |}
-;;
-
-declare
-  {| toss_n n x = reset (do_toss_n n x; r. (ens r=true; 1 \/ ens r=false; 0)) |}
-;;
 
 lemma ~name:"toss_n_spec/1"
   {| forall x. toss_n 1 x <: forall v. req x->v; ens x->v+2; 1 |}
@@ -155,30 +259,44 @@ ex_falso ();;
 pure_solver ();;
 qed ();;
 
-lemma ~name:"do_toss_n_spec"
-  {|
-    forall n x acc.
-      reset (do_toss_n n x; r. (ens (acc /\ r)=true; 1 \/ ens (acc /\ r)=false; 0)) <:
-      forall v. req x->v; ex v'. ens x->v'; (ens acc=true; 1 \/ ens acc=false; 0)
-  |}
-;;
-
-admit ();; (* can be proven, I proved it, but I need to port the proofs over. And it is quite tedious *)
 
 lemma ~name:"toss_n_spec"
-  {| forall n x. toss_n n x <: forall v. req x->v; exists v'. ens x->v; 1 |}
+  {| forall n x. toss_n n x <: forall v. req x->v; ens x->v+pow 2 (n+1)-2; 1 |}
 ;;
 
 forall_intro ();;
 forall_intro ();;
 intro_heap ();;
 unfold "toss_n";;
-unfold "do_toss_n";;
-unfold "do_toss";;
-shift_reset_reduce ();;
-simpl_beta ();;
-simpl ();;
+have ~name:"H_eq_true" {| forall r. ens r=true <: ens (true /\ r)=true |};;
 
-admit ();;
+forall_intro ();;
+rewrite "conj_true_l";;
+refl ();;
+
+have ~name:"H_eq_false" {| forall r. ens r=false <: ens (true /\ r)=false |};;
+
+forall_intro ();;
+rewrite "conj_true_l";;
+refl ();;
+
+rewrite "H_eq_true";;
+rewrite "H_eq_false";;
+rewrite "do_toss_n_spec";;
+clear_pure "H_eq_true";;
+clear_pure "H_eq_false";;
+forall_elim ["v"];;
+elim_heap ();;
+intro_heap ();;
+elim_heap ();;
+disj_elim ();;
+
+intro_pure "_";;
+refl ();;
+
+intro_pure "H_absurd";;
+ex_falso ();;
+pure_solver ();;
+qed ();;
 
 Options.fail_fast := false;;
