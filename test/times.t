@@ -649,8 +649,7 @@
            ens xs=x::xs';
            (ens x=0; 0 \/ times_cp xs' (fun r -> k (x*.r))))
   <: ens xs=[]; k 1
-     \/ (ex x xs'. ens xs=x::xs'; times_pure xs'; r1. x*.r1);
-          r. k r
+     \/ (ex x xs'. ens xs=x::xs'; times_pure xs'; r. k (x*.r))
   
   
   # disj_elim ()
@@ -665,8 +664,7 @@
   ────────────────────────────────────────────────────────────
      ens xs=[]; k 1
   <: ens xs=[]; k 1
-     \/ (ex x xs'. ens xs=x::xs'; times_pure xs'; r1. x*.r1);
-          r. k r
+     \/ (ex x xs'. ens xs=x::xs'; times_pure xs'; r. k (x*.r))
   (1 more goals)
   
   
@@ -699,8 +697,7 @@
        ens xs=x::xs';
        (ens x=0; 0 \/ times_cp xs' (fun r -> k (x*.r)))
   <: ens xs=[]; k 1
-     \/ (ex x xs'. ens xs=x::xs'; times_pure xs'; r1. x*.r1);
-          r. k r
+     \/ (ex x xs'. ens xs=x::xs'; times_pure xs'; r. k (x*.r))
   
   
   # right ()
@@ -716,8 +713,7 @@
      ex x xs'.
        ens xs=x::xs';
        (ens x=0; 0 \/ times_cp xs' (fun r -> k (x*.r)))
-  <: (ex x xs'. ens xs=x::xs'; times_pure xs'; r1. x*.r1); r.
-       k r
+  <: ex x xs'. ens xs=x::xs'; times_pure xs'; r. k (x*.r)
   
   
   # exists_elim ()
@@ -732,26 +728,10 @@
   ────────────────────────────────────────────────────────────
      ens xs=x::xs';
      (ens x=0; 0 \/ times_cp xs' (fun r -> k (x*.r)))
-  <: (ex x xs'. ens xs=x::xs'; times_pure xs'; r1. x*.r1); r.
-       k r
+  <: ex x xs'. ens xs=x::xs'; times_pure xs'; r. k (x*.r)
   
   
   # exists_intro ["x"; "xs'"]
-  
-  k, x, xs, xs'
-  Hk: 0 <: k 0
-  IH: forall xs1.
-        sublist xs1 xs =>
-          (forall k.
-             (0 <: k 0) =>
-               times_cp xs1 k <: times_pure xs1; r. k r)
-  ────────────────────────────────────────────────────────────
-     ens xs=x::xs';
-     (ens x=0; 0 \/ times_cp xs' (fun r -> k (x*.r)))
-  <: (ens xs=x::xs'; times_pure xs'; r1. x*.r1); r. k r
-  
-  
-  # simpl ()
   
   k, x, xs, xs'
   Hk: 0 <: k 0

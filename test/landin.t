@@ -89,7 +89,7 @@
      ens l->();
      ens g=(fun n1 ->
              forall h. req l->h; ens l->h; factf h n1);
-     (forall v. req l->v; ens l->g; g); f. f n
+     (forall v. req l->v; ens l->g; g n)
   <: ex l f. ens l->f; fact n
   
   
@@ -101,7 +101,7 @@
   ───────────────────────────────────────────────────────────*
      ens g=(fun n1 ->
              forall h. req l->h; ens l->h; factf h n1);
-     (forall v. req l->v; ens l->g; g); f. f n
+     (forall v. req l->v; ens l->g; g n)
   <: ex l f. ens l->f; fact n
   
   
@@ -112,7 +112,7 @@
   ────────────────────────────────────────────────────────────
   l->()
   ───────────────────────────────────────────────────────────*
-     (forall v. req l->v; ens l->g; g); f. f n
+     forall v. req l->v; ens l->g; g n
   <: ex l f. ens l->f; fact n
   
   
@@ -123,7 +123,7 @@
   ────────────────────────────────────────────────────────────
   l->()
   ───────────────────────────────────────────────────────────*
-     (req l->(); ens l->g; g); f. f n
+     req l->(); ens l->g; g n
   <: ex l f. ens l->f; fact n
   
   
@@ -396,7 +396,7 @@
   ────────────────────────────────────────────────────────────
      ens l->(fun n1 ->
               forall h. req l->h; ens l->h; factf h n1);
-     (forall h. req l->h; ens l->h; factf h (n-1)); r. n*.r
+     (forall h. req l->h; ens l->h; factf h (n-1); r. n*.r)
   <: ens l->(fun n1 ->
               forall h. req l->h; ens l->h; factf h n1);
      fact n
@@ -412,7 +412,7 @@
           ens l->g; factf g n1 <: ens l->g; fact n1
   ────────────────────────────────────────────────────────────
      ens l->g;
-     (forall h. req l->h; ens l->h; factf h (n-1)); r. n*.r
+     (forall h. req l->h; ens l->h; factf h (n-1); r. n*.r)
   <: ens l->g; fact n
   
   
@@ -427,7 +427,7 @@
   ────────────────────────────────────────────────────────────
   l->g
   ───────────────────────────────────────────────────────────*
-     (forall h. req l->h; ens l->h; factf h (n-1)); r. n*.r
+     forall h. req l->h; ens l->h; factf h (n-1); r. n*.r
   <: ens l->g; fact n
   
   
@@ -442,7 +442,7 @@
   ────────────────────────────────────────────────────────────
   l->g
   ───────────────────────────────────────────────────────────*
-     (req l->g; ens l->g; factf g (n-1)); r. n*.r
+     req l->g; ens l->g; factf g (n-1); r. n*.r
   <: ens l->g; fact n
   
   

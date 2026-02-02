@@ -169,5 +169,4 @@ and simpl_beta_step t ts =
   | Fun b -> simpl_beta (msubst b (Array.of_list ts))
   | _ -> Apply (t, ts)
 
-
-let simpl t = simpl_beta (simpl_zeta (simpl_assoc t))
+let simpl t = simpl_zeta (Prenex.prenex_assoc (simpl_beta t))

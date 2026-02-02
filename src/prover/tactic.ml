@@ -600,7 +600,7 @@ module SimplTactic = struct
   let simpl_beta = Tactic.modify_goal Simpl.simpl_beta
   let simpl = Tactic.modify_goal Simpl.simpl
   let shift_reset_reduce = Tactic.modify_goal Shift_reset.reduce
-  let prenex = Tactic.modify_goal Prenex.prenex
+  let prenex_assoc = Tactic.modify_goal Prenex.prenex_assoc
 end
 
 let revert s =
@@ -625,7 +625,7 @@ let revert s =
 let forall_intro =
   let open Tactic in
   let intro g k =
-    match Prenex.prenex g with
+    match Prenex.prenex_head g with
     | Forall b ->
         let* ctxt = get_rename_ctxt in
         (* TODO freshness issues? this has to be free on both sides *)
@@ -648,7 +648,7 @@ let forall_intro =
 let forall_elim t =
   let open Tactic in
   let* left, _ = get_subsumption in
-  match Prenex.prenex left with
+  match Prenex.prenex_head left with
   | Forall b ->
       let* t = map_m parse_term t <&> Array.of_list in
       put_lhs (msubst b t)
@@ -657,7 +657,7 @@ let forall_elim t =
 let exists_intro t =
   let open Tactic in
   let* _, right = get_subsumption in
-  match Prenex.prenex right with
+  match Prenex.prenex_head right with
   | Exists b ->
       let* t = map_m parse_term t <&> Array.of_list in
       put_rhs (msubst b t)
@@ -667,7 +667,7 @@ let exists_elim =
   let open Tactic in
   let* ctxt = get_rename_ctxt in
   let* left, _ = get_subsumption in
-  match Prenex.prenex left with
+  match Prenex.prenex_head left with
   | Exists b ->
       let xs, f, ctxt = Rename.unmbind_in ctxt b in
       let* _ = put_lhs f in

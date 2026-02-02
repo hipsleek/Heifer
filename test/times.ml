@@ -120,7 +120,6 @@ refl ();;
 right ();;
 exists_elim ();;
 exists_intro ["x"; "xs'"];;
-simpl ();;
 intro_pure "Hxs";;
 elim_pure ();;
 disj_elim ();;

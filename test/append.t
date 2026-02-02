@@ -225,7 +225,7 @@
   (1 more goals)
   
   
-  # ens_pure_intro ()
+  # elim_pure ()
   Warning, file line 0, characters 0-0: unused variable k
   
   k, xs
@@ -599,12 +599,11 @@
   ────────────────────────────────────────────────────────────
      ens xs=[]; k ys
      \/ (ex x xs'.
-           ens xs=x::xs'; append_cps xs' (fun r -> k (x::r)));
-          f. f ys
+           ens xs=x::xs';
+           append_cps xs' (fun r -> k (x::r)); f. f ys)
   <: ens xs=[]; k ys
      \/ (ex x xs'.
-           ens xs=x::xs'; append_pure xs' ys; r1. x::r1); r.
-          k r
+           ens xs=x::xs'; append_pure xs' ys; r. k (x::r))
   
   
   # disj_elim ()
@@ -619,8 +618,7 @@
      ens xs=[]; k ys
   <: ens xs=[]; k ys
      \/ (ex x xs'.
-           ens xs=x::xs'; append_pure xs' ys; r1. x::r1); r.
-          k r
+           ens xs=x::xs'; append_pure xs' ys; r. k (x::r))
   (1 more goals)
   
   
@@ -647,13 +645,12 @@
              append_cps xs1 k; f. f ys <:
                append_pure xs1 ys; r. k r)
   ────────────────────────────────────────────────────────────
-     (ex x xs'.
-        ens xs=x::xs'; append_cps xs' (fun r -> k (x::r)));
-       f. f ys
+     ex x xs'.
+       ens xs=x::xs';
+       append_cps xs' (fun r -> k (x::r)); f. f ys
   <: ens xs=[]; k ys
      \/ (ex x xs'.
-           ens xs=x::xs'; append_pure xs' ys; r1. x::r1); r.
-          k r
+           ens xs=x::xs'; append_pure xs' ys; r. k (x::r))
   
   
   # right ()
@@ -665,11 +662,10 @@
              append_cps xs1 k; f. f ys <:
                append_pure xs1 ys; r. k r)
   ────────────────────────────────────────────────────────────
-     (ex x xs'.
-        ens xs=x::xs'; append_cps xs' (fun r -> k (x::r)));
-       f. f ys
-  <: (ex x xs'. ens xs=x::xs'; append_pure xs' ys; r1. x::r1);
-       r. k r
+     ex x xs'.
+       ens xs=x::xs';
+       append_cps xs' (fun r -> k (x::r)); f. f ys
+  <: ex x xs'. ens xs=x::xs'; append_pure xs' ys; r. k (x::r)
   
   
   # exists_elim ()
@@ -681,27 +677,12 @@
              append_cps xs1 k; f. f ys <:
                append_pure xs1 ys; r. k r)
   ────────────────────────────────────────────────────────────
-     (ens xs=x::xs'; append_cps xs' (fun r -> k (x::r))); f.
-       f ys
-  <: (ex x xs'. ens xs=x::xs'; append_pure xs' ys; r1. x::r1);
-       r. k r
+     ens xs=x::xs';
+     append_cps xs' (fun r -> k (x::r)); f. f ys
+  <: ex x xs'. ens xs=x::xs'; append_pure xs' ys; r. k (x::r)
   
   
   # exists_intro ["x"; "xs'"]
-  
-  k, x, xs, xs', ys
-  IH: forall xs1.
-        sublist xs1 xs =>
-          (forall k.
-             append_cps xs1 k; f. f ys <:
-               append_pure xs1 ys; r. k r)
-  ────────────────────────────────────────────────────────────
-     (ens xs=x::xs'; append_cps xs' (fun r -> k (x::r))); f.
-       f ys
-  <: (ens xs=x::xs'; append_pure xs' ys; r1. x::r1); r. k r
-  
-  
-  # simpl ()
   
   k, x, xs, xs', ys
   IH: forall xs1.

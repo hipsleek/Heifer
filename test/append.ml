@@ -63,7 +63,7 @@ disj_elim ();;
 
 left ();;
 intro_pure "Hxs";;
-ens_pure_intro ();;
+elim_pure ();;
 rewrite "Hk";;
 rewrite "eta_reduce";;
 refl ();;
@@ -84,7 +84,7 @@ rewrite "Hk";;
 refl();;
 
 refl ();;
-qed ();; (* should make the definition here instead. So we need a "proof context open" *)
+qed ();;
 
 lemma ~name:"append_cps/append_pure"
   {|
@@ -108,7 +108,6 @@ refl ();;
 right ();;
 exists_elim ();;
 exists_intro ["x"; "xs'"];;
-simpl ();;
 intro_pure "Hxs";;
 elim_pure ();;
 rewrite "IH";;

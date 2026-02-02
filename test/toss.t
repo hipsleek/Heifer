@@ -290,15 +290,18 @@
            ens x->v+1;
            reset
              (reset
-                ((do_toss_n (n-1) x; r3. true /\ r3); r2.
-                   (ens (a /\ r2)=true; 1
-                    \/ ens (a /\ r2)=false; 0)); r1.
-                (forall v1. req x->v1; ens x->v1+1);
-                reset
-                  ((do_toss_n (n-1) x; r4. false /\ r4); r3.
-                     (ens (a /\ r3)=true; 1
-                      \/ ens (a /\ r3)=false; 0)); r2. 
-                  r1+r2))
+                (do_toss_n (n-1) x; r2.
+                   (ens (a /\ (true /\ r2))=true; 1
+                    \/ ens (a /\ (true /\ r2))=false; 0));
+                r1.
+                (forall v1.
+                   req x->v1;
+                   ens x->v1+1;
+                   reset
+                     (do_toss_n (n-1) x; r3.
+                        (ens (a /\ (false /\ r3))=true; 1
+                         \/ ens (a /\ (false /\ r3))=false; 0));
+                     r2. r1+r2)))
   <: forall v.
        req x->v;
        ens x->v+pow 2 (n+1)-2;
@@ -306,47 +309,6 @@
   
   
   # shift_reset_reduce ()
-  
-  a, n, x
-  IH: forall n1.
-        n1>=0 /\ n1<n =>
-          (forall a.
-             reset
-               (do_toss_n n1 x; r.
-                  (ens (a /\ r)=true; 1
-                   \/ ens (a /\ r)=false; 0)) <:
-               (forall v.
-                  req x->v;
-                  ens x->v+pow 2 (n1+1)-2;
-                  (ens a=true; 1 \/ ens a=false; 0)))
-  ────────────────────────────────────────────────────────────
-     ens n=0;
-     (ens (a /\ true)=true; 1 \/ ens (a /\ true)=false; 0)
-     \/ ens n>0;
-        (forall v.
-           req x->v;
-           ens x->v+1;
-           reset
-             (do_toss_n (n-1) x; r2.
-                true /\ r2; r3.
-                  (ens (a /\ r3)=true; 1
-                   \/ ens (a /\ r3)=false; 0)); r1.
-             (forall v1.
-                req x->v1;
-                ens x->v1+1;
-                reset
-                  (do_toss_n (n-1) x; r3.
-                     false /\ r3; r4.
-                       (ens (a /\ r4)=true; 1
-                        \/ ens (a /\ r4)=false; 0)); r2.
-                  r1+r2))
-  <: forall v.
-       req x->v;
-       ens x->v+pow 2 (n+1)-2;
-       (ens a=true; 1 \/ ens a=false; 0)
-  
-  
-  # simpl ()
   
   a, n, x
   IH: forall n1.
@@ -1170,8 +1132,7 @@
          (forall v2.
             req x->v2;
             ens x->v2+pow 2 (n-1+1)-2;
-            (ens false=true; 1 \/ ens false=false; 0)); r2.
-           1+r2)
+            (ens false=true; 1+1 \/ ens false=false; 1+0)))
       \/ ens a=false;
          (forall v1.
             req x->v1;
@@ -1179,8 +1140,7 @@
             (forall v2.
                req x->v2;
                ens x->v2+pow 2 (n-1+1)-2;
-               (ens false=true; 1 \/ ens false=false; 0));
-              r2. 0+r2))
+               (ens false=true; 0+1 \/ ens false=false; 0+0))))
   <: ens x->v+pow 2 (n+1)-2;
      (ens a=true; 1 \/ ens a=false; 0)
   
@@ -1209,8 +1169,7 @@
          (forall v2.
             req x->v2;
             ens x->v2+pow 2 (n-1+1)-2;
-            (ens false=true; 1 \/ ens false=false; 0)); r2.
-           1+r2)
+            (ens false=true; 1+1 \/ ens false=false; 1+0)))
       \/ ens a=false;
          (forall v1.
             req x->v1;
@@ -1218,8 +1177,7 @@
             (forall v2.
                req x->v2;
                ens x->v2+pow 2 (n-1+1)-2;
-               (ens false=true; 1 \/ ens false=false; 0));
-              r2. 0+r2))
+               (ens false=true; 0+1 \/ ens false=false; 0+0))))
   <: ens x->v+pow 2 (n+1)-2;
      (ens a=true; 1 \/ ens a=false; 0)
   
@@ -1249,8 +1207,7 @@
         (forall v1.
            req x->v1;
            ens x->v1+pow 2 (n-1+1)-2;
-           (ens false=true; 1 \/ ens false=false; 0)); r2.
-          1+r2)
+           (ens false=true; 1+1 \/ ens false=false; 1+0)))
      \/ ens a=false;
         (forall v.
            req x->v;
@@ -1258,8 +1215,7 @@
            (forall v1.
               req x->v1;
               ens x->v1+pow 2 (n-1+1)-2;
-              (ens false=true; 1 \/ ens false=false; 0)); r2.
-             0+r2)
+              (ens false=true; 0+1 \/ ens false=false; 0+0)))
   <: ens x->v+pow 2 (n+1)-2;
      (ens a=true; 1 \/ ens a=false; 0)
   
@@ -1289,8 +1245,7 @@
         (forall v1.
            req x->v1;
            ens x->v1+pow 2 (n-1+1)-2;
-           (ens false=true; 1 \/ ens false=false; 0)); r2.
-          1+r2)
+           (ens false=true; 1+1 \/ ens false=false; 1+0)))
   <: ens x->v+pow 2 (n+1)-2;
      (ens a=true; 1 \/ ens a=false; 0)
   (1 more goals)
@@ -1321,8 +1276,7 @@
        (forall v1.
           req x->v1;
           ens x->v1+pow 2 (n-1+1)-2;
-          (ens false=true; 1 \/ ens false=false; 0)); r2.
-         1+r2
+          (ens false=true; 1+1 \/ ens false=false; 1+0))
   <: ens x->v+pow 2 (n+1)-2;
      (ens a=true; 1 \/ ens a=false; 0)
   (1 more goals)
@@ -1352,8 +1306,7 @@
      (forall v1.
         req x->v1;
         ens x->v1+pow 2 (n-1+1)-2;
-        (ens false=true; 1 \/ ens false=false; 0)); r2. 
-       1+r2
+        (ens false=true; 1+1 \/ ens false=false; 1+0))
   <: ens x->v+pow 2 (n+1)-2;
      (ens a=true; 1 \/ ens a=false; 0)
   (1 more goals)
@@ -1380,8 +1333,7 @@
      (forall v1.
         req x->v1;
         ens x->v1+pow 2 (n-1+1)-2;
-        (ens false=true; 1 \/ ens false=false; 0)); r2. 
-       1+r2
+        (ens false=true; 1+1 \/ ens false=false; 1+0))
   <: ens x->v+pow 2 (n+1)-2;
      (ens a=true; 1 \/ ens a=false; 0)
   (1 more goals)
@@ -1406,45 +1358,16 @@
   ────────────────────────────────────────────────────────────
   x->v+1+pow 2 (n-1+1)-2+1
   ───────────────────────────────────────────────────────────*
-     (forall v.
-        req x->v;
-        ens x->v+pow 2 (n-1+1)-2;
-        (ens false=true; 1 \/ ens false=false; 0)); r2. 
-       1+r2
+     forall v.
+       req x->v;
+       ens x->v+pow 2 (n-1+1)-2;
+       (ens false=true; 1+1 \/ ens false=false; 1+0)
   <: ens x->v+pow 2 (n+1)-2;
      (ens a=true; 1 \/ ens a=false; 0)
   (1 more goals)
   
   
   # forall_elim ["v+1+pow 2 (n-1+1)-2+1"]
-  
-  a, n, v, x
-  Ha: a=true
-  Hn: n>0
-  IH: forall n1.
-        n1>=0 /\ n1<n =>
-          (forall a.
-             reset
-               (do_toss_n n1 x; r.
-                  (ens (a /\ r)=true; 1
-                   \/ ens (a /\ r)=false; 0)) <:
-               (forall v.
-                  req x->v;
-                  ens x->v+pow 2 (n1+1)-2;
-                  (ens a=true; 1 \/ ens a=false; 0)))
-  ────────────────────────────────────────────────────────────
-  x->v+1+pow 2 (n-1+1)-2+1
-  ───────────────────────────────────────────────────────────*
-     (req x->v+1+pow 2 (n-1+1)-2+1;
-      ens x->v+1+pow 2 (n-1+1)-2+1+pow 2 (n-1+1)-2;
-      (ens false=true; 1 \/ ens false=false; 0)); r2. 
-       1+r2
-  <: ens x->v+pow 2 (n+1)-2;
-     (ens a=true; 1 \/ ens a=false; 0)
-  (1 more goals)
-  
-  
-  # simpl ()
   
   a, n, v, x
   Ha: a=true
@@ -1825,8 +1748,7 @@
         (forall v1.
            req x->v1;
            ens x->v1+pow 2 (n-1+1)-2;
-           (ens false=true; 1 \/ ens false=false; 0)); r2.
-          0+r2)
+           (ens false=true; 0+1 \/ ens false=false; 0+0)))
   <: ens x->v+pow 2 (n+1)-2;
      (ens a=true; 1 \/ ens a=false; 0)
   
@@ -1856,8 +1778,7 @@
        (forall v1.
           req x->v1;
           ens x->v1+pow 2 (n-1+1)-2;
-          (ens false=true; 1 \/ ens false=false; 0)); r2.
-         0+r2
+          (ens false=true; 0+1 \/ ens false=false; 0+0))
   <: ens x->v+pow 2 (n+1)-2;
      (ens a=true; 1 \/ ens a=false; 0)
   
@@ -1886,8 +1807,7 @@
      (forall v1.
         req x->v1;
         ens x->v1+pow 2 (n-1+1)-2;
-        (ens false=true; 1 \/ ens false=false; 0)); r2. 
-       0+r2
+        (ens false=true; 0+1 \/ ens false=false; 0+0))
   <: ens x->v+pow 2 (n+1)-2;
      (ens a=true; 1 \/ ens a=false; 0)
   
@@ -1913,8 +1833,7 @@
      (forall v1.
         req x->v1;
         ens x->v1+pow 2 (n-1+1)-2;
-        (ens false=true; 1 \/ ens false=false; 0)); r2. 
-       0+r2
+        (ens false=true; 0+1 \/ ens false=false; 0+0))
   <: ens x->v+pow 2 (n+1)-2;
      (ens a=true; 1 \/ ens a=false; 0)
   
@@ -1938,43 +1857,15 @@
   ────────────────────────────────────────────────────────────
   x->v+1+pow 2 (n-1+1)-2+1
   ───────────────────────────────────────────────────────────*
-     (forall v.
-        req x->v;
-        ens x->v+pow 2 (n-1+1)-2;
-        (ens false=true; 1 \/ ens false=false; 0)); r2. 
-       0+r2
+     forall v.
+       req x->v;
+       ens x->v+pow 2 (n-1+1)-2;
+       (ens false=true; 0+1 \/ ens false=false; 0+0)
   <: ens x->v+pow 2 (n+1)-2;
      (ens a=true; 1 \/ ens a=false; 0)
   
   
   # forall_elim ["v+1+pow 2 (n-1+1)-2+1"]
-  
-  a, n, v, x
-  Ha: a=false
-  Hn: n>0
-  IH: forall n1.
-        n1>=0 /\ n1<n =>
-          (forall a.
-             reset
-               (do_toss_n n1 x; r.
-                  (ens (a /\ r)=true; 1
-                   \/ ens (a /\ r)=false; 0)) <:
-               (forall v.
-                  req x->v;
-                  ens x->v+pow 2 (n1+1)-2;
-                  (ens a=true; 1 \/ ens a=false; 0)))
-  ────────────────────────────────────────────────────────────
-  x->v+1+pow 2 (n-1+1)-2+1
-  ───────────────────────────────────────────────────────────*
-     (req x->v+1+pow 2 (n-1+1)-2+1;
-      ens x->v+1+pow 2 (n-1+1)-2+1+pow 2 (n-1+1)-2;
-      (ens false=true; 1 \/ ens false=false; 0)); r2. 
-       0+r2
-  <: ens x->v+pow 2 (n+1)-2;
-     (ens a=true; 1 \/ ens a=false; 0)
-  
-  
-  # simpl ()
   
   a, n, v, x
   Ha: a=false
@@ -2428,9 +2319,12 @@
        ens x->v+1;
        reset
          (reset (ens true=true; 1 \/ ens true=false; 0); r1.
-            (forall v1. req x->v1; ens x->v1+1);
-            reset (ens false=true; 1 \/ ens false=false; 0);
-              r2. r1+r2)
+            (forall v1.
+               req x->v1;
+               ens x->v1+1;
+               reset
+                 (ens false=true; 1 \/ ens false=false; 0);
+                 r2. r1+r2))
   <: ens x->v+2; 1
   
   
@@ -2444,9 +2338,11 @@
      ens x->v+1;
      reset
        (reset (ens true=true; 1 \/ ens true=false; 0); r1.
-          (forall v1. req x->v1; ens x->v1+1);
-          reset (ens false=true; 1 \/ ens false=false; 0);
-            r2. r1+r2)
+          (forall v1.
+             req x->v1;
+             ens x->v1+1;
+             reset (ens false=true; 1 \/ ens false=false; 0);
+               r2. r1+r2))
   <: ens x->v+2; 1
   
   
@@ -2457,9 +2353,11 @@
      ens x->v+1;
      reset
        (reset (ens true=true; 1 \/ ens true=false; 0); r1.
-          (forall v1. req x->v1; ens x->v1+1);
-          reset (ens false=true; 1 \/ ens false=false; 0);
-            r2. r1+r2)
+          (forall v1.
+             req x->v1;
+             ens x->v1+1;
+             reset (ens false=true; 1 \/ ens false=false; 0);
+               r2. r1+r2))
   <: ens x->v+2; 1
   
   
@@ -2471,9 +2369,11 @@
   ───────────────────────────────────────────────────────────*
      reset
        (reset (ens true=true; 1 \/ ens true=false; 0); r1.
-          (forall v. req x->v; ens x->v+1);
-          reset (ens false=true; 1 \/ ens false=false; 0);
-            r2. r1+r2)
+          (forall v.
+             req x->v;
+             ens x->v+1;
+             reset (ens false=true; 1 \/ ens false=false; 0);
+               r2. r1+r2))
   <: ens x->v+2; 1
   
   
@@ -3020,21 +2920,28 @@
   ───────────────────────────────────────────────────────────*
      reset
        (reset
-          (((ens 1-1=0; true
-             \/ ens 1-1>0;
-                do_toss x; r4.
-                  do_toss_n (1-1-1) x; r5. r4 /\ r5); r3.
-              true /\ r3); r2.
-             (ens r2=true; 1 \/ ens r2=false; 0)); r1.
-          (forall v. req x->v; ens x->v+1);
-          reset
-            (((ens 1-1=0; true
-               \/ ens 1-1>0;
-                  do_toss x; r5.
-                    do_toss_n (1-1-1) x; r6. r5 /\ r6); r4.
-                false /\ r4); r3.
-               (ens r3=true; 1 \/ ens r3=false; 0)); r2.
-            r1+r2)
+          (ens 1-1=0;
+           (ens (true /\ true)=true; 1
+            \/ ens (true /\ true)=false; 0)
+           \/ ens 1-1>0;
+              do_toss x; r2.
+                do_toss_n (1-1-1) x; r3.
+                  (ens (true /\ (r2 /\ r3))=true; 1
+                   \/ ens (true /\ (r2 /\ r3))=false; 0));
+          r1.
+          (forall v.
+             req x->v;
+             ens x->v+1;
+             reset
+               (ens 1-1=0;
+                (ens (false /\ true)=true; 1
+                 \/ ens (false /\ true)=false; 0)
+                \/ ens 1-1>0;
+                   do_toss x; r3.
+                     do_toss_n (1-1-1) x; r4.
+                       (ens (false /\ (r3 /\ r4))=true; 1
+                        \/ ens (false /\ (r3 /\ r4))=false; 0));
+               r2. r1+r2))
   <: ens x->v+2; 1
   
   
@@ -3055,9 +2962,9 @@
           \/ ens 1-1>0;
              reset
                (do_toss x; r3.
-                  (do_toss_n (1-1-1) x; r5. r3 /\ r5); r4.
-                    false /\ r4; r5.
-                      (ens r5=true; 1 \/ ens r5=false; 0));
+                  do_toss_n (1-1-1) x; r4.
+                    (ens (false /\ (r3 /\ r4))=true; 1
+                     \/ ens (false /\ (r3 /\ r4))=false; 0));
                r2. 1+r2))
       \/ ens (true /\ true)=false;
          (forall v.
@@ -3069,16 +2976,16 @@
              \/ ens 1-1>0;
                 reset
                   (do_toss x; r3.
-                     (do_toss_n (1-1-1) x; r5. r3 /\ r5); r4.
-                       false /\ r4; r5.
-                         (ens r5=true; 1 \/ ens r5=false; 0));
+                     do_toss_n (1-1-1) x; r4.
+                       (ens (false /\ (r3 /\ r4))=true; 1
+                        \/ ens (false /\ (r3 /\ r4))=false; 0));
                   r2. 0+r2)))
      \/ ens 1-1>0;
         reset
           (do_toss x; r2.
-             (do_toss_n (1-1-1) x; r4. r2 /\ r4); r3.
-               true /\ r3; r4.
-                 (ens r4=true; 1 \/ ens r4=false; 0)); r1.
+             do_toss_n (1-1-1) x; r3.
+               (ens (true /\ (r2 /\ r3))=true; 1
+                \/ ens (true /\ (r2 /\ r3))=false; 0)); r1.
           (forall v.
              req x->v;
              ens x->v+1;
@@ -3088,11 +2995,10 @@
               \/ ens 1-1>0;
                  reset
                    (do_toss x; r3.
-                      (do_toss_n (1-1-1) x; r5. r3 /\ r5);
-                        r4.
-                        false /\ r4; r5.
-                          (ens r5=true; 1 \/ ens r5=false; 0));
-                   r2. r1+r2))
+                      do_toss_n (1-1-1) x; r4.
+                        (ens (false /\ (r3 /\ r4))=true; 1
+                         \/ ens (false /\ (r3 /\ r4))=false;
+                            0)); r2. r1+r2))
   <: ens x->v+2; 1
   
   
@@ -3113,9 +3019,9 @@
           \/ ens 1-1>0;
              reset
                (do_toss x; r3.
-                  (do_toss_n (1-1-1) x; r5. r3 /\ r5); r4.
-                    false /\ r4; r5.
-                      (ens r5=true; 1 \/ ens r5=false; 0));
+                  do_toss_n (1-1-1) x; r4.
+                    (ens (false /\ (r3 /\ r4))=true; 1
+                     \/ ens (false /\ (r3 /\ r4))=false; 0));
                r2. 1+r2))
       \/ ens (true /\ true)=false;
          (forall v.
@@ -3127,9 +3033,9 @@
              \/ ens 1-1>0;
                 reset
                   (do_toss x; r3.
-                     (do_toss_n (1-1-1) x; r5. r3 /\ r5); r4.
-                       false /\ r4; r5.
-                         (ens r5=true; 1 \/ ens r5=false; 0));
+                     do_toss_n (1-1-1) x; r4.
+                       (ens (false /\ (r3 /\ r4))=true; 1
+                        \/ ens (false /\ (r3 /\ r4))=false; 0));
                   r2. 0+r2)))
   <: ens x->v+2; 1
   (1 more goals)
@@ -3151,9 +3057,9 @@
          \/ ens 1-1>0;
             reset
               (do_toss x; r3.
-                 (do_toss_n (1-1-1) x; r5. r3 /\ r5); r4.
-                   false /\ r4; r5.
-                     (ens r5=true; 1 \/ ens r5=false; 0));
+                 do_toss_n (1-1-1) x; r4.
+                   (ens (false /\ (r3 /\ r4))=true; 1
+                    \/ ens (false /\ (r3 /\ r4))=false; 0));
               r2. 1+r2))
      \/ ens (true /\ true)=false;
         (forall v.
@@ -3165,9 +3071,9 @@
             \/ ens 1-1>0;
                reset
                  (do_toss x; r3.
-                    (do_toss_n (1-1-1) x; r5. r3 /\ r5); r4.
-                      false /\ r4; r5.
-                        (ens r5=true; 1 \/ ens r5=false; 0));
+                    do_toss_n (1-1-1) x; r4.
+                      (ens (false /\ (r3 /\ r4))=true; 1
+                       \/ ens (false /\ (r3 /\ r4))=false; 0));
                  r2. 0+r2))
   <: ens x->v+2; 1
   (1 more goals)
@@ -3189,9 +3095,9 @@
          \/ ens 1-1>0;
             reset
               (do_toss x; r3.
-                 (do_toss_n (1-1-1) x; r5. r3 /\ r5); r4.
-                   false /\ r4; r5.
-                     (ens r5=true; 1 \/ ens r5=false; 0));
+                 do_toss_n (1-1-1) x; r4.
+                   (ens (false /\ (r3 /\ r4))=true; 1
+                    \/ ens (false /\ (r3 /\ r4))=false; 0));
               r2. 1+r2))
   <: ens x->v+2; 1
   (2 more goals)
@@ -3212,10 +3118,10 @@
         \/ ens 1-1>0;
            reset
              (do_toss x; r3.
-                (do_toss_n (1-1-1) x; r5. r3 /\ r5); r4.
-                  false /\ r4; r5.
-                    (ens r5=true; 1 \/ ens r5=false; 0)); r2.
-             1+r2)
+                do_toss_n (1-1-1) x; r4.
+                  (ens (false /\ (r3 /\ r4))=true; 1
+                   \/ ens (false /\ (r3 /\ r4))=false; 0));
+             r2. 1+r2)
   <: ens x->v+2; 1
   (2 more goals)
   
@@ -3234,9 +3140,9 @@
       \/ ens 1-1>0;
          reset
            (do_toss x; r3.
-              (do_toss_n (1-1-1) x; r5. r3 /\ r5); r4.
-                false /\ r4; r5.
-                  (ens r5=true; 1 \/ ens r5=false; 0)); r2.
+              do_toss_n (1-1-1) x; r4.
+                (ens (false /\ (r3 /\ r4))=true; 1
+                 \/ ens (false /\ (r3 /\ r4))=false; 0)); r2.
            1+r2)
   <: ens x->v+2; 1
   (2 more goals)
@@ -3253,9 +3159,9 @@
       \/ ens 1-1>0;
          reset
            (do_toss x; r3.
-              (do_toss_n (1-1-1) x; r5. r3 /\ r5); r4.
-                false /\ r4; r5.
-                  (ens r5=true; 1 \/ ens r5=false; 0)); r2.
+              do_toss_n (1-1-1) x; r4.
+                (ens (false /\ (r3 /\ r4))=true; 1
+                 \/ ens (false /\ (r3 /\ r4))=false; 0)); r2.
            1+r2)
   <: ens x->v+2; 1
   (2 more goals)
@@ -3273,9 +3179,9 @@
      \/ ens 1-1>0;
         reset
           (do_toss x; r3.
-             (do_toss_n (1-1-1) x; r5. r3 /\ r5); r4.
-               false /\ r4; r5.
-                 (ens r5=true; 1 \/ ens r5=false; 0)); r2.
+             do_toss_n (1-1-1) x; r4.
+               (ens (false /\ (r3 /\ r4))=true; 1
+                \/ ens (false /\ (r3 /\ r4))=false; 0)); r2.
           1+r2
   <: ens x->v+2; 1
   (2 more goals)
@@ -3409,9 +3315,9 @@
      ens 1-1>0;
      reset
        (do_toss x; r3.
-          (do_toss_n (1-1-1) x; r5. r3 /\ r5); r4.
-            false /\ r4; r5.
-              (ens r5=true; 1 \/ ens r5=false; 0)); r2. 
+          do_toss_n (1-1-1) x; r4.
+            (ens (false /\ (r3 /\ r4))=true; 1
+             \/ ens (false /\ (r3 /\ r4))=false; 0)); r2.
        1+r2
   <: ens x->v+2; 1
   (2 more goals)
@@ -3426,9 +3332,9 @@
   ───────────────────────────────────────────────────────────*
      reset
        (do_toss x; r3.
-          (do_toss_n (1-1-1) x; r5. r3 /\ r5); r4.
-            false /\ r4; r5.
-              (ens r5=true; 1 \/ ens r5=false; 0)); r2. 
+          do_toss_n (1-1-1) x; r4.
+            (ens (false /\ (r3 /\ r4))=true; 1
+             \/ ens (false /\ (r3 /\ r4))=false; 0)); r2.
        1+r2
   <: ens x->v+2; 1
   (2 more goals)
@@ -3463,9 +3369,9 @@
          \/ ens 1-1>0;
             reset
               (do_toss x; r3.
-                 (do_toss_n (1-1-1) x; r5. r3 /\ r5); r4.
-                   false /\ r4; r5.
-                     (ens r5=true; 1 \/ ens r5=false; 0));
+                 do_toss_n (1-1-1) x; r4.
+                   (ens (false /\ (r3 /\ r4))=true; 1
+                    \/ ens (false /\ (r3 /\ r4))=false; 0));
               r2. 0+r2))
   <: ens x->v+2; 1
   (1 more goals)
@@ -3487,9 +3393,9 @@
          \/ ens 1-1>0;
             reset
               (do_toss x; r3.
-                 (do_toss_n (1-1-1) x; r5. r3 /\ r5); r4.
-                   false /\ r4; r5.
-                     (ens r5=true; 1 \/ ens r5=false; 0));
+                 do_toss_n (1-1-1) x; r4.
+                   (ens (false /\ (r3 /\ r4))=true; 1
+                    \/ ens (false /\ (r3 /\ r4))=false; 0));
               r2. 0+r2))
   <: ens x->v+2; 1
   (1 more goals)
@@ -3511,10 +3417,10 @@
         \/ ens 1-1>0;
            reset
              (do_toss x; r3.
-                (do_toss_n (1-1-1) x; r5. r3 /\ r5); r4.
-                  false /\ r4; r5.
-                    (ens r5=true; 1 \/ ens r5=false; 0)); r2.
-             0+r2)
+                do_toss_n (1-1-1) x; r4.
+                  (ens (false /\ (r3 /\ r4))=true; 1
+                   \/ ens (false /\ (r3 /\ r4))=false; 0));
+             r2. 0+r2)
   <: ens x->v+2; 1
   (1 more goals)
   
@@ -3541,9 +3447,9 @@
      ens 1-1>0;
      reset
        (do_toss x; r2.
-          (do_toss_n (1-1-1) x; r4. r2 /\ r4); r3.
-            true /\ r3; r4.
-              (ens r4=true; 1 \/ ens r4=false; 0)); r1.
+          do_toss_n (1-1-1) x; r3.
+            (ens (true /\ (r2 /\ r3))=true; 1
+             \/ ens (true /\ (r2 /\ r3))=false; 0)); r1.
        (forall v.
           req x->v;
           ens x->v+1;
@@ -3553,9 +3459,9 @@
            \/ ens 1-1>0;
               reset
                 (do_toss x; r3.
-                   (do_toss_n (1-1-1) x; r5. r3 /\ r5); r4.
-                     false /\ r4; r5.
-                       (ens r5=true; 1 \/ ens r5=false; 0));
+                   do_toss_n (1-1-1) x; r4.
+                     (ens (false /\ (r3 /\ r4))=true; 1
+                      \/ ens (false /\ (r3 /\ r4))=false; 0));
                 r2. r1+r2))
   <: ens x->v+2; 1
   
@@ -3569,9 +3475,9 @@
   ───────────────────────────────────────────────────────────*
      reset
        (do_toss x; r2.
-          (do_toss_n (1-1-1) x; r4. r2 /\ r4); r3.
-            true /\ r3; r4.
-              (ens r4=true; 1 \/ ens r4=false; 0)); r1.
+          do_toss_n (1-1-1) x; r3.
+            (ens (true /\ (r2 /\ r3))=true; 1
+             \/ ens (true /\ (r2 /\ r3))=false; 0)); r1.
        (forall v.
           req x->v;
           ens x->v+1;
@@ -3581,9 +3487,9 @@
            \/ ens 1-1>0;
               reset
                 (do_toss x; r3.
-                   (do_toss_n (1-1-1) x; r5. r3 /\ r5); r4.
-                     false /\ r4; r5.
-                       (ens r5=true; 1 \/ ens r5=false; 0));
+                   do_toss_n (1-1-1) x; r4.
+                     (ens (false /\ (r3 /\ r4))=true; 1
+                      \/ ens (false /\ (r3 /\ r4))=false; 0));
                 r2. r1+r2))
   <: ens x->v+2; 1
   
