@@ -66,7 +66,7 @@ let unseq_open_requires_opt t =
   let+ t1 = open_requires_opt t1 in
   t1, t2
 
-let unseq_tail_to_term = function
+let unwrap_term_opt = function
   | Some t -> t
   | None -> Unit
 

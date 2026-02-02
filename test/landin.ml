@@ -4,122 +4,83 @@ Options.fail_fast := true;;
 
 declare
   {|
-  landin_rec f =
-    ex l knot.
-      ens l->();
-      ens knot=(fun n -> forall f1. req l->f1; ens l->f1; f f1 n);
-      forall v0. req l->v0; ens l->knot;
-      knot
-|}
+    landin_rec f =
+      exists l g.
+        ens l->();
+        ens g=(fun n -> forall h. req l->h; ens l->h; f h n);
+        forall v. req l->v; ens l->g;
+        g
+  |}
 ;;
 
-declare {|
-  factf self n =
-    ens n=0; 1
-    \/ ens n>0; self (n-1); r1. n*.r1
-|};;
+declare
+  {|
+    factf self n =
+      ens n=0; 1 \/
+      ens n>0; self (n-1); r. n*.r
+  |}
+;;
 
-start_proof {|
-  forall n. is_int n =>
-    landin_rec factf; f. f n <: ex l v. ens l->v; fact n
-|};;
+start_proof
+  {|
+    forall n. landin_rec factf; f. f n <: exists l f. ens l->f; fact n
+  |}
+;;
 
-(* Options.notation := false;; *)
 forall_intro ();;
-intro_pure "Hty";;
 unfold "landin_rec";;
-
 goal_is
   {|
-     (ex l knot.
-        ens l->();
-        ens knot=(fun n1 ->
-                   forall f1.
-                     req l->f1; ens l->f1; factf f1 n1);
-        (forall v0. req l->v0; ens l->knot; knot)); f.
-       f n
-  <: ex l v. ens l->v; fact n
-        |}
+    (exists l g.
+      ens l->();
+      ens g=(fun n1 -> forall h. req l->h; ens l->h; factf h n1);
+      (forall v. req l->v; ens l->g; g)); f. f n
+    <: exists l f. ens l->f; fact n
+  |}
 ;;
-
 exists_elim ();;
 simpl ();;
-intro_heap ();;
-intro_pure "Hknot";;
-
-(* TODO lemmas *)
-(* deal with the read *)
+ens_heap_elim ();;
+intro_pure "Hg";;
 forall_elim ["()"];;
 simpl ();;
 req_heap_elim ();;
+ens_heap_elim ();;
+rewrite "Hg";;
 simpl ();;
-
-goal_is {|
-     ens l->knot; knot n
-  <: ex l v. ens l->v; fact n
-|};;
-
-induction ~name:"IH" (`Int 0) "n";;
-
-(* TODO rewrite at one occurrence, currently worked around by introing *)
-intro_heap ();;
-rewrite "Hknot";;
-
-goal_is
-  {|
-     (fun n1 -> forall f1. req l->f1; ens l->f1; factf f1 n1)
-       n
-  <: ex l v. ens l->v; fact n
-|}
-;;
-
-simpl ();;
-forall_elim ["knot"];;
+forall_elim ["g"];;
 req_heap_elim ();;
-intro_heap ();;
-
-(* now we can get at the structure of factf *)
-
+exists_intro ["l"; "g"];;
+induction ~name:"IH" (`Int 0) "n";;
 unfold "factf";;
+intro_heap ();;
 disj_elim ();;
 
 (* base case *)
-goal_is {|
-  ens n=0; 1
-  <: ex l v. ens l->v; fact n
-|};;
-
+goal_is {| ens n=0; 1 <: ens l->g; fact n |};;
 intro_pure "Hn";;
-exists_intro ["l"; "knot"];;
 ens_heap_intro ();;
-
-(* Options.show_why3_goal := true;; *)
 prove ();;
 
 (* inductive case *)
-goal_is {|
-  ens n>0; knot (n-1); r1. n*.r1
-  <: ex l v. ens l->v; fact n
-|};;
-
+goal_is {| ens n>0; g (n-1); r. n*.r <: ens l->g; fact n |};;
 intro_pure "Hn";;
 revert_heap ();;
-rewrite "IH";;
-prove ();;
-prove ();;
-goal_is "(ex l v. ens l->v; fact (n-1)); r1. n*.r1 <: ex l v. ens l->v; fact n";;
-exists_elim ();;
-exists_intro ["l1"; "v"];;
+rewrite "Hg";;
 simpl ();;
-intro_heap ();;
+rewrite ~direction:Direction.rtl "Hg";;
+ens_heap_elim ();;
+forall_elim ["g"];;
+simpl ();;
+req_heap_elim ();;
+rewrite "IH";;
+
+pure_solver ();;
+
+simpl ();;
+ens_heap_elim ();;
 ens_heap_intro ();;
-
-
-Options.show_why3_goal := true;;
 prove ();;
-Options.show_why3_goal := false;;
-
-(* TODO a defn of fact, some way to include it in here *)
 qed ();;
 
 Options.fail_fast := false;;

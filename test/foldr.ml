@@ -32,7 +32,6 @@ goal_is
     <: sum xs
   |}
 ;;
-
 disj_elim ();;
 
 (* Base case *)
@@ -49,15 +48,14 @@ goal_is
     <: sum xs
   |}
 ;;
-
 exists_elim ();;
 intro_pure "Hxs";;
 goal_is
   {|
     foldr (fun x1 acc -> x1+acc) 0 xs'; r. (fun x1 acc -> x1+acc) x r
     <: sum xs
-  |};;
-
+  |}
+;;
 (* To use the induction hypothesis, we have to prove that `t` is a sublist of `xs`. This lets us rewrite the call to `foldr`. *)
 rewrite "IH";;
 prove ();;
@@ -66,10 +64,9 @@ goal_is
   {|
     sum xs'; r. (fun x1 acc -> x1+acc) x r
     <: sum xs
-  |};;
-
+  |}
+;;
 (* Having done that, the goal follows from the definition of `sum`. *)
-
 simpl ();;
 Options.show_why3_goal := true;;
 prove ();;

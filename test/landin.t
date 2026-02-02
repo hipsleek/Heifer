@@ -1,743 +1,555 @@
 
   $ ./landin.exe
   
+  # Options.fail_fast := true
+  
   # declare
       {|
-    landin_rec f =
-      ex l knot.
-        ens l->();
-        ens knot=(fun n -> forall f1. req l->f1; ens l->f1; f f1 n);
-        forall v0. req l->v0; ens l->knot;
-        knot
-  |}
+      landin_rec f =
+        exists l g.
+          ens l->();
+          ens g=(fun n -> forall h. req l->h; ens l->h; f h n);
+          forall v. req l->v; ens l->g;
+          g
+    |}
   landin_rec declared
   
   # declare
       {|
-    factf self n =
-      ens n=0; 1
-      \/ ens n>0; self (n-1); r1. n*.r1
-  |}
+      factf self n =
+        ens n=0; 1 \/
+        ens n>0; self (n-1); r. n*.r
+    |}
   factf declared
   
   # start_proof
       {|
-    forall n. is_int n =>
-      landin_rec factf; f. f n <: ex l v. ens l->v; fact n
-  |}
+      forall n. landin_rec factf; f. f n <: exists l f. ens l->f; fact n
+    |}
   
   ────────────────────────────────────────────────────────────
   forall n.
-    is_int n =>
-      landin_rec factf; f. f n <: (ex l v. ens l->v; fact n)
+    landin_rec factf; f. f n <: (ex l f. ens l->f; fact n)
   
   
   # forall_intro ()
   
   n
   ────────────────────────────────────────────────────────────
-  is_int n =>
-    landin_rec factf; f. f n <: (ex l v. ens l->v; fact n)
-  
-  
-  # intro_pure "Hty"
-  
-  n
-  Hty: is_int n
-  ────────────────────────────────────────────────────────────
      landin_rec factf; f. f n
-  <: ex l v. ens l->v; fact n
+  <: ex l f. ens l->f; fact n
   
   
   # unfold "landin_rec"
   
   n
-  Hty: is_int n
   ────────────────────────────────────────────────────────────
-     (ex l knot.
+     (ex l g.
         ens l->();
-        ens knot=(fun n1 ->
-                   forall f1.
-                     req l->f1; ens l->f1; factf f1 n1);
-        (forall v0. req l->v0; ens l->knot; knot)); f. 
-       f n
-  <: ex l v. ens l->v; fact n
+        ens g=(fun n1 ->
+                forall h. req l->h; ens l->h; factf h n1);
+        (forall v. req l->v; ens l->g; g)); f. f n
+  <: ex l f. ens l->f; fact n
   
   
   # goal_is
       {|
-       (ex l knot.
-          ens l->();
-          ens knot=(fun n1 ->
-                     forall f1.
-                       req l->f1; ens l->f1; factf f1 n1);
-          (forall v0. req l->v0; ens l->knot; knot)); f.
-         f n
-    <: ex l v. ens l->v; fact n
-          |}
+      (exists l g.
+        ens l->();
+        ens g=(fun n1 -> forall h. req l->h; ens l->h; factf h n1);
+        (forall v. req l->v; ens l->g; g)); f. f n
+      <: exists l f. ens l->f; fact n
+    |}
   
   n
-  Hty: is_int n
   ────────────────────────────────────────────────────────────
-     (ex l knot.
+     (ex l g.
         ens l->();
-        ens knot=(fun n1 ->
-                   forall f1.
-                     req l->f1; ens l->f1; factf f1 n1);
-        (forall v0. req l->v0; ens l->knot; knot)); f. 
-       f n
-  <: ex l v. ens l->v; fact n
+        ens g=(fun n1 ->
+                forall h. req l->h; ens l->h; factf h n1);
+        (forall v. req l->v; ens l->g; g)); f. f n
+  <: ex l f. ens l->f; fact n
   
   
   # exists_elim ()
   
-  knot, l, n
-  Hty: is_int n
+  g, l, n
   ────────────────────────────────────────────────────────────
      (ens l->();
-      ens knot=(fun n1 ->
-                 forall f1. req l->f1; ens l->f1; factf f1 n1);
-      (forall v0. req l->v0; ens l->knot; knot)); f. 
-       f n
-  <: ex l v. ens l->v; fact n
+      ens g=(fun n1 ->
+              forall h. req l->h; ens l->h; factf h n1);
+      (forall v. req l->v; ens l->g; g)); f. f n
+  <: ex l f. ens l->f; fact n
   
   
   # simpl ()
   
-  knot, l, n
-  Hty: is_int n
+  g, l, n
   ────────────────────────────────────────────────────────────
      ens l->();
-     ens knot=(fun n1 ->
-                forall f1. req l->f1; ens l->f1; factf f1 n1);
-     (forall v0. req l->v0; ens l->knot; knot); f. f n
-  <: ex l v. ens l->v; fact n
+     ens g=(fun n1 ->
+             forall h. req l->h; ens l->h; factf h n1);
+     (forall v. req l->v; ens l->g; g); f. f n
+  <: ex l f. ens l->f; fact n
   
   
-  # intro_heap ()
+  # ens_heap_elim ()
   
-  knot, l, n
-  Hty: is_int n
+  g, l, n
   ────────────────────────────────────────────────────────────
   l->()
   ───────────────────────────────────────────────────────────*
-     ens knot=(fun n1 ->
-                forall f1. req l->f1; ens l->f1; factf f1 n1);
-     (forall v0. req l->v0; ens l->knot; knot); f. f n
-  <: ex l v. ens l->v; fact n
+     ens g=(fun n1 ->
+             forall h. req l->h; ens l->h; factf h n1);
+     (forall v. req l->v; ens l->g; g); f. f n
+  <: ex l f. ens l->f; fact n
   
   
-  # intro_pure "Hknot"
+  # intro_pure "Hg"
   
-  knot, l, n
-  Hknot: knot=(fun n ->
-                forall f1. req l->f1; ens l->f1; factf f1 n)
-  Hty: is_int n
+  g, l, n
+  Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
   ────────────────────────────────────────────────────────────
   l->()
   ───────────────────────────────────────────────────────────*
-     (forall v0. req l->v0; ens l->knot; knot); f. f n
-  <: ex l v. ens l->v; fact n
+     (forall v. req l->v; ens l->g; g); f. f n
+  <: ex l f. ens l->f; fact n
   
   
   # forall_elim ["()"]
   
-  knot, l, n
-  Hknot: knot=(fun n ->
-                forall f1. req l->f1; ens l->f1; factf f1 n)
-  Hty: is_int n
+  g, l, n
+  Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
   ────────────────────────────────────────────────────────────
   l->()
   ───────────────────────────────────────────────────────────*
-     (req l->(); ens l->knot; knot); f. f n
-  <: ex l v. ens l->v; fact n
+     (req l->(); ens l->g; g); f. f n
+  <: ex l f. ens l->f; fact n
   
   
   # simpl ()
   
-  knot, l, n
-  Hknot: knot=(fun n ->
-                forall f1. req l->f1; ens l->f1; factf f1 n)
-  Hty: is_int n
+  g, l, n
+  Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
   ────────────────────────────────────────────────────────────
   l->()
   ───────────────────────────────────────────────────────────*
-     req l->(); ens l->knot; knot n
-  <: ex l v. ens l->v; fact n
+     req l->(); ens l->g; g n
+  <: ex l f. ens l->f; fact n
   
   
   # req_heap_elim ()
   
-  knot, l, n
-  Hknot: knot=(fun n ->
-                forall f1. req l->f1; ens l->f1; factf f1 n)
-  Hty: is_int n
+  g, l, n
+  Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
   ────────────────────────────────────────────────────────────
-     ens l->knot; knot n
-  <: ex l v. ens l->v; fact n
+     ens l->g; g n
+  <: ex l f. ens l->f; fact n
+  
+  
+  # ens_heap_elim ()
+  
+  g, l, n
+  Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
+  ────────────────────────────────────────────────────────────
+  l->g
+  ───────────────────────────────────────────────────────────*
+     g n
+  <: ex l f. ens l->f; fact n
+  
+  
+  # rewrite "Hg"
+  
+  g, l, n
+  Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
+  ────────────────────────────────────────────────────────────
+  l->g
+  ───────────────────────────────────────────────────────────*
+     (fun n1 -> forall h. req l->h; ens l->h; factf h n1) n
+  <: ex l f. ens l->f; fact n
   
   
   # simpl ()
   
-  knot, l, n
-  Hknot: knot=(fun n ->
-                forall f1. req l->f1; ens l->f1; factf f1 n)
-  Hty: is_int n
+  g, l, n
+  Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
   ────────────────────────────────────────────────────────────
-     ens l->knot; knot n
-  <: ex l v. ens l->v; fact n
+  l->g
+  ───────────────────────────────────────────────────────────*
+     forall h. req l->h; ens l->h; factf h n
+  <: ex l f. ens l->f; fact n
   
   
-  # goal_is {|
-       ens l->knot; knot n
-    <: ex l v. ens l->v; fact n
-  |}
+  # forall_elim ["g"]
   
-  knot, l, n
-  Hknot: knot=(fun n ->
-                forall f1. req l->f1; ens l->f1; factf f1 n)
-  Hty: is_int n
+  g, l, n
+  Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
   ────────────────────────────────────────────────────────────
-     ens l->knot; knot n
-  <: ex l v. ens l->v; fact n
+  l->g
+  ───────────────────────────────────────────────────────────*
+     req l->g; ens l->g; factf g n
+  <: ex l f. ens l->f; fact n
+  
+  
+  # req_heap_elim ()
+  
+  g, l, n
+  Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
+  ────────────────────────────────────────────────────────────
+     ens l->g; factf g n
+  <: ex l f. ens l->f; fact n
+  
+  
+  # exists_intro ["l"; "g"]
+  
+  g, l, n
+  Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
+  ────────────────────────────────────────────────────────────
+     ens l->g; factf g n
+  <: ens l->g; fact n
   
   
   # induction ~name:"IH" (`Int 0) "n"
   
-  knot, l, n
-  Hknot: knot=(fun n ->
-                forall f1. req l->f1; ens l->f1; factf f1 n)
-  Hty: is_int n
+  g, l, n
+  Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
   IH: forall n1.
         n1>=0 /\ n1<n =>
-          is_int n1 =>
-            ens l->knot; knot n1 <:
-              (ex l1 v. ens l1->v; fact n1)
+          ens l->g; factf g n1 <: ens l->g; fact n1
   ────────────────────────────────────────────────────────────
-     ens l->knot; knot n
-  <: ex l v. ens l->v; fact n
-  
-  
-  # intro_heap ()
-  
-  knot, l, n
-  Hknot: knot=(fun n ->
-                forall f1. req l->f1; ens l->f1; factf f1 n)
-  Hty: is_int n
-  IH: forall n1.
-        n1>=0 /\ n1<n =>
-          is_int n1 =>
-            ens l->knot; knot n1 <:
-              (ex l1 v. ens l1->v; fact n1)
-  ────────────────────────────────────────────────────────────
-  l->knot
-  ───────────────────────────────────────────────────────────*
-     knot n
-  <: ex l v. ens l->v; fact n
-  
-  
-  # rewrite "Hknot"
-  
-  knot, l, n
-  Hknot: knot=(fun n ->
-                forall f1. req l->f1; ens l->f1; factf f1 n)
-  Hty: is_int n
-  IH: forall n1.
-        n1>=0 /\ n1<n =>
-          is_int n1 =>
-            ens l->knot; knot n1 <:
-              (ex l1 v. ens l1->v; fact n1)
-  ────────────────────────────────────────────────────────────
-  l->knot
-  ───────────────────────────────────────────────────────────*
-     (fun n1 -> forall f1. req l->f1; ens l->f1; factf f1 n1)
-       n
-  <: ex l v. ens l->v; fact n
-  
-  
-  # goal_is
-      {|
-       (fun n1 -> forall f1. req l->f1; ens l->f1; factf f1 n1)
-         n
-    <: ex l v. ens l->v; fact n
-  |}
-  
-  knot, l, n
-  Hknot: knot=(fun n ->
-                forall f1. req l->f1; ens l->f1; factf f1 n)
-  Hty: is_int n
-  IH: forall n1.
-        n1>=0 /\ n1<n =>
-          is_int n1 =>
-            ens l->knot; knot n1 <:
-              (ex l1 v. ens l1->v; fact n1)
-  ────────────────────────────────────────────────────────────
-  l->knot
-  ───────────────────────────────────────────────────────────*
-     (fun n1 -> forall f1. req l->f1; ens l->f1; factf f1 n1)
-       n
-  <: ex l v. ens l->v; fact n
-  
-  
-  # simpl ()
-  
-  knot, l, n
-  Hknot: knot=(fun n ->
-                forall f1. req l->f1; ens l->f1; factf f1 n)
-  Hty: is_int n
-  IH: forall n1.
-        n1>=0 /\ n1<n =>
-          is_int n1 =>
-            ens l->knot; knot n1 <:
-              (ex l1 v. ens l1->v; fact n1)
-  ────────────────────────────────────────────────────────────
-  l->knot
-  ───────────────────────────────────────────────────────────*
-     forall f1. req l->f1; ens l->f1; factf f1 n
-  <: ex l v. ens l->v; fact n
-  
-  
-  # forall_elim ["knot"]
-  
-  knot, l, n
-  Hknot: knot=(fun n ->
-                forall f1. req l->f1; ens l->f1; factf f1 n)
-  Hty: is_int n
-  IH: forall n1.
-        n1>=0 /\ n1<n =>
-          is_int n1 =>
-            ens l->knot; knot n1 <:
-              (ex l1 v. ens l1->v; fact n1)
-  ────────────────────────────────────────────────────────────
-  l->knot
-  ───────────────────────────────────────────────────────────*
-     req l->knot; ens l->knot; factf knot n
-  <: ex l v. ens l->v; fact n
-  
-  
-  # req_heap_elim ()
-  
-  knot, l, n
-  Hknot: knot=(fun n ->
-                forall f1. req l->f1; ens l->f1; factf f1 n)
-  Hty: is_int n
-  IH: forall n1.
-        n1>=0 /\ n1<n =>
-          is_int n1 =>
-            ens l->knot; knot n1 <:
-              (ex l1 v. ens l1->v; fact n1)
-  ────────────────────────────────────────────────────────────
-     ens l->knot; factf knot n
-  <: ex l v. ens l->v; fact n
-  
-  
-  # intro_heap ()
-  
-  knot, l, n
-  Hknot: knot=(fun n ->
-                forall f1. req l->f1; ens l->f1; factf f1 n)
-  Hty: is_int n
-  IH: forall n1.
-        n1>=0 /\ n1<n =>
-          is_int n1 =>
-            ens l->knot; knot n1 <:
-              (ex l1 v. ens l1->v; fact n1)
-  ────────────────────────────────────────────────────────────
-  l->knot
-  ───────────────────────────────────────────────────────────*
-     factf knot n
-  <: ex l v. ens l->v; fact n
+     ens l->g; factf g n
+  <: ens l->g; fact n
   
   
   # unfold "factf"
   
-  knot, l, n
-  Hknot: knot=(fun n ->
-                forall f1. req l->f1; ens l->f1; factf f1 n)
-  Hty: is_int n
+  g, l, n
+  Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
   IH: forall n1.
         n1>=0 /\ n1<n =>
-          is_int n1 =>
-            ens l->knot; knot n1 <:
-              (ex l1 v. ens l1->v; fact n1)
+          ens l->g; factf g n1 <: ens l->g; fact n1
   ────────────────────────────────────────────────────────────
-  l->knot
-  ───────────────────────────────────────────────────────────*
-     ens n=0; 1 \/ ens n>0; knot (n-1); r1. n*.r1
-  <: ex l v. ens l->v; fact n
-  
-  
-  # disj_elim ()
-  
-  knot, l, n
-  Hknot: knot=(fun n ->
-                forall f1. req l->f1; ens l->f1; factf f1 n)
-  Hty: is_int n
-  IH: forall n1.
-        n1>=0 /\ n1<n =>
-          is_int n1 =>
-            ens l->knot; knot n1 <:
-              (ex l1 v. ens l1->v; fact n1)
-  ────────────────────────────────────────────────────────────
-  l->knot
-  ───────────────────────────────────────────────────────────*
-     ens n=0; 1
-  <: ex l v. ens l->v; fact n
-  (1 more goals)
-  
-  
-  # goal_is {|
-    ens n=0; 1
-    <: ex l v. ens l->v; fact n
-  |}
-  
-  knot, l, n
-  Hknot: knot=(fun n ->
-                forall f1. req l->f1; ens l->f1; factf f1 n)
-  Hty: is_int n
-  IH: forall n1.
-        n1>=0 /\ n1<n =>
-          is_int n1 =>
-            ens l->knot; knot n1 <:
-              (ex l1 v. ens l1->v; fact n1)
-  ────────────────────────────────────────────────────────────
-  l->knot
-  ───────────────────────────────────────────────────────────*
-     ens n=0; 1
-  <: ex l v. ens l->v; fact n
-  (1 more goals)
-  
-  
-  # intro_pure "Hn"
-  
-  knot, l, n
-  Hknot: knot=(fun n ->
-                forall f1. req l->f1; ens l->f1; factf f1 n)
-  Hn: n=0
-  Hty: is_int n
-  IH: forall n1.
-        n1>=0 /\ n1<n =>
-          is_int n1 =>
-            ens l->knot; knot n1 <:
-              (ex l1 v. ens l1->v; fact n1)
-  ────────────────────────────────────────────────────────────
-  l->knot
-  ───────────────────────────────────────────────────────────*
-     1
-  <: ex l v. ens l->v; fact n
-  (1 more goals)
-  
-  
-  # exists_intro ["l"; "knot"]
-  
-  knot, l, n
-  Hknot: knot=(fun n ->
-                forall f1. req l->f1; ens l->f1; factf f1 n)
-  Hn: n=0
-  Hty: is_int n
-  IH: forall n1.
-        n1>=0 /\ n1<n =>
-          is_int n1 =>
-            ens l->knot; knot n1 <:
-              (ex l1 v. ens l1->v; fact n1)
-  ────────────────────────────────────────────────────────────
-  l->knot
-  ───────────────────────────────────────────────────────────*
-     1
-  <: ens l->knot; fact n
-  (1 more goals)
-  
-  
-  # ens_heap_intro ()
-  
-  knot, l, n
-  Hknot: knot=(fun n ->
-                forall f1. req l->f1; ens l->f1; factf f1 n)
-  Hn: n=0
-  Hty: is_int n
-  IH: forall n1.
-        n1>=0 /\ n1<n =>
-          is_int n1 =>
-            ens l->knot; knot n1 <:
-              (ex l1 v. ens l1->v; fact n1)
-  ────────────────────────────────────────────────────────────
-     1
-  <: fact n
-  (1 more goals)
-  
-  
-  # prove ()
-  Warning, file line 0, characters 0-0: unused variable knot
-  Warning, file line 0, characters 0-0: unused variable l
-  ==> Valid
-  
-  
-  knot, l, n
-  Hknot: knot=(fun n ->
-                forall f1. req l->f1; ens l->f1; factf f1 n)
-  Hty: is_int n
-  IH: forall n1.
-        n1>=0 /\ n1<n =>
-          is_int n1 =>
-            ens l->knot; knot n1 <:
-              (ex l1 v. ens l1->v; fact n1)
-  ────────────────────────────────────────────────────────────
-  l->knot
-  ───────────────────────────────────────────────────────────*
-     ens n>0; knot (n-1); r1. n*.r1
-  <: ex l v. ens l->v; fact n
-  
-  
-  # goal_is
-      {|
-    ens n>0; knot (n-1); r1. n*.r1
-    <: ex l v. ens l->v; fact n
-  |}
-  
-  knot, l, n
-  Hknot: knot=(fun n ->
-                forall f1. req l->f1; ens l->f1; factf f1 n)
-  Hty: is_int n
-  IH: forall n1.
-        n1>=0 /\ n1<n =>
-          is_int n1 =>
-            ens l->knot; knot n1 <:
-              (ex l1 v. ens l1->v; fact n1)
-  ────────────────────────────────────────────────────────────
-  l->knot
-  ───────────────────────────────────────────────────────────*
-     ens n>0; knot (n-1); r1. n*.r1
-  <: ex l v. ens l->v; fact n
-  
-  
-  # intro_pure "Hn"
-  
-  knot, l, n
-  Hknot: knot=(fun n ->
-                forall f1. req l->f1; ens l->f1; factf f1 n)
-  Hn: n>0
-  Hty: is_int n
-  IH: forall n1.
-        n1>=0 /\ n1<n =>
-          is_int n1 =>
-            ens l->knot; knot n1 <:
-              (ex l1 v. ens l1->v; fact n1)
-  ────────────────────────────────────────────────────────────
-  l->knot
-  ───────────────────────────────────────────────────────────*
-     knot (n-1); r1. n*.r1
-  <: ex l v. ens l->v; fact n
-  
-  
-  # revert_heap ()
-  
-  knot, l, n
-  Hknot: knot=(fun n ->
-                forall f1. req l->f1; ens l->f1; factf f1 n)
-  Hn: n>0
-  Hty: is_int n
-  IH: forall n1.
-        n1>=0 /\ n1<n =>
-          is_int n1 =>
-            ens l->knot; knot n1 <:
-              (ex l1 v. ens l1->v; fact n1)
-  ────────────────────────────────────────────────────────────
-     ens l->knot; knot (n-1); r1. n*.r1
-  <: ex l v. ens l->v; fact n
-  
-  
-  # rewrite "IH"
-  
-  knot, l, n
-  Hknot: knot=(fun n ->
-                forall f1. req l->f1; ens l->f1; factf f1 n)
-  Hn: n>0
-  Hty: is_int n
-  IH: forall n1.
-        n1>=0 /\ n1<n =>
-          is_int n1 =>
-            ens l->knot; knot n1 <:
-              (ex l1 v. ens l1->v; fact n1)
-  ────────────────────────────────────────────────────────────
-  n-1>=0 /\ n-1<n
-  (2 more goals)
-  
-  
-  # prove ()
-  Warning, file line 0, characters 0-0: unused variable knot
-  Warning, file line 0, characters 0-0: unused variable l
-  ==> Valid
-  
-  
-  knot, l, n
-  Hknot: knot=(fun n ->
-                forall f1. req l->f1; ens l->f1; factf f1 n)
-  Hn: n>0
-  Hty: is_int n
-  IH: forall n1.
-        n1>=0 /\ n1<n =>
-          is_int n1 =>
-            ens l->knot; knot n1 <:
-              (ex l1 v. ens l1->v; fact n1)
-  ────────────────────────────────────────────────────────────
-  is_int (n-1)
-  (1 more goals)
-  
-  
-  # prove ()
-  Warning, file line 0, characters 0-0: unused variable knot
-  Warning, file line 0, characters 0-0: unused variable l
-  ==> Valid
-  
-  
-  knot, l, n
-  Hknot: knot=(fun n ->
-                forall f1. req l->f1; ens l->f1; factf f1 n)
-  Hn: n>0
-  Hty: is_int n
-  IH: forall n1.
-        n1>=0 /\ n1<n =>
-          is_int n1 =>
-            ens l->knot; knot n1 <:
-              (ex l1 v. ens l1->v; fact n1)
-  ────────────────────────────────────────────────────────────
-     (ex l v. ens l->v; fact (n-1)); r1. n*.r1
-  <: ex l v. ens l->v; fact n
-  
-  
-  # goal_is
-      "(ex l v. ens l->v; fact (n-1)); r1. n*.r1 <: ex l v. ens l->v; fact n"
-  
-  knot, l, n
-  Hknot: knot=(fun n ->
-                forall f1. req l->f1; ens l->f1; factf f1 n)
-  Hn: n>0
-  Hty: is_int n
-  IH: forall n1.
-        n1>=0 /\ n1<n =>
-          is_int n1 =>
-            ens l->knot; knot n1 <:
-              (ex l1 v. ens l1->v; fact n1)
-  ────────────────────────────────────────────────────────────
-     (ex l v. ens l->v; fact (n-1)); r1. n*.r1
-  <: ex l v. ens l->v; fact n
-  
-  
-  # exists_elim ()
-  
-  knot, l, l1, n, v
-  Hknot: knot=(fun n ->
-                forall f1. req l->f1; ens l->f1; factf f1 n)
-  Hn: n>0
-  Hty: is_int n
-  IH: forall n1.
-        n1>=0 /\ n1<n =>
-          is_int n1 =>
-            ens l->knot; knot n1 <:
-              (ex l1 v. ens l1->v; fact n1)
-  ────────────────────────────────────────────────────────────
-     (ens l1->v; fact (n-1)); r1. n*.r1
-  <: ex l v. ens l->v; fact n
-  
-  
-  # exists_intro ["l1"; "v"]
-  
-  knot, l, l1, n, v
-  Hknot: knot=(fun n ->
-                forall f1. req l->f1; ens l->f1; factf f1 n)
-  Hn: n>0
-  Hty: is_int n
-  IH: forall n1.
-        n1>=0 /\ n1<n =>
-          is_int n1 =>
-            ens l->knot; knot n1 <:
-              (ex l1 v. ens l1->v; fact n1)
-  ────────────────────────────────────────────────────────────
-     (ens l1->v; fact (n-1)); r1. n*.r1
-  <: ens l1->v; fact n
-  
-  
-  # simpl ()
-  
-  knot, l, l1, n, v
-  Hknot: knot=(fun n ->
-                forall f1. req l->f1; ens l->f1; factf f1 n)
-  Hn: n>0
-  Hty: is_int n
-  IH: forall n1.
-        n1>=0 /\ n1<n =>
-          is_int n1 =>
-            ens l->knot; knot n1 <:
-              (ex l1 v. ens l1->v; fact n1)
-  ────────────────────────────────────────────────────────────
-     ens l1->v; fact (n-1); r1. n*.r1
-  <: ens l1->v; fact n
+     ens l->g; (ens n=0; 1 \/ ens n>0; g (n-1); r. n*.r)
+  <: ens l->g; fact n
   
   
   # intro_heap ()
   
-  knot, l, l1, n, v
-  Hknot: knot=(fun n ->
-                forall f1. req l->f1; ens l->f1; factf f1 n)
-  Hn: n>0
-  Hty: is_int n
+  g, l, n
+  Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
   IH: forall n1.
         n1>=0 /\ n1<n =>
-          is_int n1 =>
-            ens l->knot; knot n1 <:
-              (ex l1 v. ens l1->v; fact n1)
+          ens l->g; factf g n1 <: ens l->g; fact n1
   ────────────────────────────────────────────────────────────
-  l1->v
+  l->g
   ───────────────────────────────────────────────────────────*
-     fact (n-1); r1. n*.r1
-  <: ens l1->v; fact n
+     ens n=0; 1 \/ ens n>0; g (n-1); r. n*.r
+  <: ens l->g; fact n
+  
+  
+  # disj_elim ()
+  
+  g, l, n
+  Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
+  IH: forall n1.
+        n1>=0 /\ n1<n =>
+          ens l->g; factf g n1 <: ens l->g; fact n1
+  ────────────────────────────────────────────────────────────
+  l->g
+  ───────────────────────────────────────────────────────────*
+     ens n=0; 1
+  <: ens l->g; fact n
+  (1 more goals)
+  
+  
+  # goal_is {| ens n=0; 1 <: ens l->g; fact n |}
+  
+  g, l, n
+  Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
+  IH: forall n1.
+        n1>=0 /\ n1<n =>
+          ens l->g; factf g n1 <: ens l->g; fact n1
+  ────────────────────────────────────────────────────────────
+  l->g
+  ───────────────────────────────────────────────────────────*
+     ens n=0; 1
+  <: ens l->g; fact n
+  (1 more goals)
+  
+  
+  # intro_pure "Hn"
+  
+  g, l, n
+  Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
+  Hn: n=0
+  IH: forall n1.
+        n1>=0 /\ n1<n =>
+          ens l->g; factf g n1 <: ens l->g; fact n1
+  ────────────────────────────────────────────────────────────
+  l->g
+  ───────────────────────────────────────────────────────────*
+     1
+  <: ens l->g; fact n
+  (1 more goals)
   
   
   # ens_heap_intro ()
   
-  knot, l, l1, n, v
-  Hknot: knot=(fun n ->
-                forall f1. req l->f1; ens l->f1; factf f1 n)
-  Hn: n>0
-  Hty: is_int n
+  g, l, n
+  Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
+  Hn: n=0
   IH: forall n1.
         n1>=0 /\ n1<n =>
-          is_int n1 =>
-            ens l->knot; knot n1 <:
-              (ex l1 v. ens l1->v; fact n1)
+          ens l->g; factf g n1 <: ens l->g; fact n1
   ────────────────────────────────────────────────────────────
-     fact (n-1); r1. n*.r1
+     1
+  <: fact n
+  (1 more goals)
+  
+  
+  # prove ()
+  Warning, file line 0, characters 0-0: unused variable g
+  Warning, file line 0, characters 0-0: unused variable l
+  ==> Valid
+  
+  
+  g, l, n
+  Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
+  IH: forall n1.
+        n1>=0 /\ n1<n =>
+          ens l->g; factf g n1 <: ens l->g; fact n1
+  ────────────────────────────────────────────────────────────
+  l->g
+  ───────────────────────────────────────────────────────────*
+     ens n>0; g (n-1); r. n*.r
+  <: ens l->g; fact n
+  
+  
+  # goal_is {| ens n>0; g (n-1); r. n*.r <: ens l->g; fact n |}
+  
+  g, l, n
+  Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
+  IH: forall n1.
+        n1>=0 /\ n1<n =>
+          ens l->g; factf g n1 <: ens l->g; fact n1
+  ────────────────────────────────────────────────────────────
+  l->g
+  ───────────────────────────────────────────────────────────*
+     ens n>0; g (n-1); r. n*.r
+  <: ens l->g; fact n
+  
+  
+  # intro_pure "Hn"
+  
+  g, l, n
+  Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
+  Hn: n>0
+  IH: forall n1.
+        n1>=0 /\ n1<n =>
+          ens l->g; factf g n1 <: ens l->g; fact n1
+  ────────────────────────────────────────────────────────────
+  l->g
+  ───────────────────────────────────────────────────────────*
+     g (n-1); r. n*.r
+  <: ens l->g; fact n
+  
+  
+  # revert_heap ()
+  
+  g, l, n
+  Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
+  Hn: n>0
+  IH: forall n1.
+        n1>=0 /\ n1<n =>
+          ens l->g; factf g n1 <: ens l->g; fact n1
+  ────────────────────────────────────────────────────────────
+     ens l->g; g (n-1); r. n*.r
+  <: ens l->g; fact n
+  
+  
+  # rewrite "Hg"
+  
+  g, l, n
+  Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
+  Hn: n>0
+  IH: forall n1.
+        n1>=0 /\ n1<n =>
+          ens l->g; factf g n1 <: ens l->g; fact n1
+  ────────────────────────────────────────────────────────────
+     ens l->(fun n1 ->
+              forall h. req l->h; ens l->h; factf h n1);
+     (fun n1 -> forall h. req l->h; ens l->h; factf h n1)
+       (n-1); r. n*.r
+  <: ens l->(fun n1 ->
+              forall h. req l->h; ens l->h; factf h n1);
+     fact n
+  
+  
+  # simpl ()
+  
+  g, l, n
+  Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
+  Hn: n>0
+  IH: forall n1.
+        n1>=0 /\ n1<n =>
+          ens l->g; factf g n1 <: ens l->g; fact n1
+  ────────────────────────────────────────────────────────────
+     ens l->(fun n1 ->
+              forall h. req l->h; ens l->h; factf h n1);
+     (forall h. req l->h; ens l->h; factf h (n-1)); r. n*.r
+  <: ens l->(fun n1 ->
+              forall h. req l->h; ens l->h; factf h n1);
+     fact n
+  
+  
+  # rewrite ~direction:Direction.rtl "Hg"
+  
+  g, l, n
+  Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
+  Hn: n>0
+  IH: forall n1.
+        n1>=0 /\ n1<n =>
+          ens l->g; factf g n1 <: ens l->g; fact n1
+  ────────────────────────────────────────────────────────────
+     ens l->g;
+     (forall h. req l->h; ens l->h; factf h (n-1)); r. n*.r
+  <: ens l->g; fact n
+  
+  
+  # ens_heap_elim ()
+  
+  g, l, n
+  Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
+  Hn: n>0
+  IH: forall n1.
+        n1>=0 /\ n1<n =>
+          ens l->g; factf g n1 <: ens l->g; fact n1
+  ────────────────────────────────────────────────────────────
+  l->g
+  ───────────────────────────────────────────────────────────*
+     (forall h. req l->h; ens l->h; factf h (n-1)); r. n*.r
+  <: ens l->g; fact n
+  
+  
+  # forall_elim ["g"]
+  
+  g, l, n
+  Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
+  Hn: n>0
+  IH: forall n1.
+        n1>=0 /\ n1<n =>
+          ens l->g; factf g n1 <: ens l->g; fact n1
+  ────────────────────────────────────────────────────────────
+  l->g
+  ───────────────────────────────────────────────────────────*
+     (req l->g; ens l->g; factf g (n-1)); r. n*.r
+  <: ens l->g; fact n
+  
+  
+  # simpl ()
+  
+  g, l, n
+  Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
+  Hn: n>0
+  IH: forall n1.
+        n1>=0 /\ n1<n =>
+          ens l->g; factf g n1 <: ens l->g; fact n1
+  ────────────────────────────────────────────────────────────
+  l->g
+  ───────────────────────────────────────────────────────────*
+     req l->g; ens l->g; factf g (n-1); r. n*.r
+  <: ens l->g; fact n
+  
+  
+  # req_heap_elim ()
+  
+  g, l, n
+  Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
+  Hn: n>0
+  IH: forall n1.
+        n1>=0 /\ n1<n =>
+          ens l->g; factf g n1 <: ens l->g; fact n1
+  ────────────────────────────────────────────────────────────
+     ens l->g; factf g (n-1); r. n*.r
+  <: ens l->g; fact n
+  
+  
+  # rewrite "IH"
+  
+  g, l, n
+  Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
+  Hn: n>0
+  IH: forall n1.
+        n1>=0 /\ n1<n =>
+          ens l->g; factf g n1 <: ens l->g; fact n1
+  ────────────────────────────────────────────────────────────
+  n-1>=0 /\ n-1<n
+  (1 more goals)
+  
+  
+  # pure_solver ()
+  Warning, file line 0, characters 0-0: unused variable l
+  Warning, file line 0, characters 0-0: unused variable g
+  
+  g, l, n
+  Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
+  Hn: n>0
+  IH: forall n1.
+        n1>=0 /\ n1<n =>
+          ens l->g; factf g n1 <: ens l->g; fact n1
+  ────────────────────────────────────────────────────────────
+     (ens l->g; fact (n-1)); r. n*.r
+  <: ens l->g; fact n
+  
+  
+  # simpl ()
+  
+  g, l, n
+  Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
+  Hn: n>0
+  IH: forall n1.
+        n1>=0 /\ n1<n =>
+          ens l->g; factf g n1 <: ens l->g; fact n1
+  ────────────────────────────────────────────────────────────
+     ens l->g; fact (n-1); r. n*.r
+  <: ens l->g; fact n
+  
+  
+  # ens_heap_elim ()
+  
+  g, l, n
+  Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
+  Hn: n>0
+  IH: forall n1.
+        n1>=0 /\ n1<n =>
+          ens l->g; factf g n1 <: ens l->g; fact n1
+  ────────────────────────────────────────────────────────────
+  l->g
+  ───────────────────────────────────────────────────────────*
+     fact (n-1); r. n*.r
+  <: ens l->g; fact n
+  
+  
+  # ens_heap_intro ()
+  
+  g, l, n
+  Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
+  Hn: n>0
+  IH: forall n1.
+        n1>=0 /\ n1<n =>
+          ens l->g; factf g n1 <: ens l->g; fact n1
+  ────────────────────────────────────────────────────────────
+     fact (n-1); r. n*.r
   <: fact n
   
   
-  # Options.show_why3_goal := true
-  
   # prove ()
-  module M
-    use heifer.Heifer
-    
-    goal goal1:
-      forall knot : term, l : term, l1 : term, n : term, v : term.
-        ((gt n (TInt 0)) = (TBool true))
-          ->
-          (n.is_int)
-          ->
-          ((times n ((minus n (TInt 1)).fact)) = (n.fact))
-  end
-  Warning, file line 0, characters 0-0: unused variable knot
+  Warning, file line 0, characters 0-0: unused variable g
   Warning, file line 0, characters 0-0: unused variable l
-  Warning, file line 0, characters 0-0: unused variable l1
-  Warning, file line 0, characters 0-0: unused variable v
-  module M
-    use Heifer
-    constant n0 : int
-    axiom H : 0 < n0
-    goal goal1 :
-      times (TInt n0) (fact1 (minus (TInt n0) (TInt 1))) = fact1 (TInt n0)
-  end
   ==> Valid
   
   no more goals
   
   # qed ()
-  no more goals
+  
+  # Options.fail_fast := false

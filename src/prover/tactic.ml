@@ -430,13 +430,13 @@ module IntroTactic = struct
     let open Tactic in
     let* rhs = get_rhs in
     let+ t1, t2 = unwrap (unseq_open_ensures_opt rhs) "pre_ens_intro: not ensures" in
-    (t1, unseq_tail_to_term t2)
+    (t1, unwrap_term_opt t2)
 
   let pre_req_intro =
     let open Tactic in
     let* rhs = get_rhs in
     let+ t1, t2 = unwrap (unseq_open_requires_opt rhs) "pre_req_intro: not requires" in
-    (t1, unseq_tail_to_term t2)
+    (t1, unwrap_term_opt t2)
 
   (** UNSAFE: heap assumptions are linear, cannot be duplicated freely! *)
   let ens_intro =
@@ -452,13 +452,13 @@ module ElimTactic = struct
     let open Tactic in
     let* lhs = get_lhs in
     let+ t1, t2 = unwrap (unseq_open_ensures_opt lhs) "pre_ens_elim: not ensures" in
-    (t1, unseq_tail_to_term t2)
+    (t1, unwrap_term_opt t2)
 
   let pre_req_elim =
     let open Tactic in
     let* lhs = get_lhs in
     let+ t1, t2 = unwrap (unseq_open_requires_opt lhs) "pre_req_elim: not requires" in
-    (t1, unseq_tail_to_term t2)
+    (t1, unwrap_term_opt t2)
 end
 
 module PureTactic = struct
@@ -734,7 +734,7 @@ module HeapTactic = struct
     match unseq_open_opt f target with
     | None -> ([], target)
     | Some (ts1, target) ->
-        let ts2, target = unseq_open_loop f (unseq_tail_to_term target) in
+        let ts2, target = unseq_open_loop f (unwrap_term_opt target) in
         (ts1 @ ts2, target)
 
   let ens_heap_elims =
@@ -803,7 +803,9 @@ module UnmixTactic = struct
     let* t = f_get in
     let* t1, t2 = unwrap (unseq_open_ensures_opt t) "unmix_ens: not ensures" in
     let pure, heap = Mixed.normalize_mixed t1 in
-    f_put (Sequence (Ensures pure, reseq (Ensures heap) t2))
+    let t2 = if is_emp heap then t2 else Some (reseq (Ensures heap) t2) in
+    let t2 = if is_true pure then t2 else Some (reseq (Ensures pure) t2) in
+    f_put (unwrap_term_opt t2)
 
   let unmix_ens_lhs = unmix_ens get_lhs put_lhs
   let unmix_ens_rhs = unmix_ens get_rhs put_rhs
@@ -813,7 +815,9 @@ module UnmixTactic = struct
     let* t = f_get in
     let* t1, t2 = unwrap (unseq_open_requires_opt t) "unmix_req: not requires" in
     let pure, heap = Mixed.normalize_mixed t1 in
-    f_put (Sequence (Requires pure, reseq (Requires heap) t2))
+    let t2 = if is_emp heap then t2 else Some (reseq (Requires heap) t2) in
+    let t2 = if is_true pure then t2 else Some (reseq (Requires pure) t2) in
+    f_put (unwrap_term_opt t2)
 
   let unmix_req_lhs = unmix_req get_lhs put_lhs
   let unmix_req_rhs = unmix_req get_rhs put_rhs
