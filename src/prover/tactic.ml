@@ -901,22 +901,6 @@ let prove =
         (* | `Failure s -> Format.printf "==> Failure: %s\n@." s *));
     pure res
   in
-  let ens_right =
-    let* left, right = get_subsumption in
-    let* p, f1 = uncons_ens right in
-    let* res = prove_with_ctx p in
-    match res with
-    | `Valid -> put_goal (Subsumes (left, f1))
-    | _ -> fail "could not prove ens on the right"
-  in
-  let req_left =
-    let* left, right = get_subsumption in
-    let* p, f1 = uncons_req left in
-    let* res = prove_with_ctx p in
-    match res with
-    | `Valid -> put_goal (Subsumes (f1, right))
-    | _ -> fail "could not prove req on the left"
-  in
   let both_values =
     let could_be_value t =
       match t with
@@ -968,7 +952,7 @@ let prove =
         | _ -> fail "could not prove goal")
   in
   choices ~err:"failed to prove pure obligation"
-    [both_values; is_prop; ens_right; req_left; (* ens_ens; req_req;*) can_be_translated]
+    [both_values; is_prop; (* ens_ens; req_req;*) can_be_translated]
 
 (* TODO: refactor into some top-level module, with a different name. The current
    name clashes with Pstate -> proof_state *)
