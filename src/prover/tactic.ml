@@ -695,6 +695,14 @@ module ConjTactic = struct
 
   let conj_elim_l = conj_elim fst
   let conj_elim_r = conj_elim snd
+
+  let conj_intro =
+    let open Tactic in
+    let* rhs = get_rhs in
+    let* rhs1, rhs2 = unwrap (open_conj_opt rhs) "conj_intro: not conj" in
+    let* _ = put_rhs rhs2 in
+    let* _ = dup_pctxt in
+    put_rhs rhs1
 end
 
 module DisjTactic = struct
