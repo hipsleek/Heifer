@@ -5,38 +5,36 @@ open Ptree_helpers
 
 let rec is_translatable t =
   match t with
-  | Symbol _ | Var _ | True | False ->
-      (* atomic propositions *)
-      true
-  | Unit | Nil | Emp | Int _ | Tuple _ ->
-      (* terms are fine too *)
-      true
-  | Binop ((Lt | Le | Gt | Ge | Eq | Neq | Plus | Minus | Times | Cons), a, b)
-    -> is_translatable a && is_translatable b
-  | Unop ((Not | Neg), a) -> is_translatable a (* terms *)
-  | Forall b | Exists b ->
-      let _, b = Bindlib.unmbind b in
-      is_translatable b
-  | Apply (a, b) -> is_translatable a && List.for_all is_translatable b
-  | Conj (a, b) | Disj (a, b) | Implies (a, b) ->
-      is_translatable a && is_translatable b
-  (* somewhat unintuitively, bind is okay, but sequence is not, even though technically sequence is a special case of bind *)
-  | Sequence _ -> false
-  | Bind (a, b) ->
-      let _, b = Bindlib.unbind b in
-      is_translatable a && is_translatable b
+  | Symbol _ | Var _ | True | False -> true (* atomic propositions *)
+  | Unit | Nil | Emp | Int _ | Tuple _ -> true (* term *)
+  | Binop ((Lt | Le | Gt | Ge | Eq | Neq | Plus | Minus | Times | Cons), t1, t2) ->
+      is_translatable t1 && is_translatable t2
+  | Unop ((Not | Neg), t) -> is_translatable t
+  | Forall b | Exists b -> is_translatable_mbinder b
+  | Apply (t, ts) -> is_translatable t && is_translatable_list ts
+  | Conj (t1, t2) | Disj (t1, t2) | Implies (t1, t2) ->
+      is_translatable t1 && is_translatable t2
+  | Sequence (t1, t2) -> is_translatable t1 && is_translatable t2
+  | Bind (t, b) -> is_translatable t && is_translatable_binder b
       (* staged logic and separation logic can't be translated *)
-  | Fun _ | Requires _ | Ensures _ | Subsumes _ -> false
+  | Fun _ | Requires _ | Ensures _ | Subsumes _
   | PointsTo _ | SepConj _ | Wand _ | Shift _ | Reset _ -> false
 
-let vars_to_params vars =
-  List.map
-    (fun v ->
-      ( Loc.dummy_position,
-        Some (ident v),
-        false,
-        Some (PTtyapp (qualid ["term"], [])) ))
-    vars
+and is_translatable_list ts =
+  List.for_all is_translatable ts
+
+and is_translatable_binder b =
+  let _, t = Bindlib.unbind b in
+  is_translatable t
+
+and is_translatable_mbinder b =
+  let _, t = Bindlib.unmbind b in
+  is_translatable t
+
+let var_to_param x =
+  Loc.dummy_position, Some (ident x), false, Some (PTtyapp (qualid ["term"], []))
+
+let vars_to_params = List.map var_to_param
 
 type kind =
   | Formula
@@ -91,9 +89,8 @@ let rec term_to_whyml_aux ctxt kind t =
   | Binop ((Times | Plus | Minus | Cons), _, _), Formula ->
       failwith "binop cannot be used as a formula"
   | Unop (Not, a), Formula -> term (Tnot (term_to_whyml_aux ctxt Formula a))
-  | Unop (Not, a), Term ->
-      tapp (qualid ["Bool"; "notb"]) [term_to_whyml_aux ctxt Term a]
-  | Unop (Neg, _), Term -> failwith "todo unary negation"
+  | Unop (Not, a), Term -> tapp (qualid ["Bool"; "notb"]) [term_to_whyml_aux ctxt Term a]
+  | Unop (Neg, t), Term -> tapp (qualid ["neg"]) [term_to_whyml_aux ctxt Term t]
   | Unop (Neg, _), Formula -> failwith "neg cannot be used as a formula"
   | Var x, _ ->
       (* tapp (qualid ["Var"]) [tstr (Bindlib.name_of x)] *)

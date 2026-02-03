@@ -31,47 +31,6 @@ module Heifer
     *)
 
 (*
-  function plus (a b:term) : term =
-    if a = TInt 0 || b = TInt 0 then
-      match a, b with
-      | TInt _, _ ->
-      end
-    else
-      match a, b with
-      | TInt a1, TInt b1 -> TInt (a1 + b1)
-      | _, _ -> TErr
-      end
-
-  function minus (a b:term) : term =
-    match b with
-    | TInt b1 ->
-      if b1 = 0 then a
-      else
-        match a with
-        | TInt a1 -> TInt (a1 - b1)
-        | _ -> TErr
-        end
-    | _ -> TErr
-    end
-     *)
-
-(*
-  function times (a b:term) : term =
-    match a with
-    | TInt a1 ->
-      if a1 = 0 then TInt 0
-      else
-        match b with
-        | TInt b1 ->
-          if b1 = 0 then TInt 0
-          else TInt (a1 * b1)
-        | _ -> TErr
-        end
-    | _ -> TErr
-    end
-*)
-
-(*
   function times (a b:term) : term =
     if a = TInt 0 || b = TInt 0 then TInt 0
     else
@@ -89,30 +48,24 @@ module Heifer
     end
 *)
 
+  function neg (a:term) : term
+  axiom neg_spec: forall a:int. neg (TInt a) = TInt (-a)
+
   function plus (a b:term) : term
   axiom plus_spec: forall a b:int. plus (TInt a) (TInt b) = TInt (a + b)
-
-  axiom plus_z_l: forall x:term. plus (TInt 0) x = x
-  axiom plus_z_r: forall x:term. plus x (TInt 0) = x
+  axiom plus_0_l: forall x:term. plus (TInt 0) x = x
+  axiom plus_0_r: forall x:term. plus x (TInt 0) = x
 
   function minus (a b:term) : term
   axiom minus_spec: forall a b:int. plus (TInt a) (TInt b) = TInt (a - b)
-
-  axiom minus_z_r: forall x:term. minus x (TInt 0) = x
-
-(*
-  function times (a b:term) : term =
-    match a, b with
-    | TInt a1, TInt b1 -> TInt (a1 * b1)
-    | _ -> TErr
-    end
-*)
+  axiom minus_0_r: forall x:term. minus x (TInt 0) = x
 
   function times (a b:term) : term
   axiom times_spec: forall a b:int. times (TInt a) (TInt b) = TInt (a * b)
-
-  axiom times_z_l: forall x:term. times (TInt 0) x = TInt 0
-  axiom times_z_r: forall x:term. times x (TInt 0) = TInt 0
+  axiom times_0_l: forall x:term. times (TInt 0) x = TInt 0
+  axiom times_0_r: forall x:term. times x (TInt 0) = TInt 0
+  axiom times_1_l: forall x:term. times (TInt 1) x = x
+  axiom times_1_r: forall x:term. times x (TInt 1) = x
 
   function eq (a b:term) : term =
     match a, b with
@@ -125,7 +78,7 @@ module Heifer
 
   function neq (a b:term) : term =
     match a, b with
-    | TUnit, TUnit | TNil, TNil -> TBool true
+    | TUnit, TUnit | TNil, TNil -> TBool false
     | TInt a1, TInt b1 -> TBool (a1 <> b1)
     | TBool a1, TBool b1 -> TBool (a1 <> b1)
     | TCons h1 t1, TCons h2 t2 -> TBool (h1 <> h2 || t1 <> t2)
@@ -153,12 +106,6 @@ module Heifer
   function le (a b:term) : term =
     match a, b with
     | TInt a1, TInt b1 -> TBool (a1 <= b1)
-    | _ -> TErr
-    end
-
-  function uminus (a:term) : term =
-    match a with
-    | TInt a1 -> TInt (-a1)
     | _ -> TErr
     end
 
