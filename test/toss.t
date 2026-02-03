@@ -541,7 +541,7 @@
        (ens a=true; 1 \/ ens a=false; 0)
   
   
-  # rewrite ~direction:Direction.rtl "conj_assoc"
+  # rewrite ~direction:`Rtl "conj_assoc"
   
   a, n, x
   IH: forall n1.

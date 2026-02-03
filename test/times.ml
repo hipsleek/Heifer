@@ -152,9 +152,9 @@ disj_elim ();;
 intro_pure "Hx";;
 rewrite "Hx";;
 rewrite "mult_0_l";;
-rewrite ~direction:Direction.rtl "Hk";;
+rewrite ~direction:`Rtl "Hk";;
 goal_is "0 <: times_pure xs'; r. 0";;
-rewrite ~direction:Direction.rtl "times_pure_const_r";;
+rewrite ~direction:`Rtl "times_pure_const_r";;
 refl ();;
 
 rewrite "IH";;

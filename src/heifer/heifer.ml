@@ -4,11 +4,11 @@ module Prover = Prover
 
 module Interactive = struct
   module Options = struct
-    include Prover.Tactic.Options
+    include Prover.Proof_options
   end
 
-  include Prover.Tactic.ProofState
-  include Prover.Tactic.Interactive
+  include Prover.Interactive.State
+  include Prover.Interactive
 
-  let () = Format.set_margin !Prover.Proof_context.Options.line_length
+  let () = Format.set_margin !Prover.Proof_options.line_length
 end

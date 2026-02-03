@@ -68,7 +68,7 @@ intro_pure "Hn";;
 revert_heap ();;
 rewrite "Hg";;
 simpl ();;
-rewrite ~direction:Direction.rtl "Hg";;
+rewrite ~direction:`Rtl "Hg";;
 ens_heap_elim ();;
 forall_elim ["g"];;
 simpl ();;

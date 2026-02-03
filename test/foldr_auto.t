@@ -109,7 +109,7 @@
   
   # qed ()
   
-  # Format.printf "%a@." Prover.Tactic.Automation.pp_cert
+  # Format.printf "%a@." Prover.Automation.pp_cert
       ((pf |> Result.get_ok) |> fst)
   disj_elim ();
   ( intro_pure "_";

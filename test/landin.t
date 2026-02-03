@@ -402,7 +402,7 @@
      fact n
   
   
-  # rewrite ~direction:Direction.rtl "Hg"
+  # rewrite ~direction:`Rtl "Hg"
   
   g, l, n
   Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)

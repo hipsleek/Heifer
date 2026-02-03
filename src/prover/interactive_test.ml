@@ -1,5 +1,5 @@
-open Tactic.ProofState
-open Tactic.Interactive
+open Interactive.State
+open Interactive
 
 let%expect_test "reflexivity" =
   start_proof "ens emp <: ens emp";
@@ -80,9 +80,9 @@ let%expect_test "specialize" =
   start_proof "ens (forall y. y=1) <: forall x. ens x=1";
   forall_intro ();
   intro_pure "H";
-  Proof_context.Options.notation := false;
+  Proof_options.notation := false;
   specialize "H" ["x"];
-  Proof_context.Options.notation := true;
+  Proof_options.notation := true;
   [%expect
     {|
     ────────────────────────────────────────────────────────────

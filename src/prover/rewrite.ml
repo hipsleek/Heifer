@@ -7,18 +7,9 @@ open Util.Snoc_list
 
 exception Rewrite_failure of string
 
-type rewrite_direction =
-  | Direction_ltr
-  | Direction_rtl
-
 type rewrite_relation =
   | Relation_eq
   | Relation_subsumes
-
-module Direction = struct
-  let ltr = Direction_ltr
-  let rtl = Direction_rtl
-end
 
 type rewrite_rule = {
   (* unification variables, collected to an array (mvar) *)
@@ -41,14 +32,14 @@ type rewrite_rule = {
   rwr_rhs_mbinder : (term, term) mbinder;
 }
 
-let make_rule ?(direction = Direction_ltr) t =
+let make_rule ?(direction = `Ltr) t =
   let rec visit mvars conditions = function
     | Forall b ->
         let xs, t = unmbind b in
         visit (Snoc (mvars, xs)) conditions t
     | Implies (t1, t2) -> visit mvars (Snoc (conditions, t1)) t2
-    | Subsumes (t1, t2) -> mvars, conditions, Relation_subsumes, t1, t2
-    | Binop (Eq, t1, t2) -> mvars, conditions, Relation_eq, t1, t2
+    | Subsumes (t1, t2) -> (mvars, conditions, Relation_subsumes, t1, t2)
+    | Binop (Eq, t1, t2) -> (mvars, conditions, Relation_eq, t1, t2)
     | _ -> invalid_arg "prop_to_rule: cannot convert term to rewrite_rule"
   in
   let mvars, conditions, rwr_relation, t1, t2 = visit Lin Lin t in
@@ -60,20 +51,27 @@ let make_rule ?(direction = Direction_ltr) t =
   let rwr_condition_uvars = TVSet.inter rwr_condition_vars rwr_uvars in
   let rwr_lhs, rwr_rhs =
     match direction with
-    | Direction_ltr -> (t1, t2)
-    | Direction_rtl -> (t2, t1)
+    | `Ltr -> (t1, t2)
+    | `Rtl -> (t2, t1)
   in
   let rwr_conditions_mbinder = mgeneralize_list rwr_umvar rwr_conditions in
   let rwr_rhs_mbinder = mgeneralize rwr_umvar rwr_rhs in
-  { rwr_umvar; rwr_uvars; rwr_arity; rwr_conditions; rwr_condition_uvars;
-    rwr_relation; rwr_lhs; rwr_rhs; rwr_conditions_mbinder; rwr_rhs_mbinder }
+  {
+    rwr_umvar;
+    rwr_uvars;
+    rwr_arity;
+    rwr_conditions;
+    rwr_condition_uvars;
+    rwr_relation;
+    rwr_lhs;
+    rwr_rhs;
+    rwr_conditions_mbinder;
+    rwr_rhs_mbinder;
+  }
 
 let get_rule_relation rule = rule.rwr_relation
-
 let get_rule_conditions rule = rule.rwr_conditions
-
 let get_rule_lhs rule = rule.rwr_lhs
-
 let get_rule_rhs rule = rule.rwr_rhs
 
 type rewrite_state = {
@@ -85,6 +83,7 @@ type rewrite_state = {
 
 module Monad : sig
   type 'a t
+
   val run : 'a t -> rewrite_state -> 'a * rewrite_state
   val pure : 'a -> 'a t
   val map : ('a -> 'b) -> 'a t -> 'b t
@@ -101,6 +100,7 @@ module Monad : sig
   val modify : (rewrite_state -> rewrite_state) -> unit t
 end = struct
   type 'a t = rewrite_state -> 'a * rewrite_state
+
   let run m = m
   let pure x sigma = (x, sigma)
 
@@ -110,7 +110,7 @@ end = struct
 
   let mapl x m sigma =
     let _, sigma = m sigma in
-    x, sigma
+    (x, sigma)
 
   let lift2 f m1 m2 sigma =
     let x, sigma = m1 sigma in
@@ -139,35 +139,43 @@ let check_sigma_cardinal cardinal sigma =
 let check_uvars_well_scoped uvars bvars sigma =
   let check uvar =
     let t = TVMap.find uvar sigma in
-    if has_vars bvars t then
-      raise (Rewrite_failure "escaped variable")
+    if has_vars bvars t then raise (Rewrite_failure "escaped variable")
   in
   TVSet.iter check uvars
 
-(** Rewrite the target at the top level, either raising on failure or returning the rewritten target *)
+(** Rewrite the target at the top level, either raising on failure or returning the rewritten target
+*)
 let pre_rewrite_root rule bvars target =
-  let { rwr_umvar; rwr_arity; rwr_uvars; rwr_lhs;
-        rwr_condition_uvars;
-        rwr_conditions_mbinder;
-        rwr_rhs_mbinder; _ } = rule in
+  let {
+    rwr_umvar;
+    rwr_arity;
+    rwr_uvars;
+    rwr_lhs;
+    rwr_condition_uvars;
+    rwr_conditions_mbinder;
+    rwr_rhs_mbinder;
+    _;
+  } =
+    rule
+  in
   let sigma, frame =
     match unify_assoc rwr_lhs target rwr_uvars with
-    | sigma, None -> sigma, Fun.id
+    | sigma, None -> (sigma, Fun.id)
     | sigma, Some frame -> (sigma, frame)
     | exception Unification_failure msg -> raise (Rewrite_failure msg)
   in
   check_sigma_cardinal rwr_arity sigma;
   check_uvars_well_scoped rwr_condition_uvars bvars sigma;
   let args = Array.map (fun x -> TVMap.find x sigma) rwr_umvar in
-  frame (msubst rwr_rhs_mbinder args), msubst rwr_conditions_mbinder args
+  (frame (msubst rwr_rhs_mbinder args), msubst rwr_conditions_mbinder args)
 
 (** Traverse the target and rewrite using the given rule everywhere in it.
 
     This is unlike Rocq's rewriting using evars, where all occurrences subject to one evar
-    instantiation are rewritten. The consequence is that a fixed number of subgoals is produced
-    from the side conditions. In contarst, our scheme produces a number of side
-    conditions/subgoals depending on the number of occurrences rewritten. This is because the
-    instantiations are only discovered during traversal. *)
+    instantiation are rewritten. The consequence is that a fixed number of subgoals is produced from
+    the side conditions. In contarst, our scheme produces a number of side conditions/subgoals
+    depending on the number of occurrences rewritten. This is because the instantiations are only
+    discovered during traversal. *)
 let rec pre_rewrite rule bvars target =
   let open Monad in
   try
@@ -179,12 +187,13 @@ let rec pre_rewrite rule bvars target =
     in
     result <$ modify update
   with Rewrite_failure _ ->
-    match target with
+    (match target with
     | Var _ | Symbol _ | Unit | True | False | Int _ | Nil | Emp -> pure target
     | Fun b -> Tm.fun_ <$> pre_rewrite_mbinder rule bvars b
     | Apply (f, t) -> lift2 Tm.apply (pre_rewrite rule bvars f) (pre_rewrite_list rule bvars t)
     | Tuple ts -> Tm.tuple <$> pre_rewrite_list rule bvars ts
-    | Binop (op, t1, t2) -> lift2 (Tm.binop op) (pre_rewrite rule bvars t1) (pre_rewrite rule bvars t2)
+    | Binop (op, t1, t2) ->
+        lift2 (Tm.binop op) (pre_rewrite rule bvars t1) (pre_rewrite rule bvars t2)
     | Unop (op, t) -> Tm.unop op <$> pre_rewrite rule bvars t
     | Conj (t1, t2) -> lift2 Tm.conj (pre_rewrite rule bvars t1) (pre_rewrite rule bvars t2)
     | Disj (t1, t2) -> lift2 Tm.disj (pre_rewrite rule bvars t1) (pre_rewrite rule bvars t2)
@@ -200,7 +209,7 @@ let rec pre_rewrite rule bvars target =
     | Forall b -> Tm.forall <$> pre_rewrite_mbinder rule bvars b
     | Exists b -> Tm.exists <$> pre_rewrite_mbinder rule bvars b
     | Shift b -> Tm.shift <$> pre_rewrite_binder rule bvars b
-    | Reset t -> Tm.reset <$> pre_rewrite rule bvars t
+    | Reset t -> Tm.reset <$> pre_rewrite rule bvars t)
 
 and pre_rewrite_list rule bvars target =
   let open Monad in
@@ -221,12 +230,9 @@ and pre_rewrite_mbinder rule bvars target =
   let xs, target = unmbind target in
   mgeneralize xs <$> pre_rewrite rule (TVSets.add_array xs bvars) target
 
-let empty_rewrite_state = {
-  rws_conditions = Lin;
-  rws_count = 0;
-}
+let empty_rewrite_state = { rws_conditions = Lin; rws_count = 0 }
 
 let rewrite rule target =
   let result, state = Monad.run (pre_rewrite rule TVSet.empty target) empty_rewrite_state in
   if state.rws_count = 0 then raise (Rewrite_failure "no progress");
-  result, Snoc_list.to_list state.rws_conditions
+  (result, Snoc_list.to_list state.rws_conditions)

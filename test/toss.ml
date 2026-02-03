@@ -88,7 +88,7 @@ elim_heap ();;
 rewrite "conj_true_r";;
 refl ();;
 
-rewrite ~direction:Direction.rtl "conj_assoc";;
+rewrite ~direction:`Rtl "conj_assoc";;
 rewrite "conj_true_r";;
 rewrite "conj_false_r";;
 rewrite "IH";;

@@ -859,7 +859,7 @@
   (1 more goals)
   
   
-  # rewrite ~direction:Direction.rtl "Hk"
+  # rewrite ~direction:`Rtl "Hk"
   
   k, x, xs, xs'
   Hk: 0 <: k 0
@@ -893,7 +893,7 @@
   (1 more goals)
   
   
-  # rewrite ~direction:Direction.rtl "times_pure_const_r"
+  # rewrite ~direction:`Rtl "times_pure_const_r"
   
   k, x, xs, xs'
   Hk: 0 <: k 0

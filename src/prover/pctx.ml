@@ -1,23 +1,16 @@
 open Core
-open Bindlib
 open Core.Syntax
 open Core.Pretty
+open Bindlib
 open Util.Strings
 
-module Options = struct
-  let notation = ref true
-  let line_length = ref 60
-end
-
-type proof_context = {
+type t = {
   rename_ctxt : Rename.ctxt;
   constants : term var SMap.t;
   assumptions : term SMap.t;
   heap_assumptions : term list; (* TODO: add names *)
   goal : term;
 }
-
-type t = proof_context
 
 let create ~goal =
   {
@@ -36,23 +29,17 @@ let pp_constants pp_name ppf constants =
 
 let pp_assumptions_ne pp_name pp_assumption ppf assumptions =
   Fmt.pf ppf "@[<v>%a@]@,"
-    (Fmt.list
-       (Fmt.hovbox ~indent:2
-          (Fmt.pair ~sep:(Fmt.any ": ") pp_name pp_assumption)))
+    (Fmt.list (Fmt.hovbox ~indent:2 (Fmt.pair ~sep:(Fmt.any ": ") pp_name pp_assumption)))
     (SMap.bindings assumptions)
 
-let pp_line ppf = Fmt.pf ppf "%s@," (draw_line !Options.line_length)
+let pp_line ppf = Fmt.pf ppf "%s@," (draw_line !Proof_options.line_length)
 
 let pp_assumptions pp_name pp_assumption ppf assumptions =
-  if not (SMap.is_empty assumptions) then
-    pp_assumptions_ne pp_name pp_assumption ppf assumptions;
+  if not (SMap.is_empty assumptions) then pp_assumptions_ne pp_name pp_assumption ppf assumptions;
   pp_line ppf
 
-let pp_heap_line ppf =
-  Fmt.pf ppf "%s@," (draw_line (pred !Options.line_length) ^ "*")
-
-let pp_heap_assumptions_ne pp_heap_assumption ppf =
-  Fmt.pf ppf "%a@," (Fmt.list pp_heap_assumption)
+let pp_heap_line ppf = Fmt.pf ppf "%s@," (draw_line (pred !Proof_options.line_length) ^ "*")
+let pp_heap_assumptions_ne pp_heap_assumption ppf = Fmt.pf ppf "%a@," (Fmt.list pp_heap_assumption)
 
 let pp_heap_assumptions pp_heap_assumption ppf heap_assumptions =
   if not (List.is_empty heap_assumptions) then begin
@@ -64,10 +51,9 @@ let pp_goal pp_term ppf = function
   | Subsumes (lhs, rhs) -> Fmt.pf ppf "   %a@,<: %a" pp_term lhs pp_term rhs
   | goal -> Fmt.pf ppf "%a" pp_term goal
 
-let pp_proof_context ppf
-    { rename_ctxt = _; constants; assumptions; heap_assumptions; goal } =
+let pp ppf { rename_ctxt = _; constants; assumptions; heap_assumptions; goal } =
   (* TODO: pp_term_in rename_ctxt *)
-  let pp_term = if !Options.notation then pp_term else dump_term in
+  let pp_term = if !Proof_options.notation then pp_term else dump_term in
   Fmt.pf ppf "@[<v>";
   pp_constants Fmt.string ppf constants;
   pp_assumptions Fmt.string pp_term ppf assumptions;
