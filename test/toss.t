@@ -1857,7 +1857,11 @@
   (1 more goals)
   
   
-  # admit ()
+  # prove ()
+  Warning, file line 0, characters 0-0: unused variable v
+  Warning, file line 0, characters 0-0: unused variable x
+  ==> Valid
+  
   
   v, x
   ────────────────────────────────────────────────────────────

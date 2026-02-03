@@ -173,7 +173,7 @@ pure_solver ();;
 
 intro_pure "_";;
 elim_heap ();;
-admit ();; (* arithmetic *)
+prove ();;
 
 intro_pure "H_absurd";;
 ex_falso ();;
