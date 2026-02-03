@@ -109,6 +109,24 @@ module Heifer
     | _ -> TErr
     end
 
+  function and (t1 t2:term) : term =
+    match t1, t2 with
+    | TBool b1, TBool b2 -> TBool (b1 && b2)
+    | _ -> TErr
+    end
+
+  function or (t1 t2 : term) : term =
+    match t1, t2 with
+    | TBool b1, TBool b2 -> TBool (b1 || b2)
+    | _ -> TErr
+    end
+
+  function implies (t1 t2 : term) : term =
+    match t1, t2 with
+    | TBool b1, TBool b2 -> TBool (not b1 || b2)
+    | _ -> TErr
+    end
+
   (* TODO replace with why3 stdlib version *)
   function sum (xs:term) : term =
     match xs with

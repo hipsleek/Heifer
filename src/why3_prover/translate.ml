@@ -40,6 +40,9 @@ type kind =
   | Formula
   | Term
 
+let coerce_to_prop t =
+  tapp (qualid [Ident.op_infix "="]) [t; tapp (qualid ["TBool"]) [term Ttrue]]
+
 (** Implemented cases should be kept in sync with [is_translatable].
 
     This translation is contetxtual: it depends on what the expected type of the
@@ -105,7 +108,9 @@ let rec term_to_whyml_aux ctxt kind t =
   | Apply (Symbol { sym_name = f }, args), _ ->
       tapp (qualid [f]) (List.map (term_to_whyml_aux ctxt Term) args)
   | Apply (_f, _args), _ -> failwith "apply"
-  | Bind (a, b), Term ->
+  | Sequence (_, t), Term -> term_to_whyml_aux ctxt Term t
+  | Sequence _, Formula -> failwith "sequence cannot be used in a formula"
+  | Bind (t, b), Term ->
       (* there is no let in whyml terms, only programs... *)
       (* let x, b, ctxt = Bindlib.unbind_in ctxt b in
       term
@@ -113,8 +118,7 @@ let rec term_to_whyml_aux ctxt kind t =
            ( ident (Bindlib.name_of x),
              term_to_whyml_aux ctxt a,
              term_to_whyml_aux ctxt b )) *)
-      let b1 = Bindlib.subst b a in
-      term_to_whyml_aux ctxt Term b1
+      term_to_whyml_aux ctxt Term (Bindlib.subst b t)
   | Bind _, Formula -> failwith "bind cannot be used in a formula"
   | Forall b, Formula ->
       let xs, b, ctxt = Bindlib.unmbind_in ctxt b in
@@ -165,49 +169,27 @@ let rec term_to_whyml_aux ctxt kind t =
         (qualid [Ident.op_infix "<>"])
         [term_to_whyml_aux ctxt Term a; term_to_whyml_aux ctxt Term b]
   | Binop ((Gt | Lt | Le | Ge), _, _), Formula ->
-      (* ctxt  *)
-      let coerce_to_prop a =
-        (* let a1 = term_to_whyml_aux ctxt a in *)
-        (* match a with
-        | Apply (Symbol { sym_name = "is_int" }, _) -> a1
-        | _ -> *)
-        tapp (qualid [Ident.op_infix "="]) [a; term_to_whyml_aux ctxt Term True]
-      in
-
-      term_to_whyml_aux ctxt Term t |> coerce_to_prop
-      (* failwith "Todo" *)
-      (* failwith "relational operators cannot be used as a formula" *)
-  | Conj (a, b), _ ->
-      term
-        (Tbinop
-           ( term_to_whyml_aux ctxt kind a,
-             Dterm.DTand,
-             term_to_whyml_aux ctxt kind b ))
-  | Disj (a, b), _ ->
-      term
-        (Tbinop
-           ( term_to_whyml_aux ctxt kind a,
-             Dterm.DTor,
-             term_to_whyml_aux ctxt kind b ))
-  | Implies (a, b), Formula ->
-      (* TODO this may need to be more widely used *)
-      (* let coerce_to_prop ctxt a =
-        let a1 = term_to_whyml_aux ctxt a in
-        match a with
-        | Apply (Symbol { sym_name = "is_int" }, _) -> a1
-        | _ ->
-            tapp (qualid [Ident.op_infix "="]) [a1; term_to_whyml_aux ctxt True]
-      in *)
-      (* let a = term_to_whyml_aux ctxt a |> coerce_to_prop in *)
-      (* let b = term_to_whyml_aux ctxt b |> coerce_to_prop in *)
-      let a = term_to_whyml_aux ctxt Formula a in
-      let b = term_to_whyml_aux ctxt Formula b in
-      term (Tbinop (a, Dterm.DTimplies, b))
-  | Implies _, Term -> failwith "implication cannot be used as a term"
+      coerce_to_prop (term_to_whyml_aux ctxt Term t)
+  | Conj (t1, t2), Term ->
+      tapp (qualid ["and"]) [term_to_whyml_aux ctxt Term t1; term_to_whyml_aux ctxt Term t2]
+  | Conj (t1, t2), Formula ->
+      term (Tbinop (term_to_whyml_aux ctxt kind t1, Dterm.DTand, term_to_whyml_aux ctxt kind t2))
+  | Disj (t1, t2), Term ->
+      tapp (qualid ["or"]) [term_to_whyml_aux ctxt Term t1; term_to_whyml_aux ctxt Term t2]
+  | Disj (t1, t2), Formula ->
+      term (Tbinop (term_to_whyml_aux ctxt kind t1, Dterm.DTor, term_to_whyml_aux ctxt kind t2))
+  | Implies (t1, t2), Term ->
+      let t1 = term_to_whyml_aux ctxt Term t1 in
+      let t2 = term_to_whyml_aux ctxt Term t2 in
+      tapp (qualid ["implies"]) [t1; t2]
+  | Implies (t1, t2), Formula ->
+      let t1 = term_to_whyml_aux ctxt Formula t1 in
+      let t2 = term_to_whyml_aux ctxt Formula t2 in
+      term (Tbinop (t1, Dterm.DTimplies, t2))
   | Emp, _ | PointsTo _, _ | SepConj _, _ | Wand _, _ ->
       failwith "separation logic cannot be translated"
   | Subsumes _, _ -> failwith "subsumptions not handled at this level"
-  | Requires _, _ | Ensures _, _ | Sequence _, _ | Shift _, _ | Reset _, _ ->
+  | Requires _, _ | Ensures _, _ | Shift _, _ | Reset _, _ ->
       failwith "staged logic not handled at this level"
 
 let term_to_whyml p =
