@@ -1196,6 +1196,7 @@ module Interactive = struct
   let exists_elim = make_interactive (fun () -> exists_elim)
   let conj_elim_l () = run_tactic ConjTactic.conj_elim_l
   let conj_elim_r () = run_tactic ConjTactic.conj_elim_r
+  let conj_intro () = run_tactic ConjTactic.conj_intro
   let disj_elim () = run_tactic DisjTactic.disj_elim
   let left () = run_tactic DisjTactic.left
   let right () = run_tactic DisjTactic.right
