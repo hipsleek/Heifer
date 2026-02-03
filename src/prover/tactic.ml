@@ -1219,12 +1219,16 @@ module Interactive = struct
    fun ?(vars = []) ~name kind x ->
     let tac =
       let open Tactic in
+      let* heap_assumptions = get_heap_assumptions in
+      let* _ = guard (List.is_empty heap_assumptions)
+        "induction: cannot generate IH that depend on heap assumption" in
       let* assumptions = get_assumptions in
       let* x = get_constant x in
       let* vars = map_m get_constant vars in
       let assumptions = List.map snd (SMap.bindings assumptions) in
       let vars = Array.of_list vars in
       (* generate the body of the induction hypothesis *)
+      (* CHECK: nothing is inside the heap context *)
       let* g = get_goal in
       let ih_body = Induction.induction kind x vars assumptions g in
       (* and wrap it into a prop *)

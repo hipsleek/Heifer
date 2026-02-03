@@ -13,7 +13,6 @@ let build_wf_premise wf x y =
       Mk.conj ge lt
 
 let induction wf x other_vars assumptions goal =
-  (* TODO generalize over heap context *)
   let generalized_assumptions =
     let other_vars = TVSet.of_seq (Array.to_seq other_vars) in
     List.filter (has_vars (TVSet.add x other_vars)) assumptions
