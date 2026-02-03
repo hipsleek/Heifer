@@ -51,6 +51,31 @@ declare
   |}
 ;;
 
+(* This axiom cannot be proven at the moment. Why?
+
+   After `unfold "times_pure"` ans `simpl`, we need to prove that:
+   `t <: ens xs=[]; ... \/ exists x xs'. ens xs=x::xs'; ...`
+   To proceed, we need either xs=[] or xs=x::xs' for some x and xs'.
+   But we have neither.
+
+   This can be proven if we have "case analysis scheme" for list:
+   `is_list xs => xs=[] \/ exists x xs'. xs=x::xs' /\ is_list xs'`
+   We then need to add this hypothesis to all lemmas.
+
+   Another option is to define times_pure using req and conj:
+   ```
+   times_pure xs =
+     req xs=[]; 1 /\
+     forall x xs'. req xs=x::xs'; times_pure xs'; r. r x*.r
+   ```
+   Then, after unfolding and simplifying, we can immediately introduce
+   the assumption that either xs=[], or xs=x::xs', and proceed.
+ *)
+axiom ~name:"times_pure_const_r"
+  {| forall xs t. t <: times_pure xs; r. t |}
+;;
+
+
 lemma ~name:"times_sh/times_cp"
   {|
     forall xs k.
@@ -129,7 +154,8 @@ rewrite "Hx";;
 rewrite "mult_0_l";;
 rewrite ~direction:Direction.rtl "Hk";;
 goal_is "0 <: times_pure xs'; r. 0";;
-admit ();; (* there is no way to reduce times_pure as of now *)
+rewrite ~direction:Direction.rtl "times_pure_const_r";;
+refl ();;
 
 rewrite "IH";;
 pure_solver ();;

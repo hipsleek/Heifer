@@ -48,6 +48,10 @@
     |}
   times_pure declared
   
+  # axiom ~name:"times_pure_const_r"
+      {| forall xs t. t <: times_pure xs; r. t |}
+  axiom times_pure_const_r declared
+  
   # lemma ~name:"times_sh/times_cp"
       {|
       forall xs k.
@@ -889,7 +893,24 @@
   (1 more goals)
   
   
-  # admit ()
+  # rewrite ~direction:Direction.rtl "times_pure_const_r"
+  
+  k, x, xs, xs'
+  Hk: 0 <: k 0
+  Hx: x=0
+  Hxs: xs=x::xs'
+  IH: forall xs1.
+        sublist xs1 xs =>
+          (forall k.
+             (0 <: k 0) =>
+               times_cp xs1 k <: times_pure xs1; r. k r)
+  ────────────────────────────────────────────────────────────
+     0
+  <: 0
+  (1 more goals)
+  
+  
+  # refl ()
   
   k, x, xs, xs'
   Hk: 0 <: k 0
