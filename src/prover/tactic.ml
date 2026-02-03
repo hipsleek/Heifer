@@ -62,6 +62,7 @@ module Tactic : sig
   val ( let+ ) : 'a t -> ('a -> 'b) -> 'b t
   val ( let* ) : 'a t -> ('a -> 'b t) -> 'b t
   val fail : string -> 'a t
+  val printf : ('a, Format.formatter, unit, unit t) format4 -> 'a
   val failf : ('a, Format.formatter, unit, 'b t) format4 -> 'a
   val try_ : 'a t -> ('a, string) result t
   val catch : 'a t -> (string -> 'a t) -> 'a t
@@ -120,6 +121,15 @@ end = struct
   type 'a t = Pstate.t -> ('a * Pstate.t, string) Result.t
 
   let run m s = Result.map snd (m s)
+
+  let printf fmt =
+    Format.kasprintf
+      (fun s ->
+        fun st ->
+         print_endline s;
+         Ok ((), st))
+      fmt
+
   let fail s = fun _ -> Error s
   let failf fmt = Format.kasprintf fail fmt
   let pure x = fun s -> Ok (x, s)
@@ -273,7 +283,8 @@ end = struct
     else put_constants (SMap.add name v constants)
 
   let add_assumption name t =
-    if Names.is_underscore name then pure () else
+    if Names.is_underscore name then pure ()
+    else
       let* assumptions = get_assumptions in
       if SMap.mem name assumptions then fail ("add_assumption: " ^ Message.is_already_used name)
       else put_assumptions (SMap.add name t assumptions)
@@ -832,20 +843,30 @@ module UnmixTactic = struct
 end
 
 module RewriteTactic = struct
-  (* let rewrite name =
-    let tactic =
-      let open Tactic in
-      let* assumption = catch (get_assumption name) (fun msg -> unwrap (get_lemma_opt name) msg) in
-      let rule = Rewrite.prop_to_rule assumption in
-      let* lhs, _ = get_subsumption in
-      match Rewrite.rewrite rule lhs with
-      | Some (lhs1, side) ->
-          let* ps = pop_pctxt in
-          let* () = push_pctxt ps in
-          let* () = put_lhs lhs1 in
-          iter_m (fun p -> push_pctxt { ps with goal = p }) (List.rev side)
-      | None -> fail "rewrite failed"
-    in *)
+  let rewrite direction stmt =
+    let open Rewrite in
+    let open Tactic in
+    let do_rewrite rule f_get f_put =
+      let* target = f_get in
+      (* Format.printf "rewrite target %a@." pp_term target; *)
+      try
+        let result, conditions = rewrite rule target in
+        (* Format.printf "rewrite result %a conditions %a@." pp_term result (Fmt.list pp_term)
+          conditions; *)
+        let* _ = f_put result in
+        let* _ = push_pure_goals conditions in
+        pure ()
+      with Rewrite_failure msg -> fail msg
+    in
+    let rule = make_rule ~direction stmt in
+    let relation = get_rule_relation rule in
+    let f_get, f_put =
+      match (relation, direction) with
+      | Relation_eq, _ -> (get_goal, put_goal)
+      | Relation_subsumes, Direction_ltr -> (get_lhs, put_lhs)
+      | Relation_subsumes, Direction_rtl -> (get_rhs, put_rhs)
+    in
+    do_rewrite rule f_get f_put
 end
 
 let prove =
@@ -956,36 +977,35 @@ module ProofState = struct
     goals : Pstate.t;
   }
 
-  let initial_state = { definitions = empty_table; lemmas = SMap.empty; mode = Mode_none; goals = [] }
+  let initial_state =
+    { definitions = empty_table; lemmas = SMap.empty; mode = Mode_none; goals = [] }
+
   let state_stack = ref []
   let current_state = ref initial_state
   let reset_proof_state () = current_state := initial_state
   let print_proof_state () = Format.printf "%a@." Pstate.pp !current_state.goals
-
-  let push_proof_state () =
-    state_stack := !current_state :: !state_stack
+  let push_proof_state () = state_stack := !current_state :: !state_stack
 
   let pop_proof_state () =
     match !state_stack with
     | [] -> Format.printf "state stack is empty@."
-    | state :: stack -> current_state := state; state_stack := stack
+    | state :: stack ->
+        current_state := state;
+        state_stack := stack
 
   let get_definitions () = !current_state.definitions
   let get_lemmas () = !current_state.lemmas
   let get_mode () = !current_state.mode
   let get_goals () = !current_state.goals
-
   let set_definitions definitions = current_state := { !current_state with definitions }
   let set_lemmas lemmas = current_state := { !current_state with lemmas }
   let set_mode mode = current_state := { !current_state with mode }
   let set_goals goals = current_state := { !current_state with goals }
   let set_goal goal = set_goals [goal]
-
   let get_lemma name = SMap.find name (get_lemmas ())
   let add_lemma name term = set_lemmas (SMap.add name term (get_lemmas ()))
   let get_lemma_opt name = SMap.find_opt name (get_lemmas ())
   let remove_lemma name = set_lemmas (SMap.remove name (get_lemmas ()))
-
   let get_definition sym = SymMap.find sym (get_definitions ())
   let get_definition_opt sym = SymMap.find_opt sym (get_definitions ())
 
@@ -1037,6 +1057,102 @@ module ProofState = struct
     | Mode_none -> Format.printf "error: no open proof@."
 end
 
+module Automation = struct
+  open Tactic
+
+  let fresh =
+    let* ctxt = get_rename_ctxt in
+    let name, ctxt = Rename.Core.new_name "H" ctxt in
+    let* () = put_rename_ctxt ctxt in
+    pure name
+
+  let rec repeat (tac : unit t) : unit t =
+   fun s ->
+    match tac s with
+    | Error _ ->
+        (* Format.printf "repeat stopped@."; *)
+        (* repeat never fails *)
+        (* TODO repeat should stop when progress stops, not on failure? *)
+        Ok ((), s)
+    | Ok ((), s1) ->
+        (* Format.printf "repeating@."; *)
+        repeat tac s1
+
+  (* TODO solve or not at all? *)
+  let try_ (tac : unit t) : unit t =
+   fun s ->
+    match tac s with
+    | Error m -> Error m
+    | Ok ((), s1) -> Ok ((), s1)
+
+  let maybe_prove_pure =
+    let* g = get_goal in
+    Format.printf "maybe prove pure %a@." pp_term g;
+    match g with
+    | Subsumes _ ->
+        (* TODO check for pure *)
+        prove
+    | Apply (_, _) ->
+        (* TODO f is free *)
+        prove
+    | _ -> failf "doesn't look like a pure thing"
+
+  let intro_pure =
+    let* n = fresh in
+    PureTactic.intro_pure n
+
+  let debug s t =
+    let* () = printf "%s" s in
+    t
+
+  let dbg s = printf "%s" s
+
+  let ( >> ) a b =
+    let* () = a in
+    b
+
+  (* try to solve the current goal and any subgoals it generates *)
+  let simple =
+    let try_to_solve =
+      let* possible_rewrites : unit t list =
+        let* hyps = get_assumptions <&> SMap.bindings in
+        pure
+          (hyps
+          |> List.filter_map (fun (_, s) ->
+              match s with
+              | Forall _ | Implies _ | Subsumes _ | Binop (Eq, _, _) ->
+                  (* TODO use rewrite parsing function *)
+                  (* TODO take lemmas from global context? *)
+                  Format.printf "chosen for rewrite %a@." pp_term s;
+                  Some (RewriteTactic.rewrite Rewrite.Direction.ltr s)
+              | _ -> None))
+      in
+      (* TODO certificate generation *)
+      repeat
+        (SimplTactic.simpl
+        >> choices
+             ([
+                DisjTactic.disj_elim >> dbg "disj";
+                forall_intro >> dbg "forall";
+                exists_elim >> dbg "exists";
+                intro_pure >> dbg "intro pure";
+              ]
+             @ [maybe_prove_pure >> dbg "prove pure"]
+             @ possible_rewrites))
+    in
+    try_
+      (let* gs = get in
+       match gs with
+       | [] -> failf "no goals to solve"
+       | g :: gs ->
+           let* () = put [g] in
+           let* () = try_to_solve in
+           let* gs1 = get in
+           (match gs1 with
+           | [] -> put gs
+           | _ -> failf "failed to solve entirely"))
+end
+
 module Interactive = struct
   open ProofState
   module Direction = Rewrite.Direction
@@ -1080,10 +1196,12 @@ module Interactive = struct
   let shift_reset_reduce () = run_tactic SimplTactic.shift_reset_reduce
   let unmix () = run_tactic UnmixTactic.unmix
   let ex_falso () = run_tactic ReasonTactic.ex_falso
-
   let prove = make_interactive (fun () -> prove)
   let admit () = run_tactic admit
   let prove_s s = Why3_prover.prove ~show_goal:true (Parsing.Parse.parse_prop s)
+
+  (* let simple () = run_tactic Automation.simple *)
+  let simple = make_interactive (fun () -> Automation.simple)
 
   (** Unfold a definition (symbol) on both side of a sequent in the current proof state. *)
   let unfold name =
@@ -1117,39 +1235,15 @@ module Interactive = struct
 
   let interactive_get_assumption name =
     let open Tactic in
-    catch
-      (get_assumption name)
-      (fun _ ->
+    catch (get_assumption name) (fun _ ->
         match get_lemma_opt name with
         | Some assumption -> pure assumption
         | None -> fail (Message.does_not_exist name))
 
-  let do_rewrite rule f_get f_put =
-    let open Rewrite in
-    let open Tactic in
-    let* target = f_get in
-    try
-      let result, conditions = rewrite rule target in
-      let* _ = f_put result in
-      let* _ = push_pure_goals conditions in
-      pure ()
-    with Rewrite_failure msg -> fail msg
-
   (** Rewrite in the LHS of a sequent. *)
   let rewrite ?(direction = Direction.ltr) name =
-    let tactic =
-      let open Rewrite in
-      let open Tactic in
-      let* assumption = interactive_get_assumption name in
-      let rule = make_rule ~direction assumption in
-      let relation = get_rule_relation rule in
-      let f_get, f_put =
-        match relation, direction with
-        | Relation_eq, _ -> (get_goal, put_goal)
-        | Relation_subsumes, Direction_ltr -> (get_lhs, put_lhs)
-        | Relation_subsumes, Direction_rtl -> (get_rhs, put_rhs)
-      in
-      do_rewrite rule f_get f_put
-    in
-    run_tactic tactic
+    let open Tactic in
+    run_tactic
+      (let* stmt = interactive_get_assumption name in
+       RewriteTactic.rewrite direction stmt)
 end

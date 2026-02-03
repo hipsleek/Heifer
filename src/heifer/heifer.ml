@@ -6,6 +6,7 @@ module Interactive = struct
   module Options = struct
     include Prover.Tactic.Options
   end
+
   include Prover.Tactic.ProofState
   include Prover.Tactic.Interactive
 
