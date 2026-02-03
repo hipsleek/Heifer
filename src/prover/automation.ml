@@ -49,10 +49,6 @@ let intro_pure =
   let* n = fresh in
   Pure.intro_pure n
 
-let debug s t =
-  let* () = printf "%s" s in
-  t
-
 let dbg s = printf "%s" s
 
 let ( >> ) a b =
@@ -77,6 +73,7 @@ let ( >>> ) a b =
         | [] -> put gs
         | _ -> failf "failed to solve entirely") *) *)
 
+(* core automation tactic *)
 type cert_tac =
   | Smt of term
   | Forall_intro
