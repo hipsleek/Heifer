@@ -82,7 +82,7 @@
         ens xs=x::xs';
         foldr (fun x1 acc -> x1+acc) 0 xs'; r. (fun x1 acc -> x1+acc) x r)
       <: sum xs
-    |}
+  |}
   
   xs
   Hty: is_int_list xs
@@ -98,34 +98,33 @@
              (fun x1 acc -> x1+acc) x r)
   <: sum xs
   
-  
-  # simple ()
-  chosen for rewrite forall xs1.
-                       sublist xs1 xs =>
-                         is_int_list xs1 =>
-                           foldr (fun x acc -> x+acc) 0 xs1 <:
-                             sum xs1
-  disj
-  intro pure
-  maybe prove pure 0 <: sum xs
   ==> Valid
   
-  prove pure
-  exists
-  intro pure
-  maybe prove pure foldr (fun x1 acc -> x1+acc) 0 xs'; r. x+r <:
-                     sum xs
-  maybe prove pure sublist xs' xs
   ==> Valid
   
-  prove pure
-  maybe prove pure is_int_list xs'
   ==> Valid
   
-  prove pure
-  maybe prove pure sum xs'; r. x+r <: sum xs
   ==> Valid
   
-  prove pure
-  no more goals
+  
+  # qed ()
+  
+  # Format.printf "%a@." Prover.Tactic.Automation.pp_cert
+      ((pf |> Result.get_ok) |> fst)
+  disj_elim ();
+  ( intro_pure "_";
+    rewrite "_" (* xs=[] *);
+    prove () (* 0 <: sum [] *) )
+  ( exists_elim ();
+    intro_pure "_";
+    rewrite "_" (* xs=x::xs' *);
+    rewrite "_" (* forall xs1.
+                     sublist xs1 xs =>
+                       is_int_list xs1 =>
+                         foldr (fun x acc -> x+acc) 0 xs1 <:
+                           sum xs1 *);
+    ( rewrite "_" (* xs=x::xs' *);
+      prove () (* sublist xs' (x::xs') *) );
+    ( prove () (* is_int_list xs' *) )
+    prove () (* sum xs'; r. x+r <: sum (x::xs') *) )
 

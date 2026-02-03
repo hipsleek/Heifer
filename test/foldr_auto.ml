@@ -28,7 +28,10 @@ goal_is
       ens xs=x::xs';
       foldr (fun x1 acc -> x1+acc) 0 xs'; r. (fun x1 acc -> x1+acc) x r)
     <: sum xs
-  |}
+|}
 ;;
 
-simple ()
+let pf = simple2 ();;
+
+qed ();;
+Format.printf "%a@." Prover.Tactic.Automation.pp_cert (pf |> Result.get_ok |> fst)
