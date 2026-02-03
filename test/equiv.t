@@ -68,6 +68,16 @@
     loop2 x y z <: req y->a * z->b; ens y->a+b*.x * z->0
   
   
+  # goal_is
+      {| forall a. loop2 x y z <: req y->a * z->b; ens y->a+b*.x * z->0 |}
+  
+  b, x, y, z
+  Hb: b>=0
+  ────────────────────────────────────────────────────────────
+  forall a.
+    loop2 x y z <: req y->a * z->b; ens y->a+b*.x * z->0
+  
+  
   # induction ~name:"IH" (`Int 0) "b"
   
   b, x, y, z

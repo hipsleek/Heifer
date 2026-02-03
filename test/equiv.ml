@@ -30,7 +30,8 @@ forall_intro ();;
 forall_intro ();;
 intro_pure "Hb";;
 revert "a";;
-induction ~name:"IH" (`Int 0) "b";; (* seems unsafe here?! *)
+goal_is {| forall a. loop2 x y z <: req y->a * z->b; ens y->a+b*.x * z->0 |};;
+induction ~name:"IH" (`Int 0) "b";;
 forall_intro ();;
 goal_is {| loop2 x y z <: req y->a * z->b; ens y->a+b*.x * z->0 |};;
 unfold "loop2";;

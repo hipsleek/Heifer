@@ -93,6 +93,24 @@
          (ens a=true; 1 \/ ens a=false; 0))
   
   
+  # goal_is
+      {|
+         forall a. reset (do_toss_n n x; r. (ens (a /\ r)=true; 1 \/ ens (a /\ r)=false; 0))
+      <: (forall v. req x->v; ens x->v+pow 2 (n+1)-2; (ens a=true; 1 \/ ens a=false; 0))
+    |}
+  
+  n, x
+  ────────────────────────────────────────────────────────────
+  forall a.
+    reset
+      (do_toss_n n x; r.
+         (ens (a /\ r)=true; 1 \/ ens (a /\ r)=false; 0)) <:
+      (forall v.
+         req x->v;
+         ens x->v+pow 2 (n+1)-2;
+         (ens a=true; 1 \/ ens a=false; 0))
+  
+  
   # induction ~name:"IH" (`Int 0) "n"
   
   n, x
