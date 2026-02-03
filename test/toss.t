@@ -442,125 +442,9 @@
   (1 more goals)
   
   
-  # rewrite "Hn"
-  
-  a, n, v, x
-  Hn: n=0
-  IH: forall n1.
-        n1>=0 /\ n1<n =>
-          (forall a.
-             reset
-               (do_toss_n n1 x; r.
-                  (ens (a /\ r)=true; 1
-                   \/ ens (a /\ r)=false; 0)) <:
-               (forall v.
-                  req x->v;
-                  ens x->v+pow 2 (n1+1)-2;
-                  (ens a=true; 1 \/ ens a=false; 0)))
-  ────────────────────────────────────────────────────────────
-  x->v
-  ───────────────────────────────────────────────────────────*
-     ens (a /\ true)=true; 1 \/ ens (a /\ true)=false; 0
-  <: ens x->v+pow 2 (0+1)-2;
-     (ens a=true; 1 \/ ens a=false; 0)
-  (1 more goals)
-  
-  
-  # have ~name:"H_eq" "v+pow 2 (0+1)-2 = v"
-  
-  a, n, v, x
-  Hn: n=0
-  IH: forall n1.
-        n1>=0 /\ n1<n =>
-          (forall a.
-             reset
-               (do_toss_n n1 x; r.
-                  (ens (a /\ r)=true; 1
-                   \/ ens (a /\ r)=false; 0)) <:
-               (forall v.
-                  req x->v;
-                  ens x->v+pow 2 (n1+1)-2;
-                  (ens a=true; 1 \/ ens a=false; 0)))
-  ────────────────────────────────────────────────────────────
-  x->v
-  ───────────────────────────────────────────────────────────*
-  v+pow 2 (0+1)-2=v
-  (2 more goals)
-  
-  
-  # admit ()
-  
-  a, n, v, x
-  H_eq: v+pow 2 (0+1)-2=v
-  Hn: n=0
-  IH: forall n1.
-        n1>=0 /\ n1<n =>
-          (forall a.
-             reset
-               (do_toss_n n1 x; r.
-                  (ens (a /\ r)=true; 1
-                   \/ ens (a /\ r)=false; 0)) <:
-               (forall v.
-                  req x->v;
-                  ens x->v+pow 2 (n1+1)-2;
-                  (ens a=true; 1 \/ ens a=false; 0)))
-  ────────────────────────────────────────────────────────────
-  x->v
-  ───────────────────────────────────────────────────────────*
-     ens (a /\ true)=true; 1 \/ ens (a /\ true)=false; 0
-  <: ens x->v+pow 2 (0+1)-2;
-     (ens a=true; 1 \/ ens a=false; 0)
-  (1 more goals)
-  
-  
-  # rewrite "H_eq"
-  
-  a, n, v, x
-  H_eq: v+pow 2 (0+1)-2=v
-  Hn: n=0
-  IH: forall n1.
-        n1>=0 /\ n1<n =>
-          (forall a.
-             reset
-               (do_toss_n n1 x; r.
-                  (ens (a /\ r)=true; 1
-                   \/ ens (a /\ r)=false; 0)) <:
-               (forall v.
-                  req x->v;
-                  ens x->v+pow 2 (n1+1)-2;
-                  (ens a=true; 1 \/ ens a=false; 0)))
-  ────────────────────────────────────────────────────────────
-  x->v
-  ───────────────────────────────────────────────────────────*
-     ens (a /\ true)=true; 1 \/ ens (a /\ true)=false; 0
-  <: ens x->v; (ens a=true; 1 \/ ens a=false; 0)
-  (1 more goals)
-  
-  
-  # clear_pure "H_eq"
-  
-  a, n, v, x
-  Hn: n=0
-  IH: forall n1.
-        n1>=0 /\ n1<n =>
-          (forall a.
-             reset
-               (do_toss_n n1 x; r.
-                  (ens (a /\ r)=true; 1
-                   \/ ens (a /\ r)=false; 0)) <:
-               (forall v.
-                  req x->v;
-                  ens x->v+pow 2 (n1+1)-2;
-                  (ens a=true; 1 \/ ens a=false; 0)))
-  ────────────────────────────────────────────────────────────
-  x->v
-  ───────────────────────────────────────────────────────────*
-     ens (a /\ true)=true; 1 \/ ens (a /\ true)=false; 0
-  <: ens x->v; (ens a=true; 1 \/ ens a=false; 0)
-  (1 more goals)
-  
-  
   # elim_heap ()
+  Warning, file line 0, characters 0-0: unused variable x
+  Warning, file line 0, characters 0-0: unused variable a
   
   a, n, v, x
   Hn: n=0
@@ -1324,64 +1208,13 @@
   (1 more goals)
   
   
-  # have ~name:"H_eq" "v+1+pow 2 (n-1+1)-2+1+pow 2 (n-1+1)-2 = v+pow 2 (n+1)-2"
-  
-  a, n, v, x
-  Ha: a=true
-  Hn: n>0
-  ────────────────────────────────────────────────────────────
-  v+1+pow 2 (n-1+1)-2+1+pow 2 (n-1+1)-2=v+pow 2 (n+1)-2
-  (2 more goals)
-  
-  
-  # admit ()
-  
-  a, n, v, x
-  H_eq: v+1+pow 2 (n-1+1)-2+1+pow 2 (n-1+1)-2=v+pow 2 (n+1)-2
-  Ha: a=true
-  Hn: n>0
-  ────────────────────────────────────────────────────────────
-     ens x->v+1+pow 2 (n-1+1)-2+1+pow 2 (n-1+1)-2;
-     (ens false=true; 1+1 \/ ens false=false; 1+0)
-  <: ens x->v+pow 2 (n+1)-2;
-     (ens a=true; 1 \/ ens a=false; 0)
-  (1 more goals)
-  
-  
-  # rewrite "H_eq"
-  
-  a, n, v, x
-  H_eq: v+1+pow 2 (n-1+1)-2+1+pow 2 (n-1+1)-2=v+pow 2 (n+1)-2
-  Ha: a=true
-  Hn: n>0
-  ────────────────────────────────────────────────────────────
-     ens x->v+pow 2 (n+1)-2;
-     (ens false=true; 1+1 \/ ens false=false; 1+0)
-  <: ens x->v+pow 2 (n+1)-2;
-     (ens a=true; 1 \/ ens a=false; 0)
-  (1 more goals)
-  
-  
-  # clear_pure "H_eq"
-  
-  a, n, v, x
-  Ha: a=true
-  Hn: n>0
-  ────────────────────────────────────────────────────────────
-     ens x->v+pow 2 (n+1)-2;
-     (ens false=true; 1+1 \/ ens false=false; 1+0)
-  <: ens x->v+pow 2 (n+1)-2;
-     (ens a=true; 1 \/ ens a=false; 0)
-  (1 more goals)
-  
-  
   # intro_heap ()
   
   a, n, v, x
   Ha: a=true
   Hn: n>0
   ────────────────────────────────────────────────────────────
-  x->v+pow 2 (n+1)-2
+  x->v+1+pow 2 (n-1+1)-2+1+pow 2 (n-1+1)-2
   ───────────────────────────────────────────────────────────*
      ens false=true; 1+1 \/ ens false=false; 1+0
   <: ens x->v+pow 2 (n+1)-2;
@@ -1390,6 +1223,7 @@
   
   
   # elim_heap ()
+  Warning, file line 0, characters 0-0: unused variable x
   
   a, n, v, x
   Ha: a=true
@@ -1600,61 +1434,13 @@
      (ens a=true; 1 \/ ens a=false; 0)
   
   
-  # have ~name:"H_eq" "v+1+pow 2 (n-1+1)-2+1+pow 2 (n-1+1)-2 = v+pow 2 (n+1)-2"
-  
-  a, n, v, x
-  Ha: a=false
-  Hn: n>0
-  ────────────────────────────────────────────────────────────
-  v+1+pow 2 (n-1+1)-2+1+pow 2 (n-1+1)-2=v+pow 2 (n+1)-2
-  (1 more goals)
-  
-  
-  # admit ()
-  
-  a, n, v, x
-  H_eq: v+1+pow 2 (n-1+1)-2+1+pow 2 (n-1+1)-2=v+pow 2 (n+1)-2
-  Ha: a=false
-  Hn: n>0
-  ────────────────────────────────────────────────────────────
-     ens x->v+1+pow 2 (n-1+1)-2+1+pow 2 (n-1+1)-2;
-     (ens false=true; 0+1 \/ ens false=false; 0+0)
-  <: ens x->v+pow 2 (n+1)-2;
-     (ens a=true; 1 \/ ens a=false; 0)
-  
-  
-  # rewrite "H_eq"
-  
-  a, n, v, x
-  H_eq: v+1+pow 2 (n-1+1)-2+1+pow 2 (n-1+1)-2=v+pow 2 (n+1)-2
-  Ha: a=false
-  Hn: n>0
-  ────────────────────────────────────────────────────────────
-     ens x->v+pow 2 (n+1)-2;
-     (ens false=true; 0+1 \/ ens false=false; 0+0)
-  <: ens x->v+pow 2 (n+1)-2;
-     (ens a=true; 1 \/ ens a=false; 0)
-  
-  
-  # clear_pure "H_eq"
-  
-  a, n, v, x
-  Ha: a=false
-  Hn: n>0
-  ────────────────────────────────────────────────────────────
-     ens x->v+pow 2 (n+1)-2;
-     (ens false=true; 0+1 \/ ens false=false; 0+0)
-  <: ens x->v+pow 2 (n+1)-2;
-     (ens a=true; 1 \/ ens a=false; 0)
-  
-  
   # intro_heap ()
   
   a, n, v, x
   Ha: a=false
   Hn: n>0
   ────────────────────────────────────────────────────────────
-  x->v+pow 2 (n+1)-2
+  x->v+1+pow 2 (n-1+1)-2+1+pow 2 (n-1+1)-2
   ───────────────────────────────────────────────────────────*
      ens false=true; 0+1 \/ ens false=false; 0+0
   <: ens x->v+pow 2 (n+1)-2;
@@ -1662,6 +1448,7 @@
   
   
   # elim_heap ()
+  Warning, file line 0, characters 0-0: unused variable x
   
   a, n, v, x
   Ha: a=false

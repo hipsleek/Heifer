@@ -67,6 +67,10 @@ module Heifer
   axiom times_1_l: forall x:term. times (TInt 1) x = x
   axiom times_1_r: forall x:term. times x (TInt 1) = x
 
+  function pow (t1 t2: term): term
+  axiom pow_0_r: forall t: term. pow t (TInt 0) = TInt 1
+  axiom pow_succ_r: forall t: term, n: int. 0 <= n -> pow t (TInt (n + 1)) = times t (pow t (TInt n))
+
   function eq (a b:term) : term =
     match a, b with
     | TUnit, TUnit | TNil, TNil -> TBool true
