@@ -8,7 +8,6 @@ val specialize : string -> string list -> unit t
 val have : name:string -> string -> unit t
 val case : name:string -> string -> unit t
 val goal_is : string -> unit t
-val qed : unit t
 val refl : Pctx.t t
 val rewrite : [ `Ltr | `Rtl ] -> term -> unit t
 val induction : ?vars:string list -> name:string -> [ `Int of int | `List ] -> string -> unit t

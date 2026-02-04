@@ -240,12 +240,6 @@ let goal_is s =
   | true -> pure ()
   | false -> failf "@[<v>goal was expected to be@,  %a@,but was:@,  %a@]" pp_term g pp_term g1
 
-let qed =
-  let* ps = get in
-  match ps with
-  | [] -> pure ()
-  | _ -> fail "proof not finished"
-
 let refl =
   let* lhs, rhs = get_subsumption in
   if equal_term lhs rhs then pop_pctxt else fail "refl: cannot close goal"
