@@ -137,6 +137,13 @@ let%expect_test "options" =
   [%expect {|
     Binop (Plus, Some (Int 1), Int 1)
     Some 1+1
+    |}];
+
+  (* TODO this is a problem *)
+  test ~dump:true "k Some 1";
+  [%expect {|
+    Apply (Symbol k, [Symbol Some, Int 1])
+    k Some 1
     |}]
 
 let%expect_test "tuples" =
