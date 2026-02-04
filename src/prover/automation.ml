@@ -32,7 +32,7 @@ let maybe_prove_pure =
   (* Format.printf "maybe prove pure %a@." pp_term g; *)
   match g with
   | Subsumes _ -> prove
-  | _ when Core.Simply_typed.could_be_prop g -> prove
+  | _ when Core.Simply_typed.is_prop g -> prove
   | _ -> failf "doesn't look like a pure prop"
 
 let intro_pure =
@@ -48,6 +48,8 @@ type cert_tac =
   | Intro_pure of string
   | Rewrite of string * term * cert list * cert
   | Disj_elim of cert * cert
+  | Left
+  | Right
 
 and cert = cert_tac list
 
@@ -67,6 +69,8 @@ let rec pp_cert_tac ppf =
       Fmt.pf ppf "@,%a@]" pp_cert k
   | Disj_elim (c1, c2) ->
       Fmt.pf ppf "@[<v>disj_elim ();@,( @[<v 2>%a@] )@,( @[<v 2>%a )@]@]" pp_cert c1 pp_cert c2
+  | Left -> Fmt.pf ppf "left ()"
+  | Right -> Fmt.pf ppf "right ()"
 
 and pp_cert ppf c = Fmt.pf ppf "@[<v>%a@]" Fmt.(list ~sep:(any ";@,") pp_cert_tac) c
 
@@ -153,6 +157,8 @@ let solve_cert ?(lemmas = []) : cert t =
                   (* debug "about to disj_elim" @@ *)
                   disj_elim solve (* >>> dbg "disj" *);
                   (* debug "about to forall_intro" @@ *)
+                  Disj.left *> pure Left;
+                  Disj.right *> pure Right;
                   forall_intro *> pure Forall_intro (* >>> dbg "forall intro" *);
                   (* debug "about to exists_elim" @@ *)
                   exists_elim *> pure Exists_elim (* >>> dbg "exists elim" *);

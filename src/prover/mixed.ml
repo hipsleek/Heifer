@@ -42,7 +42,7 @@ let deep_destruct_mixed t =
         if not (is_empty heap1 || is_empty heap2) then
           invalid_arg "deep_destruct_mixed: hprop / hprop is not allowed";
         (node pure1 pure2, node heap1 heap2)
-    | t when Simply_typed.could_be_prop t -> (Leaf t, Empty)
+    | t when Simply_typed.is_prop t -> (Leaf t, Empty)
     | t when Simply_typed.is_hprop t -> (Empty, Leaf t)
     | t -> invalid_arg (Format.asprintf "deep_destruct_mixed: %a" pp_term t)
   in

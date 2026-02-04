@@ -126,13 +126,13 @@ module Pure = struct
 
   let ens_pure_elim name =
     let* t, lhs = Elim.pre_ens_elim in
-    let* _ = guard (Simply_typed.could_be_prop t) "ens_pure_elim: not prop" in
+    let* _ = guard (Simply_typed.is_prop t) "ens_pure_elim: not prop" in
     let* _ = add_assumption name t in
     put_lhs lhs
 
   let req_pure_intro name =
     let* t, rhs = Intro.pre_req_intro in
-    let* _ = guard (Simply_typed.could_be_prop t) "req_pure_intro: not prop" in
+    let* _ = guard (Simply_typed.is_prop t) "req_pure_intro: not prop" in
     let* _ = add_assumption name t in
     put_rhs rhs
 
@@ -146,7 +146,7 @@ module Pure = struct
     choices ~err:"intro_pure: failed" [impl_intro name; ens_pure_elim name; req_pure_intro name]
 
   let pre_pure_solver goal =
-    let* _ = guard (Simply_typed.could_be_prop goal) "pre_pure_solver: not prop" in
+    let* _ = guard (Simply_typed.is_prop goal) "pre_pure_solver: not prop" in
     solve_invoke_why3 goal
 
   let pure_solver =
@@ -156,13 +156,13 @@ module Pure = struct
 
   let req_pure_elim =
     let* t, lhs = Elim.pre_req_elim in
-    let* _ = guard (Simply_typed.could_be_prop t) "req_pure_elim: not prop" in
+    let* _ = guard (Simply_typed.is_prop t) "req_pure_elim: not prop" in
     let* _ = pre_pure_solver t in
     put_lhs lhs
 
   let ens_pure_intro =
     let* t, rhs = Intro.pre_ens_intro in
-    let* _ = guard (Simply_typed.could_be_prop t) "ens_pure_intro: not prop" in
+    let* _ = guard (Simply_typed.is_prop t) "ens_pure_intro: not prop" in
     let* _ = pre_pure_solver t in
     put_rhs rhs
 
@@ -521,7 +521,7 @@ let prove =
   in
   let is_prop =
     let* g = get_goal in
-    match Simply_typed.could_be_prop g with
+    match Simply_typed.is_prop g with
     | false -> fail "not a prop"
     | true ->
         let* res = prove_with_ctx g in

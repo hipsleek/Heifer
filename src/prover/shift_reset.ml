@@ -1,5 +1,4 @@
 open Bindlib
-open Core.Pretty
 open Core.Syntax
 open Core.Syntax_util
 open Cont

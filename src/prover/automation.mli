@@ -22,6 +22,8 @@ type cert_tac =
   | Intro_pure of string
   | Rewrite of string * term * cert list * cert
   | Disj_elim of cert * cert
+  | Left
+  | Right
 
 and cert = cert_tac list
 

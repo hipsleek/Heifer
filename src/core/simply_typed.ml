@@ -17,14 +17,16 @@ let rec is_pure_term = function
   | Implies (t1, t2) -> is_pure_term t1 && is_pure_term t2
   | _ -> false
 
-let rec could_be_prop t =
+let rec is_prop t =
   match t with
-  | True | False | Apply _ -> true
-  | Unop (Not, _) | Binop ((Ge | Gt | Eq | Neq | Le | Lt), _, _) -> true
-  | Implies (a, b) | Conj (a, b) | Disj (a, b) -> could_be_prop a && could_be_prop b
+  | True | False -> true
+  | Apply _ -> true
+  | Unop (Not, _) -> true
+  | Binop ((Ge | Gt | Eq | Neq | Le | Lt), _, _) -> true
+  | Implies (t1, t2) | Conj (t1, t2) | Disj (t1, t2) -> is_prop t1 && is_prop t2
   | Forall b | Exists b ->
-      let _, b = Bindlib.unmbind b in
-      could_be_prop b
+      let _, t = Bindlib.unmbind b in
+      is_prop t
   | Subsumes _ -> false
   | _ -> false
 
