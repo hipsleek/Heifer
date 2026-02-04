@@ -1,48 +1,13 @@
 open Core.Syntax
-open Core.Decl
 
 module State : sig
-  type mode =
-    | Mode_lemma of string * term
-    | Mode_goal
-    | Mode_none
-
-  type t = {
-    definitions : symbol_table;
-    lemmas : term Map.Make(String).t;
-    mode : mode;
-    goals : Pstate.t;
-  }
-
-  val initial_state : t
-  val state_stack : t list ref
-  val current_state : t ref
+  val start_proof : string -> unit
   val reset_proof_state : unit -> unit
-  val print_proof_state : unit -> unit
   val push_proof_state : unit -> unit
   val pop_proof_state : unit -> unit
-  val get_definitions : unit -> symbol_table
-  val get_lemmas : unit -> term Map.Make(String).t
-  val get_mode : unit -> mode
-  val get_goals : unit -> Pstate.t
-  val set_definitions : symbol_table -> unit
-  val set_lemmas : term Map.Make(String).t -> unit
-  val set_mode : mode -> unit
-  val set_goals : Pstate.t -> unit
-  val set_goal : Pctx.t -> unit
-  val get_lemma : string -> term
-  val add_lemma : string -> term -> unit
-  val get_lemma_opt : string -> term option
-  val remove_lemma : string -> unit
-  val get_definition : symbol -> def
-  val get_definition_opt : symbol -> def option
-  val in_mode_none : unit -> bool
   val declare : string -> unit
   val axiom : name:string -> string -> unit
   val lemma : name:string -> string -> unit
-  val start_proof : string -> unit
-  val run_tactic : 'a Tactic.t -> unit
-  val make_interactive : ('b -> 'a Tactic.t) -> 'b -> unit
   val qed : unit -> unit
 end
 

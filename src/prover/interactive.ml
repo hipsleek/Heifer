@@ -44,17 +44,9 @@ module State = struct
   let set_mode mode = current_state := { !current_state with mode }
   let set_goals goals = current_state := { !current_state with goals }
   let set_goal goal = set_goals [goal]
-  let get_lemma name = SMap.find name (get_lemmas ())
   let add_lemma name term = set_lemmas (SMap.add name term (get_lemmas ()))
   let get_lemma_opt name = SMap.find_opt name (get_lemmas ())
-  let remove_lemma name = set_lemmas (SMap.remove name (get_lemmas ()))
-  let get_definition sym = SymMap.find sym (get_definitions ())
   let get_definition_opt sym = SymMap.find_opt sym (get_definitions ())
-
-  let in_mode_none () =
-    match get_mode () with
-    | Mode_none -> true
-    | _ -> false
 
   let declare decl =
     let sym, def = open_dfun (Parsing.Parse.parse_decl decl) in
