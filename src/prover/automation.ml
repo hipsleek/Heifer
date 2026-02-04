@@ -1,15 +1,9 @@
-open Core
 open Core.Syntax
 open Core.Pretty
 open Util.Strings
+open Util.Lists
 open Tactic
 open Tactics
-
-let fresh =
-  let* ctxt = get_rename_ctxt in
-  let name, ctxt = Rename.Core.new_name "H" ctxt in
-  let* () = put_rename_ctxt ctxt in
-  pure name
 
 let rec repeat (tac : unit t) : unit t =
  fun s ->
@@ -25,7 +19,7 @@ let rec repeat (tac : unit t) : unit t =
 
 (* TODO solve or not at all? *)
 (* this is parsec try, not ltac try *)
-let try_ tac =
+let or_rollback tac =
  fun s ->
   match tac s with
   | Error _ ->
@@ -50,28 +44,6 @@ let intro_pure =
   Pure.intro_pure n
 
 let dbg s = printf "%s" s
-
-let ( >> ) a b =
-  let* () = a in
-  b
-
-let ( >>> ) a b =
-  let* r = a in
-  let* () = b in
-  pure r
-
-(* let with_focus tac f =
-    let* gs = get in
-    match gs with
-    | [] -> failf "no goals to solve"
-    | g :: _gs ->
-        let* () = put [g] in
-        let* () = tac in
-        let* gs1 = get in
-        f gs1
-  (* (match gs1 with
-        | [] -> put gs
-        | _ -> failf "failed to solve entirely") *) *)
 
 (* core automation tactic *)
 type cert_tac =
@@ -120,36 +92,6 @@ let focus_and_solve_with tac =
           Format.printf "%a@." Pstate.pp gs1;
           failf "failed to solve entirely")
 
-let focus =
-  let* gs = get in
-  match gs with
-  | [] -> failf "no goals to solve"
-  | g :: gs ->
-      let* () = put [g] in
-      pure gs
-
-(* let* () = tac in
-        let* gs1 = get in
-        (match gs1 with
-        | [] -> put gs
-        | _ -> failf "failed to solve entirely") *)
-
-(* let focus_on g =
-    let* gs = get in
-    match gs with
-    | [] -> failf "no goals to solve"
-    | _ :: _ ->
-        let* () = put [g] in
-        pure gs *)
-
-let rec init xs =
-  match xs with
-  | [] -> failwith "empty"
-  | [x] -> ([], x)
-  | x :: xs1 ->
-      let xs1, y = init xs1 in
-      (x :: xs1, y)
-
 let possible_rewrites2 self : cert_tac t list t =
   (* TODO prevent a rewrite from being taken multiple times *)
   let* hyps = get_assumptions <&> SMap.bindings in
@@ -173,13 +115,11 @@ let possible_rewrites2 self : cert_tac t list t =
                    gs
                in
                let* () = put [] in
-               let init, tail = init sub in
+               let init, tail = init_last sub in
                pure (Rewrite (s, init, tail)))
         | _ -> None))
 
 let disj_elim self =
-  (* TODO may be able to factor out *)
-  (* let* rest = focus in *)
   let* () = Disj.disj_elim in
   (* Format.printf "disj elim succeeded@."; *)
   let* gs = get in
@@ -190,7 +130,6 @@ let disj_elim self =
       let* () = put [r] in
       let* pr = self () in
       let* () = put rest in
-      (* let* () = put rest in *)
       pure (Disj_elim (pl, pr))
   | _ ->
       Format.printf "failed@.";
@@ -213,21 +152,21 @@ let solve_cert : cert t =
         (* catch *)
         let* pf =
           Simpl.simpl
-          >> choices
+          *> choices
                ([
                   (* debug "about to disj_elim" @@ *)
                   disj_elim solve (* >>> dbg "disj" *);
                   (* debug "about to forall_intro" @@ *)
-                  forall_intro >> pure Forall_intro (* >>> dbg "forall intro" *);
+                  forall_intro *> pure Forall_intro (* >>> dbg "forall intro" *);
                   (* debug "about to exists_elim" @@ *)
-                  exists_elim >> pure Exists_elim (* >>> dbg "exists elim" *);
+                  exists_elim *> pure Exists_elim (* >>> dbg "exists elim" *);
                   (* debug "about to intro_pure"@@ *)
-                  intro_pure >> pure Intro_pure (* >>> dbg "intro pure" *);
+                  intro_pure *> pure Intro_pure (* >>> dbg "intro pure" *);
                 ]
                @ possible_rewrites
                @ [
                    (* debug "about to prove" @@ *)
-                   get_goal <&> (fun g -> Smt g) >>> maybe_prove_pure (* >>> dbg "smt"; *);
+                   get_goal <&> (fun g -> Smt g) <* maybe_prove_pure (* >>> dbg "smt"; *);
                  ])
         in
         (* Format.printf "pf %a@." pp_cert_tac pf; *)
@@ -260,14 +199,14 @@ let simple =
     let* possible_rewrites = possible_rewrites in
     repeat
       (Simpl.simpl
-      >> choices
+      *> choices
            ([
-              Disj.disj_elim >> dbg "disj";
-              forall_intro >> dbg "forall";
-              exists_elim >> dbg "exists";
-              intro_pure >> dbg "intro pure";
+              Disj.disj_elim *> dbg "disj";
+              forall_intro *> dbg "forall";
+              exists_elim *> dbg "exists";
+              intro_pure *> dbg "intro pure";
             ]
-           @ [maybe_prove_pure >> dbg "prove pure"]
+           @ [maybe_prove_pure *> dbg "prove pure"]
            @ possible_rewrites))
   in
-  try_ (focus_and_solve_with try_to_solve)
+  or_rollback (focus_and_solve_with try_to_solve)

@@ -582,3 +582,9 @@ let induction =
   (* and wrap it into a prop *)
   let ih_prop = Forall ih_body in
   add_assumption name ih_prop
+
+let fresh =
+  let* ctxt = get_rename_ctxt in
+  let name, ctxt = Rename.Core.new_name "H" ctxt in
+  let* () = put_rename_ctxt ctxt in
+  pure name

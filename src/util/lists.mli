@@ -11,6 +11,7 @@ val fold_left1 : ('a -> 'a -> 'a) -> 'a list -> 'a
 val fold_right1 : ('a -> 'a -> 'a) -> 'a list -> 'a
 val set_nth : int -> 'a -> 'a list -> 'a list
 val init : 'a list -> 'a list
+val init_last : 'a list -> 'a list * 'a
 val find_remove_opt : ('a -> bool) -> 'a list -> ('a * 'a list) option
 val find_remove_map : ('a -> 'b option) -> 'a list -> ('b * 'a list) option
 val product : 'a list -> 'b list -> ('a * 'b) list

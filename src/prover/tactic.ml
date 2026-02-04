@@ -14,6 +14,7 @@ let printf fmt =
        Ok ((), st))
     fmt
 
+let dbg s = printf "%s" s
 let fail s = fun _ -> Error s
 let failf fmt = Format.kasprintf fail fmt
 let pure x = fun s -> Ok (x, s)
@@ -26,6 +27,15 @@ let ( <&> ) m f = map f m
 let ( >>= ) = bind
 let ( let+ ) m f = map f m
 let ( let* ) = bind
+
+let ( *> ) a b =
+  let* () = a in
+  b
+
+let ( <* ) a b =
+  let* r = a in
+  let* () = b in
+  pure r
 
 let choice m1 m2 =
  fun s ->

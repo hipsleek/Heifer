@@ -1,13 +1,11 @@
 let singleton x = [x]
-
-let rec make n x =
-  if n <= 0 then [] else x :: make (n - 1) x
+let rec make n x = if n <= 0 then [] else x :: make (n - 1) x
 
 let rec unsnoc_aux y = function
-  | [] -> [], y
+  | [] -> ([], y)
   | x :: xs ->
       let xs, x = unsnoc_aux x xs in
-      y :: xs, x
+      (y :: xs, x)
 
 let unsnoc = function
   | [] -> invalid_arg "unsnoc: empty list"
@@ -37,27 +35,34 @@ let init = function
   | [] -> invalid_arg "init: empty list"
   | x :: xs -> init_aux x xs
 
+let rec init_last xs =
+  match xs with
+  | [] -> failwith "empty"
+  | [x] -> ([], x)
+  | x :: xs1 ->
+      let xs1, y = init_last xs1 in
+      (x :: xs1, y)
+
 let rec find_remove_opt f = function
   | [] -> None
   | x :: xs ->
       if f x then Some (x, xs)
-      else
+      else (
         match find_remove_opt f xs with
         | None -> None
-        | Some (y, xs) -> Some (y, x :: xs)
+        | Some (y, xs) -> Some (y, x :: xs))
 
 let rec find_remove_map f = function
   | [] -> None
   | x :: xs ->
-      match f x with
+      (match f x with
       | Some y -> Some (y, xs)
       | None ->
-          match find_remove_map f xs with
+          (match find_remove_map f xs with
           | None -> None
-          | Some (y, xs) -> Some (y, x :: xs)
+          | Some (y, xs) -> Some (y, x :: xs)))
 
-let product xs ys =
-  List.concat_map (fun x -> List.map (fun y -> (x, y)) ys) xs
+let product xs ys = List.concat_map (fun x -> List.map (fun y -> (x, y)) ys) xs
 
 let string_of_list f = function
   | [] -> "[]"

@@ -20,6 +20,9 @@ val ( <$ ) : 'b -> 'a t -> 'b t
 val ( >>= ) : 'a t -> ('a -> 'b t) -> 'b t
 val ( let+ ) : 'a t -> ('a -> 'b) -> 'b t
 val ( let* ) : 'a t -> ('a -> 'b t) -> 'b t
+val ( *> ) : unit t -> 'a t -> 'a t
+val ( <* ) : 'a t -> unit t -> 'a t
+val dbg : string -> unit t
 val fail : string -> 'a t
 val printf : ('a, Format.formatter, unit, unit t) format4 -> 'a
 val failf : ('a, Format.formatter, unit, 'b t) format4 -> 'a

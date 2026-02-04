@@ -90,3 +90,4 @@ val semicolon1 : 'a t -> 'b t -> unit t
 val semicolon : 'a t -> 'b t -> Pctx.t list -> (Pctx.t list, string) result
 val push_pure_goals : term list -> unit t
 val invoke_why3 : term -> [> `Invalid | `Unknown of string | `Valid ] t
+val fresh : string t
