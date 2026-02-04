@@ -14,6 +14,12 @@ module Heifer
     | TCons term term
     | TNil
     | TErr
+    | TREmp
+    | TRAtom int
+    | TRSeq term term
+    | TRDisj term term
+    | TSome term
+    | TNone
 
   inductive is_bool (t: term) =
     | is_bool: forall b:bool. is_bool (TBool b)
@@ -194,6 +200,34 @@ module Heifer
     | sublist_tail: forall x l1 l2:term.
         sublist l1 l2 ->
         sublist l1 (TCons x l2)
+
+  inductive subregex (l1 l2: term) =
+
+    | subregex_disj_direct:
+      forall x l r:term.
+        x = l \/ x = r ->
+        subregex x (TRDisj l r)
+    | subregex_disj_left:
+      forall x l r: term.
+        subregex x l ->
+        subregex x (TRDisj l r)
+    | subregex_disj_right:
+      forall x l r: term.
+        subregex x r ->
+        subregex x (TRDisj l r)
+
+    | subregex_seq_direct:
+      forall x l r:term.
+        x = l \/ x = r ->
+        subregex x (TRSeq l r)
+    | subregex_seq_left:
+      forall x l r: term.
+        subregex x l ->
+        subregex x (TRSeq l r)
+    | subregex_seq_right:
+      forall x l r: term.
+        subregex x r ->
+        subregex x (TRSeq l r)
 
   (* This higher-order definition interacts poorly with automation *)
   (*

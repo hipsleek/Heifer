@@ -70,7 +70,7 @@ open Bindlib
 %left PLUS MINUS
 %left STARDOT // multiplication
 %right COLONCOLON
-%nonassoc TRUE FALSE RESET LPAREN LOWERCASE_IDENT LBRACKET INT EMP
+%nonassoc TRUE FALSE RESET LPAREN LOWERCASE_IDENT CAPITAL_IDENT LBRACKET INT EMP
 %left APP
 // high precedence
 
@@ -114,6 +114,9 @@ unsequenced_term:
       { Emp }
 
   | x=LOWERCASE_IDENT
+      { Parser_state.resolve_identifier x }
+
+  | x=CAPITAL_IDENT
       { Parser_state.resolve_identifier x }
 
   | LBRACKET RBRACKET
