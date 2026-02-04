@@ -533,19 +533,17 @@ let prove =
   choices ~err:"failed to prove pure obligation"
     [both_values; is_prop; (* ens_ens; req_req;*) can_be_translated]
 
-let induction =
- fun ?(vars = []) ~name kind x ->
+let induction ?(vars = []) ~name wf x =
   let open Tactic in
-  let* assumptions = get_assumptions in
+  let* heap_assumptions = get_heap_assumptions in
+  let* _ = guard (List.is_empty heap_assumptions) "induction: heap context is not empty" in
   let* x = get_constant x in
   let* vars = map_m get_constant vars in
-  let assumptions = List.map snd (SMap.bindings assumptions) in
+  let* assumptions = get_assumptions in
+  let* goal = get_goal in
   let vars = Array.of_list vars in
-  (* generate the body of the induction hypothesis *)
-  let* g = get_goal in
-  let ih_body = Induction.induction kind x vars assumptions g in
-  (* and wrap it into a prop *)
-  let ih_prop = Forall ih_body in
+  let assumptions = List.map snd (SMap.bindings assumptions) in
+  let ih_prop = Forall (Induction.induction wf x vars assumptions goal) in
   add_assumption name ih_prop
 
 let fresh =
