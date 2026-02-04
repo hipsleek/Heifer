@@ -36,18 +36,18 @@ let instantiation_heuristic uvars t =
   let* sigma = unify_heuristic uvars t in
   unwrap (Subst.make_args uvars sigma) "heuristic failed"
 
-(* adapt the ugly implementation this morning on my local laptop *)
-(* match on the current goal *)
 let forall_elim_heuristic =
   let* lhs = get_lhs in
   let* b = unwrap (open_forall_opt lhs) "not forall" in
   let uvars, lhs = unmbind b in
   let* t, _ = unwrap (unseq_open_requires_opt lhs) "not requires" in
-  instantiation_heuristic uvars t
+  let* args = instantiation_heuristic uvars t in
+  put_lhs (msubst b args)
 
 let exists_intro_heuristic =
   let* rhs = get_rhs in
   let* b = unwrap (open_exists_opt rhs) "not forall" in
   let uvars, rhs = unmbind b in
   let* t, _ = unwrap (unseq_open_ensures_opt rhs) "not ensures" in
-  instantiation_heuristic uvars t
+  let* args = instantiation_heuristic uvars t in
+  put_rhs (msubst b args)

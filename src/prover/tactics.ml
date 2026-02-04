@@ -448,8 +448,6 @@ let rewrite direction stmt =
     (* Format.printf "rewrite target %a@." pp_term target; *)
     try
       let result, conditions = rewrite rule target in
-      (* Format.printf "rewrite result %a conditions %a@." pp_term result (Fmt.list pp_term)
-          conditions; *)
       let* _ = f_put result in
       let* _ = push_pure_goals conditions in
       pure ()
