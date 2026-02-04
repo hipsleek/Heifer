@@ -1,3 +1,4 @@
+open Core
 open Core.Syntax
 open Core.Pretty
 open Util.Strings
@@ -17,22 +18,11 @@ let rec repeat (tac : unit t) : unit t =
       (* Format.printf "repeating@."; *)
       repeat tac s1
 
-(* TODO solve or not at all? *)
-(* this is parsec try, not ltac try *)
-let or_rollback tac =
- fun s ->
-  match tac s with
-  | Error _ ->
-      (* Error m *)
-      Ok ((), s)
-  | Ok ((), s1) -> Ok ((), s1)
-
 let maybe_prove_pure =
   let* g = get_goal in
-  (* Format.printf "maybe prove pure %a@." pp_term g; *)
   match g with
   | Subsumes _ -> prove
-  | _ when Core.Simply_typed.is_prop g -> prove
+  | _ when Simply_typed.is_prop g -> prove
   | _ -> failf "doesn't look like a pure prop"
 
 let intro_pure =
@@ -46,10 +36,12 @@ type cert_tac =
   | Forall_intro
   | Exists_elim
   | Intro_pure of string
+  | Elim_pure
   | Rewrite of string * term * cert list * cert
   | Disj_elim of cert * cert
   | Left
   | Right
+  | Refl
 
 and cert = cert_tac list
 
@@ -60,6 +52,7 @@ let rec pp_cert_tac ppf =
   | Forall_intro -> Fmt.string ppf "forall_intro ()"
   | Exists_elim -> Fmt.string ppf "exists_elim ()"
   | Intro_pure n -> Fmt.pf ppf "intro_pure \"%s\"" n
+  | Elim_pure -> Fmt.pf ppf "elim_pure ()"
   | Rewrite (n, t, c, k) ->
       Fmt.pf ppf "@[<v>rewrite \"%s\" (* %a *);" n pp_term t;
       (match c with
@@ -71,6 +64,7 @@ let rec pp_cert_tac ppf =
       Fmt.pf ppf "@[<v>disj_elim ();@,( @[<v 2>%a@] )@,( @[<v 2>%a )@]@]" pp_cert c1 pp_cert c2
   | Left -> Fmt.pf ppf "left ()"
   | Right -> Fmt.pf ppf "right ()"
+  | Refl -> Fmt.pf ppf "refl ()"
 
 and pp_cert ppf c = Fmt.pf ppf "@[<v>%a@]" Fmt.(list ~sep:(any ";@,") pp_cert_tac) c
 
@@ -164,6 +158,8 @@ let solve_cert ?(lemmas = []) : cert t =
                   exists_elim *> pure Exists_elim (* >>> dbg "exists elim" *);
                   (* debug "about to intro_pure"@@ *)
                   (intro_pure >>= fun n -> pure (Intro_pure n) (* >>> dbg "intro pure" *));
+                  Pure.elim_pure *> pure Elim_pure;
+                  refl *> pure Refl;
                 ]
                @ possible_rewrites
                @ [
@@ -200,12 +196,16 @@ let simple =
       (Simpl.simpl
       *> choices
            ([
-              Disj.disj_elim *> dbg "disj";
-              forall_intro *> dbg "forall";
-              exists_elim *> dbg "exists";
+              Disj.disj_elim *> dbg "disj_elim";
+              Disj.left *> dbg "left";
+              Disj.right *> dbg "right";
+              forall_intro *> dbg "forall_intro";
+              exists_elim *> dbg "exists_elim";
               (intro_pure $> ()) *> dbg "intro pure";
+              Pure.elim_pure *> dbg "elim_pure";
+              refl *> dbg "refl";
             ]
            @ [maybe_prove_pure *> dbg "prove pure"]
            @ possible_rewrites))
   in
-  focus_and_solve_with solve |> or_rollback
+  try_ (focus_and_solve_with solve) $> ()

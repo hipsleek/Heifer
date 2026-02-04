@@ -6,7 +6,6 @@ open Tactic
 (** Some automation tactics *)
 
 val repeat : unit t -> unit t
-val or_rollback : unit t -> unit t
 val focus_and_solve_with : 'a t -> 'a t
 
 (** Simple automation *)
@@ -20,10 +19,12 @@ type cert_tac =
   | Forall_intro
   | Exists_elim
   | Intro_pure of string
+  | Elim_pure
   | Rewrite of string * term * cert list * cert
   | Disj_elim of cert * cert
   | Left
   | Right
+  | Refl
 
 and cert = cert_tac list
 

@@ -34,7 +34,6 @@ declare
   |}
 ;;
 
-(* TODO use why3 append *)
 declare
   {|
     append_pure xs ys =
