@@ -19,6 +19,7 @@ val get_rule_relation : rewrite_rule -> [ `Eq | `Subsumes ]
 val get_rule_conditions : rewrite_rule -> term list
 val get_rule_lhs : rewrite_rule -> term
 val get_rule_rhs : rewrite_rule -> term
+val get_rule_arity : rewrite_rule -> int
 
 type rewrite_state
 

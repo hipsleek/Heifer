@@ -34,6 +34,14 @@ let open_implies_opt = function
   | Implies (t1, t2) -> Some (t1, t2)
   | _ -> None
 
+let open_forall_opt = function
+  | Forall b -> Some b
+  | _ -> None
+
+let open_exists_opt = function
+  | Exists b -> Some b
+  | _ -> None
+
 let is_reset = function
   | Reset _ -> true
   | _ -> false

@@ -37,6 +37,8 @@ type cert_tac =
   | Exists_elim
   | Intro_pure of string
   | Elim_pure
+  | Intro_heap
+  | Elim_heap
   | Rewrite of string * term * cert list * cert
   | Disj_elim of cert * cert
   | Left
@@ -53,6 +55,8 @@ let rec pp_cert_tac ppf =
   | Exists_elim -> Fmt.string ppf "exists_elim ()"
   | Intro_pure n -> Fmt.pf ppf "intro_pure \"%s\"" n
   | Elim_pure -> Fmt.pf ppf "elim_pure ()"
+  | Intro_heap -> Fmt.pf ppf "intro_heap ()"
+  | Elim_heap -> Fmt.pf ppf "elim_heap ()"
   | Rewrite (n, t, c, k) ->
       Fmt.pf ppf "@[<v>rewrite \"%s\" (* %a *);" n pp_term t;
       (match c with
@@ -208,4 +212,4 @@ let simple =
            @ [maybe_prove_pure *> dbg "prove pure"]
            @ possible_rewrites))
   in
-  try_ (focus_and_solve_with solve) $> ()
+  () <$ try_ (focus_and_solve_with solve)

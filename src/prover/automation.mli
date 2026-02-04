@@ -20,6 +20,8 @@ type cert_tac =
   | Exists_elim
   | Intro_pure of string
   | Elim_pure
+  | Intro_heap
+  | Elim_heap
   | Rewrite of string * term * cert list * cert
   | Disj_elim of cert * cert
   | Left

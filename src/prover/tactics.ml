@@ -271,16 +271,16 @@ let forall_intro =
   choices [staged; pure]
 
 let forall_elim t =
-  let* left, _ = get_subsumption in
-  match Prenex.prenex_head left with
+  let* lhs = get_lhs in
+  match Prenex.prenex_head lhs with
   | Forall b ->
       let* t = map_m parse_term t <&> Array.of_list in
       put_lhs (msubst b t)
   | _ -> fail "cannot eliminate forall"
 
 let exists_intro t =
-  let* _, right = get_subsumption in
-  match Prenex.prenex_head right with
+  let* rhs = get_rhs in
+  match Prenex.prenex_head rhs with
   | Exists b ->
       let* t = map_m parse_term t <&> Array.of_list in
       put_rhs (msubst b t)

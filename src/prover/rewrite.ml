@@ -69,6 +69,7 @@ let get_rule_relation rule = rule.rwr_relation
 let get_rule_conditions rule = rule.rwr_conditions
 let get_rule_lhs rule = rule.rwr_lhs
 let get_rule_rhs rule = rule.rwr_rhs
+let get_rule_arity rule = rule.rwr_arity
 
 type rewrite_state = {
   (* an accumulator of instantiated conditions *)
@@ -128,10 +129,6 @@ end = struct
   let modify f sigma = ((), f sigma)
 end
 
-let check_sigma_cardinal cardinal sigma =
-  if TVMap.cardinal sigma <> cardinal then
-    raise (Rewrite_failure "uninstantiated unification variables")
-
 let check_uvars_well_scoped uvars bvars sigma =
   let check uvar =
     let t = TVMap.find uvar sigma in
@@ -144,7 +141,6 @@ let check_uvars_well_scoped uvars bvars sigma =
 let pre_rewrite_root rule bvars target =
   let {
     rwr_umvar;
-    rwr_arity;
     rwr_uvars;
     rwr_lhs;
     rwr_condition_uvars;
@@ -160,9 +156,12 @@ let pre_rewrite_root rule bvars target =
     | sigma, Some frame -> (sigma, frame)
     | exception Unification_failure msg -> raise (Rewrite_failure msg)
   in
-  check_sigma_cardinal rwr_arity sigma;
   check_uvars_well_scoped rwr_condition_uvars bvars sigma;
-  let args = Array.map (fun x -> TVMap.find x sigma) rwr_umvar in
+  let args =
+    match Subst.make_args rwr_umvar sigma with
+    | Some args -> args
+    | None -> raise (Rewrite_failure "uninstantiated unification variables")
+  in
   (frame (msubst rwr_rhs_mbinder args), msubst rwr_conditions_mbinder args)
 
 (** Traverse the target and rewrite using the given rule everywhere in it.
