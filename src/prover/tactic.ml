@@ -19,14 +19,20 @@ let fail s = fun _ -> Error s
 let failf fmt = Format.kasprintf fail fmt
 let pure x = fun s -> Ok (x, s)
 let map f m = fun s -> Result.map (fun (x, s) -> (f x, s)) (m s)
+let ( let+ ) m f = map f m
 let mapl x m = fun s -> Result.map (fun (_, s) -> (x, s)) (m s)
+
+let mapr m x =
+  let+ _ = m in
+  x
+
 let bind m f = fun s -> Result.bind (m s) (fun (x, s) -> f x s)
+let ( let* ) = bind
 let ( <$> ) = map
+let ( $> ) = mapr
 let ( <$ ) = mapl
 let ( <&> ) m f = map f m
 let ( >>= ) = bind
-let ( let+ ) m f = map f m
-let ( let* ) = bind
 
 let ( *> ) a b =
   let* () = a in

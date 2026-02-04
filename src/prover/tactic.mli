@@ -13,10 +13,12 @@ val run_pstate : 'a t -> Pstate.t -> (Pstate.t, string) result
 val pure : 'a -> 'a t
 val map : ('a -> 'b) -> 'a t -> 'b t
 val mapl : 'b -> 'a t -> 'b t
+val mapr : 'a t -> 'b -> 'b t
 val bind : 'a t -> ('a -> 'b t) -> 'b t
 val ( <$> ) : ('a -> 'b) -> 'a t -> 'b t
 val ( <&> ) : 'a t -> ('a -> 'b) -> 'b t
 val ( <$ ) : 'b -> 'a t -> 'b t
+val ( $> ) : 'a t -> 'b -> 'b t
 val ( >>= ) : 'a t -> ('a -> 'b t) -> 'b t
 val ( let+ ) : 'a t -> ('a -> 'b) -> 'b t
 val ( let* ) : 'a t -> ('a -> 'b t) -> 'b t

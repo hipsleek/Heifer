@@ -41,7 +41,8 @@ let maybe_prove_pure =
 
 let intro_pure =
   let* n = fresh in
-  Pure.intro_pure n
+  let* () = Pure.intro_pure n in
+  pure n
 
 let dbg s = printf "%s" s
 
@@ -50,8 +51,8 @@ type cert_tac =
   | Smt of term
   | Forall_intro
   | Exists_elim
-  | Intro_pure
-  | Rewrite of term * cert list * cert
+  | Intro_pure of string
+  | Rewrite of string * term * cert list * cert
   | Disj_elim of cert * cert
 
 and cert = cert_tac list
@@ -62,10 +63,9 @@ let rec pp_cert_tac ppf =
   | Smt t -> Fmt.pf ppf "prove () (* %a *)" pp_term t
   | Forall_intro -> Fmt.string ppf "forall_intro ()"
   | Exists_elim -> Fmt.string ppf "exists_elim ()"
-  | Intro_pure -> Fmt.string ppf "intro_pure \"_\""
-  | Rewrite (t, c, k) ->
-      (* TODO make this proof script executable, with names, etc. *)
-      Fmt.pf ppf "@[<v>rewrite \"_\" (* %a *);" pp_term t;
+  | Intro_pure n -> Fmt.pf ppf "intro_pure \"%s\"" n
+  | Rewrite (n, t, c, k) ->
+      Fmt.pf ppf "@[<v>rewrite \"%s\" (* %a *);" n pp_term t;
       (match c with
       | [] -> ()
       | [_] -> Fmt.pf ppf "@ %a" (Fmt.(list ~sep:(any ";@ ")) (spaced_parens pp_cert)) c
@@ -93,11 +93,11 @@ let focus_and_solve_with tac =
           failf "failed to solve entirely")
 
 let possible_rewrites2 self : cert_tac t list t =
-  (* TODO prevent a rewrite from being taken multiple times *)
+  (* TODO prevent a rewrite from being taken multiple times? *)
   let* hyps = get_assumptions <&> SMap.bindings in
   pure
     (hyps
-    |> List.filter_map (fun (_, s) ->
+    |> List.filter_map (fun (n, s) ->
         match s with
         | Forall _ | Implies _ | Subsumes _ | Binop (Eq, _, _) ->
             (* TODO use rewrite parsing function *)
@@ -116,7 +116,7 @@ let possible_rewrites2 self : cert_tac t list t =
                in
                let* () = put [] in
                let init, tail = init_last sub in
-               pure (Rewrite (s, init, tail)))
+               pure (Rewrite (n, s, init, tail)))
         | _ -> None))
 
 let disj_elim self =
@@ -149,7 +149,6 @@ let solve_cert : cert t =
         pure []
     | _ :: _ ->
         let* possible_rewrites = possible_rewrites2 solve in
-        (* catch *)
         let* pf =
           Simpl.simpl
           *> choices
@@ -161,7 +160,7 @@ let solve_cert : cert t =
                   (* debug "about to exists_elim" @@ *)
                   exists_elim *> pure Exists_elim (* >>> dbg "exists elim" *);
                   (* debug "about to intro_pure"@@ *)
-                  intro_pure *> pure Intro_pure (* >>> dbg "intro pure" *);
+                  (intro_pure >>= fun n -> pure (Intro_pure n) (* >>> dbg "intro pure" *));
                 ]
                @ possible_rewrites
                @ [
@@ -204,7 +203,7 @@ let simple =
               Disj.disj_elim *> dbg "disj";
               forall_intro *> dbg "forall";
               exists_elim *> dbg "exists";
-              intro_pure *> dbg "intro pure";
+              (intro_pure $> ()) *> dbg "intro pure";
             ]
            @ [maybe_prove_pure *> dbg "prove pure"]
            @ possible_rewrites))

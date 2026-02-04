@@ -112,18 +112,18 @@
   # Format.printf "%a@." Prover.Automation.pp_cert
       ((pf |> Result.get_ok) |> fst)
   disj_elim ();
-  ( intro_pure "_";
-    rewrite "_" (* xs=[] *);
+  ( intro_pure "H";
+    rewrite "H" (* xs=[] *);
     prove () (* 0 <: sum [] *) )
   ( exists_elim ();
-    intro_pure "_";
-    rewrite "_" (* xs=x::xs' *);
-    rewrite "_" (* forall xs1.
-                     sublist xs1 xs =>
-                       is_int_list xs1 =>
-                         foldr (fun x acc -> x+acc) 0 xs1 <:
-                           sum xs1 *);
-    ( rewrite "_" (* xs=x::xs' *);
+    intro_pure "H";
+    rewrite "H" (* xs=x::xs' *);
+    rewrite "IH" (* forall xs1.
+                      sublist xs1 xs =>
+                        is_int_list xs1 =>
+                          foldr (fun x acc -> x+acc) 0 xs1 <:
+                            sum xs1 *);
+    ( rewrite "H" (* xs=x::xs' *);
       prove () (* sublist xs' (x::xs') *) );
     ( prove () (* is_int_list xs' *) )
     prove () (* sum xs'; r. x+r <: sum (x::xs') *) )

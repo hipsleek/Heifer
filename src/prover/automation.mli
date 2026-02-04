@@ -19,8 +19,8 @@ type cert_tac =
   | Smt of term
   | Forall_intro
   | Exists_elim
-  | Intro_pure
-  | Rewrite of term * cert list * cert
+  | Intro_pure of string
+  | Rewrite of string * term * cert list * cert
   | Disj_elim of cert * cert
 
 and cert = cert_tac list
