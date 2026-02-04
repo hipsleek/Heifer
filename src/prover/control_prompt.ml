@@ -4,7 +4,9 @@ open Core.Syntax
 open Core.Syntax_util
 open Cont
 
-(** This is the main entry point for [shift/reset reduction]. *)
+(** This is the main entry point for [control/prompt reduction].
+
+    In this file, we treat [Shift] as [Control], and we treat [Reset] as [Prompt]. *)
 let rec reduce t =
   match t with
   | Requires t -> Requires t
@@ -29,8 +31,6 @@ and reduce_mbinder b =
   let xs, t = unmbind b in
   mgeneralize xs (reduce t)
 
-(** This function is called only when we visit the body of a [Reset] during shift/reset reduction.
-*)
 and reduce_cont t k =
   match t with
   | Requires _ -> invoke_cont_impure_unit t k
@@ -41,7 +41,7 @@ and reduce_cont t k =
   | Disj (t1, t2) -> Disj (reduce_cont t1 k, reduce_cont t2 k)
   | Forall b -> Forall (reduce_mbinder_cont b k)
   | Exists b -> Exists (reduce_mbinder_cont b k)
-  | Shift b -> reduce_cont (subst b (capture_cont_reset k)) Nil
+  | Shift b -> reduce_cont (subst b (capture_cont k)) Nil
   | Reset t ->
       let t = reduce_cont t Nil in
       if is_reset t then invoke_cont_impure t k else reduce_cont t k
