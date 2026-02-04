@@ -44,8 +44,6 @@ let intro_pure =
   let* () = Pure.intro_pure n in
   pure n
 
-let dbg s = printf "%s" s
-
 (* core automation tactic *)
 type cert_tac =
   | Smt of term
@@ -93,7 +91,8 @@ let focus_and_solve_with tac =
           failf "failed to solve entirely")
 
 let possible_rewrites2 self lemmas : cert_tac t list t =
-  (* TODO prevent a rewrite from being taken multiple times? *)
+  (* it's possible that a rewriting rule may be used multiple times
+    e.g. IHs, so there is no attempt to use them only once for now *)
   let* hyps = get_assumptions <&> SMap.bindings in
   let rules = hyps @ lemmas in
   let rules =
@@ -107,9 +106,7 @@ let possible_rewrites2 self lemmas : cert_tac t list t =
   let rules =
     rules
     |> List.map (fun (n, s) ->
-        (* Format.printf "chosen for rewrite %a@." pp_term s; *)
         let* () = rewrite `Ltr s in
-        (* Format.printf "rewrote %a@." pp_term s; *)
         let* gs = get in
         let* sub : cert list =
           map_m
@@ -120,14 +117,12 @@ let possible_rewrites2 self lemmas : cert_tac t list t =
         in
         let* () = put [] in
         let init, tail = init_last sub in
-        pure (Rewrite (n, s, init, tail))
-        (* | _ -> None *))
+        pure (Rewrite (n, s, init, tail)))
   in
   pure rules
 
 let disj_elim self =
   let* () = Disj.disj_elim in
-  (* Format.printf "disj elim succeeded@."; *)
   let* gs = get in
   match gs with
   | l :: r :: rest ->
@@ -191,16 +186,13 @@ let possible_rewrites : unit t list t =
     |> List.filter_map (fun (_, s) ->
         match s with
         | Forall _ | Implies _ | Subsumes _ | Binop (Eq, _, _) ->
-            (* TODO use rewrite parsing function *)
-            (* TODO take lemmas from global context? *)
             (* Format.printf "chosen for rewrite %a@." pp_term s; *)
             Some (rewrite `Ltr s)
         | _ -> None))
 
 (* try to solve the current goal and any subgoals it generates *)
 let simple =
-  let try_to_solve =
-    (* TODO certificate generation *)
+  let solve =
     let* possible_rewrites = possible_rewrites in
     repeat
       (Simpl.simpl
@@ -214,4 +206,4 @@ let simple =
            @ [maybe_prove_pure *> dbg "prove pure"]
            @ possible_rewrites))
   in
-  or_rollback (focus_and_solve_with try_to_solve)
+  focus_and_solve_with solve |> or_rollback
