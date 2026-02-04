@@ -31,13 +31,9 @@ let maybe_prove_pure =
   let* g = get_goal in
   (* Format.printf "maybe prove pure %a@." pp_term g; *)
   match g with
-  | Subsumes _ ->
-      (* TODO check for pure *)
-      prove
-  | Apply (_, _) ->
-      (* TODO f is free *)
-      prove
-  | _ -> failf "doesn't look like a pure thing"
+  | Subsumes _ -> prove
+  | _ when Core.Simply_typed.could_be_prop g -> prove
+  | _ -> failf "doesn't look like a pure prop"
 
 let intro_pure =
   let* n = fresh in

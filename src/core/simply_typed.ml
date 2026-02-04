@@ -17,22 +17,15 @@ let rec is_pure_term = function
   | Implies (t1, t2) -> is_pure_term t1 && is_pure_term t2
   | _ -> false
 
-(* TODO merge with [could_be_prop] *)
-
-(** TODO: rewrite this to be more robust *)
-let is_prop = function
-  | True
-  | False
-  | Binop _
-  (* binary and unary operators that return bool can be treated as prop *)
-  | Unop _
-  | Conj _
-  | Disj _
-  | Implies _
-  | Subsumes _
-  | Forall _
-  | Exists _
-  | Apply _ -> true
+let rec could_be_prop t =
+  match t with
+  | True | False | Apply _ -> true
+  | Unop (Not, _) | Binop ((Ge | Gt | Eq | Neq | Le | Lt), _, _) -> true
+  | Implies (a, b) | Conj (a, b) | Disj (a, b) -> could_be_prop a && could_be_prop b
+  | Forall b | Exists b ->
+      let _, b = Bindlib.unmbind b in
+      could_be_prop b
+  | Subsumes _ -> false
   | _ -> false
 
 let is_hprop = function
@@ -89,9 +82,7 @@ let check_sort t =
         Ok Sort_term
     | Fun b ->
         let xs, body = Bindlib.unmbind b in
-        let env' =
-          Array.fold_left (fun e x -> TVMap.add x Sort_term e) env xs
-        in
+        let env' = Array.fold_left (fun e x -> TVMap.add x Sort_term e) env xs in
         let* s = check_sort_aux env' body in
         let* () = require (is_term s) "expected term in function body" in
         Ok Sort_staged_spec
@@ -99,37 +90,27 @@ let check_sort t =
     | PointsTo (t1, t2) ->
         let* s1 = check_sort_aux env t1 in
         let* s2 = check_sort_aux env t2 in
-        let* () =
-          require (is_term s1 && is_term s2) "expected term in pointsto"
-        in
+        let* () = require (is_term s1 && is_term s2) "expected term in pointsto" in
         Ok Sort_hprop
     | SepConj (h1, h2) ->
         let* s1 = check_sort_aux env h1 in
         let* s2 = check_sort_aux env h2 in
-        let* () =
-          require (is_hprop s1 && is_hprop s2) "expected hprop in sepconj"
-        in
+        let* () = require (is_hprop s1 && is_hprop s2) "expected hprop in sepconj" in
         Ok Sort_hprop
     | Subsumes (t1, t2) ->
         let* s1 = check_sort_aux env t1 in
         let* s2 = check_sort_aux env t2 in
-        let* () =
-          require (is_term s1 && is_term s2) "expected term in subsumes"
-        in
+        let* () = require (is_term s1 && is_term s2) "expected term in subsumes" in
         Ok Sort_prop
     | Implies (p1, p2) ->
         let* s1 = check_sort_aux env p1 in
         let* s2 = check_sort_aux env p2 in
-        let* () =
-          require (is_prop s1 && is_prop s2) "expected prop in implies"
-        in
+        let* () = require (is_prop s1 && is_prop s2) "expected prop in implies" in
         Ok Sort_prop
     | Wand (p1, p2) ->
         let* s1 = check_sort_aux env p1 in
         let* s2 = check_sort_aux env p2 in
-        let* () =
-          require (is_hprop s1 && is_hprop s2) "expected hprop in wand"
-        in
+        let* () = require (is_hprop s1 && is_hprop s2) "expected hprop in wand" in
         Ok Sort_prop
     | Requires p | Ensures p ->
         let* s = check_sort_aux env p in
@@ -142,29 +123,21 @@ let check_sort t =
         else Error "expected staged spec in sequence"
     | Bind (s, b) ->
         let* r = check_sort_aux env s in
-        let* () =
-          require (is_staged_spec r) "expected staged spec in bind head"
-        in
+        let* () = require (is_staged_spec r) "expected staged spec in bind head" in
         let x, body = Bindlib.unbind b in
         let env' = TVMap.add x Sort_term env in
         let* s_body = check_sort_aux env' body in
-        let* () =
-          require (is_staged_spec s_body) "expected staged spec in bind body"
-        in
+        let* () = require (is_staged_spec s_body) "expected staged spec in bind body" in
         Ok Sort_staged_spec
     | Shift b ->
         let k, body = Bindlib.unbind b in
         let env' = TVMap.add k Sort_term env in
         let* s_body = check_sort_aux env' body in
-        let* () =
-          require (is_staged_spec s_body) "expected staged spec in shift body"
-        in
+        let* () = require (is_staged_spec s_body) "expected staged spec in shift body" in
         Ok Sort_staged_spec
     | Reset s ->
         let* s_res = check_sort_aux env s in
-        let* () =
-          require (is_staged_spec s_res) "expected staged spec in reset"
-        in
+        let* () = require (is_staged_spec s_res) "expected staged spec in reset" in
         Ok Sort_staged_spec
     | Conj (t1, t2) ->
         let* s1 = check_sort_aux env t1 in
@@ -182,9 +155,7 @@ let check_sort t =
         else Error "ill-sorted disjunction"
     | Forall b | Exists b ->
         let xs, body = Bindlib.unmbind b in
-        let env' =
-          Array.fold_left (fun e x -> TVMap.add x Sort_term e) env xs
-        in
+        let env' = Array.fold_left (fun e x -> TVMap.add x Sort_term e) env xs in
         let* s = check_sort_aux env' body in
         (match s with
         | Sort_prop | Sort_staged_spec | Sort_hprop -> Ok s
