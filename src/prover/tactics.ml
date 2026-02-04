@@ -7,34 +7,12 @@ open Tactic
 open Util
 open Syntax_util
 
-let is_pure t =
-  match t with
-  | Emp | PointsTo _ | SepConj _ -> false
-  | _ -> true
-
-let is_heap t =
-  match t with
-  | Emp | PointsTo _ | SepConj _ -> true
-  | _ -> false
-
 let parse_term ts =
   let open Parsing.Parse in
   let* constants = get_constants in
   pure (parse_term ~ctx:constants ts)
 
 let admit = () <$ pop_pctxt
-
-let uncons_ens f =
-  match f with
-  | Sequence (Ensures p, rest) when is_pure p -> pure (p, rest)
-  | Ensures p when is_pure p -> pure (p, Ensures Emp)
-  | _ -> fail "cannot uncons pure ens"
-
-let uncons_req f =
-  match f with
-  | Sequence (Requires p, rest) when is_pure p -> pure (p, rest)
-  | Requires p when is_pure p -> pure (p, Requires Emp)
-  | _ -> fail "cannot uncons pure req"
 
 let get_subsumption =
   let* t = get_goal in
@@ -242,7 +220,7 @@ let goal_is s =
 
 let refl =
   let* lhs, rhs = get_subsumption in
-  if equal_term lhs rhs then pop_pctxt else fail "refl: cannot close goal"
+  if equal_term lhs rhs then () <$ pop_pctxt else fail "refl: cannot close goal"
 
 module Simpl = struct
   let simpl_beta = Tactic.modify_goal Simpl.simpl_beta

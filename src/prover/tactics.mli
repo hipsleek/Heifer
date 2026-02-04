@@ -8,7 +8,7 @@ val specialize : string -> string list -> unit t
 val have : name:string -> string -> unit t
 val case : name:string -> string -> unit t
 val goal_is : string -> unit t
-val refl : Pctx.t t
+val refl : unit t
 val rewrite : [ `Ltr | `Rtl ] -> term -> unit t
 val induction : ?vars:string list -> name:string -> [ `Int of int | `List ] -> string -> unit t
 val prove : unit t
@@ -72,10 +72,6 @@ end
 (** Tactic scripting *)
 
 val parse_term : string -> term t
-val is_pure : term -> bool
-val is_heap : term -> bool
-val uncons_ens : term -> (term * term) t
-val uncons_req : term -> (term * term) t
 val get_subsumption : (term * term) t
 val put_subsumption : term -> term -> unit t
 val put_lhs : term -> unit t
