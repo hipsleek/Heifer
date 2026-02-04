@@ -158,6 +158,19 @@ let%expect_test "application" =
   [%expect {|
     Apply (Symbol f, [Int 1, Int 2])
     f 1 2
+    |}];
+
+  (* TODO fix printing *)
+  test ~dump:true "f (g 2)";
+  [%expect {|
+    Apply (Symbol f, [Apply (Symbol g, [Int 2])])
+    f g 2
+    |}];
+
+  test ~dump:true "f (g 2) 3";
+  [%expect {|
+    Apply (Symbol f, [Apply (Symbol g, [Int 2]), Int 3])
+    f g 2 3
     |}]
 
 let%expect_test "definitions and entailments" =
