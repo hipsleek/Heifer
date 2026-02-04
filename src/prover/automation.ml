@@ -98,26 +98,26 @@ let possible_rewrites2 self : cert_tac t list t =
   pure
     (hyps
     |> List.filter_map (fun (n, s) ->
-        match s with
-        | Forall _ | Implies _ | Subsumes _ | Binop (Eq, _, _) ->
-            (* TODO use rewrite parsing function *)
-            (* TODO take lemmas from global context? *)
-            (* Format.printf "chosen for rewrite %a@." pp_term s; *)
-            Some
-              (let* () = rewrite `Ltr s in
-               (* Format.printf "rewrote %a@." pp_term s; *)
-               let* gs = get in
-               let* sub : cert list =
-                 map_m
-                   (fun g ->
-                     let* () = put [g] in
-                     self ())
-                   gs
-               in
-               let* () = put [] in
-               let init, tail = init_last sub in
-               pure (Rewrite (n, s, init, tail)))
-        | _ -> None))
+        try
+          let _ = Rewrite.make_rule s in
+          (* TODO take lemmas from global context? *)
+          (* Format.printf "chosen for rewrite %a@." pp_term s; *)
+          Some
+            (let* () = rewrite `Ltr s in
+             (* Format.printf "rewrote %a@." pp_term s; *)
+             let* gs = get in
+             let* sub : cert list =
+               map_m
+                 (fun g ->
+                   let* () = put [g] in
+                   self ())
+                 gs
+             in
+             let* () = put [] in
+             let init, tail = init_last sub in
+             pure (Rewrite (n, s, init, tail)))
+          (* | _ -> None *)
+        with Invalid_argument _ -> None))
 
 let disj_elim self =
   let* () = Disj.disj_elim in

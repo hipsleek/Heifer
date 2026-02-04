@@ -2,10 +2,6 @@ open Core.Syntax
 
 exception Rewrite_failure of string
 
-type rewrite_relation =
-  | Relation_eq
-  | Relation_subsumes
-
 (** A rewriting rule is of the form:
     {[
       forall x. cond x => forall y. cond x y => ... => lhs x y "rel" rhs x y
@@ -18,6 +14,10 @@ type rewrite_rule
 
 (** Turn a term into a [rule], or raise [Invalid_argument]. *)
 val make_rule : ?direction:[ `Rtl | `Ltr ] -> term -> rewrite_rule
+
+type rewrite_relation =
+  | Relation_eq
+  | Relation_subsumes
 
 val get_rule_relation : rewrite_rule -> rewrite_relation
 val get_rule_conditions : rewrite_rule -> term list
