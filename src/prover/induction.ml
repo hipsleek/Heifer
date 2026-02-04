@@ -6,6 +6,7 @@ type induction_hypothesis = (term, prop) mbinder
 
 let build_wf_premise wf x y =
   match wf with
+  | `Regex -> Mk.(apply (symbol { sym_name = "subregex" }) (box_list [box_var y; box_var x]))
   | `List -> Mk.(apply (symbol { sym_name = "sublist" }) (box_list [box_var y; box_var x]))
   | `Int n ->
       let ge = Mk.(binop Ge (box_var y) (int n)) in

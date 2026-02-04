@@ -57,6 +57,9 @@ val prove_s : string -> [> `Invalid | `Unknown of string | `Valid ]
 val simple : unit -> unit
 val simple2 : unit -> (Automation.cert * Pstate.t, string) result
 val unfold : string -> unit
-val induction : ?vars:string list -> name:string -> [ `Int of int | `List ] -> string -> unit
+
+val induction :
+  ?vars:string list -> name:string -> [ `Int of int | `List | `Regex ] -> string -> unit
+
 val interactive_get_assumption : string -> term Tactic.t
 val rewrite : ?direction:[ `Ltr | `Rtl ] -> string -> unit

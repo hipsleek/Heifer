@@ -157,7 +157,8 @@ let unfold name =
   run_tactic tactic
 
 (** Generate an induction hypothesis in the current proof state. *)
-let induction : ?vars:string list -> name:string -> [ `List | `Int of int ] -> string -> unit =
+let induction :
+    ?vars:string list -> name:string -> [ `Regex | `List | `Int of int ] -> string -> unit =
  fun ?(vars = []) ~name kind x -> run_tactic (induction ~vars ~name kind x)
 
 let interactive_get_assumption name =

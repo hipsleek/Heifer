@@ -11,7 +11,10 @@ val goal_is : string -> unit t
 val refl : unit t
 val pre_rewrite : Rewrite.rewrite_rule -> unit t
 val rewrite : ?direction:[ `Ltr | `Rtl ] -> term -> unit t
-val induction : ?vars:string list -> name:string -> [ `Int of int | `List ] -> string -> unit t
+
+val induction :
+  ?vars:string list -> name:string -> [ `Int of int | `List | `Regex ] -> string -> unit t
+
 val prove : unit t
 
 module Pures : sig
