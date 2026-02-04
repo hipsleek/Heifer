@@ -138,7 +138,7 @@ let prove_s s = Why3_prover.prove ~show_goal:true (Parsing.Parse.parse_prop s)
 
 (* let simple () = run_tactic Automation.simple *)
 let simple = make_interactive (fun () -> Automation.simple)
-let simple2 () = Automation.solve_cert (get_goals ())
+let simple2 () = Automation.solve_cert ~lemmas:(get_lemmas () |> SMap.bindings) (get_goals ())
 
 (** Unfold a definition (symbol) on both side of a sequent in the current proof state. *)
 let unfold name =

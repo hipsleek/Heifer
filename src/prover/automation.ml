@@ -92,32 +92,38 @@ let focus_and_solve_with tac =
           Format.printf "%a@." Pstate.pp gs1;
           failf "failed to solve entirely")
 
-let possible_rewrites2 self : cert_tac t list t =
+let possible_rewrites2 self lemmas : cert_tac t list t =
   (* TODO prevent a rewrite from being taken multiple times? *)
   let* hyps = get_assumptions <&> SMap.bindings in
-  pure
-    (hyps
-    |> List.filter_map (fun (n, s) ->
+  let rules = hyps @ lemmas in
+  let rules =
+    rules
+    |> List.filter (fun (_n, s) ->
         try
-          let _ = Rewrite.make_rule s in
-          (* TODO take lemmas from global context? *)
-          (* Format.printf "chosen for rewrite %a@." pp_term s; *)
-          Some
-            (let* () = rewrite `Ltr s in
-             (* Format.printf "rewrote %a@." pp_term s; *)
-             let* gs = get in
-             let* sub : cert list =
-               map_m
-                 (fun g ->
-                   let* () = put [g] in
-                   self ())
-                 gs
-             in
-             let* () = put [] in
-             let init, tail = init_last sub in
-             pure (Rewrite (n, s, init, tail)))
-          (* | _ -> None *)
-        with Invalid_argument _ -> None))
+          Rewrite.make_rule s |> ignore;
+          true
+        with Invalid_argument _ -> false)
+  in
+  let rules =
+    rules
+    |> List.map (fun (n, s) ->
+        (* Format.printf "chosen for rewrite %a@." pp_term s; *)
+        let* () = rewrite `Ltr s in
+        (* Format.printf "rewrote %a@." pp_term s; *)
+        let* gs = get in
+        let* sub : cert list =
+          map_m
+            (fun g ->
+              let* () = put [g] in
+              self ())
+            gs
+        in
+        let* () = put [] in
+        let init, tail = init_last sub in
+        pure (Rewrite (n, s, init, tail))
+        (* | _ -> None *))
+  in
+  pure rules
 
 let disj_elim self =
   let* () = Disj.disj_elim in
@@ -135,7 +141,7 @@ let disj_elim self =
       Format.printf "failed@.";
       failf "invalid state after disj, tactic error?"
 
-let solve_cert : cert t =
+let solve_cert ?(lemmas = []) : cert t =
   (* let* gs = get in *)
   (* with_focus Disj.disj_elim (fun gs1 -> pure ()) *)
   let rec solve () : cert t =
@@ -148,7 +154,7 @@ let solve_cert : cert t =
         (* Format.printf "return empty@."; *)
         pure []
     | _ :: _ ->
-        let* possible_rewrites = possible_rewrites2 solve in
+        let* possible_rewrites = possible_rewrites2 solve lemmas in
         let* pf =
           Simpl.simpl
           *> choices
