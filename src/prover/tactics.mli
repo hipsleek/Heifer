@@ -31,6 +31,7 @@ module Simpl : sig
   val simpl_beta : unit t
   val simpl : unit t
   val shift_reset_reduce : unit t
+  val control_prompt_reduce : unit t
   val prenex_assoc : unit t
 end
 

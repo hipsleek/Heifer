@@ -226,6 +226,7 @@ module Simpl = struct
   let simpl_beta = Tactic.modify_goal Simpl.simpl_beta
   let simpl = Tactic.modify_goal Simpl.simpl
   let shift_reset_reduce = Tactic.modify_goal Shift_reset.reduce
+  let control_prompt_reduce = Tactic.modify_goal Control_prompt.reduce
   let prenex_assoc = Tactic.modify_goal Prenex.prenex_assoc
 end
 
