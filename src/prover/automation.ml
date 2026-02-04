@@ -5,24 +5,20 @@ open Util.Strings
 open Util.Lists
 open Tactic
 open Tactics
+open Automation_heuristic
 
 let rec repeat (tac : unit t) : unit t =
  fun s ->
+  if List.is_empty s then Ok ((), s) else
   match tac s with
-  | Error _ ->
-      (* Format.printf "repeat stopped@."; *)
-      (* repeat never fails *)
-      (* TODO repeat should stop when progress stops, not on failure? *)
-      Ok ((), s)
-  | Ok ((), s1) ->
-      (* Format.printf "repeating@."; *)
-      repeat tac s1
+  | Error e -> Error e    
+  | Ok ((), s) -> repeat tac s
 
 let maybe_prove_pure =
   let* g = get_goal in
   match g with
-  | Subsumes _ -> prove
-  | _ when Simply_typed.is_prop g -> prove
+  (* | Subsumes _ -> prove *)
+  | _ when Simply_typed.is_prop g -> Pure.pure_solver
   | _ -> failf "doesn't look like a pure prop"
 
 let intro_pure =
@@ -196,20 +192,24 @@ let possible_rewrites : unit t list t =
 let simple =
   let solve =
     let* possible_rewrites = possible_rewrites in
-    repeat
-      (Simpl.simpl
-      *> choices
-           ([
-              Disj.disj_elim *> dbg "disj_elim";
-              Disj.left *> dbg "left";
-              Disj.right *> dbg "right";
-              forall_intro *> dbg "forall_intro";
-              exists_elim *> dbg "exists_elim";
-              (intro_pure $> ()) *> dbg "intro pure";
-              Pure.elim_pure *> dbg "elim_pure";
-              refl *> dbg "refl";
-            ]
-           @ [maybe_prove_pure *> dbg "prove pure"]
-           @ possible_rewrites))
+    let rec go () =
+      repeat
+        (Simpl.simpl
+        *> choices
+             ([
+                Disj.disj_elim *> dbg "disj_elim";
+                Disj.left *> dbg "left" >>= go;
+                Disj.right *> dbg "right" >>= go;
+                forall_intro *> dbg "forall_intro";
+                exists_elim *> dbg "exists_elim";
+                forall_elim_heuristic *> dbg "forall_elim";
+                exists_intro_heuristic *> dbg "exists_intro";
+                (intro_pure $> ()) *> dbg "intro_pure";
+                Pure.elim_pure *> dbg "elim_pure";
+                refl *> dbg "refl";
+              ]
+            @ [maybe_prove_pure *> dbg "prove pure"]
+            @ possible_rewrites))
+    in go ()
   in
   () <$ try_ (focus_and_solve_with solve)

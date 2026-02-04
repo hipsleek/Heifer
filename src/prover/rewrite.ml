@@ -162,7 +162,9 @@ let pre_rewrite_root rule bvars target =
     | Some args -> args
     | None -> raise (Rewrite_failure "uninstantiated unification variables")
   in
-  (frame (msubst rwr_rhs_mbinder args), msubst rwr_conditions_mbinder args)
+  let result = frame (msubst rwr_rhs_mbinder args) in
+  if equal_term target result then raise (Rewrite_failure "no progress");
+  result, msubst rwr_conditions_mbinder args
 
 (** Traverse the target and rewrite using the given rule everywhere in it.
 

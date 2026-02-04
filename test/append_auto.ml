@@ -42,12 +42,14 @@ declare
 
 lemma ~name:"append_sh/append_cps"
   {|
+    (forall f. (fun x -> f x) <: f) =>
     forall xs k.
       (forall r. reset (k r) <: k r) =>
       reset (append_sh xs; r. k r) <: append_cps xs k
   |}
 ;;
 
+intro_pure "eta_reduce";;
 forall_intro ();;
 revert "k";;
 induction ~name:"IH" `List "xs";;
@@ -56,3 +58,7 @@ intro_pure "Hk";;
 unfold "append_sh";;
 unfold "append_cps";;
 shift_reset_reduce ();;
+simple ();;
+qed ();;
+
+Options.fail_fast := false;;
