@@ -120,6 +120,25 @@ let%expect_test "basics" =
   test "forall x. forall y. ens x=y";
   [%expect {| forall x. (forall y. ens x=y) |}]
 
+let%expect_test "options" =
+  test ~dump:true "None";
+  [%expect {|
+    None
+    None
+    |}];
+
+  test ~dump:true "Some 1";
+  [%expect {|
+    Some (Int 1)
+    Some 1
+    |}];
+
+  test ~dump:true "Some 1 + 1";
+  [%expect {|
+    Binop (Plus, Some (Int 1), Int 1)
+    Some 1+1
+    |}]
+
 let%expect_test "tuples" =
   (* empty tuples are not allowed *)
   test ~dump:true "()";

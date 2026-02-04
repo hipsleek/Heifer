@@ -6,22 +6,28 @@ open Ptree_helpers
 let rec is_translatable t =
   match t with
   | Symbol _ | Var _ | True | False -> true (* atomic propositions *)
-  | Unit | Nil | Emp | Int _ | Tuple _ -> true (* term *)
+  | Unit | Nil | Emp | Int _ | Tuple _ | OSome _ | ONone -> true (* term *)
   | Binop ((Lt | Le | Gt | Ge | Eq | Neq | Plus | Minus | Times | Cons), t1, t2) ->
       is_translatable t1 && is_translatable t2
   | Unop ((Not | Neg), t) -> is_translatable t
   | Forall b | Exists b -> is_translatable_mbinder b
   | Apply (t, ts) -> is_translatable t && is_translatable_list ts
-  | Conj (t1, t2) | Disj (t1, t2) | Implies (t1, t2) ->
-      is_translatable t1 && is_translatable t2
+  | Conj (t1, t2) | Disj (t1, t2) | Implies (t1, t2) -> is_translatable t1 && is_translatable t2
   | Sequence (t1, t2) -> is_translatable t1 && is_translatable t2
-  | Bind (t, b) -> is_translatable t && is_translatable_binder b
+  | Bind (t, b) ->
+      is_translatable t && is_translatable_binder b
       (* staged logic and separation logic can't be translated *)
-  | Fun _ | Requires _ | Ensures _ | Subsumes _
-  | PointsTo _ | SepConj _ | Wand _ | Shift _ | Reset _ -> false
+  | Fun _
+  | Requires _
+  | Ensures _
+  | Subsumes _
+  | PointsTo _
+  | SepConj _
+  | Wand _
+  | Shift _
+  | Reset _ -> false
 
-and is_translatable_list ts =
-  List.for_all is_translatable ts
+and is_translatable_list ts = List.for_all is_translatable ts
 
 and is_translatable_binder b =
   let _, t = Bindlib.unbind b in
@@ -32,7 +38,7 @@ and is_translatable_mbinder b =
   is_translatable t
 
 let var_to_param x =
-  Loc.dummy_position, Some (ident x), false, Some (PTtyapp (qualid ["term"], []))
+  (Loc.dummy_position, Some (ident x), false, Some (PTtyapp (qualid ["term"], [])))
 
 let vars_to_params = List.map var_to_param
 
@@ -40,19 +46,17 @@ type kind =
   | Formula
   | Term
 
-let coerce_to_prop t =
-  tapp (qualid [Ident.op_infix "="]) [t; tapp (qualid ["TBool"]) [term Ttrue]]
+let coerce_to_prop t = tapp (qualid [Ident.op_infix "="]) [t; tapp (qualid ["TBool"]) [term Ttrue]]
 
 (** Implemented cases should be kept in sync with [is_translatable].
 
-    This translation is contetxtual: it depends on what the expected type of the
-    context (initially Formula) is. We need this because we model both terms and
-    props (called "formula" in Why3) in one type (due to allowing props to
-    appear inside terms), whereas Why3 separates them.
+    This translation is contetxtual: it depends on what the expected type of the context (initially
+    Formula) is. We need this because we model both terms and props (called "formula" in Why3) in
+    one type (due to allowing props to appear inside terms), whereas Why3 separates them.
 
-    This translation assumes that propos do not appear in terms (i.e. once the
-    context type becomes Term, it never changes back to Formula), as that's
-    supposed to be handled by the staged logic prover. *)
+    This translation assumes that propos do not appear in terms (i.e. once the context type becomes
+    Term, it never changes back to Formula), as that's supposed to be handled by the staged logic
+    prover. *)
 let rec term_to_whyml_aux ctxt kind t =
   (* let s =
     match kind with
@@ -70,6 +74,9 @@ let rec term_to_whyml_aux ctxt kind t =
   | True, Formula -> term Ttrue
   | False, Formula -> term Tfalse
   | Nil, Formula -> failwith "nil cannot be used as a formula"
+  | ONone, Term -> tvar (qualid ["TNone"])
+  | OSome a, Term -> tapp (qualid ["TSome"]) [term_to_whyml_aux ctxt Term a]
+  | (OSome _ | ONone), Formula -> failwith "option values cannot be used as a formula"
   | Int _, Formula -> failwith "int cannot be used as a formula"
   | Binop (Times, a, b), Term ->
       tapp (qualid ["times"])
@@ -77,14 +84,11 @@ let rec term_to_whyml_aux ctxt kind t =
         [term_to_whyml_aux ctxt Term a; term_to_whyml_aux ctxt Term b]
   | Binop (Plus, a, b), Term ->
       (* tapp (qualid ["Int"; Ident.op_infix "+"]) [term_to_whyml_aux ctxt Term a; term_to_whyml_aux ctxt Term b] *)
-      tapp (qualid ["plus"])
-        [term_to_whyml_aux ctxt Term a; term_to_whyml_aux ctxt Term b]
+      tapp (qualid ["plus"]) [term_to_whyml_aux ctxt Term a; term_to_whyml_aux ctxt Term b]
   | Binop (Minus, a, b), Term ->
-      tapp (qualid ["minus"])
-        [term_to_whyml_aux ctxt Term a; term_to_whyml_aux ctxt Term b]
+      tapp (qualid ["minus"]) [term_to_whyml_aux ctxt Term a; term_to_whyml_aux ctxt Term b]
   | Binop (Cons, h, t), Term ->
-      tapp (qualid ["TCons"])
-        [term_to_whyml_aux ctxt Term h; term_to_whyml_aux ctxt Term t]
+      tapp (qualid ["TCons"]) [term_to_whyml_aux ctxt Term h; term_to_whyml_aux ctxt Term t]
   | Binop ((Times | Plus | Minus | Cons), _, _), Formula ->
       failwith "binop cannot be used as a formula"
   | Unop (Not, a), Formula -> term (Tnot (term_to_whyml_aux ctxt Formula a))
@@ -121,43 +125,27 @@ let rec term_to_whyml_aux ctxt kind t =
   | Forall b, Formula ->
       let xs, b, ctxt = Bindlib.unmbind_in ctxt b in
       let xs = Array.to_list xs |> List.map Bindlib.name_of in
-      term
-        (Tquant
-           ( Dterm.DTforall,
-             vars_to_params xs,
-             [],
-             term_to_whyml_aux ctxt Formula b ))
+      term (Tquant (Dterm.DTforall, vars_to_params xs, [], term_to_whyml_aux ctxt Formula b))
   | Exists b, Formula ->
       let xs, b, ctxt = Bindlib.unmbind_in ctxt b in
       let xs = Array.to_list xs |> List.map Bindlib.name_of in
-      term
-        (Tquant
-           ( Dterm.DTexists,
-             vars_to_params xs,
-             [],
-             term_to_whyml_aux ctxt Formula b ))
-  | (Forall _ | Exists _), Term ->
-      failwith "quantifiers cannot be used as a term"
+      term (Tquant (Dterm.DTexists, vars_to_params xs, [], term_to_whyml_aux ctxt Formula b))
+  | (Forall _ | Exists _), Term -> failwith "quantifiers cannot be used as a term"
   | Binop (Eq, a, b), Term ->
       tapp
         (* (qualid [Ident.op_infix "="]) *)
         (qualid ["eq"])
         [term_to_whyml_aux ctxt Term a; term_to_whyml_aux ctxt Term b]
   | Binop (Gt, a, b), Term ->
-      tapp (qualid ["gt"])
-        [term_to_whyml_aux ctxt Term a; term_to_whyml_aux ctxt Term b]
+      tapp (qualid ["gt"]) [term_to_whyml_aux ctxt Term a; term_to_whyml_aux ctxt Term b]
   | Binop (Lt, a, b), Term ->
-      tapp (qualid ["lt"])
-        [term_to_whyml_aux ctxt Term a; term_to_whyml_aux ctxt Term b]
+      tapp (qualid ["lt"]) [term_to_whyml_aux ctxt Term a; term_to_whyml_aux ctxt Term b]
   | Binop (Le, a, b), Term ->
-      tapp (qualid ["le"])
-        [term_to_whyml_aux ctxt Term a; term_to_whyml_aux ctxt Term b]
+      tapp (qualid ["le"]) [term_to_whyml_aux ctxt Term a; term_to_whyml_aux ctxt Term b]
   | Binop (Ge, a, b), Term ->
-      tapp (qualid ["ge"])
-        [term_to_whyml_aux ctxt Term a; term_to_whyml_aux ctxt Term b]
+      tapp (qualid ["ge"]) [term_to_whyml_aux ctxt Term a; term_to_whyml_aux ctxt Term b]
   | Binop (Neq, a, b), Term ->
-      tapp (qualid ["neq"])
-        [term_to_whyml_aux ctxt Term a; term_to_whyml_aux ctxt Term b]
+      tapp (qualid ["neq"]) [term_to_whyml_aux ctxt Term a; term_to_whyml_aux ctxt Term b]
   | Binop (Eq, a, b), Formula ->
       tapp
         (qualid [Ident.op_infix "="])
@@ -166,8 +154,7 @@ let rec term_to_whyml_aux ctxt kind t =
       tapp
         (qualid [Ident.op_infix "<>"])
         [term_to_whyml_aux ctxt Term a; term_to_whyml_aux ctxt Term b]
-  | Binop ((Gt | Lt | Le | Ge), _, _), Formula ->
-      coerce_to_prop (term_to_whyml_aux ctxt Term t)
+  | Binop ((Gt | Lt | Le | Ge), _, _), Formula -> coerce_to_prop (term_to_whyml_aux ctxt Term t)
   | Conj (t1, t2), Term ->
       tapp (qualid ["and"]) [term_to_whyml_aux ctxt Term t1; term_to_whyml_aux ctxt Term t2]
   | Conj (t1, t2), Formula ->
@@ -190,8 +177,5 @@ let rec term_to_whyml_aux ctxt kind t =
   | Requires _, _ | Ensures _, _ | Shift _, _ | Reset _, _ ->
       failwith "staged logic not handled at this level"
 
-let term_to_whyml t =
-  term_to_whyml_aux Bindlib.(free_vars (box_term t)) Formula t
-
-let term_to_whyml_opt t =
-  try Some (term_to_whyml t) with Failure _ -> None
+let term_to_whyml t = term_to_whyml_aux Bindlib.(free_vars (box_term t)) Formula t
+let term_to_whyml_opt t = try Some (term_to_whyml t) with Failure _ -> None

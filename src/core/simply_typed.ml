@@ -11,7 +11,7 @@ let rec is_pure_term = function
   | Tuple _ -> true
   | Binop (_, t1, t2) -> is_pure_term t1 && is_pure_term t2
   | Unop (_, t) -> is_pure_term t
-  | Nil -> true
+  | ONone | OSome _ | Nil -> true
   | Conj (t1, t2) -> is_pure_term t1 && is_pure_term t2
   | Disj (t1, t2) -> is_pure_term t1 && is_pure_term t2
   | Implies (t1, t2) -> is_pure_term t1 && is_pure_term t2
@@ -45,7 +45,11 @@ let check_sort t =
     let require cond msg = if cond then Ok () else Error msg in
     match t with
     | Var x -> Ok (try TVMap.find x env with Not_found -> Sort_term)
-    | Symbol _ | Unit | True | False | Int _ | Nil -> Ok Sort_term
+    | Symbol _ | Unit | True | False | Int _ | Nil | ONone -> Ok Sort_term
+    | OSome t ->
+        let* s = check_sort_aux env t in
+        let* () = require (is_term s) "expected term in some" in
+        Ok Sort_term
     | Tuple ts ->
         let* () =
           List.fold_left

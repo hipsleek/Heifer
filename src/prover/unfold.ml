@@ -6,7 +6,8 @@ open Core.Syntax_util
 
 let rec unfold sym def t =
   match t with
-  | Unit | True | False | Nil | Emp | Var _ | Symbol _ | Int _ -> t
+  | Unit | True | False | Nil | Emp | Var _ | Symbol _ | Int _ | ONone -> t
+  | OSome t -> OSome (unfold sym def t)
   | Requires t -> Requires (unfold sym def t)
   | Ensures t -> Ensures (unfold sym def t)
   | Sequence (t1, t2) -> Sequence (unfold sym def t1, unfold sym def t2)

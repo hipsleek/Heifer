@@ -58,6 +58,8 @@ let rec pp_term_prec prec ctxt ppf = function
   | Symbol sym -> Fmt.string ppf sym.sym_name
   | Unit -> Fmt.string ppf "()"
   | Nil -> Fmt.string ppf "[]"
+  | ONone -> Fmt.string ppf "None"
+  | OSome t -> Fmt.pf ppf "Some %a" (pp_term_prec OpInfo.prec_app ctxt) t
   | True -> Fmt.string ppf "true"
   | False -> Fmt.string ppf "false"
   | Int i -> Fmt.int ppf i
@@ -68,27 +70,19 @@ let rec pp_term_prec prec ctxt ppf = function
       Fmt.pf ppf "@[<hov 2>(fun %a ->@ %a)@]"
         Fmt.(array ~sep:(any " ") string)
         (names_of x) (pp_term_prec 0 ctxt) body
-  | Tuple ts ->
-      Fmt.pf ppf "@[<hov 2>(%a)@]"
-        Fmt.(list ~sep:(any ",@ ") (pp_term_prec 0 ctxt))
-        ts
+  | Tuple ts -> Fmt.pf ppf "@[<hov 2>(%a)@]" Fmt.(list ~sep:(any ",@ ") (pp_term_prec 0 ctxt)) ts
   | Binop (op, t1, t2) ->
       let sym, assoc, prec' = OpInfo.binary op in
       let left_prec = if assoc = `Right then prec' else prec' - 1 in
       let right_prec = if assoc = `Left then prec' else prec' - 1 in
       let pp ppf () =
-        Fmt.pf ppf "@[<hov 2>%a%s%a@]"
-          (pp_term_prec left_prec ctxt)
-          t1 sym
-          (pp_term_prec right_prec ctxt)
-          t2
+        Fmt.pf ppf "@[<hov 2>%a%s%a@]" (pp_term_prec left_prec ctxt) t1 sym
+          (pp_term_prec right_prec ctxt) t2
       in
       parens_if (prec' <= prec) pp ppf ()
   | Unop (op, t) ->
       let sym, prec' = OpInfo.unary op in
-      let pp ppf () =
-        Fmt.pf ppf "@[<hov 2>%s%a@]" sym (pp_term_prec (prec - 1) ctxt) t
-      in
+      let pp ppf () = Fmt.pf ppf "@[<hov 2>%s%a@]" sym (pp_term_prec (prec - 1) ctxt) t in
       parens_if (prec' <= prec) pp ppf ()
   (* | Forall b ->
     let x, body, ctxt = unmbind_in ctxt b in
@@ -140,8 +134,7 @@ let rec pp_term_prec prec ctxt ppf = function
   | Emp -> Fmt.string ppf "emp"
   | PointsTo (t1, t2) ->
       let pp ppf () =
-        Fmt.pf ppf "@[<hov 2>%a->%a@]" (pp_term_prec 0 ctxt) t1
-          (pp_term_prec 0 ctxt) t2
+        Fmt.pf ppf "@[<hov 2>%a->%a@]" (pp_term_prec 0 ctxt) t1 (pp_term_prec 0 ctxt) t2
       in
       parens_if (OpInfo.prec_pointsto <= prec) pp ppf ()
   | SepConj (h1, h2) ->
@@ -215,11 +208,8 @@ let rec pp_term_prec prec ctxt ppf = function
       parens_if (OpInfo.prec_binder <= prec) pp ppf ()
   | Shift b ->
       let k, body, ctxt = unbind_in ctxt b in
-      Fmt.pf ppf "@[<hov 2>shift %s@ %a@]" (name_of k)
-        (pp_term_prec OpInfo.prec_app ctxt)
-        body
+      Fmt.pf ppf "@[<hov 2>shift %s@ %a@]" (name_of k) (pp_term_prec OpInfo.prec_app ctxt) body
   | Reset s -> Fmt.pf ppf "@[<hov 2>reset@ (%a)@]" (pp_term_prec 0 ctxt) s
 
 let pp_term_in = pp_term_prec 0
-
 let pp_term ppf t = pp_term_in (free_vars (box_term t)) ppf t
