@@ -7,6 +7,8 @@ open Tactic
 open Util
 open Syntax_util
 
+let pp_term ppf t = if !Proof_options.notation then pp_term ppf t else dump_term ppf t
+
 let parse_term ts =
   let open Parsing.Parse in
   let* constants = get_constants in

@@ -4,6 +4,8 @@ open Core.Pretty
 open Bindlib
 open Util.Strings
 
+let pp_term ppf t = if !Proof_options.notation then pp_term ppf t else dump_term ppf t
+
 type t = {
   rename_ctxt : Rename.ctxt;
   constants : term var SMap.t;
@@ -53,7 +55,6 @@ let pp_goal pp_term ppf = function
 
 let pp ppf { rename_ctxt = _; constants; assumptions; heap_assumptions; goal } =
   (* TODO: pp_term_in rename_ctxt *)
-  let pp_term = if !Proof_options.notation then pp_term else dump_term in
   Fmt.pf ppf "@[<v>";
   pp_constants Fmt.string ppf constants;
   pp_assumptions Fmt.string pp_term ppf assumptions;
