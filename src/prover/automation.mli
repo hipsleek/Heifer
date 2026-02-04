@@ -25,6 +25,6 @@ type cert_tac =
 
 and cert = cert_tac list
 
-val pp_cert_tac : cert_tac Fmt.t
-val pp_cert : Format.formatter -> cert -> unit
+val pp_cert_tac : cert_tac Fmt.t [@@toplevel_printer]
+val pp_cert : Format.formatter -> cert -> unit [@@toplevel_printer]
 val solve_cert : cert t
