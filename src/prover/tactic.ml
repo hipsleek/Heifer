@@ -19,29 +19,43 @@ let fail s = fun _ -> Error s
 let failf fmt = Format.kasprintf fail fmt
 let pure x = fun s -> Ok (x, s)
 let map f m = fun s -> Result.map (fun (x, s) -> (f x, s)) (m s)
-let ( let+ ) m f = map f m
 let mapl x m = fun s -> Result.map (fun (_, s) -> (x, s)) (m s)
+let mapr m x = fun s -> Result.map (fun (_, s) -> (x, s)) (m s)
 
-let mapr m x =
-  let+ _ = m in
-  x
+let lift2 f m1 m2 =
+ fun s ->
+  match m1 s with
+  | Error e -> Error e
+  | Ok (x, s) ->
+      (match m2 s with
+      | Ok (y, s) -> Ok (f x y, s)
+      | Error e -> Error e)
+
+let seql m1 m2 =
+ fun s ->
+  match m1 s with
+  | Error e -> Error e
+  | Ok (x, s) ->
+      (match m2 s with
+      | Ok (_, s) -> Ok (x, s)
+      | Error e -> Error e)
+
+let seqr m1 m2 =
+ fun s ->
+  match m1 s with
+  | Error e -> Error e
+  | Ok (_, s) -> m2 s
 
 let bind m f = fun s -> Result.bind (m s) (fun (x, s) -> f x s)
+let ( let+ ) m f = map f m
 let ( let* ) = bind
 let ( <$> ) = map
-let ( $> ) = mapr
 let ( <$ ) = mapl
+let ( $> ) = mapr
 let ( <&> ) m f = map f m
+let ( <* ) = seql
+let ( *> ) = seqr
 let ( >>= ) = bind
-
-let ( *> ) a b =
-  let* () = a in
-  b
-
-let ( <* ) a b =
-  let* r = a in
-  let* () = b in
-  pure r
 
 let choice m1 m2 =
  fun s ->
@@ -65,8 +79,7 @@ let rec map_m f = function
   | [] -> pure []
   | x :: xs ->
       let* y = f x in
-      let* ys = map_m f xs in
-      pure (y :: ys)
+      List.cons y <$> map_m f xs
 
 let rec iter_m f = function
   | [] -> pure ()
