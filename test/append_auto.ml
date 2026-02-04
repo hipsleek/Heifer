@@ -61,4 +61,20 @@ shift_reset_reduce ();;
 simple ();;
 qed ();;
 
+lemma ~name:"append_cps/append_pure"
+  {|
+    forall xs ys k.
+      append_cps xs k; f. f ys <: append_pure xs ys; r. k r
+  |}
+;;
+
+forall_intro ();;
+revert "k";;
+induction ~name:"IH" `List "xs";;
+forall_intro ();;
+unfold "append_cps";;
+unfold "append_pure";;
+simple ();;
+qed ();;
+
 Options.fail_fast := false;;
