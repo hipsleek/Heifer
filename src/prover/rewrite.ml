@@ -7,10 +7,6 @@ open Util.Snoc_list
 
 exception Rewrite_failure of string
 
-type rewrite_relation =
-  | Relation_eq
-  | Relation_subsumes
-
 type rewrite_rule = {
   (* unification variables, collected to an array (mvar) *)
   rwr_umvar : term mvar;
@@ -24,7 +20,7 @@ type rewrite_rule = {
      must not be unified with any bound variable, otherwise the bound variable would escape its
      scope and we would have ill-formed conditions *)
   rwr_condition_uvars : TVSet.t;
-  rwr_relation : rewrite_relation;
+  rwr_relation : [ `Eq | `Subsumes ];
   rwr_lhs : term;
   rwr_rhs : term;
   (* cached mbinder of rwr_conditions and rwr_rhs, for efficiency *)
@@ -38,8 +34,8 @@ let make_rule ?(direction = `Ltr) t =
         let xs, t = unmbind b in
         visit (Snoc (mvars, xs)) conditions t
     | Implies (t1, t2) -> visit mvars (Snoc (conditions, t1)) t2
-    | Subsumes (t1, t2) -> (mvars, conditions, Relation_subsumes, t1, t2)
-    | Binop (Eq, t1, t2) -> (mvars, conditions, Relation_eq, t1, t2)
+    | Subsumes (t1, t2) -> (mvars, conditions, `Subsumes, t1, t2)
+    | Binop (Eq, t1, t2) -> (mvars, conditions, `Eq, t1, t2)
     | _ -> invalid_arg "prop_to_rule: cannot convert term to rewrite_rule"
   in
   let mvars, conditions, rwr_relation, t1, t2 = visit Lin Lin t in

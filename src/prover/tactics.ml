@@ -480,9 +480,9 @@ let rewrite direction stmt =
   let relation = get_rule_relation rule in
   let f_get, f_put =
     match (relation, direction) with
-    | Relation_eq, _ -> (get_goal, put_goal)
-    | Relation_subsumes, `Ltr -> (get_lhs, put_lhs)
-    | Relation_subsumes, `Rtl -> (get_rhs, put_rhs)
+    | `Eq, _ -> (get_goal, put_goal)
+    | `Subsumes, `Ltr -> (get_lhs, put_lhs)
+    | `Subsumes, `Rtl -> (get_rhs, put_rhs)
   in
   do_rewrite rule f_get f_put
 

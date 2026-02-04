@@ -15,11 +15,7 @@ type rewrite_rule
 (** Turn a term into a [rule], or raise [Invalid_argument]. *)
 val make_rule : ?direction:[ `Rtl | `Ltr ] -> term -> rewrite_rule
 
-type rewrite_relation =
-  | Relation_eq
-  | Relation_subsumes
-
-val get_rule_relation : rewrite_rule -> rewrite_relation
+val get_rule_relation : rewrite_rule -> [ `Eq | `Subsumes ]
 val get_rule_conditions : rewrite_rule -> term list
 val get_rule_lhs : rewrite_rule -> term
 val get_rule_rhs : rewrite_rule -> term
