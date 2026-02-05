@@ -1,7 +1,5 @@
 open Heifer.Interactive;;
 
-(* Options.show_why3_goal := true;; *)
-
 axiom ~name:"conj_false_l"
   {| forall t. (false /\ t) = false |}
 ;;
@@ -71,7 +69,5 @@ unfold "incr";;
 shift_reset_reduce ();;
 simpl ();;
 shift_reset_reduce ();;
-disj_elim ();;
 simple ();;
-
-(* Options.show_why3_goal := false;; *)
+qed ();;

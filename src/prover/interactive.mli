@@ -2,6 +2,7 @@ open Core.Syntax
 
 module State : sig
   val start_proof : string -> unit
+  val print_proof_state : unit -> unit
   val reset_proof_state : unit -> unit
   val push_proof_state : unit -> unit
   val pop_proof_state : unit -> unit

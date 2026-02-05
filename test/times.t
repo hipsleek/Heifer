@@ -1,8 +1,6 @@
 
   $ ./times.exe
   
-  # Options.show_why3_goal := true
-  
   # Options.fail_fast := true
   
   # axiom ~name:"mult_0_l" {| forall x. 0*.x = 0 |}
@@ -10,9 +8,6 @@
   
   # axiom ~name:"mult_0_r" {| forall x. x*.0 = 0 |}
   axiom mult_0_r declared
-  
-  # axiom ~name:"eta_reduce" {| forall f. (fun x -> f x) <: f |}
-  axiom eta_reduce declared
   
   # axiom ~name:"bind_id_r" {| forall t. t; x. x <: t |}
   axiom bind_id_r declared
@@ -318,18 +313,7 @@
   
   
   # elim_pure ()
-  module M
-    use heifer.Heifer
-    
-    goal goal1:
-      forall k : term, x : term, xs : term, xs' : term.
-        (xs = (TCons x xs')) -> (xs = (TCons x xs'))
-  end
   Warning, file line 0, characters 0-0: unused variable k
-  module M
-    use Heifer
-    goal goal1 : true
-  end
   
   k, x, xs, xs'
   Hk: forall r. reset (k r) <: k r
@@ -437,20 +421,7 @@
   
   
   # pure_solver ()
-  module M
-    use heifer.Heifer
-    
-    goal goal1:
-      forall k : term, x : term, xs : term, xs' : term.
-        (xs = (TCons x xs')) -> (sublist xs' xs)
-  end
   Warning, file line 0, characters 0-0: unused variable k
-  module M
-    use Heifer
-    constant x : term
-    constant xs' : term
-    goal goal1 : sublist xs' (TCons x xs')
-  end
   
   k, x, xs, xs'
   Hk: forall r. reset (k r) <: k r
@@ -766,18 +737,7 @@
   
   
   # elim_pure ()
-  module M
-    use heifer.Heifer
-    
-    goal goal1:
-      forall k : term, x : term, xs : term, xs' : term.
-        (xs = (TCons x xs')) -> (xs = (TCons x xs'))
-  end
   Warning, file line 0, characters 0-0: unused variable k
-  module M
-    use Heifer
-    goal goal1 : true
-  end
   
   k, x, xs, xs'
   Hk: 0 <: k 0
@@ -941,20 +901,7 @@
   
   
   # pure_solver ()
-  module M
-    use heifer.Heifer
-    
-    goal goal1:
-      forall k : term, x : term, xs : term, xs' : term.
-        (xs = (TCons x xs')) -> (sublist xs' xs)
-  end
   Warning, file line 0, characters 0-0: unused variable k
-  module M
-    use Heifer
-    constant x : term
-    constant xs' : term
-    goal goal1 : sublist xs' (TCons x xs')
-  end
   
   k, x, xs, xs'
   Hk: 0 <: k 0
@@ -1173,7 +1120,5 @@
   no more goals
   
   # qed ()
-  
-  # Options.show_why3_goal := false
   
   # Options.fail_fast := false

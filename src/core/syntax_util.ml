@@ -42,6 +42,14 @@ let open_exists_opt = function
   | Exists b -> Some b
   | _ -> None
 
+let is_eq = function
+  | Binop (Eq, _, _) -> true
+  | _ -> false
+
+let is_pointsto = function
+  | PointsTo _ -> true
+  | _ -> false
+
 let is_reset = function
   | Reset _ -> true
   | _ -> false

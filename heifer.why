@@ -57,7 +57,9 @@ module Heifer
   axiom plus_spec: forall a b:int. plus (TInt a) (TInt b) = TInt (a + b)
   axiom minus_spec: forall a b:int. minus (TInt a) (TInt b) = TInt (a - b)
   axiom times_spec: forall a b:int. times (TInt a) (TInt b) = TInt (a * b)
-  axiom pow_spec: forall a b:int. pow (TInt a) (TInt b) = (TInt (power a b))
+  axiom pow_spec_0: forall a:int. pow (TInt a) (TInt 0) = (TInt 1)
+  axiom pow_spec_succ: forall a b:int. b >= 0 -> pow (TInt a) (TInt (b + 1)) = times (TInt a) (pow (TInt a) (TInt b))
+  axiom pow_type: forall a b:int. is_int (pow (TInt a) (TInt b))
 
 (*
   axiom plus_0_l: forall x:term. plus (TInt 0) x = x
@@ -217,4 +219,20 @@ end
 module TestHeifer
   use Heifer
   goal inconsistent: false (* this goal must never be proven *)
+end
+
+module M
+  use Heifer
+  constant n : term
+  constant v : term
+  axiom H : is_int v
+  axiom H1 : gt n (TInt 0) = TBool True
+  goal goal1 :
+    is_int
+    (plus
+     (minus
+      (plus (plus v (TInt 1))
+       (pow (TInt 2) n))
+      (TInt 2))
+     (TInt 1))
 end

@@ -180,6 +180,9 @@ let possible_rewrites ?(lemmas = []) : unit t list t =
         | _ -> None)
         hyps)
 
+let string_of_term_array ts =
+  String.concat ", " (List.map (fun t -> Format.asprintf "%a" Core.Pretty.pp_term t) (Array.to_list ts))
+
 (* try to solve the current goal and any subgoals it generates *)
 let simple ?(lemmas = []) =
   let solve =
@@ -189,20 +192,24 @@ let simple ?(lemmas = []) =
         (Simpl.simpl
         *> choices
              ([
+                refl *> dbg "refl";
                 Disj.disj_elim *> dbg "disj_elim";
                 Disj.left *> dbg "left" >>= go;
                 Disj.right *> dbg "right" >>= go;
                 forall_intro *> dbg "forall_intro";
                 exists_elim *> dbg "exists_elim";
-                forall_elim_heuristic *> dbg "forall_elim";
-                exists_intro_heuristic *> dbg "exists_intro";
+                (dbg "try forall_elim" *> forall_elim_heuristic >>= fun ts -> dbg ("forall_elim with args: " ^ string_of_term_array ts));
+                (dbg "try exists_intro" *> exists_intro_heuristic >>= fun ts -> dbg ("exists_intro with args: " ^ string_of_term_array ts));
                 (intro_pure $> ()) *> dbg "intro_pure";
-                Pures.elim_pure *> dbg "elim_pure";
                 Heaps.intro_heap *> dbg "intro_heap";
-                Heaps.elim_heap *> dbg "elim_heap";
-                refl *> dbg "refl";
+                dbg "try elim_pure" *> Pures.elim_pure *> dbg "elim_pure";
+                dbg "try elim_heap" *> Heaps.elim_heap *> dbg "elim_heap";
               ]
-            @ [prove *> dbg "prove"]
+            @ [(dbg "try prove" >>= fun _ ->
+                let* ps = get in
+                dbg (Format.asprintf "current goals: %a" Pstate.pp ps) *> prove *> dbg "prove");
+                ex_falso *> Pures.pure_solver *> dbg "ex_falso";
+              ]
             @ possible_rewrites))
     in go ()
   in

@@ -1,6 +1,5 @@
 open Heifer.Interactive;;
 
-Options.show_why3_goal := true;;
 Options.fail_fast := true;;
 
 axiom ~name:"mult_0_l"
@@ -9,10 +8,6 @@ axiom ~name:"mult_0_l"
 
 axiom ~name:"mult_0_r"
   {| forall x. x*.0 = 0 |}
-;;
-
-axiom ~name:"eta_reduce"
-  {| forall f. (fun x -> f x) <: f |}
 ;;
 
 axiom ~name:"bind_id_r"
@@ -193,5 +188,4 @@ rewrite "bind_id_r";;
 refl ();;
 qed ();;
 
-Options.show_why3_goal := false;;
 Options.fail_fast := false;;
