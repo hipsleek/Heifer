@@ -26,7 +26,7 @@ let get_subsumption =
   let* t = get_goal in
   match t with
   | Subsumes (lhs, rhs) -> pure (lhs, rhs)
-  | _ -> fail (Format.asprintf "get_subsumption: %a" pp_term t)
+  | _ -> failf "expected a subsumption but got: %a" pp_term t
 
 let put_subsumption lhs rhs = put_goal (Subsumes (lhs, rhs))
 
