@@ -9,12 +9,12 @@ val have : name:string -> string -> unit t
 val case : name:string -> string -> unit t
 val goal_is : string -> unit t
 val refl : unit t
-val rewrite : [ `Ltr | `Rtl ] -> term -> unit t
+val pre_rewrite : Rewrite.rewrite_rule -> unit t
+val rewrite : ?direction:[ `Ltr | `Rtl ] -> term -> unit t
 val induction : ?vars:string list -> name:string -> [ `Int of int | `List ] -> string -> unit t
 val prove : unit t
 
-module Pure : sig
-  val ens_intro : unit t
+module Pures : sig
   val ens_pure_elim : string -> unit t
   val req_pure_intro : string -> unit t
   val impl_intro : string -> unit t
@@ -28,6 +28,7 @@ module Pure : sig
 end
 
 module Simpl : sig
+  val simpl_zeta : unit t
   val simpl_beta : unit t
   val simpl : unit t
   val shift_reset_reduce : unit t

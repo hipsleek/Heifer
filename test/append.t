@@ -711,8 +711,8 @@
   
   
   # elim_pure ()
-  Warning, file line 0, characters 0-0: unused variable ys
   Warning, file line 0, characters 0-0: unused variable k
+  Warning, file line 0, characters 0-0: unused variable ys
   
   k, x, xs, xs', ys
   Hxs: xs=x::xs'
@@ -741,8 +741,8 @@
   
   
   # pure_solver ()
-  Warning, file line 0, characters 0-0: unused variable ys
   Warning, file line 0, characters 0-0: unused variable k
+  Warning, file line 0, characters 0-0: unused variable ys
   
   k, x, xs, xs', ys
   Hxs: xs=x::xs'

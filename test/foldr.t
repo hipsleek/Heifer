@@ -143,8 +143,6 @@
   
   
   # prove ()
-  ==> Valid
-  
   
   xs
   Hty: is_int_list xs
@@ -246,8 +244,6 @@
   
   
   # prove ()
-  ==> Valid
-  
   
   x, xs, xs'
   Hty: is_int_list xs
@@ -262,8 +258,6 @@
   
   
   # prove ()
-  ==> Valid
-  
   
   x, xs, xs'
   Hty: is_int_list xs
@@ -316,9 +310,9 @@
     
     goal goal1:
       forall x : term, xs : term, xs' : term.
-        (xs.is_int_list)
+        (xs = (TCons x xs'))
           ->
-          (xs = (TCons x xs'))
+          (xs.is_int_list)
           ->
           ((plus x (xs'.sum)) = (xs.sum))
   end
@@ -329,8 +323,6 @@
     axiom H : is_int_list (TCons x xs')
     goal goal1 : plus x (sum xs') = sum (TCons x xs')
   end
-  ==> Valid
-  
   no more goals
   
   # Options.show_why3_goal := false

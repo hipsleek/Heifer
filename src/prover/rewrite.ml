@@ -20,6 +20,7 @@ type rewrite_rule = {
      must not be unified with any bound variable, otherwise the bound variable would escape its
      scope and we would have ill-formed conditions *)
   rwr_condition_uvars : TVSet.t;
+  rwr_direction : [`Ltr | `Rtl];
   rwr_relation : [ `Eq | `Subsumes ];
   rwr_lhs : term;
   rwr_rhs : term;
@@ -58,6 +59,7 @@ let make_rule ?(direction = `Ltr) t =
     rwr_arity;
     rwr_conditions;
     rwr_condition_uvars;
+    rwr_direction = direction;
     rwr_relation;
     rwr_lhs;
     rwr_rhs;
@@ -65,6 +67,7 @@ let make_rule ?(direction = `Ltr) t =
     rwr_rhs_mbinder;
   }
 
+let get_rule_direction rule = rule.rwr_direction
 let get_rule_relation rule = rule.rwr_relation
 let get_rule_conditions rule = rule.rwr_conditions
 let get_rule_lhs rule = rule.rwr_lhs

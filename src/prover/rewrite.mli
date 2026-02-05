@@ -13,8 +13,9 @@ exception Rewrite_failure of string
 type rewrite_rule
 
 (** Turn a term into a [rule], or raise [Invalid_argument]. *)
-val make_rule : ?direction:[ `Rtl | `Ltr ] -> term -> rewrite_rule
+val make_rule : ?direction:[ `Ltr | `Rtl ] -> term -> rewrite_rule
 
+val get_rule_direction : rewrite_rule -> [ `Ltr | `Rtl ]
 val get_rule_relation : rewrite_rule -> [ `Eq | `Subsumes ]
 val get_rule_conditions : rewrite_rule -> term list
 val get_rule_lhs : rewrite_rule -> term

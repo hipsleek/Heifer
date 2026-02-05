@@ -322,7 +322,7 @@
     use heifer.Heifer
     
     goal goal1:
-      forall xs' : term, xs : term, x : term, k : term.
+      forall k : term, x : term, xs : term, xs' : term.
         (xs = (TCons x xs')) -> (xs = (TCons x xs'))
   end
   Warning, file line 0, characters 0-0: unused variable k
@@ -441,14 +441,14 @@
     use heifer.Heifer
     
     goal goal1:
-      forall xs' : term, xs : term, x : term, k : term.
+      forall k : term, x : term, xs : term, xs' : term.
         (xs = (TCons x xs')) -> (sublist xs' xs)
   end
   Warning, file line 0, characters 0-0: unused variable k
   module M
     use Heifer
-    constant xs' : term
     constant x : term
+    constant xs' : term
     goal goal1 : sublist xs' (TCons x xs')
   end
   
@@ -770,7 +770,7 @@
     use heifer.Heifer
     
     goal goal1:
-      forall xs' : term, xs : term, x : term, k : term.
+      forall k : term, x : term, xs : term, xs' : term.
         (xs = (TCons x xs')) -> (xs = (TCons x xs'))
   end
   Warning, file line 0, characters 0-0: unused variable k
@@ -945,14 +945,14 @@
     use heifer.Heifer
     
     goal goal1:
-      forall xs' : term, xs : term, x : term, k : term.
+      forall k : term, x : term, xs : term, xs' : term.
         (xs = (TCons x xs')) -> (sublist xs' xs)
   end
   Warning, file line 0, characters 0-0: unused variable k
   module M
     use Heifer
-    constant xs' : term
     constant x : term
+    constant xs' : term
     goal goal1 : sublist xs' (TCons x xs')
   end
   

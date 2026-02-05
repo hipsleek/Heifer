@@ -77,7 +77,7 @@ let push_pure_goals goals =
 let invoke_why3 goal =
   let* constants = get_constants in
   let+ assumptions = get_assumptions in
-  let constants = Array.of_list (SMap.fold (fun _ c acc -> c :: acc) constants []) in
+  let constants = Array.of_list (List.map snd (SMap.bindings constants)) in
   let handle_assumption _ assumption goal =
     if Why3_prover.is_translatable assumption then Implies (assumption, goal) else goal
   in
@@ -91,47 +91,41 @@ let solve_invoke_why3 goal =
   | `Valid -> pure ()
   | _ -> fail "solve_invoke_why3: cannot solve goal"
 
-module Pure = struct
-  module Intro = struct
-    let pre_ens_intro =
-      let* rhs = get_rhs in
-      let+ t1, t2 = unwrap (unseq_open_ensures_opt rhs) "pre_ens_intro: not ensures" in
-      (t1, unwrap_term_opt t2)
+(* NOTE: heap assumptions are linear, cannot be duplicated freely! *)
 
-    let pre_req_intro =
-      let* rhs = get_rhs in
-      let+ t1, t2 = unwrap (unseq_open_requires_opt rhs) "pre_req_intro: not requires" in
-      (t1, unwrap_term_opt t2)
+module PreIntro = struct
+  let pre_ens_intro =
+    let* rhs = get_rhs in
+    let+ t1, t2 = unwrap (unseq_open_ensures_opt rhs) "pre_ens_intro: not ensures" in
+    (t1, unwrap_term_opt t2)
 
-    (** UNSAFE: heap assumptions are linear, cannot be duplicated freely! *)
-  end
+  let pre_req_intro =
+    let* rhs = get_rhs in
+    let+ t1, t2 = unwrap (unseq_open_requires_opt rhs) "pre_req_intro: not requires" in
+    (t1, unwrap_term_opt t2)
+end
 
-  let ens_intro =
-    let* t, rhs = Intro.pre_ens_intro in
-    let* _ = put_rhs rhs in
-    let* _ = dup_pctxt in
-    put_goal t
+module PreElim = struct
+  let pre_ens_elim =
+    let* lhs = get_lhs in
+    let+ t1, t2 = unwrap (unseq_open_ensures_opt lhs) "pre_ens_elim: not ensures" in
+    (t1, unwrap_term_opt t2)
 
-  module Elim = struct
-    let pre_ens_elim =
-      let* lhs = get_lhs in
-      let+ t1, t2 = unwrap (unseq_open_ensures_opt lhs) "pre_ens_elim: not ensures" in
-      (t1, unwrap_term_opt t2)
+  let pre_req_elim =
+    let* lhs = get_lhs in
+    let+ t1, t2 = unwrap (unseq_open_requires_opt lhs) "pre_req_elim: not requires" in
+    (t1, unwrap_term_opt t2)
+end
 
-    let pre_req_elim =
-      let* lhs = get_lhs in
-      let+ t1, t2 = unwrap (unseq_open_requires_opt lhs) "pre_req_elim: not requires" in
-      (t1, unwrap_term_opt t2)
-  end
-
+module Pures = struct
   let ens_pure_elim name =
-    let* t, lhs = Elim.pre_ens_elim in
+    let* t, lhs = PreElim.pre_ens_elim in
     let* _ = guard (Simply_typed.is_prop t) "ens_pure_elim: not prop" in
     let* _ = add_assumption name t in
     put_lhs lhs
 
   let req_pure_intro name =
-    let* t, rhs = Intro.pre_req_intro in
+    let* t, rhs = PreIntro.pre_req_intro in
     let* _ = guard (Simply_typed.is_prop t) "req_pure_intro: not prop" in
     let* _ = add_assumption name t in
     put_rhs rhs
@@ -155,13 +149,13 @@ module Pure = struct
     () <$ pop_pctxt
 
   let req_pure_elim =
-    let* t, lhs = Elim.pre_req_elim in
+    let* t, lhs = PreElim.pre_req_elim in
     let* _ = guard (Simply_typed.is_prop t) "req_pure_elim: not prop" in
     let* _ = pre_pure_solver t in
     put_lhs lhs
 
   let ens_pure_intro =
-    let* t, rhs = Intro.pre_ens_intro in
+    let* t, rhs = PreIntro.pre_ens_intro in
     let* _ = guard (Simply_typed.is_prop t) "ens_pure_intro: not prop" in
     let* _ = pre_pure_solver t in
     put_rhs rhs
@@ -223,6 +217,7 @@ let refl =
   if equal_term lhs rhs then () <$ pop_pctxt else fail "refl: cannot close goal"
 
 module Simpl = struct
+  let simpl_zeta = Tactic.modify_goal Simpl.simpl_zeta
   let simpl_beta = Tactic.modify_goal Simpl.simpl_beta
   let simpl = Tactic.modify_goal Simpl.simpl
   let shift_reset_reduce = Tactic.modify_goal Shift_reset.reduce
@@ -334,27 +329,27 @@ end
 
 module Heaps = struct
   let ens_heap_elim =
-    let* t, lhs = Pure.Elim.pre_ens_elim in
+    let* t, lhs = PreElim.pre_ens_elim in
     let* ts = unwrap (Heap.deep_destruct_sepconj_opt t) "ens_heap_elim: not hprop" in
     let* _ = modify_heap_assumptions (List.append ts) in
     put_lhs lhs
 
   let req_heap_intro =
-    let* t, rhs = Pure.Intro.pre_req_intro in
+    let* t, rhs = PreIntro.pre_req_intro in
     let* ts = unwrap (Heap.deep_destruct_sepconj_opt t) "req_heap_intro: not hprop" in
     let* _ = modify_heap_assumptions (List.append ts) in
     put_rhs rhs
 
   let intro_heap = choices ~err:"intro_heap: failed" [ens_heap_elim; req_heap_intro]
 
-  let unseq_open_opt f target =
+  let unseq_open_once f target =
     let open Util.Options.Monad in
     let* t, target = f target in
     let+ ts = Heap.deep_destruct_sepconj_opt t in
     (ts, target)
 
   let rec unseq_open_loop f target =
-    match unseq_open_opt f target with
+    match unseq_open_once f target with
     | None -> ([], target)
     | Some (ts1, target) ->
         let ts2, target = unseq_open_loop f (unwrap_term_opt target) in
@@ -392,12 +387,12 @@ module Heaps = struct
     () <$ pop_pctxt
 
   let req_heap_elim =
-    let* t, lhs = Pure.Elim.pre_req_elim in
+    let* t, lhs = PreElim.pre_req_elim in
     let* _ = pre_heap_solver t in
     put_lhs lhs
 
   let ens_heap_intro =
-    let* t, rhs = Pure.Intro.pre_ens_intro in
+    let* t, rhs = PreIntro.pre_ens_intro in
     let* _ = pre_heap_solver t in
     put_rhs rhs
 
@@ -441,96 +436,35 @@ module Unmix = struct
     pure ()
 end
 
-let rewrite direction stmt =
-  let open Rewrite in
-  let do_rewrite rule f_get f_put =
-    let* target = f_get in
-    (* Format.printf "rewrite target %a@." pp_term target; *)
-    try
-      let result, conditions = rewrite rule target in
-      let* _ = f_put result in
-      let* _ = push_pure_goals conditions in
-      pure ()
-    with Rewrite_failure msg -> fail msg
-  in
-  let rule = make_rule ~direction stmt in
-  let relation = get_rule_relation rule in
+let pre_rewrite rule =
+  let relation = Rewrite.get_rule_relation rule in
+  let direction = Rewrite.get_rule_direction rule in
   let f_get, f_put =
     match (relation, direction) with
     | `Eq, _ -> (get_goal, put_goal)
     | `Subsumes, `Ltr -> (get_lhs, put_lhs)
     | `Subsumes, `Rtl -> (get_rhs, put_rhs)
   in
-  do_rewrite rule f_get f_put
+  let* target = f_get in
+  try
+    let result, conditions = Rewrite.rewrite rule target in
+    f_put result *> push_pure_goals conditions
+  with Rewrite.Rewrite_failure msg -> fail msg
+
+let rewrite ?(direction = `Ltr) t =
+  pre_rewrite (Rewrite.make_rule ~direction t)
+
+module Translate = struct
+  let subsumption_solver =
+    let* lhs, rhs = get_subsumption in
+    let* _ = guard (Why3_prover.is_translatable lhs) "subsumption_solver: cannot translate lhs" in
+    let* _ = guard (Why3_prover.is_translatable rhs) "subsumption_solver: cannot translate rhs" in
+    let* _ = solve_invoke_why3 (Constr.eq lhs rhs) in
+    () <$ pop_pctxt
+end
 
 let prove =
-  let prove_with_ctx p =
-    let* assumptions = get_assumptions in
-    let p =
-      let ass =
-        SMap.bindings assumptions |> List.map snd |> List.filter Why3_prover.is_translatable
-      in
-      List.fold_right (fun c t -> Implies (c, t)) ass p
-    in
-    let* free = get_constants in
-    let entail =
-      let free = free |> SMap.bindings |> List.map snd |> Array.of_list in
-      unbox (Mk.forall (bind_mvar free (box_term p)))
-    in
-    let res = Why3_prover.prove ~show_goal:!Proof_options.show_why3_goal entail in
-    (match res with
-    | `Valid -> Format.printf "==> Valid\n@."
-    | `Invalid -> Format.printf "==> Invalid\n@."
-    | `Unknown s ->
-        Format.printf "==> Unknown: %s\n@." s
-        (* | `Failure s -> Format.printf "==> Failure: %s\n@." s *));
-    pure res
-  in
-  let both_values =
-    let could_be_value t =
-      match t with
-      | Var _ | True | False | Unit | Int _ | Apply _ -> true
-      | _ -> false
-    in
-    let* left, right = get_subsumption in
-    match could_be_value left && could_be_value right with
-    | false -> fail "not values"
-    | true ->
-        let* res = prove_with_ctx (Binop (Eq, left, right)) in
-        (match res with
-        | `Valid ->
-            let* _ = pop_pctxt in
-            pure ()
-        | _ -> fail "could not prove equality")
-  in
-  let can_be_translated =
-    (* this is more general than the value case *)
-    (* TODO is it possible that this produces props, which should then be related using implies? *)
-    let* left, right = get_subsumption in
-    match Why3_prover.(is_translatable left && is_translatable right) with
-    | false -> fail "cannot be translated"
-    | true ->
-        let* res = prove_with_ctx (Binop (Eq, left, right)) in
-        (match res with
-        | `Valid ->
-            let* _ = pop_pctxt in
-            pure ()
-        | _ -> fail "could not prove")
-  in
-  let is_prop =
-    let* g = get_goal in
-    match Simply_typed.is_prop g with
-    | false -> fail "not a prop"
-    | true ->
-        let* res = prove_with_ctx g in
-        (match res with
-        | `Valid ->
-            let* _ = pop_pctxt in
-            pure ()
-        | _ -> fail "could not prove goal")
-  in
-  choices ~err:"failed to prove pure obligation"
-    [both_values; is_prop; (* ens_ens; req_req;*) can_be_translated]
+  choices ~err:"prove: failed" [Pures.pure_solver; Translate.subsumption_solver]
 
 let induction ?(vars = []) ~name wf x =
   let open Tactic in

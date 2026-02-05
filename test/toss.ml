@@ -2,10 +2,6 @@ open Heifer.Interactive;;
 
 Options.fail_fast := true;;
 
-axiom ~name:"eta_reduce"
-  {| forall f. (fun x -> f x) <: f |}
-;;
-
 axiom ~name:"bind_id_r"
   {| forall t. t; x. x <: t |}
 ;;
@@ -27,7 +23,7 @@ axiom ~name:"conj_true_r"
 ;;
 
 axiom ~name:"conj_assoc"
-  {| forall t1 t2 t3. ((t1 /\ t2) /\ t3) = (t1 /\ (t2 /\ t3)) |}
+  {| forall t1 t2 t3. (t1 /\ (t2 /\ t3)) = ((t1 /\ t2) /\ t3) |}
 ;;
 
 declare
@@ -88,7 +84,7 @@ elim_heap ();;
 rewrite "conj_true_r";;
 refl ();;
 
-rewrite ~direction:`Rtl "conj_assoc";;
+rewrite "conj_assoc";;
 rewrite "conj_true_r";;
 rewrite "conj_false_r";;
 rewrite "IH";;

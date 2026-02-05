@@ -310,8 +310,6 @@
   # prove ()
   Warning, file line 0, characters 0-0: unused variable g
   Warning, file line 0, characters 0-0: unused variable l
-  ==> Valid
-  
   
   g, l, n
   Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
@@ -488,8 +486,8 @@
   
   
   # pure_solver ()
-  Warning, file line 0, characters 0-0: unused variable l
   Warning, file line 0, characters 0-0: unused variable g
+  Warning, file line 0, characters 0-0: unused variable l
   
   g, l, n
   Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
@@ -546,8 +544,6 @@
   # prove ()
   Warning, file line 0, characters 0-0: unused variable g
   Warning, file line 0, characters 0-0: unused variable l
-  ==> Valid
-  
   no more goals
   
   # qed ()

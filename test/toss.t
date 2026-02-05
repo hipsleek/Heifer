@@ -3,9 +3,6 @@
   
   # Options.fail_fast := true
   
-  # axiom ~name:"eta_reduce" {| forall f. (fun x -> f x) <: f |}
-  axiom eta_reduce declared
-  
   # axiom ~name:"bind_id_r" {| forall t. t; x. x <: t |}
   axiom bind_id_r declared
   
@@ -22,7 +19,7 @@
   axiom conj_true_r declared
   
   # axiom ~name:"conj_assoc"
-      {| forall t1 t2 t3. ((t1 /\ t2) /\ t3) = (t1 /\ (t2 /\ t3)) |}
+      {| forall t1 t2 t3. (t1 /\ (t2 /\ t3)) = ((t1 /\ t2) /\ t3) |}
   axiom conj_assoc declared
   
   # declare {| incr x = forall v. req x->v; ens x->v+1 |}
@@ -461,8 +458,8 @@
   
   
   # elim_heap ()
-  Warning, file line 0, characters 0-0: unused variable x
   Warning, file line 0, characters 0-0: unused variable a
+  Warning, file line 0, characters 0-0: unused variable x
   
   a, n, v, x
   Hn: n=0
@@ -541,7 +538,7 @@
        (ens a=true; 1 \/ ens a=false; 0)
   
   
-  # rewrite ~direction:`Rtl "conj_assoc"
+  # rewrite "conj_assoc"
   
   a, n, x
   IH: forall n1.
@@ -672,8 +669,8 @@
   
   
   # pure_solver ()
-  Warning, file line 0, characters 0-0: unused variable x
   Warning, file line 0, characters 0-0: unused variable a
+  Warning, file line 0, characters 0-0: unused variable x
   
   a, n, x
   IH: forall n1.
@@ -730,8 +727,8 @@
   
   
   # pure_solver ()
-  Warning, file line 0, characters 0-0: unused variable x
   Warning, file line 0, characters 0-0: unused variable a
+  Warning, file line 0, characters 0-0: unused variable x
   
   a, n, x
   IH: forall n1.
@@ -1287,8 +1284,8 @@
   
   
   # pure_solver ()
-  Warning, file line 0, characters 0-0: unused variable x
   Warning, file line 0, characters 0-0: unused variable v
+  Warning, file line 0, characters 0-0: unused variable x
   
   a, n, v, x
   Ha: a=true
@@ -1322,8 +1319,8 @@
   
   
   # elim_pure ()
-  Warning, file line 0, characters 0-0: unused variable x
   Warning, file line 0, characters 0-0: unused variable v
+  Warning, file line 0, characters 0-0: unused variable x
   
   a, n, v, x
   Ha: a=true
@@ -1337,8 +1334,6 @@
   # prove ()
   Warning, file line 0, characters 0-0: unused variable v
   Warning, file line 0, characters 0-0: unused variable x
-  ==> Valid
-  
   
   a, n, v, x
   Hn: n>0
@@ -1511,8 +1506,8 @@
   
   
   # pure_solver ()
-  Warning, file line 0, characters 0-0: unused variable x
   Warning, file line 0, characters 0-0: unused variable v
+  Warning, file line 0, characters 0-0: unused variable x
   
   a, n, v, x
   Ha: a=false
@@ -1543,8 +1538,8 @@
   
   
   # elim_pure ()
-  Warning, file line 0, characters 0-0: unused variable x
   Warning, file line 0, characters 0-0: unused variable v
+  Warning, file line 0, characters 0-0: unused variable x
   
   a, n, v, x
   Ha: a=false
@@ -1557,8 +1552,6 @@
   # prove ()
   Warning, file line 0, characters 0-0: unused variable v
   Warning, file line 0, characters 0-0: unused variable x
-  ==> Valid
-  
   no more goals
   
   # qed ()
@@ -1842,8 +1835,8 @@
   
   
   # pure_solver ()
-  Warning, file line 0, characters 0-0: unused variable x
   Warning, file line 0, characters 0-0: unused variable v
+  Warning, file line 0, characters 0-0: unused variable x
   
   v, x
   ────────────────────────────────────────────────────────────
@@ -1878,8 +1871,6 @@
   # prove ()
   Warning, file line 0, characters 0-0: unused variable v
   Warning, file line 0, characters 0-0: unused variable x
-  ==> Valid
-  
   
   v, x
   ────────────────────────────────────────────────────────────
@@ -1918,8 +1909,8 @@
   
   
   # pure_solver ()
-  Warning, file line 0, characters 0-0: unused variable x
   Warning, file line 0, characters 0-0: unused variable v
+  Warning, file line 0, characters 0-0: unused variable x
   no more goals
   
   # qed ()
@@ -2110,8 +2101,8 @@
   
   
   # pure_solver ()
-  Warning, file line 0, characters 0-0: unused variable x
   Warning, file line 0, characters 0-0: unused variable v
+  Warning, file line 0, characters 0-0: unused variable x
   
   v, x
   ────────────────────────────────────────────────────────────
@@ -2621,8 +2612,8 @@
   
   
   # pure_solver ()
-  Warning, file line 0, characters 0-0: unused variable x
   Warning, file line 0, characters 0-0: unused variable v
+  Warning, file line 0, characters 0-0: unused variable x
   
   v, x
   ────────────────────────────────────────────────────────────
@@ -2657,8 +2648,6 @@
   # prove ()
   Warning, file line 0, characters 0-0: unused variable v
   Warning, file line 0, characters 0-0: unused variable x
-  ==> Valid
-  
   
   v, x
   ────────────────────────────────────────────────────────────
@@ -2704,8 +2693,8 @@
   
   
   # pure_solver ()
-  Warning, file line 0, characters 0-0: unused variable x
   Warning, file line 0, characters 0-0: unused variable v
+  Warning, file line 0, characters 0-0: unused variable x
   
   v, x
   ────────────────────────────────────────────────────────────
@@ -2789,8 +2778,8 @@
   
   
   # pure_solver ()
-  Warning, file line 0, characters 0-0: unused variable x
   Warning, file line 0, characters 0-0: unused variable v
+  Warning, file line 0, characters 0-0: unused variable x
   
   v, x
   ────────────────────────────────────────────────────────────
@@ -2857,8 +2846,8 @@
   
   
   # pure_solver ()
-  Warning, file line 0, characters 0-0: unused variable x
   Warning, file line 0, characters 0-0: unused variable v
+  Warning, file line 0, characters 0-0: unused variable x
   no more goals
   
   # qed ()
@@ -3157,9 +3146,9 @@
   
   
   # pure_solver ()
-  Warning, file line 0, characters 0-0: unused variable x
-  Warning, file line 0, characters 0-0: unused variable v
   Warning, file line 0, characters 0-0: unused variable n
+  Warning, file line 0, characters 0-0: unused variable v
+  Warning, file line 0, characters 0-0: unused variable x
   no more goals
   
   # qed ()

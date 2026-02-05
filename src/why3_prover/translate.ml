@@ -61,19 +61,15 @@ let rec term_to_whyml_aux ctxt kind t =
   in
   Format.printf "%a %s@." Core.Pretty.pp_term t s; *)
   match (t, kind) with
-  | Unit, Term ->
-      (* term (Ttuple []) *)
-      tvar (qualid ["TUnit"])
-  | Unit, Formula -> failwith "unit cannot be used as a formula"
+  | Unit, Term -> tvar (qualid ["TUnit"])
   | True, Term -> tapp (qualid ["TBool"]) [term Ttrue]
   | False, Term -> tapp (qualid ["TBool"]) [term Tfalse]
+  | Nil, Term -> tvar (qualid ["TNil"])
+  | Int i, Term -> tapp (qualid ["TInt"]) [tconst i]
+  | Unit, Formula -> failwith "unit cannot be used as a formula"
   | True, Formula -> term Ttrue
   | False, Formula -> term Tfalse
-  | Nil, Term ->
-      (* tapp (qualid ["TNil"]) []  *)
-      tvar (qualid ["TNil"])
   | Nil, Formula -> failwith "nil cannot be used as a formula"
-  | Int i, Term -> tapp (qualid ["TInt"]) [tconst i]
   | Int _, Formula -> failwith "int cannot be used as a formula"
   | Binop (Times, a, b), Term ->
       tapp (qualid ["times"])
@@ -192,5 +188,8 @@ let rec term_to_whyml_aux ctxt kind t =
   | Requires _, _ | Ensures _, _ | Shift _, _ | Reset _, _ ->
       failwith "staged logic not handled at this level"
 
-let term_to_whyml p =
-  term_to_whyml_aux Bindlib.(free_vars (box_term p)) Formula p
+let term_to_whyml t =
+  term_to_whyml_aux Bindlib.(free_vars (box_term t)) Formula t
+
+let term_to_whyml_opt t =
+  try Some (term_to_whyml t) with Failure _ -> None

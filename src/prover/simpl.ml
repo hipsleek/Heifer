@@ -78,6 +78,7 @@ and simpl_zeta_list_aux ts =
       let ts, ps = simpl_zeta_list_aux ts in
       (t :: ts, p && ps)
 
+(*
 (** Simplify a term, using associativity of bind and sequence.
 
     This auxiliary function returns a [box] for efficiency. The [box] will be
@@ -122,6 +123,7 @@ and box_simpl_assoc_binder_cont b k =
 
 (** Simplify a term, using associativity of bind and sequence. *)
 let simpl_assoc t = unbox (box_simpl_assoc t)
+*)
 
 (** Simplify a term, using beta reduction strategy. Beta reduction: reduce all
     applications of [Fun].

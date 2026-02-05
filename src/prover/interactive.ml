@@ -103,19 +103,19 @@ let req_heap_intro () = run_tactic Heaps.req_heap_intro
 let ens_heap_elim () = run_tactic Heaps.ens_heap_elim
 let req_heap_elim () = run_tactic Heaps.req_heap_elim
 let ens_heap_intro () = run_tactic Heaps.ens_heap_intro
-let req_pure_intro name = run_tactic (Pure.req_pure_intro name)
-let req_pure_elim () = run_tactic Pure.req_pure_elim
-let ens_pure_intro () = run_tactic Pure.ens_pure_intro
-let ens_pure_elim name = run_tactic (Pure.ens_pure_elim name)
-let intro_pure name = run_tactic (Pure.intro_pure name)
-let elim_pure () = run_tactic Pure.elim_pure
+let req_pure_intro name = run_tactic (Pures.req_pure_intro name)
+let req_pure_elim () = run_tactic Pures.req_pure_elim
+let ens_pure_intro () = run_tactic Pures.ens_pure_intro
+let ens_pure_elim name = run_tactic (Pures.ens_pure_elim name)
+let intro_pure name = run_tactic (Pures.intro_pure name)
+let elim_pure () = run_tactic Pures.elim_pure
 let intro_heap () = run_tactic Heaps.intro_heap
 let intros_heap () = run_tactic Heaps.intros_heap
 let elim_heap () = run_tactic Heaps.elim_heap
 let revert name = run_tactic (revert name)
-let revert_pure name = run_tactic (Pure.revert_pure name)
-let clear_pure name = run_tactic (Pure.clear_pure name)
-let pure_solver () = run_tactic Pure.pure_solver
+let revert_pure name = run_tactic (Pures.revert_pure name)
+let clear_pure name = run_tactic (Pures.clear_pure name)
+let pure_solver () = run_tactic Pures.pure_solver
 let revert_heap () = run_tactic Heaps.revert_heap
 let heap_solver () = run_tactic Heaps.heap_solver
 let forall_intro = make_interactive (fun () -> forall_intro)
@@ -137,7 +137,7 @@ let admit () = run_tactic admit
 let prove_s s = Why3_prover.prove ~show_goal:true (Parsing.Parse.parse_prop s)
 
 (* let simple () = run_tactic Automation.simple *)
-let simple = make_interactive (fun () -> Automation.simple)
+let simple () = run_tactic (Automation.simple ~lemmas:(SMap.bindings (get_lemmas ())))
 let simple2 () = Automation.solve_cert ~lemmas:(get_lemmas () |> SMap.bindings) (get_goals ())
 
 (** Unfold a definition (symbol) on both side of a sequent in the current proof state. *)
@@ -162,9 +162,6 @@ let interactive_get_assumption name =
       | Some assumption -> pure assumption
       | None -> failf "%s does not exist" name)
 
-(** Rewrite in the LHS of a sequent. *)
 let rewrite ?(direction = `Ltr) name =
   let open Tactic in
-  run_tactic
-    (let* stmt = interactive_get_assumption name in
-     rewrite direction stmt)
+  run_tactic (interactive_get_assumption name >>= rewrite ~direction)
