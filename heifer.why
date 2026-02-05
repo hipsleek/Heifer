@@ -3,6 +3,7 @@ module Heifer
 
   use int.Int
   use int.Fact
+  use int.Power
   use bool.Bool
   use list.List
 
@@ -14,31 +15,14 @@ module Heifer
     | TNil
     | TErr
 
-(*
-  function plus (a b:term) : term =
-    match a with
-    | TInt a1 ->
-      if a1 = 0 then b
-      else
-        match b with
-        | TInt b1 ->
-          if b1 = 0 then a
-          else TInt (a1 + b1)
-        | _ -> TErr
-        end
-    | _ -> TErr
-    end
-    *)
+  inductive is_bool (t: term) =
+    | is_bool: forall b:bool. is_bool (TBool b)
 
-(*
-  function times (a b:term) : term =
-    if a = TInt 0 || b = TInt 0 then TInt 0
-    else
-      match a, b with
-      | TInt a1, TInt b1 -> TInt (a1 * b1)
-      | _, _ -> TErr
-      end
-*)
+  inductive is_int (t: term) =
+    | is_int: forall n:int. is_int (TInt n)
+
+  inductive is_nat (t: term) =
+    | is_nat: forall n:int. n >= 0 -> is_nat (TInt n)
 
 (*
   function plus (a b:term) : term =
@@ -46,37 +30,55 @@ module Heifer
     | TInt a1, TInt b1 -> TInt (a1 + b1)
     | _ -> TErr
     end
+
+  function minus (a b:term) : term =
+    match a, b with
+    | TInt a1, TInt b1 -> TInt (a1 - b1)
+    | _ -> TErr
+    end
+
+  function times (a b:term) : term =
+    match a, b with
+    | TInt a1, TInt b1 -> TInt (a1 * b1)
+    | _ -> TErr
+    end
+
+  function pow (a b:term) : term =
+    match a, b with
+    | TInt a1, TInt b1 -> TInt (power a1 b1)
+    | _ -> TErr
+    end
 *)
-
-  function neg (a:term) : term
-  axiom neg_spec: forall a:int. neg (TInt a) = TInt (-a)
-
   function plus (a b:term) : term
+  function minus (a b:term) : term
+  function times (a b:term) : term
+  function pow (a b:term) : term
+
   axiom plus_spec: forall a b:int. plus (TInt a) (TInt b) = TInt (a + b)
+  axiom minus_spec: forall a b:int. minus (TInt a) (TInt b) = TInt (a - b)
+  axiom times_spec: forall a b:int. times (TInt a) (TInt b) = TInt (a * b)
+  axiom pow_spec: forall a b:int. pow (TInt a) (TInt b) = (TInt (power a b))
+
+(*
   axiom plus_0_l: forall x:term. plus (TInt 0) x = x
   axiom plus_0_r: forall x:term. plus x (TInt 0) = x
-
-  function minus (a b:term) : term
-  axiom minus_spec: forall a b:int. plus (TInt a) (TInt b) = TInt (a - b)
   axiom minus_0_r: forall x:term. minus x (TInt 0) = x
-
-  function times (a b:term) : term
-  axiom times_spec: forall a b:int. times (TInt a) (TInt b) = TInt (a * b)
   axiom times_0_l: forall x:term. times (TInt 0) x = TInt 0
   axiom times_0_r: forall x:term. times x (TInt 0) = TInt 0
   axiom times_1_l: forall x:term. times (TInt 1) x = x
   axiom times_1_r: forall x:term. times x (TInt 1) = x
-
-  function pow (t1 t2: term): term
   axiom pow_0_r: forall t: term. pow t (TInt 0) = TInt 1
   axiom pow_succ_r: forall t: term, n: int. 0 <= n -> pow t (TInt (n + 1)) = times t (pow t (TInt n))
+*)
 
   function eq (a b:term) : term =
     match a, b with
-    | TUnit, TUnit | TNil, TNil -> TBool true
+    | TUnit, TUnit
+    | TNil, TNil -> TBool true
     | TInt a1, TInt b1 -> TBool (a1 = b1)
     | TBool a1, TBool b1 -> TBool (a1 = b1)
     | TCons h1 t1, TCons h2 t2 -> TBool (h1 = h2 && t1 = t2)
+    | TErr, TErr -> TBool true
     | _, _ -> TErr
     end
 
@@ -86,9 +88,11 @@ module Heifer
     | TInt a1, TInt b1 -> TBool (a1 <> b1)
     | TBool a1, TBool b1 -> TBool (a1 <> b1)
     | TCons h1 t1, TCons h2 t2 -> TBool (h1 <> h2 || t1 <> t2)
+    | TErr, TErr -> TBool false
     | _, _ -> TErr
     end
 
+(*
   function gt (a b:term) : term =
     match a, b with
     | TInt a1, TInt b1 -> TBool (a1 > b1)
@@ -100,6 +104,16 @@ module Heifer
     | TInt a1, TInt b1 -> TBool (a1 >= b1)
     | _ -> TErr
     end
+*)
+
+  function ge (a b:term) : term
+  function gt (a b:term) : term
+
+  axiom ge_spec: forall a b:int. ge (TInt a) (TInt b) = TBool (a >= b)
+  axiom gt_spec: forall a b:int. gt (TInt a) (TInt b) = TBool (a > b)
+
+  axiom ge_type: forall a b:term, v:bool. ge a b = TBool v -> is_int a /\ is_int b
+  axiom gt_type: forall a b:term, v:bool. gt a b = TBool v -> is_int a /\ is_int b
 
   function lt (a b:term) : term =
     match a, b with
@@ -174,23 +188,10 @@ module Heifer
     end
 
   inductive sublist (l1 l2: term) =
-    | sublist_cons:
-      forall x l:term.
-        sublist l (TCons x l)
-    | sublist_tail:
-      forall x l1 l2:term.
+    | sublist_cons: forall x l:term. sublist l (TCons x l)
+    | sublist_tail: forall x l1 l2:term.
         sublist l1 l2 ->
         sublist l1 (TCons x l2)
-
-  goal G1: sublist TNil (TCons (TInt 1) TNil)
-  goal G2: not (sublist (TCons (TInt 1) TNil) (TCons (TInt 1) TNil))
-
-  inductive is_int (n: term) =
-    | is_int: forall n0:int. is_int (TInt n0)
-
-  inductive is_nat (n: term) =
-    | is_nat: forall n0:int. n0 >= 0 -> is_nat (TInt n0)
-
 
   (* This higher-order definition interacts poorly with automation *)
   (*
@@ -211,4 +212,9 @@ module Heifer
 
   (* this file is expected by why3_prover.ml to end with inductive definitions *)
 
+end
+
+module TestHeifer
+  use Heifer
+  goal inconsistent: false (* this goal must never be proven *)
 end

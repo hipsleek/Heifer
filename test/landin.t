@@ -544,8 +544,8 @@
   # prove ()
   Warning, file line 0, characters 0-0: unused variable g
   Warning, file line 0, characters 0-0: unused variable l
-  no more goals
-  
-  # qed ()
-  
-  # Options.fail_fast := false
+  error: pre_pure_solver: not prop / solve_invoke_why3: cannot solve goal / prove: failed
+  Fatal error: exception Failure("pre_pure_solver: not prop / solve_invoke_why3: cannot solve goal / prove: failed")
+  Raised at Stdlib.failwith in file "stdlib.ml", line 29, characters 17-33
+  Called from Dune__exe__Landin in file "test/landin.ml", line 83, characters 0-8
+  [2]

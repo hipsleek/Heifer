@@ -22,18 +22,21 @@ axiom ~name:"decr_spec"
 start_proof
   {|
     forall x y z.
-      loop2 x y z <: forall a b. req b>=0; req y->a * z->b; ens y->(a+b*.x) * z->0
+      is_int x =>
+      loop2 x y z <: forall a b. req is_int a; req b>=0; req y->a * z->b; ens y->(a+b*.x) * z->0
 |}
 ;;
-
 forall_intro ();;
+intro_pure "Hx";;
 forall_intro ();;
+intro_pure "Ha";;
 intro_pure "Hb";;
+revert_pure "Ha";;
 revert "a";;
-goal_is {| forall a. loop2 x y z <: req y->a * z->b; ens y->a+b*.x * z->0 |};;
+goal_is {| forall a. is_int a => loop2 x y z <: req y->a * z->b; ens y->a+b*.x * z->0 |};;
 induction ~name:"IH" (`Int 0) "b";;
 forall_intro ();;
-goal_is {| loop2 x y z <: req y->a * z->b; ens y->a+b*.x * z->0 |};;
+intro_pure "Ha";;
 unfold "loop2";;
 forall_elim ["b"];;
 case ~name:"Hb_gt" "b > 0";;
@@ -42,8 +45,8 @@ case ~name:"Hb_gt" "b > 0";;
 conj_elim_l ();;
 goal_is
   {|
-       req z->b /\ b>0; ens z->b; incr y x; decr z 1; loop2 x y z
-    <: req y->a * z->b; ens y->a+b*.x * z->0
+    req z->b /\ b>0; ens z->b; incr y x; decr z 1; loop2 x y z <:
+    req y->a * z->b; ens y->a+b*.x * z->0
   |}
 ;;
 unmix ();;
@@ -52,13 +55,13 @@ req_heap_intro ();;
 req_heap_elim ();;
 ens_heap_elim ();;
 rewrite "incr_spec";;
-forall_elim ["a"];;
 simpl ();;
+forall_elim ["a"];;
 req_heap_elim ();;
 ens_heap_elim ();;
 rewrite "decr_spec";;
-forall_elim ["b"];;
 simpl ();;
+forall_elim ["b"];;
 req_heap_elim ();;
 ens_heap_elim ();;
 specialize "IH" ["b-1"];;
@@ -68,6 +71,7 @@ forward "IH";;
 pure_solver ();;
 specialize "IH" ["a+x"];;
 rewrite "IH";;
+pure_solver ();;
 req_heap_elim ();;
 ens_heap_elim ();;
 ens_heap_intro ();;
@@ -77,9 +81,10 @@ refl ();;
 conj_elim_r ();;
 goal_is
   {|
-       req z->b /\ b<=0; ens z->b
-    <: req y->a * z->b; ens y->a+b*.x * z->0
-  |};;
+    req z->b /\ b<=0; ens z->b <:
+    req y->a * z->b; ens y->a+b*.x * z->0
+  |}
+;;
 unmix ();;
 req_pure_elim ();;
 req_heap_intro ();;

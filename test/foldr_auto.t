@@ -80,9 +80,9 @@
       ens xs=[]; 0 \/
       (ex x xs'.
         ens xs=x::xs';
-        foldr (fun x1 acc -> x1+acc) 0 xs'; r. (fun x1 acc -> x1+acc) x r)
-      <: sum xs
-  |}
+        foldr (fun x1 acc -> x1+acc) 0 xs'; r. (fun x1 acc -> x1+acc) x r) <:
+      sum xs
+    |}
   
   xs
   Hty: is_int_list xs
@@ -97,14 +97,6 @@
            foldr (fun x1 acc -> x1+acc) 0 xs'; r.
              (fun x1 acc -> x1+acc) x r)
   <: sum xs
-  
-  ==> Valid
-  
-  ==> Valid
-  
-  ==> Valid
-  
-  ==> Valid
   
   
   # qed ()

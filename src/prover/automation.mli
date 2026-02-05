@@ -10,7 +10,7 @@ val focus_and_solve_with : 'a t -> 'a t
 
 (** Simple automation *)
 
-val simple : unit t
+val simple : ?lemmas:(string * term) list -> unit t
 
 (** Certifying automation *)
 

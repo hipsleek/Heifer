@@ -1,4 +1,3 @@
-open Core
 open Core.Syntax
 open Core.Pretty
 open Util.Strings
@@ -11,19 +10,12 @@ let rec repeat (tac : unit t) : unit t =
  fun s ->
   if List.is_empty s then Ok ((), s) else
   match tac s with
-  | Error e -> Error e    
+  | Error e -> Error e
   | Ok ((), s) -> repeat tac s
-
-let maybe_prove_pure =
-  let* g = get_goal in
-  match g with
-  (* | Subsumes _ -> prove *)
-  | _ when Simply_typed.is_prop g -> Pure.pure_solver
-  | _ -> failf "doesn't look like a pure prop"
 
 let intro_pure =
   let* n = fresh in
-  let* () = Pure.intro_pure n in
+  let* () = Pures.intro_pure n in
   pure n
 
 (* core automation tactic *)
@@ -100,7 +92,7 @@ let possible_rewrites2 self lemmas : cert_tac t list t =
   let rules =
     rules
     |> List.map (fun (n, s) ->
-        let* () = rewrite `Ltr s in
+        let* () = rewrite s in
         let* gs = get in
         let* sub : cert list =
           map_m
@@ -158,13 +150,13 @@ let solve_cert ?(lemmas = []) : cert t =
                   exists_elim *> pure Exists_elim (* >>> dbg "exists elim" *);
                   (* debug "about to intro_pure"@@ *)
                   (intro_pure >>= fun n -> pure (Intro_pure n) (* >>> dbg "intro pure" *));
-                  Pure.elim_pure *> pure Elim_pure;
+                  Pures.elim_pure *> pure Elim_pure;
                   refl *> pure Refl;
                 ]
                @ possible_rewrites
                @ [
                    (* debug "about to prove" @@ *)
-                   get_goal <&> (fun g -> Smt g) <* maybe_prove_pure (* >>> dbg "smt"; *);
+                   get_goal <&> (fun g -> Smt g) <* prove (* >>> dbg "smt"; *);
                  ])
         in
         (* Format.printf "pf %a@." pp_cert_tac pf; *)
@@ -177,21 +169,21 @@ let solve_cert ?(lemmas = []) : cert t =
   (* Format.printf "result %a@." pp_cert r; *)
   pure r
 
-let possible_rewrites : unit t list t =
-  let* hyps = get_assumptions <&> SMap.bindings in
+let possible_rewrites ?(lemmas = []) : unit t list t =
+  let* hyps = SMap.bindings <$> get_assumptions in
+  let hyps = hyps @ lemmas in
   pure
-    (hyps
-    |> List.filter_map (fun (_, s) ->
+    (List.filter_map
+        (fun (h, s) ->
         match s with
-        | Forall _ | Implies _ | Subsumes _ | Binop (Eq, _, _) ->
-            (* Format.printf "chosen for rewrite %a@." pp_term s; *)
-            Some (rewrite `Ltr s)
-        | _ -> None))
+        | Forall _ | Implies _ | Subsumes _ | Binop (Eq, _, _) -> Some (rewrite s *> dbg ("rewrite " ^ h))
+        | _ -> None)
+        hyps)
 
 (* try to solve the current goal and any subgoals it generates *)
-let simple =
+let simple ?(lemmas = []) =
   let solve =
-    let* possible_rewrites = possible_rewrites in
+    let* possible_rewrites = possible_rewrites ~lemmas in
     let rec go () =
       repeat
         (Simpl.simpl
@@ -205,10 +197,12 @@ let simple =
                 forall_elim_heuristic *> dbg "forall_elim";
                 exists_intro_heuristic *> dbg "exists_intro";
                 (intro_pure $> ()) *> dbg "intro_pure";
-                Pure.elim_pure *> dbg "elim_pure";
+                Pures.elim_pure *> dbg "elim_pure";
+                Heaps.intro_heap *> dbg "intro_heap";
+                Heaps.elim_heap *> dbg "elim_heap";
                 refl *> dbg "refl";
               ]
-            @ [maybe_prove_pure *> dbg "prove pure"]
+            @ [prove *> dbg "prove"]
             @ possible_rewrites))
     in go ()
   in

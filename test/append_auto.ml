@@ -1,3 +1,5 @@
+open Heifer.Interactive;;
+
 Options.fail_fast := true;;
 
 axiom ~name:"eta_reduce"

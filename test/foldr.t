@@ -80,8 +80,8 @@
       ens xs=[]; 0 \/
       (ex x xs'.
         ens xs=x::xs';
-        foldr (fun x1 acc -> x1+acc) 0 xs'; r. (fun x1 acc -> x1+acc) x r)
-      <: sum xs
+        foldr (fun x1 acc -> x1+acc) 0 xs'; r. (fun x1 acc -> x1+acc) x r) <:
+      sum xs
     |}
   
   xs
@@ -162,8 +162,8 @@
       {|
       (ex x xs'.
         ens xs=x::xs';
-        foldr (fun x1 acc -> x1+acc) 0 xs'; r. (fun x1 acc -> x1+acc) x r)
-      <: sum xs
+        foldr (fun x1 acc -> x1+acc) 0 xs'; r. (fun x1 acc -> x1+acc) x r) <:
+      sum xs
     |}
   
   xs
@@ -212,8 +212,8 @@
   
   # goal_is
       {|
-      foldr (fun x1 acc -> x1+acc) 0 xs'; r. (fun x1 acc -> x1+acc) x r
-      <: sum xs
+      foldr (fun x1 acc -> x1+acc) 0 xs'; r. (fun x1 acc -> x1+acc) x r <:
+      sum xs
     |}
   
   x, xs, xs'
@@ -272,8 +272,8 @@
   
   
   # goal_is {|
-      sum xs'; r. (fun x1 acc -> x1+acc) x r
-      <: sum xs
+      sum xs'; r. (fun x1 acc -> x1+acc) x r <:
+      sum xs
     |}
   
   x, xs, xs'
@@ -302,30 +302,8 @@
   <: sum xs
   
   
-  # Options.show_why3_goal := true
-  
   # prove ()
-  module M
-    use heifer.Heifer
-    
-    goal goal1:
-      forall x : term, xs : term, xs' : term.
-        (xs = (TCons x xs'))
-          ->
-          (xs.is_int_list)
-          ->
-          ((plus x (xs'.sum)) = (xs.sum))
-  end
-  module M
-    use Heifer
-    constant x : term
-    constant xs' : term
-    axiom H : is_int_list (TCons x xs')
-    goal goal1 : plus x (sum xs') = sum (TCons x xs')
-  end
   no more goals
-  
-  # Options.show_why3_goal := false
   
   # qed ()
   

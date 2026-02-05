@@ -20,18 +20,17 @@ goal_is "foldr (fun x acc -> x+acc) 0 xs <: sum xs";;
 (* We proceed by induction on the structure of the list `xs`. *)
 induction ~name:"IH" `List "xs";;
 unfold "foldr";;
-
 goal_is
   {|
     ens xs=[]; 0 \/
     (ex x xs'.
       ens xs=x::xs';
-      foldr (fun x1 acc -> x1+acc) 0 xs'; r. (fun x1 acc -> x1+acc) x r)
-    <: sum xs
-|}
+      foldr (fun x1 acc -> x1+acc) 0 xs'; r. (fun x1 acc -> x1+acc) x r) <:
+    sum xs
+  |}
 ;;
 
 let pf = simple2 ();;
-
 qed ();;
+
 Format.printf "%a@." Prover.Automation.pp_cert (pf |> Result.get_ok |> fst)
