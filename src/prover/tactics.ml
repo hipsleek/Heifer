@@ -16,6 +16,12 @@ let parse_term ts =
 
 let admit = () <$ pop_pctxt
 
+let fresh ?(prefix = "H") =
+  let* ctxt = get_rename_ctxt in
+  let name, ctxt = Rename.Core.new_name prefix ctxt in
+  let* () = put_rename_ctxt ctxt in
+  pure name
+
 let get_subsumption =
   let* t = get_goal in
   match t with
@@ -482,9 +488,3 @@ let induction ?(vars = []) ~name wf x =
   let assumptions = List.map snd (SMap.bindings assumptions) in
   let ih_prop = Forall (Induction.induction wf x vars assumptions goal) in
   add_assumption name ih_prop
-
-let fresh =
-  let* ctxt = get_rename_ctxt in
-  let name, ctxt = Rename.Core.new_name "H" ctxt in
-  let* () = put_rename_ctxt ctxt in
-  pure name

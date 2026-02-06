@@ -9,13 +9,14 @@ open Automation_heuristic
 
 let rec repeat (tac : unit t) : unit t =
  fun s ->
-  if List.is_empty s then Ok ((), s) else
-  match tac s with
-  | Error e -> Error e
-  | Ok ((), s) -> repeat tac s
+  if List.is_empty s then Ok ((), s)
+  else
+    match tac s with
+    | Error e -> Error e
+    | Ok ((), s) -> repeat tac s
 
 let intro_pure =
-  let* n = fresh in
+  let* n = fresh ~prefix:"H" in
   let* () = Pures.intro_pure n in
   pure n
 
@@ -179,21 +180,22 @@ let make_rewrite (h, s) =
     Some (pre_rewrite rule *> dbg ("rewrite " ^ h))
   with Invalid_argument _ -> None
 
-let make_rewrites =
-  List.filter_map make_rewrite
+let make_rewrites = List.filter_map make_rewrite
 
 let auto_rewrite : unit t =
   let* assumptions = get_assumptions in
   let rec visit = function
     | [] -> fail "no progress"
     | h :: rest ->
-        match make_rewrite h with
+        (match make_rewrite h with
         | None -> visit rest
-        | Some rw -> catch rw (fun _ -> visit rest)
-  in visit (SMap.bindings assumptions)
+        | Some rw -> catch rw (fun _ -> visit rest))
+  in
+  visit (SMap.bindings assumptions)
 
 let string_of_term_array ts =
-  String.concat ", " (List.map (fun t -> Format.asprintf "%a" Core.Pretty.pp_term t) (Array.to_list ts))
+  String.concat ", "
+    (List.map (fun t -> Format.asprintf "%a" Core.Pretty.pp_term t) (Array.to_list ts))
 
 (* try to solve the current goal and any subgoals it generates *)
 let simple ?(lemmas = []) =
@@ -210,19 +212,24 @@ let simple ?(lemmas = []) =
                 Disj.right *> dbg "right" >>= go;
                 forall_intro *> dbg "forall_intro";
                 exists_elim *> dbg "exists_elim";
-                (dbg "try forall_elim" *> forall_elim_heuristic >>= fun ts -> dbg ("forall_elim with args: " ^ string_of_term_array ts));
-                (dbg "try exists_intro" *> exists_intro_heuristic >>= fun ts -> dbg ("exists_intro with args: " ^ string_of_term_array ts));
+                ( dbg "try forall_elim" *> forall_elim_heuristic >>= fun ts ->
+                  dbg ("forall_elim with args: " ^ string_of_term_array ts) );
+                ( dbg "try exists_intro" *> exists_intro_heuristic >>= fun ts ->
+                  dbg ("exists_intro with args: " ^ string_of_term_array ts) );
                 (intro_pure $> ()) *> dbg "intro_pure";
                 Heaps.intro_heap *> dbg "intro_heap";
                 dbg "try elim_pure" *> Pures.elim_pure *> dbg "elim_pure";
                 dbg "try elim_heap" *> Heaps.elim_heap *> dbg "elim_heap";
               ]
-            @ [(dbg "try prove" >>= fun _ ->
-                let* ps = get in
-                dbg (Format.asprintf "current goals: %a" Pstate.pp ps) *> prove *> dbg "prove");
-                ex_falso *> Pures.pure_solver *> dbg "ex_falso";
-                auto_rewrite]
-            @ lemma_rewrites))
-    in go ()
+             @ [
+                 ( dbg "try prove" >>= fun _ ->
+                   let* ps = get in
+                   dbg (Format.asprintf "current goals: %a" Pstate.pp ps) *> prove *> dbg "prove" );
+                 ex_falso *> Pures.pure_solver *> dbg "ex_falso";
+                 auto_rewrite;
+               ]
+             @ lemma_rewrites))
+    in
+    go ()
   in
   () <$ try_ (focus_and_solve_with solve)
