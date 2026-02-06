@@ -134,12 +134,16 @@ module Heifer
     | TInt a1, TInt b1 -> TBool (a1 <= b1)
     | _ -> TErr
     end
-
+(*
   function and (t1 t2:term) : term =
     match t1, t2 with
     | TBool b1, TBool b2 -> TBool (b1 && b2)
     | _ -> TErr
     end
+*)
+  function and (a b:term) : term
+  axiom and_spec: forall a b:bool. and (TBool a) (TBool b) = TBool (a && b)
+  axiom and_type: forall a b:term, v:bool. and a b = TBool v -> is_bool a /\ is_bool b
 
   function or (t1 t2 : term) : term =
     match t1, t2 with

@@ -26,9 +26,10 @@ type cert_tac =
   | Elim_heap
   | Rewrite of string * term * cert list * cert
   | Disj_elim of cert * cert
-  | Left
-  | Right
+  | Left of cert
+  | Right of cert
   | Refl
+  | Ex_falso
 
 and cert = cert_tac list
 

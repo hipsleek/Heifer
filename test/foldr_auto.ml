@@ -33,4 +33,4 @@ goal_is
 let pf = simple2 ();;
 qed ();;
 
-Format.printf "%a@." Prover.Automation.pp_cert (pf |> Result.get_ok |> fst)
+Format.printf "%a@." Prover.Automation.pp_cert (Option.get pf)

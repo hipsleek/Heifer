@@ -64,6 +64,8 @@ unfold "times_sh";;
 unfold "times_cp";;
 shift_reset_reduce ();;
 simple ();;
+(* let c = simple2 ();;
+Format.printf "%a@." Prover.Automation.pp_cert (Option.get c);; *)
 qed ();;
 
 
@@ -82,6 +84,8 @@ intro_pure "Hk";;
 unfold "times_cp";;
 unfold "times_pure";;
 simple ();;
+(* let c = simple2 ();;
+Format.printf "%a@." Prover.Automation.pp_cert (Option.get c);; *)
 qed ();;
 
 Options.fail_fast := false;;

@@ -79,6 +79,16 @@ module State = struct
         Format.printf "error: %s@." msg;
         if !Proof_options.fail_fast then failwith msg
 
+  let run tactic =
+    match Tactic.run tactic (get_goals ()) with
+    | Ok (result, new_goals) ->
+        set_goals new_goals;
+        print_proof_state ();
+        Some result
+    | Error msg ->
+        Format.printf "error: %s@." msg;
+        if !Proof_options.fail_fast then failwith msg else None
+
   let make_interactive (tac : 'b -> 'a Tactic.t) (arg : 'b) = run_tactic (tac arg)
 
   let when_goal_is_empty f =
@@ -145,7 +155,7 @@ let prove_s s = Why3_prover.prove ~show_goal:true (Parsing.Parse.parse_prop s)
 
 (* let simple () = run_tactic Automation.simple *)
 let simple () = run_tactic (Automation.simple ~lemmas:(SMap.bindings (get_lemmas ())))
-let simple2 () = Automation.solve_cert ~lemmas:(get_lemmas () |> SMap.bindings) (get_goals ())
+let simple2 () = run (Automation.solve_cert ~lemmas:(SMap.bindings (get_lemmas ())))
 
 (** Unfold a definition (symbol) on both side of a sequent in the current proof state. *)
 let unfold name =

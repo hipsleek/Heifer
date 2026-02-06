@@ -98,15 +98,14 @@
              (fun x1 acc -> x1+acc) x r)
   <: sum xs
   
+  no more goals
   
   # qed ()
   
-  # Format.printf "%a@." Prover.Automation.pp_cert
-      ((pf |> Result.get_ok) |> fst)
+  # Format.printf "%a@." Prover.Automation.pp_cert (Option.get pf)
   disj_elim ();
   ( intro_pure "H";
-    rewrite "H" (* xs=[] *);
-    prove () (* 0 <: sum [] *) )
+    prove () (* 0 <: sum xs *) )
   ( exists_elim ();
     intro_pure "H";
     rewrite "H" (* xs=x::xs' *);
@@ -115,8 +114,7 @@
                         is_int_list xs1 =>
                           foldr (fun x acc -> x+acc) 0 xs1 <:
                             sum xs1 *);
-    ( rewrite "H" (* xs=x::xs' *);
-      prove () (* sublist xs' (x::xs') *) );
+    ( prove () (* sublist xs' xs *) );
     ( prove () (* is_int_list xs' *) )
     prove () (* sum xs'; r. x+r <: sum (x::xs') *) )
 

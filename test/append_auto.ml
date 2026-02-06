@@ -44,14 +44,11 @@ declare
 
 lemma ~name:"append_sh/append_cps"
   {|
-    (forall f. (fun x -> f x) <: f) =>
     forall xs k.
       (forall r. reset (k r) <: k r) =>
       reset (append_sh xs; r. k r) <: append_cps xs k
   |}
 ;;
-
-intro_pure "eta_reduce";;
 forall_intro ();;
 revert "k";;
 induction ~name:"IH" `List "xs";;
@@ -60,8 +57,10 @@ intro_pure "Hk";;
 unfold "append_sh";;
 unfold "append_cps";;
 shift_reset_reduce ();;
-simple ();;
+let c = simple2 ();;
 qed ();;
+
+Format.printf "%a@." Prover.Automation.pp_cert (Option.get c);;
 
 lemma ~name:"append_cps/append_pure"
   {|
@@ -76,7 +75,9 @@ induction ~name:"IH" `List "xs";;
 forall_intro ();;
 unfold "append_cps";;
 unfold "append_pure";;
-simple ();;
+let c = simple2 ();;
 qed ();;
+
+Format.printf "%a@." Prover.Automation.pp_cert (Option.get c);;
 
 Options.fail_fast := false;;
