@@ -170,20 +170,27 @@ let solve_cert ?(lemmas = []) : cert t =
   (* Format.printf "result %a@." pp_cert r; *)
   pure r
 
-let possible_rewrites ?(lemmas = []) : unit t list t =
-  let* hyps = SMap.bindings <$> get_assumptions in
-  let hyps = hyps @ lemmas in
-  pure
-    (List.filter_map
-        (fun (h, s) ->
-        try
-          let rule = Rewrite.make_rule s in
-          let lhs = Rewrite.get_rule_lhs rule in
-          let rhs = Rewrite.get_rule_rhs rule in
-          let rule = if subterm lhs rhs then Rewrite.swap_rule_direction rule else rule in
-          Some (pre_rewrite rule *> dbg ("rewrite " ^ h))
-        with Invalid_argument _ -> None)
-        hyps)
+let make_rewrite (h, s) =
+  try
+    let rule = Rewrite.make_rule s in
+    let lhs = Rewrite.get_rule_lhs rule in
+    let rhs = Rewrite.get_rule_rhs rule in
+    let rule = if subterm lhs rhs then Rewrite.swap_rule_direction rule else rule in
+    Some (pre_rewrite rule *> dbg ("rewrite " ^ h))
+  with Invalid_argument _ -> None
+
+let make_rewrites =
+  List.filter_map make_rewrite
+
+let auto_rewrite : unit t =
+  let* assumptions = get_assumptions in
+  let rec visit = function
+    | [] -> fail "no progress"
+    | h :: rest ->
+        match make_rewrite h with
+        | None -> visit rest
+        | Some rw -> catch rw (fun _ -> visit rest)
+  in visit (SMap.bindings assumptions)
 
 let string_of_term_array ts =
   String.concat ", " (List.map (fun t -> Format.asprintf "%a" Core.Pretty.pp_term t) (Array.to_list ts))
@@ -191,7 +198,7 @@ let string_of_term_array ts =
 (* try to solve the current goal and any subgoals it generates *)
 let simple ?(lemmas = []) =
   let solve =
-    let* possible_rewrites = possible_rewrites ~lemmas in
+    let lemma_rewrites = make_rewrites lemmas in
     let rec go () =
       repeat
         (Simpl.simpl
@@ -214,8 +221,8 @@ let simple ?(lemmas = []) =
                 let* ps = get in
                 dbg (Format.asprintf "current goals: %a" Pstate.pp ps) *> prove *> dbg "prove");
                 ex_falso *> Pures.pure_solver *> dbg "ex_falso";
-              ]
-            @ possible_rewrites))
+                auto_rewrite]
+            @ lemma_rewrites))
     in go ()
   in
   () <$ try_ (focus_and_solve_with solve)

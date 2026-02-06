@@ -1,6 +1,7 @@
 open Heifer.Interactive;;
 
 Options.fail_fast := true;;
+Options.ignore_why3_failure := true;;
 
 axiom ~name:"mult_0_l"
   {| forall x. 0*.x = 0 |}
@@ -84,3 +85,4 @@ simple ();;
 qed ();;
 
 Options.fail_fast := false;;
+Options.ignore_why3_failure := false;;

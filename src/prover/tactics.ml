@@ -83,7 +83,9 @@ let invoke_why3 goal =
   in
   let why3_goal = SMap.fold handle_assumption assumptions goal in
   let why3_goal = unbox (Mk.forall (bind_mvar constants (box_term why3_goal))) in
-  Why3_prover.prove ~show_goal:!Proof_options.show_why3_goal why3_goal
+  let invoke () = Why3_prover.prove ~show_goal:!Proof_options.show_why3_goal why3_goal in
+  if !Proof_options.ignore_why3_failure then try invoke () with Failure _ -> `Invalid
+  else invoke ()
 
 let solve_invoke_why3 goal =
   let* result = invoke_why3 goal in

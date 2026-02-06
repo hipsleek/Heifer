@@ -1,6 +1,7 @@
 type t = Pctx.t list
 
-val destruct : 'a list -> 'a list list
-val focus : 'a list -> 'a list * 'a list
-val append : 'a list -> 'a list -> 'a list
-val pp : Format.formatter -> Pctx.t list -> unit
+val destruct : t -> t list
+val focus : t -> t * t
+val append : t -> t -> t
+val is_empty : t -> bool
+val pp : Format.formatter -> t -> unit

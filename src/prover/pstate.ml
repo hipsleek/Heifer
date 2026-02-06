@@ -8,6 +8,8 @@ let focus = function
   | [] -> ([], [])
   | s :: ss -> ([s], ss)
 
+let is_empty = List.is_empty
+
 let append = List.append
 
 let pp ppf s =

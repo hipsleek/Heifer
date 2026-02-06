@@ -81,13 +81,18 @@ module State = struct
 
   let make_interactive (tac : 'b -> 'a Tactic.t) (arg : 'b) = run_tactic (tac arg)
 
+  let when_goal_is_empty f =
+    if Pstate.is_empty (get_goals ()) then f ()
+    else Format.printf "error: proof is still open@."
+
   let qed () =
     match get_mode () with
-    | Mode_goal -> set_mode Mode_none
+    | Mode_goal -> when_goal_is_empty (fun () -> set_mode Mode_none)
     | Mode_lemma (name, goal) ->
-        add_lemma name goal;
-        set_mode Mode_none;
-        Format.printf "lemma %s declared@." name
+        when_goal_is_empty (fun () ->
+          add_lemma name goal;
+          set_mode Mode_none;
+          Format.printf "lemma %s declared@." name)
     | Mode_none -> Format.printf "error: no open proof@."
 end
 
