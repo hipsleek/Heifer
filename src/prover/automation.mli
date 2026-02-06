@@ -18,6 +18,8 @@ type cert_tac =
   | Smt of term
   | Forall_intro
   | Exists_elim
+  | Forall_elim of term array
+  | Exists_intro of term array
   | Intro_pure of string
   | Elim_pure
   | Intro_heap
