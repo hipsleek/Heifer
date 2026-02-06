@@ -81,6 +81,17 @@ let rec map_m f = function
       let* y = f x in
       List.cons y <$> map_m f xs
 
+let map_array_m f xs =
+  let l = Array.length xs in
+  let rec loop i =
+    if i < l then
+      let* r = f (Array.unsafe_get xs i) in
+      let* rs = loop (i + 1) in
+      pure (r :: rs)
+    else pure []
+  in
+  loop 0
+
 let rec iter_m f = function
   | [] -> pure ()
   | x :: xs ->

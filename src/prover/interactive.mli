@@ -18,6 +18,8 @@ val goal_is : string -> unit
 val specialize : string -> string list -> unit
 val forward : string -> unit
 val refl : unit -> unit
+val congruence : unit -> unit
+val funext : unit -> unit
 val req_heap_intro : unit -> unit
 val ens_heap_elim : unit -> unit
 val req_heap_elim : unit -> unit

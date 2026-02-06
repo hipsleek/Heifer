@@ -11,6 +11,8 @@ val goal_is : string -> unit t
 val refl : unit t
 val pre_rewrite : Rewrite.rewrite_rule -> unit t
 val rewrite : ?direction:[ `Ltr | `Rtl ] -> term -> unit t
+val funext : unit t
+val congruence : unit t
 
 val induction :
   ?vars:string list -> name:string -> [ `Int of int | `List | `Regex ] -> string -> unit t

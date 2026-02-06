@@ -224,7 +224,52 @@ let goal_is s =
 
 let refl =
   let* lhs, rhs = get_subsumption in
-  if equal_term lhs rhs then () <$ pop_pctxt else fail "refl: cannot close goal"
+  if equal_term lhs rhs then pop_pctxt $> () else fail "refl: cannot close goal"
+
+(* precongruence wrt functions *)
+let congruence =
+  let generate_subgoals_if_neq pc xs ys =
+    List.map2 (fun a b -> (a, b)) xs ys
+    |> iter_m (fun (a, b) ->
+        if equal_term a b then pure ()
+        else
+          let* () = push_pctxt pc in
+          put_goal (Subsumes (a, b)))
+  in
+  let* lhs, rhs = get_subsumption in
+  match (lhs, rhs) with
+  | Apply (f1, a1), Apply (f2, a2) ->
+      let* pc = pop_pctxt in
+      let* () = guard (List.length a1 = List.length a2) "same arity required" in
+      generate_subgoals_if_neq pc (f1 :: a1) (f2 :: a2)
+  | Disj (f1, f2), Disj (f3, f4) | Sequence (f1, f2), Sequence (f3, f4) ->
+      let* pc = pop_pctxt in
+      generate_subgoals_if_neq pc [f1; f2] [f3; f4]
+  | Bind (f1, b1), Bind (f2, b2) ->
+      let* pc = pop_pctxt in
+      let x, b1 = unbind b1 in
+      let y, b2 = unbind b2 in
+      let b1 = Fun (unbox (bind_mvar [| x |] (box_term b1))) in
+      let b2 = Fun (unbox (bind_mvar [| y |] (box_term b2))) in
+      generate_subgoals_if_neq pc [f1; b1] [f2; b2]
+  | _ -> fail "congruence: unsupported"
+
+let funext =
+  let* lhs, rhs = get_subsumption in
+  match (lhs, rhs) with
+  | Fun b1, Fun b2 ->
+      let xs, _ = unmbind b1 in
+      let ys, _ = unmbind b2 in
+      if Array.length xs <> Array.length ys then fail "lambdas not of equal arity"
+      else
+        let* zs : term mvar =
+          map_array_m (fun _ -> fresh ~prefix:"x") xs <&> Array.of_list <&> Array.map new_tvar
+        in
+        let args = zs |> Array.map (fun z -> unbox (box_var z)) |> Array.to_list in
+        let x = Apply (lhs, args) in
+        let y = Apply (rhs, args) in
+        put_goal (Forall (unbox (bind_mvar zs (box_term (Subsumes (x, y))))))
+  | _ -> fail "not a subsumption of functions"
 
 module Simpl = struct
   let simpl_zeta = Tactic.modify_goal Simpl.simpl_zeta
