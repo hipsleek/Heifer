@@ -216,11 +216,19 @@ let%expect_test "definitions and entailments" =
     ens (forall a. a=1); ens emp <: ens emp
     |}];
 
+  (* quantifiers *)
   test ~dump:true "forall a. ens a=1 <: ens emp";
   [%expect
     {|
     Forall (a. Subsumes (Ensures (Binop (Eq, Var a, Int 1)), Ensures (Emp)))
     forall a. ens a=1 <: ens emp
+    |}];
+
+  test ~dump:true "(ex a. ens a=1) <: ens emp";
+  [%expect
+    {|
+    Subsumes (Exists (a. Ensures (Binop (Eq, Var a, Int 1))), Ensures (Emp))
+    (ex a. ens a=1) <: ens emp
     |}]
 
 let%expect_test "shadowing" =
