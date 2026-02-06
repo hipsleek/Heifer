@@ -74,6 +74,17 @@ let get_rule_lhs rule = rule.rwr_lhs
 let get_rule_rhs rule = rule.rwr_rhs
 let get_rule_arity rule = rule.rwr_arity
 
+let swap_direction = function
+  | `Ltr -> `Rtl
+  | `Rtl -> `Ltr
+
+let swap_rule_direction rule =
+  let { rwr_lhs; rwr_rhs; rwr_umvar; rwr_direction; _ } = rule in
+  let rwr_direction = swap_direction rwr_direction in
+  let rwr_lhs, rwr_rhs = rwr_rhs, rwr_lhs in
+  let rwr_rhs_mbinder = mgeneralize rwr_umvar rwr_rhs in
+  { rule with rwr_direction; rwr_lhs; rwr_rhs; rwr_rhs_mbinder; }
+
 type rewrite_state = {
   (* an accumulator of instantiated conditions *)
   rws_conditions : term snoc_list;

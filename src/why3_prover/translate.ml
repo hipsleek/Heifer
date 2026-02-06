@@ -103,7 +103,9 @@ let rec term_to_whyml_aux ctxt kind t =
       tapp (qualid ["is_int"]) (List.map (term_to_whyml_aux ctxt Term) args) *)
   | Apply (Symbol { sym_name = f }, args), _ ->
       tapp (qualid [f]) (List.map (term_to_whyml_aux ctxt Term) args)
-  | Apply (_f, _args), _ -> failwith "apply"
+  | Apply (Var x, args), _ ->
+      tapp (qualid [Bindlib.name_of x]) (List.map (term_to_whyml_aux ctxt Term) args)
+  | Apply _, _ -> failwith "apply"
   | Sequence (_, t), Term -> term_to_whyml_aux ctxt Term t
   | Sequence _, Formula -> failwith "sequence cannot be used in a formula"
   | Bind (t, b), Term ->

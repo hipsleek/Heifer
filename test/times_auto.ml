@@ -42,6 +42,9 @@ declare
   |}
 ;;
 
+axiom ~name:"times_pure_const_r"
+  {| forall xs t. t <: times_pure xs; r. t |}
+;;
 
 lemma ~name:"times_sh/times_cp"
   {|
@@ -59,6 +62,24 @@ intro_pure "Hk";;
 unfold "times_sh";;
 unfold "times_cp";;
 shift_reset_reduce ();;
+simple ();;
+qed ();;
+
+
+lemma ~name:"times_cp/times_pure"
+  {|
+    forall xs k.
+      (0 <: k 0) =>
+      times_cp xs k <: times_pure xs; r. k r
+  |}
+;;
+forall_intro ();;
+revert "k";;
+induction ~name:"IH" `List "xs";;
+forall_intro ();;
+intro_pure "Hk";;
+unfold "times_cp";;
+unfold "times_pure";;
 simple ();;
 qed ();;
 

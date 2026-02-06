@@ -185,3 +185,42 @@ and pre_get_vars_mbinder acc b =
   TVSet.diff (pre_get_vars acc t) (TVSets.of_array xs)
 
 let get_vars t = pre_get_vars TVSet.empty t
+
+let rec subterm t1 t2 =
+  if equal_term t1 t2 then true
+  else
+    match t2 with
+    | Var _ | Symbol _ | Unit | True | False | Int _ | Nil -> false
+    | Fun b -> subterm_mbinder t1 b
+    | Tuple ts -> subterm_list t1 ts
+    | Binop (_, t3, t4)
+    | Conj (t3, t4)
+    | Disj (t3, t4)
+    | Implies (t3, t4)
+    | Wand (t3, t4)
+    | Subsumes (t3, t4)
+    | SepConj (t3, t4) -> subterm t1 t3 || subterm t1 t4
+    | Unop (_, t3) -> subterm t1 t3
+    | Emp -> false
+    | PointsTo (t3, t4) -> subterm t1 t3 || subterm t1 t4
+    | Requires t3
+    | Ensures t3
+    | Reset t3 -> subterm t1 t3
+    | Sequence (t3, t4) -> subterm t1 t3 || subterm t1 t4
+    | Bind (t3, b) -> subterm t1 t3 || subterm_binder t1 b
+    | Apply (t3, ts) -> subterm t1 t3 || subterm_list t1 ts
+    | Forall b
+    | Exists b -> subterm_mbinder t1 b
+    | Shift b -> subterm_binder t1 b
+
+and subterm_list t1 = function
+  | [] -> false
+  | t2 :: ts -> subterm t1 t2 || subterm_list t1 ts
+
+and subterm_binder t1 b =
+  let _, t2 = unbind b in
+  subterm t1 t2
+
+and subterm_mbinder t1 b =
+  let _, t2 = unmbind b in
+  subterm t1 t2

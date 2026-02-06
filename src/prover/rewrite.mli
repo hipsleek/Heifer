@@ -21,6 +21,7 @@ val get_rule_conditions : rewrite_rule -> term list
 val get_rule_lhs : rewrite_rule -> term
 val get_rule_rhs : rewrite_rule -> term
 val get_rule_arity : rewrite_rule -> int
+val swap_rule_direction : rewrite_rule -> rewrite_rule
 
 type rewrite_state
 

@@ -1,5 +1,6 @@
 open Core.Syntax
 open Core.Pretty
+open Core.Syntax_util
 open Util.Strings
 open Util.Lists
 open Tactic
@@ -175,9 +176,13 @@ let possible_rewrites ?(lemmas = []) : unit t list t =
   pure
     (List.filter_map
         (fun (h, s) ->
-        match s with
-        | Forall _ | Implies _ | Subsumes _ | Binop (Eq, _, _) -> Some (rewrite s *> dbg ("rewrite " ^ h))
-        | _ -> None)
+        try
+          let rule = Rewrite.make_rule s in
+          let lhs = Rewrite.get_rule_lhs rule in
+          let rhs = Rewrite.get_rule_rhs rule in
+          let rule = if subterm lhs rhs then Rewrite.swap_rule_direction rule else rule in
+          Some (pre_rewrite rule *> dbg ("rewrite " ^ h))
+        with Invalid_argument _ -> None)
         hyps)
 
 let string_of_term_array ts =
