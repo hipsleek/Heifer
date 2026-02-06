@@ -199,7 +199,8 @@ let rec pre_rewrite rule bvars target =
     result <$ modify update
   with Rewrite_failure _ ->
     (match target with
-    | Var _ | Symbol _ | Unit | True | False | Int _ | Nil | Emp -> pure target
+    | Var _ | Symbol _ | Unit | True | False | Int _ | Nil | Emp | ONone -> pure target
+    | OSome t -> Tm.some <$> pre_rewrite rule bvars t
     | Fun b -> Tm.fun_ <$> pre_rewrite_mbinder rule bvars b
     | Apply (f, t) -> lift2 Tm.apply (pre_rewrite rule bvars f) (pre_rewrite_list rule bvars t)
     | Tuple ts -> Tm.tuple <$> pre_rewrite_list rule bvars ts

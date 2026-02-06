@@ -104,6 +104,8 @@ let goal_is term = run_tactic (goal_is term)
 let specialize h = make_interactive (specialize h)
 let forward = make_interactive forward
 let refl () = run_tactic refl
+let funext () = run_tactic funext
+let congruence () = run_tactic congruence
 let req_heap_intro () = run_tactic Heaps.req_heap_intro
 let ens_heap_elim () = run_tactic Heaps.ens_heap_elim
 let req_heap_elim () = run_tactic Heaps.req_heap_elim
@@ -157,7 +159,8 @@ let unfold name =
   run_tactic tactic
 
 (** Generate an induction hypothesis in the current proof state. *)
-let induction : ?vars:string list -> name:string -> [ `List | `Int of int ] -> string -> unit =
+let induction :
+    ?vars:string list -> name:string -> [ `Regex | `List | `Int of int ] -> string -> unit =
  fun ?(vars = []) ~name kind x -> run_tactic (induction ~vars ~name kind x)
 
 let interactive_get_assumption name =

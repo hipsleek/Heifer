@@ -46,6 +46,8 @@ and reduce_cont t k =
       if is_reset t then invoke_cont_impure t k else reduce_cont t k
   | Var _
   | Symbol _
+  | OSome _
+  | ONone
   | Unit
   | True
   | False

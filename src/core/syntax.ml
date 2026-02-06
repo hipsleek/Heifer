@@ -22,8 +22,8 @@ type unop =
   | Not
   | Neg
 
-(** Atomic term: variables, (literal) constants, functions, primitives;
-    propositions; heap propositions; and staged specification formulae. *)
+(** Atomic term: variables, (literal) constants, functions, primitives; propositions; heap
+    propositions; and staged specification formulae. *)
 type term =
   | Var of term var
   | Symbol of symbol
@@ -37,6 +37,8 @@ type term =
   | Binop of binop * term * term
   | Unop of unop * term
   | Nil
+  | ONone
+  | OSome of term
   | Conj of term * term
   | Disj of term * term
   | Implies of term * term
@@ -75,6 +77,8 @@ module Tm = struct
   let apply t ts = Apply (t, ts)
   let binop op t1 t2 = Binop (op, t1, t2)
   let unop op t = Unop (op, t)
+  let none = ONone
+  let some t = OSome t
   let conj t1 t2 = Conj (t1, t2)
   let disj t1 t2 = Disj (t1, t2)
   let implies t1 t2 = Implies (t1, t2)
@@ -99,6 +103,8 @@ module Mk = struct
   let symbol sym = box (Symbol sym)
   let unit = box Unit
   let nil = box Nil
+  let none = box ONone
+  let some = box_apply (fun t -> OSome t)
   let true_ = box True
   let false_ = box False
   let int i = box (Int i)
@@ -148,6 +154,8 @@ let rec box_term = function
   | Symbol sym -> Mk.symbol sym
   | Unit -> Mk.unit
   | Nil -> Mk.nil
+  | ONone -> Mk.none
+  | OSome t -> Mk.some (box_term t)
   | True -> Mk.true_
   | False -> Mk.false_
   | Apply (t, ts) -> Mk.apply (box_term t) (box_term_list ts)
@@ -174,9 +182,7 @@ let rec box_term = function
   | Reset s -> Mk.reset (box_term s)
 
 and box_term_binder b = box_binder box_term b
-
 and box_term_mbinder b = box_mbinder box_term b
-
 and box_term_list ts = box_list (List.map box_term ts)
 
 type prop = term
@@ -231,7 +237,7 @@ module SymSet = Set.Make (Sym)
 module SymMap = Map.Make (Sym)
 
 let rec equal_term t1 t2 =
-  match t1, t2 with
+  match (t1, t2) with
   | Var x1, Var x2 -> eq_vars x1 x2
   | Symbol t1, Symbol s2 -> t1 = s2
   | Unit, Unit -> true
@@ -245,6 +251,8 @@ let rec equal_term t1 t2 =
       op1 = op2 && equal_term t11 t21 && equal_term t12 t22
   | Unop (op1, t1), Unop (op2, t2) -> op1 = op2 && equal_term t1 t2
   | Nil, Nil -> true
+  | ONone, ONone -> true
+  | OSome t1, OSome t2 -> equal_term t1 t2
   | Conj (t11, t12), Conj (t21, t22) -> equal_term t11 t21 && equal_term t12 t22
   | Disj (t11, t12), Disj (t21, t22) -> equal_term t11 t21 && equal_term t12 t22
   | Implies (t11, t12), Implies (t21, t22) -> equal_term t11 t21 && equal_term t12 t22
@@ -264,19 +272,17 @@ let rec equal_term t1 t2 =
   | _, _ -> false
 
 and equal_term_binder b1 b2 = eq_binder equal_term b1 b2
-
 and equal_term_mbinder b1 b2 = eq_mbinder equal_term b1 b2
 
 and equal_term_list ts1 ts2 =
-  match ts1, ts2 with
+  match (ts1, ts2) with
   | [], [] -> true
   | t1 :: ts1, t2 :: ts2 -> equal_term t1 t2 && equal_term_list ts1 ts2
   | _, _ -> false
 
 let rec dump_term ppf t =
   match t with
-  | Sequence (a, b) ->
-      Fmt.pf ppf "@[<hov 2>Sequence (%a,@ %a)@]" dump_term a dump_term b
+  | Sequence (a, b) -> Fmt.pf ppf "@[<hov 2>Sequence (%a,@ %a)@]" dump_term a dump_term b
   | Var x -> Fmt.pf ppf "@[<hov 2>Var %s@]" (Bindlib.name_of x)
   | Symbol s -> Fmt.pf ppf "@[<hov 2>Symbol %s@]" s.sym_name
   | Unit -> Fmt.string ppf "Unit"
@@ -285,12 +291,9 @@ let rec dump_term ppf t =
   | Int i -> Fmt.pf ppf "@[<hov 2>Int %d@]" i
   | Fun b ->
       let xs, body = Bindlib.unmbind b in
-      let args =
-        String.concat " " (Array.to_list (Array.map Bindlib.name_of xs))
-      in
+      let args = String.concat " " (Array.to_list (Array.map Bindlib.name_of xs)) in
       Fmt.pf ppf "@[<hov 2>Fun (%s.@ %a)@]" args dump_term body
-  | Tuple ts ->
-      Fmt.pf ppf "@[<hov 2>Tuple [%a]@]" (Fmt.list ~sep:Fmt.comma dump_term) ts
+  | Tuple ts -> Fmt.pf ppf "@[<hov 2>Tuple [%a]@]" (Fmt.list ~sep:Fmt.comma dump_term) ts
   | Binop (op, t1, t2) ->
       let op_s =
         match op with
@@ -305,8 +308,7 @@ let rec dump_term ppf t =
         | Times -> "Times"
         | Cons -> "Cons"
       in
-      Fmt.pf ppf "@[<hov 2>Binop (%s,@ %a,@ %a)@]" op_s dump_term t1 dump_term
-        t2
+      Fmt.pf ppf "@[<hov 2>Binop (%s,@ %a,@ %a)@]" op_s dump_term t1 dump_term t2
   | Unop (op, t) ->
       let op_s =
         match op with
@@ -315,42 +317,30 @@ let rec dump_term ppf t =
       in
       Fmt.pf ppf "@[<hov 2>Unop (%s,@ %a)@]" op_s dump_term t
   | Nil -> Fmt.string ppf "Nil"
-  | Conj (t1, t2) ->
-      Fmt.pf ppf "@[<hov 2>Conj (%a,@ %a)@]" dump_term t1 dump_term t2
-  | Disj (t1, t2) ->
-      Fmt.pf ppf "@[<hov 2>Disj (%a,@ %a)@]" dump_term t1 dump_term t2
-  | Implies (t1, t2) ->
-      Fmt.pf ppf "@[<hov 2>Implies (%a,@ %a)@]" dump_term t1 dump_term t2
-  | Wand (t1, t2) ->
-      Fmt.pf ppf "@[<hov 2>Wand (%a,@ %a)@]" dump_term t1 dump_term t2
-  | Subsumes (t1, t2) ->
-      Fmt.pf ppf "@[<hov 2>Subsumes (%a,@ %a)@]" dump_term t1 dump_term t2
+  | ONone -> Fmt.string ppf "None"
+  | OSome t -> Fmt.pf ppf "@[<hov 2>Some (%a)@]" dump_term t
+  | Conj (t1, t2) -> Fmt.pf ppf "@[<hov 2>Conj (%a,@ %a)@]" dump_term t1 dump_term t2
+  | Disj (t1, t2) -> Fmt.pf ppf "@[<hov 2>Disj (%a,@ %a)@]" dump_term t1 dump_term t2
+  | Implies (t1, t2) -> Fmt.pf ppf "@[<hov 2>Implies (%a,@ %a)@]" dump_term t1 dump_term t2
+  | Wand (t1, t2) -> Fmt.pf ppf "@[<hov 2>Wand (%a,@ %a)@]" dump_term t1 dump_term t2
+  | Subsumes (t1, t2) -> Fmt.pf ppf "@[<hov 2>Subsumes (%a,@ %a)@]" dump_term t1 dump_term t2
   | Emp -> Fmt.string ppf "Emp"
-  | PointsTo (t1, t2) ->
-      Fmt.pf ppf "@[<hov 2>PointsTo (%a,@ %a)@]" dump_term t1 dump_term t2
-  | SepConj (t1, t2) ->
-      Fmt.pf ppf "@[<hov 2>SepConj (%a,@ %a)@]" dump_term t1 dump_term t2
+  | PointsTo (t1, t2) -> Fmt.pf ppf "@[<hov 2>PointsTo (%a,@ %a)@]" dump_term t1 dump_term t2
+  | SepConj (t1, t2) -> Fmt.pf ppf "@[<hov 2>SepConj (%a,@ %a)@]" dump_term t1 dump_term t2
   | Requires t -> Fmt.pf ppf "@[<hov 2>Requires (%a)@]" dump_term t
   | Ensures t -> Fmt.pf ppf "@[<hov 2>Ensures (%a)@]" dump_term t
   | Bind (s, b) ->
       let x, body = Bindlib.unbind b in
-      Fmt.pf ppf "@[<hov 2>Bind (%a,@ %s.@ %a)@]" dump_term s
-        (Bindlib.name_of x) dump_term body
+      Fmt.pf ppf "@[<hov 2>Bind (%a,@ %s.@ %a)@]" dump_term s (Bindlib.name_of x) dump_term body
   | Apply (f, ts) ->
-      Fmt.pf ppf "@[<hov 2>Apply (%a,@ [%a])@]" dump_term f
-        (Fmt.list ~sep:Fmt.comma dump_term)
-        ts
+      Fmt.pf ppf "@[<hov 2>Apply (%a,@ [%a])@]" dump_term f (Fmt.list ~sep:Fmt.comma dump_term) ts
   | Forall b ->
       let xs, body = Bindlib.unmbind b in
-      let args =
-        String.concat " " (Array.to_list (Array.map Bindlib.name_of xs))
-      in
+      let args = String.concat " " (Array.to_list (Array.map Bindlib.name_of xs)) in
       Fmt.pf ppf "@[<hov 2>Forall (%s.@ %a)@]" args dump_term body
   | Exists b ->
       let xs, body = Bindlib.unmbind b in
-      let args =
-        String.concat " " (Array.to_list (Array.map Bindlib.name_of xs))
-      in
+      let args = String.concat " " (Array.to_list (Array.map Bindlib.name_of xs)) in
       Fmt.pf ppf "@[<hov 2>Exists (%s.@ %a)@]" args dump_term body
   | Shift b ->
       let k, body = Bindlib.unbind b in

@@ -9,13 +9,14 @@ open Automation_heuristic
 
 let rec repeat (tac : unit t) : unit t =
  fun s ->
-  if List.is_empty s then Ok ((), s) else
-  match tac s with
-  | Error e -> Error e
-  | Ok ((), s) -> repeat tac s
+  if List.is_empty s then Ok ((), s)
+  else
+    match tac s with
+    | Error e -> Error e
+    | Ok ((), s) -> repeat tac s
 
 let intro_pure =
-  let* n = fresh in
+  let* n = fresh ~prefix:"H" in
   let* () = Pures.intro_pure n in
   pure n
 
@@ -215,7 +216,8 @@ let auto_rewrite : unit t =
   in visit (SMap.bindings assumptions)
 
 let string_of_term_array ts =
-  String.concat ", " (List.map (fun t -> Format.asprintf "%a" Core.Pretty.pp_term t) (Array.to_list ts))
+  String.concat ", "
+    (List.map (fun t -> Format.asprintf "%a" Core.Pretty.pp_term t) (Array.to_list ts))
 
 (* try to solve the current goal and any subgoals it generates *)
 let simple ?(lemmas = []) =
@@ -232,8 +234,10 @@ let simple ?(lemmas = []) =
                 Disj.right *> dbg "right" >>= go;
                 forall_intro *> dbg "forall_intro";
                 exists_elim *> dbg "exists_elim";
-                (dbg "try forall_elim" *> forall_elim_heuristic >>= fun ts -> dbg ("forall_elim with args: " ^ string_of_term_array ts));
-                (dbg "try exists_intro" *> exists_intro_heuristic >>= fun ts -> dbg ("exists_intro with args: " ^ string_of_term_array ts));
+                ( dbg "try forall_elim" *> forall_elim_heuristic >>= fun ts ->
+                  dbg ("forall_elim with args: " ^ string_of_term_array ts) );
+                ( dbg "try exists_intro" *> exists_intro_heuristic >>= fun ts ->
+                  dbg ("exists_intro with args: " ^ string_of_term_array ts) );
                 (intro_pure $> ()) *> dbg "intro_pure";
                 Heaps.intro_heap *> dbg "intro_heap";
                 dbg "try elim_pure" *> Pures.elim_pure *> dbg "elim_pure";

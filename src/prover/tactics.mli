@@ -11,7 +11,12 @@ val goal_is : string -> unit t
 val refl : unit t
 val pre_rewrite : Rewrite.rewrite_rule -> unit t
 val rewrite : ?direction:[ `Ltr | `Rtl ] -> term -> unit t
-val induction : ?vars:string list -> name:string -> [ `Int of int | `List ] -> string -> unit t
+val funext : unit t
+val congruence : unit t
+
+val induction :
+  ?vars:string list -> name:string -> [ `Int of int | `List | `Regex ] -> string -> unit t
+
 val prove : unit t
 
 module Pures : sig
@@ -87,4 +92,4 @@ val semicolon1 : 'a t -> 'b t -> unit t
 val semicolon : 'a t -> 'b t -> Pctx.t list -> (Pctx.t list, string) result
 val push_pure_goals : term list -> unit t
 val invoke_why3 : term -> [> `Invalid | `Unknown of string | `Valid ] t
-val fresh : string t
+val fresh : ?prefix:string -> string t

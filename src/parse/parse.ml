@@ -120,6 +120,32 @@ let%expect_test "basics" =
   test "forall x. forall y. ens x=y";
   [%expect {| forall x. (forall y. ens x=y) |}]
 
+let%expect_test "options" =
+  test ~dump:true "None";
+  [%expect {|
+    None
+    None
+    |}];
+
+  test ~dump:true "Some 1";
+  [%expect {|
+    Some (Int 1)
+    Some 1
+    |}];
+
+  test ~dump:true "Some 1 + 1";
+  [%expect {|
+    Binop (Plus, Some (Int 1), Int 1)
+    Some 1+1
+    |}];
+
+  (* TODO this is a problem *)
+  test ~dump:true "k Some 1";
+  [%expect {|
+    Apply (Symbol k, [Symbol Some, Int 1])
+    k Some 1
+    |}]
+
 let%expect_test "tuples" =
   (* empty tuples are not allowed *)
   test ~dump:true "()";
@@ -158,6 +184,19 @@ let%expect_test "application" =
   [%expect {|
     Apply (Symbol f, [Int 1, Int 2])
     f 1 2
+    |}];
+
+  (* TODO fix printing *)
+  test ~dump:true "f (g 2)";
+  [%expect {|
+    Apply (Symbol f, [Apply (Symbol g, [Int 2])])
+    f g 2
+    |}];
+
+  test ~dump:true "f (g 2) 3";
+  [%expect {|
+    Apply (Symbol f, [Apply (Symbol g, [Int 2]), Int 3])
+    f g 2 3
     |}]
 
 let%expect_test "definitions and entailments" =
@@ -177,11 +216,19 @@ let%expect_test "definitions and entailments" =
     ens (forall a. a=1); ens emp <: ens emp
     |}];
 
+  (* quantifiers *)
   test ~dump:true "forall a. ens a=1 <: ens emp";
   [%expect
     {|
     Forall (a. Subsumes (Ensures (Binop (Eq, Var a, Int 1)), Ensures (Emp)))
     forall a. ens a=1 <: ens emp
+    |}];
+
+  test ~dump:true "(ex a. ens a=1) <: ens emp";
+  [%expect
+    {|
+    Subsumes (Exists (a. Ensures (Binop (Eq, Var a, Int 1))), Ensures (Emp))
+    (ex a. ens a=1) <: ens emp
     |}]
 
 let%expect_test "shadowing" =

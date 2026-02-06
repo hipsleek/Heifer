@@ -18,6 +18,8 @@ val goal_is : string -> unit
 val specialize : string -> string list -> unit
 val forward : string -> unit
 val refl : unit -> unit
+val congruence : unit -> unit
+val funext : unit -> unit
 val req_heap_intro : unit -> unit
 val ens_heap_elim : unit -> unit
 val req_heap_elim : unit -> unit
@@ -57,6 +59,9 @@ val prove_s : string -> [> `Invalid | `Unknown of string | `Valid ]
 val simple : unit -> unit
 val simple2 : unit -> (Automation.cert * Pstate.t, string) result
 val unfold : string -> unit
-val induction : ?vars:string list -> name:string -> [ `Int of int | `List ] -> string -> unit
+
+val induction :
+  ?vars:string list -> name:string -> [ `Int of int | `List | `Regex ] -> string -> unit
+
 val interactive_get_assumption : string -> term Tactic.t
 val rewrite : ?direction:[ `Ltr | `Rtl ] -> string -> unit

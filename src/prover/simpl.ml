@@ -25,7 +25,10 @@ and simpl_zeta_mbinder b =
     substituted to a binding. *)
 and simpl_zeta_aux t =
   match t with
-  | Var _ | Symbol _ | Unit | True | False | Int _ | Nil -> (t, true)
+  | Var _ | Symbol _ | Unit | True | False | Int _ | Nil | ONone -> (t, true)
+  | OSome t ->
+      let t, p = simpl_zeta_aux t in
+      (OSome t, p)
   | Fun b -> (Fun (simpl_zeta_mbinder b), true)
   | Tuple ts ->
       let ts, p = simpl_zeta_list_aux ts in
@@ -134,7 +137,8 @@ let simpl_assoc t = unbox (box_simpl_assoc t)
     TODO: this is the naive implementation. It can be more efficient. *)
 let rec simpl_beta t =
   match t with
-  | Var _ | Symbol _ | Unit | True | False | Int _ | Nil | Emp -> t
+  | Var _ | Symbol _ | Unit | True | False | Int _ | Nil | Emp | ONone -> t
+  | OSome t -> OSome (simpl_beta t)
   | Fun b -> Fun (simpl_beta_mbinder b)
   | Tuple ts -> Tuple (simpl_beta_list ts)
   | Binop (op, t1, t2) -> Binop (op, simpl_beta t1, simpl_beta t2)

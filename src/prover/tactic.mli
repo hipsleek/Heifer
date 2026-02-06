@@ -42,6 +42,7 @@ val map_error : (string -> string) -> 'a t -> 'a t
 
 (* higher-order combinators, with other datatypes *)
 val map_m : ('a -> 'b t) -> 'a list -> 'b list t
+val map_array_m : ('a -> 'b t) -> 'a array -> 'b list t
 val iter_m : ('a -> unit t) -> 'a list -> unit t
 val iter_array_m : ('a -> unit t) -> 'a array -> unit t
 
