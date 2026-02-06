@@ -1,5 +1,7 @@
 open Heifer.Interactive;;
 
+Options.fail_fast := true;;
+
 axiom ~name:"conj_false_l"
   {| forall t. (false /\ t) = false |}
 ;;
@@ -71,3 +73,5 @@ simpl ();;
 shift_reset_reduce ();;
 simple ();;
 qed ();;
+
+Options.fail_fast := false;;
