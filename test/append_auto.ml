@@ -76,8 +76,7 @@ forall_intro ();;
 unfold "append_cps";;
 unfold "append_pure";;
 let c = simple2 ();;
-qed ();;
-
 Format.printf "%a@." Prover.Automation.pp_cert (Option.get c);;
+qed ();;
 
 Options.fail_fast := false;;

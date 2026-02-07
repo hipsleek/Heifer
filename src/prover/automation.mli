@@ -6,7 +6,7 @@ open Tactic
 (** Some automation tactics *)
 
 val repeat : unit t -> unit t
-val focus_and_solve_with : 'a t -> 'a t
+val focus : 'a t -> 'a t
 
 (** Simple automation *)
 
@@ -14,16 +14,16 @@ val simple : ?lemmas:(string * term) list -> unit t
 
 (** Certifying automation *)
 
-type cert_tac =
+type cert =
   | Smt of term
-  | Forall_intro
-  | Exists_elim
-  | Forall_elim of term array
-  | Exists_intro of term array
-  | Intro_pure of string
-  | Elim_pure
-  | Intro_heap
-  | Elim_heap
+  | Forall_intro of cert
+  | Exists_elim of cert
+  | Forall_elim of term list * cert
+  | Exists_intro of term list * cert
+  | Intro_pure of string * cert
+  | Elim_pure of cert
+  | Intro_heap of cert
+  | Elim_heap of cert
   | Rewrite of string * term * cert list * cert
   | Disj_elim of cert * cert
   | Left of cert
@@ -31,8 +31,5 @@ type cert_tac =
   | Refl
   | Ex_falso
 
-and cert = cert_tac list
-
-val pp_cert_tac : cert_tac Fmt.t [@@toplevel_printer]
 val pp_cert : Format.formatter -> cert -> unit [@@toplevel_printer]
 val solve_cert : ?lemmas:(string * term) list -> cert t

@@ -31,6 +31,5 @@ goal_is
 ;;
 
 let pf = simple2 ();;
+Format.printf "%a@." Prover.Automation.pp_cert (Option.get pf);;
 qed ();;
-
-Format.printf "%a@." Prover.Automation.pp_cert (Option.get pf)

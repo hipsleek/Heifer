@@ -1,8 +1,8 @@
+open Util
 open Core.Syntax
 open Core.Pretty
 open Core.Syntax_util
 open Util.Strings
-open Util.Lists
 open Tactic
 open Tactics
 open Automation_heuristic
@@ -16,25 +16,24 @@ let rec repeat (tac : unit t) : unit t =
     | Ok ((), s) -> repeat tac s
 
 let intro_pure =
-  let* n = fresh ~prefix:"H" in
-  let* () = Pures.intro_pure n in
-  pure n
+  let* name = fresh ~prefix:"H" in
+  name <$ Pures.intro_pure name
 
 let dbg_state =
-  let* ps = get in
-  dbg (Format.asprintf "current goals: %a" Pstate.pp ps)
+  let* state = get in
+  dbg (Format.asprintf "current state: %a" Pstate.pp state)
 
 (* core automation tactic *)
-type cert_tac =
+type cert =
   | Smt of term
-  | Forall_intro
-  | Exists_elim
-  | Forall_elim of term array
-  | Exists_intro of term array
-  | Intro_pure of string
-  | Elim_pure
-  | Intro_heap
-  | Elim_heap
+  | Forall_intro of cert
+  | Exists_elim of cert
+  | Forall_elim of term list * cert
+  | Exists_intro of term list * cert
+  | Intro_pure of string * cert
+  | Elim_pure of cert
+  | Intro_heap of cert
+  | Elim_heap of cert
   | Rewrite of string * term * cert list * cert
   | Disj_elim of cert * cert
   | Left of cert
@@ -42,29 +41,36 @@ type cert_tac =
   | Refl
   | Ex_falso
 
-and cert = cert_tac list
-
 module Cert = struct
   let smt t = Smt t
-  let forall_elim ts = Forall_elim ts
-  let exists_intro ts = Exists_intro ts
-  let intro_pure name = Intro_pure name
+  let forall_intro c = Forall_intro c
+  let exists_elim c = Exists_elim c
+  let forall_elim ts c = Forall_elim (ts, c)
+  let exists_intro ts c = Exists_intro (ts, c)
+  let intro_pure name c = Intro_pure (name, c)
+  let elim_pure c = Elim_pure c
+  let intro_heap c = Intro_heap c
+  let elim_heap c = Elim_heap c
+  let rewrite name t cs c = Rewrite (name, t, cs, c)
+  let disj_elim c1 c2 = Disj_elim (c1, c2)
   let left c = Left c
   let right c = Right c
+  let refl = Refl
+  let ex_falso = Ex_falso
 end
 
-let rec pp_cert_tac ppf =
+let rec pp_cert ppf =
   let spaced_parens pp ppf v = Fmt.pf ppf "@[<1>( %a )@]" pp v in
   function
   | Smt t -> Fmt.pf ppf "prove () (* %a *)" pp_term t
-  | Forall_intro -> Fmt.string ppf "forall_intro ()"
-  | Exists_elim -> Fmt.string ppf "exists_elim ()"
-  | Forall_elim ts -> Fmt.pf ppf "forall_elim %a" (Fmt.array ~sep:(Fmt.any "; ") pp_term) ts
-  | Exists_intro ts -> Fmt.pf ppf "exists_elim %a" (Fmt.array ~sep:(Fmt.any "; ") pp_term) ts
-  | Intro_pure n -> Fmt.pf ppf "intro_pure \"%s\"" n
-  | Elim_pure -> Fmt.pf ppf "elim_pure ()"
-  | Intro_heap -> Fmt.pf ppf "intro_heap ()"
-  | Elim_heap -> Fmt.pf ppf "elim_heap ()"
+  | Forall_intro c -> Fmt.pf ppf "@[<v>forall_intro ();@,%a@]" pp_cert c
+  | Exists_elim c -> Fmt.pf ppf "@[<v>exists_elim ();@,%a@]" pp_cert c
+  | Forall_elim (ts, c) -> Fmt.pf ppf "@[<v>forall_elim %a;@,%a@]" (Fmt.list ~sep:(Fmt.any "; ") pp_term) ts pp_cert c
+  | Exists_intro (ts, c) -> Fmt.pf ppf "@[<v>exists_intro %a;@,%a@]" (Fmt.list ~sep:(Fmt.any "; ") pp_term) ts pp_cert c
+  | Intro_pure (name, c) -> Fmt.pf ppf "@[<v>intro_pure \"%s\";@,%a@]" name pp_cert c
+  | Elim_pure c -> Fmt.pf ppf "@[<v>elim_pure ();@,%a@]" pp_cert c
+  | Intro_heap c -> Fmt.pf ppf "@[<v>intro_heap ();@,%a@]" pp_cert c
+  | Elim_heap c -> Fmt.pf ppf "@[<v>elim_heap ();@,%a@]" pp_cert c
   | Rewrite (n, t, c, k) ->
       Fmt.pf ppf "@[<v>rewrite \"%s\" (* %a *);" n pp_term t;
       (match c with
@@ -73,27 +79,21 @@ let rec pp_cert_tac ppf =
       | _ -> Fmt.pf ppf "@,%a" (Fmt.(list ~sep:(any ";@,")) (spaced_parens pp_cert)) c);
       Fmt.pf ppf "@,%a@]" pp_cert k
   | Disj_elim (c1, c2) ->
-      Fmt.pf ppf "@[<v>disj_elim ();@,( @[<v 2>%a@] )@,( @[<v 2>%a )@]@]" pp_cert c1 pp_cert c2
+      Fmt.pf ppf "@[<v>disj_elim ();@,( @[<v 2>%a@] )@,( @[<v 2>%a@] )@]" pp_cert c1 pp_cert c2
   | Left c -> Fmt.pf ppf "@[<v>left ();@,%a@]" pp_cert c
   | Right c -> Fmt.pf ppf "@[<v>right ();@,%a@]" pp_cert c
-  | Refl -> Fmt.pf ppf "refl ()"
-  | Ex_falso -> Fmt.pf ppf "@[<v>ex_falso ();@,pure_solver ()]@"
+  | Refl -> Fmt.pf ppf "@[<v>refl ();@]"
+  | Ex_falso -> Fmt.pf ppf "@[<v>ex_falso ();@,pure_solver ()@]"
 
-and pp_cert ppf c = Fmt.pf ppf "@[<v>%a@]" Fmt.(list ~sep:(any ";@,") pp_cert_tac) c
-
-let focus_and_solve_with tac =
-  let* gs = get in
-  match gs with
-  | [] -> failf "no goals to solve"
-  | g :: gs ->
-      let* () = put [g] in
-      let* r = tac in
-      let* gs1 = get in
-      (match gs1 with
-      | [] -> r <$ put gs
-      | _ ->
-          Format.printf "%a@." Pstate.pp gs1;
-          failf "failed to solve entirely")
+let focus tactic =
+  let* ps = get in
+  match ps with
+  | [] -> fail "no more goal"
+  | p :: ps ->
+      let* _ = dbg (Format.asprintf "number of remaining goals: %d@." (List.length ps + 1)) in
+      let* _ = put [p] in
+      let* r = tactic in
+      r <$ put ps
 
 let make_rewrite t =
   try
@@ -104,7 +104,15 @@ let make_rewrite t =
     Some (pre_rewrite rule)
   with Invalid_argument _ -> None
 
-let possible_rewrites2 self lemmas : cert_tac t list =
+let make_lemma_rewrites =
+  List.filter_map
+    (fun assumption ->
+      let (name, t) = assumption in
+      match make_rewrite t with
+      | None -> None
+      | Some tactic -> Some (let* _ = dbg (Format.asprintf "trying to rewrite with assumption %s: %a" name pp_term t) in assumption <$ tactic))
+
+(* let possible_rewrites2 self lemmas : cert t list =
   (* it's possible that a rewriting rule may be used multiple times
     e.g. IHs, so there is no attempt to use them only once for now *)
   List.filter_map (fun (n, t) ->
@@ -119,106 +127,90 @@ let possible_rewrites2 self lemmas : cert_tac t list =
           pure (Rewrite (n, t, init, tail))
         in
         Some tactic)
-    lemmas
+    lemmas *)
 
-let disj_elim self =
-  let* () = Disj.disj_elim in
-  let* gs = get in
-  match gs with
-  | [l; r] ->
-      let* () = put [l] in
-      let* pl = self () in
-      let* () = put [r] in
-      let* pr = self () in
-      pure (Disj_elim (pl, pr))
-  | _ ->
-      Format.printf "failed@.";
-      failf "invalid state after disj, tactic error?"
+type 'a strategy =
+  | Done : 'a t -> 'a strategy
+  | More : 'b t * ('b -> 'a t) -> 'a strategy
 
-let auto_rewrite_with self =
+let rec try_and_cut = function
+  | [] -> fail "no progress"
+  | Done tactic :: rest ->
+      catch tactic (fun _ -> try_and_cut rest)
+  | More (tactic, action) :: rest ->
+      let* r = try_ tactic in
+      match r with
+      | Ok v -> action v
+      | Error _ -> try_and_cut rest
+
+let auto_rewrite lemma_rewrites =
   let* assumptions = get_assumptions in
   let rec visit = function
-    | [] -> fail "no progress"
-    | (h, t) :: rest ->
+    | [] -> choices lemma_rewrites
+    | assumption :: rest ->
+        let (name, t) = assumption in
         match make_rewrite t with
         | None -> visit rest
-        | Some rw ->
-            let tactic =
-              let* _ = rw in
-              let* ps = get in
-              let* sub = map_m (fun p -> put [p] >>= self) ps in
-              let init, tail = init_last sub in
-              pure (Rewrite (h, t, init, tail))
-            in
-            catch tactic (fun _ -> visit rest)
-  in
-  visit (SMap.bindings assumptions)
-
-let solve_cert ?(lemmas = []) : cert t =
-  let rec solve () : cert t =
-    let lemma_rewrites = possible_rewrites2 solve lemmas in
-    let* g = get in
-    (* Format.printf "---@."; *)
-    (* let _ : cert t list = possible_rewrites in *)
-    match g with
-    | [] ->
-        (* Format.printf "return empty@."; *)
-        pure []
-    | _ ->
-        (* Format.printf "#goals: %d@." (List.length g); *)
-        let* pf =
-          Simpl.simpl
-          *> choices
-               ([
-                  Refl <$ refl;
-                  disj_elim solve (* >>> dbg "disj" *);
-                  Cert.left <$> (Disj.left >>= solve);
-                  Cert.right <$> (Disj.right >>= solve);
-                  Forall_intro <$ forall_intro (* >>> dbg "forall intro" *);
-                  Exists_elim <$ exists_elim (* >>> dbg "exists elim" *);
-                  Cert.forall_elim <$> forall_elim_heuristic;
-                  Cert.exists_intro <$> exists_intro_heuristic;
-                  Cert.intro_pure <$> intro_pure (* >>> dbg "intro pure" *);
-                  Intro_heap <$ Heaps.intro_heap;
-                  Elim_pure <$ Pures.elim_pure;
-                  Elim_heap <$ Heaps.elim_heap;
-                  Cert.smt <$> get_goal <* prove (* >>> dbg "smt"; *);
-                  Ex_falso <$ (ex_falso *> Pures.pure_solver);
-                  auto_rewrite_with solve
-                 ]
-                @ lemma_rewrites)
-        in
-        (* Format.printf "pf %a@." pp_cert_tac pf; *)
-        let* r = solve () in
-        pure (pf :: r)
-  in
-  focus_and_solve_with (solve ())
-
-let make_rewrites =
-  List.filter_map (fun (h, t) -> Option.map (fun rw -> rw *> dbg ("rewrite " ^ h)) (make_rewrite t))
-
-let auto_rewrite : unit t =
-  let* assumptions = get_assumptions in
-  let rec visit = function
-    | [] -> fail "no progress"
-    | (h, t) :: rest ->
-        match make_rewrite t with
-        | None -> visit rest
-        | Some rw ->
-            let tactic =
-              let* _ = rw in
-              dbg ("rewrite " ^ h)
-            in
-            catch tactic (fun _ -> visit rest)
+        | Some tactic ->
+            let* _ = dbg (Format.asprintf "trying to rewrite with assumption %s: %a" name pp_term t) in
+            catch (assumption <$ tactic) (fun _ -> visit rest)
   in visit (SMap.bindings assumptions)
 
-let string_of_term_array ts =
+let after_disj_elim solve () =
+  let* ps = get in
+  match ps with
+  | [_; _] ->
+      let* pl = focus (solve ()) in
+      let+ pr = focus (solve ()) in
+      Cert.disj_elim pl pr
+  | _ -> fail "invalid state after disj_elim"
+
+let after_left solve ps =
+  catch (Cert.left <$> solve ()) (fun _ ->
+    Cert.right <$> put ps *> dbg "[after left]\n" *> dbg_state *> Disj.right *> solve ())
+
+let after_auto_rewrite solve (name, t) =
+  let* _ = dbg "[after_auto_rewrite]\n" in
+  let* _ = dbg_state in
+  let* ps = get in
+  let+ cs = map_m (fun _ -> focus (solve ())) ps in
+  let cs, c = Lists.unsnoc cs in
+  Cert.rewrite name t cs c
+
+let solve_cert ?(lemmas = []) : cert t =
+  let lemma_rewrites = make_lemma_rewrites lemmas in
+  let rec solve ?(depth = 100) () =
+    let* _ = guard (depth > 0) "maximum proof depth reached" in
+    let solve = solve ~depth:(depth - 1) in
+    let* _ = Simpl.simpl in
+    try_and_cut
+      [
+        Done (Cert.refl <$ refl);
+        More (Disj.disj_elim, after_disj_elim solve);
+        More (get <* Disj.left, after_left solve);
+        More (forall_intro, fun _ -> Cert.forall_intro <$> solve ());
+        More (exists_elim, fun _ -> Cert.exists_elim <$> solve ());
+        More (forall_elim_heuristic, fun ts -> Cert.forall_elim (Array.to_list ts) <$> solve ());
+        More (exists_intro_heuristic, fun ts -> Cert.exists_intro (Array.to_list ts) <$> solve ());
+        More (intro_pure, fun name -> Cert.intro_pure name <$> solve ());
+        More (Heaps.intro_heap, fun _ -> Cert.intro_heap <$> solve ());
+        More (Pures.elim_pure, fun _ -> Cert.elim_pure <$> solve ());
+        More (Heaps.elim_heap, fun _ -> Cert.elim_heap <$> solve ());
+        Done (Cert.smt <$> get_goal <* dbg "[prove]\n" <* dbg_state <* prove);
+        Done (Cert.ex_falso <$ ex_falso *> Pures.pure_solver);
+        More (auto_rewrite lemma_rewrites, after_auto_rewrite solve)
+      ]
+  in
+  focus (solve ())
+
+(* let string_of_term_array ts =
   String.concat ", "
-    (List.map (fun t -> Format.asprintf "%a" Core.Pretty.pp_term t) (Array.to_list ts))
+    (List.map (fun t -> Format.asprintf "%a" Core.Pretty.pp_term t) (Array.to_list ts)) *)
 
 (* try to solve the current goal and any subgoals it generates *)
 let simple ?(lemmas = []) =
-  let lemma_rewrites = make_rewrites lemmas in
+  () <$ solve_cert ~lemmas
+  (* let lemma_rewrites = make_lemma_rewrites lemmas in
   let solve =
     let rec go () =
       repeat
@@ -241,9 +233,8 @@ let simple ?(lemmas = []) =
                 dbg "try elim_heap" *> Heaps.elim_heap *> dbg "elim_heap";
                 dbg "try prove" *> dbg_state *> prove *> dbg "prove";
                 ex_falso *> Pures.pure_solver *> dbg "ex_falso";
-                auto_rewrite;
             ]
             @ lemma_rewrites))
     in go ()
   in
-  () <$ try_ (focus_and_solve_with solve)
+  () <$ try_ (focus solve) *)

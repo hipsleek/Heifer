@@ -35,14 +35,6 @@ let init = function
   | [] -> invalid_arg "init: empty list"
   | x :: xs -> init_aux x xs
 
-let rec init_last xs =
-  match xs with
-  | [] -> failwith "empty"
-  | [x] -> ([], x)
-  | x :: xs1 ->
-      let xs1, y = init_last xs1 in
-      (x :: xs1, y)
-
 let rec find_remove_opt f = function
   | [] -> None
   | x :: xs ->

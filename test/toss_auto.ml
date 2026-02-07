@@ -71,9 +71,9 @@ unfold "incr";;
 shift_reset_reduce ();;
 simpl ();;
 shift_reset_reduce ();;
-simple ();;
-(* let c = simple2 ();;
-Format.printf "%a@." Prover.Automation.pp_cert (Option.get c);; *)
+(* simple ();; *)
+let c = simple2 ();;
+Format.printf "%a@." Prover.Automation.pp_cert (Option.get c);;
 qed ();;
 
 Options.fail_fast := false;;
