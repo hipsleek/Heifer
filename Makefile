@@ -2,25 +2,21 @@ export OCAMLRUNPARAM=b
 
 .PHONY: all
 all:
-	@echo 'note: running unit tests only; use make test-all to run integration tests'
+	@echo 'note: running unit tests only'
+	@echo 'use make test to run fast integration tests, and make test-all to run all tests'
 	dune build src test @runtest --display=short
 
-.PHONY: w
-w:
-	dune build src @runtest -w --display=short
+.PHONY: test
+test:
+	TEST=1 dune test --display=short
 
 .PHONY: test-all
 test-all:
 	TEST_ALL=1 dune test --display=short
 
-# all: test
-# 	# dune build @doc-private
-# 	dune build main/hip.exe
-
-.PHONY: test
-test:
-	@echo 'note: running unit tests only; use make test-all to run integration tests'
-	dune test
+.PHONY: w
+w:
+	dune build src @runtest -w --display=short
 
 debug-menhir:
 	echo 'parse_term: TRUE' | menhir --dump --explain --interpret --interpret-show-cst --trace src/parse/parser.mly

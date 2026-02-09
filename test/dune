@@ -1,5 +1,15 @@
+
+; fast tests
 (cram
  (deps heifer.why (glob_files *.exe))
+ (applies_to landin foldr equiv append times regex toss)
+ (enabled_if (or (<> %{env:TEST=false} "false") (<> %{env:TEST_ALL=false} "false"))))
+
+; slow tests
+(cram
+ (deps heifer.why (glob_files *.exe))
+ (applies_to foldr_auto toss_auto append_auto times_auto landin_auto)
+ (timeout 30)
  (enabled_if (<> %{env:TEST_ALL=false} "false")))
 
 (rule
