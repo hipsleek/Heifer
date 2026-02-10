@@ -58,9 +58,9 @@ unfold "append_sh";;
 unfold "append_cps";;
 shift_reset_reduce ();;
 let c = simple2 ();;
+Format.printf "%a@." Prover.Automation.pp_cert (Option.get c);;
 qed ();;
 
-Format.printf "%a@." Prover.Automation.pp_cert (Option.get c);;
 
 lemma ~name:"append_cps/append_pure"
   {|
@@ -68,7 +68,6 @@ lemma ~name:"append_cps/append_pure"
       append_cps xs k; f. f ys <: append_pure xs ys; r. k r
   |}
 ;;
-
 forall_intro ();;
 revert "k";;
 induction ~name:"IH" `List "xs";;
@@ -79,4 +78,25 @@ let c = simple2 ();;
 Format.printf "%a@." Prover.Automation.pp_cert (Option.get c);;
 qed ();;
 
+
+start_proof
+  {| forall xs ys. append_delim xs ys <: append_pure xs ys |}
+;;
+forall_intro ();;
+unfold "append_delim";;
+rewrite "append_sh_bind_id_r";;
+rewrite "append_sh/append_cps";;
+
+forall_intro ();;
+simpl ();;
+shift_reset_reduce ();;
+refl ();;
+
+rewrite "append_cps/append_pure";;
+simpl ();;
+rewrite "bind_id_r";;
+refl ();;
+qed ();;
+
 Options.fail_fast := false;;
+(* Statistics.report ();; *)

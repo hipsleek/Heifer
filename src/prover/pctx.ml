@@ -4,7 +4,7 @@ open Core.Pretty
 open Bindlib
 open Util.Strings
 
-let pp_term ppf t = if !Proof_options.notation then pp_term ppf t else dump_term ppf t
+let pp_term ppf t = if !Prover_options.notation then pp_term ppf t else dump_term ppf t
 
 type t = {
   rename_ctxt : Rename.ctxt;
@@ -34,13 +34,13 @@ let pp_assumptions_ne pp_name pp_assumption ppf assumptions =
     (Fmt.list (Fmt.hovbox ~indent:2 (Fmt.pair ~sep:(Fmt.any ": ") pp_name pp_assumption)))
     (SMap.bindings assumptions)
 
-let pp_line ppf = Fmt.pf ppf "%s@," (draw_line !Proof_options.line_length)
+let pp_line ppf = Fmt.pf ppf "%s@," (draw_line !Prover_options.line_length)
 
 let pp_assumptions pp_name pp_assumption ppf assumptions =
   if not (SMap.is_empty assumptions) then pp_assumptions_ne pp_name pp_assumption ppf assumptions;
   pp_line ppf
 
-let pp_heap_line ppf = Fmt.pf ppf "%s@," (draw_line (pred !Proof_options.line_length) ^ "*")
+let pp_heap_line ppf = Fmt.pf ppf "%s@," (draw_line (pred !Prover_options.line_length) ^ "*")
 let pp_heap_assumptions_ne pp_heap_assumption ppf = Fmt.pf ppf "%a@," (Fmt.list pp_heap_assumption)
 
 let pp_heap_assumptions pp_heap_assumption ppf heap_assumptions =

@@ -23,6 +23,10 @@ declare
   |}
 ;;
 
+axiom ~name:"times_sh_id_r"
+  {| forall xs. times_sh xs <: times_sh xs; x. x |}
+;;
+
 declare
   {| times xs = reset (times_sh xs) |}
 ;;
@@ -63,9 +67,9 @@ intro_pure "Hk";;
 unfold "times_sh";;
 unfold "times_cp";;
 shift_reset_reduce ();;
-simple ();;
-(* let c = simple2 ();;
-Format.printf "%a@." Prover.Automation.pp_cert (Option.get c);; *)
+(* simple ();; *)
+let c = simple2 ();;
+Format.printf "%a@." Prover.Automation.pp_cert (Option.get c);;
 qed ();;
 
 
@@ -87,6 +91,31 @@ unfold "times_pure";;
 let c = simple2 ();;
 Format.printf "%a@." Prover.Automation.pp_cert (Option.get c);;
 qed ();;
+
+
+start_proof
+  {| forall xs. times xs <: times_pure xs |}
+;;
+forall_intro ();;
+unfold "times";;
+rewrite "times_sh_id_r";;
+rewrite "times_sh/times_cp";;
+
+forall_intro ();;
+simpl ();;
+shift_reset_reduce ();;
+refl ();;
+
+rewrite "times_cp/times_pure";;
+
+simpl ();;
+refl ();;
+
+simpl ();;
+rewrite "bind_id_r";;
+refl ();;
+qed ();;
+
 
 Options.fail_fast := false;;
 Options.ignore_why3_failure := false;;

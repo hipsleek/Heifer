@@ -22,6 +22,10 @@
     |}
   times_sh declared
   
+  # axiom ~name:"times_sh_id_r"
+      {| forall xs. times_sh xs <: times_sh xs; x. x |}
+  axiom times_sh_id_r declared
+  
   # declare {| times xs = reset (times_sh xs) |}
   times declared
   
@@ -177,8 +181,6 @@
            ens xs=x::xs';
            (ens x=0; 0 \/ times_cp xs' (fun r -> k (x*.r))))
   
-  
-  # simple ()
   Warning, file line 0, characters 0-0: unused variable k
   Warning, file line 0, characters 0-0: unused variable k
   Warning, file line 0, characters 0-0: unused variable k
@@ -202,6 +204,38 @@
   Warning, file line 0, characters 0-0: unused variable k
   Warning, file line 0, characters 0-0: unused variable r
   no more goals
+  
+  # Format.printf "%a@." Prover.Automation.pp_cert (Option.get c)
+  disj_elim ();
+  ( left ();
+    intro_pure "H";
+    elim_pure ();
+    rewrite "Hk" (* forall r. reset (k r) <: k r *);
+    refl (); )
+  ( right ();
+    exists_elim ();
+    intro_pure "H";
+    disj_elim ();
+    ( exists_intro ["x"; "xs'"];
+      intro_pure "H0";
+      elim_pure ();
+      left ();
+      elim_pure ();
+      refl (); )
+    ( exists_intro ["x"; "xs'"];
+      elim_pure ();
+      right ();
+      rewrite "IH" (* forall xs1.
+                        sublist xs1 xs =>
+                          (forall k.
+                             (forall r. reset (k r) <: k r) =>
+                               reset (times_sh xs1; r. k r) <:
+                                 times_cp xs1 k) *);
+      ( prove () (* sublist xs' xs *) );
+      ( forall_intro ();
+        rewrite "Hk" (* forall r. reset (k r) <: k r *);
+        refl (); )
+      refl (); ) )
   
   # qed ()
   lemma times_sh/times_cp declared
@@ -356,6 +390,126 @@
   
   # qed ()
   lemma times_cp/times_pure declared
+  
+  # start_proof {| forall xs. times xs <: times_pure xs |}
+  
+  ────────────────────────────────────────────────────────────
+  forall xs. times xs <: times_pure xs
+  
+  
+  # forall_intro ()
+  
+  xs
+  ────────────────────────────────────────────────────────────
+     times xs
+  <: times_pure xs
+  
+  
+  # unfold "times"
+  
+  xs
+  ────────────────────────────────────────────────────────────
+     reset (times_sh xs)
+  <: times_pure xs
+  
+  
+  # rewrite "times_sh_id_r"
+  
+  xs
+  ────────────────────────────────────────────────────────────
+     reset (times_sh xs; x. x)
+  <: times_pure xs
+  
+  
+  # rewrite "times_sh/times_cp"
+  
+  xs
+  ────────────────────────────────────────────────────────────
+  forall r. reset ((fun r1 -> r1) r) <: (fun r1 -> r1) r
+  (1 more goals)
+  
+  
+  # forall_intro ()
+  
+  r, xs
+  ────────────────────────────────────────────────────────────
+     reset ((fun r1 -> r1) r)
+  <: (fun r1 -> r1) r
+  (1 more goals)
+  
+  
+  # simpl ()
+  
+  r, xs
+  ────────────────────────────────────────────────────────────
+     reset (r)
+  <: r
+  (1 more goals)
+  
+  
+  # shift_reset_reduce ()
+  
+  r, xs
+  ────────────────────────────────────────────────────────────
+     r
+  <: r
+  (1 more goals)
+  
+  
+  # refl ()
+  
+  xs
+  ────────────────────────────────────────────────────────────
+     times_cp xs (fun r -> r)
+  <: times_pure xs
+  
+  
+  # rewrite "times_cp/times_pure"
+  
+  xs
+  ────────────────────────────────────────────────────────────
+     0
+  <: (fun r -> r) 0
+  (1 more goals)
+  
+  
+  # simpl ()
+  
+  xs
+  ────────────────────────────────────────────────────────────
+     0
+  <: 0
+  (1 more goals)
+  
+  
+  # refl ()
+  
+  xs
+  ────────────────────────────────────────────────────────────
+     times_pure xs; r. (fun r1 -> r1) r
+  <: times_pure xs
+  
+  
+  # simpl ()
+  
+  xs
+  ────────────────────────────────────────────────────────────
+     times_pure xs; r. r
+  <: times_pure xs
+  
+  
+  # rewrite "bind_id_r"
+  
+  xs
+  ────────────────────────────────────────────────────────────
+     times_pure xs
+  <: times_pure xs
+  
+  
+  # refl ()
+  no more goals
+  
+  # qed ()
   
   # Options.fail_fast := false
   

@@ -77,7 +77,7 @@ module State = struct
         print_proof_state ()
     | Error msg ->
         Format.printf "error: %s@." msg;
-        if !Proof_options.fail_fast then failwith msg
+        if !Prover_options.fail_fast then failwith msg
 
   let run tactic =
     match Tactic.run tactic (get_goals ()) with
@@ -87,7 +87,7 @@ module State = struct
         Some result
     | Error msg ->
         Format.printf "error: %s@." msg;
-        if !Proof_options.fail_fast then failwith msg else None
+        if !Prover_options.fail_fast then failwith msg else None
 
   let make_interactive (tac : 'b -> 'a Tactic.t) (arg : 'b) = run_tactic (tac arg)
 

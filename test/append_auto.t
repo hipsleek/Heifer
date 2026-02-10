@@ -192,9 +192,6 @@
   Warning, file line 0, characters 0-0: unused variable r
   no more goals
   
-  # qed ()
-  lemma append_sh/append_cps declared
-  
   # Format.printf "%a@." Prover.Automation.pp_cert (Option.get c)
   disj_elim ();
   ( left ();
@@ -219,6 +216,9 @@
       rewrite "Hk" (* forall r. reset (k r) <: k r *);
       refl (); )
     refl (); )
+  
+  # qed ()
+  lemma append_sh/append_cps declared
   
   # lemma ~name:"append_cps/append_pure"
       {|
@@ -348,5 +348,107 @@
   
   # qed ()
   lemma append_cps/append_pure declared
+  
+  # start_proof {| forall xs ys. append_delim xs ys <: append_pure xs ys |}
+  
+  ────────────────────────────────────────────────────────────
+  forall xs ys. append_delim xs ys <: append_pure xs ys
+  
+  
+  # forall_intro ()
+  
+  xs, ys
+  ────────────────────────────────────────────────────────────
+     append_delim xs ys
+  <: append_pure xs ys
+  
+  
+  # unfold "append_delim"
+  
+  xs, ys
+  ────────────────────────────────────────────────────────────
+     reset (append_sh xs); f. f ys
+  <: append_pure xs ys
+  
+  
+  # rewrite "append_sh_bind_id_r"
+  
+  xs, ys
+  ────────────────────────────────────────────────────────────
+     reset (append_sh xs; x. x); f. f ys
+  <: append_pure xs ys
+  
+  
+  # rewrite "append_sh/append_cps"
+  
+  xs, ys
+  ────────────────────────────────────────────────────────────
+  forall r. reset ((fun r1 -> r1) r) <: (fun r1 -> r1) r
+  (1 more goals)
+  
+  
+  # forall_intro ()
+  
+  r, xs, ys
+  ────────────────────────────────────────────────────────────
+     reset ((fun r1 -> r1) r)
+  <: (fun r1 -> r1) r
+  (1 more goals)
+  
+  
+  # simpl ()
+  
+  r, xs, ys
+  ────────────────────────────────────────────────────────────
+     reset (r)
+  <: r
+  (1 more goals)
+  
+  
+  # shift_reset_reduce ()
+  
+  r, xs, ys
+  ────────────────────────────────────────────────────────────
+     r
+  <: r
+  (1 more goals)
+  
+  
+  # refl ()
+  
+  xs, ys
+  ────────────────────────────────────────────────────────────
+     append_cps xs (fun r -> r); f. f ys
+  <: append_pure xs ys
+  
+  
+  # rewrite "append_cps/append_pure"
+  
+  xs, ys
+  ────────────────────────────────────────────────────────────
+     append_pure xs ys; r. (fun r1 -> r1) r
+  <: append_pure xs ys
+  
+  
+  # simpl ()
+  
+  xs, ys
+  ────────────────────────────────────────────────────────────
+     append_pure xs ys; r. r
+  <: append_pure xs ys
+  
+  
+  # rewrite "bind_id_r"
+  
+  xs, ys
+  ────────────────────────────────────────────────────────────
+     append_pure xs ys
+  <: append_pure xs ys
+  
+  
+  # refl ()
+  no more goals
+  
+  # qed ()
   
   # Options.fail_fast := false

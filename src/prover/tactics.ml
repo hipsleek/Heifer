@@ -7,7 +7,7 @@ open Tactic
 open Util
 open Syntax_util
 
-let pp_term ppf t = if !Proof_options.notation then pp_term ppf t else dump_term ppf t
+let pp_term ppf t = if !Prover_options.notation then pp_term ppf t else dump_term ppf t
 
 let parse_term ts =
   let open Parsing.Parse in
@@ -91,8 +91,8 @@ let invoke_why3 goal =
   in
   let why3_goal = SMap.fold handle_assumption assumptions goal in
   let why3_goal = unbox (Mk.forall (bind_mvar constants (box_term why3_goal))) in
-  let invoke () = Why3_prover.prove ~show_goal:!Proof_options.show_why3_goal why3_goal in
-  if !Proof_options.ignore_why3_failure then try invoke () with Failure _ -> `Invalid
+  let invoke () = Why3_prover.prove ~show_goal:!Prover_options.show_why3_goal why3_goal in
+  if !Prover_options.ignore_why3_failure then try invoke () with Failure _ -> `Invalid
   else invoke ()
 
 let solve_invoke_why3 goal =

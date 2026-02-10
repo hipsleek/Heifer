@@ -426,7 +426,6 @@ end
 let really_prove show_goal goal =
   let open Ptree in
   let open Ptree_helpers in
-  (* let ass, goal = f () in *)
   let vc_mod =
     (* whether to generate
 
@@ -574,13 +573,18 @@ let really_prove show_goal goal =
       failwith msg
   in
   (* there will be only one module *)
-  mods
-  |> Wstdlib.Mstr.map (fun m ->
-      let tasks = Task.split_theory m.Pmodule.mod_theory None None in
-      combine_task_results "Goal" (List.map (attempt_proof show_goal) tasks))
-  |> Wstdlib.Mstr.bindings
-  |> List.map (fun (_, result) -> result)
-  |> combine_task_results "Module"
+  let start_time = Why3_prover_statistics.current_time () in
+  let result = mods
+    |> Wstdlib.Mstr.map (fun m ->
+        let tasks = Task.split_theory m.Pmodule.mod_theory None None in
+        combine_task_results "Goal" (List.map (attempt_proof show_goal) tasks))
+    |> Wstdlib.Mstr.bindings
+    |> List.map (fun (_, result) -> result)
+    |> combine_task_results "Module"
+  in
+  let end_time = Why3_prover_statistics.current_time () in
+  Why3_prover_statistics.add_smt_time (end_time -. start_time);
+  result
 
 let prove ?(show_goal = false) goal =
   (* try *)
@@ -590,3 +594,5 @@ let prove ?(show_goal = false) goal =
   | e -> `Failure (Printexc.to_string e) *)
 
 let is_translatable = Translate.is_translatable
+let reset_statistics = Why3_prover_statistics.reset_statistics
+let get_smt_time = Why3_prover_statistics.get_smt_time

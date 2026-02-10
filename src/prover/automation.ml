@@ -162,7 +162,7 @@ module SolveCert = struct
     Cert.rewrite name t cs c
 end
 
-let solve_cert ?(lemmas = []) ?(depth = !Proof_options.auto_proof_depth) : cert t =
+let solve_cert ?(lemmas = []) ?(depth = !Prover_options.auto_proof_depth) : cert t =
   let lemma_rewrites = make_lemma_rewrites lemmas in
   let rec solve depth () =
     let* _ = guard (depth > 0) "maximum proof depth reached" in
@@ -188,7 +188,7 @@ let solve_cert ?(lemmas = []) ?(depth = !Proof_options.auto_proof_depth) : cert 
   in
   focus (solve depth ())
 
-let simple ?(lemmas = []) ?(depth = !Proof_options.auto_proof_depth) =
+let simple ?(lemmas = []) ?(depth = !Prover_options.auto_proof_depth) =
   () <$ solve_cert ~lemmas ~depth
 
 module DbgSimple = struct
@@ -213,7 +213,7 @@ module DbgSimple = struct
 end
 
 (* try to solve the current goal and any subgoals it generates *)
-let dbg_simple ?(lemmas = []) ?(depth = !Proof_options.auto_proof_depth) =
+let dbg_simple ?(lemmas = []) ?(depth = !Prover_options.auto_proof_depth) =
   let lemma_rewrites = make_lemma_rewrites lemmas in
   let rec solve depth () =
     let* _ = guard (depth > 0) "maximum proof depth reached" in

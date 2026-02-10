@@ -80,9 +80,9 @@ let%expect_test "specialize" =
   start_proof "ens (forall y. y=1) <: forall x. ens x=1";
   forall_intro ();
   intro_pure "H";
-  Proof_options.notation := false;
+  Prover_options.notation := false;
   specialize "H" ["x"];
-  Proof_options.notation := true;
+  Prover_options.notation := true;
   [%expect
     {|
     ────────────────────────────────────────────────────────────
