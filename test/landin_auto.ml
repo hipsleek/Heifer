@@ -55,6 +55,8 @@ induction ~name:"IH" (`Int 0) "n";;
 unfold "factf";;
 rewrite "Hg";;
 simple ();;
+(* let c = simple2 ();;
+Format.printf "%a@." Prover.Automation.pp_cert (Option.get c);; *)
 qed ();;
 
 Options.fail_fast := false;;

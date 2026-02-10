@@ -57,6 +57,7 @@ val prove : unit -> unit
 val admit : unit -> unit
 val prove_s : string -> [> `Invalid | `Unknown of string | `Valid ]
 val simple : unit -> unit
+val dbg_simple : unit -> unit
 val simple2 : unit -> Automation.cert option
 val unfold : string -> unit
 

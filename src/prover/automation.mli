@@ -7,10 +7,12 @@ open Tactic
 
 val repeat : unit t -> unit t
 val focus : 'a t -> 'a t
+val dbg_state : unit t
 
 (** Simple automation *)
 
 val simple : ?lemmas:(string * term) list -> ?depth:int -> unit t
+val dbg_simple : ?lemmas:(string * term) list -> ?depth:int -> unit t
 
 (** Certifying automation *)
 
