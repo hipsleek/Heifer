@@ -37,7 +37,7 @@ val revert : string -> unit
 val revert_pure : string -> unit
 val clear_pure : string -> unit
 val pure_solver : unit -> unit
-val revert_heap : unit -> unit
+val revert_heap : ?side:[ `Lhs | `Rhs ] -> unit -> unit
 val heap_solver : unit -> unit
 val forall_intro : unit -> unit
 val forall_elim : string list -> unit
@@ -59,7 +59,7 @@ val prove_s : string -> [> `Invalid | `Unknown of string | `Valid ]
 val simple : unit -> unit
 val dbg_simple : unit -> unit
 val simple2 : unit -> Automation.cert option
-val unfold : string -> unit
+val unfold : ?side:[ `Both | `Lhs | `Rhs ] -> string -> unit
 
 val induction :
   ?vars:string list -> name:string -> [ `Int of int | `List | `Regex ] -> string -> unit

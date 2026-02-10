@@ -1,6 +1,7 @@
 open Heifer.Interactive;;
 
 Options.fail_fast := true;;
+Options.ignore_why3_failure := true;;
 
 declare
   {|
@@ -23,40 +24,33 @@ declare
 
 start_proof
   {|
-    forall n. landin_rec factf; f. f n <: exists l f. ens l->f; fact n
+    forall n. landin_rec factf; f. f n <: fact n
   |}
 ;;
-
 forall_intro ();;
 unfold "landin_rec";;
-goal_is
-  {|
-    (exists l g.
-      ens l->();
-      ens g=(fun n1 -> forall h. req l->h; ens l->h; factf h n1);
-      (forall v. req l->v; ens l->g; g)); f. f n
-    <: exists l f. ens l->f; fact n
-  |}
-;;
-exists_elim ();;
 simpl ();;
+exists_elim ();;
 ens_heap_elim ();;
 intro_pure "Hg";;
 forall_elim ["()"];;
-simpl ();;
 req_heap_elim ();;
 ens_heap_elim ();;
 rewrite "Hg";;
 simpl ();;
 forall_elim ["g"];;
 req_heap_elim ();;
-exists_intro ["l"; "g"];;
-induction ~name:"IH" (`Int 0) "n";;
-unfold "factf";;
+ens_heap_elim ();;
+revert_heap ~side:`Rhs ();;
+goal_is {| factf g n <: req l-> g; fact n |};;
 rewrite "Hg";;
-simple ();;
-(* let c = simple2 ();;
-Format.printf "%a@." Prover.Automation.pp_cert (Option.get c);; *)
+induction ~name:"IH" (`Int 0) "n";;
+unfold ~side:`Lhs "factf";;
+(* dbg_simple ();; *)
+let c = simple2 ();;
+Format.printf "%a@." Prover.Automation.pp_cert (Option.get c);;
 qed ();;
 
 Options.fail_fast := false;;
+Options.ignore_why3_failure := false;;
+(* Statistics.report ();; *)

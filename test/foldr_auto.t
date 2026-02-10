@@ -117,4 +117,6 @@
     prove () (* sum xs'; r. x+r <: sum (x::xs') *) )
   
   # qed ()
+  
+  # Options.fail_fast := false
 

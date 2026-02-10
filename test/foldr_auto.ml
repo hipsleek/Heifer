@@ -29,7 +29,9 @@ goal_is
     sum xs
   |}
 ;;
-
 let pf = simple2 ();;
 Format.printf "%a@." Prover.Automation.pp_cert (Option.get pf);;
 qed ();;
+
+Options.fail_fast := false;;
+(* Statistics.report ();; *)

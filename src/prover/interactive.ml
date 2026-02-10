@@ -133,12 +133,12 @@ let revert name = run_tactic (revert name)
 let revert_pure name = run_tactic (Pures.revert_pure name)
 let clear_pure name = run_tactic (Pures.clear_pure name)
 let pure_solver () = run_tactic Pures.pure_solver
-let revert_heap () = run_tactic Heaps.revert_heap
+let revert_heap ?(side = `Lhs) () = run_tactic (Heaps.revert_heap ~side)
 let heap_solver () = run_tactic Heaps.heap_solver
-let forall_intro = make_interactive (fun () -> forall_intro)
-let forall_elim = make_interactive forall_elim
-let exists_intro = make_interactive exists_intro
-let exists_elim = make_interactive (fun () -> exists_elim)
+let forall_intro () = run_tactic forall_intro
+let forall_elim ts = run_tactic (forall_elim ts)
+let exists_intro ts = run_tactic (exists_intro ts)
+let exists_elim () = run_tactic exists_elim
 let conj_elim_l () = run_tactic Conj.conj_elim_l
 let conj_elim_r () = run_tactic Conj.conj_elim_r
 let disj_elim () = run_tactic Disj.disj_elim
@@ -149,7 +149,7 @@ let simpl () = run_tactic Simpl.simpl
 let shift_reset_reduce () = run_tactic Simpl.shift_reset_reduce
 let unmix () = run_tactic Unmix.unmix
 let ex_falso () = run_tactic ex_falso
-let prove = make_interactive (fun () -> prove)
+let prove () = run_tactic prove
 let admit () = run_tactic admit
 let prove_s s = Why3_prover.prove ~show_goal:true (Parsing.Parse.parse_prop s)
 
@@ -159,13 +159,20 @@ let simple2 () = run (Automation.solve_cert ~lemmas:(SMap.bindings (get_lemmas (
 let dbg_simple () = run_tactic (Automation.dbg_simple ~lemmas:(SMap.bindings (get_lemmas ())))
 
 (** Unfold a definition (symbol) on both side of a sequent in the current proof state. *)
-let unfold name =
+let unfold ?(side = `Both) name =
   let tactic =
     let open Tactic in
     let sym = { sym_name = name } in
     match get_definition_opt sym with
     | None -> failf "unfold: %s does not exist" name
-    | Some def -> modify_goal (Unfold.unfold sym def)
+    | Some def ->
+        let f_modify =
+          match side with
+          | `Lhs -> modify_lhs
+          | `Rhs -> modify_rhs
+          | `Both -> modify_goal
+        in
+        f_modify (Unfold.unfold sym def)
   in
   run_tactic tactic
 

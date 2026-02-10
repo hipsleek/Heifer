@@ -69,7 +69,7 @@ module Heaps : sig
   val req_heap_elim : unit t
   val ens_heap_intro : unit t
   val elim_heap : unit t
-  val revert_heap : unit t
+  val revert_heap : ?side:[ `Lhs | `Rhs ] -> unit t
 end
 
 module Unmix : sig
@@ -81,10 +81,12 @@ end
 val parse_term : string -> term t
 val get_subsumption : (term * term) t
 val put_subsumption : term -> term -> unit t
-val put_lhs : term -> unit t
-val put_rhs : term -> unit t
 val get_lhs : term t
 val get_rhs : term t
+val put_lhs : term -> unit t
+val put_rhs : term -> unit t
+val modify_lhs : (term -> term) -> unit t
+val modify_rhs : (term -> term) -> unit t
 val unwrap : 'a option -> string -> 'a t
 val guard : bool -> string -> unit t
 val all_goals : 'a t -> Pctx.t list -> (unit * Pctx.t list, string) result

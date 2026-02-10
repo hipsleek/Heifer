@@ -30,6 +30,10 @@ let get_subsumption =
 
 let put_subsumption lhs rhs = put_goal (Subsumes (lhs, rhs))
 
+let get_lhs = fst <$> get_subsumption
+
+let get_rhs = snd <$> get_subsumption
+
 let put_lhs lhs =
   let* _, rhs = get_subsumption in
   put_subsumption lhs rhs
@@ -38,13 +42,13 @@ let put_rhs rhs =
   let* lhs, _ = get_subsumption in
   put_subsumption lhs rhs
 
-let get_lhs =
-  let+ lhs, _ = get_subsumption in
-  lhs
+let modify_lhs f =
+  let* lhs = get_lhs in
+  put_lhs (f lhs)
 
-let get_rhs =
-  let+ _, rhs = get_subsumption in
-  rhs
+let modify_rhs f =
+  let* rhs = get_rhs in
+  put_rhs (f rhs)
 
 let unwrap o e =
   match o with
@@ -453,11 +457,13 @@ module Heaps = struct
 
   let elim_heap = choices ~err:"elim_heap: failed" [req_heap_elim; ens_heap_intro]
 
-  let revert_heap =
+  let revert_heap ?(side = `Lhs) =
     let* heap_assumptions = get_heap_assumptions in
-    let* lhs = get_lhs in
     let* _ = put_heap_assumptions [] in
-    put_lhs (Sequence (Ensures (Constr.sepconj heap_assumptions), lhs))
+    let heap = Constr.sepconj heap_assumptions in
+    match side with
+    | `Lhs -> modify_lhs (fun lhs -> Sequence (Ensures heap, lhs))
+    | `Rhs -> modify_rhs (fun rhs -> Sequence (Requires heap, rhs))
 end
 
 module Unmix = struct
@@ -509,7 +515,7 @@ let pre_rewrite rule =
 let rewrite ?(direction = `Ltr) t =
   pre_rewrite (Rewrite.make_rule ~direction t)
 
-module Translate = struct
+module Subsumption = struct
   let subsumption_solver =
     let* lhs, rhs = get_subsumption in
     let* _ = guard (Why3_prover.is_translatable lhs) "subsumption_solver: cannot translate lhs" in
@@ -519,7 +525,7 @@ module Translate = struct
 end
 
 let prove =
-  choices ~err:"prove: failed" [Pures.pure_solver; Translate.subsumption_solver]
+  choices ~err:"prove: failed" [Pures.pure_solver; Subsumption.subsumption_solver]
 
 let induction ?(vars = []) ~name wf x =
   let open Tactic in
