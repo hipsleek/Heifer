@@ -100,8 +100,6 @@
   
   no more goals
   
-  # qed ()
-  
   # Format.printf "%a@." Prover.Automation.pp_cert (Option.get pf)
   disj_elim ();
   ( intro_pure "H";
@@ -117,4 +115,6 @@
     ( prove () (* sublist xs' xs *) );
     ( prove () (* is_int_list xs' *) )
     prove () (* sum xs'; r. x+r <: sum (x::xs') *) )
+  
+  # qed ()
 

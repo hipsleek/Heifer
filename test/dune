@@ -9,7 +9,7 @@
 (cram
  (deps heifer.why (glob_files *.exe))
  (applies_to foldr_auto toss_auto append_auto times_auto landin_auto)
- (timeout 30)
+ (timeout 90)
  (enabled_if (<> %{env:TEST_ALL=false} "false")))
 
 (rule

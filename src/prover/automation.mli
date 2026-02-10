@@ -10,7 +10,7 @@ val focus : 'a t -> 'a t
 
 (** Simple automation *)
 
-val simple : ?lemmas:(string * term) list -> unit t
+val simple : ?lemmas:(string * term) list -> ?depth:int -> unit t
 
 (** Certifying automation *)
 
@@ -32,4 +32,4 @@ type cert =
   | Ex_falso
 
 val pp_cert : Format.formatter -> cert -> unit [@@toplevel_printer]
-val solve_cert : ?lemmas:(string * term) list -> cert t
+val solve_cert : ?lemmas:(string * term) list -> ?depth:int -> cert t

@@ -2841,11 +2841,6 @@
   
   
   # simple ()
-  exists_elim
-  try forall_elim
-  try exists_intro
-  intro_pure
-  refl
   no more goals
   
   # qed ()
