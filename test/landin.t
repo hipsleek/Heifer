@@ -22,14 +22,12 @@
     |}
   factf declared
   
-  # start_proof
-      {|
-      forall n. landin_rec factf; f. f n <: exists l f. ens l->f; fact n
+  # start_proof {|
+      forall n. landin_rec factf; f. f n <: fact n
     |}
   
   ────────────────────────────────────────────────────────────
-  forall n.
-    landin_rec factf; f. f n <: (ex l f. ens l->f; fact n)
+  forall n. landin_rec factf; f. f n <: fact n
   
   
   # forall_intro ()
@@ -37,7 +35,7 @@
   n
   ────────────────────────────────────────────────────────────
      landin_rec factf; f. f n
-  <: ex l f. ens l->f; fact n
+  <: fact n
   
   
   # unfold "landin_rec"
@@ -49,40 +47,22 @@
         ens g=(fun n1 ->
                 forall h. req l->h; ens l->h; factf h n1);
         (forall v. req l->v; ens l->g; g)); f. f n
-  <: ex l f. ens l->f; fact n
-  
-  
-  # goal_is
-      {|
-      (exists l g.
-        ens l->();
-        ens g=(fun n1 -> forall h. req l->h; ens l->h; factf h n1);
-        (forall v. req l->v; ens l->g; g)); f. f n
-      <: exists l f. ens l->f; fact n
-    |}
-  
-  n
-  ────────────────────────────────────────────────────────────
-     (ex l g.
-        ens l->();
-        ens g=(fun n1 ->
-                forall h. req l->h; ens l->h; factf h n1);
-        (forall v. req l->v; ens l->g; g)); f. f n
-  <: ex l f. ens l->f; fact n
-  
-  
-  # exists_elim ()
-  
-  g, l, n
-  ────────────────────────────────────────────────────────────
-     (ens l->();
-      ens g=(fun n1 ->
-              forall h. req l->h; ens l->h; factf h n1);
-      (forall v. req l->v; ens l->g; g)); f. f n
-  <: ex l f. ens l->f; fact n
+  <: fact n
   
   
   # simpl ()
+  
+  n
+  ────────────────────────────────────────────────────────────
+     ex l g.
+       ens l->();
+       ens g=(fun n1 ->
+               forall h. req l->h; ens l->h; factf h n1);
+       (forall v. req l->v; ens l->g; g n)
+  <: fact n
+  
+  
+  # exists_elim ()
   
   g, l, n
   ────────────────────────────────────────────────────────────
@@ -90,7 +70,7 @@
      ens g=(fun n1 ->
              forall h. req l->h; ens l->h; factf h n1);
      (forall v. req l->v; ens l->g; g n)
-  <: ex l f. ens l->f; fact n
+  <: fact n
   
   
   # ens_heap_elim ()
@@ -102,7 +82,7 @@
      ens g=(fun n1 ->
              forall h. req l->h; ens l->h; factf h n1);
      (forall v. req l->v; ens l->g; g n)
-  <: ex l f. ens l->f; fact n
+  <: fact n
   
   
   # intro_pure "Hg"
@@ -113,7 +93,7 @@
   l->()
   ───────────────────────────────────────────────────────────*
      forall v. req l->v; ens l->g; g n
-  <: ex l f. ens l->f; fact n
+  <: fact n
   
   
   # forall_elim ["()"]
@@ -124,18 +104,7 @@
   l->()
   ───────────────────────────────────────────────────────────*
      req l->(); ens l->g; g n
-  <: ex l f. ens l->f; fact n
-  
-  
-  # simpl ()
-  
-  g, l, n
-  Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
-  ────────────────────────────────────────────────────────────
-  l->()
-  ───────────────────────────────────────────────────────────*
-     req l->(); ens l->g; g n
-  <: ex l f. ens l->f; fact n
+  <: fact n
   
   
   # req_heap_elim ()
@@ -144,7 +113,7 @@
   Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
   ────────────────────────────────────────────────────────────
      ens l->g; g n
-  <: ex l f. ens l->f; fact n
+  <: fact n
   
   
   # ens_heap_elim ()
@@ -155,7 +124,7 @@
   l->g
   ───────────────────────────────────────────────────────────*
      g n
-  <: ex l f. ens l->f; fact n
+  <: fact n
   
   
   # rewrite "Hg"
@@ -166,7 +135,7 @@
   l->g
   ───────────────────────────────────────────────────────────*
      (fun n1 -> forall h. req l->h; ens l->h; factf h n1) n
-  <: ex l f. ens l->f; fact n
+  <: fact n
   
   
   # simpl ()
@@ -177,7 +146,7 @@
   l->g
   ───────────────────────────────────────────────────────────*
      forall h. req l->h; ens l->h; factf h n
-  <: ex l f. ens l->f; fact n
+  <: fact n
   
   
   # forall_elim ["g"]
@@ -188,7 +157,7 @@
   l->g
   ───────────────────────────────────────────────────────────*
      req l->g; ens l->g; factf g n
-  <: ex l f. ens l->f; fact n
+  <: fact n
   
   
   # req_heap_elim ()
@@ -197,16 +166,16 @@
   Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
   ────────────────────────────────────────────────────────────
      ens l->g; factf g n
-  <: ex l f. ens l->f; fact n
+  <: fact n
   
   
-  # exists_intro ["l"; "g"]
+  # goal_is {| ens l->g; factf g n <: fact n |}
   
   g, l, n
   Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
   ────────────────────────────────────────────────────────────
      ens l->g; factf g n
-  <: ens l->g; fact n
+  <: fact n
   
   
   # induction ~name:"IH" (`Int 0) "n"
@@ -214,11 +183,10 @@
   g, l, n
   Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
   IH: forall n1.
-        n1>=0 /\ n1<n =>
-          ens l->g; factf g n1 <: ens l->g; fact n1
+        n1>=0 /\ n1<n => ens l->g; factf g n1 <: fact n1
   ────────────────────────────────────────────────────────────
      ens l->g; factf g n
-  <: ens l->g; fact n
+  <: fact n
   
   
   # unfold "factf"
@@ -226,11 +194,10 @@
   g, l, n
   Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
   IH: forall n1.
-        n1>=0 /\ n1<n =>
-          ens l->g; factf g n1 <: ens l->g; fact n1
+        n1>=0 /\ n1<n => ens l->g; factf g n1 <: fact n1
   ────────────────────────────────────────────────────────────
      ens l->g; (ens n=0; 1 \/ ens n>0; g (n-1); r. n*.r)
-  <: ens l->g; fact n
+  <: fact n
   
   
   # intro_heap ()
@@ -238,13 +205,12 @@
   g, l, n
   Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
   IH: forall n1.
-        n1>=0 /\ n1<n =>
-          ens l->g; factf g n1 <: ens l->g; fact n1
+        n1>=0 /\ n1<n => ens l->g; factf g n1 <: fact n1
   ────────────────────────────────────────────────────────────
   l->g
   ───────────────────────────────────────────────────────────*
      ens n=0; 1 \/ ens n>0; g (n-1); r. n*.r
-  <: ens l->g; fact n
+  <: fact n
   
   
   # disj_elim ()
@@ -252,28 +218,26 @@
   g, l, n
   Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
   IH: forall n1.
-        n1>=0 /\ n1<n =>
-          ens l->g; factf g n1 <: ens l->g; fact n1
+        n1>=0 /\ n1<n => ens l->g; factf g n1 <: fact n1
   ────────────────────────────────────────────────────────────
   l->g
   ───────────────────────────────────────────────────────────*
      ens n=0; 1
-  <: ens l->g; fact n
+  <: fact n
   (1 more goals)
   
   
-  # goal_is {| ens n=0; 1 <: ens l->g; fact n |}
+  # goal_is {| ens n=0; 1 <: fact n |}
   
   g, l, n
   Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
   IH: forall n1.
-        n1>=0 /\ n1<n =>
-          ens l->g; factf g n1 <: ens l->g; fact n1
+        n1>=0 /\ n1<n => ens l->g; factf g n1 <: fact n1
   ────────────────────────────────────────────────────────────
   l->g
   ───────────────────────────────────────────────────────────*
      ens n=0; 1
-  <: ens l->g; fact n
+  <: fact n
   (1 more goals)
   
   
@@ -283,25 +247,10 @@
   Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
   Hn: n=0
   IH: forall n1.
-        n1>=0 /\ n1<n =>
-          ens l->g; factf g n1 <: ens l->g; fact n1
+        n1>=0 /\ n1<n => ens l->g; factf g n1 <: fact n1
   ────────────────────────────────────────────────────────────
   l->g
   ───────────────────────────────────────────────────────────*
-     1
-  <: ens l->g; fact n
-  (1 more goals)
-  
-  
-  # ens_heap_intro ()
-  
-  g, l, n
-  Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
-  Hn: n=0
-  IH: forall n1.
-        n1>=0 /\ n1<n =>
-          ens l->g; factf g n1 <: ens l->g; fact n1
-  ────────────────────────────────────────────────────────────
      1
   <: fact n
   (1 more goals)
@@ -314,27 +263,25 @@
   g, l, n
   Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
   IH: forall n1.
-        n1>=0 /\ n1<n =>
-          ens l->g; factf g n1 <: ens l->g; fact n1
+        n1>=0 /\ n1<n => ens l->g; factf g n1 <: fact n1
   ────────────────────────────────────────────────────────────
   l->g
   ───────────────────────────────────────────────────────────*
      ens n>0; g (n-1); r. n*.r
-  <: ens l->g; fact n
+  <: fact n
   
   
-  # goal_is {| ens n>0; g (n-1); r. n*.r <: ens l->g; fact n |}
+  # goal_is {| ens n>0; g (n-1); r. n*.r <: fact n |}
   
   g, l, n
   Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
   IH: forall n1.
-        n1>=0 /\ n1<n =>
-          ens l->g; factf g n1 <: ens l->g; fact n1
+        n1>=0 /\ n1<n => ens l->g; factf g n1 <: fact n1
   ────────────────────────────────────────────────────────────
   l->g
   ───────────────────────────────────────────────────────────*
      ens n>0; g (n-1); r. n*.r
-  <: ens l->g; fact n
+  <: fact n
   
   
   # intro_pure "Hn"
@@ -343,26 +290,12 @@
   Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
   Hn: n>0
   IH: forall n1.
-        n1>=0 /\ n1<n =>
-          ens l->g; factf g n1 <: ens l->g; fact n1
+        n1>=0 /\ n1<n => ens l->g; factf g n1 <: fact n1
   ────────────────────────────────────────────────────────────
   l->g
   ───────────────────────────────────────────────────────────*
      g (n-1); r. n*.r
-  <: ens l->g; fact n
-  
-  
-  # revert_heap ()
-  
-  g, l, n
-  Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
-  Hn: n>0
-  IH: forall n1.
-        n1>=0 /\ n1<n =>
-          ens l->g; factf g n1 <: ens l->g; fact n1
-  ────────────────────────────────────────────────────────────
-     ens l->g; g (n-1); r. n*.r
-  <: ens l->g; fact n
+  <: fact n
   
   
   # rewrite "Hg"
@@ -371,16 +304,13 @@
   Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
   Hn: n>0
   IH: forall n1.
-        n1>=0 /\ n1<n =>
-          ens l->g; factf g n1 <: ens l->g; fact n1
+        n1>=0 /\ n1<n => ens l->g; factf g n1 <: fact n1
   ────────────────────────────────────────────────────────────
-     ens l->(fun n1 ->
-              forall h. req l->h; ens l->h; factf h n1);
+  l->g
+  ───────────────────────────────────────────────────────────*
      (fun n1 -> forall h. req l->h; ens l->h; factf h n1)
        (n-1); r. n*.r
-  <: ens l->(fun n1 ->
-              forall h. req l->h; ens l->h; factf h n1);
-     fact n
+  <: fact n
   
   
   # simpl ()
@@ -389,44 +319,12 @@
   Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
   Hn: n>0
   IH: forall n1.
-        n1>=0 /\ n1<n =>
-          ens l->g; factf g n1 <: ens l->g; fact n1
-  ────────────────────────────────────────────────────────────
-     ens l->(fun n1 ->
-              forall h. req l->h; ens l->h; factf h n1);
-     (forall h. req l->h; ens l->h; factf h (n-1); r. n*.r)
-  <: ens l->(fun n1 ->
-              forall h. req l->h; ens l->h; factf h n1);
-     fact n
-  
-  
-  # rewrite ~direction:`Rtl "Hg"
-  
-  g, l, n
-  Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
-  Hn: n>0
-  IH: forall n1.
-        n1>=0 /\ n1<n =>
-          ens l->g; factf g n1 <: ens l->g; fact n1
-  ────────────────────────────────────────────────────────────
-     ens l->g;
-     (forall h. req l->h; ens l->h; factf h (n-1); r. n*.r)
-  <: ens l->g; fact n
-  
-  
-  # ens_heap_elim ()
-  
-  g, l, n
-  Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
-  Hn: n>0
-  IH: forall n1.
-        n1>=0 /\ n1<n =>
-          ens l->g; factf g n1 <: ens l->g; fact n1
+        n1>=0 /\ n1<n => ens l->g; factf g n1 <: fact n1
   ────────────────────────────────────────────────────────────
   l->g
   ───────────────────────────────────────────────────────────*
      forall h. req l->h; ens l->h; factf h (n-1); r. n*.r
-  <: ens l->g; fact n
+  <: fact n
   
   
   # forall_elim ["g"]
@@ -435,28 +333,12 @@
   Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
   Hn: n>0
   IH: forall n1.
-        n1>=0 /\ n1<n =>
-          ens l->g; factf g n1 <: ens l->g; fact n1
+        n1>=0 /\ n1<n => ens l->g; factf g n1 <: fact n1
   ────────────────────────────────────────────────────────────
   l->g
   ───────────────────────────────────────────────────────────*
      req l->g; ens l->g; factf g (n-1); r. n*.r
-  <: ens l->g; fact n
-  
-  
-  # simpl ()
-  
-  g, l, n
-  Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
-  Hn: n>0
-  IH: forall n1.
-        n1>=0 /\ n1<n =>
-          ens l->g; factf g n1 <: ens l->g; fact n1
-  ────────────────────────────────────────────────────────────
-  l->g
-  ───────────────────────────────────────────────────────────*
-     req l->g; ens l->g; factf g (n-1); r. n*.r
-  <: ens l->g; fact n
+  <: fact n
   
   
   # req_heap_elim ()
@@ -465,11 +347,10 @@
   Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
   Hn: n>0
   IH: forall n1.
-        n1>=0 /\ n1<n =>
-          ens l->g; factf g n1 <: ens l->g; fact n1
+        n1>=0 /\ n1<n => ens l->g; factf g n1 <: fact n1
   ────────────────────────────────────────────────────────────
      ens l->g; factf g (n-1); r. n*.r
-  <: ens l->g; fact n
+  <: fact n
   
   
   # rewrite "IH"
@@ -478,8 +359,7 @@
   Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
   Hn: n>0
   IH: forall n1.
-        n1>=0 /\ n1<n =>
-          ens l->g; factf g n1 <: ens l->g; fact n1
+        n1>=0 /\ n1<n => ens l->g; factf g n1 <: fact n1
   ────────────────────────────────────────────────────────────
   n-1>=0 /\ n-1<n
   (1 more goals)
@@ -493,49 +373,7 @@
   Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
   Hn: n>0
   IH: forall n1.
-        n1>=0 /\ n1<n =>
-          ens l->g; factf g n1 <: ens l->g; fact n1
-  ────────────────────────────────────────────────────────────
-     (ens l->g; fact (n-1)); r. n*.r
-  <: ens l->g; fact n
-  
-  
-  # simpl ()
-  
-  g, l, n
-  Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
-  Hn: n>0
-  IH: forall n1.
-        n1>=0 /\ n1<n =>
-          ens l->g; factf g n1 <: ens l->g; fact n1
-  ────────────────────────────────────────────────────────────
-     ens l->g; fact (n-1); r. n*.r
-  <: ens l->g; fact n
-  
-  
-  # ens_heap_elim ()
-  
-  g, l, n
-  Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
-  Hn: n>0
-  IH: forall n1.
-        n1>=0 /\ n1<n =>
-          ens l->g; factf g n1 <: ens l->g; fact n1
-  ────────────────────────────────────────────────────────────
-  l->g
-  ───────────────────────────────────────────────────────────*
-     fact (n-1); r. n*.r
-  <: ens l->g; fact n
-  
-  
-  # ens_heap_intro ()
-  
-  g, l, n
-  Hg: g=(fun n -> forall h. req l->h; ens l->h; factf h n)
-  Hn: n>0
-  IH: forall n1.
-        n1>=0 /\ n1<n =>
-          ens l->g; factf g n1 <: ens l->g; fact n1
+        n1>=0 /\ n1<n => ens l->g; factf g n1 <: fact n1
   ────────────────────────────────────────────────────────────
      fact (n-1); r. n*.r
   <: fact n
@@ -544,8 +382,8 @@
   # prove ()
   Warning, file line 0, characters 0-0: unused variable g
   Warning, file line 0, characters 0-0: unused variable l
-  error: pre_pure_solver: not prop / solve_invoke_why3: cannot solve goal / prove: failed
-  Fatal error: exception Failure("pre_pure_solver: not prop / solve_invoke_why3: cannot solve goal / prove: failed")
-  Raised at Stdlib.failwith in file "stdlib.ml", line 29, characters 17-33
-  Called from Dune__exe__Landin in file "test/landin.ml", line 83, characters 0-8
-  [2]
+  no more goals
+  
+  # qed ()
+  
+  # Options.fail_fast := false

@@ -75,8 +75,6 @@ module Heifer
   axiom times_0_r: forall x:term. times x (TInt 0) = TInt 0
   axiom times_1_l: forall x:term. times (TInt 1) x = x
   axiom times_1_r: forall x:term. times x (TInt 1) = x
-  axiom pow_0_r: forall t: term. pow t (TInt 0) = TInt 1
-  axiom pow_succ_r: forall t: term, n: int. 0 <= n -> pow t (TInt (n + 1)) = times t (pow t (TInt n))
 *)
 
   function eq (a b:term) : term =
@@ -179,11 +177,16 @@ module Heifer
 
   goal G: forall xs:list int. TInt (sum1 xs) = sum (box_list xs)
 
+(*
   function fact (n:term) : term =
     match n with
     | TInt n0 -> TInt (Fact.fact n0)
     | _ -> TErr
     end
+*)
+  function fact (n:term) : term
+  axiom fact_spec_0: fact (TInt 0) = TInt 1
+  axiom fact_spec_succ: forall n:int. n >= 0 -> fact (TInt (n + 1)) = times (TInt (n + 1)) (fact (TInt n))
 
   function product (xs:term) : term =
     match xs with
