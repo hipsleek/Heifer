@@ -47,6 +47,24 @@ declare
 ;;
 
 
+lemma ~name:"toss_spec"
+  {| forall x. toss x <: forall v. req is_int v; req x->v; ens x->v+2; 1 |}
+;;
+forall_intro ();;
+forall_intro ();;
+intro_pure "Hv";;
+intro_heap ();;
+unfold "toss";;
+unfold "do_toss";;
+unfold "incr";;
+shift_reset_reduce ();;
+simpl ();;
+shift_reset_reduce ();;
+let c = simple2 ();;
+Format.printf "%a@." Prover.Automation.pp_cert (Option.get c);;
+qed ();;
+
+
 lemma ~name:"do_toss_n_spec"
   {|
     forall n x a.
@@ -76,4 +94,24 @@ let c = simple2 ();;
 Format.printf "%a@." Prover.Automation.pp_cert (Option.get c);;
 qed ();;
 
+
+lemma ~name:"toss_n_spec"
+  {| forall n x. toss_n n x <: forall v. req is_int v; req x->v; ens x->v+pow 2 (n+1)-2; 1 |}
+;;
+forall_intro ();;
+unfold "toss_n";;
+have ~name:"H_eq_true" {| forall r. ens r=true <: ens (true /\ r)=true |};;
+simple ();;
+have ~name:"H_eq_false" {| forall r. ens r=false <: ens (true /\ r)=false |};;
+simple ();;
+rewrite "H_eq_true";;
+rewrite "H_eq_false";;
+clear_pure "H_eq_true";;
+clear_pure "H_eq_false";;
+rewrite "do_toss_n_spec";;
+let c = simple2 ();;
+Format.printf "%a@." Prover.Automation.pp_cert (Option.get c);;
+qed ();;
+
 Options.fail_fast := false;;
+(* Statistics.report ();; *)

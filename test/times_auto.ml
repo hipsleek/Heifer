@@ -119,3 +119,4 @@ qed ();;
 
 Options.fail_fast := false;;
 Options.ignore_why3_failure := false;;
+(* Statistics.report ();; *)

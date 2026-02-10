@@ -148,7 +148,6 @@ qed ();;
 lemma ~name:"toss_spec"
   {| forall x. toss x <: forall v. req is_int v; req x->v; ens x->v+2; 1 |}
 ;;
-
 forall_intro ();;
 forall_intro ();;
 intro_pure "Hv";;
@@ -183,10 +182,10 @@ ex_falso ();;
 pure_solver ();;
 qed ();;
 
+
 lemma ~name:"toss_n_spec"
   {| forall n x. toss_n n x <: forall v. req is_int v; req x->v; ens x->v+pow 2 (n+1)-2; 1 |}
 ;;
-
 forall_intro ();;
 forall_intro ();;
 intro_pure "Hv";;
