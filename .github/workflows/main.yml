@@ -55,8 +55,8 @@ jobs:
       - name: Install cvc4
         run: sudo apt-get -y install cvc4
 
-      # - name: Install z3
-      #   run: sudo apt-get -y install z3
+      - name: Install z3
+        run: sudo apt-get -y install z3
 
       # - uses: actions/setup-node@v3
       #   with:
