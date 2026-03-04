@@ -1,7 +1,7 @@
 (executable
  (name hip)
  (modules hip)
- (libraries unix hiplib provers_native))
+ (libraries unix hiplib provers_native core))
 
 (executable
  (name hipjs)

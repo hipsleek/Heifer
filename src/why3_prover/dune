@@ -1,0 +1,6 @@
+(library
+ (name why3_prover)
+ (public_name heifer.why3_prover)
+ (libraries core util why3))
+
+(env (dev (flags (:standard -warn-error -A))))

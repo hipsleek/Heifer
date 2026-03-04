@@ -1,0 +1,17 @@
+
+(library
+ (name parsing)
+ (public_name heifer.parsing)
+ (libraries core)
+ (inline_tests)
+ (preprocess (pps ppx_expect)))
+
+(ocamllex
+ (modules lexer)
+ (mode fallback))
+
+(menhir
+ (modules parser)
+ (flags (--explain)))
+
+(env (dev (flags (:standard -warn-error -A))))

@@ -1,0 +1,279 @@
+
+module Heifer
+
+  use int.Int
+  use int.Fact
+  use int.Power
+  use bool.Bool
+  use list.List
+
+  type term =
+    | TUnit
+    | TInt int
+    | TBool bool
+    | TCons term term
+    | TNil
+    | TErr
+    | TREmp
+    | TRAtom int
+    | TRSeq term term
+    | TRDisj term term
+    | TSome term
+    | TNone
+
+  inductive is_bool (t: term) =
+    | is_bool: forall b:bool. is_bool (TBool b)
+
+  inductive is_int (t: term) =
+    | is_int: forall n:int. is_int (TInt n)
+
+  inductive is_nat (t: term) =
+    | is_nat: forall n:int. n >= 0 -> is_nat (TInt n)
+
+(*
+  function plus (a b:term) : term =
+    match a, b with
+    | TInt a1, TInt b1 -> TInt (a1 + b1)
+    | _ -> TErr
+    end
+
+  function minus (a b:term) : term =
+    match a, b with
+    | TInt a1, TInt b1 -> TInt (a1 - b1)
+    | _ -> TErr
+    end
+
+  function times (a b:term) : term =
+    match a, b with
+    | TInt a1, TInt b1 -> TInt (a1 * b1)
+    | _ -> TErr
+    end
+
+  function pow (a b:term) : term =
+    match a, b with
+    | TInt a1, TInt b1 -> TInt (power a1 b1)
+    | _ -> TErr
+    end
+*)
+  function plus (a b:term) : term
+  function minus (a b:term) : term
+  function times (a b:term) : term
+  function pow (a b:term) : term
+
+  axiom plus_spec: forall a b:int. plus (TInt a) (TInt b) = TInt (a + b)
+  axiom minus_spec: forall a b:int. minus (TInt a) (TInt b) = TInt (a - b)
+  axiom times_spec: forall a b:int. times (TInt a) (TInt b) = TInt (a * b)
+  axiom pow_spec_0: forall a:int. pow (TInt a) (TInt 0) = (TInt 1)
+  axiom pow_spec_succ: forall a b:int. b >= 0 -> pow (TInt a) (TInt (b + 1)) = times (TInt a) (pow (TInt a) (TInt b))
+  axiom pow_type: forall a b:int. is_int (pow (TInt a) (TInt b))
+
+(*
+  axiom plus_0_l: forall x:term. plus (TInt 0) x = x
+  axiom plus_0_r: forall x:term. plus x (TInt 0) = x
+  axiom minus_0_r: forall x:term. minus x (TInt 0) = x
+  axiom times_0_l: forall x:term. times (TInt 0) x = TInt 0
+  axiom times_0_r: forall x:term. times x (TInt 0) = TInt 0
+  axiom times_1_l: forall x:term. times (TInt 1) x = x
+  axiom times_1_r: forall x:term. times x (TInt 1) = x
+*)
+
+  function eq (a b:term) : term =
+    match a, b with
+    | TUnit, TUnit
+    | TNil, TNil -> TBool true
+    | TInt a1, TInt b1 -> TBool (a1 = b1)
+    | TBool a1, TBool b1 -> TBool (a1 = b1)
+    | TCons h1 t1, TCons h2 t2 -> TBool (h1 = h2 && t1 = t2)
+    | TErr, TErr -> TBool true
+    | _, _ -> TErr
+    end
+
+  function neq (a b:term) : term =
+    match a, b with
+    | TUnit, TUnit | TNil, TNil -> TBool false
+    | TInt a1, TInt b1 -> TBool (a1 <> b1)
+    | TBool a1, TBool b1 -> TBool (a1 <> b1)
+    | TCons h1 t1, TCons h2 t2 -> TBool (h1 <> h2 || t1 <> t2)
+    | TErr, TErr -> TBool false
+    | _, _ -> TErr
+    end
+
+(*
+  function gt (a b:term) : term =
+    match a, b with
+    | TInt a1, TInt b1 -> TBool (a1 > b1)
+    | _ -> TErr
+    end
+
+  function ge (a b:term) : term =
+    match a, b with
+    | TInt a1, TInt b1 -> TBool (a1 >= b1)
+    | _ -> TErr
+    end
+*)
+
+  function ge (a b:term) : term
+  function gt (a b:term) : term
+
+  axiom ge_spec: forall a b:int. ge (TInt a) (TInt b) = TBool (a >= b)
+  axiom gt_spec: forall a b:int. gt (TInt a) (TInt b) = TBool (a > b)
+
+  axiom ge_type: forall a b:term, v:bool. ge a b = TBool v -> is_int a /\ is_int b
+  axiom gt_type: forall a b:term, v:bool. gt a b = TBool v -> is_int a /\ is_int b
+
+  function lt (a b:term) : term =
+    match a, b with
+    | TInt a1, TInt b1 -> TBool (a1 < b1)
+    | _ -> TErr
+    end
+
+  function le (a b:term) : term =
+    match a, b with
+    | TInt a1, TInt b1 -> TBool (a1 <= b1)
+    | _ -> TErr
+    end
+(*
+  function and (t1 t2:term) : term =
+    match t1, t2 with
+    | TBool b1, TBool b2 -> TBool (b1 && b2)
+    | _ -> TErr
+    end
+*)
+  function and (a b:term) : term
+  axiom and_spec: forall a b:bool. and (TBool a) (TBool b) = TBool (a && b)
+  axiom and_type: forall a b:term, v:bool. and a b = TBool v -> is_bool a /\ is_bool b
+
+  function or (t1 t2 : term) : term =
+    match t1, t2 with
+    | TBool b1, TBool b2 -> TBool (b1 || b2)
+    | _ -> TErr
+    end
+
+  function implies (t1 t2 : term) : term =
+    match t1, t2 with
+    | TBool b1, TBool b2 -> TBool (not b1 || b2)
+    | _ -> TErr
+    end
+
+  (* TODO replace with why3 stdlib version *)
+  function sum (xs:term) : term =
+    match xs with
+    | TNil -> TInt 0
+    | TCons (TInt x) rest -> plus (TInt x) (sum rest)
+    | _ -> TErr
+    end
+
+  function sum1 (xs:list int) : int =
+    match xs with
+    | Nil -> 0
+    | Cons x rest -> x + sum1 rest
+    end
+
+  function box_list (xs:list int) : term =
+    match xs with
+    | Nil -> TNil
+    | Cons x rest -> TCons (TInt x) (box_list rest)
+    end
+
+  goal G: forall xs:list int. TInt (sum1 xs) = sum (box_list xs)
+
+(*
+  function fact (n:term) : term =
+    match n with
+    | TInt n0 -> TInt (Fact.fact n0)
+    | _ -> TErr
+    end
+*)
+  function fact (n:term) : term
+  axiom fact_spec_0: fact (TInt 0) = TInt 1
+  axiom fact_spec_succ: forall n:int. n >= 0 -> fact (TInt (n + 1)) = times (TInt (n + 1)) (fact (TInt n))
+
+  function product (xs:term) : term =
+    match xs with
+    | TNil -> TInt 1
+    | TCons h t -> times h (product t)
+    | _ -> TErr
+    end
+
+  function append (xs ys:term) : term =
+    match xs with
+    | TNil -> ys
+    | TCons h t -> TCons h (append t ys)
+    | _ -> TErr
+    end
+
+  inductive sublist (l1 l2: term) =
+    | sublist_cons: forall x l:term. sublist l (TCons x l)
+    | sublist_tail: forall x l1 l2:term.
+        sublist l1 l2 ->
+        sublist l1 (TCons x l2)
+
+  inductive subregex (l1 l2: term) =
+
+    | subregex_disj_direct:
+      forall x l r:term.
+        x = l \/ x = r ->
+        subregex x (TRDisj l r)
+    | subregex_disj_left:
+      forall x l r: term.
+        subregex x l ->
+        subregex x (TRDisj l r)
+    | subregex_disj_right:
+      forall x l r: term.
+        subregex x r ->
+        subregex x (TRDisj l r)
+
+    | subregex_seq_direct:
+      forall x l r:term.
+        x = l \/ x = r ->
+        subregex x (TRSeq l r)
+    | subregex_seq_left:
+      forall x l r: term.
+        subregex x l ->
+        subregex x (TRSeq l r)
+    | subregex_seq_right:
+      forall x l r: term.
+        subregex x r ->
+        subregex x (TRSeq l r)
+
+  (* This higher-order definition interacts poorly with automation *)
+  (*
+  inductive is_list (ty:term->bool) (n: term) =
+    | is_nil: forall ty:term->bool. is_list ty TNil
+    | is_cons: forall h t:term. forall ty:term->bool.
+        ty h ->
+        is_list ty t ->
+        is_list ty (TCons h t)
+  *)
+
+  inductive is_int_list (n: term) =
+    | is_int_nil: is_int_list TNil
+    | is_int_cons: forall h t:term.
+        is_int h ->
+        is_int_list t ->
+        is_int_list (TCons h t)
+
+  (* this file is expected by why3_prover.ml to end with inductive definitions *)
+
+end
+
+module TestHeifer
+  use Heifer
+  goal inconsistent: false (* this goal must never be proven *)
+end
+
+module M
+  use Heifer
+  constant n : term
+  constant v : term
+  axiom H : is_int v
+  axiom H1 : gt n (TInt 0) = TBool True
+  goal goal1 :
+    is_int
+    (plus
+     (minus
+      (plus (plus v (TInt 1))
+       (pow (TInt 2) n))
+      (TInt 2))
+     (TInt 1))
+end

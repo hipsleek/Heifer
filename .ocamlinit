@@ -1,0 +1,5 @@
+#utop_prompt_dummy;;
+#use_output "dune ocaml top";;
+open Heifer.Interactive;;
+
+#install_printer Prover.Automation.pp_cert;;

@@ -1,9 +1,22 @@
+
+; fast tests
 (cram
- (deps (env_var PROVER) %{bin:hip}
-  utility.sh
-  (source_tree prusti)
-  (source_tree examples)
-  (source_tree reset_shift_progs)
-  (source_tree ../benchmarks/effects/ocaml412)
-  (source_tree evaluation))
+ (deps heifer.why (glob_files *.exe))
+ (applies_to landin foldr equiv append times regex toss)
+ (enabled_if (or (<> %{env:TEST=false} "false") (<> %{env:TEST_ALL=false} "false"))))
+
+; slow tests
+(cram
+ (deps heifer.why (glob_files *.exe))
+ (applies_to foldr_auto toss_auto append_auto times_auto landin_auto)
+ (timeout 90)
  (enabled_if (<> %{env:TEST_ALL=false} "false")))
+
+(rule
+ (copy ../heifer.why heifer.why))
+
+(executables
+ (names landin foldr foldr_auto equiv append times regex toss toss_auto append_auto times_auto
+        landin_auto)
+ (libraries heifer)
+ (preprocess (pps ppx_print_tactic)))
