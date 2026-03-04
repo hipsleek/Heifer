@@ -1,5 +1,0 @@
-(library
- (name utils)
- (public_name heifer.utils)
- (modules io misc lists options union_find state hstdlib)
- (libraries str unionFind debug))

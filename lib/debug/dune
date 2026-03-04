@@ -1,9 +1,0 @@
-
-(library
- (name debug)
- (public_name heifer.debug)
- (libraries str)
- (inline_tests)
- (preprocess (pps ppx_expect)))
-
-(env (dev (flags (:standard -warn-error -A))))
