@@ -55,22 +55,26 @@ jobs:
       - name: Install cvc4
         run: sudo apt-get -y install cvc4
 
-      - uses: actions/setup-node@v3
-        with:
-          node-version: 19
-      - run: npm install -g browserify
-      - run: npm install z3-solver
+      # - name: Install z3
+      #   run: sudo apt-get -y install z3
+
+      # - uses: actions/setup-node@v3
+      #   with:
+      #     node-version: 19
+      # - run: npm install -g browserify
+      # - run: npm install z3-solver
 
       - run: |
           set -e
           eval $(opam env)
           why3 config detect
           TEST_ALL=1 dune test && echo tests passed!
-          dune build @web --profile release
 
-      - name: Deploy
-        uses: peaceiris/actions-gh-pages@v3
-        if: github.ref == 'refs/heads/master'
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: _build/default/deploy
+      # dune build @web --profile release
+
+      # - name: Deploy
+      #   uses: peaceiris/actions-gh-pages@v3
+      #   if: github.ref == 'refs/heads/master'
+      #   with:
+      #     github_token: ${{ secrets.GITHUB_TOKEN }}
+      #     publish_dir: _build/default/deploy
