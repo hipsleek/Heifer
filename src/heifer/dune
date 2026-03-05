@@ -4,4 +4,4 @@
  ; heifer is often used interactively, so linkall is given here.
  ; this also avoids having to list all transitive dependencies in mdx
  (library_flags (-linkall))
- (libraries core parsing prover))
+ (libraries core ocamlfrontend parsing prover))

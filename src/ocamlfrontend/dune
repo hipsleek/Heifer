@@ -1,0 +1,9 @@
+
+(library
+ (name ocamlfrontend)
+ (public_name heifer.ocamlfrontend)
+ (inline_tests)
+ (libraries compiler-libs.common heifer.core bindlib str heifer.parsing)
+ (preprocess (pps ppx_expect)))
+
+(env (dev (flags (:standard -warn-error -A))))

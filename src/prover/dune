@@ -2,5 +2,5 @@
  (name prover)
  (public_name heifer.prover)
  (inline_tests)
- (libraries core parsing util why3_prover printbox-text)
+ (libraries core parsing util why3_prover printbox-text ocamlfrontend)
  (preprocess (pps ppx_expect)))

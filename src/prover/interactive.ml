@@ -48,10 +48,13 @@ module State = struct
   let get_lemma_opt name = SMap.find_opt name (get_lemmas ())
   let get_definition_opt sym = SymMap.find_opt sym (get_definitions ())
 
-  let declare decl =
-    let sym, def = open_dfun (Parsing.Parse.parse_decl decl) in
+  let declare_defn sym def =
     set_definitions (add_decl sym def !current_state.definitions);
     Format.printf "%s declared@." sym.sym_name
+
+  let declare decl =
+    let sym, def = open_dfun (Parsing.Parse.parse_decl decl) in
+    declare_defn sym def
 
   let axiom ~name term =
     let goal = Parsing.Parse.parse_term term in
@@ -61,13 +64,32 @@ module State = struct
   let lemma ~name term =
     let goal = Parsing.Parse.parse_term term in
     set_mode (Mode_lemma (name, goal));
-    set_goal (Pctx.create ~goal);
+    set_goal (Pctx.create goal);
     print_proof_state ()
 
   let start_proof term =
     let goal = Parsing.Parse.parse_term term in
     set_mode Mode_goal;
-    set_goal (Pctx.create ~goal);
+    set_goal (Pctx.create goal);
+    print_proof_state ()
+
+  let read_file filename =
+    let ic = open_in filename in
+    let s = In_channel.input_all ic in
+    close_in ic;
+    let sdefns, obs = Ocamlfrontend.get_definitions_and_obligations s in
+    List.iter (fun (s, d) -> declare_defn { sym_name = s } d) sdefns;
+    let new_goals =
+      List.map
+        (fun (ass, ob) ->
+          let assumptions =
+            List.mapi (fun i a -> (Format.asprintf "H%d" i, a)) ass |> SMap.of_list
+          in
+          Pctx.create ~assumptions ob)
+        obs
+    in
+    set_goals (new_goals @ get_goals ());
+    set_mode Mode_goal;
     print_proof_state ()
 
   let run_tactic tactic =
@@ -92,17 +114,16 @@ module State = struct
   let make_interactive (tac : 'b -> 'a Tactic.t) (arg : 'b) = run_tactic (tac arg)
 
   let when_goal_is_empty f =
-    if Pstate.is_empty (get_goals ()) then f ()
-    else Format.printf "error: proof is still open@."
+    if Pstate.is_empty (get_goals ()) then f () else Format.printf "error: proof is still open@."
 
   let qed () =
     match get_mode () with
     | Mode_goal -> when_goal_is_empty (fun () -> set_mode Mode_none)
     | Mode_lemma (name, goal) ->
         when_goal_is_empty (fun () ->
-          add_lemma name goal;
-          set_mode Mode_none;
-          Format.printf "lemma %s declared@." name)
+            add_lemma name goal;
+            set_mode Mode_none;
+            Format.printf "lemma %s declared@." name)
     | Mode_none -> Format.printf "error: no open proof@."
 end
 
