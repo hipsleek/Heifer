@@ -14,11 +14,11 @@ type t = {
   goal : term;
 }
 
-let create ~goal =
+let create ?(assumptions = SMap.empty) goal =
   {
     rename_ctxt = Rename.empty_ctxt;
     constants = SMap.empty;
-    assumptions = SMap.empty;
+    assumptions;
     heap_assumptions = [];
     goal;
   }

@@ -597,46 +597,44 @@ let%expect_test "rewrite" =
     error: H does not exist
     |}]
 
-let%expect_test "heap tactics" =
-  start_proof "ens emp <: forall x. req x->1; ens x->1";
+let%expect_test "read_file" =
+  let filename = "test_obs.ml" in
+  let oc = open_out filename in
+  output_string oc {|
+let f x
+(*@ 1 @*)
+= 1
+
+let g x
+(*@ 1 @*)
+= f x
+|};
+  close_out oc;
+  reset_proof_state ();
+  read_file filename;
   forall_intro ();
-  ens_heap_elim ();
-  req_heap_intro ();
-  ens_heap_intro ();
   refl ();
+  Sys.remove filename;
   [%expect
     {|
+    f declared
+    g declared
+
     ────────────────────────────────────────────────────────────
-       ens emp
-    <: forall x. req x->1; ens x->1
+    forall x. 1 <: 1
+    (1 more goals)
 
 
     x
     ────────────────────────────────────────────────────────────
-       ens emp
-    <: req x->1; ens x->1
+       1
+    <: 1
+    (1 more goals)
 
 
-    x
+    H0: forall x. f x <: 1
     ────────────────────────────────────────────────────────────
-       ()
-    <: req x->1; ens x->1
-
-
-    x
-    ────────────────────────────────────────────────────────────
-    x->1
-    ───────────────────────────────────────────────────────────*
-       ()
-    <: ens x->1
-
-
-    x
-    ────────────────────────────────────────────────────────────
-       ()
-    <: ()
-
-    no more goals
+    forall x. f x <: 1
     |}]
 
 (* start_proof "ens emp <: forall x v. req v=1; req x->v; ens x->1";
