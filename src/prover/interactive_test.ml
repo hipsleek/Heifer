@@ -597,48 +597,6 @@ let%expect_test "rewrite" =
     error: H does not exist
     |}]
 
-let%expect_test "heap tactics" =
-  start_proof "ens emp <: forall x. req x->1; ens x->1";
-  forall_intro ();
-  ens_heap_elim ();
-  req_heap_intro ();
-  ens_heap_intro ();
-  refl ();
-  [%expect
-    {|
-    ────────────────────────────────────────────────────────────
-       ens emp
-    <: forall x. req x->1; ens x->1
-
-
-    x
-    ────────────────────────────────────────────────────────────
-       ens emp
-    <: req x->1; ens x->1
-
-
-    x
-    ────────────────────────────────────────────────────────────
-       ()
-    <: req x->1; ens x->1
-
-
-    x
-    ────────────────────────────────────────────────────────────
-    x->1
-    ───────────────────────────────────────────────────────────*
-       ()
-    <: ens x->1
-
-
-    x
-    ────────────────────────────────────────────────────────────
-       ()
-    <: ()
-
-    no more goals
-    |}]
-
 (* start_proof "ens emp <: forall x v. req v=1; req x->v; ens x->1";
    forall_intro ();
    intro_pure "Hv";

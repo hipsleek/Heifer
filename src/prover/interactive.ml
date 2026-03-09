@@ -4,8 +4,6 @@ open Core.Syntax_util
 open Util.Strings
 open Tactics
 
-(* TODO: refactor into some top-level module, with a different name. The current
-   name clashes with Pstate -> proof_state *)
 module State = struct
   type mode =
     | Mode_lemma of string * term
@@ -44,14 +42,18 @@ module State = struct
   let set_mode mode = current_state := { !current_state with mode }
   let set_goals goals = current_state := { !current_state with goals }
   let set_goal goal = set_goals [goal]
+  let add_goals goals = set_goals (goals @ get_goals ())
   let add_lemma name term = set_lemmas (SMap.add name term (get_lemmas ()))
   let get_lemma_opt name = SMap.find_opt name (get_lemmas ())
   let get_definition_opt sym = SymMap.find_opt sym (get_definitions ())
 
-  let declare decl =
-    let sym, def = open_dfun (Parsing.Parse.parse_decl decl) in
+  let declare_defn sym def =
     set_definitions (add_decl sym def !current_state.definitions);
     Format.printf "%s declared@." sym.sym_name
+
+  let declare decl =
+    let sym, def = open_dfun (Parsing.Parse.parse_decl decl) in
+    declare_defn sym def
 
   let axiom ~name term =
     let goal = Parsing.Parse.parse_term term in
@@ -61,13 +63,13 @@ module State = struct
   let lemma ~name term =
     let goal = Parsing.Parse.parse_term term in
     set_mode (Mode_lemma (name, goal));
-    set_goal (Pctx.create ~goal);
+    set_goal (Pctx.create goal);
     print_proof_state ()
 
   let start_proof term =
     let goal = Parsing.Parse.parse_term term in
     set_mode Mode_goal;
-    set_goal (Pctx.create ~goal);
+    set_goal (Pctx.create goal);
     print_proof_state ()
 
   let run_tactic tactic =
@@ -92,17 +94,16 @@ module State = struct
   let make_interactive (tac : 'b -> 'a Tactic.t) (arg : 'b) = run_tactic (tac arg)
 
   let when_goal_is_empty f =
-    if Pstate.is_empty (get_goals ()) then f ()
-    else Format.printf "error: proof is still open@."
+    if Pstate.is_empty (get_goals ()) then f () else Format.printf "error: proof is still open@."
 
   let qed () =
     match get_mode () with
     | Mode_goal -> when_goal_is_empty (fun () -> set_mode Mode_none)
     | Mode_lemma (name, goal) ->
         when_goal_is_empty (fun () ->
-          add_lemma name goal;
-          set_mode Mode_none;
-          Format.printf "lemma %s declared@." name)
+            add_lemma name goal;
+            set_mode Mode_none;
+            Format.printf "lemma %s declared@." name)
     | Mode_none -> Format.printf "error: no open proof@."
 end
 

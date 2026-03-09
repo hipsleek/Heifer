@@ -1,11 +1,19 @@
 open Core.Syntax
 
 module State : sig
+  type mode =
+    | Mode_lemma of string * term
+    | Mode_goal
+    | Mode_none
+
+  val set_mode : mode -> unit
   val start_proof : string -> unit
   val print_proof_state : unit -> unit
   val reset_proof_state : unit -> unit
   val push_proof_state : unit -> unit
+  val add_goals : Pctx.t list -> unit
   val pop_proof_state : unit -> unit
+  val declare_defn : symbol -> def -> unit
   val declare : string -> unit
   val axiom : name:string -> string -> unit
   val lemma : name:string -> string -> unit

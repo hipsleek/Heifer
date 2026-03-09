@@ -1,3 +1,4 @@
+open Util.Strings
 open Core.Syntax
 open Core
 
@@ -9,5 +10,5 @@ type t = {
   goal : term;
 }
 
-val create : goal:term -> t
+val create : ?assumptions:term SMap.t -> term -> t
 val pp : Format.formatter -> t -> unit

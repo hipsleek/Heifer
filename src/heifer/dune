@@ -3,5 +3,7 @@
  (public_name heifer)
  ; heifer is often used interactively, so linkall is given here.
  ; this also avoids having to list all transitive dependencies in mdx
+ (inline_tests)
+ (preprocess (pps ppx_expect))
  (library_flags (-linkall))
- (libraries core parsing prover))
+ (libraries core ocamlfrontend parsing prover))
