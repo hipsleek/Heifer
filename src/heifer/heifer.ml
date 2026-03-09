@@ -10,11 +10,13 @@ module Interactive = struct
 
   include Prover.Interactive.State
   include Prover.Interactive
+  include Extra_tactics
 
   let () = Format.set_margin !Prover.Prover_options.line_length
 
   module Statistics = struct
     let start_time = ref (Unix.gettimeofday ())
+
     let reset () =
       start_time := Unix.gettimeofday ();
       Why3_prover.reset_statistics ()

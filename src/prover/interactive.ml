@@ -4,8 +4,6 @@ open Core.Syntax_util
 open Util.Strings
 open Tactics
 
-(* TODO: refactor into some top-level module, with a different name. The current
-   name clashes with Pstate -> proof_state *)
 module State = struct
   type mode =
     | Mode_lemma of string * term
@@ -44,6 +42,7 @@ module State = struct
   let set_mode mode = current_state := { !current_state with mode }
   let set_goals goals = current_state := { !current_state with goals }
   let set_goal goal = set_goals [goal]
+  let add_goals goals = set_goals (goals @ get_goals ())
   let add_lemma name term = set_lemmas (SMap.add name term (get_lemmas ()))
   let get_lemma_opt name = SMap.find_opt name (get_lemmas ())
   let get_definition_opt sym = SymMap.find_opt sym (get_definitions ())
@@ -71,25 +70,6 @@ module State = struct
     let goal = Parsing.Parse.parse_term term in
     set_mode Mode_goal;
     set_goal (Pctx.create goal);
-    print_proof_state ()
-
-  let read_file filename =
-    let ic = open_in filename in
-    let s = In_channel.input_all ic in
-    close_in ic;
-    let sdefns, obs = Ocamlfrontend.get_definitions_and_obligations s in
-    List.iter (fun (s, d) -> declare_defn { sym_name = s } d) sdefns;
-    let new_goals =
-      List.map
-        (fun (ass, ob) ->
-          let assumptions =
-            List.mapi (fun i a -> (Format.asprintf "H%d" i, a)) ass |> SMap.of_list
-          in
-          Pctx.create ~assumptions ob)
-        obs
-    in
-    set_goals (new_goals @ get_goals ());
-    set_mode Mode_goal;
     print_proof_state ()
 
   let run_tactic tactic =
