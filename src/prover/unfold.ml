@@ -30,7 +30,7 @@ let rec unfold sym def t =
   | PointsTo (t1, t2) -> PointsTo (unfold sym def t1, unfold sym def t2)
   | SepConj (t1, t2) -> SepConj (unfold sym def t1, unfold sym def t2)
 
-and unfold_list sym def ts = List.map (unfold sym def) ts
+and unfold_list sym def = List.map (unfold sym def)
 
 and unfold_binder sym def b =
   let x, t = unbind b in
