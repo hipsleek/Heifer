@@ -2,7 +2,7 @@
 ; fast tests
 (cram
  (deps heifer.why (glob_files *.exe))
- (applies_to landin foldr equiv append times regex toss counter)
+ (applies_to landin foldr equiv append times regex toss counter invert)
  (enabled_if (or (<> %{env:TEST=false} "false") (<> %{env:TEST_ALL=false} "false"))))
 
 ; slow tests
@@ -17,6 +17,6 @@
 
 (executables
  (names landin foldr foldr_auto equiv append times regex toss toss_auto append_auto times_auto
-        landin_auto counter)
+        landin_auto counter invert)
  (libraries heifer)
  (preprocess (pps ppx_print_tactic)))
